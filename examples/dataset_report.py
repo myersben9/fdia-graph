@@ -519,6 +519,39 @@ SIDE["state_estimation"] = ["system,V_meter,V_wls,V_nn,V_pinn,th_meter,th_wls,th
 save(fig)
 
 # ======================= Page 13: protocol + critical analysis (prose) =======================
+# ======================= Reference benchmark: Falas et al. Table II reproduction =======================
+# Falas et al., "Data Manipulation Attack Mitigation ... Physics-Informed Neural Networks", IEEE CSR 2025,
+# Table II (Model Comparison, IEEE-14). Left two number columns = his reported values; right two = our
+# reproduction (see FDIA_localization/_falas_comparison_table.csv). His paper has no Table III.
+falas_cols = ["Scenario", "Falas PINN", "Falas NN", "Ours PINN", "Ours NN"]
+falas_mae = [["Steady", "1.28e-3", "2.91e-3", "2.71e-2", "1.52e-2"],
+             ["5%",  "7.07e-3", "1.12e-2", "2.76e-2", "1.56e-2"],
+             ["10%", "1.40e-2", "2.19e-2", "2.91e-2", "1.69e-2"],
+             ["20%", "2.79e-2", "4.39e-2", "3.36e-2", "2.08e-2"],
+             ["30%", "4.18e-2", "6.65e-2", "3.94e-2", "2.56e-2"]]
+falas_r2 = [["Steady", "0.9994", "0.9968", "0.9985", "0.9996"],
+            ["5%",  "0.9794", "0.9539", "0.9984", "0.9996"],
+            ["10%", "0.9134", "0.8235", "0.9983", "0.9995"],
+            ["20%", "0.6796", "0.2779", "0.9978", "0.9992"],
+            ["30%", "0.2805", "-0.7167", "0.9970", "0.9988"]]
+_fcw = [0.16, 0.21, 0.21, 0.21, 0.21]
+fig = multi_table_page("Reference Benchmark — Falas et al. Table II Reproduction",
+                       "IEEE-14 state estimation, PINN vs plain NN across the attack ladder: Falas reported vs our reproduction",
+                       [dict(subhead="Mean absolute error (standardized-pooled) — lower is better",
+                             cols=falas_cols, rows=falas_mae, col_widths=_fcw,
+                             cap="We reproduce the same range and the attack-ladder trend (error rises with attack magnitude). Our "
+                                 "absolute MAE sits higher because of a standardization and target-construction difference documented "
+                                 "separately, not a method error."),
+                        dict(subhead="R-squared — higher is better",
+                             cols=falas_cols, rows=falas_r2, col_widths=_fcw,
+                             cap="The real finding is qualitative: in our setup the plain NN beats the PINN, the opposite of Falas, and "
+                                 "our NN R-squared does not collapse under attack. A PINN beats an NN only against a weak data-only "
+                                 "baseline; our NN is stronger and our attack is milder, so the physics term does not add. Falas reports "
+                                 "IEEE-14 only.")])
+SIDE["falas_reproduction"] = ["metric,scenario,falas_pinn,falas_nn,ours_pinn,ours_nn"] + \
+    [f"MAE,{','.join(r)}" for r in falas_mae] + [f"R2,{','.join(r)}" for r in falas_r2]
+save(fig)
+
 fig = newpage("Evaluation Protocol & Threat Model",
               "how the benchmark is scored, and what we assume about the attacker")
 prose(fig, [
