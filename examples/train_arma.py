@@ -15,7 +15,7 @@ import argparse, json, numpy as np, torch, torch.nn as nn, torch.nn.functional a
 from contextlib import nullcontext
 import fdia_graph as fg
 from fdia_graph.dataset import FAMILIES
-from torch_geometric.nn import ARMAConv
+from torch_geometric.nn import ARMAConv, GATv2Conv
 
 
 def kcl_residual(node_x, edge_x, ei, N):
@@ -31,13 +31,22 @@ def kcl_residual(node_x, edge_x, ei, N):
 
 
 class ArmaLoc(nn.Module):
-    def __init__(self, n_node_feat=6, hidden=128, stacks=3, layers=2, dropout=0.1):
+    def __init__(self, n_node_feat=6, hidden=128, stacks=3, layers=2, dropout=0.1, attn=True):
         super().__init__()
+        self.attn = attn
         self.nenc = nn.Linear(n_node_feat * 2, hidden)           # node feats (4 + KCL 2 [+ temporal 2]) concat mask
         self.eenc = nn.Linear(2 * 2, hidden)                     # edge feat (2) concat mask (2)
         # two ARMA blocks: each is `stacks` parallel ARMA_1 filters, each `layers` recursive steps -> wide receptive field
         self.arma1 = ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers, shared_weights=True, dropout=dropout, act=F.relu)
         self.arma2 = ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers, shared_weights=True, dropout=dropout, act=F.relu)
+        if attn:
+            # PHYSICS-BIASED ATTENTION: the ARMA trunk is spectral (isotropic per hop); a parallel GATv2 head lets
+            # the model attend ANISOTROPICALLY along the branches that matter. Its attention logits are a learned
+            # function of both endpoints' node features (which carry the KCL residual + temporal delta) and the
+            # edge P/Q flow, so it focuses on physically-suspicious edges. Fused with a learnable gate initialised
+            # at 0 (tanh) -> the net starts identical to plain ARMA and only opens the branch if it helps.
+            self.gat = GATv2Conv(hidden, hidden // 4, heads=4, edge_dim=2 * 2, dropout=dropout, add_self_loops=False)
+            self.gate = nn.Parameter(torch.zeros(1))
         self.head = nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 1))
 
     def forward(self, x, e, ei):
@@ -46,6 +55,8 @@ class ArmaLoc(nn.Module):
         he = F.relu(self.eenc(e))
         h = h + torch.zeros_like(h).index_add_(0, ei[1], he)     # fuse edge-flow signal into destination nodes
         h = self.arma1(h, ei); h = self.arma2(h, ei)
+        if self.attn:
+            h = h + torch.tanh(self.gate) * self.gat(h, ei, edge_attr=e)
         return self.head(h).squeeze(-1)
 
 
@@ -60,6 +71,7 @@ def main():
     ap.add_argument("--system", default="ieee14"); ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--batch", type=int, default=256); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--release", default=None); ap.add_argument("--out", default=None)
+    ap.add_argument("--no_attn", action="store_true", help="disable the physics-biased attention branch (plain ARMA)")
     args = ap.parse_args()
     torch.manual_seed(args.seed); dev = "cuda" if torch.cuda.is_available() else "cpu"
     if dev == "cuda":
@@ -98,10 +110,10 @@ def main():
         e = torch.cat([e2, e2], 1).reshape(b * 2 * E, -1)                                 # bidirectional [b*2E,4]
         return x, e, batched(b), g["y"][idx].reshape(b * N)
 
-    model = ArmaLoc(trG["node_x"].shape[-1]).to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3, weight_decay=1e-5)
+    model = ArmaLoc(trG["node_x"].shape[-1], attn=not args.no_attn).to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3, weight_decay=1e-5)
     pos = float(trG["y"].sum()); pw = torch.tensor(min(max((trG["y"].numel() - pos) / max(pos, 1), 1.0), 30.0), device=dev)
-    n = trG["y"].shape[0]
-    print(f"{args.system}: N={N} E={E}  train {n:,}  ARMA(stacks=3,layers=2)  pos_weight={pw.item():.1f}  batch={args.batch} [{dev}]")
+    n = trG["y"].shape[0]; arch = "ARMA+attn" if not args.no_attn else "ARMA"
+    print(f"{args.system}: N={N} E={E}  train {n:,}  {arch}(stacks=3,layers=2)  pos_weight={pw.item():.1f}  batch={args.batch} [{dev}]")
     for ep in range(args.epochs):
         model.train(); perm = torch.randperm(n, device=dev); tot = 0.0
         for i in range(0, n, args.batch):
@@ -122,7 +134,7 @@ def main():
     vL, vY, vFm = collect(vaG, vaFam); vatk = vFm > 0
     thr = float(max(torch.linspace(-2, 3, 26), key=lambda t: f1((vL[vatk] > t).float(), vY[vatk])))
     L, Y, Fm = collect(teG, teFam); P = (L > thr).float(); atk = Fm > 0
-    res = {"system": args.system, "N": int(N), "E": int(E), "model": "ARMA", "threshold": round(thr, 2),
+    res = {"system": args.system, "N": int(N), "E": int(E), "model": arch, "threshold": round(thr, 2),
            "overall": {"n": int(atk.sum()), "node_f1": f1(P[atk], Y[atk]), "swf1": f1(P[atk], Y[atk], sample=True)}, "per_family": {}}
     print(f"tuned threshold {thr:.2f}\noverall (attacked): node-F1 {res['overall']['node_f1']:.3f}  swF1 {res['overall']['swf1']:.3f}")
     for k, name in FAMILIES.items():
