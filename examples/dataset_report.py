@@ -571,6 +571,27 @@ SIDE["falas_reproduction"] = ["metric,scenario,falas_pinn,falas_nn,ours_pinn,our
     [f"MAE,{','.join(r)}" for r in falas_mae] + [f"R2,{','.join(r)}" for r in falas_r2]
 save(fig)
 
+# ======================= State estimation: V and theta separated (companion to the pooled metric) =======================
+# se_rows (from the improvements page) = [System, V meter, V WLS, V NN, V PINN, th meter, th WLS, th NN, th PINN]
+v_rows = [[r[0], r[1], r[2], r[3], r[4]] for r in se_rows]
+th_rows = [[r[0], r[5], r[6], r[7], r[8]] for r in se_rows]
+sep_cols = ["System", "meter", "WLS", "NN", "PINN"]
+fig = multi_table_page("State Estimation — Voltage and Angle Separated",
+                       "the attack-resilient state-recovery error, split by variable so the per-variable behavior a pooled metric hides is visible",
+                       [dict(subhead="Voltage magnitude |V| error (p.u.) on attacked buses — lower is better",
+                             cols=sep_cols, rows=v_rows, col_widths=[0.20, 0.20, 0.20, 0.20, 0.20],
+                             cap="The physics term's benefit is concentrated on voltage: the PINN is competitive with the NN and "
+                                 "clearly ahead on IEEE-300, and both learned estimators sit far below the raw meter and classical WLS."),
+                        dict(subhead="Voltage angle theta error (deg) on attacked buses — lower is better",
+                             cols=sep_cols, rows=th_rows, col_widths=[0.20, 0.20, 0.20, 0.20, 0.20],
+                             cap="Angle is the harder quantity and carries most of the error, with the plain NN a touch ahead of the "
+                                 "PINN. A pooled MAE (as in Falas's Table II and the previous page) is angle-dominated, so it reads as "
+                                 "an NN win even on systems where the PINN leads on voltage. That is why the combined number hides the "
+                                 "voltage result.")])
+SIDE["se_separated"] = ["variable,system,meter,WLS,NN,PINN"] + \
+    [f"V,{','.join(r)}" for r in v_rows] + [f"theta,{','.join(r)}" for r in th_rows]
+save(fig)
+
 fig = newpage("Evaluation Protocol & Threat Model",
               "how the benchmark is scored, and what we assume about the attacker")
 prose(fig, [
