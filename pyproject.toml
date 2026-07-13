@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fdia-graph"
+version = "0.1.0"
+description = "Load and generate ML-only dangerous FDIA localization datasets (realistic measurement graphs) for power grids, PyTorch-ready."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Benjamin Myers", email = "benjamin.myers.465@my.csun.edu" }]
+keywords = ["power-systems", "false-data-injection", "FDIA", "state-estimation", "graph-neural-network", "smart-grid", "dataset"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "numpy>=1.21",
+  "h5py>=3.6",
+  "requests>=2.25",
+  "tqdm>=4.60",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=1.12"]
+pyg = ["torch>=1.12", "torch_geometric>=2.2"]
+generate = ["pandapower>=2.10"]           # dataset generation (attack simulation) needs a power-flow engine
+all = ["torch>=1.12", "torch_geometric>=2.2", "pandapower>=2.10"]
+
+[project.urls]
+Homepage = "https://github.com/myersben9/fdia-graph"
+Repository = "https://github.com/myersben9/fdia-graph"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fdia_graph = ["profiles/*.npz"]
