@@ -338,7 +338,9 @@ steps("State-level attacks   (Ao, ramp, LRA)", STEAL, [
  "or add a load-conserving PTDF-targeted shift for LRA.",
  "Re-solve a full AC power flow for the new loads with pandapower. If it does not converge, discard the sample "
  "and try another timestep.",
- "Read every meter off the solved state, the voltages, angles, injections, and line flows, and add sensor noise.",
+ "Read every meter off the solved state and add sensor noise. Because a power flow is coupled, the re-solve "
+ "changes the whole snapshot, the line flows and the voltages and angles across the network, not just the "
+ "attacked buses, so the attack signal is spread out rather than local.",
  "Record the attacked bus set as the label y, then check that the sample passes bad-data detection.",
 ])
 steps("Meter-level attacks   (Ad, As, Ar)", DET, [
