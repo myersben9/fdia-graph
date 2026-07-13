@@ -518,6 +518,25 @@ SIDE["attention_ab"] = ["system,loc_arma,loc_attn,det_arma,det_attn"] + \
 SIDE["state_estimation"] = ["system,V_meter,V_wls,V_nn,V_pinn,th_meter,th_wls,th_nn,th_pinn"] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(se_rows)]
 save(fig)
 
+# ======================= Hyperparameter tuning (Optuna) =======================
+# default = the shipped ARMA hybrid; tuned = best of a 35-trial TPE search (FDIA_localization/_hpo_ieee{C}.json)
+hpo_cols = ["System", "default swF1", "tuned swF1", "change", "tuned det-F1"]
+hpo_rows = [["IEEE-14",  "0.811", "0.768", "-0.043", "0.910"],
+            ["IEEE-118", "0.416", "0.439", "+0.023", "0.898"],
+            ["IEEE-300", "0.263", "0.256", "-0.007", "0.750"]]
+def hpo_shade(i, row): return "#e7f4ea" if row[3].startswith("+") else "#f6f7f8"
+fig = table_page("Hyperparameter Tuning (Optuna, Boyaci Space)",
+                 "35-trial TPE search over the ARMA hybrid (blocks, units, K, T, dropout, lr, attention heads), seed 123, val-selected",
+                 hpo_cols, hpo_rows,
+                 "Tuning clearly helped only on IEEE-118 (+0.023 localization, detection F1 up to 0.898). On IEEE-14 the search "
+                 "overfit the validation split with heavy dropout that did not transfer to test, and on IEEE-300 the tuned config sat "
+                 "within run-to-run noise of the default. We keep the untuned hybrid as the default except on IEEE-118, where the "
+                 "tuned configuration (3 blocks, 128 units, K=2, T=5, 2 attention heads) is the stronger model. The comparison spans "
+                 "two evaluation harnesses, so small differences should be read as ties.",
+                 col_widths=[0.18, 0.20, 0.20, 0.16, 0.20], shade_rule=hpo_shade)
+SIDE["hpo"] = ["system,default_swf1,tuned_swf1,change,tuned_detf1"] + [",".join(r) for r in hpo_rows]
+save(fig)
+
 # ======================= Page 13: protocol + critical analysis (prose) =======================
 # ======================= Reference benchmark: Falas et al. Table II reproduction =======================
 # Falas et al., "Data Manipulation Attack Mitigation ... Physics-Informed Neural Networks", IEEE CSR 2025,
