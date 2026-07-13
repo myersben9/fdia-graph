@@ -8,7 +8,7 @@ import json, os
 
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
 _REPO = "myersben9/fdia-graph"
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.1.0")
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.2.0")   # newest dataset version (v0.2: randomized LRA target)
 
 # Built-in shards. `sha256` is verified after download when set (filled in when the release is published).
 BUILTIN = {

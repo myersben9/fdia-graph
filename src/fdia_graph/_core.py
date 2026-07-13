@@ -106,10 +106,16 @@ class FdiaGenerator:
         return nx, ex
 
     # ---- LRA (Yuan et al. 2011) target line + delta ----
-    def _lra_for_line(self, L, Lp, rel, K):
+    def _lra_for_line(self, L, Lp, rel, K, rand=False):
+        # rand=True samples attacked buses from the top-2K high-PTDF candidates so the bus SET varies per
+        # record (not memorizable); rand=False (target ranking) stays deterministic.
         pl = self._ptdf_lb[L]; cap = rel*np.abs(Lp); score = np.abs(pl)*cap
-        pos = np.where(pl > 0)[0]; neg = np.where(pl < 0)[0]
-        pos = pos[np.argsort(-score[pos])][:K]; neg = neg[np.argsort(-score[neg])][:K]
+        def pick(side):
+            side = side[np.argsort(-score[side])]
+            if len(side) == 0: return side
+            top = side[:2*K]; k = min(K, len(top))
+            return self.rng.choice(top, k, replace=False) if rand else top[:k]
+        pos = pick(np.where(pl > 0)[0]); neg = pick(np.where(pl < 0)[0])
         if len(pos) == 0 or len(neg) == 0: return None
         up, dn = cap[pos].copy(), cap[neg].copy(); budget = min(up.sum(), dn.sum())
         if budget <= 0: return None
@@ -117,13 +123,19 @@ class FdiaGenerator:
         d = np.zeros_like(Lp); d[pos] = up; d[neg] = -dn
         return d, np.r_[pos, neg], float(-np.sum(pl*d))
 
-    def _pick_lra_target(self, rel, K):
+    def _pick_lra_target(self, rel, K, n_targets=15):
+        # Rank lines by achievable conserving-redistribution flow change and keep the top-`n_targets` as a
+        # target POOL. Varying the target per attack (below) diversifies the attacked-bus set so LRA is not
+        # trivially localizable (a single fixed target lets a model just memorize those buses).
         bl = self.base.load.p_mw.values
         pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl)]
         pot = [(L, r) for L, r in pot if r is not None]
-        self._Ltgt = max(pot, key=lambda x: abs(x[1][2]))[0]
-        self._sgnL = float(np.sign(self.base.res_line.p_from_mw.values[self._Ltgt])) or 1.0
+        pot.sort(key=lambda x: -abs(x[1][2]))
+        self._Lcands = [L for L, _ in pot[:min(n_targets, len(pot))]]
+        self._sgn = {L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._Lcands}
+        self._Ltgt = self._Lcands[0]
 
     def lra_delta(self, Lp, rel, K):
-        r = self._lra_for_line(self._Ltgt, Lp, rel, K)
-        return (r[0]*self._sgnL, r[1]) if r is not None else (np.zeros_like(Lp), np.array([], int))
+        L = int(self.rng.choice(self._Lcands))                # random target line per attack
+        r = self._lra_for_line(L, Lp, rel, K, rand=True)      # + randomized bus subset -> not memorizable
+        return (r[0]*self._sgn[L], r[1]) if r is not None else (np.zeros_like(Lp), np.array([], int))

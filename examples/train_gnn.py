@@ -47,54 +47,90 @@ class EdgeMPNN(nn.Module):
 
 
 def node_f1(logits, y, mask):
-    """Micro node-F1 over the buses of the selected records (mask), threshold at logit>0 (prob>0.5)."""
+    """Micro node-F1 over the buses of the selected records (mask), pooled across records. Threshold logit>0."""
     pred = (logits[mask] > 0).float(); tgt = y[mask]
     tp = (pred * tgt).sum(); fp = (pred * (1 - tgt)).sum(); fn = ((1 - pred) * tgt).sum()
     p = tp / (tp + fp + 1e-9); r = tp / (tp + fn + 1e-9)
     return (2 * p * r / (p + r + 1e-9)).item()
 
 
+def sample_f1(logits, y, mask):
+    """Sample-wise F1 (Boyaci et al., IEEE T-SG 2022) — the localization-specific metric: compute F1 over the
+    buses WITHIN each record, then average across records. Stricter than pooled node-F1 because it rewards
+    getting each attack's bus SET right per-sample, not just the aggregate. Computed over attacked records."""
+    pred = (logits[mask] > 0).float(); tgt = y[mask]                 # [n_rec, N]
+    tp = (pred * tgt).sum(1); fp = (pred * (1 - tgt)).sum(1); fn = ((1 - pred) * tgt).sum(1)
+    p = tp / (tp + fp + 1e-9); r = tp / (tp + fn + 1e-9)
+    return (2 * p * r / (p + r + 1e-9)).mean().item()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--system", default="ieee14")
     ap.add_argument("--epochs", type=int, default=5)
-    ap.add_argument("--batch", type=int, default=128)
+    ap.add_argument("--batch", type=int, default=512)         # large batch — target the GPU, not memory
     ap.add_argument("--release", default=None)               # pin a dataset version if desired
+    ap.add_argument("--pos_weight", type=float, default=-1)   # -1 = auto (neg/pos; scales with grid size to avoid all-zero collapse)
+    ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
+    from contextlib import nullcontext
+    torch.manual_seed(args.seed)                             # reproducible init (avoids lucky/unlucky runs)
     dev = "cuda" if torch.cuda.is_available() else "cpu"
+    if dev == "cuda":                                        # GPU throughput knobs
+        torch.backends.cuda.matmul.allow_tf32 = True; torch.backends.cudnn.allow_tf32 = True; torch.backends.cudnn.benchmark = True
+    autocast = (lambda: torch.autocast("cuda", dtype=torch.bfloat16)) if dev == "cuda" else nullcontext
 
-    # --- the only data code a user writes: load train/test, get a ready DataLoader ---
     train = fg.load(args.system, split="train", release=args.release)
     test = fg.load(args.system, split="test", release=args.release)
-    tl = train.loader(batch_size=args.batch, shuffle=True)
     ei = train.edge_index.to(dev)
     print(f"train {len(train):,} / test {len(test):,} records on {args.system} (N={train.N}, E={train.E}) [{dev}]")
+    # Pre-load whole splits onto the GPU once -> batches are pure GPU gathers (no per-step h5/CPU->GPU cost).
+    # (train.loader(...) is the simple streaming alternative when a split doesn't fit in VRAM.)
+    def gpu(ds):
+        a = ds.to_numpy()
+        return ({k: torch.as_tensor(a[k], device=dev, dtype=torch.float32) for k in ("node_x", "node_m", "edge_x", "edge_m", "y")},
+                torch.as_tensor(a["family"], device=dev))
+    trG, _ = gpu(train); teG, teFam = gpu(test); n = trG["y"].shape[0]
+    # Standardize node/edge features per channel using TRAIN stats (metered entries only). Raw MW injections
+    # /flows are large on IEEE-300 -> unnormalized they hurt training and overflow bf16; this is essential.
+    for xk, mk in (("node_x", "node_m"), ("edge_x", "edge_m")):
+        w = trG[mk].sum((0, 1)).clamp(min=1.0)
+        mu = (trG[xk] * trG[mk]).sum((0, 1)) / w
+        sd = (((trG[xk] - mu) ** 2 * trG[mk]).sum((0, 1)) / w).sqrt().clamp(min=1e-3)
+        trG[xk] = (trG[xk] - mu) / sd * trG[mk]; teG[xk] = (teG[xk] - mu) / sd * teG[mk]
 
     model = EdgeMPNN().to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3)
+    # auto BCE positive-class weight = neg/pos label ratio (attacked-bus rate falls as the grid grows).
+    pos = float(trG["y"].sum())
+    pwv = args.pos_weight if args.pos_weight > 0 else float(min(max((trG["y"].numel() - pos) / max(pos, 1), 1.0), 100.0))
+    pw = torch.tensor(pwv, device=dev); print(f"pos_weight = {pwv:.1f}  batch={args.batch}  bf16={dev=='cuda'}")
     for ep in range(args.epochs):
-        model.train(); tot = 0.0
-        for b in tl:
-            logits = model(b["node_x"].to(dev), b["node_m"].to(dev), b["edge_x"].to(dev), b["edge_m"].to(dev), ei)
-            loss = F.binary_cross_entropy_with_logits(logits, b["y"].to(dev))
-            opt.zero_grad(); loss.backward(); opt.step(); tot += loss.item() * len(b["y"])
-        print(f"epoch {ep+1}/{args.epochs}  train loss {tot/len(train):.4f}")
+        model.train(); perm = torch.randperm(n, device=dev); tot = 0.0
+        for i in range(0, n, args.batch):
+            idx = perm[i:i + args.batch]
+            with autocast():
+                logits = model(trG["node_x"][idx], trG["node_m"][idx], trG["edge_x"][idx], trG["edge_m"][idx], ei)
+                loss = F.binary_cross_entropy_with_logits(logits, trG["y"][idx], pos_weight=pw)
+            opt.zero_grad(); loss.backward(); opt.step(); tot += loss.item() * len(idx)
+        print(f"epoch {ep+1}/{args.epochs}  train loss {tot/n:.4f}")
 
-    # --- evaluate: overall + PER-ATTACK-TYPE node-F1 (the metric that matters) ---
-    model.eval(); allL, allY, allF = [], [], []
-    with torch.no_grad():
-        for b in test.loader(batch_size=args.batch, shuffle=False):
-            allL.append(model(b["node_x"].to(dev), b["node_m"].to(dev), b["edge_x"].to(dev), b["edge_m"].to(dev), ei).cpu())
-            allY.append(b["y"]); allF.append(b["family"])
-    L = torch.cat(allL); Y = torch.cat(allY); Fam = torch.cat(allF)
+    # --- evaluate: overall + PER-ATTACK-TYPE node-F1 + swF1 (GPU-resident, bf16) ---
+    model.eval(); allL = []
+    nt = teG["y"].shape[0]
+    with torch.no_grad(), autocast():
+        for i in range(0, nt, args.batch):
+            sl = slice(i, i + args.batch)
+            allL.append(model(teG["node_x"][sl], teG["node_m"][sl], teG["edge_x"][sl], teG["edge_m"][sl], ei).float().cpu())
+    L = torch.cat(allL); Y = teG["y"].cpu(); Fam = teFam.cpu()
     attacked = Fam > 0
-    print(f"\nnode-F1 (attacked records): {node_f1(L, Y, attacked):.3f}")
-    print("per-attack-type node-F1:")
+    print(f"\noverall (attacked records):  node-F1 {node_f1(L, Y, attacked):.3f}   swF1 {sample_f1(L, Y, attacked):.3f}")
+    print(f"{'family':8s} {'n':>6s}   node-F1   swF1   (swF1 = Boyaci sample-wise localization F1)")
     for k, name in FAMILIES.items():
         if k == 0:
             continue
         m = Fam == k
         if m.any():
-            print(f"  {name:6s} (n={int(m.sum()):5d}): {node_f1(L, Y, m):.3f}")
+            print(f"  {name:6s} {int(m.sum()):6d}    {node_f1(L, Y, m):.3f}   {sample_f1(L, Y, m):.3f}")
 
 
 if __name__ == "__main__":

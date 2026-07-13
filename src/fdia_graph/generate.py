@@ -45,11 +45,12 @@ def _load_states(system, states, pool_cap=8000):
 
 
 def generate(system, name, per_family=3000, families=("Ao", "Ad", "As", "Ar", "ramp", "LRA"),
-             attack_intensity=0.15, ramp_rate=0.002, ramp_len=60, n_benign=20000,
+             attack_intensity=0.15, ramp_rate=0.002, ramp_len=60, n_benign=20000, lra_targets=15,
              redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None):
+    # lra_targets: size of the LRA target-line pool (each LRA attack picks one at random -> diverse bus sets)
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, **red)
-    g._pick_lra_target(attack_intensity, min(6, len(g.load_bus)))
+    g._pick_lra_target(attack_intensity, min(6, len(g.load_bus)), n_targets=lra_targets)
     K = min(6, len(g.load_bus)); rng = g.rng
     X = _load_states(system, states); nT = len(X); C = g.C
     fam_ids = [FAM_ID[f] for f in families]
