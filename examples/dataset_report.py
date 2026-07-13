@@ -22,8 +22,18 @@ HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "res
 OUT = os.path.join(HERE, "fdia_dataset_report")
 SYS = [14, 118, 300]; FAMS = ["Ao", "Ad", "As", "Ar", "ramp", "LRA"]; SPLITS = ["train", "val", "test"]
 PW, PH = 8.5, 11.0
-INK = "#22303f"; ACCENT = "#c0392b"; MUTE = "#8a97a3"; STEAL = "#c0392b"; DET = "#2c7fb8"
+INK = "#1f2d3d"; ACCENT = "#b23a2e"; MUTE = "#8a97a3"; STEAL = "#b23a2e"; DET = "#2c6f9e"
+SUBTLE = "#5a6673"; RULE = "#c7ced5"
 SIDE = {}
+PAGENO = [0]                                                  # mutable page counter for the footer
+RUNNING = "fdia-graph  ·  ML-Only Dangerous FDIA Localization Dataset"
+
+# professional defaults: proportional sans for structure, serif for running prose
+plt.rcParams.update({
+    "font.family": "sans-serif", "font.sans-serif": ["DejaVu Sans"], "font.serif": ["DejaVu Serif"],
+    "axes.edgecolor": "#8a97a3", "axes.linewidth": 0.7, "axes.titlesize": 9.5, "axes.titlecolor": INK,
+    "xtick.color": "#5a6673", "ytick.color": "#5a6673", "axes.labelcolor": INK, "pdf.fonttype": 42,
+})
 
 
 def load_json(name, default=None):
@@ -33,19 +43,50 @@ def load_json(name, default=None):
 
 # ---------------- style helpers ----------------
 def header(fig, title, sub=""):
-    fs = 15 if len(title) <= 58 else (13 if len(title) <= 74 else 11.5)
-    fig.text(0.5, 0.962, title, ha="center", fontsize=fs, weight="bold", color=INK)
+    fs = 16 if len(title) <= 52 else (13.5 if len(title) <= 72 else 12)
+    fig.text(0.07, 0.955, title, ha="left", va="top", fontsize=fs, weight="bold", color=INK)
+    y_rule = 0.940 if len(title) <= 72 else 0.925
+    fig.add_artist(plt.Line2D([0.07, 0.93], [y_rule, y_rule], color=ACCENT, lw=1.4, alpha=0.9))
     if sub:
-        fig.text(0.5, 0.933, "\n".join(textwrap.wrap(sub, 96)), ha="center", va="top", fontsize=9.5, color="#5a6673")
+        fig.text(0.07, y_rule - 0.013, textwrap.fill(" ".join(sub.split()), 104), ha="left", va="top",
+                 fontsize=9.3, color=SUBTLE, style="italic", linespacing=1.3)
 
 
 def caption(fig, text, y=0.14):
-    wrapped = "\n".join(textwrap.fill(ln, 116) for ln in text.split("\n"))
-    fig.text(0.07, y, wrapped, ha="left", va="top", fontsize=8.0, color="#3a444e")
+    wrapped = "\n".join(textwrap.fill(ln, 112) for ln in text.split("\n"))
+    fig.text(0.07, y, wrapped, ha="left", va="top", fontsize=8.2, color="#3a444e", family="serif", linespacing=1.35)
+
+
+def footer(fig, n):
+    fig.add_artist(plt.Line2D([0.07, 0.93], [0.045, 0.045], color=RULE, lw=0.6))
+    fig.text(0.07, 0.033, RUNNING, ha="left", va="top", fontsize=6.8, color=MUTE)
+    fig.text(0.93, 0.033, f"{n}", ha="right", va="top", fontsize=6.8, color=MUTE)
 
 
 def newpage(title, sub=""):
     fig = plt.figure(figsize=(PW, PH)); header(fig, title, sub); return fig
+
+
+def save(fig):
+    """Stamp the running footer + page number, then write the page."""
+    PAGENO[0] += 1; footer(fig, PAGENO[0]); pdf.savefig(fig); plt.close(fig)
+
+
+def prose(fig, sections, x=0.075, top=0.885, width=104, heading_gap=0.020, para_gap=0.026, lh=0.0175):
+    """Lay out (heading, body) sections with editorial hierarchy: a bold sans sub-head with a short accent
+    tick, then justified serif body with real leading. Returns the y it ended at."""
+    y = top
+    for heading, bodytext in sections:
+        if heading:
+            fig.add_artist(plt.Line2D([x, x + 0.022], [y + 0.004, y + 0.004], color=ACCENT, lw=2.2))
+            fig.text(x + 0.030, y, heading, ha="left", va="top", fontsize=10.5, weight="bold", color=INK)
+            y -= heading_gap
+        for ln in bodytext.split("\n"):
+            for wl in (textwrap.wrap(ln, width) or [""]):
+                fig.text(x, y, wl, ha="left", va="top", fontsize=9.2, color="#33404c", family="serif")
+                y -= lh
+        y -= para_gap
+    return y
 
 
 def table_page(title, sub, col_labels, rows, cap, y_table=0.34, height=0.50, fontsize=8.6,
@@ -101,29 +142,35 @@ for c in SYS:
     print(f"loaded ieee{c}: N={N} E={E}")
 
 # ======================= Page 1: overview (prose) =======================
-fig = newpage("The fdia-graph Dataset", "ML-only dangerous FDIA localization on realistic measurement graphs · IEEE-14/118/300")
-body = (
- "WHAT THIS IS.  A benchmark of false-data-injection attacks (FDIAs) that EVADE every classical (non-ML)\n"
- "detector yet remain localizable by a graph model — the regime where machine learning is actually needed.\n"
- "Each record is a realistic sparse SCADA/PMU measurement GRAPH (PING-style): branch power flows as edge\n"
- "features, metered bus injections + |V| + sparse PMU angles as node features, with per-measurement\n"
- "availability masks. Redundancy is ~2-3, the regime a real energy-management system operates in — not the\n"
- "fully-observed idealization most FDIA benchmarks assume.\n\n"
- "SEVEN FAMILIES, SPLIT BY DETECTABILITY.  Three STEALTHY families evade bad-data detection and are the\n"
- "hard, dangerous cases: Ao (state-consistent load redistribution), ramp (slow multi-timestep creep), and\n"
- "LRA (targeted masked-overload). Three DETECTABLE families (Ad/As/Ar) are a contrast set a BDD catches.\n"
- "This split is the point: on this data 'ML beats a detector' is a real result, not a rigged one.\n\n"
- "WHAT THIS REPORT COVERS.  The data dictionary and schema; the attack families and their BDD stealth split;\n"
- "the class composition and chronological split; the measurement model and coverage; the distributions and\n"
- "spatial attack pattern; how far each family moves the true state; and the model results — localization,\n"
- "detection, the physics-biased-attention gain, and an attack-resilient physics-informed state estimator.\n\n"
- "REPRODUCIBILITY.  Every number here is loaded from the installed package (fdia_graph.load) or the result\n"
- "files in examples/results/. Run  python dataset_report.py  to regenerate this PDF."
-)
-fig.text(0.07, 0.885, body, ha="left", va="top", fontsize=9.6, family="monospace")
-tot = sum(sum(DATA[c]["per"]["train"].values()) + sum(DATA[c]["per"]["val"].values()) + sum(DATA[c]["per"]["test"].values()) for c in SYS)
-fig.text(0.5, 0.20, f"3 systems  ·  {tot:,} records  ·  7 families  ·  v0.3.0", ha="center", fontsize=11, weight="bold", color=ACCENT)
-pdf.savefig(fig); plt.close(fig)
+fig = newpage("The fdia-graph Dataset",
+              "ML-only dangerous FDIA localization on realistic measurement graphs — IEEE-14 / 118 / 300")
+prose(fig, [
+ ("What this is",
+  "A benchmark of false-data-injection attacks (FDIAs) that evade every classical, non-ML detector yet remain "
+  "localizable by a graph model — the regime where machine learning is actually needed. Each record is a "
+  "realistic sparse SCADA/PMU measurement graph (PING-style): branch power flows as edge features, metered bus "
+  "injections, voltage magnitudes and sparse PMU angles as node features, with per-measurement availability "
+  "masks. Redundancy is roughly 2-3, the regime a real energy-management system operates in — not the fully-"
+  "observed idealization most FDIA benchmarks assume."),
+ ("Seven families, split by detectability",
+  "Three stealthy families evade bad-data detection and are the hard, dangerous cases: Ao (state-consistent load "
+  "redistribution), ramp (a slow multi-timestep creep), and LRA (a targeted masked-overload). Three detectable "
+  "families — Ad, As, Ar — form a contrast set that a bad-data detector catches. This split is the point: on this "
+  "data, “ML beats a detector” is a genuine result rather than a rigged one."),
+ ("What this report covers",
+  "The data dictionary and schema; the attack families and their bad-data-detection stealth split; the class "
+  "composition and chronological split; the measurement model and coverage; the measurement distributions and "
+  "spatial attack pattern; how far each family moves the true state; and the model results — localization, "
+  "detection, the physics-biased-attention gain, and an attack-resilient physics-informed state estimator."),
+ ("Reproducibility",
+  "Every number in this report is loaded from the installed package (fdia_graph.load) or the result files in "
+  "examples/results/. Run  python dataset_report.py  to regenerate this document end to end."),
+], top=0.885)
+tot = sum(sum(DATA[c]["per"][s].values()) for c in SYS for s in SPLITS)
+fig.add_artist(plt.Line2D([0.07, 0.93], [0.175, 0.175], color=RULE, lw=0.6))
+fig.text(0.5, 0.155, f"3 systems     {tot:,} records     7 attack families     release v0.3.0",
+         ha="center", fontsize=11.5, weight="bold", color=ACCENT)
+save(fig)
 
 # ======================= Page 2: data dictionary (TABLE) =======================
 dd_cols = ["Field", "Shape", "Dtype", "Meaning"]
@@ -150,7 +197,7 @@ fig = table_page("Data Dictionary", "every field in ml_only_ieee{N}.h5  (N = bus
                  "consume node_m/edge_m rather than assume a full measurement vector.",
                  col_widths=[0.17, 0.11, 0.10, 0.62], fontsize=8.2, height=0.56, y_table=0.30)
 SIDE["data_dictionary"] = ["field,shape,dtype,meaning"] + [",".join(f'"{x}"' for x in r) for r in dd_rows]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 3: attack families + BDD stealth split (TABLE) =======================
 SRC = {"Ao": "state-consistent load redistribution", "Ad": "random meter corruption", "As": "meter scaling",
@@ -177,7 +224,7 @@ fig = table_page("Attack Families & the Stealth Split",
                  col_widths=[0.11, 0.44, 0.13, 0.32], shade_rule=fam_shade, height=0.30, y_table=0.52)
 SIDE["families"] = ["family,description,class,bdd_pass_14,bdd_pass_118,bdd_pass_300"] + \
     [f'{f},"{SRC[f]}",{fam_rows[i][2]},{bdd_pct(14,f)},{bdd_pct(118,f)},{bdd_pct(300,f)}' for i, f in enumerate(FAMS)]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 4: composition (TABLE) =======================
 comp_cols = ["System", "Family", "Train", "Val", "Test", "Total"]
@@ -201,7 +248,7 @@ SIDE["composition"] = ["system,family,train,val,test,total"] + \
     [f'{c},{fn},{DATA[c]["per"]["train"].get(fn,0)},{DATA[c]["per"]["val"].get(fn,0)},{DATA[c]["per"]["test"].get(fn,0)},'
      f'{DATA[c]["per"]["train"].get(fn,0)+DATA[c]["per"]["val"].get(fn,0)+DATA[c]["per"]["test"].get(fn,0)}'
      for c in SYS for fn in FAMILIES.values() if DATA[c]["per"]["train"].get(fn,0)+DATA[c]["per"]["val"].get(fn,0)+DATA[c]["per"]["test"].get(fn,0)]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 5: measurement model & coverage (TABLE) =======================
 cov_cols = ["System", "Buses N", "Branches E", "Redundancy", "|V| cov", "P_inj cov", "theta cov", "flow cov"]
@@ -218,7 +265,7 @@ fig = table_page("Measurement Model & Coverage",
                  col_widths=[0.16, 0.11, 0.13, 0.14, 0.11, 0.12, 0.11, 0.12], height=0.16, y_table=0.66)
 SIDE["coverage"] = ["system,N,E,redundancy,V_cov,Pinj_cov,theta_cov,flow_cov"] + \
     [f"{c},{DATA[c]['N']},{DATA[c]['E']},{DATA[c]['redundancy']:.3f},{DATA[c]['cov']['V']:.3f},{DATA[c]['cov']['Pinj']:.3f},{DATA[c]['cov']['theta']:.3f},{DATA[c]['cov']['flow']:.3f}" for c in SYS]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 6: measurement distributions (FIGURE — genuinely distributional) =======================
 fig = newpage("Figure 1 — Measurement Distributions (IEEE-118)",
@@ -239,7 +286,7 @@ caption(fig, "Voltage magnitude barely moves under attack (the stealthy families
              "genuine distributions, so a histogram (not a table) is the right view. Metered entries only.", y=0.24)
 SIDE["distributions_note"] = ["channel,benign_median,attacked_median"] + \
     [f'{lab},{np.median(nx[fam==0,:,ch][nm_test[:,:,ch].astype(bool)[fam==0]]):.4f},{np.median(nx[fam>0,:,ch][nm_test[:,:,ch].astype(bool)[fam>0]]):.4f}' for lab, ch in chans]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 7: attack surface + per-bus probability (FIGURE — spatial/distributional) =======================
 fig = newpage("Figure 2 — Attack Surface & Spatial Pattern",
@@ -256,7 +303,7 @@ caption(fig, "Left: most attacks are sparse (a handful of buses), so localizatio
              "attack is spread across the grid rather than fixed to a few buses (LRA randomizes its target line and bus subset), so "
              "a model cannot simply memorize a hot-spot. Both are spatial/distributional, hence figures rather than tables.", y=0.27)
 SIDE["attack_surface"] = ["metric,value"] + [f"mean_attacked_buses,{surf.mean():.2f}", f"median_attacked_buses,{np.median(surf):.0f}", f"max_attacked_buses,{int(surf.max())}"]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 8: residual box/violin (FIGURE — distributional) =======================
 resid = None
@@ -288,7 +335,7 @@ if os.path.exists(rp):
                  "power.)", y=0.30)
     SIDE["residuals"] = ["family,median_absdP_MW,median_absdQ_MVAr"] + \
         [f'{f},{np.median(resid[f"ieee118_{f}_dP"]):.3f},{np.median(resid[f"ieee118_{f}_dQ"]):.3f}' for f in order]
-    pdf.savefig(fig); plt.close(fig)
+    save(fig)
 
 # ======================= Page 9: localization benchmark (TABLE) =======================
 loc_cols = ["System", "overall"] + FAMS
@@ -307,7 +354,7 @@ fig = table_page("Localization Benchmark  (ARMA + KCL + temporal)",
                  "beats a bar chart — the exact values are the point.",
                  col_widths=[0.16, 0.14] + [0.10] * 6, height=0.16, y_table=0.66)
 SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 10: detection (TABLE) =======================
 det_cols = ["System", "DR", "FA", "det-F1"] + ["DR:" + f for f in FAMS]
@@ -326,7 +373,7 @@ fig = table_page("Detection Benchmark  (grid-level)",
                  "classical detector cannot.",
                  col_widths=[0.13, 0.09, 0.09, 0.10] + [0.098] * 6, fontsize=8.0, height=0.16, y_table=0.66)
 SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_"+f for f in FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 11: physics-attention improvement (TABLE) =======================
 if ATTN:
@@ -347,7 +394,7 @@ if ATTN:
                      col_widths=[0.18, 0.16, 0.16, 0.14, 0.18, 0.18], height=0.16, y_table=0.66)
     SIDE["attention_ab"] = ["system,loc_arma,loc_attn,det_arma,det_attn"] + \
         [f'ieee{c},{ATTN[f"ieee{c}"]["arma"]["loc"]},{ATTN[f"ieee{c}"]["hybrid"]["loc"]},{ATTN[f"ieee{c}"]["arma"]["det"]},{ATTN[f"ieee{c}"]["hybrid"]["det"]}' for c in SYS if f"ieee{c}" in ATTN]
-    pdf.savefig(fig); plt.close(fig)
+    save(fig)
 
 # ======================= Page 12: attack-resilient state estimation (TABLE) =======================
 se_cols = ["System", "|V| meter", "|V| WLS", "|V| NN", "|V| PINN", "th meter", "th WLS", "th NN", "th PINN"]
@@ -367,34 +414,37 @@ fig = table_page("Attack-Resilient State Estimation",
                  "in particular. On IEEE-300 the meter is off ~15 deg under attack while the PINN recovers to ~4 deg.",
                  col_widths=[0.13] + [0.108] * 8, fontsize=7.8, height=0.16, y_table=0.66)
 SIDE["state_estimation"] = ["system,V_meter,V_wls,V_nn,V_pinn,th_meter,th_wls,th_nn,th_pinn"] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(se_rows)]
-pdf.savefig(fig); plt.close(fig)
+save(fig)
 
 # ======================= Page 13: protocol + critical analysis (prose) =======================
-fig = newpage("Evaluation Protocol & Honest Notes", "")
-txt = (
- "SPLIT & METRICS\n"
- "  - 60/20/20 CHRONOLOGICAL split, cut on sequence boundaries so a ramp never straddles train/test (a random\n"
- "    shuffle would leak it). Equal count per attack family. Boyaci et al. (2022); PING (NAPS 2025).\n"
- "  - Report PER-ATTACK-TYPE metrics. Accuracy or a pooled F1 hides the stealthy families behind the easy ones.\n"
- "  - Localization = sample-wise F1 (predicted attacked set vs truth). Detection = grid-level DR/FA/det-F1.\n"
- "  - Unseen-attack protocol available: load(..., heldout=True) reserves As/Ar for test only.\n\n"
- "WHAT THE RESULTS SAY\n"
- "  - The stealthy families are hard by construction (they pass every classical check), so localization swF1 on\n"
- "    Ao/ramp and on the large grids is modest and honest — this is a difficult benchmark, not a solved one.\n"
- "  - Detection, which aggregates evidence, reaches Boyaci range on the BDD-evading families: the ML-only thesis.\n"
- "  - Physics-biased attention helps localization on every system; a physics-informed state estimator recovers the\n"
- "    true state that a fooled WLS cannot.\n\n"
- "HONEST LIMITATIONS\n"
- "  - Temporal windowing did NOT rescue ramp localization: over a short window ramp's per-step creep is smaller than\n"
- "    benign load drift, so it stays hard (a documented negative result, not an oversight).\n"
- "  - The state estimator recovers STATE, not attack labels; a large state-correction is a signal but localization is\n"
- "    the localizer's job. Voltage barely moves under the stealthy families, so |V| alone is a weak detector.\n\n"
- "REPRODUCE\n"
- "  Dataset-intrinsic tables/figures are computed live from fdia_graph.load(...). Model results are read from\n"
- "  examples/results/ (produced by the benchmark and state-estimator scripts). Regenerate: python dataset_report.py"
-)
-fig.text(0.07, 0.88, txt, ha="left", va="top", fontsize=8.6, family="monospace")
-pdf.savefig(fig); plt.close(fig)
+fig = newpage("Evaluation Protocol & Honest Notes",
+              "how the benchmark is scored, and what the results do and do not claim")
+prose(fig, [
+ ("Split and metrics",
+  "The split is 60/20/20 chronological, cut on sequence boundaries so a ramp never straddles train and test — a "
+  "random shuffle would leak it (Boyaci et al., 2022; PING, NAPS 2025) — with an equal count per attack family. "
+  "Metrics are reported per attack type; a pooled accuracy or F1 hides the stealthy families behind the easy "
+  "ones. Localization is sample-wise F1 (predicted attacked set versus truth); detection is grid-level detection "
+  "rate, false-alarm rate and detection-F1. An unseen-attack protocol is available via load(..., heldout=True), "
+  "which reserves As and Ar for test only."),
+ ("What the results say",
+  "The stealthy families are hard by construction — they pass every classical check — so localization on Ao, ramp "
+  "and the larger grids is modest and honest; this is a difficult benchmark, not a solved one. Detection, which "
+  "aggregates evidence across the grid, reaches Boyaci range on the bad-data-evading families, which is the "
+  "ML-only thesis. Physics-biased attention improves localization on every system, and a physics-informed state "
+  "estimator recovers the true state that a fooled weighted-least-squares estimator cannot."),
+ ("Honest limitations",
+  "Temporal windowing did not rescue ramp localization: over a short window, ramp's per-step creep is smaller than "
+  "benign load drift, so it stays hard — a documented negative result, not an oversight. The state estimator "
+  "recovers state, not attack labels; a large state correction is a useful signal, but naming the attacked buses "
+  "remains the localizer's job. And because voltage magnitude barely moves under the stealthy families, |V| alone "
+  "is a weak detector."),
+ ("Reproduce",
+  "Dataset-intrinsic tables and figures are computed live from fdia_graph.load(...); model results are read from "
+  "examples/results/, produced by the benchmark and state-estimator scripts. Regenerate the whole document with  "
+  "python dataset_report.py."),
+], top=0.885)
+save(fig)
 
 pdf.close()
 os.makedirs(os.path.join(RES, "sidecars"), exist_ok=True)
