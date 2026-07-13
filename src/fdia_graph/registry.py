@@ -29,12 +29,15 @@ def latest_release(repo=_REPO):
     default tag if the API is unreachable (offline / rate-limited) so loading still works.
     """
     import requests
+    # a PRIVATE repo's releases API requires auth, so send the token when one is configured
+    tok = os.environ.get("FDIA_GRAPH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    hdr = {"Authorization": f"Bearer {tok}"} if tok else {}
     try:
-        r = requests.get(f"https://api.github.com/repos/{repo}/releases/latest", timeout=10)
+        r = requests.get(f"https://api.github.com/repos/{repo}/releases/latest", headers=hdr, timeout=10)
         r.raise_for_status()
         return r.json()["tag_name"]
     except Exception:
-        return _RELEASE
+        return _RELEASE      # offline / unauth / no releases yet -> the pinned default tag still works
 
 
 def _load_local():

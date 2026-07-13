@@ -52,14 +52,17 @@ def ensure_local(spec):
     if os.path.exists(dest) and (spec.get("sha256") is None or _sha256(dest) == spec["sha256"]):
         return dest
 
-    url = f"https://github.com/{spec['repo']}/releases/download/{spec['release']}/{spec['file']}"
     tmp = dest + ".part"
-    with requests.get(url, stream=True, timeout=60) as r:
-        r.raise_for_status()
-        total = int(r.headers.get("content-length", 0))
-        with open(tmp, "wb") as f, tqdm(total=total, unit="B", unit_scale=True, desc=f"↓ {spec['file']}") as bar:
-            for chunk in r.iter_content(1 << 20):
-                f.write(chunk); bar.update(len(chunk))
+    with requests.Session() as session:
+        # resolve the download URL: authenticated API asset endpoint for private repos, plain URL for public.
+        # keep the whole streamed download inside the session so its connection pool stays alive.
+        url, dl_headers = _asset_url(spec, session)
+        with session.get(url, headers=dl_headers, stream=True, timeout=60) as r:
+            r.raise_for_status()
+            total = int(r.headers.get("content-length", 0))
+            with open(tmp, "wb") as f, tqdm(total=total, unit="B", unit_scale=True, desc=f"↓ {spec['file']}") as bar:
+                for chunk in r.iter_content(1 << 20):
+                    f.write(chunk); bar.update(len(chunk))
     if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
         os.remove(tmp)
         raise IOError(f"checksum mismatch for {spec['file']} — download corrupted, please retry")
