@@ -20,12 +20,22 @@ if DEV == "cuda":
 AC = (lambda: torch.autocast("cuda", dtype=torch.bfloat16)) if DEV == "cuda" else nullcontext
 
 
+def kcl_residual(node_x, edge_x, ei, N):
+    """Per-bus KCL power-balance residual from measurements (physics-informed feature; ~0 for consistent
+    states, spikes at corrupted meters -> lets the model localize the crude Ad/As/Ar attacks)."""
+    n = node_x.shape[0]; fr, to = ei[0], ei[1]
+    inP = torch.zeros(n, N, device=node_x.device); inQ = torch.zeros(n, N, device=node_x.device)
+    inP.index_add_(1, to, edge_x[:, :, 0]); inP.index_add_(1, fr, -edge_x[:, :, 0])
+    inQ.index_add_(1, to, edge_x[:, :, 1]); inQ.index_add_(1, fr, -edge_x[:, :, 1])
+    return torch.stack([inP - node_x[:, :, 1], inQ - node_x[:, :, 2]], -1)
+
+
 class ArmaLoc(nn.Module):
     """Edge-fused ARMA localizer following Boyaci's stack (Joint, IEEE TSG 2022): input encoder -> L ARMA_K
     blocks (each K parallel stacks x T recursive layers, ReLU) -> dense -> per-bus sigmoid. Dims set by HPO."""
     def __init__(self, hidden, stacks, layers, blocks, dropout, shared_weights):
         super().__init__()
-        self.nenc = nn.Linear(8, hidden); self.eenc = nn.Linear(4, hidden)
+        self.nenc = nn.Linear(12, hidden); self.eenc = nn.Linear(4, hidden)   # 6 node feats (incl KCL residual) x2 (+mask)
         self.blocks = nn.ModuleList([ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers,
                                               shared_weights=shared_weights, dropout=dropout, act=F.relu) for _ in range(blocks)])
         self.head = nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 1))
@@ -49,6 +59,10 @@ def load(system, release):
         d = {k: torch.as_tensor(a[k], device=DEV, dtype=torch.float32) for k in ("node_x", "node_m", "edge_x", "edge_m", "y")}
         return d, torch.as_tensor(a["family"], device=DEV), ds
     trG, _, ds = g("train"); vaG, vaFam, _ = g("val"); teG, teFam, _ = g("test")
+    ei = ds.edge_index.to(DEV)
+    for gg in (trG, vaG, teG):                                          # append the KCL physics residual (4 -> 6 node feats)
+        res = kcl_residual(gg["node_x"], gg["edge_x"], ei, ds.N)
+        gg["node_x"] = torch.cat([gg["node_x"], res], -1); gg["node_m"] = torch.cat([gg["node_m"], torch.ones_like(res)], -1)
     for xk, mk in (("node_x", "node_m"), ("edge_x", "edge_m")):        # standardize on train stats
         w = trG[mk].sum((0, 1)).clamp(min=1.0); mu = (trG[xk] * trG[mk]).sum((0, 1)) / w
         sd = (((trG[xk] - mu) ** 2 * trG[mk]).sum((0, 1)) / w).sqrt().clamp(min=1e-3)
@@ -149,6 +163,20 @@ def main():
         if m.any():
             r = {"n": int(m.sum()), "node_f1": f1(P[m], Y[m]), "swf1": f1(P[m], Y[m], sample=True)}; res["per_family"][name] = r
             print(f"  {name:6s} node-F1 {r['node_f1']:.3f}  swF1 {r['swf1']:.3f}")
+
+    # ---- DETECTION (grid-level, Boyaci-style S = max bus prob); the metric the "ML-only" claim rests on ----
+    def dscore(lg): return torch.sigmoid(lg).max(1).values
+    def detf1(S, lab, t):
+        pr = (S > t).float(); tp = (pr * lab).sum(); fp = (pr * (1 - lab)).sum(); fn = ((1 - pr) * lab).sum()
+        p = tp / (tp + fp + 1e-9); rr = tp / (tp + fn + 1e-9); return (2 * p * rr / (p + rr + 1e-9)).item()
+    vS = dscore(vL); vlab = (vaFam.cpu() > 0).float()                        # tune detection threshold on val
+    dthr = float(max(torch.linspace(0.05, 0.95, 19), key=lambda t: detf1(vS, vlab, float(t))))
+    tS = dscore(L); tlab = (Fm > 0).float(); prd = (tS > dthr).float()
+    res["detection"] = {"DR": round((prd * tlab).sum().item() / tlab.sum().item(), 4),
+                        "FA": round((prd * (1 - tlab)).sum().item() / (1 - tlab).sum().item(), 4),
+                        "det_f1": round(detf1(tS, tlab, dthr), 4), "threshold": round(dthr, 3),
+                        "per_family_DR": {name: round(prd[Fm == k].mean().item(), 4) for k, name in FAMILIES.items() if k and (Fm == k).any()}}
+    print(f"DETECTION: DR {res['detection']['DR']:.3f}  FA {res['detection']['FA']:.3f}  det-F1 {res['detection']['det_f1']:.3f}")
     if args.out:
         json.dump(res, open(args.out, "w"), indent=2); print("wrote", args.out)
 

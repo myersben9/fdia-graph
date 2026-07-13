@@ -35,6 +35,7 @@ class FdiaGraph:
             self.N = int(f.attrs["N"]); self.E = int(f.attrs["E"])
             self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
             self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
+            self.has_temporal = "temporal_delta" in f["data"]      # v0.3+ ships a temporal-delta feature
             fam = f["data/family"][:]; gap = f["data/gap"][:]
             sp = f["data/split"][:] if "data/split" in f else None
         keep = np.ones(len(fam), bool)
@@ -80,6 +81,8 @@ class FdiaGraph:
             y=torch.as_tensor(d["y"][j], dtype=torch.float32),
             family=int(d["family"][j]), stealthy=int(d["stealthy"][j]),
             seq_id=int(d["seq_id"][j]), timestep=int(d["timestep"][j]))
+        if self.has_temporal:                                     # [N,2] current-minus-previous-scan injection
+            item["temporal_delta"] = torch.as_tensor(d["temporal_delta"][j], dtype=torch.float32)
         if self.format == "pyg":
             return self._to_pyg(item)
         return item
@@ -98,7 +101,8 @@ class FdiaGraph:
     def collate(batch):
         torch = _torch()
         out = {}
-        for k in ("node_x", "node_m", "edge_x", "edge_m", "y"):
+        fkeys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if "temporal_delta" in batch[0] else [])
+        for k in fkeys:
             out[k] = torch.stack([b[k] for b in batch])
         for k in ("family", "stealthy", "seq_id", "timestep"):
             out[k] = torch.as_tensor([b[k] for b in batch], dtype=torch.long)
@@ -137,7 +141,8 @@ class FdiaGraph:
         arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
         """
         import h5py
-        want = fields or ["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
+        want = fields or (["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if self.has_temporal else [])
+                          + ["family", "stealthy", "seq_id", "timestep"])
         idx = self.idx
         out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
         with h5py.File(self.path, "r") as f:
