@@ -281,6 +281,43 @@ SIDE["coverage"] = ["system,N,E,redundancy,V_cov,Pinj_cov,theta_cov,flow_cov"] +
     [f"{c},{DATA[c]['N']},{DATA[c]['E']},{DATA[c]['redundancy']:.3f},{DATA[c]['cov']['V']:.3f},{DATA[c]['cov']['Pinj']:.3f},{DATA[c]['cov']['theta']:.3f},{DATA[c]['cov']['flow']:.3f}" for c in SYS]
 save(fig)
 
+# ======================= Attack construction (formulas) =======================
+fig = newpage("How Each Attack Is Built",
+              "from the clean state to the attacked measurement graph, as implemented in the generator")
+x0 = 0.075; Y = [0.870]
+def put(txt, dx, fs, col, fam="serif", bold=False, ital=False):
+    fig.text(x0 + dx, Y[0], txt, fontsize=fs, color=col, family=fam, va="top",
+             weight="bold" if bold else "normal", style="italic" if ital else "normal")
+intro = ("There are two mechanisms. State-level attacks change the bus loads L and re-solve a full AC power flow, "
+         "so every measurement stays mutually consistent and passes bad-data detection. Meter-level attacks tamper "
+         "the readings directly, which breaks consistency and is caught. Notation: h maps a state x to the meter "
+         "readings, PF is a power-flow solve, e is Gaussian meter noise, and z_a is the reading at an attacked bus a.")
+for wl in textwrap.fill(intro, 106).split("\n"):
+    put(wl, 0, 8.8, "#33404c"); Y[0] -= 0.0185
+Y[0] -= 0.016
+def grp(title, color):
+    fig.add_artist(plt.Line2D([x0, x0 + 0.026], [Y[0] + 0.004, Y[0] + 0.004], color=color, lw=2.8))
+    put(title, 0.034, 10.5, INK, "sans-serif", bold=True); Y[0] -= 0.033
+def item(name, desc, formula):
+    put(name, 0.018, 10.5, INK, "sans-serif", bold=True)
+    put(desc, 0.085, 8.8, "#5a6673", "serif", ital=True); Y[0] -= 0.026
+    put(formula, 0.050, 11.5, "#1f2d3d", "serif"); Y[0] -= 0.034
+grp("State-level attacks   (change the loads, re-solve, evade bad-data detection)", STEAL)
+item("benign", "reference, no attack", r"$z = h(x_t) + e$")
+item("Ao", "load scaling, then re-solve", r"$L_a \leftarrow \alpha\, L_a,\ \ \alpha \in [1.05,\ 1.15],\ \ x' = \mathrm{PF}(L'),\ \ z = h(x') + e$")
+item("ramp", "same as Ao, factor grows over a 60-scan sequence", r"$L_a \leftarrow (1 + r\,k)\, L_a,\ \ k = 0 \ldots 59,\ \ r \approx 0.002$")
+item("LRA", "targeted, load-conserving, PTDF-chosen to cut the target-line flow", r"$L \leftarrow L + d,\ \ \sum_i d_i = 0,\ \ |d_i| \leq \rho\, L_i\ \ (\rho = 0.15)$")
+Y[0] -= 0.014
+grp("Meter-level attacks   (tamper the readings, caught by bad-data detection)", DET)
+item("Ad", "random corruption of the P and Q injection meters", r"$z_a \leftarrow z_a + \mathcal{N}\,(0,\ 0.3\,|z_a| + 0.05)$")
+item("As", "scaling of the P and Q injection meters", r"$z_a \leftarrow \beta\, z_a,\ \ \beta \in [1.25,\ 1.5]$")
+item("Ar", "replay of a distant past benign scan", r"$z_a \leftarrow z_a(t - k),\ \ k \geq 20$")
+caption(fig, "State-level attacks move the whole state, including voltage and angle, because those are the physical "
+             "result of the new loads. That is exactly why they pass every classical check. Meter-level attacks change "
+             "only the tampered channels and leave an inconsistency a detector can see. The attacked bus set is stored "
+             "as the label y, which is the localization target.", y=Y[0] - 0.010)
+save(fig)
+
 # ======================= Page 4: composition (TABLE) =======================
 comp_cols = ["System", "Family", "Train", "Val", "Test", "Total"]
 comp_rows = []; section_rows = set()
