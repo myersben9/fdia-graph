@@ -100,31 +100,59 @@ def prose(fig, sections, x=0.075, top=0.885, width=100, heading_gap=0.023, para_
     return y
 
 
-def table_page(title, sub, col_labels, rows, cap, y_table=0.34, height=0.50, fontsize=8.6,
-               col_widths=None, shade_rule=None, section_rows=None):
-    """One page whose body is a styled table. shade_rule(i,row)->color tints a data row; section_rows is a set
-    of row indices rendered as bold sub-headers (spanning label)."""
-    fig = newpage(title, sub)
-    ax = fig.add_axes([0.06, y_table, 0.88, height]); ax.axis("off")
-    tbl = ax.table(cellText=rows, colLabels=col_labels, loc="upper center", cellLoc="center",
+ROW_H = 0.0246                                                 # figure-fraction height of one styled table row
+
+
+def draw_table(fig, top_y, col_labels, rows, fontsize=8.6, col_widths=None, shade_rule=None, section_rows=None):
+    """Draw one styled table whose TOP edge sits at top_y; return the y of its bottom edge. Consistent across
+    every table in the report so captions can be placed a fixed gap beneath the table, not at a page offset."""
+    h = (len(rows) + 1) * ROW_H
+    ax = fig.add_axes([0.06, top_y - h, 0.88, h]); ax.axis("off")
+    tbl = ax.table(cellText=rows, colLabels=col_labels, loc="center", cellLoc="center",
                    colWidths=col_widths or [1.0 / len(col_labels)] * len(col_labels))
-    tbl.auto_set_font_size(False); tbl.set_fontsize(fontsize); tbl.scale(1, 1.42)
-    ncol = len(col_labels)
+    tbl.auto_set_font_size(False); tbl.set_fontsize(fontsize); tbl.scale(1, 1.46)
     for (r, c), cell in tbl.get_celld().items():
-        cell.set_edgecolor("#d6dbe0"); cell.set_linewidth(0.6)
+        cell.set_edgecolor("#dbe0e6"); cell.set_linewidth(0.6)
         if r == 0:                                             # header row
-            cell.set_facecolor(INK); cell.set_text_props(color="white", weight="bold"); cell.set_height(cell.get_height() * 1.1)
+            cell.set_facecolor(INK); cell.set_text_props(color="white", weight="bold")
         else:
             i = r - 1
             if section_rows and i in section_rows:
-                cell.set_facecolor("#dfe6ec"); cell.set_text_props(weight="bold", color=INK)
+                cell.set_facecolor("#e3e9ef"); cell.set_text_props(weight="bold", color=INK)
             elif shade_rule is not None:
                 cell.set_facecolor(shade_rule(i, rows[i]))
             elif i % 2:
-                cell.set_facecolor("#f5f7f9")
+                cell.set_facecolor("#f4f6f8")
             if c == 0:
                 cell.set_text_props(ha="left"); cell._text.set_x(0.03)
-    caption(fig, cap, y=y_table - 0.06)
+    return top_y - h
+
+
+def table_page(title, sub, col_labels, rows, cap, fontsize=8.6, col_widths=None, shade_rule=None,
+               section_rows=None, **_ignore):
+    """A page with one top-anchored table and its caption tucked directly beneath it."""
+    fig = newpage(title, sub)
+    bottom = draw_table(fig, 0.865, col_labels, rows, fontsize, col_widths, shade_rule, section_rows)
+    caption(fig, cap, y=bottom - 0.034)
+    return fig
+
+
+def multi_table_page(title, sub, blocks, top=0.870):
+    """A page that stacks several labelled tables, each with its own short caption — so a couple of small
+    result tables share one full page instead of floating alone on sparse ones. blocks: list of dicts with
+    keys subhead, cols, rows, cap, and optional fontsize/col_widths/shade_rule."""
+    fig = newpage(title, sub); y = top
+    for b in blocks:
+        fig.add_artist(plt.Line2D([0.07, 0.091], [y + 0.004, y + 0.004], color=ACCENT, lw=2.4))
+        fig.text(0.099, y, b["subhead"], ha="left", va="top", fontsize=10.5, weight="bold", color=INK)
+        y -= 0.028
+        y = draw_table(fig, y, b["cols"], b["rows"], b.get("fontsize", 8.6), b.get("col_widths"),
+                       b.get("shade_rule"))
+        y -= 0.028
+        for wl in textwrap.fill(b["cap"], 112).split("\n"):     # tight per-table caption
+            fig.text(0.07, y, wl, ha="left", va="top", fontsize=8.0, color="#3a444e", family="serif")
+            y -= 0.0165
+        y -= 0.058                                               # breathing room before the next table block
     return fig
 
 
@@ -229,16 +257,28 @@ for f in FAMS:
     bdd = " / ".join(str(bdd_pct(c, f)) + "%" if bdd_pct(c, f) is not None else "—" for c in SYS)
     fam_rows.append([f, SRC[f], cls, bdd])
 def fam_shade(i, row): return "#fbecea" if row[2] == "stealthy" else "#eaf2f8"
-fig = table_page("Attack Families & the Stealth Split",
-                 "BDD-pass = % of samples that evade the chi-square bad-data detector (higher = stealthier)",
-                 fam_cols, fam_rows,
-                 "The design invariant: the STEALTHY families (Ao/ramp/LRA, red) pass classical bad-data detection on ~90-100% "
-                 "of samples — they are load-conserving, plausibility-bounded, physically valid states — while the DETECTABLE "
-                 "families (Ad/As/Ar, blue) are caught. A localizer is therefore measured on the stealthy families; acing the "
-                 "detectable ones proves little. ramp is adapted from Haghshenas et al. (ISGT 2023); LRA from Yuan et al. (2011).",
-                 col_widths=[0.11, 0.44, 0.13, 0.32], shade_rule=fam_shade, height=0.30, y_table=0.52)
+cov_cols = ["System", "Buses N", "Branches E", "Redundancy", "|V| cov", "P_inj cov", "theta cov", "flow cov"]
+cov_rows = [[f"IEEE-{c}", DATA[c]["N"], DATA[c]["E"], f"{DATA[c]['redundancy']:.2f}",
+             f"{100*DATA[c]['cov']['V']:.0f}%", f"{100*DATA[c]['cov']['Pinj']:.0f}%",
+             f"{100*DATA[c]['cov']['theta']:.0f}%", f"{100*DATA[c]['cov']['flow']:.0f}%"] for c in SYS]
+fig = multi_table_page("Attack Families & Measurement Model",
+                       "what the attacks are, how stealthy they are, and what the meters actually see",
+                       [dict(subhead="Seven families and the bad-data-detection stealth split",
+                             cols=fam_cols, rows=fam_rows, col_widths=[0.11, 0.44, 0.13, 0.32], shade_rule=fam_shade,
+                             cap="BDD-pass is the fraction of samples that evade the chi-square detector. The stealthy families "
+                                 "(Ao/ramp/LRA, red) pass on ~90-100% — they are load-conserving, plausibility-bounded, valid states "
+                                 "— while the detectable families (Ad/As/Ar, blue) are caught. A localizer is measured on the "
+                                 "stealthy families; acing the detectable ones proves little. ramp: Haghshenas et al. (ISGT 2023); "
+                                 "LRA: Yuan et al. (2011)."),
+                        dict(subhead="Measurement coverage — fraction of each quantity metered (sparse SCADA/PMU graph)",
+                             cols=cov_cols, rows=cov_rows, col_widths=[0.16, 0.11, 0.13, 0.14, 0.11, 0.12, 0.11, 0.12],
+                             cap="Redundancy = (# measurements)/(2N-1 states), the classical observability ratio; ~2-3 is a "
+                                 "realistic EMS regime. Voltage magnitude and branch flows are widely metered; PMU angles (theta) "
+                                 "are sparse — the masks encode which meters exist per record.")])
 SIDE["families"] = ["family,description,class,bdd_pass_14,bdd_pass_118,bdd_pass_300"] + \
     [f'{f},"{SRC[f]}",{fam_rows[i][2]},{bdd_pct(14,f)},{bdd_pct(118,f)},{bdd_pct(300,f)}' for i, f in enumerate(FAMS)]
+SIDE["coverage"] = ["system,N,E,redundancy,V_cov,Pinj_cov,theta_cov,flow_cov"] + \
+    [f"{c},{DATA[c]['N']},{DATA[c]['E']},{DATA[c]['redundancy']:.3f},{DATA[c]['cov']['V']:.3f},{DATA[c]['cov']['Pinj']:.3f},{DATA[c]['cov']['theta']:.3f},{DATA[c]['cov']['flow']:.3f}" for c in SYS]
 save(fig)
 
 # ======================= Page 4: composition (TABLE) =======================
@@ -265,24 +305,7 @@ SIDE["composition"] = ["system,family,train,val,test,total"] + \
      for c in SYS for fn in FAMILIES.values() if DATA[c]["per"]["train"].get(fn,0)+DATA[c]["per"]["val"].get(fn,0)+DATA[c]["per"]["test"].get(fn,0)]
 save(fig)
 
-# ======================= Page 5: measurement model & coverage (TABLE) =======================
-cov_cols = ["System", "Buses N", "Branches E", "Redundancy", "|V| cov", "P_inj cov", "theta cov", "flow cov"]
-cov_rows = [[f"IEEE-{c}", DATA[c]["N"], DATA[c]["E"], f"{DATA[c]['redundancy']:.2f}",
-             f"{100*DATA[c]['cov']['V']:.0f}%", f"{100*DATA[c]['cov']['Pinj']:.0f}%",
-             f"{100*DATA[c]['cov']['theta']:.0f}%", f"{100*DATA[c]['cov']['flow']:.0f}%"] for c in SYS]
-fig = table_page("Measurement Model & Coverage",
-                 "sparse SCADA/PMU graph (PING: Zaman & Lin, NAPS 2025) — fraction of each quantity actually metered",
-                 cov_cols, cov_rows,
-                 "Redundancy = (# measurements)/(2N-1 states), the classical observability ratio; ~2-3 is a realistic EMS regime "
-                 "(a fully-observed set would be much higher). Voltage magnitude and branch flows are widely metered; PMU angles "
-                 "(theta) are sparse — the availability masks encode exactly which meters exist per record. Benign records are "
-                 "emitted exactly from the stored operating state (0-error AC flows); only attacks re-solve a power flow.",
-                 col_widths=[0.16, 0.11, 0.13, 0.14, 0.11, 0.12, 0.11, 0.12], height=0.16, y_table=0.66)
-SIDE["coverage"] = ["system,N,E,redundancy,V_cov,Pinj_cov,theta_cov,flow_cov"] + \
-    [f"{c},{DATA[c]['N']},{DATA[c]['E']},{DATA[c]['redundancy']:.3f},{DATA[c]['cov']['V']:.3f},{DATA[c]['cov']['Pinj']:.3f},{DATA[c]['cov']['theta']:.3f},{DATA[c]['cov']['flow']:.3f}" for c in SYS]
-save(fig)
-
-# ======================= Page 6: measurement distributions (FIGURE — genuinely distributional) =======================
+# ======================= measurement distributions (FIGURE — genuinely distributional) =======================
 fig = newpage("Figure 1 — Measurement Distributions (IEEE-118)",
               "benign vs attacked, per metered channel — where the families do (and don't) move the meters")
 gs = fig.add_gridspec(2, 2, left=0.09, right=0.96, top=0.86, bottom=0.30, wspace=0.28, hspace=0.4)
@@ -352,7 +375,7 @@ if os.path.exists(rp):
         [f'{f},{np.median(resid[f"ieee118_{f}_dP"]):.3f},{np.median(resid[f"ieee118_{f}_dQ"]):.3f}' for f in order]
     save(fig)
 
-# ======================= Page 9: localization benchmark (TABLE) =======================
+# ======================= Model benchmark: localization + detection (two tables, one page) =======================
 loc_cols = ["System", "overall"] + FAMS
 loc_rows = []
 for c in SYS:
@@ -360,18 +383,6 @@ for c in SYS:
     if not b: continue
     pf = b["per_family"]
     loc_rows.append([f"IEEE-{c}", f"{b['overall']['swf1']:.3f}"] + [f"{pf.get(f,{}).get('swf1',0):.3f}" for f in FAMS])
-fig = table_page("Localization Benchmark  (ARMA + KCL + temporal)",
-                 "per-attack-type sample-wise F1 (Boyaci swF1) on the test split — higher is better",
-                 loc_cols, loc_rows,
-                 "Reference localizer: an edge-fused ARMA spectral GNN with a KCL power-balance residual and the temporal-delta "
-                 "feature. Per-attack-type, not accuracy: LRA (structured/targeted) is the most localizable; the diffuse stealthy "
-                 "families (Ao, ramp) and the large systems are the hard cases. These are a handful of numbers per cell, so a table "
-                 "beats a bar chart — the exact values are the point.",
-                 col_widths=[0.16, 0.14] + [0.10] * 6, height=0.16, y_table=0.66)
-SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
-save(fig)
-
-# ======================= Page 10: detection (TABLE) =======================
 det_cols = ["System", "DR", "FA", "det-F1"] + ["DR:" + f for f in FAMS]
 det_rows = []
 for c in SYS:
@@ -379,39 +390,30 @@ for c in SYS:
     if not d: continue
     pfd = d.get("per_family_DR", {})
     det_rows.append([f"IEEE-{c}", f"{d['DR']:.3f}", f"{d['FA']:.3f}", f"{d['det_f1']:.3f}"] + [f"{pfd.get(f,0):.2f}" for f in FAMS])
-fig = table_page("Detection Benchmark  (grid-level)",
-                 "detection rate (DR), false-alarm rate (FA), detection F1, and per-family DR — the ML-only claim",
-                 det_cols, det_rows,
-                 "Grid-level detection score S = max over buses of the per-bus attack probability. Detection far exceeds per-bus "
-                 "localization because it aggregates evidence. The headline: the three BDD-EVADING families are detected in Boyaci "
-                 "range (Ao/ramp/LRA per-family DR well above chance) on a harder sparse-measurement dataset — ML catches what the "
-                 "classical detector cannot.",
-                 col_widths=[0.13, 0.09, 0.09, 0.10] + [0.098] * 6, fontsize=8.0, height=0.16, y_table=0.66)
-SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_"+f for f in FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
+fig = multi_table_page("Model Benchmark — Localization & Detection",
+                       "reference ARMA localizer (measurements + KCL residual + temporal delta), test split",
+                       [dict(subhead="Localization — sample-wise F1 per attack type (higher is better)",
+                             cols=loc_cols, rows=loc_rows, col_widths=[0.16, 0.14] + [0.10] * 6,
+                             cap="Per attack type, not accuracy: LRA (structured, targeted) is the most localizable; the diffuse "
+                                 "stealthy families (Ao, ramp) and the larger grids are the hard cases. A table beats a bar chart "
+                                 "here — the exact values are the point."),
+                        dict(subhead="Detection — grid-level rate (DR), false-alarm (FA), F1, and per-family DR",
+                             cols=det_cols, rows=det_rows, fontsize=8.0, col_widths=[0.13, 0.09, 0.09, 0.10] + [0.098] * 6,
+                             cap="Grid-level score S = max over buses of the per-bus attack probability. Detection far exceeds "
+                                 "per-bus localization because it aggregates evidence: the three bad-data-evading families are "
+                                 "detected in Boyaci range — ML catches what the classical detector cannot.")])
+SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
+SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_" + f for f in FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
 save(fig)
 
-# ======================= Page 11: physics-attention improvement (TABLE) =======================
-if ATTN:
-    at_cols = ["System", "loc ARMA", "loc +attn", "gain", "det ARMA", "det +attn"]
-    at_rows = []
-    for c in SYS:
-        k = f"ieee{c}"
-        if k not in ATTN: continue
-        a, h = ATTN[k]["arma"], ATTN[k]["hybrid"]
-        at_rows.append([f"IEEE-{c}", f"{a['loc']:.3f}", f"{h['loc']:.3f}", f"+{h['loc']-a['loc']:.3f}", f"{a['det']:.3f}", f"{h['det']:.3f}"])
-    fig = table_page("Physics-Biased Attention: Model Improvement",
-                     "adding a gated GATv2 attention head to the ARMA trunk (localization swF1 / detection F1)",
-                     at_cols, at_rows,
-                     "A parallel attention head, gated from 0 so the network starts identical to plain ARMA, attends anisotropically "
-                     "along physically-suspicious branches (its logits see the KCL residual + temporal delta + branch flow). It lifts "
-                     "localization on every system while holding detection — a strict-superset architecture that is now the SDK's "
-                     "default localizer (examples/train_arma.py).",
-                     col_widths=[0.18, 0.16, 0.16, 0.14, 0.18, 0.18], height=0.16, y_table=0.66)
-    SIDE["attention_ab"] = ["system,loc_arma,loc_attn,det_arma,det_attn"] + \
-        [f'ieee{c},{ATTN[f"ieee{c}"]["arma"]["loc"]},{ATTN[f"ieee{c}"]["hybrid"]["loc"]},{ATTN[f"ieee{c}"]["arma"]["det"]},{ATTN[f"ieee{c}"]["hybrid"]["det"]}' for c in SYS if f"ieee{c}" in ATTN]
-    save(fig)
-
-# ======================= Page 12: attack-resilient state estimation (TABLE) =======================
+# ======================= Model improvements: attention + state estimation (two tables, one page) =======================
+at_cols = ["System", "loc ARMA", "loc +attn", "gain", "det ARMA", "det +attn"]
+at_rows = []
+for c in SYS:
+    k = f"ieee{c}"
+    if k not in ATTN: continue
+    a, h = ATTN[k]["arma"], ATTN[k]["hybrid"]
+    at_rows.append([f"IEEE-{c}", f"{a['loc']:.3f}", f"{h['loc']:.3f}", f"+{h['loc']-a['loc']:.3f}", f"{a['det']:.3f}", f"{h['det']:.3f}"])
 se_cols = ["System", "|V| meter", "|V| WLS", "|V| NN", "|V| PINN", "th meter", "th WLS", "th NN", "th PINN"]
 se_rows = []
 for c in SYS:
@@ -420,14 +422,23 @@ for c in SYS:
     def gt(d, k): return f"{d[k]:.2f}" if d and k in d and d[k] is not None else "—"
     se_rows.append([f"IEEE-{c}", g(p, "V_mae_meter_attacked"), g(w, "V_mae_wls"), g(nn, "V_mae_se_metered_attacked"), g(p, "V_mae_se_metered_attacked"),
                     gt(p, "th_mae_meter_attacked"), gt(w, "th_mae_wls"), gt(nn, "th_mae_se_metered_attacked"), gt(p, "th_mae_se_metered_attacked")])
-fig = table_page("Attack-Resilient State Estimation",
-                 "state-recovery error on attacked buses: |V| (p.u.) and theta (deg), lower is better",
-                 se_cols, se_rows,
-                 "Given possibly-attacked measurements, recover the TRUE state. 'meter' = trust the reading; 'WLS' = classical weighted "
-                 "least squares (fooled by a stealthy attack); 'NN' = graph net, no physics; 'PINN' = + a physics-consistency loss. "
-                 "The learned estimators beat WLS and the meter on both quantities; the physics term (PINN vs NN) sharpens voltage "
-                 "in particular. On IEEE-300 the meter is off ~15 deg under attack while the PINN recovers to ~4 deg.",
-                 col_widths=[0.13] + [0.108] * 8, fontsize=7.8, height=0.16, y_table=0.66)
+blocks = []
+if at_rows:
+    blocks.append(dict(subhead="Physics-biased attention — localization swF1 / detection F1, ARMA vs + attention",
+                       cols=at_cols, rows=at_rows, col_widths=[0.18, 0.16, 0.16, 0.14, 0.18, 0.18],
+                       cap="A parallel attention head, gated from zero so the network starts identical to plain ARMA, attends "
+                           "along physically-suspicious branches. It lifts localization on every system while holding detection — "
+                           "now the SDK's default localizer."))
+blocks.append(dict(subhead="Attack-resilient state estimation — recovery error on attacked buses, |V| (p.u.) / theta (deg)",
+                   cols=se_cols, rows=se_rows, fontsize=7.8, col_widths=[0.13] + [0.108] * 8,
+                   cap="Recover the TRUE state from possibly-attacked measurements. WLS (classical) is fooled by a stealthy "
+                       "attack; the learned estimators beat it and the raw meter on both quantities, and the physics term (PINN "
+                       "vs NN) sharpens voltage. On IEEE-300 the meter is off ~15 deg under attack while the PINN recovers to ~4 deg."))
+fig = multi_table_page("Model Improvements — Attention & State Estimation",
+                       "beyond the base localizer: an attention head that raises localization, and a state estimator that recovers the true state",
+                       blocks)
+SIDE["attention_ab"] = ["system,loc_arma,loc_attn,det_arma,det_attn"] + \
+    [f'ieee{c},{ATTN[f"ieee{c}"]["arma"]["loc"]},{ATTN[f"ieee{c}"]["hybrid"]["loc"]},{ATTN[f"ieee{c}"]["arma"]["det"]},{ATTN[f"ieee{c}"]["hybrid"]["det"]}' for c in SYS if f"ieee{c}" in ATTN]
 SIDE["state_estimation"] = ["system,V_meter,V_wls,V_nn,V_pinn,th_meter,th_wls,th_nn,th_pinn"] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(se_rows)]
 save(fig)
 
