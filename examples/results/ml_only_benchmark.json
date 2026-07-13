@@ -1,0 +1,128 @@
+[
+  {
+    "system": "ieee14",
+    "N": 14,
+    "E": 20,
+    "model": "ARMA+KCL+temporal",
+    "overall": {
+      "swf1": 0.741
+    },
+    "per_family": {
+      "Ao": {
+        "swf1": 0.732
+      },
+      "Ad": {
+        "swf1": 0.858
+      },
+      "As": {
+        "swf1": 0.995
+      },
+      "Ar": {
+        "swf1": 0.566
+      },
+      "ramp": {
+        "swf1": 0.443
+      },
+      "LRA": {
+        "swf1": 0.88
+      }
+    },
+    "detection": {
+      "DR": 0.852,
+      "FA": 0.023,
+      "det_f1": 0.908,
+      "per_family_DR": {
+        "Ao": 0.895,
+        "Ad": 1.0,
+        "As": 1.0,
+        "Ar": 0.705,
+        "ramp": 0.574,
+        "LRA": 0.965
+      }
+    }
+  },
+  {
+    "system": "ieee118",
+    "N": 118,
+    "E": 186,
+    "model": "ARMA+KCL+temporal",
+    "overall": {
+      "swf1": 0.387
+    },
+    "per_family": {
+      "Ao": {
+        "swf1": 0.403
+      },
+      "Ad": {
+        "swf1": 0.338
+      },
+      "As": {
+        "swf1": 0.508
+      },
+      "Ar": {
+        "swf1": 0.159
+      },
+      "ramp": {
+        "swf1": 0.171
+      },
+      "LRA": {
+        "swf1": 0.757
+      }
+    },
+    "detection": {
+      "DR": 0.82,
+      "FA": 0.087,
+      "det_f1": 0.857,
+      "per_family_DR": {
+        "Ao": 0.853,
+        "Ad": 0.883,
+        "As": 0.938,
+        "Ar": 0.419,
+        "ramp": 0.814,
+        "LRA": 1.0
+      }
+    }
+  },
+  {
+    "system": "ieee300",
+    "N": 300,
+    "E": 411,
+    "model": "ARMA+KCL+temporal",
+    "overall": {
+      "swf1": 0.25
+    },
+    "per_family": {
+      "Ao": {
+        "swf1": 0.334
+      },
+      "Ad": {
+        "swf1": 0.047
+      },
+      "As": {
+        "swf1": 0.088
+      },
+      "Ar": {
+        "swf1": 0.017
+      },
+      "ramp": {
+        "swf1": 0.159
+      },
+      "LRA": {
+        "swf1": 0.814
+      }
+    },
+    "detection": {
+      "DR": 0.796,
+      "FA": 0.358,
+      "det_f1": 0.718,
+      "per_family_DR": {
+        "Ao": 0.964,
+        "Ad": 0.722,
+        "As": 0.755,
+        "Ar": 0.421,
+        "ramp": 0.978,
+        "LRA": 1.0
+      }
+    }
+  }
+]

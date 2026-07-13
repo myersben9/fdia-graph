@@ -1,0 +1,254 @@
+{
+  "name": "ml-only-dangerous-attacks",
+  "version": "0.3.0",
+  "description": "ML-only dangerous FDIA localization dataset: realistic sparse PING-style measurement graphs, 7 attack families (3 stealthy/BDD-evading + 3 detectable + benign), IEEE-14/118/300.",
+  "schema": {
+    "format": "HDF5 (one file per system, chunked+gzip)",
+    "graph": {
+      "edge_index": "[2,E] from/to bus (lines then trafos)",
+      "edge_reactance": "[E]"
+    },
+    "data": {
+      "node_x": "[T,N,4] = [|V|(p.u.), P_inj(MW), Q_inj(MVAr), theta(deg)]",
+      "node_m": "[T,N,4] availability mask (which node measurements exist)",
+      "edge_x": "[T,E,2] = [P_from(MW), Q_from(MVAr)] on lines+trafos",
+      "edge_m": "[T,E,2] availability mask",
+      "y": "[T,N] per-bus attack label (multi-label localization target)",
+      "family": "[T] 0benign 1Ao 2Ad 3As 4Ar 5ramp 6LRA",
+      "stealthy": "[T] 1 if the attack evades classical bad-data detection",
+      "split": "[T] 0train 1val 2test (chronological 60/20/20, seq-boundary safe)",
+      "seq_id": "[T] ramp-sequence id (>=0) else -1",
+      "timestep": "[T] source operating-point index",
+      "gap": "[T] 1 if a physics non-convergence NA row (\u22480 here)"
+    }
+  },
+  "families": {
+    "stealthy_ML_only": {
+      "Ao": "state-consistent load redistribution",
+      "ramp": "temporal creeping redistribution over multi-timestep sequences (ramp attack of Haghshenas, Hasnat & Naeini, IEEE ISGT 2023)",
+      "LRA": "targeted masked-overload (Yuan, Li & Ren, IEEE T-SG 2011)"
+    },
+    "detectable_contrast": {
+      "Ad": "random meter corruption",
+      "As": "meter scaling",
+      "Ar": "replay"
+    }
+  },
+  "protocol": {
+    "split": "60/20/20 chronological, cut on sequence boundaries (ramp seqs never straddle)",
+    "class_balance": "equal per attack family (~3k/system), constant across systems",
+    "heldout_generalization": "unseen-attack: As & Ar reserved for test-only (train/val exclude them)",
+    "metrics": "report per-attack-type node-F1 (not accuracy); stealthy families are the hard ones"
+  },
+  "measurement_model": "sparse SCADA/PMU graph, redundancy ~2-3 (PING: Zaman & Lin, NAPS 2025; PIHAN).",
+  "references": [
+    "Yuan, Li & Ren, 'Modeling load redistribution attacks in power systems', IEEE T-SG 2(2), 2011",
+    "Haghshenas, Hasnat & Naeini, 'A Temporal Graph Neural Network for Cyber Attack Detection and Localization in Smart Grids', IEEE ISGT 2023 (source of the ramp attack)",
+    "Zaman & Lin, 'PING: Physics-Informed GNNs to Generalize FDIA Localization', NAPS 2025",
+    "Boyaci et al., 'Joint Detection and Localization of Stealth FDIA', IEEE Trans. Smart Grid, 2022"
+  ],
+  "seed": 123,
+  "systems": {
+    "ieee14": {
+      "system": 14,
+      "n_buses": 14,
+      "n_branches": 20,
+      "n_records": 38000,
+      "lra_target_line": 5,
+      "size_mb": 15.9,
+      "file": "ml_only_ieee14.h5",
+      "families": {
+        "benign": {
+          "train": 12122,
+          "val": 3910,
+          "test": 3968,
+          "total": 20000,
+          "stealthy": false,
+          "bdd_pass_pct": 100
+        },
+        "Ao": {
+          "train": 1818,
+          "val": 613,
+          "test": 569,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 80
+        },
+        "Ad": {
+          "train": 1807,
+          "val": 578,
+          "test": 615,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 0
+        },
+        "As": {
+          "train": 1825,
+          "val": 584,
+          "test": 591,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 0
+        },
+        "Ar": {
+          "train": 1823,
+          "val": 587,
+          "test": 590,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 10
+        },
+        "ramp": {
+          "train": 1620,
+          "val": 720,
+          "test": 660,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 100
+        },
+        "LRA": {
+          "train": 1785,
+          "val": 608,
+          "test": 607,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 95
+        }
+      }
+    },
+    "ieee118": {
+      "system": 118,
+      "n_buses": 118,
+      "n_branches": 186,
+      "n_records": 38000,
+      "lra_target_line": 90,
+      "size_mb": 134.3,
+      "file": "ml_only_ieee118.h5",
+      "families": {
+        "benign": {
+          "train": 12019,
+          "val": 4036,
+          "test": 3945,
+          "total": 20000,
+          "stealthy": false,
+          "bdd_pass_pct": 95
+        },
+        "Ao": {
+          "train": 1785,
+          "val": 602,
+          "test": 613,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 100
+        },
+        "Ad": {
+          "train": 1740,
+          "val": 651,
+          "test": 609,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 0
+        },
+        "As": {
+          "train": 1801,
+          "val": 616,
+          "test": 583,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 0
+        },
+        "Ar": {
+          "train": 1769,
+          "val": 648,
+          "test": 583,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 15
+        },
+        "ramp": {
+          "train": 1920,
+          "val": 420,
+          "test": 660,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 95
+        },
+        "LRA": {
+          "train": 1766,
+          "val": 627,
+          "test": 607,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 100
+        }
+      }
+    },
+    "ieee300": {
+      "system": 300,
+      "n_buses": 300,
+      "n_branches": 411,
+      "n_records": 38025,
+      "lra_target_line": 170,
+      "size_mb": 331.9,
+      "file": "ml_only_ieee300.h5",
+      "families": {
+        "benign": {
+          "train": 11874,
+          "val": 4045,
+          "test": 4081,
+          "total": 20000,
+          "stealthy": false,
+          "bdd_pass_pct": 100
+        },
+        "Ao": {
+          "train": 1802,
+          "val": 565,
+          "test": 633,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 80
+        },
+        "Ad": {
+          "train": 1749,
+          "val": 621,
+          "test": 630,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 0
+        },
+        "As": {
+          "train": 1760,
+          "val": 620,
+          "test": 620,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 0
+        },
+        "Ar": {
+          "train": 1770,
+          "val": 626,
+          "test": 604,
+          "total": 3000,
+          "stealthy": false,
+          "bdd_pass_pct": 35
+        },
+        "ramp": {
+          "train": 1987,
+          "val": 671,
+          "test": 367,
+          "total": 3025,
+          "stealthy": true,
+          "bdd_pass_pct": 85
+        },
+        "LRA": {
+          "train": 1873,
+          "val": 506,
+          "test": 621,
+          "total": 3000,
+          "stealthy": true,
+          "bdd_pass_pct": 95
+        }
+      }
+    }
+  }
+}

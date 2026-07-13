@@ -1,0 +1,62 @@
+{
+  "system": "ieee300",
+  "w_phys": 0.0,
+  "per_family": {
+    "benign": {
+      "V_mae_all": 0.0018,
+      "V_mae_se_metered": 0.0019,
+      "V_mae_meter": 0.004,
+      "th_mae_se_metered": 1.115,
+      "th_mae_meter": 0.229
+    },
+    "Ao": {
+      "V_mae_all": 0.0021,
+      "V_mae_se_metered": 0.0022,
+      "V_mae_meter": 0.0081,
+      "th_mae_se_metered": 6.351,
+      "th_mae_meter": 28.854
+    },
+    "Ad": {
+      "V_mae_all": 0.0019,
+      "V_mae_se_metered": 0.0019,
+      "V_mae_meter": 0.0041,
+      "th_mae_se_metered": 1.087,
+      "th_mae_meter": 0.23
+    },
+    "As": {
+      "V_mae_all": 0.0019,
+      "V_mae_se_metered": 0.002,
+      "V_mae_meter": 0.004,
+      "th_mae_se_metered": 1.231,
+      "th_mae_meter": 0.229
+    },
+    "Ar": {
+      "V_mae_all": 0.0019,
+      "V_mae_se_metered": 0.0019,
+      "V_mae_meter": 0.0041,
+      "th_mae_se_metered": 1.345,
+      "th_mae_meter": 0.368
+    },
+    "ramp": {
+      "V_mae_all": 0.0021,
+      "V_mae_se_metered": 0.0022,
+      "V_mae_meter": 0.0105,
+      "th_mae_se_metered": 5.864,
+      "th_mae_meter": 39.054
+    },
+    "LRA": {
+      "V_mae_all": 0.0021,
+      "V_mae_se_metered": 0.0022,
+      "V_mae_meter": 0.0088,
+      "th_mae_se_metered": 6.443,
+      "th_mae_meter": 31.473
+    }
+  },
+  "overall": {
+    "V_mae_all": 0.0019,
+    "V_mae_se_metered_attacked": 0.002,
+    "V_mae_meter_attacked": 0.0063,
+    "th_mae_se_metered_attacked": 3.578,
+    "th_mae_meter_attacked": 15.151
+  }
+}
