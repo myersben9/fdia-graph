@@ -519,8 +519,8 @@ SIDE["state_estimation"] = ["system,V_meter,V_wls,V_nn,V_pinn,th_meter,th_wls,th
 save(fig)
 
 # ======================= Page 13: protocol + critical analysis (prose) =======================
-fig = newpage("Evaluation Protocol & Honest Notes",
-              "how the benchmark is scored, and what the results do and do not claim")
+fig = newpage("Evaluation Protocol & Threat Model",
+              "how the benchmark is scored, and what we assume about the attacker")
 prose(fig, [
  ("Split and metrics", [
   "60/20/20 chronological split, cut on sequence boundaries so a ramp never straddles train and test — a random "
@@ -529,13 +529,28 @@ prose(fig, [
   "Localization = sample-wise F1 (predicted attacked set vs truth).  Detection = grid-level DR / FA / detection-F1.",
   "Unseen-attack protocol available via load(..., heldout=True), which reserves As and Ar for test only.",
  ]),
+ ("Threat model and assumptions", [
+  "We assume a strong, system-aware attacker, consistent with the stealthy FDIA literature (Liu et al. 2009; "
+  "Boyaci et al. 2022): evading bad-data detection requires knowing the topology and coordinating the affected meters.",
+  "The state-level attacks re-solve the full power flow, so they present a fully consistent fake across the network "
+  "— near the worst case for a defender, which is deliberate but worth stating plainly.",
+  "This is optimistic about reach: the change follows the flow paths across the system, so it assumes broad meter "
+  "access. A limited-access attacker who can only compromise a bounded set of meters would leave a small residual "
+  "at the boundary of the controlled region and be somewhat easier to catch. Bounding the attacker's reach is future work.",
+ ]),
+], top=0.895)
+save(fig)
+
+fig = newpage("What the Results Say, and Honest Notes",
+              "what the numbers do and do not claim, and how to reproduce them")
+prose(fig, [
  ("What the results say", [
   "The stealthy families are hard by construction (they pass every classical check), so localization on Ao, ramp "
   "and the larger grids is modest and honest — a difficult benchmark, not a solved one.",
   "Detection aggregates evidence across the grid and reaches Boyaci range on the bad-data-evading families — the "
   "ML-only thesis.",
-  "Physics-biased attention improves localization on every system.",
-  "A physics-informed state estimator recovers the true state that a fooled weighted-least-squares estimator cannot.",
+  "Physics-biased attention improves localization on every system, and a physics-informed state estimator recovers "
+  "the true state that a fooled weighted-least-squares estimator cannot.",
  ]),
  ("Honest limitations", [
   "Temporal windowing did not rescue ramp localization: over a short window, ramp's per-step creep is smaller than "
