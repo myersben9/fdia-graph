@@ -4,7 +4,9 @@ Refactored from the validated reference generator into a knob-driven class. Requ
 (pip install 'fdia-graph[generate]'). Benign records are emitted EXACTLY from a stored operating state
 (0-error AC flows, no re-solve); only attacks re-solve a power flow. Attack families:
   Ao   state-consistent load redistribution (stealthy)
-  ramp temporal creeping redistribution, multi-timestep sequence (stealthy)
+  ramp temporal creeping redistribution over a multi-timestep sequence (stealthy); ramp attack of
+       Haghshenas, Hasnat & Naeini, "A Temporal Graph Neural Network for Cyber Attack Detection and
+       Localization in Smart Grids", IEEE ISGT 2023
   LRA  targeted masked-overload, Yuan/Li/Ren IEEE T-SG 2011 (stealthy)
   Ad/As/Ar  measurement-level corruption (BDD-detectable contrast set)
 """

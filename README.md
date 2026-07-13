@@ -22,7 +22,7 @@ Most FDIA benchmarks contain attacks a bad-data detector (BDD) catches, so "ML b
 | Family | Type | Classical BDD |
 |--------|------|---------------|
 | `Ao`   | state-consistent load redistribution | **evades (stealthy)** |
-| `ramp` | slow temporal creeping redistribution (multi-timestep) | **evades (stealthy)** |
+| `ramp` | slow temporal creeping redistribution, multi-timestep (Haghshenas et al., IEEE ISGT 2023) | **evades (stealthy)** |
 | `LRA`  | targeted masked-overload (Yuan, Li & Ren, IEEE T-SG 2011) | **evades (stealthy)** |
 | `Ad`   | random meter corruption | caught |
 | `As`   | meter scaling | caught |
@@ -70,7 +70,7 @@ Datasets are GitHub **releases**, so your group version-controls them:
 
 ```python
 fg.load("ieee118")                      # newest release (default — everyone stays current)
-fg.load("ieee118", release="v0.1.0")    # pin an exact version for a reproducible experiment
+fg.load("ieee118", release="v0.3.0")    # pin an exact version for a reproducible experiment
 ```
 
 ## Generate a custom dataset (research knobs)
@@ -93,9 +93,59 @@ ds = fg.load("high_intensity", split="train")   # your custom dataset, ready to 
 
 Generation ships with compact operating-point **pools** (a few MB/system), so you never need the raw simulation data. Benign records are emitted *exactly* from the stored operating state (0-error AC flows); only attacks re-solve a power flow.
 
-## Schema (per record)
+## Schema
 
-`node_x [N,4]` = `[|V|, P_inj, Q_inj, θ]` · `node_m [N,4]` mask · `edge_x [E,2]` = `[P_from, Q_from]` · `edge_m [E,2]` mask · `edge_index [2,E]` · `y [N]` per-bus attack label · `family` · `stealthy` · `seq_id` · `timestep`.
+One HDF5 file per system (`ml_only_ieee{14,118,300}.h5`), with `N` = buses and `E` = branches (lines + transformers). The **static graph** is stored once; everything else is **per record** (`T` records total). A record is one realistic measurement snapshot — benign or attacked.
+
+**Static graph** (read once, shared by every record):
+
+| Field | Shape | Dtype | Meaning |
+|-------|-------|-------|---------|
+| `edge_index`     | `[2, E]` | int64   | `[from_bus; to_bus]` for each branch (lines first, then transformers) |
+| `edge_reactance` | `[E]`    | float32 | per-branch reactance (p.u.) — handy for physics-informed models |
+
+**Per-record measurement graph** (indexed `0 … T-1`; access one via `ds[i]`, or a whole split via `ds.to_numpy()`):
+
+| Field | Shape | Dtype | Meaning |
+|-------|-------|-------|---------|
+| `node_x`         | `[N, 4]` | float32 | node features `[ \|V\| (p.u.),  P_inj (MW),  Q_inj (MVAr),  θ (deg) ]` |
+| `node_m`         | `[N, 4]` | float32 | node **availability mask** (1 = that meter exists at that bus, else 0; masked entries are zeroed) |
+| `edge_x`         | `[E, 2]` | float32 | branch-flow features `[ P_from (MW),  Q_from (MVAr) ]` |
+| `edge_m`         | `[E, 2]` | float32 | edge availability mask |
+| `y`              | `[N]`    | float32 | **localization target** — per-bus label, `1` = bus is attacked, `0` = clean |
+| `temporal_delta` | `[N, 2]` | float32 | *(v0.3+)* current-minus-previous-scan injection `[ΔP_inj, ΔQ_inj]` — the temporal feature for replay/ramp |
+| `family`         | scalar   | int     | `0` benign · `1` Ao · `2` Ad · `3` As · `4` Ar · `5` ramp · `6` LRA |
+| `stealthy`       | scalar   | int     | `1` if the attack evades classical bad-data detection (Ao/ramp/LRA), else `0` |
+| `split`          | scalar   | int     | `0` train · `1` val · `2` test (60/20/20 chronological, sequence-boundary safe) |
+| `seq_id`         | scalar   | int     | ramp-sequence id (`≥0` groups the scans of one multi-timestep ramp); `-1` otherwise |
+| `timestep`       | scalar   | int     | source operating-point index (the benign snapshot the record was built from) |
+| `gap`            | scalar   | int     | `1` if this is a physics non-convergence NA row (`≈0%` in the shipped data) |
+
+Sparsity is real: `node_m`/`edge_m` encode a redundancy of ≈ 2–3 (a realistic EMS regime), so a model must consume the masks — not every bus is metered, and PMU angles (`θ`) are sparse.
+
+## Project structure
+
+```
+fdia-graph/
+├── pyproject.toml              # package metadata, deps, optional extras ([torch], [pyg], [generate], [all])
+├── README.md                   # this file
+├── src/fdia_graph/
+│   ├── __init__.py             # public API: load() and generate()  ← start here
+│   ├── registry.py             # dataset version control: name → GitHub release + file; latest vs pinned; cache dir
+│   ├── download.py             # fetches release-asset .h5 shards (private-repo token auth) → ~/.cache/fdia_graph
+│   ├── dataset.py              # FdiaGraph: torch Dataset over one .h5 (lazy slicing, split/family filters, exporters)
+│   ├── generate.py             # generate(): tunable-knob dataset creation → new .h5, registered by name
+│   └── _core.py                # generation engine: physics (Ybus/PTDF) + the 7 attack families
+└── examples/
+    ├── quickstart.py           # smallest load → train loop
+    ├── train_gnn.py            # baseline GNN localizer
+    ├── train_arma.py           # ARMA + physics-biased attention localizer (the strong model)
+    ├── train_tgnn.py           # temporal-graph localizer
+    ├── hpo_arma.py             # Optuna hyperparameter search (Boyaci-style space)
+    └── reproduce_report.ipynb  # end-to-end notebook: generate → figures → train/test
+```
+
+Read order to understand the codebase: `__init__.py` (the two entry points) → `registry.py`/`download.py` (how a name becomes a local `.h5`) → `dataset.py` (how that `.h5` becomes tensors) → `generate.py`/`_core.py` (how new datasets are made). Every module is commented line-by-line.
 
 ## Evaluation protocol
 
@@ -105,9 +155,10 @@ Generation ships with compact operating-point **pools** (a few MB/system), so yo
 
 If you use this dataset, please cite the attack model and measurement-model sources:
 
-- Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE Trans. Smart Grid 2(2), 2011.
-- Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025.
-- Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE Trans. Smart Grid, 2022.
+- Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE Trans. Smart Grid 2(2), 2011. *(LRA attack)*
+- Haghshenas, Hasnat & Naeini, *A Temporal Graph Neural Network for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023. *(ramp attack)*
+- Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025. *(measurement model)*
+- Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE Trans. Smart Grid, 2022. *(protocol)*
 
 ## License
 
