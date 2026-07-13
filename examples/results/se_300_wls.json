@@ -1,0 +1,45 @@
+{
+  "system": "ieee300",
+  "per_family": {
+    "benign": {
+      "V_mae_wls": 0.0004,
+      "th_mae_wls": 0.049,
+      "n_conv": 50
+    },
+    "Ao": {
+      "V_mae_wls": 0.0053,
+      "th_mae_wls": 27.944,
+      "n_conv": 50
+    },
+    "Ad": {
+      "V_mae_wls": 0.0012,
+      "th_mae_wls": 0.13,
+      "n_conv": 50
+    },
+    "As": {
+      "V_mae_wls": 0.0008,
+      "th_mae_wls": 0.097,
+      "n_conv": 50
+    },
+    "Ar": {
+      "V_mae_wls": 0.0006,
+      "th_mae_wls": 0.178,
+      "n_conv": 50
+    },
+    "ramp": {
+      "V_mae_wls": 0.0079,
+      "th_mae_wls": 40.383,
+      "n_conv": 50
+    },
+    "LRA": {
+      "V_mae_wls": 0.0055,
+      "th_mae_wls": 29.736,
+      "n_conv": 50
+    }
+  },
+  "n_fail": 0,
+  "overall_attacked": {
+    "V_mae_wls": 0.0036,
+    "th_mae_wls": 16.411
+  }
+}

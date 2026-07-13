@@ -72,19 +72,30 @@ def save(fig):
     PAGENO[0] += 1; footer(fig, PAGENO[0]); pdf.savefig(fig); plt.close(fig)
 
 
-def prose(fig, sections, x=0.075, top=0.885, width=104, heading_gap=0.020, para_gap=0.026, lh=0.0175):
+def prose(fig, sections, x=0.075, top=0.885, width=100, heading_gap=0.023, para_gap=0.030, lh=0.0188,
+          fs=9.6, bullet_gap=0.008):
     """Lay out (heading, body) sections with editorial hierarchy: a bold sans sub-head with a short accent
-    tick, then justified serif body with real leading. Returns the y it ended at."""
+    tick, then body. body is EITHER a string (justified serif paragraph) OR a list of strings rendered as
+    a bulleted list (hanging indent, accent bullet) — bullets for enumerable notes, prose for definitions."""
     y = top
-    for heading, bodytext in sections:
+    for heading, body in sections:
         if heading:
-            fig.add_artist(plt.Line2D([x, x + 0.022], [y + 0.004, y + 0.004], color=ACCENT, lw=2.2))
-            fig.text(x + 0.030, y, heading, ha="left", va="top", fontsize=10.5, weight="bold", color=INK)
+            fig.add_artist(plt.Line2D([x, x + 0.024], [y + 0.004, y + 0.004], color=ACCENT, lw=2.4))
+            fig.text(x + 0.032, y, heading, ha="left", va="top", fontsize=11, weight="bold", color=INK)
             y -= heading_gap
-        for ln in bodytext.split("\n"):
-            for wl in (textwrap.wrap(ln, width) or [""]):
-                fig.text(x, y, wl, ha="left", va="top", fontsize=9.2, color="#33404c", family="serif")
-                y -= lh
+        if isinstance(body, (list, tuple)):                       # bulleted notes
+            for item in body:
+                lines = textwrap.wrap(item, width - 3) or [""]
+                fig.text(x + 0.006, y, "•", ha="left", va="top", fontsize=fs + 1, color=ACCENT, weight="bold")
+                for k, wl in enumerate(lines):                    # hanging indent under the bullet
+                    fig.text(x + 0.026, y, wl, ha="left", va="top", fontsize=fs, color="#33404c", family="serif")
+                    y -= lh
+                y -= bullet_gap
+        else:                                                     # paragraph
+            for ln in body.split("\n"):
+                for wl in (textwrap.wrap(ln, width) or [""]):
+                    fig.text(x, y, wl, ha="left", va="top", fontsize=fs, color="#33404c", family="serif")
+                    y -= lh
         y -= para_gap
     return y
 
@@ -152,20 +163,24 @@ prose(fig, [
   "injections, voltage magnitudes and sparse PMU angles as node features, with per-measurement availability "
   "masks. Redundancy is roughly 2-3, the regime a real energy-management system operates in — not the fully-"
   "observed idealization most FDIA benchmarks assume."),
- ("Seven families, split by detectability",
-  "Three stealthy families evade bad-data detection and are the hard, dangerous cases: Ao (state-consistent load "
-  "redistribution), ramp (a slow multi-timestep creep), and LRA (a targeted masked-overload). Three detectable "
-  "families — Ad, As, Ar — form a contrast set that a bad-data detector catches. This split is the point: on this "
-  "data, “ML beats a detector” is a genuine result rather than a rigged one."),
- ("What this report covers",
-  "The data dictionary and schema; the attack families and their bad-data-detection stealth split; the class "
-  "composition and chronological split; the measurement model and coverage; the measurement distributions and "
-  "spatial attack pattern; how far each family moves the true state; and the model results — localization, "
-  "detection, the physics-biased-attention gain, and an attack-resilient physics-informed state estimator."),
+ ("Seven families, split by detectability", [
+  "Stealthy (evade bad-data detection — the hard, dangerous cases):  Ao, a state-consistent load "
+  "redistribution;  ramp, a slow multi-timestep creep;  LRA, a targeted masked-overload.",
+  "Detectable (a contrast set a bad-data detector catches):  Ad, random meter corruption;  As, meter scaling;  "
+  "Ar, replay of a past scan.",
+  "The split is the point: on this data, “ML beats a detector” is a genuine result, not a rigged one.",
+ ]),
+ ("What this report covers", [
+  "The data dictionary and schema, and the attack families with their bad-data-detection stealth split.",
+  "Class composition and the chronological split; the measurement model and coverage.",
+  "The measurement distributions, the spatial attack pattern, and how far each family moves the true state.",
+  "Model results: localization, detection, the physics-biased-attention gain, and an attack-resilient "
+  "physics-informed state estimator.",
+ ]),
  ("Reproducibility",
   "Every number in this report is loaded from the installed package (fdia_graph.load) or the result files in "
   "examples/results/. Run  python dataset_report.py  to regenerate this document end to end."),
-], top=0.885)
+], top=0.895)
 tot = sum(sum(DATA[c]["per"][s].values()) for c in SYS for s in SPLITS)
 fig.add_artist(plt.Line2D([0.07, 0.93], [0.175, 0.175], color=RULE, lw=0.6))
 fig.text(0.5, 0.155, f"3 systems     {tot:,} records     7 attack families     release v0.3.0",
@@ -420,30 +435,34 @@ save(fig)
 fig = newpage("Evaluation Protocol & Honest Notes",
               "how the benchmark is scored, and what the results do and do not claim")
 prose(fig, [
- ("Split and metrics",
-  "The split is 60/20/20 chronological, cut on sequence boundaries so a ramp never straddles train and test — a "
-  "random shuffle would leak it (Boyaci et al., 2022; PING, NAPS 2025) — with an equal count per attack family. "
-  "Metrics are reported per attack type; a pooled accuracy or F1 hides the stealthy families behind the easy "
-  "ones. Localization is sample-wise F1 (predicted attacked set versus truth); detection is grid-level detection "
-  "rate, false-alarm rate and detection-F1. An unseen-attack protocol is available via load(..., heldout=True), "
-  "which reserves As and Ar for test only."),
- ("What the results say",
-  "The stealthy families are hard by construction — they pass every classical check — so localization on Ao, ramp "
-  "and the larger grids is modest and honest; this is a difficult benchmark, not a solved one. Detection, which "
-  "aggregates evidence across the grid, reaches Boyaci range on the bad-data-evading families, which is the "
-  "ML-only thesis. Physics-biased attention improves localization on every system, and a physics-informed state "
-  "estimator recovers the true state that a fooled weighted-least-squares estimator cannot."),
- ("Honest limitations",
+ ("Split and metrics", [
+  "60/20/20 chronological split, cut on sequence boundaries so a ramp never straddles train and test — a random "
+  "shuffle would leak it (Boyaci et al., 2022; PING, NAPS 2025). Equal count per attack family.",
+  "Report per attack type — a pooled accuracy or F1 hides the stealthy families behind the easy ones.",
+  "Localization = sample-wise F1 (predicted attacked set vs truth).  Detection = grid-level DR / FA / detection-F1.",
+  "Unseen-attack protocol available via load(..., heldout=True), which reserves As and Ar for test only.",
+ ]),
+ ("What the results say", [
+  "The stealthy families are hard by construction (they pass every classical check), so localization on Ao, ramp "
+  "and the larger grids is modest and honest — a difficult benchmark, not a solved one.",
+  "Detection aggregates evidence across the grid and reaches Boyaci range on the bad-data-evading families — the "
+  "ML-only thesis.",
+  "Physics-biased attention improves localization on every system.",
+  "A physics-informed state estimator recovers the true state that a fooled weighted-least-squares estimator cannot.",
+ ]),
+ ("Honest limitations", [
   "Temporal windowing did not rescue ramp localization: over a short window, ramp's per-step creep is smaller than "
-  "benign load drift, so it stays hard — a documented negative result, not an oversight. The state estimator "
-  "recovers state, not attack labels; a large state correction is a useful signal, but naming the attacked buses "
-  "remains the localizer's job. And because voltage magnitude barely moves under the stealthy families, |V| alone "
-  "is a weak detector."),
- ("Reproduce",
-  "Dataset-intrinsic tables and figures are computed live from fdia_graph.load(...); model results are read from "
-  "examples/results/, produced by the benchmark and state-estimator scripts. Regenerate the whole document with  "
-  "python dataset_report.py."),
-], top=0.885)
+  "benign load drift, so it stays hard — a documented negative result, not an oversight.",
+  "The state estimator recovers state, not attack labels; a large state correction is a signal, but naming the "
+  "attacked buses remains the localizer's job.",
+  "Voltage magnitude barely moves under the stealthy families, so |V| alone is a weak detector.",
+ ]),
+ ("Reproduce", [
+  "Dataset-intrinsic tables and figures are computed live from fdia_graph.load(...).",
+  "Model results are read from examples/results/, produced by the benchmark and state-estimator scripts.",
+  "Regenerate the whole document with  python dataset_report.py.",
+ ]),
+], top=0.895)
 save(fig)
 
 pdf.close()
