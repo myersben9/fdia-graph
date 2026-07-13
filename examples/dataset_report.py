@@ -318,6 +318,43 @@ caption(fig, "State-level attacks move the whole state, including voltage and an
              "as the label y, which is the localization target.", y=Y[0] - 0.010)
 save(fig)
 
+# ======================= Attack generation steps =======================
+fig = newpage("How the Attacks Are Generated",
+              "the step-by-step pipeline from a clean operating point to a labeled attacked sample")
+Y[0] = 0.865
+def steps(title, color, items):
+    fig.add_artist(plt.Line2D([x0, x0 + 0.026], [Y[0] + 0.004, Y[0] + 0.004], color=color, lw=2.8))
+    put(title, 0.034, 10.5, INK, "sans-serif", bold=True); Y[0] -= 0.033
+    for k, s in enumerate(items, 1):
+        put(f"{k}.", 0.020, 10, ACCENT, "serif", bold=True)
+        for wl in textwrap.wrap(s, 94):
+            put(wl, 0.058, 9.8, "#33404c", "serif"); Y[0] -= 0.0188
+        Y[0] -= 0.007
+    Y[0] -= 0.017
+steps("State-level attacks   (Ao, ramp, LRA)", STEAL, [
+ "Start from a clean operating point, the true grid state at a timestep t.",
+ "Rebuild the bus loads from that state. Net injection plus the generator setpoints gives the gross load.",
+ "Change the loads at the chosen attacked buses: scale them for Ao, ramp them up across a sequence for ramp, "
+ "or add a load-conserving PTDF-targeted shift for LRA.",
+ "Re-solve a full AC power flow for the new loads with pandapower. If it does not converge, discard the sample "
+ "and try another timestep.",
+ "Read every meter off the solved state, the voltages, angles, injections, and line flows, and add sensor noise.",
+ "Record the attacked bus set as the label y, then check that the sample passes bad-data detection.",
+])
+steps("Meter-level attacks   (Ad, As, Ar)", DET, [
+ "Start from the clean measurements at a timestep, read directly off the true state.",
+ "Pick the attacked buses.",
+ "Corrupt only those buses' meters: add random noise for Ad, scale the readings for As, or paste in a distant "
+ "past scan for Ar.",
+ "Record the attacked bus set as the label y. These fail bad-data detection by construction.",
+])
+caption(fig, "The same pipeline runs for IEEE-14, 118, and 300, and benign samples simply skip the attack step and "
+             "are read straight off the true state. Everything is seeded, so the dataset regenerates identically each "
+             "time. The re-solve in the state-level pipeline is what keeps every reading mutually consistent, which is "
+             "why those attacks pass detection, while the meter-level attacks change a few readings and leave a "
+             "detectable inconsistency.", y=Y[0] - 0.004)
+save(fig)
+
 # ======================= Page 4: composition (TABLE) =======================
 comp_cols = ["System", "Family", "Train", "Val", "Test", "Total"]
 comp_rows = []; section_rows = set()
