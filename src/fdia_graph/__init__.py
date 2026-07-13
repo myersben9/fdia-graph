@@ -31,7 +31,40 @@ from .download import ensure_local
 __version__ = "0.3.1"
 # The public surface: what `from fdia_graph import *` exposes and what we advertise as stable API.
 # Note register_local/resolve/ensure_local are intentionally NOT here — they're internal plumbing.
-__all__ = ["load", "generate", "list_datasets", "FdiaGraph", "FAMILIES", "STEALTHY_FAMILIES"]
+__all__ = ["load", "generate", "load_profile", "fetch_profile", "generate_states",
+           "list_datasets", "FdiaGraph", "FAMILIES", "STEALTHY_FAMILIES"]
+
+
+def fetch_profile(iso, start, end, out=None):
+    """Auto-download an ISO system-load series and return a normalized scaling vector S [T].
+
+    iso is "caiso"/"nyiso"/"ercot"; start/end are 'YYYY-MM-DD'. NYISO needs no account or extra deps;
+    CAISO/ERCOT use the gridstatus package (pip install 'fdia-graph[iso]'). See fdia_graph.profiles.
+    Feed the result to generate_states(). Requires the generation extra.
+    """
+    from .profiles import fetch_profile as _fetch_profile
+    return _fetch_profile(iso, start, end, out=out)
+
+
+def load_profile(source, path=None, column=None):
+    """Ingest a load time series into a normalized scaling vector S [T] (see fdia_graph.profiles).
+
+    Pluggable front of the pipeline: `source` is "caiso"/"nyiso" (+ a `path` to the ISO CSV directory),
+    a generic CSV path (+ `column`), or an array of raw load values. Swap sources/time periods freely.
+    Requires the generation extra: pip install 'fdia-graph[generate]'.
+    """
+    from .profiles import load_profile as _load_profile
+    return _load_profile(source, path=path, column=column)
+
+
+def generate_states(system, profile, **knobs):
+    """Turn a load profile into a pool of AC operating states [T,N,4] to inject attacks onto.
+
+    Pass the result straight to generate(system, name, states=...). Knobs: k, sigma, clip, n, seed
+    (see fdia_graph.profiles.generate_states). Requires the generation extra.
+    """
+    from .profiles import generate_states as _generate_states
+    return _generate_states(system, profile, **knobs)
 
 
 def load(name, split=None, families=None, include_gaps=False, heldout=False, format="torch", release=None):

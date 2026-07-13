@@ -35,6 +35,11 @@ def _load_states(system, states, pool_cap=8000):
     timeline, preserving daily/seasonal load variety) rather than reading every file — that read is what
     made a naive load take minutes.
     """
+    # In-memory pool: profiles.generate_states(...) returns a [T,N,4] array; accept it directly so the whole
+    # pipeline (load_profile -> generate_states -> generate) can run without touching disk. (Checked before the
+    # `or` below because a numpy array has no unambiguous truth value.)
+    if isinstance(states, np.ndarray):
+        return states.astype(np.float64)
     # Resolve the source: caller-supplied `states` wins, else the FDIA_GRAPH_INIT env var, else None (downloaded later).
     src = states or os.environ.get("FDIA_GRAPH_INIT")
     if src and os.path.isdir(src):

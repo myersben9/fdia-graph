@@ -36,9 +36,12 @@ Each record is a **PING-style measurement graph** (branch flows as edge features
 pip install fdia-graph              # loader (numpy + h5py)
 pip install "fdia-graph[torch]"     # + PyTorch Dataset/DataLoader
 pip install "fdia-graph[pyg]"       # + torch_geometric graph format
-pip install "fdia-graph[generate]"  # + pandapower, to generate custom datasets
+pip install "fdia-graph[generate]"  # + pandapower, to generate custom datasets from load profiles
+pip install "fdia-graph[iso]"       # + gridstatus, to auto-download CAISO/ERCOT load profiles
 pip install "fdia-graph[all]"       # everything
 ```
+
+Everything is delivered from this package and its GitHub releases — datasets, operating-point pools, and (with `[generate]`) the whole simulation pipeline. There is no separate data drop to sync.
 
 ## Load
 
@@ -93,6 +96,26 @@ ds = fg.load("high_intensity", split="train")   # your custom dataset, ready to 
 
 Generation ships with compact operating-point **pools** (a few MB/system), so you never need the raw simulation data. Benign records are emitted *exactly* from the stored operating state (0-error AC flows); only attacks re-solve a power flow.
 
+## Own the whole pipeline: your own load profiles
+
+The pools above are pre-built, but you can build your own from real grid load — swap in data from a different ISO or a different time period and regenerate everything. The front of the pipeline is two functions:
+
+```python
+# 1. Get a load profile. Auto-download real system load at 5-minute resolution (the finest each ISO
+#    publishes), or bring your own series.
+S = fg.fetch_profile("nyiso", "2024-01-01", "2024-06-30")   # NYISO — no account, no extra deps
+S = fg.fetch_profile("caiso", "2024-01-01", "2024-06-30")   # CAISO — needs fdia-graph[iso]
+S = fg.fetch_profile("ercot", "2024-01-01", "2024-06-30")   # ERCOT — needs fdia-graph[iso]
+S = fg.load_profile(my_load_array)                          # or a CSV / a numpy array of load values
+
+# 2. Turn the profile into a pool of AC operating states, then generate attacks onto it.
+states = fg.generate_states("ieee118", S)                   # [T, N, 4] via pandapower power flow
+fg.generate(118, name="ieee118_nyiso_2024", states=states, per_family=5000)
+ds = fg.load("ieee118_nyiso_2024", split="train")
+```
+
+`fetch_profile` returns a normalized per-timestep scaling vector; `generate_states` scales each bus's load by `clip(1 + k·S_t + noise)`, solves the power flow, and records the clean, bad-data-consistent state. Switching load source or time window is a one-line change, so the same grid can be re-generated under many demand regimes. Requires `fdia-graph[generate]` (`[iso]` too for CAISO/ERCOT).
+
 ## Schema
 
 One HDF5 file per system (`ml_only_ieee{14,118,300}.h5`), with `N` = buses and `E` = branches (lines + transformers). The **static graph** is stored once; everything else is **per record** (`T` records total). A record is one realistic measurement snapshot — benign or attacked.
@@ -127,13 +150,14 @@ Sparsity is real: `node_m`/`edge_m` encode a redundancy of ≈ 2–3 (a realisti
 
 ```
 fdia-graph/
-├── pyproject.toml              # package metadata, deps, optional extras ([torch], [pyg], [generate], [all])
+├── pyproject.toml              # package metadata, deps, optional extras ([torch], [pyg], [generate], [iso], [all])
 ├── README.md                   # this file
 ├── src/fdia_graph/
-│   ├── __init__.py             # public API: load() and generate()  ← start here
+│   ├── __init__.py             # public API: load(), generate(), fetch_profile/load_profile/generate_states  ← start here
 │   ├── registry.py             # dataset version control: name → GitHub release + file; latest vs pinned; cache dir
 │   ├── download.py             # fetches release-asset .h5 shards (private-repo token auth) → ~/.cache/fdia_graph
 │   ├── dataset.py              # FdiaGraph: torch Dataset over one .h5 (lazy slicing, split/family filters, exporters)
+│   ├── profiles.py             # front of the pipeline: ISO load download (CAISO/NYISO/ERCOT) → operating states
 │   ├── generate.py             # generate(): tunable-knob dataset creation → new .h5, registered by name
 │   └── _core.py                # generation engine: physics (Ybus/PTDF) + the 7 attack families
 └── examples/
