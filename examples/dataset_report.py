@@ -334,8 +334,10 @@ def steps(title, color, items):
 steps("State-level attacks   (Ao, ramp, LRA)", STEAL, [
  "Start from a clean operating point, the true grid state at a timestep t.",
  "Rebuild the bus loads from that state. Net injection plus the generator setpoints gives the gross load.",
- "Change the loads at the chosen attacked buses: scale them for Ao, ramp them up across a sequence for ramp, "
- "or add a load-conserving PTDF-targeted shift for LRA.",
+ "Choose the attacked bus SET (drawn at random per record, so it is not memorizable): Ao hits 4 load buses; "
+ "ramp holds a fixed set of 5 load buses across its whole sequence; LRA hits the PTDF-selected up-set and "
+ "down-set (roughly 12 buses split between load increases and decreases). Then change their loads: a bounded "
+ "scaling for Ao, a slow ramp for ramp, or a load-conserving PTDF-targeted shift for LRA.",
  "Re-solve a full AC power flow for the new loads with pandapower. If it does not converge, discard the sample "
  "and try another timestep.",
  "Read every meter off the solved state and add sensor noise. Because a power flow is coupled, the re-solve "
@@ -345,7 +347,7 @@ steps("State-level attacks   (Ao, ramp, LRA)", STEAL, [
 ])
 steps("Meter-level attacks   (Ad, As, Ar)", DET, [
  "Start from the clean measurements at a timestep, read directly off the true state.",
- "Pick the attacked buses.",
+ "Pick the attacked bus set: Ad, As, and Ar each hit 4 randomly-chosen load buses (and their incident branches).",
  "Corrupt only those buses' meters: add random noise for Ad, scale the readings for As, or paste in a distant "
  "past scan for Ar.",
  "Record the attacked bus set as the label y. These fail bad-data detection by construction.",
@@ -356,6 +358,144 @@ caption(fig, "The same pipeline runs for IEEE-14, 118, and 300, and benign sampl
              "why those attacks pass detection, while the meter-level attacks change a few readings and leave a "
              "detectable inconsistency.", y=Y[0] - 0.004)
 save(fig)
+
+# ======================= Attack insertion: previous vs current design =======================
+fig = newpage("Attack Insertion — Previous vs Current Design",
+              "how the generator decides WHEN to place an attack, HOW LARGE it is, and how it PROGRESSES in time")
+Y[0] = 0.872
+intro = ("The generator was redesigned. The previous pipeline walked one long measurement timeline and crafted each "
+         "stealthy Ao attack by a per-sample gradient-descent optimization. The current pipeline samples a pool of "
+         "physical operating points and makes stealthy attacks by changing a bounded, plausible load and re-solving "
+         "the power flow, so stealth is achieved by construction rather than by optimization.")
+for wl in textwrap.fill(intro, 106).split("\n"):
+    put(wl, 0, 8.8, "#33404c"); Y[0] -= 0.0185
+Y[0] -= 0.013
+
+def axis(title):
+    fig.add_artist(plt.Line2D([x0, x0 + 0.026], [Y[0] + 0.004, Y[0] + 0.004], color=ACCENT, lw=2.8))
+    put(title, 0.034, 10.5, INK, "sans-serif", bold=True); Y[0] -= 0.029
+
+def side(tag, txt, color):
+    put(tag, 0.020, 9.2, color, "sans-serif", bold=True)
+    for wl in textwrap.wrap(txt, 92):
+        put(wl, 0.105, 9.2, "#33404c", "serif"); Y[0] -= 0.0180
+    Y[0] -= 0.007
+
+axis("Stealthy-attack mechanism   (the biggest change)")
+side("Previous", "Ao was solved per sample: about 1000 epochs of gradient descent tuned a fake measurement vector to "
+                 "be both bad-data-stealthy and load-plausible, tampering the readings directly (a soft a = Hc).", MUTE)
+side("Current", "Ao scales the load at the target buses by a bounded factor and re-solves a full AC power flow, then "
+                "reads clean meters off the new state. The result is a genuine, mutually consistent operating point that "
+                "passes detection by construction. Cheaper, exact, and a defensible threat model.", INK)
+
+axis("Placement   (when an attack is inserted)")
+side("Previous", "Timeline-driven: every one of the ~86,400 timesteps was labeled with a family in sequence, via a "
+                 "datatype map over the whole horizon.", MUTE)
+side("Current", "Pool-driven: benign draws n_benign distinct random timesteps; each single-shot family retries random "
+                "timesteps until per_family samples converge (hard cap of per_family x 25 attempts), so a "
+                "non-converging operating point costs time, not sample count.", INK)
+
+axis("Magnitude   (how large the attack is)")
+side("Previous", "The attacked set was a graph-radius ball around an entry bus (r = 2-4 hops, capped at 15 buses). Size "
+                 "was bounded by a 50% relative-change cap plus, for Ao, a 2-sigma jump cap and a 3-sigma load-anomaly "
+                 "band from a rolling seven-day window.", MUTE)
+side("Current", "Small random bus sets (at most 4-6). Ao scales load 1.05-1.15x; ramp grows 1 + rate*k; LRA is a "
+                "load-conserving PTDF shift bounded by 15%. Meter-level As scales 1.25-1.5x, Ad adds ~30% Gaussian, Ar "
+                "replays a past scan. Plausibility now comes from re-solving physics, not from explicit caps.", INK)
+
+axis("Progression   (behavior over timesteps)")
+side("Previous", "Attacks sat inline in the timeline; temporal structure came from their position in the sequence.", MUTE)
+side("Current", "Almost every family is single-shot (one snapshot, seq_id = -1). Ramp is the only temporal attack: a "
+                "fixed bus set whose magnitude grows 1 + rate*k over up to 60 consecutive operating points (kept if at "
+                "least 10 steps converge), all sharing one seq_id so the chronological split never splits a sequence.", INK)
+
+caption(fig, "Both designs target the same threat model, a stealthy attacker who keeps loads inside a believable band. "
+             "The current design reaches it by simulating real physics instead of optimizing a measurement vector, which "
+             "makes stealthy samples exact and cheap to generate and gives every attacked snapshot a fully consistent "
+             "voltage and angle field.", y=Y[0] - 0.006)
+save(fig)
+
+SIDE["attack_insertion"] = [
+    "axis,previous,current",
+    '"stealthy mechanism","per-sample gradient-descent Ao (~1000 epochs, soft a=Hc, tamper meters)","bounded load scale + AC re-solve (stealthy by construction)"',
+    '"placement","timeline: ~86400 steps labeled in sequence","pool: retry random timesteps until per_family converge (cap x25)"',
+    '"magnitude","graph-radius ball (r2-4, <=15 buses); 50% cap + 2/3-sigma Ao caps","random <=4-6 buses; Ao 1.05-1.15x, ramp 1+rate*k, LRA PTDF 15%"',
+    '"progression","inline timeline position","single-shot (seq=-1) except ramp: 1+rate*k over <=60 steps, one seq_id"',
+]
+
+# ======================= Bad-data detection verification (table + figure) =======================
+BDD = {c: load_json(f"bdd_summary_{c}.json") for c in SYS}
+if any(BDD.values()):
+    STEAL_FAM = {"Ao", "ramp", "LRA"}
+    def bdd_rows(metric, fmt):
+        rows = []
+        for f in FAMS:
+            cls = "stealthy" if f in STEAL_FAM else "detectable"
+            cells = []
+            for c in SYS:
+                fam = (BDD.get(c) or {}).get("families", {}).get(f, {})
+                v = fam.get(metric)
+                cells.append(fmt(v) if v is not None else "—")
+            rows.append([f, cls] + cells)
+        # benign row on top for reference
+        bcells = []
+        for c in SYS:
+            fam = (BDD.get(c) or {}).get("families", {}).get("benign", {})
+            v = fam.get(metric); bcells.append(fmt(v) if v is not None else "—")
+        return [["benign", "reference"] + bcells] + rows
+    bdd_cols = ["Family", "Class"] + [f"IEEE-{c}" for c in SYS]
+    def bshade(i, row): return "#fbecea" if row[1] == "stealthy" else ("#eef1f4" if row[1] == "reference" else "#eaf2f8")
+    fig = multi_table_page("Bad-Data Detection Verification",
+                           "we actually run WLS state estimation + the chi-square and largest-normalized-residual tests on every dataset sample",
+                           [dict(subhead="Chi-square bad-data detection rate (%) — the stealthy families must NOT be flagged",
+                                 cols=bdd_cols, rows=bdd_rows("chi2_detect_pct", lambda v: f"{v:.0f}%"),
+                                 col_widths=[0.16, 0.16] + [0.68 / len(SYS)] * len(SYS), shade_rule=bshade,
+                                 cap="Run per record: build the realistic sparse measurement set, solve WLS, apply the chi-square "
+                                     "test. Benign and the stealthy families (Ao/ramp/LRA, red) pass — they are physically valid "
+                                     "states. The detectable families (Ad/As/Ar, blue) are caught almost every time. This is the "
+                                     "stealth split, measured directly rather than asserted."),
+                            dict(subhead="Median largest-normalized-residual (LNR) — the classical detector's statistic (threshold 3.0)",
+                                 cols=bdd_cols, rows=bdd_rows("median_lnr", lambda v: f"{v:.1f}"),
+                                 col_widths=[0.16, 0.16] + [0.68 / len(SYS)] * len(SYS), shade_rule=bshade,
+                                 cap="The stealthy families sit at the benign noise floor (median LNR near or below the 3.0 "
+                                     "threshold), while the detectable families are far above it. This gives the dataset physical "
+                                     "plausibility: a reviewer can confirm the stealthy attacks genuinely evade the standard bad-data "
+                                     "detector, not by our claim but by the detector's own residual.")])
+    SIDE["bdd_verification"] = ["family,class," + ",".join(f"chi2_ieee{c},lnr_ieee{c}" for c in SYS)] + \
+        [f"{f},{'stealthy' if f in STEAL_FAM else ('reference' if f=='benign' else 'detectable')}," +
+         ",".join(f"{(BDD.get(c) or {}).get('families', {}).get(f, {}).get('chi2_detect_pct', '')},{(BDD.get(c) or {}).get('families', {}).get(f, {}).get('median_lnr', '')}" for c in SYS)
+         for f in (["benign"] + FAMS)]
+    save(fig)
+
+    # --- BDD residual distribution figure (LNR by family, on the largest system with data) ---
+    rp = next((os.path.join(RES, f"bdd_resid_{c}.npz") for c in (118, 300, 14) if os.path.exists(os.path.join(RES, f"bdd_resid_{c}.npz"))), None)
+    if rp:
+        z = np.load(rp); cc = int(os.path.basename(rp).split("_")[-1].split(".")[0])
+        summ = BDD.get(cc, {}).get("families", {})
+        fig = newpage(f"Bad-Data Detection — the Stealth Split, Measured (IEEE-{cc})",
+                      "we run WLS + the chi-square test on real samples: detection rate, and the chi-square statistic distribution")
+        axB, axJ = fig.add_axes([0.10, 0.585, 0.85, 0.275]), fig.add_axes([0.10, 0.245, 0.85, 0.275])
+        order = [f for f in (["benign"] + FAMS) if f"ieee{cc}_{f}_J" in z]
+        cols = [MUTE if f == "benign" else (STEAL if f in STEAL_FAM else DET) for f in order]
+        # (a) chi-square detection rate
+        rates = [summ.get(f, {}).get("chi2_detect_pct", 0) for f in order]
+        axB.bar(range(len(order)), rates, color=cols, alpha=0.85)
+        axB.set_xticks(range(len(order))); axB.set_xticklabels(order, fontsize=8); axB.set_ylim(0, 105)
+        axB.set_ylabel("chi-square\ndetection rate (%)", fontsize=8.5); axB.tick_params(labelsize=7.5)
+        axB.set_title("Detection rate: stealthy families pass, detectable families are caught", fontsize=9.5)
+        # (b) chi-square statistic distribution (log)
+        data = [z[f"ieee{cc}_{f}_J"] for f in order]
+        parts = axJ.violinplot(data, showmedians=True, widths=0.85)
+        for j, b in enumerate(parts["bodies"]): b.set_facecolor(cols[j]); b.set_alpha(0.72)
+        axJ.set_yscale("log"); axJ.set_xticks(range(1, len(order) + 1)); axJ.set_xticklabels(order, fontsize=8)
+        axJ.set_ylabel("chi-square statistic J\n(log scale)", fontsize=8.5); axJ.tick_params(labelsize=7.5)
+        axJ.set_title("Residual magnitude: a ~10x gap separates stealthy from detectable", fontsize=9.5)
+        caption(fig, "Real BDD on the shipped data: per record we rebuild the sparse measurement set, solve WLS, and apply the "
+                     "chi-square test. Top: the detectable families (blue) are flagged ~100%, while benign and the stealthy families "
+                     "(red) pass at the ~5% baseline false-alarm rate. Bottom: the chi-square statistic sits ~10x higher for the "
+                     "detectable families. The stealthy attacks evade the standard detector by the detector's own residual.", y=0.185)
+        SIDE["bdd_J"] = ["family,chi2_detect_pct,median_J"] + [f"{f},{summ.get(f,{}).get('chi2_detect_pct')},{summ.get(f,{}).get('median_J')}" for f in order]
+        save(fig)
 
 # ======================= Page 4: composition (TABLE) =======================
 comp_cols = ["System", "Family", "Train", "Val", "Test", "Total"]
