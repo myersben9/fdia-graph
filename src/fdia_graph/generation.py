@@ -25,8 +25,11 @@ from .registry import CACHE_DIR, register_local
 _SINGLE = {"Aq": 1, "Ad": 2, "As": 3, "Ar": 4, "Al": 6}
 # Reverse lookup for the "corrupt-in-place" families (Ad/As/Ar): family id -> letter code passed to g.corrupt().
 _FAMK = {2: "Ad", 3: "As", 4: "Ar"}
-# Window (in scans) for the per-bus "swing" feature — how far back to measure each bus's recent-normal range.
-SWING_W = 20
+# Window (in scans) for the per-bus "swing" feature — how far back to measure each bus's recent-normal change
+# magnitude. TUNED: a rate-of-change detector's attack-catch rate (at 5% benign false alarm) climbs with the
+# window and plateaus at ~60 scans (all-attack catch 81%, vs 80% at 20 / 82% at 90), so 60 is the sweet spot.
+# The gradual ramp At stays near the benign floor at every window (~15%), so it remains the ML-only family.
+SWING_W = 60
 
 
 def _load_states(system, states, pool_cap=8000):
