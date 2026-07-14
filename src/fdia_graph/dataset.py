@@ -50,6 +50,7 @@ class FdiaGraph:
             self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
             self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
             self.has_temporal = "temporal_delta" in f["data"]      # v0.3+ ships a temporal-delta feature
+            self.has_swing = "swing" in f["data"]                  # v0.4.1+ ships a windowed relative-swing feature
             # Copy the three tiny per-record metadata columns into RAM for filtering.
             fam = f["data/family"][:]; gap = f["data/gap"][:]      # family code + gap flag, one int per record
             sp = f["data/split"][:] if "data/split" in f else None # split code, or None on unsplit files
@@ -117,6 +118,8 @@ class FdiaGraph:
         if self.has_temporal:                                     # [N,2] current-minus-previous-scan injection
             # Only present on v0.3+ files; lets temporal models see change-since-last-scan.
             item["temporal_delta"] = torch.as_tensor(d["temporal_delta"][j], dtype=torch.float32)
+        if self.has_swing:                                        # [N,2] windowed relative swing (recent-window z-score)
+            item["swing"] = torch.as_tensor(d["swing"][j], dtype=torch.float32)
         if self.format == "pyg":
             return self._to_pyg(item)                   # optionally repackage as a PyG Data object
         return item                                     # default: plain dict of tensors
@@ -189,7 +192,7 @@ class FdiaGraph:
         import h5py
         # Decide which per-record arrays to pull: caller's `fields`, or the full default set
         # (measurements + labels + temporal_delta when present + scalar metadata).
-        want = fields or (["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if self.has_temporal else [])
+        want = fields or (["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if self.has_temporal else []) + (["swing"] if self.has_swing else [])
                           + ["family", "stealthy", "seq_id", "timestep"])
         idx = self.idx
         # Static graph arrays always included (tiny, and needed to interpret edges).

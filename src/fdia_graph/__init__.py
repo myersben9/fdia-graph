@@ -28,7 +28,7 @@ from .registry import list_datasets, register_local, resolve
 from .download import ensure_local
 
 # Package version string, surfaced as fdia_graph.__version__ (standard convention).
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 # The public surface: what `from fdia_graph import *` exposes and what we advertise as stable API.
 # Note register_local/resolve/ensure_local are intentionally NOT here — they're internal plumbing.
 __all__ = ["load", "generate", "load_profile", "fetch_profile", "generate_states",

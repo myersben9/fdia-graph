@@ -31,10 +31,10 @@ def kcl_residual(node_x, edge_x, ei, N):
 
 
 class ArmaLoc(nn.Module):
-    def __init__(self, n_node_feat=6, hidden=128, stacks=3, layers=2, dropout=0.1, attn=True):
+    def __init__(self, n_in=8, hidden=128, stacks=3, layers=2, dropout=0.1, attn=True):
         super().__init__()
         self.attn = attn
-        self.nenc = nn.Linear(n_node_feat * 2, hidden)           # node feats (4 + KCL 2 [+ temporal 2]) concat mask
+        self.nenc = nn.Linear(n_in, hidden)                      # node feats: measurements(4)+mask(4)+KCL(2)+temporal(2)+swing(2)
         self.eenc = nn.Linear(2 * 2, hidden)                     # edge feat (2) concat mask (2)
         # two ARMA blocks: each is `stacks` parallel ARMA_1 filters, each `layers` recursive steps -> wide receptive field
         self.arma1 = ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers, shared_weights=True, dropout=dropout, act=F.relu)
@@ -83,7 +83,8 @@ def main():
         # local shard (v0.4.0 regen) takes precedence over the downloadable release when --shard is given
         ds = FdiaGraph(args.shard, split=split) if args.shard else fg.load(args.system, split=split, release=args.release)
         a = ds.to_numpy()
-        keys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if ds.has_temporal else [])
+        keys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if ds.has_temporal else []) \
+               + (["swing"] if getattr(ds, "has_swing", False) else [])
         g = {k: torch.as_tensor(a[k], device=dev, dtype=torch.float32) for k in keys}
         return g, torch.as_tensor(a["family"], device=dev), ds
     trG, trFam, ds = gpu("train"); vaG, vaFam, _ = gpu("val"); teG, teFam, _ = gpu("test")
@@ -108,12 +109,18 @@ def main():
         return ei_bi.repeat(1, B) + off.unsqueeze(0)             # [2, B*2E]
     def feats(g, idx):
         b = len(idx)
-        x = torch.cat([g["node_x"][idx], g["node_m"][idx]], -1).reshape(b * N, -1)      # [b*N, 8]
-        e2 = torch.cat([g["edge_x"][idx], g["edge_m"][idx]], -1)                          # [b,E,4]
+        nxb = g["node_x"][idx]; exb = g["edge_x"][idx]                                    # [b,N,4], [b,E,2]
+        kcl = kcl_residual(nxb, exb, ei0, N)                                              # [b,N,2] measurement KCL residual
+        parts = [nxb, g["node_m"][idx], kcl]                                              # measurements + mask + physics residual
+        if "temporal_delta" in g: parts.append(g["temporal_delta"][idx])                 # [b,N,2] change-since-last-scan
+        if "swing" in g: parts.append(g["swing"][idx])                                    # [b,N,2] windowed relative swing
+        x = torch.cat(parts, -1).reshape(b * N, -1)                                       # [b*N, F]
+        e2 = torch.cat([exb, g["edge_m"][idx]], -1)                                       # [b,E,4]
         e = torch.cat([e2, e2], 1).reshape(b * 2 * E, -1)                                 # bidirectional [b*2E,4]
         return x, e, batched(b), g["y"][idx].reshape(b * N)
 
-    model = ArmaLoc(trG["node_x"].shape[-1], attn=not args.no_attn).to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3, weight_decay=1e-5)
+    xdim = feats(trG, torch.arange(2, device=dev))[0].shape[-1]                           # actual node-feature width
+    model = ArmaLoc(xdim, attn=not args.no_attn).to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3, weight_decay=1e-5)
     pos = float(trG["y"].sum()); pw = torch.tensor(min(max((trG["y"].numel() - pos) / max(pos, 1), 1.0), 30.0), device=dev)
     n = trG["y"].shape[0]; arch = "ARMA+attn" if not args.no_attn else "ARMA"
     print(f"{args.system}: N={N} E={E}  train {n:,}  {arch}(stacks=3,layers=2)  pos_weight={pw.item():.1f}  batch={args.batch} [{dev}]")

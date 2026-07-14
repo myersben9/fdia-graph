@@ -25,6 +25,8 @@ from .registry import CACHE_DIR, register_local
 _SINGLE = {"Aq": 1, "Ad": 2, "As": 3, "Ar": 4, "Al": 6}
 # Reverse lookup for the "corrupt-in-place" families (Ad/As/Ar): family id -> letter code passed to g.corrupt().
 _FAMK = {2: "Ad", 3: "As", 4: "Ar"}
+# Window (in scans) for the per-bus "swing" feature — how far back to measure each bus's recent-normal range.
+SWING_W = 20
 
 
 def _load_states(system, states, pool_cap=8000):
@@ -78,16 +80,27 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     fam_ids = [FAM_ID[f] for f in families]
 
     def _fin(nx, nm, ex, em, y, family, sid, t, gap, stealthy):
-        # Finalize a record: attach temporal_delta [N,2] = current injection - PREVIOUS scan's injection, at
-        # injection-metered buses (0 elsewhere). The previous scan is the true state at t-1 (the real 5-min step
-        # before this one); for a single-shot attack this captures the sudden onset jump, for a ramp step the
-        # gradual creep, and for benign the natural load drift. This is the temporal feature sequence models use.
+        # Finalize a record: attach two temporal features at injection-metered buses (0 elsewhere).
+        #  temporal_delta [N,2] = current injection - PREVIOUS scan's injection (single-step change).
+        #  swing [N,2] = windowed relative swing = (current reading - recent-window mean) / (recent-window std):
+        #    a per-bus z-score of how far the current injection deviates from its OWN recent normal over the past
+        #    SWING_W scans. A single-shot attack (Aq/Al) spikes far outside its recent window -> large swing; a
+        #    gradual ramp (At) or benign drift stays inside it -> small. This hands the model the abrupt-change
+        #    signal directly, so it can localize the spike-and-revert attacks a rate-of-change detector would flag.
+        mP = nm[:, 1] > 0
         prev = X[t - 1] if t > 0 else X[t]
         td = np.zeros((C, 2), np.float32)
-        mP = nm[:, 1] > 0
-        td[mP, 0] = nx[mP, 1] - prev[mP, 0]                 # dP_inj vs previous scan
-        td[mP, 1] = nx[mP, 2] - prev[mP, 1]                 # dQ_inj vs previous scan
-        return (nx, nm, ex, em, y, family, sid, t, gap, stealthy, td)
+        td[mP, 0] = nx[mP, 1] - prev[mP, 0]; td[mP, 1] = nx[mP, 2] - prev[mP, 1]
+        sw = np.zeros((C, 2), np.float32)
+        w0 = max(0, t - SWING_W)                            # recent window of TRUE states [t-SWING_W, t)
+        if t - w0 >= 4:
+            dwin = np.abs(np.diff(X[w0:t, :, :2], axis=0))  # [w-1,N,2] per-bus scan-to-scan |change| over the window
+            scale = dwin.std(0) + 1e-3                       # this bus's TYPICAL recent change magnitude
+            # rate-of-change z-score: how big is THIS scan's jump vs the bus's normal recent jumps? A single-shot
+            # attack (Aq/Al) is a huge abrupt jump -> large; a gradual ramp (At) or benign drift stays ~1.
+            sw[mP, 0] = (nx[mP, 1] - prev[mP, 0]) / scale[mP, 0]
+            sw[mP, 1] = (nx[mP, 2] - prev[mP, 1]) / scale[mP, 1]
+        return (nx, nm, ex, em, y, family, sid, t, gap, stealthy, td, sw)
 
     def make(t, family, sid, atk):
         # Build ONE record from operating point X[t] for the given family. `sid` = sequence id (ramp only),
@@ -198,6 +211,7 @@ def _write(g, recs, out, split, seed):
     node_x = np.stack([r[0] for r in recs]); node_m = np.stack([r[1] for r in recs])
     edge_x = np.stack([r[2] for r in recs]); edge_m = np.stack([r[3] for r in recs]); y = np.stack([r[4] for r in recs])
     temporal_delta = np.stack([r[10] for r in recs])          # [T,N,2] current-minus-previous-scan injection feature
+    swing = np.stack([r[11] for r in recs])                   # [T,N,2] windowed relative-swing (recent-window z-score)
     # Scalar-per-record fields: family id, sequence id, timestep, gap flag, stealthy flag (dtypes sized to range).
     fam = arr(5, np.int8); seq = arr(6, np.int32); tstep = arr(7, np.int32); gap = arr(8, np.uint8); st = arr(9, np.uint8)
     # Compute the train/val/test assignment (0/1/2) per record, chronologically and sequence-aware.
@@ -216,6 +230,7 @@ def _write(g, recs, out, split, seed):
         d.create_dataset("edge_x", data=edge_x, chunks=ch+edge_x.shape[1:], compression="gzip", compression_opts=4)
         d.create_dataset("edge_m", data=edge_m, compression="gzip"); d.create_dataset("y", data=y, compression="gzip")
         d.create_dataset("temporal_delta", data=temporal_delta, chunks=ch+temporal_delta.shape[1:], compression="gzip", compression_opts=4)
+        d.create_dataset("swing", data=swing, chunks=ch+swing.shape[1:], compression="gzip", compression_opts=4)
         # Store each scalar field (including the computed split) as its own dataset alongside the tensors.
         for nm_, a in [("family", fam), ("seq_id", seq), ("timestep", tstep), ("gap", gap), ("stealthy", st), ("split", sp)]:
             d.create_dataset(nm_, data=a)
