@@ -21,13 +21,28 @@ from fdia_graph.dataset import FAMILIES, STEALTHY_FAMILIES, FdiaGraph
 # Prefer locally-regenerated release shards (release_v0.4.0/) over the downloadable builtin, so the report
 # reflects the new data before the GitHub release is cut. Override the directory via FDIA_LOCAL_SHARDS.
 LOCAL_SHARDS = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(os.path.dirname(os.path.abspath(__file__)), "release_v0.4.0"))
+def _shard_path(c): return os.path.join(LOCAL_SHARDS, f"ml_only_ieee{c}.h5")
+def shard_ready(c):
+    # a shard counts as ready only if the local v0.4.0 file exists AND is fully written (openable with data)
+    p = _shard_path(c)
+    if not os.path.exists(p): return False
+    try:
+        import h5py
+        with h5py.File(p, "r") as f: return "data" in f and "y" in f["data"]
+    except Exception:
+        return False
 def load_sys(c, split=None):
-    lp = os.path.join(LOCAL_SHARDS, f"ml_only_ieee{c}.h5")
-    return FdiaGraph(lp, split=split) if os.path.exists(lp) else fg.load(f"ieee{c}", split=split)
+    # NEVER fall back to the downloadable builtin (that would silently inject OLD-dataset numbers). Only the
+    # local v0.4.0 shard is trusted; callers must guard on shard_ready(c) before using this.
+    return FdiaGraph(_shard_path(c), split=split)
 
 HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "results")
 OUT = os.path.join(HERE, "fdia_dataset_report")
-SYS = [14, 118, 300]; FAMS = ["Aq", "Ad", "As", "Ar", "At", "Al"]; SPLITS = ["train", "val", "test"]
+SYS_ALL = [14, 118, 300]                                      # the full roster (for fixed table columns)
+# SYS = only the systems whose v0.4.0 shard is fully built; the rest render as "pending" (never old data).
+SYS = [c for c in SYS_ALL if shard_ready(c)]
+PENDING_SYS = [c for c in SYS_ALL if c not in SYS]
+FAMS = ["Aq", "Ad", "As", "Ar", "At", "Al"]; SPLITS = ["train", "val", "test"]
 PW, PH = 8.5, 11.0
 INK = "#1f2d3d"; ACCENT = "#b23a2e"; MUTE = "#8a97a3"; STEAL = "#b23a2e"; DET = "#2c6f9e"
 SUBTLE = "#5a6673"; RULE = "#c7ced5"
@@ -284,13 +299,14 @@ fam_rows = []
 for f in FAMS:
     fid = [k for k, v in FAMILIES.items() if v == f][0]
     cls = "stealthy" if fid in STEALTHY_FAMILIES else "detectable"
-    bdd = " / ".join(f"{bdd_pct(c, f)}%" if bdd_pct(c, f) is not None else "pending" for c in SYS)
+    bdd = " / ".join(f"{bdd_pct(c, f)}%" if bdd_pct(c, f) is not None else "pending" for c in SYS_ALL)
     fam_rows.append([f, SRC[f][0], cls, SRC[f][1], bdd])
 def fam_shade(i, row): return "#fbecea" if row[2] == "stealthy" else "#eaf2f8"
 cov_cols = ["System", "Buses N", "Branches E", "Redundancy", "|V| cov", "P_inj cov", "theta cov", "flow cov"]
-cov_rows = [[f"IEEE-{c}", DATA[c]["N"], DATA[c]["E"], f"{DATA[c]['redundancy']:.2f}",
+cov_rows = [([f"IEEE-{c}", DATA[c]["N"], DATA[c]["E"], f"{DATA[c]['redundancy']:.2f}",
              f"{100*DATA[c]['cov']['V']:.0f}%", f"{100*DATA[c]['cov']['Pinj']:.0f}%",
-             f"{100*DATA[c]['cov']['theta']:.0f}%", f"{100*DATA[c]['cov']['flow']:.0f}%"] for c in SYS]
+             f"{100*DATA[c]['cov']['theta']:.0f}%", f"{100*DATA[c]['cov']['flow']:.0f}%"] if c in DATA
+             else [f"IEEE-{c}", "pending", "pending", "pending", "pending", "pending", "pending", "pending"]) for c in SYS_ALL]
 fig = multi_table_page("Attack Families & Measurement Model",
                        "what the attacks are, how stealthy they are, and what the meters actually see",
                        [dict(subhead="Seven families, provenance, and the bad-data-detection stealth split",
@@ -309,7 +325,7 @@ fig = multi_table_page("Attack Families & Measurement Model",
 SIDE["families"] = ["family,description,class,bdd_pass_14,bdd_pass_118,bdd_pass_300"] + \
     [f'{f},"{SRC[f]}",{fam_rows[i][2]},{bdd_pct(14,f)},{bdd_pct(118,f)},{bdd_pct(300,f)}' for i, f in enumerate(FAMS)]
 SIDE["coverage"] = ["system,N,E,redundancy,V_cov,Pinj_cov,theta_cov,flow_cov"] + \
-    [f"{c},{DATA[c]['N']},{DATA[c]['E']},{DATA[c]['redundancy']:.3f},{DATA[c]['cov']['V']:.3f},{DATA[c]['cov']['Pinj']:.3f},{DATA[c]['cov']['theta']:.3f},{DATA[c]['cov']['flow']:.3f}" for c in SYS]
+    [f"{c},{DATA[c]['N']},{DATA[c]['E']},{DATA[c]['redundancy']:.3f},{DATA[c]['cov']['V']:.3f},{DATA[c]['cov']['Pinj']:.3f},{DATA[c]['cov']['theta']:.3f},{DATA[c]['cov']['flow']:.3f}" for c in SYS if c in DATA]
 save(fig)
 
 # ======================= Attack construction (formulas) =======================
@@ -500,7 +516,7 @@ if LT is not None:
         if os.path.exists(os.path.join(RES, "sidecars", "load_timeline.csv")) else []
 
 # ======================= Bad-data detection verification (table + figure) =======================
-BDD = {c: load_json(f"bdd_summary_{c}.json") for c in SYS}
+BDD = {c: load_json(f"bdd_summary_{c}.json") for c in SYS_ALL}
 if any(BDD.values()):
     STEAL_FAM = {"Aq", "At", "Al"}
     def bdd_rows(metric, fmt):
@@ -508,38 +524,38 @@ if any(BDD.values()):
         for f in FAMS:
             cls = "stealthy" if f in STEAL_FAM else "detectable"
             cells = []
-            for c in SYS:
+            for c in SYS_ALL:
                 fam = (BDD.get(c) or {}).get("families", {}).get(f, {})
                 v = fam.get(metric)
                 cells.append(fmt(v) if v is not None else "pending")
             rows.append([f, cls] + cells)
         # benign row on top for reference
         bcells = []
-        for c in SYS:
+        for c in SYS_ALL:
             fam = (BDD.get(c) or {}).get("families", {}).get("benign", {})
             v = fam.get(metric); bcells.append(fmt(v) if v is not None else "pending")
         return [["benign", "reference"] + bcells] + rows
-    bdd_cols = ["Family", "Class"] + [f"IEEE-{c}" for c in SYS]
+    bdd_cols = ["Family", "Class"] + [f"IEEE-{c}" for c in SYS_ALL]
     def bshade(i, row): return "#fbecea" if row[1] == "stealthy" else ("#eef1f4" if row[1] == "reference" else "#eaf2f8")
     fig = multi_table_page("Bad-Data Detection Verification",
                            "we actually run WLS state estimation + the chi-square and largest-normalized-residual tests on every dataset sample",
                            [dict(subhead="Chi-square bad-data detection rate (%) — the stealthy families must NOT be flagged",
                                  cols=bdd_cols, rows=bdd_rows("chi2_detect_pct", lambda v: f"{v:.0f}%"),
-                                 col_widths=[0.16, 0.16] + [0.68 / len(SYS)] * len(SYS), shade_rule=bshade,
+                                 col_widths=[0.16, 0.16] + [0.68 / len(SYS_ALL)] * len(SYS_ALL), shade_rule=bshade,
                                  cap="Run per record: build the realistic sparse measurement set, solve WLS, apply the chi-square "
                                      "test. Benign and the stealthy families (Aq/At/Al, red) pass — they are physically valid "
                                      "states. The detectable families (Ad/As/Ar, blue) are caught almost every time. This is the "
                                      "stealth split, measured directly rather than asserted."),
                             dict(subhead="Median largest-normalized-residual (LNR) — the classical detector's statistic (threshold 3.0)",
                                  cols=bdd_cols, rows=bdd_rows("median_lnr", lambda v: f"{v:.1f}"),
-                                 col_widths=[0.16, 0.16] + [0.68 / len(SYS)] * len(SYS), shade_rule=bshade,
+                                 col_widths=[0.16, 0.16] + [0.68 / len(SYS_ALL)] * len(SYS_ALL), shade_rule=bshade,
                                  cap="The stealthy families sit at the benign noise floor (median LNR near or below the 3.0 "
                                      "threshold), while the detectable families are far above it. This gives the dataset physical "
                                      "plausibility: a reviewer can confirm the stealthy attacks genuinely evade the standard bad-data "
                                      "detector, not by our claim but by the detector's own residual.")])
-    SIDE["bdd_verification"] = ["family,class," + ",".join(f"chi2_ieee{c},lnr_ieee{c}" for c in SYS)] + \
+    SIDE["bdd_verification"] = ["family,class," + ",".join(f"chi2_ieee{c},lnr_ieee{c}" for c in SYS_ALL)] + \
         [f"{f},{'stealthy' if f in STEAL_FAM else ('reference' if f=='benign' else 'detectable')}," +
-         ",".join(f"{(BDD.get(c) or {}).get('families', {}).get(f, {}).get('chi2_detect_pct', '')},{(BDD.get(c) or {}).get('families', {}).get(f, {}).get('median_lnr', '')}" for c in SYS)
+         ",".join(f"{(BDD.get(c) or {}).get('families', {}).get(f, {}).get('chi2_detect_pct', '')},{(BDD.get(c) or {}).get('families', {}).get(f, {}).get('median_lnr', '')}" for c in SYS_ALL)
          for f in (["benign"] + FAMS)]
     save(fig)
 
@@ -678,19 +694,63 @@ else:                                                        # PLACEHOLDER: resi
              ha="center", va="center", fontsize=10.5, color=MUTE, family="serif", linespacing=1.5)
     save(fig)
 
+# ======================= Operational impact — damage to operator decisions =======================
+OPI = load_json("operator_impact.json", None)
+if OPI and OPI.get("cases", {}).get("ieee118"):
+    ci = OPI["cases"]["ieee118"]
+    # headline stress level = 1.3 (grid loaded near limits — the regime where an operator actually acts)
+    def opi(fam, s="s1.3"):
+        v = ci.get(fam, {}).get(s, {})
+        return v
+    rows = []
+    for fam, label in [("benign", "benign (control)"), ("Aq", "Aq  stealthy"), ("Al", "Al  stealthy (LRA)")]:
+        v = opi(fam)
+        if not v: continue
+        rows.append([label,
+                     f"{v.get('median_abs_line_err_pct',0):.2f}",
+                     f"{v.get('max_line_err_pct',0):.0f}",
+                     f"{v.get('pct_samples_ge1_flip',{}).get('th100',0):.0f}%",
+                     f"{v.get('masked_overload_events',{}).get('th100',0)}",
+                     f"{v.get('fabricated_overload_events',{}).get('th100',0)}"])
+    opi_cols = ["Family", "median err (pts)", "max err (pts)", "samples flipped", "hidden overloads", "false overloads"]
+    def opi_shade(i, row): return "#eef1f4" if "control" in row[0] else ("#fbecea" if row[4] != "0" else "#f4f6f8")
+    fig = table_page("Operational Impact — Damage to Operator Decisions",
+                     "does a stealthy attack that PASSES bad-data detection still make the operator misjudge line safety? (IEEE-118, grid loaded to ~1.3x so lines sit near thermal limits)",
+                     opi_cols, rows, cap=(
+                     "Line-overload masking (our operationalization of the load-redistribution damage model, Yuan et al. 2011): for each "
+                     "line we compare its TRUE thermal loading to the loading an operator would read from the stealthy-attacked state, and "
+                     "count where they disagree across the 100%-of-rating action threshold. A HIDDEN overload (red) is the dangerous case "
+                     "— a line truly over its limit that the attacked reading shows as safe, so the operator takes no corrective action. "
+                     "The benign control gives exactly zero misjudgments (validated: the no-attack re-solve reproduces the true state to "
+                     "1e-10 p.u.), so every event below is caused by the attack. KEY RESULT: the stealthy families evade bad-data detection "
+                     "(see the BDD page) yet still flip line-safety status on nearly half (Aq) to over 80% (Al) of samples and hide hundreds "
+                     "of real overloads — the load-redistribution family Al, the classical "
+                     "operationally-damaging attack, is the worst. The GNN-localization literature (Boyaci et al. 2022; Liu et al. 2009) "
+                     "reports only detection/localization metrics and never an operator consequence; this carries that missing impact "
+                     "label. Caveats, stated plainly: thermal limits are derived from peak nominal line current (the IEEE cases ship "
+                     "placeholder ratings ~200x too large), and the effect is shown at a stressed operating point because the base cases "
+                     "are lightly loaded — at nominal load few lines sit near a limit, so few can be masked."),
+                     col_widths=[0.24, 0.16, 0.14, 0.16, 0.15, 0.15], shade_rule=opi_shade)
+    SIDE["operator_impact"] = ["family,stress,median_line_err_pts,max_line_err_pts,pct_samples_misjudged,hidden_overloads,false_overloads"] + \
+        [f"{fam},{s},{ci[fam][s].get('median_abs_line_err_pct')},{ci[fam][s].get('max_line_err_pct')},{ci[fam][s].get('pct_samples_ge1_flip',{}).get('th100')},{ci[fam][s].get('masked_overload_events',{}).get('th100')},{ci[fam][s].get('fabricated_overload_events',{}).get('th100')}"
+         for fam in ci for s in ci[fam] if isinstance(ci[fam][s], dict)]
+    save(fig)
+
 # ======================= Model benchmark: localization + detection (two tables, one page) =======================
 loc_cols = ["System", "overall"] + FAMS
 loc_rows = []
-for c in SYS:
+for c in SYS_ALL:
     b = BENCH.get(f"ieee{c}")
-    if not b: continue
+    if not b:
+        loc_rows.append([f"IEEE-{c}", "pending"] + ["pending"] * len(FAMS)); continue
     pf = b["per_family"]
     loc_rows.append([f"IEEE-{c}", f"{b['overall']['swf1']:.3f}"] + [f"{pf.get(f,{}).get('swf1',0):.3f}" for f in FAMS])
 det_cols = ["System", "DR", "FA", "det-F1"] + ["DR:" + f for f in FAMS]
 det_rows = []
-for c in SYS:
+for c in SYS_ALL:
     b = BENCH.get(f"ieee{c}"); d = (b or {}).get("detection", {})
-    if not d: continue
+    if not d:
+        det_rows.append([f"IEEE-{c}", "pending", "pending", "pending"] + ["pending"] * len(FAMS)); continue
     pfd = d.get("per_family_DR", {})
     det_rows.append([f"IEEE-{c}", f"{d['DR']:.3f}", f"{d['FA']:.3f}", f"{d['det_f1']:.3f}"] + [f"{pfd.get(f,0):.2f}" for f in FAMS])
 if MODELS_READY and loc_rows:
@@ -706,8 +766,8 @@ if MODELS_READY and loc_rows:
                              cap="Grid-level score S = max over buses of the per-bus attack probability. Detection far exceeds "
                                  "per-bus localization because it aggregates evidence: the three bad-data-evading families are "
                                  "detected in Boyaci range — ML catches what the classical detector cannot.")])
-    SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
-    SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_" + f for f in FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
+    SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS_ALL[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
+    SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_" + f for f in FAMS)] + [",".join([f"ieee{SYS_ALL[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
     save(fig)
 else:
     pending_page("Model Benchmark — Localization & Detection",
