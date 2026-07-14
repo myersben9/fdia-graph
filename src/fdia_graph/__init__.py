@@ -92,13 +92,13 @@ def generate(system, name, **knobs):
     """Generate a custom dataset with research knobs and register it as `name` (loadable via load(name)).
 
     Knobs (all optional): per_family, families, attack_intensity, ramp_rate, ramp_len, n_benign,
-    redundancy, split, seed, out. See fdia_graph.generate module for the full documented signature.
+    redundancy, split, seed, out. See fdia_graph.generation module for the full documented signature.
     Requires the generation extra: pip install 'fdia-graph[generate]'.
     """
     # Lazy import: the generator pulls in heavy deps (pandapower, the _core FdiaGenerator).
     # Importing at module top would force every `import fdia_graph` user to have the
     # optional [generate] extra installed just to call load(); we defer the cost to call time.
-    from .generate import generate as _generate
+    from .generation import generate as _generate
     # Delegate to the real implementation. `system` names the grid (ieee14/118/300),
     # `name` is what the result registers as (so load(name) can retrieve it), and **knobs
     # forwards the research parameters untouched so this wrapper never goes stale as knobs change.

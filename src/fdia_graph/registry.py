@@ -1,7 +1,7 @@
 """Dataset registry: built-in (downloadable) shards + locally generated ones.
 
 Built-in datasets live as assets on a GitHub Release; each entry gives the release tag, filename, and a
-sha256 (filled once the assets are uploaded). Locally generated datasets (via `fdia_graph.generate`) are
+sha256 (filled once the assets are uploaded). Locally generated datasets (via `fdia_graph.generate()`) are
 recorded in a small JSON under the cache dir so they are loadable by name exactly like the built-ins.
 """
 import json, os

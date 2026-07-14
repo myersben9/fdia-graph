@@ -158,7 +158,7 @@ fdia-graph/
 │   ├── download.py             # fetches release-asset .h5 shards (private-repo token auth) → ~/.cache/fdia_graph
 │   ├── dataset.py              # FdiaGraph: torch Dataset over one .h5 (lazy slicing, split/family filters, exporters)
 │   ├── profiles.py             # front of the pipeline: ISO load download (CAISO/NYISO/ERCOT) → operating states
-│   ├── generate.py             # generate(): tunable-knob dataset creation → new .h5, registered by name
+│   ├── generation.py           # generate(): tunable-knob dataset creation → new .h5, registered by name
 │   └── _core.py                # generation engine: physics (Ybus/PTDF) + the 7 attack families
 └── examples/
     ├── quickstart.py           # smallest load → train loop
