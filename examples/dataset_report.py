@@ -16,11 +16,18 @@ import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import fdia_graph as fg
-from fdia_graph.dataset import FAMILIES, STEALTHY_FAMILIES
+from fdia_graph.dataset import FAMILIES, STEALTHY_FAMILIES, FdiaGraph
+
+# Prefer locally-regenerated release shards (release_v0.4.0/) over the downloadable builtin, so the report
+# reflects the new data before the GitHub release is cut. Override the directory via FDIA_LOCAL_SHARDS.
+LOCAL_SHARDS = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(os.path.dirname(os.path.abspath(__file__)), "release_v0.4.0"))
+def load_sys(c, split=None):
+    lp = os.path.join(LOCAL_SHARDS, f"ml_only_ieee{c}.h5")
+    return FdiaGraph(lp, split=split) if os.path.exists(lp) else fg.load(f"ieee{c}", split=split)
 
 HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "results")
 OUT = os.path.join(HERE, "fdia_dataset_report")
-SYS = [14, 118, 300]; FAMS = ["Ao", "Ad", "As", "Ar", "ramp", "LRA"]; SPLITS = ["train", "val", "test"]
+SYS = [14, 118, 300]; FAMS = ["Aq", "Ad", "As", "Ar", "At", "Al"]; SPLITS = ["train", "val", "test"]
 PW, PH = 8.5, 11.0
 INK = "#1f2d3d"; ACCENT = "#b23a2e"; MUTE = "#8a97a3"; STEAL = "#b23a2e"; DET = "#2c6f9e"
 SUBTLE = "#5a6673"; RULE = "#c7ced5"
@@ -160,15 +167,29 @@ pdf = PdfPages(OUT + ".pdf")
 
 # ======================= load everything =======================
 MAN = load_json("MANIFEST.json", {})
-BENCH = {r["system"]: r for r in load_json("ml_only_benchmark.json", [])}
-ATTN = load_json("ml_only_attn_ab.json", {})
-SE = {c: dict(pinn=load_json(f"se_{c}.json"), nn=load_json(f"se_{c}_nophys.json"), wls=load_json(f"se_{c}_wls.json")) for c in SYS}
+# Model-performance results are gated behind a freshness marker so no STALE (old-dataset) numbers can render.
+# Training on the v0.4.0 data writes results/models_v040.done; until then every model page shows a placeholder.
+MODELS_READY = os.path.exists(os.path.join(RES, "models_v040.done"))
+BENCH = {r["system"]: r for r in load_json("ml_only_benchmark.json", [])} if MODELS_READY else {}
+ATTN = load_json("ml_only_attn_ab.json", {}) if MODELS_READY else {}
+SE = ({c: dict(pinn=load_json(f"se_{c}.json"), nn=load_json(f"se_{c}_nophys.json"), wls=load_json(f"se_{c}_wls.json")) for c in SYS}
+      if MODELS_READY else {c: dict(pinn=None, nn=None, wls=None) for c in SYS})
+
+
+def pending_page(title, sub, what):
+    """A clean placeholder page for a result that is not yet computed on the current dataset — so the report
+    NEVER shows stale or made-up numbers. Auto-fills once the underlying results are staged and the report re-runs."""
+    fig = newpage(title, sub)
+    fig.text(0.5, 0.56, "[ PENDING — v0.4.0 re-train ]", ha="center", va="center", fontsize=15, weight="bold", color=ACCENT)
+    fig.text(0.5, 0.48, textwrap.fill(what, 82), ha="center", va="center", fontsize=10.5, color=MUTE,
+             family="serif", linespacing=1.5)
+    save(fig)
 
 # dataset-intrinsic stats straight from the SDK (fg.load per split)
 DATA = {}
 for c in SYS:
-    per = {sp: fg.load(f"ieee{c}", split=sp).summary()["families"] for sp in SPLITS}
-    tst = fg.load(f"ieee{c}", split="test"); a = tst.to_numpy()
+    per = {sp: load_sys(c, split=sp).summary()["families"] for sp in SPLITS}
+    tst = load_sys(c, split="test"); a = tst.to_numpy()
     N, E = tst.N, tst.E
     nm, em, fam, y, nx = a["node_m"], a["edge_m"], a["family"], a["y"], a["node_x"]
     red = (nm.reshape(len(nm), -1).sum(1) + em.reshape(len(em), -1).sum(1)) / (2 * N - 1)
@@ -192,8 +213,8 @@ prose(fig, [
   "masks. Redundancy is roughly 2-3, the regime a real energy-management system operates in — not the fully-"
   "observed idealization most FDIA benchmarks assume."),
  ("Seven families, split by detectability", [
-  "Stealthy (evade bad-data detection — the hard, dangerous cases):  Ao, a state-consistent load "
-  "redistribution;  ramp, a slow multi-timestep creep;  LRA, a targeted masked-overload.",
+  "Stealthy (evade bad-data detection — the hard, dangerous cases):  Aq, a state-consistent load "
+  "redistribution;  At (ramp), a slow multi-timestep surge up then down;  Al (LRA), a targeted masked-overload.",
   "Detectable (a contrast set a bad-data detector catches):  Ad, random meter corruption;  As, meter scaling;  "
   "Ar, replay of a past scan.",
   "The split is the point: on this data, “ML beats a detector” is a genuine result, not a rigged one.",
@@ -226,10 +247,10 @@ dd_rows = [
  ["edge_m", "[E, 2]", "float32", "edge availability mask"],
  ["y", "[N]", "float32", "localization target: 1 = bus attacked, 0 = clean"],
  ["temporal_delta", "[N, 2]", "float32", "v0.3+: current-minus-previous-scan [dP_inj, dQ_inj]"],
- ["family", "scalar", "int", "0 benign 1 Ao 2 Ad 3 As 4 Ar 5 ramp 6 LRA"],
+ ["family", "scalar", "int", "0 benign 1 Aq 2 Ad 3 As 4 Ar 5 ramp 6 LRA"],
  ["stealthy", "scalar", "int", "1 if the attack evades classical bad-data detection"],
  ["split", "scalar", "int", "0 train 1 val 2 test (60/20/20 chronological)"],
- ["seq_id", "scalar", "int", "ramp-sequence id (>=0 groups one ramp); -1 otherwise"],
+ ["seq_id", "scalar", "int", "At-sequence id (>=0 groups one ramp/At sequence); -1 otherwise"],
  ["timestep", "scalar", "int", "source operating-point index"],
  ["gap", "scalar", "int", "1 if a physics non-convergence NA row (~0% shipped)"],
 ]
@@ -243,19 +264,28 @@ SIDE["data_dictionary"] = ["field,shape,dtype,meaning"] + [",".join(f'"{x}"' for
 save(fig)
 
 # ======================= Page 3: attack families + BDD stealth split (TABLE) =======================
-SRC = {"Ao": "state-consistent load redistribution", "Ad": "random meter corruption", "As": "meter scaling",
-       "Ar": "replay of a past scan", "ramp": "temporal creep (Haghshenas et al., ISGT 2023)",
-       "LRA": "targeted masked-overload (Yuan et al., T-SG 2011)"}
+# (description, provenance) — provenance makes explicit what is OUR contribution vs pulled from references.
+SRC = {"Aq":  ("per-bus load scaling, AC re-solve",       "Ours (cf. Boyaci Ao; Liu FDIA)"),
+       "Ad":  ("random meter corruption",                    "FDIA taxonomy (Boyaci 2022)"),
+       "As":  ("injection-meter scaling",                    "FDIA taxonomy (Boyaci 2022)"),
+       "Ar":  ("replay of a past scan",                      "FDIA taxonomy (Boyaci 2022)"),
+       "At":  ("temporal load surge, up then down (ramp)",   "Haghshenas et al. (ISGT 2023)"),
+       "Al":  ("targeted masked-overload (LRA)",             "Yuan et al. (T-SG 2011)")}
 def bdd_pct(c, fam):
-    try: return MAN["systems"][f"ieee{c}"]["families"][fam].get("bdd_pass_pct")
-    except Exception: return None
-fam_cols = ["Family", "Description", "Class", "BDD-pass  14 / 118 / 300"]
+    # BDD-pass = fraction NOT flagged = 100 - chi2 detection rate, read from the fresh BDD summary.
+    s = load_json(f"bdd_summary_{c}.json")
+    try:
+        v = s["families"][fam]["chi2_detect_pct"]
+        return round(100 - v) if v is not None else None
+    except Exception:
+        return None
+fam_cols = ["Family", "Description", "Class", "Source", "BDD-pass 14/118/300"]
 fam_rows = []
 for f in FAMS:
     fid = [k for k, v in FAMILIES.items() if v == f][0]
     cls = "stealthy" if fid in STEALTHY_FAMILIES else "detectable"
-    bdd = " / ".join(str(bdd_pct(c, f)) + "%" if bdd_pct(c, f) is not None else "—" for c in SYS)
-    fam_rows.append([f, SRC[f], cls, bdd])
+    bdd = " / ".join(f"{bdd_pct(c, f)}%" if bdd_pct(c, f) is not None else "pending" for c in SYS)
+    fam_rows.append([f, SRC[f][0], cls, SRC[f][1], bdd])
 def fam_shade(i, row): return "#fbecea" if row[2] == "stealthy" else "#eaf2f8"
 cov_cols = ["System", "Buses N", "Branches E", "Redundancy", "|V| cov", "P_inj cov", "theta cov", "flow cov"]
 cov_rows = [[f"IEEE-{c}", DATA[c]["N"], DATA[c]["E"], f"{DATA[c]['redundancy']:.2f}",
@@ -263,13 +293,14 @@ cov_rows = [[f"IEEE-{c}", DATA[c]["N"], DATA[c]["E"], f"{DATA[c]['redundancy']:.
              f"{100*DATA[c]['cov']['theta']:.0f}%", f"{100*DATA[c]['cov']['flow']:.0f}%"] for c in SYS]
 fig = multi_table_page("Attack Families & Measurement Model",
                        "what the attacks are, how stealthy they are, and what the meters actually see",
-                       [dict(subhead="Seven families and the bad-data-detection stealth split",
-                             cols=fam_cols, rows=fam_rows, col_widths=[0.11, 0.44, 0.13, 0.32], shade_rule=fam_shade,
-                             cap="BDD-pass is the fraction of samples that evade the chi-square detector. The stealthy families "
-                                 "(Ao/ramp/LRA, red) pass on ~90-100% — they are load-conserving, plausibility-bounded, valid states "
-                                 "— while the detectable families (Ad/As/Ar, blue) are caught. A localizer is measured on the "
-                                 "stealthy families; acing the detectable ones proves little. ramp: Haghshenas et al. (ISGT 2023); "
-                                 "LRA: Yuan et al. (2011)."),
+                       [dict(subhead="Seven families, provenance, and the bad-data-detection stealth split",
+                             cols=fam_cols, rows=fam_rows, col_widths=[0.085, 0.34, 0.11, 0.27, 0.195], shade_rule=fam_shade,
+                             cap="The Source column separates our contribution from prior art: Aq (stealthy load scaling) is OURS — "
+                                 "the AC/physical realization of the state-consistent attack concept (cf. Boyaci et al. 2022 'Ao'; "
+                                 "Liu et al. 2011 FDIA); ramp is Haghshenas et al. (ISGT 2023); LRA is Yuan et al. (T-SG 2011); the "
+                                 "meter-level Ad/As/Ar are the standard FDIA taxonomy (Boyaci 2022). BDD-pass is the fraction that "
+                                 "evade the chi-square detector: the stealthy families (Aq/At/Al, red) pass on ~90-100% (valid, "
+                                 "plausibility-bounded states), the detectable ones (Ad/As/Ar, blue) are caught."),
                         dict(subhead="Measurement coverage — fraction of each quantity metered (sparse SCADA/PMU graph)",
                              cols=cov_cols, rows=cov_rows, col_widths=[0.16, 0.11, 0.13, 0.14, 0.11, 0.12, 0.11, 0.12],
                              cap="Redundancy = (# measurements)/(2N-1 states), the classical observability ratio; ~2-3 is a "
@@ -304,9 +335,11 @@ def item(name, desc, formula):
     put(formula, 0.050, 11.5, "#1f2d3d", "serif"); Y[0] -= 0.034
 grp("State-level attacks   (change the loads, re-solve, evade bad-data detection)", STEAL)
 item("benign", "reference, no attack", r"$z = h(x_t) + e$")
-item("Ao", "load scaling, then re-solve", r"$L_a \leftarrow \alpha\, L_a,\ \ \alpha \in [1.05,\ 1.15],\ \ x' = \mathrm{PF}(L'),\ \ z = h(x') + e$")
-item("ramp", "same as Ao, factor grows over a 60-scan sequence", r"$L_a \leftarrow (1 + r\,k)\, L_a,\ \ k = 0 \ldots 59,\ \ r \approx 0.002$")
-item("LRA", "targeted, load-conserving, PTDF-chosen to cut the target-line flow", r"$L \leftarrow L + d,\ \ \sum_i d_i = 0,\ \ |d_i| \leq \rho\, L_i\ \ (\rho = 0.15)$")
+item("Aq", "per-bus load scaling on 1-6 buses, re-solve with generation rebalanced (AGC)",
+     r"$L_a \leftarrow \alpha_a\, L_a,\ \ \alpha_a \in [1.05,\ 1.15]\ \mathrm{per\ bus},\ \ x' = \mathrm{PF}(L'),\ \ z = h(x') + e$")
+item("At", "temporal surge: ramp up then back down (asymmetric rates, random turn), or a dip",
+     r"$L_a \leftarrow (1 \pm r_k)\, L_a,\ \ r_k\ \mathrm{rises\ then\ falls\ over}\ k=0\ldots L$")
+item("Al", "targeted, load-conserving, PTDF-chosen to cut the target-line flow", r"$L \leftarrow L + d,\ \ \sum_i d_i = 0,\ \ |d_i| \leq \rho\, L_i\ \ (\rho = 0.15)$")
 Y[0] -= 0.014
 grp("Meter-level attacks   (tamper the readings, caught by bad-data detection)", DET)
 item("Ad", "random corruption of the P and Q injection meters", r"$z_a \leftarrow z_a + \mathcal{N}\,(0,\ 0.3\,|z_a| + 0.05)$")
@@ -331,18 +364,20 @@ def steps(title, color, items):
             put(wl, 0.058, 9.8, "#33404c", "serif"); Y[0] -= 0.0188
         Y[0] -= 0.007
     Y[0] -= 0.017
-steps("State-level attacks   (Ao, ramp, LRA)", STEAL, [
+steps("State-level attacks   (Aq, At, Al)", STEAL, [
  "Start from a clean operating point, the true grid state at a timestep t.",
  "Rebuild the bus loads from that state. Net injection plus the generator setpoints gives the gross load.",
- "Choose the attacked bus SET (drawn at random per record, so it is not memorizable): Ao hits 4 load buses; "
- "ramp holds a fixed set of 5 load buses across its whole sequence; LRA hits the PTDF-selected up-set and "
- "down-set (roughly 12 buses split between load increases and decreases). Then change their loads: a bounded "
- "scaling for Ao, a slow ramp for ramp, or a load-conserving PTDF-targeted shift for LRA.",
- "Re-solve a full AC power flow for the new loads with pandapower. If it does not converge, discard the sample "
- "and try another timestep.",
- "Read every meter off the solved state and add sensor noise. Because a power flow is coupled, the re-solve "
- "changes the whole snapshot, the line flows and the voltages and angles across the network, not just the "
- "attacked buses, so the attack signal is spread out rather than local.",
+ "Choose the attacked bus SET (drawn at random per record, so it is not memorizable): Aq hits 1 to 6 load "
+ "buses, each with its OWN scaling multiplier; ramp holds a fixed set of up to 5 buses across its whole "
+ "sequence; LRA hits the PTDF-selected up-set and down-set. Then change their loads: bounded per-bus scaling "
+ "for Aq, a rise-then-fall surge for At (ramp), or a load-conserving PTDF-targeted shift for Al (LRA).",
+ "Re-solve a full AC power flow for the new loads with pandapower, holding generation at the true operating "
+ "point's dispatch and distributing the net load change across generators (AGC). If it does not converge, "
+ "discard the sample and try another timestep.",
+ "Read every meter off the solved state (via the SAME measurement function used for benign) and add sensor "
+ "noise. Because generation is pinned to the true dispatch, the attacked snapshot differs from the true state "
+ "only in the attacked buses' loads plus the small distributed generation response — the honest attack footprint, "
+ "not a spurious slack-bus swing.",
  "Record the attacked bus set as the label y, then check that the sample passes bad-data detection.",
 ])
 steps("Meter-level attacks   (Ad, As, Ar)", DET, [
@@ -364,7 +399,7 @@ fig = newpage("Attack Insertion — Previous vs Current Design",
               "how the generator decides WHEN to place an attack, HOW LARGE it is, and how it PROGRESSES in time")
 Y[0] = 0.872
 intro = ("The generator was redesigned. The previous pipeline walked one long measurement timeline and crafted each "
-         "stealthy Ao attack by a per-sample gradient-descent optimization. The current pipeline samples a pool of "
+         "stealthy Aq attack by a per-sample gradient-descent optimization. The current pipeline samples a pool of "
          "physical operating points and makes stealthy attacks by changing a bounded, plausible load and re-solving "
          "the power flow, so stealth is achieved by construction rather than by optimization.")
 for wl in textwrap.fill(intro, 106).split("\n"):
@@ -382,9 +417,9 @@ def side(tag, txt, color):
     Y[0] -= 0.007
 
 axis("Stealthy-attack mechanism   (the biggest change)")
-side("Previous", "Ao was solved per sample: about 1000 epochs of gradient descent tuned a fake measurement vector to "
+side("Previous", "The predecessor attack (Boyaci-style Ao) was solved per sample: about 1000 epochs of gradient descent tuned a fake measurement vector to "
                  "be both bad-data-stealthy and load-plausible, tampering the readings directly (a soft a = Hc).", MUTE)
-side("Current", "Ao scales the load at the target buses by a bounded factor and re-solves a full AC power flow, then "
+side("Current", "Aq scales the load at the target buses by a bounded factor and re-solves a full AC power flow, then "
                 "reads clean meters off the new state. The result is a genuine, mutually consistent operating point that "
                 "passes detection by construction. Cheaper, exact, and a defensible threat model.", INK)
 
@@ -397,9 +432,9 @@ side("Current", "Pool-driven: benign draws n_benign distinct random timesteps; e
 
 axis("Magnitude   (how large the attack is)")
 side("Previous", "The attacked set was a graph-radius ball around an entry bus (r = 2-4 hops, capped at 15 buses). Size "
-                 "was bounded by a 50% relative-change cap plus, for Ao, a 2-sigma jump cap and a 3-sigma load-anomaly "
+                 "was bounded by a 50% relative-change cap plus, for the predecessor Ao, a 2-sigma jump cap and a 3-sigma load-anomaly "
                  "band from a rolling seven-day window.", MUTE)
-side("Current", "Small random bus sets (at most 4-6). Ao scales load 1.05-1.15x; ramp grows 1 + rate*k; LRA is a "
+side("Current", "Small random bus sets (at most 4-6). Aq scales load 1.05-1.15x; ramp grows 1 + rate*k; LRA is a "
                 "load-conserving PTDF shift bounded by 15%. Meter-level As scales 1.25-1.5x, Ad adds ~30% Gaussian, Ar "
                 "replays a past scan. Plausibility now comes from re-solving physics, not from explicit caps.", INK)
 
@@ -417,16 +452,57 @@ save(fig)
 
 SIDE["attack_insertion"] = [
     "axis,previous,current",
-    '"stealthy mechanism","per-sample gradient-descent Ao (~1000 epochs, soft a=Hc, tamper meters)","bounded load scale + AC re-solve (stealthy by construction)"',
+    '"stealthy mechanism","per-sample gradient-descent predecessor Ao (~1000 epochs, soft a=Hc, tamper meters)","Aq: bounded load scale + AC re-solve (stealthy by construction)"',
     '"placement","timeline: ~86400 steps labeled in sequence","pool: retry random timesteps until per_family converge (cap x25)"',
-    '"magnitude","graph-radius ball (r2-4, <=15 buses); 50% cap + 2/3-sigma Ao caps","random <=4-6 buses; Ao 1.05-1.15x, ramp 1+rate*k, LRA PTDF 15%"',
+    '"magnitude","graph-radius ball (r2-4, <=15 buses); 50% cap + 2/3-sigma caps","Aq: random 1-6 buses, per-bus 1.05-1.15x; ramp 1+rate*k; LRA PTDF 15%"',
     '"progression","inline timeline position","single-shot (seq=-1) except ramp: 1+rate*k over <=60 steps, one seq_id"',
 ]
+
+# ======================= Attack progression on one bus's load over time =======================
+LT = np.load(os.path.join(RES, "load_timeline.npz")) if os.path.exists(os.path.join(RES, "load_timeline.npz")) else None
+if LT is not None:
+    bus = int(LT["bus"]); Wn = int(LT["W"]); t = np.arange(Wn)
+    fig = newpage(f"Attack Progression — One Bus's Load Over Time (real records, IEEE-118 bus {bus})",
+                  "actual injection readings pulled from the shard: benign timeline + each family's real attacked scans")
+    fams = [("benign", MUTE,  "reference load rhythm"),
+            ("Aq",     STEAL, "state: per-bus load scaling"),
+            ("At",     STEAL, "state: temporal ramp"),
+            ("Al",     STEAL, "state: load redistribution"),
+            ("Ad",     DET,   "meter: random corruption"),
+            ("As",     DET,   "meter: scaling"),
+            ("Ar",     DET,   "meter: replay a past scan")]
+    bottoms = [0.66, 0.50, 0.34, 0.18]; x0s = [0.095, 0.55]; W, Hh = 0.38, 0.12
+    for i, (fam, col, note) in enumerate(fams):
+        if f"{fam}_atk" not in LT: continue
+        ben = LT[f"{fam}_ben"]; atk = LT[f"{fam}_atk"]; hits = LT[f"{fam}_hits"]
+        r, c = i // 2, i % 2
+        ax = fig.add_axes([x0s[c], bottoms[r], W, Hh])
+        ax.plot(t, ben, color=MUTE, lw=1.0, ls="--", zorder=2)               # real benign timeline for this bus
+        if fam == "At":                                                      # At is a real multi-scan sequence -> line
+            ax.plot(t, atk, color=col, lw=1.4, zorder=3)
+        if fam != "benign" and len(hits):                                    # mark the actual attacked scans (real values)
+            ax.scatter(hits, atk[hits], s=24, color=col, zorder=4, edgecolor="white", linewidth=0.6)
+        ax.set_title(fam, fontsize=9, color=(INK if fam != "benign" else MUTE), loc="left", weight="bold")
+        ax.text(0.98, 0.05, note, transform=ax.transAxes, ha="right", va="bottom", fontsize=6.0, color=SUBTLE, style="italic")
+        ax.tick_params(labelsize=6.0); ax.margins(x=0.02)
+        if c == 0: ax.set_ylabel("MW", fontsize=6.6)
+        if r == 3: ax.set_xlabel("scan (1-min)", fontsize=6.6)
+        for s in ("top", "right"): ax.spines[s].set_visible(False)
+    caption(fig, f"Every value is a REAL record from the shard — one IEEE-118 load bus (bus {bus}) over time. Dashed grey = its benign "
+                 "injection timeline (one benign record per scan); coloured markers = the ACTUAL attacked readings at the scans each "
+                 "family targets this bus (At, a temporal sequence, is drawn as a line). The key thing to see is that the attacked "
+                 "values sit INSIDE the bus's natural load swing, not as obvious spikes — a single scan is only 5-15% off, comparable "
+                 "to the real minute-to-minute variation, which is exactly why they are hard to flag by eye or by a simple threshold and "
+                 "why localization (not detection) is the task. Single-shot families (Aq/Al, and meter-level Ad/As/Ar) touch one scan at "
+                 "a time; only At progresses across many scans.", y=0.15)
+    save(fig)
+    SIDE["load_timeline"] = open(os.path.join(RES, "sidecars", "load_timeline.csv")).read().splitlines() \
+        if os.path.exists(os.path.join(RES, "sidecars", "load_timeline.csv")) else []
 
 # ======================= Bad-data detection verification (table + figure) =======================
 BDD = {c: load_json(f"bdd_summary_{c}.json") for c in SYS}
 if any(BDD.values()):
-    STEAL_FAM = {"Ao", "ramp", "LRA"}
+    STEAL_FAM = {"Aq", "At", "Al"}
     def bdd_rows(metric, fmt):
         rows = []
         for f in FAMS:
@@ -435,13 +511,13 @@ if any(BDD.values()):
             for c in SYS:
                 fam = (BDD.get(c) or {}).get("families", {}).get(f, {})
                 v = fam.get(metric)
-                cells.append(fmt(v) if v is not None else "—")
+                cells.append(fmt(v) if v is not None else "pending")
             rows.append([f, cls] + cells)
         # benign row on top for reference
         bcells = []
         for c in SYS:
             fam = (BDD.get(c) or {}).get("families", {}).get("benign", {})
-            v = fam.get(metric); bcells.append(fmt(v) if v is not None else "—")
+            v = fam.get(metric); bcells.append(fmt(v) if v is not None else "pending")
         return [["benign", "reference"] + bcells] + rows
     bdd_cols = ["Family", "Class"] + [f"IEEE-{c}" for c in SYS]
     def bshade(i, row): return "#fbecea" if row[1] == "stealthy" else ("#eef1f4" if row[1] == "reference" else "#eaf2f8")
@@ -451,7 +527,7 @@ if any(BDD.values()):
                                  cols=bdd_cols, rows=bdd_rows("chi2_detect_pct", lambda v: f"{v:.0f}%"),
                                  col_widths=[0.16, 0.16] + [0.68 / len(SYS)] * len(SYS), shade_rule=bshade,
                                  cap="Run per record: build the realistic sparse measurement set, solve WLS, apply the chi-square "
-                                     "test. Benign and the stealthy families (Ao/ramp/LRA, red) pass — they are physically valid "
+                                     "test. Benign and the stealthy families (Aq/At/Al, red) pass — they are physically valid "
                                      "states. The detectable families (Ad/As/Ar, blue) are caught almost every time. This is the "
                                      "stealth split, measured directly rather than asserted."),
                             dict(subhead="Median largest-normalized-residual (LNR) — the classical detector's statistic (threshold 3.0)",
@@ -525,7 +601,7 @@ save(fig)
 fig = newpage("Figure 1 — Measurement Distributions (IEEE-118)",
               "benign vs attacked, per metered channel — where the families do (and don't) move the meters")
 gs = fig.add_gridspec(2, 2, left=0.09, right=0.96, top=0.86, bottom=0.30, wspace=0.28, hspace=0.4)
-c = 118; nx = DATA[c]["nx"]; fam = DATA[c]["fam"]; nm_test = fg.load("ieee118", split="test").to_numpy()["node_m"]
+c = 118; nx = DATA[c]["nx"]; fam = DATA[c]["fam"]; nm_test = load_sys(118, split="test").to_numpy()["node_m"]
 chans = [("|V| (p.u.)", 0), ("P_inj (MW)", 1), ("Q_inj (MVAr)", 2), ("theta (deg)", 3)]
 for ax, (lab, ch) in zip([fig.add_subplot(gs[i]) for i in range(4)], chans):
     m = nm_test[:, :, ch].astype(bool)
@@ -565,30 +641,41 @@ rp = os.path.join(RES, "ml_only_residuals_v2.npz")
 if os.path.exists(rp):
     resid = np.load(rp)
     fig = newpage("Figure 3 — How Far Each Attack Moves the True State (IEEE-118)",
-                  "per-record injection deviation from the true state at the same timestep — RMS over METERED buses")
+                  "injection deviation from the true state: at the attacked buses (local) vs over the whole network")
     gs = fig.add_gridspec(1, 2, left=0.10, right=0.96, top=0.84, bottom=0.36, wspace=0.26)
-    axP, axQ = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
+    axA, axB = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
+    floor = float(np.median(resid["ieee118_benign_dP"]))                  # benign = pure meter noise -> the floor
+    # LEFT: deviation AT THE ATTACKED buses (the real per-target footprint) — attack families only
+    labA = [f for f in FAMS if f"ieee118_{f}_dPatk" in resid and len(resid[f"ieee118_{f}_dPatk"])]
+    partsA = axA.violinplot([resid[f"ieee118_{f}_dPatk"] for f in labA], showmedians=True, widths=0.85)
+    for j, b in enumerate(partsA["bodies"]): b.set_facecolor(STEAL if labA[j] in ("Aq", "At", "Al") else DET); b.set_alpha(0.72)
+    axA.axhline(floor, ls="--", lw=1.0, color="#444"); axA.text(len(labA)+0.4, floor, "benign\nfloor", fontsize=6.3, va="center", color="#444")
+    axA.set_xticks(range(1, len(labA)+1)); axA.set_xticklabels(labA, rotation=45, fontsize=7.5)
+    axA.set_title("AT the attacked buses   |dP| (MW)", fontsize=9.5); axA.tick_params(labelsize=7.5)
+    # RIGHT: deviation over ALL metered buses (the network-wide aggregate) — benign + families
     order = ["benign"] + FAMS
-    for ax, q, ttl in [(axP, "dP", "real-power shift  |dP|  (MW)"), (axQ, "dQ", "reactive shift  |dQ|  (MVAr)")]:
-        data = [resid[f"ieee118_{f}_{q}"] for f in order]
-        parts = ax.violinplot(data, showmedians=True, widths=0.85)
-        for j, b in enumerate(parts["bodies"]):
-            b.set_facecolor(STEAL if order[j] in ("Ao", "ramp", "LRA") else (MUTE if order[j] == "benign" else DET)); b.set_alpha(0.72)
-        floor = float(np.median(resid[f"ieee118_benign_{q}"]))            # benign = pure meter noise -> the noise floor
-        ax.axhline(floor, ls="--", lw=1.0, color="#444")
-        ax.text(len(order) + 0.4, floor, "meter-noise\nfloor", fontsize=6.5, va="center", color="#444")
-        ax.set_xticks(range(1, len(order) + 1)); ax.set_xticklabels(order, rotation=45, fontsize=7.5)
-        ax.set_title(ttl, fontsize=9.5); ax.tick_params(labelsize=7.5)
-    caption(fig, "Deviation = |measured injection - TRUE injection at the SAME timestep|, RMS over buses that actually have a meter (not "
-                 "vs the previous scan). The dashed line is the METER-NOISE floor (benign = pure noise). KEY POINT: the DETECTABLE families "
-                 "Ad/As/Ar (blue) barely clear that floor (~4-5 MW) — in state terms their impact is nearly indistinguishable from noise, and "
-                 "they are caught only because the corruption is INCONSISTENT, not because it is large. The STEALTHY families Ao/ramp/LRA "
-                 "(red) are the only ones that move the true state well ABOVE the noise floor (~14-18 MW) — a real, dangerous, plausibility-"
-                 "bounded load redistribution — WHILE still passing every classical check. That 'large-impact yet stealthy' quadrant, which "
-                 "standard attack sets miss, is why these new families were added. (Reactive power moves less; a redistribution is mainly real "
-                 "power.)", y=0.30)
-    SIDE["residuals"] = ["family,median_absdP_MW,median_absdQ_MVAr"] + \
-        [f'{f},{np.median(resid[f"ieee118_{f}_dP"]):.3f},{np.median(resid[f"ieee118_{f}_dQ"]):.3f}' for f in order]
+    partsB = axB.violinplot([resid[f"ieee118_{f}_dP"] for f in order], showmedians=True, widths=0.85)
+    for j, b in enumerate(partsB["bodies"]): b.set_facecolor(STEAL if order[j] in ("Aq", "At", "Al") else (MUTE if order[j] == "benign" else DET)); b.set_alpha(0.72)
+    axB.axhline(floor, ls="--", lw=1.0, color="#444"); axB.text(len(order)+0.4, floor, "noise\nfloor", fontsize=6.3, va="center", color="#444")
+    axB.set_xticks(range(1, len(order)+1)); axB.set_xticklabels(order, rotation=45, fontsize=7.5)
+    axB.set_title("over ALL metered buses   |dP| (MW)", fontsize=9.5); axB.tick_params(labelsize=7.5)
+    caption(fig, "Left: at the buses each attack actually targets, the stealthy families (Aq/At/Al, red) move the injection by a real but "
+                 "plausibility-bounded amount (~4-5 MW on IEEE-118) — a genuine manipulation, not noise. Right: averaged over the WHOLE "
+                 "network, that same manipulation is indistinguishable from benign — the stealthy families sit on the meter-noise floor, "
+                 "because only a few of ~100 buses move and the rest wash out the average. That combination — a real LOCAL effect that "
+                 "vanishes in the network-wide statistics — is exactly what makes them stealthy: no aggregate check or bad-data detector "
+                 "sees them, so only per-bus localization can. (The detectable Ad/As/Ar, blue, perturb meters more but inconsistently, "
+                 "which is what BDD catches — see the BDD page.)", y=0.30)
+    SIDE["residuals"] = ["family,median_dP_at_attacked_MW,median_dP_all_metered_MW"] + \
+        [f'{f},{(np.median(resid[f"ieee118_{f}_dPatk"]) if f"ieee118_{f}_dPatk" in resid and len(resid[f"ieee118_{f}_dPatk"]) else float("nan")):.3f},{np.median(resid[f"ieee118_{f}_dP"]):.3f}' for f in order]
+    save(fig)
+else:                                                        # PLACEHOLDER: residuals pass not finished yet
+    fig = newpage("Figure 3 — How Far Each Attack Moves the True State (IEEE-118)",
+                  "per-record injection deviation from the true state at the same timestep — RMS over metered buses")
+    fig.text(0.5, 0.54, "[ PENDING ]", ha="center", va="center", fontsize=17, weight="bold", color=ACCENT)
+    fig.text(0.5, 0.47, "The per-family residual distributions are still computing on the new v0.4.0 data.\n"
+             "This page populates automatically the moment the residuals pass finishes — just re-run the report.",
+             ha="center", va="center", fontsize=10.5, color=MUTE, family="serif", linespacing=1.5)
     save(fig)
 
 # ======================= Model benchmark: localization + detection (two tables, one page) =======================
@@ -606,21 +693,27 @@ for c in SYS:
     if not d: continue
     pfd = d.get("per_family_DR", {})
     det_rows.append([f"IEEE-{c}", f"{d['DR']:.3f}", f"{d['FA']:.3f}", f"{d['det_f1']:.3f}"] + [f"{pfd.get(f,0):.2f}" for f in FAMS])
-fig = multi_table_page("Model Benchmark — Localization & Detection",
+if MODELS_READY and loc_rows:
+    fig = multi_table_page("Model Benchmark — Localization & Detection",
                        "reference ARMA localizer (measurements + KCL residual + temporal delta), test split",
                        [dict(subhead="Localization — sample-wise F1 per attack type (higher is better)",
                              cols=loc_cols, rows=loc_rows, col_widths=[0.16, 0.14] + [0.10] * 6,
                              cap="Per attack type, not accuracy: LRA (structured, targeted) is the most localizable; the diffuse "
-                                 "stealthy families (Ao, ramp) and the larger grids are the hard cases. A table beats a bar chart "
+                                 "stealthy families (Aq, At) and the larger grids are the hard cases. A table beats a bar chart "
                                  "here — the exact values are the point."),
                         dict(subhead="Detection — grid-level rate (DR), false-alarm (FA), F1, and per-family DR",
                              cols=det_cols, rows=det_rows, fontsize=8.0, col_widths=[0.13, 0.09, 0.09, 0.10] + [0.098] * 6,
                              cap="Grid-level score S = max over buses of the per-bus attack probability. Detection far exceeds "
                                  "per-bus localization because it aggregates evidence: the three bad-data-evading families are "
                                  "detected in Boyaci range — ML catches what the classical detector cannot.")])
-SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
-SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_" + f for f in FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
-save(fig)
+    SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
+    SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_" + f for f in FAMS)] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
+    save(fig)
+else:
+    pending_page("Model Benchmark — Localization & Detection",
+                 "reference ARMA localizer (measurements + KCL residual + temporal delta), test split",
+                 "The localizer and detector are being re-trained on the v0.4.0 dataset (new attack taxonomy, "
+                 "accuracy-class meter noise). Per-family localization and detection numbers populate here once training finishes.")
 
 # ======================= Model improvements: attention + state estimation (two tables, one page) =======================
 at_cols = ["System", "loc ARMA", "loc +attn", "gain", "det ARMA", "det +attn"]
@@ -650,32 +743,39 @@ blocks.append(dict(subhead="Attack-resilient state estimation — recovery error
                    cap="Recover the TRUE state from possibly-attacked measurements. WLS (classical) is fooled by a stealthy "
                        "attack; the learned estimators beat it and the raw meter on both quantities, and the physics term (PINN "
                        "vs NN) sharpens voltage. On IEEE-300 the meter is off ~15 deg under attack while the PINN recovers to ~4 deg."))
-fig = multi_table_page("Model Improvements — Attention & State Estimation",
+if MODELS_READY and (at_rows or any("—" not in r for r in se_rows)):
+    fig = multi_table_page("Model Improvements — Attention & State Estimation",
                        "beyond the base localizer: an attention head that raises localization, and a state estimator that recovers the true state",
                        blocks)
-SIDE["attention_ab"] = ["system,loc_arma,loc_attn,det_arma,det_attn"] + \
-    [f'ieee{c},{ATTN[f"ieee{c}"]["arma"]["loc"]},{ATTN[f"ieee{c}"]["hybrid"]["loc"]},{ATTN[f"ieee{c}"]["arma"]["det"]},{ATTN[f"ieee{c}"]["hybrid"]["det"]}' for c in SYS if f"ieee{c}" in ATTN]
-SIDE["state_estimation"] = ["system,V_meter,V_wls,V_nn,V_pinn,th_meter,th_wls,th_nn,th_pinn"] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(se_rows)]
-save(fig)
+    SIDE["attention_ab"] = ["system,loc_arma,loc_attn,det_arma,det_attn"] + \
+        [f'ieee{c},{ATTN[f"ieee{c}"]["arma"]["loc"]},{ATTN[f"ieee{c}"]["hybrid"]["loc"]},{ATTN[f"ieee{c}"]["arma"]["det"]},{ATTN[f"ieee{c}"]["hybrid"]["det"]}' for c in SYS if f"ieee{c}" in ATTN]
+    SIDE["state_estimation"] = ["system,V_meter,V_wls,V_nn,V_pinn,th_meter,th_wls,th_nn,th_pinn"] + [",".join([f"ieee{SYS[i]}"] + r[1:]) for i, r in enumerate(se_rows)]
+    save(fig)
+else:
+    pending_page("Model Improvements — Attention & State Estimation",
+                 "beyond the base localizer: an attention head that raises localization, and a state estimator that recovers the true state",
+                 "The attention A/B and the attack-resilient state estimator are being re-run on the v0.4.0 data. "
+                 "Localization gains and per-variable recovery error populate here once training finishes.")
 
 # ======================= Hyperparameter tuning (Optuna) =======================
 # default = the shipped ARMA hybrid; tuned = best of a 35-trial TPE search (FDIA_localization/_hpo_ieee{C}.json)
-hpo_cols = ["System", "default swF1", "tuned swF1", "change", "tuned det-F1"]
-hpo_rows = [["IEEE-14",  "0.811", "0.768", "-0.043", "0.910"],
-            ["IEEE-118", "0.416", "0.439", "+0.023", "0.898"],
-            ["IEEE-300", "0.263", "0.256", "-0.007", "0.750"]]
-def hpo_shade(i, row): return "#e7f4ea" if row[3].startswith("+") else "#f6f7f8"
-fig = table_page("Hyperparameter Tuning (Optuna, Boyaci Space)",
-                 "35-trial TPE search over the ARMA hybrid (blocks, units, K, T, dropout, lr, attention heads), seed 123, val-selected",
-                 hpo_cols, hpo_rows,
-                 "Tuning clearly helped only on IEEE-118 (+0.023 localization, detection F1 up to 0.898). On IEEE-14 the search "
-                 "overfit the validation split with heavy dropout that did not transfer to test, and on IEEE-300 the tuned config sat "
-                 "within run-to-run noise of the default. We keep the untuned hybrid as the default except on IEEE-118, where the "
-                 "tuned configuration (3 blocks, 128 units, K=2, T=5, 2 attention heads) is the stronger model. The comparison spans "
-                 "two evaluation harnesses, so small differences should be read as ties.",
-                 col_widths=[0.18, 0.20, 0.20, 0.16, 0.20], shade_rule=hpo_shade)
-SIDE["hpo"] = ["system,default_swf1,tuned_swf1,change,tuned_detf1"] + [",".join(r) for r in hpo_rows]
-save(fig)
+HPO = load_json("hpo_v040.json", None) if MODELS_READY else None
+if HPO:
+    hpo_cols = ["System", "default swF1", "tuned swF1", "change", "tuned det-F1"]
+    hpo_rows = [[f"IEEE-{c}", f'{HPO[str(c)]["default"]:.3f}', f'{HPO[str(c)]["tuned"]:.3f}',
+                 f'{HPO[str(c)]["tuned"]-HPO[str(c)]["default"]:+.3f}', f'{HPO[str(c)]["tuned_det"]:.3f}'] for c in SYS if str(c) in HPO]
+    def hpo_shade(i, row): return "#e7f4ea" if row[3].startswith("+") else "#f6f7f8"
+    fig = table_page("Hyperparameter Tuning (Optuna, Boyaci Space)",
+                     "TPE search over the ARMA hybrid (blocks, units, K, T, dropout, lr, attention heads), seed 123, val-selected",
+                     hpo_cols, hpo_rows, "Tuned vs default localization on the v0.4.0 data.",
+                     col_widths=[0.18, 0.20, 0.20, 0.16, 0.20], shade_rule=hpo_shade)
+    SIDE["hpo"] = ["system,default_swf1,tuned_swf1,change,tuned_detf1"] + [",".join(r) for r in hpo_rows]
+    save(fig)
+else:
+    pending_page("Hyperparameter Tuning (Optuna, Boyaci Space)",
+                 "TPE search over the ARMA hybrid localizer, val-selected",
+                 "The hyperparameter search has not been re-run on the v0.4.0 dataset. Tuned-vs-default results populate "
+                 "here if/when the search is repeated.")
 
 # ======================= Page 13: protocol + critical analysis (prose) =======================
 # ======================= Reference benchmark: Falas et al. Table II reproduction =======================
@@ -694,7 +794,11 @@ falas_r2 = [["Steady", "0.9994", "0.9968", "0.9985", "0.9996"],
             ["20%", "0.6796", "0.2779", "0.9978", "0.9992"],
             ["30%", "0.2805", "-0.7167", "0.9970", "0.9988"]]
 _fcw = [0.16, 0.21, 0.21, 0.21, 0.21]
-fig = multi_table_page("Reference Benchmark — Falas et al. Table II Reproduction",
+FALAS = load_json("falas_v040.json", None)   # our reproduction numbers on v0.4.0; hardcoded lists below are OLD-data
+if FALAS:
+    falas_mae = FALAS["mae"]; falas_r2 = FALAS["r2"]
+if FALAS:
+    fig = multi_table_page("Reference Benchmark — Falas et al. Table II Reproduction",
                        "IEEE-14 state estimation, PINN vs plain NN across the attack ladder: Falas reported vs our reproduction",
                        [dict(subhead="Mean absolute error (standardized-pooled) — lower is better",
                              cols=falas_cols, rows=falas_mae, col_widths=_fcw,
@@ -707,16 +811,22 @@ fig = multi_table_page("Reference Benchmark — Falas et al. Table II Reproducti
                                  "our NN R-squared does not collapse under attack. A PINN beats an NN only against a weak data-only "
                                  "baseline; our NN is stronger and our attack is milder, so the physics term does not add. Falas reports "
                                  "IEEE-14 only.")])
-SIDE["falas_reproduction"] = ["metric,scenario,falas_pinn,falas_nn,ours_pinn,ours_nn"] + \
-    [f"MAE,{','.join(r)}" for r in falas_mae] + [f"R2,{','.join(r)}" for r in falas_r2]
-save(fig)
+    SIDE["falas_reproduction"] = ["metric,scenario,falas_pinn,falas_nn,ours_pinn,ours_nn"] + \
+        [f"MAE,{','.join(r)}" for r in falas_mae] + [f"R2,{','.join(r)}" for r in falas_r2]
+    save(fig)
+else:
+    pending_page("Reference Benchmark — Falas et al. Table II Reproduction",
+                 "IEEE-14 state estimation, PINN vs plain NN across the attack ladder",
+                 "Our reproduction columns are being re-computed on the v0.4.0 IEEE-14 data. Falas's own reported values "
+                 "are published and unchanged, but we withhold the side-by-side until our numbers are current.")
 
 # ======================= State estimation: V and theta separated (companion to the pooled metric) =======================
 # se_rows (from the improvements page) = [System, V meter, V WLS, V NN, V PINN, th meter, th WLS, th NN, th PINN]
-v_rows = [[r[0], r[1], r[2], r[3], r[4]] for r in se_rows]
-th_rows = [[r[0], r[5], r[6], r[7], r[8]] for r in se_rows]
-sep_cols = ["System", "meter", "WLS", "NN", "PINN"]
-fig = multi_table_page("State Estimation — Voltage and Angle Separated",
+if MODELS_READY and se_rows:
+    v_rows = [[r[0], r[1], r[2], r[3], r[4]] for r in se_rows]
+    th_rows = [[r[0], r[5], r[6], r[7], r[8]] for r in se_rows]
+    sep_cols = ["System", "meter", "WLS", "NN", "PINN"]
+    fig = multi_table_page("State Estimation — Voltage and Angle Separated",
                        "the attack-resilient state-recovery error, split by variable so the per-variable behavior a pooled metric hides is visible",
                        [dict(subhead="Voltage magnitude |V| error (p.u.) on attacked buses — lower is better",
                              cols=sep_cols, rows=v_rows, col_widths=[0.20, 0.20, 0.20, 0.20, 0.20],
@@ -728,9 +838,14 @@ fig = multi_table_page("State Estimation — Voltage and Angle Separated",
                                  "PINN. A pooled MAE (as in Falas's Table II and the previous page) is angle-dominated, so it reads as "
                                  "an NN win even on systems where the PINN leads on voltage. That is why the combined number hides the "
                                  "voltage result.")])
-SIDE["se_separated"] = ["variable,system,meter,WLS,NN,PINN"] + \
-    [f"V,{','.join(r)}" for r in v_rows] + [f"theta,{','.join(r)}" for r in th_rows]
-save(fig)
+    SIDE["se_separated"] = ["variable,system,meter,WLS,NN,PINN"] + \
+        [f"V,{','.join(r)}" for r in v_rows] + [f"theta,{','.join(r)}" for r in th_rows]
+    save(fig)
+else:
+    pending_page("State Estimation — Voltage and Angle Separated",
+                 "attack-resilient state-recovery error, split by variable (voltage vs angle)",
+                 "The per-variable state-estimation results are being re-computed on the v0.4.0 data — see the previous "
+                 "State Estimation page. This companion breakdown populates alongside it.")
 
 fig = newpage("Evaluation Protocol & Threat Model",
               "how the benchmark is scored, and what we assume about the attacker")
@@ -758,7 +873,7 @@ fig = newpage("What the Results Say, and Honest Notes",
               "what the numbers do and do not claim, and how to reproduce them")
 prose(fig, [
  ("What the results say", [
-  "The stealthy families are hard by construction (they pass every classical check), so localization on Ao, ramp "
+  "The stealthy families are hard by construction (they pass every classical check), so localization on Aq, ramp "
   "and the larger grids is modest and honest — a difficult benchmark, not a solved one.",
   "Detection aggregates evidence across the grid and reaches Boyaci range on the bad-data-evading families — the "
   "ML-only thesis.",

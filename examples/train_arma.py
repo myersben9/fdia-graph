@@ -14,7 +14,7 @@ the other examples (feature standardization, GPU-resident data, bf16, auto pos_w
 import argparse, json, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 from contextlib import nullcontext
 import fdia_graph as fg
-from fdia_graph.dataset import FAMILIES
+from fdia_graph.dataset import FAMILIES, FdiaGraph
 from torch_geometric.nn import ARMAConv, GATv2Conv
 
 
@@ -71,6 +71,7 @@ def main():
     ap.add_argument("--system", default="ieee14"); ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--batch", type=int, default=256); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--release", default=None); ap.add_argument("--out", default=None)
+    ap.add_argument("--shard", default=None, help="path to a local .h5 shard to train on (overrides fg.load/release)")
     ap.add_argument("--no_attn", action="store_true", help="disable the physics-biased attention branch (plain ARMA)")
     args = ap.parse_args()
     torch.manual_seed(args.seed); dev = "cuda" if torch.cuda.is_available() else "cpu"
@@ -79,7 +80,9 @@ def main():
     autocast = (lambda: torch.autocast("cuda", dtype=torch.bfloat16)) if dev == "cuda" else nullcontext
 
     def gpu(split):
-        ds = fg.load(args.system, split=split, release=args.release); a = ds.to_numpy()
+        # local shard (v0.4.0 regen) takes precedence over the downloadable release when --shard is given
+        ds = FdiaGraph(args.shard, split=split) if args.shard else fg.load(args.system, split=split, release=args.release)
+        a = ds.to_numpy()
         keys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if ds.has_temporal else [])
         g = {k: torch.as_tensor(a[k], device=dev, dtype=torch.float32) for k in keys}
         return g, torch.as_tensor(a["family"], device=dev), ds
@@ -152,12 +155,14 @@ def main():
     tS = dscore(L); tlab = (Fm > 0).float(); pr = (tS > dthr).float()
     DR = (pr * tlab).sum().item() / tlab.sum().item()                         # detection rate  (recall on attacked)
     FA = (pr * (1 - tlab)).sum().item() / (1 - tlab).sum().item()            # false-alarm rate (on benign)
-    res["detection"] = {"DR": round(DR, 4), "FA": round(FA, 4), "det_f1": round(detf1(tS, tlab, dthr), 4), "threshold": round(dthr, 3)}
+    res["detection"] = {"DR": round(DR, 4), "FA": round(FA, 4), "det_f1": round(detf1(tS, tlab, dthr), 4), "threshold": round(dthr, 3), "per_family_DR": {}}
     print(f"\nDETECTION (grid-level): DR {DR:.3f}  FA {FA:.3f}  det-F1 {res['detection']['det_f1']:.3f}  (threshold {dthr:.2f})")
     print("per-family detection rate (DR):")
     for k, name in FAMILIES.items():
         m = Fm == k
-        if k and m.any(): print(f"  {name:6s} DR {pr[m].mean().item():.3f}")
+        if k and m.any():
+            res["detection"]["per_family_DR"][name] = round(pr[m].mean().item(), 3)
+            print(f"  {name:6s} DR {pr[m].mean().item():.3f}")
     if args.out:
         json.dump(res, open(args.out, "w"), indent=2); print("wrote", args.out)
 
