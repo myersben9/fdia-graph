@@ -539,10 +539,9 @@ if LT is not None:
         r, c = i // 2, i % 2
         ax = fig.add_axes([x0s[c], bottoms[r], W, Hh])
         ax.plot(t, ben, color=MUTE, lw=1.0, ls="--", zorder=2)               # real benign timeline for this bus
-        if fam == "At":                                                      # At is a real multi-scan sequence -> line
-            ax.plot(t, atk, color=col, lw=1.4, zorder=3)
-        if fam != "benign" and len(hits):                                    # mark the actual attacked scans (real values)
-            ax.scatter(hits, atk[hits], s=24, color=col, zorder=4, edgecolor="white", linewidth=0.6)
+        if fam != "benign":                                                  # ALL families drawn as a line (consistent with At):
+            ax.plot(t, atk, color=col, lw=1.4, zorder=3)                     # the attacked reading over the benign line
+            if len(hits): ax.scatter(hits, atk[hits], s=24, color=col, zorder=4, edgecolor="white", linewidth=0.6)  # mark attacked scans
         ax.set_title(fam, fontsize=9, color=(INK if fam != "benign" else MUTE), loc="left", weight="bold")
         ax.text(0.98, 0.05, note, transform=ax.transAxes, ha="right", va="bottom", fontsize=6.0, color=SUBTLE, style="italic")
         ax.tick_params(labelsize=6.0); ax.margins(x=0.02)
@@ -550,12 +549,12 @@ if LT is not None:
         if r == 3: ax.set_xlabel("scan (1-min)", fontsize=6.6)
         for s in ("top", "right"): ax.spines[s].set_visible(False)
     caption(fig, f"Every value is a REAL record from the shard — one IEEE-118 load bus (bus {bus}) over time. Dashed grey = its benign "
-                 "injection timeline (one benign record per scan); coloured markers = the ACTUAL attacked readings at the scans each "
-                 "family targets this bus (At, a temporal sequence, is drawn as a line). The key thing to see is that the attacked "
-                 "values sit INSIDE the bus's natural load swing, not as obvious spikes — a single scan is only 5-15% off, comparable "
-                 "to the real minute-to-minute variation, which is exactly why they are hard to flag by eye or by a simple threshold and "
-                 "why localization (not detection) is the task. Single-shot families (Aq/Al, and meter-level Ad/As/Ar) touch one scan at "
-                 "a time; only At progresses across many scans.", y=0.15)
+                 "injection timeline (one benign record per scan); the coloured line = the ACTUAL attacked reading, with markers at the "
+                 "scans this family targets the bus. The key thing to see is that the attacked values sit INSIDE the bus's natural load "
+                 "swing, not as obvious spikes — a single scan is only 5-15% off, comparable to the real minute-to-minute variation, which "
+                 "is exactly why they are hard to flag by eye or by a simple threshold and why localization (not detection) is the task. "
+                 "Single-shot families (Aq/Al, and meter-level Ad/As/Ar) touch one scan at a time (the line meets benign except at the "
+                 "marked scans); only At progresses across many consecutive scans.", y=0.15)
     save(fig)
     SIDE["load_timeline"] = open(os.path.join(RES, "sidecars", "load_timeline.csv")).read().splitlines() \
         if os.path.exists(os.path.join(RES, "sidecars", "load_timeline.csv")) else []
@@ -862,13 +861,15 @@ if at_rows:
                            "now the SDK's default localizer."))
 blocks.append(dict(subhead="Attack-resilient state estimation — recovery error on attacked buses, |V| (p.u.) / theta (deg)",
                    cols=se_cols, rows=se_rows, fontsize=7.8, col_widths=[0.13] + [0.108] * 8,
-                   cap="Recover the TRUE state from possibly-attacked measurements. The result is honestly mixed and scales "
-                       "DOWN with system size. On IEEE-14 the learned estimators (NN/PINN) clearly beat the raw meter and classical "
-                       "WLS, and the physics term helps angle (PINN 0.15 deg vs NN 0.18 deg). On IEEE-118 the NN and PINN are "
-                       "competitive with each other and roughly tie the baselines — the physics term does not add. On IEEE-300 the "
-                       "learned estimators UNDER-perform the raw meter and WLS on both quantities (a negative result, most likely "
-                       "under-training on the largest system at 60 epochs). We report it as measured rather than only the case that "
-                       "flatters the method."))
+                   cap="Recover the TRUE state from possibly-attacked measurements. The result is honestly mixed. VOLTAGE recovery "
+                       "is the real win: the learned estimators beat the raw meter and WLS at IEEE-14 (~4x) and IEEE-118 (~5x). ANGLE "
+                       "only clearly wins at IEEE-14; at 118 it ties the meter and at 300 it is worse. The reason is a property of the "
+                       "dataset, not a bug: on v0.4.0 the stealthy attacks are load-plausible and BDD-consistent, so they move the TRUE "
+                       "angle very little — the meter is already only ~0.24-0.65 deg off under attack, leaving almost nothing to recover, "
+                       "and the estimator's own reconstruction floor then dominates. In other words, the attacks are now stealthy enough "
+                       "that state recovery is nearly moot for angle. The physics term (PINN vs NN) helps at 14 and 300 but hurts at 118, "
+                       "so it is system-dependent, not universal. WLS (classical) is confirmed fooled — its error jumps 9-126x under "
+                       "stealthy attack. Reported as measured, single seed."))
 if MODELS_READY and (at_rows or any("—" not in r for r in se_rows)):
     fig = multi_table_page("Model Improvements — Attention & State Estimation",
                        "beyond the base localizer: an attention head that raises localization, and a state estimator that recovers the true state",
@@ -962,11 +963,12 @@ if MODELS_READY and se_rows:
                                  "learned but still not ahead of the classical baselines). Physics helps voltage only on the small system."),
                         dict(subhead="Voltage angle theta error (deg) on attacked buses — lower is better",
                              cols=sep_cols, rows=th_rows, col_widths=[0.20, 0.20, 0.20, 0.20, 0.20],
-                             cap="Angle is the harder quantity and carries most of the error. On IEEE-14 the PINN leads (0.15 vs NN "
-                                 "0.18 deg); on IEEE-118 the NN edges the PINN and both roughly match the baselines; on IEEE-300 both "
-                                 "learned estimators are WORSE than the raw meter (a negative result — likely under-training on the "
-                                 "largest system). A pooled MAE is angle-dominated, so this per-variable split is what keeps that honest "
-                                 "rather than hiding it behind a single number.")])
+                             cap="Angle carries most of the error and the SE only clearly helps at IEEE-14 (PINN 0.15 vs meter 0.21 deg). "
+                                 "At 118 it ties the meter; at 300 both learned estimators are WORSE than the meter. This is not (mainly) "
+                                 "under-training — it is because the v0.4.0 stealthy attacks barely move the true angle (the meter is only "
+                                 "~0.24-0.65 deg off under attack), so there is little to recover and the estimator's reconstruction floor "
+                                 "dominates. Angle recovery only pays off for the high-magnitude Al/LRA family. The honest reading: state "
+                                 "recovery matters far less once the attacks are this stealthy.")])
     SIDE["se_separated"] = ["variable,system,meter,WLS,NN,PINN"] + \
         [f"V,{','.join(r)}" for r in v_rows] + [f"theta,{','.join(r)}" for r in th_rows]
     save(fig)
