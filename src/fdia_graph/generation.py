@@ -147,13 +147,16 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
             g.benign_buf.append(nx.copy())
             if len(g.benign_buf) > 300: g.benign_buf.pop(0)   # cap buffer at 300 frames (FIFO)
             return _fin(nx, nm, ex, em, np.zeros(C, np.uint8), 0, -1, t, 0, 0)   # benign
-        a = atk[0]   # the attacked bus indices for a corrupt-in-place family (Ad/As/Ar)
+        a = atk[0]   # indices into the LOAD-BUS ARRAY (0..#load_buses-1) for a corrupt-in-place family (Ad/As/Ar)
+        abus = g.load_bus[a]   # -> the actual BUS indices. corrupt() and emit index by bus, so we MUST map here:
+        # passing `a` (array indices) straight to corrupt() tampered the wrong buses (0..nlb) while the label
+        # pointed at load_bus[a] -> the corruption and the label were on DIFFERENT buses. This maps both to abus.
         # Ar/As may replay an earlier benign frame: pick one at least ~20 frames back for temporal contrast,
         # falling back to the oldest (or None) when the buffer is too small.
         replay = g.benign_buf[int(rng.integers(0, len(g.benign_buf)-20))] if len(g.benign_buf) > 20 else (g.benign_buf[0] if g.benign_buf else None)
         # corrupt() tampers the measurements in place per the family code (Ad/As/Ar) using the replay frame.
-        nx, ex = g.corrupt(nx, ex, a, _FAMK[family], replay)
-        y = np.zeros(C, np.uint8); y[g.load_bus[a]] = 1   # label the corrupted buses
+        nx, ex = g.corrupt(nx, ex, abus, _FAMK[family], replay)
+        y = np.zeros(C, np.uint8); y[abus] = 1   # label the SAME buses that were corrupted (now consistent)
         return _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0
 
     recs = []; sid = 0   # accumulate all records; sid = next ramp sequence id
