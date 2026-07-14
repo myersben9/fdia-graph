@@ -45,6 +45,14 @@ class FdiaGenerator:
         #   ang: VT class-0.2 phase displacement 10 arc-min = 0.167 deg -> sigma = 0.167/sqrt3 ~= 0.096 deg
         #        (the VT phase displacement dominates the 0.01 deg PMU-device term). va is stored in radians.
         self.SD = dict(pf=0.017, qf=0.017, v=0.0012, pi=0.017, qi=0.017, va=0.00168)
+        # ACCURACY vs PRECISION split. A meter's accuracy-class error is mostly SYSTEMATIC (calibration/ratio
+        # offset — constant across scans), with only a small RANDOM repeatability jitter scan-to-scan. Modeling
+        # all of SD as independent per-scan noise would make 1-minute traces unrealistically jittery (and drown
+        # the temporal channel). So we split: a per-meter BIAS drawn ONCE (0.968*SD, constant over time) + a
+        # small per-scan JITTER (0.25*SD). RSS(0.968,0.25)=1.0, so the total error still equals the Asprou class.
+        _JIT = 0.25
+        self.SDj = {k: v * _JIT for k, v in self.SD.items()}          # per-scan random jitter std
+        self._sd_bias = {k: v * (1.0 - _JIT * _JIT) ** 0.5 for k, v in self.SD.items()}  # per-meter bias std
         # Grab the network factory (e.g. pn.case118) for this case.
         self.NET = getattr(pn, _CASE[self.C])
         # Build one instance and solve its AC power flow to get the base operating point.
@@ -98,6 +106,14 @@ class FdiaGenerator:
         self._ptdf_lb = self._ptdf[:, [self._lut[b] for b in range(C)]][:, self.load_bus]
         # A reusable network instance for re-solving power flows under attacked loads (avoids rebuilds).
         self._solvenet = self.NET()
+        # Per-meter SYSTEMATIC BIAS, drawn ONCE here so it is CONSTANT across every scan (a fixed calibration
+        # offset per meter). Relative for P/Q & flows (a fixed fraction of the reading), absolute for V/angle.
+        # This is the slow/systematic part of the accuracy-class error; the small per-scan jitter (self.SDj) is
+        # added fresh at emit time. Together they realize the class total while keeping 1-min traces smooth.
+        sb = self._sd_bias
+        self.bias_pi = self.rng.normal(0, sb["pi"], self.C); self.bias_qi = self.rng.normal(0, sb["qi"], self.C)
+        self.bias_v = self.rng.normal(0, sb["v"], self.C);   self.bias_va = self.rng.normal(0, sb["va"], self.C)
+        self.bias_pf = self.rng.normal(0, sb["pf"], self.E); self.bias_qf = self.rng.normal(0, sb["qf"], self.E)
         # Buffer of recent benign records — replay attacks (Ar) copy an earlier clean snapshot from here.
         self.benign_buf = []
 
@@ -118,23 +134,27 @@ class FdiaGenerator:
         Sf = Vc[self._fb]*np.conj(self._Yf@Vc)*self._bMVA
         # Node feature/mask buffers: columns [|V|, P_inj, Q_inj, angle]; mask=1 where a meter exists.
         nx = np.zeros((C, 4), np.float32); nm = np.zeros((C, 4), np.uint8)
+        # Each reading = true + CONSTANT per-meter bias (self.bias_*, drawn once) + per-scan JITTER (self.SDj).
+        # V-magnitude & flow biases are relative to the reading; V/angle biases are absolute (VT ratio error /
+        # phase displacement). va bias/jitter are in radians -> converted to degrees to match TH.
+        SDj = self.SDj
         for b in range(C):
-            # Voltage magnitude AND phase angle are observed at the same buses (vbus OR pmu) — angle is metered
-            # wherever voltage is, so theta has the same observability as V. Absolute V noise; SD["va"] is in
-            # radians so convert to degrees to match TH before adding angle noise.
+            # Voltage magnitude AND phase angle are observed at the same buses (vbus OR pmu).
             if b in M["vbus"] or b in M["pmu"]:
-                nx[b, 0] = V[b]+self._n(SD["v"]); nm[b, 0] = 1
-                nx[b, 3] = TH[b]+self._n(np.degrees(SD["va"])); nm[b, 3] = 1
-            # Injection buses (and zero-injection junctions) emit P/Q with relative noise (+ small floor
-            # so a ~0 injection still gets a tiny nonzero std). zero_inj buses carry near-0 injection.
+                nx[b, 0] = V[b] + self.bias_v[b] + self._n(SDj["v"]); nm[b, 0] = 1
+                nx[b, 3] = TH[b] + np.degrees(self.bias_va[b]) + self._n(np.degrees(SDj["va"])); nm[b, 3] = 1
+            # Injection buses (and zero-injection junctions) emit P/Q: relative bias (fraction of reading) +
+            # relative per-scan jitter (+ small floor so a ~0 injection still gets a tiny nonzero std).
             if b in M["inj"] or b in self.zero_inj:
-                nx[b, 1] = Pi[b]+self._n(abs(Pi[b])*SD["pi"]+1e-3); nx[b, 2] = Qi[b]+self._n(abs(Qi[b])*SD["qi"]+1e-3); nm[b, 1:3] = 1
+                nx[b, 1] = Pi[b]*(1.0+self.bias_pi[b]) + self._n(abs(Pi[b])*SDj["pi"]+1e-3)
+                nx[b, 2] = Qi[b]*(1.0+self.bias_qi[b]) + self._n(abs(Qi[b])*SDj["qi"]+1e-3); nm[b, 1:3] = 1
         # Edge feature/mask buffers: columns [P_from, Q_from]; mask=1 where a flow meter exists.
         ex = np.zeros((self.E, 2), np.float32); em = np.zeros((self.E, 2), np.uint8)
         for e in range(self.E):
             if self.flow_meter[e]:
-                # Metered branch flow with relative noise (+ small floor) on P and Q.
-                ex[e, 0] = Sf.real[e]+self._n(abs(Sf.real[e])*SD["pf"]+1e-3); ex[e, 1] = Sf.imag[e]+self._n(abs(Sf.imag[e])*SD["qf"]+1e-3); em[e] = 1
+                # Metered branch flow: relative per-meter bias + relative per-scan jitter on P and Q.
+                ex[e, 0] = Sf.real[e]*(1.0+self.bias_pf[e]) + self._n(abs(Sf.real[e])*SDj["pf"]+1e-3)
+                ex[e, 1] = Sf.imag[e]*(1.0+self.bias_qf[e]) + self._n(abs(Sf.imag[e])*SDj["qf"]+1e-3); em[e] = 1
         return nx, nm, ex, em
 
     def emit(self, net):
