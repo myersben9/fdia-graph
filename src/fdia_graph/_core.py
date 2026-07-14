@@ -36,12 +36,15 @@ class FdiaGenerator:
         self.pp = pp
         # C = bus count (e.g. 118). rng = seeded generator so the whole dataset is reproducible.
         self.C = int(system); self.rng = np.random.default_rng(seed)
-        # Per-quantity measurement noise std-devs (relative for flows/injections, absolute for V/angle):
-        # pf/qf = branch active/reactive flow, v = voltage magnitude, pi/qi = bus active/reactive
-        # injection, va = voltage angle. ACCURACY-CLASS meter model (Asprou IT / Falas): ~0.5% on P/Q,
-        # ~0.1-0.2% on V/angle — the sigma = class/3 heteroscedastic form real SCADA/PMU meters follow.
-        # (Previously 3%/2%, which was 5-15x too large versus real meter accuracy classes.)
-        self.SD = dict(pf=0.005, qf=0.005, v=0.001, pi=0.007, qi=0.007, va=0.002)
+        # Per-quantity measurement noise std-devs (relative for flows/injections, absolute for V/angle).
+        # ASPROU ACCURACY-CLASS MEASUREMENT-CHAIN MODEL (Asprou, Kyriakides & Albu 2013 / TIM 2014; the model
+        # Falas et al. 2025 delegates to). Each std = manufacturer MAX uncertainty / sqrt(3) (uniform-distribution
+        # convention, the paper's eqs 16-21), for CLASS-0.2 instrument transformers (the paper's high-accuracy case):
+        #   P/Q: conventional measurement-device max +-3% (Table III)  -> sigma = 3%/sqrt3 ~= 1.73%   (pi/qi/pf/qf)
+        #   |V|: VT class-0.2 magnitude error 0.2% (Table I)            -> sigma = 0.2%/sqrt3 ~= 0.12% (abs, V~1 pu)
+        #   ang: VT class-0.2 phase displacement 10 arc-min = 0.167 deg -> sigma = 0.167/sqrt3 ~= 0.096 deg
+        #        (the VT phase displacement dominates the 0.01 deg PMU-device term). va is stored in radians.
+        self.SD = dict(pf=0.017, qf=0.017, v=0.0012, pi=0.017, qi=0.017, va=0.00168)
         # Grab the network factory (e.g. pn.case118) for this case.
         self.NET = getattr(pn, _CASE[self.C])
         # Build one instance and solve its AC power flow to get the base operating point.
