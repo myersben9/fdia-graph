@@ -35,15 +35,16 @@ __all__ = ["load", "generate", "load_profile", "fetch_profile", "generate_states
            "list_datasets", "FdiaGraph", "FAMILIES", "STEALTHY_FAMILIES"]
 
 
-def fetch_profile(iso, start, end, out=None):
+def fetch_profile(iso, start, end, out=None, resample_min=None):
     """Auto-download an ISO system-load series and return a normalized scaling vector S [T].
 
     iso is "caiso"/"nyiso"/"ercot"; start/end are 'YYYY-MM-DD'. NYISO needs no account or extra deps;
-    CAISO/ERCOT use the gridstatus package (pip install 'fdia-graph[iso]'). See fdia_graph.profiles.
-    Feed the result to generate_states(). Requires the generation extra.
+    CAISO/ERCOT use the gridstatus package (pip install 'fdia-graph[iso]'). resample_min (e.g. 1)
+    time-interpolates the load to that minute cadence (upsample the 5-min feed to 1-min). See
+    fdia_graph.profiles. Feed the result to generate_states(). Requires the generation extra.
     """
     from .profiles import fetch_profile as _fetch_profile
-    return _fetch_profile(iso, start, end, out=out)
+    return _fetch_profile(iso, start, end, out=out, resample_min=resample_min)
 
 
 def load_profile(source, path=None, column=None):

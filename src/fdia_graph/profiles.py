@@ -200,12 +200,15 @@ def _fetch_gridstatus(iso, start, end):
     return __import__("pandas").Series(df["Load"].to_numpy(), index=list(ts)).sort_index()
 
 
-def fetch_profile(iso, start, end, out=None):
+def fetch_profile(iso, start, end, out=None, resample_min=None):
     """Download an ISO system-load series over [start, end] and return a normalized scaling vector S [T].
 
-    iso        : "caiso" | "nyiso" | "ercot" (case-insensitive).
-    start, end : 'YYYY-MM-DD' strings (or date/datetime), inclusive.
-    out        : optional path to also save the raw load series as a CSV (timestamp, load_mw) for provenance.
+    iso          : "caiso" | "nyiso" | "ercot" (case-insensitive).
+    start, end   : 'YYYY-MM-DD' strings (or date/datetime), inclusive.
+    out          : optional path to also save the raw load series as a CSV (timestamp, load_mw) for provenance.
+    resample_min : if set (e.g. 1), time-interpolate the load onto a uniform grid at that minute cadence before
+                   standardizing — e.g. 1 upsamples the 5-min ISO feed to 1-minute (the resolution used in the
+                   reference papers; the intermediate points are interpolated, real actual load is 5-min).
 
     NYISO works with no dependencies or account. CAISO and ERCOT use the `gridstatus` package when installed
     (pip install 'fdia-graph[iso]'); NYISO also uses it if present. The returned S feeds generate_states()
@@ -226,6 +229,13 @@ def fetch_profile(iso, start, end, out=None):
                 f"(NYISO works without it)."
             )
         series = _fetch_gridstatus(iso, start, end)
+    if resample_min is not None:
+        # Time-interpolate onto a uniform `resample_min`-minute grid (upsampling the 5-min feed to e.g. 1-min),
+        # exactly as the reference pipeline's `resample("1T").interpolate("time")`.
+        import pandas as pd
+        series = series.sort_index()
+        series.index = pd.to_datetime(series.index)
+        series = series.resample(f"{int(resample_min)}min").interpolate(method="time").dropna()
     loads = series.to_numpy(dtype=float)
     if out is not None:
         import pandas as pd

@@ -77,9 +77,21 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     # Translate the requested family names into their integer ids for membership tests below.
     fam_ids = [FAM_ID[f] for f in families]
 
+    def _fin(nx, nm, ex, em, y, family, sid, t, gap, stealthy):
+        # Finalize a record: attach temporal_delta [N,2] = current injection - PREVIOUS scan's injection, at
+        # injection-metered buses (0 elsewhere). The previous scan is the true state at t-1 (the real 5-min step
+        # before this one); for a single-shot attack this captures the sudden onset jump, for a ramp step the
+        # gradual creep, and for benign the natural load drift. This is the temporal feature sequence models use.
+        prev = X[t - 1] if t > 0 else X[t]
+        td = np.zeros((C, 2), np.float32)
+        mP = nm[:, 1] > 0
+        td[mP, 0] = nx[mP, 1] - prev[mP, 0]                 # dP_inj vs previous scan
+        td[mP, 1] = nx[mP, 2] - prev[mP, 1]                 # dQ_inj vs previous scan
+        return (nx, nm, ex, em, y, family, sid, t, gap, stealthy, td)
+
     def make(t, family, sid, atk):
         # Build ONE record from operating point X[t] for the given family. `sid` = sequence id (ramp only),
-        # `atk` = (bus-indices, multiplier) payload. Returns a 10-tuple record, or None if the AC solve failed.
+        # `atk` = (bus-indices, multiplier) payload. Returns an 11-tuple record, or None if the AC solve failed.
         Xt = X[t]
         if family in (1, 5):
             # Aq (1) and ramp (5): re-solve power flow with a scaled load, then emit REAL (stealthy) measurements.
@@ -91,8 +103,7 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
             if net is None: return None            # non-convergence: skip this timestep (expected occasionally)
             # emit() -> node feats, node mask, edge feats, edge mask for the solved (attacked) network.
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[atk[0]]] = 1  # label attacked buses
-            # Record tuple: (node_x, node_m, edge_x, edge_m, y, family, seq_id, timestep, gap, stealthy=1).
-            return (nx, nm, ex, em, y, family, sid, t, 0, 1)
+            return _fin(nx, nm, ex, em, y, family, sid, t, 0, 1)   # stealthy=1
         if family == 6:
             # LRA (6): load-redistribution — compute a zero-sum-ish delta d over K buses, then re-solve.
             Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
@@ -101,16 +112,14 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
             net = g.solve(Lp + d, Lq, Xt=Xt, Lp_true=Lp)  # redistributed load; generation pinned to TRUE dispatch
             if net is None: return None                   # non-convergence -> skip
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[a]] = 1  # label the LRA bus set
-            # seq_id = -1 (LRA is single-shot, not a sequence); stealthy=1 (physically consistent measurements).
-            return (nx, nm, ex, em, y, 6, -1, t, 0, 1)
+            return _fin(nx, nm, ex, em, y, 6, -1, t, 0, 1)   # LRA single-shot, stealthy=1
         # Remaining families (0 benign, 2/3/4 corrupt-in-place): emit directly from the stored state, no re-solve.
         nx, nm, ex, em = g.emit_from_state(Xt)
         if family == 0:
             # Benign record: keep a rolling buffer of recent clean node-feature frames (used as replay for Ar/As).
             g.benign_buf.append(nx.copy())
             if len(g.benign_buf) > 300: g.benign_buf.pop(0)   # cap buffer at 300 frames (FIFO)
-            # All-zero label, family=0, seq=-1, stealthy=0 (benign is trivially "consistent" but flagged non-stealthy=0).
-            return (nx, nm, ex, em, np.zeros(C, np.uint8), 0, -1, t, 0, 0)
+            return _fin(nx, nm, ex, em, np.zeros(C, np.uint8), 0, -1, t, 0, 0)   # benign
         a = atk[0]   # the attacked bus indices for a corrupt-in-place family (Ad/As/Ar)
         # Ar/As may replay an earlier benign frame: pick one at least ~20 frames back for temporal contrast,
         # falling back to the oldest (or None) when the buffer is too small.
@@ -118,8 +127,7 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
         # corrupt() tampers the measurements in place per the family code (Ad/As/Ar) using the replay frame.
         nx, ex = g.corrupt(nx, ex, a, _FAMK[family], replay)
         y = np.zeros(C, np.uint8); y[g.load_bus[a]] = 1   # label the corrupted buses
-        # seq=-1 single-shot, stealthy=0 (these families are NOT BDD-consistent — they leave a residual).
-        return (nx, nm, ex, em, y, family, -1, t, 0, 0)
+        return _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0
 
     recs = []; sid = 0   # accumulate all records; sid = next ramp sequence id
     for t in rng.choice(nT, min(n_benign, nT), replace=False):        # benign
@@ -189,6 +197,7 @@ def _write(g, recs, out, split, seed):
     # Stack the array-valued fields into [T, ...] tensors: node feats/mask, edge feats/mask, and labels y.
     node_x = np.stack([r[0] for r in recs]); node_m = np.stack([r[1] for r in recs])
     edge_x = np.stack([r[2] for r in recs]); edge_m = np.stack([r[3] for r in recs]); y = np.stack([r[4] for r in recs])
+    temporal_delta = np.stack([r[10] for r in recs])          # [T,N,2] current-minus-previous-scan injection feature
     # Scalar-per-record fields: family id, sequence id, timestep, gap flag, stealthy flag (dtypes sized to range).
     fam = arr(5, np.int8); seq = arr(6, np.int32); tstep = arr(7, np.int32); gap = arr(8, np.uint8); st = arr(9, np.uint8)
     # Compute the train/val/test assignment (0/1/2) per record, chronologically and sequence-aware.
@@ -206,6 +215,7 @@ def _write(g, recs, out, split, seed):
         d.create_dataset("node_m", data=node_m, compression="gzip")
         d.create_dataset("edge_x", data=edge_x, chunks=ch+edge_x.shape[1:], compression="gzip", compression_opts=4)
         d.create_dataset("edge_m", data=edge_m, compression="gzip"); d.create_dataset("y", data=y, compression="gzip")
+        d.create_dataset("temporal_delta", data=temporal_delta, chunks=ch+temporal_delta.shape[1:], compression="gzip", compression_opts=4)
         # Store each scalar field (including the computed split) as its own dataset alongside the tensors.
         for nm_, a in [("family", fam), ("seq_id", seq), ("timestep", tstep), ("gap", gap), ("stealthy", st), ("split", sp)]:
             d.create_dataset(nm_, data=a)
