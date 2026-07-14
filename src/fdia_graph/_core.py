@@ -38,8 +38,10 @@ class FdiaGenerator:
         self.C = int(system); self.rng = np.random.default_rng(seed)
         # Per-quantity measurement noise std-devs (relative for flows/injections, absolute for V/angle):
         # pf/qf = branch active/reactive flow, v = voltage magnitude, pi/qi = bus active/reactive
-        # injection, va = voltage angle. These model real SCADA/PMU meter accuracy.
-        self.SD = dict(pf=0.02, qf=0.02, v=0.005, pi=0.03, qi=0.03, va=0.005)
+        # injection, va = voltage angle. ACCURACY-CLASS meter model (Asprou IT / Falas): ~0.5% on P/Q,
+        # ~0.1-0.2% on V/angle — the sigma = class/3 heteroscedastic form real SCADA/PMU meters follow.
+        # (Previously 3%/2%, which was 5-15x too large versus real meter accuracy classes.)
+        self.SD = dict(pf=0.005, qf=0.005, v=0.001, pi=0.007, qi=0.007, va=0.002)
         # Grab the network factory (e.g. pn.case118) for this case.
         self.NET = getattr(pn, _CASE[self.C])
         # Build one instance and solve its AC power flow to get the base operating point.
