@@ -328,6 +328,51 @@ SIDE["coverage"] = ["system,N,E,redundancy,V_cov,Pinj_cov,theta_cov,flow_cov"] +
     [f"{c},{DATA[c]['N']},{DATA[c]['E']},{DATA[c]['redundancy']:.3f},{DATA[c]['cov']['V']:.3f},{DATA[c]['cov']['Pinj']:.3f},{DATA[c]['cov']['theta']:.3f},{DATA[c]['cov']['flow']:.3f}" for c in SYS if c in DATA]
 save(fig)
 
+# ======================= Measurement (noise) model =======================
+fig = newpage("Measurement Model — Realistic Accuracy-Class Meter Noise",
+              "how every reading is corrupted: the accuracy-class magnitude, heteroscedastic scaling, and a systematic-bias / per-scan-jitter split")
+# the accuracy-class values table (class-0.2 instrument transformers, sigma = manufacturer max / sqrt(3))
+mm_cols = ["Quantity", "Source of error", "Max (class 0.2)", "sigma = max/√3"]
+mm_rows = [["P / Q  (inj + flow)", "conventional device (Table III)", "±3%", "1.7%  (relative)"],
+           ["|V|  magnitude", "VT ratio error (class 0.2)", "0.2%", "0.12%  (of ~1 p.u.)"],
+           ["theta  angle", "VT phase displacement", "10 arc-min = 0.167°", "0.096°"]]
+bot = draw_table(fig, 0.86, mm_cols, mm_rows, fontsize=8.6, col_widths=[0.24, 0.34, 0.20, 0.22])
+y = prose(fig, [
+ ("The measurement chain",
+  "A reading is the true quantity seen through a chain: bus -> instrument transformer (VT/CT) -> measurement "
+  "device -> control center. Each stage adds error, so the dataset stores what a real EMS receives, not the "
+  "exact physics. The magnitude of that error follows the instrument-transformer ACCURACY CLASS (Asprou, "
+  "Kyriakides & Albu 2013 — the model the Falas et al. 2025 baseline delegates to). A class number is a "
+  "MAXIMUM error; the standard deviation added as noise is that max divided by sqrt(3) (a uniform-distribution "
+  "convention). Power is device-dominated (the conventional device is +-3%), so its sigma is far larger than "
+  "voltage, which is transformer-dominated. P/Q noise is heteroscedastic — proportional to the reading — so a "
+  "large line carries more absolute error than a small one, which is how a state estimator weights it."),
+ ("Systematic bias vs per-scan jitter",
+  ["A meter's error is mostly SYSTEMATIC — a fixed calibration / ratio / phase offset that is the SAME every "
+   "scan — with only a small RANDOM repeatability jitter. This is the accuracy-vs-precision distinction.",
+   "Modelling the whole accuracy class as fresh per-scan noise would make 1-minute traces jump ~2.4% every "
+   "scan (unrealistic) and drown the temporal signal. So each meter gets a bias drawn ONCE (0.968 x sigma, "
+   "constant in time) plus a per-scan jitter (0.25 x sigma). Their combination equals the full class total.",
+   "Because the bias is constant, it CANCELS in scan-to-scan differences: the temporal feature reflects real "
+   "load change plus tiny jitter, not meter noise. Verified: measured scan-to-scan drops from 2.4% to ~0.7% "
+   "(matching the smooth true load) while the across-meter accuracy stays ~1.7%."]),
+], top=bot - 0.03, fs=9.4, lh=0.019)
+put_y = y - 0.004
+fig.text(0.075, put_y, "One reading:", fontsize=10, weight="bold", color=INK)
+fig.text(0.075, put_y - 0.026, r"$z = z_{\mathrm{true}}\,(1 + b_{\rm meter}) + \varepsilon_t,\quad "
+         r"b_{\rm meter}\sim\mathcal{N}(0,\,0.968\,\sigma)\ \mathrm{(drawn\ once)},\quad "
+         r"\varepsilon_t\sim\mathcal{N}(0,\,0.25\,\sigma\,|z_{\rm true}|)\ \mathrm{(each\ scan)}$",
+         fontsize=10.5, color="#1f2d3d", family="serif")
+caption(fig, "Honest note: the accuracy-class magnitudes and the sqrt(3) conversion are taken directly from Asprou et al. "
+             "(2013); the split of that error into a constant per-meter bias plus a small per-scan jitter is our physically-"
+             "motivated refinement (the paper models it as all-random), justified by the standard metrology distinction "
+             "between accuracy and precision. |V| bias is the VT ratio offset and theta bias is the VT phase displacement — "
+             "both fixed transformer characteristics, so a systematic bias is the correct representation, not per-scan noise.",
+        y=put_y - 0.06)
+SIDE["measurement_model"] = ["quantity,source,max_class0.2,sigma"] + [",".join(f'"{c}"' for c in r) for r in mm_rows] + \
+    ["split,bias=0.968*sigma_constant_per_meter,jitter=0.25*sigma_per_scan,total=class"]
+save(fig)
+
 # ======================= Attack construction (formulas) =======================
 fig = newpage("How Each Attack Is Built",
               "from the clean state to the attacked measurement graph, as implemented in the generator")
