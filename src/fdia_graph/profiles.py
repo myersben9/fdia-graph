@@ -68,26 +68,13 @@ def load_profile(source, path=None, column=None):
     return (loads - mu) / (sd if sd > 0 else 1.0)             # standardized scaling vector S [T]
 
 
-def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP_DEFAULT, n=None, seed=123):
-    """Turn a load-scaling profile into a pool of AC operating states [T, N, 4].
-
-    For each timestep t: draw a per-bus scale factor clip(1 + k*S_t + N(0, sigma), *clip), apply it to the
-    case's base loads and generator setpoints, solve the AC power flow, and record the clean operating state.
-    The recorded injection is the SE-CONSISTENT (without-shunt) injection: pandapower's WLS/BDD measurement
-    function excludes the shunt element, so we subtract res_shunt from the bus P/Q. Keeping the with-shunt
-    value would make shunt buses inconsistent with the estimator and flag them under bad-data detection — this
-    subtraction is exactly why the resulting benign states pass BDD. Non-converging timesteps are skipped.
-
-    Returns states [T, N, 4] = [P_inj (MW), Q_inj (MVAr), |V| (p.u.), theta (deg)], the pool `generate()` and
-    `emit_from_state` consume.
-    """
+def _solve_states_chunk(key, S_chunk, k, sigma, clip, seed):
+    """Solve the AC operating state for each scaling value in S_chunk (one case, one seeded RNG). Module-level
+    and picklable so it can run as a multiprocessing worker. Returns a list of [N,4] state arrays; non-
+    converging steps are skipped. See generate_states for the physics / shunt-correction rationale."""
     import pandapower as pp
     import pandapower.networks as pn
-    cases = {14: pn.case14, 118: pn.case118, 300: pn.case300}
-    key = int(str(system).lower().replace("ieee", ""))
-    if key not in cases:
-        raise ValueError(f"unknown system {system!r}; expected 14, 118, or 300")
-    base = cases[key]()
+    base = {14: pn.case14, 118: pn.case118, 300: pn.case300}[key]()
     pp.runpp(base)                                             # solve the base case to seed a valid state
     nodelist = sorted(base.bus.index)                          # consistent bus order for the [N,4] rows
     # snapshot the base loads/gens once; every timestep scales THESE, not the previous (drifted) values
@@ -98,14 +85,9 @@ def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP
     gen_buses = base.gen["bus"].to_numpy()
     all_buses = np.unique(np.concatenate([load_buses, gen_buses]))
     pos = {int(b): i for i, b in enumerate(nodelist)}
-
     rng = np.random.default_rng(seed)
-    S = np.asarray(profile, dtype=float).ravel()
-    if n is not None:
-        S = S[:n]
-
     out = []
-    for St in S:
+    for St in S_chunk:
         # per-bus scale: the profile drives the mean, the jitter decorrelates buses, the clip keeps it plausible
         sf = np.clip(1.0 + k * St + rng.normal(0.0, sigma, size=len(all_buses)), clip[0], clip[1])
         b2s = dict(zip(all_buses.tolist(), sf.tolist()))
@@ -123,6 +105,43 @@ def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP
                     z[pos[int(b)], 0] -= ps                    # remove shunt conductance draw from P
                     z[pos[int(b)], 1] -= qs                    # remove shunt susceptance draw from Q
         out.append(z)
+    return out
+
+
+def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP_DEFAULT, n=None, seed=123, workers=None):
+    """Turn a load-scaling profile into a pool of AC operating states [T, N, 4].
+
+    For each timestep t: draw a per-bus scale factor clip(1 + k*S_t + N(0, sigma), *clip), apply it to the
+    case's base loads and generator setpoints, solve the AC power flow, and record the clean operating state.
+    The recorded injection is the SE-CONSISTENT (without-shunt) injection: pandapower's WLS/BDD measurement
+    function excludes the shunt element, so we subtract res_shunt from the bus P/Q. Keeping the with-shunt
+    value would make shunt buses inconsistent with the estimator and flag them under bad-data detection — this
+    subtraction is exactly why the resulting benign states pass BDD. Non-converging timesteps are skipped.
+
+    workers: if >1, split the timesteps across that many worker processes (each power flow is independent, so
+    this scales near-linearly) — the big win for large pools. Chunks are contiguous so the pool stays in time
+    order; each chunk uses seed+chunk_index (reproducible, but not identical to the sequential draw order).
+    NOTE: because it spawns processes, a caller that passes workers>1 must guard its top-level script with
+    `if __name__ == "__main__":` (standard multiprocessing requirement on Windows).
+
+    Returns states [T, N, 4] = [P_inj (MW), Q_inj (MVAr), |V| (p.u.), theta (deg)], the pool `generate()` and
+    `emit_from_state` consume.
+    """
+    key = int(str(system).lower().replace("ieee", ""))
+    if key not in (14, 118, 300):
+        raise ValueError(f"unknown system {system!r}; expected 14, 118, or 300")
+    S = np.asarray(profile, dtype=float).ravel()
+    if n is not None:
+        S = S[:n]
+    if workers and workers > 1 and len(S) >= workers:
+        import multiprocessing as mp
+        chunks = np.array_split(S, workers)                   # contiguous -> concatenation preserves time order
+        args = [(key, chunks[i], k, sigma, clip, seed + i) for i in range(len(chunks))]
+        with mp.Pool(workers) as pool:
+            parts = pool.starmap(_solve_states_chunk, args)
+        out = [z for part in parts for z in part]             # flatten in chunk (time) order
+    else:
+        out = _solve_states_chunk(key, S, k, sigma, clip, seed)
     if not out:
         raise RuntimeError("no operating points converged; check the profile / scaling knobs")
     return np.asarray(out, dtype=np.float64)                  # [T, N, 4]
