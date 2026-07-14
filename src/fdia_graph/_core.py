@@ -6,10 +6,10 @@ Refactored from the validated reference generator into a knob-driven class. Requ
   Aq   stealthy load scaling: bounded per-bus load rescale + AC re-solve with AGC-balanced generation,
        yielding a fully power-flow-consistent counterfactual (stealthy). OUR contribution — the AC/physical
        realization of the state-consistent attack concept (cf. Boyaci et al. 2022 "Ao"; Liu et al. 2011 FDIA)
-  ramp temporal creeping load surge that ramps up then back down over a multi-timestep sequence (stealthy);
+  At   (ramp) temporal creeping load surge that ramps up then back down over a multi-timestep sequence (stealthy);
        ramp attack of Haghshenas, Hasnat & Naeini, "A Temporal Graph Neural Network for Cyber Attack Detection
        and Localization in Smart Grids", IEEE ISGT 2023
-  LRA  targeted masked-overload, Yuan/Li/Ren IEEE T-SG 2011 (stealthy)
+  Al   (LRA) targeted masked-overload, Yuan/Li/Ren IEEE T-SG 2011 (stealthy)
   Ad/As/Ar  measurement-level corruption (BDD-detectable contrast set)
 """
 import numpy as np
@@ -17,7 +17,8 @@ import numpy as np
 # Integer label for each attack family. These IDs are written into the per-bus label tensor `y`
 # (0 = clean bus, >0 = attacked bus of that family) and consumed downstream by dataset.py.
 # "Ao"/"SLS" are backward-compatible aliases for Aq (id 1) so older scripts/datasets still resolve.
-FAM_ID = {"benign": 0, "Aq": 1, "SLS": 1, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4, "ramp": 5, "LRA": 6}
+FAM_ID = {"benign": 0, "Aq": 1, "SLS": 1, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4,
+          "At": 5, "ramp": 5, "Al": 6, "LRA": 6}  # At=ramp, Al=LRA (with descriptive aliases)
 # Maps a bus-count knob (14/118/300) to the pandapower.networks factory name for that IEEE case.
 _CASE = {14: "case14", 118: "case118", 300: "case300"}
 

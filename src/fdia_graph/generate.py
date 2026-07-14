@@ -2,8 +2,8 @@
 
 Research knobs (all optional, sensible defaults matching the published shards):
   per_family        int   attacked records per family (default 3000)
-  families          list  which attacks to include (default all: Aq,Ad,As,Ar,ramp,LRA)
-  attack_intensity  float per-bus load shift magnitude for Aq / LRA bound (default 0.15 = ±15%)
+  families          list  which attacks to include (default all: Aq,Ad,As,Ar,At,Al)
+  attack_intensity  float per-bus load shift magnitude for Aq / Al(LRA) bound (default 0.15 = ±15%)
   ramp_rate         float ramp perturbation growth per step (default 0.002)
   ramp_len          int   ramp sequence length (default 60)
   n_benign          int   benign records (default 20000)
@@ -21,8 +21,8 @@ from ._core import FdiaGenerator, FAM_ID
 # CACHE_DIR is the SDK's on-disk home for shards; register_local records the new dataset so load(name) finds it.
 from .registry import CACHE_DIR, register_local
 
-# Map of single-shot family name -> integer id, used for reference/lookups (Aq=1, Ad=2, As=3, Ar=4, LRA=6).
-_SINGLE = {"Aq": 1, "Ad": 2, "As": 3, "Ar": 4, "LRA": 6}
+# Map of single-shot family name -> integer id, used for reference/lookups (Aq=1, Ad=2, As=3, Ar=4, Al/LRA=6).
+_SINGLE = {"Aq": 1, "Ad": 2, "As": 3, "Ar": 4, "Al": 6}
 # Reverse lookup for the "corrupt-in-place" families (Ad/As/Ar): family id -> letter code passed to g.corrupt().
 _FAMK = {2: "Ad", 3: "As", 4: "Ar"}
 
@@ -59,7 +59,7 @@ def _load_states(system, states, pool_cap=8000):
     return np.load(ensure_local(spec))["X"].astype(np.float64)
 
 
-def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "ramp", "LRA"),
+def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "At", "Al"),
              attack_intensity=0.15, ramp_rate=0.002, ramp_len=60, n_benign=20000, lra_targets=15,
              redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None):
     # lra_targets: size of the LRA target-line pool (each LRA attack picks one at random -> diverse bus sets)
@@ -197,7 +197,7 @@ def _write(g, recs, out, split, seed):
     with h5py.File(out, "w") as f:
         # File-level attributes: dimensions, feature-column legends, family legend, LRA target line, seed.
         f.attrs.update(dict(system=C, N=C, E=E, n_records=T, node_feat="V,P_inj,Q_inj,theta", edge_feat="P_from,Q_from",
-                            families="0benign,1Aq,2Ad,3As,4Ar,5ramp,6LRA", lra_target_line=g._Ltgt, seed=seed))
+                            families="0benign,1Aq,2Ad,3As,4Ar,5At,6Al", lra_target_line=g._Ltgt, seed=seed))
         # graph/ group: static topology shared by all records — edge_index and per-edge reactance.
         gg = f.create_group("graph"); gg.create_dataset("edge_index", data=g.ei); gg.create_dataset("edge_reactance", data=g.x_react)
         # data/ group: the per-record tensors. Chunk along the record axis (<=128) for efficient partial reads.

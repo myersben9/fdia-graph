@@ -13,9 +13,9 @@ import numpy as np
 
 # Integer attack-family code -> human name. These integers are the on-disk `data/family`
 # values; the whole SDK speaks in these codes and only maps to names for display.
-FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "ramp", 6: "LRA"}
-STEALTHY_FAMILIES = {1, 5, 6}          # Aq, ramp, LRA — evade classical bad-data detection
-_FAMILY_ALIAS = {"Ao": 1, "SLS": 1}       # backward-compatible names for Aq (id 1)
+FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
+STEALTHY_FAMILIES = {1, 5, 6}          # Aq, At, Al — evade classical bad-data detection
+_FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}   # backward-compatible family-name aliases
 # On-disk `data/split` codes. Splitting is precomputed and stored, not derived here.
 _SPLIT = {"train": 0, "val": 1, "test": 2}
 _HELDOUT_TRAIN_EXCLUDE = {3, 4}        # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
