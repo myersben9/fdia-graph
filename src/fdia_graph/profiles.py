@@ -28,6 +28,10 @@ import numpy as np
 K_DEFAULT = 0.1
 SIGMA_DEFAULT = 0.03
 CLIP_DEFAULT = (0.7, 1.3)
+# AR(1) temporal-correlation coefficient for the per-bus load jitter. 0 = independent white noise each step
+# (unrealistically jumpy); ~0.98 makes the load evolve smoothly minute-to-minute like real high-resolution
+# demand (scan-to-scan change ~0.5% instead of ~4%), while keeping the same stationary bus-to-bus spread.
+JITTER_RHO = 0.98
 
 # how each supported ISO CSV names its timestamp and load columns
 _ISO_COLS = {
@@ -68,16 +72,24 @@ def load_profile(source, path=None, column=None):
     return (loads - mu) / (sd if sd > 0 else 1.0)             # standardized scaling vector S [T]
 
 
-def _solve_states_chunk(key, S_chunk, k, sigma, clip, seed):
-    """Solve the AC operating state for each scaling value in S_chunk (one case, one seeded RNG). Module-level
-    and picklable so it can run as a multiprocessing worker. Returns a list of [N,4] state arrays; non-
-    converging steps are skipped. See generate_states for the physics / shunt-correction rationale."""
+def _case_buses(key):
+    """Return (all_buses ordering) for a case — must match between the central jitter build and the worker."""
+    import pandapower as pp
+    import pandapower.networks as pn
+    base = {14: pn.case14, 118: pn.case118, 300: pn.case300}[key]()
+    return np.unique(np.concatenate([base.load["bus"].to_numpy(), base.gen["bus"].to_numpy()]))
+
+
+def _solve_states_chunk(key, sf_chunk):
+    """Solve the AC operating state for each PRECOMPUTED per-bus scale-factor row in sf_chunk [L, nbus] (aligned
+    to _case_buses order). Module-level and picklable so it runs as a multiprocessing worker. The scale factors
+    (profile + AR(1) jitter, already clipped) are computed centrally in generate_states so there is no jitter
+    discontinuity at chunk boundaries. Returns a list of [N,4] state arrays; non-converging steps are skipped."""
     import pandapower as pp
     import pandapower.networks as pn
     base = {14: pn.case14, 118: pn.case118, 300: pn.case300}[key]()
     pp.runpp(base)                                             # solve the base case to seed a valid state
     nodelist = sorted(base.bus.index)                          # consistent bus order for the [N,4] rows
-    # snapshot the base loads/gens once; every timestep scales THESE, not the previous (drifted) values
     base_load_p = base.load["p_mw"].to_numpy().copy()
     base_load_q = base.load["q_mvar"].to_numpy().copy()
     base_gen_p = base.gen["p_mw"].to_numpy().copy()
@@ -85,11 +97,8 @@ def _solve_states_chunk(key, S_chunk, k, sigma, clip, seed):
     gen_buses = base.gen["bus"].to_numpy()
     all_buses = np.unique(np.concatenate([load_buses, gen_buses]))
     pos = {int(b): i for i, b in enumerate(nodelist)}
-    rng = np.random.default_rng(seed)
     out = []
-    for St in S_chunk:
-        # per-bus scale: the profile drives the mean, the jitter decorrelates buses, the clip keeps it plausible
-        sf = np.clip(1.0 + k * St + rng.normal(0.0, sigma, size=len(all_buses)), clip[0], clip[1])
+    for sf in sf_chunk:                                        # sf: [nbus] scale factor per bus for this timestep
         b2s = dict(zip(all_buses.tolist(), sf.tolist()))
         base.load["p_mw"] = base_load_p * np.array([b2s[int(b)] for b in load_buses])
         base.load["q_mvar"] = base_load_q * np.array([b2s[int(b)] for b in load_buses])
@@ -106,6 +115,23 @@ def _solve_states_chunk(key, S_chunk, k, sigma, clip, seed):
                     z[pos[int(b)], 1] -= qs                    # remove shunt susceptance draw from Q
         out.append(z)
     return out
+
+
+def _ar1_scale(S, nbus, k, sigma, clip, rho, seed):
+    """Build the [T, nbus] per-bus scale-factor matrix: clip(1 + k*S_t + jitter_t), where jitter is a per-bus
+    AR(1) process jitter_t = rho*jitter_{t-1} + sqrt(1-rho^2)*sigma*eps. The AR(1) makes the load evolve
+    SMOOTHLY minute to minute (stationary std still = sigma, so the bus-to-bus spread is unchanged) instead of
+    an independent white-noise draw each step — which is what real high-resolution load looks like, and what
+    keeps the scan-to-scan change realistic (~0.5%/min at rho=0.98, vs ~4% for independent jitter)."""
+    T = len(S)
+    rng = np.random.default_rng(seed)
+    eps = rng.standard_normal((T, nbus))
+    jit = np.empty((T, nbus))
+    jit[0] = sigma * eps[0]
+    step = sigma * np.sqrt(1.0 - rho * rho)
+    for t in range(1, T):                                     # AR(1) recursion (cheap: T iterations of a vector op)
+        jit[t] = rho * jit[t - 1] + step * eps[t]
+    return np.clip(1.0 + k * S[:, None] + jit, clip[0], clip[1])
 
 
 def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP_DEFAULT, n=None, seed=123, workers=None):
@@ -133,15 +159,19 @@ def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]
+    # Build the FULL per-bus scale-factor matrix centrally with AR(1) temporal correlation, so the load evolves
+    # smoothly and there is no jitter discontinuity where the worker chunks meet.
+    nbus = len(_case_buses(key))
+    SF = _ar1_scale(S, nbus, k, sigma, clip, JITTER_RHO, seed)   # [T, nbus]
     if workers and workers > 1 and len(S) >= workers:
         import multiprocessing as mp
-        chunks = np.array_split(S, workers)                   # contiguous -> concatenation preserves time order
-        args = [(key, chunks[i], k, sigma, clip, seed + i) for i in range(len(chunks))]
+        sf_chunks = np.array_split(SF, workers)               # contiguous rows -> concatenation preserves time order
+        args = [(key, sf_chunks[i]) for i in range(len(sf_chunks))]
         with mp.Pool(workers) as pool:
             parts = pool.starmap(_solve_states_chunk, args)
         out = [z for part in parts for z in part]             # flatten in chunk (time) order
     else:
-        out = _solve_states_chunk(key, S, k, sigma, clip, seed)
+        out = _solve_states_chunk(key, SF)
     if not out:
         raise RuntimeError("no operating points converged; check the profile / scaling knobs")
     return np.asarray(out, dtype=np.float64)                  # [T, N, 4]
