@@ -79,6 +79,19 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     K = min(6, len(g.load_bus)); rng = g.rng
     # Load the operating-point pool [T,N,4]; nT = #timesteps available, C = #nodes/classes (label width).
     X = _load_states(system, states); nT = len(X); C = g.C
+    # Precompute the per-timestep "recent typical change" scale for the swing feature ONCE (vectorized via
+    # prefix sums), instead of recomputing a windowed std per record (which is ~72k slow Python iterations).
+    # SCALE[t,b,:] = std over the window [t-SWING_W, t) of the per-bus scan-to-scan |change| in P/Q.
+    _D = np.abs(np.diff(X[:, :, :2], axis=0))                      # [nT-1, N, 2] scan-to-scan |change|
+    _c1 = np.concatenate([np.zeros((1,) + _D.shape[1:]), np.cumsum(_D, 0)], 0)          # prefix sum, [nT,N,2]
+    _c2 = np.concatenate([np.zeros((1,) + _D.shape[1:]), np.cumsum(_D ** 2, 0)], 0)     # prefix sum of squares
+    SCALE = np.full((nT, C, 2), 1e-3, np.float32)
+    for t in range(2, nT):                                        # window changes D[max(0,t-W) .. t-2]
+        s = max(0, t - SWING_W); e = t - 1                        # sum over D[s..e-1] via c[e]-c[s]
+        n = e - s
+        if n >= 3:
+            su = _c1[e] - _c1[s]; sq = _c2[e] - _c2[s]
+            SCALE[t] = np.sqrt(np.maximum(sq / n - (su / n) ** 2, 0.0)) + 1e-3
     # Translate the requested family names into their integer ids for membership tests below.
     fam_ids = [FAM_ID[f] for f in families]
 
@@ -95,14 +108,12 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
         td = np.zeros((C, 2), np.float32)
         td[mP, 0] = nx[mP, 1] - prev[mP, 0]; td[mP, 1] = nx[mP, 2] - prev[mP, 1]
         sw = np.zeros((C, 2), np.float32)
-        w0 = max(0, t - SWING_W)                            # recent window of TRUE states [t-SWING_W, t)
-        if t - w0 >= 4:
-            dwin = np.abs(np.diff(X[w0:t, :, :2], axis=0))  # [w-1,N,2] per-bus scan-to-scan |change| over the window
-            scale = dwin.std(0) + 1e-3                       # this bus's TYPICAL recent change magnitude
-            # rate-of-change z-score: how big is THIS scan's jump vs the bus's normal recent jumps? A single-shot
-            # attack (Aq/Al) is a huge abrupt jump -> large; a gradual ramp (At) or benign drift stays ~1.
-            sw[mP, 0] = (nx[mP, 1] - prev[mP, 0]) / scale[mP, 0]
-            sw[mP, 1] = (nx[mP, 2] - prev[mP, 1]) / scale[mP, 1]
+        # rate-of-change z-score: how big is THIS scan's jump vs the bus's TYPICAL recent jump (precomputed
+        # SCALE[t])? A single-shot attack (Aq/Al) is a huge abrupt jump -> large; a gradual ramp (At) or benign
+        # drift stays ~1. SCALE is precomputed once above (vectorized), so this is just a per-record lookup.
+        sc = SCALE[t]
+        sw[mP, 0] = (nx[mP, 1] - prev[mP, 0]) / sc[mP, 0]
+        sw[mP, 1] = (nx[mP, 2] - prev[mP, 1]) / sc[mP, 1]
         return (nx, nm, ex, em, y, family, sid, t, gap, stealthy, td, sw)
 
     def make(t, family, sid, atk):
