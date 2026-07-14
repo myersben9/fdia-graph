@@ -79,6 +79,44 @@ for a clean stealthy-vs-detectable comparison.
 
 **How.** `generate(..., families=["Ad", "As", "Ar"])`.
 
+## 6. Mimicry attack (Am) — persistent, load-pattern-mimicking, operationally deadly  [NEXT VERSION]
+
+**Idea.** The strongest stealthy attack: instead of a bounded nudge on the current
+load, feed the operator a *different but individually-plausible load trajectory* on
+the target buses — a load pattern the bus genuinely had at another time — blended in
+smoothly and **held over a window** (persistent, not single-shot). Re-solve the power
+flow so the whole state moves. The attacked bus is doing something believable on its
+own, but jointly out-of-sync with the rest of the grid.
+
+**Why it matters (the whole thesis, sharpened).** Reviewer-proof "ML-only dangerous":
+- Evades **BDD** (spatially consistent — we re-solve) AND a **temporal-anomaly
+  threshold** (smooth, in-range, no single-scan jump). Prototype on IEEE-118 at
+  accuracy-class noise: Am flagged 8.3% by BDD and 8.3% by a 5%-FA temporal detector,
+  i.e. at/below the benign floor on both. See `_am_prototype.py`.
+- The only signal left is the **joint spatiotemporal correlation** (real regional loads
+  ramp together; the mimic breaks that) — invisible to BDD and per-bus checks, catchable
+  ONLY by a spatiotemporal GNN. That is the purest ML-only claim.
+- Being **persistent**, it actually reaches the EMS applications and causes a wrong
+  operator decision (masked overload) — unlike a single-shot spike, which the operator
+  ignores. This is what makes it "deadly," measured by the operator-impact metric
+  (line-overload masking, Yuan et al. 2011).
+
+**Design knob (the research axis).** How far the joint deviation can be pushed while each
+bus stays individually plausible: too consistent → undetectable by anything (useless);
+too inconsistent → obvious. Target: individually plausible, jointly off just enough to be
+localizable only by a learned model, and goal-directed (hide a real overload).
+
+**How.** Reuse `profiles.generate_states` as the attacker (draw a plausible false
+trajectory for the target buses from another time window), blend from the true previous
+scan over a smooth onset, hold over K scans, re-solve with pinned dispatch + AGC. Add as
+a NEW family (keep single-shot Aq/Al as the weaker contrast rung — the damage ladder
+crude→single-shot→persistent is the argument). Three-detector eval: BDD, temporal
+threshold, and the learned localizer.
+
+**Why deferred to next version:** v0.4.0 already has a difficulty gradient (crude
+Ad/As/Ar → stealthy single-shot Aq → harder At/Al) sufficient to carry the operator-impact
+story. Am is a substantial new family + evaluation worth its own release, not a rush-in.
+
 ---
 
 ## Cross-cutting notes
