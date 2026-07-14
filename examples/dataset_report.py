@@ -799,9 +799,25 @@ for c in SYS_ALL:
     pfd = d.get("per_family_DR", {})
     det_rows.append([f"IEEE-{c}", f"{d['DR']:.3f}", f"{d['FA']:.3f}", f"{d['det_f1']:.3f}"] + [f"{pfd.get(f,0):.2f}" for f in FAMS])
 if MODELS_READY and loc_rows:
+    BASE = {c: load_json(f"baselines_{c}.json") for c in SYS_ALL}    # simple-model complexity ladder
+    ladder_cols = ["System", "per-bus MLP", "plain GCN", "ARMA+attn (ours)"]
+    ladder_rows = []
+    for c in SYS_ALL:
+        b = BENCH.get(f"ieee{c}"); base = BASE.get(c)
+        ladder_rows.append([f"IEEE-{c}",
+                            f"{base['mlp']['swf1']:.3f}" if base else "pending",
+                            f"{base['gcn']['swf1']:.3f}" if base else "pending",
+                            f"{b['overall']['swf1']:.3f}" if b else "pending"])
     fig = multi_table_page("Model Benchmark — Localization & Detection",
                        "reference ARMA localizer (measurements + KCL residual + temporal delta), test split",
-                       [dict(subhead="Localization — sample-wise F1 per attack type (higher is better)",
+                       [dict(subhead="Model complexity ladder — overall localization swF1 (does the graph model earn its complexity?)",
+                             cols=ladder_cols, rows=ladder_rows, col_widths=[0.22, 0.26, 0.26, 0.26],
+                             cap="Same data, same metric: a per-bus MLP (node features only, NO graph) vs a plain 2-layer GCN vs "
+                                 "our ARMA+attention hybrid. The gap from MLP to the graph models measures how much the grid "
+                                 "structure matters; the gap from GCN to ARMA measures the wide-receptive-field / attention gain. "
+                                 "The hybrid's lead over the simple baselines is what justifies its complexity — where they are "
+                                 "close, the simpler model is preferable."),
+                        dict(subhead="Localization — sample-wise F1 per attack type (higher is better)",
                              cols=loc_cols, rows=loc_rows, col_widths=[0.16, 0.14] + [0.10] * 6,
                              cap="Per attack type, not accuracy: LRA (structured, targeted) is the most localizable; the diffuse "
                                  "stealthy families (Aq, At) and the larger grids are the hard cases. A table beats a bar chart "
@@ -813,6 +829,7 @@ if MODELS_READY and loc_rows:
                                  "detected in Boyaci range — ML catches what the classical detector cannot.")])
     SIDE["localization"] = ["system,overall," + ",".join(FAMS)] + [",".join([f"ieee{SYS_ALL[i]}"] + r[1:]) for i, r in enumerate(loc_rows)]
     SIDE["detection"] = ["system,DR,FA,det_f1," + ",".join("DR_" + f for f in FAMS)] + [",".join([f"ieee{SYS_ALL[i]}"] + r[1:]) for i, r in enumerate(det_rows)]
+    SIDE["complexity_ladder"] = ["system,mlp_swf1,gcn_swf1,arma_hybrid_swf1"] + [",".join(r) for r in ladder_rows]
     save(fig)
 else:
     pending_page("Model Benchmark — Localization & Detection",
@@ -845,9 +862,13 @@ if at_rows:
                            "now the SDK's default localizer."))
 blocks.append(dict(subhead="Attack-resilient state estimation — recovery error on attacked buses, |V| (p.u.) / theta (deg)",
                    cols=se_cols, rows=se_rows, fontsize=7.8, col_widths=[0.13] + [0.108] * 8,
-                   cap="Recover the TRUE state from possibly-attacked measurements. WLS (classical) is fooled by a stealthy "
-                       "attack; the learned estimators beat it and the raw meter on both quantities, and the physics term (PINN "
-                       "vs NN) sharpens voltage. On IEEE-300 the meter is off ~15 deg under attack while the PINN recovers to ~4 deg."))
+                   cap="Recover the TRUE state from possibly-attacked measurements. The result is honestly mixed and scales "
+                       "DOWN with system size. On IEEE-14 the learned estimators (NN/PINN) clearly beat the raw meter and classical "
+                       "WLS, and the physics term helps angle (PINN 0.15 deg vs NN 0.18 deg). On IEEE-118 the NN and PINN are "
+                       "competitive with each other and roughly tie the baselines — the physics term does not add. On IEEE-300 the "
+                       "learned estimators UNDER-perform the raw meter and WLS on both quantities (a negative result, most likely "
+                       "under-training on the largest system at 60 epochs). We report it as measured rather than only the case that "
+                       "flatters the method."))
 if MODELS_READY and (at_rows or any("—" not in r for r in se_rows)):
     fig = multi_table_page("Model Improvements — Attention & State Estimation",
                        "beyond the base localizer: an attention head that raises localization, and a state estimator that recovers the true state",
@@ -935,14 +956,17 @@ if MODELS_READY and se_rows:
                        "the attack-resilient state-recovery error, split by variable so the per-variable behavior a pooled metric hides is visible",
                        [dict(subhead="Voltage magnitude |V| error (p.u.) on attacked buses — lower is better",
                              cols=sep_cols, rows=v_rows, col_widths=[0.20, 0.20, 0.20, 0.20, 0.20],
-                             cap="The physics term's benefit is concentrated on voltage: the PINN is competitive with the NN and "
-                                 "clearly ahead on IEEE-300, and both learned estimators sit far below the raw meter and classical WLS."),
+                             cap="Split by variable, the picture is size-dependent: on IEEE-14 both learned estimators sit far below "
+                                 "the raw meter and WLS on voltage; on IEEE-118 they still beat the baselines and NN edges PINN; on "
+                                 "IEEE-300 the learned voltage error rises above the meter/WLS baseline (PINN is the better of the two "
+                                 "learned but still not ahead of the classical baselines). Physics helps voltage only on the small system."),
                         dict(subhead="Voltage angle theta error (deg) on attacked buses — lower is better",
                              cols=sep_cols, rows=th_rows, col_widths=[0.20, 0.20, 0.20, 0.20, 0.20],
-                             cap="Angle is the harder quantity and carries most of the error, with the plain NN a touch ahead of the "
-                                 "PINN. A pooled MAE (as in Falas's Table II and the previous page) is angle-dominated, so it reads as "
-                                 "an NN win even on systems where the PINN leads on voltage. That is why the combined number hides the "
-                                 "voltage result.")])
+                             cap="Angle is the harder quantity and carries most of the error. On IEEE-14 the PINN leads (0.15 vs NN "
+                                 "0.18 deg); on IEEE-118 the NN edges the PINN and both roughly match the baselines; on IEEE-300 both "
+                                 "learned estimators are WORSE than the raw meter (a negative result — likely under-training on the "
+                                 "largest system). A pooled MAE is angle-dominated, so this per-variable split is what keeps that honest "
+                                 "rather than hiding it behind a single number.")])
     SIDE["se_separated"] = ["variable,system,meter,WLS,NN,PINN"] + \
         [f"V,{','.join(r)}" for r in v_rows] + [f"theta,{','.join(r)}" for r in th_rows]
     save(fig)
