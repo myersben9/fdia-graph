@@ -373,6 +373,50 @@ SIDE["measurement_model"] = ["quantity,source,max_class0.2,sigma"] + [",".join(f
     ["split,bias=0.968*sigma_constant_per_meter,jitter=0.25*sigma_per_scan,total=class"]
 save(fig)
 
+# ======================= Physics operator — Ybus ordering + conventions =======================
+PO = load_json("physics_op.json")
+if PO and PO.get("systems"):
+    fig = newpage("Physics Operator — Ybus Ordering, Sign, and the Shunt Convention",
+                  "getting the AC power-flow identity right: three conventions the operator must respect, validated on the benign states")
+    po_cols = ["System", "shunts", "injection MAE raw", "after sign match", "shunt (MVAr)"]
+    po_rows = []
+    for c in SYS_ALL:
+        s = PO["systems"].get(f"ieee{c}")
+        po_rows.append([f"IEEE-{c}", str(s["n_shunt"]), f"{s['inj_mae_raw_MW']:.0f} MW", f"{s['inj_mae_sign_matched_MW']:.2f} MW",
+                        f"{s['shunt_total_Q_MVAr']:.0f}"] if s else [f"IEEE-{c}"] + ["—"]*4)
+    bot = draw_table(fig, 0.86, po_cols, po_rows, fontsize=8.8, col_widths=[0.18, 0.13, 0.24, 0.23, 0.22])
+    prose(fig, [
+     ("Reconstructing measurements from the state",
+      "The generator and the state estimator both need to turn a bus-voltage state (|V|, theta) into power "
+      "quantities via the nodal admittance matrix: bus injection S = V .* conj(Ybus @ V) and branch from-end flow "
+      "S_f = V_from .* conj(Yf @ V). Three conventions have to be respected or the result is garbage that LOOKS "
+      "like a broken Ybus."),
+     ("1. Bus ordering (ppc vs pandapower)",
+      "pandapower builds Ybus in its internal PYPOWER (ppc) bus order, which is a PERMUTATION of pandapower's own "
+      "bus numbering. Multiplying V (pandapower order) by Ybus (ppc order) scrambles the indices. The fix is to "
+      "build the voltage vector in ppc order via net._pd2ppc_lookups['bus'], do the multiply there, and map back."),
+     ("2. Injection sign (the 70-280 MW 'mismatch')",
+      ["The reconstructed bus injection appeared to be off by 70-280 MW (table, 'raw'). It is NOT a broken operator: "
+       "the Ybus identity is INJECTION-positive (generation +, load -), while pandapower and our stored injection are "
+       "CONSUMPTION-positive (load +, generation -) - the two are negatives of each other.",
+       "Matching the sign convention collapses the error to 0.00 MW (table, 'after sign match') - an exact "
+       "reconstruction. So the whole apparent discrepancy was a sign flip."]),
+     ("3. Shunts on the Ybus diagonal",
+      "A shunt (capacitor/reactor at a bus) sits on the Ybus DIAGONAL, so S = V .* conj(Ybus @ V) folds the shunt "
+      "draw into the injection - but the state estimator treats shunts as a separate element and excludes them. This "
+      "is a REACTIVE offset (the shunt totals, right column: 21 / 214 / 1603 MVAr). We store the SHUNT-CORRECTED "
+      "injection (subtracting res_shunt) so the data matches the estimator's convention and passes bad-data detection."),
+    ], top=bot - 0.03, fs=9.3, lh=0.0185)
+    caption(fig, "The upshot: branch FLOWS reconstruct from the state with an exact identity (no sign or shunt "
+                 "ambiguity, and they are the directly-metered quantity), so the physics-consistency loss in the state "
+                 "estimator and the residual in the bad-data-detection check are computed on FLOWS, not bus injections. "
+                 "The injections are still stored (they are what an EMS reports) but shunt-corrected and in the "
+                 "estimator's sign convention. Nothing was wrong with the Ybus - it just has to be read in the right "
+                 "order, sign, and shunt convention.", y=0.14)
+    SIDE["physics_op"] = ["system,n_shunt,inj_mae_raw_MW,inj_mae_sign_matched_MW,shunt_Q_MVAr"] + \
+        [f"ieee{c},{PO['systems'][f'ieee{c}']['n_shunt']},{PO['systems'][f'ieee{c}']['inj_mae_raw_MW']},{PO['systems'][f'ieee{c}']['inj_mae_sign_matched_MW']},{PO['systems'][f'ieee{c}']['shunt_total_Q_MVAr']}" for c in SYS_ALL if f"ieee{c}" in PO["systems"]]
+    save(fig)
+
 # ======================= Attack construction (formulas) =======================
 fig = newpage("How Each Attack Is Built",
               "from the clean state to the attacked measurement graph, as implemented in the generator")
@@ -632,6 +676,56 @@ if any(BDD.values()):
                      "detectable families. The stealthy attacks evade the standard detector by the detector's own residual.", y=0.185)
         SIDE["bdd_J"] = ["family,chi2_detect_pct,median_J"] + [f"{f},{summ.get(f,{}).get('chi2_detect_pct')},{summ.get(f,{}).get('median_J')}" for f in order]
         save(fig)
+
+# ======================= Temporal rate-of-change detector (a second classical detector) =======================
+ROC = load_json("roc_detector.json")
+if ROC and ROC.get("systems"):
+    STEAL_F = {"Aq", "At", "Al"}
+    rc_cols = ["Family", "Class"] + [f"IEEE-{c}" for c in SYS_ALL]
+    def rc_rows():
+        rows = []
+        for f in ["benign"] + FAMS:
+            cls = "reference" if f == "benign" else ("stealthy" if f in STEAL_F else "detectable")
+            cells = []
+            for c in SYS_ALL:
+                v = (ROC["systems"].get(f"ieee{c}", {}).get("per_family", {})).get(f)
+                cells.append(f"{v:.0f}%" if v is not None else "—")
+            rows.append([f, cls] + cells)
+        return rows
+    def rc_shade(i, row): return "#eef1f4" if row[1] == "reference" else ("#fbecea" if row[1] == "stealthy" else "#eaf2f8")
+    # cross-detector: does each family evade BOTH bad-data detection AND rate-of-change? (uses IEEE-118)
+    b118 = (BDD.get(118) or {}).get("families", {}); r118 = ROC["systems"].get("ieee118", {}).get("per_family", {})
+    def evades(f):
+        bdd_caught = (b118.get(f, {}).get("chi2_detect_pct", 0) or 0) > 50      # BDD flags it?
+        roc_caught = (r118.get(f, 0) or 0) > 50                                  # RoC flags it?
+        return ("caught" if bdd_caught else "evades"), ("caught" if roc_caught else "evades"), \
+               ("YES" if (not bdd_caught and not roc_caught) else "no")
+    x_rows = [[f] + list(evades(f)) for f in FAMS]
+    fig = multi_table_page("A Second Classical Detector — Temporal Rate-of-Change",
+                           "the abrupt-change detector we built: flag a scan if any bus's injection jump far exceeds its typical recent-window jump (window tuned to W=60, 5% benign false alarm)",
+                           [dict(subhead="Rate-of-change catch rate (%) — fraction of each family flagged",
+                                 cols=rc_cols, rows=rc_rows(), col_widths=[0.14, 0.16] + [0.68/len(SYS_ALL)]*len(SYS_ALL), shade_rule=rc_shade,
+                                 cap="A per-bus z-score of this scan's injection jump against the bus's typical recent-window jump, "
+                                     "maxed over buses, thresholded at a 5% benign false-alarm rate (the window W=60 was TUNED to catch "
+                                     "the most attacks). It catches the SINGLE-SHOT families — Aq and Al spike far outside recent normal "
+                                     "(~90-100% caught) — plus the crude meter attacks. It does NOT catch At: a gradual ramp never makes a "
+                                     "single abrupt jump, so it stays at the benign floor."),
+                            dict(subhead="The two detectors together — which family evades BOTH? (IEEE-118)",
+                                 cols=["Family", "Bad-data detection", "Rate-of-change", "Evades BOTH"], rows=x_rows,
+                                 col_widths=[0.22, 0.28, 0.26, 0.24],
+                                 shade_rule=lambda i, r: "#e7f4ea" if r[3] == "YES" else "#f6f7f8",
+                                 cap="This is the sharpest result. Bad-data detection is a SPATIAL check (are the meters mutually "
+                                     "consistent?) — it catches Ad/As/Ar and misses the physically-consistent Aq/At/Al. The rate-of-change "
+                                     "detector is a TEMPORAL check (is this an abrupt jump?) — it catches the single-shot Aq/Al (and the "
+                                     "crude families) and misses the gradual At. Only ONE family evades both: At, the temporal ramp. It is "
+                                     "the genuinely ML-only-dangerous attack — no classical detector, spatial or temporal, sees it. The "
+                                     "same rate-of-change statistic is also handed to the localizer as the per-bus 'swing' feature, so the "
+                                     "model can pinpoint the single-shot attacks this detector flags.")])
+    SIDE["roc_detector"] = ["family," + ",".join(f"catch_ieee{c}" for c in SYS_ALL)] + \
+        [f"{f}," + ",".join(str((ROC['systems'].get(f'ieee{c}',{}).get('per_family',{})).get(f,'')) for c in SYS_ALL) for f in (["benign"]+FAMS)]
+    SIDE["roc_sweep"] = ["window," + ",".join(f"ieee{c}_allatk_catch" for c in SYS_ALL)] + \
+        [f"{W}," + ",".join(str(ROC['systems'].get(f'ieee{c}',{}).get('sweep',{}).get(str(W), ROC['systems'].get(f'ieee{c}',{}).get('sweep',{}).get(W,''))) for c in SYS_ALL) for W in (5,10,15,20,30,45,60,90)]
+    save(fig)
 
 # ======================= Page 4: composition (TABLE) =======================
 comp_cols = ["System", "Family", "Train", "Val", "Test", "Total"]
