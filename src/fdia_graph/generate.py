@@ -85,8 +85,9 @@ def generate(system, name, per_family=3000, families=("Ao", "Ad", "As", "Ar", "r
             # Ao (1) and ramp (5): re-solve power flow with a scaled load, then emit REAL (stealthy) measurements.
             # Base active load = stored P injection at load buses + generator P at those buses; copy reactive load.
             Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
+            Lp_true = Lp.copy()                    # unattacked load -> pins the generation dispatch in solve()
             Lp = Lp.copy(); Lp[atk[0]] *= atk[1]   # scale the targeted load buses by the attack multiplier atk[1]
-            net = g.solve(Lp, Lq)                  # run AC power flow / state estimation on the tampered load
+            net = g.solve(Lp, Lq, Xt=Xt, Lp_true=Lp_true)   # re-solve, generation pinned to the TRUE dispatch
             if net is None: return None            # non-convergence: skip this timestep (expected occasionally)
             # emit() -> node feats, node mask, edge feats, edge mask for the solved (attacked) network.
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[atk[0]]] = 1  # label attacked buses
@@ -97,7 +98,7 @@ def generate(system, name, per_family=3000, families=("Ao", "Ad", "As", "Ar", "r
             Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
             d, a = g.lra_delta(Lp, attack_intensity, K)   # d = per-bus load delta, a = indices actually attacked
             if len(a) == 0: return None                   # no feasible redistribution found -> skip
-            net = g.solve(Lp + d, Lq)                     # solve with the redistributed load
+            net = g.solve(Lp + d, Lq, Xt=Xt, Lp_true=Lp)  # redistributed load; generation pinned to TRUE dispatch
             if net is None: return None                   # non-convergence -> skip
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[a]] = 1  # label the LRA bus set
             # seq_id = -1 (LRA is single-shot, not a sequence); stealthy=1 (physically consistent measurements).

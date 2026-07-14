@@ -128,37 +128,55 @@ class FdiaGenerator:
         return nx, nm, ex, em
 
     def emit(self, net):
-        # Same emission logic as emit_from_state, but reads a SOLVED pandapower net (used for attacks that
-        # re-solve a power flow). Here P/Q injections and flows come from res_bus / res_line / res_trafo.
-        C, SD, M = self.C, self.SD, self.M
-        # Net bus injections from the solved result.
+        # Emit a measurement graph from a SOLVED pandapower net (attacks that re-solve a power flow). We
+        # extract the solved operating state and route it through emit_from_state, so an attacked sample and
+        # a benign sample are computed by the IDENTICAL measurement function. Emitting flows here from
+        # res_line while benign used the Ybus identity left a ~7 MW systematic benign-vs-attack offset that
+        # was not the attack; sharing one path removes it, so an alpha=1 (no-op) re-solve matches benign.
         Pi = net.res_bus.p_mw.values.copy(); Qi = net.res_bus.q_mvar.values.copy()
         # Shunts are modeled inside res_bus; subtract shunt draw so Pi/Qi reflect gen/load injection only,
-        # matching how emit_from_state defines the injection features.
+        # matching how the stored states (and emit_from_state) define the injection.
         for i in net.shunt.index:
             b = net.shunt.at[i, "bus"]; Pi[b] -= net.res_shunt.p_mw[i]; Qi[b] -= net.res_shunt.q_mvar[i]
         V = net.res_bus.vm_pu.values; TH = net.res_bus.va_degree.values
-        nx = np.zeros((C, 4), np.float32); nm = np.zeros((C, 4), np.uint8)
-        for b in range(C):
-            if b in M["vbus"] or b in M["pmu"]: nx[b, 0] = V[b]+self._n(SD["v"]); nm[b, 0] = 1
-            if b in M["inj"] or b in self.zero_inj:
-                nx[b, 1] = Pi[b]+self._n(abs(Pi[b])*SD["pi"]+1e-3); nx[b, 2] = Qi[b]+self._n(abs(Qi[b])*SD["qi"]+1e-3); nm[b, 1:3] = 1
-            if b in M["pmu"]: nx[b, 3] = TH[b]+self._n(np.degrees(SD["va"])); nm[b, 3] = 1
-        # Branch flows come straight from the solved line/trafo results (from-end / hv-end), concatenated
-        # in the same order as self.ei (lines then trafos).
-        Pf = np.r_[net.res_line.p_from_mw.values, net.res_trafo.p_hv_mw.values]
-        Qf = np.r_[net.res_line.q_from_mvar.values, net.res_trafo.q_hv_mvar.values]
-        ex = np.zeros((self.E, 2), np.float32); em = np.zeros((self.E, 2), np.uint8)
-        for e in range(self.E):
-            if self.flow_meter[e]:
-                ex[e, 0] = Pf[e]+self._n(abs(Pf[e])*SD["pf"]+1e-3); ex[e, 1] = Qf[e]+self._n(abs(Qf[e])*SD["qf"]+1e-3); em[e] = 1
-        return nx, nm, ex, em
+        Xsolved = np.column_stack([Pi, Qi, V, TH])           # [N,4] = [Pinj, Qinj, |V|, theta]
+        return self.emit_from_state(Xsolved)
 
-    def solve(self, Lp, Lq):
+    def solve(self, Lp, Lq, Xt=None, Lp_true=None):
         # Set new load P/Q on the reusable net and re-run AC power flow. Returns the solved net, or None
         # if it fails to converge (attacks push loads into non-convergent regions — caller skips those).
-        self._solvenet.load["p_mw"] = Lp; self._solvenet.load["q_mvar"] = Lq
-        try: self.pp.runpp(self._solvenet); return self._solvenet
+        net = self._solvenet
+        net.load["p_mw"] = Lp; net.load["q_mvar"] = Lq
+        # Pin the generation to the TRUE operating point's dispatch. Without this the re-solve leaves every
+        # generator at its base-case setpoint and dumps the whole load change onto the slack bus, so even a
+        # zero-attack re-solve drifts far from the true state (a large slack/generator residual that is NOT
+        # the attack). We reconstruct each bus's true generation from the stored injection, Pgen[b] = (true
+        # load at b) - (true injection Xt[b,0]), hold it fixed at the UNATTACKED dispatch, and let only the
+        # slack absorb the attack's load delta — so an alpha=1 re-solve reproduces the true state and an
+        # attack's residual collapses to its actual load footprint plus the minimal slack response.
+        if Xt is not None:
+            base_load = Lp_true if Lp_true is not None else Lp   # unattacked load -> the fixed dispatch
+            Lfull = np.zeros(self.C)                             # total true load per bus (bus-indexed)
+            for val, b in zip(base_load, self.load_bus): Lfull[int(b)] += val
+            Pinj_true = Xt[:, 0]
+            gbus = net.gen["bus"].values
+            ncnt = {}
+            for b in gbus: ncnt[int(b)] = ncnt.get(int(b), 0) + 1
+            # gen bus injection reproduced: net.load(=Lfull+foldedgen) - gen = Xt[b,0]; split across co-located gens
+            gp = np.array([(Lfull[int(b)] - Pinj_true[int(b)]) / ncnt[int(b)] for b in gbus], float)
+            # Distribute the attack's net load change across generators (participation factor proportional to
+            # dispatch, like AGC) instead of dumping it all on the slack. This keeps the counterfactual a
+            # plausible, generation-balanced operating point — the most stealthy realization — so the attack's
+            # measurement footprint is the attacked loads plus a small spread, not a large single-bus slack spike.
+            dL = float(np.sum(Lp) - np.sum(base_load))          # net extra load introduced by the attack
+            tot = gp.sum()
+            if tot > 0 and dL != 0.0: gp = gp + dL * (gp / tot)
+            net.gen["p_mw"] = gp
+            net.gen["vm_pu"] = [Xt[int(b), 2] for b in gbus]     # hold each gen at its true voltage setpoint
+            sb = net.ext_grid["bus"].values                      # pin the slack reference to the true voltage/angle
+            net.ext_grid["vm_pu"] = [Xt[int(b), 2] for b in sb]
+            net.ext_grid["va_degree"] = [Xt[int(b), 3] for b in sb]
+        try: self.pp.runpp(net); return net
         except Exception: return None
 
     def corrupt(self, nx, ex, atk, kind, replay):
