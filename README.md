@@ -21,9 +21,9 @@ Most FDIA benchmarks contain attacks a bad-data detector (BDD) catches, so "ML b
 
 | Family | Type | Classical BDD |
 |--------|------|---------------|
-| `Ao`   | state-consistent load redistribution | **evades (stealthy)** |
-| `ramp` | slow temporal creeping redistribution, multi-timestep (Haghshenas et al., IEEE ISGT 2023) | **evades (stealthy)** |
-| `LRA`  | targeted masked-overload (Yuan, Li & Ren, IEEE T-SG 2011) | **evades (stealthy)** |
+| `Aq`   | stealthy load scaling: bounded per-bus rescale + AC re-solve — **our contribution** (cf. Boyaci `Ao`, Liu FDIA) | **evades (stealthy)** |
+| `At`   | temporal load surge, ramps up then back down (Haghshenas et al., IEEE ISGT 2023) | **evades (stealthy)** |
+| `Al`   | targeted masked-overload / load redistribution (Yuan, Li & Ren, IEEE T-SG 2011) | **evades (stealthy)** |
 | `Ad`   | random meter corruption | caught |
 | `As`   | meter scaling | caught |
 | `Ar`   | replay | mostly caught |
@@ -51,7 +51,7 @@ val = fg.load("ieee300", split="val")
 tst = fg.load("ieee300", split="test")
 
 # family subsets and the unseen-attack generalization protocol
-stealthy = fg.load("ieee118", split="test", families=["Ao", "ramp", "LRA"])
+stealthy = fg.load("ieee118", split="test", families=["Aq", "At", "Al"])   # "Ao"/"ramp"/"LRA" still work as aliases
 heldout  = fg.load("ieee118", split="train", heldout=True)   # As/Ar excluded from train (Boyaci et al. 2022)
 ```
 
@@ -83,7 +83,7 @@ Turn any research knob and load the result by name — no data plumbing:
 ```python
 fg.generate("ieee118", name="high_intensity",
             per_family=5000,             # samples per attack family
-            families=["Ao", "ramp", "LRA"],
+            families=["Aq", "At", "Al"],
             attack_intensity=0.25,       # per-bus load-shift magnitude (± fraction)
             ramp_rate=0.003, ramp_len=80,
             n_benign=30000,
@@ -137,7 +137,7 @@ One HDF5 file per system (`ml_only_ieee{14,118,300}.h5`), with `N` = buses and `
 | `edge_m`         | `[E, 2]` | float32 | edge availability mask |
 | `y`              | `[N]`    | float32 | **localization target** — per-bus label, `1` = bus is attacked, `0` = clean |
 | `temporal_delta` | `[N, 2]` | float32 | *(v0.3+)* current-minus-previous-scan injection `[ΔP_inj, ΔQ_inj]` — the temporal feature for replay/ramp |
-| `family`         | scalar   | int     | `0` benign · `1` Ao · `2` Ad · `3` As · `4` Ar · `5` ramp · `6` LRA |
+| `family`         | scalar   | int     | `0` benign · `1` Aq · `2` Ad · `3` As · `4` Ar · `5` At · `6` Al |
 | `stealthy`       | scalar   | int     | `1` if the attack evades classical bad-data detection (Ao/ramp/LRA), else `0` |
 | `split`          | scalar   | int     | `0` train · `1` val · `2` test (60/20/20 chronological, sequence-boundary safe) |
 | `seq_id`         | scalar   | int     | ramp-sequence id (`≥0` groups the scans of one multi-timestep ramp); `-1` otherwise |
