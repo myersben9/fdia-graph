@@ -16,7 +16,7 @@ Quickstart
 # --- can write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
 # FdiaGraph        : the torch Dataset wrapper over one .h5 shard (see dataset.py).
 # FAMILIES         : the full ordered tuple of attack-family names/ids the datasets use.
-# STEALTHY_FAMILIES: the subset that evades bad-data detection (the hard cases, e.g. Ao).
+# STEALTHY_FAMILIES: the subset that evades bad-data detection (the hard cases, e.g. Aq).
 from .dataset import FdiaGraph, FAMILIES, STEALTHY_FAMILIES
 # registry.py is the dataset "version control":
 # list_datasets  : enumerate the known built-in + locally-registered datasets.
@@ -72,7 +72,7 @@ def load(name, split=None, families=None, include_gaps=False, heldout=False, for
 
     name        : "ieee14"|"ieee118"|"ieee300", or a locally-generated dataset name.
     split       : None (all) | "train" | "val" | "test"  (chronological 60/20/20).
-    families    : optional subset, e.g. ["Ao","ramp","LRA"] or [1,5,6].
+    families    : optional subset, e.g. ["Aq","ramp","LRA"] or [1,5,6].
     include_gaps: keep physics non-convergence NA rows (default False).
     heldout     : unseen-attack protocol — exclude As/Ar from train/val (Boyaci et al. 2022).
     format      : "torch" (dict batches) | "pyg" (torch_geometric Data).

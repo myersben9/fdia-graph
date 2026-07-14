@@ -2,8 +2,8 @@
 
 Research knobs (all optional, sensible defaults matching the published shards):
   per_family        int   attacked records per family (default 3000)
-  families          list  which attacks to include (default all: Ao,Ad,As,Ar,ramp,LRA)
-  attack_intensity  float per-bus load shift magnitude for Ao / LRA bound (default 0.15 = ±15%)
+  families          list  which attacks to include (default all: Aq,Ad,As,Ar,ramp,LRA)
+  attack_intensity  float per-bus load shift magnitude for Aq / LRA bound (default 0.15 = ±15%)
   ramp_rate         float ramp perturbation growth per step (default 0.002)
   ramp_len          int   ramp sequence length (default 60)
   n_benign          int   benign records (default 20000)
@@ -21,8 +21,8 @@ from ._core import FdiaGenerator, FAM_ID
 # CACHE_DIR is the SDK's on-disk home for shards; register_local records the new dataset so load(name) finds it.
 from .registry import CACHE_DIR, register_local
 
-# Map of single-shot family name -> integer id, used for reference/lookups (Ao=1, Ad=2, As=3, Ar=4, LRA=6).
-_SINGLE = {"Ao": 1, "Ad": 2, "As": 3, "Ar": 4, "LRA": 6}
+# Map of single-shot family name -> integer id, used for reference/lookups (Aq=1, Ad=2, As=3, Ar=4, LRA=6).
+_SINGLE = {"Aq": 1, "Ad": 2, "As": 3, "Ar": 4, "LRA": 6}
 # Reverse lookup for the "corrupt-in-place" families (Ad/As/Ar): family id -> letter code passed to g.corrupt().
 _FAMK = {2: "Ad", 3: "As", 4: "Ar"}
 
@@ -59,7 +59,7 @@ def _load_states(system, states, pool_cap=8000):
     return np.load(ensure_local(spec))["X"].astype(np.float64)
 
 
-def generate(system, name, per_family=3000, families=("Ao", "Ad", "As", "Ar", "ramp", "LRA"),
+def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "ramp", "LRA"),
              attack_intensity=0.15, ramp_rate=0.002, ramp_len=60, n_benign=20000, lra_targets=15,
              redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None):
     # lra_targets: size of the LRA target-line pool (each LRA attack picks one at random -> diverse bus sets)
@@ -82,7 +82,7 @@ def generate(system, name, per_family=3000, families=("Ao", "Ad", "As", "Ar", "r
         # `atk` = (bus-indices, multiplier) payload. Returns a 10-tuple record, or None if the AC solve failed.
         Xt = X[t]
         if family in (1, 5):
-            # Ao (1) and ramp (5): re-solve power flow with a scaled load, then emit REAL (stealthy) measurements.
+            # Aq (1) and ramp (5): re-solve power flow with a scaled load, then emit REAL (stealthy) measurements.
             # Base active load = stored P injection at load buses + generator P at those buses; copy reactive load.
             Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
             Lp_true = Lp.copy()                    # unattacked load -> pins the generation dispatch in solve()
@@ -128,25 +128,45 @@ def generate(system, name, per_family=3000, families=("Ao", "Ad", "As", "Ar", "r
     for fam in [k for k in (1, 2, 3, 4, 6) if k in fam_ids]:           # single-shot families (retry to target)
         # For each requested single-shot family, keep drawing random timesteps until `per_family` records
         # succeed, with a hard cap of per_family*25 attempts so infeasible configs can't loop forever.
+        nlb = len(g.load_bus)
         got = tries = 0
         while got < per_family and tries < per_family*25:
             tries += 1; t = int(rng.integers(nT))
-            # Pick up to 4 distinct load buses to attack this record.
-            a = rng.choice(len(g.load_bus), min(4, len(g.load_bus)), replace=False)
-            # Payload multiplier is drawn in (1.05 .. 1+attack_intensity) so magnitude respects the intensity knob.
-            r = make(t, fam, -1, (a, 1 + rng.uniform(0.05, attack_intensity)))
+            if fam == 1:
+                # Aq: a VARIABLE number of attacked load buses (1..6), each rescaled by its OWN multiplier
+                # (per-bus magnitude, independently drawn in 1.05..1+intensity) — so the attacked footprint
+                # varies in both size and per-bus strength rather than a fixed 4 buses at one shared factor.
+                k = int(rng.integers(1, min(6, nlb) + 1))
+                a = rng.choice(nlb, k, replace=False)
+                mult = 1 + rng.uniform(0.05, attack_intensity, size=k)
+            else:
+                # Meter-level families (Ad/As/Ar) and LRA: up to 4 buses; the multiplier is unused by their
+                # make() branches (they corrupt in place / compute an LRA delta), so a scalar is fine.
+                a = rng.choice(nlb, min(4, nlb), replace=False)
+                mult = 1 + rng.uniform(0.05, attack_intensity)
+            r = make(t, fam, -1, (a, mult))
             if r is not None: recs.append(r); got += 1   # count only successful (converged) records
     if 5 in fam_ids:                                                   # ramp sequences to ~per_family records
-        # Ramp attacks are temporal: a fixed bus set is perturbed by a slowly growing multiplier over ramp_len steps.
+        # Ramp attacks are temporal load surges/dips with a randomized, ASYMMETRIC shape: a fixed bus set is
+        # ramped in one direction (up = surge, or down = dip) at rate_up to a peak/trough, optionally HELD there
+        # for a while, then returned toward baseline at a DIFFERENT rate_down. The turning point falls at a
+        # random time, the two slopes differ, and the direction is chosen per sequence — so the family covers
+        # up-then-down and down-then-up ramps. Each sequence is self-contained (ends back near baseline, no jump).
         ramp_got = 0
         while ramp_got < per_family:
             t0 = int(rng.integers(nT - ramp_len))   # start timestep leaving room for the full sequence
-            # Fixed set of up to 5 buses for this ramp; rate jittered to 70-100% of ramp_rate for variety.
-            atk = rng.choice(len(g.load_bus), min(5, len(g.load_bus)), replace=False); rate = ramp_rate*rng.uniform(0.7, 1.0)
+            atk = rng.choice(len(g.load_bus), min(5, len(g.load_bus)), replace=False)  # fixed bus set for the sequence
+            direction = 1.0 if rng.random() < 0.5 else -1.0            # +1 = surge up first, -1 = dip down first
+            rate_up = ramp_rate*rng.uniform(0.7, 1.3); rate_down = ramp_rate*rng.uniform(0.7, 1.3)  # independent slopes
+            rise_len = max(1, int(rng.uniform(0.20, 0.45)*ramp_len))  # steps spent ramping to the peak/trough
+            hold_len = int(rng.uniform(0.0, 0.25)*ramp_len)           # steps held at the peak/trough (0 = no plateau)
+            peak_dev = rate_up*rise_len                               # deviation magnitude at the turn (signed below)
             seq = []
             for i in range(ramp_len):
-                # Step i multiplier = 1 + rate*i (grows from ~1.0); share sequence id `sid` across all steps.
-                r = make(t0+i, 5, sid, (atk, 1 + rate*i))
+                if i < rise_len:                dev = rate_up*i                                   # ramp toward the peak
+                elif i < rise_len+hold_len:     dev = peak_dev                                    # hold at the peak
+                else:                           dev = max(0.0, peak_dev - rate_down*(i-rise_len-hold_len))  # ramp back
+                r = make(t0+i, 5, sid, (atk, 1 + direction*dev))      # multiplier = 1 +/- deviation (2 directions)
                 if r is None: break                 # abort this sequence on first non-converging step
                 seq.append(r)
             # Keep the sequence only if at least 10 steps solved; then advance the sequence id.
@@ -177,7 +197,7 @@ def _write(g, recs, out, split, seed):
     with h5py.File(out, "w") as f:
         # File-level attributes: dimensions, feature-column legends, family legend, LRA target line, seed.
         f.attrs.update(dict(system=C, N=C, E=E, n_records=T, node_feat="V,P_inj,Q_inj,theta", edge_feat="P_from,Q_from",
-                            families="0benign,1Ao,2Ad,3As,4Ar,5ramp,6LRA", lra_target_line=g._Ltgt, seed=seed))
+                            families="0benign,1Aq,2Ad,3As,4Ar,5ramp,6LRA", lra_target_line=g._Ltgt, seed=seed))
         # graph/ group: static topology shared by all records — edge_index and per-edge reactance.
         gg = f.create_group("graph"); gg.create_dataset("edge_index", data=g.ei); gg.create_dataset("edge_reactance", data=g.x_react)
         # data/ group: the per-record tensors. Chunk along the record axis (<=128) for efficient partial reads.

@@ -3,10 +3,12 @@
 Refactored from the validated reference generator into a knob-driven class. Requires pandapower
 (pip install 'fdia-graph[generate]'). Benign records are emitted EXACTLY from a stored operating state
 (0-error AC flows, no re-solve); only attacks re-solve a power flow. Attack families:
-  Ao   state-consistent load redistribution (stealthy)
-  ramp temporal creeping redistribution over a multi-timestep sequence (stealthy); ramp attack of
-       Haghshenas, Hasnat & Naeini, "A Temporal Graph Neural Network for Cyber Attack Detection and
-       Localization in Smart Grids", IEEE ISGT 2023
+  Aq   stealthy load scaling: bounded per-bus load rescale + AC re-solve with AGC-balanced generation,
+       yielding a fully power-flow-consistent counterfactual (stealthy). OUR contribution — the AC/physical
+       realization of the state-consistent attack concept (cf. Boyaci et al. 2022 "Ao"; Liu et al. 2011 FDIA)
+  ramp temporal creeping load surge that ramps up then back down over a multi-timestep sequence (stealthy);
+       ramp attack of Haghshenas, Hasnat & Naeini, "A Temporal Graph Neural Network for Cyber Attack Detection
+       and Localization in Smart Grids", IEEE ISGT 2023
   LRA  targeted masked-overload, Yuan/Li/Ren IEEE T-SG 2011 (stealthy)
   Ad/As/Ar  measurement-level corruption (BDD-detectable contrast set)
 """
@@ -14,7 +16,8 @@ import numpy as np
 
 # Integer label for each attack family. These IDs are written into the per-bus label tensor `y`
 # (0 = clean bus, >0 = attacked bus of that family) and consumed downstream by dataset.py.
-FAM_ID = {"benign": 0, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4, "ramp": 5, "LRA": 6}
+# "Ao"/"SLS" are backward-compatible aliases for Aq (id 1) so older scripts/datasets still resolve.
+FAM_ID = {"benign": 0, "Aq": 1, "SLS": 1, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4, "ramp": 5, "LRA": 6}
 # Maps a bus-count knob (14/118/300) to the pandapower.networks factory name for that IEEE case.
 _CASE = {14: "case14", 118: "case118", 300: "case300"}
 
@@ -110,15 +113,16 @@ class FdiaGenerator:
         # Node feature/mask buffers: columns [|V|, P_inj, Q_inj, angle]; mask=1 where a meter exists.
         nx = np.zeros((C, 4), np.float32); nm = np.zeros((C, 4), np.uint8)
         for b in range(C):
-            # Voltage magnitude is observed at vbus OR pmu buses; add absolute V noise.
-            if b in M["vbus"] or b in M["pmu"]: nx[b, 0] = V[b]+self._n(SD["v"]); nm[b, 0] = 1
+            # Voltage magnitude AND phase angle are observed at the same buses (vbus OR pmu) — angle is metered
+            # wherever voltage is, so theta has the same observability as V. Absolute V noise; SD["va"] is in
+            # radians so convert to degrees to match TH before adding angle noise.
+            if b in M["vbus"] or b in M["pmu"]:
+                nx[b, 0] = V[b]+self._n(SD["v"]); nm[b, 0] = 1
+                nx[b, 3] = TH[b]+self._n(np.degrees(SD["va"])); nm[b, 3] = 1
             # Injection buses (and zero-injection junctions) emit P/Q with relative noise (+ small floor
             # so a ~0 injection still gets a tiny nonzero std). zero_inj buses carry near-0 injection.
             if b in M["inj"] or b in self.zero_inj:
                 nx[b, 1] = Pi[b]+self._n(abs(Pi[b])*SD["pi"]+1e-3); nx[b, 2] = Qi[b]+self._n(abs(Qi[b])*SD["qi"]+1e-3); nm[b, 1:3] = 1
-            # Only PMU buses observe the phase angle; SD["va"] is in radians so convert to degrees to
-            # match TH (degrees) before adding noise.
-            if b in M["pmu"]: nx[b, 3] = TH[b]+self._n(np.degrees(SD["va"])); nm[b, 3] = 1
         # Edge feature/mask buffers: columns [P_from, Q_from]; mask=1 where a flow meter exists.
         ex = np.zeros((self.E, 2), np.float32); em = np.zeros((self.E, 2), np.uint8)
         for e in range(self.E):

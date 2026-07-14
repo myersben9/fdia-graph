@@ -13,8 +13,9 @@ import numpy as np
 
 # Integer attack-family code -> human name. These integers are the on-disk `data/family`
 # values; the whole SDK speaks in these codes and only maps to names for display.
-FAMILIES = {0: "benign", 1: "Ao", 2: "Ad", 3: "As", 4: "Ar", 5: "ramp", 6: "LRA"}
-STEALTHY_FAMILIES = {1, 5, 6}          # Ao, ramp, LRA — evade classical bad-data detection
+FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "ramp", 6: "LRA"}
+STEALTHY_FAMILIES = {1, 5, 6}          # Aq, ramp, LRA — evade classical bad-data detection
+_FAMILY_ALIAS = {"Ao": 1, "SLS": 1}       # backward-compatible names for Aq (id 1)
 # On-disk `data/split` codes. Splitting is precomputed and stored, not derived here.
 _SPLIT = {"train": 0, "val": 1, "test": 2}
 _HELDOUT_TRAIN_EXCLUDE = {3, 4}        # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
@@ -65,9 +66,12 @@ class FdiaGraph:
                 # from train(0)/val(1); test(2) still contains them to measure generalization.
                 keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
         if families is not None:
-            # `families` may be given as names ({"Ao","Ad"}) or raw codes ({1,2}); detect
-            # which by peeking at the first element, then normalize to a list of int codes.
-            fam_ids = [k for k, v in FAMILIES.items() if v in families] if isinstance(next(iter(families)), str) else list(families)
+            # `families` may be given as names ({"Aq","Ad"}, or legacy "SLS"/"Ao" aliases) or raw codes
+            # ({1,2}); detect which by peeking at the first element, then normalize to int codes.
+            if isinstance(next(iter(families)), str):
+                fam_ids = [k for k, v in FAMILIES.items() if v in families] + [_FAMILY_ALIAS[n] for n in families if n in _FAMILY_ALIAS]
+            else:
+                fam_ids = list(families)
             keep &= np.isin(fam, fam_ids)               # keep only the requested attack families
         # Materialize the kept row positions. This is SORTED and UNIQUE by construction,
         # which later lets to_numpy() use h5py fancy-indexing directly. len(idx) == len(dataset).
