@@ -166,7 +166,9 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     for fam in [k for k in (1, 2, 3, 4, 6) if k in fam_ids]:           # single-shot families (retry to target)
         # For each requested single-shot family, keep drawing random timesteps until `per_family` records
         # succeed, with a hard cap of per_family*25 attempts so infeasible configs can't loop forever.
-        nlb = len(g.load_bus)
+        # Draw attack targets ONLY from attackable positions (buses with real active load) — never the reactive-only
+        # loads. a indexes into load_bus (0..#load-1); Lp is aligned to that, so Lp[a] and load_bus[a] stay consistent.
+        apos = g.attackable_pos; nab = len(apos)
         got = tries = 0
         while got < per_family and tries < per_family*25:
             tries += 1; t = int(rng.integers(nT))
@@ -174,13 +176,13 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
                 # Aq: a VARIABLE number of attacked load buses (1..6), each rescaled by its OWN multiplier
                 # (per-bus magnitude, independently drawn in 1.05..1+intensity) — so the attacked footprint
                 # varies in both size and per-bus strength rather than a fixed 4 buses at one shared factor.
-                k = int(rng.integers(1, min(6, nlb) + 1))
-                a = rng.choice(nlb, k, replace=False)
+                k = int(rng.integers(1, min(6, nab) + 1))
+                a = rng.choice(apos, k, replace=False)
                 mult = 1 + rng.uniform(0.05, attack_intensity, size=k)
             else:
                 # Meter-level families (Ad/As/Ar) and LRA: up to 4 buses; the multiplier is unused by their
                 # make() branches (they corrupt in place / compute an LRA delta), so a scalar is fine.
-                a = rng.choice(nlb, min(4, nlb), replace=False)
+                a = rng.choice(apos, min(4, nab), replace=False)
                 mult = 1 + rng.uniform(0.05, attack_intensity)
             r = make(t, fam, -1, (a, mult))
             if r is not None: recs.append(r); got += 1   # count only successful (converged) records
@@ -193,7 +195,7 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
         ramp_got = 0
         while ramp_got < per_family:
             t0 = int(rng.integers(nT - ramp_len))   # start timestep leaving room for the full sequence
-            atk = rng.choice(len(g.load_bus), min(5, len(g.load_bus)), replace=False)  # fixed bus set for the sequence
+            atk = rng.choice(g.attackable_pos, min(5, len(g.attackable_pos)), replace=False)  # fixed (attackable) bus set for the sequence
             direction = 1.0 if rng.random() < 0.5 else -1.0            # +1 = surge up first, -1 = dip down first
             rate_up = ramp_rate*rng.uniform(0.7, 1.3); rate_down = ramp_rate*rng.uniform(0.7, 1.3)  # independent slopes
             rise_len = max(1, int(rng.uniform(0.20, 0.45)*ramp_len))  # steps spent ramping to the peak/trough
@@ -236,7 +238,11 @@ def _write(g, recs, out, split, seed):
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)   # ensure the output directory exists
     with h5py.File(out, "w") as f:
         # File-level attributes: dimensions, feature-column legends, family legend, LRA target line, seed.
+        # Units are stored as ENGINEERING quantities (baseMVA lets the loader also serve a per-unit view): node_x =
+        # [V p.u., P_inj MW, Q_inj MVAr, theta deg], edge flows in MW/MVAr. baseMVA is the power base for p.u.
         f.attrs.update(dict(system=C, N=C, E=E, n_records=T, node_feat="V,P_inj,Q_inj,theta", edge_feat="P_from,Q_from",
+                            node_units="V:pu,P_inj:MW,Q_inj:MVAr,theta:deg", edge_units="P_from:MW,Q_from:MVAr",
+                            baseMVA=float(g.base.sn_mva),
                             families="0benign,1Aq,2Ad,3As,4Ar,5At,6Al", lra_target_line=g._Ltgt, seed=seed))
         # graph/ group: static topology shared by all records — edge_index and per-edge reactance.
         gg = f.create_group("graph"); gg.create_dataset("edge_index", data=g.ei); gg.create_dataset("edge_reactance", data=g.x_react)

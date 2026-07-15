@@ -1,5 +1,5 @@
 channel,benign_median,attacked_median
-|V| (p.u.),0.9823,0.9823
-P_inj (MW),21.8856,22.0522
-Q_inj (MVAr),7.8745,7.8334
-theta (deg),19.7749,19.7673
+|V| (p.u.),0.9835,0.9835
+P_inj (MW),22.4222,22.4469
+Q_inj (MVAr),7.9172,7.9240
+theta (deg),19.9210,19.9137

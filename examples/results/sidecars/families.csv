@@ -1,7 +1,7 @@
 family,description,class,bdd_pass_14,bdd_pass_118,bdd_pass_300
-Ao,"state-consistent load redistribution",stealthy,80,100,80
-Ad,"random meter corruption",detectable,0,0,0
-As,"meter scaling",detectable,0,0,0
-Ar,"replay of a past scan",detectable,10,15,35
-ramp,"temporal creep (Haghshenas et al., ISGT 2023)",stealthy,100,95,85
-LRA,"targeted masked-overload (Yuan et al., T-SG 2011)",stealthy,95,100,95
+Aq,"('per-bus load scaling, AC re-solve', 'Ours (cf. Boyaci Ao; Liu FDIA)')",stealthy,100,98,99
+Ad,"('random meter corruption', 'FDIA taxonomy (Boyaci 2022)')",detectable,0,0,0
+As,"('injection-meter scaling', 'FDIA taxonomy (Boyaci 2022)')",detectable,0,0,0
+Ar,"('replay of a past scan', 'FDIA taxonomy (Boyaci 2022)')",detectable,1,0,0
+At,"('temporal load surge, up then down (ramp)', 'Haghshenas et al. (ISGT 2023)')",stealthy,100,99,94
+Al,"('targeted masked-overload (LRA)', 'Yuan et al. (T-SG 2011)')",stealthy,100,95,96

@@ -34,17 +34,29 @@ def _torch():
 class FdiaGraph:
     """torch.utils.data.Dataset over an .h5 shard. Use `.loader(...)` for a ready DataLoader, or index items."""
 
-    def __init__(self, path, split=None, families=None, include_gaps=False, heldout=False, format="torch"):
+    def __init__(self, path, split=None, families=None, include_gaps=False, heldout=False, format="torch",
+                 units="physical"):
         # __init__ does exactly ONE full pass over the file's small metadata arrays
         # (family/gap/split) to decide which record rows this view keeps. The big
         # measurement arrays (node_x/edge_x/…) are never read here — only in __getitem__.
         import h5py
         self.path, self.format = path, format           # remember file + output flavor ("torch"/"pyg")
+        # Unit system for the RETURNED measurements. The file stores engineering units — node_x = [V (p.u.),
+        # P_inj (MW), Q_inj (MVAr), theta (deg)], edge flows in MW/MVAr — which is human-readable but mixes scales.
+        # units="pu" converts on the fly (lossless, deterministic): P/Q and branch flows -> per-unit on baseMVA, theta
+        # -> radians; V is already p.u. So the SAME shard serves both a physical view (plots, interpretation) and a
+        # normalized view (ML training, physics), without duplicating the data. Note temporal_delta scales with power
+        # (-> p.u. too); swing is a dimensionless z-score and is never rescaled.
+        if units not in ("physical", "pu"):
+            raise ValueError("units must be 'physical' or 'pu'")
+        self.units = units
         self._f = None                                  # lazy per-worker h5py handle, opened on first __getitem__
         with h5py.File(path, "r") as f:                 # open read-only; closed at block exit (metadata is copied out)
             # `system` = which IEEE case (14/118/300); fall back to N, then 0, for older files.
             self.system = int(f.attrs.get("system", f.attrs.get("N", 0)))
             self.N = int(f.attrs["N"]); self.E = int(f.attrs["E"])   # bus count N, branch count E — fixed graph size
+            # Power base for p.u. conversion. Stored on v0.4.1+ files; default 100 MVA (the case base for 14/118/300).
+            self.baseMVA = float(f.attrs.get("baseMVA", 100.0))
             # Static graph, read ONCE and cached as numpy: edge_index [2,E] (from/to bus per branch),
             # edge_reactance [E]. Same for every record, so it lives on the object, not per-item.
             self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
@@ -101,6 +113,22 @@ class FdiaGraph:
     def __len__(self):
         return len(self.idx)                            # number of records this filtered view exposes
 
+    def _to_units(self, arr, kind):
+        """Convert a physical-unit array to self.units (no-op unless units=='pu'). kind:
+        'node' [...,4]=[V,P,Q,theta] -> P,Q divided by baseMVA, theta deg->rad, V left (already p.u.);
+        'edge' [...,2]=[P_from,Q_from] and 'td' [...,2]=[dP,dQ] -> divided by baseMVA (both are power).
+        Returns a float32 copy so the on-disk data is never mutated."""
+        if self.units != "pu":
+            return arr
+        b = self.baseMVA
+        a = np.array(arr, dtype=np.float32, copy=True)
+        if kind == "node":
+            a[..., 1] /= b; a[..., 2] /= b                 # P_inj, Q_inj  MW/MVAr -> p.u.
+            a[..., 3] = np.deg2rad(a[..., 3])              # theta  deg -> rad
+        else:
+            a /= b                                         # branch flows / temporal delta: power -> p.u.
+        return a
+
     def __getitem__(self, i):
         # Build ONE record dict. `i` indexes this filtered view (0..len-1); map it back to
         # the true file row `j` via self.idx, then slice exactly that one row from each
@@ -108,16 +136,16 @@ class FdiaGraph:
         torch = _torch()
         j = int(self.idx[i]); d = self._h()["data"]     # j = real file row; d = the "data" group of measurements
         item = dict(
-            node_x=torch.as_tensor(d["node_x"][j], dtype=torch.float32),   # [N,4] = [|V|, P_inj, Q_inj, theta]
+            node_x=torch.as_tensor(self._to_units(d["node_x"][j], "node"), dtype=torch.float32),  # [N,4]=[|V|,P_inj,Q_inj,theta]
             node_m=torch.as_tensor(d["node_m"][j], dtype=torch.float32),   # [N,4] availability mask (1=measured)
-            edge_x=torch.as_tensor(d["edge_x"][j], dtype=torch.float32),   # [E,2] = [P_from, Q_from] branch flows
+            edge_x=torch.as_tensor(self._to_units(d["edge_x"][j], "edge"), dtype=torch.float32),   # [E,2]=[P_from,Q_from] flows
             edge_m=torch.as_tensor(d["edge_m"][j], dtype=torch.float32),   # [E,2] branch-flow availability mask
             y=torch.as_tensor(d["y"][j], dtype=torch.float32),            # [N] per-bus attack label (multi-label target)
             family=int(d["family"][j]), stealthy=int(d["stealthy"][j]),   # scalar metadata: attack type + stealth flag
             seq_id=int(d["seq_id"][j]), timestep=int(d["timestep"][j]))   # provenance: which sequence + which scan in it
         if self.has_temporal:                                     # [N,2] current-minus-previous-scan injection
             # Only present on v0.3+ files; lets temporal models see change-since-last-scan.
-            item["temporal_delta"] = torch.as_tensor(d["temporal_delta"][j], dtype=torch.float32)
+            item["temporal_delta"] = torch.as_tensor(self._to_units(d["temporal_delta"][j], "td"), dtype=torch.float32)
         if self.has_swing:                                        # [N,2] windowed relative swing (recent-window z-score)
             item["swing"] = torch.as_tensor(d["swing"][j], dtype=torch.float32)
         if self.format == "pyg":
@@ -202,6 +230,11 @@ class FdiaGraph:
             for k in want:
                 # h5py fancy-indexing needs sorted, unique indices; self.idx is already sorted-unique by construction
                 out[k] = d[k][idx]                      # one bulk gather per field -> [n, ...] numpy array
+        # Apply the unit system to the power/angle measurement arrays (masks, labels, swing untouched).
+        if self.units == "pu":
+            if "node_x" in out: out["node_x"] = self._to_units(out["node_x"], "node")
+            if "edge_x" in out: out["edge_x"] = self._to_units(out["edge_x"], "edge")
+            if "temporal_delta" in out: out["temporal_delta"] = self._to_units(out["temporal_delta"], "td")
         return out
 
     def to_torch(self, fields=None, device=None):

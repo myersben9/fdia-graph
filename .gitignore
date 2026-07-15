@@ -6,3 +6,14 @@ dist/
 .cache/
 # large .npz operating-point pools ship as GitHub release assets, not committed to the repo
 release_assets/
+# local dataset shards + pools (ship as GitHub release ASSETS, never in git — ~1.2GB)
+examples/release_v*/
+# build / run artifacts
+examples/*.out
+examples/**/_log_*
+examples/**/_run_*
+examples/_log_*
+examples/_run_*
+examples/*.png
+examples/fdia_dataset_report.pdf
+examples/results/embeds_*.npz

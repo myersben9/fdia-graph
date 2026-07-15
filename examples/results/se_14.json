@@ -1,62 +1,95 @@
 {
   "system": "ieee14",
   "w_phys": 0.2,
+  "seed": 123,
+  "hid": 256,
+  "epochs": 80,
+  "units": "pu",
+  "release": "v0.4.1",
   "per_family": {
     "benign": {
+      "V_mae_all": 0.0002,
+      "V_mae_se_metered": 0.0002,
+      "V_mae_meter": 0.0008,
+      "th_mae_se_metered": 0.071,
+      "th_mae_meter": 0.089,
+      "V_mae_meter_attacked": 0.0008,
+      "V_mae_se_metered_attacked": 0.0002,
+      "th_mae_meter_attacked": 0.089,
+      "th_mae_se_metered_attacked": 0.071
+    },
+    "Aq": {
       "V_mae_all": 0.0003,
       "V_mae_se_metered": 0.0003,
-      "V_mae_meter": 0.004,
-      "th_mae_se_metered": 0.117,
-      "th_mae_meter": 0.226
-    },
-    "Ao": {
-      "V_mae_all": 0.0006,
-      "V_mae_se_metered": 0.0007,
-      "V_mae_meter": 0.004,
-      "th_mae_se_metered": 0.461,
-      "th_mae_meter": 0.552
+      "V_mae_meter": 0.001,
+      "th_mae_se_metered": 0.138,
+      "th_mae_meter": 0.304,
+      "V_mae_meter_attacked": 0.001,
+      "V_mae_se_metered_attacked": 0.0003,
+      "th_mae_meter_attacked": 0.304,
+      "th_mae_se_metered_attacked": 0.138
     },
     "Ad": {
       "V_mae_all": 0.0004,
-      "V_mae_se_metered": 0.0005,
-      "V_mae_meter": 0.0075,
-      "th_mae_se_metered": 0.205,
-      "th_mae_meter": 0.228
+      "V_mae_se_metered": 0.0004,
+      "V_mae_meter": 0.0058,
+      "th_mae_se_metered": 0.171,
+      "th_mae_meter": 0.089,
+      "V_mae_meter_attacked": 0.0058,
+      "V_mae_se_metered_attacked": 0.0004,
+      "th_mae_meter_attacked": 0.089,
+      "th_mae_se_metered_attacked": 0.171
     },
     "As": {
-      "V_mae_all": 0.0004,
-      "V_mae_se_metered": 0.0005,
-      "V_mae_meter": 0.004,
-      "th_mae_se_metered": 0.279,
-      "th_mae_meter": 0.231
+      "V_mae_all": 0.0003,
+      "V_mae_se_metered": 0.0003,
+      "V_mae_meter": 0.0008,
+      "th_mae_se_metered": 0.096,
+      "th_mae_meter": 0.089,
+      "V_mae_meter_attacked": 0.0008,
+      "V_mae_se_metered_attacked": 0.0003,
+      "th_mae_meter_attacked": 0.089,
+      "th_mae_se_metered_attacked": 0.096
     },
     "Ar": {
       "V_mae_all": 0.0003,
-      "V_mae_se_metered": 0.0004,
-      "V_mae_meter": 0.0042,
-      "th_mae_se_metered": 0.179,
-      "th_mae_meter": 0.391
+      "V_mae_se_metered": 0.0003,
+      "V_mae_meter": 0.0016,
+      "th_mae_se_metered": 0.173,
+      "th_mae_meter": 0.61,
+      "V_mae_meter_attacked": 0.0016,
+      "V_mae_se_metered_attacked": 0.0003,
+      "th_mae_meter_attacked": 0.61,
+      "th_mae_se_metered_attacked": 0.173
     },
-    "ramp": {
-      "V_mae_all": 0.0005,
-      "V_mae_se_metered": 0.0005,
-      "V_mae_meter": 0.004,
-      "th_mae_se_metered": 0.333,
-      "th_mae_meter": 0.413
+    "At": {
+      "V_mae_all": 0.0002,
+      "V_mae_se_metered": 0.0003,
+      "V_mae_meter": 0.0008,
+      "th_mae_se_metered": 0.086,
+      "th_mae_meter": 0.123,
+      "V_mae_meter_attacked": 0.0008,
+      "V_mae_se_metered_attacked": 0.0003,
+      "th_mae_meter_attacked": 0.123,
+      "th_mae_se_metered_attacked": 0.086
     },
-    "LRA": {
+    "Al": {
       "V_mae_all": 0.0003,
-      "V_mae_se_metered": 0.0004,
-      "V_mae_meter": 0.004,
-      "th_mae_se_metered": 0.185,
-      "th_mae_meter": 0.323
+      "V_mae_se_metered": 0.0003,
+      "V_mae_meter": 0.001,
+      "th_mae_se_metered": 0.103,
+      "th_mae_meter": 0.218,
+      "V_mae_meter_attacked": 0.001,
+      "V_mae_se_metered_attacked": 0.0003,
+      "th_mae_meter_attacked": 0.218,
+      "th_mae_se_metered_attacked": 0.103
     }
   },
   "overall": {
     "V_mae_all": 0.0003,
-    "V_mae_se_metered_attacked": 0.0005,
-    "V_mae_meter_attacked": 0.0046,
-    "th_mae_se_metered_attacked": 0.273,
-    "th_mae_meter_attacked": 0.355
+    "V_mae_se_metered_attacked": 0.0003,
+    "V_mae_meter_attacked": 0.0018,
+    "th_mae_se_metered_attacked": 0.126,
+    "th_mae_meter_attacked": 0.236
   }
 }

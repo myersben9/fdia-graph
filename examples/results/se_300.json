@@ -1,62 +1,95 @@
 {
   "system": "ieee300",
   "w_phys": 0.2,
+  "seed": 123,
+  "hid": 256,
+  "epochs": 80,
+  "units": "pu",
+  "release": "v0.4.1",
   "per_family": {
     "benign": {
-      "V_mae_all": 0.0013,
-      "V_mae_se_metered": 0.0012,
-      "V_mae_meter": 0.004,
-      "th_mae_se_metered": 1.702,
-      "th_mae_meter": 0.229
+      "V_mae_all": 0.0005,
+      "V_mae_se_metered": 0.0006,
+      "V_mae_meter": 0.001,
+      "th_mae_se_metered": 0.344,
+      "th_mae_meter": 0.082,
+      "V_mae_meter_attacked": 0.001,
+      "V_mae_se_metered_attacked": 0.0006,
+      "th_mae_meter_attacked": 0.082,
+      "th_mae_se_metered_attacked": 0.344
     },
-    "Ao": {
-      "V_mae_all": 0.0016,
-      "V_mae_se_metered": 0.0016,
-      "V_mae_meter": 0.0081,
-      "th_mae_se_metered": 6.61,
-      "th_mae_meter": 28.854
+    "Aq": {
+      "V_mae_all": 0.0006,
+      "V_mae_se_metered": 0.0006,
+      "V_mae_meter": 0.0011,
+      "th_mae_se_metered": 0.468,
+      "th_mae_meter": 0.329,
+      "V_mae_meter_attacked": 0.0011,
+      "V_mae_se_metered_attacked": 0.0006,
+      "th_mae_meter_attacked": 0.329,
+      "th_mae_se_metered_attacked": 0.468
     },
     "Ad": {
-      "V_mae_all": 0.0013,
-      "V_mae_se_metered": 0.0013,
-      "V_mae_meter": 0.0041,
-      "th_mae_se_metered": 1.583,
-      "th_mae_meter": 0.23
+      "V_mae_all": 0.0007,
+      "V_mae_se_metered": 0.0007,
+      "V_mae_meter": 0.0012,
+      "th_mae_se_metered": 0.345,
+      "th_mae_meter": 0.082,
+      "V_mae_meter_attacked": 0.0012,
+      "V_mae_se_metered_attacked": 0.0007,
+      "th_mae_meter_attacked": 0.082,
+      "th_mae_se_metered_attacked": 0.345
     },
     "As": {
-      "V_mae_all": 0.0013,
-      "V_mae_se_metered": 0.0013,
-      "V_mae_meter": 0.004,
-      "th_mae_se_metered": 1.78,
-      "th_mae_meter": 0.229
+      "V_mae_all": 0.0006,
+      "V_mae_se_metered": 0.0006,
+      "V_mae_meter": 0.001,
+      "th_mae_se_metered": 0.358,
+      "th_mae_meter": 0.082,
+      "V_mae_meter_attacked": 0.001,
+      "V_mae_se_metered_attacked": 0.0006,
+      "th_mae_meter_attacked": 0.082,
+      "th_mae_se_metered_attacked": 0.358
     },
     "Ar": {
-      "V_mae_all": 0.0013,
-      "V_mae_se_metered": 0.0013,
-      "V_mae_meter": 0.0041,
-      "th_mae_se_metered": 1.84,
-      "th_mae_meter": 0.368
+      "V_mae_all": 0.0006,
+      "V_mae_se_metered": 0.0007,
+      "V_mae_meter": 0.0011,
+      "th_mae_se_metered": 0.454,
+      "th_mae_meter": 0.215,
+      "V_mae_meter_attacked": 0.0011,
+      "V_mae_se_metered_attacked": 0.0007,
+      "th_mae_meter_attacked": 0.215,
+      "th_mae_se_metered_attacked": 0.454
     },
-    "ramp": {
-      "V_mae_all": 0.0016,
-      "V_mae_se_metered": 0.0016,
-      "V_mae_meter": 0.0105,
-      "th_mae_se_metered": 6.368,
-      "th_mae_meter": 39.054
+    "At": {
+      "V_mae_all": 0.0006,
+      "V_mae_se_metered": 0.0006,
+      "V_mae_meter": 0.001,
+      "th_mae_se_metered": 0.377,
+      "th_mae_meter": 0.16,
+      "V_mae_meter_attacked": 0.001,
+      "V_mae_se_metered_attacked": 0.0006,
+      "th_mae_meter_attacked": 0.16,
+      "th_mae_se_metered_attacked": 0.377
     },
-    "LRA": {
-      "V_mae_all": 0.0017,
-      "V_mae_se_metered": 0.0017,
-      "V_mae_meter": 0.0088,
-      "th_mae_se_metered": 6.58,
-      "th_mae_meter": 31.473
+    "Al": {
+      "V_mae_all": 0.0014,
+      "V_mae_se_metered": 0.0015,
+      "V_mae_meter": 0.0021,
+      "th_mae_se_metered": 2.895,
+      "th_mae_meter": 3.208,
+      "V_mae_meter_attacked": 0.0021,
+      "V_mae_se_metered_attacked": 0.0015,
+      "th_mae_meter_attacked": 3.208,
+      "th_mae_se_metered_attacked": 2.895
     }
   },
   "overall": {
-    "V_mae_all": 0.0014,
-    "V_mae_se_metered_attacked": 0.0014,
-    "V_mae_meter_attacked": 0.0063,
-    "th_mae_se_metered_attacked": 3.977,
-    "th_mae_meter_attacked": 15.151
+    "V_mae_all": 0.0006,
+    "V_mae_se_metered_attacked": 0.0008,
+    "V_mae_meter_attacked": 0.0013,
+    "th_mae_se_metered_attacked": 0.825,
+    "th_mae_meter_attacked": 0.69
   }
 }

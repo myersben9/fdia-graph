@@ -1,45 +1,46 @@
 {
   "system": "ieee14",
+  "seed": 123,
   "per_family": {
     "benign": {
-      "V_mae_wls": 0.0012,
-      "th_mae_wls": 0.037,
-      "n_conv": 120
+      "V_mae_wls": 0.0002,
+      "th_mae_wls": 0.019,
+      "n_conv": 150
     },
-    "Ao": {
-      "V_mae_wls": 0.0013,
-      "th_mae_wls": 0.492,
-      "n_conv": 120
+    "Aq": {
+      "V_mae_wls": 0.0006,
+      "th_mae_wls": 0.315,
+      "n_conv": 150
     },
     "Ad": {
-      "V_mae_wls": 0.012,
-      "th_mae_wls": 0.735,
-      "n_conv": 120
+      "V_mae_wls": 0.0141,
+      "th_mae_wls": 0.565,
+      "n_conv": 150
     },
     "As": {
-      "V_mae_wls": 0.0118,
-      "th_mae_wls": 0.914,
-      "n_conv": 120
+      "V_mae_wls": 0.0163,
+      "th_mae_wls": 0.632,
+      "n_conv": 150
     },
     "Ar": {
-      "V_mae_wls": 0.0042,
-      "th_mae_wls": 0.313,
-      "n_conv": 120
+      "V_mae_wls": 0.0054,
+      "th_mae_wls": 0.412,
+      "n_conv": 150
     },
-    "ramp": {
-      "V_mae_wls": 0.0014,
-      "th_mae_wls": 0.305,
-      "n_conv": 120
+    "At": {
+      "V_mae_wls": 0.0003,
+      "th_mae_wls": 0.075,
+      "n_conv": 150
     },
-    "LRA": {
-      "V_mae_wls": 0.0012,
-      "th_mae_wls": 0.219,
-      "n_conv": 120
+    "Al": {
+      "V_mae_wls": 0.0004,
+      "th_mae_wls": 0.187,
+      "n_conv": 150
     }
   },
   "n_fail": 0,
   "overall_attacked": {
-    "V_mae_wls": 0.0053,
-    "th_mae_wls": 0.496
+    "V_mae_wls": 0.0062,
+    "th_mae_wls": 0.364
   }
 }

@@ -58,8 +58,17 @@ class FdiaGenerator:
         # Build one instance and solve its AC power flow to get the base operating point.
         base = self.NET(); pp.runpp(base); self.base = base
         C = self.C
-        # Bus indices that carry a load (their p_mw/q_mvar are what attacks redistribute).
-        self.load_bus = base.load["bus"].values
+        # load_bus = the bus of EVERY load element, aligned 1:1 with the net.load table so the AC re-solve
+        # (solve() writes net.load["p_mw"] = Lp) and the PTDF-over-load-buses arrays all stay the same length.
+        _lb = base.load
+        self.load_bus = _lb["bus"].values
+        # ATTACKABLE subset = positions in load_bus with real ACTIVE-power load (|p_mw| > 0). A few buses (e.g.
+        # IEEE-300 141, 183) carry a reactive-only load (p_mw=0, q_mvar!=0): pandapower lists them as loads, but our
+        # attacks scale/redistribute ACTIVE power, so attacking one leaves no P footprint yet still gets a y=1 label
+        # (the "no-load bus getting attacked" case). We keep them in the full load table for the physics but exclude
+        # them from attack TARGET selection (generation.py) and from the LRA candidate set (_lra_for_line).
+        self._attackable_mask = _lb["p_mw"].abs().values > 0.0
+        self.attackable_pos = np.where(self._attackable_mask)[0]
         # Every bus that has SOME injection element attached (generator, load, slack/ext_grid, shunt).
         inj = np.unique(np.r_[base.gen.bus.values, base.load.bus.values, base.ext_grid.bus.values, base.shunt.bus.values])
         # Zero-injection buses: pure junctions with no source/sink. Their net injection is physically
@@ -246,7 +255,8 @@ class FdiaGenerator:
             return self.rng.choice(top, k, replace=False) if rand else top[:k]
         # Split load buses by PTDF sign: positive buses increase line-L flow, negative buses decrease it.
         # We RAISE load on the positive side and DROP it on the negative side to push flow up on line L.
-        pos = pick(np.where(pl > 0)[0]); neg = pick(np.where(pl < 0)[0])
+        # Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
+        pos = pick(np.where((pl > 0) & self._attackable_mask)[0]); neg = pick(np.where((pl < 0) & self._attackable_mask)[0])
         if len(pos) == 0 or len(neg) == 0: return None
         # Per-bus caps for each side; the conserved budget is the smaller of the two side capacities so the
         # raise on `pos` can be exactly cancelled by the drop on `neg` (net load change = 0).

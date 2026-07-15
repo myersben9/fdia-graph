@@ -73,6 +73,10 @@ def main():
     ap.add_argument("--release", default=None); ap.add_argument("--out", default=None)
     ap.add_argument("--shard", default=None, help="path to a local .h5 shard to train on (overrides fg.load/release)")
     ap.add_argument("--no_attn", action="store_true", help="disable the physics-biased attention branch (plain ARMA)")
+    # Train in per-unit by default: node_x becomes [V p.u., P p.u., Q p.u., theta rad] so all channels are O(0.1-30)
+    # instead of V~1 next to P/Q/KCL~1000. Without input normalization the physical MW channels otherwise dominate
+    # the linear encoder. "physical" reproduces the older mixed-scale behaviour.
+    ap.add_argument("--units", default="pu", choices=["pu", "physical"], help="unit system for measurements (default pu)")
     args = ap.parse_args()
     torch.manual_seed(args.seed); dev = "cuda" if torch.cuda.is_available() else "cpu"
     if dev == "cuda":
@@ -81,7 +85,7 @@ def main():
 
     def gpu(split):
         # local shard (v0.4.0 regen) takes precedence over the downloadable release when --shard is given
-        ds = FdiaGraph(args.shard, split=split) if args.shard else fg.load(args.system, split=split, release=args.release)
+        ds = FdiaGraph(args.shard, split=split, units=args.units) if args.shard else fg.load(args.system, split=split, release=args.release, units=args.units)
         a = ds.to_numpy()
         keys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if ds.has_temporal else []) \
                + (["swing"] if getattr(ds, "has_swing", False) else [])

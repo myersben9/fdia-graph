@@ -12,7 +12,7 @@ import argparse, json, numpy as np, torch, torch.nn as nn, torch.nn.functional a
 from contextlib import nullcontext
 import optuna, fdia_graph as fg
 from fdia_graph.dataset import FAMILIES
-from torch_geometric.nn import ARMAConv
+from torch_geometric.nn import ARMAConv, GATv2Conv
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 if DEV == "cuda":
@@ -32,18 +32,25 @@ def kcl_residual(node_x, edge_x, ei, N):
 
 class ArmaLoc(nn.Module):
     """Edge-fused ARMA localizer following Boyaci's stack (Joint, IEEE TSG 2022): input encoder -> L ARMA_K
-    blocks (each K parallel stacks x T recursive layers, ReLU) -> dense -> per-bus sigmoid. Dims set by HPO."""
-    def __init__(self, hidden, stacks, layers, blocks, dropout, shared_weights):
+    blocks (each K parallel stacks x T recursive layers, ReLU) -> dense -> per-bus sigmoid. Dims set by HPO.
+    Physics-biased attention: a parallel GATv2 head (gated, init 0) attends anisotropically along
+    physically-suspicious branches; heads is an HPO axis, `attn=0` disables it (plain ARMA)."""
+    def __init__(self, n_node_feat, hidden, stacks, layers, blocks, dropout, shared_weights, heads=4, attn=True):
         super().__init__()
-        self.nenc = nn.Linear(12, hidden); self.eenc = nn.Linear(4, hidden)   # 6 node feats (incl KCL residual) x2 (+mask)
+        self.attn = attn
+        self.nenc = nn.Linear(n_node_feat * 2, hidden); self.eenc = nn.Linear(4, hidden)   # node feats (4 + KCL 2 [+ temporal 2]) x2 (+mask)
         self.blocks = nn.ModuleList([ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers,
                                               shared_weights=shared_weights, dropout=dropout, act=F.relu) for _ in range(blocks)])
+        if attn:
+            self.gat = GATv2Conv(hidden, hidden // heads, heads=heads, edge_dim=4, dropout=dropout, add_self_loops=False)
+            self.gate = nn.Parameter(torch.zeros(1))
         self.head = nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 1))
 
     def forward(self, x, e, ei):
         h = F.relu(self.nenc(x)); he = F.relu(self.eenc(e))
         h = h + torch.zeros_like(h).index_add_(0, ei[1], he)
         for blk in self.blocks: h = blk(h, ei)
+        if self.attn: h = h + torch.tanh(self.gate) * self.gat(h, ei, edge_attr=e)
         return self.head(h).squeeze(-1)
 
 
@@ -56,13 +63,15 @@ def f1(pred, tgt, sample=False):
 def load(system, release):
     def g(split):
         ds = fg.load(system, split=split, release=release); a = ds.to_numpy()
-        d = {k: torch.as_tensor(a[k], device=DEV, dtype=torch.float32) for k in ("node_x", "node_m", "edge_x", "edge_m", "y")}
+        keys = ("node_x", "node_m", "edge_x", "edge_m", "y") + (("temporal_delta",) if ds.has_temporal else ())
+        d = {k: torch.as_tensor(a[k], device=DEV, dtype=torch.float32) for k in keys}
         return d, torch.as_tensor(a["family"], device=DEV), ds
     trG, _, ds = g("train"); vaG, vaFam, _ = g("val"); teG, teFam, _ = g("test")
     ei = ds.edge_index.to(DEV)
-    for gg in (trG, vaG, teG):                                          # append the KCL physics residual (4 -> 6 node feats)
-        res = kcl_residual(gg["node_x"], gg["edge_x"], ei, ds.N)
-        gg["node_x"] = torch.cat([gg["node_x"], res], -1); gg["node_m"] = torch.cat([gg["node_m"], torch.ones_like(res)], -1)
+    for gg in (trG, vaG, teG):                                          # KCL residual + (v0.3) temporal-delta -> matches the production hybrid feature set
+        extra = [kcl_residual(gg["node_x"], gg["edge_x"], ei, ds.N)] + ([gg.pop("temporal_delta")] if "temporal_delta" in gg else [])
+        gg["node_x"] = torch.cat([gg["node_x"]] + extra, -1)
+        gg["node_m"] = torch.cat([gg["node_m"]] + [torch.ones_like(e) for e in extra], -1)
     for xk, mk in (("node_x", "node_m"), ("edge_x", "edge_m")):        # standardize on train stats
         w = trG[mk].sum((0, 1)).clamp(min=1.0); mu = (trG[xk] * trG[mk]).sum((0, 1)) / w
         sd = (((trG[xk] - mu) ** 2 * trG[mk]).sum((0, 1)) / w).sqrt().clamp(min=1e-3)
@@ -77,6 +86,7 @@ def main():
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     trG, vaG, vaFam, teG, teFam, ds = load(args.system, args.release)
+    nfeat = trG["node_x"].shape[-1]                                        # 4 + KCL 2 (+ temporal 2 on v0.3)
     N, E = ds.N, ds.E; ei0 = ds.edge_index.to(DEV); ei_bi = torch.cat([ei0, ei0.flip(0)], 1)
     pos = float(trG["y"].sum()); base_pw = min(max((trG["y"].numel() - pos) / max(pos, 1), 1.0), 40.0)
     n = trG["y"].shape[0]; vatk = (vaFam > 0)
@@ -107,9 +117,12 @@ def main():
                   dropout=trial.suggest_float("dropout", 0.0, 0.5),       # Bianchi 0.25-0.75
                   lr=trial.suggest_float("lr", 1e-3, 1e-2, log=True),     # Bianchi 1e-2 (Adam)
                   wd=trial.suggest_float("wd", 1e-5, 1e-3, log=True),     # Bianchi L2 5e-4
-                  shared=trial.suggest_categorical("shared", [False, True]))
+                  shared=trial.suggest_categorical("shared", [False, True]),
+                  heads=trial.suggest_categorical("heads", [2, 4, 8]))     # physics-attention heads (hidden divisible)
+        if hp["hidden"] % hp["heads"]:                                     # skip infeasible head/hidden combos
+            raise optuna.TrialPruned()
         torch.manual_seed(123)
-        model = ArmaLoc(hp["hidden"], hp["stacks"], hp["layers"], hp["blocks"], hp["dropout"], hp["shared"]).to(DEV)
+        model = ArmaLoc(nfeat, hp["hidden"], hp["stacks"], hp["layers"], hp["blocks"], hp["dropout"], hp["shared"], hp["heads"]).to(DEV)
         opt = torch.optim.Adam(model.parameters(), hp["lr"], weight_decay=hp["wd"])
         best = 1e9; patience = 0                                          # Boyaci early stopping: patience 16, min-delta 1e-4
         for ep in range(args.epochs):
@@ -127,15 +140,15 @@ def main():
         return f1((L[va] > thr).float(), Y[va], sample=True)
 
     study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=123))
-    study.enqueue_trial({"blocks": 2, "hidden": 16, "stacks": 3, "layers": 5,      # Boyaci's IEEE-118 optimum (warm start)
-                         "dropout": 0.1, "lr": 5e-3, "wd": 5e-4, "shared": True})
+    study.enqueue_trial({"blocks": 2, "hidden": 128, "stacks": 3, "layers": 2,     # our v0.3 hybrid default (warm start)
+                         "dropout": 0.1, "lr": 3e-3, "wd": 1e-5, "shared": True, "heads": 4})
     study.optimize(objective, n_trials=args.trials, show_progress_bar=False)
     bp = study.best_params
     print(f"\n[{args.system}] best val swF1 = {study.best_value:.3f}\nbest params: {json.dumps(bp)}")
 
     # ---- retrain the best config and evaluate on TEST (threshold tuned on val) -> final benchmark entry ----
     torch.manual_seed(123)
-    model = ArmaLoc(bp["hidden"], bp["stacks"], bp["layers"], bp["blocks"], bp["dropout"], bp["shared"]).to(DEV)
+    model = ArmaLoc(nfeat, bp["hidden"], bp["stacks"], bp["layers"], bp["blocks"], bp["dropout"], bp["shared"], bp.get("heads", 4)).to(DEV)
     opt = torch.optim.Adam(model.parameters(), bp["lr"], weight_decay=bp["wd"]); best = 1e9; patience = 0
     for ep in range(args.epochs):
         model.train(); perm = torch.randperm(n, device=DEV)

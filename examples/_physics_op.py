@@ -13,7 +13,7 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 import pandapower as pp, pandapower.networks as pn
 from pandapower.pypower.makeYbus import makeYbus
 HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "results")
-SH = os.path.join(HERE, "release_v0.4.0"); NS = int(os.environ.get("N_SAMP", "200"))
+SH = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.0")); NS = int(os.environ.get("N_SAMP", "200"))
 CASES = {14: pn.case14, 118: pn.case118, 300: pn.case300}
 out = {"systems": {}}
 

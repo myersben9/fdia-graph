@@ -68,7 +68,8 @@ def generate_states(system, profile, **knobs):
     return _generate_states(system, profile, **knobs)
 
 
-def load(name, split=None, families=None, include_gaps=False, heldout=False, format="torch", release=None):
+def load(name, split=None, families=None, include_gaps=False, heldout=False, format="torch", release=None,
+         units="physical"):
     """Load a dataset by name (built-in shard auto-downloads; local generated ones load from disk).
 
     name        : "ieee14"|"ieee118"|"ieee300", or a locally-generated dataset name.
@@ -79,6 +80,8 @@ def load(name, split=None, families=None, include_gaps=False, heldout=False, for
     format      : "torch" (dict batches) | "pyg" (torch_geometric Data).
     release     : dataset VERSION. None -> newest published release (default, always-current for the group);
                   an explicit tag e.g. "v0.2.0" -> that exact version, for reproducible experiments.
+    units       : "physical" -> [V p.u., P_inj MW, Q_inj MVAr, theta deg] (as stored; human-readable for plots);
+                  "pu" -> everything per-unit on baseMVA with theta in radians (ML/physics). Same shard either way.
     """
     # Two-step resolution: resolve() maps (name, release) to a download spec (which GitHub
     # release + which asset), then ensure_local() downloads+caches it if needed and hands
@@ -86,7 +89,8 @@ def load(name, split=None, families=None, include_gaps=False, heldout=False, for
     path = ensure_local(resolve(name, release=release))
     # Wrap that shard in an FdiaGraph. All the row-selection knobs (split/families/gaps/heldout)
     # and the export format are applied lazily by the Dataset, not here — this is a thin factory.
-    return FdiaGraph(path, split=split, families=families, include_gaps=include_gaps, heldout=heldout, format=format)
+    return FdiaGraph(path, split=split, families=families, include_gaps=include_gaps, heldout=heldout,
+                     format=format, units=units)
 
 
 def generate(system, name, **knobs):

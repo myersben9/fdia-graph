@@ -1,8 +1,8 @@
-family,median_absdP_MW,median_absdQ_MVAr
-benign,3.417,1.036
-Ao,14.416,2.286
-Ad,4.561,1.436
-As,5.318,1.755
-Ar,3.907,1.270
-ramp,17.521,2.597
-LRA,14.901,2.548
+family,median_dP_at_attacked_MW,median_dP_all_metered_MW
+benign,nan,2.800
+Aq,4.415,3.055
+Ad,11.945,3.631
+As,17.665,4.343
+Ar,5.004,3.054
+At,1.066,2.878
+Al,8.605,3.900
