@@ -14,7 +14,7 @@ _REPO = "myersben9/fdia-graph"
 # Default pinned release tag. This is the version the SDK falls back to when it can't (or isn't asked to)
 # query GitHub for the newest one. Set FDIA_GRAPH_RELEASE to override this default globally without a code
 # change (e.g. to pin a whole environment to an older dataset version).
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.3.0")   # newest dataset version (v0.3: temporal-delta feature baked in)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.4.1")   # newest dataset version (v0.4.1: per-unit option, reactive-only-bus fix, swing feature)
 
 # Built-in shards. `sha256` is verified after download when set (filled in when the release is published).
 # Each entry is the full spec download.py needs: which asset `file` to fetch, from which `release` tag, on
