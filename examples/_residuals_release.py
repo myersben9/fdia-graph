@@ -5,11 +5,11 @@ residual = |measured injection - TRUE injection at the same timestep|. We report
   dP/dQ      : RMS over ALL metered buses (whole-network aggregate deviation)
   dPatk      : RMS over the ATTACKED buses only (y==1) — the deviation where the attack actually acts
 The true injection at a record's timestep comes from that system's operating-state pool (pool_ieee{C}.npz).
-Writes results/ml_only_residuals_v2.npz. Env: SHARD_DIR (default release_v0.4.0), PER_FAM.
+Writes results/ml_only_residuals_v2.npz. Env: SHARD_DIR (default release_v0.4.1), PER_FAM.
 """
 import os, numpy as np, h5py
 HERE = os.path.dirname(os.path.abspath(__file__))
-SHARD_DIR = os.environ.get("SHARD_DIR", os.path.join(HERE, "release_v0.4.0"))
+SHARD_DIR = os.environ.get("SHARD_DIR", os.path.join(HERE, "release_v0.4.1"))
 RES = os.path.join(HERE, "results"); os.makedirs(RES, exist_ok=True)
 PER_FAM = int(os.environ.get("PER_FAM", "1500"))
 FAM = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}

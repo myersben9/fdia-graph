@@ -17,3 +17,7 @@ examples/_run_*
 examples/*.png
 examples/fdia_dataset_report.pdf
 examples/results/embeds_*.npz
+examples/**/*.log
+examples/**/*.out
+examples/**/_tmp_*
+examples/_tmp_*

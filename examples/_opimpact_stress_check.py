@@ -9,7 +9,7 @@ from fdia_graph._core import FdiaGenerator
 
 C = int(os.environ.get("CASE", "118"))
 HERE = os.path.dirname(os.path.abspath(__file__))
-X = np.load(os.path.join(HERE, "release_v0.4.0", f"pool_ieee{C}.npz"))["X"].astype(np.float64)
+X = np.load(os.path.join(HERE, "release_v0.4.1", f"pool_ieee{C}.npz"))["X"].astype(np.float64)
 g = FdiaGenerator(C, seed=123); g._pick_lra_target(0.15, min(6, len(g.load_bus)), 15)
 rng = np.random.default_rng(123)
 

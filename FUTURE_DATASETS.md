@@ -117,6 +117,71 @@ threshold, and the learned localizer.
 Ad/As/Ar → stealthy single-shot Aq → harder At/Al) sufficient to carry the operator-impact
 story. Am is a substantial new family + evaluation worth its own release, not a rush-in.
 
+## 7. Detectability-vs-magnitude sweep for the load-moving stealthy attacks  [CORE DONE — see below]
+
+**Status (2026-07-15):** the core sweep is RUN and in the report. `examples/_aq_sensitivity.py` sweeps Aq's
+load-scale magnitude (+0.5% .. +50%) on 14/118/300, re-solving (pinned dispatch + AGC) and adding 1.7% meter noise,
+and measures detectability as the ROC-AUC of separating attacked vs noise-only buses on the injection deviation, plus
+the SNR = attack shift / noise sigma. Result (`results/aq_sensitivity.json`, report slide "How Stealthy Is Stealthy?"):
+detectability collapses to chance (AUC 0.45-0.51) below ~1-2% load; SNR crosses 1 at a **topology-independent ~1.7%
+load move** (the meter class); the AUC a detector can reach clears 0.75 at ~4% (IEEE-118, redundancy helps) vs ~8%
+(14/300). That is the width of the ML-only-dangerous window. STILL TODO: overlay the three real detectors (BDD chi2,
+swing catch %, trained localizer swF1/DR@FA) on the same magnitude axis, and run As (meter-scaling) alongside for the
+BDD-detectable contrast. Original plan retained below.
+
+
+
+**Idea.** Take our stealthy load-moving attack (Aq — scale the attacked buses' loads and
+re-solve) and SWEEP the scale magnitude from a tiny nudge to a large shift, e.g.
+`attack_intensity` giving multipliers ~1.02, 1.05, 1.10, 1.15, 1.25, 1.5, 2.0x (deliberately
+going PAST the current plausibility cap to map the full curve). At each magnitude, measure how
+well each detector catches it: (a) classical BDD (chi-square detect %), (b) the swing /
+rate-of-change detector, and (c) the learned ML localizer/detector (swF1, DR at fixed FA). Also
+log the residual footprint (median |ΔP| at attacked buses) and the operator impact per tier.
+
+**Why.** This answers "how stealthy is stealthy" quantitatively — the point Ben wants: at what
+load-move magnitude do our stealthy attacks stop being invisible and start getting caught? It
+gives a detection-rate-vs-attack-strength CURVE with the ~5% false-alarm reference line, and
+locates the CROSSOVER magnitude where each detector's catch rate lifts off the floor. That draws
+the exact regime map: below the crossover only ML works (the ML-only-dangerous window), above it
+even BDD suffices — directly sharpening the thesis and pinning down where the plausibility cap
+should sit. Run As (meter-scaling) alongside for contrast: find the scale factor at which meter
+scaling becomes BDD-detectable, versus the (larger) load-move magnitude at which the re-solved
+Aq does.
+
+**How.** Reuse the existing eval tooling per magnitude: generate Aq (and As) at each intensity
+tier (holding attacked-bus count / timesteps fixed), then run `_bdd_release.py` (chi2 detect %),
+`_roc_detector.py` (swing catch %), `_feature_sep.py` (per-feature AUC), and a trained localizer
+(swF1 / DR@FA). Plot each metric vs magnitude on one figure (one line per detector) + the median
+|ΔP| footprint, with the benign 5%-FA line. Emit an `intensity_tier` field (see #2) so the sweep
+can share one shard. Expected shape: BDD/swing flat at ~5% until the footprint clears the noise
+floor, then rising; ML detectable earlier (smaller magnitude) than BDD. Pairs with #2 (that
+builds the tiered dataset; this is the analysis to run on it).
+
+## 8. Availability-mask sensitivity analysis for state estimation  [EXPERIMENT]
+
+**Idea.** Sweep the measurement AVAILABILITY, especially angle/PMU coverage, and measure the state-estimation
+error (above all the angle MAE) as a function of it. Vary the per-quantity availability fraction (angle/PMU
+coverage from ~10% to 100%, and separately the SCADA V/P/Q redundancy), and for each setting retrain the SE
+estimator and record V and theta MAE per system. Anchor the curve at the two ends we already have, the
+realistic-sparse baseline (~64-69% angle coverage) and the full-availability ceiling (every channel metered).
+
+**Why.** Our SE results show the angle MAE piling up at a floor (~0.65 deg on IEEE-300) that no estimator beats
+(WLS, plain ARMA, ARMA+attn, and PG-DGAT all land near it), and roughly a third of buses carry no angle meter at
+all. The full-availability run in this session tests the extreme and points straight here. A SWEEP maps the whole
+observability curve, so it says how much PMU coverage buys how much angle accuracy, where the knee sits, and
+whether IEEE-300's penalty is an availability limit or a graph-size limit. That is the result an operator can act
+on ("to hit X deg you need Y% PMU coverage"), and it separates the data limit from the model limit cleanly. It
+belongs in the SE/PINN paper next to the "does physics help" question.
+
+**How.** Reuse `examples/_se_arma_attn.py`, which already has a `FULL_AVAIL` mode. Generalize it to an
+`AVAIL_FRAC` knob that keeps the angle (and optionally the |V|) mask at a target fraction, dropping the rest, with
+the same dataset-matched noise on the kept meters. Sweep frac in {0.1,0.3,0.5,0.7,0.9,1.0} x systems x a few
+seeds, plot theta-MAE vs coverage (one line per system) against the meter-noise floor, and save a CSV sidecar.
+Each point is a small model and trains in minutes. A worthwhile second axis is the PMU PLACEMENT strategy at a
+fixed budget (random vs degree-weighted vs observability-greedy), since where the PMUs go can matter as much as
+how many. Pairs with #2 (intensity tiers) as another controlled-axis study.
+
 ---
 
 ## Cross-cutting notes

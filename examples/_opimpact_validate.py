@@ -11,7 +11,7 @@ from fdia_graph._core import FdiaGenerator
 
 C = int(os.environ.get("CASE", "118"))
 HERE = os.path.dirname(os.path.abspath(__file__))
-POOL = os.path.join(HERE, "release_v0.4.0", f"pool_ieee{C}.npz")
+POOL = os.path.join(HERE, "release_v0.4.1", f"pool_ieee{C}.npz")
 X = np.load(POOL)["X"].astype(np.float64)
 print(f"[pool] ieee{C} X={X.shape}")
 

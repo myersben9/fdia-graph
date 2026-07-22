@@ -31,14 +31,16 @@ def kcl_residual(node_x, edge_x, ei, N):
 
 
 class ArmaLoc(nn.Module):
-    def __init__(self, n_in=8, hidden=128, stacks=3, layers=2, dropout=0.1, attn=True):
+    def __init__(self, n_in=8, hidden=128, stacks=3, layers=2, num_blocks=2, dropout=0.1, attn=True):
         super().__init__()
         self.attn = attn
         self.nenc = nn.Linear(n_in, hidden)                      # node feats: measurements(4)+mask(4)+KCL(2)+temporal(2)+swing(2)
         self.eenc = nn.Linear(2 * 2, hidden)                     # edge feat (2) concat mask (2)
-        # two ARMA blocks: each is `stacks` parallel ARMA_1 filters, each `layers` recursive steps -> wide receptive field
-        self.arma1 = ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers, shared_weights=True, dropout=dropout, act=F.relu)
-        self.arma2 = ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers, shared_weights=True, dropout=dropout, act=F.relu)
+        # `num_blocks` stacked ARMA blocks (graph depth); each is `stacks` parallel ARMA_1 filters, each `layers`
+        # recursive steps -> wide receptive field. Default num_blocks=2 reproduces the original arma1->arma2 stack.
+        self.blocks = nn.ModuleList([
+            ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers, shared_weights=True, dropout=dropout, act=F.relu)
+            for _ in range(num_blocks)])
         if attn:
             # PHYSICS-BIASED ATTENTION: the ARMA trunk is spectral (isotropic per hop); a parallel GATv2 head lets
             # the model attend ANISOTROPICALLY along the branches that matter. Its attention logits are a learned
@@ -54,7 +56,7 @@ class ArmaLoc(nn.Module):
         h = F.relu(self.nenc(x))
         he = F.relu(self.eenc(e))
         h = h + torch.zeros_like(h).index_add_(0, ei[1], he)     # fuse edge-flow signal into destination nodes
-        h = self.arma1(h, ei); h = self.arma2(h, ei)
+        for blk in self.blocks: h = blk(h, ei)                   # stacked ARMA graph-conv blocks
         if self.attn:
             h = h + torch.tanh(self.gate) * self.gat(h, ei, edge_attr=e)
         return self.head(h).squeeze(-1)
@@ -73,6 +75,15 @@ def main():
     ap.add_argument("--release", default=None); ap.add_argument("--out", default=None)
     ap.add_argument("--shard", default=None, help="path to a local .h5 shard to train on (overrides fg.load/release)")
     ap.add_argument("--no_attn", action="store_true", help="disable the physics-biased attention branch (plain ARMA)")
+    # Architecture-depth knobs (defaults reproduce the original ARMA+attn recipe exactly).
+    ap.add_argument("--hidden", type=int, default=128, help="hidden width (default 128; keep divisible by 4 when attention is on)")
+    ap.add_argument("--arma-stacks", type=int, default=3, dest="arma_stacks", help="parallel ARMA_1 filter stacks per block (default 3)")
+    ap.add_argument("--arma-layers", type=int, default=2, dest="arma_layers", help="recursive ARMA steps per block (default 2)")
+    ap.add_argument("--num-blocks", type=int, default=2, dest="num_blocks", help="number of stacked ARMA graph-conv blocks / graph depth (default 2)")
+    # Feature-ablation toggles for the feats() channels (default = all on, i.e. current behavior).
+    ap.add_argument("--no-kcl", action="store_true", dest="no_kcl", help="ablate the KCL power-balance residual feature")
+    ap.add_argument("--no-temporal", action="store_true", dest="no_temporal", help="ablate the temporal-delta (change-since-last-scan) feature")
+    ap.add_argument("--no-swing", action="store_true", dest="no_swing", help="ablate the windowed relative-swing feature")
     # Train in per-unit by default: node_x becomes [V p.u., P p.u., Q p.u., theta rad] so all channels are O(0.1-30)
     # instead of V~1 next to P/Q/KCL~1000. Without input normalization the physical MW channels otherwise dominate
     # the linear encoder. "physical" reproduces the older mixed-scale behaviour.
@@ -96,8 +107,12 @@ def main():
     ei0 = ds.edge_index.to(dev)                                   # [2,E] per-graph
     # PHYSICS-INFORMED FEATURES: append the per-bus KCL power-balance residual (flags crude measurement attacks)
     # and, when present (v0.3+), the stored temporal-delta (current vs previous scan — catches replay Ar & drift).
+    # ablation flags (default all-on reproduces current behavior); gate BOTH the baked-in node_x augmentation here
+    # and the fresh recompute in feats() so a feature is fully removed when toggled off.
+    use_kcl = not args.no_kcl; use_temporal = not args.no_temporal; use_swing = not args.no_swing
     for g in (trG, vaG, teG):
-        extra = [kcl_residual(g["node_x"], g["edge_x"], ei0, N)] + ([g["temporal_delta"]] if "temporal_delta" in g else [])
+        extra = ([kcl_residual(g["node_x"], g["edge_x"], ei0, N)] if use_kcl else []) \
+                + ([g["temporal_delta"]] if (use_temporal and "temporal_delta" in g) else [])
         g["node_x"] = torch.cat([g["node_x"]] + extra, -1)
         g["node_m"] = torch.cat([g["node_m"]] + [torch.ones_like(e) for e in extra], -1)
     # feature standardization (train stats, metered entries) — essential on large grids
@@ -114,20 +129,23 @@ def main():
     def feats(g, idx):
         b = len(idx)
         nxb = g["node_x"][idx]; exb = g["edge_x"][idx]                                    # [b,N,4], [b,E,2]
-        kcl = kcl_residual(nxb, exb, ei0, N)                                              # [b,N,2] measurement KCL residual
-        parts = [nxb, g["node_m"][idx], kcl]                                              # measurements + mask + physics residual
-        if "temporal_delta" in g: parts.append(g["temporal_delta"][idx])                 # [b,N,2] change-since-last-scan
-        if "swing" in g: parts.append(g["swing"][idx])                                    # [b,N,2] windowed relative swing
+        parts = [nxb, g["node_m"][idx]]                                                   # measurements + mask
+        if use_kcl: parts.append(kcl_residual(nxb, exb, ei0, N))                          # [b,N,2] measurement KCL residual
+        if use_temporal and "temporal_delta" in g: parts.append(g["temporal_delta"][idx]) # [b,N,2] change-since-last-scan
+        if use_swing and "swing" in g: parts.append(g["swing"][idx])                     # [b,N,2] windowed relative swing
         x = torch.cat(parts, -1).reshape(b * N, -1)                                       # [b*N, F]
         e2 = torch.cat([exb, g["edge_m"][idx]], -1)                                       # [b,E,4]
         e = torch.cat([e2, e2], 1).reshape(b * 2 * E, -1)                                 # bidirectional [b*2E,4]
         return x, e, batched(b), g["y"][idx].reshape(b * N)
 
     xdim = feats(trG, torch.arange(2, device=dev))[0].shape[-1]                           # actual node-feature width
-    model = ArmaLoc(xdim, attn=not args.no_attn).to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3, weight_decay=1e-5)
+    model = ArmaLoc(xdim, hidden=args.hidden, stacks=args.arma_stacks, layers=args.arma_layers,
+                    num_blocks=args.num_blocks, attn=not args.no_attn).to(dev)
+    opt = torch.optim.Adam(model.parameters(), 1e-3, weight_decay=1e-5)
     pos = float(trG["y"].sum()); pw = torch.tensor(min(max((trG["y"].numel() - pos) / max(pos, 1), 1.0), 30.0), device=dev)
     n = trG["y"].shape[0]; arch = "ARMA+attn" if not args.no_attn else "ARMA"
-    print(f"{args.system}: N={N} E={E}  train {n:,}  {arch}(stacks=3,layers=2)  pos_weight={pw.item():.1f}  batch={args.batch} [{dev}]")
+    abl = "".join(t for t, on in [("-kcl", not use_kcl), ("-temporal", not use_temporal), ("-swing", not use_swing)] if on)
+    print(f"{args.system}: N={N} E={E}  train {n:,}  {arch}(hidden={args.hidden},blocks={args.num_blocks},stacks={args.arma_stacks},layers={args.arma_layers}{' ablate'+abl if abl else ''})  pos_weight={pw.item():.1f}  batch={args.batch} [{dev}]")
     for ep in range(args.epochs):
         model.train(); perm = torch.randperm(n, device=dev); tot = 0.0
         for i in range(0, n, args.batch):
@@ -149,6 +167,9 @@ def main():
     thr = float(max(torch.linspace(-2, 3, 26), key=lambda t: f1((vL[vatk] > t).float(), vY[vatk])))
     L, Y, Fm = collect(teG, teFam); P = (L > thr).float(); atk = Fm > 0
     res = {"system": args.system, "N": int(N), "E": int(E), "model": arch, "threshold": round(thr, 2),
+           "config": {"seed": args.seed, "hidden": args.hidden, "arma_stacks": args.arma_stacks,
+                      "arma_layers": args.arma_layers, "num_blocks": args.num_blocks, "attn": not args.no_attn,
+                      "feats": {"kcl": use_kcl, "temporal": use_temporal, "swing": use_swing}},
            "overall": {"n": int(atk.sum()), "node_f1": f1(P[atk], Y[atk]), "swf1": f1(P[atk], Y[atk], sample=True)}, "per_family": {}}
     print(f"tuned threshold {thr:.2f}\noverall (attacked): node-F1 {res['overall']['node_f1']:.3f}  swF1 {res['overall']['swf1']:.3f}")
     for k, name in FAMILIES.items():

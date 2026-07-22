@@ -15,7 +15,7 @@ import numpy as np, h5py
 import pandapower.networks as pn
 CASES = {14: pn.case14, 118: pn.case118, 300: pn.case300}
 HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "results")
-SHDIR = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.0"))
+SHDIR = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.1"))
 os.makedirs(os.path.join(RES, "sidecars"), exist_ok=True)
 
 W = 80

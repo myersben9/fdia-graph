@@ -16,7 +16,7 @@ from sklearn.metrics import roc_auc_score
 HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "results")
 # Read the LOCAL v0.4.x release shards directly: they carry the swing feature, whereas fg.load still resolves to the
 # published v0.3.0 cache (no swing) until we cut the v0.4.1 release. Same source the report's load_sys prefers.
-SH = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.0"))
+SH = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.1"))
 FAM = {1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 6: "Al"}     # non-At attack families (At=5 excluded on purpose)
 out = {"note": "per-bus separability (ROC-AUC) of attacked vs untouched buses within each family's attacked records; At excluded",
        "systems": {}}

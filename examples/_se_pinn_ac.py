@@ -1,24 +1,22 @@
 #!/usr/bin/env python
-"""Attack-resilient physics-informed state estimator (PI-SE) — v0.4.1 retarget, PER-UNIT.
+"""Accuracy-class noise variant of _se_pinn_v040.py.
 
-Identical model / w_phys / metric definitions to the original _se_pinn.py (in the fedpig root); the
-data source and output path are retargeted to the v0.4.1 release shards, and the network now trains on
-PER-UNIT features (matches train_arma.py / _train_baselines.py): node_x P/Q are divided by baseMVA and
-theta is converted deg->rad before standardization/training; the AC physics operator is correspondingly
-rewritten to consume/produce per-unit power (Ybus is already a per-unit admittance, so the natural output
-of Vc*conj(Vc@Ybus.T) IS per-unit power -- the old version multiplied by baseMVA to report MW; we simply
-drop that multiply instead of dividing back down). Reporting stays in the established human units:
-|V| in p.u., theta MAE in DEGREES (converted back from the model's internal radians) so numbers are
-comparable to prior releases.
-  - measurements: fdia_graph_sdk/examples/release_v0.4.1/ml_only_ieee{C}.h5
-  - TRUE pre-attack state: pool_ieee{C}.npz key 'X' [T,N,4]=[Pinj,Qinj,|V|,theta(deg)], indexed by the record's
-    `timestep` (each record was generated from operating point X[timestep]; verified: benign meter-vs-pool-true
-    MAE ~8e-4 p.u. / ~0.09 deg at metered buses).
-  - output: results/se_{C}.json (w_phys>0) or results/se_{C}_nophys.json (w_phys=0).
-New family names Aq/Ad/As/Ar/At/Al (Aq/At/Al are the stealthy re-solved families; were Ao/ramp/LRA).
-Winning architecture from the 300-angle exploration (_se_exp_v040.py sweep): hidden=256, applied to all
-three systems for consistency (2 ARMA blocks, 2 layers each -- unchanged from the original recipe).
-Env: CASE (118), W_PHYS (0.2), EPOCHS (80), SMOKE (0/1). Seed 123."""
+IDENTICAL model / w_phys / metric definitions / training to _se_pinn_v040.py. The ONLY changes:
+  (1) reads the NOISE-FREE regenerated shard release_v0.4.1/ml_only_ieee{C}_clean.h5 (built by _gen_clean.py:
+      exact h(x)/h(Xsolved) signal + attacks, zero meter noise), and
+  (2) adds ACCURACY-CLASS heteroscedastic meter noise at load time (the noise KNOB), per Asprou/Falas
+      instrument accuracy class AC (percent):
+        - P_inj, Q_inj, P_flow, Q_flow : sigma = (AC/100)*|magnitude|/3  (+1e-3 floor, matches generator)
+        - |V|                          : sigma = (AC/100)*|V|/3           (relative; |V|~1 -> ~AC/300 pu)
+        - theta                        : sigma = AC * 0.096 deg           (absolute IEC/PMU angle class,
+                                         anchored so AC=1.0% reproduces the flat-shard 0.096 deg angle noise)
+      Noise is applied only at metered positions (node_m / edge_m). This lets us sweep the noise level
+      WITHOUT re-solving power flows; the attack signal is baked into the clean shard and preserved.
+
+Everything downstream (per-unit conversion, standardization, the physics operator, the metrics, seeds) is
+byte-for-byte the flat-sweep pipeline. Output schema matches results/sweep_pinn/ exactly.
+Env: CASE, W_PHYS, AC_CLASS (percent), SEED, EPOCHS (80), SMOKE. Output:
+results/sweep_pinn_ac/se_{C}_ac{AC}_wp{W_PHYS}_s{SEED}.json."""
 import os, json, numpy as np, torch, torch.nn as nn, torch.nn.functional as F, h5py
 import pandapower as pp, pandapower.networks as pn
 from pandapower.pypower.makeYbus import makeYbus
@@ -27,21 +25,21 @@ from fdia_graph.dataset import FAMILIES
 
 DEV = "cuda" if torch.cuda.is_available() and os.environ.get("CPU", "0") != "1" else "cpu"
 torch.backends.cuda.matmul.allow_tf32 = True; torch.backends.cudnn.allow_tf32 = True
-C = int(os.environ.get("CASE", "118")); W_PHYS = float(os.environ.get("W_PHYS", "0.2"))
-SEED = int(os.environ.get("SEED", "123")); SWEEP = os.environ.get("SWEEP", "0") == "1"
+C = int(os.environ.get("CASE", "14")); W_PHYS = float(os.environ.get("W_PHYS", "0.2"))
+SEED = int(os.environ.get("SEED", "123")); AC = float(os.environ.get("AC_CLASS", "1.0"))
 EPOCHS = int(os.environ.get("EPOCHS", "80")); SMOKE = os.environ.get("SMOKE", "0") == "1"
 HID = int(os.environ.get("HID", "256")); COSINE = os.environ.get("COSINE", "1") == "1"
 REL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "release_v0.4.1")
 RES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
-H5 = os.path.join(REL, f"ml_only_ieee{C}.h5"); POOL = os.path.join(REL, f"pool_ieee{C}.npz")
-print(f"[data] reading {H5}", flush=True)
+H5 = os.path.join(REL, f"ml_only_ieee{C}_clean.h5"); POOL = os.path.join(REL, f"pool_ieee{C}.npz")
+print(f"[data] reading {H5}  (accuracy class AC={AC}%)", flush=True)
 
 # ---- physics setup (replicates the generator's Ybus machinery; deterministic from the case) ----
 NET = {14: pn.case14, 118: pn.case118, 300: pn.case300}[C]
 base = NET(); pp.runpp(base)
 _ppc = base._ppc; _Ybus, _Yf, _Yt = makeYbus(_ppc["baseMVA"], _ppc["bus"], _ppc["branch"]); bMVA = _ppc["baseMVA"]
-lut = base._pd2ppc_lookups["bus"][:C].astype(np.int64)               # pp bus b -> ppc index
-fb = _ppc["branch"][:, 0].real.astype(np.int64)                       # ppc from-bus per branch (lines then trafos)
+lut = base._pd2ppc_lookups["bus"][:C].astype(np.int64)
+fb = _ppc["branch"][:, 0].real.astype(np.int64)
 nppc = _ppc["bus"].shape[0]
 Ybus = torch.as_tensor(np.asarray(_Ybus.todense()), dtype=torch.complex64, device=DEV)
 Yf = torch.as_tensor(np.asarray(_Yf.todense()), dtype=torch.complex64, device=DEV)
@@ -49,9 +47,6 @@ LUT = torch.as_tensor(lut, device=DEV); FB = torch.as_tensor(fb, device=DEV)
 
 
 def ac_from_state(Vmag, theta_rad):
-    """Differentiable AC operator: state (|V|[.,C] p.u., theta[.,C] RAD) -> (bus P,Q [.,C], branch Pf,Qf [.,E])
-    in PER-UNIT. Ybus/Yf are already per-unit admittances (pandapower's makeYbus), so Vc*conj(Vc@Y.T) is
-    naturally per-unit power -- no *bMVA needed (that was only required to report physical MW)."""
     b = Vmag.shape[0]
     Vc_pp = torch.polar(Vmag, theta_rad)
     Vc = torch.zeros(b, nppc, dtype=torch.complex64, device=Vmag.device)
@@ -68,12 +63,26 @@ with h5py.File(H5, "r") as f:
     baseMVA = float(f.attrs.get("baseMVA", bMVA))
 Nrec = len(A["node_x"]); N = A["node_x"].shape[1]; E = A["edge_x"].shape[1]
 assert abs(baseMVA - bMVA) < 1e-6, f"h5 baseMVA {baseMVA} != pandapower net baseMVA {bMVA} -- case mismatch"
-# TRUE state per record = the benign operating point the record was generated from: pool X[timestep].
-# pool X columns = [Pinj, Qinj, |V|, theta(deg)] — same layout the original script's init X_t.npy used.
-POOLX = np.load(POOL)["X"].astype(np.float32)                          # [T,N,4]
-Xtrue = POOLX[A["timestep"].astype(np.int64)]                          # [Nrec,C,4]=[Pinj,Qinj,|V|,theta(deg)]
-print(f"IEEE-{C}: {Nrec} records, N={N} E={E}, pool T={len(POOLX)}, w_phys={W_PHYS}, hid={HID}, epochs={EPOCHS}, "
-      f"cosine={COSINE}, baseMVA={baseMVA}, units=pu")
+
+# ---- ACCURACY-CLASS NOISE KNOB: re-noise the clean (noise-free) measurements at instrument class AC% ----
+# Seeded independently of the model init so the noise realization is reproducible and identical across w_phys.
+_nrng = np.random.default_rng(1_000_000 * SEED + int(round(AC * 1000)))
+nxc = A["node_x"].astype(np.float64); exc = A["edge_x"].astype(np.float64)
+r = (AC / 100.0) / 3.0
+sig_node = np.stack([
+    r * np.abs(nxc[..., 0]),                    # |V| : relative
+    r * np.abs(nxc[..., 1]) + 1e-3,             # P_inj : relative + MW floor
+    r * np.abs(nxc[..., 2]) + 1e-3,             # Q_inj : relative + MVAr floor
+    np.full_like(nxc[..., 3], AC * 0.096),      # theta : absolute IEC/PMU class (deg), AC=1% -> 0.096 deg
+], -1)
+sig_edge = np.stack([r * np.abs(exc[..., 0]) + 1e-3, r * np.abs(exc[..., 1]) + 1e-3], -1)
+A["node_x"] = (nxc + sig_node * _nrng.standard_normal(nxc.shape) * A["node_m"]).astype(np.float32)
+A["edge_x"] = (exc + sig_edge * _nrng.standard_normal(exc.shape) * A["edge_m"]).astype(np.float32)
+
+POOLX = np.load(POOL)["X"].astype(np.float32)
+Xtrue = POOLX[A["timestep"].astype(np.int64)]
+print(f"IEEE-{C}: {Nrec} records, N={N} E={E}, pool T={len(POOLX)}, w_phys={W_PHYS}, AC={AC}%, hid={HID}, "
+      f"epochs={EPOCHS}, cosine={COSINE}, baseMVA={baseMVA}, units=pu")
 
 # ---- physics operator validation (per-unit): h(x_true) must reproduce benign measurements within meter noise ----
 ben = np.where((A["family"] == 0))[0][:512]
@@ -86,18 +95,18 @@ with torch.no_grad():
     mF = torch.as_tensor(A["edge_m"][ben, :, 0], device=DEV).bool()
     meas_Pf_pu = torch.as_tensor(A["edge_x"][ben, :, 0], device=DEV) / baseMVA
     err_flow = (Pf - meas_Pf_pu)[mF].abs().mean().item()
-print(f"physics-op validation (benign, p.u.): inj MAE {err_inj:.5f}, flow MAE {err_flow:.5f}  (should be << 1 p.u.)")
+print(f"physics-op validation (benign, p.u.): inj sign-agnostic; flow MAE {err_flow:.5f}  (should be << 1 p.u.)")
 
 # ---- tensors (PER-UNIT: node_x/edge_x P,Q divided by baseMVA; theta channels in RADIANS) ----
 sp = A["split"]
-nx_phys = torch.as_tensor(A["node_x"], device=DEV, dtype=torch.float32)     # kept in physical units (V pu, P/Q MW, theta DEG) for reporting
-nx = nx_phys.clone(); nx[..., 1] /= baseMVA; nx[..., 2] /= baseMVA; nx[..., 3] = torch.deg2rad(nx[..., 3])   # pu view fed to the net
+nx_phys = torch.as_tensor(A["node_x"], device=DEV, dtype=torch.float32)
+nx = nx_phys.clone(); nx[..., 1] /= baseMVA; nx[..., 2] /= baseMVA; nx[..., 3] = torch.deg2rad(nx[..., 3])
 nm = torch.as_tensor(A["node_m"], device=DEV, dtype=torch.float32)
-ex = torch.as_tensor(A["edge_x"], device=DEV, dtype=torch.float32) / baseMVA   # both cols are power -> pu
+ex = torch.as_tensor(A["edge_x"], device=DEV, dtype=torch.float32) / baseMVA
 em = torch.as_tensor(A["edge_m"], device=DEV, dtype=torch.float32)
-Vtrue = torch.as_tensor(Xtrue[:, :, 2], device=DEV)                          # already p.u.
-THtrue_deg = torch.as_tensor(Xtrue[:, :, 3], device=DEV)                     # ground truth, kept in DEGREES for reporting
-THtrue = torch.deg2rad(THtrue_deg)                                           # RADIANS: training target + physics input
+Vtrue = torch.as_tensor(Xtrue[:, :, 2], device=DEV)
+THtrue_deg = torch.as_tensor(Xtrue[:, :, 3], device=DEV)
+THtrue = torch.deg2rad(THtrue_deg)
 fam = torch.as_tensor(A["family"].astype(np.int64))
 ei0 = torch.stack([
     torch.as_tensor(np.r_[base.line["from_bus"].values, base.trafo["hv_bus"].values], dtype=torch.long),
@@ -142,15 +151,15 @@ class SE(nn.Module):
 torch.manual_seed(SEED); model = SE().to(DEV); opt = torch.optim.Adam(model.parameters(), 2e-3, weight_decay=1e-5)
 sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, EPOCHS) if COSINE else None
 BS = 128 if C >= 300 else 256
-print(f"train {len(tr)}  w_phys={W_PHYS}  epochs={EPOCHS}  hid={HID}  cosine={COSINE}  batch={BS}  params {sum(p.numel() for p in model.parameters()):,}")
+print(f"train {len(tr)}  w_phys={W_PHYS}  AC={AC}%  epochs={EPOCHS}  hid={HID}  cosine={COSINE}  batch={BS}  params {sum(p.numel() for p in model.parameters()):,}")
 for ep in range(EPOCHS if not SMOKE else 3):
     model.train(); perm = tr[torch.randperm(len(tr)).numpy()]
     for i in range(0, len(perm), BS):
         idx = torch.as_tensor(perm[i:i + BS], device=DEV); x, e, ei, b = feed(idx)
-        out = model(x, e, ei, b); Vh = out[..., 0] * vsd + vmu; THh = out[..., 1] * tsd + tmu   # THh in RADIANS
+        out = model(x, e, ei, b); Vh = out[..., 0] * vsd + vmu; THh = out[..., 1] * tsd + tmu
         Ls = F.smooth_l1_loss((Vtrue[idx] - vmu) / vsd, out[..., 0]) + F.smooth_l1_loss((THtrue[idx] - tmu) / tsd, out[..., 1])
         Pb, Qb, Pf, Qf = ac_from_state(Vh, THh)
-        Lp = F.smooth_l1_loss(Pf, cPf[idx]) + F.smooth_l1_loss(Qf, cQf[idx])   # already per-unit, no /bMVA needed
+        Lp = F.smooth_l1_loss(Pf, cPf[idx]) + F.smooth_l1_loss(Qf, cQf[idx])
         loss = Ls + W_PHYS * Lp
         opt.zero_grad(); loss.backward(); opt.step()
     if sched: sched.step()
@@ -167,9 +176,9 @@ def estimate(idx):
 
 
 Vh, THh_rad = estimate(teI); tF = fam[teI]
-THh = torch.rad2deg(THh_rad)                                    # back to DEGREES for reporting (matches prior releases)
-Vtr = Vtrue[teI].cpu(); THtr = THtrue_deg[teI].cpu()             # ground truth: |V| p.u., theta DEG
-Vmeas = nx_phys[teI, :, 0].cpu(); THmeas = nx_phys[teI, :, 3].cpu()   # meter readings: physical units (V pu, theta DEG)
+THh = torch.rad2deg(THh_rad)
+Vtr = Vtrue[teI].cpu(); THtr = THtrue_deg[teI].cpu()
+Vmeas = nx_phys[teI, :, 0].cpu(); THmeas = nx_phys[teI, :, 3].cpu()
 mV = nm[teI, :, 0].cpu().bool(); mTH = nm[teI, :, 3].cpu().bool()
 
 
@@ -178,10 +187,9 @@ def mae(a, b, mask=None):
     return (e[mask].mean().item() if mask is not None and mask.any() else e.mean().item())
 
 
-print(f"\n=== STATE-ESTIMATION ERROR on TEST (|V| p.u., theta deg) ===")
-print(f"{'family':8s} | {'|V| SE(all)':>11s} | at METERED buses: {'|V| SE':>7s} {'|V| meter':>9s} | {'th SE':>6s} {'th meter':>8s}")
+print(f"\n=== STATE-ESTIMATION ERROR on TEST (|V| p.u., theta deg) AC={AC}% ===")
 res = {"system": f"ieee{C}", "w_phys": W_PHYS, "seed": SEED, "hid": HID, "epochs": EPOCHS, "units": "pu",
-       "release": "v0.4.1", "per_family": {}}
+       "release": "v0.4.1", "ac_class_pct": AC, "per_family": {}}
 for k, name in FAMILIES.items():
     m = (tF == k).numpy()
     if not m.any(): continue
@@ -193,7 +201,7 @@ for k, name in FAMILIES.items():
                                    V_mae_meter=round(vmeM, 4), th_mae_se_metered=round(tseM, 3), th_mae_meter=round(tmeM, 3),
                                    V_mae_meter_attacked=round(vmeM, 4), V_mae_se_metered_attacked=round(vseM, 4),
                                    th_mae_meter_attacked=round(tmeM, 3), th_mae_se_metered_attacked=round(tseM, 3))
-    print(f"{name:8s} | {vAll:11.4f} | {'':17s}{vseM:7.4f} {vmeM:9.4f} | {tseM:6.3f} {tmeM:8.3f}")
+    print(f"{name:8s} | Vse {vseM:.4f} Vmeter {vmeM:.4f} | thse {tseM:.3f} thmeter {tmeM:.3f}")
 atk = (tF > 0).numpy(); mvA = mV[atk]; mtA = mTH[atk]
 res["overall"] = dict(
     V_mae_all=round(mae(Vh, Vtr), 4),
@@ -202,14 +210,9 @@ res["overall"] = dict(
     th_mae_se_metered_attacked=round(mae(THh[atk][mtA], THtr[atk][mtA]), 3),
     th_mae_meter_attacked=round(mae(THmeas[atk][mtA], THtr[atk][mtA]), 3))
 o = res["overall"]
-print(f"\nATTACKED metered buses (the resilience claim):")
-print(f"  |V|:   SE {o['V_mae_se_metered_attacked']:.4f}  vs trust-meter {o['V_mae_meter_attacked']:.4f} p.u.")
-print(f"  theta: SE {o['th_mae_se_metered_attacked']:.3f}  vs trust-meter {o['th_mae_meter_attacked']:.3f} deg")
+print(f"\nATTACKED metered: |V| SE {o['V_mae_se_metered_attacked']:.4f} vs meter {o['V_mae_meter_attacked']:.4f} p.u. | "
+      f"theta SE {o['th_mae_se_metered_attacked']:.3f} vs meter {o['th_mae_meter_attacked']:.3f} deg")
 if not SMOKE:
-    os.makedirs(RES, exist_ok=True)
-    if SWEEP:
-        outp = os.path.join(RES, "sweep_pinn", f"se_{C}_wp{W_PHYS}_s{SEED}.json"); os.makedirs(os.path.dirname(outp), exist_ok=True)
-    else:
-        suffix = "_nophys" if W_PHYS == 0 else ""
-        outp = os.path.join(RES, f"se_{C}{suffix}.json")
+    outp = os.path.join(RES, "sweep_pinn_ac", f"se_{C}_ac{AC}_wp{W_PHYS}_s{SEED}.json")
+    os.makedirs(os.path.dirname(outp), exist_ok=True)
     json.dump(res, open(outp, "w"), indent=2); print(f"wrote {outp}")

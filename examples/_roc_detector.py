@@ -5,16 +5,22 @@ Detector: flag a record if ANY metered bus's injection jump this scan exceeds it
 by more than a threshold (a per-bus rate-of-change z-score, max over buses). The window W is tuned to catch
 the most attacks at a fixed 5% benign false-alarm rate. This is the SAME statistic fed to the model as the
 'swing' feature. Writes results/roc_detector.json (per-system per-family catch + the window-tuning sweep).
+
+Env: SEED (default 123; multi-seed error-bar runs point at ml_only_ieee{C}_s{SEED}.h5 / pool_ieee{C}_s{SEED}.npz
+and write roc_detector_s{SEED}.json so per-seed results don't clobber each other or the seed-123 canonical file).
 """
 import os, json, numpy as np, h5py
 HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "results")
-SH = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.0"))
+SH = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.1"))
 FAM = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
 W_TUNED = 60
+SEED = int(os.environ.get("SEED", "123"))
+SEED_SUF = "" if SEED == 123 else f"_s{SEED}"
+OUT_NAME = "roc_detector.json" if SEED == 123 else f"roc_detector_s{SEED}.json"
 out = {"window_tuned": W_TUNED, "benign_fa_target": 5.0, "systems": {}}
 
 for C in (14, 118, 300):
-    h5 = os.path.join(SH, f"ml_only_ieee{C}.h5"); pool = os.path.join(SH, f"pool_ieee{C}.npz")
+    h5 = os.path.join(SH, f"ml_only_ieee{C}{SEED_SUF}.h5"); pool = os.path.join(SH, f"pool_ieee{C}{SEED_SUF}.npz")
     if not (os.path.exists(h5) and os.path.exists(pool)):
         print(f"ieee{C}: missing shard/pool, skip", flush=True); continue
     X = np.load(pool)["X"]
@@ -56,5 +62,5 @@ for C in (14, 118, 300):
                                   "all_attack_catch": round(100 * float(np.mean(s[fsel > 0] > thr)), 1)}
     print(f"ieee{C}: benign {per_family['benign']}%  Aq {per_family['Aq']}%  At {per_family['At']}%  Al {per_family['Al']}%  (all atk {out['systems'][f'ieee{C}']['all_attack_catch']}%)", flush=True)
 
-json.dump(out, open(os.path.join(RES, "roc_detector.json"), "w"), indent=2)
-print(f"[done] results/roc_detector.json", flush=True)
+json.dump(out, open(os.path.join(RES, OUT_NAME), "w"), indent=2)
+print(f"[done] results/{OUT_NAME}", flush=True)

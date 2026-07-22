@@ -38,7 +38,7 @@ THRESHOLDS = [100.0, 90.0]                            # overload thresholds (ope
 
 
 def get_pool(C):
-    p = os.path.join(os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.0")), f"pool_ieee{C}.npz")
+    p = os.path.join(os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.1")), f"pool_ieee{C}.npz")
     if os.path.exists(p):
         return np.load(p)["X"].astype(np.float64)
     # fallback: build a small pool from the NYISO profile (per task instructions)

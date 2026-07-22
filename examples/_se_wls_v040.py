@@ -35,8 +35,11 @@ POOLX = np.load(POOL)["X"].astype(np.float32)                    # [T,N,4]=[Pinj
 Xtrue = POOLX[A["timestep"].astype(np.int64)]                    # [Nrec,N,4]
 
 te = np.where(A["split"] == 2)[0]; teF = A["family"][te]
+_fams = os.environ.get("FAMS", "")                                   # e.g. "0" = benign-only, "" = all
+_famset = set(int(x) for x in _fams.split(",")) if _fams else set(FAMILIES)
 pick = []
 for k in FAMILIES:
+    if k not in _famset: continue
     idx = te[teF == k]
     if len(idx): pick.extend(rng.choice(idx, min(PER_FAM, len(idx)), replace=False).tolist())
 pick = np.array(sorted(pick))
@@ -58,7 +61,9 @@ def wls_state(nx, nm, ex, em):
         if nm[b, 0]: create_measurement(est, "v", "bus", nx[b, 0], SD["v"], element=b)
         if nm[b, 3]: create_measurement(est, "va", "bus", nx[b, 3], np.degrees(SD["va"]), element=b)
     try:
-        if estimate(est, init="flat"):
+        # cap iterations so a near-singular gain (attacked, under-observed 300-bus) fails fast instead of
+        # spinning; a non-converged/singular solve is counted as a fail rather than wedging the whole sweep.
+        if estimate(est, init="flat", maximum_iterations=int(os.environ.get("WLS_MAXIT", "20"))):
             return est.res_bus_est.vm_pu.values.copy(), est.res_bus_est.va_degree.values.copy()
     except Exception:
         pass
@@ -66,6 +71,9 @@ def wls_state(nx, nm, ex, em):
 
 
 accV = {k: [] for k in FAMILIES}; accT = {k: [] for k in FAMILIES}; nconv = {k: 0 for k in FAMILIES}; nfail = 0
+# UNMETERED buses: WLS still solves the FULL state vector (va/vm over every bus), so we can score the buses
+# that carry no direct meter — what SE exists to recover — against the true state, apples-to-apples with the NN.
+accVu = {k: [] for k in FAMILIES}; accTu = {k: [] for k in FAMILIES}
 for c, i in enumerate(pick):
     r = wls_state(A["node_x"][i], A["node_m"][i], A["edge_x"][i], A["edge_m"][i])
     k = int(A["family"][i])
@@ -74,6 +82,8 @@ for c, i in enumerate(pick):
     mv = A["node_m"][i, :, 0].astype(bool); mt = A["node_m"][i, :, 3].astype(bool)
     if mv.any(): accV[k].append(np.abs(vm[mv] - Xtrue[i, mv, 2]).mean())
     if mt.any(): accT[k].append(np.abs(va[mt] - Xtrue[i, mt, 3]).mean())
+    if (~mv).any(): accVu[k].append(np.abs(vm[~mv] - Xtrue[i, ~mv, 2]).mean())
+    if (~mt).any(): accTu[k].append(np.abs(va[~mt] - Xtrue[i, ~mt, 3]).mean())
     nconv[k] += 1
     if (c + 1) % 200 == 0: print(f"  {c+1}/{len(pick)}  (fails {nfail})", flush=True)
 
@@ -83,14 +93,25 @@ allV, allT = [], []
 for k, name in FAMILIES.items():
     if not accV[k] and not accT[k]: continue
     v = float(np.mean(accV[k])) if accV[k] else None; t = float(np.mean(accT[k])) if accT[k] else None
+    vu = float(np.mean(accVu[k])) if accVu[k] else None; tu = float(np.mean(accTu[k])) if accTu[k] else None
     res["per_family"][name] = dict(V_mae_wls=round(v, 4) if v is not None else None,
-                                   th_mae_wls=round(t, 3) if t is not None else None, n_conv=nconv[k])
+                                   th_mae_wls=round(t, 3) if t is not None else None, n_conv=nconv[k],
+                                   V_mae_wls_unmetered=round(vu, 4) if vu is not None else None,
+                                   th_mae_wls_unmetered=round(tu, 3) if tu is not None else None)
     if k > 0:
         allV += accV[k]; allT += accT[k]
-    print(f"{name:8s} {v if v is None else round(v,4):>10} {t if t is None else round(t,3):>9} {nconv[k]:>7d}")
+    print(f"{name:8s} {v if v is None else round(v,4):>10} {t if t is None else round(t,3):>9} {nconv[k]:>7d}"
+          f"   | UNMET th {tu if tu is None else round(tu,3)} V {vu if vu is None else round(vu,4)}")
 res["overall_attacked"] = dict(V_mae_wls=round(float(np.mean(allV)), 4) if allV else None,
                                th_mae_wls=round(float(np.mean(allT)), 3) if allT else None)
+# unmetered aggregates: benign row + attacked (families k>0) row
+bV, bT = res["per_family"].get("benign", {}).get("V_mae_wls_unmetered"), res["per_family"].get("benign", {}).get("th_mae_wls_unmetered")
+auV = [x for k in FAMILIES if k > 0 for x in accVu[k]]; auT = [x for k in FAMILIES if k > 0 for x in accTu[k]]
+res["overall_unmetered"] = dict(benign_V=bV, benign_th=bT,
+                                attacked_V=round(float(np.mean(auV)), 4) if auV else None,
+                                attacked_th=round(float(np.mean(auT)), 3) if auT else None)
 print(f"\nATTACKED (all families): |V| WLS {res['overall_attacked']['V_mae_wls']}  theta WLS {res['overall_attacked']['th_mae_wls']} deg")
+print(f"UNMETERED: benign th {bT} V {bV}  |  attacked th {res['overall_unmetered']['attacked_th']} V {res['overall_unmetered']['attacked_V']}")
 os.makedirs(RES, exist_ok=True)
 outp = os.path.join(RES, f"se_{C}_wls.json")
 json.dump(res, open(outp, "w"), indent=2)

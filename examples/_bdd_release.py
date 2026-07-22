@@ -5,7 +5,9 @@ operator (Ybus/Yf) on FLOWS + |V| + theta (bus P/Q injection excluded: the store
 shunt-corrected convention that differs from the Ybus injection by a fixed per-bus offset). J = sum(r/sig)^2
 is the chi-square statistic; max|r/sig| is the LNR. Writes results/bdd_summary_{C}.json + bdd_resid_{C}.npz.
 
-Env: CASE (14/118/300), N_PER (samples/family), SHARD_DIR (default release_v0.4.0)."""
+Env: CASE (14/118/300), N_PER (samples/family), SHARD_DIR (default release_v0.4.1), SEED (default 123;
+multi-seed error-bar runs: SEED=124/125 read ml_only_ieee{C}_s{SEED}.h5 instead of the unsuffixed canonical
+seed-123 shard, and write bdd_summary_{C}_s{SEED}.json so per-seed results don't clobber each other)."""
 import os, json, numpy as np, h5py, warnings
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE"); warnings.filterwarnings("ignore")
 import pandapower as pp, pandapower.networks as pn
@@ -15,7 +17,10 @@ from pandapower.pypower.makeYbus import makeYbus
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 C = int(os.environ.get("CASE", "118")); N_PER = int(os.environ.get("N_PER", "120"))
-SHARD_DIR = os.environ.get("SHARD_DIR", os.path.join(HERE, "release_v0.4.0"))
+SHARD_DIR = os.environ.get("SHARD_DIR", os.path.join(HERE, "release_v0.4.1"))
+SEED = int(os.environ.get("SEED", "123"))
+SEED_SUF = "" if SEED == 123 else f"_s{SEED}"        # seed123 == the canonical unsuffixed shard
+OUT_TAG = f"{C}" if SEED == 123 else f"{C}_s{SEED}"  # keeps existing bdd_summary_{C}.json filename for seed123
 RES = os.path.join(HERE, "results"); os.makedirs(RES, exist_ok=True)
 NET = {14: pn.case14, 118: pn.case118, 300: pn.case300}[C]
 base = NET(); pp.runpp(base); nl = len(base.line); ntr = len(base.trafo)
@@ -32,7 +37,7 @@ def h_of_state(Vmag, th_deg):
     Sf = Vc[fb] * np.conj(Yf @ Vc) * bMVA
     return Sf.real, Sf.imag
 
-with h5py.File(os.path.join(SHARD_DIR, f"ml_only_ieee{C}.h5"), "r") as f:
+with h5py.File(os.path.join(SHARD_DIR, f"ml_only_ieee{C}{SEED_SUF}.h5"), "r") as f:
     d = f["data"]; A = {k: d[k][:] for k in ("node_x", "node_m", "edge_x", "edge_m", "family")}
 N = A["node_x"].shape[1]; E = A["edge_x"].shape[1]
 
@@ -90,6 +95,6 @@ for k, name in FAM.items():
     s = summary["families"][name]
     print(f"[ieee{C}/{name:6s}] chi2 {s['chi2_detect_pct']:5.1f}%  medJ {s['median_J']}  med_lnr {s['median_lnr']}", flush=True)
 
-json.dump(summary, open(os.path.join(RES, f"bdd_summary_{C}.json"), "w"), indent=2)
-np.savez_compressed(os.path.join(RES, f"bdd_resid_{C}.npz"), **resid)
-print(f"[done] results/bdd_summary_{C}.json + bdd_resid_{C}.npz")
+json.dump(summary, open(os.path.join(RES, f"bdd_summary_{OUT_TAG}.json"), "w"), indent=2)
+np.savez_compressed(os.path.join(RES, f"bdd_resid_{OUT_TAG}.npz"), **resid)
+print(f"[done] results/bdd_summary_{OUT_TAG}.json + bdd_resid_{OUT_TAG}.npz")

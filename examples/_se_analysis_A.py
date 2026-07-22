@@ -15,7 +15,7 @@ from pandapower.pypower.makeYbus import makeYbus
 
 DEV = "cpu"                                                    # force CPU: GPU is shared / busy
 HERE = os.path.dirname(os.path.abspath(__file__))
-REL = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.0")); RES = os.path.join(HERE, "results")
+REL = os.environ.get("FDIA_LOCAL_SHARDS", os.path.join(HERE, "release_v0.4.1")); RES = os.path.join(HERE, "results")
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
 SD = dict(pf=0.02, qf=0.02, v=0.005, pi=0.03, qi=0.03, va=0.005)   # from _se_wls_v040.py
 VA_DEG = np.degrees(SD["va"])                                      # angle-meter sigma in degrees
