@@ -216,7 +216,7 @@ def _fetch_nyiso(start, end):
     import pandas as pd
     frames = []
     for first in _month_firsts(start, end):
-        url = f"http://mis.nyiso.com/public/csv/pal/{first:%Y%m01}pal_csv.zip"
+        url = f"https://mis.nyiso.com/public/csv/pal/{first:%Y%m01}pal_csv.zip"
         r = requests.get(url, timeout=60, headers={"User-Agent": "Mozilla/5.0"})
         r.raise_for_status()
         with zipfile.ZipFile(io.BytesIO(r.content)) as z:

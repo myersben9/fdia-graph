@@ -66,12 +66,18 @@ def _load_states(system, states, pool_cap=8000):
 
 def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "At", "Al"),
              attack_intensity=0.15, ramp_rate=0.002, ramp_len=60, n_benign=20000, lra_targets=15,
-             redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None):
+             redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None, outage=None):
     # lra_targets: size of the LRA target-line pool (each LRA attack picks one at random -> diverse bus sets)
+    # outage: line index/name to take OUT OF SERVICE for the whole shard (None = intact network). One shard
+    # per topology, so the graph/ group always describes the topology its records were generated under and
+    # the loader needs no change; `states` must then be a pool re-solved under that same topology (see
+    # FdiaGenerator.resolve_states), or the benign records would carry intact-network voltages.
     # Merge caller's redundancy overrides onto the default meter coverage (60% V buses, 20% PMU, 90% flows).
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     # Build the generator for this IEEE system: fixes the seed and wires in the meter-coverage fractions.
-    g = FdiaGenerator(system, seed=seed, **red)
+    # The outage is applied inside the constructor, before Ybus/PTDF/base state are derived, and it consumes
+    # no randomness — so the meter plan and per-meter biases are identical across topologies at a given seed.
+    g = FdiaGenerator(system, seed=seed, outage=outage, **red)
     # Pre-compute a pool of candidate LRA target lines (load-redistribution attack): bound by intensity, up to
     # min(6, #load buses) buses per attack, drawing from `lra_targets` distinct target lines for variety.
     g._pick_lra_target(attack_intensity, min(6, len(g.load_bus)), n_targets=lra_targets)
@@ -160,6 +166,12 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
         return _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0
 
     recs = []; sid = 0   # accumulate all records; sid = next ramp sequence id
+    # Per-family (attempts, accepted). The attack loops below RETRY on a non-converging power flow until they
+    # hit the target count, so a shard that met its quota reveals nothing about how many operating points the
+    # attack could not be realized on. Recorded into the shard attrs, because silently dropping the hard cases
+    # is exactly how a dataset flatters itself — under an N-1 topology the drop rate is the honest measure of
+    # how much harder that topology is to attack.
+    tried = {}; taken = {}
     for t in rng.choice(nT, min(n_benign, nT), replace=False):        # benign
         # Sample n_benign distinct timesteps (capped at nT) and emit a benign record for each.
         recs.append(make(int(t), 0, -1, None))
@@ -186,14 +198,16 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
                 mult = 1 + rng.uniform(0.05, attack_intensity)
             r = make(t, fam, -1, (a, mult))
             if r is not None: recs.append(r); got += 1   # count only successful (converged) records
+        tried[fam] = tries; taken[fam] = got
     if 5 in fam_ids:                                                   # ramp sequences to ~per_family records
         # Ramp attacks are temporal load surges/dips with a randomized, ASYMMETRIC shape: a fixed bus set is
         # ramped in one direction (up = surge, or down = dip) at rate_up to a peak/trough, optionally HELD there
         # for a while, then returned toward baseline at a DIFFERENT rate_down. The turning point falls at a
         # random time, the two slopes differ, and the direction is chosen per sequence — so the family covers
         # up-then-down and down-then-up ramps. Each sequence is self-contained (ends back near baseline, no jump).
-        ramp_got = 0
+        ramp_got = 0; ramp_steps = 0; ramp_seqs = 0
         while ramp_got < per_family:
+            ramp_seqs += 1
             t0 = int(rng.integers(nT - ramp_len))   # start timestep leaving room for the full sequence
             atk = rng.choice(g.attackable_pos, min(5, len(g.attackable_pos)), replace=False)  # fixed (attackable) bus set for the sequence
             direction = 1.0 if rng.random() < 0.5 else -1.0            # +1 = surge up first, -1 = dip down first
@@ -203,6 +217,7 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
             peak_dev = rate_up*rise_len                               # deviation magnitude at the turn (signed below)
             seq = []
             for i in range(ramp_len):
+                ramp_steps += 1
                 if i < rise_len:                dev = rate_up*i                                   # ramp toward the peak
                 elif i < rise_len+hold_len:     dev = peak_dev                                    # hold at the peak
                 else:                           dev = max(0.0, peak_dev - rate_down*(i-rise_len-hold_len))  # ramp back
@@ -211,18 +226,22 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
                 seq.append(r)
             # Keep the sequence only if at least 10 steps solved; then advance the sequence id.
             if len(seq) >= 10: recs.extend(seq); ramp_got += len(seq); sid += 1
+        # For the ramp family "attempts" counts the individual timesteps SOLVED (a sequence aborts on its
+        # first non-converging step), so attempts-minus-accepted is the number of steps thrown away.
+        tried[5] = ramp_steps; taken[5] = ramp_got
 
     # Default output path lives under the SDK cache dir as <name>.h5 unless the caller overrode `out`.
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
     # Serialize every record + graph structure + chronological split into the HDF5 shard.
-    _write(g, recs, out, split, seed)
+    _write(g, recs, out, split, seed, solve_stats=(tried, taken))
     # Register the shard locally under `name` (with reproducibility metadata) so load(name) can retrieve it later.
     register_local(name, out, meta=dict(system=system, per_family=per_family, families=list(families),
-                                        attack_intensity=attack_intensity, ramp_rate=ramp_rate, seed=seed))
+                                        attack_intensity=attack_intensity, ramp_rate=ramp_rate, seed=seed,
+                                        outage_line=g.outage if g.outage is not None else -1))
     return out   # hand back the path to the written shard
 
 
-def _write(g, recs, out, split, seed):
+def _write(g, recs, out, split, seed, solve_stats=None):
     # Serialize the list of record-tuples into one HDF5 file: graph structure + stacked per-record arrays + split.
     T = len(recs); C, E = g.C, g.E   # T records, C nodes, E edges
     arr = lambda i, dt: np.array([r[i] for r in recs], dt)   # helper: pull tuple field i across all records as dtype dt
@@ -244,8 +263,37 @@ def _write(g, recs, out, split, seed):
                             node_units="V:pu,P_inj:MW,Q_inj:MVAr,theta:deg", edge_units="P_from:MW,Q_from:MVAr",
                             baseMVA=float(g.base.sn_mva),
                             families="0benign,1Aq,2Ad,3As,4Ar,5At,6Al", lra_target_line=g._Ltgt, seed=seed))
+        # TOPOLOGY provenance. "base" = intact network; "n1_line" = this shard was generated with exactly one
+        # line out of service for every record. The base-case flow says how large a contingency that is, and
+        # is the ranking the scenario was selected by. Recorded in the attrs so a shard can always answer
+        # "which topology am I?" without consulting the script that made it.
+        f.attrs.update(dict(topology=("base" if g.outage is None else "n1_line"),
+                            outage_line=(-1 if g.outage is None else int(g.outage)),
+                            outage_branch_pos=int(g.outage_pos), outage_line_name=g.outage_name,
+                            outage_from_bus=int(g.outage_from_bus), outage_to_bus=int(g.outage_to_bus),
+                            outage_base_flow_mw=float(g.outage_base_flow_mw)))
+        # Generation yield per family, "famid:attempts/accepted", so the drop rate is readable from the file.
+        if solve_stats is not None:
+            _tr, _tk = solve_stats
+            f.attrs["solve_yield"] = ",".join(f"{k}:{_tr[k]}/{_tk[k]}" for k in sorted(_tr))
         # graph/ group: static topology shared by all records — edge_index and per-edge reactance.
-        gg = f.create_group("graph"); gg.create_dataset("edge_index", data=g.ei); gg.create_dataset("edge_reactance", data=g.x_react)
+        gg = f.create_group("graph"); gg.create_dataset("edge_index", data=g.ei)
+        # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for transformers). Kept so code
+        # written against v0.4.x keeps loading.
+        gg.create_dataset("edge_reactance", data=g.x_react)
+        # Full per-unit branch physics plus bus shunts. These reconstruct the nodal admittance matrix
+        # EXACTLY, verified against pandapower's makeYbus to 7e-15, 3e-14 and 5e-13 on IEEE 14, 118
+        # and 300, so a model reading them has precisely the physics the state estimator has.
+        for _n, _v in (("edge_r", g.edge_r), ("edge_x", g.edge_x), ("edge_b", g.edge_b),
+                       ("edge_g", g.edge_g), ("edge_tap", g.edge_tap), ("edge_shift", g.edge_shift),
+                       ("edge_status", g.edge_status), ("edge_is_trafo", g.edge_is_trafo),
+                       ("bus_shunt_g", g.bus_shunt_g), ("bus_shunt_b", g.bus_shunt_b)):
+            gg.create_dataset(_n, data=_v)
+        gg.attrs.update(dict(
+            edge_feat_static="r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
+            bus_feat_static="shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
+            edge_reactance_deprecated="mixes ohms (lines) with vk_percent (trafos); use edge_x",
+            ybus_reconstructible="yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts"))
         # data/ group: the per-record tensors. Chunk along the record axis (<=128) for efficient partial reads.
         d = f.create_group("data"); ch = (min(128, T),)
         d.create_dataset("node_x", data=node_x, chunks=ch+node_x.shape[1:], compression="gzip", compression_opts=4)

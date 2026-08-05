@@ -23,8 +23,105 @@ FAM_ID = {"benign": 0, "Aq": 1, "SLS": 1, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4,
 _CASE = {14: "case14", 118: "case118", 300: "case300"}
 
 
+# ---------------------------------------------------------------------------------------------------------
+# N-1 LINE OUTAGE SUPPORT
+# A switching event moves the operating manifold: with a line open, the same bus injections produce a
+# different voltage/flow state, so a subspace prior (or any model) fitted on the intact network is being
+# asked to extrapolate. To measure that we need records generated under a genuinely different topology,
+# which means taking the branch out BEFORE anything derived (Ybus, PTDF, the base operating point, the
+# emitted measurements) is computed — a post-hoc mask on an intact-network dataset would not do it.
+# ---------------------------------------------------------------------------------------------------------
+def _line_id(net, outage):
+    """Map a line NAME or index to the pandapower line index, with a clear error if it names nothing."""
+    if isinstance(outage, str):
+        hit = net.line.index[net.line["name"].astype(str) == outage]
+        if len(hit) == 0:
+            raise ValueError(f"no line named {outage!r} in this case")
+        if len(hit) > 1:
+            raise ValueError(f"line name {outage!r} is ambiguous ({len(hit)} matches); pass an index")
+        return int(hit[0])
+    idx = int(outage)
+    if idx not in net.line.index:
+        raise ValueError(f"line index {idx} is not in this case (lines are {net.line.index.min()}..{net.line.index.max()})")
+    return idx
+
+
+def _n_islands(net):
+    """Number of connected components over the IN-SERVICE network (1 == still one connected grid).
+
+    create_nxgraph drops out-of-service branches by default and keeps every bus as a node, so a bus left
+    with no live connection shows up as its own component. This is the cheap screen that has to run BEFORE
+    generating: pandapower will happily "converge" on an islanded case by silently marking the stranded
+    buses isolated (bus type 4) and returning a result, so a solver failure is NOT the signal that a
+    contingency was infeasible.
+    """
+    import networkx as nx
+    from pandapower import topology as top
+    return int(nx.number_connected_components(top.create_nxgraph(net)))
+
+
+def line_outage_candidates(system, top_n=5, seed_flow_from=None):
+    """Rank single-line N-1 contingencies by base-case active power flow, keeping the network connected.
+
+    Returns (accepted, rejected). `accepted` is the `top_n` highest-flow lines whose removal leaves one
+    connected, solvable, PTDF-well-posed network, each a dict with the line index, terminal buses, name and
+    signed base-case from-end MW flow. `rejected` lists the higher-flow lines that were screened out and
+    why, so a caller can report honestly which contingencies exist but cannot be generated.
+
+    Highest-flow single-line outages are the standard N-1 screening choice (Moshtagh et al. use exactly
+    this ranking), which makes the scenario set defensible by citation rather than by taste.
+    """
+    import pandapower as pp, pandapower.networks as pn
+    from pandapower.pypower.makePTDF import makePTDF
+    NET = getattr(pn, _CASE[int(system)])
+    base = seed_flow_from if seed_flow_from is not None else NET()
+    if "p_from_mw" not in base.res_line or base.res_line.empty:
+        pp.runpp(base)
+    flow = base.res_line["p_from_mw"].to_numpy()
+    lut0 = base._pd2ppc_lookups["bus"]
+    order = np.argsort(-np.abs(np.nan_to_num(flow)))       # highest |MW| first
+    accepted, rejected = [], []
+    for pos in order:
+        if len(accepted) >= top_n:
+            break
+        idx = int(base.line.index[pos])
+        if not bool(base.line.at[idx, "in_service"]):
+            continue                                       # already open in the intact case: not a contingency
+        net = NET()
+        net.line.at[idx, "in_service"] = False
+        why = None
+        if _n_islands(net) != 1:
+            why = f"removing it splits the grid into {_n_islands(net)} islands"
+        else:
+            try:
+                pp.runpp(net)
+            except Exception as e:
+                why = f"post-contingency AC power flow does not converge ({type(e).__name__})"
+            else:
+                n_iso = int((net._ppc["bus"][:, 1].real == 4).sum())
+                if n_iso:
+                    why = f"leaves {n_iso} isolated bus(es)"
+                elif not np.array_equal(lut0, net._pd2ppc_lookups["bus"]):
+                    why = "changes the ppc bus ordering (not comparable to the base shard)"
+                else:
+                    try:
+                        makePTDF(net._ppc["baseMVA"], net._ppc["bus"], net._ppc["branch"])
+                    except Exception:
+                        why = "PTDF is singular (the DC network is islanded)"
+        _nm = base.line.at[idx, "name"]
+        rec = dict(line=idx, pos=int(pos), from_bus=int(base.line.at[idx, "from_bus"]),
+                   to_bus=int(base.line.at[idx, "to_bus"]),
+                   name=(f"line{idx}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)),
+                   base_flow_mw=float(flow[pos]))
+        if why:
+            rejected.append({**rec, "reason": why})
+        else:
+            accepted.append(rec)
+    return accepted, rejected
+
+
 class FdiaGenerator:
-    def __init__(self, system, seed=123, vbus_frac=0.6, pmu_frac=0.2, flow_frac=0.90):
+    def __init__(self, system, seed=123, vbus_frac=0.6, pmu_frac=0.2, flow_frac=0.90, outage=None):
         # pandapower is an optional/heavy dependency, so import lazily inside the constructor
         # (only when someone actually generates data) rather than at module import time.
         import pandapower as pp, pandapower.networks as pn
@@ -55,8 +152,42 @@ class FdiaGenerator:
         self._sd_bias = {k: v * (1.0 - _JIT * _JIT) ** 0.5 for k, v in self.SD.items()}  # per-meter bias std
         # Grab the network factory (e.g. pn.case118) for this case.
         self.NET = getattr(pn, _CASE[self.C])
-        # Build one instance and solve its AC power flow to get the base operating point.
-        base = self.NET(); pp.runpp(base); self.base = base
+        # N-1 CONTINGENCY. `outage` (a line index or name, None = intact network) takes that line out of
+        # service BEFORE the base power flow, so every derived quantity below — Ybus, Yf/Yt, PTDF,
+        # edge_status, the base operating point, and therefore every measurement this generator ever emits —
+        # describes the post-contingency network. The branch ROW is kept in ppc with status 0, so
+        # edge_index, E and the meter plan are identical to the intact case and the two shards are directly
+        # comparable: exactly one thing changed.
+        self.outage = None; self.outage_pos = -1; self.outage_name = ""
+        self.outage_from_bus = -1; self.outage_to_bus = -1; self.outage_base_flow_mw = float("nan")
+        base = self.NET()
+        if outage is not None:
+            self.outage = _line_id(base, outage)
+            # Base-case (INTACT) flow on the line we are about to open, recorded so the shard can say how
+            # large a contingency it represents.
+            intact = self.NET(); pp.runpp(intact)
+            self.outage_base_flow_mw = float(intact.res_line.at[self.outage, "p_from_mw"])
+            self.outage_pos = int(base.line.index.get_loc(self.outage))
+            # IEEE cases from pandapower.networks carry no line names (the column is None), so fall back to
+            # a readable "line<idx>" tag rather than storing the string "None" in the shard attrs.
+            _nm = base.line.at[self.outage, "name"]
+            self.outage_name = f"line{self.outage}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)
+            self.outage_from_bus = int(base.line.at[self.outage, "from_bus"])
+            self.outage_to_bus = int(base.line.at[self.outage, "to_bus"])
+            base.line.at[self.outage, "in_service"] = False
+            # Refuse an islanding contingency up front. pandapower would otherwise "converge" with the
+            # stranded buses silently marked isolated and hand back a state that is not a power flow
+            # solution of anything, and makePTDF would raise a singular matrix mid-build.
+            if _n_islands(base) != 1:
+                raise ValueError(f"line {self.outage} outage splits the grid into {_n_islands(base)} islands; "
+                                 f"screen with line_outage_candidates() before generating")
+        # Solve the (possibly post-contingency) AC power flow to get this topology's base operating point.
+        pp.runpp(base)
+        if self.outage is not None:
+            n_iso = int((base._ppc["bus"][:, 1].real == 4).sum())
+            if n_iso:
+                raise ValueError(f"line {self.outage} outage leaves {n_iso} isolated bus(es)")
+        self.base = base
         C = self.C
         # load_bus = the bus of EVERY load element, aligned 1:1 with the net.load table so the AC re-solve
         # (solve() writes net.load["p_mw"] = Lp) and the PTDF-over-load-buses arrays all stay the same length.
@@ -90,10 +221,41 @@ class FdiaGenerator:
                              np.r_[base.line.to_bus.values, base.trafo.lv_bus.values]]).astype(np.int32)
         # E = total branch count; nl = number of lines (first nl columns of ei are lines).
         self.E = self.ei.shape[1]; self.nl = len(base.line)
-        # Series reactance per branch (line: x_per_km * length; trafo: vk% as a proxy). Kept for reference.
+        # DEPRECATED as of v0.5.0, retained so existing code keeps loading. This mixes UNITS: lines
+        # carry series reactance in ohms while transformers carry vk_percent, a short-circuit voltage
+        # percentage. On IEEE-300 that puts transformer entries three orders of magnitude above line
+        # entries for reasons that are not physical, and 128 of 411 branches are transformers. Use the
+        # per-unit edge_* arrays below instead.
         self.x_react = np.r_[base.line.x_ohm_per_km.values*base.line.length_km.values, base.trafo.vk_percent.values].astype(np.float32)
         # pandapower's internal PYPOWER case (ppc) holds the numeric bus/branch arrays in ppc ordering.
         ppc = base._ppc
+
+        # FULL BRANCH AND BUS PHYSICS, per unit, exactly the quantities makeYbus itself consumes, so a
+        # model reading them has the same information the state estimator has. ppc branch rows are
+        # ordered lines-then-transformers, which is the same order as self.ei, verified by the branch
+        # count matching len(line)+len(trafo) on all three systems.
+        # BR_G (column 23) is a pandapower extension absent from stock PYPOWER and carries transformer
+        # iron losses. Omitting it reconstructs Ybus exactly on IEEE-14, which has none, and wrongly on
+        # IEEE-118 and IEEE-300, which have 4 and 18. That is the kind of error that looks correct on
+        # the system people test with first, so it is called out here.
+        # float64, not float32. These arrays are a few hundred entries, so the storage cost is a few
+        # kilobytes, while float32 rounding degrades the Ybus reconstruction from ~1e-14 to ~1e-4 on
+        # IEEE-300. An exact reconstruction is the whole claim, so precision wins over a trivial saving.
+        _br = ppc["branch"]
+        _tap = _br[:, 8].real.astype(np.float64).copy()
+        _tap[_tap == 0] = 1.0                       # PYPOWER reads a zero tap entry as unity
+        self.edge_r = _br[:, 2].real.astype(np.float64)      # series resistance, p.u.
+        self.edge_x = _br[:, 3].real.astype(np.float64)      # series reactance, p.u.
+        self.edge_b = _br[:, 4].real.astype(np.float64)      # charging susceptance, p.u.
+        self.edge_g = _br[:, 23].real.astype(np.float64)     # charging conductance, p.u. (iron losses)
+        self.edge_tap = _tap                                 # transformer turns ratio, 1.0 for lines
+        self.edge_shift = _br[:, 9].real.astype(np.float64)  # phase shift, degrees
+        self.edge_status = _br[:, 10].real.astype(np.float64)  # 1 in service, 0 out
+        self.edge_is_trafo = np.r_[np.zeros(self.nl), np.ones(self.E - self.nl)].astype(np.float64)
+        # Shunts sit on the Ybus DIAGONAL, so they are a BUS property and were not expressible in an
+        # edge-only schema. Stored in MW and MVAr at 1.0 p.u. voltage, matching the ppc convention.
+        self.bus_shunt_g = ppc["bus"][:, 4].real.astype(np.float64)
+        self.bus_shunt_b = ppc["bus"][:, 5].real.astype(np.float64)
         # Y = nodal admittance; Yf/Yt = "from"/"to" branch-admittance matrices such that the complex
         # branch flow entering from the from-end is Sf = V_from * conj(Yf @ V).
         self._Ybus, self._Yf, self._Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
@@ -114,7 +276,11 @@ class FdiaGenerator:
         # then keep only the load-bus columns (loads are the levers an LRA/Ao attack can move).
         self._ptdf_lb = self._ptdf[:, [self._lut[b] for b in range(C)]][:, self.load_bus]
         # A reusable network instance for re-solving power flows under attacked loads (avoids rebuilds).
+        # The contingency has to be applied here too, or attacked records would be solved on the INTACT
+        # network while benign records came from the post-contingency one.
         self._solvenet = self.NET()
+        if self.outage is not None:
+            self._solvenet.line.at[self.outage, "in_service"] = False
         # Per-meter SYSTEMATIC BIAS, drawn ONCE here so it is CONSTANT across every scan (a fixed calibration
         # offset per meter). Relative for P/Q & flows (a fixed fraction of the reading), absolute for V/angle.
         # This is the slow/systematic part of the accuracy-class error; the small per-scan jitter (self.SDj) is
@@ -166,20 +332,58 @@ class FdiaGenerator:
                 ex[e, 1] = Sf.imag[e]*(1.0+self.bias_qf[e]) + self._n(abs(Sf.imag[e])*SDj["qf"]+1e-3); em[e] = 1
         return nx, nm, ex, em
 
-    def emit(self, net):
-        # Emit a measurement graph from a SOLVED pandapower net (attacks that re-solve a power flow). We
-        # extract the solved operating state and route it through emit_from_state, so an attacked sample and
-        # a benign sample are computed by the IDENTICAL measurement function. Emitting flows here from
-        # res_line while benign used the Ybus identity left a ~7 MW systematic benign-vs-attack offset that
-        # was not the attack; sharing one path removes it, so an alpha=1 (no-op) re-solve matches benign.
+    def state_from_net(self, net):
+        # Pull the operating state [N,4] = [Pinj, Qinj, |V|, theta] out of a SOLVED net, in the same
+        # convention the stored pool uses.
         Pi = net.res_bus.p_mw.values.copy(); Qi = net.res_bus.q_mvar.values.copy()
         # Shunts are modeled inside res_bus; subtract shunt draw so Pi/Qi reflect gen/load injection only,
         # matching how the stored states (and emit_from_state) define the injection.
         for i in net.shunt.index:
             b = net.shunt.at[i, "bus"]; Pi[b] -= net.res_shunt.p_mw[i]; Qi[b] -= net.res_shunt.q_mvar[i]
         V = net.res_bus.vm_pu.values; TH = net.res_bus.va_degree.values
-        Xsolved = np.column_stack([Pi, Qi, V, TH])           # [N,4] = [Pinj, Qinj, |V|, theta]
-        return self.emit_from_state(Xsolved)
+        return np.column_stack([Pi, Qi, V, TH])              # [N,4] = [Pinj, Qinj, |V|, theta]
+
+    def emit(self, net):
+        # Emit a measurement graph from a SOLVED pandapower net (attacks that re-solve a power flow). We
+        # extract the solved operating state and route it through emit_from_state, so an attacked sample and
+        # a benign sample are computed by the IDENTICAL measurement function. Emitting flows here from
+        # res_line while benign used the Ybus identity left a ~7 MW systematic benign-vs-attack offset that
+        # was not the attack; sharing one path removes it, so an alpha=1 (no-op) re-solve matches benign.
+        return self.emit_from_state(self.state_from_net(net))
+
+    def resolve_states(self, X):
+        """Re-solve a pool of operating points [T,N,4] under THIS generator's topology.
+
+        A stored state carries the injections AND the voltages that the INTACT network produced for them.
+        Under a contingency the same loads give a different voltage/flow state, so emitting an intact-network
+        state through a post-contingency Ybus would fabricate measurements that satisfy no power flow at all.
+        Re-solving fixes that: the loads (and the generator dispatch reconstructed from the stored state) are
+        held at exactly the values the base case had at that timestamp, and only the topology differs — which
+        is the whole point, since a load profile that shifted between scenarios would confound topology with
+        load level and make the comparison meaningless.
+
+        Returns (Xnew [T,N,4], ok [T] bool). Rows where the power flow did not converge, or came back
+        non-finite, are left as-is and flagged False rather than quietly dropped, so the caller can intersect
+        the converged sets across scenarios and keep one common timestamp axis.
+        """
+        X = np.asarray(X, dtype=np.float64)
+        out = X.copy(); ok = np.zeros(len(X), bool)
+        for t in range(len(X)):
+            Xt = X[t]
+            # Base active load at each load element = stored injection + the generation folded onto that bus.
+            Lp = Xt[self.load_bus, 0] + self.load_genP
+            Lq = Xt[self.load_bus, 1].copy()
+            # Lp_true == Lp: no attack, so this is the alpha=1 no-op re-solve. On the INTACT topology it
+            # reproduces the stored state (that identity is the check that the pinning is right); on a
+            # contingency topology it is the post-contingency state for the same operating conditions.
+            net = self.solve(Lp, Lq, Xt=Xt, Lp_true=Lp)
+            if net is None:
+                continue
+            s = self.state_from_net(net)
+            if not np.isfinite(s).all():
+                continue
+            out[t] = s; ok[t] = True
+        return out, ok
 
     def solve(self, Lp, Lq, Xt=None, Lp_true=None):
         # Set new load P/Q on the reusable net and re-run AC power flow. Returns the solved net, or None
@@ -275,8 +479,10 @@ class FdiaGenerator:
         # trivially localizable (a single fixed target lets a model just memorize those buses).
         # Use base-case loads to evaluate each line's attack potential once, up front.
         bl = self.base.load.p_mw.values
-        # For every line, compute its best conserving delta and the flow change it achieves.
-        pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl)]
+        # For every line, compute its best conserving delta and the flow change it achieves. An outaged line
+        # is skipped explicitly: its PTDF row is zero so it would rank last anyway, but its base-case flow is
+        # NaN, and a NaN reaching self._sgn would silently poison every LRA delta on that line.
+        pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl) if L != self.outage_pos]
         pot = [(L, r) for L, r in pot if r is not None]
         # Sort by |achieved flow change| descending — the most attackable lines first.
         pot.sort(key=lambda x: -abs(x[1][2]))

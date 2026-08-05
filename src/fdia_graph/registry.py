@@ -14,15 +14,18 @@ _REPO = "myersben9/fdia-graph"
 # Default pinned release tag. This is the version the SDK falls back to when it can't (or isn't asked to)
 # query GitHub for the newest one. Set FDIA_GRAPH_RELEASE to override this default globally without a code
 # change (e.g. to pin a whole environment to an older dataset version).
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.4.1")   # newest dataset version (v0.4.1: per-unit option, reactive-only-bus fix, swing feature)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.5.0")   # newest dataset version (v0.5.0: full per-unit branch physics r/x/b/g/tap/shift/status + bus shunts, Ybus-exact; edge_reactance deprecated)
 
 # Built-in shards. `sha256` is verified after download when set (filled in when the release is published).
 # Each entry is the full spec download.py needs: which asset `file` to fetch, from which `release` tag, on
 # which `repo`, its expected `sha256` (None = skip verification for now), and the IEEE `system` size it maps to.
 BUILTIN = {
-    "ieee14":  {"file": "ml_only_ieee14.h5",  "release": _RELEASE, "repo": _REPO, "sha256": None, "system": 14},
-    "ieee118": {"file": "ml_only_ieee118.h5", "release": _RELEASE, "repo": _REPO, "sha256": None, "system": 118},
-    "ieee300": {"file": "ml_only_ieee300.h5", "release": _RELEASE, "repo": _REPO, "sha256": None, "system": 300},
+    "ieee14":  {"file": "ml_only_ieee14.h5",  "release": _RELEASE, "repo": _REPO,
+                "sha256": "3b8e8c61b75c437d0c0a2226f5076c549495374d4b56dc994d8d7c6ac92e86f5", "system": 14},
+    "ieee118": {"file": "ml_only_ieee118.h5", "release": _RELEASE, "repo": _REPO,
+                "sha256": "ac452d16f02fdbcb0eb1d5c6d56783c504c387c383961d0e89afb5ef2de38b55", "system": 118},
+    "ieee300": {"file": "ml_only_ieee300.h5", "release": _RELEASE, "repo": _REPO,
+                "sha256": "abb734532f50daf03c56613f5d43c8aaf2e37551f336964afe078e6f76655965", "system": 300},
 }
 # Convenience name aliases so callers can pass a bus count instead of the canonical "ieeeNN" key. Both the
 # string ("118") and the int (118) forms map to the same canonical name — resolve() normalizes via this map.
@@ -104,6 +107,11 @@ def resolve(name, release=None):
         # Decide the release: an explicit `release` arg pins a reproducible version; otherwise (None) we ask
         # GitHub for the newest one, which itself falls back to _RELEASE if the API is unreachable.
         spec["release"] = release or latest_release(spec["repo"])   # None -> newest; else the pinned tag
+        # The pinned sha256 describes the _RELEASE assets ONLY. If the resolved release is any other tag
+        # (a newer one from the API, or an older explicit pin), drop the pin rather than hard-fail the
+        # integrity check against bytes it was never computed from.
+        if spec["release"] != _RELEASE:
+            spec["sha256"] = None
         return spec
     # Not a built-in: check the locally generated datasets. `release` is irrelevant here (fixed on-disk path).
     local = _load_local()

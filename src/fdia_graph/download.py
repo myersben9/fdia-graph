@@ -1,9 +1,9 @@
 """Fetch built-in shards from the GitHub Release and cache them under ~/.cache/fdia_graph.
 
-Private-repo support: this dataset is published to a PRIVATE GitHub repo (group access), whose release
-assets are not publicly downloadable. Set a GitHub token in $FDIA_GRAPH_TOKEN (or $GITHUB_TOKEN) — a
-fine-grained PAT with read access to the repo — and the downloader authenticates via the GitHub API asset
-endpoint. Public repos need no token. Group members each set their own token once.
+The dataset is published to a PUBLIC GitHub repo, so anonymous download is the normal path and no
+token is required. If you are working against a private fork or a pre-release, set a GitHub token in
+$FDIA_GRAPH_TOKEN (or $GITHUB_TOKEN) and the downloader authenticates via the GitHub API asset
+endpoint. Without a token it uses the public releases/download URL directly.
 """
 # hashlib -> sha256 integrity check; os -> env vars + filesystem; requests -> HTTP(S) to GitHub.
 import hashlib, os, requests

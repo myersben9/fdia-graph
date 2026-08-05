@@ -96,6 +96,23 @@ ds = fg.load("high_intensity", split="train")   # your custom dataset, ready to 
 
 Generation ships with compact operating-point **pools** (a few MB/system), so you never need the raw simulation data. Benign records are emitted *exactly* from the stored operating state (0-error AC flows); only attacks re-solve a power flow.
 
+### N-1 line outages (topology shift)
+
+A switching event moves the operating manifold, so anything fitted on the intact network (a subspace prior, a learned estimator) is extrapolating afterwards. `outage=` builds a shard under a post-contingency topology: the line is taken out of service before Ybus, PTDF, the base operating point and every emitted measurement are derived, so the physics is genuinely different rather than masked.
+
+```python
+acc, rej = fg.line_outage_candidates(118, top_n=5)   # highest base-case flow, connectivity-screened
+# rej explains every contingency that was skipped (islanding, non-convergent, ...)
+
+from fdia_graph._core import FdiaGenerator
+g = FdiaGenerator(118, seed=123, outage=acc[0]["line"])
+states, ok = g.resolve_states(pool_X)                # re-solve the SAME load timestamps under this topology
+
+fg.generate(118, name="ieee118_n1", states=states[ok], outage=acc[0]["line"])
+```
+
+One shard per topology: each file's `graph/` group describes its own network (`edge_status` carries the single zero), so the loader is unchanged and the static graph can never be wrong for a record. Feed each scenario a pool re-solved under that topology — a stored intact-network state emitted through a post-contingency Ybus would satisfy no power flow at all. Keep the load timestamps identical across scenarios, or topology and load level are confounded. Shard attrs record `topology`, `outage_line`, `outage_base_flow_mw` and the per-family `solve_yield` (attempts/accepted, so dropped hard cases stay visible).
+
 ## Own the whole pipeline: your own load profiles
 
 The pools above are pre-built, but you can build your own from real grid load — swap in data from a different ISO or a different time period and regenerate everything. The front of the pipeline is two functions:
@@ -155,7 +172,7 @@ fdia-graph/
 ├── src/fdia_graph/
 │   ├── __init__.py             # public API: load(), generate(), fetch_profile/load_profile/generate_states  ← start here
 │   ├── registry.py             # dataset version control: name → GitHub release + file; latest vs pinned; cache dir
-│   ├── download.py             # fetches release-asset .h5 shards (private-repo token auth) → ~/.cache/fdia_graph
+│   ├── download.py             # fetches release-asset .h5 shards (public, anonymous) → ~/.cache/fdia_graph
 │   ├── dataset.py              # FdiaGraph: torch Dataset over one .h5 (lazy slicing, split/family filters, exporters)
 │   ├── profiles.py             # front of the pipeline: ISO load download (CAISO/NYISO/ERCOT) → operating states
 │   ├── generation.py           # generate(): tunable-knob dataset creation → new .h5, registered by name
@@ -186,4 +203,8 @@ If you use this dataset, please cite the attack model and measurement-model sour
 
 ## License
 
-MIT.
+The dataset (HDF5 shards and operating-point pools distributed through the GitHub releases) is
+licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). The source code in `src/`
+and `examples/` is licensed under the MIT License. See the `LICENSE` file. The data is synthetic,
+generated from public IEEE test cases with simulated measurements and simulated attacks, and must
+not be used for operational decisions.

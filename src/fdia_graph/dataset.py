@@ -61,6 +61,22 @@ class FdiaGraph:
             # edge_reactance [E]. Same for every record, so it lives on the object, not per-item.
             self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
             self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
+            # v0.5.0+ full per-unit branch physics and bus shunts. Absent on older shards, so each is
+            # optional and the attribute is None when the file predates the schema. has_physics lets a
+            # caller branch once rather than probing every field.
+            self._phys = {}
+            for _k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift",
+                       "edge_status", "edge_is_trafo", "bus_shunt_g", "bus_shunt_b",
+                       # v0.5.0 static per-bus attributes (type/limits/base_kv/zero-inj/attackable ...).
+                       "bus_type", "bus_vmin", "bus_vmax", "bus_base_kv", "bus_is_zero_inj",
+                       "bus_has_gen", "bus_base_pd", "bus_base_qd", "bus_attackable"):
+                self._phys[_k] = f[f"graph/{_k}"][:].astype(np.float64) if f"graph/{_k}" in f else None
+            self.has_physics = self._phys["edge_x"] is not None
+            # Forward-compat (reserved for v0.6.0 mixed-topology shards): a PER-RECORD line status
+            # data/edge_status [n_records, E] takes precedence over the static graph/edge_status when
+            # present. v0.5.0 shards do not carry it, so this stays None today; the branch exists so
+            # v0.5.0 loaders already read v0.6.0 shards correctly.
+            self.edge_status_per_record = f["data/edge_status"][:] if "data/edge_status" in f else None
             self.has_temporal = "temporal_delta" in f["data"]      # v0.3+ ships a temporal-delta feature
             self.has_swing = "swing" in f["data"]                  # v0.4.1+ ships a windowed relative-swing feature
             # Copy the three tiny per-record metadata columns into RAM for filtering.
@@ -99,7 +115,64 @@ class FdiaGraph:
 
     @property
     def edge_reactance(self):
-        return _torch().as_tensor(self.edge_reactance_np)   # [E] per-branch reactance (physics feature)
+        # DEPRECATED. Mixes ohms (lines) with vk_percent (transformers), so the two branch types are
+        # not numerically comparable. Use edge_x, which is per unit for every branch.
+        return _torch().as_tensor(self.edge_reactance_np)
+
+    def _p(self, key):
+        v = self._phys.get(key)
+        if v is None:
+            raise AttributeError(f"{key} needs a v0.5.0+ shard; this file predates the physics schema")
+        return _torch().as_tensor(v)
+
+    # Per-unit branch physics, ppc order (lines then transformers), aligned with edge_index.
+    @property
+    def edge_r(self):  return self._p("edge_r")            # series resistance
+    @property
+    def edge_x(self):  return self._p("edge_x")            # series reactance
+    @property
+    def edge_b(self):  return self._p("edge_b")            # charging susceptance
+    @property
+    def edge_g(self):  return self._p("edge_g")            # charging conductance, transformer iron losses
+    @property
+    def edge_tap(self):  return self._p("edge_tap")        # transformer turns ratio, 1.0 for lines
+    @property
+    def edge_shift(self):  return self._p("edge_shift")    # phase shift, degrees
+    @property
+    def edge_status(self):  return self._p("edge_status")  # 1 in service, 0 out (static; see edge_status_per_record)
+    @property
+    def edge_is_trafo(self):  return self._p("edge_is_trafo")
+    # Static per-bus attributes, pandapower == ppc bus order (verified identity for case14/118/300).
+    @property
+    def bus_type(self):  return self._p("bus_type")            # 1 PQ, 2 PV, 3 reference
+    @property
+    def bus_vmin(self):  return self._p("bus_vmin")            # voltage limits, pu
+    @property
+    def bus_vmax(self):  return self._p("bus_vmax")
+    @property
+    def bus_base_kv(self):  return self._p("bus_base_kv")      # nominal voltage, kV
+    @property
+    def bus_is_zero_inj(self):  return self._p("bus_is_zero_inj")  # generator's own zero-injection set
+    @property
+    def bus_has_gen(self):  return self._p("bus_has_gen")      # generator or slack on the bus
+    @property
+    def bus_base_pd(self):  return self._p("bus_base_pd")      # base-case load, MW
+    @property
+    def bus_base_qd(self):  return self._p("bus_base_qd")      # base-case load, MVAr
+    @property
+    def bus_attackable(self):  return self._p("bus_attackable")  # carries |p_mw|>0 load (IEEE-300 141/183 rule)
+    # Shunts are a BUS property, on the Ybus diagonal, so they were not expressible in an edge schema.
+    @property
+    def bus_shunt_g(self):  return self._p("bus_shunt_g")
+    @property
+    def bus_shunt_b(self):  return self._p("bus_shunt_b")
+
+    @property
+    def edge_attr(self):
+        """[E,6] stacked per-unit branch features, the drop-in replacement for edge_reactance."""
+        t = _torch()
+        return t.stack([self.edge_r, self.edge_x, self.edge_b, self.edge_g,
+                        self.edge_tap, self.edge_shift], dim=1)
 
     def _h(self):
         # Lazily open (and cache) the read-only h5py handle. Opening on first access —

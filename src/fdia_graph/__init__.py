@@ -28,11 +28,22 @@ from .registry import list_datasets, register_local, resolve
 from .download import ensure_local
 
 # Package version string, surfaced as fdia_graph.__version__ (standard convention).
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 # The public surface: what `from fdia_graph import *` exposes and what we advertise as stable API.
 # Note register_local/resolve/ensure_local are intentionally NOT here — they're internal plumbing.
 __all__ = ["load", "generate", "load_profile", "fetch_profile", "generate_states",
-           "list_datasets", "FdiaGraph", "FAMILIES", "STEALTHY_FAMILIES"]
+           "line_outage_candidates", "list_datasets", "FdiaGraph", "FAMILIES", "STEALTHY_FAMILIES"]
+
+
+def line_outage_candidates(system, top_n=5):
+    """Rank single-line N-1 contingencies by base-case flow, screening out any that island the grid.
+
+    Returns (accepted, rejected) lists of dicts. Use the accepted line indices as generate(..., outage=idx)
+    to build one shard per post-contingency topology.
+    """
+    # Lazy import: pulls in pandapower, which most SDK users (loaders) do not have installed.
+    from ._core import line_outage_candidates as _cands
+    return _cands(system, top_n=top_n)
 
 
 def fetch_profile(iso, start, end, out=None, resample_min=None):
