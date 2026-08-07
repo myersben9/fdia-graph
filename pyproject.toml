@@ -1,19 +1,23 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "fdia-graph"
-version = "0.5.0"
+version = "0.5.1"
 description = "Load and generate ML-only dangerous FDIA localization datasets (realistic measurement graphs) for power grids, PyTorch-ready."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
-authors = [{ name = "Benjamin Myers", email = "benjamin.myers.465@my.csun.edu" }]
+license = "MIT"
+# name-only entry fills the legacy Author field (some indexers read only that);
+# the name+email entry fills Author-email per PEP 621
+authors = [
+  { name = "Benjamin Myers" },
+  { name = "Benjamin Myers", email = "benjamin.myers.465@my.csun.edu" },
+]
 keywords = ["power-systems", "false-data-injection", "FDIA", "state-estimation", "graph-neural-network", "smart-grid", "dataset"]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
