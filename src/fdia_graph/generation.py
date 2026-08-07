@@ -3,7 +3,7 @@
 Research knobs (all optional, sensible defaults matching the published shards):
   per_family        int   attacked records per family (default 3000)
   families          list  which attacks to include (default all: Aq,Ad,As,Ar,At,Al)
-  attack_intensity  float per-bus load shift magnitude for Aq / Al(LRA) bound (default 0.15 = ±15%)
+  attack_intensity  float per-bus load shift magnitude for Aq / Al(LRA) bound; also the upper plausibility cap (default 0.20 = 20%)
   ramp_rate         float ramp perturbation growth per step (default 0.002)
   ramp_len          int   ramp sequence length (default 60)
   n_benign          int   benign records (default 20000)
@@ -30,6 +30,14 @@ _FAMK = {2: "Ad", 3: "As", 4: "Ar"}
 # window and plateaus at ~60 scans (all-attack catch 81%, vs 80% at 20 / 82% at 90), so 60 is the sweet spot.
 # The gradual ramp At stays near the benign floor at every window (~15%), so it remains the ML-only family.
 SWING_W = 60
+
+# Lower edge of the per-bus attack-plausibility band. A tamper whose realized change stays below this fraction
+# of the meter reading sits inside the measurement-noise floor (accuracy-class sigma ~1.7%), so an accurate
+# estimator resolves it to noise and it is a within-noise no-op. We reject such draws for the spike/meter
+# families so every released attack is genuinely above noise. The slow ramp At is DELIBERATELY exempt: its
+# per-scan step is meant to stay under the floor while the cumulative deviation grows, which is the whole
+# point of a temporally stealthy attack. The upper edge of the band is `attack_intensity` (default 0.20).
+NOISE_FLOOR = 0.02
 
 
 def _load_states(system, states, pool_cap=8000):
@@ -65,7 +73,7 @@ def _load_states(system, states, pool_cap=8000):
 
 
 def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "At", "Al"),
-             attack_intensity=0.15, ramp_rate=0.002, ramp_len=60, n_benign=20000, lra_targets=15,
+             attack_intensity=0.20, ramp_rate=0.002, ramp_len=60, n_benign=20000, lra_targets=15,
              redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None, outage=None):
     # lra_targets: size of the LRA target-line pool (each LRA attack picks one at random -> diverse bus sets)
     # outage: line index/name to take OUT OF SERVICE for the whole shard (None = intact network). One shard
@@ -83,6 +91,10 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     g._pick_lra_target(attack_intensity, min(6, len(g.load_bus)), n_targets=lra_targets)
     # K = max buses an LRA delta may touch; reuse g's seeded RNG so the whole build is reproducible.
     K = min(6, len(g.load_bus)); rng = g.rng
+    # Exact per-bus DESIGNED attack-magnitude log: list of (family_id, per-bus |delta|/|base| array). Written to
+    # a <out>.mag.npz sidecar so the plausibility band can be verified against the band the gate enforces, with
+    # no benign-baseline contamination (the designed fraction is what the gate actually controls).
+    mag_log = []
     # Load the operating-point pool [T,N,4]; nT = #timesteps available, C = #nodes/classes (label width).
     X = _load_states(system, states); nT = len(X); C = g.C
     # Precompute the per-timestep "recent typical change" scale for the swing feature ONCE (vectorized via
@@ -131,20 +143,27 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
             # Base active load = stored P injection at load buses + generator P at those buses; copy reactive load.
             Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
             Lp_true = Lp.copy()                    # unattacked load -> pins the generation dispatch in solve()
+            dev = np.abs(np.asarray(atk[1]) - 1.0)  # per-bus designed load-shift fraction
+            # Floor gate (Aq only; the ramp At is DELIBERATELY exempt so its slow per-scan step may stay sub-floor).
+            if family == 1 and np.max(dev) < NOISE_FLOOR: return None   # within-noise no-op -> reject, loop redraws
             Lp = Lp.copy(); Lp[atk[0]] *= atk[1]   # scale the targeted load buses by the attack multiplier atk[1]
             net = g.solve(Lp, Lq, Xt=Xt, Lp_true=Lp_true)   # re-solve, generation pinned to the TRUE dispatch
             if net is None: return None            # non-convergence: skip this timestep (expected occasionally)
             # emit() -> node feats, node mask, edge feats, edge mask for the solved (attacked) network.
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[atk[0]]] = 1  # label attacked buses
+            mag_log.append((family, np.atleast_1d(dev).astype(float)))
             return _fin(nx, nm, ex, em, y, family, sid, t, 0, 1)   # stealthy=1
         if family == 6:
             # LRA (6): load-redistribution — compute a zero-sum-ish delta d over K buses, then re-solve.
             Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
-            d, a = g.lra_delta(Lp, attack_intensity, K)   # d = per-bus load delta, a = indices actually attacked
+            d, a = g.lra_delta(Lp, attack_intensity, K, floor=NOISE_FLOOR)   # d = per-bus load delta, a = attacked indices
             if len(a) == 0: return None                   # no feasible redistribution found -> skip
+            dev = np.abs(d[a]) / (np.abs(Lp[a]) + 1e-6)    # per-bus designed redistribution fraction
+            if np.min(dev) < NOISE_FLOOR: return None      # any redistributed bus inside the noise floor -> reject
             net = g.solve(Lp + d, Lq, Xt=Xt, Lp_true=Lp)  # redistributed load; generation pinned to TRUE dispatch
             if net is None: return None                   # non-convergence -> skip
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[a]] = 1  # label the LRA bus set
+            mag_log.append((6, dev.astype(float)))
             return _fin(nx, nm, ex, em, y, 6, -1, t, 0, 1)   # LRA single-shot, stealthy=1
         # Remaining families (0 benign, 2/3/4 corrupt-in-place): emit directly from the stored state, no re-solve.
         nx, nm, ex, em = g.emit_from_state(Xt)
@@ -160,9 +179,12 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
         # Ar/As may replay an earlier benign frame: pick one at least ~20 frames back for temporal contrast,
         # falling back to the oldest (or None) when the buffer is too small.
         replay = g.benign_buf[int(rng.integers(0, len(g.benign_buf)-20))] if len(g.benign_buf) > 20 else (g.benign_buf[0] if g.benign_buf else None)
-        # corrupt() tampers the measurements in place per the family code (Ad/As/Ar) using the replay frame.
-        nx, ex = g.corrupt(nx, ex, abus, _FAMK[family], replay)
+        # corrupt() tampers the measurements in place per the family code (Ad/As/Ar) using the replay frame,
+        # keeping each realized per-bus change inside the plausibility band [NOISE_FLOOR, attack_intensity].
+        nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[family], replay, floor=NOISE_FLOOR, cap=attack_intensity)
+        if weak: return None   # replayed change fell inside the meter-noise floor -> reject, the loop redraws
         y = np.zeros(C, np.uint8); y[abus] = 1   # label the SAME buses that were corrupted (now consistent)
+        if len(mags): mag_log.append((family, mags))
         return _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0
 
     recs = []; sid = 0   # accumulate all records; sid = next ramp sequence id
@@ -234,6 +256,12 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
     # Serialize every record + graph structure + chronological split into the HDF5 shard.
     _write(g, recs, out, split, seed, solve_stats=(tried, taken))
+    # Sidecar: flatten the per-bus designed magnitudes into (family_id, magnitude) rows for band verification.
+    if mag_log:
+        fam_col = np.concatenate([np.full(len(m), fid, np.int8) for fid, m in mag_log])
+        mag_col = np.concatenate([np.asarray(m, float) for _, m in mag_log])
+        np.savez(out + ".mag.npz", family=fam_col, mag=mag_col,
+                 floor=NOISE_FLOOR, cap=attack_intensity)
     # Register the shard locally under `name` (with reproducibility metadata) so load(name) can retrieve it later.
     register_local(name, out, meta=dict(system=system, per_family=per_family, families=list(families),
                                         attack_intensity=attack_intensity, ramp_rate=ramp_rate, seed=seed,

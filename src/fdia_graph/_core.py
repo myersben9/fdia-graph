@@ -422,27 +422,45 @@ class FdiaGenerator:
         try: self.pp.runpp(net); return net
         except Exception: return None
 
-    def corrupt(self, nx, ex, atk, kind, replay):
+    def corrupt(self, nx, ex, atk, kind, replay, floor=0.02, cap=0.20):
         # Measurement-level attacks (the BDD-DETECTABLE contrast families). They perturb the already-emitted
         # measurements at attacked buses `atk` and their incident branches, WITHOUT respecting power-flow
         # physics — which is exactly why bad-data detection can catch them.
-        # Incident edges: any branch with either endpoint in the attacked-bus set.
+        # Plausibility band [floor, cap]: every realized per-bus tamper is kept ABOVE the meter-noise floor
+        # (so it is not a within-noise no-op) and BELOW the literature cap (so it stays a realistic FDIA).
+        # `weak` flags a record whose realized change stayed inside the floor (only Ar can, since it replays
+        # whatever the grid happened to do) so make() can reject and redraw it.
         inc = [e for e in range(self.E) if self.ei[0, e] in atk or self.ei[1, e] in atk]
+        weak = False; mags = []   # mags = realized per-bus |delta|/|base| on the P/Q injection channels
+
+        def band_shift(cur):
+            # additive perturbation whose per-channel |delta|/|cur| is drawn UNIFORMLY across [floor, cap],
+            # random sign. Drawing in-band (rather than clipping a huge Gaussian) keeps Ad spread across the
+            # band instead of piling every reading at the cap.
+            base = np.abs(cur) + 1e-6
+            rel = self.rng.uniform(floor, cap, cur.shape)
+            sign = np.where(self.rng.random(cur.shape) < 0.5, -1.0, 1.0)
+            return sign * rel * base
+
         for b in atk:
-            # Ad = random additive corruption: large relative Gaussian noise on P/Q injection + a jolt on V.
-            if kind == "Ad": nx[b, 1:3] += self.rng.normal(0, 0.3*np.abs(nx[b, 1:3])+0.05, 2); nx[b, 0] += self.rng.normal(0, 0.02)
-            # As = scaling attack: multiply injections by a 1.25-1.5x gain.
-            elif kind == "As": nx[b, 1:3] *= self.rng.uniform(1.25, 1.5)
-            # Ar = replay: overwrite this bus's features with a stored earlier (clean) snapshot's values.
-            elif kind == "Ar" and replay is not None: nx[b, :] = replay[b, :]
+            base = np.abs(nx[b, 1:3]) + 1e-6
+            if kind == "Ad":
+                sh = band_shift(nx[b, 1:3]); nx[b, 1:3] += sh; nx[b, 0] += self.rng.normal(0, 0.02)
+                mags.append(float(np.max(np.abs(sh)/base)))
+            elif kind == "As":
+                gain = self.rng.uniform(1.0 + floor, 1.0 + cap)          # gain inside the plausibility band
+                nx[b, 1:3] *= gain; mags.append(abs(gain - 1.0))
+            elif kind == "Ar" and replay is not None:
+                cur = nx[b, 1:3].copy(); nx[b, :] = replay[b, :]
+                m = float(np.max(np.abs(nx[b, 1:3] - cur) / base)); mags.append(m)
+                if m < floor or m > cap: weak = True                    # replay outside the plausibility band -> reject
         for e in inc:
-            # Apply the matching corruption to incident branch flow measurements (Ad additive, As scaling).
-            if kind == "Ad": ex[e] += self.rng.normal(0, 0.3*np.abs(ex[e])+0.05, 2)
-            elif kind == "As": ex[e] *= self.rng.uniform(1.25, 1.5)
-        return nx, ex
+            if kind == "Ad": ex[e] += band_shift(ex[e])
+            elif kind == "As": ex[e] *= self.rng.uniform(1.0 + floor, 1.0 + cap)
+        return nx, ex, weak, np.array(mags, float)
 
     # ---- LRA (Yuan et al. 2011) target line + delta ----
-    def _lra_for_line(self, L, Lp, rel, K, rand=False):
+    def _lra_for_line(self, L, Lp, rel, K, rand=False, floor=0.02):
         # rand=True samples attacked buses from the top-2K high-PTDF candidates so the bus SET varies per
         # record (not memorizable); rand=False (target ranking) stays deterministic.
         # Load Redistribution Attack for a chosen target line L: craft a load-injection delta that is
@@ -464,12 +482,24 @@ class FdiaGenerator:
         if len(pos) == 0 or len(neg) == 0: return None
         # Per-bus caps for each side; the conserved budget is the smaller of the two side capacities so the
         # raise on `pos` can be exactly cancelled by the drop on `neg` (net load change = 0).
-        up, dn = cap[pos].copy(), cap[neg].copy(); budget = min(up.sum(), dn.sum())
+        budget = min(cap[pos].sum(), cap[neg].sum())
         if budget <= 0: return None
-        # Scale each side to hit exactly `budget` MW moved, preserving per-bus proportions.
+        # Both sides scale to `budget`, so a side's per-bus deviation is a UNIFORM rel*budget/cap_sum. On a
+        # lopsided line the larger side's cap_sum swamps the budget and that whole side lands below the noise
+        # floor. Trim each side to the minimal top-capacity prefix that still covers the budget, so its
+        # cap_sum stays near `budget` and its per-bus deviation stays near `rel` (well above the floor) while
+        # the redistribution remains exactly load-conserving.
+        def trim(side):
+            order = side[np.argsort(-cap[side])]                 # largest-capacity buses first
+            k = int(np.searchsorted(np.cumsum(cap[order]), budget)) + 1
+            return order[:min(k, len(order))]
+        pos, neg = trim(pos), trim(neg)
+        up, dn = cap[pos].copy(), cap[neg].copy(); budget = min(up.sum(), dn.sum())
         up *= budget/up.sum(); dn *= budget/dn.sum()
-        # Assemble the full load-delta vector: +up on positive buses, -dn on negative buses (sums to 0).
         d = np.zeros_like(Lp); d[pos] = up; d[neg] = -dn
+        # Reject if either side's uniform deviation still sits inside the noise floor (very lopsided line).
+        if min(up.sum()/cap[pos].sum(), dn.sum()/cap[neg].sum()) * rel < floor:
+            return None
         # Return (delta, attacked-bus indices, achieved line-L flow change = -sum(PTDF*delta)).
         return d, np.r_[pos, neg], float(-np.sum(pl*d))
 
@@ -494,9 +524,9 @@ class FdiaGenerator:
         # Default/primary target = most attackable line.
         self._Ltgt = self._Lcands[0]
 
-    def lra_delta(self, Lp, rel, K):
+    def lra_delta(self, Lp, rel, K, floor=0.02):
         L = int(self.rng.choice(self._Lcands))                # random target line per attack
-        r = self._lra_for_line(L, Lp, rel, K, rand=True)      # + randomized bus subset -> not memorizable
+        r = self._lra_for_line(L, Lp, rel, K, rand=True, floor=floor)   # + randomized bus subset -> not memorizable
         # Apply the line's base-flow sign so the redistribution masks (not relieves) its overload; if no
         # feasible delta exists, return a zero delta and empty attacked-bus set (record stays effectively benign).
         return (r[0]*self._sgn[L], r[1]) if r is not None else (np.zeros_like(Lp), np.array([], int))
