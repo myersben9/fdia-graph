@@ -26,7 +26,7 @@ from torch_geometric.nn import GCNConv
 from fdia_graph.dataset import FdiaGraph, FAMILIES
 
 HERE = os.path.dirname(os.path.abspath(__file__)); RES = os.path.join(HERE, "results")
-SHARDS = os.path.join(HERE, "release_v0.4.1"); EPOCHS = int(os.environ.get("EPOCHS", "40"))
+SHARDS = os.environ.get("FDIA_SHARDS", os.path.join(HERE, "release_v0.4.1")); EPOCHS = int(os.environ.get("EPOCHS", "40"))
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 
 FEATURE_SETS = ("raw8", "full14", "swing")

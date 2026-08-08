@@ -482,24 +482,19 @@ class FdiaGenerator:
         if len(pos) == 0 or len(neg) == 0: return None
         # Per-bus caps for each side; the conserved budget is the smaller of the two side capacities so the
         # raise on `pos` can be exactly cancelled by the drop on `neg` (net load change = 0).
-        budget = min(cap[pos].sum(), cap[neg].sum())
-        if budget <= 0: return None
-        # Both sides scale to `budget`, so a side's per-bus deviation is a UNIFORM rel*budget/cap_sum. On a
-        # lopsided line the larger side's cap_sum swamps the budget and that whole side lands below the noise
-        # floor. Trim each side to the minimal top-capacity prefix that still covers the budget, so its
-        # cap_sum stays near `budget` and its per-bus deviation stays near `rel` (well above the floor) while
-        # the redistribution remains exactly load-conserving.
-        def trim(side):
-            order = side[np.argsort(-cap[side])]                 # largest-capacity buses first
-            k = int(np.searchsorted(np.cumsum(cap[order]), budget)) + 1
-            return order[:min(k, len(order))]
-        pos, neg = trim(pos), trim(neg)
-        up, dn = cap[pos].copy(), cap[neg].copy(); budget = min(up.sum(), dn.sum())
-        up *= budget/up.sum(); dn *= budget/dn.sum()
+        # Both sides scale to a common `budget` (MW moved), so a side's per-bus deviation is the UNIFORM
+        # rel*budget/cap_sum. Always moving the maximum budget pins the smaller side at the cap and makes Al
+        # pile at 20%. Instead draw the budget at RANDOM within the range that keeps BOTH sides' deviation
+        # inside [floor, rel]: this spreads Al across the whole band (distributional) while staying exactly
+        # load-conserving. lo is set so the larger side stays above the floor; hi so neither exceeds the cap.
+        ps, ns = cap[pos].sum(), cap[neg].sum()
+        if min(ps, ns) <= 0: return None
+        lo = (floor/rel) * max(ps, ns)        # smallest budget keeping the larger side above the floor
+        hi = min(ps, ns)                      # largest budget within the per-bus caps
+        if lo >= hi: return None              # line too lopsided to move a plausible in-band budget -> reject
+        budget = float(self.rng.uniform(lo, hi))
+        up = cap[pos] * (budget/ps); dn = cap[neg] * (budget/ns)
         d = np.zeros_like(Lp); d[pos] = up; d[neg] = -dn
-        # Reject if either side's uniform deviation still sits inside the noise floor (very lopsided line).
-        if min(up.sum()/cap[pos].sum(), dn.sum()/cap[neg].sum()) * rel < floor:
-            return None
         # Return (delta, attacked-bus indices, achieved line-L flow change = -sum(PTDF*delta)).
         return d, np.r_[pos, neg], float(-np.sum(pl*d))
 
