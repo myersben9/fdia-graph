@@ -14,18 +14,18 @@ _REPO = "myersben9/fdia-graph"
 # Default pinned release tag. This is the version the SDK falls back to when it can't (or isn't asked to)
 # query GitHub for the newest one. Set FDIA_GRAPH_RELEASE to override this default globally without a code
 # change (e.g. to pin a whole environment to an older dataset version).
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.5.0")   # newest dataset version (v0.5.0: full per-unit branch physics r/x/b/g/tap/shift/status + bus shunts, Ybus-exact; edge_reactance deprecated)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.6.0")   # newest dataset version (v0.6.0: two-sided attack-plausibility band [~2% noise floor, 20% cap], At exempt; Ad uniform-in-band, Ar bounded, Al distributional load-conserving budget)
 
 # Built-in shards. `sha256` is verified after download when set (filled in when the release is published).
 # Each entry is the full spec download.py needs: which asset `file` to fetch, from which `release` tag, on
 # which `repo`, its expected `sha256` (None = skip verification for now), and the IEEE `system` size it maps to.
 BUILTIN = {
     "ieee14":  {"file": "ml_only_ieee14.h5",  "release": _RELEASE, "repo": _REPO,
-                "sha256": "3b8e8c61b75c437d0c0a2226f5076c549495374d4b56dc994d8d7c6ac92e86f5", "system": 14},
+                "sha256": "b778513ee0745dd423ca422948b2c426e329d4f3ec4b2814bb4f9a68791590a8", "system": 14},
     "ieee118": {"file": "ml_only_ieee118.h5", "release": _RELEASE, "repo": _REPO,
-                "sha256": "ac452d16f02fdbcb0eb1d5c6d56783c504c387c383961d0e89afb5ef2de38b55", "system": 118},
+                "sha256": "9be47b161bc78ce58b5a19598478068d9062e848926bde0278689348b25fff0e", "system": 118},
     "ieee300": {"file": "ml_only_ieee300.h5", "release": _RELEASE, "repo": _REPO,
-                "sha256": "abb734532f50daf03c56613f5d43c8aaf2e37551f336964afe078e6f76655965", "system": 300},
+                "sha256": "66faac385c536a8f4a30c5286c164c32abb736b772877007d122623dfd8eb4d4", "system": 300},
 }
 # Convenience name aliases so callers can pass a bus count instead of the canonical "ieeeNN" key. Both the
 # string ("118") and the int (118) forms map to the same canonical name — resolve() normalizes via this map.
