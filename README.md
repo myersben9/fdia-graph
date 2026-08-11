@@ -15,7 +15,7 @@ for batch in loader:
 
 ![Dataset overview](docs/dataset_overview.png)
 
-*One IEEE-118 bus over time under each attack, the per-bus attack magnitude band, attacked-bus swing vs attack size, and the chi-square bad-data statistic per family, pooled over the three systems.*
+*One IEEE-118 bus over time under each attack (each trace scaled to its own range to show attack shape; only the slow ramp `At` perturbs many scans), the per-bus attack magnitude band, attacked-bus swing vs attack size, and the chi-square bad-data statistic per family, pooled over the three systems.*
 
 ## Why this dataset
 
