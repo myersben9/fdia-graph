@@ -13,9 +13,21 @@ for batch in loader:
     batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"], ...
 ```
 
-![Dataset overview](docs/dataset_overview.png)
+![Attack traces over time](docs/fig_traces.png)
 
-*One IEEE-118 bus over time under each attack (each trace scaled to its own range to show attack shape; only the slow ramp `At` perturbs many scans), the per-bus attack magnitude band, attacked-bus swing vs attack size, and the chi-square bad-data statistic per family, pooled over the three systems.*
+*One IEEE-118 bus under each attack (dashed = benign load). Only the slow ramp `At` perturbs many scans.*
+
+![Per-bus attack magnitude](docs/fig_band.png)
+
+*Attack magnitude per family, inside the 2%–20% plausibility band (dotted floor, dashed cap).*
+
+![Swing vs attack move](docs/fig_swing.png)
+
+*Attacked-bus swing rises with attack size; below ~2% it falls into the benign floor (dotted).*
+
+![Chi-square J vs threshold](docs/fig_bdd.png)
+
+*Bad-data statistic per family. Stealthy families stay below the alarm line (1×), detectable ones sit well above.*
 
 ## Why this dataset
 
