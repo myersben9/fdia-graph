@@ -1,8 +1,8 @@
 # fdia-graph
 
-**Load and generate ML-only *dangerous* FDIA localization datasets for power grids — PyTorch-ready, zero data plumbing.**
+**Load and generate stealthy FDIA localization datasets for power grids — PyTorch-ready, one line, zero data plumbing.**
 
-`fdia-graph` gives power-systems / ML researchers one-line access to a benchmark of **false-data-injection attacks that evade every classical detector but are localizable only by a model** — on realistic sparse SCADA/PMU measurement graphs for IEEE-14 / 118 / 300. Install it, call `load(...)`, and train.
+A benchmark of false-data-injection attacks that evade classical bad-data detection but are localizable by a model, on realistic sparse SCADA/PMU measurement graphs for IEEE-14 / 118 / 300.
 
 ```python
 import fdia_graph as fg
@@ -13,11 +13,13 @@ for batch in loader:
     batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"], ...
 ```
 
----
+![Dataset overview](docs/dataset_overview.png)
+
+*One IEEE-118 bus over time under each attack, the per-bus attack magnitude band, attacked-bus swing vs attack size, and the chi-square bad-data statistic per family, pooled over the three systems.*
 
 ## Why this dataset
 
-Most FDIA benchmarks contain attacks a bad-data detector (BDD) catches, so "ML beats BDD" is unsurprising. This dataset is built around the opposite: **three stealthy families that provably evade classical detection** — and are genuinely dangerous — alongside three detectable families as a contrast set.
+Most FDIA benchmarks contain attacks a bad-data detector (BDD) catches, so "ML beats BDD" is unsurprising. This one is built around the opposite: three stealthy families that provably evade classical detection and are genuinely dangerous, alongside three detectable families as a contrast set.
 
 | Family | Type | Classical BDD |
 |--------|------|---------------|
@@ -28,12 +30,7 @@ Most FDIA benchmarks contain attacks a bad-data detector (BDD) catches, so "ML b
 | `As`   | meter scaling | caught |
 | `Ar`   | replay | mostly caught |
 
-Each record is a **PING-style measurement graph** (branch flows as edge features, metered injections + |V| + sparse PMU angles as node features, with availability masks) — what a real EMS actually sees (redundancy ≈ 2–3), not the full-injection idealization.
-
-Two things (added in v0.6.0) keep the benchmark honest:
-
-- **Every attack sits in a plausibility band.** A per-bus attack can't be smaller than the ~2% meter-noise floor, or it would just hide inside sensor noise and do nothing, and it can't be larger than a 20% cap from the load-forecast literature, or it stops being a realistic operating deviation. The one exception is the slow ramp `At`, which is allowed below the floor on purpose: each scan-to-scan step stays within noise while the drift piles up over time.
-- **Meter noise follows an instrument accuracy class, not a made-up variance.** We use the Asprou class-0.2 transformer model (roughly 1.7% on flows and injections, 0.12% on voltage, 0.096° on angle), and we split it into a fixed per-meter bias plus a smaller per-scan jitter. That distinction matters: a variance estimated across scans only sees the jitter and would trust a badly biased meter, so a fair WLS baseline has to weight by the total error about zero.
+Two things keep it honest (v0.6.0): every attack's per-bus magnitude sits in a **plausibility band** — above a ~2% meter-noise floor (can't hide in noise) and below a 20% cap (stays realistic), with the slow ramp `At` exempt from the floor by design — and meter error follows an **accuracy-class model** (Asprou class-0.2, a fixed per-meter bias plus a per-scan jitter) rather than a single made-up variance. Each record is a PING-style measurement graph (branch flows as edges, metered injections + |V| + sparse PMU angles as nodes, with availability masks) at a realistic redundancy of ≈ 2–3.
 
 ## Install
 
@@ -41,205 +38,86 @@ Two things (added in v0.6.0) keep the benchmark honest:
 pip install fdia-graph              # loader (numpy + h5py)
 pip install "fdia-graph[torch]"     # + PyTorch Dataset/DataLoader
 pip install "fdia-graph[pyg]"       # + torch_geometric graph format
-pip install "fdia-graph[generate]"  # + pandapower, to generate custom datasets from load profiles
-pip install "fdia-graph[iso]"       # + gridstatus, to auto-download CAISO/ERCOT load profiles
-pip install "fdia-graph[all]"       # everything
+pip install "fdia-graph[generate]"  # + pandapower, to generate custom datasets
+pip install "fdia-graph[all]"       # everything (adds gridstatus for ISO load download)
 ```
 
-Everything is delivered from this package and its GitHub releases — datasets, operating-point pools, and (with `[generate]`) the whole simulation pipeline. There is no separate data drop to sync.
+Datasets, operating-point pools, and the whole simulation pipeline all ship with the package and its GitHub releases. There is no separate data drop to sync.
 
 ## Load
 
 ```python
-ds  = fg.load("ieee300", split="train")                 # 60/20/20 chronological split
-val = fg.load("ieee300", split="val")
-tst = fg.load("ieee300", split="test")
+ds  = fg.load("ieee300", split="train")                             # 60/20/20 chronological split
+stealthy = fg.load("ieee118", split="test", families=["Aq","At","Al"])   # family subset ("Ao"/"ramp"/"LRA" alias)
+heldout  = fg.load("ieee118", split="train", heldout=True)          # As/Ar excluded from train (Boyaci et al. 2022)
 
-# family subsets and the unseen-attack generalization protocol
-stealthy = fg.load("ieee118", split="test", families=["Aq", "At", "Al"])   # "Ao"/"ramp"/"LRA" still work as aliases
-heldout  = fg.load("ieee118", split="train", heldout=True)   # As/Ar excluded from train (Boyaci et al. 2022)
+fg.load("ieee118", units="physical")   # default: |V| p.u., P/Q in MW/MVAr, θ in degrees
+fg.load("ieee118", units="pu")         # everything per-unit on baseMVA, θ in radians (for ML/physics models)
+fg.load("ieee118", release="v0.6.0")   # pin a version for a reproducible experiment (default is newest)
 ```
 
-### Units
+Pull a whole split at once for analysis with `ds.to_numpy()`, `ds.to_torch()`, `ds.to_tf()`, or `ds.to_pandas()`.
 
-One shard, two ways to read it — pick with `units=`:
+## Generate
+
+Turn any research knob and load the result by name:
 
 ```python
-fg.load("ieee118", units="physical")   # default: |V| p.u., P/Q in MW/MVAr, θ in degrees (nice for plots and sanity checks)
-fg.load("ieee118", units="pu")         # everything per-unit on baseMVA, θ in radians (what ML / physics-informed models want)
+fg.generate("ieee118", name="custom",
+            per_family=5000, families=["Aq","At","Al"],
+            attack_intensity=0.25,          # top of the plausibility band (floor is the ~2% noise level)
+            n_benign=30000, seed=7,
+            targeting="centrality",         # "uniform" (default) | "centrality" — bias toward critical buses
+            targeting_strength=1.5)         # exponential tilt; 0 == uniform, larger = more concentrated
+
+ds = fg.load("custom", split="train")
 ```
 
-The conversion happens on read, so you're always looking at the same underlying data either way.
+`targeting="centrality"` draws attacked buses toward the structurally critical ones (degree + closeness + betweenness centrality; Doostinia et al., IEEE T-IA 2025), modeling a smart attacker instead of a uniform random one. Each generated `.h5` also gets a `<out>.mag.npz` sidecar recording the designed per-bus magnitude and swing plus the band's floor/cap, so you can verify the attacks really landed inside the band.
 
-### Any framework you like
-
-The `.loader()` streams records for training; these pull the whole split at once for analysis:
-
-```python
-ds = fg.load("ieee14", split="test")
-arrays = ds.to_numpy()      # dict of numpy arrays
-tensors = ds.to_torch()     # dict of torch tensors  (float32 features, int64 labels)
-tf_t   = ds.to_tf()         # dict of tf.Tensors      (needs tensorflow)
-df     = ds.to_pandas()     # flat pandas DataFrame, one row per record
-```
-
-### Dataset versioning
-
-Datasets are GitHub **releases**, so your group version-controls them:
-
-```python
-fg.load("ieee118")                      # newest release (default — everyone stays current)
-fg.load("ieee118", release="v0.6.0")    # pin an exact version for a reproducible experiment
-```
-
-## Generate a custom dataset (research knobs)
-
-Turn any research knob and load the result by name — no data plumbing:
-
-```python
-fg.generate("ieee118", name="high_intensity",
-            per_family=5000,             # samples per attack family
-            families=["Aq", "At", "Al"],
-            attack_intensity=0.25,       # upper cap of the plausibility band (per-bus load-shift fraction)
-            ramp_rate=0.003, ramp_len=80,
-            n_benign=30000,
-            redundancy={"pmu_frac": 0.3, "flow_frac": 0.95},
-            split=(0.7, 0.15, 0.15),
-            seed=7)
-
-ds = fg.load("high_intensity", split="train")   # your custom dataset, ready to train
-```
-
-`attack_intensity` is the top of the plausibility band (the bottom is the ~2% meter-noise floor), so every attacked bus lands somewhere in `[floor, attack_intensity]`.
-
-### Centrality-guided targeting
-
-Out of the box, attacked buses are picked **uniformly** at random from the load buses. But a real attacker doesn't roll dice — they go after the buses that matter. Set `targeting="centrality"` to bias the draw toward the structurally critical ones, ranked by a blend of degree, closeness, and betweenness centrality of the grid graph (Doostinia et al., IEEE Trans. Ind. Appl. 2025):
-
-```python
-fg.generate("ieee118", name="ieee118_targeted",
-            targeting="centrality",      # "uniform" (default) | "centrality"
-            targeting_strength=1.5)      # exponential tilt; 0 == uniform, larger = more concentrated
-```
-
-`targeting_strength=0` gives you back the uniform draw exactly, and the default 1.5 makes the most-central buses about 4.5× likelier to be hit than the least-central while still keeping the target set varied. Nothing about the physics or stealth of the attacks changes, only *which* buses get chosen.
-
-Generation ships with compact operating-point **pools** (a few MB/system), so you never need the raw simulation data. Benign records are emitted *exactly* from the stored operating state (0-error AC flows); only attacks re-solve a power flow.
-
-Every generated `.h5` comes with a `<out>.mag.npz` sidecar that records the **designed per-bus magnitude and swing** for each attacked bus, plus the band's `floor` and `cap`. It's there so you can check for yourself that the attacks really landed inside the plausibility band, instead of taking it on faith.
-
-### N-1 line outages (topology shift)
-
-A switching event moves the operating manifold, so anything fitted on the intact network (a subspace prior, a learned estimator) is extrapolating afterwards. `outage=` builds a shard under a post-contingency topology: the line is taken out of service before Ybus, PTDF, the base operating point and every emitted measurement are derived, so the physics is genuinely different rather than masked.
-
-```python
-acc, rej = fg.line_outage_candidates(118, top_n=5)   # highest base-case flow, connectivity-screened
-# rej explains every contingency that was skipped (islanding, non-convergent, ...)
-
-from fdia_graph._core import FdiaGenerator
-g = FdiaGenerator(118, seed=123, outage=acc[0]["line"])
-states, ok = g.resolve_states(pool_X)                # re-solve the SAME load timestamps under this topology
-
-fg.generate(118, name="ieee118_n1", states=states[ok], outage=acc[0]["line"])
-```
-
-One shard per topology: each file's `graph/` group describes its own network (`edge_status` carries the single zero), so the loader is unchanged and the static graph can never be wrong for a record. Feed each scenario a pool re-solved under that topology — a stored intact-network state emitted through a post-contingency Ybus would satisfy no power flow at all. Keep the load timestamps identical across scenarios, or topology and load level are confounded. Shard attrs record `topology`, `outage_line`, `outage_base_flow_mw` and the per-family `solve_yield` (attempts/accepted, so dropped hard cases stay visible).
-
-## Own the whole pipeline: your own load profiles
-
-The pools above are pre-built, but you can build your own from real grid load — swap in data from a different ISO or a different time period and regenerate everything. The front of the pipeline is two functions:
-
-```python
-# 1. Get a load profile. Auto-download real system load at 5-minute resolution (the finest each ISO
-#    publishes), or bring your own series.
-S = fg.fetch_profile("nyiso", "2024-01-01", "2024-06-30")   # NYISO — no account, no extra deps
-S = fg.fetch_profile("caiso", "2024-01-01", "2024-06-30")   # CAISO — needs fdia-graph[iso]
-S = fg.fetch_profile("ercot", "2024-01-01", "2024-06-30")   # ERCOT — needs fdia-graph[iso]
-S = fg.load_profile(my_load_array)                          # or a CSV / a numpy array of load values
-
-# 2. Turn the profile into a pool of AC operating states, then generate attacks onto it.
-states = fg.generate_states("ieee118", S)                   # [T, N, 4] via pandapower power flow
-fg.generate(118, name="ieee118_nyiso_2024", states=states, per_family=5000)
-ds = fg.load("ieee118_nyiso_2024", split="train")
-```
-
-`fetch_profile` returns a normalized per-timestep scaling vector; `generate_states` scales each bus's load by `clip(1 + k·S_t + noise)`, solves the power flow, and records the clean, bad-data-consistent state. Switching load source or time window is a one-line change, so the same grid can be re-generated under many demand regimes. Requires `fdia-graph[generate]` (`[iso]` too for CAISO/ERCOT).
+Also supported: **N-1 line outages** (`outage=` builds a shard under a post-contingency topology) and **your own load profiles** (`fg.fetch_profile(...)` for NYISO/CAISO/ERCOT or bring your own array → `fg.generate_states(...)` → `fg.generate(...)`). See docstrings in `profiles.py` and `_core.py`.
 
 ## Schema
 
-One HDF5 file per system (`ml_only_ieee{14,118,300}.h5`), with `N` = buses and `E` = branches (lines + transformers). The **static graph** is stored once; everything else is **per record** (`T` records total). A record is one realistic measurement snapshot — benign or attacked.
+One HDF5 file per system (`ml_only_ieee{14,118,300}.h5`), `N` buses and `E` branches. The static graph is stored once; everything else is per record (`T` total). Access one record via `ds[i]`, a whole split via `ds.to_numpy()`.
 
-**Static graph** (read once, shared by every record):
+**Static graph:** `edge_index [2,E]` (`[from_bus; to_bus]`, lines then transformers), `edge_reactance [E]` (p.u.).
 
-| Field | Shape | Dtype | Meaning |
-|-------|-------|-------|---------|
-| `edge_index`     | `[2, E]` | int64   | `[from_bus; to_bus]` for each branch (lines first, then transformers) |
-| `edge_reactance` | `[E]`    | float32 | per-branch reactance (p.u.) — handy for physics-informed models |
-
-**Per-record measurement graph** (indexed `0 … T-1`; access one via `ds[i]`, or a whole split via `ds.to_numpy()`):
+**Per record:**
 
 | Field | Shape | Dtype | Meaning |
 |-------|-------|-------|---------|
-| `node_x`         | `[N, 4]` | float32 | node features `[ \|V\| (p.u.),  P_inj (MW),  Q_inj (MVAr),  θ (deg) ]` |
-| `node_m`         | `[N, 4]` | float32 | node **availability mask** (1 = that meter exists at that bus, else 0; masked entries are zeroed) |
-| `edge_x`         | `[E, 2]` | float32 | branch-flow features `[ P_from (MW),  Q_from (MVAr) ]` |
+| `node_x`         | `[N, 4]` | float32 | node features `[ \|V\|,  P_inj,  Q_inj,  θ ]` (units per `units=`) |
+| `node_m`         | `[N, 4]` | float32 | node **availability mask** (1 = meter exists; masked entries zeroed) |
+| `edge_x`         | `[E, 2]` | float32 | branch-flow features `[ P_from,  Q_from ]` |
 | `edge_m`         | `[E, 2]` | float32 | edge availability mask |
-| `y`              | `[N]`    | float32 | **localization target** — per-bus label, `1` = bus is attacked, `0` = clean |
-| `temporal_delta` | `[N, 2]` | float32 | *(v0.3+)* current-minus-previous-scan injection `[ΔP_inj, ΔQ_inj]` — the temporal feature for replay/ramp |
-| `swing`          | `[N, 2]` | float32 | *(v0.6+)* windowed per-bus swing `[P, Q]` — the reading minus its recent-window mean over its recent-window std, so a single-shot spike reads large and a slow ramp stays small |
+| `y`              | `[N]`    | float32 | **localization target** — per-bus label, `1` = attacked |
+| `temporal_delta` | `[N, 2]` | float32 | current-minus-previous-scan injection `[ΔP, ΔQ]` |
+| `swing`          | `[N, 2]` | float32 | *(v0.6+)* windowed per-bus swing — reading minus recent-window mean, over recent-window std (spikes big, ramps small) |
 | `family`         | scalar   | int     | `0` benign · `1` Aq · `2` Ad · `3` As · `4` Ar · `5` At · `6` Al |
-| `stealthy`       | scalar   | int     | `1` if the attack evades classical bad-data detection (Ao/ramp/LRA), else `0` |
-| `split`          | scalar   | int     | `0` train · `1` val · `2` test (60/20/20 chronological, sequence-boundary safe) |
-| `seq_id`         | scalar   | int     | ramp-sequence id (`≥0` groups the scans of one multi-timestep ramp); `-1` otherwise |
-| `timestep`       | scalar   | int     | source operating-point index (the benign snapshot the record was built from) |
-| `gap`            | scalar   | int     | `1` if this is a physics non-convergence NA row (`≈0%` in the shipped data) |
+| `stealthy`       | scalar   | int     | `1` if the attack evades classical BDD |
+| `split`          | scalar   | int     | `0` train · `1` val · `2` test (60/20/20 chronological, sequence-safe) |
+| `seq_id`         | scalar   | int     | ramp-sequence id (`≥0` groups a ramp's scans; `-1` otherwise) |
+| `timestep`       | scalar   | int     | source operating-point index |
+| `gap`            | scalar   | int     | `1` for a physics non-convergence NA row (`≈0%` shipped) |
 
-Sparsity is real: `node_m`/`edge_m` encode a redundancy of ≈ 2–3 (a realistic EMS regime), so a model must consume the masks — not every bus is metered, and PMU angles (`θ`) are sparse.
-
-## Project structure
-
-```
-fdia-graph/
-├── pyproject.toml              # package metadata, deps, optional extras ([torch], [pyg], [generate], [iso], [all])
-├── README.md                   # this file
-├── src/fdia_graph/
-│   ├── __init__.py             # public API: load(), generate(), fetch_profile/load_profile/generate_states  ← start here
-│   ├── registry.py             # dataset version control: name → GitHub release + file; latest vs pinned; cache dir
-│   ├── download.py             # fetches release-asset .h5 shards (public, anonymous) → ~/.cache/fdia_graph
-│   ├── dataset.py              # FdiaGraph: torch Dataset over one .h5 (lazy slicing, split/family filters, exporters)
-│   ├── profiles.py             # front of the pipeline: ISO load download (CAISO/NYISO/ERCOT) → operating states
-│   ├── generation.py           # generate(): tunable-knob dataset creation → new .h5, registered by name
-│   └── _core.py                # generation engine: physics (Ybus/PTDF) + the 7 attack families
-└── examples/
-    ├── quickstart.py           # smallest load → train loop
-    ├── train_gnn.py            # baseline GNN localizer
-    ├── train_arma.py           # ARMA + physics-biased attention localizer (the strong model)
-    ├── train_tgnn.py           # temporal-graph localizer
-    ├── hpo_arma.py             # Optuna hyperparameter search (Boyaci-style space)
-    └── reproduce_report.ipynb  # end-to-end notebook: generate → figures → train/test
-```
-
-Read order to understand the codebase: `__init__.py` (the two entry points) → `registry.py`/`download.py` (how a name becomes a local `.h5`) → `dataset.py` (how that `.h5` becomes tensors) → `generate.py`/`_core.py` (how new datasets are made). Every module is commented line-by-line.
+Sparsity is real: `node_m`/`edge_m` encode redundancy ≈ 2–3, so a model must consume the masks.
 
 ## Evaluation protocol
 
-60/20/20 **chronological** split cut on sequence boundaries (ramp sequences never straddle a split — a random shuffle would leak them). Equal count per attack family. **Report per-attack-type node-F1**, not accuracy — the stealthy families (`Ao`/`ramp`/`LRA`) are the hard ones and accuracy hides them.
+60/20/20 **chronological** split cut on sequence boundaries (ramps never straddle a split). Equal count per family. **Report per-attack-type node-F1**, not accuracy — the stealthy families are the hard ones and accuracy hides them.
 
 ## Citation
 
-If you use this dataset, please cite the attack model and measurement-model sources:
+If you use this dataset, please cite the attack- and measurement-model sources:
 
 - Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE Trans. Smart Grid 2(2), 2011. *(LRA attack)*
 - Haghshenas, Hasnat & Naeini, *A Temporal Graph Neural Network for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023. *(ramp attack)*
 - Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025. *(measurement model)*
-- Asprou, Kyriakides & Albu, *The Effect of Variable Weights in a WLS State Estimator Considering Instrument Transformer Uncertainties*, IEEE Trans. Instrumentation and Measurement 63, 2014. *(accuracy-class meter noise)*
-- Doostinia, Falabretti, Verticale & Bolouki, *A Novel Centrality-Driven Machine Learning Approach for Clustering Critical Nodes in Cyber-Physical Power Systems*, IEEE Trans. Industry Applications, 2025. *(centrality-guided targeting)*
+- Asprou, Kyriakides & Albu, *The Effect of Variable Weights in a WLS State Estimator Considering Instrument Transformer Uncertainties*, IEEE Trans. Instrum. Meas. 63, 2014. *(accuracy-class meter noise)*
+- Doostinia, Falabretti, Verticale & Bolouki, *A Novel Centrality-Driven ML Approach for Clustering Critical Nodes in Cyber-Physical Power Systems*, IEEE Trans. Ind. Appl., 2025. *(centrality-guided targeting)*
 - Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE Trans. Smart Grid, 2022. *(protocol)*
 
 ## License
 
-The dataset (HDF5 shards and operating-point pools distributed through the GitHub releases) is
-licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). The source code in `src/`
-and `examples/` is licensed under the MIT License. See the `LICENSE` file. The data is synthetic,
-generated from public IEEE test cases with simulated measurements and simulated attacks, and must
-not be used for operational decisions.
+Dataset (HDF5 shards and operating-point pools) under CC BY 4.0; source code in `src/` and `examples/` under MIT. See `LICENSE`. The data is synthetic, generated from public IEEE test cases, and must not be used for operational decisions.
