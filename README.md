@@ -30,6 +30,11 @@ Most FDIA benchmarks contain attacks a bad-data detector (BDD) catches, so "ML b
 
 Each record is a **PING-style measurement graph** (branch flows as edge features, metered injections + |V| + sparse PMU angles as node features, with availability masks) — what a real EMS actually sees (redundancy ≈ 2–3), not the full-injection idealization.
 
+Two things (added in v0.6.0) keep the benchmark honest:
+
+- **Every attack sits in a plausibility band.** A per-bus attack can't be smaller than the ~2% meter-noise floor, or it would just hide inside sensor noise and do nothing, and it can't be larger than a 20% cap from the load-forecast literature, or it stops being a realistic operating deviation. The one exception is the slow ramp `At`, which is allowed below the floor on purpose: each scan-to-scan step stays within noise while the drift piles up over time.
+- **Meter noise follows an instrument accuracy class, not a made-up variance.** We use the Asprou class-0.2 transformer model (roughly 1.7% on flows and injections, 0.12% on voltage, 0.096° on angle), and we split it into a fixed per-meter bias plus a smaller per-scan jitter. That distinction matters: a variance estimated across scans only sees the jitter and would trust a badly biased meter, so a fair WLS baseline has to weight by the total error about zero.
+
 ## Install
 
 ```bash
@@ -55,6 +60,17 @@ stealthy = fg.load("ieee118", split="test", families=["Aq", "At", "Al"])   # "Ao
 heldout  = fg.load("ieee118", split="train", heldout=True)   # As/Ar excluded from train (Boyaci et al. 2022)
 ```
 
+### Units
+
+One shard, two ways to read it — pick with `units=`:
+
+```python
+fg.load("ieee118", units="physical")   # default: |V| p.u., P/Q in MW/MVAr, θ in degrees (nice for plots and sanity checks)
+fg.load("ieee118", units="pu")         # everything per-unit on baseMVA, θ in radians (what ML / physics-informed models want)
+```
+
+The conversion happens on read, so you're always looking at the same underlying data either way.
+
 ### Any framework you like
 
 The `.loader()` streams records for training; these pull the whole split at once for analysis:
@@ -73,7 +89,7 @@ Datasets are GitHub **releases**, so your group version-controls them:
 
 ```python
 fg.load("ieee118")                      # newest release (default — everyone stays current)
-fg.load("ieee118", release="v0.3.0")    # pin an exact version for a reproducible experiment
+fg.load("ieee118", release="v0.6.0")    # pin an exact version for a reproducible experiment
 ```
 
 ## Generate a custom dataset (research knobs)
@@ -84,7 +100,7 @@ Turn any research knob and load the result by name — no data plumbing:
 fg.generate("ieee118", name="high_intensity",
             per_family=5000,             # samples per attack family
             families=["Aq", "At", "Al"],
-            attack_intensity=0.25,       # per-bus load-shift magnitude (± fraction)
+            attack_intensity=0.25,       # upper cap of the plausibility band (per-bus load-shift fraction)
             ramp_rate=0.003, ramp_len=80,
             n_benign=30000,
             redundancy={"pmu_frac": 0.3, "flow_frac": 0.95},
@@ -94,7 +110,23 @@ fg.generate("ieee118", name="high_intensity",
 ds = fg.load("high_intensity", split="train")   # your custom dataset, ready to train
 ```
 
+`attack_intensity` is the top of the plausibility band (the bottom is the ~2% meter-noise floor), so every attacked bus lands somewhere in `[floor, attack_intensity]`.
+
+### Centrality-guided targeting
+
+Out of the box, attacked buses are picked **uniformly** at random from the load buses. But a real attacker doesn't roll dice — they go after the buses that matter. Set `targeting="centrality"` to bias the draw toward the structurally critical ones, ranked by a blend of degree, closeness, and betweenness centrality of the grid graph (Doostinia et al., IEEE Trans. Ind. Appl. 2025):
+
+```python
+fg.generate("ieee118", name="ieee118_targeted",
+            targeting="centrality",      # "uniform" (default) | "centrality"
+            targeting_strength=1.5)      # exponential tilt; 0 == uniform, larger = more concentrated
+```
+
+`targeting_strength=0` gives you back the uniform draw exactly, and the default 1.5 makes the most-central buses about 4.5× likelier to be hit than the least-central while still keeping the target set varied. Nothing about the physics or stealth of the attacks changes, only *which* buses get chosen.
+
 Generation ships with compact operating-point **pools** (a few MB/system), so you never need the raw simulation data. Benign records are emitted *exactly* from the stored operating state (0-error AC flows); only attacks re-solve a power flow.
+
+Every generated `.h5` comes with a `<out>.mag.npz` sidecar that records the **designed per-bus magnitude and swing** for each attacked bus, plus the band's `floor` and `cap`. It's there so you can check for yourself that the attacks really landed inside the plausibility band, instead of taking it on faith.
 
 ### N-1 line outages (topology shift)
 
@@ -154,6 +186,7 @@ One HDF5 file per system (`ml_only_ieee{14,118,300}.h5`), with `N` = buses and `
 | `edge_m`         | `[E, 2]` | float32 | edge availability mask |
 | `y`              | `[N]`    | float32 | **localization target** — per-bus label, `1` = bus is attacked, `0` = clean |
 | `temporal_delta` | `[N, 2]` | float32 | *(v0.3+)* current-minus-previous-scan injection `[ΔP_inj, ΔQ_inj]` — the temporal feature for replay/ramp |
+| `swing`          | `[N, 2]` | float32 | *(v0.6+)* windowed per-bus swing `[P, Q]` — the reading minus its recent-window mean over its recent-window std, so a single-shot spike reads large and a slow ramp stays small |
 | `family`         | scalar   | int     | `0` benign · `1` Aq · `2` Ad · `3` As · `4` Ar · `5` At · `6` Al |
 | `stealthy`       | scalar   | int     | `1` if the attack evades classical bad-data detection (Ao/ramp/LRA), else `0` |
 | `split`          | scalar   | int     | `0` train · `1` val · `2` test (60/20/20 chronological, sequence-boundary safe) |
@@ -199,6 +232,8 @@ If you use this dataset, please cite the attack model and measurement-model sour
 - Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE Trans. Smart Grid 2(2), 2011. *(LRA attack)*
 - Haghshenas, Hasnat & Naeini, *A Temporal Graph Neural Network for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023. *(ramp attack)*
 - Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025. *(measurement model)*
+- Asprou, Kyriakides & Albu, *The Effect of Variable Weights in a WLS State Estimator Considering Instrument Transformer Uncertainties*, IEEE Trans. Instrumentation and Measurement 63, 2014. *(accuracy-class meter noise)*
+- Doostinia, Falabretti, Verticale & Bolouki, *A Novel Centrality-Driven Machine Learning Approach for Clustering Critical Nodes in Cyber-Physical Power Systems*, IEEE Trans. Industry Applications, 2025. *(centrality-guided targeting)*
 - Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE Trans. Smart Grid, 2022. *(protocol)*
 
 ## License
