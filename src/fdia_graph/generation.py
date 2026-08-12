@@ -74,7 +74,13 @@ def _load_states(system, states, pool_cap=8000):
 
 def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "At", "Al"),
              attack_intensity=0.20, ramp_rate=0.002, ramp_len=60, n_benign=20000, lra_targets=15,
-             redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None, outage=None):
+             redundancy=None, split=(0.6, 0.2, 0.2), seed=123, states=None, out=None, outage=None,
+             targeting="uniform", targeting_strength=1.5):
+    # targeting: how attacked-bus SETS are drawn. "uniform" (default) picks attackable load buses uniformly
+    # at random, byte-identical to prior releases. "centrality" biases the draw toward structurally critical
+    # buses (fused degree/closeness/betweenness centrality; Doostinia et al., IEEE TIA 2025), which is both
+    # more realistic (a smart attacker targets central nodes) and more damaging. targeting_strength is the
+    # exponential tilt (0 == uniform); applies to every family's target draw. Physics/stealth are unchanged.
     # lra_targets: size of the LRA target-line pool (each LRA attack picks one at random -> diverse bus sets)
     # outage: line index/name to take OUT OF SERVICE for the whole shard (None = intact network). One shard
     # per topology, so the graph/ group always describes the topology its records were generated under and
@@ -91,6 +97,9 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     g._pick_lra_target(attack_intensity, min(6, len(g.load_bus)), n_targets=lra_targets)
     # K = max buses an LRA delta may touch; reuse g's seeded RNG so the whole build is reproducible.
     K = min(6, len(g.load_bus)); rng = g.rng
+    # Target-selection weights over attackable positions. None -> uniform (unchanged); otherwise a
+    # centrality-biased probability vector aligned to g.attackable_pos, reused for every family's draw.
+    cent_p = g.centrality_probs(targeting_strength) if targeting == "centrality" else None
     # Exact per-bus DESIGNED attack-magnitude log: list of (family_id, per-bus |delta|/|base| array). Written to
     # a <out>.mag.npz sidecar so the plausibility band can be verified against the band the gate enforces, with
     # no benign-baseline contamination (the designed fraction is what the gate actually controls).
@@ -151,8 +160,10 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
             if net is None: return None            # non-convergence: skip this timestep (expected occasionally)
             # emit() -> node feats, node mask, edge feats, edge mask for the solved (attacked) network.
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[atk[0]]] = 1  # label attacked buses
-            mag_log.append((family, np.atleast_1d(dev).astype(float)))
-            return _fin(nx, nm, ex, em, y, family, sid, t, 0, 1)   # stealthy=1
+            r = _fin(nx, nm, ex, em, y, family, sid, t, 0, 1)   # stealthy=1
+            mf = np.zeros(C); mf[g.load_bus[atk[0]]] = dev       # per-bus DESIGNED magnitude (fraction of load)
+            yb = y.astype(bool); mag_log.append((family, mf[yb], np.abs(r[-1][yb]).max(1)))  # (mag, swing) per attacked bus
+            return r
         if family == 6:
             # LRA (6): load-redistribution — compute a zero-sum-ish delta d over K buses, then re-solve.
             Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
@@ -163,8 +174,10 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
             net = g.solve(Lp + d, Lq, Xt=Xt, Lp_true=Lp)  # redistributed load; generation pinned to TRUE dispatch
             if net is None: return None                   # non-convergence -> skip
             nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[a]] = 1  # label the LRA bus set
-            mag_log.append((6, dev.astype(float)))
-            return _fin(nx, nm, ex, em, y, 6, -1, t, 0, 1)   # LRA single-shot, stealthy=1
+            r = _fin(nx, nm, ex, em, y, 6, -1, t, 0, 1)   # LRA single-shot, stealthy=1
+            mf = np.zeros(C); mf[g.load_bus[a]] = dev
+            yb = y.astype(bool); mag_log.append((6, mf[yb], np.abs(r[-1][yb]).max(1)))
+            return r
         # Remaining families (0 benign, 2/3/4 corrupt-in-place): emit directly from the stored state, no re-solve.
         nx, nm, ex, em = g.emit_from_state(Xt)
         if family == 0:
@@ -184,8 +197,11 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
         nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[family], replay, floor=NOISE_FLOOR, cap=attack_intensity)
         if weak: return None   # replayed change fell inside the meter-noise floor -> reject, the loop redraws
         y = np.zeros(C, np.uint8); y[abus] = 1   # label the SAME buses that were corrupted (now consistent)
-        if len(mags): mag_log.append((family, mags))
-        return _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0
+        r = _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0
+        if len(mags):
+            mf = np.zeros(C); mf[abus] = mags
+            yb = y.astype(bool); mag_log.append((family, mf[yb], np.abs(r[-1][yb]).max(1)))
+        return r
 
     recs = []; sid = 0   # accumulate all records; sid = next ramp sequence id
     # Per-family (attempts, accepted). The attack loops below RETRY on a non-converging power flow until they
@@ -211,12 +227,12 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
                 # (per-bus magnitude, independently drawn in 1.05..1+intensity) — so the attacked footprint
                 # varies in both size and per-bus strength rather than a fixed 4 buses at one shared factor.
                 k = int(rng.integers(1, min(6, nab) + 1))
-                a = rng.choice(apos, k, replace=False)
+                a = rng.choice(apos, k, replace=False, p=cent_p)
                 mult = 1 + rng.uniform(0.05, attack_intensity, size=k)
             else:
                 # Meter-level families (Ad/As/Ar) and LRA: up to 4 buses; the multiplier is unused by their
                 # make() branches (they corrupt in place / compute an LRA delta), so a scalar is fine.
-                a = rng.choice(apos, min(4, nab), replace=False)
+                a = rng.choice(apos, min(4, nab), replace=False, p=cent_p)
                 mult = 1 + rng.uniform(0.05, attack_intensity)
             r = make(t, fam, -1, (a, mult))
             if r is not None: recs.append(r); got += 1   # count only successful (converged) records
@@ -231,7 +247,7 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
         while ramp_got < per_family:
             ramp_seqs += 1
             t0 = int(rng.integers(nT - ramp_len))   # start timestep leaving room for the full sequence
-            atk = rng.choice(g.attackable_pos, min(5, len(g.attackable_pos)), replace=False)  # fixed (attackable) bus set for the sequence
+            atk = rng.choice(g.attackable_pos, min(5, len(g.attackable_pos)), replace=False, p=cent_p)  # fixed (attackable) bus set for the sequence
             direction = 1.0 if rng.random() < 0.5 else -1.0            # +1 = surge up first, -1 = dip down first
             rate_up = ramp_rate*rng.uniform(0.7, 1.3); rate_down = ramp_rate*rng.uniform(0.7, 1.3)  # independent slopes
             rise_len = max(1, int(rng.uniform(0.20, 0.45)*ramp_len))  # steps spent ramping to the peak/trough
@@ -258,9 +274,10 @@ def generate(system, name, per_family=3000, families=("Aq", "Ad", "As", "Ar", "A
     _write(g, recs, out, split, seed, solve_stats=(tried, taken))
     # Sidecar: flatten the per-bus designed magnitudes into (family_id, magnitude) rows for band verification.
     if mag_log:
-        fam_col = np.concatenate([np.full(len(m), fid, np.int8) for fid, m in mag_log])
-        mag_col = np.concatenate([np.asarray(m, float) for _, m in mag_log])
-        np.savez(out + ".mag.npz", family=fam_col, mag=mag_col,
+        fam_col = np.concatenate([np.full(len(m), fid, np.int8) for fid, m, s in mag_log])
+        mag_col = np.concatenate([np.asarray(m, float) for _, m, s in mag_log])
+        sw_col = np.concatenate([np.asarray(s, float) for _, m, s in mag_log])
+        np.savez(out + ".mag.npz", family=fam_col, mag=mag_col, swing=sw_col,
                  floor=NOISE_FLOOR, cap=attack_intensity)
     # Register the shard locally under `name` (with reproducibility metadata) so load(name) can retrieve it later.
     register_local(name, out, meta=dict(system=system, per_family=per_family, families=list(families),

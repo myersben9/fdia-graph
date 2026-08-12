@@ -292,6 +292,46 @@ class FdiaGenerator:
         # Buffer of recent benign records — replay attacks (Ar) copy an earlier clean snapshot from here.
         self.benign_buf = []
 
+    # ---- attack targeting ----
+    def centrality_probs(self, strength=1.5):
+        """Sampling probability over attackable positions, biased toward structurally CRITICAL buses.
+
+        A real attacker does not pick load buses uniformly at random; the buses that matter most are the
+        structurally central ones. We combine three complex-network centrality metrics of the grid graph,
+        degree (local connectivity), closeness (global reach), and betweenness (bridging shortest paths),
+        each z-scored, into one composite criticality score per bus, following the multi-centrality
+        critical-node approach of Doostinia et al. (IEEE Trans. Ind. Appl. 2025). `strength` is the
+        exponential tilt: strength=0 recovers the uniform draw EXACTLY, and larger values concentrate
+        attacks on the highest-centrality load buses. Aligned to self.attackable_pos, cached per strength.
+        """
+        key = round(float(strength), 4)
+        cache = getattr(self, "_cent_cache", None)
+        if cache is None:
+            cache = self._cent_cache = {}
+        if key in cache:
+            return cache[key]
+        import networkx as nx
+        G = nx.Graph(); G.add_nodes_from(range(self.C))
+        G.add_edges_from(zip(self.ei[0].tolist(), self.ei[1].tolist()))
+        dc = nx.degree_centrality(G); cc = nx.closeness_centrality(G); bc = nx.betweenness_centrality(G, normalized=True)
+
+        def _z(dct):
+            v = np.array([dct[b] for b in range(self.C)], float)
+            sd = v.std()
+            return (v - v.mean()) / (sd if sd > 1e-12 else 1.0)
+
+        comp = _z(dc) + _z(cc) + _z(bc)                     # composite criticality per bus (higher = more central)
+        score = comp[self.load_bus[self.attackable_pos]]    # criticality of each attackable load bus
+        # Rank-normalize to [0,1] before the exponential tilt so the bias is BOUNDED and predictable: a raw
+        # exp of the summed z-score explodes on hub buses (one bus taking ~all the mass). With rank in [0,1],
+        # exp(strength*rank) gives a most-vs-least-central ratio of exactly e^strength (~4.5x at 1.5), which
+        # concentrates attacks on central buses while keeping the target set diverse.
+        r = score.argsort().argsort().astype(float)
+        rank = r / max(1, len(r) - 1)
+        p = np.exp(strength * rank); p = p / p.sum()
+        cache[key] = p
+        return p
+
     # ---- emission ----
     # Draw one zero-mean Gaussian noise sample with std `s` (the meter-noise primitive).
     def _n(self, s): return self.rng.normal(0, s)
