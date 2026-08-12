@@ -182,6 +182,37 @@ Each point is a small model and trains in minutes. A worthwhile second axis is t
 fixed budget (random vs degree-weighted vs observability-greedy), since where the PMUs go can matter as much as
 how many. Pairs with #2 (intensity tiers) as another controlled-axis study.
 
+## 9. Temporal load-redistribution attack (Atr) — zero-sum ramp, locally confined  [PROTOTYPED]
+
+**Idea.** A new stealthy family that is At and Al at once: a slow temporal ramp whose per-scan
+perturbation is a ZERO-SUM redistribution across the attacked buses (some ramp up while others ramp
+down, summing to zero every scan) rather than a one-direction load scale. Think "load redistribution
+(Al), but ramped over time."
+
+**Why.** The current At scales the attacked loads in one direction, so the net load changes and the
+re-solve pushes the imbalance onto the slack, perturbing the whole grid. Making the ramp zero-sum
+means (a) total demand is conserved at every scan, so it is stealthier to a load/energy-balance
+monitor, and (b) the slack absorbs nothing, so the state change stays LOCAL to the attacked region.
+It combines At's temporal stealth (per-scan step within noise) with Al's spatial stealth
+(conservation + locality), which should make it the hardest frontier attack in the set — exactly the
+regime the SE/localization papers argue is the open problem.
+
+**Prototype result** (`scratchpad/at_redistribute_proto.py`, real IEEE-118 pool): a zero-sum ramped
+delta `s(t)*d0` over 5 buses re-solves with net load change ~2e-16 MW (machine zero) and a state
+change 22x larger on the attacked buses than on the rest. Divergent up/down ramps are clearly
+visible and self-contained (rise to peak, hold, fall back to baseline).
+
+**How.** Add family code 7 (`Atr`) alongside the existing ramp. In `generation.py`, in the ramp
+branch, replace the single-direction `Lp[atk] *= (1 +/- r_k)` with a fixed zero-sum base pattern d0
+over the attacked buses (random signed shares, mean-subtracted so sum=0, peak-scaled into the
+plausibility band) times the ramp envelope s(t), then `solve(Lp + s(t)*d0, Lq, Xt, Lp_true=Lp)`.
+solve() already spreads only the NET load change to generators, so a zero-sum delta leaves generation
+and slack untouched — no new physics needed. Keep it a distinct family (do not replace At), give it
+its own family id, alias, and label so existing At results are unaffected. Regenerate all three
+systems and cut a new release; verify per-bus magnitudes sit in the band and BDD-stealth holds, and
+add the locality ratio to the release manifest. Pairs with #6 (mimicry) as the two "hard frontier"
+additions.
+
 ---
 
 ## Cross-cutting notes
