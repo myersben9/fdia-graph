@@ -21,3 +21,26 @@ examples/**/*.log
 examples/**/*.out
 examples/**/_tmp_*
 examples/_tmp_*
+
+# Development-only: experiment scripts, results, and report artifacts (kept locally, not shipped)
+examples/_*
+examples/results/
+examples/hpo_arma.py
+examples/dataset_report.py
+examples/reproduce_report.ipynb
+examples/add_bus_attrs_v050.py
+examples/upgrade_to_v050.py
+
+# Development-only: experiment scripts, results, report/migration utilities (kept locally, not shipped)
+examples/_*
+examples/results/
+examples/n1_outage/
+examples/hpo_arma.py
+examples/dataset_report.py
+examples/reproduce_report.ipynb
+examples/add_bus_attrs_v050.py
+examples/upgrade_to_v050.py
+examples/*.txt
+# never track dataset binaries (they live in GitHub releases)
+*.h5
+*.npz
