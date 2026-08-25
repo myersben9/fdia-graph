@@ -44,3 +44,14 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 fdia_graph = ["profiles/*.npz"]
+
+# Static type checking, scoped to the SDK package (enforced in CI, see .github/workflows/smoke.yml).
+# The optional heavy stack (torch/pandas/pandapower/h5py/torch_geometric/gridstatus/tensorflow) is
+# imported lazily and not installed in the type-check job, so its missing imports are not errors; the
+# check enforces that the SDK's own annotations are present and self-consistent.
+[tool.pyright]
+include = ["src/fdia_graph"]
+typeCheckingMode = "basic"
+pythonVersion = "3.9"
+reportMissingImports = false
+reportMissingModuleSource = false

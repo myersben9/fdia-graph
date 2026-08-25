@@ -11,18 +11,20 @@ the other examples (feature standardization, GPU-resident data, bf16, auto pos_w
 
     python train_arma.py --system ieee118 --epochs 40
 """
+from __future__ import annotations
+
 import argparse, json, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 from contextlib import nullcontext
+from typing import Any, Dict, Tuple
 import fdia_graph as fg
 from fdia_graph.dataset import FAMILIES, FdiaGraph
 from torch_geometric.nn import ARMAConv, GATv2Conv
 
 
-def kcl_residual(node_x, edge_x, ei, N):
-    """Per-bus real/reactive power-balance residual from the MEASUREMENTS (a cheap BDD-like inconsistency
-    signal, no WLS): inflow - injection. ~0 for a consistent state (Ao/ramp/LRA pass BDD), but spikes at
-    buses whose incident meters were corrupted (Ad/As/Ar break KCL) -> the model gets the physics filter as
-    a feature and can flag the crude attacks it was weak on, instead of competing with BDD."""
+def kcl_residual(node_x: torch.Tensor, edge_x: torch.Tensor, ei: torch.Tensor, N: int) -> torch.Tensor:
+    """Per-bus KCL power-balance residual (inflow - injection) from the MEASUREMENTS, a cheap BDD-like signal.
+    ~0 for consistent states (Ao/ramp/LRA pass BDD) but spikes where incident meters were corrupted
+    (Ad/As/Ar break KCL), so the model gets the physics filter as a feature. Returns [n,N,2] residual (P,Q)."""
     n = node_x.shape[0]; fr, to = ei[0], ei[1]
     inP = torch.zeros(n, N, device=node_x.device); inQ = torch.zeros(n, N, device=node_x.device)
     inP.index_add_(1, to, edge_x[:, :, 0]); inP.index_add_(1, fr, -edge_x[:, :, 0])   # + into to-bus, - out of from-bus
@@ -31,27 +33,24 @@ def kcl_residual(node_x, edge_x, ei, N):
 
 
 class ArmaLoc(nn.Module):
-    def __init__(self, n_in=8, hidden=128, stacks=3, layers=2, num_blocks=2, dropout=0.1, attn=True):
+    def __init__(self, n_in: int = 8, hidden: int = 128, stacks: int = 3, layers: int = 2,
+                 num_blocks: int = 2, dropout: float = 0.1, attn: bool = True) -> None:
         super().__init__()
         self.attn = attn
         self.nenc = nn.Linear(n_in, hidden)                      # node feats: measurements(4)+mask(4)+KCL(2)+temporal(2)+swing(2)
         self.eenc = nn.Linear(2 * 2, hidden)                     # edge feat (2) concat mask (2)
-        # `num_blocks` stacked ARMA blocks (graph depth); each is `stacks` parallel ARMA_1 filters, each `layers`
-        # recursive steps -> wide receptive field. Default num_blocks=2 reproduces the original arma1->arma2 stack.
+        # num_blocks stacked ARMA blocks (graph depth); each = stacks parallel ARMA_1 filters x layers recursive steps.
         self.blocks = nn.ModuleList([
             ARMAConv(hidden, hidden, num_stacks=stacks, num_layers=layers, shared_weights=True, dropout=dropout, act=F.relu)
             for _ in range(num_blocks)])
         if attn:
-            # PHYSICS-BIASED ATTENTION: the ARMA trunk is spectral (isotropic per hop); a parallel GATv2 head lets
-            # the model attend ANISOTROPICALLY along the branches that matter. Its attention logits are a learned
-            # function of both endpoints' node features (which carry the KCL residual + temporal delta) and the
-            # edge P/Q flow, so it focuses on physically-suspicious edges. Fused with a learnable gate initialised
-            # at 0 (tanh) -> the net starts identical to plain ARMA and only opens the branch if it helps.
+            # Physics-biased attention: a parallel GATv2 head attends anisotropically along suspicious branches
+            # (endpoint KCL/temporal feats + edge P/Q flow), fused via a zero-init gate so it starts as plain ARMA.
             self.gat = GATv2Conv(hidden, hidden // 4, heads=4, edge_dim=2 * 2, dropout=dropout, add_self_loops=False)
             self.gate = nn.Parameter(torch.zeros(1))
         self.head = nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, 1))
 
-    def forward(self, x, e, ei):
+    def forward(self, x: torch.Tensor, e: torch.Tensor, ei: torch.Tensor) -> torch.Tensor:
         # x [n,8]  e [m,4]  ei [2,m] (bidirectional, batched). Returns per-node logit [n].
         h = F.relu(self.nenc(x))
         he = F.relu(self.eenc(e))
@@ -62,20 +61,20 @@ class ArmaLoc(nn.Module):
         return self.head(h).squeeze(-1)
 
 
-def f1(pred, tgt, sample=False):
+def f1(pred: torch.Tensor, tgt: torch.Tensor, sample: bool = False) -> float:
     tp = (pred * tgt).sum(-1); fp = (pred * (1 - tgt)).sum(-1); fn = ((1 - pred) * tgt).sum(-1)
     p = tp / (tp + fp + 1e-9); r = tp / (tp + fn + 1e-9); fv = 2 * p * r / (p + r + 1e-9)
     return fv.mean().item() if sample else (2 * tp.sum() / (2 * tp.sum() + fp.sum() + fn.sum() + 1e-9)).item()
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--system", default="ieee14"); ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--batch", type=int, default=256); ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--release", default=None); ap.add_argument("--out", default=None)
     ap.add_argument("--shard", default=None, help="path to a local .h5 shard to train on (overrides fg.load/release)")
     ap.add_argument("--no_attn", action="store_true", help="disable the physics-biased attention branch (plain ARMA)")
-    # Architecture-depth knobs (defaults reproduce the original ARMA+attn recipe exactly).
+    # Architecture-depth knobs (defaults reproduce the ARMA+attn recipe).
     ap.add_argument("--hidden", type=int, default=128, help="hidden width (default 128; keep divisible by 4 when attention is on)")
     ap.add_argument("--arma-stacks", type=int, default=3, dest="arma_stacks", help="parallel ARMA_1 filter stacks per block (default 3)")
     ap.add_argument("--arma-layers", type=int, default=2, dest="arma_layers", help="recursive ARMA steps per block (default 2)")
@@ -84,9 +83,7 @@ def main():
     ap.add_argument("--no-kcl", action="store_true", dest="no_kcl", help="ablate the KCL power-balance residual feature")
     ap.add_argument("--no-temporal", action="store_true", dest="no_temporal", help="ablate the temporal-delta (change-since-last-scan) feature")
     ap.add_argument("--no-swing", action="store_true", dest="no_swing", help="ablate the windowed relative-swing feature")
-    # Train in per-unit by default: node_x becomes [V p.u., P p.u., Q p.u., theta rad] so all channels are O(0.1-30)
-    # instead of V~1 next to P/Q/KCL~1000. Without input normalization the physical MW channels otherwise dominate
-    # the linear encoder. "physical" reproduces the older mixed-scale behaviour.
+    # Per-unit by default so all channels are O(0.1-30); "physical" keeps the older mixed-scale MW behaviour.
     ap.add_argument("--units", default="pu", choices=["pu", "physical"], help="unit system for measurements (default pu)")
     args = ap.parse_args()
     torch.manual_seed(args.seed); dev = "cuda" if torch.cuda.is_available() else "cpu"
@@ -94,7 +91,7 @@ def main():
         torch.backends.cuda.matmul.allow_tf32 = True; torch.backends.cudnn.allow_tf32 = True; torch.backends.cudnn.benchmark = True
     autocast = (lambda: torch.autocast("cuda", dtype=torch.bfloat16)) if dev == "cuda" else nullcontext
 
-    def gpu(split):
+    def gpu(split: str) -> Tuple[Dict[str, torch.Tensor], torch.Tensor, Any]:
         # local shard (v0.4.0 regen) takes precedence over the downloadable release when --shard is given
         ds = FdiaGraph(args.shard, split=split, units=args.units) if args.shard else fg.load(args.system, split=split, release=args.release, units=args.units)
         a = ds.to_numpy()
@@ -105,10 +102,8 @@ def main():
     trG, trFam, ds = gpu("train"); vaG, vaFam, _ = gpu("val"); teG, teFam, _ = gpu("test")
     N, E = ds.N, ds.E
     ei0 = ds.edge_index.to(dev)                                   # [2,E] per-graph
-    # PHYSICS-INFORMED FEATURES: append the per-bus KCL power-balance residual (flags crude measurement attacks)
-    # and, when present (v0.3+), the stored temporal-delta (current vs previous scan — catches replay Ar & drift).
-    # ablation flags (default all-on reproduces current behavior); gate BOTH the baked-in node_x augmentation here
-    # and the fresh recompute in feats() so a feature is fully removed when toggled off.
+    # Physics-informed feature augmentation: append per-bus KCL residual + stored temporal-delta (v0.3+); ablation
+    # flags gate BOTH the baked-in node_x augmentation here and the fresh recompute in feats().
     use_kcl = not args.no_kcl; use_temporal = not args.no_temporal; use_swing = not args.no_swing
     for g in (trG, vaG, teG):
         extra = ([kcl_residual(g["node_x"], g["edge_x"], ei0, N)] if use_kcl else []) \
@@ -121,12 +116,13 @@ def main():
         sd = (((trG[xk] - mu) ** 2 * trG[mk]).sum((0, 1)) / w).sqrt().clamp(min=1e-3)
         for g in (trG, vaG, teG): g[xk] = (g[xk] - mu) / sd * g[mk]
 
-    # precompute a BIDIRECTIONAL, batched edge_index for a given batch size (PyG-style: B disjoint grid copies)
-    ei_bi = torch.cat([ei0, ei0.flip(0)], 1)                      # [2, 2E] undirected (spectral filters need symmetry)
-    def batched(B):
+    # bidirectional, batched edge_index (PyG-style B disjoint grid copies; spectral filters need symmetry)
+    ei_bi = torch.cat([ei0, ei0.flip(0)], 1)                      # [2, 2E] undirected
+    def batched(B: int) -> torch.Tensor:
         off = (torch.arange(B, device=dev) * N).repeat_interleave(ei_bi.shape[1])
         return ei_bi.repeat(1, B) + off.unsqueeze(0)             # [2, B*2E]
-    def feats(g, idx):
+    def feats(g: Dict[str, torch.Tensor], idx: torch.Tensor
+             ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         b = len(idx)
         nxb = g["node_x"][idx]; exb = g["edge_x"][idx]                                    # [b,N,4], [b,E,2]
         parts = [nxb, g["node_m"][idx]]                                                   # measurements + mask
@@ -155,7 +151,8 @@ def main():
             opt.zero_grad(); loss.backward(); opt.step(); tot += loss.item() * len(idx)
         if (ep + 1) % 5 == 0 or ep == 0: print(f"epoch {ep+1}/{args.epochs}  loss {tot/n:.4f}")
 
-    def collect(g, fam):
+    def collect(g: Dict[str, torch.Tensor], fam: torch.Tensor
+                ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         model.eval(); LG = []
         with torch.no_grad(), autocast():
             for i in range(0, g["y"].shape[0], args.batch):
@@ -177,9 +174,9 @@ def main():
         if m.any():
             r = {"n": int(m.sum()), "node_f1": f1(P[m], Y[m]), "swf1": f1(P[m], Y[m], sample=True)}
             res["per_family"][name] = r; print(f"  {name:6s} n={r['n']:5d}  node-F1 {r['node_f1']:.3f}  swF1 {r['swf1']:.3f}")
-    # ---- DETECTION (grid-level, Boyaci-style S = max bus prob); this is what the "ML-only" claim rests on ----
-    def dscore(logits): return torch.sigmoid(logits).max(1).values           # per-record grid attack score
-    def detf1(S, lab, t):
+    # DETECTION (grid-level, Boyaci-style S = max bus prob); this is what the "ML-only" claim rests on
+    def dscore(logits: torch.Tensor) -> torch.Tensor: return torch.sigmoid(logits).max(1).values  # per-record grid score
+    def detf1(S: torch.Tensor, lab: torch.Tensor, t: float) -> float:
         pr = (S > t).float(); tp = (pr * lab).sum(); fp = (pr * (1 - lab)).sum(); fn = ((1 - pr) * lab).sum()
         p = tp / (tp + fp + 1e-9); r = tp / (tp + fn + 1e-9); return (2 * p * r / (p + r + 1e-9)).item()
     vS = dscore(vL); vlab = (vFm > 0).float()                                 # tune detection threshold on VAL

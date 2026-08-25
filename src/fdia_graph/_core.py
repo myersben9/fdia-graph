@@ -1,37 +1,31 @@
 """Dataset generation engine (attack simulation + realistic measurement emission).
 
-Refactored from the validated reference generator into a knob-driven class. Requires pandapower
-(pip install 'fdia-graph[generate]'). Benign records are emitted EXACTLY from a stored operating state
-(0-error AC flows, no re-solve); only attacks re-solve a power flow. Attack families:
-  Aq   stealthy load scaling: bounded per-bus load rescale + AC re-solve with AGC-balanced generation,
-       yielding a fully power-flow-consistent counterfactual (stealthy). OUR contribution — the AC/physical
-       realization of the state-consistent attack concept (cf. Boyaci et al. 2022 "Ao"; Liu et al. 2011 FDIA)
-  At   (ramp) temporal creeping load surge that ramps up then back down over a multi-timestep sequence (stealthy);
-       ramp attack of Haghshenas, Hasnat & Naeini, "A Temporal Graph Neural Network for Cyber Attack Detection
-       and Localization in Smart Grids", IEEE ISGT 2023
-  Al   (LRA) targeted masked-overload, Yuan/Li/Ren IEEE T-SG 2011 (stealthy)
+Knob-driven class refactored from the reference generator. Requires pandapower
+('fdia-graph[generate]'). Benign records emit EXACTLY from a stored state (0-error AC flows, no
+re-solve); only attacks re-solve. Attack families:
+  Aq   stealthy load scaling: bounded per-bus rescale + AGC-balanced AC re-solve (power-flow-consistent
+       counterfactual). Our AC realization of the state-consistent attack (cf. Boyaci 2022 "Ao"; Liu 2011)
+  At   (ramp) temporal creeping load surge up then down over a sequence (Haghshenas/Hasnat/Naeini ISGT 2023)
+  Al   (LRA) targeted masked-overload (Yuan/Li/Ren IEEE T-SG 2011)
   Ad/As/Ar  measurement-level corruption (BDD-detectable contrast set)
 """
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 
-# Integer label for each attack family. These IDs are written into the per-bus label tensor `y`
-# (0 = clean bus, >0 = attacked bus of that family) and consumed downstream by dataset.py.
-# "Ao"/"SLS" are backward-compatible aliases for Aq (id 1) so older scripts/datasets still resolve.
+# Integer family label written into the per-bus label tensor `y` (0=clean, >0=attacked of that family).
+# "Ao"/"SLS" are back-compat aliases for Aq (id 1); "ramp"=At, "LRA"=Al.
 FAM_ID = {"benign": 0, "Aq": 1, "SLS": 1, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4,
-          "At": 5, "ramp": 5, "Al": 6, "LRA": 6}  # At=ramp, Al=LRA (with descriptive aliases)
-# Maps a bus-count knob (14/118/300) to the pandapower.networks factory name for that IEEE case.
+          "At": 5, "ramp": 5, "Al": 6, "LRA": 6}
+# Bus-count knob (14/118/300) -> pandapower.networks factory name.
 _CASE = {14: "case14", 118: "case118", 300: "case300"}
 
 
-# ---------------------------------------------------------------------------------------------------------
-# N-1 LINE OUTAGE SUPPORT
-# A switching event moves the operating manifold: with a line open, the same bus injections produce a
-# different voltage/flow state, so a subspace prior (or any model) fitted on the intact network is being
-# asked to extrapolate. To measure that we need records generated under a genuinely different topology,
-# which means taking the branch out BEFORE anything derived (Ybus, PTDF, the base operating point, the
-# emitted measurements) is computed — a post-hoc mask on an intact-network dataset would not do it.
-# ---------------------------------------------------------------------------------------------------------
-def _line_id(net, outage):
+# N-1 LINE OUTAGE SUPPORT. The branch must be taken out BEFORE anything derived (Ybus, PTDF, base
+# operating point, measurements) is computed — a post-hoc mask on an intact-network dataset won't do.
+def _line_id(net: Any, outage: Union[str, int]) -> int:
     """Map a line NAME or index to the pandapower line index, with a clear error if it names nothing."""
     if isinstance(outage, str):
         hit = net.line.index[net.line["name"].astype(str) == outage]
@@ -46,30 +40,25 @@ def _line_id(net, outage):
     return idx
 
 
-def _n_islands(net):
+def _n_islands(net: Any) -> int:
     """Number of connected components over the IN-SERVICE network (1 == still one connected grid).
 
-    create_nxgraph drops out-of-service branches by default and keeps every bus as a node, so a bus left
-    with no live connection shows up as its own component. This is the cheap screen that has to run BEFORE
-    generating: pandapower will happily "converge" on an islanded case by silently marking the stranded
-    buses isolated (bus type 4) and returning a result, so a solver failure is NOT the signal that a
-    contingency was infeasible.
+    Cheap islanding screen to run BEFORE generating: pandapower "converges" on an islanded case by
+    silently marking stranded buses isolated (bus type 4), so solver failure is NOT the infeasibility signal.
     """
     import networkx as nx
     from pandapower import topology as top
     return int(nx.number_connected_components(top.create_nxgraph(net)))
 
 
-def line_outage_candidates(system, top_n=5, seed_flow_from=None):
+def line_outage_candidates(system: Union[int, str], top_n: int = 5,
+                           seed_flow_from: Any = None) -> Tuple[List[Dict], List[Dict]]:
     """Rank single-line N-1 contingencies by base-case active power flow, keeping the network connected.
 
-    Returns (accepted, rejected). `accepted` is the `top_n` highest-flow lines whose removal leaves one
-    connected, solvable, PTDF-well-posed network, each a dict with the line index, terminal buses, name and
-    signed base-case from-end MW flow. `rejected` lists the higher-flow lines that were screened out and
-    why, so a caller can report honestly which contingencies exist but cannot be generated.
-
-    Highest-flow single-line outages are the standard N-1 screening choice (Moshtagh et al. use exactly
-    this ranking), which makes the scenario set defensible by citation rather than by taste.
+    Returns (accepted, rejected). `accepted` = the `top_n` highest-flow lines whose removal leaves one
+    connected, solvable, PTDF-well-posed network (dict: line index, terminal buses, name, signed from-end
+    MW flow). `rejected` = higher-flow lines screened out, with reason. Highest-flow ranking is the standard
+    N-1 screening choice (Moshtagh et al.).
     """
     import pandapower as pp, pandapower.networks as pn
     from pandapower.pypower.makePTDF import makePTDF
@@ -86,7 +75,7 @@ def line_outage_candidates(system, top_n=5, seed_flow_from=None):
             break
         idx = int(base.line.index[pos])
         if not bool(base.line.at[idx, "in_service"]):
-            continue                                       # already open in the intact case: not a contingency
+            continue                                       # already open: not a contingency
         net = NET()
         net.line.at[idx, "in_service"] = False
         why = None
@@ -121,67 +110,51 @@ def line_outage_candidates(system, top_n=5, seed_flow_from=None):
 
 
 class FdiaGenerator:
-    def __init__(self, system, seed=123, vbus_frac=0.6, pmu_frac=0.2, flow_frac=0.90, outage=None):
-        # pandapower is an optional/heavy dependency, so import lazily inside the constructor
-        # (only when someone actually generates data) rather than at module import time.
+    def __init__(self, system: Union[int, str], seed: int = 123, vbus_frac: float = 0.6, pmu_frac: float = 0.2,
+                 flow_frac: float = 0.90, outage: Optional[Union[int, str]] = None) -> None:
+        # pandapower is heavy/optional: import lazily so it's only needed when actually generating.
         import pandapower as pp, pandapower.networks as pn
-        # makeYbus builds the complex nodal admittance matrix Y (the grid's electrical topology);
-        # makePTDF builds the Power Transfer Distribution Factors (linear line-flow sensitivities to
-        # bus injections) used to target the LRA attack at a specific line.
+        # makeYbus -> complex nodal admittance Y; makePTDF -> linear line-flow sensitivities (for LRA targeting).
         from pandapower.pypower.makeYbus import makeYbus
         from pandapower.pypower.makePTDF import makePTDF
         self.pp = pp
-        # C = bus count (e.g. 118). rng = seeded generator so the whole dataset is reproducible.
         self.C = int(system); self.rng = np.random.default_rng(seed)
-        # Per-quantity measurement noise std-devs (relative for flows/injections, absolute for V/angle).
-        # ASPROU ACCURACY-CLASS MEASUREMENT-CHAIN MODEL (Asprou, Kyriakides & Albu 2013 / TIM 2014; the model
-        # Falas et al. 2025 delegates to). Each std = manufacturer MAX uncertainty / sqrt(3) (uniform-distribution
-        # convention, the paper's eqs 16-21), for CLASS-0.2 instrument transformers (the paper's high-accuracy case):
-        #   P/Q: conventional measurement-device max +-3% (Table III)  -> sigma = 3%/sqrt3 ~= 1.73%   (pi/qi/pf/qf)
-        #   |V|: VT class-0.2 magnitude error 0.2% (Table I)            -> sigma = 0.2%/sqrt3 ~= 0.12% (abs, V~1 pu)
-        #   ang: VT class-0.2 phase displacement 10 arc-min = 0.167 deg -> sigma = 0.167/sqrt3 ~= 0.096 deg
-        #        (the VT phase displacement dominates the 0.01 deg PMU-device term). va is stored in radians.
+        # ASPROU accuracy-class measurement noise stds (Asprou/Kyriakides/Albu TIM 2014; Falas et al. 2025 uses it).
+        # Each std = manufacturer max uncertainty / sqrt(3), class-0.2 instrument transformers. Relative for
+        # flows/injections, absolute for V/angle. P/Q ~1.73%; |V| ~0.12%; angle ~0.096 deg (va stored in radians).
         self.SD = dict(pf=0.017, qf=0.017, v=0.0012, pi=0.017, qi=0.017, va=0.00168)
-        # ACCURACY vs PRECISION split. A meter's accuracy-class error is mostly SYSTEMATIC (calibration/ratio
-        # offset — constant across scans), with only a small RANDOM repeatability jitter scan-to-scan. Modeling
-        # all of SD as independent per-scan noise would make 1-minute traces unrealistically jittery (and drown
-        # the temporal channel). So we split: a per-meter BIAS drawn ONCE (0.968*SD, constant over time) + a
-        # small per-scan JITTER (0.25*SD). RSS(0.968,0.25)=1.0, so the total error still equals the Asprou class.
+        # Accuracy-class error is mostly SYSTEMATIC (constant calibration offset), with a small per-scan jitter.
+        # Treating all of SD as per-scan noise would over-jitter 1-min traces and drown the temporal channel.
+        # Split: per-meter BIAS drawn once (0.968*SD) + per-scan JITTER (0.25*SD); RSS = 1.0 keeps the class total.
         _JIT = 0.25
         self.SDj = {k: v * _JIT for k, v in self.SD.items()}          # per-scan random jitter std
         self._sd_bias = {k: v * (1.0 - _JIT * _JIT) ** 0.5 for k, v in self.SD.items()}  # per-meter bias std
-        # Grab the network factory (e.g. pn.case118) for this case.
         self.NET = getattr(pn, _CASE[self.C])
-        # N-1 CONTINGENCY. `outage` (a line index or name, None = intact network) takes that line out of
-        # service BEFORE the base power flow, so every derived quantity below — Ybus, Yf/Yt, PTDF,
-        # edge_status, the base operating point, and therefore every measurement this generator ever emits —
-        # describes the post-contingency network. The branch ROW is kept in ppc with status 0, so
-        # edge_index, E and the meter plan are identical to the intact case and the two shards are directly
-        # comparable: exactly one thing changed.
+        # N-1 CONTINGENCY. `outage` (line index/name, None=intact) opens the line BEFORE the base power flow, so
+        # every derived quantity (Ybus, Yf/Yt, PTDF, edge_status, base state, all measurements) is post-contingency.
+        # The branch ROW is kept in ppc with status 0, so edge_index/E/meter plan match intact — exactly one thing
+        # changed, shards directly comparable.
         self.outage = None; self.outage_pos = -1; self.outage_name = ""
         self.outage_from_bus = -1; self.outage_to_bus = -1; self.outage_base_flow_mw = float("nan")
         base = self.NET()
         if outage is not None:
             self.outage = _line_id(base, outage)
-            # Base-case (INTACT) flow on the line we are about to open, recorded so the shard can say how
-            # large a contingency it represents.
+            # Record the INTACT flow on the line to be opened, so the shard reports the contingency's size.
             intact = self.NET(); pp.runpp(intact)
             self.outage_base_flow_mw = float(intact.res_line.at[self.outage, "p_from_mw"])
             self.outage_pos = int(base.line.index.get_loc(self.outage))
-            # IEEE cases from pandapower.networks carry no line names (the column is None), so fall back to
-            # a readable "line<idx>" tag rather than storing the string "None" in the shard attrs.
+            # IEEE cases carry no line names (None), so fall back to a "line<idx>" tag.
             _nm = base.line.at[self.outage, "name"]
             self.outage_name = f"line{self.outage}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)
             self.outage_from_bus = int(base.line.at[self.outage, "from_bus"])
             self.outage_to_bus = int(base.line.at[self.outage, "to_bus"])
             base.line.at[self.outage, "in_service"] = False
-            # Refuse an islanding contingency up front. pandapower would otherwise "converge" with the
-            # stranded buses silently marked isolated and hand back a state that is not a power flow
-            # solution of anything, and makePTDF would raise a singular matrix mid-build.
+            # Refuse an islanding contingency up front (else pandapower "converges" on a non-solution and
+            # makePTDF hits a singular matrix mid-build).
             if _n_islands(base) != 1:
                 raise ValueError(f"line {self.outage} outage splits the grid into {_n_islands(base)} islands; "
                                  f"screen with line_outage_candidates() before generating")
-        # Solve the (possibly post-contingency) AC power flow to get this topology's base operating point.
+        # Solve the (possibly post-contingency) AC power flow for the base operating point.
         pp.runpp(base)
         if self.outage is not None:
             n_iso = int((base._ppc["bus"][:, 1].real == 4).sum())
@@ -189,58 +162,44 @@ class FdiaGenerator:
                 raise ValueError(f"line {self.outage} outage leaves {n_iso} isolated bus(es)")
         self.base = base
         C = self.C
-        # load_bus = the bus of EVERY load element, aligned 1:1 with the net.load table so the AC re-solve
-        # (solve() writes net.load["p_mw"] = Lp) and the PTDF-over-load-buses arrays all stay the same length.
+        # load_bus = bus of EVERY load element, aligned 1:1 with net.load so the re-solve and PTDF-over-load
+        # arrays stay the same length.
         _lb = base.load
         self.load_bus = _lb["bus"].values
-        # ATTACKABLE subset = positions in load_bus with real ACTIVE-power load (|p_mw| > 0). A few buses (e.g.
-        # IEEE-300 141, 183) carry a reactive-only load (p_mw=0, q_mvar!=0): pandapower lists them as loads, but our
-        # attacks scale/redistribute ACTIVE power, so attacking one leaves no P footprint yet still gets a y=1 label
-        # (the "no-load bus getting attacked" case). We keep them in the full load table for the physics but exclude
-        # them from attack TARGET selection (generation.py) and from the LRA candidate set (_lra_for_line).
+        # ATTACKABLE = load_bus positions with real ACTIVE load (|p_mw|>0). Reactive-only loads (e.g. IEEE-300
+        # buses 141, 183: p_mw=0, q_mvar!=0) stay in the physics table but are excluded from attack target
+        # selection and the LRA candidate set (attacking one leaves no P footprint yet still gets a y=1 label).
         self._attackable_mask = _lb["p_mw"].abs().values > 0.0
         self.attackable_pos = np.where(self._attackable_mask)[0]
-        # Every bus that has SOME injection element attached (generator, load, slack/ext_grid, shunt).
+        # Every bus with some injection element (gen, load, ext_grid, shunt).
         inj = np.unique(np.r_[base.gen.bus.values, base.load.bus.values, base.ext_grid.bus.values, base.shunt.bus.values])
-        # Zero-injection buses: pure junctions with no source/sink. Their net injection is physically
-        # exactly 0, a strong known constraint — we still emit a (near-zero) injection measurement there.
+        # Zero-injection buses: pure junctions with net injection exactly 0 (strong constraint); still emit a
+        # near-zero injection measurement there.
         self.zero_inj = [b for b in range(C) if b not in set(inj)]
-        # Sparse-metering plan (which buses are actually instrumented), sampled once per generator:
-        #   vbus = buses with a voltage-magnitude meter (fraction vbus_frac)
-        #   pmu  = buses with a PMU (gives voltage magnitude AND phase angle) (fraction pmu_frac)
-        #   inj  = buses whose P/Q injection is metered (all injection buses)
+        # Sparse-metering plan (sampled once): vbus=voltage-magnitude meters, pmu=|V|+angle meters, inj=metered
+        # P/Q injection buses (all injection buses).
         self.M = dict(vbus=set(self.rng.choice(C, int(vbus_frac*C), replace=False).tolist()),
                       pmu=set(self.rng.choice(C, max(1, int(pmu_frac*C)), replace=False).tolist()),
                       inj=sorted(set(inj.tolist())))
-        # Boolean mask over all branches (lines + trafos): which branches have a flow meter (fraction
-        # flow_frac). Branches without a meter emit no edge feature (masked out).
+        # Per-branch flow-meter mask (fraction flow_frac); unmetered branches emit no edge feature.
         self.flow_meter = self.rng.random(len(base.line)+len(base.trafo)) < flow_frac
-        # Edge index (2 x E): row 0 = from-bus, row 1 = to-bus. Lines use from/to; trafos use hv/lv.
-        # The two element types are concatenated so branches share one contiguous indexing 0..E-1.
+        # Edge index (2 x E): row0=from-bus, row1=to-bus (lines use from/to, trafos hv/lv). Concatenated so
+        # branches share one contiguous 0..E-1 indexing.
         self.ei = np.vstack([np.r_[base.line.from_bus.values, base.trafo.hv_bus.values],
                              np.r_[base.line.to_bus.values, base.trafo.lv_bus.values]]).astype(np.int32)
-        # E = total branch count; nl = number of lines (first nl columns of ei are lines).
-        self.E = self.ei.shape[1]; self.nl = len(base.line)
-        # DEPRECATED as of v0.5.0, retained so existing code keeps loading. This mixes UNITS: lines
-        # carry series reactance in ohms while transformers carry vk_percent, a short-circuit voltage
-        # percentage. On IEEE-300 that puts transformer entries three orders of magnitude above line
-        # entries for reasons that are not physical, and 128 of 411 branches are transformers. Use the
-        # per-unit edge_* arrays below instead.
+        self.E = self.ei.shape[1]; self.nl = len(base.line)  # nl = number of lines (first nl cols of ei)
+        # DEPRECATED (v0.5.0), retained for loading. Mixes UNITS: line reactance in ohms vs trafo vk_percent,
+        # putting trafo entries ~3 orders of magnitude above lines on IEEE-300. Use the per-unit edge_* arrays.
         self.x_react = np.r_[base.line.x_ohm_per_km.values*base.line.length_km.values, base.trafo.vk_percent.values].astype(np.float32)
-        # pandapower's internal PYPOWER case (ppc) holds the numeric bus/branch arrays in ppc ordering.
-        ppc = base._ppc
+        ppc = base._ppc  # pandapower's PYPOWER case: numeric bus/branch arrays in ppc ordering
 
-        # FULL BRANCH AND BUS PHYSICS, per unit, exactly the quantities makeYbus itself consumes, so a
-        # model reading them has the same information the state estimator has. ppc branch rows are
-        # ordered lines-then-transformers, which is the same order as self.ei, verified by the branch
-        # count matching len(line)+len(trafo) on all three systems.
-        # BR_G (column 23) is a pandapower extension absent from stock PYPOWER and carries transformer
-        # iron losses. Omitting it reconstructs Ybus exactly on IEEE-14, which has none, and wrongly on
-        # IEEE-118 and IEEE-300, which have 4 and 18. That is the kind of error that looks correct on
-        # the system people test with first, so it is called out here.
-        # float64, not float32. These arrays are a few hundred entries, so the storage cost is a few
-        # kilobytes, while float32 rounding degrades the Ybus reconstruction from ~1e-14 to ~1e-4 on
-        # IEEE-300. An exact reconstruction is the whole claim, so precision wins over a trivial saving.
+        # Full per-unit branch/bus physics — exactly the quantities makeYbus consumes, so a model has the same
+        # info the state estimator does. ppc branch rows are ordered lines-then-transformers, matching self.ei.
+        # BR_G (column 23) is a pandapower extension (absent from stock PYPOWER) carrying transformer iron
+        # losses. Omitting it reconstructs Ybus exactly on IEEE-14 (no trafos) but WRONGLY on IEEE-118/300 (4/18)
+        # — an error that looks correct on the first system people test.
+        # float64, not float32: float32 rounding degrades Ybus reconstruction from ~1e-14 to ~1e-4 on IEEE-300,
+        # and exact reconstruction is the whole claim.
         _br = ppc["branch"]
         _tap = _br[:, 8].real.astype(np.float64).copy()
         _tap[_tap == 0] = 1.0                       # PYPOWER reads a zero tap entry as unity
@@ -252,39 +211,32 @@ class FdiaGenerator:
         self.edge_shift = _br[:, 9].real.astype(np.float64)  # phase shift, degrees
         self.edge_status = _br[:, 10].real.astype(np.float64)  # 1 in service, 0 out
         self.edge_is_trafo = np.r_[np.zeros(self.nl), np.ones(self.E - self.nl)].astype(np.float64)
-        # Shunts sit on the Ybus DIAGONAL, so they are a BUS property and were not expressible in an
-        # edge-only schema. Stored in MW and MVAr at 1.0 p.u. voltage, matching the ppc convention.
+        # Shunts sit on the Ybus DIAGONAL (a BUS property, not expressible edge-only). Stored in MW/MVAr at
+        # 1.0 p.u. voltage, per ppc convention.
         self.bus_shunt_g = ppc["bus"][:, 4].real.astype(np.float64)
         self.bus_shunt_b = ppc["bus"][:, 5].real.astype(np.float64)
-        # Y = nodal admittance; Yf/Yt = "from"/"to" branch-admittance matrices such that the complex
-        # branch flow entering from the from-end is Sf = V_from * conj(Yf @ V).
+        # Y = nodal admittance; Yf/Yt = from/to branch-admittance matrices (from-end flow Sf = V_from*conj(Yf@V)).
         self._Ybus, self._Yf, self._Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
-        # baseMVA = per-unit power base (multiply p.u. by this to get MW/MVAr).
-        # _lut maps pandapower bus index -> ppc row index (the two orderings differ — classic footgun).
+        # _lut maps pandapower bus index -> ppc row index (orderings differ — classic footgun).
         self._bMVA = ppc["baseMVA"]; self._lut = base._pd2ppc_lookups["bus"]
-        # From-bus (ppc index) of each branch, and the ppc bus count (Vc is built in ppc ordering).
+        # From-bus (ppc index) per branch, and ppc bus count (Vc is built in ppc ordering).
         self._fb = ppc["branch"][:, 0].real.astype(int); self._nppc = ppc["bus"].shape[0]
-        # Total generator MW dispatched at each bus (summing multiple gens on the same bus).
+        # Total generator MW per bus (summing co-located gens).
         genP = {}
         for r in base.gen.itertuples(): genP[int(r.bus)] = genP.get(int(r.bus), 0.0) + r.p_mw
-        # Gen MW aligned to the load-bus ordering — lets attacks reason about net (load - gen) at a bus.
+        # Gen MW aligned to load-bus ordering, so attacks can reason about net (load - gen) per bus.
         self.load_genP = np.array([genP.get(int(b), 0.0) for b in self.load_bus])
-        # PTDF: rows = branches, cols = buses; entry = sensitivity of that branch's MW flow to an
-        # injection at that bus. Linear DC model, used to steer redistribution toward a target line.
+        # PTDF (branches x buses): DC sensitivity of each branch's MW flow to a bus injection; steers LRA.
         self._ptdf = makePTDF(self._bMVA, ppc["bus"], ppc["branch"])
-        # Slice PTDF to (branches x load-buses): reindex ppc-order back to pandapower bus order via _lut,
-        # then keep only the load-bus columns (loads are the levers an LRA/Ao attack can move).
+        # Slice PTDF to (branches x load-buses): reindex ppc->pandapower via _lut, keep load-bus columns.
         self._ptdf_lb = self._ptdf[:, [self._lut[b] for b in range(C)]][:, self.load_bus]
-        # A reusable network instance for re-solving power flows under attacked loads (avoids rebuilds).
-        # The contingency has to be applied here too, or attacked records would be solved on the INTACT
-        # network while benign records came from the post-contingency one.
+        # Reusable net for re-solving under attacked loads. Apply the contingency here too, else attacked
+        # records solve on the INTACT network while benign came from the post-contingency one.
         self._solvenet = self.NET()
         if self.outage is not None:
             self._solvenet.line.at[self.outage, "in_service"] = False
-        # Per-meter SYSTEMATIC BIAS, drawn ONCE here so it is CONSTANT across every scan (a fixed calibration
-        # offset per meter). Relative for P/Q & flows (a fixed fraction of the reading), absolute for V/angle.
-        # This is the slow/systematic part of the accuracy-class error; the small per-scan jitter (self.SDj) is
-        # added fresh at emit time. Together they realize the class total while keeping 1-min traces smooth.
+        # Per-meter SYSTEMATIC BIAS drawn ONCE (constant across scans; relative for P/Q & flows, absolute for
+        # V/angle). The slow part of the accuracy-class error; per-scan jitter (self.SDj) is added fresh at emit.
         sb = self._sd_bias
         self.bias_pi = self.rng.normal(0, sb["pi"], self.C); self.bias_qi = self.rng.normal(0, sb["qi"], self.C)
         self.bias_v = self.rng.normal(0, sb["v"], self.C);   self.bias_va = self.rng.normal(0, sb["va"], self.C)
@@ -293,16 +245,13 @@ class FdiaGenerator:
         self.benign_buf = []
 
     # ---- attack targeting ----
-    def centrality_probs(self, strength=1.5):
+    def centrality_probs(self, strength: float = 1.5) -> np.ndarray:
         """Sampling probability over attackable positions, biased toward structurally CRITICAL buses.
 
-        A real attacker does not pick load buses uniformly at random; the buses that matter most are the
-        structurally central ones. We combine three complex-network centrality metrics of the grid graph,
-        degree (local connectivity), closeness (global reach), and betweenness (bridging shortest paths),
-        each z-scored, into one composite criticality score per bus, following the multi-centrality
-        critical-node approach of Doostinia et al. (IEEE Trans. Ind. Appl. 2025). `strength` is the
-        exponential tilt: strength=0 recovers the uniform draw EXACTLY, and larger values concentrate
-        attacks on the highest-centrality load buses. Aligned to self.attackable_pos, cached per strength.
+        Combines z-scored degree, closeness and betweenness centrality into one composite criticality score
+        (Doostinia et al. IEEE T-IA 2025). `strength` is the exponential tilt: strength=0 recovers the uniform
+        draw exactly, larger values concentrate attacks on central load buses. Aligned to self.attackable_pos,
+        cached per strength.
         """
         key = round(float(strength), 4)
         cache = getattr(self, "_cent_cache", None)
@@ -315,17 +264,15 @@ class FdiaGenerator:
         G.add_edges_from(zip(self.ei[0].tolist(), self.ei[1].tolist()))
         dc = nx.degree_centrality(G); cc = nx.closeness_centrality(G); bc = nx.betweenness_centrality(G, normalized=True)
 
-        def _z(dct):
+        def _z(dct: Dict) -> np.ndarray:
             v = np.array([dct[b] for b in range(self.C)], float)
             sd = v.std()
             return (v - v.mean()) / (sd if sd > 1e-12 else 1.0)
 
         comp = _z(dc) + _z(cc) + _z(bc)                     # composite criticality per bus (higher = more central)
         score = comp[self.load_bus[self.attackable_pos]]    # criticality of each attackable load bus
-        # Rank-normalize to [0,1] before the exponential tilt so the bias is BOUNDED and predictable: a raw
-        # exp of the summed z-score explodes on hub buses (one bus taking ~all the mass). With rank in [0,1],
-        # exp(strength*rank) gives a most-vs-least-central ratio of exactly e^strength (~4.5x at 1.5), which
-        # concentrates attacks on central buses while keeping the target set diverse.
+        # Rank-normalize to [0,1] before the exp tilt so the bias is BOUNDED: a raw exp of the z-score explodes
+        # on hubs (one bus takes ~all mass). rank in [0,1] gives a most-vs-least ratio of exactly e^strength.
         r = score.argsort().argsort().astype(float)
         rank = r / max(1, len(r) - 1)
         p = np.exp(strength * rank); p = p / p.sum()
@@ -334,88 +281,78 @@ class FdiaGenerator:
 
     # ---- emission ----
     # Draw one zero-mean Gaussian noise sample with std `s` (the meter-noise primitive).
-    def _n(self, s): return self.rng.normal(0, s)
+    def _n(self, s: float) -> float: return self.rng.normal(0, s)
 
-    def emit_from_state(self, X):
-        # Emit a measurement graph DIRECTLY from a stored operating state X (no power-flow re-solve),
-        # giving physically exact (0-error) flows before meter noise. X columns = [Pinj, Qinj, |V|, angle].
+    def emit_from_state(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
+        # meter noise. X columns = [Pinj, Qinj, |V|, angle].
         C, SD, M = self.C, self.SD, self.M
         Pi, Qi, V, TH = X[:, 0], X[:, 1], X[:, 2], X[:, 3]
         # Rebuild the complex bus-voltage phasor vector in ppc ordering: V * e^{j*theta}.
         Vc = np.zeros(self._nppc, complex)
         for b in range(C): Vc[self._lut[b]] = V[b]*np.exp(1j*np.deg2rad(TH[b]))
-        # Exact complex branch "from-end" power flow via the physics identity Sf = V_from * conj(Yf @ V),
-        # scaled by baseMVA to physical units. Sf.real = P_from (MW), Sf.imag = Q_from (MVAr).
+        # Exact from-end flow via Sf = V_from*conj(Yf@V), scaled to physical units (Sf.real=MW, Sf.imag=MVAr).
         Sf = Vc[self._fb]*np.conj(self._Yf@Vc)*self._bMVA
-        # Node feature/mask buffers: columns [|V|, P_inj, Q_inj, angle]; mask=1 where a meter exists.
+        # Node buffers: cols [|V|, P_inj, Q_inj, angle]; mask=1 where metered.
         nx = np.zeros((C, 4), np.float32); nm = np.zeros((C, 4), np.uint8)
-        # Each reading = true + CONSTANT per-meter bias (self.bias_*, drawn once) + per-scan JITTER (self.SDj).
-        # V-magnitude & flow biases are relative to the reading; V/angle biases are absolute (VT ratio error /
-        # phase displacement). va bias/jitter are in radians -> converted to degrees to match TH.
+        # Each reading = true + constant per-meter bias + per-scan jitter. V-mag/flow biases relative, V/angle
+        # biases absolute. va bias/jitter are radians -> degrees to match TH.
         SDj = self.SDj
         for b in range(C):
-            # Voltage magnitude AND phase angle are observed at the same buses (vbus OR pmu).
-            if b in M["vbus"] or b in M["pmu"]:
+            if b in M["vbus"] or b in M["pmu"]:     # |V| and angle observed at the same buses
                 nx[b, 0] = V[b] + self.bias_v[b] + self._n(SDj["v"]); nm[b, 0] = 1
                 nx[b, 3] = TH[b] + np.degrees(self.bias_va[b]) + self._n(np.degrees(SDj["va"])); nm[b, 3] = 1
-            # Injection buses (and zero-injection junctions) emit P/Q: relative bias (fraction of reading) +
-            # relative per-scan jitter (+ small floor so a ~0 injection still gets a tiny nonzero std).
+            # Injection/zero-injection buses emit P/Q: relative bias + jitter (+small floor so ~0 injection
+            # still gets a nonzero std).
             if b in M["inj"] or b in self.zero_inj:
                 nx[b, 1] = Pi[b]*(1.0+self.bias_pi[b]) + self._n(abs(Pi[b])*SDj["pi"]+1e-3)
                 nx[b, 2] = Qi[b]*(1.0+self.bias_qi[b]) + self._n(abs(Qi[b])*SDj["qi"]+1e-3); nm[b, 1:3] = 1
-        # Edge feature/mask buffers: columns [P_from, Q_from]; mask=1 where a flow meter exists.
+        # Edge buffers: cols [P_from, Q_from]; mask=1 where a flow meter exists.
         ex = np.zeros((self.E, 2), np.float32); em = np.zeros((self.E, 2), np.uint8)
         for e in range(self.E):
-            if self.flow_meter[e]:
-                # Metered branch flow: relative per-meter bias + relative per-scan jitter on P and Q.
+            if self.flow_meter[e]:                  # metered branch flow: relative bias + jitter on P and Q
                 ex[e, 0] = Sf.real[e]*(1.0+self.bias_pf[e]) + self._n(abs(Sf.real[e])*SDj["pf"]+1e-3)
                 ex[e, 1] = Sf.imag[e]*(1.0+self.bias_qf[e]) + self._n(abs(Sf.imag[e])*SDj["qf"]+1e-3); em[e] = 1
         return nx, nm, ex, em
 
-    def state_from_net(self, net):
-        # Pull the operating state [N,4] = [Pinj, Qinj, |V|, theta] out of a SOLVED net, in the same
-        # convention the stored pool uses.
+    def state_from_net(self, net: Any) -> np.ndarray:
+        # Pull operating state [N,4]=[Pinj, Qinj, |V|, theta] from a SOLVED net, matching the stored pool.
         Pi = net.res_bus.p_mw.values.copy(); Qi = net.res_bus.q_mvar.values.copy()
-        # Shunts are modeled inside res_bus; subtract shunt draw so Pi/Qi reflect gen/load injection only,
-        # matching how the stored states (and emit_from_state) define the injection.
+        # Shunts live in res_bus; subtract shunt draw so Pi/Qi reflect gen/load injection only (matching the
+        # stored states and emit_from_state).
         for i in net.shunt.index:
             b = net.shunt.at[i, "bus"]; Pi[b] -= net.res_shunt.p_mw[i]; Qi[b] -= net.res_shunt.q_mvar[i]
         V = net.res_bus.vm_pu.values; TH = net.res_bus.va_degree.values
         return np.column_stack([Pi, Qi, V, TH])              # [N,4] = [Pinj, Qinj, |V|, theta]
 
-    def emit(self, net):
-        # Emit a measurement graph from a SOLVED pandapower net (attacks that re-solve a power flow). We
-        # extract the solved operating state and route it through emit_from_state, so an attacked sample and
-        # a benign sample are computed by the IDENTICAL measurement function. Emitting flows here from
-        # res_line while benign used the Ybus identity left a ~7 MW systematic benign-vs-attack offset that
-        # was not the attack; sharing one path removes it, so an alpha=1 (no-op) re-solve matches benign.
+    def emit(self, net: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        # Emit from a SOLVED net (re-solving attacks) by routing its state through emit_from_state, so
+        # attacked and benign samples use the IDENTICAL measurement path. Emitting flows from res_line here
+        # (while benign uses the Ybus identity) left a ~7 MW systematic benign-vs-attack offset; sharing one
+        # path removes it, so an alpha=1 no-op re-solve matches benign.
         return self.emit_from_state(self.state_from_net(net))
 
-    def resolve_states(self, X):
+    def resolve_states(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Re-solve a pool of operating points [T,N,4] under THIS generator's topology.
 
-        A stored state carries the injections AND the voltages that the INTACT network produced for them.
-        Under a contingency the same loads give a different voltage/flow state, so emitting an intact-network
-        state through a post-contingency Ybus would fabricate measurements that satisfy no power flow at all.
-        Re-solving fixes that: the loads (and the generator dispatch reconstructed from the stored state) are
-        held at exactly the values the base case had at that timestamp, and only the topology differs — which
-        is the whole point, since a load profile that shifted between scenarios would confound topology with
-        load level and make the comparison meaningless.
+        A stored state carries the injections AND the voltages the INTACT network produced. Under a
+        contingency the same loads give a different state, so emitting an intact state through a
+        post-contingency Ybus would fabricate measurements satisfying no power flow. Re-solving holds the
+        loads and reconstructed dispatch at the base-case values and changes only the topology (else a
+        shifted load profile would confound topology with load level).
 
-        Returns (Xnew [T,N,4], ok [T] bool). Rows where the power flow did not converge, or came back
-        non-finite, are left as-is and flagged False rather than quietly dropped, so the caller can intersect
-        the converged sets across scenarios and keep one common timestamp axis.
+        Returns (Xnew [T,N,4], ok [T] bool). Non-converged or non-finite rows are left as-is and flagged
+        False (not dropped), so the caller can intersect converged sets across scenarios on one timestamp axis.
         """
         X = np.asarray(X, dtype=np.float64)
         out = X.copy(); ok = np.zeros(len(X), bool)
         for t in range(len(X)):
             Xt = X[t]
-            # Base active load at each load element = stored injection + the generation folded onto that bus.
+            # Base active load per element = stored injection + generation folded onto that bus.
             Lp = Xt[self.load_bus, 0] + self.load_genP
             Lq = Xt[self.load_bus, 1].copy()
-            # Lp_true == Lp: no attack, so this is the alpha=1 no-op re-solve. On the INTACT topology it
-            # reproduces the stored state (that identity is the check that the pinning is right); on a
-            # contingency topology it is the post-contingency state for the same operating conditions.
+            # Lp_true==Lp: alpha=1 no-op re-solve. Reproduces the stored state on the intact topology (the
+            # pinning check); yields the post-contingency state on a contingency topology.
             net = self.solve(Lp, Lq, Xt=Xt, Lp_true=Lp)
             if net is None:
                 continue
@@ -425,18 +362,16 @@ class FdiaGenerator:
             out[t] = s; ok[t] = True
         return out, ok
 
-    def solve(self, Lp, Lq, Xt=None, Lp_true=None):
-        # Set new load P/Q on the reusable net and re-run AC power flow. Returns the solved net, or None
-        # if it fails to converge (attacks push loads into non-convergent regions — caller skips those).
+    def solve(self, Lp: np.ndarray, Lq: np.ndarray, Xt: Optional[np.ndarray] = None,
+              Lp_true: Optional[np.ndarray] = None) -> Optional[Any]:
+        # Set new load P/Q on the reusable net and re-run AC power flow. Returns the solved net, or None on
+        # non-convergence (attacks can push loads into non-convergent regions — caller skips those).
         net = self._solvenet
         net.load["p_mw"] = Lp; net.load["q_mvar"] = Lq
-        # Pin the generation to the TRUE operating point's dispatch. Without this the re-solve leaves every
-        # generator at its base-case setpoint and dumps the whole load change onto the slack bus, so even a
-        # zero-attack re-solve drifts far from the true state (a large slack/generator residual that is NOT
-        # the attack). We reconstruct each bus's true generation from the stored injection, Pgen[b] = (true
-        # load at b) - (true injection Xt[b,0]), hold it fixed at the UNATTACKED dispatch, and let only the
-        # slack absorb the attack's load delta — so an alpha=1 re-solve reproduces the true state and an
-        # attack's residual collapses to its actual load footprint plus the minimal slack response.
+        # Pin generation to the TRUE dispatch. Otherwise the re-solve leaves gens at base setpoints and dumps
+        # the load change onto the slack, so even a zero-attack re-solve drifts far from the true state (a
+        # residual that is NOT the attack). Reconstruct each bus's true gen from the stored injection, hold it
+        # at the UNATTACKED dispatch, and let the slack (plus AGC spread below) absorb the delta.
         if Xt is not None:
             base_load = Lp_true if Lp_true is not None else Lp   # unattacked load -> the fixed dispatch
             Lfull = np.zeros(self.C)                             # total true load per bus (bus-indexed)
@@ -447,36 +382,35 @@ class FdiaGenerator:
             for b in gbus: ncnt[int(b)] = ncnt.get(int(b), 0) + 1
             # gen bus injection reproduced: net.load(=Lfull+foldedgen) - gen = Xt[b,0]; split across co-located gens
             gp = np.array([(Lfull[int(b)] - Pinj_true[int(b)]) / ncnt[int(b)] for b in gbus], float)
-            # Distribute the attack's net load change across generators (participation factor proportional to
-            # dispatch, like AGC) instead of dumping it all on the slack. This keeps the counterfactual a
-            # plausible, generation-balanced operating point — the most stealthy realization — so the attack's
-            # measurement footprint is the attacked loads plus a small spread, not a large single-bus slack spike.
+            # Spread the attack's net load change across gens (AGC-like, proportional to dispatch) instead of
+            # onto the slack alone: keeps a plausible, generation-balanced (stealthy) counterfactual whose
+            # footprint is the attacked loads plus a small spread, not a single-bus slack spike.
             dL = float(np.sum(Lp) - np.sum(base_load))          # net extra load introduced by the attack
             tot = gp.sum()
             if tot > 0 and dL != 0.0: gp = gp + dL * (gp / tot)
             net.gen["p_mw"] = gp
             net.gen["vm_pu"] = [Xt[int(b), 2] for b in gbus]     # hold each gen at its true voltage setpoint
-            sb = net.ext_grid["bus"].values                      # pin the slack reference to the true voltage/angle
+            sb = net.ext_grid["bus"].values                      # pin slack reference to true voltage/angle
             net.ext_grid["vm_pu"] = [Xt[int(b), 2] for b in sb]
             net.ext_grid["va_degree"] = [Xt[int(b), 3] for b in sb]
         try: self.pp.runpp(net); return net
         except Exception: return None
 
-    def corrupt(self, nx, ex, atk, kind, replay, floor=0.02, cap=0.20):
-        # Measurement-level attacks (the BDD-DETECTABLE contrast families). They perturb the already-emitted
-        # measurements at attacked buses `atk` and their incident branches, WITHOUT respecting power-flow
-        # physics — which is exactly why bad-data detection can catch them.
-        # Plausibility band [floor, cap]: every realized per-bus tamper is kept ABOVE the meter-noise floor
-        # (so it is not a within-noise no-op) and BELOW the literature cap (so it stays a realistic FDIA).
-        # `weak` flags a record whose realized change stayed inside the floor (only Ar can, since it replays
-        # whatever the grid happened to do) so make() can reject and redraw it.
+    def corrupt(self, nx: np.ndarray, ex: np.ndarray, atk: np.ndarray, kind: str,
+                replay: Optional[np.ndarray], floor: float = 0.02,
+                cap: float = 0.20) -> Tuple[np.ndarray, np.ndarray, bool, np.ndarray]:
+        # Measurement-level attacks (BDD-DETECTABLE contrast families): perturb already-emitted measurements
+        # at attacked buses `atk` and incident branches WITHOUT respecting power-flow physics — which is why
+        # bad-data detection catches them. Plausibility band [floor, cap] keeps each tamper above the noise
+        # floor (not a within-noise no-op) and below the literature cap (realistic FDIA). `weak` flags a
+        # record whose realized change fell inside the floor (only Ar can, since it replays the grid) so
+        # make() can reject and redraw it.
         inc = [e for e in range(self.E) if self.ei[0, e] in atk or self.ei[1, e] in atk]
         weak = False; mags = []   # mags = realized per-bus |delta|/|base| on the P/Q injection channels
 
-        def band_shift(cur):
-            # additive perturbation whose per-channel |delta|/|cur| is drawn UNIFORMLY across [floor, cap],
-            # random sign. Drawing in-band (rather than clipping a huge Gaussian) keeps Ad spread across the
-            # band instead of piling every reading at the cap.
+        def band_shift(cur: np.ndarray) -> np.ndarray:
+            # additive perturbation with per-channel |delta|/|cur| drawn UNIFORMLY over [floor, cap], random
+            # sign. In-band draw (vs clipping a big Gaussian) keeps Ad spread across the band, not piled at cap.
             base = np.abs(cur) + 1e-6
             rel = self.rng.uniform(floor, cap, cur.shape)
             sign = np.where(self.rng.random(cur.shape) < 0.5, -1.0, 1.0)
@@ -500,68 +434,56 @@ class FdiaGenerator:
         return nx, ex, weak, np.array(mags, float)
 
     # ---- LRA (Yuan et al. 2011) target line + delta ----
-    def _lra_for_line(self, L, Lp, rel, K, rand=False, floor=0.02):
-        # rand=True samples attacked buses from the top-2K high-PTDF candidates so the bus SET varies per
-        # record (not memorizable); rand=False (target ranking) stays deterministic.
-        # Load Redistribution Attack for a chosen target line L: craft a load-injection delta that is
-        # (a) LOAD-CONSERVING (total load unchanged -> looks like a normal re-dispatch), (b) PER-BUS
-        # BOUNDED (|delta_b| <= rel*|Lp_b|, physically plausible), and (c) steers flow on line L via PTDF.
-        # pl = PTDF row for line L over load buses (each load's marginal effect on line-L flow).
-        pl = self._ptdf_lb[L]; cap = rel*np.abs(Lp); score = np.abs(pl)*cap
-        def pick(side):
-            # Rank candidate buses on one PTDF sign side by score (how much flow-change each can buy) and
-            # keep the strongest K (deterministic) or a random K of the top-2K (randomized).
+    def _lra_for_line(self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = False,
+                      floor: float = 0.02) -> Optional[Tuple[np.ndarray, np.ndarray, float]]:
+        # Load Redistribution Attack for target line L: a load-injection delta that is LOAD-CONSERVING (total
+        # unchanged -> looks like normal re-dispatch), PER-BUS BOUNDED (|delta_b| <= rel*|Lp_b|), and steers
+        # line-L flow via PTDF. rand=True picks buses from the top-2K high-PTDF candidates (varies per record,
+        # not memorizable); rand=False is deterministic ranking.
+        pl = self._ptdf_lb[L]; cap = rel*np.abs(Lp); score = np.abs(pl)*cap  # pl = line-L PTDF row over load buses
+        def pick(side: np.ndarray) -> np.ndarray:
+            # Rank one PTDF-sign side by score, keep strongest K (or random K of top-2K if randomized).
             side = side[np.argsort(-score[side])]
             if len(side) == 0: return side
             top = side[:2*K]; k = min(K, len(top))
             return self.rng.choice(top, k, replace=False) if rand else top[:k]
-        # Split load buses by PTDF sign: positive buses increase line-L flow, negative buses decrease it.
-        # We RAISE load on the positive side and DROP it on the negative side to push flow up on line L.
+        # Raise load on the positive PTDF side, drop on the negative side, to push flow up on line L.
         # Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
         pos = pick(np.where((pl > 0) & self._attackable_mask)[0]); neg = pick(np.where((pl < 0) & self._attackable_mask)[0])
         if len(pos) == 0 or len(neg) == 0: return None
-        # Per-bus caps for each side; the conserved budget is the smaller of the two side capacities so the
-        # raise on `pos` can be exactly cancelled by the drop on `neg` (net load change = 0).
-        # Both sides scale to a common `budget` (MW moved), so a side's per-bus deviation is the UNIFORM
-        # rel*budget/cap_sum. Always moving the maximum budget pins the smaller side at the cap and makes Al
-        # pile at 20%. Instead draw the budget at RANDOM within the range that keeps BOTH sides' deviation
-        # inside [floor, rel]: this spreads Al across the whole band (distributional) while staying exactly
-        # load-conserving. lo is set so the larger side stays above the floor; hi so neither exceeds the cap.
+        # Both sides scale to a common `budget` (MW moved) so net load change = 0. Always moving the max budget
+        # pins the smaller side at cap and piles Al at 20%; instead draw the budget at random within the range
+        # keeping both sides' deviation in [floor, rel] (spreads Al across the band, still load-conserving).
         ps, ns = cap[pos].sum(), cap[neg].sum()
         if min(ps, ns) <= 0: return None
         lo = (floor/rel) * max(ps, ns)        # smallest budget keeping the larger side above the floor
         hi = min(ps, ns)                      # largest budget within the per-bus caps
-        if lo >= hi: return None              # line too lopsided to move a plausible in-band budget -> reject
+        if lo >= hi: return None              # line too lopsided for a plausible in-band budget -> reject
         budget = float(self.rng.uniform(lo, hi))
         up = cap[pos] * (budget/ps); dn = cap[neg] * (budget/ns)
         d = np.zeros_like(Lp); d[pos] = up; d[neg] = -dn
         # Return (delta, attacked-bus indices, achieved line-L flow change = -sum(PTDF*delta)).
         return d, np.r_[pos, neg], float(-np.sum(pl*d))
 
-    def _pick_lra_target(self, rel, K, n_targets=15):
-        # Rank lines by achievable conserving-redistribution flow change and keep the top-`n_targets` as a
-        # target POOL. Varying the target per attack (below) diversifies the attacked-bus set so LRA is not
-        # trivially localizable (a single fixed target lets a model just memorize those buses).
-        # Use base-case loads to evaluate each line's attack potential once, up front.
+    def _pick_lra_target(self, rel: float, K: int, n_targets: int = 15) -> None:
+        # Rank lines by achievable conserving-redistribution flow change; keep top-`n_targets` as a target
+        # POOL. Varying the target per attack diversifies the attacked-bus set so LRA is not trivially
+        # memorizable. Evaluate on base-case loads once, up front.
         bl = self.base.load.p_mw.values
-        # For every line, compute its best conserving delta and the flow change it achieves. An outaged line
-        # is skipped explicitly: its PTDF row is zero so it would rank last anyway, but its base-case flow is
-        # NaN, and a NaN reaching self._sgn would silently poison every LRA delta on that line.
+        # Skip the outaged line explicitly: its PTDF row is zero (ranks last anyway) but its base-case flow is
+        # NaN, and a NaN reaching self._sgn would poison every LRA delta on that line.
         pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl) if L != self.outage_pos]
         pot = [(L, r) for L, r in pot if r is not None]
-        # Sort by |achieved flow change| descending — the most attackable lines first.
-        pot.sort(key=lambda x: -abs(x[1][2]))
-        # Keep the top-n as the candidate target pool.
+        pot.sort(key=lambda x: -abs(x[1][2]))                 # most attackable lines first
         self._Lcands = [L for L, _ in pot[:min(n_targets, len(pot))]]
-        # Sign of each candidate line's base flow (fallback +1) so the attack pushes flow in the direction
-        # that WORSENS the existing loading (masking a real overload rather than relieving it).
+        # Sign of each candidate's base flow (fallback +1) so the attack WORSENS existing loading (masks a real
+        # overload rather than relieving it).
         self._sgn = {L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._Lcands}
-        # Default/primary target = most attackable line.
-        self._Ltgt = self._Lcands[0]
+        self._Ltgt = self._Lcands[0]                          # default/primary target = most attackable line
 
-    def lra_delta(self, Lp, rel, K, floor=0.02):
+    def lra_delta(self, Lp: np.ndarray, rel: float, K: int, floor: float = 0.02) -> Tuple[np.ndarray, np.ndarray]:
         L = int(self.rng.choice(self._Lcands))                # random target line per attack
         r = self._lra_for_line(L, Lp, rel, K, rand=True, floor=floor)   # + randomized bus subset -> not memorizable
-        # Apply the line's base-flow sign so the redistribution masks (not relieves) its overload; if no
-        # feasible delta exists, return a zero delta and empty attacked-bus set (record stays effectively benign).
+        # Apply the base-flow sign so redistribution masks (not relieves) the overload; no feasible delta ->
+        # zero delta and empty attacked-bus set (record stays effectively benign).
         return (r[0]*self._sgn[L], r[1]) if r is not None else (np.zeros_like(Lp), np.array([], int))

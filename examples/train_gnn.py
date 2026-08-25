@@ -9,72 +9,73 @@ easy detectable ones. Runs on CPU for IEEE-14; pass a bigger system + GPU for 11
 
     python train_gnn.py --system ieee14 --epochs 5
 """
+from __future__ import annotations
+
 import argparse, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
+from typing import Any, Dict, Tuple
 import fdia_graph as fg
 from fdia_graph.dataset import FAMILIES
 
 
 class EdgeMPNN(nn.Module):
-    """Minimal edge-conditioned message-passing net. Each layer builds a message per directed edge from
-    (source node, dest node, edge features) and mean-aggregates it at the destination — so line P/Q flows
-    (edge features) directly inform the incident buses, which is exactly the physics a localizer needs.
-    Availability masks are concatenated to the raw features so the model knows which meters are present."""
+    """Edge-conditioned message-passing net: each layer messages per directed edge from
+    (src, dst, edge feats) and mean-aggregates at the destination, so line P/Q flows inform the
+    incident buses. Availability masks are concatenated so the model knows which meters are present."""
 
-    def __init__(self, n_node_feat=4, n_edge_feat=2, hidden=64, layers=3):
+    def __init__(self, n_node_feat: int = 4, n_edge_feat: int = 2, hidden: int = 64, layers: int = 3) -> None:
         super().__init__()
-        self.enc = nn.Linear(n_node_feat * 2, hidden)                  # *2: features are concatenated with their mask
+        self.enc = nn.Linear(n_node_feat * 2, hidden)                  # *2: feature concatenated with its mask
         self.edge_enc = nn.Linear(n_edge_feat * 2, hidden)
-        # one MLP per message-passing round: input = [h_src, h_dst, h_edge] -> hidden
+        # one MLP per message-passing round: [h_src, h_dst, h_edge] -> hidden
         self.msg = nn.ModuleList([nn.Linear(hidden * 3, hidden) for _ in range(layers)])
         self.upd = nn.ModuleList([nn.Linear(hidden * 2, hidden) for _ in range(layers)])
         self.head = nn.Linear(hidden, 1)                               # per-node attack logit
 
-    def forward(self, node_x, node_m, edge_x, edge_m, edge_index):
+    def forward(self, node_x: torch.Tensor, node_m: torch.Tensor, edge_x: torch.Tensor,
+                edge_m: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
         B, N, _ = node_x.shape; E = edge_index.shape[1]
         src, dst = edge_index[0], edge_index[1]
         h = F.relu(self.enc(torch.cat([node_x, node_m], -1)))          # [B,N,H]
         he = F.relu(self.edge_enc(torch.cat([edge_x, edge_m], -1)))    # [B,E,H]
-        # make edges bidirectional so information flows both ways along a line
-        src2 = torch.cat([src, dst]); dst2 = torch.cat([dst, src]); he2 = torch.cat([he, he], 1)  # [B,2E,H]
+        src2 = torch.cat([src, dst]); dst2 = torch.cat([dst, src]); he2 = torch.cat([he, he], 1)  # bidirectional
         for msg, upd in zip(self.msg, self.upd):
-            m = F.relu(msg(torch.cat([h[:, src2], h[:, dst2], he2], -1)))   # [B,2E,H] message per edge
+            m = F.relu(msg(torch.cat([h[:, src2], h[:, dst2], he2], -1)))   # message per edge
             agg = torch.zeros_like(h)
-            agg.index_add_(1, dst2, m)                                 # sum messages into destination nodes
+            agg.index_add_(1, dst2, m)
             deg = torch.zeros(N, device=h.device).index_add_(0, dst2, torch.ones(2 * E, device=h.device))
             agg = agg / deg.clamp(min=1).view(1, N, 1)                 # mean aggregation
-            h = F.relu(upd(torch.cat([h, agg], -1)))                   # node update with residual-style concat
+            h = F.relu(upd(torch.cat([h, agg], -1)))
         return self.head(h).squeeze(-1)                               # [B,N] logits
 
 
-def node_f1(logits, y, mask):
-    """Micro node-F1 over the buses of the selected records (mask), pooled across records. Threshold logit>0."""
+def node_f1(logits: torch.Tensor, y: torch.Tensor, mask: torch.Tensor) -> float:
+    """Micro node-F1 pooled across the selected records (mask). Threshold logit>0."""
     pred = (logits[mask] > 0).float(); tgt = y[mask]
     tp = (pred * tgt).sum(); fp = (pred * (1 - tgt)).sum(); fn = ((1 - pred) * tgt).sum()
     p = tp / (tp + fp + 1e-9); r = tp / (tp + fn + 1e-9)
     return (2 * p * r / (p + r + 1e-9)).item()
 
 
-def sample_f1(logits, y, mask):
-    """Sample-wise F1 (Boyaci et al., IEEE T-SG 2022) — the localization-specific metric: compute F1 over the
-    buses WITHIN each record, then average across records. Stricter than pooled node-F1 because it rewards
-    getting each attack's bus SET right per-sample, not just the aggregate. Computed over attacked records."""
+def sample_f1(logits: torch.Tensor, y: torch.Tensor, mask: torch.Tensor) -> float:
+    """Sample-wise F1 (Boyaci et al., IEEE T-SG 2022): F1 over buses within each record, averaged across
+    records. Stricter than pooled node-F1 as it rewards the per-sample bus SET. Over attacked records."""
     pred = (logits[mask] > 0).float(); tgt = y[mask]                 # [n_rec, N]
     tp = (pred * tgt).sum(1); fp = (pred * (1 - tgt)).sum(1); fn = ((1 - pred) * tgt).sum(1)
     p = tp / (tp + fp + 1e-9); r = tp / (tp + fn + 1e-9)
     return (2 * p * r / (p + r + 1e-9)).mean().item()
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--system", default="ieee14")
     ap.add_argument("--epochs", type=int, default=5)
     ap.add_argument("--batch", type=int, default=512)         # large batch — target the GPU, not memory
     ap.add_argument("--release", default=None)               # pin a dataset version if desired
-    ap.add_argument("--pos_weight", type=float, default=-1)   # -1 = auto (neg/pos; scales with grid size to avoid all-zero collapse)
+    ap.add_argument("--pos_weight", type=float, default=-1)   # -1 = auto (neg/pos; scales with grid size)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
     from contextlib import nullcontext
-    torch.manual_seed(args.seed)                             # reproducible init (avoids lucky/unlucky runs)
+    torch.manual_seed(args.seed)
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     if dev == "cuda":                                        # GPU throughput knobs
         torch.backends.cuda.matmul.allow_tf32 = True; torch.backends.cudnn.allow_tf32 = True; torch.backends.cudnn.benchmark = True
@@ -84,15 +85,14 @@ def main():
     test = fg.load(args.system, split="test", release=args.release)
     ei = train.edge_index.to(dev)
     print(f"train {len(train):,} / test {len(test):,} records on {args.system} (N={train.N}, E={train.E}) [{dev}]")
-    # Pre-load whole splits onto the GPU once -> batches are pure GPU gathers (no per-step h5/CPU->GPU cost).
-    # (train.loader(...) is the simple streaming alternative when a split doesn't fit in VRAM.)
-    def gpu(ds):
+
+    # Pre-load whole splits onto the GPU once so batches are pure GPU gathers (train.loader() streams if VRAM is tight).
+    def gpu(ds: Any) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         a = ds.to_numpy()
         return ({k: torch.as_tensor(a[k], device=dev, dtype=torch.float32) for k in ("node_x", "node_m", "edge_x", "edge_m", "y")},
                 torch.as_tensor(a["family"], device=dev))
     trG, _ = gpu(train); teG, teFam = gpu(test); n = trG["y"].shape[0]
-    # Standardize node/edge features per channel using TRAIN stats (metered entries only). Raw MW injections
-    # /flows are large on IEEE-300 -> unnormalized they hurt training and overflow bf16; this is essential.
+    # Standardize per channel using TRAIN stats (metered entries only); essential as raw MW is large on IEEE-300.
     for xk, mk in (("node_x", "node_m"), ("edge_x", "edge_m")):
         w = trG[mk].sum((0, 1)).clamp(min=1.0)
         mu = (trG[xk] * trG[mk]).sum((0, 1)) / w
@@ -100,7 +100,7 @@ def main():
         trG[xk] = (trG[xk] - mu) / sd * trG[mk]; teG[xk] = (teG[xk] - mu) / sd * teG[mk]
 
     model = EdgeMPNN().to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3)
-    # auto BCE positive-class weight = neg/pos label ratio (attacked-bus rate falls as the grid grows).
+    # auto BCE pos-class weight = neg/pos ratio (attacked-bus rate falls as the grid grows).
     pos = float(trG["y"].sum())
     pwv = args.pos_weight if args.pos_weight > 0 else float(min(max((trG["y"].numel() - pos) / max(pos, 1), 1.0), 100.0))
     pw = torch.tensor(pwv, device=dev); print(f"pos_weight = {pwv:.1f}  batch={args.batch}  bf16={dev=='cuda'}")
@@ -114,7 +114,7 @@ def main():
             opt.zero_grad(); loss.backward(); opt.step(); tot += loss.item() * len(idx)
         print(f"epoch {ep+1}/{args.epochs}  train loss {tot/n:.4f}")
 
-    # --- evaluate: overall + PER-ATTACK-TYPE node-F1 + swF1 (GPU-resident, bf16) ---
+    # evaluate: overall + per-attack-type node-F1 + swF1 (GPU-resident, bf16)
     model.eval(); allL = []
     nt = teG["y"].shape[0]
     with torch.no_grad(), autocast():
