@@ -12,41 +12,42 @@ Quickstart
     fg.generate("ieee118", name="my_run", per_family=5000, attack_intensity=0.20, ramp_rate=0.003)
     ds = fg.load("my_run", split="train")
 """
-# --- Re-exports: pull the workhorse names up to the package top level so users
-# --- can write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
-# FdiaGraph        : the torch Dataset wrapper over one .h5 shard (see dataset.py).
-# FAMILIES         : the full ordered tuple of attack-family names/ids the datasets use.
-# STEALTHY_FAMILIES: the subset that evades bad-data detection (the hard cases, e.g. Aq).
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+
+if TYPE_CHECKING:
+    import numpy as np
+
+# Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
+# FdiaGraph: torch Dataset over one .h5 shard; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
+# BDD-evading subset (hard cases, e.g. Aq).
 from .dataset import FdiaGraph, FAMILIES, STEALTHY_FAMILIES
-# registry.py is the dataset "version control":
-# list_datasets  : enumerate the known built-in + locally-registered datasets.
-# register_local : record a locally-generated dataset under a name so load() can find it.
-# resolve        : turn (name, release) into a concrete download spec (release tag + filename).
+# registry = dataset "version control": list_datasets (known built-in + local), register_local (name a local
+# dataset), resolve ((name, release) -> download spec).
 from .registry import list_datasets, register_local, resolve
-# download.py handles the network/cache side:
-# ensure_local   : given a resolved spec, return a local .h5 path, fetching+caching if absent.
+# download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
 
-# Package version string, surfaced as fdia_graph.__version__ (standard convention).
 __version__ = "0.6.0"
-# The public surface: what `from fdia_graph import *` exposes and what we advertise as stable API.
-# Note register_local/resolve/ensure_local are intentionally NOT here — they're internal plumbing.
+# Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
 __all__ = ["load", "generate", "load_profile", "fetch_profile", "generate_states",
            "line_outage_candidates", "list_datasets", "FdiaGraph", "FAMILIES", "STEALTHY_FAMILIES"]
 
 
-def line_outage_candidates(system, top_n=5):
+def line_outage_candidates(system: Union[str, int], top_n: int = 5) -> Tuple[List[Dict], List[Dict]]:
     """Rank single-line N-1 contingencies by base-case flow, screening out any that island the grid.
 
     Returns (accepted, rejected) lists of dicts. Use the accepted line indices as generate(..., outage=idx)
     to build one shard per post-contingency topology.
     """
-    # Lazy import: pulls in pandapower, which most SDK users (loaders) do not have installed.
+    # Lazy: pulls in pandapower, which most SDK (loader) users don't have installed.
     from ._core import line_outage_candidates as _cands
     return _cands(system, top_n=top_n)
 
 
-def fetch_profile(iso, start, end, out=None, resample_min=None):
+def fetch_profile(iso: str, start: str, end: str, out: Optional[str] = None,
+                  resample_min: Optional[int] = None) -> np.ndarray:
     """Auto-download an ISO system-load series and return a normalized scaling vector S [T].
 
     iso is "caiso"/"nyiso"/"ercot"; start/end are 'YYYY-MM-DD'. NYISO needs no account or extra deps;
@@ -58,7 +59,8 @@ def fetch_profile(iso, start, end, out=None, resample_min=None):
     return _fetch_profile(iso, start, end, out=out, resample_min=resample_min)
 
 
-def load_profile(source, path=None, column=None):
+def load_profile(source: Union[str, Sequence[float], np.ndarray], path: Optional[str] = None,
+                 column: Optional[str] = None) -> np.ndarray:
     """Ingest a load time series into a normalized scaling vector S [T] (see fdia_graph.profiles).
 
     Pluggable front of the pipeline: `source` is "caiso"/"nyiso" (+ a `path` to the ISO CSV directory),
@@ -69,7 +71,7 @@ def load_profile(source, path=None, column=None):
     return _load_profile(source, path=path, column=column)
 
 
-def generate_states(system, profile, **knobs):
+def generate_states(system: Union[str, int], profile: Union[np.ndarray, Sequence[float]], **knobs: Any) -> np.ndarray:
     """Turn a load profile into a pool of AC operating states [T,N,4] to inject attacks onto.
 
     Pass the result straight to generate(system, name, states=...). Knobs: k, sigma, clip, n, seed
@@ -79,8 +81,9 @@ def generate_states(system, profile, **knobs):
     return _generate_states(system, profile, **knobs)
 
 
-def load(name, split=None, families=None, include_gaps=False, heldout=False, format="torch", release=None,
-         units="physical"):
+def load(name: str, split: Optional[str] = None, families: Optional[Sequence[Union[str, int]]] = None,
+         include_gaps: bool = False, heldout: bool = False, format: str = "torch", release: Optional[str] = None,
+         units: str = "physical") -> FdiaGraph:
     """Load a dataset by name (built-in shard auto-downloads; local generated ones load from disk).
 
     name        : "ieee14"|"ieee118"|"ieee300", or a locally-generated dataset name.
@@ -94,28 +97,23 @@ def load(name, split=None, families=None, include_gaps=False, heldout=False, for
     units       : "physical" -> [V p.u., P_inj MW, Q_inj MVAr, theta deg] (as stored; human-readable for plots);
                   "pu" -> everything per-unit on baseMVA with theta in radians (ML/physics). Same shard either way.
     """
-    # Two-step resolution: resolve() maps (name, release) to a download spec (which GitHub
-    # release + which asset), then ensure_local() downloads+caches it if needed and hands
-    # back a concrete on-disk .h5 path. Local generated datasets short-circuit to their file.
+    # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
+    # short-circuit to their file).
     path = ensure_local(resolve(name, release=release))
-    # Wrap that shard in an FdiaGraph. All the row-selection knobs (split/families/gaps/heldout)
-    # and the export format are applied lazily by the Dataset, not here — this is a thin factory.
+    # Thin factory: the Dataset applies split/families/gaps/heldout and the export format lazily.
     return FdiaGraph(path, split=split, families=families, include_gaps=include_gaps, heldout=heldout,
                      format=format, units=units)
 
 
-def generate(system, name, **knobs):
+def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
     """Generate a custom dataset with research knobs and register it as `name` (loadable via load(name)).
 
     Knobs (all optional): per_family, families, attack_intensity, ramp_rate, ramp_len, n_benign,
     redundancy, split, seed, out. See fdia_graph.generation module for the full documented signature.
     Requires the generation extra: pip install 'fdia-graph[generate]'.
     """
-    # Lazy import: the generator pulls in heavy deps (pandapower, the _core FdiaGenerator).
-    # Importing at module top would force every `import fdia_graph` user to have the
-    # optional [generate] extra installed just to call load(); we defer the cost to call time.
+    # Lazy: the generator pulls in heavy deps (pandapower, _core), so deferring keeps plain load() users
+    # from needing the optional [generate] extra.
     from .generation import generate as _generate
-    # Delegate to the real implementation. `system` names the grid (ieee14/118/300),
-    # `name` is what the result registers as (so load(name) can retrieve it), and **knobs
-    # forwards the research parameters untouched so this wrapper never goes stale as knobs change.
+    # **knobs forwarded untouched so this wrapper never goes stale as knobs change.
     return _generate(system, name=name, **knobs)

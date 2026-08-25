@@ -22,3 +22,19 @@ jobs:
         run: |
           python -c "import fdia_graph as fg; print(fg.__version__)"
           python -c "from fdia_graph import registry; print(registry._RELEASE)"
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      # Only numpy (the well-typed hard dependency) + pyright are installed. The optional heavy stack
+      # (torch/pandas/pandapower/h5py/torch_geometric/gridstatus/tensorflow) is imported lazily and
+      # left unresolved on purpose (see [tool.pyright] in pyproject.toml); the check enforces that the
+      # SDK's own type annotations are present and self-consistent. Fails on any pyright error.
+      - name: Install pyright
+        run: pip install numpy pyright
+      - name: Type-check src/fdia_graph
+        run: pyright src/fdia_graph

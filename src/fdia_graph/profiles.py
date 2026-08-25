@@ -1,19 +1,19 @@
 """Load-profile ingestion + operating-state generation — the FRONT of the pipeline.
 
-Until now the SDK consumed pre-computed operating states (a pool shipped with each release). This module
-lets the group own the whole pipeline instead: take a real load time series from any source, turn it into a
-sequence of AC power-flow operating points, and feed those straight into `generate()` to inject attacks. Load
-profiles are pluggable, so you can swap in data from different ISOs and different time periods and regenerate
-everything with full control.
+Take a real load time series from any source, turn it into a sequence of AC power-flow operating points, and
+feed those into `generate()` to inject attacks. Profiles are pluggable across ISOs and time periods.
 
 Pipeline:  load profile  ->  per-timestep scaled loads  ->  AC power flow (pandapower)  ->  operating states
 The operating states are the [T, N, 4] pool the attack generator injects onto:
     columns = [ P_inj (MW), Q_inj (MVAr), |V| (p.u.), theta (deg) ]   (pandapower consumer-positive convention)
 
-Two public functions:
     load_profile(source, ...)  ->  a normalized load-scaling vector S [T]
     generate_states(system, S) ->  a pool of operating states [T, N, 4]
 """
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterator, List, Optional, Sequence, Tuple, Union
+
 import os
 import io
 import glob
@@ -21,16 +21,16 @@ import zipfile
 import datetime as _dt
 import numpy as np
 
-# scaling recipe (matches the reference init_dataset pipeline): the per-bus scale at timestep t is
-#   clip( 1 + K * S_t + N(0, SIGMA) ,  CLIP_LO, CLIP_HI )
-# K sets how hard the (standardized) load profile drives the operating point; SIGMA is per-bus jitter so
-# buses do not all move in lockstep; the clip keeps every bus in a plausible load band.
+if TYPE_CHECKING:
+    import pandas as pd
+
+# per-bus scale at timestep t: clip(1 + K*S_t + N(0,SIGMA), CLIP_LO, CLIP_HI). K drives from the profile,
+# SIGMA is per-bus jitter, clip holds a plausible load band.
 K_DEFAULT = 0.1
 SIGMA_DEFAULT = 0.03
 CLIP_DEFAULT = (0.7, 1.3)
-# AR(1) temporal-correlation coefficient for the per-bus load jitter. 0 = independent white noise each step
-# (unrealistically jumpy); ~0.98 makes the load evolve smoothly minute-to-minute like real high-resolution
-# demand (scan-to-scan change ~0.5% instead of ~4%), while keeping the same stationary bus-to-bus spread.
+# AR(1) coefficient for load jitter: ~0.98 evolves smoothly minute-to-minute (~0.5%/min change vs ~4% white
+# noise) at the same stationary bus-to-bus spread.
 JITTER_RHO = 0.98
 
 # how each supported ISO CSV names its timestamp and load columns
@@ -40,17 +40,17 @@ _ISO_COLS = {
 }
 
 
-def load_profile(source, path=None, column=None):
+def load_profile(source: Union[str, Sequence[float], np.ndarray], path: Optional[str] = None,
+                 column: Optional[str] = None) -> np.ndarray:
     """Return a normalized load-scaling vector S [T] (zero-mean, unit-variance) from a load time series.
 
     `source` can be:
       - "caiso" or "nyiso": read every CSV under `path` (a directory), concatenate in time order, and
-        standardize the ISO's load column. This is the built-in ISO ingestion.
-      - a path to a single CSV plus `column`: standardize that column (generic source).
-      - an array-like of raw load values: standardize it directly (bring your own profile).
+        standardize the ISO's load column.
+      - a path to a single CSV plus `column`: standardize that column.
+      - an array-like of raw load values: standardize it directly.
 
-    Standardization (subtract mean, divide by std) matches the reference pipeline and makes the recipe's K
-    knob mean the same thing across sources of different absolute magnitude.
+    Standardization makes the K knob mean the same thing across sources of different absolute magnitude.
     """
     if isinstance(source, (list, tuple, np.ndarray)):          # bring-your-own raw load series
         loads = np.asarray(source, dtype=float).ravel()
@@ -72,7 +72,7 @@ def load_profile(source, path=None, column=None):
     return (loads - mu) / (sd if sd > 0 else 1.0)             # standardized scaling vector S [T]
 
 
-def _case_buses(key):
+def _case_buses(key: int) -> np.ndarray:
     """Return (all_buses ordering) for a case — must match between the central jitter build and the worker."""
     import pandapower as pp
     import pandapower.networks as pn
@@ -80,15 +80,14 @@ def _case_buses(key):
     return np.unique(np.concatenate([base.load["bus"].to_numpy(), base.gen["bus"].to_numpy()]))
 
 
-def _solve_states_chunk(key, sf_chunk):
+def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> List[np.ndarray]:
     """Solve the AC operating state for each PRECOMPUTED per-bus scale-factor row in sf_chunk [L, nbus] (aligned
-    to _case_buses order). Module-level and picklable so it runs as a multiprocessing worker. The scale factors
-    (profile + AR(1) jitter, already clipped) are computed centrally in generate_states so there is no jitter
-    discontinuity at chunk boundaries. Returns a list of [N,4] state arrays; non-converging steps are skipped."""
+    to _case_buses order). Module-level/picklable so it runs as a multiprocessing worker. Returns a list of
+    [N,4] state arrays; non-converging steps are skipped."""
     import pandapower as pp
     import pandapower.networks as pn
     base = {14: pn.case14, 118: pn.case118, 300: pn.case300}[key]()
-    pp.runpp(base)                                             # solve the base case to seed a valid state
+    pp.runpp(base)                                             # seed a valid base state
     nodelist = sorted(base.bus.index)                          # consistent bus order for the [N,4] rows
     base_load_p = base.load["p_mw"].to_numpy().copy()
     base_load_q = base.load["q_mvar"].to_numpy().copy()
@@ -108,47 +107,44 @@ def _solve_states_chunk(key, sf_chunk):
         except Exception:
             continue                                          # infeasible operating point -> skip this timestep
         z = base.res_bus.reindex(nodelist)[["p_mw", "q_mvar", "vm_pu", "va_degree"]].to_numpy().copy()
-        if len(base.res_shunt):                               # SE-consistent without-shunt injection (BDD-clean)
+        if len(base.res_shunt):                               # SE excludes the shunt, so subtract it -> BDD-clean injection
             for b, ps, qs in zip(base.shunt.bus.to_numpy(), base.res_shunt.p_mw.to_numpy(), base.res_shunt.q_mvar.to_numpy()):
                 if int(b) in pos:
-                    z[pos[int(b)], 0] -= ps                    # remove shunt conductance draw from P
-                    z[pos[int(b)], 1] -= qs                    # remove shunt susceptance draw from Q
+                    z[pos[int(b)], 0] -= ps
+                    z[pos[int(b)], 1] -= qs
         out.append(z)
     return out
 
 
-def _ar1_scale(S, nbus, k, sigma, clip, rho, seed):
-    """Build the [T, nbus] per-bus scale-factor matrix: clip(1 + k*S_t + jitter_t), where jitter is a per-bus
-    AR(1) process jitter_t = rho*jitter_{t-1} + sqrt(1-rho^2)*sigma*eps. The AR(1) makes the load evolve
-    SMOOTHLY minute to minute (stationary std still = sigma, so the bus-to-bus spread is unchanged) instead of
-    an independent white-noise draw each step — which is what real high-resolution load looks like, and what
-    keeps the scan-to-scan change realistic (~0.5%/min at rho=0.98, vs ~4% for independent jitter)."""
+def _ar1_scale(S: np.ndarray, nbus: int, k: float, sigma: float, clip: Tuple[float, float],
+               rho: float, seed: int) -> np.ndarray:
+    """Build the [T, nbus] per-bus scale-factor matrix clip(1 + k*S_t + jitter_t), where jitter is a per-bus
+    AR(1) process jitter_t = rho*jitter_{t-1} + sqrt(1-rho^2)*sigma*eps. AR(1) evolves the load smoothly
+    (~0.5%/min at rho=0.98 vs ~4% for independent jitter) at unchanged stationary spread (std = sigma)."""
     T = len(S)
     rng = np.random.default_rng(seed)
     eps = rng.standard_normal((T, nbus))
     jit = np.empty((T, nbus))
     jit[0] = sigma * eps[0]
     step = sigma * np.sqrt(1.0 - rho * rho)
-    for t in range(1, T):                                     # AR(1) recursion (cheap: T iterations of a vector op)
+    for t in range(1, T):                                     # AR(1) recursion
         jit[t] = rho * jit[t - 1] + step * eps[t]
     return np.clip(1.0 + k * S[:, None] + jit, clip[0], clip[1])
 
 
-def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP_DEFAULT, n=None, seed=123, workers=None):
+def generate_states(system: Union[int, str], profile: Union[np.ndarray, Sequence[float]], k: float = K_DEFAULT,
+                    sigma: float = SIGMA_DEFAULT, clip: Tuple[float, float] = CLIP_DEFAULT, n: Optional[int] = None,
+                    seed: int = 123, workers: Optional[int] = None) -> np.ndarray:
     """Turn a load-scaling profile into a pool of AC operating states [T, N, 4].
 
     For each timestep t: draw a per-bus scale factor clip(1 + k*S_t + N(0, sigma), *clip), apply it to the
     case's base loads and generator setpoints, solve the AC power flow, and record the clean operating state.
-    The recorded injection is the SE-CONSISTENT (without-shunt) injection: pandapower's WLS/BDD measurement
-    function excludes the shunt element, so we subtract res_shunt from the bus P/Q. Keeping the with-shunt
-    value would make shunt buses inconsistent with the estimator and flag them under bad-data detection — this
-    subtraction is exactly why the resulting benign states pass BDD. Non-converging timesteps are skipped.
+    The recorded injection subtracts res_shunt (SE/BDD excludes the shunt), which is why benign states pass
+    BDD. Non-converging timesteps are skipped.
 
-    workers: if >1, split the timesteps across that many worker processes (each power flow is independent, so
-    this scales near-linearly) — the big win for large pools. Chunks are contiguous so the pool stays in time
-    order; each chunk uses seed+chunk_index (reproducible, but not identical to the sequential draw order).
-    NOTE: because it spawns processes, a caller that passes workers>1 must guard its top-level script with
-    `if __name__ == "__main__":` (standard multiprocessing requirement on Windows).
+    workers>1 splits timesteps across processes (independent power flows, near-linear scaling); contiguous
+    chunks keep time order, each seeded seed+chunk_index. NOTE: spawning processes means a caller passing
+    workers>1 must guard its top-level script with `if __name__ == "__main__":` (multiprocessing on Windows).
 
     Returns states [T, N, 4] = [P_inj (MW), Q_inj (MVAr), |V| (p.u.), theta (deg)], the pool `generate()` and
     `emit_from_state` consume.
@@ -159,8 +155,7 @@ def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]
-    # Build the FULL per-bus scale-factor matrix centrally with AR(1) temporal correlation, so the load evolves
-    # smoothly and there is no jitter discontinuity where the worker chunks meet.
+    # Build the full scale-factor matrix centrally so AR(1) jitter has no discontinuity at chunk boundaries.
     nbus = len(_case_buses(key))
     SF = _ar1_scale(S, nbus, k, sigma, clip, JITTER_RHO, seed)   # [T, nbus]
     if workers and workers > 1 and len(S) >= workers:
@@ -178,16 +173,13 @@ def generate_states(system, profile, k=K_DEFAULT, sigma=SIGMA_DEFAULT, clip=CLIP
 
 
 # ---------------------------------------------------------------------------------------------------------
-# Automatic ISO load-profile download.
-# Fetch a real system-load time series straight from the operator's public data service, so a load profile
-# is one call — no manual CSV wrangling. NYISO is a zero-dependency built-in (public monthly archives, no
-# account). For CAISO and ERCOT we prefer the maintained `gridstatus` package (uniform, handles every ISO
-# quirk and any auth); it also covers NYISO. Install it with:  pip install 'fdia-graph[iso]'.
+# Automatic ISO load-profile download. NYISO is a zero-dependency built-in (public monthly archives, no
+# account); CAISO/ERCOT (and optionally NYISO) go through the `gridstatus` package: pip install 'fdia-graph[iso]'.
 # ---------------------------------------------------------------------------------------------------------
 _ISOS = ("caiso", "nyiso", "ercot")
 
 
-def _as_date(d):
+def _as_date(d: Union[str, _dt.date, _dt.datetime]) -> _dt.date:
     """Accept 'YYYY-MM-DD', a date, or a datetime and return a date."""
     if isinstance(d, _dt.datetime):
         return d.date()
@@ -196,7 +188,7 @@ def _as_date(d):
     return _dt.datetime.strptime(str(d)[:10], "%Y-%m-%d").date()
 
 
-def _month_firsts(start, end):
+def _month_firsts(start: _dt.date, end: _dt.date) -> Iterator[_dt.date]:
     """Yield the first-of-month date for every month spanned by [start, end]."""
     y, m = start.year, start.month
     while (y, m) <= (end.year, end.month):
@@ -204,13 +196,12 @@ def _month_firsts(start, end):
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
 
 
-def _fetch_nyiso(start, end):
+def _fetch_nyiso(start: _dt.date, end: _dt.date) -> "pd.Series":
     """NYISO system load (MW) over [start, end] at 5-MINUTE resolution, built-in and account-free.
 
-    NYISO publishes 'pal' (real-time actual load) as one CSV per day at 5-minute cadence, bundled into a
-    monthly zip. (Their 'palIntegrated' feed is only hourly — we use 'pal' for the finest resolution NYISO
-    offers, ~288 samples/day.) Each row is one control-zone reading; the system load is the sum over the 11
-    zones at each timestamp. Returns a pandas Series indexed by timestamp.
+    Uses the 'pal' feed (real-time actual, ~288 samples/day; 'palIntegrated' is only hourly), one CSV per day
+    in a monthly zip. Each row is a control-zone reading; system load sums the 11 zones per timestamp. Returns
+    a pandas Series indexed by timestamp.
     """
     import requests
     import pandas as pd
@@ -225,9 +216,7 @@ def _fetch_nyiso(start, end):
                 df["Time Stamp"] = pd.to_datetime(df["Time Stamp"])
                 frames.append(df[["Time Stamp", "Name", "Load"]])
     full = pd.concat(frames)
-    # Zones report on the same 5-min cadence but with small clock offsets; pivot to a zone-per-column table
-    # on a clean 5-min grid (interpolating short gaps), then sum across zones -> a proper system total that
-    # is not under-counted at unaligned timestamps.
+    # Zones have small clock offsets; pivot onto a clean 5-min grid before summing so no timestamp under-counts.
     piv = full.pivot_table(index="Time Stamp", columns="Name", values="Load", aggfunc="mean")
     grid = pd.date_range(piv.index.min().floor("5min"), piv.index.max().ceil("5min"), freq="5min")
     piv = piv.reindex(piv.index.union(grid)).interpolate(limit=3).reindex(grid)
@@ -236,11 +225,10 @@ def _fetch_nyiso(start, end):
     return system[mask]
 
 
-def _fetch_gridstatus(iso, start, end):
+def _fetch_gridstatus(iso: str, start: _dt.date, end: _dt.date) -> "pd.Series":
     """System load (MW) over [start, end] via the `gridstatus` package — uniform across CAISO/NYISO/ERCOT.
 
-    gridstatus wraps each operator's real data service (and any required credentials) behind one
-    `.get_load(start, end)` returning a frame with a 'Load' column. Returns a pandas Series.
+    gridstatus wraps each operator's data service behind one `.get_load(start, end)`. Returns a pandas Series.
     """
     import gridstatus
     cls = {"caiso": gridstatus.CAISO, "nyiso": gridstatus.NYISO, "ercot": gridstatus.Ercot}[iso]
@@ -249,19 +237,19 @@ def _fetch_gridstatus(iso, start, end):
     return __import__("pandas").Series(df["Load"].to_numpy(), index=list(ts)).sort_index()
 
 
-def fetch_profile(iso, start, end, out=None, resample_min=None):
+def fetch_profile(iso: str, start: Union[str, _dt.date, _dt.datetime],
+                  end: Union[str, _dt.date, _dt.datetime], out: Optional[str] = None,
+                  resample_min: Optional[int] = None) -> np.ndarray:
     """Download an ISO system-load series over [start, end] and return a normalized scaling vector S [T].
 
     iso          : "caiso" | "nyiso" | "ercot" (case-insensitive).
     start, end   : 'YYYY-MM-DD' strings (or date/datetime), inclusive.
     out          : optional path to also save the raw load series as a CSV (timestamp, load_mw) for provenance.
-    resample_min : if set (e.g. 1), time-interpolate the load onto a uniform grid at that minute cadence before
-                   standardizing — e.g. 1 upsamples the 5-min ISO feed to 1-minute (the resolution used in the
-                   reference papers; the intermediate points are interpolated, real actual load is 5-min).
+    resample_min : if set (e.g. 1), time-interpolate onto a uniform grid at that minute cadence before
+                   standardizing (upsamples the 5-min feed; intermediate points are interpolated).
 
-    NYISO works with no dependencies or account. CAISO and ERCOT use the `gridstatus` package when installed
-    (pip install 'fdia-graph[iso]'); NYISO also uses it if present. The returned S feeds generate_states()
-    exactly like load_profile()'s output, so switching ISOs or time windows is a one-line change.
+    NYISO needs no dependencies or account; CAISO/ERCOT use `gridstatus` (pip install 'fdia-graph[iso]'). The
+    returned S feeds generate_states() exactly like load_profile()'s output.
     """
     iso = str(iso).lower()
     if iso not in _ISOS:
@@ -279,8 +267,7 @@ def fetch_profile(iso, start, end, out=None, resample_min=None):
             )
         series = _fetch_gridstatus(iso, start, end)
     if resample_min is not None:
-        # Time-interpolate onto a uniform `resample_min`-minute grid (upsampling the 5-min feed to e.g. 1-min),
-        # exactly as the reference pipeline's `resample("1T").interpolate("time")`.
+        # Time-interpolate onto a uniform resample_min-minute grid (as reference resample("1T").interpolate("time")).
         import pandas as pd
         series = series.sort_index()
         series.index = pd.to_datetime(series.index)

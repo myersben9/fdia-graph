@@ -12,22 +12,26 @@ reads. Runs on GPU if available.
 
     python train_tgnn.py --system ieee118 --epochs 4 --window 8
 """
+from __future__ import annotations
+
 import argparse, json, os, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
+from typing import Dict, Optional, Tuple
 import fdia_graph as fg
 from fdia_graph.dataset import FAMILIES
 
 
 class SpatialEncoder(nn.Module):
     """Edge-conditioned message passing -> per-bus embedding (shared across timesteps)."""
-    def __init__(self, hidden=64, layers=2, n_node=4, n_edge=2):
+    def __init__(self, hidden: int = 64, layers: int = 2, n_node: int = 4, n_edge: int = 2) -> None:
         super().__init__()
         self.enc = nn.Linear(n_node * 2, hidden)                     # *2: feature concatenated with its mask
         self.edge_enc = nn.Linear(n_edge * 2, hidden)
         self.msg = nn.ModuleList([nn.Linear(hidden * 3, hidden) for _ in range(layers)])
         self.upd = nn.ModuleList([nn.Linear(hidden * 2, hidden) for _ in range(layers)])
 
-    def forward(self, node_x, node_m, edge_x, edge_m, edge_index):
-        # node_x: [B, N, 4]; returns [B, N, H]. B here is (batch * window) flattened.
+    def forward(self, node_x: torch.Tensor, node_m: torch.Tensor, edge_x: torch.Tensor,
+                edge_m: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        # node_x [B,N,4] -> [B,N,H]; B is (batch * window) flattened.
         B, N, _ = node_x.shape; E = edge_index.shape[1]
         src, dst = edge_index[0], edge_index[1]
         h = F.relu(self.enc(torch.cat([node_x, node_m], -1)))
@@ -43,14 +47,15 @@ class SpatialEncoder(nn.Module):
 
 class TemporalGNN(nn.Module):
     """Spatial GNN per timestep + GRU over the window -> per-bus logits at the last step."""
-    def __init__(self, hidden=128):                              # wider + deeper encoder: localizing ~4 of 300 buses is hard
+    def __init__(self, hidden: int = 128) -> None:              # wider+deeper: localizing ~4 of 300 buses is hard
         super().__init__()
         self.enc = SpatialEncoder(hidden, layers=3)
         self.gru = nn.GRU(hidden, hidden, batch_first=True)
         self.head = nn.Linear(hidden, 1)
 
-    def forward(self, nx, nm, ex, em, ei):
-        # nx: [B, W, N, 4]  -> encode every (B*W) graph, run GRU per node over W, decode last step
+    def forward(self, nx: torch.Tensor, nm: torch.Tensor, ex: torch.Tensor,
+                em: torch.Tensor, ei: torch.Tensor) -> torch.Tensor:
+        # nx [B,W,N,4] -> encode every (B*W) graph, GRU per node over W, decode last step
         B, W, N, _ = nx.shape
         flat = lambda t: t.reshape(B * W, *t.shape[2:])
         h = self.enc(flat(nx), flat(nm), flat(ex), flat(em), ei)     # [B*W, N, H]
@@ -59,18 +64,19 @@ class TemporalGNN(nn.Module):
         return self.head(out[:, -1]).reshape(B, N)                   # logits for the window's last timestep
 
 
-def windows(arr_idx, W):
+def windows(arr_idx: np.ndarray, W: int) -> np.ndarray:
     """Contiguous sliding windows (stride 1) of length W over timestep-ordered record indices."""
     return np.stack([arr_idx[i:i + W] for i in range(len(arr_idx) - W + 1)]) if len(arr_idx) >= W else np.empty((0, W), int)
 
 
-def f1(pred, tgt, sample=False):
+def f1(pred: torch.Tensor, tgt: torch.Tensor, sample: bool = False) -> float:
     tp = (pred * tgt).sum(-1); fp = (pred * (1 - tgt)).sum(-1); fn = ((1 - pred) * tgt).sum(-1)
     p = tp / (tp + fp + 1e-9); r = tp / (tp + fn + 1e-9); f = 2 * p * r / (p + r + 1e-9)
     return f.mean().item() if sample else (2 * (tp.sum() * 1.0) / (2 * tp.sum() + fp.sum() + fn.sum() + 1e-9)).item()
 
 
-def load_split(system, split, W, release):
+def load_split(system: str, split: str, W: int, release: Optional[str]
+               ) -> Tuple[Dict[str, np.ndarray], np.ndarray, int, int, np.ndarray]:
     """Return timestep-ordered windows (X tensors) + the LAST-step label/family for a split."""
     ds = fg.load(system, split=split, release=release)
     a = ds.to_numpy()
@@ -81,7 +87,7 @@ def load_split(system, split, W, release):
     return a, win, ds.N, ds.E, ds.edge_index_np
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--system", default="ieee14")
     ap.add_argument("--epochs", type=int, default=4)
@@ -106,19 +112,16 @@ def main():
     ei = torch.as_tensor(ei_np, dtype=torch.long, device=dev)
     print(f"{args.system}: N={N} E={E}  train windows {len(trw):,} / test {len(tew):,}  W={W} [{dev}]")
 
-    # Pre-load each split ONCE onto the GPU (100 GB VRAM holds them easily) so a batch is a pure GPU gather —
-    # no per-step CPU->GPU transfer, which otherwise bottlenecks a fast card at small batch sizes.
-    def to_gpu(a):
+    # Pre-load each split ONCE onto the GPU so a batch is a pure GPU gather (no per-step CPU->GPU transfer).
+    def to_gpu(a: Dict[str, np.ndarray]) -> Dict[str, torch.Tensor]:
         d = {k: torch.as_tensor(a[k], device=dev, dtype=torch.float32) for k in ("node_x", "node_m", "edge_x", "edge_m")}
         d["y"] = torch.as_tensor(a["y"], device=dev, dtype=torch.float32); return d
     trG, vaG, teG = to_gpu(tr), to_gpu(va), to_gpu(te)
     trwG = torch.as_tensor(trw, device=dev); vawG = torch.as_tensor(vaw, device=dev); tewG = torch.as_tensor(tew, device=dev)
 
-    # Standardize node/edge features per channel using TRAIN stats (over metered entries only). Raw injections
-    # and flows are hundreds-to-thousands of MW on IEEE-300; unnormalized they blow up activations -> poor
-    # training on the big systems AND bf16 overflow (NaN). This normalization is essential, not cosmetic.
-    def _stats(g):
-        s = {}
+    # Standardize per channel using TRAIN stats (metered entries only); essential as raw MW is large on IEEE-300 (else bf16 NaN).
+    def _stats(g: Dict[str, torch.Tensor]) -> Dict[str, Tuple[torch.Tensor, torch.Tensor]]:
+        s: Dict[str, Tuple[torch.Tensor, torch.Tensor]] = {}
         for xk, mk in (("node_x", "node_m"), ("edge_x", "edge_m")):
             w = g[mk].sum((0, 1)).clamp(min=1.0)
             mu = (g[xk] * g[mk]).sum((0, 1)) / w
@@ -130,7 +133,9 @@ def main():
         for xk, mk in (("node_x", "node_m"), ("edge_x", "edge_m")):
             mu, sd = NST[xk]; g[xk] = (g[xk] - mu) / sd * g[mk]      # keep masked (unmetered) entries at 0
 
-    def batch_tensors(g, widx):                                 # widx [B,W] GPU long -> [B,W,N,·] GPU gathers
+    def batch_tensors(g: Dict[str, torch.Tensor], widx: torch.Tensor
+                      ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        # widx [B,W] GPU long -> [B,W,N,·] GPU gathers
         return g["node_x"][widx], g["node_m"][widx], g["edge_x"][widx], g["edge_m"][widx], g["y"][widx[:, -1]]
 
     model = TemporalGNN().to(dev); opt = torch.optim.Adam(model.parameters(), 1e-3)
@@ -149,7 +154,8 @@ def main():
         print(f"epoch {ep+1}/{args.epochs}  loss {tot/len(trwG):.4f}")
 
     # collect raw per-bus logits for a set of windows (family = last record's family). GPU-resident + bf16.
-    def collect(gG, gWins, npA):
+    def collect(gG: Dict[str, torch.Tensor], gWins: torch.Tensor, npA: Dict[str, np.ndarray]
+                ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         model.eval(); LG, Y, Fm = [], [], []
         with torch.no_grad(), autocast():
             for i in range(0, len(gWins), args.batch):
