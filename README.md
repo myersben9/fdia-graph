@@ -2,7 +2,7 @@
 
 **Load and generate stealthy FDIA localization datasets for power grids — PyTorch-ready, one line, zero data plumbing.**
 
-A benchmark of false-data-injection attacks that evade classical bad-data detection but are localizable by a model, on realistic sparse SCADA/PMU measurement graphs for IEEE-14 / 118 / 300.
+A benchmark of false-data-injection attacks that evade classical bad-data detection but are localizable by a model, on realistic sparse SCADA/PMU measurement graphs across a transmission size ladder of eight IEEE systems: 14 / 30 / 57 / 89 / 118 / 145 / 200 / 300 buses.
 
 ```python
 import fdia_graph as fg
@@ -87,7 +87,22 @@ ds = fg.load("custom", split="train")
 
 `targeting="centrality"` draws attacked buses toward the structurally critical ones (degree + closeness + betweenness centrality; Doostinia et al., IEEE T-IA 2025), modeling a smart attacker instead of a uniform random one. Each generated `.h5` also gets a `<out>.mag.npz` sidecar recording the designed per-bus magnitude and swing plus the band's floor/cap, so you can verify the attacks really landed inside the band.
 
-Also supported: **N-1 line outages** (`outage=` builds a shard under a post-contingency topology) and **your own load profiles** (`fg.fetch_profile(...)` for NYISO/CAISO/ERCOT or bring your own array → `fg.generate_states(...)` → `fg.generate(...)`). See docstrings in `profiles.py` and `_core.py`.
+Also supported: an **`replay_tau`** knob (fix the `Ar`/`As` replay depth to exactly N frames back, default is a random lag ≥20), **N-1 line outages** (`outage=` builds a shard under a post-contingency topology), and **your own load profiles** (`fg.fetch_profile(...)` for NYISO/CAISO/ERCOT or bring your own array → `fg.generate_states(...)` → `fg.generate(...)`). See docstrings in `profiles.py` and `_core.py`.
+
+## Continuous streams (LSTM / TGN)
+
+The `load`/`generate` shard is a shuffled table of independent labeled snapshots — ideal for a per-scan classifier, but its rows are not consecutive in time. For temporal models that need contiguous windows, each system also ships a **continuous attacked stream**: one running timeline where the grid operates normally and attacks appear as timed episodes, with per-timestep, per-bus labels.
+
+```python
+s = fg.load_stream("ieee118")          # download the published stream (or fg.generate_stream(...) to build one)
+s["node_x"]   # [T, N, 4]  running measurement series ([|V|, Pinj, Qinj, angle])
+s["y"]        # [T, N]     per-timestep, per-bus attack label (0 on benign frames)
+s["family"]   # [T]        active attack family each minute (0 = benign)
+
+Xw, yw = fg.windows(s, W=24, stride=12)  # slice [n, 24, N, 4] LSTM windows + labels
+```
+
+Temporal features (`temporal_delta`, `swing`) compare each frame to the previous **emitted** frame, so a stealthy ramp stays a small per-step change while a spike reads as an abrupt jump. Build a custom stream with `fg.generate_stream(system, attacked_frac=0.5, families=[...], seed=...)`.
 
 ## Schema
 
