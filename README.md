@@ -91,15 +91,21 @@ Also supported: an **`replay_tau`** knob (fix the `Ar`/`As` replay depth to exac
 
 ## Continuous streams (LSTM / TGN)
 
-The `load`/`generate` shard is a shuffled table of independent labeled snapshots — ideal for a per-scan classifier, but its rows are not consecutive in time. For temporal models that need contiguous windows, each system also ships a **continuous attacked stream**: one running timeline where the grid operates normally and attacks appear as timed episodes, with per-timestep, per-bus labels.
+The `load`/`generate` shard is a shuffled table of independent labeled snapshots — ideal for a per-scan classifier, but its rows are not consecutive in time. For temporal models and state estimation, each system also ships a **continuous attacked stream**: one running timeline of **72,000 distinct real-profile operating states** (no reuse), ~50% under attack as timed episodes (re-solved on the real NYISO load trajectory), with per-timestep, per-bus labels. Every record carries **three aligned measurement layers** — for both node and branch-flow measurements:
 
 ```python
 s = fg.load_stream("ieee118")          # download the published stream (or fg.generate_stream(...) to build one)
-s["node_x"]   # [T, N, 4]  running measurement series ([|V|, Pinj, Qinj, angle])
-s["clean"]    # [T, N, 4]  noiseless, attack-free TRUE state at every step — the SE / reconstruction target
-s["y"]        # [T, N]     per-timestep, per-bus attack label (0 on benign frames)
-s["family"]   # [T]        active attack family each minute (0 = benign)
 
+# node measurements [T, N, 4] = [|V|, Pinj, Qinj, angle]
+s["node_x"]   # OBSERVED feed: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
+s["benign"]   # the same meters with the ATTACK REMOVED (noise kept) — what they would read un-attacked
+s["clean"]    # NOISELESS, attack-free TRUE state — the SE / reconstruction target
+# branch-flow measurements [T, E, 2] = [P_from, Q_from], same three layers
+s["edge_x"], s["edge_benign"], s["edge_clean"]
+
+s["y"]        # [T, N]  per-timestep, per-bus attack label     s["family"]  # [T] active family (0 = benign)
+
+# node_x - benign isolates the attack; benign - clean is meter noise.
 Xw, yw = fg.windows(s, W=24, stride=12)  # slice [n, 24, N, 4] LSTM windows + labels
 ```
 
@@ -126,7 +132,7 @@ target = clean_w[..., [0, 3]]               # [n,W,N,2] clean V and theta
 #   loss = mse(pred, target)                # estimated state vs clean V/theta
 ```
 
-`Xw` is the attacked, noisy input; `target` is the clean V/θ it should reconstruct. Swap `"ieee118"` for any of the 8 systems, and `attacked_frac`/`families` via `fg.generate_stream(...)` to build a custom stream. The static branch admittance (`ds.edge_attr`, `[E,8]`, includes `edge_gs, edge_bs = 1/(r+jx)`) comes from the matching shard `fg.load("ieee118")` if the model needs edge physics.
+`Xw` is the attacked, noisy input; `target` is the clean V/θ it should reconstruct. For a full SE measurement set, add the **branch-flow** measurements `s["edge_x"]` (windowed the same way) alongside the node measurements — node + edge from the same scan is exactly what a WLS/robust estimator consumes. Swap `"ieee118"` for any of the 8 systems, and `attacked_frac`/`families` via `fg.generate_stream(...)` to build a custom stream. The static branch *admittance* (`ds.edge_attr`, `[E,8]`, includes `edge_gs, edge_bs = 1/(r+jx)`) comes from the matching shard `fg.load("ieee118")` if the model also needs line physics.
 
 Temporal features (`temporal_delta`, `swing`) compare each frame to the previous **emitted** frame, so a stealthy ramp stays a small per-step change while a spike reads as an abrupt jump. Build a custom stream with `fg.generate_stream(system, attacked_frac=0.5, families=[...], seed=...)`.
 
