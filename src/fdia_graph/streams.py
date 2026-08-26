@@ -13,7 +13,7 @@ contiguous EPISODE, then clears. `generate_stream` produces exactly that, per sy
     edge_x, edge_benign, edge_clean [T, E, 2]  the SAME three layers for branch flows [P_from, Q_from]
                         (observed / attack-removed / noiseless). Node + edge together are the full SE measurement set.
     edge_index [2, E]    static graph connectivity (COO, int64 -> torch.long); edge_attr [E, 8] static line
-                        features (r, x, b, g, gs, bs, tap, shift) — the two holders PyTorch-Geometric expects.
+                        features (r, x, b, g, gs, bs, tap, shift) — the two holders PyTorch-Geometric models expect.
     node_m [N, 4], edge_m [E, 2]  static meter-availability masks (metering is SPARSE; 0 = no meter, entry is
                         zero-filled). The observed==benign and benign-clean identities hold on measured channels.
     y        [T, N]      per-timestep, per-bus attack label (0 on benign frames/buses)
@@ -90,7 +90,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     # availability pattern of edge_x/edge_benign -> edge_benign - edge_clean is meter noise on measured channels.
     Vc_all = np.zeros((T, g._nppc), complex)
     Vc_all[:, g._lut[np.arange(C)]] = X[:T, :, 2] * np.exp(1j * np.deg2rad(X[:T, :, 3]))
-    Sf_all = Vc_all[:, g._fb] * np.conj(Vc_all @ g._Yf.T) * g._bMVA
+    Sf_all = Vc_all[:, g._fb] * np.conj((g._Yf @ Vc_all.T).T) * g._bMVA   # sparse@dense, then transpose
     edge_clean_full = np.stack([Sf_all.real, Sf_all.imag], axis=2).astype(np.float32)
     edge_clean_full[:, ~fmeter, :] = 0.0          # zero unmetered branches (matches emit() masking)
     y = np.zeros((T, C), np.uint8)
@@ -254,9 +254,12 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
         gz = np.load(ensure_local(gspec))
         for k in _GKEYS:
             if k not in out and k in gz.files: out[k] = gz[k]
-    # Normalize dtypes regardless of source: PyG expects edge_index as int64 (torch.long); features float32.
+    # Normalize dtypes regardless of source: PyG expects edge_index as int64 (torch.long); features float32;
+    # meter masks uint8 (matches generate_stream) so embedded-stream and sidecar loads are identical.
     if "edge_index" in out: out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)
     if "edge_attr" in out: out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
+    for _m in ("node_m", "edge_m"):
+        if _m in out: out[_m] = np.asarray(out[_m], dtype=np.uint8)
     return out
 
 
