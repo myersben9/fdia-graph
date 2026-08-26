@@ -152,7 +152,9 @@ s  = fg.load_stream("ieee118")
 ei = torch.from_numpy(s["edge_index"])                 # [2, E] connectivity (int64)
 X  = torch.tensor(s["node_x"], dtype=torch.float32)    # [T, N, 4] attacked measurements
 Y  = torch.tensor(s["y"],      dtype=torch.float32)    # [T, N]   per-bus attack label
-ntr = 50_000                                           # train on the first 50k scans, test on the rest
+T   = X.shape[0]
+ntr = int(0.8 * T)                                     # 80/20 chronological split (works on any stream length)
+nte = min(1000, T - ntr)                               # bounded eval slice
 
 class GNN(torch.nn.Module):
     def __init__(self, c=4, h=32):
@@ -166,8 +168,8 @@ for epoch in range(3):
         F.binary_cross_entropy_with_logits(net(X[t]), Y[t]).backward(); opt.step()
 
 with torch.no_grad():
-    pred = torch.stack([net(X[t]) > 0 for t in range(ntr, ntr + 1000)])
-    acc  = (pred == (Y[ntr:ntr + 1000] > 0)).float().mean()
+    pred = torch.stack([net(X[t]) > 0 for t in range(ntr, ntr + nte)])
+    acc  = (pred == (Y[ntr:ntr + nte] > 0)).float().mean()
 print("per-bus localization accuracy:", acc.item())
 ```
 
