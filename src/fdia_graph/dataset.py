@@ -67,7 +67,8 @@ class FdiaGraph:
             self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
             # v0.5.0+ per-unit branch physics + bus shunts; each None when the file predates the schema.
             self._phys = {}
-            for _k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift",
+            for _k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_gs", "edge_bs",
+                       "edge_tap", "edge_shift",
                        "edge_status", "edge_is_trafo", "bus_shunt_g", "bus_shunt_b",
                        # v0.5.0 static per-bus attributes (type/limits/base_kv/zero-inj/attackable ...).
                        "bus_type", "bus_vmin", "bus_vmax", "bus_base_kv", "bus_is_zero_inj",
@@ -125,6 +126,24 @@ class FdiaGraph:
     def edge_b(self) -> torch.Tensor:  return self._p("edge_b")            # charging susceptance
     @property
     def edge_g(self) -> torch.Tensor:  return self._p("edge_g")            # charging conductance, transformer iron losses
+
+    def _series_adm(self, imag: bool) -> torch.Tensor:
+        # Series admittance 1/(r+jx). Stored on v0.7.0+ shards; derived from r,x for older ones so edge_attr
+        # keeps working on every physics shard.
+        key = "edge_bs" if imag else "edge_gs"
+        v = self._phys.get(key)
+        if v is None:
+            r, x = self._phys.get("edge_r"), self._phys.get("edge_x")
+            if r is None: return self._p(key)                 # no physics at all -> standard "needs v0.5.0+" error
+            z = np.asarray(r) + 1j * np.asarray(x); ys = np.zeros_like(z, complex)
+            nz = np.abs(z) > 1e-12; ys[nz] = 1.0 / z[nz]
+            v = np.imag(ys) if imag else np.real(ys)
+        return _torch().as_tensor(v)
+
+    @property
+    def edge_gs(self) -> torch.Tensor:  return self._series_adm(False)     # series conductance, Re(1/(r+jx))
+    @property
+    def edge_bs(self) -> torch.Tensor:  return self._series_adm(True)      # series susceptance, Im(1/(r+jx))
     @property
     def edge_tap(self) -> torch.Tensor:  return self._p("edge_tap")        # transformer turns ratio, 1.0 for lines
     @property
@@ -160,10 +179,11 @@ class FdiaGraph:
 
     @property
     def edge_attr(self) -> torch.Tensor:
-        """[E,6] stacked per-unit branch features, the drop-in replacement for edge_reactance."""
+        """[E,8] stacked per-unit branch features: series impedance (r,x), branch shunt (b,g), series
+        admittance (gs,bs = 1/(r+jx)), and transformer tap/shift. Drop-in replacement for edge_reactance."""
         t = _torch()
         return t.stack([self.edge_r, self.edge_x, self.edge_b, self.edge_g,
-                        self.edge_tap, self.edge_shift], dim=1)
+                        self.edge_gs, self.edge_bs, self.edge_tap, self.edge_shift], dim=1)
 
     def _h(self) -> h5py.File:
         # Open+cache the h5py handle on first access (not __init__) so each DataLoader worker gets its

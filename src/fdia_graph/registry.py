@@ -14,20 +14,33 @@ import json, os
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
 _REPO = "myersben9/fdia-graph"
 # Default pinned release tag, used when GitHub isn't queried for the newest; FDIA_GRAPH_RELEASE overrides.
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.6.0")   # newest dataset version (v0.6.0: two-sided attack-plausibility band [~2% noise floor, 20% cap], At exempt; Ad uniform-in-band, Ar bounded, Al distributional load-conserving budget)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.0")   # newest dataset version (v0.7.0: 8-system transmission ladder 14/30/57/89/118/145/200/300; continuous attacked streams with a clean SE-target field; series-admittance edge features. Same v0.6.0 attack recipe: two-sided ~2%-20% plausibility band, accuracy-class meter noise)
 
 # Built-in shards. Each entry is the full spec download.py needs: asset `file`, `release` tag, `repo`,
 # expected `sha256` (None = skip verification), and the IEEE `system` size.
 BUILTIN = {
     "ieee14":  {"file": "ml_only_ieee14.h5",  "release": _RELEASE, "repo": _REPO,
-                "sha256": "b778513ee0745dd423ca422948b2c426e329d4f3ec4b2814bb4f9a68791590a8", "system": 14},
+                "sha256": "999f7344282da3d8f5c983ff51fb6b6b90c90b8c5f3ee7c99fc1f69bd1205b5a", "system": 14},
+    "ieee30":  {"file": "ml_only_ieee30.h5",  "release": _RELEASE, "repo": _REPO,
+                "sha256": "1de2e258dacc9f8425989d395c09e1e9209eda52ec56cd565e053c07b79b37eb", "system": 30},
+    "ieee57":  {"file": "ml_only_ieee57.h5",  "release": _RELEASE, "repo": _REPO,
+                "sha256": "cd45e3756ed429ab365c24aa5f0666a35081e7fa59f6373c6a914a2adb502d41", "system": 57},
+    "ieee89":  {"file": "ml_only_ieee89.h5",  "release": _RELEASE, "repo": _REPO,
+                "sha256": "e03771bf58c3559edde9b7b10cd9cd87c1e8de9a57739ebc5233f547ab833212", "system": 89},
     "ieee118": {"file": "ml_only_ieee118.h5", "release": _RELEASE, "repo": _REPO,
-                "sha256": "9be47b161bc78ce58b5a19598478068d9062e848926bde0278689348b25fff0e", "system": 118},
+                "sha256": "f4da22e7e3a6251443fd4d86dced8dfbb999cecaac34933fc3fc9aecc96cb4dc", "system": 118},
+    "ieee145": {"file": "ml_only_ieee145.h5", "release": _RELEASE, "repo": _REPO,
+                "sha256": "ebf5380fb2289ecd9d7535548b69f52ccf8d97be4d44c0fc4dac49e7a9644305", "system": 145},
+    "ieee200": {"file": "ml_only_ieee200.h5", "release": _RELEASE, "repo": _REPO,
+                "sha256": "857e1e3ac3496b332fb2ce9d3ae4c2ec81af3e1514819e0c605ef5e422633f32", "system": 200},
     "ieee300": {"file": "ml_only_ieee300.h5", "release": _RELEASE, "repo": _REPO,
-                "sha256": "66faac385c536a8f4a30c5286c164c32abb736b772877007d122623dfd8eb4d4", "system": 300},
+                "sha256": "9c9e94ecfdd50dc171e97c44d7ac3e9db5b7eec4ee42ff6fc8092550c4f54c01", "system": 300},
 }
 # Aliases so callers can pass a bus count (str or int) instead of the canonical "ieeeNN" key.
-_ALIASES = {"14": "ieee14", "118": "ieee118", "300": "ieee300", 14: "ieee14", 118: "ieee118", 300: "ieee300"}
+_ALIASES = {"14": "ieee14", "30": "ieee30", "57": "ieee57", "89": "ieee89", "118": "ieee118",
+            "145": "ieee145", "200": "ieee200", "300": "ieee300",
+            14: "ieee14", 30: "ieee30", 57: "ieee57", 89: "ieee89", 118: "ieee118",
+            145: "ieee145", 200: "ieee200", 300: "ieee300"}
 # On-disk index of locally generated datasets (name -> path + meta), alongside the cached shards.
 _LOCAL_JSON = os.path.join(CACHE_DIR, "local_datasets.json")
 

@@ -20,7 +20,10 @@ import numpy as np
 FAM_ID = {"benign": 0, "Aq": 1, "SLS": 1, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4,
           "At": 5, "ramp": 5, "Al": 6, "LRA": 6}
 # Bus-count knob (14/118/300) -> pandapower.networks factory name.
-_CASE = {14: "case14", 118: "case118", 300: "case300"}
+# Bus-count -> pandapower.networks builder. Transmission systems only (>=110 kV, meshed). A system is
+# load()-able only once its pool + registry entry ship; listing it here just lets the generator build it.
+_CASE = {14: "case14", 30: "case30", 57: "case57", 89: "case89pegase", 118: "case118",
+         145: "case145", 200: "case_illinois200", 300: "case300"}
 
 
 # N-1 LINE OUTAGE SUPPORT. The branch must be taken out BEFORE anything derived (Ybus, PTDF, base
@@ -207,6 +210,14 @@ class FdiaGenerator:
         self.edge_x = _br[:, 3].real.astype(np.float64)      # series reactance, p.u.
         self.edge_b = _br[:, 4].real.astype(np.float64)      # charging susceptance, p.u.
         self.edge_g = _br[:, 23].real.astype(np.float64)     # charging conductance, p.u. (iron losses)
+        # Series admittance g_s + j b_s = 1/(r + jx): the admittance form of the branch (Ybus off-diagonal
+        # magnitude), so the edge set carries admittance directly, not just impedance. edge_b/edge_g are the
+        # branch shunt (line charging); together they give the full pi-model admittance per edge.
+        _z = self.edge_r + 1j * self.edge_x
+        _ys = np.zeros_like(_z, dtype=complex); _nz = np.abs(_z) > 1e-12
+        _ys[_nz] = 1.0 / _z[_nz]                              # zero-impedance branches -> 0 (no series path)
+        self.edge_gs = np.real(_ys).astype(np.float64)       # series conductance, p.u.
+        self.edge_bs = np.imag(_ys).astype(np.float64)       # series susceptance, p.u. (negative for inductive)
         self.edge_tap = _tap                                 # transformer turns ratio, 1.0 for lines
         self.edge_shift = _br[:, 9].real.astype(np.float64)  # phase shift, degrees
         self.edge_status = _br[:, 10].real.astype(np.float64)  # 1 in service, 0 out
