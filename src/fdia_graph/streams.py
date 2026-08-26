@@ -215,14 +215,16 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
 def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[str, Any]:
     """Download (and cache) the published continuous stream for a system and return it as a dict.
 
-    Same dict shape as generate_stream (node_x, clean, y, family, temporal_delta, swing, timestep, episodes).
-    Built-in systems only (14/30/57/89/118/145/200/300). release: None -> newest published; a tag pins a version.
+    Same dict shape as generate_stream (node_x, benign, clean, edge_x/edge_benign/edge_clean, y, family, ...).
+    Built-in systems only (14/30/57/89/118/145/200/300). release: None -> newest published streams; a tag pins
+    a version. Streams are versioned separately from the classification shards (STREAM_RELEASE), so this
+    tracks the latest continuous-dataset release without disturbing which shard release fg.load() uses.
     """
     from .download import ensure_local
-    from .registry import _REPO, _RELEASE
+    from .registry import _REPO, STREAM_RELEASE
     C = int(str(system).lower().replace("ieee", ""))
     spec = {"kind": "builtin", "name": f"stream{C}", "file": f"stream_ieee{C}.npz",
-            "release": release or _RELEASE, "repo": _REPO, "sha256": None}
+            "release": release or STREAM_RELEASE, "repo": _REPO, "sha256": None}
     z = np.load(ensure_local(spec), allow_pickle=True)
     return {k: z[k] for k in z.files}
 

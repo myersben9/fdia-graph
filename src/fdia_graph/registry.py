@@ -14,7 +14,11 @@ import json, os
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
 _REPO = "myersben9/fdia-graph"
 # Default pinned release tag, used when GitHub isn't queried for the newest; FDIA_GRAPH_RELEASE overrides.
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.0")   # newest dataset version (v0.7.0: 8-system transmission ladder 14/30/57/89/118/145/200/300; continuous attacked streams with a clean SE-target field; series-admittance edge features. Same v0.6.0 attack recipe: two-sided ~2%-20% plausibility band, accuracy-class meter noise)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.0")   # newest SHARD (classification) release: 8-system ladder, series-admittance edge features, ~2%-20% plausibility band, accuracy-class noise
+# Continuous-stream (SE dataset) release, versioned SEPARATELY from the shards so fg.load_stream tracks the
+# newest streams without changing which shard release fg.load uses. v0.7.1: 72k-distinct-state streams with
+# three measurement layers (observed / attack-removed / noiseless) for node AND branch-flow, on all 8 systems.
+STREAM_RELEASE = os.environ.get("FDIA_GRAPH_STREAM_RELEASE", "v0.7.1")
 
 # Built-in shards. Each entry is the full spec download.py needs: asset `file`, `release` tag, `repo`,
 # expected `sha256` (None = skip verification), and the IEEE `system` size.
