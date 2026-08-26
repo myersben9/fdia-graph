@@ -5,9 +5,11 @@ injected at scattered timesteps and mixed together, so its rows are not contiguo
 wants the opposite: one running timeline where the grid operates normally and an attack appears over a
 contiguous EPISODE, then clears. `generate_stream` produces exactly that, per system:
 
-    node_x   [T, N, 4]  emitted measurement state per minute ([|V|, Pinj, Qinj, angle])
-    clean    [T, N, 4]  NOISELESS healthy state at every timestep (same columns) — the truth the attack was
-                        injected onto, so (node_x[t], clean[t]) is (attacked measurements, true state). SE target.
+    Three aligned measurement layers per frame ([|V|, Pinj, Qinj, angle] columns):
+    node_x   [T, N, 4]  OBSERVED feed — attacked+noisy where attacked, benign+noisy elsewhere (the model input)
+    benign   [T, N, 4]  the same meters with the ATTACK REMOVED (benign+noisy) — what they would read un-attacked
+    clean    [T, N, 4]  NOISELESS attack-free TRUE state — the SE / reconstruction target
+                        (node_x == benign on benign frames; node_x - benign is the attack; benign - clean is meter noise)
     y        [T, N]      per-timestep, per-bus attack label (0 on benign frames/buses)
     family   [T]         active attack family id at each timestep (0 = benign)
     temporal_delta, swing [T, N, 2]   change vs the PREVIOUS EMITTED frame (see note below)
@@ -69,7 +71,8 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     single = [f for f in fam_ids if f in (1, 2, 3, 4, 6)]   # single-shot families (persist as a flat episode)
     has_ramp = 5 in fam_ids
 
-    node_x = np.zeros((T, C, 4), np.float32)
+    node_x = np.zeros((T, C, 4), np.float32)      # OBSERVED feed: attacked+noisy where attacked, else benign+noisy
+    benign = np.zeros((T, C, 4), np.float32)      # UN-ATTACKED measurement (benign+noisy) at every frame, attack removed
     y = np.zeros((T, C), np.uint8)
     fam = np.zeros(T, np.int16)
     td_all = np.zeros((T, C, 2), np.float32)
@@ -83,9 +86,9 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
         if len(g.benign_buf) > 300: g.benign_buf.pop(0)
         return nx
 
-    def _store(t: int, nx: np.ndarray, yt: np.ndarray, fid: int) -> None:
+    def _store(t: int, nx: np.ndarray, yt: np.ndarray, fid: int, benign_nx: np.ndarray) -> None:
         nonlocal prev_nx
-        node_x[t] = nx; y[t] = yt; fam[t] = fid
+        node_x[t] = nx; benign[t] = benign_nx; y[t] = yt; fam[t] = fid
         p = prev_nx if prev_nx is not None else nx
         td_all[t, :, 0] = nx[:, 1] - p[:, 1]; td_all[t, :, 1] = nx[:, 2] - p[:, 2]   # vs previous EMITTED frame
         sc = SCALE[t]; sw_all[t, :, 0] = td_all[t, :, 0] / sc[:, 0]; sw_all[t, :, 1] = td_all[t, :, 1] / sc[:, 1]
@@ -136,7 +139,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             gap = int(rng.integers(5, 40))
             for _ in range(gap):
                 if t >= T: break
-                _store(t, _emit_benign(t), np.zeros(C, np.uint8), 0); t += 1
+                b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b); t += 1   # benign: observed == un-attacked
             continue
         # start an attack episode
         use_ramp = has_ramp and (not single or rng.random() < 1.0 / (len(single) + 1))
@@ -149,8 +152,10 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                 if t >= T: break
                 dev = ramp_rate * (i if i < rise else (rise if i < rise + hold else max(0, rise - (i - rise - hold))))
                 res = _attack_frame(t, 5, a, 1 + direction * dev)
-                if res is None: _store(t, _emit_benign(t), np.zeros(C, np.uint8), 0)
-                else: _store(t, res[0], res[1], 5); ok |= res[1]
+                if res is None:
+                    b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b)
+                else:
+                    _store(t, res[0], res[1], 5, g.emit_from_state(X[t])[0]); ok |= res[1]   # benign counterfactual
                 t += 1
             episodes.append(dict(onset=t0, length=t - t0, family=5, buses=np.where(ok)[0].tolist()))
         else:
@@ -160,8 +165,10 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             for _ in range(L):
                 if t >= T: break
                 res = _attack_frame(t, fid, a, mult)
-                if res is None: _store(t, _emit_benign(t), np.zeros(C, np.uint8), 0)
-                else: _store(t, res[0], res[1], fid); ok |= res[1]
+                if res is None:
+                    b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b)
+                else:
+                    _store(t, res[0], res[1], fid, g.emit_from_state(X[t])[0]); ok |= res[1]   # benign counterfactual
                 t += 1
             episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
 
@@ -169,11 +176,13 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     # same column order as node_x ([|V|, Pinj, Qinj, angle]). This is the SE / reconstruction target: pair
     # (node_x[t], clean[t]) is (attacked measurements, true state) even on attacked frames.
     clean = np.stack([X[:T, :, 2], X[:T, :, 0], X[:T, :, 1], X[:T, :, 3]], axis=2).astype(np.float32)
-    result = dict(node_x=node_x, clean=clean, y=y, family=fam, temporal_delta=td_all, swing=sw_all,
+    # Three aligned layers per frame: node_x (attacked+noisy observed) -> benign (attack removed, noise kept)
+    # -> clean (noise removed too, the true state). node_x == benign on benign frames.
+    result = dict(node_x=node_x, benign=benign, clean=clean, y=y, family=fam, temporal_delta=td_all, swing=sw_all,
                   timestep=np.arange(T), system=C, episodes=episodes,
                   attacked_frac=float((y.sum(axis=1) > 0).mean()))
     if out:
-        np.savez_compressed(out, node_x=node_x, clean=clean, y=y, family=fam, temporal_delta=td_all,
+        np.savez_compressed(out, node_x=node_x, benign=benign, clean=clean, y=y, family=fam, temporal_delta=td_all,
                             swing=sw_all, timestep=np.arange(T), episodes=np.array(episodes, dtype=object))
     return result
 
