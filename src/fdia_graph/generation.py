@@ -308,7 +308,8 @@ def _write(g: "FdiaGenerator", recs: List, out: str, split: Tuple[float, float, 
         # Full per-unit branch physics + bus shunts: reconstruct Ybus EXACTLY (verified vs makeYbus to
         # 7e-15/3e-14/5e-13 on IEEE 14/118/300), so a model reads exactly the estimator's physics.
         for _n, _v in (("edge_r", g.edge_r), ("edge_x", g.edge_x), ("edge_b", g.edge_b),
-                       ("edge_g", g.edge_g), ("edge_tap", g.edge_tap), ("edge_shift", g.edge_shift),
+                       ("edge_g", g.edge_g), ("edge_gs", g.edge_gs), ("edge_bs", g.edge_bs),
+                       ("edge_tap", g.edge_tap), ("edge_shift", g.edge_shift),
                        ("edge_status", g.edge_status), ("edge_is_trafo", g.edge_is_trafo),
                        ("bus_shunt_g", g.bus_shunt_g), ("bus_shunt_b", g.bus_shunt_b)):
             gg.create_dataset(_n, data=_v)

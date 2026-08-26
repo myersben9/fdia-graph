@@ -210,6 +210,14 @@ class FdiaGenerator:
         self.edge_x = _br[:, 3].real.astype(np.float64)      # series reactance, p.u.
         self.edge_b = _br[:, 4].real.astype(np.float64)      # charging susceptance, p.u.
         self.edge_g = _br[:, 23].real.astype(np.float64)     # charging conductance, p.u. (iron losses)
+        # Series admittance g_s + j b_s = 1/(r + jx): the admittance form of the branch (Ybus off-diagonal
+        # magnitude), so the edge set carries admittance directly, not just impedance. edge_b/edge_g are the
+        # branch shunt (line charging); together they give the full pi-model admittance per edge.
+        _z = self.edge_r + 1j * self.edge_x
+        _ys = np.zeros_like(_z, dtype=complex); _nz = np.abs(_z) > 1e-12
+        _ys[_nz] = 1.0 / _z[_nz]                              # zero-impedance branches -> 0 (no series path)
+        self.edge_gs = np.real(_ys).astype(np.float64)       # series conductance, p.u.
+        self.edge_bs = np.imag(_ys).astype(np.float64)       # series susceptance, p.u. (negative for inductive)
         self.edge_tap = _tap                                 # transformer turns ratio, 1.0 for lines
         self.edge_shift = _br[:, 9].real.astype(np.float64)  # phase shift, degrees
         self.edge_status = _br[:, 10].real.astype(np.float64)  # 1 in service, 0 out
