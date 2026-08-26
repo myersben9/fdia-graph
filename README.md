@@ -230,6 +230,54 @@ One HDF5 file per system (`ml_only_ieee{14,30,57,89,118,145,200,300}.h5`), `N` b
 
 Sparsity is real: `node_m`/`edge_m` encode redundancy ≈ 2–3, so a model must consume the masks.
 
+## Dataset statistics
+
+**Per-system size** — the classification shard (`fg.load`) is 72,000 records per system (36k benign + 6k × 6 attack families), split chronologically 60/20/20:
+
+| system | N buses | E branches | records | train | val | test |
+|--------|--------:|-----------:|--------:|------:|----:|-----:|
+| ieee14  | 14  | 20  | 72,000 | 43,200 | 14,400 | 14,400 |
+| ieee30  | 30  | 41  | 72,000 | 43,200 | 14,400 | 14,400 |
+| ieee57  | 57  | 80  | 72,000 | 43,200 | 14,400 | 14,400 |
+| ieee89  | 89  | 210 | 72,000 | 43,200 | 14,400 | 14,400 |
+| ieee118 | 118 | 186 | 72,000 | 43,200 | 14,400 | 14,400 |
+| ieee145 | 145 | 453 | 70,039 | 42,030 | 14,002 | 14,007 |
+| ieee200 | 200 | 245 | 72,000 | 43,200 | 14,400 | 14,400 |
+| ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 |
+
+(ieee145 is slightly short because ~2.7% of its operating points don't converge.)
+
+**Attacks per split** — every system uses the same recipe, and families are drawn from random timesteps, so each family is split ~60/20/20 with none concentrated in a partition (shown for ieee118):
+
+| family | train | val | test | total |
+|--------|------:|----:|-----:|------:|
+| benign (0) | 21,646 | 7,239 | 7,115 | 36,000 |
+| `Aq` stealthy load-scale | 3,616 | 1,228 | 1,156 | 6,000 |
+| `Ad` meter corruption    | 3,620 | 1,178 | 1,202 | 6,000 |
+| `As` meter scaling       | 3,587 | 1,233 | 1,180 | 6,000 |
+| `Ar` replay              | 3,666 | 1,121 | 1,213 | 6,000 |
+| `At` temporal ramp       | 3,480 | 1,200 | 1,320 | 6,000 |
+| `Al` load redistribution | 3,585 | 1,201 | 1,214 | 6,000 |
+
+The **continuous stream** (`fg.load_stream`, v0.7.1) is a separate 72,000-timestep timeline per system, **~50% attacked** as timed episodes (At/ramp episodes are longest, so they carry the most attacked frames).
+
+**Operating-state distributions** (from the 72k pool per system):
+
+| system | \|V\| p1 / med / p99 (pu) | θ min / med / max (deg) |
+|--------|--------------------------|--------------------------|
+| ieee14  | 1.010 / 1.052 / 1.090 | −21 / −14 / 0 |
+| ieee30  | 0.956 / 0.980 / 1.000 | −6 / −2 / 3 |
+| ieee57  | 0.689 / 0.880 / 1.040 | −34 / −13 / 0 |
+| ieee89  | 0.961 / 1.034 / 1.084 | −17 / −3 / 33 |
+| ieee118 | 0.943 / 0.984 / 1.050 | −1 / 20 / 46 |
+| ieee145 | 0.920 / 1.064 / 1.155 | −180 / 2 / 180 |
+| ieee200 | 0.980 / 1.018 / 1.040 | −46 / −37 / −22 |
+| ieee300 | 0.869 / 0.992 / 1.065 | −91 / −15 / 64 |
+
+![Operating-state distributions](docs/fig_dataset_stats.png)
+
+*Per-bus |V|, θ, and P/Q injection distributions across the ladder (box = IQR, red = median; data in `docs/fig_dataset_stats.csv`).* Two systems are outliers **by construction of the MATPOWER base case, not our generation**: `case57` runs chronically low-voltage (33 of 57 buses below 0.9 pu even unscaled) and `case145` has a very wide angle spread. Both are valid converged operating points; the states are still real, just atypical.
+
 ## Evaluation protocol
 
 60/20/20 **chronological** split cut on sequence boundaries (ramps never straddle a split). Equal count per family. **Report per-attack-type node-F1**, not accuracy — the stealthy families are the hard ones and accuracy hides them.
