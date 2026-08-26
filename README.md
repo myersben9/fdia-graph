@@ -103,6 +103,31 @@ s["family"]   # [T]        active attack family each minute (0 = benign)
 Xw, yw = fg.windows(s, W=24, stride=12)  # slice [n, 24, N, 4] LSTM windows + labels
 ```
 
+### Recipe: a temporal state estimator (attacked window → clean V/θ)
+
+Feed an LSTM/TGN windows of the **attacked** measurements and train it to recover the **clean** state. The `clean` field is the noiseless, attack-free truth at every timestep (even on attacked ones), so the loss is estimated-state-vs-clean-target:
+
+```python
+import fdia_graph as fg
+import numpy as np
+
+s = fg.load_stream("ieee118")               # one continuous timeline (attacks as timed episodes)
+
+W, stride = 24, 12
+Xw, yw = fg.windows(s, W, stride)           # Xw [n,W,N,4] attacked measurements, yw [n,N] attack label
+starts = range(0, len(s["node_x"]) - W + 1, stride)
+clean_w = np.stack([s["clean"][t:t+W] for t in starts])   # [n,W,N,4] clean state, windowed the same way
+
+# column order is [|V|, Pinj, Qinj, angle]; the SE target is clean |V| and angle:
+target = clean_w[..., [0, 3]]               # [n,W,N,2] clean V and theta
+
+# training loop (sketch):
+#   pred = model(Xw)                        # your LSTM/TGN: [n,W,N,2] estimated V, theta
+#   loss = mse(pred, target)                # estimated state vs clean V/theta
+```
+
+`Xw` is the attacked, noisy input; `target` is the clean V/θ it should reconstruct. Swap `"ieee118"` for any of the 8 systems, and `attacked_frac`/`families` via `fg.generate_stream(...)` to build a custom stream. The static branch admittance (`ds.edge_attr`, `[E,8]`, includes `edge_gs, edge_bs = 1/(r+jx)`) comes from the matching shard `fg.load("ieee118")` if the model needs edge physics.
+
 Temporal features (`temporal_delta`, `swing`) compare each frame to the previous **emitted** frame, so a stealthy ramp stays a small per-step change while a spike reads as an abrupt jump. Build a custom stream with `fg.generate_stream(system, attacked_frac=0.5, families=[...], seed=...)`.
 
 ## Schema
