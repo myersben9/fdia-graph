@@ -30,9 +30,10 @@ from .registry import list_datasets, register_local, resolve
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
-__all__ = ["load", "generate", "generate_stream", "load_stream", "windows", "load_profile", "fetch_profile",
+__all__ = ["load", "generate", "generate_stream", "load_stream", "windows", "pyg_stream", "torch_windows",
+           "load_profile", "fetch_profile",
            "generate_states", "line_outage_candidates", "list_datasets", "FdiaGraph", "FAMILIES",
            "STEALTHY_FAMILIES"]
 
@@ -151,3 +152,29 @@ def windows(stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any")
     """
     from .streams import windows as _windows
     return _windows(stream, W, stride=stride, label=label)
+
+
+def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8, layer: str = "node_x",
+               max_test: Optional[int] = None, release: Optional[str] = None,
+               stream: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], List[Any]]:
+    """Continuous stream as ready PyTorch-Geometric graphs: (train, test) lists of Data objects.
+
+    One Data(x=[N,4], edge_index, edge_attr, y=[N]) per scan, chronological train/test split — no
+    conversion glue needed. See fdia_graph.torch_data.pyg_stream. Needs pip install "fdia-graph[pyg]".
+    """
+    from .torch_data import pyg_stream as _pyg
+    return _pyg(system, train_frac=train_frac, layer=layer, max_test=max_test, release=release, stream=stream)
+
+
+def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride: int = 8, label: str = "last",
+                  per_bus: bool = True, train_frac: float = 0.8, layer: str = "node_x",
+                  release: Optional[str] = None,
+                  stream: Optional[Dict[str, Any]] = None) -> Tuple[Tuple[Any, Any], Tuple[Any, Any]]:
+    """Continuous stream as LSTM-ready per-bus sequence tensors: ((Xtr, ytr), (Xte, yte)).
+
+    Windows the stream, reshapes to per-bus sequences [n*N, W, 4], splits chronologically (boundary
+    straddlers dropped). See fdia_graph.torch_data.torch_windows. Needs pip install "fdia-graph[torch]".
+    """
+    from .torch_data import torch_windows as _tw
+    return _tw(system, W=W, stride=stride, label=label, per_bus=per_bus, train_frac=train_frac,
+               layer=layer, release=release, stream=stream)

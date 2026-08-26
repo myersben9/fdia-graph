@@ -141,50 +141,38 @@ Temporal features (`temporal_delta`, `swing`) compare each frame to the previous
 
 ### Two runnable models
 
-**Graph model — ARMAConv (PyTorch-Geometric), per-bus attack localization.** The stream is a ready PyG graph (`edge_index` + `edge_attr`); each scan is one graph, so localize the attacked buses from the node measurements. Needs `pip install "fdia-graph[pyg]"`.
+**Graph model — ARMAConv (PyTorch-Geometric), per-bus attack localization.** `fg.pyg_stream()` hands back ready `Data` objects — one graph per scan with node measurements, connectivity, branch physics, and the per-bus label attached, already split chronologically. Needs `pip install "fdia-graph[pyg]"`.
 
 ```python
 import torch, torch.nn.functional as F
 from torch_geometric.nn import ARMAConv
 import fdia_graph as fg
 
-s  = fg.load_stream("ieee118")
-ei = torch.from_numpy(s["edge_index"])                 # [2, E] connectivity (int64)
-X  = torch.tensor(s["node_x"], dtype=torch.float32)    # [T, N, 4] attacked measurements
-Y  = torch.tensor(s["y"],      dtype=torch.float32)    # [T, N]   per-bus attack label
-T   = X.shape[0]
-ntr = int(0.8 * T)                                     # 80/20 chronological split (works on any stream length)
-nte = min(1000, T - ntr)                               # bounded eval slice
+train, test = fg.pyg_stream("ieee118", max_test=1000)  # ready PyG graphs, chronological 80/20 split
 
 class GNN(torch.nn.Module):
     def __init__(self, c=4, h=32):
         super().__init__(); self.a = ARMAConv(c, h); self.b = ARMAConv(h, 1)
-    def forward(self, x): return self.b(F.relu(self.a(x, ei)), ei).squeeze(-1)   # [N] logits
+    def forward(self, g): return self.b(F.relu(self.a(g.x, g.edge_index)), g.edge_index).squeeze(-1)
 
 net = GNN(); opt = torch.optim.Adam(net.parameters(), 1e-2)
 for epoch in range(3):
-    for t in torch.randperm(ntr)[:1000]:               # a sample of scans per epoch
+    for i in torch.randperm(len(train))[:1000].tolist():   # a sample of scans per epoch
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(net(X[t]), Y[t]).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(net(train[i]), train[i].y).backward(); opt.step()
 
 with torch.no_grad():
-    pred = torch.stack([net(X[t]) > 0 for t in range(ntr, ntr + nte)])
-    acc  = (pred == (Y[ntr:ntr + nte] > 0)).float().mean()
+    acc = torch.cat([(net(g) > 0) == (g.y > 0) for g in test]).float().mean()
 print("per-bus localization accuracy:", acc.item())
 ```
 
-**Temporal model — a plain PyTorch LSTM, per-bus attack detection.** Slide a window over the stream and run an LSTM over each bus's measurement sequence. Needs `pip install "fdia-graph[torch]"`.
+**Temporal model — a plain PyTorch LSTM, per-bus attack detection.** `fg.torch_windows()` windows the stream and hands back per-bus sequence tensors `[n·N, W, 4]` — the shape `nn.LSTM` consumes directly — split chronologically with boundary-straddling windows dropped. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import torch, torch.nn as nn, torch.nn.functional as F
 import fdia_graph as fg
 
-s = fg.load_stream("ieee118")
-Xw, yw = fg.windows(s, W=16, stride=8, label="last")   # Xw [n,16,N,4], yw [n,N] (label at last frame)
-n, W, N, C = Xw.shape
-seq = torch.tensor(Xw.transpose(0, 2, 1, 3).reshape(n * N, W, C), dtype=torch.float32)  # per-bus sequences
-lab = torch.tensor(yw.reshape(n * N), dtype=torch.float32)
-k = int(0.8 * len(seq))                                # 80/20 split
+(Xtr, ytr), (Xte, yte) = fg.torch_windows("ieee118", W=16, stride=8)   # per-bus sequences, LSTM-ready
 
 class LSTMDet(nn.Module):
     def __init__(self, c=4, h=32):
@@ -193,16 +181,16 @@ class LSTMDet(nn.Module):
 
 m = LSTMDet(); opt = torch.optim.Adam(m.parameters(), 1e-3)
 for epoch in range(3):
-    for i in range(0, k, 256):
+    for i in range(0, len(Xtr), 256):
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(m(seq[i:i + 256]), lab[i:i + 256]).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(m(Xtr[i:i + 256]), ytr[i:i + 256]).backward(); opt.step()
 
 with torch.no_grad():
-    acc = ((m(seq[k:]) > 0) == (lab[k:] > 0)).float().mean()
+    acc = ((m(Xte) > 0) == (yte > 0)).float().mean()
 print("LSTM per-bus detection accuracy:", acc.item())
 ```
 
-Both are minimal starting points (swap in the `benign`/`clean` layers to train a state estimator, or `edge_x`/`edge_attr` to add branch physics).
+Both helpers take `layer="benign"` / `"clean"` to swap which measurement layer feeds the model as **input** (the label stays the per-bus attack target), and `stream=` to reuse an already-loaded stream instead of loading by name. For a state estimator (attacked input → clean V/θ target), window the `clean` layer yourself as the target — see the recipe above.
 
 ## Schema
 
