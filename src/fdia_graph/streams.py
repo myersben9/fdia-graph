@@ -10,6 +10,8 @@ contiguous EPISODE, then clears. `generate_stream` produces exactly that, per sy
     benign   [T, N, 4]  the same meters with the ATTACK REMOVED (benign+noisy) — what they would read un-attacked
     clean    [T, N, 4]  NOISELESS attack-free TRUE state — the SE / reconstruction target
                         (node_x == benign on benign frames; node_x - benign is the attack; benign - clean is meter noise)
+    edge_x, edge_benign, edge_clean [T, E, 2]  the SAME three layers for branch flows [P_from, Q_from]
+                        (observed / attack-removed / noiseless). Node + edge together are the full SE measurement set.
     y        [T, N]      per-timestep, per-bus attack label (0 on benign frames/buses)
     family   [T]         active attack family id at each timestep (0 = benign)
     temporal_delta, swing [T, N, 2]   change vs the PREVIOUS EMITTED frame (see note below)
@@ -71,8 +73,12 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     single = [f for f in fam_ids if f in (1, 2, 3, 4, 6)]   # single-shot families (persist as a flat episode)
     has_ramp = 5 in fam_ids
 
-    node_x = np.zeros((T, C, 4), np.float32)      # OBSERVED feed: attacked+noisy where attacked, else benign+noisy
-    benign = np.zeros((T, C, 4), np.float32)      # UN-ATTACKED measurement (benign+noisy) at every frame, attack removed
+    E = g.E
+    node_x = np.zeros((T, C, 4), np.float32)      # OBSERVED node feed: attacked+noisy where attacked, else benign+noisy
+    benign = np.zeros((T, C, 4), np.float32)      # UN-ATTACKED node measurement (benign+noisy), attack removed
+    edge_x = np.zeros((T, E, 2), np.float32)      # OBSERVED branch flows [P_from, Q_from] (attacked+noisy / benign+noisy)
+    edge_ben = np.zeros((T, E, 2), np.float32)    # UN-ATTACKED branch flows (benign+noisy)
+    edge_cln = np.zeros((T, E, 2), np.float32)    # NOISELESS true branch flows
     y = np.zeros((T, C), np.uint8)
     fam = np.zeros(T, np.int16)
     td_all = np.zeros((T, C, 2), np.float32)
@@ -80,27 +86,33 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     episodes: List[Dict[str, Any]] = []
     prev_nx: Optional[np.ndarray] = None
 
-    def _emit_benign(t: int) -> np.ndarray:
+    def _clean_edges(xt: np.ndarray) -> np.ndarray:
+        # Noiseless from-end branch flow Sf = V_from * conj(Yf @ V) * baseMVA, straight from the true state.
+        Vc = np.zeros(g._nppc, complex)
+        for b in range(C): Vc[g._lut[b]] = xt[b, 2] * np.exp(1j * np.deg2rad(xt[b, 3]))
+        Sf = Vc[g._fb] * np.conj(g._Yf @ Vc) * g._bMVA
+        return np.stack([Sf.real, Sf.imag], axis=1).astype(np.float32)
+
+    def _emit_benign(t: int) -> Tuple[np.ndarray, np.ndarray]:
         nx, nm, ex, em = g.emit_from_state(X[t])
         g.benign_buf.append(nx.copy())
         if len(g.benign_buf) > 300: g.benign_buf.pop(0)
-        return nx
+        return nx, ex
 
-    def _store(t: int, nx: np.ndarray, yt: np.ndarray, fid: int, benign_nx: np.ndarray) -> None:
+    def _store(t: int, nx: np.ndarray, yt: np.ndarray, fid: int, benign_nx: np.ndarray,
+               ex: np.ndarray, benign_ex: np.ndarray) -> None:
         nonlocal prev_nx
         node_x[t] = nx; benign[t] = benign_nx; y[t] = yt; fam[t] = fid
+        edge_x[t] = ex; edge_ben[t] = benign_ex; edge_cln[t] = _clean_edges(X[t])
         p = prev_nx if prev_nx is not None else nx
         td_all[t, :, 0] = nx[:, 1] - p[:, 1]; td_all[t, :, 1] = nx[:, 2] - p[:, 2]   # vs previous EMITTED frame
         sc = SCALE[t]; sw_all[t, :, 0] = td_all[t, :, 0] / sc[:, 0]; sw_all[t, :, 1] = td_all[t, :, 1] / sc[:, 1]
         prev_nx = nx
 
-    def _attack_frame(t: int, fid: int, a: np.ndarray,
-                      mult: Union[float, np.ndarray]) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-        """Apply family `fid` at timestep t on attackable positions `a` (episode-consistent).
-        Returns (nx, y, benign) or None. benign = the SAME measurement with the attack removed:
-        for corrupt-in-place it is the pre-corruption emit (noise shared, so un-attacked buses are identical
-        to nx); for a re-solve family it is the un-attacked true-state emit (the whole state moves, so it is a
-        distinct draw by construction)."""
+    def _attack_frame(t: int, fid: int, a: np.ndarray, mult: Union[float, np.ndarray]
+                      ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+        """Apply family `fid` at timestep t. Returns (nx, y, benign_nx, ex, benign_ex) or None, where ex is the
+        OBSERVED branch flows and benign_ex the un-attacked branch flows (node + edge from the same scan)."""
         yt = np.zeros(C, np.uint8)
         if fid in (1, 5):                                    # Aq / ramp: re-solve with scaled load
             Lp = X[t][g.load_bus, 0] + g.load_genP; Lq = X[t][g.load_bus, 1].copy(); Lp_true = Lp.copy()
@@ -108,7 +120,8 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             net = g.solve(Lp, Lq, Xt=X[t], Lp_true=Lp_true)
             if net is None: return None
             nx, nm, ex, em = g.emit(net); yt[g.load_bus[a]] = 1
-            return nx, yt, g.emit_from_state(X[t])[0]        # benign = un-attacked emit of the true state
+            bnx, bnm, bex, bem = g.emit_from_state(X[t])     # benign = un-attacked emit of the true state
+            return nx, yt, bnx, ex, bex
         if fid == 6:                                         # Al / LRA: load-redistribution re-solve
             Lp = X[t][g.load_bus, 0] + g.load_genP; Lq = X[t][g.load_bus, 1].copy()
             d, aa = g.lra_delta(Lp, attack_intensity, K, floor=NOISE_FLOOR)
@@ -116,9 +129,10 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             net = g.solve(Lp + d, Lq, Xt=X[t], Lp_true=Lp)
             if net is None: return None
             nx, nm, ex, em = g.emit(net); yt[g.load_bus[aa]] = 1
-            return nx, yt, g.emit_from_state(X[t])[0]        # benign = un-attacked emit of the true state
+            bnx, bnm, bex, bem = g.emit_from_state(X[t])
+            return nx, yt, bnx, ex, bex
         nx, nm, ex, em = g.emit_from_state(X[t])             # Ad/As/Ar: corrupt measurements in place
-        benign_nx = nx.copy()                                # capture BEFORE corruption -> shares noise with nx
+        benign_nx = nx.copy(); benign_ex = ex.copy()         # capture BEFORE corruption -> shares noise with nx/ex
         abus = g.load_bus[a]
         if replay_tau is not None and g.benign_buf:          # fixed replay depth, else random lag >=20
             replay = g.benign_buf[-min(replay_tau, len(g.benign_buf))]
@@ -128,7 +142,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             replay = g.benign_buf[0] if g.benign_buf else None
         nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[fid], replay, floor=NOISE_FLOOR, cap=attack_intensity)
         yt[abus] = 1
-        return nx, yt, benign_nx                             # un-attacked buses in benign_nx == nx exactly
+        return nx, yt, benign_nx, ex, benign_ex             # un-attacked node/edge in benign == nx/ex exactly
 
     def _pick_targets(fid: int) -> np.ndarray:
         nab = len(apos)
@@ -144,7 +158,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             gap = int(rng.integers(5, 40))
             for _ in range(gap):
                 if t >= T: break
-                b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b); t += 1   # benign: observed == un-attacked
+                bn, bex = _emit_benign(t); _store(t, bn, np.zeros(C, np.uint8), 0, bn, bex, bex); t += 1   # benign: observed == un-attacked
             continue
         # start an attack episode
         use_ramp = has_ramp and (not single or rng.random() < 1.0 / (len(single) + 1))
@@ -158,9 +172,9 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                 dev = ramp_rate * (i if i < rise else (rise if i < rise + hold else max(0, rise - (i - rise - hold))))
                 res = _attack_frame(t, 5, a, 1 + direction * dev)
                 if res is None:
-                    b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b)
+                    bn, bex = _emit_benign(t); _store(t, bn, np.zeros(C, np.uint8), 0, bn, bex, bex)
                 else:
-                    _store(t, res[0], res[1], 5, res[2]); ok |= res[1]   # res[2] = benign (attack removed)
+                    _store(t, res[0], res[1], 5, res[2], res[3], res[4]); ok |= res[1]
                 t += 1
             episodes.append(dict(onset=t0, length=t - t0, family=5, buses=np.where(ok)[0].tolist()))
         else:
@@ -171,9 +185,9 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                 if t >= T: break
                 res = _attack_frame(t, fid, a, mult)
                 if res is None:
-                    b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b)
+                    bn, bex = _emit_benign(t); _store(t, bn, np.zeros(C, np.uint8), 0, bn, bex, bex)
                 else:
-                    _store(t, res[0], res[1], fid, res[2]); ok |= res[1]   # res[2] = benign (attack removed)
+                    _store(t, res[0], res[1], fid, res[2], res[3], res[4]); ok |= res[1]
                 t += 1
             episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
 
@@ -183,12 +197,18 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     clean = np.stack([X[:T, :, 2], X[:T, :, 0], X[:T, :, 1], X[:T, :, 3]], axis=2).astype(np.float32)
     # Three aligned layers per frame: node_x (attacked+noisy observed) -> benign (attack removed, noise kept)
     # -> clean (noise removed too, the true state). node_x == benign on benign frames.
-    result = dict(node_x=node_x, benign=benign, clean=clean, y=y, family=fam, temporal_delta=td_all, swing=sw_all,
+    # Branch-flow measurements mirror the node layers: edge_x (observed) -> edge_benign (attack removed)
+    # -> edge_clean (noiseless true flows). Node + edge from the same scan gives the full SE measurement set.
+    result = dict(node_x=node_x, benign=benign, clean=clean,
+                  edge_x=edge_x, edge_benign=edge_ben, edge_clean=edge_cln,
+                  y=y, family=fam, temporal_delta=td_all, swing=sw_all,
                   timestep=np.arange(T), system=C, episodes=episodes,
                   attacked_frac=float((y.sum(axis=1) > 0).mean()))
     if out:
-        np.savez_compressed(out, node_x=node_x, benign=benign, clean=clean, y=y, family=fam, temporal_delta=td_all,
-                            swing=sw_all, timestep=np.arange(T), episodes=np.array(episodes, dtype=object))
+        np.savez_compressed(out, node_x=node_x, benign=benign, clean=clean,
+                            edge_x=edge_x, edge_benign=edge_ben, edge_clean=edge_cln,
+                            y=y, family=fam, temporal_delta=td_all, swing=sw_all,
+                            timestep=np.arange(T), episodes=np.array(episodes, dtype=object))
     return result
 
 
