@@ -96,6 +96,7 @@ The `load`/`generate` shard is a shuffled table of independent labeled snapshots
 ```python
 s = fg.load_stream("ieee118")          # download the published stream (or fg.generate_stream(...) to build one)
 s["node_x"]   # [T, N, 4]  running measurement series ([|V|, Pinj, Qinj, angle])
+s["clean"]    # [T, N, 4]  noiseless, attack-free TRUE state at every step — the SE / reconstruction target
 s["y"]        # [T, N]     per-timestep, per-bus attack label (0 on benign frames)
 s["family"]   # [T]        active attack family each minute (0 = benign)
 
@@ -106,9 +107,9 @@ Temporal features (`temporal_delta`, `swing`) compare each frame to the previous
 
 ## Schema
 
-One HDF5 file per system (`ml_only_ieee{14,118,300}.h5`), `N` buses and `E` branches. The static graph is stored once; everything else is per record (`T` total). Access one record via `ds[i]`, a whole split via `ds.to_numpy()`.
+One HDF5 file per system (`ml_only_ieee{14,30,57,89,118,145,200,300}.h5`), `N` buses and `E` branches. The static graph is stored once; everything else is per record (`T` total). Access one record via `ds[i]`, a whole split via `ds.to_numpy()`.
 
-**Static graph:** `edge_index [2,E]` (`[from_bus; to_bus]`, lines then transformers), `edge_reactance [E]` (p.u.).
+**Static graph:** `edge_index [2,E]` (`[from_bus; to_bus]`, lines then transformers) and per-unit branch physics via `ds.edge_attr [E,8]` = series impedance `edge_r, edge_x`, branch shunt / line charging `edge_b, edge_g`, series admittance `edge_gs, edge_bs = 1/(r+jx)`, and transformer `edge_tap, edge_shift`. Bus shunts are node attributes (`bus_shunt_g, bus_shunt_b`); together they reconstruct Ybus exactly.
 
 **Per record:**
 
