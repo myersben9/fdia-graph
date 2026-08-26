@@ -6,6 +6,8 @@ wants the opposite: one running timeline where the grid operates normally and an
 contiguous EPISODE, then clears. `generate_stream` produces exactly that, per system:
 
     node_x   [T, N, 4]  emitted measurement state per minute ([|V|, Pinj, Qinj, angle])
+    clean    [T, N, 4]  NOISELESS healthy state at every timestep (same columns) — the truth the attack was
+                        injected onto, so (node_x[t], clean[t]) is (attacked measurements, true state). SE target.
     y        [T, N]      per-timestep, per-bus attack label (0 on benign frames/buses)
     family   [T]         active attack family id at each timestep (0 = benign)
     temporal_delta, swing [T, N, 2]   change vs the PREVIOUS EMITTED frame (see note below)
@@ -163,20 +165,24 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                 t += 1
             episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
 
-    result = dict(node_x=node_x, y=y, family=fam, temporal_delta=td_all, swing=sw_all,
+    # clean = the NOISELESS healthy state at every timestep (the truth the attack was injected onto), in the
+    # same column order as node_x ([|V|, Pinj, Qinj, angle]). This is the SE / reconstruction target: pair
+    # (node_x[t], clean[t]) is (attacked measurements, true state) even on attacked frames.
+    clean = np.stack([X[:T, :, 2], X[:T, :, 0], X[:T, :, 1], X[:T, :, 3]], axis=2).astype(np.float32)
+    result = dict(node_x=node_x, clean=clean, y=y, family=fam, temporal_delta=td_all, swing=sw_all,
                   timestep=np.arange(T), system=C, episodes=episodes,
                   attacked_frac=float((y.sum(axis=1) > 0).mean()))
     if out:
-        np.savez_compressed(out, node_x=node_x, y=y, family=fam, temporal_delta=td_all, swing=sw_all,
-                            timestep=np.arange(T), episodes=np.array(episodes, dtype=object))
+        np.savez_compressed(out, node_x=node_x, clean=clean, y=y, family=fam, temporal_delta=td_all,
+                            swing=sw_all, timestep=np.arange(T), episodes=np.array(episodes, dtype=object))
     return result
 
 
 def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[str, Any]:
     """Download (and cache) the published continuous stream for a system and return it as a dict.
 
-    Same dict shape as generate_stream (node_x, y, family, temporal_delta, swing, timestep, episodes). Built-in
-    systems only (14/30/57/89/118/145/200/300). release: None -> newest published; a tag pins a version.
+    Same dict shape as generate_stream (node_x, clean, y, family, temporal_delta, swing, timestep, episodes).
+    Built-in systems only (14/30/57/89/118/145/200/300). release: None -> newest published; a tag pins a version.
     """
     from .download import ensure_local
     from .registry import _REPO, _RELEASE
