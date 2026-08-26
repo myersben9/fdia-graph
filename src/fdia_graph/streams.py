@@ -95,8 +95,12 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
         prev_nx = nx
 
     def _attack_frame(t: int, fid: int, a: np.ndarray,
-                      mult: Union[float, np.ndarray]) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-        """Apply family `fid` at timestep t on attackable positions `a` (episode-consistent). Returns (nx, y) or None."""
+                      mult: Union[float, np.ndarray]) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """Apply family `fid` at timestep t on attackable positions `a` (episode-consistent).
+        Returns (nx, y, benign) or None. benign = the SAME measurement with the attack removed:
+        for corrupt-in-place it is the pre-corruption emit (noise shared, so un-attacked buses are identical
+        to nx); for a re-solve family it is the un-attacked true-state emit (the whole state moves, so it is a
+        distinct draw by construction)."""
         yt = np.zeros(C, np.uint8)
         if fid in (1, 5):                                    # Aq / ramp: re-solve with scaled load
             Lp = X[t][g.load_bus, 0] + g.load_genP; Lq = X[t][g.load_bus, 1].copy(); Lp_true = Lp.copy()
@@ -104,7 +108,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             net = g.solve(Lp, Lq, Xt=X[t], Lp_true=Lp_true)
             if net is None: return None
             nx, nm, ex, em = g.emit(net); yt[g.load_bus[a]] = 1
-            return nx, yt
+            return nx, yt, g.emit_from_state(X[t])[0]        # benign = un-attacked emit of the true state
         if fid == 6:                                         # Al / LRA: load-redistribution re-solve
             Lp = X[t][g.load_bus, 0] + g.load_genP; Lq = X[t][g.load_bus, 1].copy()
             d, aa = g.lra_delta(Lp, attack_intensity, K, floor=NOISE_FLOOR)
@@ -112,8 +116,9 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             net = g.solve(Lp + d, Lq, Xt=X[t], Lp_true=Lp)
             if net is None: return None
             nx, nm, ex, em = g.emit(net); yt[g.load_bus[aa]] = 1
-            return nx, yt
+            return nx, yt, g.emit_from_state(X[t])[0]        # benign = un-attacked emit of the true state
         nx, nm, ex, em = g.emit_from_state(X[t])             # Ad/As/Ar: corrupt measurements in place
+        benign_nx = nx.copy()                                # capture BEFORE corruption -> shares noise with nx
         abus = g.load_bus[a]
         if replay_tau is not None and g.benign_buf:          # fixed replay depth, else random lag >=20
             replay = g.benign_buf[-min(replay_tau, len(g.benign_buf))]
@@ -123,7 +128,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             replay = g.benign_buf[0] if g.benign_buf else None
         nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[fid], replay, floor=NOISE_FLOOR, cap=attack_intensity)
         yt[abus] = 1
-        return nx, yt
+        return nx, yt, benign_nx                             # un-attacked buses in benign_nx == nx exactly
 
     def _pick_targets(fid: int) -> np.ndarray:
         nab = len(apos)
@@ -155,7 +160,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                 if res is None:
                     b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b)
                 else:
-                    _store(t, res[0], res[1], 5, g.emit_from_state(X[t])[0]); ok |= res[1]   # benign counterfactual
+                    _store(t, res[0], res[1], 5, res[2]); ok |= res[1]   # res[2] = benign (attack removed)
                 t += 1
             episodes.append(dict(onset=t0, length=t - t0, family=5, buses=np.where(ok)[0].tolist()))
         else:
@@ -168,7 +173,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                 if res is None:
                     b = _emit_benign(t); _store(t, b, np.zeros(C, np.uint8), 0, b)
                 else:
-                    _store(t, res[0], res[1], fid, g.emit_from_state(X[t])[0]); ok |= res[1]   # benign counterfactual
+                    _store(t, res[0], res[1], fid, res[2]); ok |= res[1]   # res[2] = benign (attack removed)
                 t += 1
             episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
 
