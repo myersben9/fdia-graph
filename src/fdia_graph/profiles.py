@@ -21,6 +21,8 @@ import zipfile
 import datetime as _dt
 import numpy as np
 
+from ._core import _CASE   # bus-count -> pandapower builder; single source of supported systems
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -74,9 +76,8 @@ def load_profile(source: Union[str, Sequence[float], np.ndarray], path: Optional
 
 def _case_buses(key: int) -> np.ndarray:
     """Return (all_buses ordering) for a case — must match between the central jitter build and the worker."""
-    import pandapower as pp
     import pandapower.networks as pn
-    base = {14: pn.case14, 118: pn.case118, 300: pn.case300}[key]()
+    base = getattr(pn, _CASE[key])()
     return np.unique(np.concatenate([base.load["bus"].to_numpy(), base.gen["bus"].to_numpy()]))
 
 
@@ -86,7 +87,7 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> List[np.ndarray]:
     [N,4] state arrays; non-converging steps are skipped."""
     import pandapower as pp
     import pandapower.networks as pn
-    base = {14: pn.case14, 118: pn.case118, 300: pn.case300}[key]()
+    base = getattr(pn, _CASE[key])()
     pp.runpp(base)                                             # seed a valid base state
     nodelist = sorted(base.bus.index)                          # consistent bus order for the [N,4] rows
     base_load_p = base.load["p_mw"].to_numpy().copy()
@@ -150,8 +151,8 @@ def generate_states(system: Union[int, str], profile: Union[np.ndarray, Sequence
     `emit_from_state` consume.
     """
     key = int(str(system).lower().replace("ieee", ""))
-    if key not in (14, 118, 300):
-        raise ValueError(f"unknown system {system!r}; expected 14, 118, or 300")
+    if key not in _CASE:
+        raise ValueError(f"unknown system {system!r}; supported: {sorted(_CASE)}")
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]

@@ -32,8 +32,9 @@ from .download import ensure_local
 
 __version__ = "0.6.0"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
-__all__ = ["load", "generate", "load_profile", "fetch_profile", "generate_states",
-           "line_outage_candidates", "list_datasets", "FdiaGraph", "FAMILIES", "STEALTHY_FAMILIES"]
+__all__ = ["load", "generate", "generate_stream", "load_stream", "windows", "load_profile", "fetch_profile",
+           "generate_states", "line_outage_candidates", "list_datasets", "FdiaGraph", "FAMILIES",
+           "STEALTHY_FAMILIES"]
 
 
 def line_outage_candidates(system: Union[str, int], top_n: int = 5) -> Tuple[List[Dict], List[Dict]]:
@@ -110,7 +111,7 @@ def load(name: str, split: Optional[str] = None, families: Optional[Sequence[Uni
 def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
     """Generate a custom dataset with research knobs and register it as `name` (loadable via load(name)).
 
-    Knobs (all optional): per_family, families, attack_intensity, ramp_rate, ramp_len, n_benign,
+    Knobs (all optional): per_family, families, attack_intensity, ramp_rate, ramp_len, replay_tau, n_benign,
     redundancy, split, seed, out. See fdia_graph.generation module for the full documented signature.
     Requires the generation extra: pip install 'fdia-graph[generate]'.
     """
@@ -119,3 +120,34 @@ def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
     from .generation import generate as _generate
     # **knobs forwarded untouched so this wrapper never goes stale as knobs change.
     return _generate(system, name=name, **knobs)
+
+
+def generate_stream(system: Union[str, int], **knobs: Any) -> Dict[str, Any]:
+    """Build ONE continuous attacked time series for temporal models (LSTM/TGN), not a shuffled table.
+
+    Returns a dict with node_x [T,N,4], y [T,N], family [T], temporal_delta/swing [T,N,2], and an episode
+    list; saved to `out` (npz) if given. Knobs: states, attacked_frac, families, attack_intensity, ramp_rate,
+    ramp_len, seed, out (see fdia_graph.streams). Requires the generation extra.
+    """
+    from .streams import generate_stream as _gs
+    return _gs(system, **knobs)
+
+
+def load_stream(system: Union[str, int], release: Optional[str] = None) -> Dict[str, Any]:
+    """Download the published continuous attacked stream for a system (dict: node_x, y, family, ...).
+
+    Built-in systems 14/30/57/89/118/145/200/300. Feed to windows() for LSTM/TGN training. release pins a
+    version. See fdia_graph.streams.load_stream.
+    """
+    from .streams import load_stream as _ls
+    return _ls(system, release=release)
+
+
+def windows(stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any") -> Tuple[np.ndarray, np.ndarray]:
+    """Slide a length-W window over a stream (from generate_stream/load_stream) into (Xw [n,W,N,4], yw) for an LSTM.
+
+    label: "frame" -> yw [n,W,N] per-frame; "any" -> yw [n,N] attacked-anywhere-in-window; "last" -> yw [n,N]
+    at the final frame. See fdia_graph.streams.windows.
+    """
+    from .streams import windows as _windows
+    return _windows(stream, W, stride=stride, label=label)

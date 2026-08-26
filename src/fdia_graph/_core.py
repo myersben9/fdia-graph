@@ -20,7 +20,10 @@ import numpy as np
 FAM_ID = {"benign": 0, "Aq": 1, "SLS": 1, "Ao": 1, "Ad": 2, "As": 3, "Ar": 4,
           "At": 5, "ramp": 5, "Al": 6, "LRA": 6}
 # Bus-count knob (14/118/300) -> pandapower.networks factory name.
-_CASE = {14: "case14", 118: "case118", 300: "case300"}
+# Bus-count -> pandapower.networks builder. Transmission systems only (>=110 kV, meshed). A system is
+# load()-able only once its pool + registry entry ship; listing it here just lets the generator build it.
+_CASE = {14: "case14", 30: "case30", 57: "case57", 89: "case89pegase", 118: "case118",
+         145: "case145", 200: "case_illinois200", 300: "case300"}
 
 
 # N-1 LINE OUTAGE SUPPORT. The branch must be taken out BEFORE anything derived (Ybus, PTDF, base

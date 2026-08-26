@@ -6,6 +6,7 @@ Research knobs (all optional, sensible defaults matching the published shards):
   attack_intensity  float per-bus load shift magnitude for Aq / Al(LRA) bound; also the upper plausibility cap (default 0.20 = 20%)
   ramp_rate         float ramp perturbation growth per step (default 0.002)
   ramp_len          int   ramp sequence length (default 60)
+  replay_tau        int   Ar/As replay depth in frames back (default None = random lag >=20; set for a fixed lag)
   n_benign          int   benign records (default 20000)
   redundancy        dict  meter coverage: {vbus_frac,pmu_frac,flow_frac} (default 0.6/0.2/0.9)
   split             tuple chronological train/val/test fractions (default (0.6,0.2,0.2))
@@ -72,7 +73,7 @@ def _load_states(system: Union[int, str], states: Optional[Union[str, np.ndarray
 def generate(system: Union[int, str], name: str, per_family: int = 3000,
              families: Sequence[str] = ("Aq", "Ad", "As", "Ar", "At", "Al"),
              attack_intensity: float = 0.20, ramp_rate: float = 0.002, ramp_len: int = 60,
-             n_benign: int = 20000, lra_targets: int = 15,
+             replay_tau: Optional[int] = None, n_benign: int = 20000, lra_targets: int = 15,
              redundancy: Optional[Dict] = None, split: Tuple[float, float, float] = (0.6, 0.2, 0.2),
              seed: int = 123, states: Optional[Union[str, np.ndarray]] = None, out: Optional[str] = None,
              outage: Optional[Union[int, str]] = None,
@@ -177,8 +178,14 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
         a = atk[0]   # indices into the LOAD-BUS ARRAY (0..#load-1) for a corrupt-in-place family (Ad/As/Ar)
         abus = g.load_bus[a]   # -> actual BUS indices. corrupt()/emit index by bus, so map here: passing raw `a`
         # tampered buses 0..nlb while the label pointed at load_bus[a], corrupting DIFFERENT buses than labeled.
-        # Ar/As replay a benign frame >=~20 frames back for temporal contrast, else oldest (or None) if too small.
-        replay = g.benign_buf[int(rng.integers(0, len(g.benign_buf)-20))] if len(g.benign_buf) > 20 else (g.benign_buf[0] if g.benign_buf else None)
+        # Ar/As replay a benign frame from the buffer for temporal contrast. replay_tau fixes the lag (exactly
+        # tau frames back, clamped to the buffer); default is a random lag >=20 frames. Oldest/None if too small.
+        if replay_tau is not None and g.benign_buf:
+            replay = g.benign_buf[-min(replay_tau, len(g.benign_buf))]
+        elif len(g.benign_buf) > 20:
+            replay = g.benign_buf[int(rng.integers(0, len(g.benign_buf)-20))]
+        else:
+            replay = g.benign_buf[0] if g.benign_buf else None
         # corrupt() tampers measurements in place per family code, keeping each realized change inside the band.
         nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[family], replay, floor=NOISE_FLOOR, cap=attack_intensity)
         if weak: return None   # replayed change fell inside the noise floor -> reject, loop redraws
