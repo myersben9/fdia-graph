@@ -30,7 +30,7 @@ from .registry import list_datasets, register_local, resolve
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
 __all__ = ["load", "generate", "generate_stream", "load_stream", "windows", "load_profile", "fetch_profile",
            "generate_states", "line_outage_candidates", "list_datasets", "FdiaGraph", "FAMILIES",
@@ -89,7 +89,7 @@ def load(name: str, split: Optional[str] = None, families: Optional[Sequence[Uni
          units: str = "physical") -> FdiaGraph:
     """Load a dataset by name (built-in shard auto-downloads; local generated ones load from disk).
 
-    name        : "ieee14"|"ieee118"|"ieee300", or a locally-generated dataset name.
+    name        : "ieee14/30/57/89/118/145/200/300" (transmission ladder), or a locally-generated name.
     split       : None (all) | "train" | "val" | "test"  (chronological 60/20/20).
     families    : optional subset, e.g. ["Aq","At","Al"] or [1,5,6].
     include_gaps: keep physics non-convergence NA rows (default False).
@@ -125,9 +125,9 @@ def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
 def generate_stream(system: Union[str, int], **knobs: Any) -> Dict[str, Any]:
     """Build ONE continuous attacked time series for temporal models (LSTM/TGN), not a shuffled table.
 
-    Returns a dict with node_x [T,N,4], y [T,N], family [T], temporal_delta/swing [T,N,2], and an episode
-    list; saved to `out` (npz) if given. Knobs: states, attacked_frac, families, attack_intensity, ramp_rate,
-    ramp_len, seed, out (see fdia_graph.streams). Requires the generation extra.
+    Returns a dict with node_x [T,N,4], clean [T,N,4] (noiseless attack-free SE target), y [T,N], family [T],
+    temporal_delta/swing [T,N,2], and an episode list; saved to `out` (npz) if given. Knobs: states,
+    attacked_frac, families, attack_intensity, ramp_rate, ramp_len, replay_tau, seed, out. Needs the generation extra.
     """
     from .streams import generate_stream as _gs
     return _gs(system, **knobs)
