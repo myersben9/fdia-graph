@@ -103,11 +103,14 @@ s["clean"]    # NOISELESS, attack-free TRUE state — the SE / reconstruction ta
 # branch-flow measurements [T, E, 2] = [P_from, Q_from], same three layers
 s["edge_x"], s["edge_benign"], s["edge_clean"]
 
-s["y"]        # [T, N]  per-timestep, per-bus attack label     s["family"]  # [T] active family (0 = benign)
+s["y"]          # [T, N] per-bus attack label   s["family"]  # [T] active family (0 = benign)
+s["edge_index"] # [2, E] PyG connectivity        s["edge_attr"]  # [E, 8] line features (r,x,b,g,gs,bs,tap,shift)
+s["node_m"], s["edge_m"]   # static meter masks — metering is SPARSE, so unmetered channels are zero-filled
 
-# node_x - benign isolates the attack; benign - clean is meter noise.
 Xw, yw = fg.windows(s, W=24, stride=12)  # slice [n, 24, N, 4] LSTM windows + labels
 ```
+
+On the **measured** channels (see `node_m`/`edge_m`), `observed − benign` isolates the attack and `benign − clean` is meter noise. Those hold exactly for the in-place corruption families (`Ad`/`As`/`Ar`), which share the benign meter draw; for the stealthy re-solve families (`Aq`/`At`/`Al`) the whole operating point moves, so `benign` is a separate noise draw and the differences carry the state change plus noise — `clean` (the noiseless true state) is always the exact SE target.
 
 ### Recipe: a temporal state estimator (attacked window → clean V/θ)
 

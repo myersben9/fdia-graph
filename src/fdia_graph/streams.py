@@ -12,8 +12,10 @@ contiguous EPISODE, then clears. `generate_stream` produces exactly that, per sy
                         (node_x == benign on benign frames; node_x - benign is the attack; benign - clean is meter noise)
     edge_x, edge_benign, edge_clean [T, E, 2]  the SAME three layers for branch flows [P_from, Q_from]
                         (observed / attack-removed / noiseless). Node + edge together are the full SE measurement set.
-    edge_index [2, E]    static graph connectivity (COO), edge_attr [E, 8]  static line features
-                        (r, x, b, g, gs, bs, tap, shift) — the two holders PyTorch-Geometric models expect.
+    edge_index [2, E]    static graph connectivity (COO, int64 -> torch.long); edge_attr [E, 8] static line
+                        features (r, x, b, g, gs, bs, tap, shift) — the two holders PyTorch-Geometric expects.
+    node_m [N, 4], edge_m [E, 2]  static meter-availability masks (metering is SPARSE; 0 = no meter, entry is
+                        zero-filled). The observed==benign and benign-clean identities hold on measured channels.
     y        [T, N]      per-timestep, per-bus attack label (0 on benign frames/buses)
     family   [T]         active attack family id at each timestep (0 = benign)
     temporal_delta, swing [T, N, 2]   change vs the PREVIOUS EMITTED frame (see note below)
@@ -76,24 +78,27 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     has_ramp = 5 in fam_ids
 
     E = g.E
+    fmeter = np.asarray(g.flow_meter, bool)       # which branches carry a flow meter (same mask emit() uses)
     node_x = np.zeros((T, C, 4), np.float32)      # OBSERVED node feed: attacked+noisy where attacked, else benign+noisy
     benign = np.zeros((T, C, 4), np.float32)      # UN-ATTACKED node measurement (benign+noisy), attack removed
     edge_x = np.zeros((T, E, 2), np.float32)      # OBSERVED branch flows [P_from, Q_from] (attacked+noisy / benign+noisy)
     edge_ben = np.zeros((T, E, 2), np.float32)    # UN-ATTACKED branch flows (benign+noisy)
-    edge_cln = np.zeros((T, E, 2), np.float32)    # NOISELESS true branch flows
+    edge_cln = np.zeros((T, E, 2), np.float32)    # NOISELESS true branch flows (metered branches only, matching edge_x)
+
+    # Precompute all noiseless from-end flows Sf = V_from*conj(Yf@V)*baseMVA in ONE batched matmul over the
+    # whole timeline (vs a per-frame sparse multiply). Masked to metered branches so edge_clean shares the
+    # availability pattern of edge_x/edge_benign -> edge_benign - edge_clean is meter noise on measured channels.
+    Vc_all = np.zeros((T, g._nppc), complex)
+    Vc_all[:, g._lut[np.arange(C)]] = X[:T, :, 2] * np.exp(1j * np.deg2rad(X[:T, :, 3]))
+    Sf_all = Vc_all[:, g._fb] * np.conj(Vc_all @ g._Yf.T) * g._bMVA
+    edge_clean_full = np.stack([Sf_all.real, Sf_all.imag], axis=2).astype(np.float32)
+    edge_clean_full[:, ~fmeter, :] = 0.0          # zero unmetered branches (matches emit() masking)
     y = np.zeros((T, C), np.uint8)
     fam = np.zeros(T, np.int16)
     td_all = np.zeros((T, C, 2), np.float32)
     sw_all = np.zeros((T, C, 2), np.float32)
     episodes: List[Dict[str, Any]] = []
     prev_nx: Optional[np.ndarray] = None
-
-    def _clean_edges(xt: np.ndarray) -> np.ndarray:
-        # Noiseless from-end branch flow Sf = V_from * conj(Yf @ V) * baseMVA, straight from the true state.
-        Vc = np.zeros(g._nppc, complex)
-        for b in range(C): Vc[g._lut[b]] = xt[b, 2] * np.exp(1j * np.deg2rad(xt[b, 3]))
-        Sf = Vc[g._fb] * np.conj(g._Yf @ Vc) * g._bMVA
-        return np.stack([Sf.real, Sf.imag], axis=1).astype(np.float32)
 
     def _emit_benign(t: int) -> Tuple[np.ndarray, np.ndarray]:
         nx, nm, ex, em = g.emit_from_state(X[t])
@@ -105,7 +110,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                ex: np.ndarray, benign_ex: np.ndarray) -> None:
         nonlocal prev_nx
         node_x[t] = nx; benign[t] = benign_nx; y[t] = yt; fam[t] = fid
-        edge_x[t] = ex; edge_ben[t] = benign_ex; edge_cln[t] = _clean_edges(X[t])
+        edge_x[t] = ex; edge_ben[t] = benign_ex; edge_cln[t] = edge_clean_full[t]
         p = prev_nx if prev_nx is not None else nx
         td_all[t, :, 0] = nx[:, 1] - p[:, 1]; td_all[t, :, 1] = nx[:, 2] - p[:, 2]   # vs previous EMITTED frame
         sc = SCALE[t]; sw_all[t, :, 0] = td_all[t, :, 0] / sc[:, 0]; sw_all[t, :, 1] = td_all[t, :, 1] / sc[:, 1]
@@ -199,23 +204,27 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     clean = np.stack([X[:T, :, 2], X[:T, :, 0], X[:T, :, 1], X[:T, :, 3]], axis=2).astype(np.float32)
     # Three aligned layers per frame: node_x (attacked+noisy observed) -> benign (attack removed, noise kept)
     # -> clean (noise removed too, the true state). node_x == benign on benign frames.
-    # Static graph for PyG-style models: edge_index [2,E] connectivity (COO) + edge_attr [E,8] line features
-    # (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame, so stored once.
-    edge_index = np.asarray(g.ei)
+    # Static graph for PyG-style models: edge_index [2,E] connectivity (COO, int64 so it maps to torch.long)
+    # + edge_attr [E,8] line features (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame.
+    edge_index = np.asarray(g.ei, dtype=np.int64)
     edge_attr = np.stack([g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs,
                           g.edge_tap, g.edge_shift], axis=1).astype(np.float32)
+    # Static availability masks (which channels carry a meter) — same sparse plan every frame, so a consumer
+    # knows which node_x/edge_x entries are measured vs zero-filled. node_m [N,4], edge_m [E,2].
+    _bnx, node_m, _bex, edge_m = g.emit_from_state(X[0])
+    node_m = node_m.astype(np.uint8); edge_m = edge_m.astype(np.uint8)
     # Branch-flow measurements mirror the node layers: edge_x (observed) -> edge_benign (attack removed)
-    # -> edge_clean (noiseless true flows). Node + edge from the same scan gives the full SE measurement set.
+    # -> edge_clean (noiseless true flows, metered branches). Node + edge from the same scan = full SE meas set.
     result = dict(node_x=node_x, benign=benign, clean=clean,
                   edge_x=edge_x, edge_benign=edge_ben, edge_clean=edge_cln,
-                  edge_index=edge_index, edge_attr=edge_attr,
+                  edge_index=edge_index, edge_attr=edge_attr, node_m=node_m, edge_m=edge_m,
                   y=y, family=fam, temporal_delta=td_all, swing=sw_all,
                   timestep=np.arange(T), system=C, episodes=episodes,
                   attacked_frac=float((y.sum(axis=1) > 0).mean()))
     if out:
         np.savez_compressed(out, node_x=node_x, benign=benign, clean=clean,
                             edge_x=edge_x, edge_benign=edge_ben, edge_clean=edge_cln,
-                            edge_index=edge_index, edge_attr=edge_attr,
+                            edge_index=edge_index, edge_attr=edge_attr, node_m=node_m, edge_m=edge_m,
                             y=y, family=fam, temporal_delta=td_all, swing=sw_all,
                             timestep=np.arange(T), episodes=np.array(episodes, dtype=object))
     return result
@@ -236,13 +245,18 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
             "release": release or STREAM_RELEASE, "repo": _REPO, "sha256": None}
     z = np.load(ensure_local(spec), allow_pickle=True)
     out = {k: z[k] for k in z.files}
-    # PyG-ready graph: edge_index [2,E] + edge_attr [E,8]. Newer streams embed it; for streams that predate it
-    # (e.g. the v0.7.1 assets), pull the tiny per-system graph sidecar so every load_stream dict is complete.
-    if "edge_index" not in out:
+    # PyG-ready graph + static meter masks. Newer streams embed them; for streams that predate them (e.g. the
+    # v0.7.1 assets), pull the tiny per-system graph sidecar so every load_stream dict is complete.
+    _GKEYS = ("edge_index", "edge_attr", "node_m", "edge_m")
+    if any(k not in out for k in _GKEYS):
         gspec = {"kind": "builtin", "name": f"graph{C}", "file": f"graph_ieee{C}.npz",
                  "release": release or STREAM_RELEASE, "repo": _REPO, "sha256": None}
         gz = np.load(ensure_local(gspec))
-        out["edge_index"] = gz["edge_index"]; out["edge_attr"] = gz["edge_attr"]
+        for k in _GKEYS:
+            if k not in out and k in gz.files: out[k] = gz[k]
+    # Normalize dtypes regardless of source: PyG expects edge_index as int64 (torch.long); features float32.
+    if "edge_index" in out: out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)
+    if "edge_attr" in out: out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
     return out
 
 
