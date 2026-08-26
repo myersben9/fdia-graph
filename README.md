@@ -190,7 +190,7 @@ with torch.no_grad():
 print("LSTM per-bus detection accuracy:", acc.item())
 ```
 
-Both helpers take `layer="benign"` / `"clean"` to swap measurement layers (e.g. train a state estimator on `node_x` → `clean`), and `stream=` to reuse an already-loaded stream instead of loading by name.
+Both helpers take `layer="benign"` / `"clean"` to swap which measurement layer feeds the model as **input** (the label stays the per-bus attack target), and `stream=` to reuse an already-loaded stream instead of loading by name. For a state estimator (attacked input → clean V/θ target), window the `clean` layer yourself as the target — see the recipe above.
 
 ## Schema
 

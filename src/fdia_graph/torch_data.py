@@ -19,6 +19,17 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-fre
 __all__ = ["pyg_stream", "torch_windows"]
 
 
+def _f32(a: Any) -> "torch.Tensor":
+    """numpy -> float32 torch tensor, zero-copy when the array is already contiguous float32."""
+    import torch
+    return torch.from_numpy(np.ascontiguousarray(a, dtype=np.float32))
+
+
+def _check_frac(train_frac: float) -> None:
+    if not 0.0 < train_frac < 1.0:
+        raise ValueError(f"train_frac must be in (0, 1), got {train_frac}")
+
+
 def _resolve_stream(system: Optional[Union[str, int]], release: Optional[str],
                     stream: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Accept either a system name (loaded here) or an already-loaded stream dict."""
@@ -45,11 +56,14 @@ def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8
     """
     import torch
     from torch_geometric.data import Data
+    _check_frac(train_frac)
+    if max_test is not None and max_test < 0:
+        raise ValueError(f"max_test must be >= 0, got {max_test}")
     s = _resolve_stream(system, release, stream)
-    X = torch.tensor(np.asarray(s[layer]), dtype=torch.float32)                     # [T, N, 4]
-    Y = torch.tensor(np.asarray(s["y"]), dtype=torch.float32)                       # [T, N]
+    X = _f32(s[layer])                                                              # [T, N, 4]
+    Y = _f32(s["y"])                                                                # [T, N]
     ei = torch.from_numpy(np.ascontiguousarray(s["edge_index"], dtype=np.int64))    # [2, E], shared
-    ea = torch.tensor(np.asarray(s["edge_attr"]), dtype=torch.float32)              # [E, 8], shared
+    ea = _f32(s["edge_attr"])                                                       # [E, 8], shared
     T = int(X.shape[0])
     ntr = int(train_frac * T)
     train = [Data(x=X[t], edge_index=ei, edge_attr=ea, y=Y[t]) for t in range(ntr)]
@@ -76,11 +90,16 @@ def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride:
     """
     import torch
     from .streams import windows as _windows
+    _check_frac(train_frac)
     s = _resolve_stream(system, release, stream)
     if layer != "node_x":
         s = {**s, "node_x": s[layer]}
-    Xw, yw = _windows(s, W, stride=stride, label=label)
     T = int(np.asarray(s["node_x"]).shape[0])
+    if not 1 <= W <= T:
+        raise ValueError(f"W must be in [1, {T}] (stream length), got {W}")
+    if stride < 1:
+        raise ValueError(f"stride must be >= 1, got {stride}")
+    Xw, yw = _windows(s, W, stride=stride, label=label)
     cut = int(train_frac * T)
     starts = np.arange(0, T - W + 1, stride)
     tr = starts + W <= cut          # window fully inside the train span
@@ -89,12 +108,11 @@ def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride:
     def _cvt(Xp: np.ndarray, yp: np.ndarray) -> Tuple["torch.Tensor", "torch.Tensor"]:
         if per_bus:
             n, Wn, N, C = Xp.shape
-            X = torch.tensor(Xp.transpose(0, 2, 1, 3).reshape(n * N, Wn, C), dtype=torch.float32)
-            y = (torch.tensor(yp.transpose(0, 2, 1).reshape(n * N, Wn), dtype=torch.float32)
-                 if label == "frame" else torch.tensor(yp.reshape(n * N), dtype=torch.float32))
+            X = _f32(Xp.transpose(0, 2, 1, 3).reshape(n * N, Wn, C))
+            y = (_f32(yp.transpose(0, 2, 1).reshape(n * N, Wn))
+                 if label == "frame" else _f32(yp.reshape(n * N)))
         else:
-            X = torch.tensor(Xp, dtype=torch.float32)
-            y = torch.tensor(yp, dtype=torch.float32)
+            X, y = _f32(Xp), _f32(yp)
         return X, y
 
     return _cvt(Xw[tr], yw[tr]), _cvt(Xw[te], yw[te])
