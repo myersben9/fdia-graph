@@ -110,7 +110,10 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> Dict:
     name = _ALIASES.get(name, name)                                  # "118"/118 -> "ieee118"; canonical unchanged
     if name in BUILTIN:
         spec = {"kind": "builtin", "name": name, **BUILTIN[name]}
-        spec["release"] = release or latest_release(spec["repo"])   # None -> newest; else the pinned tag
+        # Default to the pinned SHARD release (_RELEASE), NOT the newest repo tag: shards and streams are
+        # versioned on separate release channels, so "latest tag" can be a streams-only release that does
+        # not carry the .h5 shard at all (v0.7.1 was exactly that, and made fresh fg.load() 404).
+        spec["release"] = release or _RELEASE
         # The pinned sha256 describes the _RELEASE assets only; drop it for any other release rather than
         # fail the integrity check against bytes it was never computed from.
         if spec["release"] != _RELEASE:
