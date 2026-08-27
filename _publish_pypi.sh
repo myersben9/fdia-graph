@@ -12,7 +12,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-VENV="../venv/python.exe"
+# Interpreter: honor $PYTHON if set, else the repo's ../venv (Ben's machine), else python3/python from PATH.
+if [ -n "${PYTHON:-}" ]; then VENV="$PYTHON"
+elif [ -x "../venv/python.exe" ]; then VENV="../venv/python.exe"
+elif command -v python3 >/dev/null; then VENV="python3"
+else VENV="python"; fi
 REPO="${PYPI_REPO:-pypi}"
 
 echo "== re-checking artifacts =="

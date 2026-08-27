@@ -236,12 +236,14 @@ class FdiaGraph:
         else:
             d, j = self._h()["data"], int(self.idx[i])  # j = real file row; d = the "data" group of measurements
         # Static graph tensors, built once and SHARED by every record dict (references, not copies), so a
-        # consumer of the dict format gets connectivity + line physics without reaching for ds.edge_index.
+        # consumer of the dict format gets connectivity (+ line physics) without reaching for ds.edge_index.
+        # edge_index exists on every shard; edge_attr needs the v0.5.0+ physics schema, so attach it only when
+        # present -- otherwise ds[i] would regress to an AttributeError on older no-physics shards.
         if not hasattr(self, "_ei_t"):
-            self._ei_t = self.edge_index; self._ea_t = self.edge_attr
+            self._ei_t = self.edge_index
+            self._ea_t = self.edge_attr if self.has_physics else None
         item = dict(
             edge_index=self._ei_t,                      # [2,E] static connectivity (same tensor every record)
-            edge_attr=self._ea_t,                       # [E,8] static per-unit line features (r,x,b,g,gs,bs,tap,shift)
             node_x=torch.as_tensor(self._to_units(d["node_x"][j], "node"), dtype=torch.float32),  # [N,4]=[|V|,P_inj,Q_inj,theta]
             node_m=torch.as_tensor(d["node_m"][j], dtype=torch.float32),   # [N,4] availability mask (1=measured)
             edge_x=torch.as_tensor(self._to_units(d["edge_x"][j], "edge"), dtype=torch.float32),   # [E,2]=[P_from,Q_from] flows
@@ -249,6 +251,8 @@ class FdiaGraph:
             y=torch.as_tensor(d["y"][j], dtype=torch.float32),            # [N] per-bus attack label (multi-label target)
             family=int(d["family"][j]), stealthy=int(d["stealthy"][j]),   # scalar metadata: attack type + stealth flag
             seq_id=int(d["seq_id"][j]), timestep=int(d["timestep"][j]))   # provenance: which sequence + which scan in it
+        if self._ea_t is not None:
+            item["edge_attr"] = self._ea_t              # [E,8] per-unit line features (r,x,b,g,gs,bs,tap,shift); v0.5.0+ shards only
         if self.has_temporal:                                     # [N,2] current-minus-previous-scan injection (v0.3+)
             item["temporal_delta"] = torch.as_tensor(self._to_units(d["temporal_delta"][j], "td"), dtype=torch.float32)
         if self.has_swing:                                        # [N,2] windowed relative swing (recent-window z-score)
@@ -282,7 +286,9 @@ class FdiaGraph:
         for k in fkeys:
             out[k] = torch.stack([b[k] for b in batch])           # [B, N/E, C] batched features/labels/masks
         # Static graph rides along ONCE per batch (not stacked): every sample shares the same topology.
-        out["edge_index"] = batch[0]["edge_index"]; out["edge_attr"] = batch[0]["edge_attr"]
+        out["edge_index"] = batch[0]["edge_index"]
+        if "edge_attr" in batch[0]:                     # absent on older no-physics shards
+            out["edge_attr"] = batch[0]["edge_attr"]
         for k in ("family", "stealthy", "seq_id", "timestep"):
             out[k] = torch.as_tensor([b[k] for b in batch], dtype=torch.long)   # [B] scalar metadata per record
         return out
