@@ -19,14 +19,17 @@ swing [N,2]     = z-scored scan-to-scan change on [P,Q]
 
 | col | name | meaning |
 |-----|------|---------|
-| 0 | `r` | series resistance |
-| 1 | `x` | series reactance |
-| 2 | `b` | line-charging susceptance |
+| 0 | `r` | series **impedance**, real part (resistance) — `Z = r + jx` |
+| 1 | `x` | series impedance, imag part (reactance) |
+| 2 | `b` | line-charging susceptance (shunt) |
 | 3 | `g` | shunt conductance (usually 0) |
-| 4 | `gs` | real part of `1/(r+jx)` |
-| 5 | `bs` | imag part of `1/(r+jx)` |
+| 4 | `gs` | series **admittance**, real part (conductance) — `Y = 1/(r+jx) = gs + j·bs` |
+| 5 | `bs` | series admittance, imag part (susceptance) |
 | 6 | `tap` | transformer tap ratio (1.0 = plain line) |
 | 7 | `shift` | transformer phase shift, degrees (0 = plain line) |
+
+`r,x` (impedance) and `gs,bs` (admittance) are the same branch inverted (`Y = 1/Z`) — both included so you
+don't have to compute one from the other.
 
 Note: in `format="pyg"`, `Data.edge_attr` is the `[E,2]` flows, not this. The `[E,8]` is `ds.edge_attr`.
 
