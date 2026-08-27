@@ -190,6 +190,7 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
             replay = g.benign_buf[0] if g.benign_buf else None
         # corrupt() tampers measurements in place per family code, keeping each realized change inside the band.
         nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[family], replay, floor=NOISE_FLOOR, cap=attack_intensity)
+        nx[nm == 0] = 0.0; ex[em == 0] = 0.0   # corrupt() can write unmetered channels; re-assert mask==0 -> value==0
         if weak: return None   # replayed change fell inside the noise floor -> reject, loop redraws
         y = np.zeros(C, np.uint8); y[abus] = 1   # label the SAME buses that were corrupted (now consistent)
         r = _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0

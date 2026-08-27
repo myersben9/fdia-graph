@@ -122,9 +122,12 @@ class FdiaGenerator:
         from pandapower.pypower.makePTDF import makePTDF
         self.pp = pp
         self.C = int(system); self.rng = np.random.default_rng(seed)
-        # ASPROU accuracy-class measurement noise stds (Asprou/Kyriakides/Albu TIM 2014; Falas et al. 2025 uses it).
-        # Each std = manufacturer max uncertainty / sqrt(3), class-0.2 instrument transformers. Relative for
-        # flows/injections, absolute for V/angle. P/Q ~1.73%; |V| ~0.12%; angle ~0.096 deg (va stored in radians).
+        # Measurement noise stds (Asprou/Kyriakides/Albu TIM 2014 accuracy-class model; Falas et al. 2025 uses it).
+        # |V| ~0.12% and angle ~0.096 deg ARE the class-0.2 / sqrt(3) IT figures. P/Q are set to ~1.73%, which is
+        # NOT class-0.2: it is a deliberately larger power-measurement std reflecting compounded CT+VT ratio/phase
+        # error (defensible in SE literature, ~class 1-3). NB: this is ~8x the ~0.2% P/Q std Falas attributes to
+        # Asprou -- the [[falas-noise-model]] magnitude question is a separate research decision, not a code bug.
+        # Relative for flows/injections, absolute for V/angle. (va stored in radians.)
         self.SD = dict(pf=0.017, qf=0.017, v=0.0012, pi=0.017, qi=0.017, va=0.00168)
         # Accuracy-class error is mostly SYSTEMATIC (constant calibration offset), with a small per-scan jitter.
         # Treating all of SD as per-scan noise would over-jitter 1-min traces and drown the temporal channel.

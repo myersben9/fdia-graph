@@ -9,13 +9,19 @@ contiguous EPISODE, then clears. `generate_stream` produces exactly that, per sy
     node_x   [T, N, 4]  OBSERVED feed — attacked+noisy where attacked, benign+noisy elsewhere (the model input)
     benign   [T, N, 4]  the same meters with the ATTACK REMOVED (benign+noisy) — what they would read un-attacked
     clean    [T, N, 4]  NOISELESS attack-free TRUE state — the SE / reconstruction target
-                        (node_x == benign on benign frames; node_x - benign is the attack; benign - clean is meter noise)
+                        (`benign - clean` is meter noise for EVERY frame. `node_x - benign` isolates the attack
+                        EXACTLY only for the in-place corruption families Ad/As/Ar, whose benign layer is captured
+                        pre-corruption and so shares node_x's exact noise draw. For the re-solve families Aq/At/Al
+                        the whole operating point moves, so benign is an independent noisy measurement of the true
+                        state and `node_x - benign` carries the state change PLUS a noise difference, not the attack
+                        alone — use `clean` as the SE target there. See the README "Continuous streams" note.)
     edge_x, edge_benign, edge_clean [T, E, 2]  the SAME three layers for branch flows [P_from, Q_from]
                         (observed / attack-removed / noiseless). Node + edge together are the full SE measurement set.
     edge_index [2, E]    static graph connectivity (COO, int64 -> torch.long); edge_attr [E, 8] static line
                         features (r, x, b, g, gs, bs, tap, shift) — the two holders PyTorch-Geometric models expect.
     node_m [N, 4], edge_m [E, 2]  static meter-availability masks (metering is SPARSE; 0 = no meter, entry is
-                        zero-filled). The observed==benign and benign-clean identities hold on measured channels.
+                        zero-filled). The benign-clean = meter-noise identity holds on measured channels for all
+                        families; the node_x - benign = attack identity holds exactly only for Ad/As/Ar (see above).
     y        [T, N]      per-timestep, per-bus attack label (0 on benign frames/buses)
     family   [T]         active attack family id at each timestep (0 = benign)
     temporal_delta, swing [T, N, 2]   change vs the PREVIOUS EMITTED frame (see note below)
@@ -148,6 +154,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
         else:
             replay = g.benign_buf[0] if g.benign_buf else None
         nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[fid], replay, floor=NOISE_FLOOR, cap=attack_intensity)
+        nx[nm == 0] = 0.0; ex[em == 0] = 0.0                # corrupt() can write unmetered channels; re-assert mask==0 -> value==0
         yt[abus] = 1
         return nx, yt, benign_nx, ex, benign_ex             # un-attacked node/edge in benign == nx/ex exactly
 
