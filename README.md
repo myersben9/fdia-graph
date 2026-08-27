@@ -40,7 +40,7 @@ Continuous timeline for LSTM/TGN: `fg.load_stream(system)`. Both in [`docs/EXAMP
 
 ## Data
 
-Each record is a sparse measurement graph. Shapes (full reference in [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md)):
+Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges). Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch, `[2,E]` = 2 rows × E branches. Full reference in [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md).
 
 ```
 node_x [N,4] = [ |V|, P_inj, Q_inj, theta ]      bus meters      node_m [N,4] = mask

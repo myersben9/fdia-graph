@@ -1,6 +1,9 @@
 # Data dictionary
 
-What every array from `fg.load()` / `fg.load_stream()` holds. `N` buses, `E` branches.
+What every array from `fg.load()` / `fg.load_stream()` holds.
+
+**N** = number of buses (nodes), **E** = number of branches (edges). A shape is "values per item":
+`[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch, `[2,E]` = 2 rows × E branches.
 
 ## Cheat sheet
 
