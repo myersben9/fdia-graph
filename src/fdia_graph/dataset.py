@@ -100,10 +100,8 @@ class FdiaGraph:
             keep &= np.isin(fam, fam_ids)               # keep only the requested attack families
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
         self.idx = np.nonzero(keep)[0]
-        # Optional RAM cache: one bulk fancy-read per field for JUST the kept rows, then __getitem__ serves
-        # from memory. Per-record h5py reads carry ~0.1-1ms fixed overhead each, and an epoch is len(self)
-        # records x ~10 fields of them, which is what actually bottlenecks .loader() training; the bulk read
-        # pays that overhead once per field. ~350MB for an ieee118 split; skip on tiny-RAM machines.
+        # Optional RAM cache: bulk-read the kept rows once so __getitem__ skips per-record h5py overhead
+        # (the real .loader() bottleneck). ~350MB for an ieee118 split.
         self._mem: Optional[Dict[str, np.ndarray]] = None
         if preload and len(self.idx):
             with h5py.File(path, "r") as f:
@@ -111,8 +109,7 @@ class FdiaGraph:
                 keys = (["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
                         + (["temporal_delta"] if self.has_temporal else [])
                         + (["swing"] if self.has_swing else []))
-                # Splits are chronological, so kept rows span a near-contiguous block: one sequential slice
-                # read + numpy subset is far faster than h5py per-row fancy indexing (point reads).
+                # one contiguous slice + numpy subset beats h5py point reads (splits are near-contiguous)
                 lo, hi = int(self.idx[0]), int(self.idx[-1]) + 1
                 rel = self.idx - lo
                 self._mem = {k: dg[k][lo:hi][rel] for k in keys if k in dg}
@@ -235,10 +232,8 @@ class FdiaGraph:
             d, j = self._mem, i                         # preloaded: arrays are position-aligned with the view
         else:
             d, j = self._h()["data"], int(self.idx[i])  # j = real file row; d = the "data" group of measurements
-        # Static graph tensors, built once and SHARED by every record dict (references, not copies), so a
-        # consumer of the dict format gets connectivity (+ line physics) without reaching for ds.edge_index.
-        # edge_index exists on every shard; edge_attr needs the v0.5.0+ physics schema, so attach it only when
-        # present -- otherwise ds[i] would regress to an AttributeError on older no-physics shards.
+        # Static graph shared by every record dict (references, not copies). edge_attr needs the v0.5.0+
+        # physics schema, so attach it only when present (older shards would raise otherwise).
         if not hasattr(self, "_ei_t"):
             self._ei_t = self.edge_index
             self._ea_t = self.edge_attr if self.has_physics else None

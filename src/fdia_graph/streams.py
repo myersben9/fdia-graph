@@ -9,12 +9,8 @@ contiguous EPISODE, then clears. `generate_stream` produces exactly that, per sy
     node_x   [T, N, 4]  OBSERVED feed — attacked+noisy where attacked, benign+noisy elsewhere (the model input)
     benign   [T, N, 4]  the same meters with the ATTACK REMOVED (benign+noisy) — what they would read un-attacked
     clean    [T, N, 4]  NOISELESS attack-free TRUE state — the SE / reconstruction target
-                        (`benign - clean` is meter noise for EVERY frame. `node_x - benign` isolates the attack
-                        EXACTLY only for the in-place corruption families Ad/As/Ar, whose benign layer is captured
-                        pre-corruption and so shares node_x's exact noise draw. For the re-solve families Aq/At/Al
-                        the whole operating point moves, so benign is an independent noisy measurement of the true
-                        state and `node_x - benign` carries the state change PLUS a noise difference, not the attack
-                        alone — use `clean` as the SE target there. See the README "Continuous streams" note.)
+                        (benign-clean = noise always; node_x-benign = attack exactly for Ad/As/Ar only.
+                        Aq/At/Al re-solve, so node_x-benign there also carries a noise term; use clean as SE target.)
     edge_x, edge_benign, edge_clean [T, E, 2]  the SAME three layers for branch flows [P_from, Q_from]
                         (observed / attack-removed / noiseless). Node + edge together are the full SE measurement set.
     edge_index [2, E]    static graph connectivity (COO, int64 -> torch.long); edge_attr [E, 8] static line
