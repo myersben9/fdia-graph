@@ -42,19 +42,31 @@ Most FDIA benchmarks contain attacks a bad-data detector (BDD) catches, so "ML b
 | `As`   | meter scaling | caught |
 | `Ar`   | replay | mostly caught |
 
-Two things keep it honest (v0.6.0): every attack's per-bus magnitude sits in a **plausibility band** — above a ~2% meter-noise floor (can't hide in noise) and below a 20% cap (stays realistic), with the slow ramp `At` exempt from the floor by design — and meter error follows an **accuracy-class model** (Asprou class-0.2, a fixed per-meter bias plus a per-scan jitter) rather than a single made-up variance. Each record is a PING-style measurement graph (branch flows as edges, metered injections + |V| + sparse PMU angles as nodes, with availability masks) at a realistic redundancy of ≈ 2–3.
+Two things keep it honest: every attack's per-bus magnitude sits in a **plausibility band** — above a ~2% meter-noise floor (can't hide in noise) and below a 20% cap (stays realistic), with the slow ramp `At` exempt from the floor by design — and meter error follows an **accuracy-class model** (Asprou class-0.2, a fixed per-meter bias plus a per-scan jitter) rather than a single made-up variance. Each record is a PING-style measurement graph (branch flows as edges, metered injections + |V| + sparse PMU angles as nodes, with availability masks) at a realistic redundancy of ≈ 2–3.
 
 ## Install
 
+Install the current release straight from GitHub (the PyPI package can lag behind `main`):
+
 ```bash
-pip install fdia-graph              # loader (numpy + h5py)
-pip install "fdia-graph[torch]"     # + PyTorch Dataset/DataLoader
-pip install "fdia-graph[pyg]"       # + torch_geometric graph format
-pip install "fdia-graph[generate]"  # + pandapower, to generate custom datasets
-pip install "fdia-graph[all]"       # everything (adds gridstatus for ISO load download)
+pip install "git+https://github.com/myersben9/fdia-graph"                 # loader (numpy + h5py)
+pip install "fdia-graph[torch] @ git+https://github.com/myersben9/fdia-graph"   # + PyTorch Dataset/DataLoader
+pip install "fdia-graph[pyg]   @ git+https://github.com/myersben9/fdia-graph"   # + torch_geometric graph format
+pip install "fdia-graph[generate] @ git+https://github.com/myersben9/fdia-graph" # + pandapower, generate custom data
+pip install "fdia-graph[all]   @ git+https://github.com/myersben9/fdia-graph"   # everything (adds gridstatus for ISO load)
 ```
 
-Datasets, operating-point pools, and the whole simulation pipeline all ship with the package and its GitHub releases. There is no separate data drop to sync.
+Once the matching version is on PyPI you can also `pip install fdia-graph` (add `--upgrade` to move an existing install forward). To upgrade an existing git install, add `--upgrade --force-reinstall` so pip re-pulls `main`.
+
+### Versioning and updates
+
+The dataset does **not** auto-update. Each installed SDK version pins a data release (`fdia_graph.__version__` ships a fixed `_RELEASE` tag), and downloaded shards are cached under `~/.cache/fdia_graph`, so a given install always sees the same data. To change what you get:
+
+- **Pin a version explicitly** — `fg.load("ieee118", release="v0.7.1")` — reproducible regardless of the installed default.
+- **Move the default forward** — upgrade the package (the SDK version carries its pinned data release with it).
+- **Force a re-fetch** of the same version — delete `~/.cache/fdia_graph`.
+
+Datasets, operating-point pools, and the whole simulation pipeline all ship through the package and its GitHub releases. There is no separate data drop to sync.
 
 ## Load
 
@@ -65,7 +77,7 @@ heldout  = fg.load("ieee118", split="train", heldout=True)          # As/Ar excl
 
 fg.load("ieee118", units="physical")   # default: |V| p.u., P/Q in MW/MVAr, θ in degrees
 fg.load("ieee118", units="pu")         # everything per-unit on baseMVA, θ in radians (for ML/physics models)
-fg.load("ieee118", release="v0.6.0")   # pin a version for a reproducible experiment (default is newest)
+fg.load("ieee118", release="v0.7.1")   # pin a version for a reproducible experiment (default: the release the installed SDK pins)
 ```
 
 Pull a whole split at once for analysis with `ds.to_numpy()`, `ds.to_torch()`, `ds.to_tf()`, or `ds.to_pandas()`.
