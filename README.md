@@ -46,7 +46,7 @@ Two things keep it honest: every attack's per-bus magnitude sits in a **plausibi
 
 ## Install
 
-Install the current release straight from GitHub (the PyPI package can lag behind `main`):
+Install the latest code straight from GitHub (this tracks the `main` branch; the PyPI package can lag behind it):
 
 ```bash
 pip install "git+https://github.com/myersben9/fdia-graph"                 # loader (numpy + h5py)
@@ -60,7 +60,7 @@ Once the matching version is on PyPI you can also `pip install fdia-graph` (add 
 
 ### Versioning and updates
 
-The dataset does **not** auto-update. Each installed SDK version pins a data release (`fdia_graph.__version__` ships a fixed `_RELEASE` tag), and downloaded shards are cached under `~/.cache/fdia_graph`, so a given install always sees the same data. To change what you get:
+The dataset does **not** auto-update. Each installed SDK version pins a default data release (`fdia_graph.registry._RELEASE`, overridable with the `FDIA_GRAPH_RELEASE` env var), and downloaded shards are cached under `~/.cache/fdia_graph`, so a given install always sees the same data. To change what you get:
 
 - **Pin a version explicitly** — `fg.load("ieee118", release="v0.7.1")` — reproducible regardless of the installed default.
 - **Move the default forward** — upgrade the package (the SDK version carries its pinned data release with it).

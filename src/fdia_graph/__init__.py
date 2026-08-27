@@ -30,7 +30,7 @@ from .registry import list_datasets, register_local, resolve
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
 
-__version__ = "0.7.6"
+__version__ = "0.7.7"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
 __all__ = ["load", "generate", "generate_stream", "load_stream", "windows", "pyg_stream", "torch_windows",
            "load_profile", "fetch_profile",
