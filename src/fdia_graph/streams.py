@@ -235,7 +235,7 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
 
     Same dict shape as generate_stream (node_x, benign, clean, edge_x/edge_benign/edge_clean, y, family, ...).
     Built-in systems only (14/30/57/89/118/145/200/300). release: None -> newest published streams; a tag pins
-    a version. Streams are versioned separately from the classification shards (STREAM_RELEASE), so this
+    a version. Streams ship in the same complete release as the shards (STREAM_RELEASE follows _RELEASE), so this
     tracks the latest continuous-dataset release without disturbing which shard release fg.load() uses.
     """
     from .download import ensure_local
