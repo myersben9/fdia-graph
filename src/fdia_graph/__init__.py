@@ -30,7 +30,7 @@ from .registry import list_datasets, register_local, resolve
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
 
-__version__ = "0.7.3"
+__version__ = "0.7.4"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
 __all__ = ["load", "generate", "generate_stream", "load_stream", "windows", "pyg_stream", "torch_windows",
            "load_profile", "fetch_profile",
@@ -87,7 +87,7 @@ def generate_states(system: Union[str, int], profile: Union[np.ndarray, Sequence
 
 def load(name: str, split: Optional[str] = None, families: Optional[Sequence[Union[str, int]]] = None,
          include_gaps: bool = False, heldout: bool = False, format: str = "torch", release: Optional[str] = None,
-         units: str = "physical") -> FdiaGraph:
+         units: str = "physical", preload: bool = False) -> FdiaGraph:
     """Load a dataset by name (built-in shard auto-downloads; local generated ones load from disk).
 
     name        : "ieee14/30/57/89/118/145/200/300" (transmission ladder), or a locally-generated name.
@@ -100,13 +100,15 @@ def load(name: str, split: Optional[str] = None, families: Optional[Sequence[Uni
                   an explicit tag e.g. "v0.2.0" -> that exact version, for reproducible experiments.
     units       : "physical" -> [V p.u., P_inj MW, Q_inj MVAr, theta deg] (as stored; human-readable for plots);
                   "pu" -> everything per-unit on baseMVA with theta in radians (ML/physics). Same shard either way.
+    preload     : read the whole selected split into RAM once (~350MB for an ieee118 split) so .loader()
+                  epochs skip per-record HDF5 overhead — much faster training loops.
     """
     # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
     # short-circuit to their file).
     path = ensure_local(resolve(name, release=release))
     # Thin factory: the Dataset applies split/families/gaps/heldout and the export format lazily.
     return FdiaGraph(path, split=split, families=families, include_gaps=include_gaps, heldout=heldout,
-                     format=format, units=units)
+                     format=format, units=units, preload=preload)
 
 
 def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
@@ -154,27 +156,30 @@ def windows(stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any")
     return _windows(stream, W, stride=stride, label=label)
 
 
-def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8, layer: str = "node_x",
-               max_test: Optional[int] = None, release: Optional[str] = None,
-               stream: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], List[Any]]:
+def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8, val_frac: float = 0.0,
+               layer: str = "node_x", max_test: Optional[int] = None, release: Optional[str] = None,
+               stream: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], ...]:
     """Continuous stream as ready PyTorch-Geometric graphs: (train, test) lists of Data objects.
 
-    One Data(x=[N,4], edge_index, edge_attr, y=[N]) per scan, chronological train/test split — no
-    conversion glue needed. See fdia_graph.torch_data.pyg_stream. Needs pip install "fdia-graph[pyg]".
+    One Data(x=[N,4], edge_index, edge_attr, y=[N]) per scan, chronological split — no conversion glue
+    needed. val_frac > 0 returns (train, val, test). See fdia_graph.torch_data.pyg_stream.
+    Needs pip install "fdia-graph[pyg]".
     """
     from .torch_data import pyg_stream as _pyg
-    return _pyg(system, train_frac=train_frac, layer=layer, max_test=max_test, release=release, stream=stream)
+    return _pyg(system, train_frac=train_frac, val_frac=val_frac, layer=layer, max_test=max_test,
+                release=release, stream=stream)
 
 
 def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride: int = 8, label: str = "last",
-                  per_bus: bool = True, train_frac: float = 0.8, layer: str = "node_x",
+                  per_bus: bool = True, train_frac: float = 0.8, val_frac: float = 0.0, layer: str = "node_x",
                   release: Optional[str] = None,
-                  stream: Optional[Dict[str, Any]] = None) -> Tuple[Tuple[Any, Any], Tuple[Any, Any]]:
+                  stream: Optional[Dict[str, Any]] = None) -> Tuple[Tuple[Any, Any], ...]:
     """Continuous stream as LSTM-ready per-bus sequence tensors: ((Xtr, ytr), (Xte, yte)).
 
     Windows the stream, reshapes to per-bus sequences [n*N, W, 4], splits chronologically (boundary
-    straddlers dropped). See fdia_graph.torch_data.torch_windows. Needs pip install "fdia-graph[torch]".
+    straddlers dropped); val_frac > 0 returns train/val/test. See fdia_graph.torch_data.torch_windows.
+    Needs pip install "fdia-graph[torch]".
     """
     from .torch_data import torch_windows as _tw
     return _tw(system, W=W, stride=stride, label=label, per_bus=per_bus, train_frac=train_frac,
-               layer=layer, release=release, stream=stream)
+               val_frac=val_frac, layer=layer, release=release, stream=stream)

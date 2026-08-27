@@ -44,7 +44,7 @@ class FdiaGraph:
     def __init__(self, path: str, split: Optional[str] = None,
                  families: Optional[Sequence[Union[str, int]]] = None, include_gaps: bool = False,
                  heldout: bool = False, format: str = "torch",
-                 units: str = "physical") -> None:
+                 units: str = "physical", preload: bool = False) -> None:
         # ONE pass over the small metadata arrays (family/gap/split) picks the kept rows;
         # the big measurement arrays are read only in __getitem__.
         import h5py
@@ -100,6 +100,22 @@ class FdiaGraph:
             keep &= np.isin(fam, fam_ids)               # keep only the requested attack families
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
         self.idx = np.nonzero(keep)[0]
+        # Optional RAM cache: one bulk fancy-read per field for JUST the kept rows, then __getitem__ serves
+        # from memory. Per-record h5py reads carry ~0.1-1ms fixed overhead each, and an epoch is len(self)
+        # records x ~10 fields of them, which is what actually bottlenecks .loader() training; the bulk read
+        # pays that overhead once per field. ~350MB for an ieee118 split; skip on tiny-RAM machines.
+        self._mem: Optional[Dict[str, np.ndarray]] = None
+        if preload and len(self.idx):
+            with h5py.File(path, "r") as f:
+                dg = f["data"]
+                keys = (["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
+                        + (["temporal_delta"] if self.has_temporal else [])
+                        + (["swing"] if self.has_swing else []))
+                # Splits are chronological, so kept rows span a near-contiguous block: one sequential slice
+                # read + numpy subset is far faster than h5py per-row fancy indexing (point reads).
+                lo, hi = int(self.idx[0]), int(self.idx[-1]) + 1
+                rel = self.idx - lo
+                self._mem = {k: dg[k][lo:hi][rel] for k in keys if k in dg}
 
     # ---- torch tensors for the static graph (lazy; wrap cached numpy fresh each access, nothing stored) ----
     @property
@@ -215,7 +231,10 @@ class FdiaGraph:
     def __getitem__(self, i: int) -> Union[Dict[str, Any], "Data"]:
         # Build ONE record dict. Map view index `i` back to file row `j` via self.idx; h5py reads only row j.
         torch = _torch()
-        j = int(self.idx[i]); d = self._h()["data"]     # j = real file row; d = the "data" group of measurements
+        if self._mem is not None:
+            d, j = self._mem, i                         # preloaded: arrays are position-aligned with the view
+        else:
+            d, j = self._h()["data"], int(self.idx[i])  # j = real file row; d = the "data" group of measurements
         item = dict(
             node_x=torch.as_tensor(self._to_units(d["node_x"][j], "node"), dtype=torch.float32),  # [N,4]=[|V|,P_inj,Q_inj,theta]
             node_m=torch.as_tensor(d["node_m"][j], dtype=torch.float32),   # [N,4] availability mask (1=measured)
@@ -238,10 +257,13 @@ class FdiaGraph:
             from torch_geometric.data import Data
         except ImportError as e:
             raise ImportError("PyG is required for format='pyg': pip install 'fdia-graph[pyg]'") from e
+        extra = {k: item[k] for k in ("temporal_delta", "swing") if k in item}   # [N,2] engineered features,
+        # batched node-wise by PyG like x (swing is the canonical localization feature -- see README)
         return Data(x=item["node_x"], edge_index=self.edge_index,      # node features + connectivity
                     edge_attr=item["edge_x"], y=item["y"],            # edge features + labels
                     node_mask=item["node_m"], edge_mask=item["edge_m"],   # carry the availability masks through
-                    family=item["family"], stealthy=item["stealthy"])     # keep metadata for stratified eval
+                    family=item["family"], stealthy=item["stealthy"],     # keep metadata for stratified eval
+                    **extra)
 
     @staticmethod
     def collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
