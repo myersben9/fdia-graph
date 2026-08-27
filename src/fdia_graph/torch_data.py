@@ -42,17 +42,19 @@ def _resolve_stream(system: Optional[Union[str, int]], release: Optional[str],
 
 
 def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8,
-               layer: str = "node_x", max_test: Optional[int] = None,
+               val_frac: float = 0.0, layer: str = "node_x", max_test: Optional[int] = None,
                release: Optional[str] = None,
-               stream: Optional[Dict[str, Any]] = None) -> Tuple[List["Data"], List["Data"]]:
+               stream: Optional[Dict[str, Any]] = None) -> Tuple[List["Data"], ...]:
     """Continuous stream as ready PyTorch-Geometric graphs: ``(train, test)`` lists of ``Data``.
 
     Each scan is one ``Data(x=[N,4], edge_index=[2,E], edge_attr=[E,8], y=[N])`` — node measurements,
     connectivity, per-unit branch physics, and the per-bus attack label. ``edge_index``/``edge_attr``
     are shared tensors (the graph is static), so memory stays one stream copy. The split is
     chronological: the first ``train_frac`` of scans train, the rest test. ``max_test`` bounds the
-    test list (e.g. 1000 for a quick eval). ``layer`` picks the measurement layer: ``"node_x"``
-    (attacked, default), ``"benign"``, or ``"clean"``. Needs ``pip install "fdia-graph[pyg]"``.
+    test list (e.g. 1000 for a quick eval). ``val_frac`` > 0 carves a chronological validation span out
+    between train and test and returns ``(train, val, test)`` -- use it to select thresholds/class weights
+    before reading test metrics. ``layer`` picks the measurement layer: ``"node_x"`` (attacked, default),
+    ``"benign"``, or ``"clean"``. Needs ``pip install "fdia-graph[pyg]"``.
     """
     import torch
     from torch_geometric.data import Data
@@ -64,19 +66,25 @@ def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8
     Y = _f32(s["y"])                                                                # [T, N]
     ei = torch.from_numpy(np.ascontiguousarray(s["edge_index"], dtype=np.int64))    # [2, E], shared
     ea = _f32(s["edge_attr"])                                                       # [E, 8], shared
+    if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
+        raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
     T = int(X.shape[0])
-    ntr = int(train_frac * T)
-    train = [Data(x=X[t], edge_index=ei, edge_attr=ea, y=Y[t]) for t in range(ntr)]
-    nte = T - ntr if max_test is None else min(max_test, T - ntr)
-    test = [Data(x=X[t], edge_index=ei, edge_attr=ea, y=Y[t]) for t in range(ntr, ntr + nte)]
-    return train, test
+    ntr = int(train_frac * T); nva = int(val_frac * T)
+    def graphs(a: int, b: int) -> List["Data"]:
+        return [Data(x=X[t], edge_index=ei, edge_attr=ea, y=Y[t]) for t in range(a, b)]
+    train = graphs(0, ntr)
+    val = graphs(ntr, ntr + nva)
+    te0 = ntr + nva
+    nte = T - te0 if max_test is None else min(max_test, T - te0)
+    test = graphs(te0, te0 + nte)
+    return (train, val, test) if val_frac > 0 else (train, test)
 
 
 def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride: int = 8,
                   label: str = "last", per_bus: bool = True, train_frac: float = 0.8,
-                  layer: str = "node_x", release: Optional[str] = None,
+                  val_frac: float = 0.0, layer: str = "node_x", release: Optional[str] = None,
                   stream: Optional[Dict[str, Any]] = None,
-                  ) -> Tuple[Tuple["torch.Tensor", "torch.Tensor"], Tuple["torch.Tensor", "torch.Tensor"]]:
+                  ) -> Tuple[Tuple["torch.Tensor", "torch.Tensor"], ...]:
     """Continuous stream as LSTM-ready sequence tensors: ``((Xtr, ytr), (Xte, yte))``.
 
     Slides a length-``W`` window over the stream and returns float32 tensors. With ``per_bus=True``
@@ -84,13 +92,16 @@ def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride:
     — which is the shape a plain ``nn.LSTM`` consumes directly. ``per_bus=False`` keeps whole-grid
     windows ``[n, W, N, 4]``. ``label`` follows ``windows()``: ``"last"`` (label at the final frame),
     ``"any"``, or ``"frame"`` (per-frame labels, ``y [.., W]``). The split is chronological on the
-    underlying frames; windows straddling the boundary are dropped, so no test frame is ever seen in
-    training. ``layer`` picks ``"node_x"`` / ``"benign"`` / ``"clean"``. Needs
-    ``pip install "fdia-graph[torch]"``.
+    underlying frames; windows straddling a boundary are dropped, so no eval frame is ever seen in
+    training. ``val_frac`` > 0 carves a chronological validation span between train and test and returns
+    ``((Xtr, ytr), (Xva, yva), (Xte, yte))`` -- select thresholds there, not on test. ``layer`` picks
+    ``"node_x"`` / ``"benign"`` / ``"clean"``. Needs ``pip install "fdia-graph[torch]"``.
     """
     import torch
     from .streams import windows as _windows
     _check_frac(train_frac)
+    if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
+        raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
     s = _resolve_stream(system, release, stream)
     if layer != "node_x":
         s = {**s, "node_x": s[layer]}
@@ -100,10 +111,11 @@ def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride:
     if stride < 1:
         raise ValueError(f"stride must be >= 1, got {stride}")
     Xw, yw = _windows(s, W, stride=stride, label=label)
-    cut = int(train_frac * T)
+    cut = int(train_frac * T); cut2 = cut + int(val_frac * T)
     starts = np.arange(0, T - W + 1, stride)
-    tr = starts + W <= cut          # window fully inside the train span
-    te = starts >= cut              # window fully inside the test span (straddlers dropped)
+    tr = starts + W <= cut                            # window fully inside the train span
+    va = (starts >= cut) & (starts + W <= cut2)       # window fully inside the val span
+    te = starts >= cut2                               # window fully inside the test span (straddlers dropped)
 
     def _cvt(Xp: np.ndarray, yp: np.ndarray) -> Tuple["torch.Tensor", "torch.Tensor"]:
         if per_bus:
@@ -115,4 +127,6 @@ def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride:
             X, y = _f32(Xp), _f32(yp)
         return X, y
 
+    if val_frac > 0:
+        return _cvt(Xw[tr], yw[tr]), _cvt(Xw[va], yw[va]), _cvt(Xw[te], yw[te])
     return _cvt(Xw[tr], yw[tr]), _cvt(Xw[te], yw[te])

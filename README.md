@@ -139,58 +139,128 @@ target = clean_w[..., [0, 3]]               # [n,W,N,2] clean V and theta
 
 Temporal features (`temporal_delta`, `swing`) compare each frame to the previous **emitted** frame, so a stealthy ramp stays a small per-step change while a spike reads as an abrupt jump. Build a custom stream with `fg.generate_stream(system, attacked_frac=0.5, families=[...], seed=...)`.
 
-### Two runnable models
+### Three runnable baselines
 
-**Graph model — ARMAConv (PyTorch-Geometric), per-bus attack localization.** `fg.pyg_stream()` hands back ready `Data` objects — one graph per scan with node measurements, connectivity, branch physics, and the per-bus label attached, already split chronologically. Needs `pip install "fdia-graph[pyg]"`.
+All three report **DR / FA / F1**, never raw accuracy: ~98% of bus-scans are clean, so an all-negative model scores 0.98 accuracy while detecting nothing. Decision thresholds are selected on the **val** split (best F1) and test is evaluated once at that threshold. Model input is the measurements plus the temporal feature: the raw channels say *what* the values are (replay and corruption leave absolute-value fingerprints), the swing/z-score says *when* they jumped. Each baseline trains in a few CPU minutes and prints its val F1 as it goes, so you can see the budget saturate.
+
+```python
+# shared helpers, used by all three examples
+import torch
+
+def pick_tau(logits, y):
+    """Decision threshold with the best F1 on the VALIDATION split (never tune on test)."""
+    best, tau = 0.0, 0.0
+    for q in torch.linspace(0.80, 0.999, 60):
+        c = torch.quantile(logits, q)
+        p = logits > c
+        f1 = 2 * (p & y).sum() / (p.sum() + y.sum()).clamp(min=1)
+        if f1 > best: best, tau = float(f1), float(c)
+    return tau
+
+def report(p, t):
+    dr = (p & t).sum() / t.sum(); fa = (p & ~t).sum() / (~t).sum()
+    prec = (p & t).sum() / p.sum().clamp(min=1)
+    print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2*prec*dr/(prec+dr):.3f}")
+```
+
+**1. Lightweight MLP on measurements + `swing` — the headline baseline.** The shard ships `swing` [N,2], a windowed per-bus z-score computed against clean history during generation. Concatenated with the train-normalized measurements it makes a small per-bus MLP a strong localizer, and the heavier models below do not beat it. Needs `pip install "fdia-graph[torch]"`.
+
+```python
+import numpy as np
+import torch, torch.nn as nn, torch.nn.functional as F
+import fdia_graph as fg
+
+splits = {s: fg.load("ieee118", split=s).to_numpy(["node_x", "swing", "y"]) for s in ("train", "val", "test")}
+mu = splits["train"]["node_x"].mean((0, 1)); sd = splits["train"]["node_x"].std((0, 1)) + 1e-9
+X = {s: torch.tensor(np.concatenate([(d["node_x"] - mu) / sd, d["swing"]], -1)).reshape(-1, 6)
+     for s, d in splits.items()}
+Y = {s: torch.tensor(d["y"], dtype=torch.float32).reshape(-1) for s, d in splits.items()}
+
+m = nn.Sequential(nn.Linear(6, 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 1))
+opt = torch.optim.Adam(m.parameters(), 1e-3)
+pw = (1 - Y["train"].mean()) / Y["train"].mean()          # class weight from the TRAIN base rate
+for step in range(12000):
+    j = torch.randint(0, len(X["train"]), (4096,))
+    opt.zero_grad()
+    F.binary_cross_entropy_with_logits(m(X["train"][j]).squeeze(-1), Y["train"][j], pos_weight=pw).backward(); opt.step()
+
+with torch.no_grad():
+    lo = {s: torch.cat([m(X[s][i:i + 65536]).squeeze(-1) for i in range(0, len(X[s]), 65536)]) for s in ("val", "test")}
+tau = pick_tau(lo["val"], Y["val"] > 0)                    # threshold tuned on VAL ...
+report(lo["test"] > tau, Y["test"] > 0)                    # ... reported on TEST
+# DR 0.701  FA 0.0008  F1 0.807          (~3 min CPU; val F1 0.80 at 3k steps -> 0.82 at 12k)
+```
+
+Per-family test DR at that operating point (benign-bus FA 0.04%): `Aq` 0.91, `As` 0.88, `Ad` 0.85, `Al` 0.81, `Ar` 0.72, `At` 0.10. The slow ramp `At` evades the temporal feature by construction — that gap is the open problem this dataset poses.
+
+**2. Graph model — ARMAConv (PyTorch-Geometric), same input.** `format="pyg"` yields ready `Data` objects (`swing` rides along as a node attribute) and a graph-batching loader; `preload=True` caches the split in RAM so epochs take seconds instead of minutes. Needs `pip install "fdia-graph[pyg]"`.
 
 ```python
 import torch, torch.nn.functional as F
 from torch_geometric.nn import ARMAConv
 import fdia_graph as fg
 
-train, test = fg.pyg_stream("ieee118", max_test=1000)  # ready PyG graphs, chronological 80/20 split
+ds = {s: fg.load("ieee118", split=s, format="pyg", preload=True) for s in ("train", "val", "test")}
+stats = fg.load("ieee118", split="train").to_numpy(["node_x"])["node_x"]
+MU = torch.tensor(stats.mean((0, 1))); SD = torch.tensor(stats.std((0, 1)) + 1e-9)
 
 class GNN(torch.nn.Module):
-    def __init__(self, c=4, h=32):
+    def __init__(self, c=6, h=32):
         super().__init__(); self.a = ARMAConv(c, h); self.b = ARMAConv(h, 1)
-    def forward(self, g): return self.b(F.relu(self.a(g.x, g.edge_index)), g.edge_index).squeeze(-1)
+    def forward(self, g):
+        x = torch.cat([(g.x - MU) / SD, g.swing], -1)      # measurements + the swing feature
+        return self.b(F.relu(self.a(x, g.edge_index)), g.edge_index).squeeze(-1)
 
-net = GNN(); opt = torch.optim.Adam(net.parameters(), 1e-2)
-for epoch in range(3):
-    for i in torch.randperm(len(train))[:1000].tolist():   # a sample of scans per epoch
+net = GNN(); opt = torch.optim.Adam(net.parameters(), 1e-3); pw = torch.tensor(43.0)
+for epoch in range(8):
+    for batch in ds["train"].loader(batch_size=64):
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(net(train[i]), train[i].y).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(net(batch), batch.y, pos_weight=pw).backward(); opt.step()
 
 with torch.no_grad():
-    acc = torch.cat([(net(g) > 0) == (g.y > 0) for g in test]).float().mean()
-print("per-bus localization accuracy:", acc.item())
+    ev = {s: [(net(b), b.y > 0) for b in ds[s].loader(batch_size=256, shuffle=False)] for s in ("val", "test")}
+lo = {s: torch.cat([x for x, _ in ev[s]]) for s in ev}; yy = {s: torch.cat([y for _, y in ev[s]]) for s in ev}
+tau = pick_tau(lo["val"], yy["val"])
+report(lo["test"] > tau, yy["test"])
+# DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1 — saturated)
 ```
 
-**Temporal model — a plain PyTorch LSTM, per-bus attack detection.** `fg.torch_windows()` windows the stream and hands back per-bus sequence tensors `[n·N, W, 4]` — the shape `nn.LSTM` consumes directly — split chronologically with boundary-straddling windows dropped. Needs `pip install "fdia-graph[torch]"`.
+The honest reading: the graph model saturates **below** the per-bus MLP. Spatial message passing smooths exactly the localized per-bus signal `swing` carries, so graph structure alone does not add localization power here — beating the lightweight baseline with graph or physics information is a research target, not a given.
+
+**3. Temporal model — a plain LSTM on the continuous stream.** The stream ships raw measurements only, so the example builds its features in place: train-normalized raw channels plus a per-window z-score. Numbers are lower than on the shard for a structural reason: inside a sustained attack episode the rolling window is already contaminated by the attack, so the anomaly fades after onset (temporal-baseline poisoning). The shard's `swing` avoids this because it was computed against clean history at generation time. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import torch, torch.nn as nn, torch.nn.functional as F
 import fdia_graph as fg
 
-(Xtr, ytr), (Xte, yte) = fg.torch_windows("ieee118", W=16, stride=8)   # per-bus sequences, LSTM-ready
+(Xtr, ytr), (Xva, yva), (Xte, yte) = fg.torch_windows("ieee118", W=16, stride=8, val_frac=0.1)
+mu = Xtr.mean((0, 1)); sd = Xtr.std((0, 1)) + 1e-9
+def feats(X):     # measurements (train-normalized) + per-window z-score (the temporal spike feature)
+    return torch.cat([(X - mu) / sd, (X - X.mean(1, keepdim=True)) / (X.std(1, keepdim=True) + 1e-6)], -1)
+Xtr, Xva, Xte = feats(Xtr), feats(Xva), feats(Xte)
 
 class LSTMDet(nn.Module):
-    def __init__(self, c=4, h=32):
+    def __init__(self, c=8, h=32):
         super().__init__(); self.lstm = nn.LSTM(c, h, batch_first=True); self.fc = nn.Linear(h, 1)
-    def forward(self, x): return self.fc(self.lstm(x)[0][:, -1]).squeeze(-1)     # logit from the last step
+    def forward(self, x): return self.fc(self.lstm(x)[0][:, -1]).squeeze(-1)
 
 m = LSTMDet(); opt = torch.optim.Adam(m.parameters(), 1e-3)
-for epoch in range(3):
+pw = (1 - ytr.mean()) / ytr.mean()
+for epoch in range(10):
     for i in range(0, len(Xtr), 256):
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(m(Xtr[i:i + 256]), ytr[i:i + 256]).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(m(Xtr[i:i + 256]), ytr[i:i + 256], pos_weight=pw).backward(); opt.step()
 
 with torch.no_grad():
-    acc = ((m(Xte) > 0) == (yte > 0)).float().mean()
-print("LSTM per-bus detection accuracy:", acc.item())
+    lova = torch.cat([m(Xva[i:i + 4096]) for i in range(0, len(Xva), 4096)])
+    lote = torch.cat([m(Xte[i:i + 4096]) for i in range(0, len(Xte), 4096)])
+tau = pick_tau(lova, yva > 0)
+report(lote > tau, yte > 0)
+# DR 0.372  FA 0.0055  F1 0.463          (~3.5 min CPU; val F1 0.39 -> 0.47 from 5 to 10 epochs — some headroom left)
 ```
 
-Both helpers take `layer="benign"` / `"clean"` to swap which measurement layer feeds the model as **input** (the label stays the per-bus attack target), and `stream=` to reuse an already-loaded stream instead of loading by name. For a state estimator (attacked input → clean V/θ target), window the `clean` layer yourself as the target — see the recipe above.
+These are minutes-of-CPU baselines with deliberate headroom, not the dataset's ceiling. `layer="benign"`/`"clean"` on the stream helpers swaps the model input layer (the label stays the attack target); for a state estimator, window the `clean` layer as the target per the recipe above.
+
 
 ## Schema
 
