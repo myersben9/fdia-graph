@@ -46,17 +46,15 @@ Two things keep it honest: every attack's per-bus magnitude sits in a **plausibi
 
 ## Install
 
-Install the latest code straight from GitHub (this tracks the `main` branch; the PyPI package can lag behind it):
-
 ```bash
-pip install "git+https://github.com/myersben9/fdia-graph"                 # loader (numpy + h5py)
-pip install "fdia-graph[torch] @ git+https://github.com/myersben9/fdia-graph"   # + PyTorch Dataset/DataLoader
-pip install "fdia-graph[pyg]   @ git+https://github.com/myersben9/fdia-graph"   # + torch_geometric graph format
-pip install "fdia-graph[generate] @ git+https://github.com/myersben9/fdia-graph" # + pandapower, generate custom data
-pip install "fdia-graph[all]   @ git+https://github.com/myersben9/fdia-graph"   # everything (adds gridstatus for ISO load)
+pip install fdia-graph              # loader (numpy + h5py)
+pip install "fdia-graph[torch]"     # + PyTorch Dataset/DataLoader
+pip install "fdia-graph[pyg]"       # + torch_geometric graph format
+pip install "fdia-graph[generate]"  # + pandapower, to generate custom datasets
+pip install "fdia-graph[all]"       # everything (adds gridstatus for ISO load download)
 ```
 
-Once the matching version is on PyPI you can also `pip install fdia-graph` (add `--upgrade` to move an existing install forward). To upgrade an existing git install, add `--upgrade --force-reinstall` so pip re-pulls `main`.
+Add `--upgrade` to move an existing install forward (releases are published to PyPI automatically when a version tag is pushed). To track unreleased work on `main` instead, use `pip install --upgrade --force-reinstall "git+https://github.com/myersben9/fdia-graph"`.
 
 ### Versioning and updates
 
