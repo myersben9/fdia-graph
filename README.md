@@ -141,7 +141,7 @@ Temporal features (`temporal_delta`, `swing`) compare each frame to the previous
 
 ### Three runnable baselines
 
-All three report **DR / FA / F1**, never raw accuracy: ~98% of bus-scans are clean, so an all-negative model scores 0.98 accuracy while detecting nothing. Decision thresholds are selected on the **val** split (best F1) and test is evaluated once at that threshold. Model input is the measurements plus the temporal feature: the raw channels say *what* the values are (replay and corruption leave absolute-value fingerprints), the swing/z-score says *when* they jumped. Each baseline trains in a few CPU minutes and prints its val F1 as it goes, so you can see the budget saturate.
+All three report **DR / FA / F1**, never raw accuracy: ~98% of bus-scans are clean, so an all-negative model scores 0.98 accuracy while detecting nothing. Decision thresholds are selected on the **val** split (best F1) and test is evaluated once at that threshold. The headline example follows the protocol our papers use (train on benign + `Aq` + `Ad`, hold out `As`/`Ar` zero-shot, exclude the slow ramp, score **macro-F1 over attackable buses**); the other two train on every family so the hard ones stay visible. Each baseline trains in a few CPU minutes.
 
 ```python
 # shared helpers, used by all three examples
@@ -161,39 +161,75 @@ def report(p, t):
     dr = (p & t).sum() / t.sum(); fa = (p & ~t).sum() / (~t).sum()
     prec = (p & t).sum() / p.sum().clamp(min=1)
     print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2*prec*dr/(prec+dr):.3f}")
+
+def macro_f1(p, t):
+    """Per-bus F1 averaged over the attackable buses — the localization metric our papers report."""
+    f1s = []
+    for b in range(t.shape[1]):
+        if not t[:, b].any(): continue
+        tp = (p[:, b] & t[:, b]).sum(); fp = (p[:, b] & ~t[:, b]).sum(); fn = (~p[:, b] & t[:, b]).sum()
+        pr = tp / max(tp + fp, 1); dr = tp / max(tp + fn, 1)
+        f1s.append(2 * pr * dr / max(pr + dr, 1e-12))
+    return sum(f1s) / len(f1s)
 ```
 
-**1. Lightweight MLP on measurements + `swing` — the headline baseline.** The shard ships `swing` [N,2], a windowed per-bus z-score computed against clean history during generation. Concatenated with the train-normalized measurements it makes a small per-bus MLP a strong localizer, and the heavier models below do not beat it. Needs `pip install "fdia-graph[torch]"`.
+**1. Per-bus MLP on the papers' 14-dim feature vector — the headline localizer.** Each bus is described by the standardized measurements (4), the meter-availability mask (4, so the model can tell an unobserved channel from a genuine zero on this sparsely metered grid), a local Kirchhoff power residual (2, net injection minus incident measured flows), the scan-to-scan `temporal_delta` (2), and the windowed `swing` (2). Trained under the published protocol — benign + `Aq` + `Ad`, with `As`/`Ar` held out zero-shot — a 28k-parameter MLP localizes at **0.915 macro-F1** in about five CPU minutes; our tuned paper models reach 0.93–0.95 on the same protocol. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import numpy as np
-import torch, torch.nn as nn, torch.nn.functional as F
+import torch.nn as nn, torch.nn.functional as F
 import fdia_graph as fg
 
-splits = {s: fg.load("ieee118", split=s).to_numpy(["node_x", "swing", "y"]) for s in ("train", "val", "test")}
-mu = splits["train"]["node_x"].mean((0, 1)); sd = splits["train"]["node_x"].std((0, 1)) + 1e-9
-X = {s: torch.tensor(np.concatenate([(d["node_x"] - mu) / sd, d["swing"]], -1)).reshape(-1, 6)
-     for s, d in splits.items()}
+torch.manual_seed(0)
+FIELDS = ["node_x", "node_m", "edge_x", "temporal_delta", "swing", "y", "family"]
+splits = {"train": fg.load("ieee118", split="train", families=[0, 1, 2]).to_numpy(FIELDS),
+          "val":   fg.load("ieee118", split="val",   families=[0, 1, 2]).to_numpy(FIELDS),
+          "test":  fg.load("ieee118", split="test",  families=[0, 1, 2, 3, 4]).to_numpy(FIELDS)}
+ei = fg.load("ieee118", split="train").edge_index_np
+N = splits["train"]["node_x"].shape[1]
+
+def kcl(d):
+    """Local physics-consistency residual: net injection minus incident measured branch flows."""
+    r = np.array(d["node_x"][:, :, 1:3], np.float32)   # start from [P_inj, Q_inj]
+    np.subtract.at(r, (slice(None), ei[0]), d["edge_x"])   # flows leaving the from-bus
+    np.add.at(r, (slice(None), ei[1]), d["edge_x"])        # arriving at the to-bus
+    return r
+
+def feats(d, stats=None):
+    """The papers' 14-dim per-bus vector: measurements(4) + meter mask(4) + KCL(2) + delta(2) + swing(2)."""
+    raw = np.concatenate([d["node_x"], kcl(d), d["temporal_delta"]], -1)
+    if stats is None: stats = (raw.mean((0, 1)), raw.std((0, 1)) + 1e-9)   # train statistics only
+    z = (raw - stats[0]) / stats[1]
+    return np.concatenate([z, d["node_m"], d["swing"]], -1).astype(np.float32), stats
+
+Ftr, st = feats(splits["train"])
+X = {"train": torch.tensor(Ftr).reshape(-1, 14)}
+for s in ("val", "test"): X[s] = torch.tensor(feats(splits[s], st)[0]).reshape(-1, 14)
 Y = {s: torch.tensor(d["y"], dtype=torch.float32).reshape(-1) for s, d in splits.items()}
 
-m = nn.Sequential(nn.Linear(6, 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 1))
-opt = torch.optim.Adam(m.parameters(), 1e-3)
+m = nn.Sequential(nn.Linear(14, 160), nn.ReLU(), nn.Dropout(0.1),
+                  nn.Linear(160, 160), nn.ReLU(), nn.Dropout(0.1), nn.Linear(160, 1))
+opt = torch.optim.AdamW(m.parameters(), 1e-3)
 pw = (1 - Y["train"].mean()) / Y["train"].mean()          # class weight from the TRAIN base rate
 for step in range(12000):
     j = torch.randint(0, len(X["train"]), (4096,))
     opt.zero_grad()
     F.binary_cross_entropy_with_logits(m(X["train"][j]).squeeze(-1), Y["train"][j], pos_weight=pw).backward(); opt.step()
+m.eval()
 
 with torch.no_grad():
     lo = {s: torch.cat([m(X[s][i:i + 65536]).squeeze(-1) for i in range(0, len(X[s]), 65536)]) for s in ("val", "test")}
 tau = pick_tau(lo["val"], Y["val"] > 0)                    # threshold tuned on VAL ...
-report(lo["test"] > tau, Y["test"] > 0)                    # ... reported on TEST
-# DR 0.701  FA 0.0008  F1 0.807          (~3 min CPU; val F1 0.80 at 3k steps -> 0.82 at 12k)
+p = (lo["test"] > tau).reshape(-1, N).numpy(); t = (Y["test"] > 0).reshape(-1, N).numpy()
+print(f"localization macro-F1: {macro_f1(p, t):.3f}")      # ... reported on TEST
+report(torch.tensor(p.ravel()), torch.tensor(t.ravel()))
+# localization macro-F1: 0.915
+# DR 0.859  FA 0.0002  F1 0.916          (~5 min CPU)
 ```
 
-Per-family test DR at that operating point (benign-bus FA 0.04%): `Aq` 0.91, `As` 0.88, `Ad` 0.85, `Al` 0.81, `Ar` 0.72, `At` 0.10. The slow ramp `At` evades the temporal feature by construction — that gap is the open problem this dataset poses.
+Per-family test DR at that operating point (benign-bus FA 0.01%): `Ad` 0.94, `Aq` 0.90, `As` 0.87 zero-shot, `Ar` 0.73 zero-shot. Adding the excluded families back drops the pooled all-family F1 to ~0.83, almost entirely because the slow ramp `At` (DR ~0.10) evades the temporal feature by construction — that gap is the open problem this dataset poses, and the examples below keep it visible by training on every family.
 
-**2. Graph model — ARMAConv (PyTorch-Geometric), same input.** `format="pyg"` yields ready `Data` objects (`swing` rides along as a node attribute) and a graph-batching loader; `preload=True` caches the split in RAM so epochs take seconds instead of minutes. Needs `pip install "fdia-graph[pyg]"`.
+**2. Graph model — ARMAConv (PyTorch-Geometric), all families.** `format="pyg"` yields ready `Data` objects (`swing` rides along as a node attribute) and a graph-batching loader; `preload=True` caches the split in RAM so epochs take seconds instead of minutes. Needs `pip install "fdia-graph[pyg]"`.
 
 ```python
 import torch, torch.nn.functional as F
@@ -225,7 +261,7 @@ report(lo["test"] > tau, yy["test"])
 # DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1 — saturated)
 ```
 
-The honest reading: the graph model saturates **below** the per-bus MLP. Spatial message passing smooths exactly the localized per-bus signal `swing` carries, so graph structure alone does not add localization power here — beating the lightweight baseline with graph or physics information is a research target, not a given.
+The honest reading: the graph model saturates **below** the per-bus MLP, and in our papers the same holds with both reading the identical 14-dim input. Spatial message passing smooths exactly the localized per-bus signal `swing` carries, so graph structure alone does not add localization power here — beating the lightweight baseline with graph or physics information is a research target, not a given.
 
 **3. Temporal model — a plain LSTM on the continuous stream.** The stream ships raw measurements only, so the example builds its features in place: train-normalized raw channels plus a per-window z-score. Numbers are lower than on the shard for a structural reason: inside a sustained attack episode the rolling window is already contaminated by the attack, so the anomaly fades after onset (temporal-baseline poisoning). The shard's `swing` avoids this because it was computed against clean history at generation time. Needs `pip install "fdia-graph[torch]"`.
 
