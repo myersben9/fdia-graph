@@ -1,0 +1,44 @@
+# Publish fdia-graph to PyPI automatically when a version tag is pushed.
+#
+# Flow: bump `version` in pyproject.toml (+ __init__), merge to main, then push the matching tag:
+#     git tag vX.Y.Z && git push origin vX.Y.Z
+# This workflow builds the sdist+wheel, verifies the tag matches the pyproject version (so a stale
+# tag can never publish the wrong code), and uploads via PyPI Trusted Publishing (OIDC) -- no API
+# token is stored in GitHub or anywhere else.
+#
+# ONE-TIME SETUP on PyPI (repo owner): pypi.org -> project fdia-graph -> Settings -> Publishing ->
+# "Add a new publisher" -> GitHub: owner=myersben9, repo=fdia-graph, workflow=publish.yml.
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write        # required for PyPI Trusted Publishing (OIDC)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches pyproject version
+        run: |
+          PYVER="$(python -c "import re;print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "pyproject=$PYVER tag=$TAG"
+          test "$PYVER" = "$TAG" || { echo "::error::tag v$TAG does not match pyproject version $PYVER"; exit 1; }
+
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
