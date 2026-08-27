@@ -14,11 +14,8 @@ import json, os
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
 _REPO = "myersben9/fdia-graph"
 # Default pinned release tag, used when GitHub isn't queried for the newest; FDIA_GRAPH_RELEASE overrides.
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.1")   # newest SHARD (classification) release: 8-system ladder, series-admittance edge features, ~2%-20% plausibility band, accuracy-class noise. v0.7.1 carries the byte-identical v0.7.0 shards (mirrored so one tag is complete: shards + pools + streams)
-# One complete release channel: every release tag carries ALL assets (shards + pools + streams + graph
-# sidecars), and a version bump moves everything together -- the SDK never reaches back to an older tag.
-# STREAM_RELEASE therefore follows _RELEASE; the env var remains as an explicit override. (v0.7.1 streams:
-# 72k-distinct-state, three measurement layers observed/attack-removed/noiseless, node AND branch-flow.)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.1")   # pinned data release (env var overrides)
+# One release channel: each tag carries all assets, so streams follow _RELEASE (env var overrides).
 STREAM_RELEASE = os.environ.get("FDIA_GRAPH_STREAM_RELEASE", _RELEASE)
 
 # Built-in shards. Each entry is the full spec download.py needs: asset `file`, `release` tag, `repo`,
@@ -111,9 +108,7 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> Dict:
     name = _ALIASES.get(name, name)                                  # "118"/118 -> "ieee118"; canonical unchanged
     if name in BUILTIN:
         spec = {"kind": "builtin", "name": name, **BUILTIN[name]}
-        # Default to the pinned _RELEASE, NOT a live "newest tag" query: the pin is what the sha256s were
-        # computed against, and it is bumped in lockstep with a complete asset upload. (A live query once
-        # resolved to a partial release with no .h5 assets and 404'd every fresh fg.load().)
+        # Pin _RELEASE, not a live "newest tag" query (a partial tag once 404'd fresh loads).
         spec["release"] = release or _RELEASE
         # The pinned sha256 describes the _RELEASE assets only; drop it for any other release rather than
         # fail the integrity check against bytes it was never computed from.
