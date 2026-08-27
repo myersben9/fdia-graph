@@ -235,7 +235,13 @@ class FdiaGraph:
             d, j = self._mem, i                         # preloaded: arrays are position-aligned with the view
         else:
             d, j = self._h()["data"], int(self.idx[i])  # j = real file row; d = the "data" group of measurements
+        # Static graph tensors, built once and SHARED by every record dict (references, not copies), so a
+        # consumer of the dict format gets connectivity + line physics without reaching for ds.edge_index.
+        if not hasattr(self, "_ei_t"):
+            self._ei_t = self.edge_index; self._ea_t = self.edge_attr
         item = dict(
+            edge_index=self._ei_t,                      # [2,E] static connectivity (same tensor every record)
+            edge_attr=self._ea_t,                       # [E,8] static per-unit line features (r,x,b,g,gs,bs,tap,shift)
             node_x=torch.as_tensor(self._to_units(d["node_x"][j], "node"), dtype=torch.float32),  # [N,4]=[|V|,P_inj,Q_inj,theta]
             node_m=torch.as_tensor(d["node_m"][j], dtype=torch.float32),   # [N,4] availability mask (1=measured)
             edge_x=torch.as_tensor(self._to_units(d["edge_x"][j], "edge"), dtype=torch.float32),   # [E,2]=[P_from,Q_from] flows
@@ -275,6 +281,8 @@ class FdiaGraph:
         fkeys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if "temporal_delta" in batch[0] else [])
         for k in fkeys:
             out[k] = torch.stack([b[k] for b in batch])           # [B, N/E, C] batched features/labels/masks
+        # Static graph rides along ONCE per batch (not stacked): every sample shares the same topology.
+        out["edge_index"] = batch[0]["edge_index"]; out["edge_attr"] = batch[0]["edge_attr"]
         for k in ("family", "stealthy", "seq_id", "timestep"):
             out[k] = torch.as_tensor([b[k] for b in batch], dtype=torch.long)   # [B] scalar metadata per record
         return out
