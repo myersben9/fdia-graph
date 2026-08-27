@@ -4,6 +4,8 @@
 
 A benchmark of false-data-injection attacks that evade classical bad-data detection but are localizable by a model, on realistic sparse SCADA/PMU measurement graphs across a transmission size ladder of eight IEEE systems: 14 / 30 / 57 / 89 / 118 / 145 / 200 / 300 buses.
 
+> **New here?** Two short guides get you oriented fast: [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md) says in plain English what every array and column means (including the `[E,8]` `edge_attr`), and [`docs/CONCEPTS_TO_CODE.md`](docs/CONCEPTS_TO_CODE.md) maps the paper's equations and attack families to the exact functions, with a map of how the code is organized.
+
 ```python
 import fdia_graph as fg
 
