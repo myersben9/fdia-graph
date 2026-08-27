@@ -173,7 +173,7 @@ def macro_f1(p, t):
     return sum(f1s) / len(f1s)
 ```
 
-**1. Per-bus MLP on the papers' 14-dim feature vector — the headline localizer.** Each bus is described by the standardized measurements (4), the meter-availability mask (4, so the model can tell an unobserved channel from a genuine zero on this sparsely metered grid), a local Kirchhoff power residual (2, net injection minus incident measured flows), the scan-to-scan `temporal_delta` (2), and the windowed `swing` (2). Trained under the published protocol — benign + `Aq` + `Ad`, with `As`/`Ar` held out zero-shot — a 28k-parameter MLP localizes at **0.915 macro-F1** in about five CPU minutes; our tuned paper models reach 0.93–0.95 on the same protocol. Needs `pip install "fdia-graph[torch]"`.
+**1. Per-bus MLP on the papers' 14-dim feature vector — the headline localizer.** Each bus is described by the standardized measurements (4), the meter-availability mask (4, so the model can tell an unobserved channel from a genuine zero on this sparsely metered grid), a local Kirchhoff power residual (2, injection minus incident *metered* flows — a partial balance, since sparse metering leaves it incomplete at buses with an unmetered incident branch; the meter mask lets the model discount those), the scan-to-scan `temporal_delta` (2), and the windowed `swing` (2). Trained under the published protocol — benign + `Aq` + `Ad`, with `As`/`Ar` held out zero-shot — a 28k-parameter MLP localizes at **0.915 macro-F1** in about five CPU minutes; our tuned paper models reach 0.93–0.95 on the same protocol. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import numpy as np
@@ -189,7 +189,8 @@ ei = fg.load("ieee118", split="train").edge_index_np
 N = splits["train"]["node_x"].shape[1]
 
 def kcl(d):
-    """Local physics-consistency residual: net injection minus incident measured branch flows."""
+    """Partial nodal power balance: injection minus incident metered branch flows (a true balance only
+    where all incident branches are metered; the meter-mask channels flag the rest)."""
     r = np.array(d["node_x"][:, :, 1:3], np.float32)   # start from [P_inj, Q_inj]
     np.subtract.at(r, (slice(None), ei[0]), d["edge_x"])   # flows leaving the from-bus
     np.add.at(r, (slice(None), ei[1]), d["edge_x"])        # arriving at the to-bus
