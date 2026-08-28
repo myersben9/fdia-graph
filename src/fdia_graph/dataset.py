@@ -110,6 +110,13 @@ class FdiaGraph:
             self.edge_status_per_record = f["data/edge_status"][:] if "data/edge_status" in f else None
             self.has_temporal = "temporal_delta" in f["data"]  # v0.3+ temporal-delta feature
             self.has_swing = "swing" in f["data"]  # v0.4.1+ windowed relative-swing feature
+            # v0.7.2+ noiseless attack-free truth (the SE target), stored ONCE per pool timestep and resolved
+            # per record via data/timestep. Small ([Tpool,N,4]/[Tpool,E,2]) so it lives in RAM from init.
+            self._clean_np = f["clean/node_clean"][:] if "clean" in f else None
+            self._eclean_np = (
+                f["clean/edge_clean"][:] if "clean" in f and "edge_clean" in f["clean"] else None
+            )
+            self.has_clean = self._clean_np is not None
             fam = f["data/family"][:]
             gap = f["data/gap"][:]  # per-record metadata copied to RAM for filtering
             sp = f["data/split"][:] if "data/split" in f else None  # split code, or None on unsplit files
@@ -364,6 +371,15 @@ class FdiaGraph:
             )
         if self.has_swing:  # [N,2] windowed relative swing (recent-window z-score)
             item["swing"] = torch.as_tensor(d["swing"][j], dtype=torch.float32)
+        if self._clean_np is not None:  # [N,4] noiseless attack-free truth at this timestep (SE target)
+            t = item["timestep"]
+            # torch.tensor COPIES: with units="physical" _to_units is a no-op view into the shared cached
+            # table, and an aliased tensor would let one record's in-place edit corrupt every other record.
+            item["clean"] = torch.tensor(self._to_units(self._clean_np[t], "node"), dtype=torch.float32)
+            if self._eclean_np is not None:  # [E,2] exact true flows (unmetered zeroed)
+                item["edge_clean"] = torch.tensor(
+                    self._to_units(self._eclean_np[t], "edge"), dtype=torch.float32
+                )
         if self.format == "pyg":
             return self._to_pyg(item)  # optionally repackage as a PyG Data object
         return item  # default: plain dict of tensors
@@ -374,7 +390,9 @@ class FdiaGraph:
             from torch_geometric.data import Data
         except ImportError as e:
             raise ImportError("PyG is required for format='pyg': pip install 'fdia-graph[pyg]'") from e
-        extra = {k: item[k] for k in ("temporal_delta", "swing") if k in item}  # [N,2] engineered features,
+        extra = {
+            k: item[k] for k in ("temporal_delta", "swing", "clean", "edge_clean") if k in item
+        }  # [N,2] engineered features + noiseless truth targets,
         # batched node-wise by PyG like x (swing is the canonical localization feature -- see README)
         return Data(
             x=item["node_x"],
@@ -395,8 +413,12 @@ class FdiaGraph:
         torch = _torch()
         out = {}
         # Feature keys to stack; include temporal_delta only if this file carries it.
-        fkeys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (
-            ["temporal_delta"] if "temporal_delta" in batch[0] else []
+        fkeys = (
+            ["node_x", "node_m", "edge_x", "edge_m", "y"]
+            + (["temporal_delta"] if "temporal_delta" in batch[0] else [])
+            + (["swing"] if "swing" in batch[0] else [])
+            + (["clean"] if "clean" in batch[0] else [])
+            + (["edge_clean"] if "edge_clean" in batch[0] else [])
         )
         for k in fkeys:
             out[k] = torch.stack([b[k] for b in batch])  # [B, N/E, C] batched features/labels/masks
@@ -464,8 +486,12 @@ class FdiaGraph:
             ["node_x", "node_m", "edge_x", "edge_m", "y"]
             + (["temporal_delta"] if self.has_temporal else [])
             + (["swing"] if self.has_swing else [])
+            + (["clean", "edge_clean"] if self.has_clean else [])
             + ["family", "stealthy", "seq_id", "timestep"]
         )
+        # clean/edge_clean live per POOL timestep (not per record); resolved below via data/timestep.
+        clean_want = [k for k in want if k in ("clean", "edge_clean")]
+        want = [k for k in want if k not in ("clean", "edge_clean")]
         idx = self.idx
         # Static graph arrays always included (tiny, and needed to interpret edges).
         out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
@@ -474,6 +500,12 @@ class FdiaGraph:
             for k in want:
                 # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
                 out[k] = d[k][idx]  # one bulk gather per field -> [n, ...] numpy array
+            if clean_want:
+                ts = d["timestep"][idx]
+                if "clean" in clean_want and self._clean_np is not None:
+                    out["clean"] = self._clean_np[ts]
+                if "edge_clean" in clean_want and self._eclean_np is not None:
+                    out["edge_clean"] = self._eclean_np[ts]
         # Convert power/angle arrays to self.units (masks, labels, swing untouched).
         if self.units == "pu":
             if "node_x" in out:
@@ -482,6 +514,10 @@ class FdiaGraph:
                 out["edge_x"] = self._to_units(out["edge_x"], "edge")
             if "temporal_delta" in out:
                 out["temporal_delta"] = self._to_units(out["temporal_delta"], "td")
+            if "clean" in out:
+                out["clean"] = self._to_units(out["clean"], "node")
+            if "edge_clean" in out:
+                out["edge_clean"] = self._to_units(out["edge_clean"], "edge")
         return out
 
     def to_torch(

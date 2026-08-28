@@ -347,7 +347,7 @@ def generate(
 
     # Output path: <name>.h5 under the SDK cache dir unless `out` overrode it.
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
-    _write(g, recs, out, split, seed, solve_stats=(tried, taken))
+    _write(g, recs, out, split, seed, solve_stats=(tried, taken), states=X)
     # Sidecar: flatten per-bus designed magnitudes into (family_id, magnitude) rows for band verification.
     if mag_log:
         fam_col = np.concatenate([np.full(len(m), fid, np.int8) for fid, m, s in mag_log])
@@ -385,6 +385,7 @@ def _write(
     split: Tuple[float, float, float],
     seed: int,
     solve_stats: Optional[Tuple[Dict, Dict]] = None,
+    states: Optional[np.ndarray] = None,
 ) -> None:
     # Serialize the record-tuples to one HDF5 file: graph structure + stacked per-record arrays + split.
     T = len(recs)
@@ -500,6 +501,25 @@ def _write(
             "swing", data=swing, chunks=ch + swing.shape[1:], compression="gzip", compression_opts=4
         )
         # Each scalar field (including the split) as its own dataset.
+        # clean/ group (v0.7.2+): the NOISELESS attack-free truth per POOL timestep (the SE target), resolved
+        # per record via data/timestep. Same layer the streams ship. node_clean is in node_x column order
+        # [V, P_inj, Q_inj, theta]; edge_clean = exact Ybus flows with unmetered branches zeroed (matches emit()).
+        if states is not None:
+            Xp = np.asarray(states, np.float64)[: int(tstep.max()) + 1]
+            nc = np.stack([Xp[:, :, 2], Xp[:, :, 0], Xp[:, :, 1], Xp[:, :, 3]], axis=2).astype(np.float32)
+            Vc = np.zeros((len(Xp), g._nppc), complex)
+            Vc[:, g._lut[np.arange(C)]] = Xp[:, :, 2] * np.exp(1j * np.deg2rad(Xp[:, :, 3]))
+            Sf = Vc[:, g._fb] * np.conj((g._Yf @ Vc.T).T) * g._bMVA
+            ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
+            ec[:, ~np.asarray(g.flow_meter, bool), :] = 0.0
+            cg = f.create_group("clean")
+            cch = (min(128, len(Xp)),)  # same chunk+gzip pattern as the per-record arrays
+            cg.create_dataset(  # [Tpool,N,4] noiseless truth per pool timestep
+                "node_clean", data=nc, chunks=cch + nc.shape[1:], compression="gzip", compression_opts=4
+            )
+            cg.create_dataset(  # [Tpool,E,2] exact flows, unmetered zeroed
+                "edge_clean", data=ec, chunks=cch + ec.shape[1:], compression="gzip", compression_opts=4
+            )
         for nm_, a in [
             ("family", fam),
             ("seq_id", seq),

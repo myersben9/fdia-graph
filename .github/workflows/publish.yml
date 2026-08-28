@@ -6,6 +6,9 @@
 # tag can never publish the wrong code), and uploads via PyPI Trusted Publishing (OIDC) -- no API
 # token is stored in GitHub or anywhere else.
 #
+# DATA-release tags (e.g. a v0.7.2 dataset release cut via the API) also match "v*" but are not
+# package releases: the version check makes the run SKIP quietly instead of failing red.
+#
 # ONE-TIME SETUP on PyPI (repo owner): pypi.org -> project fdia-graph -> Settings -> Publishing ->
 # "Add a new publisher" -> GitHub: owner=myersben9, repo=fdia-graph, workflow=publish.yml.
 name: publish
@@ -27,18 +30,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Verify tag matches pyproject version
+      - name: Check tag against pyproject version
+        id: ver
         run: |
           PYVER="$(python -c "import re;print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
           TAG="${GITHUB_REF_NAME#v}"
           echo "pyproject=$PYVER tag=$TAG"
-          test "$PYVER" = "$TAG" || { echo "::error::tag v$TAG does not match pyproject version $PYVER"; exit 1; }
+          if [ "$PYVER" = "$TAG" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::tag v$TAG is not package version $PYVER — data release, skipping PyPI publish"
+          fi
 
       - name: Build sdist + wheel
+        if: steps.ver.outputs.publish == 'true'
         run: |
           python -m pip install --upgrade build twine
           python -m build
           python -m twine check dist/*
 
       - name: Publish to PyPI (Trusted Publishing)
+        if: steps.ver.outputs.publish == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
