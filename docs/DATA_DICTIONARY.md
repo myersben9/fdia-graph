@@ -16,7 +16,7 @@ edge_index [2,E]= [ from_bus ; to_bus ]               connectivity
 edge_attr  [E,8]= [ r, x, b, g, gs, bs, tap, shift ]  static branch electrical properties
 y [N]           = 1 attacked / 0 clean                localization target
 swing [N,2]     = z-scored scan-to-scan change on [P,Q]
-clean [N,4]     = [ |V| , P_inj , Q_inj , theta ]     noiseless truth, ALL buses (SE target)
+clean [N,4]     = [ |V| , P_inj , Q_inj , theta ]     noiseless truth, ALL buses (SE target, v0.7.2+)
 edge_clean [E,2]= [ P_from , Q_from ]                 noiseless true flows (unmetered branches zeroed)
 ```
 
