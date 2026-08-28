@@ -6,6 +6,7 @@ Static graph read once; per-record tensors sliced lazily so the whole file is ne
   y [N] per-bus attack label  + family / stealthy / gap / seq_id / timestep
 Masked measurements (mask==0) are already zeroed; the model consumes the masks.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
@@ -23,16 +24,20 @@ import h5py
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
-STEALTHY_FAMILIES = {1, 5, 6}          # Aq, At, Al — evade classical bad-data detection
-_FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}   # backward-compatible family-name aliases
-_SPLIT = {"train": 0, "val": 1, "test": 2}                  # on-disk `data/split` codes (precomputed)
-_HELDOUT_TRAIN_EXCLUDE = {3, 4}        # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
+STEALTHY_FAMILIES = {1, 5, 6}  # Aq, At, Al — evade classical bad-data detection
+_FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
+_SPLIT = {"train": 0, "val": 1, "test": 2}  # on-disk `data/split` codes (precomputed)
+_HELDOUT_TRAIN_EXCLUDE = {
+    3,
+    4,
+}  # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
 
 
 def _torch() -> ModuleType:
     # Lazy torch import (+ install hint) so `import fdia_graph` stays light.
     try:
         import torch
+
         return torch
     except ImportError as e:
         raise ImportError("PyTorch is required: pip install 'fdia-graph[torch]'") from e
@@ -41,13 +46,20 @@ def _torch() -> ModuleType:
 class FdiaGraph:
     """torch.utils.data.Dataset over an .h5 shard. Use `.loader(...)` for a ready DataLoader, or index items."""
 
-    def __init__(self, path: str, split: Optional[str] = None,
-                 families: Optional[Sequence[Union[str, int]]] = None, include_gaps: bool = False,
-                 heldout: bool = False, format: str = "torch",
-                 units: str = "physical", preload: bool = False) -> None:
+    def __init__(
+        self,
+        path: str,
+        split: Optional[str] = None,
+        families: Optional[Sequence[Union[str, int]]] = None,
+        include_gaps: bool = False,
+        heldout: bool = False,
+        format: str = "torch",
+        units: str = "physical",
+        preload: bool = False,
+    ) -> None:
         # ONE pass over the small metadata arrays (family/gap/split) picks the kept rows;
         # the big measurement arrays are read only in __getitem__.
-        self.path, self.format = path, format           # file + output flavor ("torch"/"pyg")
+        self.path, self.format = path, format  # file + output flavor ("torch"/"pyg")
         # Unit system for RETURNED measurements. File stores engineering units (V p.u., P/Q MW/MVAr, theta deg);
         # units="pu" converts losslessly on the fly (P/Q + branch flows / baseMVA, theta deg->rad, V already p.u.),
         # so one shard serves both physical and normalized views. temporal_delta scales with power (->p.u.);
@@ -55,50 +67,73 @@ class FdiaGraph:
         if units not in ("physical", "pu"):
             raise ValueError("units must be 'physical' or 'pu'")
         self.units = units
-        self._f = None                                  # lazy per-worker h5py handle, opened on first __getitem__
-        with h5py.File(path, "r") as f:                 # read-only; metadata copied out before block exit
+        self._f = None  # lazy per-worker h5py handle, opened on first __getitem__
+        with h5py.File(path, "r") as f:  # read-only; metadata copied out before block exit
             # IEEE case (14/118/300); fall back to N, then 0, for older files.
             self.system = int(f.attrs.get("system", f.attrs.get("N", 0)))
             self.N = int(f.attrs["N"])
-            self.E = int(f.attrs["E"])   # fixed graph size: bus count N, branch count E
+            self.E = int(f.attrs["E"])  # fixed graph size: bus count N, branch count E
             self.baseMVA = float(f.attrs.get("baseMVA", 100.0))  # p.u. base; v0.4.1+, default 100 MVA
             # Static graph, read ONCE and cached as numpy (same for every record).
             self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
             self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
             # v0.5.0+ per-unit branch physics + bus shunts; each None when the file predates the schema.
             self._phys = {}
-            for _k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_gs", "edge_bs",
-                       "edge_tap", "edge_shift",
-                       "edge_status", "edge_is_trafo", "bus_shunt_g", "bus_shunt_b",
-                       # v0.5.0 static per-bus attributes (type/limits/base_kv/zero-inj/attackable ...).
-                       "bus_type", "bus_vmin", "bus_vmax", "bus_base_kv", "bus_is_zero_inj",
-                       "bus_has_gen", "bus_base_pd", "bus_base_qd", "bus_attackable"):
+            for _k in (
+                "edge_r",
+                "edge_x",
+                "edge_b",
+                "edge_g",
+                "edge_gs",
+                "edge_bs",
+                "edge_tap",
+                "edge_shift",
+                "edge_status",
+                "edge_is_trafo",
+                "bus_shunt_g",
+                "bus_shunt_b",
+                # v0.5.0 static per-bus attributes (type/limits/base_kv/zero-inj/attackable ...).
+                "bus_type",
+                "bus_vmin",
+                "bus_vmax",
+                "bus_base_kv",
+                "bus_is_zero_inj",
+                "bus_has_gen",
+                "bus_base_pd",
+                "bus_base_qd",
+                "bus_attackable",
+            ):
                 self._phys[_k] = f[f"graph/{_k}"][:].astype(np.float64) if f"graph/{_k}" in f else None
             self.has_physics = self._phys["edge_x"] is not None
             # Forward-compat: v0.6.0 PER-RECORD data/edge_status will override static graph/edge_status;
             # None on v0.5.0 shards, so v0.5.0 loaders already read v0.6.0 shards correctly.
             self.edge_status_per_record = f["data/edge_status"][:] if "data/edge_status" in f else None
-            self.has_temporal = "temporal_delta" in f["data"]      # v0.3+ temporal-delta feature
-            self.has_swing = "swing" in f["data"]                  # v0.4.1+ windowed relative-swing feature
+            self.has_temporal = "temporal_delta" in f["data"]  # v0.3+ temporal-delta feature
+            self.has_swing = "swing" in f["data"]  # v0.4.1+ windowed relative-swing feature
             fam = f["data/family"][:]
-            gap = f["data/gap"][:]      # per-record metadata copied to RAM for filtering
+            gap = f["data/gap"][:]  # per-record metadata copied to RAM for filtering
             sp = f["data/split"][:] if "data/split" in f else None  # split code, or None on unsplit files
-        keep = np.ones(len(fam), bool)                  # boolean keep-mask over all records, ANDed with each filter
+        keep = np.ones(len(fam), bool)  # boolean keep-mask over all records, ANDed with each filter
         if not include_gaps:
-            keep &= (gap == 0)                          # drop gap (missing/skipped scan) records unless asked
+            keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
         if split is not None:
             if sp is None:
                 raise ValueError(f"{path} has no split; run the split step first")
-            keep &= (sp == _SPLIT[split])               # restrict to requested train/val/test partition
-            if heldout and _SPLIT[split] in (0, 1):        # unseen-attack protocol: drop As/Ar from train/val (test keeps them)
+            keep &= sp == _SPLIT[split]  # restrict to requested train/val/test partition
+            if heldout and _SPLIT[split] in (
+                0,
+                1,
+            ):  # unseen-attack protocol: drop As/Ar from train/val (test keeps them)
                 keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
         if families is not None:
             # accept family names / legacy aliases or raw int codes; peek at first element to tell which
             if isinstance(next(iter(families)), str):
-                fam_ids = [k for k, v in FAMILIES.items() if v in families] + [_FAMILY_ALIAS[n] for n in families if n in _FAMILY_ALIAS]
+                fam_ids = [k for k, v in FAMILIES.items() if v in families] + [
+                    _FAMILY_ALIAS[n] for n in families if n in _FAMILY_ALIAS
+                ]
             else:
                 fam_ids = list(families)
-            keep &= np.isin(fam, fam_ids)               # keep only the requested attack families
+            keep &= np.isin(fam, fam_ids)  # keep only the requested attack families
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
         self.idx = np.nonzero(keep)[0]
         # Optional RAM cache: bulk-read the kept rows once so __getitem__ skips per-record h5py overhead
@@ -107,9 +142,11 @@ class FdiaGraph:
         if preload and len(self.idx):
             with h5py.File(path, "r") as f:
                 dg = f["data"]
-                keys = (["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
-                        + (["temporal_delta"] if self.has_temporal else [])
-                        + (["swing"] if self.has_swing else []))
+                keys = (
+                    ["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
+                    + (["temporal_delta"] if self.has_temporal else [])
+                    + (["swing"] if self.has_swing else [])
+                )
                 # one contiguous slice + numpy subset beats h5py point reads (splits are near-contiguous)
                 lo, hi = int(self.idx[0]), int(self.idx[-1]) + 1
                 rel = self.idx - lo
@@ -118,7 +155,7 @@ class FdiaGraph:
     # ---- torch tensors for the static graph (lazy; wrap cached numpy fresh each access, nothing stored) ----
     @property
     def edge_index(self) -> torch.Tensor:
-        return _torch().as_tensor(self.edge_index_np)   # [2,E] long connectivity for message passing
+        return _torch().as_tensor(self.edge_index_np)  # [2,E] long connectivity for message passing
 
     @property
     def edge_reactance(self) -> torch.Tensor:
@@ -133,13 +170,20 @@ class FdiaGraph:
 
     # Per-unit branch physics, ppc order (lines then transformers), aligned with edge_index.
     @property
-    def edge_r(self) -> torch.Tensor: return self._p("edge_r")            # series resistance
+    def edge_r(self) -> torch.Tensor:
+        return self._p("edge_r")  # series resistance
+
     @property
-    def edge_x(self) -> torch.Tensor: return self._p("edge_x")            # series reactance
+    def edge_x(self) -> torch.Tensor:
+        return self._p("edge_x")  # series reactance
+
     @property
-    def edge_b(self) -> torch.Tensor: return self._p("edge_b")            # charging susceptance
+    def edge_b(self) -> torch.Tensor:
+        return self._p("edge_b")  # charging susceptance
+
     @property
-    def edge_g(self) -> torch.Tensor: return self._p("edge_g")            # charging conductance, transformer iron losses
+    def edge_g(self) -> torch.Tensor:
+        return self._p("edge_g")  # charging conductance, transformer iron losses
 
     def _series_adm(self, imag: bool) -> torch.Tensor:
         # Series admittance 1/(r+jx). Stored on v0.7.0+ shards; derived from r,x for older ones so edge_attr
@@ -149,7 +193,7 @@ class FdiaGraph:
         if v is None:
             r, x = self._phys.get("edge_r"), self._phys.get("edge_x")
             if r is None:
-                return self._p(key)                 # no physics at all -> standard "needs v0.5.0+" error
+                return self._p(key)  # no physics at all -> standard "needs v0.5.0+" error
             z = np.asarray(r) + 1j * np.asarray(x)
             ys = np.zeros_like(z, complex)
             nz = np.abs(z) > 1e-12
@@ -158,49 +202,93 @@ class FdiaGraph:
         return _torch().as_tensor(v)
 
     @property
-    def edge_gs(self) -> torch.Tensor: return self._series_adm(False)     # series conductance, Re(1/(r+jx))
+    def edge_gs(self) -> torch.Tensor:
+        return self._series_adm(False)  # series conductance, Re(1/(r+jx))
+
     @property
-    def edge_bs(self) -> torch.Tensor: return self._series_adm(True)      # series susceptance, Im(1/(r+jx))
+    def edge_bs(self) -> torch.Tensor:
+        return self._series_adm(True)  # series susceptance, Im(1/(r+jx))
+
     @property
-    def edge_tap(self) -> torch.Tensor: return self._p("edge_tap")        # transformer turns ratio, 1.0 for lines
+    def edge_tap(self) -> torch.Tensor:
+        return self._p("edge_tap")  # transformer turns ratio, 1.0 for lines
+
     @property
-    def edge_shift(self) -> torch.Tensor: return self._p("edge_shift")    # phase shift, degrees
+    def edge_shift(self) -> torch.Tensor:
+        return self._p("edge_shift")  # phase shift, degrees
+
     @property
-    def edge_status(self) -> torch.Tensor: return self._p("edge_status")  # 1 in service, 0 out (static; see edge_status_per_record)
+    def edge_status(self) -> torch.Tensor:
+        return self._p("edge_status")  # 1 in service, 0 out (static; see edge_status_per_record)
+
     @property
-    def edge_is_trafo(self) -> torch.Tensor: return self._p("edge_is_trafo")
+    def edge_is_trafo(self) -> torch.Tensor:
+        return self._p("edge_is_trafo")
+
     # Static per-bus attributes, pandapower == ppc bus order (verified identity for case14/118/300).
     @property
-    def bus_type(self) -> torch.Tensor: return self._p("bus_type")            # 1 PQ, 2 PV, 3 reference
+    def bus_type(self) -> torch.Tensor:
+        return self._p("bus_type")  # 1 PQ, 2 PV, 3 reference
+
     @property
-    def bus_vmin(self) -> torch.Tensor: return self._p("bus_vmin")            # voltage limits, pu
+    def bus_vmin(self) -> torch.Tensor:
+        return self._p("bus_vmin")  # voltage limits, pu
+
     @property
-    def bus_vmax(self) -> torch.Tensor: return self._p("bus_vmax")
+    def bus_vmax(self) -> torch.Tensor:
+        return self._p("bus_vmax")
+
     @property
-    def bus_base_kv(self) -> torch.Tensor: return self._p("bus_base_kv")      # nominal voltage, kV
+    def bus_base_kv(self) -> torch.Tensor:
+        return self._p("bus_base_kv")  # nominal voltage, kV
+
     @property
-    def bus_is_zero_inj(self) -> torch.Tensor: return self._p("bus_is_zero_inj")  # generator's own zero-injection set
+    def bus_is_zero_inj(self) -> torch.Tensor:
+        return self._p("bus_is_zero_inj")  # generator's own zero-injection set
+
     @property
-    def bus_has_gen(self) -> torch.Tensor: return self._p("bus_has_gen")      # generator or slack on the bus
+    def bus_has_gen(self) -> torch.Tensor:
+        return self._p("bus_has_gen")  # generator or slack on the bus
+
     @property
-    def bus_base_pd(self) -> torch.Tensor: return self._p("bus_base_pd")      # base-case load, MW
+    def bus_base_pd(self) -> torch.Tensor:
+        return self._p("bus_base_pd")  # base-case load, MW
+
     @property
-    def bus_base_qd(self) -> torch.Tensor: return self._p("bus_base_qd")      # base-case load, MVAr
+    def bus_base_qd(self) -> torch.Tensor:
+        return self._p("bus_base_qd")  # base-case load, MVAr
+
     @property
-    def bus_attackable(self) -> torch.Tensor: return self._p("bus_attackable")  # carries |p_mw|>0 load (IEEE-300 141/183 rule)
+    def bus_attackable(self) -> torch.Tensor:
+        return self._p("bus_attackable")  # carries |p_mw|>0 load (IEEE-300 141/183 rule)
+
     # Shunts are a BUS property, on the Ybus diagonal, so they were not expressible in an edge schema.
     @property
-    def bus_shunt_g(self) -> torch.Tensor: return self._p("bus_shunt_g")
+    def bus_shunt_g(self) -> torch.Tensor:
+        return self._p("bus_shunt_g")
+
     @property
-    def bus_shunt_b(self) -> torch.Tensor: return self._p("bus_shunt_b")
+    def bus_shunt_b(self) -> torch.Tensor:
+        return self._p("bus_shunt_b")
 
     @property
     def edge_attr(self) -> torch.Tensor:
         """[E,8] stacked per-unit branch features: series impedance (r,x), branch shunt (b,g), series
         admittance (gs,bs = 1/(r+jx)), and transformer tap/shift. Drop-in replacement for edge_reactance."""
         t = _torch()
-        return t.stack([self.edge_r, self.edge_x, self.edge_b, self.edge_g,
-                        self.edge_gs, self.edge_bs, self.edge_tap, self.edge_shift], dim=1)
+        return t.stack(
+            [
+                self.edge_r,
+                self.edge_x,
+                self.edge_b,
+                self.edge_g,
+                self.edge_gs,
+                self.edge_bs,
+                self.edge_tap,
+                self.edge_shift,
+            ],
+            dim=1,
+        )
 
     def _h(self) -> h5py.File:
         # Open+cache the h5py handle on first access (not __init__) so each DataLoader worker gets its
@@ -210,7 +298,7 @@ class FdiaGraph:
         return self._f
 
     def __len__(self) -> int:
-        return len(self.idx)                            # number of records this filtered view exposes
+        return len(self.idx)  # number of records this filtered view exposes
 
     def _to_units(self, arr: np.ndarray, kind: str) -> np.ndarray:
         """Convert a physical-unit array to self.units (no-op unless units=='pu'). kind:
@@ -223,42 +311,62 @@ class FdiaGraph:
         a = np.array(arr, dtype=np.float32, copy=True)
         if kind == "node":
             a[..., 1] /= b
-            a[..., 2] /= b                 # P_inj, Q_inj  MW/MVAr -> p.u.
-            a[..., 3] = np.deg2rad(a[..., 3])              # theta  deg -> rad
+            a[..., 2] /= b  # P_inj, Q_inj  MW/MVAr -> p.u.
+            a[..., 3] = np.deg2rad(a[..., 3])  # theta  deg -> rad
         else:
-            a /= b                                         # branch flows / temporal delta: power -> p.u.
+            a /= b  # branch flows / temporal delta: power -> p.u.
         return a
 
     def __getitem__(self, i: int) -> Union[Dict[str, Any], "Data"]:
         # Build ONE record dict. Map view index `i` back to file row `j` via self.idx; h5py reads only row j.
         torch = _torch()
         if self._mem is not None:
-            d, j = self._mem, i                         # preloaded: arrays are position-aligned with the view
+            d, j = self._mem, i  # preloaded: arrays are position-aligned with the view
         else:
-            d, j = self._h()["data"], int(self.idx[i])  # j = real file row; d = the "data" group of measurements
+            d, j = (
+                self._h()["data"],
+                int(self.idx[i]),
+            )  # j = real file row; d = the "data" group of measurements
         # Static graph shared by every record dict (references, not copies). edge_attr needs the v0.5.0+
         # physics schema, so attach it only when present (older shards would raise otherwise).
         if not hasattr(self, "_ei_t"):
             self._ei_t = self.edge_index
             self._ea_t = self.edge_attr if self.has_physics else None
         item = dict(
-            edge_index=self._ei_t,                      # [2,E] static connectivity (same tensor every record)
-            node_x=torch.as_tensor(self._to_units(d["node_x"][j], "node"), dtype=torch.float32),  # [N,4]=[|V|,P_inj,Q_inj,theta]
-            node_m=torch.as_tensor(d["node_m"][j], dtype=torch.float32),   # [N,4] availability mask (1=measured)
-            edge_x=torch.as_tensor(self._to_units(d["edge_x"][j], "edge"), dtype=torch.float32),   # [E,2]=[P_from,Q_from] flows
-            edge_m=torch.as_tensor(d["edge_m"][j], dtype=torch.float32),   # [E,2] branch-flow availability mask
-            y=torch.as_tensor(d["y"][j], dtype=torch.float32),            # [N] per-bus attack label (multi-label target)
-            family=int(d["family"][j]), stealthy=int(d["stealthy"][j]),   # scalar metadata: attack type + stealth flag
-            seq_id=int(d["seq_id"][j]), timestep=int(d["timestep"][j]))   # provenance: which sequence + which scan in it
+            edge_index=self._ei_t,  # [2,E] static connectivity (same tensor every record)
+            node_x=torch.as_tensor(
+                self._to_units(d["node_x"][j], "node"), dtype=torch.float32
+            ),  # [N,4]=[|V|,P_inj,Q_inj,theta]
+            node_m=torch.as_tensor(
+                d["node_m"][j], dtype=torch.float32
+            ),  # [N,4] availability mask (1=measured)
+            edge_x=torch.as_tensor(
+                self._to_units(d["edge_x"][j], "edge"), dtype=torch.float32
+            ),  # [E,2]=[P_from,Q_from] flows
+            edge_m=torch.as_tensor(
+                d["edge_m"][j], dtype=torch.float32
+            ),  # [E,2] branch-flow availability mask
+            y=torch.as_tensor(
+                d["y"][j], dtype=torch.float32
+            ),  # [N] per-bus attack label (multi-label target)
+            family=int(d["family"][j]),
+            stealthy=int(d["stealthy"][j]),  # scalar metadata: attack type + stealth flag
+            seq_id=int(d["seq_id"][j]),
+            timestep=int(d["timestep"][j]),
+        )  # provenance: which sequence + which scan in it
         if self._ea_t is not None:
-            item["edge_attr"] = self._ea_t              # [E,8] per-unit line features (r,x,b,g,gs,bs,tap,shift); v0.5.0+ shards only
-        if self.has_temporal:                                     # [N,2] current-minus-previous-scan injection (v0.3+)
-            item["temporal_delta"] = torch.as_tensor(self._to_units(d["temporal_delta"][j], "td"), dtype=torch.float32)
-        if self.has_swing:                                        # [N,2] windowed relative swing (recent-window z-score)
+            item["edge_attr"] = (
+                self._ea_t
+            )  # [E,8] per-unit line features (r,x,b,g,gs,bs,tap,shift); v0.5.0+ shards only
+        if self.has_temporal:  # [N,2] current-minus-previous-scan injection (v0.3+)
+            item["temporal_delta"] = torch.as_tensor(
+                self._to_units(d["temporal_delta"][j], "td"), dtype=torch.float32
+            )
+        if self.has_swing:  # [N,2] windowed relative swing (recent-window z-score)
             item["swing"] = torch.as_tensor(d["swing"][j], dtype=torch.float32)
         if self.format == "pyg":
-            return self._to_pyg(item)                   # optionally repackage as a PyG Data object
-        return item                                     # default: plain dict of tensors
+            return self._to_pyg(item)  # optionally repackage as a PyG Data object
+        return item  # default: plain dict of tensors
 
     def _to_pyg(self, item: Dict[str, Any]) -> "Data":
         # Repackage the dict as a torch_geometric Data object; masks ride along as extra attributes PyG batches.
@@ -266,13 +374,19 @@ class FdiaGraph:
             from torch_geometric.data import Data
         except ImportError as e:
             raise ImportError("PyG is required for format='pyg': pip install 'fdia-graph[pyg]'") from e
-        extra = {k: item[k] for k in ("temporal_delta", "swing") if k in item}   # [N,2] engineered features,
+        extra = {k: item[k] for k in ("temporal_delta", "swing") if k in item}  # [N,2] engineered features,
         # batched node-wise by PyG like x (swing is the canonical localization feature -- see README)
-        return Data(x=item["node_x"], edge_index=self.edge_index,      # node features + connectivity
-                    edge_attr=item["edge_x"], y=item["y"],            # edge features + labels
-                    node_mask=item["node_m"], edge_mask=item["edge_m"],   # carry the availability masks through
-                    family=item["family"], stealthy=item["stealthy"],     # keep metadata for stratified eval
-                    **extra)
+        return Data(
+            x=item["node_x"],
+            edge_index=self.edge_index,  # node features + connectivity
+            edge_attr=item["edge_x"],
+            y=item["y"],  # edge features + labels
+            node_mask=item["node_m"],
+            edge_mask=item["edge_m"],  # carry the availability masks through
+            family=item["family"],
+            stealthy=item["stealthy"],  # keep metadata for stratified eval
+            **extra,
+        )
 
     @staticmethod
     def collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
@@ -281,40 +395,58 @@ class FdiaGraph:
         torch = _torch()
         out = {}
         # Feature keys to stack; include temporal_delta only if this file carries it.
-        fkeys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if "temporal_delta" in batch[0] else [])
+        fkeys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (
+            ["temporal_delta"] if "temporal_delta" in batch[0] else []
+        )
         for k in fkeys:
-            out[k] = torch.stack([b[k] for b in batch])           # [B, N/E, C] batched features/labels/masks
+            out[k] = torch.stack([b[k] for b in batch])  # [B, N/E, C] batched features/labels/masks
         # Static graph rides along ONCE per batch (not stacked): every sample shares the same topology.
         out["edge_index"] = batch[0]["edge_index"]
-        if "edge_attr" in batch[0]:                     # absent on older no-physics shards
+        if "edge_attr" in batch[0]:  # absent on older no-physics shards
             out["edge_attr"] = batch[0]["edge_attr"]
         for k in ("family", "stealthy", "seq_id", "timestep"):
-            out[k] = torch.as_tensor([b[k] for b in batch], dtype=torch.long)   # [B] scalar metadata per record
+            out[k] = torch.as_tensor(
+                [b[k] for b in batch], dtype=torch.long
+            )  # [B] scalar metadata per record
         return out
 
-    def loader(self, batch_size: int = 64, shuffle: Optional[bool] = None, num_workers: int = 0,
-               **kw: Any) -> "DataLoader":
+    def loader(
+        self, batch_size: int = 64, shuffle: Optional[bool] = None, num_workers: int = 0, **kw: Any
+    ) -> "DataLoader":
         """Return a ready DataLoader. Shuffle defaults on for train-like use; masks/labels included per batch."""
         torch = _torch()
         from torch.utils.data import DataLoader
+
         if shuffle is None:
-            shuffle = True                              # default on (mostly used for training)
+            shuffle = True  # default on (mostly used for training)
         if self.format == "pyg":
             # PyG's own DataLoader does graph-aware batching (offsets edge_index); no custom collate needed.
             from torch_geometric.loader import DataLoader as PyGLoader
+
             return PyGLoader(self, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, **kw)
         # Plain-dict path: standard torch DataLoader wired to our stacking collate above.
         # self is a structural Dataset (__len__/__getitem__) but can't inherit torch's Dataset,
         # since torch is an optional lazy import; pyright can't see the duck-typed conformance.
-        return DataLoader(self, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,  # type: ignore[reportArgumentType]
-                          collate_fn=self.collate, **kw)
+        return DataLoader(
+            self,  # type: ignore[reportArgumentType]
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=num_workers,
+            collate_fn=self.collate,
+            **kw,
+        )
 
     def summary(self) -> Dict[str, Any]:
         # Cheap overview: read only the family column for this view's rows, tally per family.
         with h5py.File(self.path, "r") as f:
-            fam = f["data/family"][:][self.idx]         # family codes for just the kept rows
-        return dict(system=self.system, N=self.N, E=self.E, n=len(self),
-                    families={FAMILIES[k]: int((fam == k).sum()) for k in FAMILIES if (fam == k).any()})
+            fam = f["data/family"][:][self.idx]  # family codes for just the kept rows
+        return dict(
+            system=self.system,
+            N=self.N,
+            E=self.E,
+            n=len(self),
+            families={FAMILIES[k]: int((fam == k).sum()) for k in FAMILIES if (fam == k).any()},
+        )
 
     # ------------------------------------------------------------------ #
     #  Whole-split exporters: unlike __getitem__/.loader() (stream one record), these pull the ENTIRE
@@ -328,8 +460,12 @@ class FdiaGraph:
         arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
         """
         # Per-record arrays to pull: caller's `fields`, or the full default set.
-        want = fields or (["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if self.has_temporal else []) + (["swing"] if self.has_swing else [])
-                          + ["family", "stealthy", "seq_id", "timestep"])
+        want = fields or (
+            ["node_x", "node_m", "edge_x", "edge_m", "y"]
+            + (["temporal_delta"] if self.has_temporal else [])
+            + (["swing"] if self.has_swing else [])
+            + ["family", "stealthy", "seq_id", "timestep"]
+        )
         idx = self.idx
         # Static graph arrays always included (tiny, and needed to interpret edges).
         out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
@@ -337,7 +473,7 @@ class FdiaGraph:
             d = f["data"]
             for k in want:
                 # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
-                out[k] = d[k][idx]                      # one bulk gather per field -> [n, ...] numpy array
+                out[k] = d[k][idx]  # one bulk gather per field -> [n, ...] numpy array
         # Convert power/angle arrays to self.units (masks, labels, swing untouched).
         if self.units == "pu":
             if "node_x" in out:
@@ -348,18 +484,25 @@ class FdiaGraph:
                 out["temporal_delta"] = self._to_units(out["temporal_delta"], "td")
         return out
 
-    def to_torch(self, fields: Optional[Sequence[str]] = None,
-                 device: Optional[Union[str, "torch.device"]] = None) -> Dict[str, torch.Tensor]:
+    def to_torch(
+        self, fields: Optional[Sequence[str]] = None, device: Optional[Union[str, "torch.device"]] = None
+    ) -> Dict[str, torch.Tensor]:
         """Same data as to_numpy(), but as torch tensors (floats stay float32, label ids stay int64).
         Handy when you want the full split resident as tensors rather than streamed via a DataLoader."""
         torch = _torch()
-        np_ = self.to_numpy(fields)                     # single source-of-truth HDF5 read
-        int_keys = {"family", "stealthy", "seq_id", "timestep", "edge_index"}  # -> int64; measurements -> float32
+        np_ = self.to_numpy(fields)  # single source-of-truth HDF5 read
+        int_keys = {
+            "family",
+            "stealthy",
+            "seq_id",
+            "timestep",
+            "edge_index",
+        }  # -> int64; measurements -> float32
         out = {}
         for k, v in np_.items():
             t = torch.as_tensor(v)
             t = t.long() if k in int_keys else t.float()
-            out[k] = t.to(device) if device else t         # optionally move onto the target device
+            out[k] = t.to(device) if device else t  # optionally move onto the target device
         return out
 
     def to_tf(self, fields: Optional[Sequence[str]] = None) -> Dict[str, Any]:
@@ -383,14 +526,18 @@ class FdiaGraph:
             import pandas as pd
         except ImportError as e:
             raise ImportError("pandas is required for to_pandas(): pip install pandas") from e
-        a = self.to_numpy()                             # same single HDF5 read backing every exporter
+        a = self.to_numpy()  # same single HDF5 read backing every exporter
         # Metadata frame, one row per record; n_attacked_buses = row-sum of the [n,N] label matrix.
-        df = pd.DataFrame({
-            "family": [FAMILIES[int(k)] for k in a["family"]],   # readable family name
-            "family_id": a["family"], "stealthy": a["stealthy"].astype(bool),
-            "seq_id": a["seq_id"], "timestep": a["timestep"],
-            "n_attacked_buses": a["y"].sum(axis=1).astype(int),
-        })
+        df = pd.DataFrame(
+            {
+                "family": [FAMILIES[int(k)] for k in a["family"]],  # readable family name
+                "family_id": a["family"],
+                "stealthy": a["stealthy"].astype(bool),
+                "seq_id": a["seq_id"],
+                "timestep": a["timestep"],
+                "n_attacked_buses": a["y"].sum(axis=1).astype(int),
+            }
+        )
         if flatten_features:
             N, E = self.N, self.E
             # node_x[:, :, ci] is [n, N] for channel ci -> N columns V_b0.., Pinj_b0.., etc.

@@ -27,6 +27,7 @@ Temporal-feature note: unlike the shard (which compares an attacked snapshot to 
 compares each frame to the previous EMITTED frame. That is what keeps a stealthy ramp looking like a small
 per-step change and a spike looking like an abrupt jump — the spike-vs-ramp signal the dataset is built on.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -39,15 +40,15 @@ from .generation import _load_states, SWING_W, NOISE_FLOOR, _FAMK
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
 # families persist for a shorter, variable window. Benign gaps are drawn from the same overall scale so the
 # attacked fraction lands near the requested target.
-_EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}   # Aq, Ad, As, Ar, Al
+_EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}  # Aq, Ad, As, Ar, Al
 
 
 def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
     """Per-timestep benign 'typical recent change' std over the last SWING_W scans (prefix-sum, same as the shard)."""
     T = len(X)
-    D = np.abs(np.diff(X[:, :, :2], axis=0))                              # [T-1,N,2] scan-to-scan |change|
+    D = np.abs(np.diff(X[:, :, :2], axis=0))  # [T-1,N,2] scan-to-scan |change|
     c1 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D, 0)], 0)
-    c2 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D ** 2, 0)], 0)
+    c2 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D**2, 0)], 0)
     SCALE = np.full((T, C, 2), 1e-3, np.float32)
     for t in range(2, T):
         s = max(0, t - SWING_W)
@@ -60,11 +61,19 @@ def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
     return SCALE
 
 
-def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndarray]] = None,
-                    attacked_frac: float = 0.5, families: Sequence[str] = ("Aq", "Ad", "As", "Ar", "At", "Al"),
-                    attack_intensity: float = 0.20, ramp_rate: float = 0.002, ramp_len: int = 60,
-                    replay_tau: Optional[int] = None, redundancy: Optional[Dict] = None, seed: int = 123,
-                    out: Optional[str] = None) -> Dict[str, Any]:
+def generate_stream(
+    system: Union[int, str],
+    states: Optional[Union[str, np.ndarray]] = None,
+    attacked_frac: float = 0.5,
+    families: Sequence[str] = ("Aq", "Ad", "As", "Ar", "At", "Al"),
+    attack_intensity: float = 0.20,
+    ramp_rate: float = 0.002,
+    ramp_len: int = 60,
+    replay_tau: Optional[int] = None,
+    redundancy: Optional[Dict] = None,
+    seed: int = 123,
+    out: Optional[str] = None,
+) -> Dict[str, Any]:
     """Build one continuous attacked time series for `system`. Returns a dict (also saved to `out` if given).
 
     attacked_frac : target fraction of timesteps under an attack episode (~0.5 = balanced).
@@ -82,25 +91,31 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     SCALE = _swing_scale(X, C)
     apos = g.attackable_pos
     fam_ids = [FAM_ID[f] for f in families]
-    single = [f for f in fam_ids if f in (1, 2, 3, 4, 6)]   # single-shot families (persist as a flat episode)
+    single = [f for f in fam_ids if f in (1, 2, 3, 4, 6)]  # single-shot families (persist as a flat episode)
     has_ramp = 5 in fam_ids
 
     E = g.E
-    fmeter = np.asarray(g.flow_meter, bool)       # which branches carry a flow meter (same mask emit() uses)
-    node_x = np.zeros((T, C, 4), np.float32)      # OBSERVED node feed: attacked+noisy where attacked, else benign+noisy
-    benign = np.zeros((T, C, 4), np.float32)      # UN-ATTACKED node measurement (benign+noisy), attack removed
-    edge_x = np.zeros((T, E, 2), np.float32)      # OBSERVED branch flows [P_from, Q_from] (attacked+noisy / benign+noisy)
-    edge_ben = np.zeros((T, E, 2), np.float32)    # UN-ATTACKED branch flows (benign+noisy)
-    edge_cln = np.zeros((T, E, 2), np.float32)    # NOISELESS true branch flows (metered branches only, matching edge_x)
+    fmeter = np.asarray(g.flow_meter, bool)  # which branches carry a flow meter (same mask emit() uses)
+    node_x = np.zeros(
+        (T, C, 4), np.float32
+    )  # OBSERVED node feed: attacked+noisy where attacked, else benign+noisy
+    benign = np.zeros((T, C, 4), np.float32)  # UN-ATTACKED node measurement (benign+noisy), attack removed
+    edge_x = np.zeros(
+        (T, E, 2), np.float32
+    )  # OBSERVED branch flows [P_from, Q_from] (attacked+noisy / benign+noisy)
+    edge_ben = np.zeros((T, E, 2), np.float32)  # UN-ATTACKED branch flows (benign+noisy)
+    edge_cln = np.zeros(
+        (T, E, 2), np.float32
+    )  # NOISELESS true branch flows (metered branches only, matching edge_x)
 
     # Precompute all noiseless from-end flows Sf = V_from*conj(Yf@V)*baseMVA in ONE batched matmul over the
     # whole timeline (vs a per-frame sparse multiply). Masked to metered branches so edge_clean shares the
     # availability pattern of edge_x/edge_benign -> edge_benign - edge_clean is meter noise on measured channels.
     Vc_all = np.zeros((T, g._nppc), complex)
     Vc_all[:, g._lut[np.arange(C)]] = X[:T, :, 2] * np.exp(1j * np.deg2rad(X[:T, :, 3]))
-    Sf_all = Vc_all[:, g._fb] * np.conj((g._Yf @ Vc_all.T).T) * g._bMVA   # sparse@dense, then transpose
+    Sf_all = Vc_all[:, g._fb] * np.conj((g._Yf @ Vc_all.T).T) * g._bMVA  # sparse@dense, then transpose
     edge_clean_full = np.stack([Sf_all.real, Sf_all.imag], axis=2).astype(np.float32)
-    edge_clean_full[:, ~fmeter, :] = 0.0          # zero unmetered branches (matches emit() masking)
+    edge_clean_full[:, ~fmeter, :] = 0.0  # zero unmetered branches (matches emit() masking)
     y = np.zeros((T, C), np.uint8)
     fam = np.zeros(T, np.int16)
     td_all = np.zeros((T, C, 2), np.float32)
@@ -115,8 +130,15 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             g.benign_buf.pop(0)
         return nx, ex
 
-    def _store(t: int, nx: np.ndarray, yt: np.ndarray, fid: int, benign_nx: np.ndarray,
-               ex: np.ndarray, benign_ex: np.ndarray) -> None:
+    def _store(
+        t: int,
+        nx: np.ndarray,
+        yt: np.ndarray,
+        fid: int,
+        benign_nx: np.ndarray,
+        ex: np.ndarray,
+        benign_ex: np.ndarray,
+    ) -> None:
         nonlocal prev_nx
         node_x[t] = nx
         benign[t] = benign_nx
@@ -127,18 +149,19 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
         edge_cln[t] = edge_clean_full[t]
         p = prev_nx if prev_nx is not None else nx
         td_all[t, :, 0] = nx[:, 1] - p[:, 1]
-        td_all[t, :, 1] = nx[:, 2] - p[:, 2]   # vs previous EMITTED frame
+        td_all[t, :, 1] = nx[:, 2] - p[:, 2]  # vs previous EMITTED frame
         sc = SCALE[t]
         sw_all[t, :, 0] = td_all[t, :, 0] / sc[:, 0]
         sw_all[t, :, 1] = td_all[t, :, 1] / sc[:, 1]
         prev_nx = nx
 
-    def _attack_frame(t: int, fid: int, a: np.ndarray, mult: Union[float, np.ndarray]
-                      ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+    def _attack_frame(
+        t: int, fid: int, a: np.ndarray, mult: Union[float, np.ndarray]
+    ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
         """Apply family `fid` at timestep t. Returns (nx, y, benign_nx, ex, benign_ex) or None, where ex is the
         OBSERVED branch flows and benign_ex the un-attacked branch flows (node + edge from the same scan)."""
         yt = np.zeros(C, np.uint8)
-        if fid in (1, 5):                                    # Aq / ramp: re-solve with scaled load
+        if fid in (1, 5):  # Aq / ramp: re-solve with scaled load
             Lp = X[t][g.load_bus, 0] + g.load_genP
             Lq = X[t][g.load_bus, 1].copy()
             Lp_true = Lp.copy()
@@ -149,9 +172,9 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                 return None
             nx, nm, ex, em = g.emit(net)
             yt[g.load_bus[a]] = 1
-            bnx, bnm, bex, bem = g.emit_from_state(X[t])     # benign = un-attacked emit of the true state
+            bnx, bnm, bex, bem = g.emit_from_state(X[t])  # benign = un-attacked emit of the true state
             return nx, yt, bnx, ex, bex
-        if fid == 6:                                         # Al / LRA: load-redistribution re-solve
+        if fid == 6:  # Al / LRA: load-redistribution re-solve
             Lp = X[t][g.load_bus, 0] + g.load_genP
             Lq = X[t][g.load_bus, 1].copy()
             d, aa = g.lra_delta(Lp, attack_intensity, K, floor=NOISE_FLOOR)
@@ -164,21 +187,23 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             yt[g.load_bus[aa]] = 1
             bnx, bnm, bex, bem = g.emit_from_state(X[t])
             return nx, yt, bnx, ex, bex
-        nx, nm, ex, em = g.emit_from_state(X[t])             # Ad/As/Ar: corrupt measurements in place
+        nx, nm, ex, em = g.emit_from_state(X[t])  # Ad/As/Ar: corrupt measurements in place
         benign_nx = nx.copy()
-        benign_ex = ex.copy()         # capture BEFORE corruption -> shares noise with nx/ex
+        benign_ex = ex.copy()  # capture BEFORE corruption -> shares noise with nx/ex
         abus = g.load_bus[a]
-        if replay_tau is not None and g.benign_buf:          # fixed replay depth, else random lag >=20
+        if replay_tau is not None and g.benign_buf:  # fixed replay depth, else random lag >=20
             replay = g.benign_buf[-min(replay_tau, len(g.benign_buf))]
         elif len(g.benign_buf) > 20:
             replay = g.benign_buf[int(rng.integers(0, len(g.benign_buf) - 20))]
         else:
             replay = g.benign_buf[0] if g.benign_buf else None
-        nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[fid], replay, floor=NOISE_FLOOR, cap=attack_intensity)
+        nx, ex, weak, mags = g.corrupt(
+            nx, ex, abus, _FAMK[fid], replay, floor=NOISE_FLOOR, cap=attack_intensity
+        )
         nx[nm == 0] = 0.0
-        ex[em == 0] = 0.0                # corrupt() can write unmetered channels; re-assert mask==0 -> value==0
+        ex[em == 0] = 0.0  # corrupt() can write unmetered channels; re-assert mask==0 -> value==0
         yt[abus] = 1
-        return nx, yt, benign_nx, ex, benign_ex             # un-attacked node/edge in benign == nx/ex exactly
+        return nx, yt, benign_nx, ex, benign_ex  # un-attacked node/edge in benign == nx/ex exactly
 
     def _pick_targets(fid: int) -> np.ndarray:
         nab = len(apos)
@@ -188,7 +213,7 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     # Walk the timeline: alternate a benign gap and an attack episode, sized so the attacked fraction ~ target.
     t = 0
     while t < T:
-        atk_so_far = int((y[:t].sum(axis=1) > 0).sum())   # frames with any attacked bus, so far
+        atk_so_far = int((y[:t].sum(axis=1) > 0).sum())  # frames with any attacked bus, so far
         want_attack = (atk_so_far / max(1, t)) < attacked_frac if t > 0 else True
         if not want_attack or not (single or has_ramp):
             gap = int(rng.integers(5, 40))
@@ -197,12 +222,12 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
                     break
                 bn, bex = _emit_benign(t)
                 _store(t, bn, np.zeros(C, np.uint8), 0, bn, bex, bex)
-                t += 1   # benign: observed == un-attacked
+                t += 1  # benign: observed == un-attacked
             continue
         # start an attack episode
         use_ramp = has_ramp and (not single or rng.random() < 1.0 / (len(single) + 1))
         if use_ramp and t < T - ramp_len:
-            a = rng.choice(apos, min(5, len(apos)), replace=False)      # fixed bus set for the ramp
+            a = rng.choice(apos, min(5, len(apos)), replace=False)  # fixed bus set for the ramp
             direction = 1.0 if rng.random() < 0.5 else -1.0
             rise = max(1, int(rng.uniform(0.2, 0.45) * ramp_len))
             hold = int(rng.uniform(0.0, 0.25) * ramp_len)
@@ -211,7 +236,9 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
             for i in range(ramp_len):
                 if t >= T:
                     break
-                dev = ramp_rate * (i if i < rise else (rise if i < rise + hold else max(0, rise - (i - rise - hold))))
+                dev = ramp_rate * (
+                    i if i < rise else (rise if i < rise + hold else max(0, rise - (i - rise - hold)))
+                )
                 res = _attack_frame(t, 5, a, 1 + direction * dev)
                 if res is None:
                     bn, bex = _emit_benign(t)
@@ -250,8 +277,9 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     # Static graph for PyG-style models: edge_index [2,E] connectivity (COO, int64 so it maps to torch.long)
     # + edge_attr [E,8] line features (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame.
     edge_index = np.asarray(g.ei, dtype=np.int64)
-    edge_attr = np.stack([g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs,
-                          g.edge_tap, g.edge_shift], axis=1).astype(np.float32)
+    edge_attr = np.stack(
+        [g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs, g.edge_tap, g.edge_shift], axis=1
+    ).astype(np.float32)
     # Static availability masks (which channels carry a meter) — same sparse plan every frame, so a consumer
     # knows which node_x/edge_x entries are measured vs zero-filled. node_m [N,4], edge_m [E,2].
     _bnx, node_m, _bex, edge_m = g.emit_from_state(X[0])
@@ -259,18 +287,46 @@ def generate_stream(system: Union[int, str], states: Optional[Union[str, np.ndar
     edge_m = edge_m.astype(np.uint8)
     # Branch-flow measurements mirror the node layers: edge_x (observed) -> edge_benign (attack removed)
     # -> edge_clean (noiseless true flows, metered branches). Node + edge from the same scan = full SE meas set.
-    result = dict(node_x=node_x, benign=benign, clean=clean,
-                  edge_x=edge_x, edge_benign=edge_ben, edge_clean=edge_cln,
-                  edge_index=edge_index, edge_attr=edge_attr, node_m=node_m, edge_m=edge_m,
-                  y=y, family=fam, temporal_delta=td_all, swing=sw_all,
-                  timestep=np.arange(T), system=C, episodes=episodes,
-                  attacked_frac=float((y.sum(axis=1) > 0).mean()))
+    result = dict(
+        node_x=node_x,
+        benign=benign,
+        clean=clean,
+        edge_x=edge_x,
+        edge_benign=edge_ben,
+        edge_clean=edge_cln,
+        edge_index=edge_index,
+        edge_attr=edge_attr,
+        node_m=node_m,
+        edge_m=edge_m,
+        y=y,
+        family=fam,
+        temporal_delta=td_all,
+        swing=sw_all,
+        timestep=np.arange(T),
+        system=C,
+        episodes=episodes,
+        attacked_frac=float((y.sum(axis=1) > 0).mean()),
+    )
     if out:
-        np.savez_compressed(out, node_x=node_x, benign=benign, clean=clean,
-                            edge_x=edge_x, edge_benign=edge_ben, edge_clean=edge_cln,
-                            edge_index=edge_index, edge_attr=edge_attr, node_m=node_m, edge_m=edge_m,
-                            y=y, family=fam, temporal_delta=td_all, swing=sw_all,
-                            timestep=np.arange(T), episodes=np.array(episodes, dtype=object))
+        np.savez_compressed(
+            out,
+            node_x=node_x,
+            benign=benign,
+            clean=clean,
+            edge_x=edge_x,
+            edge_benign=edge_ben,
+            edge_clean=edge_cln,
+            edge_index=edge_index,
+            edge_attr=edge_attr,
+            node_m=node_m,
+            edge_m=edge_m,
+            y=y,
+            family=fam,
+            temporal_delta=td_all,
+            swing=sw_all,
+            timestep=np.arange(T),
+            episodes=np.array(episodes, dtype=object),
+        )
     return result
 
 
@@ -284,17 +340,30 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
     """
     from .download import ensure_local
     from .registry import _REPO, STREAM_RELEASE
+
     C = int(str(system).lower().replace("ieee", ""))
-    spec = {"kind": "builtin", "name": f"stream{C}", "file": f"stream_ieee{C}.npz",
-            "release": release or STREAM_RELEASE, "repo": _REPO, "sha256": None}
+    spec = {
+        "kind": "builtin",
+        "name": f"stream{C}",
+        "file": f"stream_ieee{C}.npz",
+        "release": release or STREAM_RELEASE,
+        "repo": _REPO,
+        "sha256": None,
+    }
     z = np.load(ensure_local(spec), allow_pickle=True)
     out = {k: z[k] for k in z.files}
     # PyG-ready graph + static meter masks. Newer streams embed them; for streams that predate them (e.g. the
     # v0.7.1 assets), pull the tiny per-system graph sidecar so every load_stream dict is complete.
     _GKEYS = ("edge_index", "edge_attr", "node_m", "edge_m")
     if any(k not in out for k in _GKEYS):
-        gspec = {"kind": "builtin", "name": f"graph{C}", "file": f"graph_ieee{C}.npz",
-                 "release": release or STREAM_RELEASE, "repo": _REPO, "sha256": None}
+        gspec = {
+            "kind": "builtin",
+            "name": f"graph{C}",
+            "file": f"graph_ieee{C}.npz",
+            "release": release or STREAM_RELEASE,
+            "repo": _REPO,
+            "sha256": None,
+        }
         gz = np.load(ensure_local(gspec))
         for k in _GKEYS:
             if k not in out and k in gz.files:
@@ -311,7 +380,9 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
     return out
 
 
-def windows(stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any") -> Tuple[np.ndarray, np.ndarray]:
+def windows(
+    stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any"
+) -> Tuple[np.ndarray, np.ndarray]:
     """Slide a length-W window over a stream. Returns (Xw [n,W,N,4], yw).
 
     label: "frame" -> per-frame per-bus labels yw [n,W,N]; "any" -> window-level per-bus label yw [n,N]
@@ -321,11 +392,11 @@ def windows(stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any")
     y = stream["y"]
     T = len(nx)
     starts = range(0, T - W + 1, stride)
-    Xw = np.stack([nx[s:s + W] for s in starts])
+    Xw = np.stack([nx[s : s + W] for s in starts])
     if label == "frame":
-        yw = np.stack([y[s:s + W] for s in starts])
+        yw = np.stack([y[s : s + W] for s in starts])
     elif label == "last":
         yw = np.stack([y[s + W - 1] for s in starts])
     else:
-        yw = np.stack([y[s:s + W].max(0) for s in starts])
+        yw = np.stack([y[s : s + W].max(0) for s in starts])
     return Xw, yw
