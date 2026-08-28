@@ -22,7 +22,7 @@ import zipfile
 import datetime as _dt
 import numpy as np
 
-from ._core import _CASE  # bus-count -> pandapower builder; single source of supported systems
+from .engine import _CASE  # bus-count -> pandapower builder; single source of supported systems
 
 
 def _pandas():

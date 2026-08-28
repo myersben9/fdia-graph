@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from ._base import GridBase
+from .base import GridBase
 
 
 class AttackMixin(GridBase):

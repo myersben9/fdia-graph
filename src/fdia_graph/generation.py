@@ -26,7 +26,7 @@ import numpy as np
 import h5py
 
 # FdiaGenerator = physics/attack math; FAM_ID = family name -> integer id.
-from ._core import FdiaGenerator, FAM_ID
+from .engine import FdiaGenerator, FAM_ID
 
 # CACHE_DIR = on-disk shard home; register_local makes the new dataset findable by load(name).
 from .registry import CACHE_DIR, register_local

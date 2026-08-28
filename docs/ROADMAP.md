@@ -8,7 +8,7 @@ and **generating** new data (heavy deps via the `[generate]` extra: pandapower e
 flowchart TD
     subgraph GEN["generate path — fg.generate()"]
         direction LR
-        profiles["profiles.py<br/>ISO load → state pool"] --> generation["generation.py<br/>drive + write shard"] --> core["_core.py FdiaGenerator<br/>_measurement + _physics + _attacks"]
+        profiles["profiles.py<br/>ISO load → state pool"] --> generation["generation.py<br/>drive + write shard"] --> core["engine/ FdiaGenerator<br/>measurement + physics + attacks"]
     end
     subgraph LOAD["load path — fg.load()  (what most users run)"]
         direction LR
@@ -30,11 +30,11 @@ flowchart TD
 | `registry.py` | Dataset version control. `(name, release)` → download spec; `register_local` for generated sets. |
 | `download.py` | Fetch a shard to `~/.cache/fdia_graph`, sha256-verified, atomic rename. |
 | `generation.py` | `generate()`: runs the generator over a state pool, writes + registers the shard. |
-| `_core.py` | `FdiaGenerator` assembly: grid setup, meter plan, RNG. The engine the mixins hang off. |
-| `_measurement.py` | Mixin: meter placement + accuracy-class noise (per-meter bias + per-scan jitter). |
-| `_physics.py` | Mixin: AC solves, Ybus, emit exact measurements from a stored state. |
-| `_attacks.py` | Mixin: the six attack families (`Aq Ad As Ar At Al`). |
-| `_base.py` | Typed attribute contract the three mixins share (no runtime behavior). |
+| `engine/core.py` | `FdiaGenerator` assembly: grid setup, meter plan, RNG. The engine the mixins hang off. |
+| `engine/measurement.py` | Mixin: meter placement + accuracy-class noise (per-meter bias + per-scan jitter). |
+| `engine/physics.py` | Mixin: AC solves, Ybus, emit exact measurements from a stored state. |
+| `engine/attacks.py` | Mixin: the six attack families (`Aq Ad As Ar At Al`). |
+| `engine/base.py` | Typed attribute contract the three mixins share (no runtime behavior). |
 | `profiles.py` | ISO load profiles (NYISO/CAISO/ERCOT) → normalized scaling → AC operating-state pools. |
 | `streams.py` | Continuous attacked time series (`generate_stream`/`load_stream`) + windowing for LSTMs. |
 | `torch_data.py` | `pyg_stream`/`torch_windows`: streams as ready PyG graphs / per-bus sequence tensors. |

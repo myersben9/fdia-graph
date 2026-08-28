@@ -1,7 +1,7 @@
 """Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only.
 
 Set for real in FdiaGenerator.__init__; declared here (no runtime effect) so each mixin's `self.<attr>`
-and cross-mixin method calls type-check. See _core.py for the actual assignments."""
+and cross-mixin method calls type-check. See core.py for the actual assignments."""
 
 from __future__ import annotations
 

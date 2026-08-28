@@ -34,7 +34,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from ._core import FdiaGenerator, FAM_ID
+from .engine import FdiaGenerator, FAM_ID
 from .generation import _load_states, SWING_W, NOISE_FLOOR, _FAMK
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution

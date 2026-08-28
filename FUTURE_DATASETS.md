@@ -2,7 +2,7 @@
 
 A running list of dataset variants and generation features to build with the
 fdia-graph SDK. Each entry has the idea, why it matters, and rough notes on how
-to implement it with the current `generate()` / `_core.FdiaGenerator`. Nothing
+to implement it with the current `generate()` / `engine.FdiaGenerator`. Nothing
 here is built yet; this is the backlog.
 
 ---

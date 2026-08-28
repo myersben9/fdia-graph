@@ -8,9 +8,9 @@ flows, no re-solve); only attacks re-solve. Attack families:
   Ad/As/Ar  measurement-level corruption (BDD-detectable contrast set)
 
 FdiaGenerator is split by concern across three mixins: state setup lives here (__init__), while
-  _measurement.py (MeasurementMixin)  emit meter readings from a state / net
-  _physics.py     (PhysicsMixin)      AC re-solve under new loads
-  _attacks.py     (AttackMixin)       corrupt() + load-redistribution deltas
+  measurement.py (MeasurementMixin)   emit meter readings from a state / net
+  physics.py     (PhysicsMixin)      AC re-solve under new loads
+  attacks.py     (AttackMixin)       corrupt() + load-redistribution deltas
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ._attacks import AttackMixin
-from ._measurement import MeasurementMixin
-from ._physics import PhysicsMixin
+from .attacks import AttackMixin
+from .measurement import MeasurementMixin
+from .physics import PhysicsMixin
 
 # Integer family label written into the per-bus label tensor `y` (0=clean, >0=attacked of that family).
 # "Ao"/"SLS" are back-compat aliases for Aq (id 1); "ramp"=At, "LRA"=Al.

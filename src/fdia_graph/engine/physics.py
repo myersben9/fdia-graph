@@ -6,7 +6,7 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 
-from ._base import GridBase
+from .base import GridBase
 
 
 class PhysicsMixin(GridBase):
