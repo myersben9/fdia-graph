@@ -156,9 +156,15 @@ def windows(stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any")
     return _windows(stream, W, stride=stride, label=label)
 
 
-def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8, val_frac: float = 0.0,
-               layer: str = "node_x", max_test: Optional[int] = None, release: Optional[str] = None,
-               stream: Optional[Dict[str, Any]] = None) -> Tuple[List[Any], ...]:
+def pyg_stream(
+    system: Optional[Union[str, int]] = None,
+    train_frac: float = 0.8,
+    val_frac: float = 0.0,
+    layer: str = "node_x",
+    max_test: Optional[int] = None,
+    release: Optional[str] = None,
+    stream: Optional[Dict[str, Any]] = None,
+) -> Tuple[List[Any], ...]:
     """Continuous stream as ready PyTorch-Geometric graphs: (train, test) lists of Data objects.
 
     One Data(x=[N,4], edge_index, edge_attr, y=[N]) per scan, chronological split — no conversion glue
@@ -170,10 +176,18 @@ def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8
                 release=release, stream=stream)
 
 
-def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride: int = 8, label: str = "last",
-                  per_bus: bool = True, train_frac: float = 0.8, val_frac: float = 0.0, layer: str = "node_x",
-                  release: Optional[str] = None,
-                  stream: Optional[Dict[str, Any]] = None) -> Tuple[Tuple[Any, Any], ...]:
+def torch_windows(
+    system: Optional[Union[str, int]] = None,
+    W: int = 16,
+    stride: int = 8,
+    label: str = "last",
+    per_bus: bool = True,
+    train_frac: float = 0.8,
+    val_frac: float = 0.0,
+    layer: str = "node_x",
+    release: Optional[str] = None,
+    stream: Optional[Dict[str, Any]] = None,
+) -> Tuple[Tuple[Any, Any], ...]:
     """Continuous stream as LSTM-ready per-bus sequence tensors: ((Xtr, ytr), (Xte, yte)).
 
     Windows the stream, reshapes to per-bus sequences [n*N, W, 4], splits chronologically (boundary
