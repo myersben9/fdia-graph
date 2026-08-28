@@ -21,7 +21,8 @@ class AttackMixin(GridBase):
         # record whose realized change fell inside the floor (only Ar can, since it replays the grid) so
         # make() can reject and redraw it.
         inc = [e for e in range(self.E) if self.ei[0, e] in atk or self.ei[1, e] in atk]
-        weak = False; mags = []   # mags = realized per-bus |delta|/|base| on the P/Q injection channels
+        weak = False
+        mags = []   # mags = realized per-bus |delta|/|base| on the P/Q injection channels
 
         def band_shift(cur: np.ndarray) -> np.ndarray:
             # additive perturbation with per-channel |delta|/|cur| drawn UNIFORMLY over [floor, cap], random
@@ -34,18 +35,26 @@ class AttackMixin(GridBase):
         for b in atk:
             base = np.abs(nx[b, 1:3]) + 1e-6
             if kind == "Ad":
-                sh = band_shift(nx[b, 1:3]); nx[b, 1:3] += sh; nx[b, 0] += self.rng.normal(0, 0.02)
+                sh = band_shift(nx[b, 1:3])
+                nx[b, 1:3] += sh
+                nx[b, 0] += self.rng.normal(0, 0.02)
                 mags.append(float(np.max(np.abs(sh)/base)))
             elif kind == "As":
                 gain = self.rng.uniform(1.0 + floor, 1.0 + cap)          # gain inside the plausibility band
-                nx[b, 1:3] *= gain; mags.append(abs(gain - 1.0))
+                nx[b, 1:3] *= gain
+                mags.append(abs(gain - 1.0))
             elif kind == "Ar" and replay is not None:
-                cur = nx[b, 1:3].copy(); nx[b, :] = replay[b, :]
-                m = float(np.max(np.abs(nx[b, 1:3] - cur) / base)); mags.append(m)
-                if m < floor or m > cap: weak = True                    # replay outside the plausibility band -> reject
+                cur = nx[b, 1:3].copy()
+                nx[b, :] = replay[b, :]
+                m = float(np.max(np.abs(nx[b, 1:3] - cur) / base))
+                mags.append(m)
+                if m < floor or m > cap:
+                    weak = True                    # replay outside the plausibility band -> reject
         for e in inc:
-            if kind == "Ad": ex[e] += band_shift(ex[e])
-            elif kind == "As": ex[e] *= self.rng.uniform(1.0 + floor, 1.0 + cap)
+            if kind == "Ad":
+                ex[e] += band_shift(ex[e])
+            elif kind == "As":
+                ex[e] *= self.rng.uniform(1.0 + floor, 1.0 + cap)
         return nx, ex, weak, np.array(mags, float)
 
     # ---- LRA (Yuan et al. 2011) target line + delta ----
@@ -55,28 +64,40 @@ class AttackMixin(GridBase):
         # unchanged -> looks like normal re-dispatch), PER-BUS BOUNDED (|delta_b| <= rel*|Lp_b|), and steers
         # line-L flow via PTDF. rand=True picks buses from the top-2K high-PTDF candidates (varies per record,
         # not memorizable); rand=False is deterministic ranking.
-        pl = self._ptdf_lb[L]; cap = rel*np.abs(Lp); score = np.abs(pl)*cap  # pl = line-L PTDF row over load buses
+        pl = self._ptdf_lb[L]
+        cap = rel*np.abs(Lp)
+        score = np.abs(pl)*cap  # pl = line-L PTDF row over load buses
+
         def pick(side: np.ndarray) -> np.ndarray:
             # Rank one PTDF-sign side by score, keep strongest K (or random K of top-2K if randomized).
             side = side[np.argsort(-score[side])]
-            if len(side) == 0: return side
-            top = side[:2*K]; k = min(K, len(top))
+            if len(side) == 0:
+                return side
+            top = side[:2*K]
+            k = min(K, len(top))
             return self.rng.choice(top, k, replace=False) if rand else top[:k]
         # Raise load on the positive PTDF side, drop on the negative side, to push flow up on line L.
         # Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
-        pos = pick(np.where((pl > 0) & self._attackable_mask)[0]); neg = pick(np.where((pl < 0) & self._attackable_mask)[0])
-        if len(pos) == 0 or len(neg) == 0: return None
+        pos = pick(np.where((pl > 0) & self._attackable_mask)[0])
+        neg = pick(np.where((pl < 0) & self._attackable_mask)[0])
+        if len(pos) == 0 or len(neg) == 0:
+            return None
         # Both sides scale to a common `budget` (MW moved) so net load change = 0. Always moving the max budget
         # pins the smaller side at cap and piles Al at 20%; instead draw the budget at random within the range
         # keeping both sides' deviation in [floor, rel] (spreads Al across the band, still load-conserving).
         ps, ns = cap[pos].sum(), cap[neg].sum()
-        if min(ps, ns) <= 0: return None
+        if min(ps, ns) <= 0:
+            return None
         lo = (floor/rel) * max(ps, ns)        # smallest budget keeping the larger side above the floor
         hi = min(ps, ns)                      # largest budget within the per-bus caps
-        if lo >= hi: return None              # line too lopsided for a plausible in-band budget -> reject
+        if lo >= hi:
+            return None              # line too lopsided for a plausible in-band budget -> reject
         budget = float(self.rng.uniform(lo, hi))
-        up = cap[pos] * (budget/ps); dn = cap[neg] * (budget/ns)
-        d = np.zeros_like(Lp); d[pos] = up; d[neg] = -dn
+        up = cap[pos] * (budget/ps)
+        dn = cap[neg] * (budget/ns)
+        d = np.zeros_like(Lp)
+        d[pos] = up
+        d[neg] = -dn
         # Return (delta, attacked-bus indices, achieved line-L flow change = -sum(PTDF*delta)).
         return d, np.r_[pos, neg], float(-np.sum(pl*d))
 

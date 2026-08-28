@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from typing import Dict, Optional, Union
 
-import json, os
+import json
+import os
 
 # Cache dir for downloaded shards + the local-datasets JSON; override via FDIA_GRAPH_CACHE.
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))

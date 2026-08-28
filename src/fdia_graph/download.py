@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from typing import Dict, Optional, Tuple
 
-import hashlib, os, requests
+import hashlib
+import os
+import requests
 from tqdm import tqdm   # download progress bar
 from .registry import CACHE_DIR   # ~/.cache/fdia_graph, owned by registry.py
 
@@ -78,7 +80,8 @@ def ensure_local(spec: Dict) -> str:
             total = int(r.headers.get("content-length", 0))   # 0 if missing -> bar shows bytes-so-far, no %
             with open(tmp, "wb") as f, tqdm(total=total, unit="B", unit_scale=True, desc=f"↓ {spec['file']}") as bar:
                 for chunk in r.iter_content(1 << 20):
-                    f.write(chunk); bar.update(len(chunk))
+                    f.write(chunk)
+                    bar.update(len(chunk))
     # Integrity gate: verify a pinned sha256 before trusting; on mismatch delete the .part and fail loudly.
     if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
         os.remove(tmp)

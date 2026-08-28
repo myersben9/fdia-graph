@@ -19,7 +19,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import glob, os, numpy as np, h5py
+import glob
+import os
+import numpy as np
+import h5py
 # FdiaGenerator = physics/attack math; FAM_ID = family name -> integer id.
 from ._core import FdiaGenerator, FAM_ID
 # CACHE_DIR = on-disk shard home; register_local makes the new dataset findable by load(name).
@@ -96,14 +99,17 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
     # Pre-pick candidate LRA target lines (bound by intensity, up to min(6,#load) buses, from lra_targets lines).
     g._pick_lra_target(attack_intensity, min(6, len(g.load_bus)), n_targets=lra_targets)
     # K = max buses an LRA delta may touch; reuse g's seeded RNG for reproducibility.
-    K = min(6, len(g.load_bus)); rng = g.rng
+    K = min(6, len(g.load_bus))
+    rng = g.rng
     # Target-selection weights over attackable positions: None -> uniform, else centrality-biased vector.
     cent_p = g.centrality_probs(targeting_strength) if targeting == "centrality" else None
     # DESIGNED per-bus magnitude log (family_id, |delta|/|base|), written to <out>.mag.npz so the plausibility
     # band can be verified against what the gate enforces (designed fraction, no benign-baseline contamination).
     mag_log = []
     # Operating-point pool [T,N,4]; nT = #timesteps, C = #nodes/classes (label width).
-    X = _load_states(system, states); nT = len(X); C = g.C
+    X = _load_states(system, states)
+    nT = len(X)
+    C = g.C
     # Precompute the swing feature's per-timestep "recent typical change" scale ONCE via prefix sums (a
     # per-record windowed std would be ~72k slow Python iterations).
     # SCALE[t,b,:] = std over [t-SWING_W, t) of the per-bus scan-to-scan |change| in P/Q.
@@ -112,10 +118,12 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
     _c2 = np.concatenate([np.zeros((1,) + _D.shape[1:]), np.cumsum(_D ** 2, 0)], 0)     # prefix sum of squares
     SCALE = np.full((nT, C, 2), 1e-3, np.float32)
     for t in range(2, nT):                                        # window changes D[max(0,t-W) .. t-2]
-        s = max(0, t - SWING_W); e = t - 1                        # sum over D[s..e-1] via c[e]-c[s]
+        s = max(0, t - SWING_W)
+        e = t - 1                        # sum over D[s..e-1] via c[e]-c[s]
         n = e - s
         if n >= 3:
-            su = _c1[e] - _c1[s]; sq = _c2[e] - _c2[s]
+            su = _c1[e] - _c1[s]
+            sq = _c2[e] - _c2[s]
             SCALE[t] = np.sqrt(np.maximum(sq / n - (su / n) ** 2, 0.0)) + 1e-3
     # Translate the requested family names into their integer ids for membership tests below.
     fam_ids = [FAM_ID[f] for f in families]
@@ -129,7 +137,8 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
         mP = nm[:, 1] > 0
         prev = X[t - 1] if t > 0 else X[t]
         td = np.zeros((C, 2), np.float32)
-        td[mP, 0] = nx[mP, 1] - prev[mP, 0]; td[mP, 1] = nx[mP, 2] - prev[mP, 1]
+        td[mP, 0] = nx[mP, 1] - prev[mP, 0]
+        td[mP, 1] = nx[mP, 2] - prev[mP, 1]
         sw = np.zeros((C, 2), np.float32)
         sc = SCALE[t]
         sw[mP, 0] = (nx[mP, 1] - prev[mP, 0]) / sc[mP, 0]
@@ -143,39 +152,56 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
         if family in (1, 5):
             # Aq (1) / ramp (5): re-solve with scaled load, emit REAL (stealthy) measurements.
             # Base active load = stored P at load buses + generator P there; copy reactive load.
-            Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
+            Lp = Xt[g.load_bus, 0] + g.load_genP
+            Lq = Xt[g.load_bus, 1].copy()
             Lp_true = Lp.copy()                    # unattacked load -> pins generation dispatch in solve()
             dev = np.abs(np.asarray(atk[1]) - 1.0)  # per-bus designed load-shift fraction
             # Floor gate is Aq-only; ramp At is exempt so its per-scan step may stay sub-floor.
-            if family == 1 and np.max(dev) < NOISE_FLOOR: return None   # within-noise no-op -> reject, loop redraws
-            Lp = Lp.copy(); Lp[atk[0]] *= atk[1]   # scale targeted load buses by the attack multiplier
+            if family == 1 and np.max(dev) < NOISE_FLOOR:
+                return None   # within-noise no-op -> reject, loop redraws
+            Lp = Lp.copy()
+            Lp[atk[0]] *= atk[1]   # scale targeted load buses by the attack multiplier
             net = g.solve(Lp, Lq, Xt=Xt, Lp_true=Lp_true)   # re-solve, generation pinned to TRUE dispatch
-            if net is None: return None            # non-convergence: skip (expected occasionally)
-            nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[atk[0]]] = 1  # label attacked buses
+            if net is None:
+                return None            # non-convergence: skip (expected occasionally)
+            nx, nm, ex, em = g.emit(net)
+            y = np.zeros(C, np.uint8)
+            y[g.load_bus[atk[0]]] = 1  # label attacked buses
             r = _fin(nx, nm, ex, em, y, family, sid, t, 0, 1)   # stealthy=1
-            mf = np.zeros(C); mf[g.load_bus[atk[0]]] = dev       # per-bus DESIGNED magnitude (fraction of load)
-            yb = y.astype(bool); mag_log.append((family, mf[yb], np.abs(r[-1][yb]).max(1)))  # (mag, swing) per bus
+            mf = np.zeros(C)
+            mf[g.load_bus[atk[0]]] = dev       # per-bus DESIGNED magnitude (fraction of load)
+            yb = y.astype(bool)
+            mag_log.append((family, mf[yb], np.abs(r[-1][yb]).max(1)))  # (mag, swing) per bus
             return r
         if family == 6:
             # LRA (6): load-redistribution — zero-sum-ish delta d over K buses, then re-solve.
-            Lp = Xt[g.load_bus, 0] + g.load_genP; Lq = Xt[g.load_bus, 1].copy()
+            Lp = Xt[g.load_bus, 0] + g.load_genP
+            Lq = Xt[g.load_bus, 1].copy()
             d, a = g.lra_delta(Lp, attack_intensity, K, floor=NOISE_FLOOR)   # d = per-bus delta, a = attacked indices
-            if len(a) == 0: return None                   # no feasible redistribution -> skip
+            if len(a) == 0:
+                return None                   # no feasible redistribution -> skip
             dev = np.abs(d[a]) / (np.abs(Lp[a]) + 1e-6)    # per-bus designed redistribution fraction
-            if np.min(dev) < NOISE_FLOOR: return None      # any bus inside the noise floor -> reject
+            if np.min(dev) < NOISE_FLOOR:
+                return None      # any bus inside the noise floor -> reject
             net = g.solve(Lp + d, Lq, Xt=Xt, Lp_true=Lp)  # redistributed load; generation pinned to TRUE dispatch
-            if net is None: return None                   # non-convergence -> skip
-            nx, nm, ex, em = g.emit(net); y = np.zeros(C, np.uint8); y[g.load_bus[a]] = 1  # label the LRA bus set
+            if net is None:
+                return None                   # non-convergence -> skip
+            nx, nm, ex, em = g.emit(net)
+            y = np.zeros(C, np.uint8)
+            y[g.load_bus[a]] = 1  # label the LRA bus set
             r = _fin(nx, nm, ex, em, y, 6, -1, t, 0, 1)   # LRA single-shot, stealthy=1
-            mf = np.zeros(C); mf[g.load_bus[a]] = dev
-            yb = y.astype(bool); mag_log.append((6, mf[yb], np.abs(r[-1][yb]).max(1)))
+            mf = np.zeros(C)
+            mf[g.load_bus[a]] = dev
+            yb = y.astype(bool)
+            mag_log.append((6, mf[yb], np.abs(r[-1][yb]).max(1)))
             return r
         # Remaining families (0 benign, 2/3/4 corrupt-in-place): emit from stored state, no re-solve.
         nx, nm, ex, em = g.emit_from_state(Xt)
         if family == 0:
             # Benign: keep a rolling buffer of clean frames feeding the Ar/As replay.
             g.benign_buf.append(nx.copy())
-            if len(g.benign_buf) > 300: g.benign_buf.pop(0)   # cap buffer at 300 frames (FIFO)
+            if len(g.benign_buf) > 300:
+                g.benign_buf.pop(0)   # cap buffer at 300 frames (FIFO)
             return _fin(nx, nm, ex, em, np.zeros(C, np.uint8), 0, -1, t, 0, 0)   # benign
         a = atk[0]   # indices into the LOAD-BUS ARRAY (0..#load-1) for a corrupt-in-place family (Ad/As/Ar)
         abus = g.load_bus[a]   # -> actual BUS indices. corrupt()/emit index by bus, so map here: passing raw `a`
@@ -190,29 +216,38 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
             replay = g.benign_buf[0] if g.benign_buf else None
         # corrupt() tampers measurements in place per family code, keeping each realized change inside the band.
         nx, ex, weak, mags = g.corrupt(nx, ex, abus, _FAMK[family], replay, floor=NOISE_FLOOR, cap=attack_intensity)
-        nx[nm == 0] = 0.0; ex[em == 0] = 0.0   # corrupt() can write unmetered channels; re-assert mask==0 -> value==0
-        if weak: return None   # replayed change fell inside the noise floor -> reject, loop redraws
-        y = np.zeros(C, np.uint8); y[abus] = 1   # label the SAME buses that were corrupted (now consistent)
+        nx[nm == 0] = 0.0
+        ex[em == 0] = 0.0   # corrupt() can write unmetered channels; re-assert mask==0 -> value==0
+        if weak:
+            return None   # replayed change fell inside the noise floor -> reject, loop redraws
+        y = np.zeros(C, np.uint8)
+        y[abus] = 1   # label the SAME buses that were corrupted (now consistent)
         r = _fin(nx, nm, ex, em, y, family, -1, t, 0, 0)   # corrupt-in-place single-shot, stealthy=0
         if len(mags):
-            mf = np.zeros(C); mf[abus] = mags
-            yb = y.astype(bool); mag_log.append((family, mf[yb], np.abs(r[-1][yb]).max(1)))
+            mf = np.zeros(C)
+            mf[abus] = mags
+            yb = y.astype(bool)
+            mag_log.append((family, mf[yb], np.abs(r[-1][yb]).max(1)))
         return r
 
-    recs = []; sid = 0   # accumulate all records; sid = next ramp sequence id
+    recs = []
+    sid = 0   # accumulate all records; sid = next ramp sequence id
     # Per-family (attempts, accepted). The loops retry on non-convergence until the quota is met, so meeting
     # quota hides how many operating points couldn't be attacked. Recorded to shard attrs because the drop rate
     # is the honest measure of how much harder a topology (e.g. N-1) is to attack.
-    tried = {}; taken = {}
+    tried = {}
+    taken = {}
     for t in rng.choice(nT, min(n_benign, nT), replace=False):        # benign
         recs.append(make(int(t), 0, -1, None))
     for fam in [k for k in (1, 2, 3, 4, 6) if k in fam_ids]:           # single-shot families (retry to target)
         # Draw until per_family succeed, capped at per_family*25 attempts so infeasible configs can't loop forever.
         # Targets come ONLY from attackable positions (real active load); a indexes load_bus and Lp alike.
-        apos = g.attackable_pos; nab = len(apos)
+        apos = g.attackable_pos
+        nab = len(apos)
         got = tries = 0
         while got < per_family and tries < per_family*25:
-            tries += 1; t = int(rng.integers(nT))
+            tries += 1
+            t = int(rng.integers(nT))
             if fam == 1:
                 # Aq: variable footprint (1..6 buses), each with its OWN multiplier in 1.05..1+intensity.
                 k = int(rng.integers(1, min(6, nab) + 1))
@@ -223,35 +258,49 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
                 a = rng.choice(apos, min(4, nab), replace=False, p=cent_p)
                 mult = 1 + rng.uniform(0.05, attack_intensity)
             r = make(t, fam, -1, (a, mult))
-            if r is not None: recs.append(r); got += 1   # count only converged records
-        tried[fam] = tries; taken[fam] = got
+            if r is not None:
+                recs.append(r)
+                got += 1   # count only converged records
+        tried[fam] = tries
+        taken[fam] = got
     if 5 in fam_ids:                                                   # ramp sequences to ~per_family records
         # Ramp = temporal surge/dip with an ASYMMETRIC shape: a fixed bus set ramps up or down at rate_up to a
         # peak/trough, optionally holds, then returns at a different rate_down. Direction/turn/slopes vary per
         # sequence; each is self-contained (ends near baseline, no jump).
-        ramp_got = 0; ramp_steps = 0; ramp_seqs = 0
+        ramp_got = 0
+        ramp_steps = 0
+        ramp_seqs = 0
         while ramp_got < per_family:
             ramp_seqs += 1
             t0 = int(rng.integers(nT - ramp_len))   # start leaving room for the full sequence
             atk = rng.choice(g.attackable_pos, min(5, len(g.attackable_pos)), replace=False, p=cent_p)  # fixed bus set
             direction = 1.0 if rng.random() < 0.5 else -1.0            # +1 = surge first, -1 = dip first
-            rate_up = ramp_rate*rng.uniform(0.7, 1.3); rate_down = ramp_rate*rng.uniform(0.7, 1.3)  # independent slopes
+            rate_up = ramp_rate*rng.uniform(0.7, 1.3)
+            rate_down = ramp_rate*rng.uniform(0.7, 1.3)  # independent slopes
             rise_len = max(1, int(rng.uniform(0.20, 0.45)*ramp_len))  # steps ramping to the peak/trough
             hold_len = int(rng.uniform(0.0, 0.25)*ramp_len)           # steps held at the peak (0 = no plateau)
             peak_dev = rate_up*rise_len                               # deviation magnitude at the turn
             seq = []
             for i in range(ramp_len):
                 ramp_steps += 1
-                if i < rise_len:                dev = rate_up*i                                   # ramp toward peak
-                elif i < rise_len+hold_len:     dev = peak_dev                                    # hold
-                else:                           dev = max(0.0, peak_dev - rate_down*(i-rise_len-hold_len))  # ramp back
+                if i < rise_len:
+                    dev = rate_up*i                                   # ramp toward peak
+                elif i < rise_len+hold_len:
+                    dev = peak_dev                                    # hold
+                else:
+                    dev = max(0.0, peak_dev - rate_down*(i-rise_len-hold_len))  # ramp back
                 r = make(t0+i, 5, sid, (atk, 1 + direction*dev))      # multiplier = 1 +/- deviation
-                if r is None: break                 # abort sequence on first non-converging step
+                if r is None:
+                    break                 # abort sequence on first non-converging step
                 seq.append(r)
             # Keep only if >=10 steps solved, then advance the sequence id.
-            if len(seq) >= 10: recs.extend(seq); ramp_got += len(seq); sid += 1
+            if len(seq) >= 10:
+                recs.extend(seq)
+                ramp_got += len(seq)
+                sid += 1
         # Ramp "attempts" = timesteps SOLVED, so attempts-minus-accepted is the steps thrown away.
-        tried[5] = ramp_steps; taken[5] = ramp_got
+        tried[5] = ramp_steps
+        taken[5] = ramp_got
 
     # Output path: <name>.h5 under the SDK cache dir unless `out` overrode it.
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
@@ -273,15 +322,23 @@ def generate(system: Union[int, str], name: str, per_family: int = 3000,
 def _write(g: "FdiaGenerator", recs: List, out: str, split: Tuple[float, float, float], seed: int,
            solve_stats: Optional[Tuple[Dict, Dict]] = None) -> None:
     # Serialize the record-tuples to one HDF5 file: graph structure + stacked per-record arrays + split.
-    T = len(recs); C, E = g.C, g.E   # T records, C nodes, E edges
-    arr = lambda i, dt: np.array([r[i] for r in recs], dt)   # pull tuple field i across all records as dtype dt
+    T = len(recs)
+    C, E = g.C, g.E   # T records, C nodes, E edges
+    def arr(i, dt): return np.array([r[i] for r in recs], dt)   # pull tuple field i across all records as dtype dt
     # Array-valued fields -> [T, ...] tensors.
-    node_x = np.stack([r[0] for r in recs]); node_m = np.stack([r[1] for r in recs])
-    edge_x = np.stack([r[2] for r in recs]); edge_m = np.stack([r[3] for r in recs]); y = np.stack([r[4] for r in recs])
+    node_x = np.stack([r[0] for r in recs])
+    node_m = np.stack([r[1] for r in recs])
+    edge_x = np.stack([r[2] for r in recs])
+    edge_m = np.stack([r[3] for r in recs])
+    y = np.stack([r[4] for r in recs])
     temporal_delta = np.stack([r[10] for r in recs])          # [T,N,2] current-minus-previous-scan injection
     swing = np.stack([r[11] for r in recs])                   # [T,N,2] windowed relative-swing (z-score)
     # Scalar-per-record fields (dtypes sized to range).
-    fam = arr(5, np.int8); seq = arr(6, np.int32); tstep = arr(7, np.int32); gap = arr(8, np.uint8); st = arr(9, np.uint8)
+    fam = arr(5, np.int8)
+    seq = arr(6, np.int32)
+    tstep = arr(7, np.int32)
+    gap = arr(8, np.uint8)
+    st = arr(9, np.uint8)
     # train/val/test (0/1/2) per record, chronological and sequence-aware.
     sp = _chrono_split(tstep, seq, split)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
@@ -305,7 +362,8 @@ def _write(g: "FdiaGenerator", recs: List, out: str, split: Tuple[float, float, 
             _tr, _tk = solve_stats
             f.attrs["solve_yield"] = ",".join(f"{k}:{_tr[k]}/{_tk[k]}" for k in sorted(_tr))
         # graph/ group: static topology shared by all records.
-        gg = f.create_group("graph"); gg.create_dataset("edge_index", data=g.ei)
+        gg = f.create_group("graph")
+        gg.create_dataset("edge_index", data=g.ei)
         # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for trafos). Kept for v0.4.x readers.
         gg.create_dataset("edge_reactance", data=g.x_react)
         # Full per-unit branch physics + bus shunts: reconstruct Ybus EXACTLY (verified vs makeYbus to
@@ -322,11 +380,13 @@ def _write(g: "FdiaGenerator", recs: List, out: str, split: Tuple[float, float, 
             edge_reactance_deprecated="mixes ohms (lines) with vk_percent (trafos); use edge_x",
             ybus_reconstructible="yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts"))
         # data/ group: per-record tensors, chunked along the record axis (<=128) for efficient partial reads.
-        d = f.create_group("data"); ch = (min(128, T),)
+        d = f.create_group("data")
+        ch = (min(128, T),)
         d.create_dataset("node_x", data=node_x, chunks=ch+node_x.shape[1:], compression="gzip", compression_opts=4)
         d.create_dataset("node_m", data=node_m, compression="gzip")
         d.create_dataset("edge_x", data=edge_x, chunks=ch+edge_x.shape[1:], compression="gzip", compression_opts=4)
-        d.create_dataset("edge_m", data=edge_m, compression="gzip"); d.create_dataset("y", data=y, compression="gzip")
+        d.create_dataset("edge_m", data=edge_m, compression="gzip")
+        d.create_dataset("y", data=y, compression="gzip")
         d.create_dataset("temporal_delta", data=temporal_delta, chunks=ch+temporal_delta.shape[1:], compression="gzip", compression_opts=4)
         d.create_dataset("swing", data=swing, chunks=ch+swing.shape[1:], compression="gzip", compression_opts=4)
         # Each scalar field (including the split) as its own dataset.
@@ -341,8 +401,11 @@ def _chrono_split(tstep: np.ndarray, seq: np.ndarray, frac: Tuple[float, float, 
     groups = [np.where(seq == s)[0] for s in np.unique(seq[seq >= 0])] + [np.array([i]) for i in np.where(seq < 0)[0]]
     # Order groups by earliest timestep so the split is chronological.
     groups.sort(key=lambda gp: int(tstep[gp].min()))
-    sp = np.empty(T, np.int8); c = 0   # sp = split labels; c = records already placed
+    sp = np.empty(T, np.int8)
+    c = 0   # sp = split labels; c = records already placed
     for gp in groups:
         # Cumulative fraction c/T picks the bucket: <frac[0] train, <frac[0]+frac[1] val, else test.
-        f = c/T; sp[gp] = 0 if f < frac[0] else (1 if f < frac[0]+frac[1] else 2); c += len(gp)
+        f = c/T
+        sp[gp] = 0 if f < frac[0] else (1 if f < frac[0]+frac[1] else 2)
+        c += len(gp)
     return sp
