@@ -12,7 +12,7 @@ for batch in loader:
     batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"]
 ```
 
-**New here?** [`docs/ROADMAP.md`](docs/ROADMAP.md) — file map + how it all connects · [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md) — what every array means · [`docs/CONCEPTS_TO_CODE.md`](docs/CONCEPTS_TO_CODE.md) — paper equations → functions · [`docs/EXAMPLES.md`](docs/EXAMPLES.md) — runnable baselines, streams, stats.
+**New here?** [`docs/ROADMAP.md`](docs/ROADMAP.md) — the SDK/engine split + how the files connect · [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md) — what every array means · [`docs/CONCEPTS_TO_CODE.md`](docs/CONCEPTS_TO_CODE.md) — paper equations → functions · [`docs/EXAMPLES.md`](docs/EXAMPLES.md) — runnable baselines, streams, stats.
 
 ## Install
 
