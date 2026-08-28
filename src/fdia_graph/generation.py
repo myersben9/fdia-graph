@@ -513,8 +513,13 @@ def _write(
             ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
             ec[:, ~np.asarray(g.flow_meter, bool), :] = 0.0
             cg = f.create_group("clean")
-            cg.create_dataset("node_clean", data=nc)  # [Tpool,N,4] noiseless truth per pool timestep
-            cg.create_dataset("edge_clean", data=ec)  # [Tpool,E,2] exact flows, unmetered zeroed
+            cch = (min(128, len(Xp)),)  # same chunk+gzip pattern as the per-record arrays
+            cg.create_dataset(  # [Tpool,N,4] noiseless truth per pool timestep
+                "node_clean", data=nc, chunks=cch + nc.shape[1:], compression="gzip", compression_opts=4
+            )
+            cg.create_dataset(  # [Tpool,E,2] exact flows, unmetered zeroed
+                "edge_clean", data=ec, chunks=cch + ec.shape[1:], compression="gzip", compression_opts=4
+            )
         for nm_, a in [
             ("family", fam),
             ("seq_id", seq),
