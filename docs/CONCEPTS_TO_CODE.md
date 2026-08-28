@@ -5,18 +5,23 @@ Paths are under `src/fdia_graph/`.
 
 ## Modules
 
-| file | job |
+The paper's math lives in `src/fdia_graph/engine/`; everything at the top level is data plumbing around it.
+
+| SDK file | job |
 |------|-----|
 | `registry.py` | dataset versions, aliases, cache |
 | `download.py` | fetch + cache a shard |
-| `engine/core.py` | `FdiaGenerator`: grid + noise setup (`__init__`), attack targeting; composes the three mixins |
-| `engine/measurement.py` | `emit_from_state` (the measurement function `h(x)`), `emit`, `state_from_net` |
-| `engine/physics.py` | `solve` / `resolve_states` — AC re-solve under new loads |
-| `engine/attacks.py` | `corrupt` (Ad/As/Ar) and `lra_delta` (Al redistribution) |
 | `generation.py` | assemble the classification shard (the recipe) |
 | `streams.py` | assemble a continuous timeline |
 | `dataset.py` | loader → tensors / PyG (what `fg.load` returns) |
 | `profiles.py` | real load series → operating points |
+
+| engine/ file | formula it implements |
+|------|-----|
+| `core.py` | `FdiaGenerator`: grid + noise setup (`__init__`), attack targeting; composes the three mixins |
+| `measurement.py` | `emit_from_state` (the measurement function `h(x)`), `emit`, `state_from_net` |
+| `physics.py` | `solve` / `resolve_states` — AC re-solve under new loads |
+| `attacks.py` | `corrupt` (Ad/As/Ar) and `lra_delta` (Al redistribution) |
 
 ## State estimation
 
