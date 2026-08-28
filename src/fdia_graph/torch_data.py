@@ -61,7 +61,7 @@ def pyg_stream(
     Needs ``pip install "fdia-graph[pyg]"``.
 
     Args:
-        system: system name (e.g. "ieee118") to load, or None if passing ``stream``.
+        system: system name (e.g. "ieee118") to load; ignored when ``stream`` is given.
         train_frac: fraction of scans (from the start) used for training.
         val_frac: if > 0, carve a validation span between train and test (returns 3 lists, not 2).
         layer: measurement layer to use as ``x`` -- "node_x" (attacked, default), "benign", or "clean".
@@ -118,7 +118,7 @@ def torch_windows(
     eval frame is ever seen in training. Needs ``pip install "fdia-graph[torch]"``.
 
     Args:
-        system: system name (e.g. "ieee118") to load, or None if passing ``stream``.
+        system: system name (e.g. "ieee118") to load; ignored when ``stream`` is given.
         W: window length in scans.
         stride: step between window starts.
         label: per ``windows()`` -- "last" (label at the final frame), "any", or "frame" (per-frame labels).

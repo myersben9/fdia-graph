@@ -85,13 +85,11 @@ def ensure_local(spec: Dict) -> str:
         with session.get(url, headers=dl_headers, stream=True, timeout=60) as r:
             r.raise_for_status()  # surface 401/403/404/5xx before writing bytes
             total = int(r.headers.get("content-length", 0))  # 0 if missing -> bar shows bytes-so-far, no %
-            with (
-                open(tmp, "wb") as f,
-                tqdm(total=total, unit="B", unit_scale=True, desc=f"↓ {spec['file']}") as bar,
-            ):
-                for chunk in r.iter_content(1 << 20):
-                    f.write(chunk)
-                    bar.update(len(chunk))
+            with open(tmp, "wb") as f:
+                with tqdm(total=total, unit="B", unit_scale=True, desc=f"↓ {spec['file']}") as bar:
+                    for chunk in r.iter_content(1 << 20):
+                        f.write(chunk)
+                        bar.update(len(chunk))
     # Integrity gate: verify a pinned sha256 before trusting; on mismatch delete the .part and fail loudly.
     if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
         os.remove(tmp)
