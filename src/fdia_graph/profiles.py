@@ -23,9 +23,18 @@ import numpy as np
 
 from ._core import _CASE   # bus-count -> pandapower builder; single source of supported systems
 
+
+def _pandas():
+    """Lazy pandas import (optional dep, needed only for load-profile ingestion)."""
+    try:
+        import pandas as pd
+        return pd
+    except ImportError as e:
+        raise ImportError("pandas is required for load profiles: pip install 'fdia-graph[generate]'") from e
+
+
 if TYPE_CHECKING:
     import pandas as pd
-
 # per-bus scale at timestep t: clip(1 + K*S_t + N(0,SIGMA), CLIP_LO, CLIP_HI). K drives from the profile,
 # SIGMA is per-bus jitter, clip holds a plausible load band.
 K_DEFAULT = 0.1
@@ -57,7 +66,7 @@ def load_profile(source: Union[str, Sequence[float], np.ndarray], path: Optional
     if isinstance(source, (list, tuple, np.ndarray)):          # bring-your-own raw load series
         loads = np.asarray(source, dtype=float).ravel()
     elif isinstance(source, str) and source.lower() in _ISO_COLS:   # built-in ISO CSV directory
-        import pandas as pd
+        pd = _pandas()
         ts_col, load_col = _ISO_COLS[source.lower()]
         files = sorted(glob.glob(os.path.join(path or ".", "*.csv")))
         if not files:
@@ -66,7 +75,7 @@ def load_profile(source: Union[str, Sequence[float], np.ndarray], path: Optional
         full = __import__("pandas").concat(frames).sort_index()
         loads = full[load_col].dropna().to_numpy(dtype=float)
     else:                                                      # generic CSV path + column name
-        import pandas as pd
+        pd = _pandas()
         if column is None:
             raise ValueError("for a generic CSV `source`, pass the load `column` name")
         loads = pd.read_csv(source)[column].dropna().to_numpy(dtype=float)
@@ -205,7 +214,7 @@ def _fetch_nyiso(start: _dt.date, end: _dt.date) -> "pd.Series":
     a pandas Series indexed by timestamp.
     """
     import requests
-    import pandas as pd
+    pd = _pandas()
     frames = []
     for first in _month_firsts(start, end):
         url = f"https://mis.nyiso.com/public/csv/pal/{first:%Y%m01}pal_csv.zip"
@@ -269,13 +278,13 @@ def fetch_profile(iso: str, start: Union[str, _dt.date, _dt.datetime],
         series = _fetch_gridstatus(iso, start, end)
     if resample_min is not None:
         # Time-interpolate onto a uniform resample_min-minute grid (as reference resample("1T").interpolate("time")).
-        import pandas as pd
+        pd = _pandas()
         series = series.sort_index()
         series.index = pd.to_datetime(series.index)
         series = series.resample(f"{int(resample_min)}min").interpolate(method="time").dropna()
     loads = series.to_numpy(dtype=float)
     if out is not None:
-        import pandas as pd
+        pd = _pandas()
         pd.DataFrame({"timestamp": series.index, "load_mw": loads}).to_csv(out, index=False)
     mu, sd = loads.mean(), loads.std()
     return (loads - mu) / (sd if sd > 0 else 1.0)             # standardized scaling vector S [T]

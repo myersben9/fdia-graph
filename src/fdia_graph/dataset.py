@@ -12,14 +12,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 if TYPE_CHECKING:
     from types import ModuleType
-    import h5py
     import pandas as pd
     import torch
     from torch.utils.data import DataLoader
     from torch_geometric.data import Data
 
-# numpy is the only import-time dependency; torch/h5py/pandas/tf are imported lazily in methods.
+# numpy + h5py are the import-time deps (both required); torch/pandas/pandapower are lazy (optional extras).
 import numpy as np
+import h5py
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
@@ -47,7 +47,6 @@ class FdiaGraph:
                  units: str = "physical", preload: bool = False) -> None:
         # ONE pass over the small metadata arrays (family/gap/split) picks the kept rows;
         # the big measurement arrays are read only in __getitem__.
-        import h5py
         self.path, self.format = path, format           # file + output flavor ("torch"/"pyg")
         # Unit system for RETURNED measurements. File stores engineering units (V p.u., P/Q MW/MVAr, theta deg);
         # units="pu" converts losslessly on the fly (P/Q + branch flows / baseMVA, theta deg->rad, V already p.u.),
@@ -207,7 +206,6 @@ class FdiaGraph:
         # Open+cache the h5py handle on first access (not __init__) so each DataLoader worker gets its
         # OWN handle — fork-safe, no shared-handle crash across processes.
         if self._f is None:
-            import h5py
             self._f = h5py.File(self.path, "r")
         return self._f
 
@@ -313,7 +311,6 @@ class FdiaGraph:
 
     def summary(self) -> Dict[str, Any]:
         # Cheap overview: read only the family column for this view's rows, tally per family.
-        import h5py
         with h5py.File(self.path, "r") as f:
             fam = f["data/family"][:][self.idx]         # family codes for just the kept rows
         return dict(system=self.system, N=self.N, E=self.E, n=len(self),
@@ -330,7 +327,6 @@ class FdiaGraph:
         plus the static graph: edge_index [2,E], edge_reactance [E]. `fields` optionally limits the per-record
         arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
         """
-        import h5py
         # Per-record arrays to pull: caller's `fields`, or the full default set.
         want = fields or (["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if self.has_temporal else []) + (["swing"] if self.has_swing else [])
                           + ["family", "stealthy", "seq_id", "timestep"])
