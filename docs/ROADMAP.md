@@ -19,21 +19,13 @@ src/fdia_graph/          (the package root)
     └── base.py                        shared typed contract
 ```
 
-```mermaid
-flowchart TD
-    subgraph GEN["generate path — fg.generate()"]
-        direction LR
-        profiles["profiles.py<br/>ISO load → state pool"] --> generation["generation.py<br/>drive + write shard"] --> core["engine/ — the theory half<br/>FdiaGenerator: meters + physics + attacks"]
-    end
-    subgraph LOAD["load path — fg.load()  (what most users run)"]
-        direction LR
-        registry["registry.py<br/>name+release → spec"] --> download["download.py<br/>fetch + cache + sha256"] --> dataset["dataset.py<br/>FdiaGraph Dataset"]
-    end
-    subgraph STREAM["stream path — fg.load_stream() / pyg_stream() / torch_windows()"]
-        direction LR
-        torchdata["torch_data.py<br/>PyTorch-ready views"] --> streams["streams.py<br/>continuous series + windows"]
-    end
-    GEN -->|"register_local + .h5 shard"| LOAD
+How the three paths connect (generate produces the shard the load path serves):
+
+```
+load path      fg.load()           registry.py → download.py → dataset.py    what most users run
+generate path  fg.generate()       profiles.py → generation.py → engine/     writes + registers the shard
+stream path    fg.pyg_stream() /   torch_data.py → streams.py                PyTorch-ready views over the
+               fg.torch_windows()                                            continuous time series
 ```
 
 ## SDK (package root `src/fdia_graph/`) — load and serve data

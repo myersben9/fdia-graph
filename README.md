@@ -50,6 +50,7 @@ edge_attr  [E,8] = [ r,x,b,g,gs,bs,tap,shift ]   static line physics  (ds.edge_a
 y [N] = attacked (1) / clean (0)                 localization target
 swing [N,2], temporal_delta [N,2]                temporal features
 clean [N,4] = [ |V|, P_inj, Q_inj, theta ]       noiseless truth, all buses (SE target)
+edge_clean [E,2] = [ P_from, Q_from ]            noiseless true flows (unmetered zeroed)
 ```
 
 ## Attacks

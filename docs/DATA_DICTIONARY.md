@@ -17,7 +17,7 @@ edge_attr  [E,8]= [ r, x, b, g, gs, bs, tap, shift ]  static branch electrical p
 y [N]           = 1 attacked / 0 clean                localization target
 swing [N,2]     = z-scored scan-to-scan change on [P,Q]
 clean [N,4]     = [ |V| , P_inj , Q_inj , theta ]     noiseless truth, ALL buses (SE target)
-edge_clean [E,2]= [ P_from , Q_from ]                 noiseless true flows (metered branches)
+edge_clean [E,2]= [ P_from , Q_from ]                 noiseless true flows (unmetered zeroed)
 ```
 
 ## `edge_attr` `[E,8]` — static branch properties (per-unit, never change)
