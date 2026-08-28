@@ -42,7 +42,7 @@ Note: in `format="pyg"`, `Data.edge_attr` is the `[E,2]` flows, not this. The `[
 
 | col | name | physical units | pu units |
 |-----|------|----------------|----------|
-| 0 | `|V|` | per-unit | per-unit |
+| 0 | `\|V\|` | per-unit | per-unit |
 | 1 | `P_inj` | MW | pu |
 | 2 | `Q_inj` | MVAr | pu |
 | 3 | `theta` | degrees | radians |
