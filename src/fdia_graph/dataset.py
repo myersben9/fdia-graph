@@ -112,10 +112,8 @@ class FdiaGraph:
             self.has_swing = "swing" in f["data"]  # v0.4.1+ windowed relative-swing feature
             # v0.7.2+ noiseless attack-free truth (the SE target), stored ONCE per pool timestep and resolved
             # per record via data/timestep. Small ([Tpool,N,4]/[Tpool,E,2]) so it lives in RAM from init.
-            self._clean_np = f["clean/node_clean"][:] if "clean" in f else None
-            self._eclean_np = (
-                f["clean/edge_clean"][:] if "clean" in f and "edge_clean" in f["clean"] else None
-            )
+            self._clean_np = f["clean/node_clean"][:] if "clean/node_clean" in f else None
+            self._eclean_np = f["clean/edge_clean"][:] if "clean/edge_clean" in f else None
             self.has_clean = self._clean_np is not None
             fam = f["data/family"][:]
             gap = f["data/gap"][:]  # per-record metadata copied to RAM for filtering
