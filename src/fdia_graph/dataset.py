@@ -60,7 +60,8 @@ class FdiaGraph:
         with h5py.File(path, "r") as f:                 # read-only; metadata copied out before block exit
             # IEEE case (14/118/300); fall back to N, then 0, for older files.
             self.system = int(f.attrs.get("system", f.attrs.get("N", 0)))
-            self.N = int(f.attrs["N"]); self.E = int(f.attrs["E"])   # fixed graph size: bus count N, branch count E
+            self.N = int(f.attrs["N"])
+            self.E = int(f.attrs["E"])   # fixed graph size: bus count N, branch count E
             self.baseMVA = float(f.attrs.get("baseMVA", 100.0))  # p.u. base; v0.4.1+, default 100 MVA
             # Static graph, read ONCE and cached as numpy (same for every record).
             self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
@@ -80,8 +81,9 @@ class FdiaGraph:
             self.edge_status_per_record = f["data/edge_status"][:] if "data/edge_status" in f else None
             self.has_temporal = "temporal_delta" in f["data"]      # v0.3+ temporal-delta feature
             self.has_swing = "swing" in f["data"]                  # v0.4.1+ windowed relative-swing feature
-            fam = f["data/family"][:]; gap = f["data/gap"][:]      # per-record metadata copied to RAM for filtering
-            sp = f["data/split"][:] if "data/split" in f else None # split code, or None on unsplit files
+            fam = f["data/family"][:]
+            gap = f["data/gap"][:]      # per-record metadata copied to RAM for filtering
+            sp = f["data/split"][:] if "data/split" in f else None  # split code, or None on unsplit files
         keep = np.ones(len(fam), bool)                  # boolean keep-mask over all records, ANDed with each filter
         if not include_gaps:
             keep &= (gap == 0)                          # drop gap (missing/skipped scan) records unless asked
@@ -132,13 +134,13 @@ class FdiaGraph:
 
     # Per-unit branch physics, ppc order (lines then transformers), aligned with edge_index.
     @property
-    def edge_r(self) -> torch.Tensor:  return self._p("edge_r")            # series resistance
+    def edge_r(self) -> torch.Tensor: return self._p("edge_r")            # series resistance
     @property
-    def edge_x(self) -> torch.Tensor:  return self._p("edge_x")            # series reactance
+    def edge_x(self) -> torch.Tensor: return self._p("edge_x")            # series reactance
     @property
-    def edge_b(self) -> torch.Tensor:  return self._p("edge_b")            # charging susceptance
+    def edge_b(self) -> torch.Tensor: return self._p("edge_b")            # charging susceptance
     @property
-    def edge_g(self) -> torch.Tensor:  return self._p("edge_g")            # charging conductance, transformer iron losses
+    def edge_g(self) -> torch.Tensor: return self._p("edge_g")            # charging conductance, transformer iron losses
 
     def _series_adm(self, imag: bool) -> torch.Tensor:
         # Series admittance 1/(r+jx). Stored on v0.7.0+ shards; derived from r,x for older ones so edge_attr
@@ -147,48 +149,51 @@ class FdiaGraph:
         v = self._phys.get(key)
         if v is None:
             r, x = self._phys.get("edge_r"), self._phys.get("edge_x")
-            if r is None: return self._p(key)                 # no physics at all -> standard "needs v0.5.0+" error
-            z = np.asarray(r) + 1j * np.asarray(x); ys = np.zeros_like(z, complex)
-            nz = np.abs(z) > 1e-12; ys[nz] = 1.0 / z[nz]
+            if r is None:
+                return self._p(key)                 # no physics at all -> standard "needs v0.5.0+" error
+            z = np.asarray(r) + 1j * np.asarray(x)
+            ys = np.zeros_like(z, complex)
+            nz = np.abs(z) > 1e-12
+            ys[nz] = 1.0 / z[nz]
             v = np.imag(ys) if imag else np.real(ys)
         return _torch().as_tensor(v)
 
     @property
-    def edge_gs(self) -> torch.Tensor:  return self._series_adm(False)     # series conductance, Re(1/(r+jx))
+    def edge_gs(self) -> torch.Tensor: return self._series_adm(False)     # series conductance, Re(1/(r+jx))
     @property
-    def edge_bs(self) -> torch.Tensor:  return self._series_adm(True)      # series susceptance, Im(1/(r+jx))
+    def edge_bs(self) -> torch.Tensor: return self._series_adm(True)      # series susceptance, Im(1/(r+jx))
     @property
-    def edge_tap(self) -> torch.Tensor:  return self._p("edge_tap")        # transformer turns ratio, 1.0 for lines
+    def edge_tap(self) -> torch.Tensor: return self._p("edge_tap")        # transformer turns ratio, 1.0 for lines
     @property
-    def edge_shift(self) -> torch.Tensor:  return self._p("edge_shift")    # phase shift, degrees
+    def edge_shift(self) -> torch.Tensor: return self._p("edge_shift")    # phase shift, degrees
     @property
-    def edge_status(self) -> torch.Tensor:  return self._p("edge_status")  # 1 in service, 0 out (static; see edge_status_per_record)
+    def edge_status(self) -> torch.Tensor: return self._p("edge_status")  # 1 in service, 0 out (static; see edge_status_per_record)
     @property
-    def edge_is_trafo(self) -> torch.Tensor:  return self._p("edge_is_trafo")
+    def edge_is_trafo(self) -> torch.Tensor: return self._p("edge_is_trafo")
     # Static per-bus attributes, pandapower == ppc bus order (verified identity for case14/118/300).
     @property
-    def bus_type(self) -> torch.Tensor:  return self._p("bus_type")            # 1 PQ, 2 PV, 3 reference
+    def bus_type(self) -> torch.Tensor: return self._p("bus_type")            # 1 PQ, 2 PV, 3 reference
     @property
-    def bus_vmin(self) -> torch.Tensor:  return self._p("bus_vmin")            # voltage limits, pu
+    def bus_vmin(self) -> torch.Tensor: return self._p("bus_vmin")            # voltage limits, pu
     @property
-    def bus_vmax(self) -> torch.Tensor:  return self._p("bus_vmax")
+    def bus_vmax(self) -> torch.Tensor: return self._p("bus_vmax")
     @property
-    def bus_base_kv(self) -> torch.Tensor:  return self._p("bus_base_kv")      # nominal voltage, kV
+    def bus_base_kv(self) -> torch.Tensor: return self._p("bus_base_kv")      # nominal voltage, kV
     @property
-    def bus_is_zero_inj(self) -> torch.Tensor:  return self._p("bus_is_zero_inj")  # generator's own zero-injection set
+    def bus_is_zero_inj(self) -> torch.Tensor: return self._p("bus_is_zero_inj")  # generator's own zero-injection set
     @property
-    def bus_has_gen(self) -> torch.Tensor:  return self._p("bus_has_gen")      # generator or slack on the bus
+    def bus_has_gen(self) -> torch.Tensor: return self._p("bus_has_gen")      # generator or slack on the bus
     @property
-    def bus_base_pd(self) -> torch.Tensor:  return self._p("bus_base_pd")      # base-case load, MW
+    def bus_base_pd(self) -> torch.Tensor: return self._p("bus_base_pd")      # base-case load, MW
     @property
-    def bus_base_qd(self) -> torch.Tensor:  return self._p("bus_base_qd")      # base-case load, MVAr
+    def bus_base_qd(self) -> torch.Tensor: return self._p("bus_base_qd")      # base-case load, MVAr
     @property
-    def bus_attackable(self) -> torch.Tensor:  return self._p("bus_attackable")  # carries |p_mw|>0 load (IEEE-300 141/183 rule)
+    def bus_attackable(self) -> torch.Tensor: return self._p("bus_attackable")  # carries |p_mw|>0 load (IEEE-300 141/183 rule)
     # Shunts are a BUS property, on the Ybus diagonal, so they were not expressible in an edge schema.
     @property
-    def bus_shunt_g(self) -> torch.Tensor:  return self._p("bus_shunt_g")
+    def bus_shunt_g(self) -> torch.Tensor: return self._p("bus_shunt_g")
     @property
-    def bus_shunt_b(self) -> torch.Tensor:  return self._p("bus_shunt_b")
+    def bus_shunt_b(self) -> torch.Tensor: return self._p("bus_shunt_b")
 
     @property
     def edge_attr(self) -> torch.Tensor:
@@ -219,7 +224,8 @@ class FdiaGraph:
         b = self.baseMVA
         a = np.array(arr, dtype=np.float32, copy=True)
         if kind == "node":
-            a[..., 1] /= b; a[..., 2] /= b                 # P_inj, Q_inj  MW/MVAr -> p.u.
+            a[..., 1] /= b
+            a[..., 2] /= b                 # P_inj, Q_inj  MW/MVAr -> p.u.
             a[..., 3] = np.deg2rad(a[..., 3])              # theta  deg -> rad
         else:
             a /= b                                         # branch flows / temporal delta: power -> p.u.
@@ -338,9 +344,12 @@ class FdiaGraph:
                 out[k] = d[k][idx]                      # one bulk gather per field -> [n, ...] numpy array
         # Convert power/angle arrays to self.units (masks, labels, swing untouched).
         if self.units == "pu":
-            if "node_x" in out: out["node_x"] = self._to_units(out["node_x"], "node")
-            if "edge_x" in out: out["edge_x"] = self._to_units(out["edge_x"], "edge")
-            if "temporal_delta" in out: out["temporal_delta"] = self._to_units(out["temporal_delta"], "td")
+            if "node_x" in out:
+                out["node_x"] = self._to_units(out["node_x"], "node")
+            if "edge_x" in out:
+                out["edge_x"] = self._to_units(out["edge_x"], "edge")
+            if "temporal_delta" in out:
+                out["temporal_delta"] = self._to_units(out["temporal_delta"], "td")
         return out
 
     def to_torch(self, fields: Optional[Sequence[str]] = None,

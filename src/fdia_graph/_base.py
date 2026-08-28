@@ -22,8 +22,12 @@ class GridBase:
     SD: Dict[str, float]
     SDj: Dict[str, float]
     _sd_bias: Dict[str, float]
-    bias_pi: np.ndarray; bias_qi: np.ndarray; bias_v: np.ndarray
-    bias_va: np.ndarray; bias_pf: np.ndarray; bias_qf: np.ndarray
+    bias_pi: np.ndarray
+    bias_qi: np.ndarray
+    bias_v: np.ndarray
+    bias_va: np.ndarray
+    bias_pf: np.ndarray
+    bias_qf: np.ndarray
     # metering plan
     M: Dict[str, Any]
     flow_meter: np.ndarray
@@ -35,14 +39,23 @@ class GridBase:
     _attackable_mask: np.ndarray
     # topology + admittance
     ei: np.ndarray
-    _Ybus: Any; _Yf: Any; _Yt: Any
-    _bMVA: float; _lut: Any; _fb: np.ndarray; _nppc: int
-    _ptdf: np.ndarray; _ptdf_lb: np.ndarray
+    _Ybus: Any
+    _Yf: Any
+    _Yt: Any
+    _bMVA: float
+    _lut: Any
+    _fb: np.ndarray
+    _nppc: int
+    _ptdf: np.ndarray
+    _ptdf_lb: np.ndarray
     _solvenet: Any
     # contingency
-    outage: Optional[int]; outage_pos: int
+    outage: Optional[int]
+    outage_pos: int
     # LRA target pool (set in _pick_lra_target)
-    _Lcands: List[int]; _sgn: Dict[int, float]; _Ltgt: int
+    _Lcands: List[int]
+    _sgn: Dict[int, float]
+    _Ltgt: int
     # replay buffer
     benign_buf: List[np.ndarray]
 
@@ -50,7 +63,9 @@ class GridBase:
     def _n(self, s: float) -> float: ...
     def emit_from_state(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
     def state_from_net(self, net: Any) -> np.ndarray: ...
+
     def solve(self, Lp: np.ndarray, Lq: np.ndarray, Xt: Optional[np.ndarray] = ...,
               Lp_true: Optional[np.ndarray] = ...) -> Optional[Any]: ...
+
     def _lra_for_line(self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = ...,
                       floor: float = ...) -> Optional[Tuple[np.ndarray, np.ndarray, float]]: ...

@@ -69,7 +69,9 @@ def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8
     if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
         raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
     T = int(X.shape[0])
-    ntr = int(train_frac * T); nva = int(val_frac * T)
+    ntr = int(train_frac * T)
+    nva = int(val_frac * T)
+
     def graphs(a: int, b: int) -> List["Data"]:
         return [Data(x=X[t], edge_index=ei, edge_attr=ea, y=Y[t]) for t in range(a, b)]
     train = graphs(0, ntr)
@@ -111,7 +113,8 @@ def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride:
     if stride < 1:
         raise ValueError(f"stride must be >= 1, got {stride}")
     Xw, yw = _windows(s, W, stride=stride, label=label)
-    cut = int(train_frac * T); cut2 = cut + int(val_frac * T)
+    cut = int(train_frac * T)
+    cut2 = cut + int(val_frac * T)
     starts = np.arange(0, T - W + 1, stride)
     tr = starts + W <= cut                            # window fully inside the train span
     va = (starts >= cut) & (starts + W <= cut2)       # window fully inside the val span
