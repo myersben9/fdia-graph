@@ -61,7 +61,7 @@ def line_outage_candidates(system: Union[str, int], top_n: int = 5) -> Tuple[Lis
     to build one shard per post-contingency topology.
     """
     # Lazy: pulls in pandapower, which most SDK (loader) users don't have installed.
-    from ._core import line_outage_candidates as _cands
+    from .engine import line_outage_candidates as _cands
 
     return _cands(system, top_n=top_n)
 
@@ -161,7 +161,7 @@ def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
     redundancy, split, seed, out. See fdia_graph.generation module for the full documented signature.
     Requires the generation extra: pip install 'fdia-graph[generate]'.
     """
-    # Lazy: the generator pulls in heavy deps (pandapower, _core), so deferring keeps plain load() users
+    # Lazy: the generator pulls in heavy deps (pandapower, engine), so deferring keeps plain load() users
     # from needing the optional [generate] extra.
     from .generation import generate as _generate
 
