@@ -5,33 +5,20 @@ and **generating** new data (heavy deps via the `[generate]` extra: pandapower e
 `fdia_graph/__init__.py`'s functions; everything else is plumbing behind them.
 
 ```mermaid
-flowchart LR
-    subgraph API["fg.* (public API, __init__.py)"]
-        load["load()"]
-        gen["generate()"]
-        ls["load_stream() / windows()"]
-        td["pyg_stream() / torch_windows()"]
+flowchart TD
+    subgraph GEN["generate path — fg.generate()"]
+        direction LR
+        profiles["profiles.py<br/>ISO load → state pool"] --> generation["generation.py<br/>drive + write shard"] --> core["_core.py FdiaGenerator<br/>_measurement + _physics + _attacks"]
     end
-    subgraph LOAD["load path (shards)"]
-        registry["registry.py<br/>name+release → spec"]
-        download["download.py<br/>fetch + cache + sha256"]
-        dataset["dataset.py<br/>FdiaGraph Dataset"]
+    subgraph LOAD["load path — fg.load()  (what most users run)"]
+        direction LR
+        registry["registry.py<br/>name+release → spec"] --> download["download.py<br/>fetch + cache + sha256"] --> dataset["dataset.py<br/>FdiaGraph Dataset"]
     end
-    subgraph GEN["generate path"]
-        profiles["profiles.py<br/>ISO load → state pool"]
-        generation["generation.py<br/>drive + write shard"]
-        core["_core.py FdiaGenerator<br/>= _measurement + _physics + _attacks"]
+    subgraph STREAM["stream path — fg.load_stream() / pyg_stream() / torch_windows()"]
+        direction LR
+        torchdata["torch_data.py<br/>PyTorch-ready views"] --> streams["streams.py<br/>continuous series + windows"]
     end
-    subgraph STREAM["stream path (temporal)"]
-        streams["streams.py<br/>continuous series + windows"]
-        torchdata["torch_data.py<br/>PyTorch-ready views"]
-    end
-    load --> registry --> download --> dataset
-    gen --> generation --> core
-    profiles --> generation
-    generation -->|"register_local + .h5"| registry
-    ls --> streams
-    td --> torchdata --> streams
+    GEN -->|"register_local + .h5 shard"| LOAD
 ```
 
 ## File map
