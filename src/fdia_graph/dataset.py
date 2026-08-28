@@ -373,9 +373,11 @@ class FdiaGraph:
             item["swing"] = torch.as_tensor(d["swing"][j], dtype=torch.float32)
         if self._clean_np is not None:  # [N,4] noiseless attack-free truth at this timestep (SE target)
             t = item["timestep"]
-            item["clean"] = torch.as_tensor(self._to_units(self._clean_np[t], "node"), dtype=torch.float32)
+            # torch.tensor COPIES: with units="physical" _to_units is a no-op view into the shared cached
+            # table, and an aliased tensor would let one record's in-place edit corrupt every other record.
+            item["clean"] = torch.tensor(self._to_units(self._clean_np[t], "node"), dtype=torch.float32)
             if self._eclean_np is not None:  # [E,2] exact true flows (unmetered zeroed)
-                item["edge_clean"] = torch.as_tensor(
+                item["edge_clean"] = torch.tensor(
                     self._to_units(self._eclean_np[t], "edge"), dtype=torch.float32
                 )
         if self.format == "pyg":
