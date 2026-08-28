@@ -1,7 +1,7 @@
 # Repo roadmap
 
-How the files connect. The SDK has two halves: **loading** published data (light deps, just numpy/h5py)
-and **generating** new data (heavy deps: pandapower, the `[generate]` extra). Users only touch
+How the files connect. The SDK has two halves: **loading** published data (the base install)
+and **generating** new data (heavy deps via the `[generate]` extra: pandapower etc.). Users only touch
 `fdia_graph/__init__.py`'s functions; everything else is plumbing behind them.
 
 ```mermaid
