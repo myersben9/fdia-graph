@@ -41,20 +41,32 @@ def _resolve_stream(system: Optional[Union[str, int]], release: Optional[str],
     return load_stream(system, release=release)
 
 
-def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8,
-               val_frac: float = 0.0, layer: str = "node_x", max_test: Optional[int] = None,
-               release: Optional[str] = None,
-               stream: Optional[Dict[str, Any]] = None) -> Tuple[List["Data"], ...]:
-    """Continuous stream as ready PyTorch-Geometric graphs: ``(train, test)`` lists of ``Data``.
+def pyg_stream(
+    system: Optional[Union[str, int]] = None,
+    train_frac: float = 0.8,
+    val_frac: float = 0.0,
+    layer: str = "node_x",
+    max_test: Optional[int] = None,
+    release: Optional[str] = None,
+    stream: Optional[Dict[str, Any]] = None,
+) -> Tuple[List["Data"], ...]:
+    """Continuous stream as ready PyTorch-Geometric graphs, split chronologically.
 
-    Each scan is one ``Data(x=[N,4], edge_index=[2,E], edge_attr=[E,8], y=[N])`` — node measurements,
-    connectivity, per-unit branch physics, and the per-bus attack label. ``edge_index``/``edge_attr``
-    are shared tensors (the graph is static), so memory stays one stream copy. The split is
-    chronological: the first ``train_frac`` of scans train, the rest test. ``max_test`` bounds the
-    test list (e.g. 1000 for a quick eval). ``val_frac`` > 0 carves a chronological validation span out
-    between train and test and returns ``(train, val, test)`` -- use it to select thresholds/class weights
-    before reading test metrics. ``layer`` picks the measurement layer: ``"node_x"`` (attacked, default),
-    ``"benign"``, or ``"clean"``. Needs ``pip install "fdia-graph[pyg]"``.
+    Each scan becomes one ``Data(x=[N,4], edge_index=[2,E], edge_attr=[E,8], y=[N])``. The graph is
+    static, so ``edge_index``/``edge_attr`` are shared tensors (one copy for the whole stream).
+    Needs ``pip install "fdia-graph[pyg]"``.
+
+    Args:
+        system: system name (e.g. "ieee118") to load, or None if passing ``stream``.
+        train_frac: fraction of scans (from the start) used for training.
+        val_frac: if > 0, carve a validation span between train and test (returns 3 lists, not 2).
+        layer: measurement layer to use as ``x`` -- "node_x" (attacked, default), "benign", or "clean".
+        max_test: cap on the test list length (e.g. 1000 for a quick eval); None = all remaining.
+        release: dataset release tag to pin; None = the installed default.
+        stream: an already-loaded stream dict, to reuse instead of loading by ``system``.
+
+    Returns:
+        ``(train, test)`` lists of ``Data``, or ``(train, val, test)`` when ``val_frac`` > 0.
     """
     import torch
     from torch_geometric.data import Data
@@ -82,22 +94,38 @@ def pyg_stream(system: Optional[Union[str, int]] = None, train_frac: float = 0.8
     return (train, val, test) if val_frac > 0 else (train, test)
 
 
-def torch_windows(system: Optional[Union[str, int]] = None, W: int = 16, stride: int = 8,
-                  label: str = "last", per_bus: bool = True, train_frac: float = 0.8,
-                  val_frac: float = 0.0, layer: str = "node_x", release: Optional[str] = None,
-                  stream: Optional[Dict[str, Any]] = None,
-                  ) -> Tuple[Tuple["torch.Tensor", "torch.Tensor"], ...]:
-    """Continuous stream as LSTM-ready sequence tensors: ``((Xtr, ytr), (Xte, yte))``.
+def torch_windows(
+    system: Optional[Union[str, int]] = None,
+    W: int = 16,
+    stride: int = 8,
+    label: str = "last",
+    per_bus: bool = True,
+    train_frac: float = 0.8,
+    val_frac: float = 0.0,
+    layer: str = "node_x",
+    release: Optional[str] = None,
+    stream: Optional[Dict[str, Any]] = None,
+) -> Tuple[Tuple["torch.Tensor", "torch.Tensor"], ...]:
+    """Continuous stream as LSTM-ready sequence tensors, split chronologically.
 
-    Slides a length-``W`` window over the stream and returns float32 tensors. With ``per_bus=True``
-    (default) each bus contributes its own sequence — ``X [n_windows*N, W, 4]``, ``y [n_windows*N]``
-    — which is the shape a plain ``nn.LSTM`` consumes directly. ``per_bus=False`` keeps whole-grid
-    windows ``[n, W, N, 4]``. ``label`` follows ``windows()``: ``"last"`` (label at the final frame),
-    ``"any"``, or ``"frame"`` (per-frame labels, ``y [.., W]``). The split is chronological on the
-    underlying frames; windows straddling a boundary are dropped, so no eval frame is ever seen in
-    training. ``val_frac`` > 0 carves a chronological validation span between train and test and returns
-    ``((Xtr, ytr), (Xva, yva), (Xte, yte))`` -- select thresholds there, not on test. ``layer`` picks
-    ``"node_x"`` / ``"benign"`` / ``"clean"``. Needs ``pip install "fdia-graph[torch]"``.
+    Slides a length-``W`` window over the stream. Windows straddling a split boundary are dropped, so no
+    eval frame is ever seen in training. Needs ``pip install "fdia-graph[torch]"``.
+
+    Args:
+        system: system name (e.g. "ieee118") to load, or None if passing ``stream``.
+        W: window length in scans.
+        stride: step between window starts.
+        label: per ``windows()`` -- "last" (label at the final frame), "any", or "frame" (per-frame labels).
+        per_bus: True gives one sequence per bus, ``X [n*N, W, 4]`` (what nn.LSTM consumes); False keeps
+            whole-grid windows ``[n, W, N, 4]``.
+        train_frac: fraction of frames (from the start) used for training.
+        val_frac: if > 0, carve a validation span between train and test (returns 3 tuples, not 2).
+        layer: measurement layer to window -- "node_x" (default), "benign", or "clean".
+        release: dataset release tag to pin; None = the installed default.
+        stream: an already-loaded stream dict, to reuse instead of loading by ``system``.
+
+    Returns:
+        ``((Xtr, ytr), (Xte, yte))``, or ``((Xtr, ytr), (Xva, yva), (Xte, yte))`` when ``val_frac`` > 0.
     """
     import torch
     from .streams import windows as _windows
