@@ -22,10 +22,11 @@ src/fdia_graph/          (the package root)
 How the three paths connect (generate produces the shard the load path serves):
 
 ```
-load path      fg.load()           registry.py → download.py → dataset.py    what most users run
-generate path  fg.generate()       profiles.py → generation.py → engine/     writes + registers the shard
-stream path    fg.pyg_stream() /   torch_data.py → streams.py                PyTorch-ready views over the
-               fg.torch_windows()                                            continuous time series
+load path      fg.load()            registry.py → download.py → dataset.py   what most users run
+generate path  fg.generate()        profiles.py → generation.py → engine/    writes + registers the shard
+stream path    fg.load_stream()     streams.py                               the continuous time series
+               fg.pyg_stream() /
+               fg.torch_windows()   torch_data.py (wraps streams.py)         PyTorch-ready stream views
 ```
 
 ## SDK (package root `src/fdia_graph/`) — load and serve data
