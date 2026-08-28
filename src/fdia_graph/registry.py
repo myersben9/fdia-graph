@@ -16,7 +16,7 @@ import os
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
 _REPO = "myersben9/fdia-graph"
 # Default pinned release tag, used when GitHub isn't queried for the newest; FDIA_GRAPH_RELEASE overrides.
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.1")  # pinned data release (env var overrides)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.2")  # pinned data release (env var overrides)
 # One release channel: each tag carries all assets, so streams follow _RELEASE (env var overrides).
 STREAM_RELEASE = os.environ.get("FDIA_GRAPH_STREAM_RELEASE", _RELEASE)
 
@@ -27,56 +27,56 @@ BUILTIN = {
         "file": "ml_only_ieee14.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "999f7344282da3d8f5c983ff51fb6b6b90c90b8c5f3ee7c99fc1f69bd1205b5a",
+        "sha256": "c19526ba6274d1f843f484a7f275c0688334a92b349b0043871713fd01275195",
         "system": 14,
     },
     "ieee30": {
         "file": "ml_only_ieee30.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "1de2e258dacc9f8425989d395c09e1e9209eda52ec56cd565e053c07b79b37eb",
+        "sha256": "b56d51939c04363143ae6f41f5854bc31d62ce9dbc31742efa6d5145d52b797f",
         "system": 30,
     },
     "ieee57": {
         "file": "ml_only_ieee57.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "cd45e3756ed429ab365c24aa5f0666a35081e7fa59f6373c6a914a2adb502d41",
+        "sha256": "6a940f4f8b3e3abe8f11e2af707c250fa8dc7e1247ab2709bb63cd763a1dc36a",
         "system": 57,
     },
     "ieee89": {
         "file": "ml_only_ieee89.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "e03771bf58c3559edde9b7b10cd9cd87c1e8de9a57739ebc5233f547ab833212",
+        "sha256": "c390fe41ba974617b1b3a21b141cf72a30bc75221c4c858a70812bc9044cc1d4",
         "system": 89,
     },
     "ieee118": {
         "file": "ml_only_ieee118.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "f4da22e7e3a6251443fd4d86dced8dfbb999cecaac34933fc3fc9aecc96cb4dc",
+        "sha256": "0ddcb8cc7273cbc375465854368a48d00ed1435a5860b5dc4a08735c311cbb8a",
         "system": 118,
     },
     "ieee145": {
         "file": "ml_only_ieee145.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "ebf5380fb2289ecd9d7535548b69f52ccf8d97be4d44c0fc4dac49e7a9644305",
+        "sha256": "d35c1f1f877fe09fde39ae76eb5250959442ea5b6d6b9c16951db2b11c74d206",
         "system": 145,
     },
     "ieee200": {
         "file": "ml_only_ieee200.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "857e1e3ac3496b332fb2ce9d3ae4c2ec81af3e1514819e0c605ef5e422633f32",
+        "sha256": "3eba3cc255f85a8b71e7f97905041f1e3521b88dcb162bbf318cdd57e25e0360",
         "system": 200,
     },
     "ieee300": {
         "file": "ml_only_ieee300.h5",
         "release": _RELEASE,
         "repo": _REPO,
-        "sha256": "9c9e94ecfdd50dc171e97c44d7ac3e9db5b7eec4ee42ff6fc8092550c4f54c01",
+        "sha256": "f893927f401eca0a6aa272e649a64188ea08ba1249ff241b72352e2826a468b6",
         "system": 300,
     },
 }
