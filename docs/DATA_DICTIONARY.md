@@ -16,8 +16,8 @@ edge_index [2,E]= [ from_bus ; to_bus ]               connectivity
 edge_attr  [E,8]= [ r, x, b, g, gs, bs, tap, shift ]  static branch electrical properties
 y [N]           = 1 attacked / 0 clean                localization target
 swing [N,2]     = z-scored scan-to-scan change on [P,Q]
-clean [N,4]     = noiseless attack-free truth         SE target (v0.7.2+ shards)
-edge_clean [E,2]= noiseless true flows (metered branches only)
+clean [N,4]     = [ |V| , P_inj , Q_inj , theta ]     noiseless truth, ALL buses (SE target)
+edge_clean [E,2]= [ P_from , Q_from ]                 noiseless true flows (metered branches)
 ```
 
 ## `edge_attr` `[E,8]` — static branch properties (per-unit, never change)
@@ -59,7 +59,8 @@ convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bu
 - `stealthy`, `split` (0/1/2 = train/val/test), `timestep`.
 - `temporal_delta` `[N,2]` = scan-to-scan `[ΔP, ΔQ]`; `swing` `[N,2]` = that as a z-score of recent volatility.
 - `clean` `[N,4]` / `edge_clean` `[E,2]` (v0.7.2+): the NOISELESS attack-free truth at the record's
-  timestep — the SE / reconstruction target, same layer the streams ship. `clean` is full (every bus);
+  timestep, in `node_x` column order `[|V|, P_inj, Q_inj, theta]` — the SE / reconstruction target,
+  same layer the streams ship. `clean` is full (every bus, no mask, regardless of meter placement);
   `edge_clean` zeroes unmetered branches like `edge_x`. On benign records `node_x − clean` = meter noise.
 
 ## Streams (`fg.load_stream`)

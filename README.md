@@ -49,7 +49,7 @@ edge_index [2,E] = [ from_bus; to_bus ]          connectivity
 edge_attr  [E,8] = [ r,x,b,g,gs,bs,tap,shift ]   static line physics  (ds.edge_attr)
 y [N] = attacked (1) / clean (0)                 localization target
 swing [N,2], temporal_delta [N,2]                temporal features
-clean [N,4], edge_clean [E,2]                    noiseless truth (SE target, v0.7.2+)
+clean [N,4] = [ |V|, P_inj, Q_inj, theta ]       noiseless truth, all buses (SE target)
 ```
 
 ## Attacks
