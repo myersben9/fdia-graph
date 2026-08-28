@@ -1,4 +1,5 @@
 """AC power-flow re-solve: recompute a state under new loads with generation pinned to true dispatch."""
+
 from __future__ import annotations
 
 from typing import Any, Optional, Tuple
@@ -43,8 +44,13 @@ class PhysicsMixin(GridBase):
             ok[t] = True
         return out, ok
 
-    def solve(self, Lp: np.ndarray, Lq: np.ndarray, Xt: Optional[np.ndarray] = None,
-              Lp_true: Optional[np.ndarray] = None) -> Optional[Any]:
+    def solve(
+        self,
+        Lp: np.ndarray,
+        Lq: np.ndarray,
+        Xt: Optional[np.ndarray] = None,
+        Lp_true: Optional[np.ndarray] = None,
+    ) -> Optional[Any]:
         # Set new load P/Q on the reusable net and re-run AC power flow. Returns the solved net, or None on
         # non-convergence (attacks can push loads into non-convergent regions — caller skips those).
         net = self._solvenet
@@ -55,8 +61,8 @@ class PhysicsMixin(GridBase):
         # residual that is NOT the attack). Reconstruct each bus's true gen from the stored injection, hold it
         # at the UNATTACKED dispatch, and let the slack (plus AGC spread below) absorb the delta.
         if Xt is not None:
-            base_load = Lp_true if Lp_true is not None else Lp   # unattacked load -> the fixed dispatch
-            Lfull = np.zeros(self.C)                             # total true load per bus (bus-indexed)
+            base_load = Lp_true if Lp_true is not None else Lp  # unattacked load -> the fixed dispatch
+            Lfull = np.zeros(self.C)  # total true load per bus (bus-indexed)
             for val, b in zip(base_load, self.load_bus):
                 Lfull[int(b)] += val
             Pinj_true = Xt[:, 0]
@@ -69,13 +75,13 @@ class PhysicsMixin(GridBase):
             # Spread the attack's net load change across gens (AGC-like, proportional to dispatch) instead of
             # onto the slack alone: keeps a plausible, generation-balanced (stealthy) counterfactual whose
             # footprint is the attacked loads plus a small spread, not a single-bus slack spike.
-            dL = float(np.sum(Lp) - np.sum(base_load))          # net extra load introduced by the attack
+            dL = float(np.sum(Lp) - np.sum(base_load))  # net extra load introduced by the attack
             tot = gp.sum()
             if tot > 0 and dL != 0.0:
                 gp = gp + dL * (gp / tot)
             net.gen["p_mw"] = gp
-            net.gen["vm_pu"] = [Xt[int(b), 2] for b in gbus]     # hold each gen at its true voltage setpoint
-            sb = net.ext_grid["bus"].values                      # pin slack reference to true voltage/angle
+            net.gen["vm_pu"] = [Xt[int(b), 2] for b in gbus]  # hold each gen at its true voltage setpoint
+            sb = net.ext_grid["bus"].values  # pin slack reference to true voltage/angle
             net.ext_grid["vm_pu"] = [Xt[int(b), 2] for b in sb]
             net.ext_grid["va_degree"] = [Xt[int(b), 3] for b in sb]
         try:

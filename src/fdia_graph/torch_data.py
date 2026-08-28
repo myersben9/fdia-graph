@@ -6,6 +6,7 @@ These wrap ``load_stream()`` so a model script starts at the tensors: ``pyg_stre
 (train first, test last), matching how the stream would be consumed live. ``torch`` /
 ``torch_geometric`` are imported lazily so the base install stays torch-free.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
@@ -22,6 +23,7 @@ __all__ = ["pyg_stream", "torch_windows"]
 def _f32(a: Any) -> "torch.Tensor":
     """numpy -> float32 torch tensor, zero-copy when the array is already contiguous float32."""
     import torch
+
     return torch.from_numpy(np.ascontiguousarray(a, dtype=np.float32))
 
 
@@ -30,14 +32,16 @@ def _check_frac(train_frac: float) -> None:
         raise ValueError(f"train_frac must be in (0, 1), got {train_frac}")
 
 
-def _resolve_stream(system: Optional[Union[str, int]], release: Optional[str],
-                    stream: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _resolve_stream(
+    system: Optional[Union[str, int]], release: Optional[str], stream: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
     """Accept either a system name (loaded here) or an already-loaded stream dict."""
     if stream is not None:
         return stream
     if system is None:
         raise ValueError("pass a system name (e.g. 'ieee118') or stream=<loaded stream dict>")
     from .streams import load_stream
+
     return load_stream(system, release=release)
 
 
@@ -70,14 +74,15 @@ def pyg_stream(
     """
     import torch
     from torch_geometric.data import Data
+
     _check_frac(train_frac)
     if max_test is not None and max_test < 0:
         raise ValueError(f"max_test must be >= 0, got {max_test}")
     s = _resolve_stream(system, release, stream)
-    X = _f32(s[layer])                                                              # [T, N, 4]
-    Y = _f32(s["y"])                                                                # [T, N]
-    ei = torch.from_numpy(np.ascontiguousarray(s["edge_index"], dtype=np.int64))    # [2, E], shared
-    ea = _f32(s["edge_attr"])                                                       # [E, 8], shared
+    X = _f32(s[layer])  # [T, N, 4]
+    Y = _f32(s["y"])  # [T, N]
+    ei = torch.from_numpy(np.ascontiguousarray(s["edge_index"], dtype=np.int64))  # [2, E], shared
+    ea = _f32(s["edge_attr"])  # [E, 8], shared
     if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
         raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
     T = int(X.shape[0])
@@ -86,6 +91,7 @@ def pyg_stream(
 
     def graphs(a: int, b: int) -> List["Data"]:
         return [Data(x=X[t], edge_index=ei, edge_attr=ea, y=Y[t]) for t in range(a, b)]
+
     train = graphs(0, ntr)
     val = graphs(ntr, ntr + nva)
     te0 = ntr + nva
@@ -129,6 +135,7 @@ def torch_windows(
     """
     import torch
     from .streams import windows as _windows
+
     _check_frac(train_frac)
     if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
         raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
@@ -144,16 +151,19 @@ def torch_windows(
     cut = int(train_frac * T)
     cut2 = cut + int(val_frac * T)
     starts = np.arange(0, T - W + 1, stride)
-    tr = starts + W <= cut                            # window fully inside the train span
-    va = (starts >= cut) & (starts + W <= cut2)       # window fully inside the val span
-    te = starts >= cut2                               # window fully inside the test span (straddlers dropped)
+    tr = starts + W <= cut  # window fully inside the train span
+    va = (starts >= cut) & (starts + W <= cut2)  # window fully inside the val span
+    te = starts >= cut2  # window fully inside the test span (straddlers dropped)
 
     def _cvt(Xp: np.ndarray, yp: np.ndarray) -> Tuple["torch.Tensor", "torch.Tensor"]:
         if per_bus:
             n, Wn, N, C = Xp.shape
             X = _f32(Xp.transpose(0, 2, 1, 3).reshape(n * N, Wn, C))
-            y = (_f32(yp.transpose(0, 2, 1).reshape(n * N, Wn))
-                 if label == "frame" else _f32(yp.reshape(n * N)))
+            y = (
+                _f32(yp.transpose(0, 2, 1).reshape(n * N, Wn))
+                if label == "frame"
+                else _f32(yp.reshape(n * N))
+            )
         else:
             X, y = _f32(Xp), _f32(yp)
         return X, y

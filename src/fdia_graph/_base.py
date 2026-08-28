@@ -2,6 +2,7 @@
 
 Set for real in FdiaGenerator.__init__; declared here (no runtime effect) so each mixin's `self.<attr>`
 and cross-mixin method calls type-check. See _core.py for the actual assignments."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -64,8 +65,14 @@ class GridBase:
     def emit_from_state(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
     def state_from_net(self, net: Any) -> np.ndarray: ...
 
-    def solve(self, Lp: np.ndarray, Lq: np.ndarray, Xt: Optional[np.ndarray] = ...,
-              Lp_true: Optional[np.ndarray] = ...) -> Optional[Any]: ...
+    def solve(
+        self,
+        Lp: np.ndarray,
+        Lq: np.ndarray,
+        Xt: Optional[np.ndarray] = ...,
+        Lp_true: Optional[np.ndarray] = ...,
+    ) -> Optional[Any]: ...
 
-    def _lra_for_line(self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = ...,
-                      floor: float = ...) -> Optional[Tuple[np.ndarray, np.ndarray, float]]: ...
+    def _lra_for_line(
+        self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = ..., floor: float = ...
+    ) -> Optional[Tuple[np.ndarray, np.ndarray, float]]: ...

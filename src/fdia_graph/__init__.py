@@ -12,6 +12,7 @@ Quickstart
     fg.generate("ieee118", name="my_run", per_family=5000, attack_intensity=0.20, ramp_rate=0.003)
     ds = fg.load("my_run", split="train")
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -24,18 +25,33 @@ if TYPE_CHECKING:
 # FdiaGraph: torch Dataset over one .h5 shard; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
 # BDD-evading subset (hard cases, e.g. Aq).
 from .dataset import FdiaGraph, FAMILIES, STEALTHY_FAMILIES
+
 # registry = dataset "version control": list_datasets (known built-in + local), register_local (name a local
 # dataset), resolve ((name, release) -> download spec).
 from .registry import list_datasets, register_local, resolve
+
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
 
 __version__ = "0.7.8"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
-__all__ = ["load", "generate", "generate_stream", "load_stream", "windows", "pyg_stream", "torch_windows",
-           "load_profile", "fetch_profile",
-           "generate_states", "line_outage_candidates", "list_datasets", "FdiaGraph", "FAMILIES",
-           "STEALTHY_FAMILIES"]
+__all__ = [
+    "load",
+    "generate",
+    "generate_stream",
+    "load_stream",
+    "windows",
+    "pyg_stream",
+    "torch_windows",
+    "load_profile",
+    "fetch_profile",
+    "generate_states",
+    "line_outage_candidates",
+    "list_datasets",
+    "FdiaGraph",
+    "FAMILIES",
+    "STEALTHY_FAMILIES",
+]
 
 
 def line_outage_candidates(system: Union[str, int], top_n: int = 5) -> Tuple[List[Dict], List[Dict]]:
@@ -46,12 +62,17 @@ def line_outage_candidates(system: Union[str, int], top_n: int = 5) -> Tuple[Lis
     """
     # Lazy: pulls in pandapower, which most SDK (loader) users don't have installed.
     from ._core import line_outage_candidates as _cands
+
     return _cands(system, top_n=top_n)
 
 
-def fetch_profile(iso: str, start: Union[str, "datetime.date", "datetime.datetime"],
-                  end: Union[str, "datetime.date", "datetime.datetime"], out: Optional[str] = None,
-                  resample_min: Optional[int] = None) -> np.ndarray:
+def fetch_profile(
+    iso: str,
+    start: Union[str, "datetime.date", "datetime.datetime"],
+    end: Union[str, "datetime.date", "datetime.datetime"],
+    out: Optional[str] = None,
+    resample_min: Optional[int] = None,
+) -> np.ndarray:
     """Auto-download an ISO system-load series and return a normalized scaling vector S [T].
 
     iso is "caiso"/"nyiso"/"ercot"; start/end are 'YYYY-MM-DD' (or date/datetime). NYISO needs no account
@@ -60,11 +81,13 @@ def fetch_profile(iso: str, start: Union[str, "datetime.date", "datetime.datetim
     fdia_graph.profiles. Feed the result to generate_states().
     """
     from .profiles import fetch_profile as _fetch_profile
+
     return _fetch_profile(iso, start, end, out=out, resample_min=resample_min)
 
 
-def load_profile(source: Union[str, Sequence[float], np.ndarray], path: Optional[str] = None,
-                 column: Optional[str] = None) -> np.ndarray:
+def load_profile(
+    source: Union[str, Sequence[float], np.ndarray], path: Optional[str] = None, column: Optional[str] = None
+) -> np.ndarray:
     """Ingest a load time series into a normalized scaling vector S [T] (see fdia_graph.profiles).
 
     Pluggable front of the pipeline: `source` is "caiso"/"nyiso" (+ a `path` to the ISO CSV directory),
@@ -72,22 +95,34 @@ def load_profile(source: Union[str, Sequence[float], np.ndarray], path: Optional
     Requires the generation extra: pip install 'fdia-graph[generate]'.
     """
     from .profiles import load_profile as _load_profile
+
     return _load_profile(source, path=path, column=column)
 
 
-def generate_states(system: Union[str, int], profile: Union[np.ndarray, Sequence[float]], **knobs: Any) -> np.ndarray:
+def generate_states(
+    system: Union[str, int], profile: Union[np.ndarray, Sequence[float]], **knobs: Any
+) -> np.ndarray:
     """Turn a load profile into a pool of AC operating states [T,N,4] to inject attacks onto.
 
     Pass the result straight to generate(system, name, states=...). Knobs: k, sigma, clip, n, seed
     (see fdia_graph.profiles.generate_states). Requires the generation extra.
     """
     from .profiles import generate_states as _generate_states
+
     return _generate_states(system, profile, **knobs)
 
 
-def load(name: str, split: Optional[str] = None, families: Optional[Sequence[Union[str, int]]] = None,
-         include_gaps: bool = False, heldout: bool = False, format: str = "torch", release: Optional[str] = None,
-         units: str = "physical", preload: bool = False) -> FdiaGraph:
+def load(
+    name: str,
+    split: Optional[str] = None,
+    families: Optional[Sequence[Union[str, int]]] = None,
+    include_gaps: bool = False,
+    heldout: bool = False,
+    format: str = "torch",
+    release: Optional[str] = None,
+    units: str = "physical",
+    preload: bool = False,
+) -> FdiaGraph:
     """Load a dataset by name (built-in shard auto-downloads; local generated ones load from disk).
 
     name        : "ieee14/30/57/89/118/145/200/300" (transmission ladder), or a locally-generated name.
@@ -107,8 +142,16 @@ def load(name: str, split: Optional[str] = None, families: Optional[Sequence[Uni
     # short-circuit to their file).
     path = ensure_local(resolve(name, release=release))
     # Thin factory: the Dataset applies split/families/gaps/heldout and the export format lazily.
-    return FdiaGraph(path, split=split, families=families, include_gaps=include_gaps, heldout=heldout,
-                     format=format, units=units, preload=preload)
+    return FdiaGraph(
+        path,
+        split=split,
+        families=families,
+        include_gaps=include_gaps,
+        heldout=heldout,
+        format=format,
+        units=units,
+        preload=preload,
+    )
 
 
 def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
@@ -121,6 +164,7 @@ def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
     # Lazy: the generator pulls in heavy deps (pandapower, _core), so deferring keeps plain load() users
     # from needing the optional [generate] extra.
     from .generation import generate as _generate
+
     # **knobs forwarded untouched so this wrapper never goes stale as knobs change.
     return _generate(system, name=name, **knobs)
 
@@ -133,6 +177,7 @@ def generate_stream(system: Union[str, int], **knobs: Any) -> Dict[str, Any]:
     attacked_frac, families, attack_intensity, ramp_rate, ramp_len, replay_tau, seed, out. Needs the generation extra.
     """
     from .streams import generate_stream as _gs
+
     return _gs(system, **knobs)
 
 
@@ -143,16 +188,20 @@ def load_stream(system: Union[str, int], release: Optional[str] = None) -> Dict[
     version. See fdia_graph.streams.load_stream.
     """
     from .streams import load_stream as _ls
+
     return _ls(system, release=release)
 
 
-def windows(stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any") -> Tuple[np.ndarray, np.ndarray]:
+def windows(
+    stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any"
+) -> Tuple[np.ndarray, np.ndarray]:
     """Slide a length-W window over a stream (from generate_stream/load_stream) into (Xw [n,W,N,4], yw) for an LSTM.
 
     label: "frame" -> yw [n,W,N] per-frame; "any" -> yw [n,N] attacked-anywhere-in-window; "last" -> yw [n,N]
     at the final frame. See fdia_graph.streams.windows.
     """
     from .streams import windows as _windows
+
     return _windows(stream, W, stride=stride, label=label)
 
 
@@ -172,8 +221,16 @@ def pyg_stream(
     Needs pip install "fdia-graph[pyg]".
     """
     from .torch_data import pyg_stream as _pyg
-    return _pyg(system, train_frac=train_frac, val_frac=val_frac, layer=layer, max_test=max_test,
-                release=release, stream=stream)
+
+    return _pyg(
+        system,
+        train_frac=train_frac,
+        val_frac=val_frac,
+        layer=layer,
+        max_test=max_test,
+        release=release,
+        stream=stream,
+    )
 
 
 def torch_windows(
@@ -195,5 +252,16 @@ def torch_windows(
     Needs pip install "fdia-graph[torch]".
     """
     from .torch_data import torch_windows as _tw
-    return _tw(system, W=W, stride=stride, label=label, per_bus=per_bus, train_frac=train_frac,
-               val_frac=val_frac, layer=layer, release=release, stream=stream)
+
+    return _tw(
+        system,
+        W=W,
+        stride=stride,
+        label=label,
+        per_bus=per_bus,
+        train_frac=train_frac,
+        val_frac=val_frac,
+        layer=layer,
+        release=release,
+        stream=stream,
+    )
