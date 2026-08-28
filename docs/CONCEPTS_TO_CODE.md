@@ -5,7 +5,8 @@ Paths are under `src/fdia_graph/`.
 
 ## Modules
 
-The paper's math lives in `src/fdia_graph/engine/`; everything at the top level is data plumbing around it.
+The paper's math lives in `src/fdia_graph/engine/`; at the top level, `generation.py`/`profiles.py`
+drive the engine and the rest load and serve data.
 
 | SDK file | job |
 |------|-----|

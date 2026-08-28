@@ -1,8 +1,9 @@
 # Repo roadmap
 
 The package is two halves, and the folder structure shows it: the top level is the **SDK** (load and
-serve data, base install), `engine/` is the **theory** (power-flow physics, meter models, attack math,
-needs the `[generate]` extra). Users only touch `src/fdia_graph/__init__.py`'s `fg.*` functions.
+serve data), `engine/` is the **theory** (power-flow physics, meter models, attack math). Loading runs
+on the base install; the generation side — `engine/` plus its drivers `generation.py`/`profiles.py` —
+needs the `[generate]` extra. Users only touch `src/fdia_graph/__init__.py`'s `fg.*` functions.
 
 ```
 src/fdia_graph/          (the package root)
