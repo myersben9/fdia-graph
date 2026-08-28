@@ -5,7 +5,7 @@ Paths are under `src/fdia_graph/`.
 
 ## Modules
 
-The paper's math lives in `engine/`; everything at the top level is data plumbing around it.
+The paper's math lives in `src/fdia_graph/engine/`; everything at the top level is data plumbing around it.
 
 | SDK file | job |
 |------|-----|

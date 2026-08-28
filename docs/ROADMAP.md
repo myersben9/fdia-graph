@@ -2,10 +2,10 @@
 
 The package is two halves, and the folder structure shows it: the top level is the **SDK** (load and
 serve data, base install), `engine/` is the **theory** (power-flow physics, meter models, attack math,
-needs the `[generate]` extra). Users only touch `fdia_graph/__init__.py`'s `fg.*` functions.
+needs the `[generate]` extra). Users only touch `src/fdia_graph/__init__.py`'s `fg.*` functions.
 
 ```
-fdia_graph/
+src/fdia_graph/          (the package root)
 ├── __init__.py                      fg.* public API
 ├── dataset.py registry.py download.py     SDK: load path
 ├── streams.py torch_data.py               SDK: stream path
@@ -35,7 +35,7 @@ flowchart TD
     GEN -->|"register_local + .h5 shard"| LOAD
 ```
 
-## SDK (top level) — load and serve data
+## SDK (package root `src/fdia_graph/`) — load and serve data
 
 | File | What it is |
 |---|---|
