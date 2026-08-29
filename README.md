@@ -38,6 +38,20 @@ Whole split at once: `ds.to_numpy()` / `.to_torch()` / `.to_pandas()`. Custom da
 `fg.generate(system, name, per_family=..., attack_intensity=..., ...)` then `fg.load(name)`.
 Continuous timeline for LSTM/TGN: `fg.load_stream(system)`. Both in [`docs/EXAMPLES.md`](docs/EXAMPLES.md).
 
+## State estimation
+
+```python
+from fdia_graph.se import WLS, SubspacePrior   # pip install "fdia-graph[se]"
+
+est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(fg.load("ieee118", split="train"))
+xhat = est.estimate(test)          # [n, 2(N-1)] = [theta rad | V pu] at non-slack buses
+print(est.score(test))             # per-family angle/voltage MAE vs the clean truth
+```
+
+`WLS`, `AdaptiveWeighting`, `ResidualRemoval` and `SubspacePrior` share one chord-Newton
+iteration, Jacobian and starting point and differ only in state space and weights — the audited
+protocol of the companion estimation paper, verified equivalent to its solver per record.
+
 ## Data
 
 Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges). Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch, `[2,E]` = 2 rows × E branches. Full reference in [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md).
