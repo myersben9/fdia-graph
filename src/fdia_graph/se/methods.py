@@ -11,7 +11,7 @@ from .base import SEBase
 
 
 class WLS(SEBase):
-    """The audited baseline: class-weighted weighted least squares, full state."""
+    """The audited baseline: least squares weighted by accuracy-class meter error, full state."""
 
 
 class AdaptiveWeighting(SEBase):
@@ -24,6 +24,8 @@ class AdaptiveWeighting(SEBase):
 
     def __init__(self, c: float = 1.5, npass: int = 40, iters: int = 8) -> None:
         super().__init__(npass=npass, iters=iters)
+        if c <= 0:
+            raise ValueError(f"c must be > 0, got {c}")
         self.c = c
 
     def _solve(self, z: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
@@ -48,6 +50,8 @@ class ResidualRemoval(SEBase):
         self, threshold: float = 4.0, cond_mult: float = 100.0, npass: int = 40, iters: int = 8
     ) -> None:
         super().__init__(npass=npass, iters=iters)
+        if threshold <= 0 or cond_mult < 1:
+            raise ValueError(f"need threshold > 0 and cond_mult >= 1, got {threshold}, {cond_mult}")
         self.threshold = threshold
         self.cond_mult = cond_mult
 
@@ -110,6 +114,10 @@ class SubspacePrior(SEBase):
         super().__init__(npass=npass, iters=iters)
         if reweight not in (None, "huber"):
             raise ValueError("reweight must be None or 'huber'")
+        if not 0.0 < rank_frac <= 1.0:
+            raise ValueError(f"rank_frac must be in (0, 1], got {rank_frac}")
+        if c <= 0:
+            raise ValueError(f"c must be > 0, got {c}")
         self.rank_frac = rank_frac
         self.reweight = reweight
         self.c = c

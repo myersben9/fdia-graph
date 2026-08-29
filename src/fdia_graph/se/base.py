@@ -54,6 +54,8 @@ class SEBase:
     """
 
     def __init__(self, npass: int = 40, iters: int = 8) -> None:
+        if npass < 1 or iters < 1:
+            raise ValueError(f"npass and iters must be >= 1, got {npass}, {iters}")
         self.npass = npass  # reweighting passes (run to convergence per the paper protocol)
         self.iters = iters  # chord-Newton steps inside each solve
 
@@ -285,8 +287,8 @@ class SEBase:
             if not m.any():
                 continue
             out[name] = {"angle_mae_deg": float(ang[m].mean()), "voltage_mae_pu": float(volt[m].mean())}
-            geo_a.append(ang[m].mean())
-            geo_v.append(volt[m].mean())
+            geo_a.append(max(float(ang[m].mean()), 1e-30))  # guard log(0) on degenerate slices
+            geo_v.append(max(float(volt[m].mean()), 1e-30))
         out["geo"] = {
             "angle_mae_deg": float(np.exp(np.mean(np.log(geo_a)))),
             "voltage_mae_pu": float(np.exp(np.mean(np.log(geo_v)))),
