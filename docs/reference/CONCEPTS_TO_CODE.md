@@ -26,8 +26,8 @@ drive the engine and the rest load and serve data.
 
 ## State estimation
 
-- WLS `x̂ = argmin (z−h(x))ᵀW(z−h(x))`: `h(x)` = `engine/measurement.emit_from_state`; a full solver is in
-  `scratchpad/full_dataset_se.py` (`solve_batch`). The SDK ships measurements, you bring the estimator.
+- WLS `x̂ = argmin (z−h(x))ᵀW(z−h(x))`: `h(x)` = `engine/measurement.emit_from_state`; full solvers ship
+  in `fdia_graph.se` (`WLS` and the robust/prior classes) — see `../guides/state_estimation.md`.
 - Bad-data `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²`: `σ_i` from the engine FdiaGenerator.SD; pass/fail stored as the `stealthy` flag.
 - Noise: engine FdiaGenerator.SD (accuracy-class), each reading = true + per-meter bias + per-scan jitter.
 

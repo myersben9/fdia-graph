@@ -258,4 +258,4 @@ The **continuous stream** (`fg.load_stream`, v0.7.1) is a separate 72,000-timest
 
 ![Operating-state distributions](../figures/fig_dataset_stats.png)
 
-*Per-bus |V|, θ, and P/Q injection distributions across the ladder (box = IQR, red = median; data in `figures/fig_dataset_stats.csv`).* Two systems are outliers **by construction of the MATPOWER base case, not our generation**: `case57` runs chronically low-voltage (33 of 57 buses below 0.9 pu even unscaled) and `case145` has a very wide angle spread. Both are valid converged operating points; the states are still real, just atypical.
+*Per-bus |V|, θ, and P/Q injection distributions across the ladder (box = IQR, red = median; data in `../figures/fig_dataset_stats.csv`).* Two systems are outliers **by construction of the MATPOWER base case, not our generation**: `case57` runs chronically low-voltage (33 of 57 buses below 0.9 pu even unscaled) and `case145` has a very wide angle spread. Both are valid converged operating points; the states are still real, just atypical.
