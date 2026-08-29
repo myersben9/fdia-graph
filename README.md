@@ -24,7 +24,7 @@ pip install "fdia-graph[generate]"  # + pandapower, to generate custom data
 ```
 
 Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. Pin a version with
-`fg.load(..., release="v0.7.1")`; `pip install --upgrade fdia-graph` moves it forward.
+`fg.load(..., release="v0.7.2")`; `pip install --upgrade fdia-graph` moves it forward.
 
 ## Load
 
@@ -37,6 +37,21 @@ fg.load("ieee118", units="pu")                                 # per-unit + radi
 Whole split at once: `ds.to_numpy()` / `.to_torch()` / `.to_pandas()`. Custom data:
 `fg.generate(system, name, per_family=..., attack_intensity=..., ...)` then `fg.load(name)`.
 Continuous timeline for LSTM/TGN: `fg.load_stream(system)`. Both in [`docs/EXAMPLES.md`](docs/EXAMPLES.md).
+
+## State estimation
+
+```python
+from fdia_graph.se import WLS, SubspacePrior   # pip install "fdia-graph[se]"
+
+test = fg.load("ieee118", split="test")
+est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(fg.load("ieee118", split="train"))
+xhat = est.estimate(test)          # [n, 2(N-1)] = [theta rad | V pu] at non-slack buses
+print(est.score(test))             # per-family angle/voltage MAE vs the clean truth
+```
+
+`WLS`, `AdaptiveWeighting`, `ResidualRemoval` and `SubspacePrior` share one chord-Newton
+iteration, Jacobian and starting point and differ only in state space and weights — the audited
+protocol of the companion estimation paper, verified equivalent to its solver per record.
 
 ## Data
 

@@ -11,6 +11,7 @@ src/fdia_graph/          (the package root)
 ├── dataset.py registry.py download.py     SDK: load path
 ├── streams.py torch_data.py               SDK: stream path
 ├── generation.py profiles.py              SDK: generation drivers
+├── se/                              state estimation (WLS, robust, subspace prior)
 └── engine/                          theory: FdiaGenerator
     ├── core.py                        assembly + targeting
     ├── measurement.py                 meters + noise  h(x)
@@ -35,6 +36,7 @@ How the three paths connect (generate produces the shard the load path serves):
 | `torch_data.py` | `pyg_stream`/`torch_windows`: streams as ready PyG graphs / per-bus sequence tensors. |
 | `generation.py` | `generate()`: drives the engine over a state pool, writes + registers the shard. |
 | `profiles.py` | ISO load profiles (NYISO/CAISO/ERCOT) → normalized scaling → AC operating-state pools. |
+| `se/` | sklearn-style state estimation: `SEBase` chord-Newton core + WLS/robust/prior classes. |
 
 ## `engine/` — the physics, meters, and attack math
 
