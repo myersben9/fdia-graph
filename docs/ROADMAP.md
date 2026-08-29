@@ -22,7 +22,7 @@ src/fdia_graph/          (the package root)
 
 How the three paths connect (generate produces the shard the load path serves):
 
-![Block diagram: the three fg.* paths and the files behind them](fig_roadmap.svg)
+![Block diagram: the three fg.* paths and the files behind them](figures/fig_roadmap.svg)
 
 ## SDK (package root `src/fdia_graph/`) — load and serve data
 
@@ -48,10 +48,16 @@ How the three paths connect (generate produces the shard the load path serves):
 | `attacks.py` | Mixin: the six attack families (`Aq Ad As Ar At Al`). |
 | `base.py` | Typed attribute contract the three mixins share (no runtime behavior). |
 
+## Docs layout
+
+`docs/reference/` is lookup material, `docs/guides/` is task walkthroughs, `docs/figures/` holds
+every image and data sidecar. New docs go in one of the first two.
+
 ## Reading order for new students
 
 1. `README.md` — install + quickstart.
-2. `docs/DATA_DICTIONARY.md` — what every array and shape means (`node_x`, `edge_attr`, ...).
+2. `docs/reference/DATA_DICTIONARY.md` — what every array and shape means (`node_x`, `edge_attr`, ...).
 3. This page — which file does what.
-4. `docs/CONCEPTS_TO_CODE.md` — paper formulas → the code that implements them.
-5. `docs/EXAMPLES.md` — full training examples to copy from.
+4. `docs/reference/CONCEPTS_TO_CODE.md` — paper formulas → the code that implements them.
+5. `docs/reference/EXAMPLES.md` — full training examples to copy from.
+6. `docs/guides/state_estimation.md` — measurements in, better-than-WLS state out.

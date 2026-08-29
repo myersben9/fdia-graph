@@ -12,7 +12,7 @@ for batch in loader:
     batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"]
 ```
 
-**New here?** [`docs/ROADMAP.md`](docs/ROADMAP.md) — the SDK/engine split + how the files connect · [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md) — what every array means · [`docs/CONCEPTS_TO_CODE.md`](docs/CONCEPTS_TO_CODE.md) — paper equations → functions · [`docs/EXAMPLES.md`](docs/EXAMPLES.md) — runnable baselines, streams, stats.
+**New here?** [`docs/ROADMAP.md`](docs/ROADMAP.md) — the SDK/engine split + how the files connect · [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) — what every array means · [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) — paper equations → functions · [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) — runnable baselines, streams, stats · [`docs/guides/state_estimation.md`](docs/guides/state_estimation.md) — beating WLS.
 
 ## Install
 
@@ -36,7 +36,7 @@ fg.load("ieee118", units="pu")                                 # per-unit + radi
 
 Whole split at once: `ds.to_numpy()` / `.to_torch()` / `.to_pandas()`. Custom data:
 `fg.generate(system, name, per_family=..., attack_intensity=..., ...)` then `fg.load(name)`.
-Continuous timeline for LSTM/TGN: `fg.load_stream(system)`. Both in [`docs/EXAMPLES.md`](docs/EXAMPLES.md).
+Continuous timeline for LSTM/TGN: `fg.load_stream(system)`. Both in [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md).
 
 ## State estimation
 
@@ -55,7 +55,7 @@ protocol of the companion estimation paper, verified equivalent to its solver pe
 
 ## Data
 
-Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges). Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch, `[2,E]` = 2 rows × E branches. Full reference in [`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md).
+Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges). Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch, `[2,E]` = 2 rows × E branches. Full reference in [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
 
 ```
 node_x [N,4] = [ |V|, P_inj, Q_inj, theta ]      bus meters      node_m [N,4] = mask
@@ -82,7 +82,7 @@ follows an accuracy-class model.
 | `Ad` / `As` / `Ar` | meter corruption / scaling / replay | caught |
 
 Report **per-family node-F1** with the false-alarm rate, not accuracy (clean buses dominate). A lightweight
-per-bus MLP reaches ~0.92 localization macro-F1; see [`docs/EXAMPLES.md`](docs/EXAMPLES.md).
+per-bus MLP reaches ~0.92 localization macro-F1; see [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md).
 
 ## Citation
 
