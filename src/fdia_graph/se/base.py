@@ -2,9 +2,9 @@
 
 SEBase owns what all estimators have in common: the AC measurement model h(x) built from the
 pandapower case, the chord-Newton iteration with its divergence guard, the meter weights calibrated
-from benign residuals, and the slack handling (the slack bus is excluded from the state and pinned
-to each record's true value from the shard's clean layer, so estimates and truth share one angle
-frame). Subclasses change only the state space and the weights, mirroring the paper's protocol.
+from benign residuals, and the reference handling (the classical 2N-1 state: only the slack ANGLE
+is fixed, pinned per record to the clean layer so estimates and truth share one frame; every
+voltage magnitude including the slack is estimated, matching production practice). Subclasses change only the state space and the weights, mirroring the paper's protocol.
 
 Needs torch and pandapower: pip install "fdia-graph[se]". Datasets must be v0.7.2+ shards (the
 clean layer supplies the truth) loaded with units="physical" (the default).
@@ -45,7 +45,7 @@ class SEBase:
 
     Usage:
         est = WLS().fit(fg.load("ieee118", split="train"))
-        xhat = est.estimate(test_ds)      # [n, 2(N-1)] = [theta rad | V pu] at non-slack buses
+        xhat = est.estimate(test_ds)      # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
         rep  = est.score(test_ds)         # per-family angle/voltage MAE vs the clean truth
 
     fit() calibrates per-meter error scales as the rms of benign residuals at the true state
@@ -85,35 +85,36 @@ class SEBase:
         self._Ybus = torch.tensor(np.asarray(Yb.todense()), dtype=torch.complex128)
         self._Yft = torch.tensor(np.asarray(Yf.todense()), dtype=torch.complex128)
         self.slack = int(net.ext_grid.bus.values[0])
-        self.keep = np.array([i for i in range(self.N) if i != self.slack])
-        self.SD = 2 * len(self.keep)  # state dim: [theta | V] at non-slack buses
+        self.keep = np.array([i for i in range(self.N) if i != self.slack])  # angle buses
+        # Classical 2N-1 state: angles at every non-slack bus, voltage magnitude at EVERY bus.
+        # Only the slack angle is fixed (the reference the math requires); the slack voltage is
+        # estimated like any other, matching production practice and pandapower's estimator.
+        self.SD = len(self.keep) + self.N
         # measurement mask, constant across records: [V(N), P(N), Q(N), theta(N), Pf(E), Qf(E)]
         nm = ds[0]["node_m"].numpy().astype(bool)
         em = ds[0]["edge_m"].numpy().astype(bool)
         self.mask = np.concatenate([nm[:, 0], nm[:, 1], nm[:, 2], nm[:, 3], em[:, 0], em[:, 1]])
         self.m = int(self.mask.sum())
 
-    def _h(self, x: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        """Masked measurement prediction for a batch of states (slack pinned per record)."""
+    def _h(self, x: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+        """Masked measurement prediction for a batch of states (slack angle pinned per record)."""
         torch = _torch()
         with torch.no_grad():
             return self._h_t(
                 torch.tensor(x, dtype=torch.float64),
-                torch.tensor(vsl, dtype=torch.float64),
                 torch.tensor(thsl, dtype=torch.float64),
             ).numpy()[:, self.mask]
 
-    def _h_t(self, x: Any, vsl: Any, thsl: Any) -> Any:
+    def _h_t(self, x: Any, thsl: Any) -> Any:
         # Full AC forward map (torch, unmasked). Shard injections are load-positive, so bus
         # injections are emitted as -S; flows are from-end. Exactly the paper's h.
         torch = _torch()
         B, N, ns = x.shape[0], self.N, len(self.keep)
-        vsl = vsl.to(x.dtype)
         thsl = thsl.to(x.dtype)
         idx = torch.tensor(self.keep).unsqueeze(0).expand(B, ns)
         sidx = torch.full((B, 1), self.slack, dtype=torch.long)
         th = torch.zeros(B, N, dtype=x.dtype).scatter(1, idx, x[:, :ns]).scatter(1, sidx, thsl.reshape(B, 1))
-        V = torch.zeros(B, N, dtype=x.dtype).scatter(1, idx, x[:, ns:]).scatter(1, sidx, vsl.reshape(B, 1))
+        V = x[:, ns:]  # voltage magnitude at every bus is part of the state
         Vc_pp = torch.polar(V, th)
         iL = torch.tensor(self._lut).unsqueeze(0).expand(B, N)
         Vr = torch.zeros(B, self._nppc, dtype=x.dtype).scatter(1, iL, Vc_pp.real)
@@ -141,11 +142,10 @@ class SEBase:
         return z[:, self.mask].astype(np.float64)
 
     def _truth_of(self, clean: np.ndarray) -> Dict[str, np.ndarray]:
-        # clean [n,N,4] = [V, P, Q, theta] physical -> true state at keep buses + slack reference
-        x = np.concatenate([np.deg2rad(clean[:, self.keep, 3]), clean[:, self.keep, 0]], axis=1)
+        # clean [n,N,4] = [V, P, Q, theta] physical -> true 2N-1 state + slack angle reference
+        x = np.concatenate([np.deg2rad(clean[:, self.keep, 3]), clean[:, :, 0]], axis=1)
         return {
             "x": x.astype(np.float64),
-            "vsl": clean[:, self.slack, 0].astype(np.float64),
             "thsl": np.deg2rad(clean[:, self.slack, 3]).astype(np.float64),
         }
 
@@ -166,19 +166,18 @@ class SEBase:
         c = ben[:n_calib]
         zc = self._z_of(d["node_x"][c], d["edge_x"][c])
         tc = self._truth_of(d["clean"][c])
-        hz = self._h(tc["x"], tc["vsl"], tc["thsl"])
+        hz = self._h(tc["x"], tc["thsl"])
         self.sig = np.maximum(np.sqrt(((zc - hz) ** 2).mean(axis=0)), 1e-9)
         self.Wk = 1.0 / self.sig**2
         # chord Jacobian at the benign mean, weighted normal matrix, and its inverse
         from torch.func import jacrev, vmap
 
-        def h1(xi, vi, ti):
-            return self._h_t(xi[None], vi[None], ti[None])[0]
+        def h1(xi, ti):
+            return self._h_t(xi[None], ti[None])[0]
 
         x0 = torch.tensor(self.xmean, dtype=torch.float64)[None]
-        v0 = torch.tensor([float(tr["vsl"][0])], dtype=torch.float64)
         t0 = torch.tensor([float(tr["thsl"][0])], dtype=torch.float64)
-        self.H = vmap(jacrev(h1))(x0, v0, t0)[0].numpy()[self.mask]
+        self.H = vmap(jacrev(h1))(x0, t0)[0].numpy()[self.mask]
         A = self.H.T @ (self.Wk[:, None] * self.H)
         self._Ai = self._inv(A)
         # residual covariance diagonal for normalized residuals; critical measurements excluded
@@ -208,7 +207,7 @@ class SEBase:
     def _basis(self) -> Optional[np.ndarray]:
         return None  # full state; SubspacePrior returns its VK
 
-    def _solve_plain(self, z: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _solve_plain(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         """Batched chord-Newton with the shared weights (the WLS solve)."""
         VK = self._basis()
         B_, Ai = (
@@ -219,11 +218,11 @@ class SEBase:
         c = np.zeros((z.shape[0], B_.shape[1]))
         for _ in range(self.iters):
             x = self.xmean + (c @ VK.T if VK is not None else c)
-            hz = self._h(x, vsl, thsl)
+            hz = self._h(x, thsl)
             c = c + ((z - hz) * self.Wk) @ B_ @ Ai.T
         return self.xmean + (c @ VK.T if VK is not None else c)
 
-    def _w_solve(self, z: np.ndarray, w: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _w_solve(self, z: np.ndarray, w: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         """Chord-Newton with PER-RECORD weights and the divergence guard.
 
         The frozen Jacobian stops being a contraction when many measurements are down-weighted,
@@ -240,7 +239,7 @@ class SEBase:
         best_c, best_J = c.copy(), np.full(n, np.inf)
         for _ in range(self.iters):
             x = self.xmean + (c @ VK.T if VK is not None else c)
-            hz = self._h(x, vsl, thsl)
+            hz = self._h(x, thsl)
             J = (w * (z - hz) ** 2).sum(axis=1)
             ok = np.isfinite(J) & (J < best_J)
             best_J = np.where(ok, J, best_J)
@@ -249,23 +248,23 @@ class SEBase:
             c = np.where(np.isfinite(c), c, best_c)
         return self.xmean + (best_c @ VK.T if VK is not None else best_c)
 
-    def _nres(self, x: np.ndarray, z: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _nres(self, x: np.ndarray, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         """Residuals normalized by the residual covariance diagonal."""
-        return np.abs(z - self._h(x, vsl, thsl)) / np.sqrt(self._om)[None, :]
+        return np.abs(z - self._h(x, thsl)) / np.sqrt(self._om)[None, :]
 
-    def _solve(self, z: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        return self._solve_plain(z, vsl, thsl)  # WLS; robust subclasses override
+    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+        return self._solve_plain(z, thsl)  # WLS; robust subclasses override
 
     # ---- public API -------------------------------------------------------------------------
     def estimate(self, ds: "FdiaGraph", chunk: int = 1000) -> np.ndarray:
-        """Estimated states [n, 2(N-1)] = [theta rad | V pu] at non-slack buses, record order."""
+        """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order."""
         d = ds.to_numpy(["node_x", "edge_x", "clean"])
-        tr = self._truth_of(d["clean"])  # slack reference only; the true state is never read here
+        tr = self._truth_of(d["clean"])  # slack angle reference only; the true state is never read here
         z = self._z_of(d["node_x"], d["edge_x"])
         out = np.empty((z.shape[0], self.SD))
         for s in range(0, z.shape[0], chunk):
             e = slice(s, s + chunk)
-            out[e] = self._solve(z[e], tr["vsl"][e], tr["thsl"][e])
+            out[e] = self._solve(z[e], tr["thsl"][e])
         return out
 
     def score(self, ds: "FdiaGraph", chunk: int = 1000) -> Dict[str, Dict[str, float]]:
@@ -276,7 +275,7 @@ class SEBase:
         est = self.estimate(ds, chunk=chunk)
         d = ds.to_numpy(["family", "clean"])
         tr = self._truth_of(d["clean"])
-        ns = len(self.keep)
+        ns = len(self.keep)  # angle block; voltage block covers ALL N buses (2N-1 state)
         err = est - tr["x"]
         ang = np.abs(err[:, :ns]).mean(axis=1) * 180.0 / np.pi
         volt = np.abs(err[:, ns:]).mean(axis=1)

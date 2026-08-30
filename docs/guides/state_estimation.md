@@ -17,14 +17,15 @@ train = fg.load("ieee14", split="train")
 test  = fg.load("ieee14", split="test")
 
 wls = WLS().fit(train)                 # calibrates meter weights from benign residuals
-xhat = wls.estimate(test)              # [n, 2(N-1)] = [theta rad | V pu] at non-slack buses
-print(wls.score(test)["geo"])          # {'angle_mae_deg': 0.107, 'voltage_mae_pu': 2.87e-4}
+xhat = wls.estimate(test)              # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
+print(wls.score(test)["geo"])          # {'angle_mae_deg': 0.108, 'voltage_mae_pu': 6.06e-4}
 ```
 
 `fit()` learns everything from the train split: per-meter error scales (rms of benign residuals at
 the shard's `clean` truth) and the chord Jacobian. `estimate()` returns states already in the truth's
-angle frame — the slack bus is excluded from the state and pinned per record to `clean[slack]`, so
-`xhat - truth` needs no alignment step.
+angle frame — the state is the classical 2N-1 vector (only the slack ANGLE is fixed, pinned per
+record to `clean[slack]`; every voltage magnitude including the slack is estimated, matching
+production practice and pandapower's estimator), so `xhat - truth` needs no alignment step.
 
 ## The better estimator
 
@@ -32,14 +33,16 @@ angle frame — the slack bus is excluded from the state and pinned per record t
 from fdia_graph.se import SubspacePrior
 
 est = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
-print(est.score(test)["geo"])          # {'angle_mae_deg': 0.059, 'voltage_mae_pu': 1.58e-4}
+print(est.score(test)["geo"])          # {'angle_mae_deg': 0.059, 'voltage_mae_pu': 1.47e-4}
 ```
 
 The prior restricts the estimate to the low-dimensional subspace benign operation actually occupies
 (an SVD of the training states), and the Huber reweighting discards measurements the physics cannot
-explain. On the IEEE 14-bus test partition that is **45 percent lower angle error and 45 percent
-lower voltage error** than the audited WLS baseline (0.107° → 0.059°, geometric mean over the seven
-record classes, v0.7.2 data).
+explain. On the IEEE 14-bus test partition that is **45 percent lower angle error and 76 percent
+lower voltage error** than the audited WLS baseline (0.108° → 0.059° and 6.06e-4 → 1.47e-4 pu,
+geometric mean over the seven record classes, v0.7.2 data). Much of the voltage gain comes from the
+prior learning the generator voltage setpoints from benign history, structure WLS re-estimates from
+noisy meters at every scan.
 
 Validation-selected hyperparameters per system, from the companion estimation paper:
 
@@ -68,7 +71,7 @@ sharing the same iteration and weights so comparisons are estimator-vs-estimator
 method, subclass `SEBase` and override one hook:
 
 - `_fit_states(x_benign)` — learn anything from the benign training states
-- `_basis()` — return a `[2(N-1), K]` basis to restrict the state space (or `None` for full)
+- `_basis()` — return a `[2N-1, K]` basis to restrict the state space (or `None` for full)
 - `_solve(z, vsl, thsl)` — the per-batch solve; `self._w_solve(...)` gives you the
   divergence-guarded weighted iteration and `self._nres(...)` normalized residuals
 
