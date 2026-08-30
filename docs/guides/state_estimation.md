@@ -72,7 +72,8 @@ method, subclass `SEBase` and override one hook:
 
 - `_fit_states(x_benign)` — learn anything from the benign training states
 - `_basis()` — return a `[2N-1, K]` basis to restrict the state space (or `None` for full)
-- `_solve(z, vsl, thsl)` — the per-batch solve; `self._w_solve(...)` gives you the
+- `_solve(z, thsl)` — the per-batch solve (`thsl` is the per-record slack angle reference);
+  `self._w_solve(...)` gives you the
   divergence-guarded weighted iteration and `self._nres(...)` normalized residuals
 
 The classes are verified per-record equivalent to the estimation paper's solver, so results slot
