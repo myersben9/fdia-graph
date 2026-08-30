@@ -28,11 +28,11 @@ class AdaptiveWeighting(SEBase):
             raise ValueError(f"c must be > 0, got {c}")
         self.c = c
 
-    def _solve(self, z: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        x = self._solve_plain(z, vsl, thsl)
+    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+        x = self._solve_plain(z, thsl)
         for _ in range(self.npass):
-            a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z, vsl, thsl), 1e-9))
-            x = self._w_solve(z, self.Wk * a, vsl, thsl)
+            a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z, thsl), 1e-9))
+            x = self._w_solve(z, self.Wk * a, thsl)
         return x
 
 
@@ -67,11 +67,11 @@ class ResidualRemoval(SEBase):
             return False
         return ev.max() / ev.min() <= self.cond_mult * self._cond_full
 
-    def _solve(self, z: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         keep = np.ones_like(z)
-        x = self._w_solve(z, self.Wk * keep, vsl, thsl)
+        x = self._w_solve(z, self.Wk * keep, thsl)
         for _ in range(self.npass):
-            rN = self._nres(x, z, vsl, thsl)
+            rN = self._nres(x, z, thsl)
             bad = (rN > self.threshold) & (keep > 0) & (~self.critical)[None, :]
             if not bad.any():
                 break
@@ -89,7 +89,7 @@ class ResidualRemoval(SEBase):
                     trial[half] = keep[i][half]
                 prop[i] = trial
             keep = prop
-            x = self._w_solve(z, self.Wk * keep, vsl, thsl)
+            x = self._w_solve(z, self.Wk * keep, thsl)
         return x
 
 
@@ -133,11 +133,11 @@ class SubspacePrior(SEBase):
     def _basis(self) -> np.ndarray:
         return self.VK
 
-    def _solve(self, z: np.ndarray, vsl: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        x = self._solve_plain(z, vsl, thsl)
+    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+        x = self._solve_plain(z, thsl)
         if self.reweight is None:
             return x
         for _ in range(self.npass):
-            a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z, vsl, thsl), 1e-9))
-            x = self._w_solve(z, self.Wk * a, vsl, thsl)
+            a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z, thsl), 1e-9))
+            x = self._w_solve(z, self.Wk * a, thsl)
         return x
