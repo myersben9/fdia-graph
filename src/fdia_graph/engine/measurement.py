@@ -55,6 +55,22 @@ class MeasurementMixin(GridBase):
                 em[e] = 1
         return nx, nm, ex, em
 
+    def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray:
+        # Batched, noiseless sibling of emit_from_state's Sf: exact from-end branch flows for a whole stack of
+        # states in one matmul (the per-frame version above is O(T) sparse multiplies). Used to build the clean
+        # SE-target edge layer shared by the single-timestamp shards and the streams, so both go through this one
+        # physics primitive instead of re-deriving Ybus flows in the loader/generator.
+        # X is [T, N, 4] in pool column order [Pinj, Qinj, |V|, angle]; only |V| (col 2) and angle (col 3) enter.
+        # Returns [T, E, 2] = [P_from MW, Q_from MVAr], unmetered branches zeroed to match emit()'s flow mask.
+        X = np.asarray(X, float)
+        C = X.shape[1]
+        Vc = np.zeros((len(X), self._nppc), complex)
+        Vc[:, self._lut[np.arange(C)]] = X[:, :, 2] * np.exp(1j * np.deg2rad(X[:, :, 3]))
+        Sf = Vc[:, self._fb] * np.conj((self._Yf @ Vc.T).T) * self._bMVA  # sparse@dense, then transpose back
+        ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
+        ec[:, ~np.asarray(self.flow_meter, bool), :] = 0.0
+        return ec
+
     def state_from_net(self, net: Any) -> np.ndarray:
         # Pull operating state [N,4]=[Pinj, Qinj, |V|, theta] from a SOLVED net, matching the stored pool.
         Pi = net.res_bus.p_mw.values.copy()

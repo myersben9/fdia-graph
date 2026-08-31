@@ -507,11 +507,7 @@ def _write(
         if states is not None:
             Xp = np.asarray(states, np.float64)[: int(tstep.max()) + 1]
             nc = np.stack([Xp[:, :, 2], Xp[:, :, 0], Xp[:, :, 1], Xp[:, :, 3]], axis=2).astype(np.float32)
-            Vc = np.zeros((len(Xp), g._nppc), complex)
-            Vc[:, g._lut[np.arange(C)]] = Xp[:, :, 2] * np.exp(1j * np.deg2rad(Xp[:, :, 3]))
-            Sf = Vc[:, g._fb] * np.conj((g._Yf @ Vc.T).T) * g._bMVA
-            ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
-            ec[:, ~np.asarray(g.flow_meter, bool), :] = 0.0
+            ec = g.clean_flows_from_states(Xp)  # exact Ybus from-end flows, unmetered branches zeroed
             cg = f.create_group("clean")
             cch = (min(128, len(Xp)),)  # same chunk+gzip pattern as the per-record arrays
             cg.create_dataset(  # [Tpool,N,4] noiseless truth per pool timestep

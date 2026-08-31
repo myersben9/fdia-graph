@@ -95,7 +95,6 @@ def generate_stream(
     has_ramp = 5 in fam_ids
 
     E = g.E
-    fmeter = np.asarray(g.flow_meter, bool)  # which branches carry a flow meter (same mask emit() uses)
     node_x = np.zeros(
         (T, C, 4), np.float32
     )  # OBSERVED node feed: attacked+noisy where attacked, else benign+noisy
@@ -108,14 +107,10 @@ def generate_stream(
         (T, E, 2), np.float32
     )  # NOISELESS true branch flows (metered branches only, matching edge_x)
 
-    # Precompute all noiseless from-end flows Sf = V_from*conj(Yf@V)*baseMVA in ONE batched matmul over the
-    # whole timeline (vs a per-frame sparse multiply). Masked to metered branches so edge_clean shares the
-    # availability pattern of edge_x/edge_benign -> edge_benign - edge_clean is meter noise on measured channels.
-    Vc_all = np.zeros((T, g._nppc), complex)
-    Vc_all[:, g._lut[np.arange(C)]] = X[:T, :, 2] * np.exp(1j * np.deg2rad(X[:T, :, 3]))
-    Sf_all = Vc_all[:, g._fb] * np.conj((g._Yf @ Vc_all.T).T) * g._bMVA  # sparse@dense, then transpose
-    edge_clean_full = np.stack([Sf_all.real, Sf_all.imag], axis=2).astype(np.float32)
-    edge_clean_full[:, ~fmeter, :] = 0.0  # zero unmetered branches (matches emit() masking)
+    # All noiseless from-end flows over the whole timeline in one batched matmul (masked to metered branches, so
+    # edge_ben - edge_cln is the meter error, systematic bias plus per-scan jitter, on the measured channels).
+    # Shared physics primitive, see engine.
+    edge_clean_full = g.clean_flows_from_states(X[:T])
     y = np.zeros((T, C), np.uint8)
     fam = np.zeros(T, np.int16)
     td_all = np.zeros((T, C, 2), np.float32)
