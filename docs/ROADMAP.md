@@ -12,6 +12,7 @@ src/fdia_graph/          (the package root)
 ├── streams.py torch_data.py               SDK: stream path
 ├── generation.py profiles.py              SDK: generation drivers
 ├── se/                              state estimation (WLS, robust, subspace prior)
+├── localization/                    per-bus attack localization (swing, delta, residual)
 └── engine/                          theory: FdiaGenerator
     ├── core.py                        assembly + targeting
     ├── measurement.py                 meters + noise  h(x)
@@ -37,6 +38,7 @@ How the three paths connect (generate produces the shard the load path serves):
 | `generation.py` | `generate()`: drives the engine over a state pool, writes + registers the shard. |
 | `profiles.py` | ISO load profiles (NYISO/CAISO/ERCOT) → normalized scaling → AC operating-state pools. |
 | `se/` | sklearn-style state estimation: `SEBase` chord-Newton core + WLS/robust/prior classes. |
+| `localization/` | sklearn-style per-bus localization: `LocalizerBase` FA-budget calibration + swing/delta/residual classes. |
 
 ## `engine/` — the physics, meters, and attack math
 
@@ -51,7 +53,10 @@ How the three paths connect (generate produces the shard the load path serves):
 ## Docs layout
 
 `docs/reference/` is lookup material, `docs/guides/` is task walkthroughs, `docs/figures/` holds
-every image and data sidecar. New docs go in one of the first two.
+every image and data sidecar. `docs/se/` and `docs/localization/` are per-module example folders:
+a runnable script, a README that reads the results, and the `results/` it produced (metrics JSON,
+figure, CSV sidecar). New docs go in reference or guides; new module examples get a folder like
+those two.
 
 ## Reading order for new students
 
