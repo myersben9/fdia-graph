@@ -1,0 +1,62 @@
+site_name: fdia-graph
+site_description: Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line
+site_url: https://fdia.artecommercellc.com
+repo_url: https://github.com/myersben9/fdia-graph
+repo_name: myersben9/fdia-graph
+docs_dir: docs
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/transmission-tower
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Roadmap: ROADMAP.md
+  - Guides:
+      - State estimation: guides/state_estimation.md
+  - Reference:
+      - Data dictionary: reference/DATA_DICTIONARY.md
+      - Concepts to code: reference/CONCEPTS_TO_CODE.md
+      - Examples: reference/EXAMPLES.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/fdia-graph/
+    - icon: fontawesome/brands/github
+      link: https://github.com/myersben9/fdia-graph

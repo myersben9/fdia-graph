@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pip install mkdocs-material==9.7.7 && python scripts/site_index.py && mkdocs build",
+  "outputDirectory": "site",
+  "framework": null
+}
