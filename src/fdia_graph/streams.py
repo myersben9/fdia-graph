@@ -108,7 +108,7 @@ def generate_stream(
     )  # NOISELESS true branch flows (metered branches only, matching edge_x)
 
     # All noiseless from-end flows over the whole timeline in one batched matmul (masked to metered branches, so
-    # edge_benign - edge_clean is meter noise on the measured channels). Shared physics primitive, see engine.
+    # edge_ben - edge_cln is meter noise on the measured channels). Shared physics primitive, see engine.
     edge_clean_full = g.clean_flows_from_states(X[:T])
     y = np.zeros((T, C), np.uint8)
     fam = np.zeros(T, np.int16)
