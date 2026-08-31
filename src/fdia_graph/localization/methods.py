@@ -89,9 +89,10 @@ class ResidualLocalizer(LocalizerBase):
         incm = inc[:, self.est.mask]  # restrict to measurements that actually exist
         self._inc = [np.where(incm[b])[0] for b in range(N)]
 
-    def _score(self, d: Dict[str, np.ndarray], chunk: int = 1000) -> np.ndarray:
+    def _score(self, d: Dict[str, np.ndarray]) -> np.ndarray:
         # Same-package composition: the estimator's conversion/solve/residual internals are the
         # protocol being scored, so they are used directly rather than re-implemented here.
+        chunk = 1000  # solve in blocks; matches SEBase.estimate's chunking
         est = self.est
         z = est._z_of(d["node_x"], d["edge_x"])
         thsl = est._truth_of(d["clean"])["thsl"]  # slack angle reference only; truth never read

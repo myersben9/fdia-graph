@@ -43,7 +43,7 @@ rows = list(methods)
 A = np.array([[report[m][f]["angle_mae_deg"] for f in fams] for m in rows])
 plt.rcParams.update({"font.size": 8, "font.family": "serif"})
 fig, ax = plt.subplots(figsize=(4.6, 1.9))
-im = ax.imshow(A, cmap="RdYlGn_r", vmin=0.0, vmax=max(A.max(), 1e-9), aspect="auto")
+ax.imshow(A, cmap="RdYlGn_r", vmin=0.0, vmax=max(A.max(), 1e-9), aspect="auto")
 for i in range(A.shape[0]):
     for j in range(A.shape[1]):
         ax.text(j, i, f"{A[i, j]:.3f}", ha="center", va="center", fontsize=8)

@@ -40,7 +40,7 @@ rows = list(methods)
 F1 = np.array([[report[m][f]["node_f1"] for f in fams] for m in rows])
 plt.rcParams.update({"font.size": 8, "font.family": "serif"})
 fig, ax = plt.subplots(figsize=(4.2, 1.9))
-im = ax.imshow(F1, cmap="RdYlGn", vmin=0.0, vmax=1.0, aspect="auto")
+ax.imshow(F1, cmap="RdYlGn", vmin=0.0, vmax=1.0, aspect="auto")
 for i in range(F1.shape[0]):
     for j in range(F1.shape[1]):
         ax.text(j, i, f"{F1[i, j]:.2f}", ha="center", va="center", fontsize=8)
