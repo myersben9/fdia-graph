@@ -47,6 +47,9 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Roadmap: ROADMAP.md
+  - Modules:
+      - State estimation: se/README.md
+      - Localization: localization/README.md
   - Guides:
       - State estimation: guides/state_estimation.md
   - Reference:
