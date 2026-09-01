@@ -5,7 +5,7 @@
     train = fg.load("ieee118", split="train")
     test = fg.load("ieee118", split="test")
     est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(train)
-    xhat = est.estimate(test)      # [n, 2(N-1)] = [theta rad | V pu] at non-slack buses
+    xhat = est.estimate(test)      # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
     print(est.score(test))         # per-family angle/voltage MAE vs the clean truth
 
 Every class shares one chord-Newton iteration, Jacobian and starting point and differs only in the
