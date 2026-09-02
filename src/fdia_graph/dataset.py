@@ -395,7 +395,9 @@ class FdiaGraph:
         return Data(
             x=item["node_x"],
             edge_index=self.edge_index,  # node features + connectivity
-            edge_attr=item["edge_x"],
+            edge_attr=item["edge_x"],  # PyG's conventional slot for the [E,2] branch flows ...
+            edge_x=item["edge_x"],  # ... and the same tensor under the dict-format name, so
+            # `batch.edge_x` works in both formats (same object, no copy until batching)
             y=item["y"],  # edge features + labels
             node_mask=item["node_m"],
             edge_mask=item["edge_m"],  # carry the availability masks through

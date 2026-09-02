@@ -12,7 +12,15 @@ for batch in loader:
     batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"]
 ```
 
-**New here?** [`docs/ROADMAP.md`](docs/ROADMAP.md) — the SDK/engine split + how the files connect · [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) — what every array means · [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) — paper equations → functions · [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) — runnable baselines, streams, stats · [`docs/guides/state_estimation.md`](docs/guides/state_estimation.md) — beating WLS.
+**New here?**
+
+| Read | To learn |
+|---|---|
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what |
+| [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) | what every array means |
+| [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations → functions |
+| [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, streams, dataset stats |
+| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) | the two analysis modules, with real results |
 
 ## Install
 
@@ -20,10 +28,11 @@ for batch in loader:
 pip install fdia-graph              # loader
 pip install "fdia-graph[torch]"     # + PyTorch DataLoader
 pip install "fdia-graph[pyg]"       # + torch_geometric
+pip install "fdia-graph[se]"        # + state estimation / residual localization (torch + pandapower)
 pip install "fdia-graph[generate]"  # + pandapower, to generate custom data
 ```
 
-Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. Pin a version with
+Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. Pin a data version with
 `fg.load(..., release="v0.7.2")`; `pip install --upgrade fdia-graph` moves it forward.
 
 ## Load
@@ -34,28 +43,43 @@ fg.load("ieee118", split="test", families=["Aq","At","Al"])    # family subset
 fg.load("ieee118", units="pu")                                 # per-unit + radians (default is physical)
 ```
 
-Whole split at once: `ds.to_numpy()` / `.to_torch()` / `.to_pandas()`. Custom data:
-`fg.generate(system, name, per_family=..., attack_intensity=..., ...)` then `fg.load(name)`.
-Continuous timeline for LSTM/TGN: `fg.load_stream(system)`. Both in [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md).
+- Whole split at once: `ds.to_numpy()` / `.to_torch()` / `.to_pandas()`.
+- Custom data: `fg.generate(system, name, per_family=..., attack_intensity=..., ...)` then `fg.load(name)`.
+- Continuous timeline for LSTM/TGN: `fg.load_stream(system)`.
+
+Details for all three in [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md).
 
 ## State estimation
 
 ```python
 from fdia_graph.se import WLS, SubspacePrior   # pip install "fdia-graph[se]"
 
-test = fg.load("ieee118", split="test")
-est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(fg.load("ieee118", split="train"))
+train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
+est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(train)
 xhat = est.estimate(test)          # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
 print(est.score(test))             # per-family angle/voltage MAE vs the clean truth
 ```
 
-`WLS`, `AdaptiveWeighting`, `ResidualRemoval` and `SubspacePrior` share one chord-Newton
-iteration, Jacobian and starting point and differ only in state space and weights — the audited
-protocol of the companion estimation paper, verified equivalent to its solver per record.
+`WLS`, `AdaptiveWeighting`, `ResidualRemoval`, `SubspacePrior` share one solver and differ only in
+state space and weights. Results and a walkthrough: [`docs/se/`](docs/se/README.md).
+
+## Localization
+
+```python
+from fdia_graph.localization import SwingThreshold   # numpy only
+
+loc = SwingThreshold(fa_target=0.01).fit(train)     # per-bus thresholds from benign records only
+flag = loc.localize(test)                           # [n, N] bool: which buses are called attacked
+print(loc.score(test))                              # per-family node-F1, strict accuracy, DR next to FA
+```
+
+`SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer` share one calibration and metric protocol and
+differ only in the per-bus score. Results: [`docs/localization/`](docs/localization/README.md).
 
 ## Data
 
-Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges). Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch, `[2,E]` = 2 rows × E branches. Full reference in [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
+Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges).
+Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch.
 
 ```
 node_x [N,4] = [ |V|, P_inj, Q_inj, theta ]      bus meters      node_m [N,4] = mask
@@ -68,11 +92,13 @@ clean [N,4] = [ |V|, P_inj, Q_inj, theta ]       noiseless truth, all buses (SE 
 edge_clean [E,2] = [ P_from, Q_from ]            noiseless true flows (unmetered branches zeroed)
 ```
 
+In `format="pyg"` the flows are `Data.edge_attr` (alias `Data.edge_x`) and the mask is `edge_mask`.
+Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
+
 ## Attacks
 
-Three **stealthy** families that evade classical bad-data detection, plus three **detectable** ones as a
-contrast set. Every per-bus change stays in a plausibility band (≈2% noise floor to 20% cap); meter error
-follows an accuracy-class model.
+Three **stealthy** families that evade classical bad-data detection (BDD), plus three **detectable**
+ones as a contrast set.
 
 | family | attack | classical BDD |
 |--------|--------|---------------|
@@ -81,8 +107,15 @@ follows an accuracy-class model.
 | `Al` | targeted load redistribution (hides overloads) | evades |
 | `Ad` / `As` / `Ar` | meter corruption / scaling / replay | caught |
 
-Report **per-family node-F1** with the false-alarm rate, not accuracy (clean buses dominate). A lightweight
-per-bus MLP reaches ~0.92 localization macro-F1; see [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md).
+![BDD statistic per family: the three stealthy families sit below the alarm line with benign, the three tampering families sit far above it](docs/figures/fig_bdd.png)
+
+*Bad-data statistic J relative to the alarm threshold, per family (Aq is labeled A_o here). Green
+families are indistinguishable from benign; red ones trip the alarm.*
+
+- Every per-bus change stays in a plausibility band: 2% noise floor to 20% cap.
+- Meter error follows an accuracy-class model (per-meter bias plus per-scan jitter).
+- Report **per-family node-F1 with the false-alarm rate**, not accuracy: clean buses dominate.
+- A lightweight per-bus MLP reaches ~0.92 localization macro-F1 (see the examples page).
 
 ## Citation
 
@@ -96,5 +129,5 @@ Cite the attack- and measurement-model sources:
 
 ## License
 
-Data under CC BY 4.0, code under MIT (see `LICENSE`). Synthetic, from public IEEE cases — not for
+Data under CC BY 4.0, code under MIT (see `LICENSE`). Synthetic, from public IEEE cases. Not for
 operational decisions.
