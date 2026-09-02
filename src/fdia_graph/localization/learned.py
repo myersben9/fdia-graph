@@ -1,5 +1,5 @@
 """Learned per-bus localizers: the graph-free encoders that gave the best localization numbers in
-the federated localization paper, on the papers' 14-dim per-bus feature vector.
+the federated localization paper, on that paper's 14-dim per-bus feature vector.
 
 Both classes are LocalizerBase methods, so they drop into the same calibration and metrics as the
 threshold arms. Two things differ from the threshold arms and follow the paper instead:
