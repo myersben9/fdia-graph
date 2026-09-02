@@ -86,7 +86,8 @@ node_x [N,4] = [ |V|, P_inj, Q_inj, theta ]      bus meters      node_m [N,4] = 
 edge_x [E,2] = [ P_from, Q_from ]                branch flow     edge_m [E,2] = mask
 edge_index [2,E] = [ from_bus; to_bus ]          connectivity
 edge_attr  [E,8] = [ r,x,b,g,gs,bs,tap,shift ]   static line physics  (ds.edge_attr)
-y [N] = attacked (1) / clean (0)                 localization target
+y [N] = attacked (1) / clean (0)                 localization target: WHICH buses
+family = 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al   per record: WHICH attack (fg.FAMILIES)
 swing [N,2], temporal_delta [N,2]                temporal features
 clean [N,4] = [ |V|, P_inj, Q_inj, theta ]       noiseless truth, all buses (SE target, v0.7.2+)
 edge_clean [E,2] = [ P_from, Q_from ]            noiseless true flows (unmetered branches zeroed)

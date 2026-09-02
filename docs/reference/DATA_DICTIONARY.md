@@ -14,12 +14,29 @@ edge_x [E,2]    = [ P_from , Q_from ]                 power leaving branch (sign
 edge_m [E,2]    = 1 metered / 0 not
 edge_index [2,E]= [ from_bus ; to_bus ]               connectivity
 edge_attr  [E,8]= [ r, x, b, g, gs, bs, tap, shift ]  static branch electrical properties
-y [N]           = 1 attacked / 0 clean                localization target
+y [N]           = 1 attacked / 0 clean                localization target: WHICH buses
+family          = 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al   per record: WHICH attack
 temporal_delta [N,2] = scan-to-scan [ΔP, ΔQ]
 swing [N,2]     = temporal_delta as a z-score of recent volatility
 clean [N,4]     = [ |V| , P_inj , Q_inj , theta ]     noiseless truth, ALL buses (SE target, v0.7.2+)
 edge_clean [E,2]= [ P_from , Q_from ]                 noiseless true flows (unmetered branches zeroed)
 ```
+
+## Labels: `y` says which buses, `family` says which attack
+
+Two fields, two questions. `y` `[N]` is binary per bus because a bus is either tampered with or not.
+`family` is one code per record because each record carries exactly one attack (or none).
+
+| | shape | values | in a batch |
+|---|---|---|---|
+| `y` | `[N]` | 0 clean, 1 attacked | `batch["y"]` `[B,N]` (PyG: `batch.y` `[B*N]`) |
+| `family` | scalar | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al | `batch["family"]` `[B]` (PyG: `batch.family` `[B]`) |
+
+- Names: `fg.FAMILIES[code]`. Stealthy subset: `fg.STEALTHY_FAMILIES` = `{1, 5, 6}`.
+- Per-bus family label, if a model needs one: `y * family[:, None]` gives `[B,N]` with 0 on clean buses.
+- Every attacked record flags at least one bus. Benign records flag none.
+- Per-family evaluation: filter by `family` and score `y` inside each group. `fg.load(..., families=[...])`
+  does the filtering at load time.
 
 ## `node_x` `[N,4]`: bus measurements (voltage first)
 
@@ -67,8 +84,7 @@ reactance `[E]` (column 1 of `edge_attr`). Flows are per record, so they only ex
 | `edge_x` | `[E,2]` | `[P_from, Q_from]`, power leaving the from-end (sign = direction). MW/MVAr or pu. |
 | `node_m`, `edge_m` | `[N,4]`, `[E,2]` | `1` metered, `0` not. Metering is sparse: read the mask. |
 | `edge_index` | `[2,E]` | row 0 from-bus, row 1 to-bus |
-| `y` | `[N]` | per-bus attack label |
-| `family` | scalar | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (Aq = paper `A_o`) |
+| `y`, `family` | `[N]`, scalar | see Labels above (Aq = paper `A_o`) |
 | `stealthy` | scalar | 1 for the re-solve families `Aq`/`At`/`Al` (BDD-evading by construction), 0 for benign and `Ad`/`As`/`Ar` |
 | `split` | scalar | 0/1/2 = train/val/test |
 | `timestep` | scalar | position in the source load profile |
