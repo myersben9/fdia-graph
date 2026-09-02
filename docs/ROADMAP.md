@@ -62,7 +62,7 @@ How the three paths connect (generate produces the shard the load path serves):
 | `docs/reference/` | lookup material (data dictionary, concept map, examples) |
 | `docs/guides/` | task walkthroughs |
 | `docs/figures/` | every shared image and its data sidecar |
-| `docs/se/`, `docs/localization/` | per-module example folders: a runnable script, a README that reads the results, and the `results/` it produced |
+| `docs/se/`, `docs/localization/` | per-module example folders: `run_*.py` fits one system and writes `results/*.json`, `make_report.py` turns the JSON into the README tables and figures (paper layouts), and the README reads them for IEEE 14 / 118 / 300 |
 
 New docs go in `reference/` or `guides/`. A new analysis module gets an example folder like the two above.
 

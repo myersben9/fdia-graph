@@ -92,17 +92,18 @@ Results: [`docs/localization/`](docs/localization/README.md).
 Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges).
 Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch.
 
-```
-node_x [N,4] = [ |V|, P_inj, Q_inj, theta ]      bus meters      node_m [N,4] = mask
-edge_x [E,2] = [ P_from, Q_from ]                branch flow     edge_m [E,2] = mask
-edge_index [2,E] = [ from_bus; to_bus ]          connectivity
-edge_attr  [E,8] = [ r,x,b,g,gs,bs,tap,shift ]   static line physics  (ds.edge_attr)
-y [N] = attacked (1) / clean (0)                 localization target: WHICH buses
-family = 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al   per record: WHICH attack (fg.FAMILIES)
-swing [N,2], temporal_delta [N,2]                temporal features
-clean [N,4] = [ |V|, P_inj, Q_inj, theta ]       noiseless truth, all buses (SE target, v0.7.2+)
-edge_clean [E,2] = [ P_from, Q_from ]            noiseless true flows (unmetered branches zeroed)
-```
+| field | shape | columns | meaning |
+|---|---|---|---|
+| `node_x` | `[N,4]` | <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` | bus meters (`node_m` `[N,4]` is the mask) |
+| `edge_x` | `[E,2]` | `P_from`, `Q_from` | branch flows (`edge_m` `[E,2]` is the mask) |
+| `edge_index` | `[2,E]` | `from_bus`; `to_bus` | connectivity |
+| `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`ds.edge_attr`) |
+| `y` | `[N]` | | 1 attacked, 0 clean. Which buses |
+| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al. Which attack (`fg.FAMILIES`) |
+| `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | temporal features |
+| `clean` | `[N,4]` | same as `node_x` | noiseless truth, all buses. SE target (v0.7.2+) |
+| `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
+| `slack` | scalar | | index of the reference bus (`ds.slack`, `Data.slack` in PyG) |
 
 In `format="pyg"` the flows are `Data.edge_attr` (alias `Data.edge_x`) and the mask is `edge_mask`.
 Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
