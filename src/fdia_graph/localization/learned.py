@@ -121,17 +121,23 @@ class LearnedLocalizer(LocalizerBase):
         torch.manual_seed(self.seed)
         self.dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.net = self._build(self.N).to(self.dev)
-        Xt, Yt = torch.from_numpy(Xs).to(self.dev), torch.from_numpy(Y).to(self.dev)
+        # The full split stays on the CPU (pinned when a GPU is used) and only each batch crosses to
+        # the device, so the big systems train inside a bounded device footprint like scoring does.
+        Xt, Yt = torch.from_numpy(Xs), torch.from_numpy(Y)
+        if self.dev != "cpu":
+            Xt, Yt = Xt.pin_memory(), Yt.pin_memory()
         opt = torch.optim.AdamW(self.net.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.pos_weight, device=self.dev))
         gen = torch.Generator().manual_seed(self.seed)
         self.net.train()
         for _ in range(self.epochs):
-            perm = torch.randperm(len(Xt), generator=gen).to(self.dev)
+            perm = torch.randperm(len(Xt), generator=gen)
             for i in range(0, len(Xt), self.batch_size):
                 j = perm[i : i + self.batch_size]
+                xb = Xt[j].to(self.dev, non_blocking=True)
+                yb = Yt[j].to(self.dev, non_blocking=True)
                 opt.zero_grad()
-                loss_fn(self.net(Xt[j]), Yt[j]).backward()
+                loss_fn(self.net(xb), yb).backward()
                 opt.step()
         self.net.eval()
 
