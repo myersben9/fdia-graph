@@ -115,10 +115,15 @@ class FdiaGraph:
             self._clean_np = f["clean/node_clean"][:] if "clean/node_clean" in f else None
             self._eclean_np = f["clean/edge_clean"][:] if "clean/edge_clean" in f else None
             self.has_clean = self._clean_np is not None
-            # Reference (slack) bus: the one bus whose clean angle is pinned across the whole pool.
-            # Derived, not stored, so it needs the clean layer (v0.7.2+); None otherwise.
+            # Reference (slack) bus. Explicit bus-type metadata wins when the shard carries it
+            # (ppc code 3 = REF); otherwise it is the one bus whose clean angle is pinned across
+            # the pool, which needs the clean layer (v0.7.2+) and more than one pool timestep.
             self.slack: Optional[int] = None
-            if self._clean_np is not None:
+            bt = self._phys.get("bus_type")
+            ref = np.where(bt == 3)[0] if bt is not None else np.empty(0, int)
+            if len(ref) == 1:
+                self.slack = int(ref[0])
+            elif self._clean_np is not None and len(self._clean_np) > 1:
                 pinned = np.where(self._clean_np[:, :, 3].std(axis=0) == 0.0)[0]
                 if len(pinned) == 1:
                     self.slack = int(pinned[0])

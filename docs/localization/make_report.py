@@ -33,7 +33,8 @@ ZERO_SHOT = [("mlp", "Per-bus MLP"), ("cnn", "**1D CNN**"), ("swing", "Swing thr
 
 res = {}
 for path in glob.glob(os.path.join(OUT, "loc_*.json")):
-    res[re.sub(r"^loc_|\.json$", "", os.path.basename(path))] = json.load(open(path))
+    with open(path) as fh:
+        res[re.sub(r"^loc_|\.json$", "", os.path.basename(path))] = json.load(fh)
 systems = [s for s in SYSTEMS if s in res]
 
 
