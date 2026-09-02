@@ -74,7 +74,18 @@ print(loc.score(test))                              # per-family node-F1, strict
 ```
 
 `SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer` share one calibration and metric protocol and
-differ only in the per-bus score. Results: [`docs/localization/`](docs/localization/README.md).
+differ only in the per-bus score. `BusCNN` and `BusMLP` are the papers' learned localizers on the
+14-dim per-bus feature vector (needs `[torch]`):
+
+```python
+from fdia_graph.localization import BusCNN
+
+zs = dict(families=[0, 1, 2])                        # papers' zero-shot protocol: As/Ar unseen in train
+cnn = BusCNN().fit(fg.load("ieee118", split="train", **zs), val=fg.load("ieee118", split="val", **zs))
+print(cnn.score(fg.load("ieee118", split="test", families=[0, 1, 2, 3, 4]))["all"]["macro_f1"])
+```
+
+Results: [`docs/localization/`](docs/localization/README.md).
 
 ## Data
 

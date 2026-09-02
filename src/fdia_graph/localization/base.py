@@ -90,16 +90,25 @@ class LocalizerBase:
         """Per-family localization metrics against the per-bus labels.
 
         For each attacked family: strict localization accuracy (predicted attacked set equals the
-        true set exactly), micro node precision/recall/F1 over bus calls, per-sample macro-F1, and
-        the record-level detection rate (any bus flagged). For benign: the record-level false-alarm
-        rate and the mean per-bus alarm rate (which fit calibrated to fa_target).
+        true set exactly), micro node precision/recall/F1 over bus calls, per-bus macro-F1 over the
+        buses that family attacks, per-sample macro-F1, and the record-level detection rate (any
+        bus flagged). For benign: the record-level false-alarm rate and the mean per-bus alarm rate
+        (which fit calibrated to fa_target). The "all" entry is always present and pools every
+        record, benign included; its macro_f1 (per-bus F1 averaged over attackable buses) is the
+        papers' headline number, and reads 0.0 when the dataset holds no attacked bus at all.
         """
         from ..dataset import FAMILIES
 
         d = self._pull(ds, extra=["family", "y"])
         pred = self._score(d) > self.thr[None, :]
         y = d["y"].astype(bool)
-        out: Dict[str, Dict[str, float]] = {}
+        act = y.any(axis=0)
+        out: Dict[str, Dict[str, float]] = {
+            "all": {
+                "macro_f1": float(_perbus_f1(pred, y)[act].mean()) if act.any() else 0.0,
+                "node_f1": _micro_f1(pred, y),
+            }
+        }
         for fid, name in FAMILIES.items():
             m = d["family"] == fid
             if not m.any():
@@ -116,12 +125,31 @@ class LocalizerBase:
             rec = tp / max(float(t.sum()), 1e-12)
             inter = (p & t).sum(axis=1).astype(np.float64)
             denom = np.maximum(p.sum(axis=1) + t.sum(axis=1), 1e-12)
+            act = t.any(axis=0)
             out[name] = {
                 "strict_acc": float((p == t).all(axis=1).mean()),
                 "node_precision": prec,
                 "node_recall": rec,
                 "node_f1": 2 * prec * rec / max(prec + rec, 1e-12),
+                "macro_f1": float(_perbus_f1(p, t)[act].mean()),
                 "sample_f1": float((2 * inter / denom).mean()),
                 "detection_rate": float(p.any(axis=1).mean()),
             }
         return out
+
+
+def _perbus_f1(pred: np.ndarray, truth: np.ndarray) -> np.ndarray:
+    """F1 per bus [N] over the record axis. Its mean over attackable buses is the papers'
+    localization macro-F1."""
+    tp = (pred & truth).sum(axis=0).astype(np.float64)
+    fp = (pred & ~truth).sum(axis=0).astype(np.float64)
+    fn = (~pred & truth).sum(axis=0).astype(np.float64)
+    return 2 * tp / (2 * tp + fp + fn + 1e-9)
+
+
+def _micro_f1(pred: np.ndarray, truth: np.ndarray) -> float:
+    """One F1 over every (record, bus) call."""
+    tp = float((pred & truth).sum())
+    prec = tp / max(float(pred.sum()), 1e-12)
+    rec = tp / max(float(truth.sum()), 1e-12)
+    return 2 * prec * rec / max(prec + rec, 1e-12)

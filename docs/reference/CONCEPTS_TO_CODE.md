@@ -17,7 +17,7 @@ engine; `se/` and `localization/` analyze the shards; the rest load and serve da
 | `dataset.py` | loader → tensors / PyG (what `fg.load` returns) |
 | `profiles.py` | real load series → operating points |
 | `se/` | state estimation classes (`WLS`, robust, `SubspacePrior`) |
-| `localization/` | per-bus localization classes (`SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer`) |
+| `localization/` | per-bus localization classes: threshold arms (`SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer`) and the papers' learned arms (`BusCNN`, `BusMLP`) |
 
 | engine/ file | formula it implements |
 |------|-----|
@@ -63,6 +63,16 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 Any above-noise attack spikes the swing, so localization is per-bus and needs no graph. The slow ramp
 `At` stays inside the swing, so it is the open case.
 
+## The papers' per-bus feature vector and localizers
+
+| concept | code |
+|---|---|
+| 14-dim per-bus vector: `[|V|,P,Q,θ]` + meter mask + partial KCL residual + `temporal_delta` + `swing` | `localization/learned.py` `full14`, `kcl_residual` |
+| standardize all 14 channels on train (sd floored at 1e-3) | `LearnedLocalizer._fit_stats` |
+| 1-D CNN across the bus axis (best localizer) | `BusCNN` |
+| per-bus MLP (lightweight arm) | `BusMLP` |
+| validation-best global threshold on a 0.05..0.95 grid | `LearnedLocalizer.tune_threshold` |
+
 ## Metrics
 
 | metric | definition | code |
@@ -71,4 +81,4 @@ Any above-noise attack spikes the swing, so localization is per-bus and needs no
 | per-sample macro-F1 | F1 per record, averaged | same |
 | strict localization accuracy | predicted attacked set equals the truth exactly | same |
 | DR with FA | detection rate, always reported next to the benign false-alarm rate | same |
-| localization macro-F1 | per-bus F1 averaged over attackable buses (the papers' number) | `EXAMPLES.md` `macro_f1` |
+| localization macro-F1 | per-bus F1 averaged over attackable buses (the papers' headline) | `LocalizerBase.score(...)["all"]["macro_f1"]`; also `EXAMPLES.md` `macro_f1` |
