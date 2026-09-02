@@ -14,31 +14,31 @@ edge_x [E,2]    = [ P_from , Q_from ]                 power leaving branch (sign
 edge_m [E,2]    = 1 metered / 0 not
 edge_index [2,E]= [ from_bus ; to_bus ]               connectivity
 edge_attr  [E,8]= [ r, x, b, g, gs, bs, tap, shift ]  static branch electrical properties
-y [N]           = 1 attacked / 0 clean                localization target
-swing [N,2]     = z-scored scan-to-scan change on [P,Q]
+y [N]           = 1 attacked / 0 clean                localization target: WHICH buses
+family          = 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al   per record: WHICH attack
+temporal_delta [N,2] = scan-to-scan [ΔP, ΔQ]
+swing [N,2]     = temporal_delta as a z-score of recent volatility
 clean [N,4]     = [ |V| , P_inj , Q_inj , theta ]     noiseless truth, ALL buses (SE target, v0.7.2+)
 edge_clean [E,2]= [ P_from , Q_from ]                 noiseless true flows (unmetered branches zeroed)
 ```
 
-## `edge_attr` `[E,8]` — static branch properties (per-unit, never change)
+## Labels: `y` says which buses, `family` says which attack
 
-| col | name | meaning |
-|-----|------|---------|
-| 0 | `r` | series **impedance**, real part (resistance) — `Z = r + jx` |
-| 1 | `x` | series impedance, imag part (reactance) |
-| 2 | `b` | line-charging susceptance (shunt) |
-| 3 | `g` | shunt conductance (usually 0) |
-| 4 | `gs` | series **admittance**, real part (conductance) — `Y = 1/(r+jx) = gs + j·bs` |
-| 5 | `bs` | series admittance, imag part (susceptance) |
-| 6 | `tap` | transformer tap ratio (1.0 = plain line) |
-| 7 | `shift` | transformer phase shift, degrees (0 = plain line) |
+Two fields, two questions. `y` `[N]` is binary per bus because a bus is either tampered with or not.
+`family` is one code per record because each record carries exactly one attack (or none).
 
-`r,x` (impedance) and `gs,bs` (admittance) are the same branch inverted (`Y = 1/Z`) — both included so you
-don't have to compute one from the other.
+| | shape | values | in a batch |
+|---|---|---|---|
+| `y` | `[N]` | 0 clean, 1 attacked | `batch["y"]` `[B,N]` (PyG: `batch.y` `[B*N]`) |
+| `family` | scalar | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al | `batch["family"]` `[B]` (PyG: `batch.family` `[B]`) |
 
-Note: in `format="pyg"`, `Data.edge_attr` is the `[E,2]` flows, not this. The `[E,8]` is `ds.edge_attr`.
+- Names: `fg.FAMILIES[code]`. Stealthy subset: `fg.STEALTHY_FAMILIES` = `{1, 5, 6}`.
+- Per-bus family label, if a model needs one: `y * family[:, None]` gives `[B,N]` with 0 on clean buses.
+- Every attacked record flags at least one bus. Benign records flag none.
+- Per-family evaluation: filter by `family` and score `y` inside each group. `fg.load(..., families=[...])`
+  does the filtering at load time.
 
-## `node_x` `[N,4]` — bus measurements (voltage first)
+## `node_x` `[N,4]`: bus measurements (voltage first)
 
 | col | name | physical units | pu units |
 |-----|------|----------------|----------|
@@ -47,21 +47,55 @@ Note: in `format="pyg"`, `Data.edge_attr` is the `[E,2]` flows, not this. The `[
 | 2 | `Q_inj` | MVAr | pu |
 | 3 | `theta` | degrees | radians |
 
-`P_inj`/`Q_inj` sign: `+` = net consumption (load), `−` = net injection (gen) — pandapower's `res_bus`
-convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bus reads ≈ +93 MW.
+Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (gen). This is pandapower's
+`res_bus` convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bus reads ≈ +93 MW.
 
-## Others
+## `edge_attr` `[E,8]`: static branch properties (per-unit, never change)
 
-- `edge_x` `[E,2]` = `[P_from, Q_from]`, power leaving the from-end (sign = direction). MW/MVAr or pu.
-- `node_m` / `edge_m`: `1` metered, `0` not. Metering is sparse; read the mask.
-- `edge_index` `[2,E]`: row 0 from-bus, row 1 to-bus.
-- `y` `[N]`: per-bus attack label. `family`: 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (Aq = paper `A_o`).
-- `stealthy`, `split` (0/1/2 = train/val/test), `timestep`.
-- `temporal_delta` `[N,2]` = scan-to-scan `[ΔP, ΔQ]`; `swing` `[N,2]` = that as a z-score of recent volatility.
-- `clean` `[N,4]` / `edge_clean` `[E,2]` (v0.7.2+): the NOISELESS attack-free truth at the record's
-  timestep, in `node_x` column order `[|V|, P_inj, Q_inj, theta]` — the SE / reconstruction target,
-  same layer the streams ship. `clean` is full (every bus, no mask, regardless of meter placement);
-  `edge_clean` zeroes unmetered branches like `edge_x`. On benign records `node_x − clean` = meter noise.
+| col | name | meaning |
+|-----|------|---------|
+| 0 | `r` | series **impedance**, real part (resistance). `Z = r + jx` |
+| 1 | `x` | series impedance, imag part (reactance) |
+| 2 | `b` | line-charging susceptance (shunt) |
+| 3 | `g` | shunt conductance (usually 0) |
+| 4 | `gs` | series **admittance**, real part (conductance). `Y = 1/(r+jx) = gs + j·bs` |
+| 5 | `bs` | series admittance, imag part (susceptance) |
+| 6 | `tap` | transformer tap ratio (1.0 = plain line) |
+| 7 | `shift` | transformer phase shift, degrees (0 = plain line) |
+
+- `r,x` and `gs,bs` are the same branch inverted (`Y = 1/Z`). Both ship so you never compute one from the other.
+- In `format="pyg"`, `Data.edge_attr` is the `[E,2]` flows (also exposed as `Data.edge_x`). The `[E,8]` table is `ds.edge_attr`.
+
+## Where the branch flows live, per format
+
+| you have | flows `[E,2]` | flow mask `[E,2]` |
+|---|---|---|
+| dict record `ds[i]` or a `ds.loader()` batch | `["edge_x"]` | `["edge_m"]` |
+| PyG `Data` or `DataBatch` (`format="pyg"`) | `.edge_attr` or `.edge_x` | `.edge_mask` |
+| `ds.to_numpy()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` |
+
+`ds.edge_x` on the dataset object itself is **not** the flows. It is the static per-unit series
+reactance `[E]` (column 1 of `edge_attr`). Flows are per record, so they only exist on records and batches.
+
+## The rest
+
+| field | shape | meaning |
+|---|---|---|
+| `edge_x` | `[E,2]` | `[P_from, Q_from]`, power leaving the from-end (sign = direction). MW/MVAr or pu. |
+| `node_m`, `edge_m` | `[N,4]`, `[E,2]` | `1` metered, `0` not. Metering is sparse: read the mask. |
+| `edge_index` | `[2,E]` | row 0 from-bus, row 1 to-bus |
+| `y`, `family` | `[N]`, scalar | see Labels above (Aq = paper `A_o`) |
+| `stealthy` | scalar | 1 for the re-solve families `Aq`/`At`/`Al` (BDD-evading by construction), 0 for benign and `Ad`/`As`/`Ar` |
+| `split` | scalar | 0/1/2 = train/val/test |
+| `timestep` | scalar | position in the source load profile |
+
+### `clean` and `edge_clean` (v0.7.2+)
+
+- The noiseless, attack-free truth at the record's timestep, in `node_x` column order.
+- `clean` covers every bus with no mask, whatever the meter placement.
+- `edge_clean` zeroes unmetered branches, like `edge_x`.
+- On benign records `node_x − clean` is the meter error.
+- This is the state-estimation target.
 
 ## Streams (`fg.load_stream`)
 
@@ -69,9 +103,10 @@ Leading time axis `T`, three aligned layers each for node and edge:
 
 | layer | meaning |
 |-------|---------|
-| `node_x` / `edge_x` | observed (attacked + noise) — model input |
+| `node_x` / `edge_x` | observed (attacked + noise). The model input. |
 | `benign` / `edge_benign` | attack removed, noise kept |
-| `clean` / `edge_clean` | noiseless true state — the SE target |
+| `clean` / `edge_clean` | noiseless true state. The SE target. |
 
-`benign − clean` = noise. `observed − benign` = the attack (exact for Ad/As/Ar; carries a noise term for
-Aq/At/Al, so use `clean` as the SE target there).
+- `benign − clean` = noise.
+- `observed − benign` = the attack. Exact for Ad/As/Ar. For Aq/At/Al it also carries a noise term, so
+  use `clean` as the SE target there.

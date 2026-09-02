@@ -1,34 +1,48 @@
 # Examples and dataset statistics
 
-Runnable model examples, the state-estimation recipe, and per-system statistics. See the top-level
-`../README.md` for the quickstart and `DATA_DICTIONARY.md` for field definitions.
+Runnable model examples, the temporal state-estimation recipe, and per-system statistics.
+Quickstart is in `../../README.md`, field definitions in `DATA_DICTIONARY.md`.
 
 ## Continuous streams (LSTM / TGN)
 
-The `load`/`generate` shard is a shuffled table of independent labeled snapshots — ideal for a per-scan classifier, but its rows are not consecutive in time. For temporal models and state estimation, each system also ships a **continuous attacked stream**: one running timeline of **72,000 distinct real-profile operating states** (no reuse), ~50% under attack as timed episodes (re-solved on the real NYISO load trajectory), with per-timestep, per-bus labels. Every record carries **three aligned measurement layers** — for both node and branch-flow measurements:
+The `load`/`generate` shard is a shuffled table of independent labeled snapshots. Its rows are not
+consecutive in time. For temporal models and state estimation, each system also ships a
+**continuous attacked stream**:
+
+- one running timeline of **72,000 distinct operating states** on the real NYISO load trajectory
+- ~50% under attack, as timed episodes, with per-timestep per-bus labels
+- **three aligned measurement layers** for both node and branch-flow measurements
 
 ```python
 s = fg.load_stream("ieee118")          # download the published stream (or fg.generate_stream(...) to build one)
 
 # node measurements [T, N, 4] = [|V|, Pinj, Qinj, angle]
-s["node_x"]   # OBSERVED feed: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
-s["benign"]   # the same meters with the ATTACK REMOVED (noise kept) — what they would read un-attacked
-s["clean"]    # NOISELESS, attack-free TRUE state — the SE / reconstruction target
+s["node_x"]   # OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
+s["benign"]   # the same meters with the ATTACK REMOVED (noise kept)
+s["clean"]    # NOISELESS, attack-free TRUE state (the SE target)
 # branch-flow measurements [T, E, 2] = [P_from, Q_from], same three layers
 s["edge_x"], s["edge_benign"], s["edge_clean"]
 
 s["y"]          # [T, N] per-bus attack label   s["family"]  # [T] active family (0 = benign)
 s["edge_index"] # [2, E] PyG connectivity        s["edge_attr"]  # [E, 8] line features (r,x,b,g,gs,bs,tap,shift)
-s["node_m"], s["edge_m"]   # static meter masks — metering is SPARSE, so unmetered channels are zero-filled
+s["node_m"], s["edge_m"]   # static meter masks. Metering is SPARSE, so unmetered channels are zero-filled
 
 Xw, yw = fg.windows(s, W=24, stride=12)  # slice [n, 24, N, 4] LSTM windows + labels
 ```
 
-On the **measured** channels (see `node_m`/`edge_m`), `observed − benign` isolates the attack and `benign − clean` is meter noise. Those hold exactly for the in-place corruption families (`Ad`/`As`/`Ar`), which share the benign meter draw; for the stealthy re-solve families (`Aq`/`At`/`Al`) the whole operating point moves, so `benign` is a separate noise draw and the differences carry the state change plus noise — `clean` (the noiseless true state) is always the exact SE target.
+On the metered channels:
+
+| difference | is | exact for |
+|---|---|---|
+| `observed − benign` | the attack | `Ad`/`As`/`Ar` (they share the benign meter draw) |
+| `benign − clean` | meter noise | all families |
+
+For `Aq`/`At`/`Al` the whole operating point moves, so `benign` is a separate noise draw and
+`observed − benign` carries the state change plus noise. `clean` is always the exact SE target.
 
 ### Recipe: a temporal state estimator (attacked window → clean V/θ)
 
-Feed an LSTM/TGN windows of the **attacked** measurements and train it to recover the **clean** state. The `clean` field is the noiseless, attack-free truth at every timestep (even on attacked ones), so the loss is estimated-state-vs-clean-target:
+Feed an LSTM/TGN windows of the **attacked** measurements and train it to recover the **clean** state.
 
 ```python
 import fdia_graph as fg
@@ -49,12 +63,24 @@ target = clean_w[..., [0, 3]]               # [n,W,N,2] clean V and theta
 #   loss = mse(pred, target)                # estimated state vs clean V/theta
 ```
 
-`Xw` is the attacked, noisy input; `target` is the clean V/θ it should reconstruct. For a full SE measurement set, add the **branch-flow** measurements `s["edge_x"]` (windowed the same way) alongside the node measurements — node + edge from the same scan is exactly what a WLS/robust estimator consumes. Swap `"ieee118"` for any of the 8 systems, and `attacked_frac`/`families` via `fg.generate_stream(...)` to build a custom stream. The static branch *admittance* (`ds.edge_attr`, `[E,8]`, includes `edge_gs, edge_bs = 1/(r+jx)`) comes from the matching shard `fg.load("ieee118")` if the model also needs line physics.
+- `Xw` is the attacked, noisy input. `target` is the clean V/θ it should reconstruct.
+- For a full SE measurement set, window `s["edge_x"]` the same way and feed node + edge together.
+  That is exactly what a WLS/robust estimator consumes.
+- Line physics (`[E,8]` admittance) comes from the matching shard: `fg.load("ieee118").edge_attr`.
+- Custom stream: `fg.generate_stream(system, attacked_frac=0.5, families=[...], seed=...)`.
+- Temporal features compare each frame to the previous **emitted** frame, so a stealthy ramp stays a
+  small per-step change while a spike reads as an abrupt jump.
 
-Temporal features (`temporal_delta`, `swing`) compare each frame to the previous **emitted** frame, so a stealthy ramp stays a small per-step change while a spike reads as an abrupt jump. Build a custom stream with `fg.generate_stream(system, attacked_frac=0.5, families=[...], seed=...)`.
-### Three runnable baselines
+## Three runnable baselines
 
-All three report **DR / FA / F1**, never raw accuracy: ~98% of bus-scans are clean, so an all-negative model scores 0.98 accuracy while detecting nothing. Decision thresholds are selected on the **val** split (best F1) and test is evaluated once at that threshold. The headline example follows the protocol our papers use (train on benign + `Aq` + `Ad`, hold out `As`/`Ar` zero-shot, exclude the slow ramp, score **macro-F1 over attackable buses**); the other two train on every family so the hard ones stay visible. Each baseline trains in a few CPU minutes.
+All three report **DR / FA / F1**, never raw accuracy. About 98% of bus-scans are clean, so an
+all-negative model scores 0.98 accuracy while detecting nothing.
+
+- Thresholds are picked on the **val** split (best F1). Test is evaluated once at that threshold.
+- Baseline 1 follows the papers' protocol: train on benign + `Aq` + `Ad`, hold out `As`/`Ar`
+  zero-shot, exclude the slow ramp, score **macro-F1 over attackable buses**.
+- Baselines 2 and 3 train on every family so the hard ones stay visible.
+- Each trains in a few CPU minutes.
 
 ```python
 # shared helpers, used by all three examples
@@ -76,7 +102,7 @@ def report(p, t):
     print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2*prec*dr/(prec+dr):.3f}")
 
 def macro_f1(p, t):
-    """Per-bus F1 averaged over the attackable buses — the localization metric our papers report."""
+    """Per-bus F1 averaged over the attackable buses (the localization metric our papers report)."""
     f1s = []
     for b in range(t.shape[1]):
         if not t[:, b].any(): continue
@@ -86,7 +112,20 @@ def macro_f1(p, t):
     return sum(f1s) / len(f1s)
 ```
 
-**1. Per-bus MLP on the papers' 14-dim feature vector — the headline localizer.** Each bus is described by the standardized measurements (4), the meter-availability mask (4, so the model can tell an unobserved channel from a genuine zero on this sparsely metered grid), a local Kirchhoff power residual (2, injection minus incident *metered* flows — a partial balance, since sparse metering leaves it incomplete at buses with an unmetered incident branch; the meter mask lets the model discount those), the scan-to-scan `temporal_delta` (2), and the windowed `swing` (2). Trained under the published protocol — benign + `Aq` + `Ad`, with `As`/`Ar` held out zero-shot — a 28k-parameter MLP localizes at **0.915 macro-F1** in about five CPU minutes; our tuned paper models reach 0.93–0.95 on the same protocol. Needs `pip install "fdia-graph[torch]"`.
+### 1. Per-bus MLP on the papers' 14-dim feature vector (the headline localizer)
+
+Each bus is described by 14 numbers:
+
+| features | count | why |
+|---|---|---|
+| standardized measurements | 4 | the readings |
+| meter-availability mask | 4 | tells an unobserved channel from a genuine zero on this sparsely metered grid |
+| local Kirchhoff power residual | 2 | injection minus incident *metered* flows. Partial where a branch is unmetered; the mask lets the model discount those |
+| `temporal_delta` | 2 | scan-to-scan change |
+| `swing` | 2 | windowed z-score of that change |
+
+A 28k-parameter MLP under the published protocol localizes at **0.915 macro-F1** in about five CPU
+minutes. Our tuned paper models reach 0.93–0.95 on the same protocol. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import numpy as np
@@ -141,9 +180,22 @@ report(torch.tensor(p.ravel()), torch.tensor(t.ravel()))
 # DR 0.859  FA 0.0002  F1 0.916          (~5 min CPU)
 ```
 
-Per-family test DR at that operating point (benign-bus FA 0.01%): `Ad` 0.94, `Aq` 0.90, `As` 0.87 zero-shot, `Ar` 0.73 zero-shot. Adding the excluded families back drops the pooled all-family F1 to ~0.83, almost entirely because the slow ramp `At` (DR ~0.10) evades the temporal feature by construction — that gap is the open problem this dataset poses, and the examples below keep it visible by training on every family.
+Per-family test DR at that operating point (benign-bus FA 0.01%):
 
-**2. Graph model — ARMAConv (PyTorch-Geometric), all families.** `format="pyg"` yields ready `Data` objects (`swing` rides along as a node attribute) and a graph-batching loader; `preload=True` caches the split in RAM so epochs take seconds instead of minutes. Needs `pip install "fdia-graph[pyg]"`.
+| `Ad` | `Aq` | `As` (zero-shot) | `Ar` (zero-shot) |
+|---|---|---|---|
+| 0.94 | 0.90 | 0.87 | 0.73 |
+
+Adding the excluded families back drops the pooled all-family F1 to ~0.83, almost entirely because
+the slow ramp `At` (DR ~0.10) evades the temporal feature by construction. That gap is the open
+problem this dataset poses. The next two baselines keep it visible by training on every family.
+
+### 2. Graph model: ARMAConv (PyTorch-Geometric), all families
+
+- `format="pyg"` yields ready `Data` objects. `swing` rides along as a node attribute, the branch
+  flows as `edge_attr` (alias `edge_x`) with their mask as `edge_mask`.
+- `preload=True` caches the split in RAM so epochs take seconds instead of minutes.
+- Needs `pip install "fdia-graph[pyg]"`.
 
 ```python
 import torch, torch.nn.functional as F
@@ -172,12 +224,22 @@ with torch.no_grad():
 lo = {s: torch.cat([x for x, _ in ev[s]]) for s in ev}; yy = {s: torch.cat([y for _, y in ev[s]]) for s in ev}
 tau = pick_tau(lo["val"], yy["val"])
 report(lo["test"] > tau, yy["test"])
-# DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1 — saturated)
+# DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1, saturated)
 ```
 
-The honest reading: the graph model saturates **below** the per-bus MLP, and in our papers the same holds with both reading the identical 14-dim input. Spatial message passing smooths exactly the localized per-bus signal `swing` carries, so graph structure alone does not add localization power here — beating the lightweight baseline with graph or physics information is a research target, not a given.
+The honest reading: the graph model saturates **below** the per-bus MLP, and our papers see the same
+with both reading the identical 14-dim input. Message passing smooths exactly the localized per-bus
+signal `swing` carries. Beating the lightweight baseline with graph or physics information is a
+research target, not a given.
 
-**3. Temporal model — a plain LSTM on the continuous stream.** The stream ships raw measurements only, so the example builds its features in place: train-normalized raw channels plus a per-window z-score. Numbers are lower than on the shard for a structural reason: inside a sustained attack episode the rolling window is already contaminated by the attack, so the anomaly fades after onset (temporal-baseline poisoning). The shard's `swing` avoids this because it was computed against clean history at generation time. Needs `pip install "fdia-graph[torch]"`.
+### 3. Temporal model: a plain LSTM on the continuous stream
+
+- The stream ships raw measurements only, so the example builds its features in place:
+  train-normalized channels plus a per-window z-score.
+- Numbers are lower than on the shard for a structural reason. Inside a sustained attack episode the
+  rolling window is already contaminated, so the anomaly fades after onset. The shard's `swing`
+  avoids this because it was computed against clean history at generation time.
+- Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import torch, torch.nn as nn, torch.nn.functional as F
@@ -206,15 +268,17 @@ with torch.no_grad():
     lote = torch.cat([m(Xte[i:i + 4096]) for i in range(0, len(Xte), 4096)])
 tau = pick_tau(lova, yva > 0)
 report(lote > tau, yte > 0)
-# DR 0.372  FA 0.0055  F1 0.463          (~3.5 min CPU; val F1 0.39 -> 0.47 from 5 to 10 epochs — some headroom left)
+# DR 0.372  FA 0.0055  F1 0.463          (~3.5 min CPU; val F1 0.39 -> 0.47 from 5 to 10 epochs, headroom left)
 ```
 
-These are minutes-of-CPU baselines with deliberate headroom, not the dataset's ceiling. `layer="benign"`/`"clean"` on the stream helpers swaps the model input layer (the label stays the attack target); for a state estimator, window the `clean` layer as the target per the recipe above.
-
+These are minutes-of-CPU baselines with deliberate headroom, not the dataset's ceiling.
+`layer="benign"`/`"clean"` on the stream helpers swaps the model input layer (the label stays the
+attack target).
 
 ## Dataset statistics
 
-**Per-system size** — the classification shard (`fg.load`) is 72,000 records per system (36k benign + 6k × 6 attack families), split chronologically 60/20/20:
+**Per-system size.** The classification shard (`fg.load`) is 72,000 records per system
+(36k benign + 6k × 6 attack families), split chronologically 60/20/20:
 
 | system | N buses | E branches | records | train | val | test |
 |--------|--------:|-----------:|--------:|------:|----:|-----:|
@@ -227,9 +291,10 @@ These are minutes-of-CPU baselines with deliberate headroom, not the dataset's c
 | ieee200 | 200 | 245 | 72,000 | 43,200 | 14,400 | 14,400 |
 | ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 |
 
-(ieee145 is slightly short because ~2.7% of its operating points don't converge.)
+ieee145 is slightly short because ~2.7% of its operating points don't converge.
 
-**Attacks per split** — every system uses the same recipe, and families are drawn from random timesteps, so each family is split ~60/20/20 with none concentrated in a partition (shown for ieee118):
+**Attacks per split** (ieee118 shown; every system uses the same recipe). Families are drawn from
+random timesteps, so each is split ~60/20/20 with none concentrated in a partition:
 
 | family | train | val | test | total |
 |--------|------:|----:|-----:|------:|
@@ -241,7 +306,8 @@ These are minutes-of-CPU baselines with deliberate headroom, not the dataset's c
 | `At` temporal ramp       | 3,480 | 1,200 | 1,320 | 6,000 |
 | `Al` load redistribution | 3,585 | 1,201 | 1,214 | 6,000 |
 
-The **continuous stream** (`fg.load_stream`, v0.7.1) is a separate 72,000-timestep timeline per system, **~50% attacked** as timed episodes (At/ramp episodes are longest, so they carry the most attacked frames).
+The **continuous stream** (`fg.load_stream`, v0.7.1) is a separate 72,000-timestep timeline per
+system, ~50% attacked as timed episodes. `At` episodes are longest, so they carry the most attacked frames.
 
 **Operating-state distributions** (from the 72k pool per system):
 
@@ -258,4 +324,7 @@ The **continuous stream** (`fg.load_stream`, v0.7.1) is a separate 72,000-timest
 
 ![Operating-state distributions](../figures/fig_dataset_stats.png)
 
-*Per-bus |V|, θ, and P/Q injection distributions across the ladder (box = IQR, red = median; data in `../figures/fig_dataset_stats.csv`).* Two systems are outliers **by construction of the MATPOWER base case, not our generation**: `case57` runs chronically low-voltage (33 of 57 buses below 0.9 pu even unscaled) and `case145` has a very wide angle spread. Both are valid converged operating points; the states are still real, just atypical.
+*Per-bus |V|, θ, and P/Q injection distributions across the ladder (box = IQR, red = median; data in
+`../figures/fig_dataset_stats.csv`).* Two systems are outliers by construction of the MATPOWER base
+case, not our generation: `case57` runs chronically low-voltage (33 of 57 buses below 0.9 pu even
+unscaled) and `case145` has a very wide angle spread. Both are valid converged operating points.
