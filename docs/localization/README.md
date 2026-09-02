@@ -19,10 +19,9 @@ rep  = loc.score(test)                             # per-family metrics + benign
 - `fit()` sets a per-bus threshold at the `(1 - fa_target)` benign quantile. Every method runs at
   the same false-alarm budget and no attack data is used to tune.
 - `score()` reports per family: **strict localization accuracy** (predicted set equals the truth
-  exactly), node precision/recall/F1, per-bus macro-F1, per-sample macro-F1, and detection rate.
-  The benign false-alarm rate is always reported next to it. A detector that flags everything has
-  DR 1.0 and FA 1.0, so DR alone means nothing. The `"all"` entry pools every record and its
-  `macro_f1` is the papers' headline number.
+  exactly), node precision/recall/F1, per-bus macro-F1, per-sample macro-F1, and detection rate,
+  always next to the benign false-alarm rate. The `"all"` entry pools every record and carries the
+  papers' per-bus macro scores F1, DR, and FR over the attackable buses.
 
 ## The methods
 
@@ -38,61 +37,67 @@ The learned arms train on whatever records they are given, so the protocol is th
 `fit(train, val=val)` also picks the papers' single validation-best threshold instead of the
 false-alarm calibration.
 
-## Results 1: common protocol, IEEE-14, `fa_target=0.01`
+## Results
 
-Every method fits on the unfiltered train split (all six families in-distribution for the learned
-arms), calibrates on benign records at the same budget, and scores the full test split.
+F1, DR, and FR are the localization paper's per-bus macro scores over the attackable buses: per-bus
+F1 and recall accumulate over every test record, FR is the per-bus false-positive rate on benign
+records. Full metrics per system in `results/loc_ieee{14,118,300}.json`.
 
-![node F1 per method and family](results/fig_loc_ieee14.png)
+**Zero-shot protocol** (the paper's). Train and val hold benign + `Aq` + `Ad` only. Test adds `As`
+and `Ar`, never seen in training. The learned arms use the validation-best threshold; swing keeps
+its benign calibration.
 
-Node F1 per family. Row labels carry each method's benign record-level false-alarm rate. Full
-metrics in [`results/loc_ieee14.json`](results/loc_ieee14.json), figure data in the CSV sidecar.
+| Method | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Per-bus MLP | 0.9574 | 0.9455 | 0.0001 | 0.9492 | 0.9056 | 0.0000 | 0.9249 | 0.8681 | 0.0000 |
+| **1D CNN** | **0.9625** | 0.9438 | 0.0000 | **0.9618** | 0.9304 | 0.0000 | **0.9483** | 0.9115 | 0.0000 |
+| Swing threshold | 0.8835 | 0.9240 | 0.0161 | 0.6638 | 0.9122 | 0.0125 | 0.5128 | 0.9340 | 0.0135 |
 
-| method | benign FA | Aq | Ad | As | Ar | At | Al | pooled macro-F1 |
-|---|---|---|---|---|---|---|---|---|
-| swing | 0.18 | 0.73 | 0.97 | 0.94 | 0.90 | **0.41** | 0.74 | 0.79 |
-| delta | 0.16 | 0.70 | 0.98 | 0.96 | 0.95 | **0.35** | 0.73 | 0.79 |
-| residual | 0.15 | **0.12** | 0.46 | 0.46 | 0.51 | **0.08** | **0.06** | 0.40 |
-| mlp | 0.11 | 0.90 | 0.99 | 0.99 | 0.96 | **0.59** | 0.98 | 0.91 |
-| cnn | 0.07 | 0.91 | 1.00 | 0.99 | 0.97 | **0.67** | 0.99 | 0.92 |
+The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 / 0.9327 for the MLP on
+v0.4.1 data. The SDK classes reproduce those numbers on the current v0.7.2 shards.
 
-## Results 2: the papers' zero-shot protocol, IEEE-14
+**Common protocol.** Every method fits on the unfiltered train split (all six families
+in-distribution for the learned arms), calibrates on benign records at `fa_target=0.01`, and scores
+the full test split.
 
-Train and val hold benign + `Aq` + `Ad` only. Test adds `As` and `Ar`, never seen in training.
-The learned arms use the validation-best global threshold; swing keeps its benign calibration.
+| Method | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Swing threshold | 0.7889 | 0.7213 | 0.0161 | 0.6531 | 0.7901 | 0.0125 | 0.5123 | 0.8242 | 0.0135 |
+| Delta threshold | 0.7919 | 0.7268 | 0.0132 | 0.6692 | 0.8331 | 0.0122 | 0.5265 | 0.8345 | 0.0127 |
+| Residual (LNR) | 0.3976 | 0.4215 | 0.0258 | 0.1906 | 0.4226 | 0.0155 | 0.1561 | 0.5152 | 0.0150 |
+| Per-bus MLP | 0.9098 | 0.8917 | 0.0108 | 0.7389 | 0.8854 | 0.0107 | 0.6150 | 0.8728 | 0.0096 |
+| **1D CNN** | **0.9173** | 0.9321 | 0.0163 | **0.7335** | 0.8986 | 0.0131 | **0.6649** | 0.8820 | 0.0098 |
 
-| method | macro-F1 | benign FA | Aq | Ad | As (zero-shot) | Ar (zero-shot) | paper, v0.4.1 data |
-|---|---|---|---|---|---|---|---|
-| cnn | **0.963** | 0.000 | 0.94 | 1.00 | 0.98 | 0.92 | 0.963 |
-| mlp | 0.957 | 0.001 | 0.93 | 1.00 | 0.98 | 0.92 | 0.963 |
-| swing | 0.884 | 0.180 | 0.73 | 0.97 | 0.94 | 0.90 | |
+Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.
 
-Same protocol on IEEE-118: cnn 0.962 (paper 0.963), mlp 0.949 (paper 0.957), both at benign FA
-under 0.2 percent. The SDK classes reproduce the federated localization paper's headline numbers on
-the current shards.
+| IEEE 14 | IEEE 118 | IEEE 300 |
+|---|---|---|
+| ![](results/fig_loc_ieee14.png) | ![](results/fig_loc_ieee118.png) | ![](results/fig_loc_ieee300.png) |
 
 ## Three readings
 
 1. **The temporal spike catches almost everything.** Any attack edit above the noise floor shows up
    as a per-bus spike the moment it starts, including the BDD-stealthy families `Aq`/`Al` the
    residual arm cannot see. The one family built to defeat it is the slow ramp `At`, which stays
-   inside typical per-scan change by construction. `At` is the open frontier.
+   inside typical per-scan change by construction. `At` is the open frontier on every system.
 2. **The classical arm misses every stealthy family by construction.** `ResidualLocalizer` detects
-   `Ad`/`As`/`Ar` (detection rate ≈ 1.0) but localizes them coarsely, since residuals smear over
-   neighboring buses. On `Aq`/`At`/`Al` its detection rate (0.18–0.26) matches its benign
-   false-alarm rate. Those measurements are physics-consistent, so there is no residual to find.
-3. **Learning on top of the feature buys precision, not a new signal.** The learned arms lift
-   `Aq` from 0.73 to 0.91 and `Al` from 0.74 to 0.99 at lower false alarms, and generalize to the
-   unseen `As`/`Ar` families. On the ramp they reach 0.59–0.67 with every family in-distribution,
-   still the weakest column. The CNN's kernel mixes index-adjacent buses and edges out the per-bus
-   MLP by a point or two, without reading the graph.
+   the in-place corruptions but localizes them coarsely, since residuals smear over neighboring
+   buses, and on `Aq`/`At`/`Al` its per-bus F1 sits near zero. Those measurements are
+   physics-consistent, so there is no residual to find.
+3. **Learning on top of the feature buys precision and holds up with size.** In the zero-shot
+   protocol the CNN keeps F1 above 0.94 from 14 to 300 buses at FR of 10^-4 or below, while the
+   swing threshold alone falls from 0.88 to 0.51 because a fixed per-bus false-alarm budget costs
+   more as the bus count grows. The ramp is the weakest column for every method, and the
+   in-distribution `At` rows of the common protocol are where the remaining headroom is.
 
 ## Regenerate
 
 ```bash
-python docs/localization/run_localization.py                     # IEEE-14, minutes on a GPU laptop
-FG_SYSTEM=ieee118 python docs/localization/run_localization.py   # any system in the ladder
+FG_SYSTEM=ieee14 python docs/localization/run_localization.py    # fits, writes results/loc_ieee14.json
+FG_SYSTEM=ieee118 python docs/localization/run_localization.py
+FG_SYSTEM=ieee300 python docs/localization/run_localization.py
+python docs/localization/make_report.py                          # tables (markdown) + figures + CSV from the JSON
 ```
 
-Outputs land in `results/`: metrics JSON (both protocols), figure, and a CSV sidecar so the figure
-can be restyled without re-running.
+IEEE-14 takes minutes on a GPU laptop; 300 takes about half an hour, most of it the residual arm's
+state-estimation solves.

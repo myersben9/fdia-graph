@@ -30,7 +30,7 @@ What `estimate()` returns:
 
 - the classical 2N-1 state: every voltage magnitude (slack included) plus every non-slack angle
 - already in the truth's angle frame. The slack angle is pinned per record to `clean[slack]`, so
-  `xhat - truth` needs no alignment step.
+  `xhat - truth` needs no alignment step. The reference bus index is `ds.slack`.
 
 ## The better estimator
 

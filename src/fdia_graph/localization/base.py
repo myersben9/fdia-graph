@@ -103,9 +103,18 @@ class LocalizerBase:
         pred = self._score(d) > self.thr[None, :]
         y = d["y"].astype(bool)
         act = y.any(axis=0)
+        ben = d["family"] == 0
+        # The papers' per-bus macro scores over the attackable set: F1 and recall (DR) accumulate
+        # over every record, the false-positive rate (FR) over benign records only.
+        tp = (pred & y).sum(axis=0).astype(np.float64)
+        fn = (~pred & y).sum(axis=0).astype(np.float64)
+        macro_dr = float((tp / np.maximum(tp + fn, 1e-9))[act].mean()) if act.any() else 0.0
+        macro_fr = float(pred[ben][:, act].mean()) if act.any() and ben.any() else 0.0
         out: Dict[str, Dict[str, float]] = {
             "all": {
                 "macro_f1": float(_perbus_f1(pred, y)[act].mean()) if act.any() else 0.0,
+                "macro_dr": macro_dr,
+                "macro_fr": macro_fr,
                 "node_f1": _micro_f1(pred, y),
             }
         }
