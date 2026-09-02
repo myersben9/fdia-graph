@@ -393,12 +393,12 @@ class FdiaGraph:
         }  # [N,2] engineered features + noiseless truth targets,
         # batched node-wise by PyG like x (swing is the canonical localization feature -- see README)
         return Data(
-            x=item["node_x"],
-            edge_index=self.edge_index,  # node features + connectivity
+            x=item["node_x"],  # [N,4] bus measurements
+            edge_index=self.edge_index,  # [2,E] connectivity
             edge_attr=item["edge_x"],  # PyG's conventional slot for the [E,2] branch flows ...
             edge_x=item["edge_x"],  # ... and the same tensor under the dict-format name, so
             # `batch.edge_x` works in both formats (same object, no copy until batching)
-            y=item["y"],  # edge features + labels
+            y=item["y"],  # [N] per-bus attack label
             node_mask=item["node_m"],
             edge_mask=item["edge_m"],  # carry the availability masks through
             family=item["family"],
