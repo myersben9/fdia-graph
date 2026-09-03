@@ -82,7 +82,7 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 
 The `[E,8]` physics keep the name `edge_attr` on dicts and the dataset, and become `edge_phys` on PyG
 objects because PyG's `edge_attr` slot is its conventional home for per-edge model input, which
-here is the flows.
+here are the flows.
 
 Flows are per record, so they only exist on records and batches. The static per-unit branch
 physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds.branch_r`,
