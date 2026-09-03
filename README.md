@@ -99,7 +99,7 @@ Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-d
 | `edge_index` | `[2,E]` | `from_bus`; `to_bus` | connectivity |
 | `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`ds.edge_attr`; in PyG format `Data.edge_phys`) |
 | `y` | `[N]` | | 1 attacked, 0 clean. Which buses |
-| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al. Which attack (`fg.FAMILIES`) |
+| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al. Which attack (`fg.FAMILIES`); one family per record by construction, possibly on several buses |
 | `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | temporal features |
 | `clean` | `[N,4]` | same as `node_x` | noiseless truth, all buses. SE target (v0.7.2+) |
 | `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |

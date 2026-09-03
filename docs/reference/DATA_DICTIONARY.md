@@ -25,7 +25,12 @@ What every array from `fg.load()` / `fg.load_stream()` holds.
 ## Labels: `y` says which buses, `family` says which attack
 
 Two fields, two questions. `y` `[N]` is binary per bus because a bus is either tampered with or not.
-`family` is one code per record because each record carries exactly one attack (or none).
+`family` is one code per record because the generator injects one attack family per record, on one
+or more buses at once; it never mixes families within a record, and stream episodes never overlap,
+so each frame has one active family too. That is a property of how these shards were built, not of
+the schema: concurrent attacks of different families would need a separate per-bus family map, say
+`bus_family` `[N]` with 0 on clean buses (so `y = bus_family > 0`), added next to the scalar `family`
+in a new data release.
 
 | | shape | values | in a batch |
 |---|---|---|---|
@@ -78,7 +83,7 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 
 The `[E,8]` physics keep the name `edge_attr` on dicts and the dataset, and become `edge_phys` on PyG
 objects because PyG's `edge_attr` slot is its conventional home for per-edge model input, which
-here is the flows.
+here are the flows.
 
 Flows are per record, so they only exist on records and batches. The static per-unit branch
 physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds.branch_r`,
