@@ -69,6 +69,30 @@ def test_family_filter_and_pu_units(shard):
     assert np.allclose(pu[:, :, 0], phys[:, :, 0])  # |V| is per-unit either way
 
 
+def test_ybus_matches_engine_and_clean_injections(shard):
+    """ds.ybus equals the engine's makeYbus matrix and reproduces the clean injections at the
+    shunt-free buses, so bus order and the branch model are both right."""
+    pytest.importorskip("pandapower")
+    from fdia_graph.engine import FdiaGenerator
+
+    ds = fg.load(shard)
+    Y = ds.ybus_np
+    g = FdiaGenerator(14, seed=1)
+    lut = np.asarray(g._lut)  # shard bus i -> ppc row lut[i]
+    ref = g._Ybus.toarray()[np.ix_(lut, lut)]
+    assert Y.shape == (ds.N, ds.N) and np.allclose(Y, ref, atol=1e-9)
+    # S = V conj(Y V) is the net injection (generation positive); the clean layer stores P/Q with
+    # pandapower's consumption-positive sign and the shunt draw removed, so compare -S where there
+    # is no shunt.
+    cl = ds._clean_np[:64].astype(float)  # [T, N, 4] = [|V|, P, Q, theta]
+    V = cl[:, :, 0] * np.exp(1j * np.deg2rad(cl[:, :, 3]))
+    S = V * np.conj(V @ Y.T) * ds.baseMVA
+    shunt = (ds._phys["bus_shunt_b"] != 0) | (ds._phys["bus_shunt_g"] != 0)
+    assert np.allclose(-S.real[:, ~shunt], cl[:, ~shunt, 1], atol=1e-2)
+    assert np.allclose(-S.imag[:, ~shunt], cl[:, ~shunt, 2], atol=1e-2)
+    assert tuple(ds.ybus.shape) == (ds.N, ds.N)
+
+
 def test_state_pool_order_is_detected_and_unified(shard):
     """The engine works in one column order, [|V|, P, Q, theta]; older P-first pools convert on load."""
     from fdia_graph.generation import as_v_first

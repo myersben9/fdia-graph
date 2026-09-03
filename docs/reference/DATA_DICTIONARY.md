@@ -90,6 +90,7 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 | `edge_index` | `[2,E]` | row 0 from-bus, row 1 to-bus |
 | `y`, `family` | `[N]`, scalar | see Labels above (Aq = paper `A_o`) |
 | `slack` | dataset attribute | index of the reference (slack) bus, `ds.slack`. Derived from the clean layer, so v0.7.2+ only. Also `Data.slack` in PyG format |
+| `ybus` | dataset attribute | full nodal admittance matrix `[N,N]`, complex per-unit, in `node_x` bus order: `ds.ybus` (torch complex128) or `ds.ybus_np`. Built from `edge_attr` and the bus shunts with pandapower's branch model, equal to the engine's matrix. Static per shard, so it lives on the dataset, not on each record |
 | `stealthy` | scalar | 1 for the re-solve families `Aq`/`At`/`Al` (BDD-evading by construction), 0 for benign and `Ad`/`As`/`Ar` |
 | `split` | scalar | 0/1/2 = train/val/test |
 | `timestep` | scalar | position in the source load profile |

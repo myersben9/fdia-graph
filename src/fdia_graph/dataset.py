@@ -352,6 +352,57 @@ class FdiaGraph:
             dim=1,
         )
 
+    @property
+    def ybus_np(self) -> np.ndarray:
+        """Full nodal admittance matrix Ybus [N,N], complex per-unit, in the shard's bus order.
+
+        Built from the stored branch physics with the same branch model pandapower's makeYbus uses
+        (series admittance, split charging, tap and phase shift, in-service status) plus the bus
+        shunts on the diagonal, so it reproduces the engine's matrix. Static: one topology per shard.
+        Needs a v0.5.0+ shard. Bus i of node_x is row/column i here; edge_index gives the branches.
+        """
+        need = ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
+        missing = [k for k in need if self._phys.get(k) is None]
+        if missing:
+            raise AttributeError(
+                f"ybus needs a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
+            )
+        if getattr(self, "_ybus_np", None) is None:
+            p = self._phys
+            E = self.E
+            stat = p["edge_status"] if p["edge_status"] is not None else np.ones(E)
+            z = p["edge_r"] + 1j * p["edge_x"]
+            ys = np.zeros(E, np.complex128)  # series admittance; a zero-impedance branch contributes none,
+            nz = np.abs(z) > 1e-12  # the same guard the engine uses when it derives gs/bs
+            ys[nz] = stat[nz] / z[nz]
+            bc = stat * (p["edge_g"] + 1j * p["edge_b"])  # charging admittance (g = iron losses)
+            tap = np.where(p["edge_tap"] == 0.0, 1.0, p["edge_tap"]) * np.exp(
+                1j * np.pi / 180 * p["edge_shift"]
+            )
+            ytt = ys + bc / 2
+            yff = ytt / (tap * np.conj(tap))
+            yft = -ys / np.conj(tap)
+            ytf = -ys / tap
+            f, t = self.edge_index_np
+            Y = np.zeros((self.N, self.N), np.complex128)
+            np.add.at(Y, (f, f), yff)
+            np.add.at(Y, (f, t), yft)
+            np.add.at(Y, (t, f), ytf)
+            np.add.at(Y, (t, t), ytt)
+            gs, bs = p.get("bus_shunt_g"), p.get("bus_shunt_b")
+            if gs is not None or bs is not None:  # MW/MVAr at 1 pu -> per-unit admittance on the diagonal
+                gs = np.zeros(self.N) if gs is None else gs
+                bs = np.zeros(self.N) if bs is None else bs
+                d = np.arange(self.N)
+                Y[d, d] += (gs + 1j * bs) / self.baseMVA
+            self._ybus_np = Y
+        return self._ybus_np
+
+    @property
+    def ybus(self) -> torch.Tensor:
+        """ybus_np as a complex128 torch tensor [N,N]."""
+        return _torch().as_tensor(self.ybus_np)
+
     def _h(self) -> h5py.File:
         # Open+cache the h5py handle on first access (not __init__) so each DataLoader worker gets its
         # OWN handle — fork-safe, no shared-handle crash across processes.
