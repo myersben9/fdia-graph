@@ -88,11 +88,29 @@ def test_pyg_data_matches_dict_record(shard):
         assert torch.equal(data.y, item["y"])
         assert torch.equal(data.edge_index, item["edge_index"])
         assert data.family == item["family"] and data.slack == dict_ds.slack
+        for k in ("stealthy", "seq_id", "timestep"):
+            assert getattr(data, k) == item[k]
         for k in ("temporal_delta", "swing", "clean", "edge_clean"):
             assert torch.equal(getattr(data, k), item[k])
+        # Every per-record key reaches PyG under its own name or the documented rename.
+        rename = {"node_x": "x", "node_m": "node_mask", "edge_m": "edge_mask"}
+        for k in item:
+            if k != "edge_attr":
+                assert hasattr(data, rename.get(k, k)), k
     batch = next(iter(pyg_ds.loader(batch_size=3, shuffle=False)))
     assert tuple(batch.edge_x.shape) == (3 * dict_ds.E, 2)
     assert batch.slack.tolist() == [dict_ds.slack] * 3
+
+
+def test_branch_physics_names(shard):
+    import torch
+
+    ds = fg.load(shard)
+    assert torch.equal(ds.branch_x, ds.edge_attr[:, 1])
+    assert torch.equal(ds.branch_gs, ds.edge_attr[:, 4])
+    with pytest.warns(DeprecationWarning, match="branch flows"):
+        old = ds.edge_x  # the dataset-level reactance under its clashing old name
+    assert torch.equal(old, ds.branch_x)
 
 
 def test_dict_loader_batches_every_documented_key(splits):
