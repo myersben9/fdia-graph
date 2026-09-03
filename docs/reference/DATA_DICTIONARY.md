@@ -28,8 +28,9 @@ Two fields, two questions. `y` `[N]` is binary per bus because a bus is either t
 `family` is one code per record because the generator injects one attack family per record, on one
 or more buses at once; it never mixes families within a record, and stream episodes never overlap,
 so each frame has one active family too. That is a property of how these shards were built, not of
-the schema: concurrent attacks of different families would need a per-bus family map (`family[N]`,
-0 on clean buses, `y = family > 0`), which would come with a new data release.
+the schema: concurrent attacks of different families would need a separate per-bus family map, say
+`bus_family` `[N]` with 0 on clean buses (so `y = bus_family > 0`), added next to the scalar `family`
+in a new data release.
 
 | | shape | values | in a batch |
 |---|---|---|---|
