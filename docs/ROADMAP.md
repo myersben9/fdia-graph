@@ -79,6 +79,15 @@ pip install -e ".[generate,test]"    # plus torch and torch_geometric for the le
 pytest -q tests
 ```
 
+## Releases
+
+A release is a PR like any other. The version bump in `pyproject.toml` and `src/fdia_graph/__init__.py`
+rides in the PR that ships the change (or a one-line bump PR), goes through Copilot and CI, and is
+merged like the rest. Then the tag `vX.Y.Z` is pushed on the merged main commit and a GitHub release
+is created; `publish.yml` builds and uploads to PyPI when the tag matches the package version. Nothing
+is pushed straight to main, not even a bump. Data releases (shards, pools, streams) have their own tags
+and do not move the package version.
+
 ## Reading order for new students
 
 1. `README.md`: install + quickstart.

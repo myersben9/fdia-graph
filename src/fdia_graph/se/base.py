@@ -267,12 +267,17 @@ class SEBase:
             out[e] = self._solve(z[e], tr["thsl"][e])
         return out
 
-    def score(self, ds: "FdiaGraph", chunk: int = 1000) -> Dict[str, Dict[str, float]]:
+    def score(
+        self, ds: "FdiaGraph", chunk: int = 1000, xhat: Optional[np.ndarray] = None
+    ) -> Dict[str, Dict[str, float]]:
         """Per-family angle (deg) and voltage (pu) MAE vs the clean truth, plus the geometric
-        mean over families ('geo', the paper's table cell)."""
+        mean over families ('geo', the paper's table cell). Pass `xhat` (a previous `estimate(ds)`)
+        to score without re-solving, e.g. from a cache; it must be in record order of `ds`."""
         from ..dataset import FAMILIES
 
-        est = self.estimate(ds, chunk=chunk)
+        est = self.estimate(ds, chunk=chunk) if xhat is None else np.asarray(xhat, np.float64)
+        if est.shape != (len(ds), self.SD):
+            raise ValueError(f"xhat must be [{len(ds)}, {self.SD}], got {est.shape}")
         d = ds.to_numpy(["family", "clean"])
         tr = self._truth_of(d["clean"])
         ns = len(self.keep)  # angle block; voltage block covers ALL N buses (2N-1 state)

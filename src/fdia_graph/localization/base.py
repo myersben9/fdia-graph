@@ -13,7 +13,7 @@ needs the [se] extra; the threshold methods run anywhere the loader runs.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Sequence
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence
 
 import numpy as np
 
@@ -86,8 +86,9 @@ class LocalizerBase:
         """Boolean per-bus attack calls [n, N]: score above the bus's calibrated threshold."""
         return self.scores(ds) > self.thr[None, :]
 
-    def score(self, ds: "FdiaGraph") -> Dict[str, Dict[str, float]]:
-        """Per-family localization metrics against the per-bus labels.
+    def score(self, ds: "FdiaGraph", scores: Optional[np.ndarray] = None) -> Dict[str, Dict[str, float]]:
+        """Per-family localization metrics against the per-bus labels. Pass `scores` (a previous
+        `scores(ds)`, record order of `ds`) to skip recomputing them, e.g. from a cache.
 
         For each attacked family: strict localization accuracy (predicted attacked set equals the
         true set exactly), micro node precision/recall/F1 over bus calls, per-bus macro-F1 over the
@@ -99,8 +100,11 @@ class LocalizerBase:
         """
         from ..dataset import FAMILIES
 
-        d = self._pull(ds, extra=["family", "y"])
-        pred = self._score(d) > self.thr[None, :]
+        d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.to_numpy(["family", "y"])
+        s = self._score(d) if scores is None else np.asarray(scores, np.float64)
+        if s.shape != (len(ds), ds.N):
+            raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
         act = y.any(axis=0)
         ben = d["family"] == 0
