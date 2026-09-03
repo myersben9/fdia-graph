@@ -78,8 +78,8 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 Flows are per record, so they only exist on records and batches. The static per-unit branch
 physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds.branch_r`,
 `ds.branch_x`, `ds.branch_b`, `ds.branch_g`, `ds.branch_gs`, `ds.branch_bs`, `ds.branch_tap`,
-`ds.branch_shift`. The older `ds.edge_x` spelling of the reactance still works but warns, because it
-collided with the flows' name.
+`ds.branch_shift`. The older `ds.edge_r` … `ds.edge_shift` spellings of all eight still work but raise
+a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) collided with the flows' name.
 
 ## The rest
 
