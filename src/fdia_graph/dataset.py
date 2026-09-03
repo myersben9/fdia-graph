@@ -361,8 +361,12 @@ class FdiaGraph:
         shunts on the diagonal, so it reproduces the engine's matrix. Static: one topology per shard.
         Needs a v0.5.0+ shard. Bus i of node_x is row/column i here; edge_index gives the branches.
         """
-        if not self.has_physics:
-            raise AttributeError("ybus needs a v0.5.0+ shard (per-unit branch physics)")
+        need = ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
+        missing = [k for k in need if self._phys.get(k) is None]
+        if missing:
+            raise AttributeError(
+                f"ybus needs a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
+            )
         if getattr(self, "_ybus_np", None) is None:
             p = self._phys
             E = self.E
@@ -385,9 +389,12 @@ class FdiaGraph:
             np.add.at(Y, (f, t), yft)
             np.add.at(Y, (t, f), ytf)
             np.add.at(Y, (t, t), ytt)
-            if p["bus_shunt_g"] is not None:  # MW/MVAr at 1 pu -> per-unit admittance on the diagonal
+            gs, bs = p.get("bus_shunt_g"), p.get("bus_shunt_b")
+            if gs is not None or bs is not None:  # MW/MVAr at 1 pu -> per-unit admittance on the diagonal
+                gs = np.zeros(self.N) if gs is None else gs
+                bs = np.zeros(self.N) if bs is None else bs
                 d = np.arange(self.N)
-                Y[d, d] += (p["bus_shunt_g"] + 1j * p["bus_shunt_b"]) / self.baseMVA
+                Y[d, d] += (gs + 1j * bs) / self.baseMVA
             self._ybus_np = Y
         return self._ybus_np
 
