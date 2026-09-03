@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
+from ..registry import system_id
 from .attacks import AttackMixin
 from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
@@ -98,7 +99,7 @@ def line_outage_candidates(
     import pandapower.networks as pn
     from pandapower.pypower.makePTDF import makePTDF
 
-    NET = getattr(pn, _CASE[int(system)])
+    NET = getattr(pn, _CASE[system_id(system)])
     base = seed_flow_from if seed_flow_from is not None else NET()
     if "p_from_mw" not in base.res_line or base.res_line.empty:
         pp.runpp(base)
@@ -168,7 +169,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         from pandapower.pypower.makePTDF import makePTDF
 
         self.pp = pp
-        self.C = int(system)
+        self.C = system_id(system)  # "ieee118" and 118 both accepted, like every public entry point
         self.rng = np.random.default_rng(seed)
         # Measurement noise stds (accuracy-class model). |V|/angle are the class-0.2/sqrt(3) IT figures;
         # P/Q use a larger ~1.7% power-measurement std. Relative for flows/injections, absolute for V/angle.

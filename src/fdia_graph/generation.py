@@ -70,14 +70,15 @@ def _load_states(
         return np.load(src)["X"].astype(np.float64)  # precomputed compact pool (the SDK default)
     # fall back to the downloadable operating-point pool for this system
     from .download import ensure_local
-    from .registry import _RELEASE
+    from .registry import _RELEASE, system_id
 
-    # Built-in release asset spec (pool_ieee{system}.npz); follows the pinned shard release, which carries
+    # Built-in release asset spec (pool_ieee{C}.npz); follows the pinned shard release, which carries
     # all 8 ladder pools (a hardcoded old tag here 404'd generate() on systems added after that tag).
+    C = system_id(system)
     spec = {
         "kind": "builtin",
-        "name": f"pool{system}",
-        "file": f"pool_ieee{system}.npz",
+        "name": f"pool{C}",
+        "file": f"pool_ieee{C}.npz",
         "release": _RELEASE,
         "repo": "myersben9/fdia-graph",
         "sha256": None,

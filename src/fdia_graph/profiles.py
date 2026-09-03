@@ -23,6 +23,7 @@ import datetime as _dt
 import numpy as np
 
 from .engine.core import _CASE  # bus-count -> pandapower builder; single source of supported systems
+from .registry import system_id
 
 
 def _pandas():
@@ -174,7 +175,7 @@ def generate_states(
     Returns states [T, N, 4] = [P_inj (MW), Q_inj (MVAr), |V| (p.u.), theta (deg)], the pool `generate()` and
     `emit_from_state` consume.
     """
-    key = int(str(system).lower().replace("ieee", ""))
+    key = system_id(system)
     if key not in _CASE:
         raise ValueError(f"unknown system {system!r}; supported: {sorted(_CASE)}")
     S = np.asarray(profile, dtype=float).ravel()

@@ -334,9 +334,9 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
     tracks the latest continuous-dataset release without disturbing which shard release fg.load() uses.
     """
     from .download import ensure_local
-    from .registry import _REPO, STREAM_RELEASE
+    from .registry import _REPO, STREAM_RELEASE, system_id
 
-    C = int(str(system).lower().replace("ieee", ""))
+    C = system_id(system)
     spec = {
         "kind": "builtin",
         "name": f"stream{C}",
