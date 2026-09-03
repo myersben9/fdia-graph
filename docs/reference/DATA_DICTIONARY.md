@@ -64,18 +64,22 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 | 7 | `shift` | transformer phase shift, degrees (0 = plain line) |
 
 - `r,x` and `gs,bs` are the same branch inverted (`Y = 1/Z`). Both ship so you never compute one from the other.
-- In `format="pyg"`, `Data.edge_attr` is the `[E,2]` flows (also exposed as `Data.edge_x`). The `[E,8]` table is `ds.edge_attr`.
+- In PyG format (`fg.load(..., format="pyg")` and `fg.pyg_stream`), `Data.edge_attr` is the `[E,2]` flows
+  (also exposed as `Data.edge_x`) and this `[E,8]` table is `Data.edge_phys`. On the dataset object it is `ds.edge_attr`.
 
 ## Where the branch flows live, per format
 
 | you have | flows `[E,2]` | flow mask `[E,2]` |
 |---|---|---|
 | dict record `ds[i]` or a `ds.loader()` batch | `["edge_x"]` | `["edge_m"]` |
-| PyG `Data` or `DataBatch` (`format="pyg"`) | `.edge_attr` or `.edge_x` | `.edge_mask` |
+| PyG `Data` or `DataBatch` (`format="pyg"`, `fg.pyg_stream`) | `.edge_attr` or `.edge_x` | `.edge_mask` |
 | `ds.to_numpy()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` |
 
-`ds.edge_x` on the dataset object itself is **not** the flows. It is the static per-unit series
-reactance `[E]` (column 1 of `edge_attr`). Flows are per record, so they only exist on records and batches.
+Flows are per record, so they only exist on records and batches. The static per-unit branch
+physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds.branch_r`,
+`ds.branch_x`, `ds.branch_b`, `ds.branch_g`, `ds.branch_gs`, `ds.branch_bs`, `ds.branch_tap`,
+`ds.branch_shift`. The older `ds.edge_r` … `ds.edge_shift` spellings of all eight still work but raise
+a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) collided with the flows' name.
 
 ## The rest
 

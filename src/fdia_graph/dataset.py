@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from torch_geometric.data import Data
 
 # numpy + h5py are the import-time deps (both required); torch/pandas/pandapower are lazy (optional extras).
+import warnings
+
 import numpy as np
 import h5py
 
@@ -186,22 +188,48 @@ class FdiaGraph:
             raise AttributeError(f"{key} needs a v0.5.0+ shard; this file predates the physics schema")
         return _torch().as_tensor(v)
 
-    # Per-unit branch physics, ppc order (lines then transformers), aligned with edge_index.
+    # Per-unit branch physics, ppc order (lines then transformers), aligned with edge_index. The
+    # canonical names are branch_*; the older edge_* spellings still work but warn, because `edge_x`
+    # on the dataset (series reactance) collided with `edge_x` on every record (the branch flows).
     @property
-    def edge_r(self) -> torch.Tensor:
+    def branch_r(self) -> torch.Tensor:
         return self._p("edge_r")  # series resistance
 
     @property
-    def edge_x(self) -> torch.Tensor:
+    def branch_x(self) -> torch.Tensor:
         return self._p("edge_x")  # series reactance
 
     @property
-    def edge_b(self) -> torch.Tensor:
+    def branch_b(self) -> torch.Tensor:
         return self._p("edge_b")  # charging susceptance
 
     @property
-    def edge_g(self) -> torch.Tensor:
+    def branch_g(self) -> torch.Tensor:
         return self._p("edge_g")  # charging conductance, transformer iron losses
+
+    def _old_name(self, attr: str) -> torch.Tensor:
+        # Deprecated edge_* spelling of a branch_* property: same tensor, plus a one-line warning.
+        note = " (on records and batches edge_x is the [E,2] branch flows)" if attr == "x" else ""
+        warnings.warn(
+            f"ds.edge_{attr} is deprecated, use ds.branch_{attr}{note}", DeprecationWarning, stacklevel=3
+        )
+        return getattr(self, f"branch_{attr}")
+
+    @property
+    def edge_r(self) -> torch.Tensor:
+        return self._old_name("r")
+
+    @property
+    def edge_x(self) -> torch.Tensor:
+        return self._old_name("x")
+
+    @property
+    def edge_b(self) -> torch.Tensor:
+        return self._old_name("b")
+
+    @property
+    def edge_g(self) -> torch.Tensor:
+        return self._old_name("g")
 
     def _series_adm(self, imag: bool) -> torch.Tensor:
         # Series admittance 1/(r+jx). Stored on v0.7.0+ shards; derived from r,x for older ones so edge_attr
@@ -220,20 +248,36 @@ class FdiaGraph:
         return _torch().as_tensor(v)
 
     @property
-    def edge_gs(self) -> torch.Tensor:
+    def branch_gs(self) -> torch.Tensor:
         return self._series_adm(False)  # series conductance, Re(1/(r+jx))
 
     @property
-    def edge_bs(self) -> torch.Tensor:
+    def branch_bs(self) -> torch.Tensor:
         return self._series_adm(True)  # series susceptance, Im(1/(r+jx))
 
     @property
-    def edge_tap(self) -> torch.Tensor:
+    def branch_tap(self) -> torch.Tensor:
         return self._p("edge_tap")  # transformer turns ratio, 1.0 for lines
 
     @property
-    def edge_shift(self) -> torch.Tensor:
+    def branch_shift(self) -> torch.Tensor:
         return self._p("edge_shift")  # phase shift, degrees
+
+    @property
+    def edge_gs(self) -> torch.Tensor:
+        return self._old_name("gs")
+
+    @property
+    def edge_bs(self) -> torch.Tensor:
+        return self._old_name("bs")
+
+    @property
+    def edge_tap(self) -> torch.Tensor:
+        return self._old_name("tap")
+
+    @property
+    def edge_shift(self) -> torch.Tensor:
+        return self._old_name("shift")
 
     @property
     def edge_status(self) -> torch.Tensor:
@@ -296,14 +340,14 @@ class FdiaGraph:
         t = _torch()
         return t.stack(
             [
-                self.edge_r,
-                self.edge_x,
-                self.edge_b,
-                self.edge_g,
-                self.edge_gs,
-                self.edge_bs,
-                self.edge_tap,
-                self.edge_shift,
+                self.branch_r,
+                self.branch_x,
+                self.branch_b,
+                self.branch_g,
+                self.branch_gs,
+                self.branch_bs,
+                self.branch_tap,
+                self.branch_shift,
             ],
             dim=1,
         )
@@ -395,31 +439,25 @@ class FdiaGraph:
             return self._to_pyg(item)  # optionally repackage as a PyG Data object
         return item  # default: plain dict of tensors
 
+    # Dict-record key -> PyG attribute name. Everything not listed keeps its dict name, so a field
+    # added to __getitem__ shows up in PyG records and batches without touching this method. The
+    # static [E,8] branch physics travel as edge_phys because PyG's edge_attr slot holds the per-record
+    # branch flows, the same contract torch_data.pyg_stream follows.
+    _PYG_RENAME = {"node_x": "x", "node_m": "node_mask", "edge_m": "edge_mask", "edge_attr": "edge_phys"}
+
     def _to_pyg(self, item: Dict[str, Any]) -> "Data":
-        # Repackage the dict as a torch_geometric Data object; masks ride along as extra attributes PyG batches.
+        # Repackage the dict record as a torch_geometric Data object, mechanically. PyG batches every
+        # per-node/per-edge tensor along dim 0 and every scalar into a [B] tensor, so masks, temporal
+        # features, clean layers and metadata all ride along.
         try:
             from torch_geometric.data import Data
         except ImportError as e:
             raise ImportError("PyG is required for format='pyg': pip install 'fdia-graph[pyg]'") from e
-        extra = {
-            k: item[k] for k in ("temporal_delta", "swing", "clean", "edge_clean") if k in item
-        }  # [N,2] engineered features + noiseless truth targets,
+        fields = {self._PYG_RENAME.get(k, k): v for k, v in item.items()}
+        fields["edge_attr"] = item["edge_x"]  # same tensor as fields["edge_x"], no copy until batching
         if self.slack is not None:
-            extra["slack"] = self.slack  # reference-bus index, batched to [B] like family
-        # batched node-wise by PyG like x (swing is the canonical localization feature -- see README)
-        return Data(
-            x=item["node_x"],  # [N,4] bus measurements
-            edge_index=self.edge_index,  # [2,E] connectivity
-            edge_attr=item["edge_x"],  # PyG's conventional slot for the [E,2] branch flows ...
-            edge_x=item["edge_x"],  # ... and the same tensor under the dict-format name, so
-            # `batch.edge_x` works in both formats (same object, no copy until batching)
-            y=item["y"],  # [N] per-bus attack label
-            node_mask=item["node_m"],
-            edge_mask=item["edge_m"],  # carry the availability masks through
-            family=item["family"],
-            stealthy=item["stealthy"],  # keep metadata for stratified eval
-            **extra,
-        )
+            fields["slack"] = self.slack  # reference-bus index, batched to [B] like family
+        return Data(**fields)
 
     @staticmethod
     def collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:

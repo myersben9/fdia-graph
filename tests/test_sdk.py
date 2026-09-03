@@ -88,11 +88,50 @@ def test_pyg_data_matches_dict_record(shard):
         assert torch.equal(data.y, item["y"])
         assert torch.equal(data.edge_index, item["edge_index"])
         assert data.family == item["family"] and data.slack == dict_ds.slack
+        for k in ("stealthy", "seq_id", "timestep"):
+            assert getattr(data, k) == item[k]
         for k in ("temporal_delta", "swing", "clean", "edge_clean"):
             assert torch.equal(getattr(data, k), item[k])
+        assert torch.equal(data.edge_phys, item["edge_attr"])  # static [E,8] physics, renamed
+        # Every per-record key reaches PyG under its own name or the documented rename.
+        rename = {"node_x": "x", "node_m": "node_mask", "edge_m": "edge_mask", "edge_attr": "edge_phys"}
+        for k in item:
+            assert hasattr(data, rename.get(k, k)), k
     batch = next(iter(pyg_ds.loader(batch_size=3, shuffle=False)))
     assert tuple(batch.edge_x.shape) == (3 * dict_ds.E, 2)
+    assert tuple(batch.edge_phys.shape) == (3 * dict_ds.E, 8)
     assert batch.slack.tolist() == [dict_ds.slack] * 3
+
+
+def test_pyg_stream_matches_dataset_pyg_contract(shard):
+    """The stream PyG helper and fg.load(format='pyg') expose the same attribute names."""
+    pytest.importorskip("torch_geometric")
+    import torch
+
+    from fdia_graph.generation import _load_states
+
+    X = _load_states(14, None)[:60]  # a short pool slice keeps the stream build to seconds
+    s = fg.generate_stream(14, states=X, seed=1)
+    tr, te = fg.pyg_stream(stream=s, train_frac=0.5)
+    d = tr[0]
+    assert tuple(d.x.shape) == (14, 4) and tuple(d.edge_attr.shape) == (20, 2)
+    assert torch.equal(d.edge_attr, d.edge_x)
+    assert tuple(d.edge_phys.shape) == (20, 8)
+    assert tuple(d.node_mask.shape) == (14, 4) and tuple(d.edge_mask.shape) == (20, 2)
+    assert torch.equal(d.edge_x, torch.as_tensor(s["edge_x"][0], dtype=torch.float32))
+    (trc, tec) = fg.pyg_stream(stream=s, train_frac=0.5, layer="clean")
+    assert torch.equal(trc[0].edge_x, torch.as_tensor(s["edge_clean"][0], dtype=torch.float32))
+
+
+def test_branch_physics_names(shard):
+    import torch
+
+    ds = fg.load(shard)
+    assert torch.equal(ds.branch_x, ds.edge_attr[:, 1])
+    assert torch.equal(ds.branch_gs, ds.edge_attr[:, 4])
+    with pytest.warns(DeprecationWarning, match="branch flows"):
+        old = ds.edge_x  # the dataset-level reactance under its clashing old name
+    assert torch.equal(old, ds.branch_x)
 
 
 def test_dict_loader_batches_every_documented_key(splits):
