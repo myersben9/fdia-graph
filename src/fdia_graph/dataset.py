@@ -440,8 +440,10 @@ class FdiaGraph:
         return item  # default: plain dict of tensors
 
     # Dict-record key -> PyG attribute name. Everything not listed keeps its dict name, so a field
-    # added to __getitem__ shows up in PyG records and batches without touching this method.
-    _PYG_RENAME = {"node_x": "x", "node_m": "node_mask", "edge_m": "edge_mask"}
+    # added to __getitem__ shows up in PyG records and batches without touching this method. The
+    # static [E,8] branch physics travel as edge_phys because PyG's edge_attr slot holds the per-record
+    # branch flows, the same contract torch_data.pyg_stream follows.
+    _PYG_RENAME = {"node_x": "x", "node_m": "node_mask", "edge_m": "edge_mask", "edge_attr": "edge_phys"}
 
     def _to_pyg(self, item: Dict[str, Any]) -> "Data":
         # Repackage the dict record as a torch_geometric Data object, mechanically. PyG batches every
@@ -451,9 +453,7 @@ class FdiaGraph:
             from torch_geometric.data import Data
         except ImportError as e:
             raise ImportError("PyG is required for format='pyg': pip install 'fdia-graph[pyg]'") from e
-        # The static [E,8] branch physics stays on the dataset (ds.edge_attr): PyG's edge_attr slot is
-        # its conventional home for per-edge features, and here that is the [E,2] flows.
-        fields = {self._PYG_RENAME.get(k, k): v for k, v in item.items() if k != "edge_attr"}
+        fields = {self._PYG_RENAME.get(k, k): v for k, v in item.items()}
         fields["edge_attr"] = item["edge_x"]  # same tensor as fields["edge_x"], no copy until batching
         if self.slack is not None:
             fields["slack"] = self.slack  # reference-bus index, batched to [B] like family
