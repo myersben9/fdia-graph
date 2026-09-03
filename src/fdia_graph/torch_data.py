@@ -56,9 +56,11 @@ def pyg_stream(
 ) -> Tuple[List["Data"], ...]:
     """Continuous stream as ready PyTorch-Geometric graphs, split chronologically.
 
-    Each scan becomes one ``Data(x=[N,4], edge_index=[2,E], edge_attr=[E,8], y=[N])``. The graph is
-    static, so ``edge_index``/``edge_attr`` are shared tensors (one copy for the whole stream).
-    Needs ``pip install "fdia-graph[pyg]"``.
+    Each scan becomes one ``Data`` with the same attribute names as ``fg.load(..., format="pyg")``:
+    ``x=[N,4]`` from the chosen layer, ``edge_attr`` and ``edge_x`` both the ``[E,2]`` branch flows
+    of the matching layer, ``node_mask``/``edge_mask`` the static meter masks, ``edge_phys=[E,8]``
+    the static line physics, ``edge_index=[2,E]``, ``y=[N]``. The static tensors are shared (one
+    copy for the whole stream). Needs ``pip install "fdia-graph[pyg]"``.
 
     Args:
         system: system name (e.g. "ieee118") to load; ignored when ``stream`` is given.
@@ -80,9 +82,15 @@ def pyg_stream(
         raise ValueError(f"max_test must be >= 0, got {max_test}")
     s = _resolve_stream(system, release, stream)
     X = _f32(s[layer])  # [T, N, 4]
+    # The branch flows of the same layer: observed edge_x, or the benign / clean edge layer.
+    F = _f32(s["edge_x" if layer == "node_x" else f"edge_{layer}"])  # [T, E, 2]
     Y = _f32(s["y"])  # [T, N]
     ei = torch.from_numpy(np.ascontiguousarray(s["edge_index"], dtype=np.int64))  # [2, E], shared
-    ea = _f32(s["edge_attr"])  # [E, 8], shared
+    static = {  # shared tensors, one copy for the whole stream
+        "edge_phys": _f32(s["edge_attr"]),  # [E, 8] line physics
+        "node_mask": _f32(s["node_m"]),
+        "edge_mask": _f32(s["edge_m"]),
+    }
     if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
         raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
     T = int(X.shape[0])
@@ -90,7 +98,9 @@ def pyg_stream(
     nva = int(val_frac * T)
 
     def graphs(a: int, b: int) -> List["Data"]:
-        return [Data(x=X[t], edge_index=ei, edge_attr=ea, y=Y[t]) for t in range(a, b)]
+        return [
+            Data(x=X[t], edge_index=ei, edge_attr=F[t], edge_x=F[t], y=Y[t], **static) for t in range(a, b)
+        ]
 
     train = graphs(0, ntr)
     val = graphs(ntr, ntr + nva)

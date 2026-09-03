@@ -105,7 +105,8 @@ Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-d
 | `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
 | `slack` | scalar | | index of the reference bus (`ds.slack`, `Data.slack` in PyG) |
 
-In `format="pyg"` the flows are `Data.edge_attr` (alias `Data.edge_x`) and the mask is `edge_mask`.
+In PyG format (`format="pyg"` and `fg.pyg_stream`) the flows are `Data.edge_attr` (alias `Data.edge_x`),
+the mask is `edge_mask`, and the static line physics are `Data.edge_phys`.
 Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
 
 ## Attacks
