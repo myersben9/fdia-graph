@@ -33,7 +33,7 @@ from .registry import list_datasets, register_local, resolve
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
 __all__ = [
     "load",

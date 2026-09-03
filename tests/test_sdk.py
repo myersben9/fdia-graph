@@ -91,6 +91,17 @@ def test_ybus_matches_engine_and_clean_injections(shard):
     assert np.allclose(-S.real[:, ~shunt], cl[:, ~shunt, 1], atol=1e-2)
     assert np.allclose(-S.imag[:, ~shunt], cl[:, ~shunt, 2], atol=1e-2)
     assert tuple(ds.ybus.shape) == (ds.N, ds.N)
+    # Branch admittance matrices: equal to the engine's, and Yf reproduces the clean from-end flows
+    # (edge_clean is zero on unmetered branches, so compare where a flow meter exists).
+    assert np.allclose(ds.yf_np, g._Yf.toarray()[:, lut], atol=1e-9)
+    assert np.allclose(ds.yt_np, g._Yt.toarray()[:, lut], atol=1e-9)
+    f = ds.edge_index_np[0]
+    Sf = V[:, f] * np.conj(V @ ds.yf_np.T) * ds.baseMVA  # [T, E]
+    ec = ds._eclean_np[:64].astype(float)
+    metered = ds.to_numpy(["edge_m"])["edge_m"][0, :, 0] > 0
+    assert np.allclose(Sf.real[:, metered], ec[:, metered, 0], atol=1e-2)
+    assert np.allclose(Sf.imag[:, metered], ec[:, metered, 1], atol=1e-2)
+    assert tuple(ds.yf.shape) == (ds.E, ds.N) and tuple(ds.yt.shape) == (ds.E, ds.N)
 
 
 def test_state_pool_order_is_detected_and_unified(shard):
