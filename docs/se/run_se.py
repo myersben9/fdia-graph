@@ -44,7 +44,8 @@ for name, m in methods.items():
     m.fit(train)
     f = os.path.join(CACHE, f"se_{SYSTEM}_{name}.npz")
     if os.path.exists(f):
-        xhat = np.load(f)["xhat"]
+        with np.load(f) as z:
+            xhat = z["xhat"]
         how = "cached estimates"
     else:
         xhat = m.estimate(test)

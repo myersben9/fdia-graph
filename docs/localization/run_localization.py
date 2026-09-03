@@ -39,9 +39,9 @@ def run(protocol, name, m, train, test, val=None):
     t0 = time.time()
     f = os.path.join(CACHE, f"loc_{SYSTEM}_{protocol}_{name}.npz")
     if os.path.exists(f):
-        z = np.load(f)
-        m.thr, s = z["thr"], z["scores"]
-        m.tau = float(z["tau"]) if "tau" in z.files and not np.isnan(z["tau"]) else None
+        with np.load(f) as z:
+            m.thr, s = z["thr"], z["scores"]
+            m.tau = float(z["tau"]) if "tau" in z.files and not np.isnan(z["tau"]) else None
         how = "cached"
     else:
         m.fit(train, val=val) if val is not None else m.fit(train)
