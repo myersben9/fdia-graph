@@ -66,6 +66,19 @@ How the three paths connect (generate produces the shard the load path serves):
 
 New docs go in `reference/` or `guides/`. A new analysis module gets an example folder like the two above.
 
+## Tests
+
+`tests/` is a behavioral suite that builds its own tiny IEEE-14 shard in a throwaway cache (about
+15 seconds, no shard download) and checks the contracts the docs promise: name parsing, column
+orders, the slack bus, dict and PyG records agreeing, the KCL residual, units, labels, the
+localizer protocol, and smoke runs of the learned arms and WLS. CI runs it on every PR next to
+pyright and ruff. Run locally with:
+
+```bash
+pip install -e ".[generate,test]"    # plus torch and torch_geometric for the learned-arm and PyG tests
+pytest -q tests
+```
+
 ## Reading order for new students
 
 1. `README.md`: install + quickstart.

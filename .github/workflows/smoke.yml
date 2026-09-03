@@ -23,6 +23,22 @@ jobs:
           python -c "import fdia_graph as fg; print(fg.__version__)"
           python -c "from fdia_graph import registry; print(registry._RELEASE)"
 
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # CPU-only torch keeps the job small; pandapower builds the tests' own tiny shard (no shard
+      # download, only the 13 MB operating-point pool). torch_geometric is pure Python.
+      - name: Install package with the generate, torch and test extras
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[generate,test]" torch_geometric matplotlib
+      - name: Run the test suite
+        run: pytest -q tests
+
   typecheck:
     runs-on: ubuntu-latest
     steps:

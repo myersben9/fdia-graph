@@ -20,6 +20,19 @@ _RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.7.2")  # pinned data release
 # One release channel: each tag carries all assets, so streams follow _RELEASE (env var overrides).
 STREAM_RELEASE = os.environ.get("FDIA_GRAPH_STREAM_RELEASE", _RELEASE)
 
+
+def system_id(system: Union[str, int]) -> int:
+    """Bus count of a ladder system from either spelling: "ieee118", "IEEE118", "118" or 118 -> 118.
+
+    Every public entry point accepts both forms, so this is the one place that parses them; the
+    engine, generators, streams and profiles all go through it.
+    """
+    try:
+        return int(str(system).strip().lower().replace("ieee", ""))
+    except ValueError as e:
+        raise ValueError(f"system must be like 'ieee118' or 118, got {system!r}") from e
+
+
 # Built-in shards. Each entry is the full spec download.py needs: asset `file`, `release` tag, `repo`,
 # expected `sha256` (None = skip verification), and the IEEE `system` size.
 BUILTIN = {
