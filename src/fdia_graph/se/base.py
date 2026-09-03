@@ -197,10 +197,17 @@ class SEBase:
     @staticmethod
     def _inv(A: np.ndarray) -> np.ndarray:
         # full-rank direct inverse; pinv only when genuinely singular (a cutoff on a full-rank
-        # system silently amputates valid directions and pins the estimate near its start)
+        # system silently amputates valid directions and pins the estimate near its start).
+        # "Singular" is judged relative to the largest eigenvalue: a residual-removal set on
+        # IEEE-300 once left the smallest eigenvalue positive but far below machine precision of
+        # the largest, and LU still hit an exact zero pivot, so the direct inverse is also
+        # guarded by the LinAlgError fallback.
         ev = np.linalg.eigvalsh(0.5 * (A + A.T))
-        if ev.min() > 0:
-            return np.linalg.inv(A)
+        if ev.min() > 1e-14 * ev.max():
+            try:
+                return np.linalg.inv(A)
+            except np.linalg.LinAlgError:
+                pass
         return np.linalg.pinv(A, rcond=1e-12)
 
     # ---- solving ----------------------------------------------------------------------------
