@@ -12,10 +12,17 @@ Two protocols, one results file:
 Set FG_SYSTEM (default ieee14; the README covers ieee14, ieee118, ieee300). Tables and figures come
 from make_report.py, which reads the JSON, so plots can be restyled without re-running.
 ResidualLocalizer needs the [se] extra; BusCNN/BusMLP need [torch] and use the GPU when visible.
+
+Each arm's per-bus test scores and calibrated thresholds are cached in results/cache/ as soon as it
+finishes (the residual arm's state-estimation solves and the learned arms' training are the slow
+parts), so a re-run scores from the cache in seconds. Delete a cache file to recompute that arm.
 """
 
 import json
 import os
+import time
+
+import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.localization import BusCNN, BusMLP, DeltaThreshold, ResidualLocalizer, SwingThreshold
@@ -23,7 +30,32 @@ from fdia_graph.localization import BusCNN, BusMLP, DeltaThreshold, ResidualLoca
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
-os.makedirs(OUT, exist_ok=True)
+CACHE = os.path.join(OUT, "cache")
+os.makedirs(CACHE, exist_ok=True)
+
+
+def run(protocol, name, m, train, test, val=None):
+    """Fit (or restore thresholds from the cache), then score the test split from cached scores."""
+    t0 = time.time()
+    f = os.path.join(CACHE, f"loc_{SYSTEM}_{protocol}_{name}.npz")
+    if os.path.exists(f):
+        with np.load(f) as z:
+            m.thr, s = z["thr"], z["scores"]
+            m.tau = float(z["tau"]) if "tau" in z.files and not np.isnan(z["tau"]) else None
+        how = "cached"
+    else:
+        m.fit(train, val=val) if val is not None else m.fit(train)
+        s = m.scores(test)
+        np.savez_compressed(f, scores=s, thr=m.thr, tau=np.nan if getattr(m, "tau", None) is None else m.tau)
+        how = "fitted"
+    r = m.score(test, scores=s)
+    if getattr(m, "tau", None) is not None:
+        r = {"tau": m.tau, **r}
+    print(
+        f"  {protocol:9s} {name:8s} {how:7s} {time.time() - t0:6.0f}s  macro-F1 {r['all']['macro_f1']:.4f}  FR {r['all']['macro_fr']:.4f}"
+    )
+    return r
+
 
 # ---- 1. common protocol: same train, same FA budget, full test ------------------------------
 train = fg.load(SYSTEM, split="train")
@@ -35,20 +67,19 @@ methods = {
     "mlp": BusMLP(),
     "cnn": BusCNN(),
 }
-report = {name: m.fit(train).score(test) for name, m in methods.items()}
+report = {name: run("common", name, m, train, test) for name, m in methods.items()}
 
 # ---- 2. papers' zero-shot protocol: benign + Aq + Ad seen, As + Ar unseen, val-tuned tau -----
 zs = dict(families=[0, 1, 2])
 ztr, zva = fg.load(SYSTEM, split="train", **zs), fg.load(SYSTEM, split="val", **zs)
 zte = fg.load(SYSTEM, split="test", families=[0, 1, 2, 3, 4])
-zero_shot = {}
-for name, m in {"mlp": BusMLP(), "cnn": BusCNN()}.items():
-    zero_shot[name] = {"tau": m.fit(ztr, val=zva).tau, **m.score(zte)}
-zero_shot["swing"] = SwingThreshold().fit(ztr).score(zte)  # the feature alone, FA-calibrated
+zero_shot = {
+    name: run("zero_shot", name, m, ztr, zte, val=zva)
+    for name, m in {"mlp": BusMLP(), "cnn": BusCNN()}.items()
+}
+zero_shot["swing"] = run("zero_shot", "swing", SwingThreshold(), ztr, zte)  # the feature alone, FA-calibrated
 report["zero_shot"] = zero_shot
 
-with open(os.path.join(OUT, f"loc_{SYSTEM}.json"), "w") as f:
-    json.dump(report, f, indent=1)
+with open(os.path.join(OUT, f"loc_{SYSTEM}.json"), "w") as fh:
+    json.dump(report, fh, indent=1)
 print(f"[ok] wrote loc_{SYSTEM}.json to {OUT}; run make_report.py for tables and figures")
-for name, r in zero_shot.items():
-    print(f"  zero-shot {name:8s} macro-F1 {r['all']['macro_f1']:.4f}  FR {r['all']['macro_fr']:.4f}")

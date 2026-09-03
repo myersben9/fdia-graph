@@ -230,6 +230,10 @@ def test_threshold_localizer_protocol(shard, splits):
     # The pooled entry survives a benign-only evaluation set.
     ben_only = fg.load(shard, split="test", families=[0])
     assert loc.score(ben_only)["all"]["macro_f1"] == 0.0
+    # Scoring from precomputed scores (the docs cache path) equals scoring from scratch.
+    assert loc.score(splits["test"], scores=loc.scores(splits["test"])) == rep
+    with pytest.raises(ValueError):
+        loc.score(splits["test"], scores=np.zeros((3, splits["test"].N)))
 
 
 def test_learned_localizer_smoke(splits):
@@ -260,3 +264,8 @@ def test_wls_estimates_the_classical_state(splits):
     rep = est.score(splits["test"])
     assert "geo" in rep and rep["geo"]["angle_mae_deg"] < 1.0
     assert rep["benign"]["voltage_mae_pu"] < 0.01
+    # Scoring from precomputed estimates (the docs cache path) equals scoring from scratch.
+    rep2 = est.score(splits["test"], xhat=x)
+    assert all(np.isclose(rep2[f][k], rep[f][k], rtol=1e-6) for f in rep for k in rep[f])
+    with pytest.raises(ValueError):
+        est.score(splits["test"], xhat=x[:3])
