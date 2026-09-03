@@ -380,7 +380,7 @@ def generate(
 
     # Output path: <name>.h5 under the SDK cache dir unless `out` overrode it.
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
-    _write(g, recs, out, split, seed, solve_stats=(tried, taken), states=X)
+    _write(g, recs, out, split, seed, solve_stats=(tried, taken), pool=X)  # X: loaded, order-normalized
     # Sidecar: flatten per-bus designed magnitudes into (family_id, magnitude) rows for band verification.
     if mag_log:
         fam_col = np.concatenate([np.full(len(m), fid, np.int8) for fid, m, s in mag_log])
@@ -418,8 +418,10 @@ def _write(
     split: Tuple[float, float, float],
     seed: int,
     solve_stats: Optional[Tuple[Dict, Dict]] = None,
-    states: Optional[np.ndarray] = None,
+    pool: Optional[np.ndarray] = None,
 ) -> None:
+    # pool is the operating-point pool as _load_states returned it: an in-memory [T,N,4] array already in
+    # [|V|, Pinj, Qinj, theta] order, never the caller's raw `states` argument (which may be a path or P-first).
     # Serialize the record-tuples to one HDF5 file: graph structure + stacked per-record arrays + split.
     T = len(recs)
     C, E = g.C, g.E  # T records, C nodes, E edges
@@ -537,8 +539,8 @@ def _write(
         # clean/ group (v0.7.2+): the NOISELESS attack-free truth per POOL timestep (the SE target), resolved
         # per record via data/timestep. Same layer the streams ship. node_clean is the pool itself (already in
         # node_x column order [V, P_inj, Q_inj, theta]); edge_clean = exact Ybus flows, unmetered zeroed.
-        if states is not None:
-            Xp = np.asarray(states, np.float64)[: int(tstep.max()) + 1]
+        if pool is not None:
+            Xp = np.asarray(pool, np.float64)[: int(tstep.max()) + 1]
             nc = Xp.astype(np.float32)
             ec = g.clean_flows_from_states(Xp)  # exact Ybus from-end flows, unmetered branches zeroed
             cg = f.create_group("clean")
