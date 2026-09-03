@@ -26,6 +26,10 @@ engine; `se/` and `localization/` analyze the shards; the rest load and serve da
 | `physics.py` | `solve` / `resolve_states`: AC re-solve under new loads |
 | `attacks.py` | `corrupt` (Ad/As/Ar) and `lra_delta` (Al redistribution) |
 
+One column order everywhere: the operating-state pool, `node_x`, and `clean` are all
+`[|V|, P_inj, Q_inj, theta]`. Pools saved before 0.12 were P-first; `generation.as_v_first` detects
+and converts them on load.
+
 ## State estimation
 
 | concept | code |

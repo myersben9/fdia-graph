@@ -18,9 +18,9 @@ class MeasurementMixin(GridBase):
 
     def emit_from_state(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
-        # meter noise. X columns = [Pinj, Qinj, |V|, angle].
+        # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
         C, SD, M = self.C, self.SD, self.M
-        Pi, Qi, V, TH = X[:, 0], X[:, 1], X[:, 2], X[:, 3]
+        V, Pi, Qi, TH = X[:, 0], X[:, 1], X[:, 2], X[:, 3]
         # Rebuild the complex bus-voltage phasor vector in ppc ordering: V * e^{j*theta}.
         Vc = np.zeros(self._nppc, complex)
         for b in range(C):
@@ -60,19 +60,19 @@ class MeasurementMixin(GridBase):
         # states in one matmul (the per-frame version above is O(T) sparse multiplies). Used to build the clean
         # SE-target edge layer shared by the single-timestamp shards and the streams, so both go through this one
         # physics primitive instead of re-deriving Ybus flows in the loader/generator.
-        # X is [T, N, 4] in pool column order [Pinj, Qinj, |V|, angle]; only |V| (col 2) and angle (col 3) enter.
+        # X is [T, N, 4] = [|V|, Pinj, Qinj, angle]; only |V| (col 0) and angle (col 3) enter.
         # Returns [T, E, 2] = [P_from MW, Q_from MVAr], unmetered branches zeroed to match emit()'s flow mask.
         X = np.asarray(X, float)
         C = X.shape[1]
         Vc = np.zeros((len(X), self._nppc), complex)
-        Vc[:, self._lut[np.arange(C)]] = X[:, :, 2] * np.exp(1j * np.deg2rad(X[:, :, 3]))
+        Vc[:, self._lut[np.arange(C)]] = X[:, :, 0] * np.exp(1j * np.deg2rad(X[:, :, 3]))
         Sf = Vc[:, self._fb] * np.conj((self._Yf @ Vc.T).T) * self._bMVA  # sparse@dense, then transpose back
         ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         ec[:, ~np.asarray(self.flow_meter, bool), :] = 0.0
         return ec
 
     def state_from_net(self, net: Any) -> np.ndarray:
-        # Pull operating state [N,4]=[Pinj, Qinj, |V|, theta] from a SOLVED net, matching the stored pool.
+        # Pull operating state [N,4]=[|V|, Pinj, Qinj, theta] from a SOLVED net, matching the stored pool.
         Pi = net.res_bus.p_mw.values.copy()
         Qi = net.res_bus.q_mvar.values.copy()
         # Shunts live in res_bus; subtract shunt draw so Pi/Qi reflect gen/load injection only (matching the
@@ -83,7 +83,7 @@ class MeasurementMixin(GridBase):
             Qi[b] -= net.res_shunt.q_mvar[i]
         V = net.res_bus.vm_pu.values
         TH = net.res_bus.va_degree.values
-        return np.column_stack([Pi, Qi, V, TH])  # [N,4] = [Pinj, Qinj, |V|, theta]
+        return np.column_stack([V, Pi, Qi, TH])  # [N,4] = [|V|, Pinj, Qinj, theta]
 
     def emit(self, net: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         # Emit from a SOLVED net (re-solving attacks) by routing its state through emit_from_state, so

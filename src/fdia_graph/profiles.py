@@ -122,14 +122,15 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> List[np.ndarray]:
             pp.runpp(base, init="flat", max_iteration=50, tolerance_mva=1e-6)
         except Exception:
             continue  # infeasible operating point -> skip this timestep
-        z = base.res_bus.reindex(nodelist)[["p_mw", "q_mvar", "vm_pu", "va_degree"]].to_numpy().copy()
+        # [N,4] = [|V|, Pinj, Qinj, theta], the one column order the pool, the engine and node_x share.
+        z = base.res_bus.reindex(nodelist)[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy().copy()
         if len(base.res_shunt):  # SE excludes the shunt, so subtract it -> BDD-clean injection
             for b, ps, qs in zip(
                 base.shunt.bus.to_numpy(), base.res_shunt.p_mw.to_numpy(), base.res_shunt.q_mvar.to_numpy()
             ):
                 if int(b) in pos:
-                    z[pos[int(b)], 0] -= ps
-                    z[pos[int(b)], 1] -= qs
+                    z[pos[int(b)], 1] -= ps
+                    z[pos[int(b)], 2] -= qs
         out.append(z)
     return out
 
@@ -172,8 +173,9 @@ def generate_states(
     chunks keep time order, each seeded seed+chunk_index. NOTE: spawning processes means a caller passing
     workers>1 must guard its top-level script with `if __name__ == "__main__":` (multiprocessing on Windows).
 
-    Returns states [T, N, 4] = [P_inj (MW), Q_inj (MVAr), |V| (p.u.), theta (deg)], the pool `generate()` and
-    `emit_from_state` consume.
+    Returns states [T, N, 4] = [|V| (p.u.), P_inj (MW), Q_inj (MVAr), theta (deg)], the pool `generate()` and
+    `emit_from_state` consume, in the same column order as node_x and clean. (Before 0.12 the pool was
+    [P, Q, V, theta]; generate() still accepts such pools and converts them, see generation.as_v_first.)
     """
     key = system_id(system)
     if key not in _CASE:

@@ -46,7 +46,7 @@ _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}  # Aq, 
 def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
     """Per-timestep benign 'typical recent change' std over the last SWING_W scans (prefix-sum, same as the shard)."""
     T = len(X)
-    D = np.abs(np.diff(X[:, :, :2], axis=0))  # [T-1,N,2] scan-to-scan |change|
+    D = np.abs(np.diff(X[:, :, 1:3], axis=0))  # [T-1,N,2] scan-to-scan |change| in [Pinj, Qinj]
     c1 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D, 0)], 0)
     c2 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D**2, 0)], 0)
     SCALE = np.full((T, C, 2), 1e-3, np.float32)
@@ -156,9 +156,9 @@ def generate_stream(
         """Apply family `fid` at timestep t. Returns (nx, y, benign_nx, ex, benign_ex) or None, where ex is the
         OBSERVED branch flows and benign_ex the un-attacked branch flows (node + edge from the same scan)."""
         yt = np.zeros(C, np.uint8)
-        if fid in (1, 5):  # Aq / ramp: re-solve with scaled load
-            Lp = X[t][g.load_bus, 0] + g.load_genP
-            Lq = X[t][g.load_bus, 1].copy()
+        if fid in (1, 5):  # Aq / ramp: re-solve with scaled load. X[t] = [|V|, Pinj, Qinj, theta]
+            Lp = X[t][g.load_bus, 1] + g.load_genP
+            Lq = X[t][g.load_bus, 2].copy()
             Lp_true = Lp.copy()
             Lp = Lp.copy()
             Lp[a] *= mult
@@ -170,8 +170,8 @@ def generate_stream(
             bnx, bnm, bex, bem = g.emit_from_state(X[t])  # benign = un-attacked emit of the true state
             return nx, yt, bnx, ex, bex
         if fid == 6:  # Al / LRA: load-redistribution re-solve
-            Lp = X[t][g.load_bus, 0] + g.load_genP
-            Lq = X[t][g.load_bus, 1].copy()
+            Lp = X[t][g.load_bus, 1] + g.load_genP
+            Lq = X[t][g.load_bus, 2].copy()
             d, aa = g.lra_delta(Lp, attack_intensity, K, floor=NOISE_FLOOR)
             if len(aa) == 0:
                 return None
@@ -264,9 +264,9 @@ def generate_stream(
             episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
 
     # clean = the NOISELESS healthy state at every timestep (the truth the attack was injected onto), in the
-    # same column order as node_x ([|V|, Pinj, Qinj, angle]). This is the SE / reconstruction target: pair
-    # (node_x[t], clean[t]) is (attacked measurements, true state) even on attacked frames.
-    clean = np.stack([X[:T, :, 2], X[:T, :, 0], X[:T, :, 1], X[:T, :, 3]], axis=2).astype(np.float32)
+    # same column order as node_x ([|V|, Pinj, Qinj, angle]), which the pool already uses. This is the SE /
+    # reconstruction target: pair (node_x[t], clean[t]) is (attacked measurements, true state) on every frame.
+    clean = X[:T].astype(np.float32)
     # Three aligned layers per frame: node_x (attacked+noisy observed) -> benign (attack removed, noise kept)
     # -> clean (noise removed too, the true state). node_x == benign on benign frames.
     # Static graph for PyG-style models: edge_index [2,E] connectivity (COO, int64 so it maps to torch.long)

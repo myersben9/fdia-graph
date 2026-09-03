@@ -46,15 +46,46 @@ SWING_W = 60
 NOISE_FLOOR = 0.02
 
 
+def as_v_first(X: np.ndarray) -> np.ndarray:
+    """Return a state pool [T,N,4] in the SDK's one column order [|V|, Pinj, Qinj, theta].
+
+    Pools written before 0.12 (the downloadable pool assets, older `states=` files, the original
+    pipeline's X_*.npy) are [Pinj, Qinj, |V|, theta]. The order is detected from the data: the voltage
+    column is the only one whose every value sits in a per-unit band around 1.0, so a pool is
+    converted when column 2 looks like |V| and column 0 does not. Anything else is an error rather
+    than a guess.
+    """
+    X = np.asarray(X, np.float64)
+    if X.ndim != 3 or X.shape[2] != 4:
+        raise ValueError(f"a state pool is [T, N, 4], got shape {X.shape}")
+
+    def looks_like_v(col: np.ndarray) -> bool:
+        return bool(np.all((col > 0.5) & (col < 1.5)))
+
+    v0, v2 = looks_like_v(X[:, :, 0]), looks_like_v(X[:, :, 2])
+    if v0 and not v2:
+        return X
+    if v2 and not v0:
+        return X[:, :, [2, 0, 1, 3]]  # [P, Q, V, th] -> [V, P, Q, th]
+    raise ValueError("cannot tell the pool's column order; expected [|V|, Pinj, Qinj, theta]")
+
+
 def _load_states(
     system: Union[int, str], states: Optional[Union[str, np.ndarray]], pool_cap: int = 8000
 ) -> np.ndarray:
-    """Return an operating-point pool [T,N,4] to inject attacks onto.
+    """Return an operating-point pool [T,N,4] = [|V|, Pinj, Qinj, theta] to inject attacks onto.
 
     Priority: explicit `states` -> $FDIA_GRAPH_INIT -> downloadable pool asset. A local init DIRECTORY can
     hold ~86k per-timestep files, so we stride-sample at most `pool_cap` evenly across the timeline (keeps
-    daily/seasonal variety) rather than reading every file, which made a naive load take minutes.
+    daily/seasonal variety) rather than reading every file, which made a naive load take minutes. Every
+    source goes through as_v_first, so pools saved in the older [P, Q, V, theta] order still load.
     """
+    return as_v_first(_read_states(system, states, pool_cap))
+
+
+def _read_states(
+    system: Union[int, str], states: Optional[Union[str, np.ndarray]], pool_cap: int
+) -> np.ndarray:
     # In-memory pool accepted directly (no disk). Checked first because a numpy array has no truth value for `or`.
     if isinstance(states, np.ndarray):
         return states.astype(np.float64)
@@ -137,7 +168,7 @@ def generate(
     # Precompute the swing feature's per-timestep "recent typical change" scale ONCE via prefix sums (a
     # per-record windowed std would be ~72k slow Python iterations).
     # SCALE[t,b,:] = std over [t-SWING_W, t) of the per-bus scan-to-scan |change| in P/Q.
-    _D = np.abs(np.diff(X[:, :, :2], axis=0))  # [nT-1, N, 2] scan-to-scan |change|
+    _D = np.abs(np.diff(X[:, :, 1:3], axis=0))  # [nT-1, N, 2] scan-to-scan |change| in [Pinj, Qinj]
     _c1 = np.concatenate([np.zeros((1,) + _D.shape[1:]), np.cumsum(_D, 0)], 0)  # prefix sum, [nT,N,2]
     _c2 = np.concatenate([np.zeros((1,) + _D.shape[1:]), np.cumsum(_D**2, 0)], 0)  # prefix sum of squares
     SCALE = np.full((nT, C, 2), 1e-3, np.float32)
@@ -169,25 +200,26 @@ def generate(
         # swing: that change as a z-score of the bus's typical recent jump (SCALE[t]); single-shot spikes
         # (Aq/Al) read large, ramp At/benign stay ~1. This is the abrupt-change signal for localizing spikes.
         mP = nm[:, 1] > 0
-        prev = X[t - 1] if t > 0 else X[t]
+        prev = X[t - 1] if t > 0 else X[t]  # same [|V|, Pinj, Qinj, theta] columns as nx
         td = np.zeros((C, 2), np.float32)
-        td[mP, 0] = nx[mP, 1] - prev[mP, 0]
-        td[mP, 1] = nx[mP, 2] - prev[mP, 1]
+        td[mP, 0] = nx[mP, 1] - prev[mP, 1]
+        td[mP, 1] = nx[mP, 2] - prev[mP, 2]
         sw = np.zeros((C, 2), np.float32)
         sc = SCALE[t]
-        sw[mP, 0] = (nx[mP, 1] - prev[mP, 0]) / sc[mP, 0]
-        sw[mP, 1] = (nx[mP, 2] - prev[mP, 1]) / sc[mP, 1]
+        # Divide the float64 difference, not the float32 td, so shards stay bit-identical to older releases.
+        sw[mP, 0] = (nx[mP, 1] - prev[mP, 1]) / sc[mP, 0]
+        sw[mP, 1] = (nx[mP, 2] - prev[mP, 2]) / sc[mP, 1]
         return (nx, nm, ex, em, y, family, sid, t, gap, stealthy, td, sw)
 
     def make(t: int, family: int, sid: int, atk: Any) -> Optional[Tuple]:
         # Build ONE record from X[t] for `family`. sid = sequence id (ramp only), atk = (bus-indices, multiplier).
         # Returns an 11-tuple, or None if the AC solve failed.
-        Xt = X[t]
+        Xt = X[t]  # [N,4] = [|V|, Pinj, Qinj, theta]
         if family in (1, 5):
             # Aq (1) / ramp (5): re-solve with scaled load, emit REAL (stealthy) measurements.
             # Base active load = stored P at load buses + generator P there; copy reactive load.
-            Lp = Xt[g.load_bus, 0] + g.load_genP
-            Lq = Xt[g.load_bus, 1].copy()
+            Lp = Xt[g.load_bus, 1] + g.load_genP
+            Lq = Xt[g.load_bus, 2].copy()
             Lp_true = Lp.copy()  # unattacked load -> pins generation dispatch in solve()
             dev = np.abs(np.asarray(atk[1]) - 1.0)  # per-bus designed load-shift fraction
             # Floor gate is Aq-only; ramp At is exempt so its per-scan step may stay sub-floor.
@@ -209,8 +241,8 @@ def generate(
             return r
         if family == 6:
             # LRA (6): load-redistribution — zero-sum-ish delta d over K buses, then re-solve.
-            Lp = Xt[g.load_bus, 0] + g.load_genP
-            Lq = Xt[g.load_bus, 1].copy()
+            Lp = Xt[g.load_bus, 1] + g.load_genP
+            Lq = Xt[g.load_bus, 2].copy()
             d, a = g.lra_delta(
                 Lp, attack_intensity, K, floor=NOISE_FLOOR
             )  # d = per-bus delta, a = attacked indices
@@ -503,11 +535,11 @@ def _write(
         )
         # Each scalar field (including the split) as its own dataset.
         # clean/ group (v0.7.2+): the NOISELESS attack-free truth per POOL timestep (the SE target), resolved
-        # per record via data/timestep. Same layer the streams ship. node_clean is in node_x column order
-        # [V, P_inj, Q_inj, theta]; edge_clean = exact Ybus flows with unmetered branches zeroed (matches emit()).
+        # per record via data/timestep. Same layer the streams ship. node_clean is the pool itself (already in
+        # node_x column order [V, P_inj, Q_inj, theta]); edge_clean = exact Ybus flows, unmetered zeroed.
         if states is not None:
             Xp = np.asarray(states, np.float64)[: int(tstep.max()) + 1]
-            nc = np.stack([Xp[:, :, 2], Xp[:, :, 0], Xp[:, :, 1], Xp[:, :, 3]], axis=2).astype(np.float32)
+            nc = Xp.astype(np.float32)
             ec = g.clean_flows_from_states(Xp)  # exact Ybus from-end flows, unmetered branches zeroed
             cg = f.create_group("clean")
             cch = (min(128, len(Xp)),)  # same chunk+gzip pattern as the per-record arrays

@@ -69,6 +69,18 @@ def test_family_filter_and_pu_units(shard):
     assert np.allclose(pu[:, :, 0], phys[:, :, 0])  # |V| is per-unit either way
 
 
+def test_state_pool_order_is_detected_and_unified(shard):
+    """The engine works in one column order, [|V|, P, Q, theta]; older P-first pools convert on load."""
+    from fdia_graph.generation import as_v_first
+
+    clean = fg.load(shard)._clean_np.astype(float)  # [Tpool, N, 4] already voltage-first
+    assert np.array_equal(as_v_first(clean), clean)
+    p_first = clean[:, :, [1, 2, 0, 3]]  # the pre-0.12 layout
+    assert np.array_equal(as_v_first(p_first), clean)
+    with pytest.raises(ValueError):
+        as_v_first(np.zeros((3, 5, 4)))  # neither column looks like a voltage
+
+
 # ---- formats agree -----------------------------------------------------------------------------
 
 
