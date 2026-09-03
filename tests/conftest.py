@@ -2,13 +2,17 @@
 extra and the 13 MB operating-point pool download) inside a throwaway cache, so it never touches a
 user's ~/.cache/fdia_graph and never downloads a full shard."""
 
+import atexit
 import os
+import shutil
 import tempfile
 
 # The cache dir is read when fdia_graph is imported, so it must be set before any test module
-# imports the package. A fresh temp dir per session keeps the local-dataset registry clean.
+# imports the package. A fresh temp dir per session keeps the local-dataset registry clean, and
+# atexit removes it even when the run is interrupted.
 _CACHE = tempfile.mkdtemp(prefix="fdia_graph_test_cache_")
 os.environ["FDIA_GRAPH_CACHE"] = _CACHE
+atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 
 import pytest  # noqa: E402
 

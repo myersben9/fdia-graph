@@ -124,7 +124,8 @@ class FdiaGraph:
             if len(ref) == 1:
                 self.slack = int(ref[0])
             elif self._clean_np is not None and len(self._clean_np) > 1:
-                pinned = np.where(self._clean_np[:, :, 3].std(axis=0) == 0.0)[0]
+                # Tolerance rather than exact zero: a pinned angle can carry float32 round-off.
+                pinned = np.where(self._clean_np[:, :, 3].std(axis=0) < 1e-6)[0]
                 if len(pinned) == 1:
                     self.slack = int(pinned[0])
             fam = f["data/family"][:]

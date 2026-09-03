@@ -46,7 +46,8 @@ def test_slack_is_the_pinned_bus(shard):
     ds = fg.load(shard)
     assert ds.slack == 0  # case14's ext_grid sits on bus 0
     th = ds._clean_np[:, :, 3]
-    assert th[:, ds.slack].std() == 0.0
+    assert th[:, ds.slack].std() < 1e-6  # pinned angle: no variation beyond float noise
+    assert (th.std(axis=0) < 1e-6).sum() == 1  # and it is the only such bus
 
 
 def test_labels_y_and_family_agree(splits):
