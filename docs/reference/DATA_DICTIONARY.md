@@ -61,14 +61,17 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 |-----|------|---------|
 | 0 | `r` | series **impedance**, real part (resistance). `Z = r + jx` |
 | 1 | `x` | series impedance, imag part (reactance) |
-| 2 | `b` | line-charging susceptance (shunt) |
-| 3 | `g` | shunt conductance (usually 0) |
+| 2 | `b` | total line-charging susceptance. The pi model puts `b/2` at each end; it is stored whole, not halved |
+| 3 | `g` | total charging conductance (transformer iron losses, 0 on lines), also stored whole |
 | 4 | `gs` | series **admittance**, real part (conductance). `Y = 1/(r+jx) = gs + j·bs` |
 | 5 | `bs` | series admittance, imag part (susceptance) |
 | 6 | `tap` | transformer tap ratio (1.0 = plain line) |
 | 7 | `shift` | transformer phase shift, degrees (0 = plain line) |
 
 - `r,x` and `gs,bs` are the same branch inverted (`Y = 1/Z`). Both ship so you never compute one from the other.
+- Bus shunts are not branch properties and are not in this table: `ds.bus_shunt_g` / `ds.bus_shunt_b` in
+  MW / MVAr at 1 pu (divide by `ds.baseMVA` for per-unit admittance). `ds.ybus` already includes them on
+  the diagonal, together with the halved charging and the tap / shift handling.
 - In PyG format (`fg.load(..., format="pyg")` and `fg.pyg_stream`), `Data.edge_attr` is the `[E,2]` flows
   (also exposed as `Data.edge_x`) and this `[E,8]` table is `Data.edge_phys`. On the dataset object it is `ds.edge_attr`.
 
