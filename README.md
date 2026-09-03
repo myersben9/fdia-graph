@@ -105,6 +105,7 @@ Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-d
 | `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
 | `slack` | scalar | | index of the reference bus (`ds.slack`, `Data.slack` in PyG) |
 | `ybus` | `[N,N]` complex | | full nodal admittance matrix in `node_x` bus order (`ds.ybus`, static per shard) |
+| `yf`, `yt` | `[E,N]` complex | | from-end / to-end branch admittance matrices (`ds.yf`, `ds.yt`); `V[from]·conj(Yf V)` is the from-end flow |
 
 In PyG format (`format="pyg"` and `fg.pyg_stream`) the flows are `Data.edge_attr` (alias `Data.edge_x`),
 the mask is `edge_mask`, and the static line physics are `Data.edge_phys`.

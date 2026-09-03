@@ -352,56 +352,88 @@ class FdiaGraph:
             dim=1,
         )
 
-    @property
-    def ybus_np(self) -> np.ndarray:
-        """Full nodal admittance matrix Ybus [N,N], complex per-unit, in the shard's bus order.
+    def _admittances(self) -> Dict[str, np.ndarray]:
+        """Ybus [N,N], Yf [E,N] and Yt [E,N] from the stored branch physics, built once and cached.
 
-        Built from the stored branch physics with the same branch model pandapower's makeYbus uses
-        (series admittance, split charging, tap and phase shift, in-service status) plus the bus
-        shunts on the diagonal, so it reproduces the engine's matrix. Static: one topology per shard.
-        Needs a v0.5.0+ shard. Bus i of node_x is row/column i here; edge_index gives the branches.
+        Same branch model as pandapower's makeYbus: series admittance, charging split half per end,
+        tap ratio and phase shift on the from side, in-service status; bus shunts on the Ybus
+        diagonal. Rows of Yf/Yt follow edge_index, columns and Ybus follow node_x bus order. So for a
+        complex bus voltage vector V, `V[f] * conj(Yf @ V)` is the from-end branch flow and
+        `V * conj(Ybus @ V)` the bus injection, both per-unit. Static: one topology per shard.
         """
+        cached = getattr(self, "_adm", None)
+        if cached is not None:
+            return cached
         need = ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
         missing = [k for k in need if self._phys.get(k) is None]
         if missing:
             raise AttributeError(
-                f"ybus needs a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
+                f"ybus/yf/yt need a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
             )
-        if getattr(self, "_ybus_np", None) is None:
-            p = self._phys
-            E = self.E
-            stat = p["edge_status"] if p["edge_status"] is not None else np.ones(E)
-            z = p["edge_r"] + 1j * p["edge_x"]
-            ys = np.zeros(E, np.complex128)  # series admittance; a zero-impedance branch contributes none,
-            nz = np.abs(z) > 1e-12  # the same guard the engine uses when it derives gs/bs
-            ys[nz] = stat[nz] / z[nz]
-            bc = stat * (p["edge_g"] + 1j * p["edge_b"])  # charging admittance (g = iron losses)
-            tap = np.where(p["edge_tap"] == 0.0, 1.0, p["edge_tap"]) * np.exp(
-                1j * np.pi / 180 * p["edge_shift"]
-            )
-            ytt = ys + bc / 2
-            yff = ytt / (tap * np.conj(tap))
-            yft = -ys / np.conj(tap)
-            ytf = -ys / tap
-            f, t = self.edge_index_np
-            Y = np.zeros((self.N, self.N), np.complex128)
-            np.add.at(Y, (f, f), yff)
-            np.add.at(Y, (f, t), yft)
-            np.add.at(Y, (t, f), ytf)
-            np.add.at(Y, (t, t), ytt)
-            gs, bs = p.get("bus_shunt_g"), p.get("bus_shunt_b")
-            if gs is not None or bs is not None:  # MW/MVAr at 1 pu -> per-unit admittance on the diagonal
-                gs = np.zeros(self.N) if gs is None else gs
-                bs = np.zeros(self.N) if bs is None else bs
-                d = np.arange(self.N)
-                Y[d, d] += (gs + 1j * bs) / self.baseMVA
-            self._ybus_np = Y
-        return self._ybus_np
+        p = self._phys
+        E, N = self.E, self.N
+        stat = p["edge_status"] if p["edge_status"] is not None else np.ones(E)
+        z = p["edge_r"] + 1j * p["edge_x"]
+        ys = np.zeros(E, np.complex128)  # series admittance; a zero-impedance branch contributes none,
+        nz = np.abs(z) > 1e-12  # the same guard the engine uses when it derives gs/bs
+        ys[nz] = stat[nz] / z[nz]
+        bc = stat * (p["edge_g"] + 1j * p["edge_b"])  # charging admittance (g = iron losses)
+        tap = np.where(p["edge_tap"] == 0.0, 1.0, p["edge_tap"]) * np.exp(1j * np.pi / 180 * p["edge_shift"])
+        ytt = ys + bc / 2
+        yff = ytt / (tap * np.conj(tap))
+        yft = -ys / np.conj(tap)
+        ytf = -ys / tap
+        f, t = self.edge_index_np
+        rows = np.arange(E)
+        Yf = np.zeros((E, N), np.complex128)  # from-end: I_f = Yf @ V
+        Yf[rows, f] += yff
+        Yf[rows, t] += yft
+        Yt = np.zeros((E, N), np.complex128)  # to-end: I_t = Yt @ V
+        Yt[rows, f] += ytf
+        Yt[rows, t] += ytt
+        Y = np.zeros((N, N), np.complex128)
+        np.add.at(Y, (f, f), yff)
+        np.add.at(Y, (f, t), yft)
+        np.add.at(Y, (t, f), ytf)
+        np.add.at(Y, (t, t), ytt)
+        gs, bs = p.get("bus_shunt_g"), p.get("bus_shunt_b")
+        if gs is not None or bs is not None:  # MW/MVAr at 1 pu -> per-unit admittance on the diagonal
+            gs = np.zeros(N) if gs is None else gs
+            bs = np.zeros(N) if bs is None else bs
+            d = np.arange(N)
+            Y[d, d] += (gs + 1j * bs) / self.baseMVA
+        self._adm = {"ybus": Y, "yf": Yf, "yt": Yt}
+        return self._adm
+
+    @property
+    def ybus_np(self) -> np.ndarray:
+        """Full nodal admittance matrix Ybus [N,N], complex per-unit, node_x bus order (see _admittances)."""
+        return self._admittances()["ybus"]
+
+    @property
+    def yf_np(self) -> np.ndarray:
+        """From-end branch admittance matrix Yf [E,N]: `V[f] * conj(Yf @ V)` is the from-end flow."""
+        return self._admittances()["yf"]
+
+    @property
+    def yt_np(self) -> np.ndarray:
+        """To-end branch admittance matrix Yt [E,N]: `V[t] * conj(Yt @ V)` is the to-end flow."""
+        return self._admittances()["yt"]
 
     @property
     def ybus(self) -> torch.Tensor:
         """ybus_np as a complex128 torch tensor [N,N]."""
         return _torch().as_tensor(self.ybus_np)
+
+    @property
+    def yf(self) -> torch.Tensor:
+        """yf_np as a complex128 torch tensor [E,N]."""
+        return _torch().as_tensor(self.yf_np)
+
+    @property
+    def yt(self) -> torch.Tensor:
+        """yt_np as a complex128 torch tensor [E,N]."""
+        return _torch().as_tensor(self.yt_np)
 
     def _h(self) -> h5py.File:
         # Open+cache the h5py handle on first access (not __init__) so each DataLoader worker gets its
