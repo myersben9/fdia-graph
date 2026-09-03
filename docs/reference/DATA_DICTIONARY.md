@@ -74,8 +74,11 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 | PyG `Data` or `DataBatch` (`format="pyg"`) | `.edge_attr` or `.edge_x` | `.edge_mask` |
 | `ds.to_numpy()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` |
 
-`ds.edge_x` on the dataset object itself is **not** the flows. It is the static per-unit series
-reactance `[E]` (column 1 of `edge_attr`). Flows are per record, so they only exist on records and batches.
+Flows are per record, so they only exist on records and batches. The static per-unit branch
+physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds.branch_r`,
+`ds.branch_x`, `ds.branch_b`, `ds.branch_g`, `ds.branch_gs`, `ds.branch_bs`, `ds.branch_tap`,
+`ds.branch_shift`. The older `ds.edge_x` spelling of the reactance still works but warns, because it
+collided with the flows' name.
 
 ## The rest
 
