@@ -69,11 +69,16 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 
 ## Where the branch flows live, per format
 
-| you have | flows `[E,2]` | flow mask `[E,2]` |
-|---|---|---|
-| dict record `ds[i]` or a `ds.loader()` batch | `["edge_x"]` | `["edge_m"]` |
-| PyG `Data` or `DataBatch` (`format="pyg"`, `fg.pyg_stream`) | `.edge_attr` or `.edge_x` | `.edge_mask` |
-| `ds.to_numpy()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` |
+| you have | flows `[E,2]` | flow mask `[E,2]` | static line physics `[E,8]` |
+|---|---|---|---|
+| dict record `ds[i]` or a `ds.loader()` batch | `["edge_x"]` | `["edge_m"]` | `["edge_attr"]` |
+| PyG `Data` or `DataBatch` (`format="pyg"`, `fg.pyg_stream`) | `.edge_attr` or `.edge_x` | `.edge_mask` | `.edge_phys` |
+| `ds.to_numpy()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` | `ds.edge_attr` |
+| stream dict `fg.load_stream()` | `["edge_x"]` `[T,E,2]` | `["edge_m"]` | `["edge_attr"]` |
+
+The `[E,8]` physics keep the name `edge_attr` on dicts and the dataset, and become `edge_phys` on PyG
+objects because PyG's `edge_attr` slot is its conventional home for per-edge model input, which
+here is the flows.
 
 Flows are per record, so they only exist on records and batches. The static per-unit branch
 physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds.branch_r`,
