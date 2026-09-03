@@ -104,8 +104,9 @@ def generate_states(
 ) -> np.ndarray:
     """Turn a load profile into a pool of AC operating states [T,N,4] to inject attacks onto.
 
-    Pass the result straight to generate(system, name, states=...). Knobs: k, sigma, clip, n, seed
-    (see fdia_graph.profiles.generate_states). Requires the generation extra.
+    Columns are [|V|, P_inj, Q_inj, theta], the same order as node_x and clean. Pass the result straight
+    to generate(system, name, states=...). Knobs: k, sigma, clip, n, seed (see
+    fdia_graph.profiles.generate_states). Requires the generation extra.
     """
     from .profiles import generate_states as _generate_states
 
