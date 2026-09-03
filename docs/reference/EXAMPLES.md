@@ -193,7 +193,8 @@ problem this dataset poses. The next two baselines keep it visible by training o
 ### 2. Graph model: ARMAConv (PyTorch-Geometric), all families
 
 - `format="pyg"` yields ready `Data` objects. `swing` rides along as a node attribute, the branch
-  flows as `edge_attr` (alias `edge_x`) with their mask as `edge_mask`.
+  flows as `edge_attr` (alias `edge_x`) with their mask as `edge_mask`, and the static `[E,8]` line
+  physics as `edge_phys` (pass `g.edge_phys` as `edge_attr` to a layer that wants line parameters).
 - `preload=True` caches the split in RAM so epochs take seconds instead of minutes.
 - Needs `pip install "fdia-graph[pyg]"`.
 

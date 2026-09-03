@@ -97,7 +97,7 @@ Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-d
 | `node_x` | `[N,4]` | <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` | bus meters (`node_m` `[N,4]` is the mask) |
 | `edge_x` | `[E,2]` | `P_from`, `Q_from` | branch flows (`edge_m` `[E,2]` is the mask) |
 | `edge_index` | `[2,E]` | `from_bus`; `to_bus` | connectivity |
-| `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`ds.edge_attr`) |
+| `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`ds.edge_attr`; in PyG format `Data.edge_phys`) |
 | `y` | `[N]` | | 1 attacked, 0 clean. Which buses |
 | `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al. Which attack (`fg.FAMILIES`) |
 | `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | temporal features |
