@@ -367,7 +367,10 @@ class FdiaGraph:
             p = self._phys
             E = self.E
             stat = p["edge_status"] if p["edge_status"] is not None else np.ones(E)
-            ys = stat / (p["edge_r"] + 1j * p["edge_x"])  # series admittance
+            z = p["edge_r"] + 1j * p["edge_x"]
+            ys = np.zeros(E, np.complex128)  # series admittance; a zero-impedance branch contributes none,
+            nz = np.abs(z) > 1e-12  # the same guard the engine uses when it derives gs/bs
+            ys[nz] = stat[nz] / z[nz]
             bc = stat * (p["edge_g"] + 1j * p["edge_b"])  # charging admittance (g = iron losses)
             tap = np.where(p["edge_tap"] == 0.0, 1.0, p["edge_tap"]) * np.exp(
                 1j * np.pi / 180 * p["edge_shift"]

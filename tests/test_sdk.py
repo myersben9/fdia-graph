@@ -87,7 +87,7 @@ def test_ybus_matches_engine_and_clean_injections(shard):
     cl = ds._clean_np[:64].astype(float)  # [T, N, 4] = [|V|, P, Q, theta]
     V = cl[:, :, 0] * np.exp(1j * np.deg2rad(cl[:, :, 3]))
     S = V * np.conj(V @ Y.T) * ds.baseMVA
-    shunt = ds._phys["bus_shunt_b"] != 0
+    shunt = (ds._phys["bus_shunt_b"] != 0) | (ds._phys["bus_shunt_g"] != 0)
     assert np.allclose(-S.real[:, ~shunt], cl[:, ~shunt, 1], atol=1e-2)
     assert np.allclose(-S.imag[:, ~shunt], cl[:, ~shunt, 2], atol=1e-2)
     assert tuple(ds.ybus.shape) == (ds.N, ds.N)
