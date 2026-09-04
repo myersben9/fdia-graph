@@ -28,6 +28,9 @@ ROWS = [
     ("removal", "Residual removal"),
     ("huber", "Adaptive weighting"),
     ("prior+huber", "**Prior + Huber (proposed)**"),
+    ("jacobian", "Jacobian weighting"),
+    ("prior+huber+gate", "**Prior + Huber + CNN gate**"),
+    ("prior+huber+oracle", "Prior + Huber + oracle gate (ceiling)"),
 ]
 FAMS = [
     ("benign", "Benign"),
@@ -66,7 +69,7 @@ for key, label, scale, fmt in [
     print(f"| *{label}* |" + " |" * len(systems))
     for k, lab in ROWS:
         cells = [fmt.format(res[s][k]["geo"][key] * scale) if k in res[s] else "" for s in systems]
-        if k == "prior+huber":
+        if k in ("prior+huber", "prior+huber+gate"):
             cells = [f"**{c}**" for c in cells]
         print("| " + " | ".join([lab] + cells) + " |")
     print("| WLS error reduction | " + " | ".join(f"{red(s, 'geo', key):.0f}%" for s in systems) + " |")

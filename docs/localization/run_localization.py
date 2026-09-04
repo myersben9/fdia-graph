@@ -11,7 +11,8 @@ Two protocols, one results file:
 
 Set FG_SYSTEM (default ieee14; the README covers ieee14, ieee118, ieee300). Tables and figures come
 from make_report.py, which reads the JSON, so plots can be restyled without re-running.
-ResidualLocalizer needs the [se] extra; BusCNN/BusMLP need [torch] and use the GPU when visible.
+ResidualLocalizer and the Jacobian feature arms need the [se] extra; BusCNN/BusMLP need [torch] and
+use the GPU when visible.
 
 Each arm's per-bus test scores and calibrated thresholds are cached in results/cache/ as soon as it
 finishes (the residual arm's state-estimation solves and the learned arms' training are the slow
@@ -66,6 +67,7 @@ methods = {
     "residual": ResidualLocalizer(),
     "mlp": BusMLP(),
     "cnn": BusCNN(),
+    "cnn+jac": BusCNN(features="full14+jac"),  # the digest's Model C, every family in-distribution
 }
 report = {name: run("common", name, m, train, test) for name, m in methods.items()}
 
@@ -73,10 +75,16 @@ report = {name: run("common", name, m, train, test) for name, m in methods.items
 zs = dict(families=[0, 1, 2])
 ztr, zva = fg.load(SYSTEM, split="train", **zs), fg.load(SYSTEM, split="val", **zs)
 zte = fg.load(SYSTEM, split="test", families=[0, 1, 2, 3, 4])
-zero_shot = {
-    name: run("zero_shot", name, m, ztr, zte, val=zva)
-    for name, m in {"mlp": BusMLP(), "cnn": BusCNN()}.items()
+# The Jacobian-informed digest's ablation on the best encoder: A measurements only, B the papers'
+# 14-dim vector (the existing "cnn" row), C = B + the 8 Jacobian features, D = Jacobian features only.
+zs_methods = {
+    "mlp": BusMLP(),
+    "cnn": BusCNN(),
+    "cnn_meas": BusCNN(features="meas"),
+    "cnn+jac": BusCNN(features="full14+jac"),
+    "cnn_jac": BusCNN(features="jac"),
 }
+zero_shot = {name: run("zero_shot", name, m, ztr, zte, val=zva) for name, m in zs_methods.items()}
 zero_shot["swing"] = run("zero_shot", "swing", SwingThreshold(), ztr, zte)  # the feature alone, FA-calibrated
 report["zero_shot"] = zero_shot
 

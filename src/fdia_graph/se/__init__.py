@@ -14,6 +14,16 @@ se extra (torch + pandapower) and v0.7.2+ shards.
 """
 
 from .base import SEBase
-from .methods import WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior
+from .jacobian import JacobianFeatures
+from .methods import WLS, AdaptiveWeighting, GatedPrior, JacobianWeighting, ResidualRemoval, SubspacePrior
 
-__all__ = ["SEBase", "WLS", "AdaptiveWeighting", "ResidualRemoval", "SubspacePrior"]
+__all__ = [
+    "SEBase",
+    "WLS",
+    "AdaptiveWeighting",
+    "ResidualRemoval",
+    "SubspacePrior",
+    "JacobianWeighting",
+    "GatedPrior",
+    "JacobianFeatures",
+]
