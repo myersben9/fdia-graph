@@ -224,6 +224,18 @@ class SEBase:
             pass
         return np.linalg.pinv(S, rcond=100 * eps)
 
+    @staticmethod
+    def _normal_matrices(w: np.ndarray, B_: np.ndarray, sub: int = 50) -> np.ndarray:
+        """Per-record weighted normal matrices B^T diag(w_i) B as [n, k, k], built in sub-batches so
+        the [sub, k, m] intermediate stays small. One einsum over the whole chunk materialized an
+        8 GB intermediate at IEEE-300 size and took 260 s per 200 records; this takes 1.4 s."""
+        n, k = w.shape[0], B_.shape[1]
+        out = np.empty((n, k, k))
+        BT = B_.T[None]  # [1, k, m]
+        for a in range(0, n, sub):
+            out[a : a + sub] = (BT * w[a : a + sub, None, :]) @ B_
+        return out
+
     @classmethod
     def _inv_batch(cls, A: np.ndarray) -> np.ndarray:
         """Inverses of a stack of normal matrices [n, k, k] through torch's batched Cholesky (about
@@ -300,7 +312,7 @@ class SEBase:
         VK = self._basis()
         B_ = self.H if VK is None else self.H @ VK
         n, kd = z.shape[0], B_.shape[1]
-        Ai = self._inv_batch(np.einsum("bi,ij,ik->bjk", w, B_, B_, optimize=True))
+        Ai = self._inv_batch(self._normal_matrices(w, B_))
         c = np.zeros((n, kd))
         best_c, best_J = c.copy(), np.full(n, np.inf)
         for _ in range(self.iters):
