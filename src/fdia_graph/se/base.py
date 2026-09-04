@@ -40,6 +40,15 @@ def _torch():
         raise ImportError("state estimation needs torch: pip install 'fdia-graph[se]'") from e
 
 
+def _scipy_linalg():
+    try:
+        import scipy.linalg
+
+        return scipy.linalg
+    except ImportError as e:
+        raise ImportError("state estimation needs scipy: pip install 'fdia-graph[se]'") from e
+
+
 class SEBase:
     """Weighted least squares AC state estimation, the audited baseline of the paper.
 
@@ -196,21 +205,71 @@ class SEBase:
 
     @staticmethod
     def _inv(A: np.ndarray) -> np.ndarray:
-        # full-rank direct inverse; pinv only when genuinely singular (a cutoff on a full-rank
-        # system silently amputates valid directions and pins the estimate near its start).
-        # "Singular" is judged relative to the largest eigenvalue: a residual-removal set on
-        # IEEE-300 once left the smallest eigenvalue positive but far below machine precision of
-        # the largest, and LU still hit an exact zero pivot, so the direct inverse is also
-        # guarded by the LinAlgError fallback.
+        # Direct inverse of a symmetric positive-definite normal matrix, pinv only when it is
+        # (numerically) singular. Positive-definiteness is decided by a Cholesky factorization and
+        # near-singularity by LAPACK's condition estimate of the triangular factor, both O(n^2) after
+        # the factorization; an eigen-decomposition here cost 240 ms per call at IEEE-300 size and
+        # was the reason every robust arm (one inverse per record per pass) took hours to days.
+        lapack = _scipy_linalg().lapack
+
         A = np.asarray(A)
         eps = np.finfo(A.dtype if np.issubdtype(A.dtype, np.floating) else np.float64).eps
-        ev = np.linalg.eigvalsh(0.5 * (A + A.T))
-        if ev.min() > 100 * eps * ev.max():  # ~1e-14 relative for float64, scaled for other dtypes
-            try:
-                return np.linalg.inv(A)
-            except np.linalg.LinAlgError:
-                pass
-        return np.linalg.pinv(A, rcond=100 * eps)
+        S = 0.5 * (A + A.T)
+        try:
+            L = np.linalg.cholesky(S)
+            rcond, _ = lapack.dtrcon(L, norm="1", uplo="L", diag="N")
+            if rcond**2 > 100 * eps:  # cond(A) ~ cond(L)^2; the same 1e-14 relative floor as before
+                return np.linalg.inv(S)
+        except np.linalg.LinAlgError:
+            pass
+        return np.linalg.pinv(S, rcond=100 * eps)
+
+    @classmethod
+    def _inv_batch(cls, A: np.ndarray) -> np.ndarray:
+        """Inverses of a stack of normal matrices [n, k, k] through torch's batched Cholesky (about
+        100x faster than NumPy's batched inverse on this LAPACK build: 0.2 s per 1000 records at
+        IEEE-118 size, 1 s at IEEE-300), falling back to the guarded per-matrix path only for the
+        members that are not positive definite. The per-record Python loop this replaces, and the
+        NumPy batched inverse after it, were the dominant cost of every robust arm."""
+        torch = _torch()
+        S = 0.5 * (A + np.swapaxes(A, 1, 2))
+        L, info = torch.linalg.cholesky_ex(torch.from_numpy(S))
+        good = info.numpy() == 0
+        out = np.empty_like(S)
+        if good.any():
+            out[good] = torch.cholesky_inverse(L[torch.from_numpy(good)]).numpy()
+        for i in np.where(~good)[0]:  # not positive definite (e.g. a removal set): guarded path
+            out[i] = cls._inv(S[i])
+        return out
+
+    @staticmethod
+    def _cond(A: np.ndarray, its: int = 40) -> float:
+        """Spectral condition number of a symmetric positive-definite matrix, inf if it is not PD.
+
+        Cholesky for the PD test, then power iteration for the largest eigenvalue and inverse
+        iteration through the Cholesky factor for the smallest; tens of milliseconds where a full
+        eigen-decomposition takes hundreds, and equal to it to three decimals on the real normal
+        matrices (checked on IEEE 14/118 with and without removed meters)."""
+        sl = _scipy_linalg()
+        cho_factor, cho_solve = sl.cho_factor, sl.cho_solve
+
+        S = 0.5 * (A + A.T)
+        try:
+            cf = cho_factor(S, lower=True, check_finite=False)
+        except np.linalg.LinAlgError:
+            return float("inf")
+        n = S.shape[0]
+        v = np.ones(n) / np.sqrt(n)
+        for _ in range(its):
+            v = S @ v
+            v /= np.linalg.norm(v)
+        lmax = float(v @ (S @ v))
+        u = np.ones(n) / np.sqrt(n)
+        for _ in range(its):
+            u = cho_solve(cf, u, check_finite=False)
+            u /= np.linalg.norm(u)
+        lmin = float(u @ (S @ u))
+        return lmax / max(lmin, 1e-300)
 
     # ---- solving ----------------------------------------------------------------------------
     def _basis(self) -> Optional[np.ndarray]:
@@ -241,9 +300,7 @@ class SEBase:
         VK = self._basis()
         B_ = self.H if VK is None else self.H @ VK
         n, kd = z.shape[0], B_.shape[1]
-        Ai = np.empty((n, kd, kd))
-        for i in range(n):
-            Ai[i] = self._inv(B_.T @ (w[i][:, None] * B_))
+        Ai = self._inv_batch(np.einsum("bi,ij,ik->bjk", w, B_, B_, optimize=True))
         c = np.zeros((n, kd))
         best_c, best_J = c.copy(), np.full(n, np.inf)
         for _ in range(self.iters):

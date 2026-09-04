@@ -26,6 +26,10 @@ if TYPE_CHECKING:
     from ..dataset import FdiaGraph
 
 N_FEAT = 14  # the papers' per-bus vector: 4 readings + 4 mask + 2 KCL + 2 delta + 2 swing
+# Feature sets, named after the Jacobian-informed digest's ablation: A measurements only, B the
+# papers' 14-dim vector (measurements + temporal change), C = B + the Jacobian block, D = the
+# Jacobian block alone. The Jacobian block is fdia_graph.se.jacobian's 8 per-bus features.
+FEATURE_SETS = {"meas": 8, "full14": 14, "full14+jac": 22, "jac": 8}
 
 
 def _torch() -> Any:
@@ -86,10 +90,15 @@ class LearnedLocalizer(LocalizerBase):
         seed: int = 123,
         attackable_only: bool = True,
         device: Optional[str] = None,
+        features: str = "full14",
     ) -> None:
         super().__init__(fa_target=fa_target)
         if layers < 1 or hidden < 8:
             raise ValueError(f"need layers >= 1 and hidden >= 8, got {layers}, {hidden}")
+        if features not in FEATURE_SETS:
+            raise ValueError(f"features must be one of {sorted(FEATURE_SETS)}, got {features!r}")
+        self.features = features  # which per-bus vector the encoder sees (see FEATURE_SETS)
+        self.n_feat = FEATURE_SETS[features]
         self.hidden, self.layers, self.dropout = hidden, layers, dropout
         self.lr, self.weight_decay, self.batch_size = lr, weight_decay, batch_size
         self.epochs, self.pos_weight, self.seed = epochs, pos_weight, seed
@@ -104,12 +113,32 @@ class LearnedLocalizer(LocalizerBase):
 
     # ---- LocalizerBase hooks --------------------------------------------------------------
     def _fields(self) -> List[str]:
-        return ["node_x", "node_m", "edge_x", "temporal_delta", "swing", "y"]
+        # Only what the chosen feature set reads: measurement-only and Jacobian-only models run on
+        # shards without the temporal fields; the Jacobian block needs the record timestep.
+        f = ["node_x", "node_m", "edge_x", "y"]
+        if "full14" in self.features:
+            f += ["temporal_delta", "swing"]
+        if "jac" in self.features:
+            f += ["timestep"]
+        return f
+
+    def _features(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+        """The per-bus vector for the chosen feature set, [n, N, n_feat], raw (standardized later)."""
+        if self.features == "meas":
+            return np.concatenate([d["node_x"].astype(np.float64), d["node_m"].astype(np.float64)], -1)
+        if self.features == "full14":
+            return full14(d)
+        jac = self._jac.transform(d)["bus"]  # [n, N, 8] from fdia_graph.se.jacobian
+        return jac if self.features == "jac" else np.concatenate([full14(d), jac], -1)
 
     def _fit_stats(self, d: Dict[str, np.ndarray], ben: np.ndarray, ds: "FdiaGraph") -> None:
         torch = _torch()
-        X = full14(d)
-        # Standardize all 14 channels on the training records, mask and swing included, exactly as
+        if "jac" in self.features:  # the Jacobian block needs the [se] physics, fitted on this split
+            from ..se.jacobian import JacobianFeatures
+
+            self._jac = JacobianFeatures().fit(ds)
+        X = self._features(d)
+        # Standardize every channel on the training records, mask and swing included, exactly as
         # the paper's cache builder does; sd is floored so a constant channel cannot blow up.
         self.mu = X.mean(axis=(0, 1))
         self.sd = np.clip(X.std(axis=(0, 1)), 1e-3, None)
@@ -143,7 +172,7 @@ class LearnedLocalizer(LocalizerBase):
 
     def _score(self, d: Dict[str, np.ndarray]) -> np.ndarray:
         torch = _torch()
-        Xs = ((full14(d) - self.mu) / self.sd).astype(np.float32)
+        Xs = ((self._features(d) - self.mu) / self.sd).astype(np.float32)
         out = np.empty(Xs.shape[:2], np.float64)
         with torch.no_grad():
             for i in range(0, len(Xs), 4096):  # bounded device memory on the big systems
@@ -197,13 +226,13 @@ class BusCNN(LearnedLocalizer):
     def _build(self, N: int) -> Any:
         torch = _torch()
         nn = torch.nn
-        H, L, k, p = self.hidden, self.layers, self.kernel, self.dropout
+        H, L, k, p, F = self.hidden, self.layers, self.kernel, self.dropout, self.n_feat
 
         class _CNN(nn.Module):  # type: ignore[misc,name-defined]
             def __init__(self) -> None:
                 super().__init__()
                 self.convs = nn.ModuleList(
-                    [nn.Conv1d(N_FEAT if i == 0 else H, H, k, padding="same") for i in range(L)]
+                    [nn.Conv1d(F if i == 0 else H, H, k, padding="same") for i in range(L)]
                 )
                 self.norms = nn.ModuleList([nn.GroupNorm(max(H // 8, 1), H) for _ in range(L // 2)])
                 self.drop = nn.Dropout(p)
@@ -233,12 +262,12 @@ class BusMLP(LearnedLocalizer):
     def _build(self, N: int) -> Any:
         torch = _torch()
         nn = torch.nn
-        H, L, p = self.hidden, self.layers, self.dropout
+        H, L, p, F = self.hidden, self.layers, self.dropout, self.n_feat
 
         class _MLP(nn.Module):  # type: ignore[misc,name-defined]
             def __init__(self) -> None:
                 super().__init__()
-                self.lins = nn.ModuleList([nn.Linear(N_FEAT if i == 0 else H, H) for i in range(L)])
+                self.lins = nn.ModuleList([nn.Linear(F if i == 0 else H, H) for i in range(L)])
                 self.norms = nn.ModuleList([nn.LayerNorm(H) for _ in range(L // 2)])
                 self.drop = nn.Dropout(p)
                 self.head = nn.Linear(H, 1)

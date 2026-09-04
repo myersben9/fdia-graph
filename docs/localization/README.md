@@ -74,6 +74,31 @@ Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.
 |---|---|---|
 | ![](results/fig_loc_ieee14.png) | ![](results/fig_loc_ieee118.png) | ![](results/fig_loc_ieee300.png) |
 
+## Jacobian-informed features: the digest's ablation
+
+`fdia_graph.se.JacobianFeatures` implements the Jacobian-informed transform of the measurement
+change (implied state move `H⁺Δz`, explained and unexplained components and their ratio, meter
+sensitivity, leverage, weak-direction energy), aggregated to buses, and `BusCNN` / `BusMLP` take a
+`features=` argument that is the digest's ablation: A measurements only, B the papers' 14-dim vector
+(the rows above), C = B + the 8 Jacobian features, D the Jacobian features alone.
+
+| Model (1D CNN, zero-shot) | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 |
+|---|---:|---:|---:|---:|---:|---:|
+| A: measurements only | 0.6916 | 0.6461 | 0.0003 | 0.2833 | 0.2190 | 0.0006 |
+| B: measurements + temporal (the papers' 14) | **0.9625** | 0.9438 | 0.0000 | **0.9618** | 0.9304 | 0.0000 |
+| C: B + Jacobian features | 0.9412 | 0.9056 | 0.0000 | 0.9544 | 0.9156 | 0.0000 |
+| D: Jacobian features only | 0.8408 | 0.7855 | 0.0000 | 0.8275 | 0.7629 | 0.0000 |
+
+In the common protocol (every family in-distribution) C and B are within noise of each other
+(0.911 vs 0.917 on 14, 0.740 vs 0.734 on 118).
+
+Reading: the features carry the signal the digest describes. On the stealthy re-solve families the
+unexplained energy stays at the benign level while the explained energy and the implied state move
+are 10× to 24× benign at the attacked buses, and D alone reaches 0.93 node-F1 on `Aq`. But the
+papers' temporal features already encode that spike per bus, so adding the block to B gains nothing
+and costs one to nine points of zero-shot generalization on replay. The one place it could still pay
+is as the localizer that gates the state estimator, see [`../se/README.md`](../se/README.md).
+
 ## Three readings
 
 1. **The temporal spike catches almost everything.** Any attack edit above the noise floor shows up

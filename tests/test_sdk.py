@@ -280,3 +280,71 @@ def test_wls_estimates_the_classical_state(splits):
     assert all(np.isclose(rep2[f][k], rep[f][k], rtol=1e-6) for f in rep for k in rep[f])
     with pytest.raises(ValueError):
         est.score(splits["test"], xhat=x[:3])
+
+
+# ---- Jacobian-informed features ----------------------------------------------------------------
+
+
+def test_jacobian_features_split_stealthy_from_corruption(splits):
+    """Unexplained energy fires on in-place corruption (Ad) and not on the stealthy re-solve (Aq);
+    the explained energy and the implied state move fire on both. The digest's central claims."""
+    pytest.importorskip("torch")
+    from fdia_graph.se.jacobian import JacobianFeatures
+
+    jf = JacobianFeatures().fit(splits["train"])
+    d = splits["test"].to_numpy(["node_x", "edge_x", "timestep", "family", "y"])
+    F = jf.transform(d)
+    n, N = d["node_x"].shape[:2]
+    assert F["bus"].shape == (n, N, 8) and F["global"].shape == (n, 4)
+    assert np.isfinite(F["bus"]).all() and np.isfinite(F["global"]).all()
+    assert jf.kappa > 1.0 and len(jf.singular_values) == jf.est.SD
+    fam = d["family"]
+    ben, aq, ad = fam == 0, fam == 1, fam == 2
+    q_perp, q_par = F["global"][:, 0], F["global"][:, 1]
+    assert np.median(q_perp[ad]) > 3 * np.median(q_perp[ben])  # corruption leaves an unexplained part
+    assert np.median(q_perp[aq]) < 2 * np.median(q_perp[ben])  # a stealthy re-solve does not
+    assert np.median(q_par[aq]) > 3 * np.median(q_par[ben])  # but it moves the explained part
+
+
+def test_learned_localizer_feature_sets(splits):
+    pytest.importorskip("torch")
+    from fdia_graph.localization import BusMLP
+    from fdia_graph.localization.learned import FEATURE_SETS
+
+    for feats, width in FEATURE_SETS.items():
+        loc = BusMLP(epochs=1, device="cpu", features=feats).fit(splits["train"])
+        assert loc.n_feat == width and loc.mu.shape == (width,)
+        assert loc.scores(splits["test"]).shape == (len(splits["test"]), splits["test"].N)
+    with pytest.raises(ValueError):
+        BusMLP(features="nope")
+
+
+def test_jacobian_weighting_estimator(splits):
+    pytest.importorskip("torch")
+    from fdia_graph.se import JacobianWeighting, WLS
+
+    est = JacobianWeighting(c=3.0).fit(splits["train"])
+    w = est.weights(splits["test"])
+    assert w.shape == (len(splits["test"]), est.m) and np.all(w <= est.Wk[None, :] + 1e-12)
+    x = est.estimate(splits["test"])
+    assert x.shape == (len(splits["test"]), 2 * splits["test"].N - 1)
+    rep = est.score(splits["test"], xhat=x)
+    base = WLS().fit(splits["train"]).score(splits["test"])
+    assert rep["geo"]["angle_mae_deg"] < 1.0
+    assert rep["Ad"]["angle_mae_deg"] <= base["Ad"]["angle_mae_deg"] * 1.05  # never worse on bias
+
+
+def test_gated_prior_uses_the_gate(splits):
+    pytest.importorskip("torch")
+    from fdia_graph.se import GatedPrior
+
+    est = GatedPrior(gate="oracle", rank_frac=0.5, reweight="huber", c=1.5).fit(splits["train"])
+    w = est.gated_weights(splits["test"])
+    y = splits["test"].to_numpy(["y"])["y"].astype(bool)
+    assert w.shape == (len(splits["test"]), est.m)
+    assert np.all(w[~y.any(axis=1)] == est.Wk[None, :])  # benign records keep the full weights
+    assert (w[y.any(axis=1)] < est.Wk[None, :]).any(axis=1).all()  # attacked ones lose some
+    x = est.estimate(splits["test"])
+    assert x.shape == (len(splits["test"]), 2 * splits["test"].N - 1)
+    with pytest.raises(ValueError):
+        GatedPrior(gate=None)

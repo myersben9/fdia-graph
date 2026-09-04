@@ -28,8 +28,16 @@ COMMON = [
     ("residual", "Residual (LNR)"),
     ("mlp", "Per-bus MLP"),
     ("cnn", "**1D CNN**"),
+    ("cnn+jac", "1D CNN + Jacobian (C)"),
 ]
 ZERO_SHOT = [("mlp", "Per-bus MLP"), ("cnn", "**1D CNN**"), ("swing", "Swing threshold")]
+# The Jacobian-informed digest's ablation, all on the 1D CNN in the zero-shot protocol.
+ABLATION = [
+    ("cnn_meas", "A: measurements only"),
+    ("cnn", "B: measurements + temporal (the papers' 14)"),
+    ("cnn+jac", "C: B + Jacobian features"),
+    ("cnn_jac", "D: Jacobian features only"),
+]
 
 res = {}
 for path in glob.glob(os.path.join(OUT, "loc_*.json")):
@@ -58,6 +66,8 @@ print("Common protocol\n")
 table(COMMON, lambda r, k: r[k]["all"] if k in r else None)
 print("Zero-shot protocol\n")
 table(ZERO_SHOT, lambda r, k: r["zero_shot"][k]["all"] if k in r.get("zero_shot", {}) else None)
+print("Jacobian-informed ablation, 1D CNN, zero-shot protocol\n")
+table(ABLATION, lambda r, k: r["zero_shot"][k]["all"] if k in r.get("zero_shot", {}) else None)
 
 # Per-family per-bus F1 heatmap per system, cell values printed so no legend is needed. Row labels
 # carry the method's per-bus false-positive rate on benign records (FR), the paper's companion

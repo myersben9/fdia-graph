@@ -19,7 +19,15 @@ import time
 import numpy as np
 
 import fdia_graph as fg
-from fdia_graph.se import WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior
+from fdia_graph.localization import BusCNN
+from fdia_graph.se import (
+    WLS,
+    AdaptiveWeighting,
+    GatedPrior,
+    JacobianWeighting,
+    ResidualRemoval,
+    SubspacePrior,
+)
 
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
 # Validation-selected hyperparameters per system: (huber c, prior rank fraction, removal threshold).
@@ -37,7 +45,16 @@ methods = {
     "removal": ResidualRemoval(threshold=thr),
     "huber": AdaptiveWeighting(c=c),
     "prior+huber": SubspacePrior(rank_frac=rank, reweight="huber", c=c),
+    "jacobian": JacobianWeighting(
+        c=3.0
+    ),  # weights from the unexplained temporal residual (Abdulin & Narimani)
 }
+# Localization-gated arms: the proposed estimator with a localizer down-weighting the meters of the
+# buses it flags. The CNN gate is the papers' localizer trained on this train split (all families,
+# the common protocol); the oracle gate uses the true labels and is the ceiling for any gate.
+gate = BusCNN().fit(train)
+methods["prior+huber+gate"] = GatedPrior(gate=gate, rank_frac=rank, reweight="huber", c=c)
+methods["prior+huber+oracle"] = GatedPrior(gate="oracle", rank_frac=rank, reweight="huber", c=c)
 report = {}
 for name, m in methods.items():
     t0 = time.time()
