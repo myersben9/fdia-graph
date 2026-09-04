@@ -113,8 +113,14 @@ class LearnedLocalizer(LocalizerBase):
 
     # ---- LocalizerBase hooks --------------------------------------------------------------
     def _fields(self) -> List[str]:
-        base = ["node_x", "node_m", "edge_x", "temporal_delta", "swing", "y"]
-        return base + ["timestep"] if "jac" in self.features else base
+        # Only what the chosen feature set reads: measurement-only and Jacobian-only models run on
+        # shards without the temporal fields; the Jacobian block needs the record timestep.
+        f = ["node_x", "node_m", "edge_x", "y"]
+        if "full14" in self.features:
+            f += ["temporal_delta", "swing"]
+        if "jac" in self.features:
+            f += ["timestep"]
+        return f
 
     def _features(self, d: Dict[str, np.ndarray]) -> np.ndarray:
         """The per-bus vector for the chosen feature set, [n, N, n_feat], raw (standardized later)."""

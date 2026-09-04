@@ -33,8 +33,8 @@ torch = ["torch>=1.12"]
 pyg = ["torch>=1.12", "torch_geometric>=2.2"]
 generate = ["pandapower>=2.10", "pandas>=1.3"]   # dataset generation + load-profile ingestion (needs a power-flow engine)
 iso = ["gridstatus>=0.25", "pandas>=1.3"]        # auto-download CAISO/ERCOT load profiles (NYISO works without it)
-se = ["torch>=1.12", "pandapower>=2.10", "pandas>=1.3"]  # fdia_graph.se state estimation classes
-all = ["torch>=1.12", "torch_geometric>=2.2", "pandapower>=2.10", "pandas>=1.3", "gridstatus>=0.25"]
+se = ["torch>=1.12", "pandapower>=2.10", "pandas>=1.3", "scipy>=1.8"]  # fdia_graph.se state estimation classes
+all = ["torch>=1.12", "torch_geometric>=2.2", "pandapower>=2.10", "pandas>=1.3", "scipy>=1.8", "gridstatus>=0.25"]
 test = ["pytest>=7"]                              # the tests build their own tiny shard, so they also need [generate]
 
 [project.urls]

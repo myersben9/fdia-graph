@@ -40,6 +40,15 @@ def _torch():
         raise ImportError("state estimation needs torch: pip install 'fdia-graph[se]'") from e
 
 
+def _scipy_linalg():
+    try:
+        import scipy.linalg
+
+        return scipy.linalg
+    except ImportError as e:
+        raise ImportError("state estimation needs scipy: pip install 'fdia-graph[se]'") from e
+
+
 class SEBase:
     """Weighted least squares AC state estimation, the audited baseline of the paper.
 
@@ -201,7 +210,7 @@ class SEBase:
         # near-singularity by LAPACK's condition estimate of the triangular factor, both O(n^2) after
         # the factorization; an eigen-decomposition here cost 240 ms per call at IEEE-300 size and
         # was the reason every robust arm (one inverse per record per pass) took hours to days.
-        from scipy.linalg import lapack
+        lapack = _scipy_linalg().lapack
 
         A = np.asarray(A)
         eps = np.finfo(A.dtype if np.issubdtype(A.dtype, np.floating) else np.float64).eps
@@ -225,9 +234,11 @@ class SEBase:
         torch = _torch()
         S = 0.5 * (A + np.swapaxes(A, 1, 2))
         L, info = torch.linalg.cholesky_ex(torch.from_numpy(S))
-        out = torch.cholesky_inverse(L).numpy()
-        bad = np.where(info.numpy() != 0)[0]
-        for i in bad:
+        good = info.numpy() == 0
+        out = np.empty_like(S)
+        if good.any():
+            out[good] = torch.cholesky_inverse(L[torch.from_numpy(good)]).numpy()
+        for i in np.where(~good)[0]:  # not positive definite (e.g. a removal set): guarded path
             out[i] = cls._inv(S[i])
         return out
 
@@ -239,7 +250,8 @@ class SEBase:
         iteration through the Cholesky factor for the smallest; tens of milliseconds where a full
         eigen-decomposition takes hundreds, and equal to it to three decimals on the real normal
         matrices (checked on IEEE 14/118 with and without removed meters)."""
-        from scipy.linalg import cho_factor, cho_solve
+        sl = _scipy_linalg()
+        cho_factor, cho_solve = sl.cho_factor, sl.cho_solve
 
         S = 0.5 * (A + A.T)
         try:
