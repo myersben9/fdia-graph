@@ -229,8 +229,10 @@ class SEBase:
         """Per-record weighted normal matrices B^T diag(w_i) B as [n, k, k], built in sub-batches so
         the [sub, k, m] intermediate stays small. One einsum over the whole chunk materialized an
         8 GB intermediate at IEEE-300 size and took 260 s per 200 records; this takes 1.4 s."""
+        if sub < 1:
+            raise ValueError(f"sub must be a positive sub-batch size, got {sub}")
         n, k = w.shape[0], B_.shape[1]
-        out = np.empty((n, k, k))
+        out = np.empty((n, k, k), dtype=np.result_type(w, B_))
         BT = B_.T[None]  # [1, k, m]
         for a in range(0, n, sub):
             out[a : a + sub] = (BT * w[a : a + sub, None, :]) @ B_

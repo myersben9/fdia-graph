@@ -58,7 +58,7 @@ methods["prior+huber+oracle"] = GatedPrior(gate="oracle", rank_frac=rank, reweig
 # FG_SKIP=removal,... leaves arms out of the run. Residual removal is left out of the IEEE-300 column:
 # its per-record observability guard makes it many hours at that size, and the estimation paper reports
 # that no removal threshold helped on IEEE-300.
-for name in [a for a in os.environ.get("FG_SKIP", "").split(",") if a]:
+for name in [a.strip() for a in os.environ.get("FG_SKIP", "").split(",") if a.strip()]:
     methods.pop(name, None)
 report = {}
 for name, m in methods.items():
