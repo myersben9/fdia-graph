@@ -36,7 +36,7 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 ## Results
 
 Test partition, validation-selected hyperparameters from the estimation paper (Huber `c` 1.5 / 2.5 /
-6.0, rank fraction 0.20 / 0.50 / 0.50, removal threshold 4.0 / 5.0 on IEEE 14 / 118 / 300). Each cell
+6.0, rank fraction 0.20 / 0.50 / 0.50 on IEEE 14 / 118 / 300; removal threshold 4.0 / 5.0 on 14 / 118). Each cell
 is the mean absolute error aggregated over the seven record classes as a geometric mean. Full metrics
 in `results/se_ieee{14,118,300}.json`. Residual removal is not run on IEEE 300: its per-record
 observability guard takes many hours at that size, and the estimation paper found no removal
@@ -134,7 +134,7 @@ prior supplies the state there. The CNN gate is the papers' localizer trained on
 | Ad / As / Ar in-place | 0.027 / 0.080 / 0.025 | 0.020 / 0.021 / 0.020 | 0.020 / 0.021 / 0.019 | 0.009 / 0.011 / 0.008 | 0.008 / 0.008 / 0.008 | 0.008 / 0.007 / 0.007 | 0.015 / 0.015 / 0.014 | 0.013 / 0.012 / 0.013 | 0.012 / 0.012 / 0.012 |
 | At slow ramp | 0.064 | 0.044 | 0.040 | 0.032 | 0.033 | 0.033 | 0.068 | 0.068 | 0.068 |
 | Al redistribution | 0.154 | 0.153 | 0.152 | 0.764 | 0.766 | 0.765 | 2.276 | 2.277 | 2.277 |
-| geometric mean | 0.059 | **0.041** | 0.039 | 0.030 | **0.028** | 0.028 | 0.058 | **0.055** | 0.054 |
+| geometric mean | 0.059 | **0.041** | 0.039 | 0.030 | **0.028** | 0.027 | 0.058 | **0.055** | 0.054 |
 
 Reading: on IEEE 14 the predicted gate takes 31 percent off the proposed estimator and lands within 4
 percent of the oracle, and it is the first thing that moves the stealthy `Aq` family. On IEEE 118 and
