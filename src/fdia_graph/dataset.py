@@ -426,8 +426,9 @@ class FdiaGraph:
             return self._eclean_full_np
         if not self.has_clean_full or self._clean_np is None:
             return None
-        cl = self._clean_np.astype(np.float64)
-        V = cl[:, :, 0] * np.exp(1j * np.deg2rad(cl[:, :, 3]))  # [Tpool,N] complex bus voltage (pu)
+        vm = self._clean_np[:, :, 0].astype(np.float64)  # only |V| and theta enter the flow
+        th = np.deg2rad(self._clean_np[:, :, 3].astype(np.float64))
+        V = vm * np.exp(1j * th)  # [Tpool,N] complex bus voltage (pu)
         f = self.edge_index_np[0]
         Sf = V[:, f] * np.conj(V @ self.yf_np.T) * self.baseMVA  # [Tpool,E] from-end complex flow
         self._eclean_full_np = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
