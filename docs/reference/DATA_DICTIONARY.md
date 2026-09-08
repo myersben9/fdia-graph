@@ -21,6 +21,7 @@ What every array from `fg.load()` / `fg.load_stream()` holds.
 | `swing` | `[N,2]` | `ΔP`, `ΔQ` | `temporal_delta` as a z-score of recent volatility |
 | `clean` | `[N,4]` | same as `node_x` | noiseless truth, all buses. The SE target (v0.7.2+) |
 | `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
+| `edge_clean_full` | `[E,2]` | same as `edge_x` | noiseless true flows on every branch, metered or not (computed from `clean` through `yf` on load; equals `edge_clean` where a flow meter exists) |
 
 ## Labels: `y` says which buses, `family` says which attack
 
@@ -109,11 +110,14 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 | `split` | scalar | 0/1/2 = train/val/test |
 | `timestep` | scalar | position in the source load profile |
 
-### `clean` and `edge_clean` (v0.7.2+)
+### `clean`, `edge_clean` and `edge_clean_full` (v0.7.2+, `edge_clean_full` v0.15.0+)
 
 - The noiseless, attack-free truth at the record's timestep, in `node_x` column order.
 - `clean` covers every bus with no mask, whatever the meter placement.
 - `edge_clean` zeroes unmetered branches, like `edge_x`.
+- `edge_clean_full` is the same true flow on every branch, metered or not, computed from `clean`
+  through `yf` when the shard is loaded (`V[from] * conj(Yf @ V)`, times `baseMVA`). It equals
+  `edge_clean` wherever a flow meter exists, so a graph model can supervise every edge.
 - On benign records `node_x − clean` is the meter error.
 - This is the state-estimation target.
 

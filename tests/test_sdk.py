@@ -102,6 +102,22 @@ def test_ybus_matches_engine_and_clean_injections(shard):
     assert np.allclose(Sf.real[:, metered], ec[:, metered, 0], atol=1e-2)
     assert np.allclose(Sf.imag[:, metered], ec[:, metered, 1], atol=1e-2)
     assert tuple(ds.yf.shape) == (ds.E, ds.N) and tuple(ds.yt.shape) == (ds.E, ds.N)
+    # edge_clean_full: the same flows on EVERY branch, equal to edge_clean where metered and to the
+    # Yf construction everywhere (so unmetered branches are no longer zero).
+    assert ds.has_clean_full
+    full = ds._clean_flows_full()[:64].astype(float)
+    assert np.allclose(full[:, :, 0], Sf.real, atol=1e-2) and np.allclose(full[:, :, 1], Sf.imag, atol=1e-2)
+    assert np.allclose(full[:, metered], ec[:, metered], atol=1e-2)
+    if (~metered).any():
+        assert np.abs(full[:, ~metered]).max() > 0
+    rec = ds[0]
+    t = rec["timestep"]
+    assert tuple(rec["edge_clean_full"].shape) == (ds.E, 2)
+    assert np.allclose(rec["edge_clean_full"].numpy(), ds._clean_flows_full()[t])
+    npy = ds.to_numpy(["edge_clean_full", "timestep"])
+    assert np.allclose(npy["edge_clean_full"][0], ds._clean_flows_full()[npy["timestep"][0]])
+    pu = fg.load(shard, split="test", units="pu")
+    assert np.allclose(pu[0]["edge_clean_full"].numpy(), rec["edge_clean_full"].numpy() / ds.baseMVA)
 
 
 def test_state_pool_order_is_detected_and_unified(shard):
@@ -137,7 +153,7 @@ def test_pyg_data_matches_dict_record(shard):
         assert data.family == item["family"] and data.slack == dict_ds.slack
         for k in ("stealthy", "seq_id", "timestep"):
             assert getattr(data, k) == item[k]
-        for k in ("temporal_delta", "swing", "clean", "edge_clean"):
+        for k in ("temporal_delta", "swing", "clean", "edge_clean", "edge_clean_full"):
             assert torch.equal(getattr(data, k), item[k])
         assert torch.equal(data.edge_phys, item["edge_attr"])  # static [E,8] physics, renamed
         # Every per-record key reaches PyG under its own name or the documented rename.
@@ -195,9 +211,11 @@ def test_dict_loader_batches_every_documented_key(splits):
         "temporal_delta",
         "clean",
         "edge_clean",
+        "edge_clean_full",
         "edge_attr",
     ):
         assert k in batch, k
+    assert tuple(batch["edge_clean_full"].shape) == (4, splits["test"].E, 2)
     N, E = splits["test"].N, splits["test"].E
     assert tuple(batch["node_x"].shape) == (4, N, 4)
     assert tuple(batch["edge_x"].shape) == (4, E, 2)

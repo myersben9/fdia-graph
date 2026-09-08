@@ -103,6 +103,7 @@ Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-d
 | `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | temporal features |
 | `clean` | `[N,4]` | same as `node_x` | noiseless truth, all buses. SE target (v0.7.2+) |
 | `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
+| `edge_clean_full` | `[E,2]` | same as `edge_x` | noiseless true flows on every branch, metered or not (computed from `clean` through `yf` on load; equals `edge_clean` where a flow meter exists) |
 | `slack` | scalar | | index of the reference bus (`ds.slack`, `Data.slack` in PyG) |
 | `ybus` | `[N,N]` complex | | full nodal admittance matrix in `node_x` bus order (`ds.ybus`, static per shard) |
 | `yf`, `yt` | `[E,N]` complex | | from-end / to-end branch admittance matrices (`ds.yf`, `ds.yt`); `V[from] * conj(Yf @ V)` is the from-end flow |
