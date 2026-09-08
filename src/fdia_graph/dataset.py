@@ -117,6 +117,13 @@ class FdiaGraph:
             self._clean_np = f["clean/node_clean"][:] if "clean/node_clean" in f else None
             self._eclean_np = f["clean/edge_clean"][:] if "clean/edge_clean" in f else None
             self.has_clean = self._clean_np is not None
+            # edge_clean_full ([Tpool,E,2], the same flows on EVERY branch) is derived from the clean
+            # state through Yf on first use, so it needs the clean layer and the branch physics.
+            self._eclean_full_np: Optional[np.ndarray] = None
+            self.has_clean_full = self.has_clean and all(
+                self._phys.get(k) is not None
+                for k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
+            )
             # Reference (slack) bus. Explicit bus-type metadata wins when the shard carries it
             # (ppc code 3 = REF); otherwise it is the one bus whose clean angle is pinned across
             # the pool, which needs the clean layer (v0.7.2+) and more than one pool timestep.
@@ -405,6 +412,28 @@ class FdiaGraph:
         self._adm = {"ybus": Y, "yf": Yf, "yt": Yt}
         return self._adm
 
+    def _clean_flows_full(self) -> Optional[np.ndarray]:
+        """[Tpool,E,2] = [P_from, Q_from] exact AC from-end flows on EVERY branch, from the clean state.
+
+        `edge_clean` (stored) zeroes unmetered branches to mirror `edge_x`; a graph model that supervises
+        every edge needs the flow on the unmetered ones too. This is the same physics the generator
+        used for `edge_clean` (`V[from] * conj(Yf @ V) * baseMVA` with the clean voltages), computed
+        once from the shard's own Yf and cached, so it equals `edge_clean` wherever a flow meter
+        exists. Physical units (MW, MVAr) like the stored layer; None without the clean layer or the
+        branch physics.
+        """
+        if self._eclean_full_np is not None:
+            return self._eclean_full_np
+        if not self.has_clean_full or self._clean_np is None:
+            return None
+        vm = self._clean_np[:, :, 0].astype(np.float64)  # only |V| and theta enter the flow
+        th = np.deg2rad(self._clean_np[:, :, 3].astype(np.float64))
+        V = vm * np.exp(1j * th)  # [Tpool,N] complex bus voltage (pu)
+        f = self.edge_index_np[0]
+        Sf = V[:, f] * np.conj(V @ self.yf_np.T) * self.baseMVA  # [Tpool,E] from-end complex flow
+        self._eclean_full_np = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
+        return self._eclean_full_np
+
     @property
     def ybus_np(self) -> np.ndarray:
         """Full nodal admittance matrix Ybus [N,N], complex per-unit, node_x bus order (see _admittances)."""
@@ -518,6 +547,9 @@ class FdiaGraph:
                 item["edge_clean"] = torch.tensor(
                     self._to_units(self._eclean_np[t], "edge"), dtype=torch.float32
                 )
+            ecf = self._clean_flows_full()
+            if ecf is not None:  # [E,2] exact true flows on EVERY branch, metered or not
+                item["edge_clean_full"] = torch.tensor(self._to_units(ecf[t], "edge"), dtype=torch.float32)
         if self.format == "pyg":
             return self._to_pyg(item)  # optionally repackage as a PyG Data object
         return item  # default: plain dict of tensors
@@ -555,6 +587,7 @@ class FdiaGraph:
             + (["swing"] if "swing" in batch[0] else [])
             + (["clean"] if "clean" in batch[0] else [])
             + (["edge_clean"] if "edge_clean" in batch[0] else [])
+            + (["edge_clean_full"] if "edge_clean_full" in batch[0] else [])
         )
         for k in fkeys:
             out[k] = torch.stack([b[k] for b in batch])  # [B, N/E, C] batched features/labels/masks
@@ -623,11 +656,13 @@ class FdiaGraph:
             + (["temporal_delta"] if self.has_temporal else [])
             + (["swing"] if self.has_swing else [])
             + (["clean", "edge_clean"] if self.has_clean else [])
+            + (["edge_clean_full"] if self.has_clean_full else [])
             + ["family", "stealthy", "seq_id", "timestep"]
         )
-        # clean/edge_clean live per POOL timestep (not per record); resolved below via data/timestep.
-        clean_want = [k for k in want if k in ("clean", "edge_clean")]
-        want = [k for k in want if k not in ("clean", "edge_clean")]
+        # clean layers live per POOL timestep (not per record); resolved below via data/timestep.
+        _CLEAN = ("clean", "edge_clean", "edge_clean_full")
+        clean_want = [k for k in want if k in _CLEAN]
+        want = [k for k in want if k not in _CLEAN]
         idx = self.idx
         # Static graph arrays always included (tiny, and needed to interpret edges).
         out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
@@ -642,6 +677,10 @@ class FdiaGraph:
                     out["clean"] = self._clean_np[ts]
                 if "edge_clean" in clean_want and self._eclean_np is not None:
                     out["edge_clean"] = self._eclean_np[ts]
+                if "edge_clean_full" in clean_want:
+                    ecf = self._clean_flows_full()
+                    if ecf is not None:
+                        out["edge_clean_full"] = ecf[ts]
         # Convert power/angle arrays to self.units (masks, labels, swing untouched).
         if self.units == "pu":
             if "node_x" in out:
@@ -654,6 +693,8 @@ class FdiaGraph:
                 out["clean"] = self._to_units(out["clean"], "node")
             if "edge_clean" in out:
                 out["edge_clean"] = self._to_units(out["edge_clean"], "edge")
+            if "edge_clean_full" in out:
+                out["edge_clean_full"] = self._to_units(out["edge_clean_full"], "edge")
         return out
 
     def to_torch(
