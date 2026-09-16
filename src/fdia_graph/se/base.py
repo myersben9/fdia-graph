@@ -55,7 +55,7 @@ def _torch():
 
         return torch
     except ImportError as e:
-        raise ImportError("this path needs torch: pip install 'fdia-graph[se]'") from e
+        raise ImportError("the differentiable twin _h_t needs torch: pip install 'fdia-graph[torch]'") from e
 
 
 def _torch_or_none():
