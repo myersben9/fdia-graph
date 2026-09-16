@@ -5,6 +5,18 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+Readability series, steps 6 and 7 (docs/READABILITY_PLAN.md): the temporal and ramp formulas in
+the kernel, and the rest of the backlog. No user-visible change (bit-identical shards and
+streams, identical estimator and localizer scores).
+
+- `formulas.temporal` (`recent_change_scale`, `temporal_delta`, `swing_zscore`) and
+  `formulas.attacks.ramp_profile`, each with its equation and source key, used by both generators.
+- `AttackMixin.corrupt` decides the family once and runs one short loop per family;
+  `PhysicsMixin.solve` pins the generation in `_pin_generation`; `line_outage_candidates` screens a
+  line with guard clauses; the loader's `__getitem__` and `collate`, the localizer's `score`, the
+  learned model builders, the stream loader and the download are split the same way; the Huber
+  passes of the estimators are one method.
+
 Readability series, step 5 (docs/READABILITY_PLAN.md): the generator constructor, the loader
 constructor and `to_numpy` split into named steps. No user-visible change (bit-identical shards
 and streams, same loader outputs).

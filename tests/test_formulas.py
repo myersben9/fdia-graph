@@ -11,7 +11,11 @@ from fdia_graph.formulas import (
     branch_flows,
     bus_injections,
     complex_voltages,
+    ramp_profile,
+    recent_change_scale,
     series_admittance,
+    swing_zscore,
+    temporal_delta,
 )
 
 
@@ -103,3 +107,33 @@ def test_bias_jitter_split_keeps_the_class_total():
     assert jitter["v"] == pytest.approx(0.0003) and bias["pf"] == pytest.approx(0.017 * (1 - 0.0625) ** 0.5)
     for k in ("v", "pf"):
         assert bias[k] ** 2 + jitter[k] ** 2 == pytest.approx({"v": 0.0012, "pf": 0.017}[k] ** 2)
+
+
+def test_ramp_profile_shape():
+    """Rise for 4 steps at 0.5, hold 2, return at 0.25, never below zero."""
+    devs = [ramp_profile(i, 4, 2, 0.5, 0.25) for i in range(12)]
+    assert devs[:4] == [0.0, 0.5, 1.0, 1.5]
+    assert devs[4:6] == [2.0, 2.0]
+    assert devs[6:] == pytest.approx([2.0 - 0.25 * k for k in range(6)])
+    assert ramp_profile(100, 4, 2, 0.5, 0.25) == 0.0
+
+
+def test_temporal_features_by_hand():
+    prev = np.array([[1.0, 10.0, 5.0, 0.0], [1.0, 20.0, 8.0, 0.0]])
+    nx = np.array([[1.0, 13.0, 4.0, 0.0], [1.0, 21.0, 8.0, 0.0]])
+    metered = np.array([True, False])
+    td = temporal_delta(nx, prev, metered)
+    assert td.tolist() == [[3.0, -1.0], [0.0, 0.0]]  # unmetered bus stays zero
+    sw = swing_zscore(nx, prev, np.array([[1.5, 0.5], [1.0, 1.0]]), metered)
+    assert sw.tolist() == [[2.0, -2.0], [0.0, 0.0]]
+
+
+def test_recent_change_scale_matches_windowed_std():
+    rng = np.random.default_rng(1)
+    X = rng.normal(size=(40, 3, 4))
+    scale = recent_change_scale(X, 10, 3)
+    D = np.abs(np.diff(X[:, :, 1:3], axis=0))
+    t = 25  # window covers D[15 .. 23], ten changes strictly before t
+    expected = D[15:24].std(axis=0) + 1e-3
+    assert np.allclose(scale[t], expected, rtol=1e-5)
+    assert np.all(scale[:4] == np.float32(1e-3))  # too few changes: the floor alone

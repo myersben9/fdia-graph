@@ -42,6 +42,7 @@ How the three paths connect (generate produces the shard the load path serves):
 | `torch_data.py` | `pyg_stream`/`torch_windows`: streams as ready PyG graphs / per-bus sequence tensors. |
 | `generation.py` | `generate()`: drives the engine over a state pool, writes + registers the shard. |
 | `profiles.py` | ISO load profiles (NYISO/CAISO/ERCOT) → normalized scaling → AC operating-state pools. |
+| `formulas/` | The mathematics as pure functions with their equations and source keys (`network`, `noise`, `temporal`, `attacks`); catalogued in `docs/reference/FORMULAS.md`. |
 | `se/` | sklearn-style state estimation: `SEBase` chord-Newton core + WLS/robust/prior classes. |
 | `localization/` | sklearn-style per-bus localization: `LocalizerBase` FA-budget calibration + swing/delta/residual threshold classes + the papers' learned `BusCNN`/`BusMLP`. |
 
@@ -50,6 +51,7 @@ How the three paths connect (generate produces the shard the load path serves):
 | File | What it is |
 |---|---|
 | `core.py` | `FdiaGenerator` assembly: grid setup, meter plan, RNG, attack targeting. |
+| `records.py` | `attack_frame`: one scan of any family from a stored operating point, shared by shards and streams; the RNG draw order is documented there. |
 | `measurement.py` | Mixin: meter placement + accuracy-class noise (per-meter bias + per-scan jitter); `h(x)`. |
 | `physics.py` | Mixin: AC solves, Ybus, emit exact measurements from a stored state. |
 | `attacks.py` | Mixin: the six attack families (`Aq Ad As Ar At Al`). |

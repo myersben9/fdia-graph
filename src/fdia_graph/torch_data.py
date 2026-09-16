@@ -45,6 +45,13 @@ def _resolve_stream(
     return load_stream(system, release=release)
 
 
+def _graphs(a: int, b: int, X: Any, F: Any, Y: Any, ei: Any, static: Dict[str, Any]) -> List["Data"]:
+    """Scans a..b-1 as PyG Data objects sharing the static tensors."""
+    from torch_geometric.data import Data
+
+    return [Data(x=X[t], edge_index=ei, edge_attr=F[t], edge_x=F[t], y=Y[t], **static) for t in range(a, b)]
+
+
 def pyg_stream(
     system: Optional[Union[str, int]] = None,
     train_frac: float = 0.8,
@@ -75,7 +82,6 @@ def pyg_stream(
         ``(train, test)`` lists of ``Data``, or ``(train, val, test)`` when ``val_frac`` > 0.
     """
     import torch
-    from torch_geometric.data import Data
 
     _check_frac(train_frac)
     if max_test is not None and max_test < 0:
@@ -97,16 +103,11 @@ def pyg_stream(
     ntr = int(train_frac * T)
     nva = int(val_frac * T)
 
-    def graphs(a: int, b: int) -> List["Data"]:
-        return [
-            Data(x=X[t], edge_index=ei, edge_attr=F[t], edge_x=F[t], y=Y[t], **static) for t in range(a, b)
-        ]
-
-    train = graphs(0, ntr)
-    val = graphs(ntr, ntr + nva)
+    train = _graphs(0, ntr, X, F, Y, ei, static)
+    val = _graphs(ntr, ntr + nva, X, F, Y, ei, static)
     te0 = ntr + nva
     nte = T - te0 if max_test is None else min(max_test, T - te0)
-    test = graphs(te0, te0 + nte)
+    test = _graphs(te0, te0 + nte, X, F, Y, ei, static)
     return (train, val, test) if val_frac > 0 else (train, test)
 
 
@@ -143,7 +144,6 @@ def torch_windows(
     Returns:
         ``((Xtr, ytr), (Xte, yte))``, or ``((Xtr, ytr), (Xva, yva), (Xte, yte))`` when ``val_frac`` > 0.
     """
-    import torch
     from .streams import windows as _windows
 
     _check_frac(train_frac)
@@ -165,19 +165,23 @@ def torch_windows(
     va = (starts >= cut) & (starts + W <= cut2)  # window fully inside the val span
     te = starts >= cut2  # window fully inside the test span (straddlers dropped)
 
-    def _cvt(Xp: np.ndarray, yp: np.ndarray) -> Tuple["torch.Tensor", "torch.Tensor"]:
-        if per_bus:
-            n, Wn, N, C = Xp.shape
-            X = _f32(Xp.transpose(0, 2, 1, 3).reshape(n * N, Wn, C))
-            y = (
-                _f32(yp.transpose(0, 2, 1).reshape(n * N, Wn))
-                if label == "frame"
-                else _f32(yp.reshape(n * N))
-            )
-        else:
-            X, y = _f32(Xp), _f32(yp)
-        return X, y
-
     if val_frac > 0:
-        return _cvt(Xw[tr], yw[tr]), _cvt(Xw[va], yw[va]), _cvt(Xw[te], yw[te])
-    return _cvt(Xw[tr], yw[tr]), _cvt(Xw[te], yw[te])
+        return (
+            _sequences(Xw[tr], yw[tr], per_bus, label),
+            _sequences(Xw[va], yw[va], per_bus, label),
+            _sequences(Xw[te], yw[te], per_bus, label),
+        )
+    return _sequences(Xw[tr], yw[tr], per_bus, label), _sequences(Xw[te], yw[te], per_bus, label)
+
+
+def _sequences(
+    Xp: np.ndarray, yp: np.ndarray, per_bus: bool, label: str
+) -> Tuple["torch.Tensor", "torch.Tensor"]:
+    """Windows as tensors: one sequence per bus ([n*N, W, C], what nn.LSTM consumes) or whole-grid
+    windows ([n, W, N, C]); per-frame labels keep the window axis."""
+    if not per_bus:
+        return _f32(Xp), _f32(yp)
+    n, Wn, N, C = Xp.shape
+    X = _f32(Xp.transpose(0, 2, 1, 3).reshape(n * N, Wn, C))
+    y = _f32(yp.transpose(0, 2, 1).reshape(n * N, Wn)) if label == "frame" else _f32(yp.reshape(n * N))
+    return X, y

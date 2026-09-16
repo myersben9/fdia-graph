@@ -81,20 +81,24 @@ class ResidualRemoval(SEBase):
                 break
             prop = keep * (~bad)
             for i in np.where(bad.any(axis=1))[0]:
-                trial = prop[i].copy()
-                for _ in range(6):
-                    if self._observable(self.Wk * trial):
-                        break
-                    back = np.where((keep[i] > 0) & (trial == 0))[0]
-                    if len(back) == 0:
-                        break
-                    order = back[np.argsort(rN[i][back])]  # smallest residual restored first
-                    half = order[: max(1, len(order) // 2)]
-                    trial[half] = keep[i][half]
-                prop[i] = trial
+                prop[i] = self._restore_until_observable(keep[i], prop[i].copy(), rN[i])
             keep = prop
             x = self._w_solve(z, self.Wk * keep, thsl)
         return x
+
+    def _restore_until_observable(self, kept: np.ndarray, trial: np.ndarray, rN: np.ndarray) -> np.ndarray:
+        """Walk a removal set back until the system is observable again: restore the lowest-residual
+        half of the removed meters, at most six times."""
+        for _ in range(6):
+            if self._observable(self.Wk * trial):
+                break
+            back = np.where((kept > 0) & (trial == 0))[0]
+            if len(back) == 0:
+                break
+            order = back[np.argsort(rN[back])]  # smallest residual restored first
+            half = order[: max(1, len(order) // 2)]
+            trial[half] = kept[half]
+        return trial
 
 
 class SubspacePrior(SEBase):
@@ -143,12 +147,17 @@ class SubspacePrior(SEBase):
         x = self._solve_plain(z, thsl)
         if self.reweight is None:
             return x
+        return self._huber_passes(x, z, self.Wk[None, :] * np.ones((z.shape[0], 1)), thsl)
+
+    def _huber_passes(self, x: np.ndarray, z: np.ndarray, w: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+        """Huber reweighting on the estimate's own residual [HUB64]: a_i = min(1, c / |r_N,i|), re-solve
+        with w * a, until no weight moves by more than tol or npass passes are done."""
         prev = None
         for _ in range(self.npass):
             a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z, thsl), 1e-9))
             if prev is not None and np.abs(a - prev).max() < self.tol:
-                break  # weights settled
-            x = self._w_solve(z, self.Wk * a, thsl)
+                break  # weights settled: further passes reproduce the same estimate
+            x = self._w_solve(z, w * a, thsl)
             prev = a
         return x
 
@@ -259,12 +268,6 @@ class GatedPrior(SubspacePrior):
             e = slice(s, s + chunk)
             x = self._w_solve(z[e], w[e], tr["thsl"][e])
             if self.reweight == "huber":
-                prev = None
-                for _ in range(self.npass):
-                    a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z[e], tr["thsl"][e]), 1e-9))
-                    if prev is not None and np.abs(a - prev).max() < self.tol:
-                        break
-                    x = self._w_solve(z[e], w[e] * a, tr["thsl"][e])
-                    prev = a
+                x = self._huber_passes(x, z[e], w[e], tr["thsl"][e])
             out[e] = x
         return out

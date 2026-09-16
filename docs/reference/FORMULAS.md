@@ -34,8 +34,8 @@ objects); one test checks it on a case small enough to verify by hand.
 
 | formula | function | equation | source | used by |
 |---|---|---|---|---|
-| swing z-score and temporal delta | `generation._record_features` (shards) and `streams._StreamBuffers.store` (streams, against the previous emitted frame); planned `formulas.temporal.swing_zscore`, `temporal_delta` | delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t | [FED26] | the swing and temporal_delta features, `SwingThreshold`, `DeltaThreshold` |
-| recent-change scale | `generation._swing_scale` (shared by shards and streams); planned `formulas.temporal.recent_change_scale` | scale_t = std over [t − W, t) of the one-step change, floor 1e-3 | [FED26] | the swing feature |
+| swing z-score and temporal delta | `formulas.temporal.temporal_delta`, `formulas.temporal.swing_zscore` (shards, via `generation._record_features`); the stream computes the same two lines against the previous emitted frame in `streams._StreamBuffers.store` | delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t | [FED26] | the swing and temporal_delta features, `SwingThreshold`, `DeltaThreshold` |
+| recent-change scale | `formulas.temporal.recent_change_scale` (shards and streams, through `generation._swing_scale`) | scale_t = std over [t − W, t) of the one-step change, floor 1e-3 | [FED26] | the swing feature |
 | replay policy | `engine.records.replay_frame` | fixed lag tau, else a random lag of at least 20 scans, else the oldest scan | [DAT26] | the Ar and As families |
 | bus voltage phasors | `formulas.network.complex_voltages` | V = \|V\| e^{jθ} | [AE04, eq. 2.1] | every AC evaluation |
 | bus injections | `formulas.network.bus_injections` (numpy); `se.base.SEBase._h_t` is its torch twin for the autograd Jacobian, pinned by `tests/test_formulas.py` | S = V ∘ conj(Y V) | [AE04, eq. 2.6] | the estimator's h(x) |
@@ -43,8 +43,8 @@ objects); one test checks it on a case small enough to verify by hand.
 | branch admittances | `formulas.network.branch_admittances`; called by `dataset._admittances` (`ybus`, `yf`, `yt`) | y_tt = y_s + (g + jb)/2, y_ff = y_tt / (t conj t), y_ft = −y_s / conj t, y_tf = −y_s / t; shunts on the diagonal | [MP19, makeYbus] | the loader's admittance matrices |
 | series admittance | `formulas.network.series_admittance`, called by `FdiaGenerator._branch_physics` and `branch_admittances` | y_s = 1 / (r + jx), zero when the branch has no impedance | [MP19, branch model] | the static edge physics |
 | accuracy-class error split | `formulas.noise.bias_jitter_split`, called by `FdiaGenerator.__init__` | bias² + jitter² = SD², jitter = 0.25 SD | [ASP14], our split | every emitted measurement |
-| ramp profile | `generation._ramp_profile` (shared by shards and streams); planned `formulas.attacks.ramp_profile` | dev(i) = rate_up·i for i < rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after | [DAT26] | the At family |
+| ramp profile | `formulas.attacks.ramp_profile` (shards and streams) | dev(i) = rate_up·i for i < rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after | [DAT26] | the At family |
 | WLS step | *today:* `se.base.SEBase._solve_plain`; planned `formulas.estimation.wls_step` | Δx = (HᵀWH)⁻¹HᵀW (z − h(x)) | [SCH70, part II] | every estimator |
 | normalized residual | *today:* `se.base.SEBase._nres`; planned `formulas.estimation.normalized_residual` | r_N,i = (z_i − h_i(x̂)) / √Ω_ii, Ω = R − H G⁻¹ Hᵀ | [HAN75] | Huber, residual removal, `ResidualLocalizer` |
-| Huber weight | *today:* inline in `se.methods`; planned `formulas.estimation.huber_weights` | a_i = min(1, c / |r_N,i|) | [HUB64] | `AdaptiveWeighting`, `SubspacePrior`, `JacobianWeighting` |
+| Huber weight | *today:* `se.methods.SubspacePrior._huber_passes` and `AdaptiveWeighting._solve`; planned `formulas.estimation.huber_weights` | a_i = min(1, c / |r_N,i|) | [HUB64] | `AdaptiveWeighting`, `SubspacePrior`, `JacobianWeighting` |
 | explained / unexplained split | *today:* `se.jacobian.JacobianFeatures.transform`; planned `formulas.projection.explained_unexplained` | r∥ = H G⁻¹HᵀW Δz, r⊥ = Δz − r∥ | [JAC26] | Jacobian features, `JacobianWeighting` |

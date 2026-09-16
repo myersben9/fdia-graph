@@ -350,6 +350,21 @@ hash-test debugging, which is where surprises live. Re-estimate the rest after t
 lands; a first guess is step 4 one day, step 5 one day, step 6 two days, step 7 two days,
 step 8 half a day, so about ten working days in all rather than the eight first written here.
 
+## 6a. Status (updated as steps land)
+
+| step | what | pull request | state |
+|---|---|---|---|
+| 1 | safety net, readability measures, formula catalogue | #64 | merged 2026-09-16 |
+| 2, 3 | `engine/records.py`, both generators split, named `Record` | #65 | merged 2026-09-16 |
+| 4 | one AC measurement function (`formulas.network`) | #66 | merged 2026-09-16 |
+| 5 | generator constructor, loader constructor, `to_numpy` | #67 | merged 2026-09-16 |
+| 6, 7 | `formulas.temporal`, `formulas.attacks`, the rest of the backlog | #68 | open |
+| 8 | catalogue and changelog complete, aliases scheduled | with 6, 7 | |
+
+Readability report: 26 functions outside a limit at the start of the series, 0 after steps 6
+and 7. Every step passed the strict frozen tests (bit-identical seeded shard and stream, identical
+estimator and localizer scores) before it was pushed.
+
 ## 7. Decisions for Ben
 
 Decided 2026-09-16:

@@ -5,6 +5,7 @@ docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue.
 Provisional until 1.0: names may still be adjusted once, with a deprecation alias.
 """
 
+from .attacks import ramp_profile
 from .network import (
     BranchModel,
     branch_admittances,
@@ -14,6 +15,7 @@ from .network import (
     series_admittance,
 )
 from .noise import bias_jitter_split
+from .temporal import recent_change_scale, swing_zscore, temporal_delta
 
 __all__ = [
     "BranchModel",
@@ -22,5 +24,9 @@ __all__ = [
     "branch_flows",
     "bus_injections",
     "complex_voltages",
+    "ramp_profile",
+    "recent_change_scale",
     "series_admittance",
+    "swing_zscore",
+    "temporal_delta",
 ]
