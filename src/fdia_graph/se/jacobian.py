@@ -31,6 +31,16 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 import numpy as np
 
+from ..formulas.projection import (
+    bus_incidence as _bus_incidence,
+    direction_coefficients,
+    explained_unexplained,
+    leverage,
+    meters_to_buses,
+    weak_directions,
+    weak_move,
+    weighted_pseudoinverse,
+)
 from ..models.scores import JacobianOutputs  # noqa: F401  re-exported: defined here before the models package
 
 if TYPE_CHECKING:
@@ -53,16 +63,7 @@ GLOBAL_FEATURE_NAMES = ["q_perp", "q_par", "ratio", "alpha_weak"]
 def bus_incidence(est: "SEBase", edge_index: np.ndarray) -> List[np.ndarray]:
     """Masked-measurement indices touching each bus: its own V/P/Q/theta channels plus the flows
     of every incident branch (a flow meter reacts to both endpoints). Same map as ResidualLocalizer."""
-    N, E = est.N, est.E
-    inc = np.zeros((N, 4 * N + 2 * E), bool)
-    for c in range(4):
-        inc[np.arange(N), c * N + np.arange(N)] = True
-    for c in range(2):
-        cols = 4 * N + c * E + np.arange(E)
-        inc[edge_index[0], cols] = True
-        inc[edge_index[1], cols] = True
-    incm = inc[:, est.mask]
-    return [np.where(incm[b])[0] for b in range(N)]
+    return _bus_incidence(est.N, est.E, edge_index, est.mask)
 
 
 class JacobianFeatures:
@@ -93,19 +94,18 @@ class JacobianFeatures:
         Hw = sw[:, None] * est.H  # [m, SD], the whitened Jacobian
         self._Hw, self._sw = Hw, sw
         # weighted pseudo-inverse H_W^+ = (H^T W H)^-1 H^T W, as the [SD, m] map dz -> dx_hat
-        self._pinv = est._Ai @ (est.H.T * est.Wk[None, :])
+        self._pinv = weighted_pseudoinverse(est.H, est.Wk, est._Ai)
         # projection onto the column space of the whitened Jacobian: leverage on its diagonal
-        P = Hw @ est._Ai @ Hw.T
-        self.leverage = np.clip(np.diag(P), 0.0, 1.0)
+        self.leverage = leverage(Hw, est._Ai)
         self.sensitivity = np.linalg.norm(Hw, axis=1)  # s_i, whitened row norms
         self.observability = np.linalg.norm(Hw, axis=0)  # o_j, column norms
-        U, S, Vt = np.linalg.svd(Hw, full_matrices=False)
+        k = self.n_weak if self.n_weak is not None else max(2, est.SD // 10)
+        U, S, Vweak, weak_rows = weak_directions(Hw, k)
         self.singular_values = S
         self.kappa = float(S[0] / max(S[-1], 1e-300))
-        k = self.n_weak if self.n_weak is not None else max(2, est.SD // 10)
         self._U = U  # [m, SD]
-        self._Vweak = Vt[-k:].T  # [SD, k] weakest right-singular directions
-        self._weak_rows = np.arange(len(S) - k, len(S))
+        self._Vweak = Vweak  # [SD, k] weakest right-singular directions
+        self._weak_rows = weak_rows
         self.N, self.ns = est.N, len(est.keep)
         return self
 
@@ -124,15 +124,15 @@ class JacobianFeatures:
         units). Returns {"bus": [n, N, 8], "global": [n, 4], "dx_hat": [n, SD], "r_perp": [n, m]}."""
         est = self.est
         dz = self.delta_z(d)  # [n, m]
-        dx = dz @ self._pinv.T  # [n, SD] implied state change
-        r_par = dx @ est.H.T  # explained part
-        r_perp = dz - r_par  # unexplained part
+        dx, r_par, r_perp = explained_unexplained(
+            dz, est.H, self._pinv
+        )  # implied state change, its two parts
         u_perp = r_perp * self._sw  # whitened (r / sigma)
         u_par = r_par * self._sw
         q_perp = np.linalg.norm(u_perp, axis=1)
         q_par = np.linalg.norm(u_par, axis=1)
         ratio = q_perp / (q_par + 1e-9)
-        alpha = (dz * self._sw) @ self._U  # [n, SD] direction coefficients
+        alpha = direction_coefficients(dz * self._sw, self._U)  # [n, SD]
         alpha_weak = np.linalg.norm(alpha[:, self._weak_rows], axis=1)
         glob = np.stack([q_perp, q_par, ratio, alpha_weak], axis=1)
 
@@ -140,22 +140,16 @@ class JacobianFeatures:
         dth = np.zeros((n, N))
         dth[:, est.keep] = np.abs(dx[:, :ns])
         dv = np.abs(dx[:, ns:])
-        weak = (dx @ self._Vweak) @ self._Vweak.T  # implied move restricted to the weak subspace
+        weak = weak_move(dx, self._Vweak)  # implied move restricted to the weak subspace
         wth = np.zeros((n, N))
         wth[:, est.keep] = weak[:, :ns]
-        weak_move = np.sqrt(wth**2 + weak[:, ns:] ** 2)
+        weak_bus = np.sqrt(wth**2 + weak[:, ns:] ** 2)  # per-bus size of the weak-subspace move
         lev_change = np.abs(dz) * self._sw * self.leverage[None, :]
         sens_change = np.abs(dz) / np.maximum(self.sensitivity[None, :], 1e-9)
-        unexp = np.zeros((n, N))
-        expl = np.zeros((n, N))
-        lev = np.zeros((n, N))
-        sens = np.zeros((n, N))
-        for b, ix in enumerate(self._inc):
-            if len(ix):
-                unexp[:, b] = (u_perp[:, ix] ** 2).sum(axis=1)
-                expl[:, b] = (u_par[:, ix] ** 2).sum(axis=1)
-                lev[:, b] = lev_change[:, ix].max(axis=1)
-                sens[:, b] = sens_change[:, ix].max(axis=1)
+        unexp = meters_to_buses(u_perp**2, self._inc, "sum")
+        expl = meters_to_buses(u_par**2, self._inc, "sum")
+        lev = meters_to_buses(lev_change, self._inc, "max")
+        sens = meters_to_buses(sens_change, self._inc, "max")
         bus_ratio = np.sqrt(unexp) / (np.sqrt(expl) + 1e-9)
-        bus = np.stack([dth, dv, unexp, expl, bus_ratio, lev, sens, weak_move], axis=2)
+        bus = np.stack([dth, dv, unexp, expl, bus_ratio, lev, sens, weak_bus], axis=2)
         return JacobianOutputs(bus=bus, global_=glob, dx_hat=dx, r_perp=r_perp)

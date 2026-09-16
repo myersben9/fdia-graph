@@ -137,3 +137,138 @@ def test_recent_change_scale_matches_windowed_std():
     expected = D[15:24].std(axis=0) + 1e-3
     assert np.allclose(scale[t], expected, rtol=1e-5)
     assert np.all(scale[:4] == np.float32(1e-3))  # too few changes: the floor alone
+
+
+# ---- estimation, linalg and projection kernels ---------------------------------------------------
+
+
+def _toy_system():
+    """Two states, four measurements with a hand-checkable Jacobian and weights."""
+    H = np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, -1.0]])
+    w = np.array([1.0, 1.0, 4.0, 0.25])
+    return H, w
+
+
+def test_normal_matrix_and_wls_step_by_hand():
+    from fdia_graph.formulas import guarded_inverse, normal_matrix, wls_step, wls_step_batched
+
+    H, w = _toy_system()
+    G = normal_matrix(H, w)
+    assert np.allclose(G, [[6.25, 3.75], [3.75, 6.25]])  # sum_i w_i h_i h_i^T
+    Ai = guarded_inverse(G)
+    assert np.allclose(Ai @ G, np.eye(2))
+    r = np.array([[1.0, 2.0, 3.0, -1.0]])
+    step = wls_step(r, w, H, Ai)
+    assert np.allclose(step, np.linalg.solve(G, H.T @ (w * r[0])))  # the normal equations
+    stacked = wls_step_batched(
+        np.repeat(r, 3, axis=0), np.repeat(w[None], 3, axis=0), H, np.repeat(Ai[None], 3, axis=0)
+    )
+    assert np.allclose(stacked, np.repeat(step, 3, axis=0))
+
+
+def test_residual_covariance_and_normalized_residual():
+    from fdia_graph.formulas import (
+        critical_measurements,
+        floored_covariance,
+        guarded_inverse,
+        normal_matrix,
+        normalized_residual,
+        residual_covariance_diag,
+        weighted_objective,
+    )
+
+    H, w = _toy_system()
+    Ai = guarded_inverse(normal_matrix(H, w))
+    om, R = residual_covariance_diag(H, w, Ai)
+    assert np.allclose(R, 1 / w)
+    S = np.diag(1 / w) - H @ Ai @ H.T  # the full residual covariance
+    assert np.allclose(om, np.diag(S)) and np.all(om > 0)  # four meters, two states: nothing critical
+    assert not critical_measurements(om, R).any()
+    om2 = om.copy()
+    om2[0] = 0.0
+    assert critical_measurements(om2, R)[0] and floored_covariance(om2, R)[0] == 1e-12 * R[0]
+    r = np.array([[0.5, -1.0, 2.0, 0.0]])
+    assert np.allclose(normalized_residual(r, om), np.abs(r) / np.sqrt(om))
+    assert weighted_objective(r, w)[0] == pytest.approx(0.25 + 1.0 + 16.0)
+
+
+def test_huber_weights_by_hand():
+    from fdia_graph.formulas import huber_weights
+
+    a = huber_weights(np.array([[0.5, 1.5, 3.0, 0.0]]), c=1.5)
+    assert a.tolist() == [
+        [1.0, 1.0, 0.5, 1.0]
+    ]  # inside the band 1; outside c / r; a zero residual is floored
+
+
+def test_whitened_svd_basis_is_orthonormal():
+    from fdia_graph.formulas import whitened_svd_basis
+
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(200, 6)) * np.array([3.0, 0.3, 0.03, 0.003, 0.0003, 0.00003])
+    K, VK = whitened_svd_basis(X, 0.5)
+    assert K == 3 and VK.shape == (6, 3)
+    assert np.allclose(VK.T @ VK, np.eye(3), atol=1e-12)
+
+
+def test_gate_weights_and_bus_incidence():
+    from fdia_graph.formulas import bus_incidence, gate_weights
+
+    N, E = 3, 2
+    ei = np.array([[0, 1], [1, 2]])  # branches 0-1 and 1-2
+    mask = np.ones(4 * N + 2 * E, bool)
+    inc = bus_incidence(N, E, ei, mask)
+    assert inc[0].tolist() == [0, 3, 6, 9, 12, 14]  # V, P, Q, theta of bus 0 and both flows of branch 0
+    assert inc[1].tolist() == [1, 4, 7, 10, 12, 13, 14, 15]  # bus 1 touches both branches
+    w = np.ones(16)
+    flags = np.array([[True, False, False], [False, False, True]])
+    g = gate_weights(w, flags, inc, 0.1)
+    assert g.shape == (2, 16) and g[0, inc[0]].tolist() == [0.1] * 6 and g[0, 1] == 1.0
+    assert g[1, inc[2]].tolist() == [0.1] * len(inc[2]) and g[1, 0] == 1.0
+
+
+def test_projection_split_is_exact_and_orthogonal():
+    from fdia_graph.formulas import (
+        direction_coefficients,
+        explained_unexplained,
+        guarded_inverse,
+        leverage,
+        meters_to_buses,
+        normal_matrix,
+        weak_directions,
+        weak_move,
+        weighted_pseudoinverse,
+    )
+
+    H, w = _toy_system()
+    Ai = guarded_inverse(normal_matrix(H, w))
+    pinv = weighted_pseudoinverse(H, w, Ai)
+    assert np.allclose(pinv @ H, np.eye(2))  # a left inverse of H
+    dz = np.array([[1.0, 2.0, 3.0, 4.0], [0.0, 1.0, 1.0, -1.0]])
+    dx, r_par, r_perp = explained_unexplained(dz, H, pinv)
+    assert np.allclose(r_par + r_perp, dz)
+    assert np.allclose((r_perp * w) @ H, 0.0, atol=1e-12)  # the unexplained part is W-orthogonal to range(H)
+    assert np.allclose(r_perp[1], 0.0)  # dz = H [0, 1] exactly: nothing unexplained
+    Hw = np.sqrt(w)[:, None] * H
+    lev = leverage(Hw, Ai)
+    assert lev.sum() == pytest.approx(2.0) and np.all(
+        (lev >= 0) & (lev <= 1)
+    )  # trace of the hat matrix = rank
+    U, S, Vweak, rows = weak_directions(Hw, 1)
+    assert rows.tolist() == [1] and Vweak.shape == (2, 1) and S[0] >= S[1]
+    assert np.allclose(np.linalg.norm(weak_move(dx, Vweak), axis=1), np.abs(dx @ Vweak[:, 0]))
+    assert direction_coefficients(dz * np.sqrt(w), U).shape == (2, 2)
+    inc = [np.array([0, 2]), np.array([], int), np.array([1, 3])]
+    assert meters_to_buses(dz, inc, "sum").tolist() == [[4.0, 0.0, 6.0], [1.0, 0.0, 0.0]]
+    assert meters_to_buses(dz, inc, "max").tolist() == [[3.0, 0.0, 4.0], [1.0, 0.0, 1.0]]
+
+
+def test_guarded_inverse_and_condition_number():
+    from fdia_graph.formulas import condition_number, guarded_inverse
+
+    A = np.array([[4.0, 1.0], [1.0, 3.0]])
+    assert np.allclose(guarded_inverse(A), np.linalg.inv(A))
+    assert condition_number(A) == pytest.approx(np.linalg.cond(A), rel=1e-6)
+    S = np.array([[1.0, 1.0], [1.0, 1.0]])  # singular: pseudo-inverse, infinite condition
+    assert np.allclose(guarded_inverse(S), np.linalg.pinv(S))
+    assert condition_number(S) == float("inf")
