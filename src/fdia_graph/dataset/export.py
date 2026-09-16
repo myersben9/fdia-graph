@@ -71,6 +71,9 @@ class ExportMixin(DatasetBase):
         arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
         """
         want = list(fields) if fields else self._default_fields()
+        unknown = [k for k in want if k not in self._default_fields()]
+        if unknown:
+            raise ValueError(f"unknown field(s) {unknown}; this shard carries {self._default_fields()}")
         per_record = [k for k in want if k not in _CLEAN_LAYERS]
         clean_want = [k for k in want if k in _CLEAN_LAYERS]
         # Static graph arrays always included (tiny, and needed to interpret edges).

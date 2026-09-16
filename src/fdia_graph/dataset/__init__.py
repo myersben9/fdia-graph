@@ -52,6 +52,8 @@ def _record_mask(
     if not filt.include_gaps:
         keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
     if filt.split is not None:
+        if filt.split not in _SPLIT:
+            raise ValueError(f"split must be one of {sorted(_SPLIT)} or None, got {filt.split!r}")
         if sp is None:
             raise ValueError(f"{path} has no split; run the split step first")
         keep &= sp == _SPLIT[filt.split]

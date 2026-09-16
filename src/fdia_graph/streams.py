@@ -381,9 +381,13 @@ def windows(
     label: "frame" -> per-frame per-bus labels yw [n,W,N]; "any" -> window-level per-bus label yw [n,N]
     (bus attacked at ANY frame in the window); "last" -> label at the final frame yw [n,N].
     """
+    if label not in ("frame", "any", "last"):
+        raise ValueError(f"label must be 'frame', 'any' or 'last', got {label!r}")
     nx = stream["node_x"]
     y = stream["y"]
     T = len(nx)
+    if not 1 <= W <= T or stride < 1:
+        raise ValueError(f"need 1 <= W <= {T} frames and stride >= 1, got W={W}, stride={stride}")
     starts = range(0, T - W + 1, stride)
     Xw = np.stack([nx[s : s + W] for s in starts])
     if label == "frame":

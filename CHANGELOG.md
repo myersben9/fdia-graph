@@ -8,6 +8,12 @@ the public API, the generated files and the numbers are the same as the previous
 - `CONTRIBUTING.md` (the rules, the pull-request flow, releasing), `tools/pr.py` (create, wait,
   comments, reply, merge, with the merge rule enforced) and `tools/release.py` (tag, GitHub
   release, PyPI wait) so a second maintainer can ship; the plan documents move to `docs/plans/`.
+- Clear errors at the public edges instead of silent or opaque failures: an unknown family name
+  or code in `load(families=...)`, an unknown `split`, an unknown field in `to_numpy` and its
+  siblings, and an invalid `label`, window length or stride in `windows` raise `ValueError`
+  naming what is allowed (an unknown family used to select nothing; an invalid window label used
+  to behave as "any"). `tests/test_edges.py` covers these and the estimators' and localizers'
+  argument checks; `FDIA_SLOW=1` additionally runs the IEEE-118 estimator sanity test.
 
 ## 0.17.0
 
