@@ -13,7 +13,7 @@ Users touch three things: the `fg.*` functions in `__init__.py`, `fdia_graph.se`
 ```
 src/fdia_graph/          (the package root)
 ├── __init__.py                      fg.* public API
-├── dataset.py registry.py download.py     SDK: load path
+├── dataset/ registry.py download.py       SDK: load path
 ├── streams.py torch_data.py               SDK: stream path
 ├── generation.py profiles.py              SDK: generation drivers
 ├── se/                              state estimation (WLS, robust, subspace prior)
@@ -35,7 +35,7 @@ How the three paths connect (generate produces the shard the load path serves):
 | File | What it is |
 |---|---|
 | `__init__.py` | Public API. Thin wrappers with lazy imports so `load()` users never need torch/pandapower. |
-| `dataset.py` | `FdiaGraph`: Dataset over one `.h5` shard. Splits, family filters, units, dict/PyG loaders. |
+| `dataset/` | `FdiaGraph`: Dataset over one `.h5` shard, assembled from `graph` (static graph), `physics` (admittances, clean flows), `records` (items, collate, DataLoader) and `export` (whole-split arrays) over `base` (shared state, constants). |
 | `registry.py` | Dataset version control. `(name, release)` → download spec; `register_local` for generated sets. |
 | `download.py` | Fetch a shard to `~/.cache/fdia_graph`, sha256-verified, atomic rename. |
 | `streams.py` | Continuous attacked time series (`generate_stream`/`load_stream`) + windowing for LSTMs. |

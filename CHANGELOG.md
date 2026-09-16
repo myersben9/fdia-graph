@@ -3,6 +3,13 @@
 Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.
 
+## Unreleased
+
+- The loader is the `fdia_graph.dataset` package: `FdiaGraph` is assembled from `graph`,
+  `physics`, `records` and `export` mixins over a `base` that declares the shared state, the same
+  pattern as the generator. Same import path, same names, same behaviour (docs/READABILITY_PLAN.md,
+  step 9).
+
 ## 0.16.0
 
 The readability and data-models series (PRs #64 to #72). What a user sees: every dict the package
