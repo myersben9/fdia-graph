@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Un
 
 if TYPE_CHECKING:
     from .engine.core import LineCandidate
+    from .streams import Stream
     import datetime
     import numpy as np
 
@@ -173,10 +174,10 @@ def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
     return _generate(system, name=name, **knobs)
 
 
-def generate_stream(system: Union[str, int], **knobs: Any) -> Dict[str, Any]:
+def generate_stream(system: Union[str, int], **knobs: Any) -> "Stream":
     """Build ONE continuous attacked time series for temporal models (LSTM/TGN), not a shuffled table.
 
-    Returns a dict with node_x [T,N,4], clean [T,N,4] (noiseless attack-free SE target), y [T,N], family [T],
+    Returns a Stream (a dict as well) with node_x [T,N,4], clean [T,N,4] (noiseless attack-free SE target), y [T,N], family [T],
     temporal_delta/swing [T,N,2], and an episode list; saved to `out` (npz) if given. Knobs: states,
     attacked_frac, families, attack_intensity, ramp_rate, ramp_len, replay_tau, seed, out. Needs the generation extra.
     """
@@ -185,8 +186,8 @@ def generate_stream(system: Union[str, int], **knobs: Any) -> Dict[str, Any]:
     return _gs(system, **knobs)
 
 
-def load_stream(system: Union[str, int], release: Optional[str] = None) -> Dict[str, Any]:
-    """Download the published continuous attacked stream for a system (dict: node_x, y, family, ...).
+def load_stream(system: Union[str, int], release: Optional[str] = None) -> "Stream":
+    """Download the published continuous attacked stream for a system (a Stream, a dict as well: node_x, y, family, ...).
 
     Built-in systems 14/30/57/89/118/145/200/300. Feed to windows() for LSTM/TGN training. release pins a
     version. See fdia_graph.streams.load_stream.

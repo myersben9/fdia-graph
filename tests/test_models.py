@@ -55,6 +55,23 @@ def test_read_only_json_and_pickle():
         r.family = 3  # type: ignore[misc]
     with pytest.raises(TypeError):
         r["family"] = 3
+    for mutate in (
+        lambda: r.update(family=3),
+        lambda: r.pop("family"),
+        r.clear,
+        r.popitem,
+        lambda: r.setdefault("z", 1),
+    ):
+        with pytest.raises(TypeError):
+            mutate()
+    with pytest.raises(TypeError):
+        r |= {"family": 3}  # type: ignore[misc]
+    assert r.family == 2 and r["family"] == 2 and "z" not in r
+
+
+def test_ordered_keeps_the_mapping_key_order():
+    r = _Rec.ordered({"family": 2, "y": np.zeros(3), "node_x": np.ones((3, 4))})
+    assert list(r) == ["family", "y", "node_x"] and r.node_x.shape == (3, 4) and "swing" not in r
     assert json.loads(json.dumps(_Aliased(1, 2)))["global"] == 2  # json.dump works on the dict side
     back = pickle.loads(pickle.dumps(r))
     assert back.family == 2 and np.array_equal(back["node_x"], r.node_x)

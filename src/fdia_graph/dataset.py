@@ -807,7 +807,7 @@ class FdiaGraph:
                 out[k] = d[k][self.idx]  # one bulk gather per field -> [n, ...] numpy array
             if clean_want:
                 out.update(self._clean_layers(clean_want, d["timestep"][self.idx]))
-        return ArraysBundle(**self._in_units(out))
+        return ArraysBundle.ordered(self._in_units(out))  # keeps the caller's field order
 
     def _in_units(self, out: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
         """The returned arrays in self.units: power and angle arrays converted to per unit when asked,
@@ -837,7 +837,7 @@ class FdiaGraph:
             t = torch.as_tensor(v)
             t = t.long() if k in int_keys else t.float()
             out[k] = t.to(device) if device else t  # optionally move onto the target device
-        return ArraysBundle(**out)
+        return ArraysBundle.ordered(out)
 
     def to_tf(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
         """Same data as to_numpy(), but as TensorFlow tensors (requires tensorflow installed).
@@ -847,7 +847,7 @@ class FdiaGraph:
         except ImportError as e:
             raise ImportError("TensorFlow is required for to_tf(): pip install tensorflow") from e
         # Same single to_numpy() read, wrapped as tf.Tensors.
-        return ArraysBundle(**{k: tf.convert_to_tensor(v) for k, v in self.to_numpy(fields).items()})
+        return ArraysBundle.ordered({k: tf.convert_to_tensor(v) for k, v in self.to_numpy(fields).items()})
 
     def to_pandas(self, flatten_features: bool = True) -> "pd.DataFrame":
         """Return a pandas DataFrame — one row per record — for tabular analysis / filtering.

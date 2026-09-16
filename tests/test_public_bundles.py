@@ -53,6 +53,9 @@ def test_record_batch_and_arrays(splits):
     assert arrays.node_x.shape == (len(ds), ds.N, 4) and "swing" in arrays
     sub = ds.to_numpy(fields=["node_x", "y"])
     assert list(sub) == ["edge_index", "edge_reactance", "node_x", "y"] and sub.swing is None
+    rev = ds.to_numpy(fields=["y", "node_x"])  # the caller's order is the dict order, as before
+    assert list(rev) == ["edge_index", "edge_reactance", "y", "node_x"]
+    assert list(ds.to_torch(fields=["y", "node_x"])) == list(rev)
     tens = ds.to_torch(fields=["node_x"])
     assert isinstance(tens, ArraysBundle) and torch.equal(tens.node_x, torch.as_tensor(sub.node_x))
 

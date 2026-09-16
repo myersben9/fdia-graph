@@ -31,7 +31,9 @@ construction. See docs/DATA_MODELS_PLAN.md.
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
-from typing import Any, ClassVar, Dict, Tuple
+from typing import Any, ClassVar, Dict, Tuple, Type, TypeVar
+
+_B = TypeVar("_B", bound="Bundle")
 
 
 @dataclass(frozen=True, eq=False)
@@ -74,12 +76,44 @@ class Bundle(dict):
             parts.append(f"{n}=<{type(v).__name__}{list(v.shape)}>" if hasattr(v, "shape") else f"{n}={v!r}")
         return f"{type(self).__name__}({', '.join(parts)})"
 
-    # The dict side is a mirror of the frozen fields; refuse the mutations that would desynchronize it.
+    @classmethod
+    def ordered(cls: Type[_B], mapping: Dict[str, Any]) -> _B:
+        """A bundle whose dict view lists the keys in the mapping's order rather than the field order
+        (a caller's requested field order in `to_numpy`). Keys are dict keys; None values are absent."""
+        field_of = {cls.key_of(n): n for n in cls._names()}
+        obj = cls(**{field_of[k]: v for k, v in mapping.items()})
+        dict.clear(obj)  # the base methods, since the overrides below refuse
+        dict.update(obj, {k: v for k, v in mapping.items() if v is not None})
+        return obj
+
+    # The dict side is a mirror of the frozen fields; every mutating entry point of dict refuses, since
+    # dict's C implementation of update/pop/clear does not go through __setitem__/__delitem__.
+    def _read_only(self) -> TypeError:
+        return TypeError(f"{type(self).__name__} is read-only; build a new one or use to_dict()")
+
     def __setitem__(self, key: str, value: Any) -> None:
-        raise TypeError(f"{type(self).__name__} is read-only; build a new one or use to_dict()")
+        raise self._read_only()
 
     def __delitem__(self, key: str) -> None:
-        raise TypeError(f"{type(self).__name__} is read-only; build a new one or use to_dict()")
+        raise self._read_only()
+
+    def __ior__(self, other: Any) -> "Bundle":
+        raise self._read_only()
+
+    def update(self, *args: Any, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+        raise self._read_only()
+
+    def setdefault(self, *args: Any, **kwargs: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+        raise self._read_only()
+
+    def pop(self, *args: Any, **kwargs: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+        raise self._read_only()
+
+    def popitem(self) -> Any:
+        raise self._read_only()
+
+    def clear(self) -> None:
+        raise self._read_only()
 
     def __reduce__(self) -> Any:  # pickle through the fields, not the dict storage
         return (type(self), tuple(getattr(self, n) for n in self._names()))
