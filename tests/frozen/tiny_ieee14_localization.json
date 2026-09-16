@@ -1,0 +1,173 @@
+{
+ "delta": {
+  "Ad": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.9818181815422726,
+   "node_f1": 0.9411764705882353,
+   "node_precision": 0.8888888888888888,
+   "node_recall": 1.0,
+   "sample_f1": 0.9444444444444443,
+   "strict_acc": 0.5
+  },
+  "Al": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.8606060604349495,
+   "node_f1": 0.8620689655172413,
+   "node_precision": 0.8620689655172413,
+   "node_recall": 0.8620689655172413,
+   "sample_f1": 0.862962962962963,
+   "strict_acc": 0.0
+  },
+  "Aq": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.9999999995625,
+   "node_f1": 0.625,
+   "node_precision": 0.45454545454545453,
+   "node_recall": 1.0,
+   "sample_f1": 0.641025641025641,
+   "strict_acc": 0.0
+  },
+  "Ar": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.9523809520396825,
+   "node_f1": 0.8148148148148148,
+   "node_precision": 0.7333333333333333,
+   "node_recall": 0.9166666666666666,
+   "sample_f1": 0.8148148148148148,
+   "strict_acc": 0.0
+  },
+  "As": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.9259259255432097,
+   "node_f1": 0.9166666666666666,
+   "node_precision": 0.9166666666666666,
+   "node_recall": 0.9166666666666666,
+   "sample_f1": 0.9153439153439153,
+   "strict_acc": 0.3333333333333333
+  },
+  "all": {
+   "macro_dr": 0.9318181818181818,
+   "macro_f1": 0.8914241119945373,
+   "macro_fr": 0.02766798418972332,
+   "node_f1": 0.8085106382978724
+  },
+  "benign": {
+   "bus_alarm_rate": 0.037267080745341616,
+   "false_alarm_rate": 0.43478260869565216
+  }
+ },
+ "residual": {
+  "Ad": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.5207792207161478,
+   "node_f1": 0.4752475247524752,
+   "node_precision": 0.3116883116883117,
+   "node_recall": 1.0,
+   "sample_f1": 0.4760348583877996,
+   "strict_acc": 0.0
+  },
+  "Al": {
+   "detection_rate": 0.3333333333333333,
+   "macro_f1": 0.16666666661489896,
+   "node_f1": 0.1875,
+   "node_precision": 1.0,
+   "node_recall": 0.10344827586206896,
+   "sample_f1": 0.15384615384615385,
+   "strict_acc": 0.0
+  },
+  "Aq": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.0,
+   "node_f1": 0.0,
+   "node_precision": 0.0,
+   "node_recall": 0.0,
+   "sample_f1": 0.0,
+   "strict_acc": 0.0
+  },
+  "Ar": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.6999999998540476,
+   "node_f1": 0.45283018867924524,
+   "node_precision": 0.2926829268292683,
+   "node_recall": 1.0,
+   "sample_f1": 0.45315904139433555,
+   "strict_acc": 0.0
+  },
+  "As": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.5999999998633333,
+   "node_f1": 0.4444444444444445,
+   "node_precision": 0.2857142857142857,
+   "node_recall": 1.0,
+   "sample_f1": 0.4444444444444444,
+   "strict_acc": 0.0
+  },
+  "all": {
+   "macro_dr": 0.6042929292929293,
+   "macro_f1": 0.4143393613097301,
+   "macro_fr": 0.08695652173913043,
+   "node_f1": 0.37362637362637363
+  },
+  "benign": {
+   "bus_alarm_rate": 0.07453416149068323,
+   "false_alarm_rate": 0.5217391304347826
+  }
+ },
+ "swing": {
+  "Ad": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.8900432898174614,
+   "node_f1": 0.8727272727272727,
+   "node_precision": 0.7741935483870968,
+   "node_recall": 1.0,
+   "sample_f1": 0.8814814814814814,
+   "strict_acc": 0.3333333333333333
+  },
+  "Al": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.8757575755776261,
+   "node_f1": 0.8620689655172413,
+   "node_precision": 0.8620689655172413,
+   "node_recall": 0.8620689655172413,
+   "sample_f1": 0.8602240896358543,
+   "strict_acc": 0.0
+  },
+  "Aq": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.9999999995625,
+   "node_f1": 0.6666666666666666,
+   "node_precision": 0.5,
+   "node_recall": 1.0,
+   "sample_f1": 0.6666666666666666,
+   "strict_acc": 0.0
+  },
+  "Ar": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.9047619044603173,
+   "node_f1": 0.7857142857142857,
+   "node_precision": 0.6875,
+   "node_recall": 0.9166666666666666,
+   "sample_f1": 0.7925925925925926,
+   "strict_acc": 0.0
+  },
+  "As": {
+   "detection_rate": 1.0,
+   "macro_f1": 0.8518518515308641,
+   "node_f1": 0.8461538461538461,
+   "node_precision": 0.7857142857142857,
+   "node_recall": 0.9166666666666666,
+   "sample_f1": 0.85,
+   "strict_acc": 0.3333333333333333
+  },
+  "all": {
+   "macro_dr": 0.9318181818181818,
+   "macro_f1": 0.796997395402136,
+   "macro_fr": 0.06719367588932806,
+   "node_f1": 0.7562189054726368
+  },
+  "benign": {
+   "bus_alarm_rate": 0.059006211180124224,
+   "false_alarm_rate": 0.5217391304347826
+  }
+ }
+}

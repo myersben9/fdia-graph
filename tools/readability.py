@@ -1,0 +1,229 @@
+"""Readability measures for src/fdia_graph, the limits from docs/READABILITY_PLAN.md rule 1.
+
+    python tools/readability.py --report                 # every function outside a limit, whole package
+    python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass
+
+A function is measured on five things: cyclomatic complexity (radon), nesting depth of loops and
+branches, nested functions that read variables of the enclosing function, parameter count on
+private functions, and positional record indexing (an integer subscript of 4 or more on a bare
+name, the `r[10]` pattern). The sixth rule of the plan, one copy of every formula, is a review
+rule and is not measured here.
+
+Exceptions: a function listed in EXCEPTIONS with a one-line reason passes the gate. Adding one
+is a reviewed decision; the reason is the whole point.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import os
+import subprocess
+import sys
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Set, Tuple
+
+ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "fdia_graph")
+
+LIMITS = {"complexity": 10, "nesting": 3, "captures": 0, "params": 7, "positional": 0}
+
+# "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
+EXCEPTIONS: Dict[str, str] = {}
+
+_NEST = (ast.For, ast.While, ast.If, ast.With, ast.Try)
+_FUNC = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+@dataclass
+class Measure:
+    file: str
+    name: str
+    line: int
+    end: int
+    complexity: int
+    nesting: int
+    captures: int
+    params: int
+    positional: int
+    private: bool
+
+    def failures(self) -> List[str]:
+        out = []
+        if self.complexity > LIMITS["complexity"]:
+            out.append(f"complexity {self.complexity}")
+        if self.nesting > LIMITS["nesting"]:
+            out.append(f"nesting {self.nesting}")
+        if self.captures > LIMITS["captures"]:
+            out.append(f"closure reads {self.captures} outer variables")
+        if self.private and self.params > LIMITS["params"]:
+            out.append(f"{self.params} parameters")
+        if self.positional > LIMITS["positional"]:
+            out.append(f"{self.positional} positional record index(es)")
+        return out
+
+    @property
+    def key(self) -> str:
+        mod = os.path.splitext(self.file.replace(os.sep, "."))[0]
+        return f"{mod}.{self.name}"
+
+
+def _nesting(node: ast.AST) -> int:
+    best = 0
+
+    def walk(n: ast.AST, d: int) -> None:
+        nonlocal best
+        best = max(best, d)
+        for c in ast.iter_child_nodes(n):
+            if isinstance(c, _FUNC + (ast.Lambda,)):
+                continue
+            walk(c, d + 1 if isinstance(c, _NEST) else d)
+
+    walk(node, 0)
+    return best
+
+
+def _captures(inner: ast.FunctionDef, outer_names: Set[str]) -> int:
+    params = {a.arg for a in inner.args.args + inner.args.kwonlyargs}
+    stored = {n.id for n in ast.walk(inner) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
+    loaded = {n.id for n in ast.walk(inner) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+    return len((loaded - params - stored) & outer_names - {"self", "cls"})
+
+
+def _positional(fn: ast.AST) -> int:
+    n = 0
+    for s in ast.walk(fn):
+        if (
+            isinstance(s, ast.Subscript)
+            and isinstance(s.value, ast.Name)
+            and isinstance(s.slice, ast.Constant)
+            and isinstance(s.slice.value, int)
+            and s.slice.value >= 4
+        ):
+            n += 1
+    return n
+
+
+def _complexities(path: str) -> Dict[Tuple[str, int], int]:
+    from radon.complexity import cc_visit
+
+    out = {}
+    for block in cc_visit(open(path, encoding="utf8").read()):
+        out[(block.name, block.lineno)] = block.complexity
+        for m in getattr(block, "methods", []):
+            out[(m.name, m.lineno)] = m.complexity
+    return out
+
+
+def measure_file(path: str) -> List[Measure]:
+    rel = os.path.relpath(path, ROOT)
+    tree = ast.parse(open(path, encoding="utf8").read())
+    cc = _complexities(path)
+    out: List[Measure] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, _FUNC):
+            continue
+        outer = {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
+        outer |= {a.arg for a in node.args.args + node.args.kwonlyargs}
+        caps = 0
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.FunctionDef) and inner is not node:
+                caps = max(caps, _captures(inner, outer))
+        params = len(node.args.args) + len(node.args.kwonlyargs)
+        if params and node.args.args and node.args.args[0].arg in ("self", "cls"):
+            params -= 1
+        out.append(
+            Measure(
+                file=rel,
+                name=node.name,
+                line=node.lineno,
+                end=node.end_lineno or node.lineno,
+                complexity=cc.get((node.name, node.lineno), 1),
+                nesting=_nesting(node),
+                captures=caps,
+                params=params,
+                positional=_positional(node),
+                private=node.name.startswith("_"),
+            )
+        )
+    return out
+
+
+def measure_all() -> List[Measure]:
+    out: List[Measure] = []
+    for dp, _, fs in os.walk(ROOT):
+        for f in sorted(fs):
+            if f.endswith(".py"):
+                out += measure_file(os.path.join(dp, f))
+    return out
+
+
+def report(ms: List[Measure]) -> int:
+    bad = [m for m in ms if m.failures()]
+    print(
+        f"{len(ms)} functions measured, {len(bad)} outside a limit "
+        f"(limits: {', '.join(f'{k} {v}' for k, v in LIMITS.items())})"
+    )
+    for m in sorted(bad, key=lambda m: (m.file, m.line)):
+        mark = "  [excepted: " + EXCEPTIONS[m.key] + "]" if m.key in EXCEPTIONS else ""
+        print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()) + mark)
+    return 0
+
+
+def _changed_lines(base: str) -> Dict[str, Set[int]]:
+    """Lines added or modified since `base`, per file under src/fdia_graph, from `git diff -U0`."""
+    top = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    diff = subprocess.run(
+        ["git", "diff", "-U0", f"{base}...HEAD", "--", "src/fdia_graph"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=top,
+    ).stdout
+    out: Dict[str, Set[int]] = {}
+    cur: Optional[str] = None
+    for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            cur = os.path.normpath(os.path.join(top, line[6:]))
+            out.setdefault(cur, set())
+        elif line.startswith("@@") and cur is not None:
+            new = line.split("+")[1].split(" ")[0]
+            start, _, count = new.partition(",")
+            n = int(count) if count else 1
+            out[cur].update(range(int(start), int(start) + max(n, 1)))
+    return out
+
+
+def check(base: str) -> int:
+    changed = _changed_lines(base)
+    failing = []
+    for path, lines in changed.items():
+        if not os.path.exists(path) or not path.endswith(".py"):
+            continue
+        for m in measure_file(path):
+            if any(m.line <= ln <= m.end for ln in lines) and m.failures() and m.key not in EXCEPTIONS:
+                failing.append(m)
+    if failing:
+        print("functions touched by this change that are outside a readability limit:")
+        for m in failing:
+            print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()))
+        print("split the function, or add it to EXCEPTIONS in tools/readability.py with a reason.")
+        return 1
+    n_lines = sum(len(v) for v in changed.values())
+    print(f"readability gate: {n_lines} changed lines in {len(changed)} file(s), all touched functions pass")
+    return 0
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--report", action="store_true")
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--base", default="origin/main")
+    a = ap.parse_args()
+    rc = 0
+    if a.report or not a.check:
+        rc |= report(measure_all())
+    if a.check:
+        rc |= check(a.base)
+    sys.exit(rc)
