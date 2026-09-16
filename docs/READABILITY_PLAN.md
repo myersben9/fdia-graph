@@ -360,6 +360,7 @@ step 8 half a day, so about ten working days in all rather than the eight first 
 | 5 | generator constructor, loader constructor, `to_numpy` | #67 | merged 2026-09-16 |
 | 6, 7 | `formulas.temporal`, `formulas.attacks`, the rest of the backlog | #68 | merged 2026-09-16 |
 | 8 | catalogue and changelog complete, aliases scheduled | with 6, 7 | done; alias removal due one minor version after 0.16 |
+| 9 | `dataset.py` split into a `dataset/` package: `base` + `graph`, `physics`, `records`, `export` mixins, the generator's `GridBase` pattern | #74 | open |
 
 Readability report: 26 functions outside a limit at the start of the series, 0 after steps 6
 and 7. Every step passed the strict frozen tests (bit-identical seeded shard and stream, identical
@@ -392,3 +393,22 @@ Carried over from `RESTRUCTURE_PLAN.md`, also decided: the package is named `for
 autograd Jacobian stays for now and the analytic Jacobian is its own later PR; formula functions
 are public; granularity is one function per equation with a short composing function per
 algorithm.
+
+## 8. Step 9: the loader as concerns (after 0.16.0, Ben's request)
+
+`dataset.py` was the last 800-line module: HDF5 reading, the static-graph accessors, the
+admittance matrices, per-record items and collate, and whole-split export, all in one class. It
+is now the `dataset/` package, built the way the generator already is (`GridBase` plus mixins):
+
+| module | concern |
+|---|---|
+| `base.py` | `DatasetBase`: every attribute the constructor sets, declared once so each mixin type-checks alone; stubs of the members one mixin calls on another; the family and split constants; `_torch` |
+| `graph.py` | `GraphMixin`: `edge_index`, the per-branch and per-bus physics properties, `edge_attr` |
+| `physics.py` | `AdmittanceMixin`: `ybus`/`yf`/`yt`, the clean flow on every branch, the lazy file handle |
+| `records.py` | `RecordsMixin`: units, `__getitem__`, PyG packaging, `collate`, `loader` |
+| `export.py` | `ExportMixin`: `summary`, `to_numpy`, `to_torch`, `to_tf`, `to_pandas` |
+| `__init__.py` | `FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin)`: the constructor and its readers; re-exports every name the module used to define |
+
+Every method moved verbatim. `fdia_graph.dataset` stays the import path (`FdiaGraph`, `FAMILIES`,
+`STEALTHY_FAMILIES`, `family_ids`, the bundles), so no caller changes. Proof as always: the strict
+frozen suite, pyright, the readability gate.

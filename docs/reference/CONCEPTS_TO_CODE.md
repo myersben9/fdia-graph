@@ -14,7 +14,7 @@ engine; `se/` and `localization/` analyze the shards; the rest load and serve da
 | `download.py` | fetch + cache a shard |
 | `generation.py` | assemble the classification shard (the recipe) |
 | `streams.py` | assemble a continuous timeline |
-| `dataset.py` | loader → tensors / PyG (what `fg.load` returns) |
+| `dataset/` | loader → tensors / PyG (what `fg.load` returns); `graph`, `physics`, `records`, `export` concerns |
 | `profiles.py` | real load series → operating points |
 | `se/` | state estimation classes (`WLS`, robust, `SubspacePrior`) |
 | `localization/` | per-bus localization classes: threshold arms (`SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer`) and the papers' learned arms (`BusCNN`, `BusMLP`) |
