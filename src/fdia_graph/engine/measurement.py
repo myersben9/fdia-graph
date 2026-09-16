@@ -6,6 +6,7 @@ from typing import Any, Tuple
 
 import numpy as np
 
+from ..formulas.network import branch_flows, complex_voltages
 from .base import GridBase
 
 
@@ -21,12 +22,11 @@ class MeasurementMixin(GridBase):
         # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
         C, SD, M = self.C, self.SD, self.M
         V, Pi, Qi, TH = X[:, 0], X[:, 1], X[:, 2], X[:, 3]
-        # Rebuild the complex bus-voltage phasor vector in ppc ordering: V * e^{j*theta}.
+        # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
+        # one physics primitive (formulas.network) shared with the loader and the estimator.
         Vc = np.zeros(self._nppc, complex)
-        for b in range(C):
-            Vc[self._lut[b]] = V[b] * np.exp(1j * np.deg2rad(TH[b]))
-        # Exact from-end flow via Sf = V_from*conj(Yf@V), scaled to physical units (Sf.real=MW, Sf.imag=MVAr).
-        Sf = Vc[self._fb] * np.conj(self._Yf @ Vc) * self._bMVA
+        Vc[self._lut[np.arange(C)]] = complex_voltages(V, TH)
+        Sf = branch_flows(Vc, self._Yf, self._fb, self._bMVA)
         # Node buffers: cols [|V|, P_inj, Q_inj, angle]; mask=1 where metered.
         nx = np.zeros((C, 4), np.float32)
         nm = np.zeros((C, 4), np.uint8)
@@ -65,8 +65,8 @@ class MeasurementMixin(GridBase):
         X = np.asarray(X, float)
         C = X.shape[1]
         Vc = np.zeros((len(X), self._nppc), complex)
-        Vc[:, self._lut[np.arange(C)]] = X[:, :, 0] * np.exp(1j * np.deg2rad(X[:, :, 3]))
-        Sf = Vc[:, self._fb] * np.conj((self._Yf @ Vc.T).T) * self._bMVA  # sparse@dense, then transpose back
+        Vc[:, self._lut[np.arange(C)]] = complex_voltages(X[:, :, 0], X[:, :, 3])
+        Sf = branch_flows(Vc, self._Yf, self._fb, self._bMVA)
         ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         ec[:, ~np.asarray(self.flow_meter, bool), :] = 0.0
         return ec
