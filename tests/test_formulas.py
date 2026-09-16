@@ -6,6 +6,7 @@ import pytest
 
 from fdia_graph.formulas import (
     BranchModel,
+    bias_jitter_split,
     branch_admittances,
     branch_flows,
     bus_injections,
@@ -95,3 +96,10 @@ def test_estimator_measurement_function_is_the_kernel(splits):
     lut = est._lut
     full = np.concatenate([tr["x"][:, ns:], -Sb.real[:, lut], -Sb.imag[:, lut], th, Sf.real, Sf.imag], axis=1)
     assert np.allclose(h_torch, full[:, est.mask], rtol=1e-10, atol=1e-10)
+
+
+def test_bias_jitter_split_keeps_the_class_total():
+    jitter, bias = bias_jitter_split({"v": 0.0012, "pf": 0.017}, jitter_frac=0.25)
+    assert jitter["v"] == pytest.approx(0.0003) and bias["pf"] == pytest.approx(0.017 * (1 - 0.0625) ** 0.5)
+    for k in ("v", "pf"):
+        assert bias[k] ** 2 + jitter[k] ** 2 == pytest.approx({"v": 0.0012, "pf": 0.017}[k] ** 2)

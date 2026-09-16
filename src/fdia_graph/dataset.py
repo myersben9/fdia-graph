@@ -9,7 +9,7 @@ Masked measurements (mask==0) are already zeroed; the model consumes the masks.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Union
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -47,6 +47,81 @@ def _torch() -> ModuleType:
         raise ImportError("PyTorch is required: pip install 'fdia-graph[torch]'") from e
 
 
+# v0.5.0+ static per-branch physics, bus shunts and per-bus attributes stored under graph/.
+_STATIC_PHYSICS = (
+    "edge_r",
+    "edge_x",
+    "edge_b",
+    "edge_g",
+    "edge_gs",
+    "edge_bs",
+    "edge_tap",
+    "edge_shift",
+    "edge_status",
+    "edge_is_trafo",
+    "bus_shunt_g",
+    "bus_shunt_b",
+    "bus_type",
+    "bus_vmin",
+    "bus_vmax",
+    "bus_base_kv",
+    "bus_is_zero_inj",
+    "bus_has_gen",
+    "bus_base_pd",
+    "bus_base_qd",
+    "bus_attackable",
+)
+# Layers stored once per POOL timestep (not per record), resolved through data/timestep.
+_CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
+# Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
+_UNIT_KIND = {
+    "node_x": "node",
+    "clean": "node",
+    "edge_x": "edge",
+    "edge_clean": "edge",
+    "edge_clean_full": "edge",
+    "temporal_delta": "td",
+}
+
+
+def family_ids(families: Sequence[Union[str, int]]) -> List[int]:
+    """Family names (with the legacy aliases) or raw integer codes as integer codes."""
+    if isinstance(next(iter(families)), str):
+        return [k for k, v in FAMILIES.items() if v in families] + [
+            _FAMILY_ALIAS[n] for n in families if n in _FAMILY_ALIAS
+        ]
+    return [int(f) for f in families]
+
+
+class _RecordFilter(NamedTuple):
+    """Which records a FdiaGraph view keeps: the partition, the families, gap records, the
+    unseen-attack protocol (As/Ar held out of train and val)."""
+
+    split: Optional[str]
+    families: Optional[Sequence[Union[str, int]]]
+    include_gaps: bool
+    heldout: bool
+
+
+def _record_mask(
+    fam: np.ndarray, gap: np.ndarray, sp: Optional[np.ndarray], filt: _RecordFilter, path: str
+) -> np.ndarray:
+    """The kept record positions (sorted, unique): drop gap records unless asked, restrict to the
+    requested partition, apply the unseen-attack protocol, and keep only the requested families."""
+    keep = np.ones(len(fam), bool)
+    if not filt.include_gaps:
+        keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
+    if filt.split is not None:
+        if sp is None:
+            raise ValueError(f"{path} has no split; run the split step first")
+        keep &= sp == _SPLIT[filt.split]
+        if filt.heldout and _SPLIT[filt.split] in (0, 1):  # test keeps As/Ar
+            keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
+    if filt.families is not None:
+        keep &= np.isin(fam, family_ids(filt.families))
+    return np.nonzero(keep)[0]
+
+
 class FdiaGraph:
     """torch.utils.data.Dataset over an .h5 shard. Use `.loader(...)` for a ready DataLoader, or index items."""
 
@@ -73,115 +148,87 @@ class FdiaGraph:
         self.units = units
         self._f = None  # lazy per-worker h5py handle, opened on first __getitem__
         with h5py.File(path, "r") as f:  # read-only; metadata copied out before block exit
-            # IEEE case (14/118/300); fall back to N, then 0, for older files.
-            self.system = int(f.attrs.get("system", f.attrs.get("N", 0)))
-            self.N = int(f.attrs["N"])
-            self.E = int(f.attrs["E"])  # fixed graph size: bus count N, branch count E
-            self.baseMVA = float(f.attrs.get("baseMVA", 100.0))  # p.u. base; v0.4.1+, default 100 MVA
-            # Static graph, read ONCE and cached as numpy (same for every record).
-            self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
-            self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
-            # v0.5.0+ per-unit branch physics + bus shunts; each None when the file predates the schema.
-            self._phys = {}
-            for _k in (
-                "edge_r",
-                "edge_x",
-                "edge_b",
-                "edge_g",
-                "edge_gs",
-                "edge_bs",
-                "edge_tap",
-                "edge_shift",
-                "edge_status",
-                "edge_is_trafo",
-                "bus_shunt_g",
-                "bus_shunt_b",
-                # v0.5.0 static per-bus attributes (type/limits/base_kv/zero-inj/attackable ...).
-                "bus_type",
-                "bus_vmin",
-                "bus_vmax",
-                "bus_base_kv",
-                "bus_is_zero_inj",
-                "bus_has_gen",
-                "bus_base_pd",
-                "bus_base_qd",
-                "bus_attackable",
-            ):
-                self._phys[_k] = f[f"graph/{_k}"][:].astype(np.float64) if f"graph/{_k}" in f else None
-            self.has_physics = self._phys["edge_x"] is not None
-            # Forward-compat: v0.6.0 PER-RECORD data/edge_status will override static graph/edge_status;
-            # None on v0.5.0 shards, so v0.5.0 loaders already read v0.6.0 shards correctly.
-            self.edge_status_per_record = f["data/edge_status"][:] if "data/edge_status" in f else None
-            self.has_temporal = "temporal_delta" in f["data"]  # v0.3+ temporal-delta feature
-            self.has_swing = "swing" in f["data"]  # v0.4.1+ windowed relative-swing feature
-            # v0.7.2+ noiseless attack-free truth (the SE target), stored ONCE per pool timestep and resolved
-            # per record via data/timestep. Small ([Tpool,N,4]/[Tpool,E,2]) so it lives in RAM from init.
-            self._clean_np = f["clean/node_clean"][:] if "clean/node_clean" in f else None
-            self._eclean_np = f["clean/edge_clean"][:] if "clean/edge_clean" in f else None
-            self.has_clean = self._clean_np is not None
-            # edge_clean_full ([Tpool,E,2], the same flows on EVERY branch) is derived from the clean
-            # state through Yf on first use, so it needs the clean layer and the branch physics.
-            self._eclean_full_np: Optional[np.ndarray] = None
-            self.has_clean_full = self.has_clean and all(
-                self._phys.get(k) is not None
-                for k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
-            )
-            # Reference (slack) bus. Explicit bus-type metadata wins when the shard carries it
-            # (ppc code 3 = REF); otherwise it is the one bus whose clean angle is pinned across
-            # the pool, which needs the clean layer (v0.7.2+) and more than one pool timestep.
-            self.slack: Optional[int] = None
-            bt = self._phys.get("bus_type")
-            ref = np.where(bt == 3)[0] if bt is not None else np.empty(0, int)
-            if len(ref) == 1:
-                self.slack = int(ref[0])
-            elif self._clean_np is not None and len(self._clean_np) > 1:
-                # Tolerance rather than exact zero: a pinned angle can carry float32 round-off.
-                pinned = np.where(self._clean_np[:, :, 3].std(axis=0) < 1e-6)[0]
-                if len(pinned) == 1:
-                    self.slack = int(pinned[0])
+            self._read_header(f)
+            self._read_static_graph(f)
+            self._read_layers(f)
+            self.slack = self._reference_bus()
             fam = f["data/family"][:]
             gap = f["data/gap"][:]  # per-record metadata copied to RAM for filtering
             sp = f["data/split"][:] if "data/split" in f else None  # split code, or None on unsplit files
-        keep = np.ones(len(fam), bool)  # boolean keep-mask over all records, ANDed with each filter
-        if not include_gaps:
-            keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
-        if split is not None:
-            if sp is None:
-                raise ValueError(f"{path} has no split; run the split step first")
-            keep &= sp == _SPLIT[split]  # restrict to requested train/val/test partition
-            if heldout and _SPLIT[split] in (
-                0,
-                1,
-            ):  # unseen-attack protocol: drop As/Ar from train/val (test keeps them)
-                keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
-        if families is not None:
-            # accept family names / legacy aliases or raw int codes; peek at first element to tell which
-            if isinstance(next(iter(families)), str):
-                fam_ids = [k for k, v in FAMILIES.items() if v in families] + [
-                    _FAMILY_ALIAS[n] for n in families if n in _FAMILY_ALIAS
-                ]
-            else:
-                fam_ids = list(families)
-            keep &= np.isin(fam, fam_ids)  # keep only the requested attack families
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
-        self.idx = np.nonzero(keep)[0]
-        # Optional RAM cache: bulk-read the kept rows once so __getitem__ skips per-record h5py overhead
-        # (the real .loader() bottleneck). ~350MB for an ieee118 split.
+        self.idx = _record_mask(fam, gap, sp, _RecordFilter(split, families, include_gaps, heldout), path)
         self._mem: Optional[Dict[str, np.ndarray]] = None
         if preload and len(self.idx):
-            with h5py.File(path, "r") as f:
-                dg = f["data"]
-                keys = (
-                    ["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
-                    + (["temporal_delta"] if self.has_temporal else [])
-                    + (["swing"] if self.has_swing else [])
-                )
-                # one contiguous slice + numpy subset beats h5py point reads (splits are near-contiguous)
-                lo, hi = int(self.idx[0]), int(self.idx[-1]) + 1
-                rel = self.idx - lo
-                self._mem = {k: dg[k][lo:hi][rel] for k in keys if k in dg}
+            self._preload(path)
 
-    # ---- torch tensors for the static graph (lazy; wrap cached numpy fresh each access, nothing stored) ----
+    def _read_header(self, f: h5py.File) -> None:
+        """Dims and the power base. IEEE case (14/118/300) falls back to N, then 0, for older files."""
+        self.system = int(f.attrs.get("system", f.attrs.get("N", 0)))
+        self.N = int(f.attrs["N"])
+        self.E = int(f.attrs["E"])  # fixed graph size: bus count N, branch count E
+        self.baseMVA = float(f.attrs.get("baseMVA", 100.0))  # p.u. base; v0.4.1+, default 100 MVA
+
+    def _read_static_graph(self, f: h5py.File) -> None:
+        """The static graph, read ONCE and cached as numpy (same for every record): edge index, the
+        deprecated reactance, and the v0.5.0+ per-unit branch physics, bus shunts and per-bus
+        attributes, each None when the file predates the schema."""
+        self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
+        self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
+        self._phys = {}
+        for _k in _STATIC_PHYSICS:
+            self._phys[_k] = f[f"graph/{_k}"][:].astype(np.float64) if f"graph/{_k}" in f else None
+        self.has_physics = self._phys["edge_x"] is not None
+        # Forward-compat: v0.6.0 PER-RECORD data/edge_status will override static graph/edge_status;
+        # None on v0.5.0 shards, so v0.5.0 loaders already read v0.6.0 shards correctly.
+        self.edge_status_per_record = f["data/edge_status"][:] if "data/edge_status" in f else None
+
+    def _read_layers(self, f: h5py.File) -> None:
+        """Which optional layers the file carries: the temporal features (v0.3+, v0.4.1+) and the
+        noiseless attack-free truth (v0.7.2+), stored ONCE per pool timestep and resolved per record
+        via data/timestep. The clean layer is small ([Tpool,N,4] / [Tpool,E,2]) so it lives in RAM."""
+        self.has_temporal = "temporal_delta" in f["data"]
+        self.has_swing = "swing" in f["data"]
+        self._clean_np = f["clean/node_clean"][:] if "clean/node_clean" in f else None
+        self._eclean_np = f["clean/edge_clean"][:] if "clean/edge_clean" in f else None
+        self.has_clean = self._clean_np is not None
+        # edge_clean_full ([Tpool,E,2], the same flows on EVERY branch) is derived from the clean
+        # state through Yf on first use, so it needs the clean layer and the branch physics.
+        self._eclean_full_np: Optional[np.ndarray] = None
+        self.has_clean_full = self.has_clean and all(
+            self._phys.get(k) is not None
+            for k in ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
+        )
+
+    def _reference_bus(self) -> Optional[int]:
+        """The slack bus. Explicit bus-type metadata wins when the shard carries it (ppc code 3 =
+        REF); otherwise it is the one bus whose clean angle is pinned across the pool, which needs
+        the clean layer (v0.7.2+) and more than one pool timestep. None when neither applies."""
+        bt = self._phys.get("bus_type")
+        ref = np.where(bt == 3)[0] if bt is not None else np.empty(0, int)
+        if len(ref) == 1:
+            return int(ref[0])
+        if self._clean_np is not None and len(self._clean_np) > 1:
+            # Tolerance rather than exact zero: a pinned angle can carry float32 round-off.
+            pinned = np.where(self._clean_np[:, :, 3].std(axis=0) < 1e-6)[0]
+            if len(pinned) == 1:
+                return int(pinned[0])
+        return None
+
+    def _preload(self, path: str) -> None:
+        """Optional RAM cache: bulk-read the kept rows once so __getitem__ skips per-record h5py
+        overhead (the real .loader() bottleneck). About 350 MB for an ieee118 split. One contiguous
+        slice plus a numpy subset beats h5py point reads (splits are near-contiguous)."""
+        with h5py.File(path, "r") as f:
+            dg = f["data"]
+            keys = (
+                ["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
+                + (["temporal_delta"] if self.has_temporal else [])
+                + (["swing"] if self.has_swing else [])
+            )
+            lo, hi = int(self.idx[0]), int(self.idx[-1]) + 1
+            rel = self.idx - lo
+            self._mem = {k: dg[k][lo:hi][rel] for k in keys if k in dg}
+
     @property
     def edge_index(self) -> torch.Tensor:
         return _torch().as_tensor(self.edge_index_np)  # [2,E] long connectivity for message passing
@@ -632,15 +679,9 @@ class FdiaGraph:
     #  Whole-split exporters: unlike __getitem__/.loader() (stream one record), these pull the ENTIRE
     #  filtered split into memory. All share to_numpy() as the single HDF5 read, so views are identical.
     # ------------------------------------------------------------------ #
-    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> Dict[str, np.ndarray]:
-        """Return the whole selected split as a dict of numpy arrays (batched over records).
-
-        Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/timestep [n],
-        plus the static graph: edge_index [2,E], edge_reactance [E]. `fields` optionally limits the per-record
-        arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
-        """
-        # Per-record arrays to pull: caller's `fields`, or the full default set.
-        want = fields or (
+    def _default_fields(self) -> List[str]:
+        """Every per-record array the file carries, in the order to_numpy returns them."""
+        return (
             ["node_x", "node_m", "edge_x", "edge_m", "y"]
             + (["temporal_delta"] if self.has_temporal else [])
             + (["swing"] if self.has_swing else [])
@@ -648,42 +689,48 @@ class FdiaGraph:
             + (["edge_clean_full"] if self.has_clean_full else [])
             + ["family", "stealthy", "seq_id", "timestep"]
         )
-        # clean layers live per POOL timestep (not per record); resolved below via data/timestep.
-        _CLEAN = ("clean", "edge_clean", "edge_clean_full")
-        clean_want = [k for k in want if k in _CLEAN]
-        want = [k for k in want if k not in _CLEAN]
-        idx = self.idx
+
+    def _clean_layers(self, want: Sequence[str], ts: np.ndarray) -> Dict[str, np.ndarray]:
+        """The requested clean layers gathered per record through the pool timestep."""
+        out: Dict[str, np.ndarray] = {}
+        if "clean" in want and self._clean_np is not None:
+            out["clean"] = self._clean_np[ts]
+        if "edge_clean" in want and self._eclean_np is not None:
+            out["edge_clean"] = self._eclean_np[ts]
+        if "edge_clean_full" in want:
+            ecf = self._clean_flows_full()
+            if ecf is not None:
+                out["edge_clean_full"] = ecf[ts]
+        return out
+
+    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> Dict[str, np.ndarray]:
+        """Return the whole selected split as a dict of numpy arrays (batched over records).
+
+        Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/timestep [n],
+        plus the static graph: edge_index [2,E], edge_reactance [E]. `fields` optionally limits the per-record
+        arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
+        """
+        want = list(fields) if fields else self._default_fields()
+        per_record = [k for k in want if k not in _CLEAN_LAYERS]
+        clean_want = [k for k in want if k in _CLEAN_LAYERS]
         # Static graph arrays always included (tiny, and needed to interpret edges).
         out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
         with h5py.File(self.path, "r") as f:
             d = f["data"]
-            for k in want:
+            for k in per_record:
                 # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
-                out[k] = d[k][idx]  # one bulk gather per field -> [n, ...] numpy array
+                out[k] = d[k][self.idx]  # one bulk gather per field -> [n, ...] numpy array
             if clean_want:
-                ts = d["timestep"][idx]
-                if "clean" in clean_want and self._clean_np is not None:
-                    out["clean"] = self._clean_np[ts]
-                if "edge_clean" in clean_want and self._eclean_np is not None:
-                    out["edge_clean"] = self._eclean_np[ts]
-                if "edge_clean_full" in clean_want:
-                    ecf = self._clean_flows_full()
-                    if ecf is not None:
-                        out["edge_clean_full"] = ecf[ts]
-        # Convert power/angle arrays to self.units (masks, labels, swing untouched).
+                out.update(self._clean_layers(clean_want, d["timestep"][self.idx]))
+        return self._in_units(out)
+
+    def _in_units(self, out: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """The returned arrays in self.units: power and angle arrays converted to per unit when asked,
+        masks, labels and the swing z-score untouched."""
         if self.units == "pu":
-            if "node_x" in out:
-                out["node_x"] = self._to_units(out["node_x"], "node")
-            if "edge_x" in out:
-                out["edge_x"] = self._to_units(out["edge_x"], "edge")
-            if "temporal_delta" in out:
-                out["temporal_delta"] = self._to_units(out["temporal_delta"], "td")
-            if "clean" in out:
-                out["clean"] = self._to_units(out["clean"], "node")
-            if "edge_clean" in out:
-                out["edge_clean"] = self._to_units(out["edge_clean"], "edge")
-            if "edge_clean_full" in out:
-                out["edge_clean_full"] = self._to_units(out["edge_clean_full"], "edge")
+            for k, kind in _UNIT_KIND.items():
+                if k in out:
+                    out[k] = self._to_units(out[k], kind)
         return out
 
     def to_torch(
