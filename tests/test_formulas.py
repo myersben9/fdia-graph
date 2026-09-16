@@ -154,7 +154,7 @@ def test_normal_matrix_and_wls_step_by_hand():
 
     H, w = _toy_system()
     G = normal_matrix(H, w)
-    assert np.allclose(G, [[6.25, 3.75], [3.75, 6.25]])  # sum_i w_i h_i h_i^T
+    assert np.allclose(G, [[5.25, 3.75], [3.75, 5.25]])  # sum_i w_i h_i h_i^T: 1 + 4 + 0.25 on the diagonal
     Ai = guarded_inverse(G)
     assert np.allclose(Ai @ G, np.eye(2))
     r = np.array([[1.0, 2.0, 3.0, -1.0]])
