@@ -1,4 +1,4 @@
-"""Readability measures for src/fdia_graph, the limits from docs/READABILITY_PLAN.md rule 1.
+"""Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1.
 
     python tools/readability.py --report                 # every function outside a limit, whole package
     python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass

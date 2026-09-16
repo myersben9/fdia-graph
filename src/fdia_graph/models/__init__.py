@@ -1,4 +1,4 @@
-"""Every data model of the package in one place (docs/DATA_MODELS_PLAN.md, step 5).
+"""Every data model of the package in one place (docs/plans/DATA_MODELS_PLAN.md, step 5).
 
 Grouped by what the data is: `grid` (the static system), `frames` (what the generators pass
 around per scan), `data` (what a user gets back), `scores` (result tables), `assets` (how files

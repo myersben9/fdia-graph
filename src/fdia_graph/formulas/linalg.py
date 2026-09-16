@@ -3,7 +3,7 @@ condition number without an eigen-decomposition, and per-record normal matrices 
 
 These carry no equation from a source; they are the numerical guards the estimation kernel
 needs, kept here so `formulas.estimation` reads as mathematics. Every function keeps the exact
-expression the estimator used before it existed (docs/READABILITY_PLAN.md, section 0).
+expression the estimator used before it existed (docs/plans/READABILITY_PLAN.md, section 0).
 """
 
 from __future__ import annotations

@@ -79,7 +79,7 @@ jobs:
       - name: Install radon
         run: pip install radon
       # The report covers the whole package and never fails; it is the backlog of
-      # docs/READABILITY_PLAN.md. The gate fails only when a function this change touched is
+      # docs/plans/READABILITY_PLAN.md. The gate fails only when a function this change touched is
       # outside a limit and not on the exceptions list in tools/readability.py.
       - name: Readability report
         run: python tools/readability.py --report
