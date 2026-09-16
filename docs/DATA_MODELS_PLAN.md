@@ -91,7 +91,8 @@ JSON dumping, and the default collate. The rule for them is section 3.
    score tables directly.
 4. **Serialization is explicit.** Every model has `to_dict()`; a bundle is already the dict
    `savez` and `json.dump` see, so files do not change.
-5. **Models live next to their producers**, not in one giant module: `engine.records.Scan`,
+5. **Models live next to their producers** (superseded by step 5, section 6: they live in the
+   `models/` package and are re-exported from their producers), not in one giant module: `engine.records.Scan`,
    `se.base.TrueState`, `dataset.RecordBundle`, and so on. `fdia_graph.models` holds only the
    `Bundle` base (re-exporting the producers' models from it would import the whole package);
    the data dictionary lists them (step 4).
@@ -128,7 +129,8 @@ previous dict exactly.
 | 1 `Bundle` and the internal models | #69 | merged |
 | 2 the generator's attribute groups | #69 | merged |
 | 3 public dual-access bundles | #70 | merged |
-| 4 the data dictionary's models section | #71 | open |
+| 4 the data dictionary's models section | #71 | merged |
+| 5 one `models/` package | planned (section 6) | |
 
 Decisions taken 2026-09-16: dual-access bundles for the public dicts; the DataLoader test came
 first (`tests/test_models.py`); the base class is named `Bundle`; the generator's old attribute
@@ -144,3 +146,77 @@ names are properties that warn for one minor version.
 4. Whether the generator's old attribute names (`g.edge_r`, `g.M`, `g.bias_pi`, ...) are removed
    after one minor version or kept for good as properties (they are private in spirit but
    undocumented code reads them).
+
+## 6. Step 5: one `models/` package (planned 2026-09-16, Ben's request)
+
+Steps 1 to 4 left thirty model classes in thirteen files, each next to its producer (rule 5).
+That avoided one giant module and import cycles, but a reader has no single place to look, which
+is what Ben asked to fix. Step 5 moves every model into a `fdia_graph/models/` package grouped
+by what the data is, and keeps every old import path working.
+
+### 6.1 Layout
+
+`models.py` becomes a package. Each file holds one kind of data, in the order a reader meets it:
+
+| file | holds | moved from |
+|---|---|---|
+| `models/base.py` | `Bundle` (unchanged) | `models.py` |
+| `models/grid.py` | the static description of a system: `BranchModel`, `Admittances`, `MeterPlan`, `MeterBias`, `Outage`, `INTACT` | `formulas/network.py`, `engine/base.py` |
+| `models/frames.py` | what the generators pass around per scan: `Scan`, `Frame`, `FrameKnobs`, `Record`, `Redistribution`, `ResolvedPool` | `engine/records.py`, `generation.py`, `engine/attacks.py`, `engine/physics.py` |
+| `models/data.py` | what users get back: `RecordBundle`, `BatchBundle`, `ArraysBundle`, `Summary`, `ShardArrays`, `Stream`, `TrueState` | `dataset.py`, `generation.py`, `streams.py`, `se/base.py` |
+| `models/scores.py` | the result tables: `ErrorPair`, `EstimatorScores`, `OverallMetrics`, `BenignMetrics`, `FamilyMetrics`, `LocalizerScores`, `JacobianOutputs` | `se/base.py`, `localization/base.py`, `se/jacobian.py` |
+| `models/assets.py` | how files are found: `AssetSpec`, `DownloadTarget`, `LineCandidate` | `registry.py`, `download.py`, `engine/core.py` |
+| `models/__init__.py` | re-exports all of the above with an `__all__`, so `fdia_graph.models` is the one namespace to browse | |
+
+Every class above is pure data: none has a method of its own or reads a module constant, so
+each moves as written (with its docstring and field comments). Constants that describe families
+(`RESOLVE_FAMILIES`, `CORRUPT_KIND`, `SINGLE_SHOT_ORDER`, `RAMP_FAMILY`, `LRA_FAMILY`) stay in
+`engine/records.py`, since they belong to the attack logic, not to the record shape.
+
+Four private workflow objects do **not** move: `generation._FrameContext`, `streams._StreamBuffers`,
+`streams._StreamPlan`, `dataset._RecordFilter`. They are the state of one algorithm, read only
+by the loop next to them, so they stay beside it.
+
+### 6.2 Rules
+
+1. **Models import only numpy and typing** (`models/data.py` may import `Bundle` from `base`,
+   `models/scores.py` may import `ErrorPair` and the metric rows from itself). Producers import
+   from `models`; nothing under `models/` imports a producer. Import cycles are therefore
+   impossible, and the package can be imported without torch, pandapower or h5py.
+2. **Every old import path keeps working.** Each producer module re-exports the names it used to
+   define (`from .models.data import Stream` at the top of `streams.py`, and so on), so
+   `from fdia_graph.streams import Stream`, `from fdia_graph.se.base import TrueState`,
+   `from fdia_graph.engine.records import Frame` are unchanged. The re-exports of public names
+   stay for good; those of private names for one minor version, per the compatibility promise.
+3. **A test keeps it from scattering again.** `tests/test_models_package.py` walks every module of
+   the package and fails if a `Bundle` subclass or a `NamedTuple` with a public name is defined
+   outside `models/`. It also checks that `fdia_graph.models.__all__` names every one of them, and
+   that importing `fdia_graph.models` pulls in no producer module.
+4. **The data dictionary follows the package.** `tools/models_doc.py` iterates
+   `fdia_graph.models.__all__` for the public bundles instead of its hand-kept list, in the file
+   order above.
+5. **No behaviour change.** The strict frozen tests, pyright and the readability gate are the
+   proof, as in every step before.
+
+### 6.3 Sequence (one PR)
+
+1. Create the package: move `models.py` to `models/base.py`, add the five domain files with the
+   classes moved verbatim, and `__init__.py` with `__all__` in the table's order.
+2. In each former home, replace the class with a re-export line and switch the module's own uses
+   to the import. Producers that built models keep building them the same way.
+3. Add `tests/test_models_package.py`; point `tools/models_doc.py` at `__all__` and regenerate
+   the data dictionary section (it should render byte-identical apart from the module column).
+4. Run the strict frozen suite, pyright, the readability gate and the deprecation-as-error run.
+5. `CHANGELOG.md`: "models live in `fdia_graph.models`; old import paths unchanged".
+   `docs/reference/FORMULAS.md` and `docs/ROADMAP.md` rows that name `engine/records.py` or
+   `formulas/network.py` for a model get the new path.
+
+### 6.4 Decisions (taken 2026-09-16, Ben delegated the call)
+
+1. File names by kind of data: `grid`, `frames`, `data`, `scores`, `assets`. Grouping by producer
+   would only reproduce today's scatter inside one folder.
+2. The internal NamedTuples move too. One place to look is the point; a reader of `Frame` should
+   not have to know it is internal to find it.
+3. `TrueState` lives in `data.py`: it is per-record truth a user can ask for, not a score.
+4. Re-exports of public names stay for good. They cost one line each and keep every published
+   example and every user's import working; there is nothing to gain from removing them.

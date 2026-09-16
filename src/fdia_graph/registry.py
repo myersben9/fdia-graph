@@ -7,10 +7,9 @@ recorded in a small JSON under the cache dir so they are loadable by name exactl
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
-from .models import Bundle
-from typing import Any, Dict, Optional, Union
+from .models.assets import AssetSpec  # noqa: F401  re-exported: defined here before the models package
+from typing import Dict, Optional, Union
 
 import json
 import os
@@ -38,23 +37,6 @@ def system_id(system: Union[str, int]) -> int:
 
 # Built-in shards. Each entry is the full spec download.py needs: asset `file`, `release` tag, `repo`,
 # expected `sha256` (None = skip verification), and the IEEE `system` size.
-@dataclass(frozen=True, eq=False)
-class AssetSpec(Bundle):
-    """Where a dataset comes from: a built-in release asset (kind "builtin": file, release, repo,
-    optional pinned sha256) or a locally generated file (kind "local": path, meta). Indexable like
-    the dict it replaces (spec["release"], spec.get("sha256"))."""
-
-    kind: str
-    name: str
-    file: Optional[str] = None
-    release: Optional[str] = None
-    repo: Optional[str] = None
-    sha256: Optional[str] = None
-    system: Optional[int] = None
-    path: Optional[str] = None
-    meta: Optional[Dict[str, Any]] = None
-
-
 BUILTIN = {
     "ieee14": {
         "file": "ml_only_ieee14.h5",

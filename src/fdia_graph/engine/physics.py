@@ -2,19 +2,12 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple, Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import numpy as np
 
 from .base import GridBase
-
-
-class ResolvedPool(NamedTuple):
-    """A pool re-solved under this generator's topology: the states [T', N, 4] and the boolean mask
-    of the pool timesteps that converged (T' = mask.sum())."""
-
-    states: np.ndarray
-    converged: np.ndarray
+from ..models.frames import ResolvedPool  # noqa: F401  re-exported: defined here before the models package
 
 
 class PhysicsMixin(GridBase):

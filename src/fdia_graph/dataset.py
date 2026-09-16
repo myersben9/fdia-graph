@@ -9,7 +9,6 @@ Masked measurements (mask==0) are already zeroed; the model consumes the masks.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
@@ -26,7 +25,7 @@ import warnings
 import numpy as np
 import h5py
 
-from .models import Bundle
+from .models.data import RecordBundle, BatchBundle, ArraysBundle, Summary  # noqa: F401  re-exported: defined here before the models package
 from .formulas.network import Admittances, BranchModel, branch_admittances, branch_flows, complex_voltages
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
@@ -137,89 +136,6 @@ def _record_mask(
     if filt.families is not None:
         keep &= np.isin(fam, family_ids(filt.families))
     return np.nonzero(keep)[0]
-
-
-@dataclass(frozen=True, eq=False)
-class RecordBundle(Bundle):
-    """One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units, the static
-    graph shared by every record, the label and provenance, and the optional layers the file carries.
-    A dict as well, so DataLoaders, `**item` and `item["node_x"]` keep working."""
-
-    edge_index: Any  # [2, E] long, the same tensor for every record
-    node_x: Any  # [N, 4] |V|, P_inj, Q_inj, theta
-    node_m: Any  # [N, 4] meter mask
-    edge_x: Any  # [E, 2] P_from, Q_from
-    edge_m: Any  # [E, 2] flow-meter mask
-    y: Any  # [N] per-bus attack label
-    family: int  # 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al
-    stealthy: int  # 1 for the re-solve families Aq, At, Al
-    seq_id: int  # source sequence of the record
-    timestep: int  # position in the source load profile
-    edge_attr: Any = None  # [E, 8] per-unit line physics (v0.5.0+ shards)
-    temporal_delta: Any = None  # [N, 2] injection change vs the previous pool scan (v0.3+)
-    swing: Any = None  # [N, 2] that change as a z-score of the bus's typical recent change (v0.4.1+)
-    clean: Any = None  # [N, 4] noiseless attack-free truth at the record's timestep (v0.7.2+)
-    edge_clean: Any = None  # [E, 2] exact true flows on metered branches
-    edge_clean_full: Any = None  # [E, 2] exact true flows on every branch
-
-
-@dataclass(frozen=True, eq=False)
-class BatchBundle(Bundle):
-    """A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a
-    leading batch axis B, the static graph once, scalar metadata as long tensors."""
-
-    node_x: Any  # [B, N, 4]
-    node_m: Any  # [B, N, 4]
-    edge_x: Any  # [B, E, 2]
-    edge_m: Any  # [B, E, 2]
-    y: Any  # [B, N]
-    temporal_delta: Any = None  # [B, N, 2]
-    swing: Any = None  # [B, N, 2]
-    clean: Any = None  # [B, N, 4]
-    edge_clean: Any = None  # [B, E, 2]
-    edge_clean_full: Any = None  # [B, E, 2]
-    edge_index: Any = None  # [2, E], the first record's (the same for every record)
-    edge_attr: Any = None  # [E, 8], the first record's
-    family: Any = None  # [B] long
-    stealthy: Any = None  # [B] long
-    seq_id: Any = None  # [B] long
-    timestep: Any = None  # [B] long
-
-
-@dataclass(frozen=True, eq=False)
-class ArraysBundle(Bundle):
-    """A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return
-    it: every per-record field that was requested and the file carries, plus the static graph.
-    Fields not requested are absent from the dict view."""
-
-    edge_index: Any = None  # [2, E]
-    edge_reactance: Any = None  # [E], deprecated units, kept for old callers
-    node_x: Any = None  # [n, N, 4]
-    node_m: Any = None  # [n, N, 4]
-    edge_x: Any = None  # [n, E, 2]
-    edge_m: Any = None  # [n, E, 2]
-    y: Any = None  # [n, N]
-    temporal_delta: Any = None  # [n, N, 2]
-    swing: Any = None  # [n, N, 2]
-    clean: Any = None  # [n, N, 4]
-    edge_clean: Any = None  # [n, E, 2]
-    edge_clean_full: Any = None  # [n, E, 2]
-    family: Any = None  # [n]
-    stealthy: Any = None  # [n]
-    seq_id: Any = None  # [n]
-    timestep: Any = None  # [n]
-
-
-@dataclass(frozen=True, eq=False)
-class Summary(Bundle):
-    """`FdiaGraph.summary()`: the system, its size, the number of records in the view, and the
-    record count per family present."""
-
-    system: int  # bus count of the system (14, 118, 300, ...)
-    N: int  # buses
-    E: int  # branches
-    n: int  # records in this view
-    families: Dict[str, int]  # record count per family name present
 
 
 class FdiaGraph:

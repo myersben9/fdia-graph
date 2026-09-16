@@ -19,7 +19,7 @@ Research knobs (all optional, sensible defaults matching the published shards):
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import glob
 import os
@@ -33,7 +33,8 @@ from .formulas.attacks import ramp_profile
 from .formulas.temporal import recent_change_scale, swing_zscore, temporal_delta
 
 # CACHE_DIR = on-disk shard home; register_local makes the new dataset findable by load(name).
-from .models import Bundle
+from .models.frames import Record  # noqa: F401  re-exported: defined here before the models package
+from .models.data import ShardArrays  # noqa: F401  re-exported: defined here before the models package
 from .registry import CACHE_DIR, register_local
 
 # Single-shot family name -> id (Aq=1, Ad=2, As=3, Ar=4, Al/LRA=6).
@@ -368,42 +369,7 @@ def generate(
     return out
 
 
-class Record(NamedTuple):
-    """One finished shard record: the emitted scan, its labels and ids, and its two temporal features."""
-
-    node_x: np.ndarray  # [N, 4] |V|, P_inj, Q_inj, theta (physical units), zero where unmetered
-    node_m: np.ndarray  # [N, 4] meter mask
-    edge_x: np.ndarray  # [E, 2] P_from, Q_from
-    edge_m: np.ndarray  # [E, 2] meter mask
-    y: np.ndarray  # [N] per-bus attack label
-    family: int  # attack family id (0 benign)
-    seq_id: int  # ramp sequence id, -1 otherwise
-    timestep: int  # pool timestep the record was built on
-    gap: int  # 1 for a gap (skipped scan) record, else 0
-    stealthy: int  # 1 when the scan is a re-solved state
-    temporal_delta: np.ndarray  # [N, 2] injection change vs the previous pool scan
-    swing: np.ndarray  # [N, 2] that change as a z-score of the bus's typical recent change
-
-
 _CHUNK_ROWS = 128  # per-record datasets are chunked along the record axis for efficient partial reads
-
-
-@dataclass(frozen=True, eq=False)
-class ShardArrays(Bundle):
-    """The records of a shard stacked into the arrays the file stores, one field per dataset."""
-
-    node_x: np.ndarray  # [T, N, 4]
-    node_m: np.ndarray  # [T, N, 4]
-    edge_x: np.ndarray  # [T, E, 2]
-    edge_m: np.ndarray  # [T, E, 2]
-    y: np.ndarray  # [T, N]
-    temporal_delta: np.ndarray  # [T, N, 2]
-    swing: np.ndarray  # [T, N, 2]
-    family: np.ndarray  # [T] int8
-    seq_id: np.ndarray  # [T] int32
-    timestep: np.ndarray  # [T] int32
-    gap: np.ndarray  # [T] uint8
-    stealthy: np.ndarray  # [T] uint8
 
 
 _RECORD_ARRAYS = ("node_x", "node_m", "edge_x", "edge_m", "y", "temporal_delta", "swing")

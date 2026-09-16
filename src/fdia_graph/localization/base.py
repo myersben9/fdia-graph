@@ -13,13 +13,12 @@ needs the [se] extra; the threshold methods run anywhere the loader runs.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 from typing import Any, TYPE_CHECKING, Dict, List, Optional, Sequence
 
 import numpy as np
 
-from ..models import Bundle
+from ..models.scores import OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores  # noqa: F401  re-exported: defined here before the models package
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -27,54 +26,6 @@ if TYPE_CHECKING:
 # Per-record fields that only exist on newer shards, and the FdiaGraph flag that says so — checked
 # up front so a missing field is a clear message instead of an h5py KeyError mid-read.
 _FIELD_FLAG = {"swing": "has_swing", "temporal_delta": "has_temporal", "clean": "has_clean"}
-
-
-@dataclass(frozen=True, eq=False)
-class OverallMetrics(Bundle):
-    """Pooled over every record, benign included: the papers' per-bus macro F1, detection rate
-    and false-positive rate over the attackable buses, and the micro node F1."""
-
-    macro_f1: float  # mean per-bus F1 over the attackable buses
-    macro_dr: float  # mean per-bus detection rate over the attackable buses
-    macro_fr: float  # mean per-bus false-positive rate on benign records
-    node_f1: float  # micro F1 over every bus call
-
-
-@dataclass(frozen=True, eq=False)
-class BenignMetrics(Bundle):
-    """On benign records: the record-level false-alarm rate and the mean per-bus alarm rate."""
-
-    false_alarm_rate: float  # benign records with any bus flagged
-    bus_alarm_rate: float  # mean per-bus flag rate on benign records (calibrated to fa_target)
-
-
-@dataclass(frozen=True, eq=False)
-class FamilyMetrics(Bundle):
-    """On one attacked family: strict localization accuracy, micro node precision/recall/F1, per-bus
-    macro F1 over the buses the family attacks, per-sample F1, and the record-level detection rate."""
-
-    strict_acc: float  # records whose flagged set equals the attacked set
-    node_precision: float  # micro precision over bus calls
-    node_recall: float  # micro recall over bus calls
-    node_f1: float  # micro F1 over bus calls
-    macro_f1: float  # mean per-bus F1 over the buses the family attacks
-    sample_f1: float  # mean per-record F1
-    detection_rate: float  # records with any bus flagged
-
-
-@dataclass(frozen=True, eq=False)
-class LocalizerScores(Bundle):
-    """`LocalizerBase.score`: `all` (pooled), `benign`, and one entry per attacked family present.
-    Indexable by family name as before."""
-
-    all: OverallMetrics  # pooled over every record
-    benign: Optional[BenignMetrics] = None  # attack-free records
-    Aq: Optional[FamilyMetrics] = None  # stealthy re-solve attack
-    Ad: Optional[FamilyMetrics] = None  # additive bias
-    As: Optional[FamilyMetrics] = None  # scaling
-    Ar: Optional[FamilyMetrics] = None  # replay
-    At: Optional[FamilyMetrics] = None  # slow ramp
-    Al: Optional[FamilyMetrics] = None  # load redistribution
 
 
 class LocalizerBase:

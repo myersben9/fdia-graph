@@ -3,7 +3,8 @@
     python tools/models_doc.py          # rewrite the section between the markers
     python tools/models_doc.py --check  # exit 1 when the file is out of date (the tests run this)
 
-The section lists every public bundle (docs/DATA_MODELS_PLAN.md step 4): its module, what
+The section lists every public bundle (`fdia_graph.models.PUBLIC`, docs/DATA_MODELS_PLAN.md
+steps 4 and 5): its module, what
 produces it, and one row per field with the dict key, the type and the comment written next to
 the field in the source. It is generated from the dataclasses, so it cannot drift from the code.
 """
@@ -21,15 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "DATA_DICTIONARY.md")
 BEGIN, END = "<!-- models:begin -->", "<!-- models:end -->"
 
-# The public bundles, in the order a reader meets them: the loader, the stream, the scores.
-MODELS = [
-    ("fdia_graph.dataset", ["RecordBundle", "BatchBundle", "ArraysBundle", "Summary"]),
-    ("fdia_graph.streams", ["Stream"]),
-    ("fdia_graph.se.base", ["EstimatorScores", "ErrorPair"]),
-    ("fdia_graph.localization.base", ["LocalizerScores", "OverallMetrics", "BenignMetrics", "FamilyMetrics"]),
-    ("fdia_graph.se.jacobian", ["JacobianOutputs"]),
-    ("fdia_graph.engine.core", ["LineCandidate"]),
-]
+# The public bundles are named by fdia_graph.models.PUBLIC, in the order a reader meets them.
 
 _FIELD_LINE = re.compile(r"^\s*(\w+)\s*:\s*(.+?)(?:\s*=\s*[^#]+?)?\s*(?:#\s*(.*))?$")
 
@@ -78,10 +71,9 @@ def render() -> str:
         "by `tools/models_doc.py` from the dataclasses.",
         "",
     ]
-    for module, names in MODELS:
-        mod = importlib.import_module(module)
-        for name in names:
-            lines += _render_model(getattr(mod, name))
+    models = importlib.import_module("fdia_graph.models")
+    for name in models.PUBLIC:
+        lines += _render_model(getattr(models, name))
     return "\n".join(lines) + END + "\n"
 
 

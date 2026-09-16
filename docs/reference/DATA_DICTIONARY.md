@@ -143,7 +143,7 @@ dataclass that is also the `dict` it always was, so `out["node_x"]`, `**out` and
 keep working and `out.node_x` is new. Fields set to None are absent from the dict. Generated
 by `tools/models_doc.py` from the dataclasses.
 
-### `RecordBundle` (`fdia_graph.dataset`)
+### `RecordBundle` (`fdia_graph.models.data`)
 
 One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units, the static graph shared by every record, the label and provenance, and the optional layers the file carries. A dict as well, so DataLoaders, `**item` and `item["node_x"]` keep working.
 
@@ -166,7 +166,7 @@ One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units,
 | `edge_clean` | `edge_clean` | Any (optional) | [E, 2] exact true flows on metered branches |
 | `edge_clean_full` | `edge_clean_full` | Any (optional) | [E, 2] exact true flows on every branch |
 
-### `BatchBundle` (`fdia_graph.dataset`)
+### `BatchBundle` (`fdia_graph.models.data`)
 
 A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a leading batch axis B, the static graph once, scalar metadata as long tensors.
 
@@ -189,7 +189,7 @@ A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked 
 | `seq_id` | `seq_id` | Any (optional) | [B] long |
 | `timestep` | `timestep` | Any (optional) | [B] long |
 
-### `ArraysBundle` (`fdia_graph.dataset`)
+### `ArraysBundle` (`fdia_graph.models.data`)
 
 A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return it: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.
 
@@ -212,7 +212,7 @@ A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_t
 | `seq_id` | `seq_id` | Any (optional) | [n] |
 | `timestep` | `timestep` | Any (optional) | [n] |
 
-### `Summary` (`fdia_graph.dataset`)
+### `Summary` (`fdia_graph.models.data`)
 
 `FdiaGraph.summary()`: the system, its size, the number of records in the view, and the record count per family present.
 
@@ -224,7 +224,7 @@ A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_t
 | `n` | `n` | int | records in this view |
 | `families` | `families` | Dict[str, int] | record count per family name present |
 
-### `Stream` (`fdia_graph.streams`)
+### `Stream` (`fdia_graph.models.data`)
 
 A continuous attacked time series as `generate_stream` and `load_stream` return it: three aligned measurement layers per frame, the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list. A dict as well, so `windows`, `pyg_stream` and every `s["node_x"]` keep working.
 
@@ -249,7 +249,7 @@ A continuous attacked time series as `generate_stream` and `load_stream` return 
 | `system` | `system` | int (optional) | bus count, set by generate_stream |
 | `attacked_frac` | `attacked_frac` | float (optional) | fraction of frames with an attacked bus, set by generate_stream |
 
-### `EstimatorScores` (`fdia_graph.se.base`)
+### `EstimatorScores` (`fdia_graph.models.scores`)
 
 `SEBase.score`: the error pair of every record class present and their geometric mean (`geo`, the estimation paper's table cell). Indexable by family name as before, `geo` last.
 
@@ -264,7 +264,7 @@ A continuous attacked time series as `generate_stream` and `load_stream` return 
 | `At` | `At` | ErrorPair (optional) | slow ramp |
 | `Al` | `Al` | ErrorPair (optional) | load redistribution |
 
-### `ErrorPair` (`fdia_graph.se.base`)
+### `ErrorPair` (`fdia_graph.models.scores`)
 
 Mean absolute error of one record class: angles in degrees, voltage magnitudes per unit.
 
@@ -273,7 +273,7 @@ Mean absolute error of one record class: angles in degrees, voltage magnitudes p
 | `angle_mae_deg` | `angle_mae_deg` | float | mean &#124;theta_hat - theta&#124; over buses and records, degrees |
 | `voltage_mae_pu` | `voltage_mae_pu` | float | mean &#124;&#124;V&#124;_hat - &#124;V&#124;&#124; over buses and records, per unit |
 
-### `LocalizerScores` (`fdia_graph.localization.base`)
+### `LocalizerScores` (`fdia_graph.models.scores`)
 
 `LocalizerBase.score`: `all` (pooled), `benign`, and one entry per attacked family present. Indexable by family name as before.
 
@@ -288,7 +288,7 @@ Mean absolute error of one record class: angles in degrees, voltage magnitudes p
 | `At` | `At` | FamilyMetrics (optional) | slow ramp |
 | `Al` | `Al` | FamilyMetrics (optional) | load redistribution |
 
-### `OverallMetrics` (`fdia_graph.localization.base`)
+### `OverallMetrics` (`fdia_graph.models.scores`)
 
 Pooled over every record, benign included: the papers' per-bus macro F1, detection rate and false-positive rate over the attackable buses, and the micro node F1.
 
@@ -299,7 +299,7 @@ Pooled over every record, benign included: the papers' per-bus macro F1, detecti
 | `macro_fr` | `macro_fr` | float | mean per-bus false-positive rate on benign records |
 | `node_f1` | `node_f1` | float | micro F1 over every bus call |
 
-### `BenignMetrics` (`fdia_graph.localization.base`)
+### `BenignMetrics` (`fdia_graph.models.scores`)
 
 On benign records: the record-level false-alarm rate and the mean per-bus alarm rate.
 
@@ -308,7 +308,7 @@ On benign records: the record-level false-alarm rate and the mean per-bus alarm 
 | `false_alarm_rate` | `false_alarm_rate` | float | benign records with any bus flagged |
 | `bus_alarm_rate` | `bus_alarm_rate` | float | mean per-bus flag rate on benign records (calibrated to fa_target) |
 
-### `FamilyMetrics` (`fdia_graph.localization.base`)
+### `FamilyMetrics` (`fdia_graph.models.scores`)
 
 On one attacked family: strict localization accuracy, micro node precision/recall/F1, per-bus macro F1 over the buses the family attacks, per-sample F1, and the record-level detection rate.
 
@@ -322,7 +322,7 @@ On one attacked family: strict localization accuracy, micro node precision/recal
 | `sample_f1` | `sample_f1` | float | mean per-record F1 |
 | `detection_rate` | `detection_rate` | float | records with any bus flagged |
 
-### `JacobianOutputs` (`fdia_graph.se.jacobian`)
+### `JacobianOutputs` (`fdia_graph.models.scores`)
 
 `JacobianFeatures.transform`: the per-bus block [n, N, 8], the global features [n, 4] (under the dict key "global"), the implied state change [n, SD] and the unexplained residual [n, m].
 
@@ -333,7 +333,7 @@ On one attacked family: strict localization accuracy, micro node precision/recal
 | `dx_hat` | `dx_hat` | array | [n, 2N-1] implied state change (H^T W H)^-1 H^T W dz |
 | `r_perp` | `r_perp` | array | [n, m] residual the Jacobian cannot explain, (I - P) dz |
 
-### `LineCandidate` (`fdia_graph.engine.core`)
+### `LineCandidate` (`fdia_graph.models.assets`)
 
 One line of `line_outage_candidates`: its pandapower index and branch position, terminals, name, intact-case active flow, and, when rejected, the reason.
 

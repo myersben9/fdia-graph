@@ -2,20 +2,12 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
 from .base import GridBase
-
-
-class Redistribution(NamedTuple):
-    """A load-redistribution attack: the per-load-bus delta (MW), the attacked load-table positions,
-    and the flow change it induces on the target line (MW)."""
-
-    delta: np.ndarray
-    buses: np.ndarray
-    line_flow_change: float
+from ..models.frames import Redistribution  # noqa: F401  re-exported: defined here before the models package
 
 
 class AttackMixin(GridBase):

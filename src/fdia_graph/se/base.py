@@ -12,13 +12,13 @@ clean layer supplies the truth) loaded with units="physical" (the default).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
 
-from ..models import Bundle
+from ..models.scores import ErrorPair, EstimatorScores  # noqa: F401  re-exported: defined here before the models package
+from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -51,39 +51,6 @@ def _scipy_linalg():
         return scipy.linalg
     except ImportError as e:
         raise ImportError("state estimation needs scipy: pip install 'fdia-graph[se]'") from e
-
-
-@dataclass(frozen=True, eq=False)
-class ErrorPair(Bundle):
-    """Mean absolute error of one record class: angles in degrees, voltage magnitudes per unit."""
-
-    angle_mae_deg: float  # mean |theta_hat - theta| over buses and records, degrees
-    voltage_mae_pu: float  # mean ||V|_hat - |V|| over buses and records, per unit
-
-
-@dataclass(frozen=True, eq=False)
-class EstimatorScores(Bundle):
-    """`SEBase.score`: the error pair of every record class present and their geometric mean
-    (`geo`, the estimation paper's table cell). Indexable by family name as before, `geo` last."""
-
-    _tail = ("geo",)
-    geo: ErrorPair  # geometric mean over the classes present
-    benign: Optional[ErrorPair] = None  # attack-free records
-    Aq: Optional[ErrorPair] = None  # stealthy re-solve attack
-    Ad: Optional[ErrorPair] = None  # additive bias
-    As: Optional[ErrorPair] = None  # scaling
-    Ar: Optional[ErrorPair] = None  # replay
-    At: Optional[ErrorPair] = None  # slow ramp
-    Al: Optional[ErrorPair] = None  # load redistribution
-
-
-@dataclass(frozen=True, eq=False)
-class TrueState(Bundle):
-    """The true state of a batch of records from the clean layer: x [n, 2N-1] = [theta (rad, non-slack)
-    | V (pu, every bus)] and the slack angle reference thsl [n] (rad) the solver pins."""
-
-    x: np.ndarray
-    thsl: np.ndarray
 
 
 class SEBase:

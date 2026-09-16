@@ -43,7 +43,7 @@ from .formulas.attacks import ramp_profile
 from .formulas.temporal import swing_zscore, temporal_delta
 from .generation import _FrameContext, _load_states, NOISE_FLOOR
 from .generation import _swing_scale as _generation_swing_scale
-from .models import Bundle
+from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
 from .registry import AssetSpec
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
@@ -61,33 +61,6 @@ def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
         stacklevel=2,
     )
     return _generation_swing_scale(X, C)
-
-
-@dataclass(frozen=True, eq=False)
-class Stream(Bundle):
-    """A continuous attacked time series as `generate_stream` and `load_stream` return it: three
-    aligned measurement layers per frame, the same three for branch flows, the static graph and
-    meter masks, labels, the two temporal features, and the episode list. A dict as well, so
-    `windows`, `pyg_stream` and every `s["node_x"]` keep working."""
-
-    node_x: np.ndarray  # [T, N, 4] observed
-    benign: np.ndarray  # [T, N, 4] attack removed, noise kept
-    clean: np.ndarray  # [T, N, 4] noiseless truth
-    edge_x: np.ndarray  # [T, E, 2] observed flows
-    edge_benign: np.ndarray  # [T, E, 2] attack removed, noise kept
-    edge_clean: np.ndarray  # [T, E, 2] noiseless true flows
-    edge_index: np.ndarray  # [2, E]
-    edge_attr: np.ndarray  # [E, 8]
-    node_m: np.ndarray  # [N, 4]
-    edge_m: np.ndarray  # [E, 2]
-    y: np.ndarray  # [T, N]
-    family: np.ndarray  # [T]
-    temporal_delta: np.ndarray  # [T, N, 2]
-    swing: np.ndarray  # [T, N, 2]
-    timestep: np.ndarray  # [T]
-    episodes: Any  # list of {onset, length, family, buses}
-    system: Optional[int] = None  # bus count, set by generate_stream
-    attacked_frac: Optional[float] = None  # fraction of frames with an attacked bus, set by generate_stream
 
 
 class _StreamBuffers:

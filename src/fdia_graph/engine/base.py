@@ -6,54 +6,15 @@ and cross-mixin method calls type-check. See core.py for the actual assignments.
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 
-from ..formulas.network import BranchModel
+from ..models.grid import BranchModel, MeterPlan, MeterBias, Outage, INTACT  # noqa: F401  re-exported: defined here before the models package
 
 if TYPE_CHECKING:
     from .attacks import Redistribution
     from .records import Scan
-
-
-class MeterPlan(NamedTuple):
-    """The sparse metering plan, sampled once per generator: which buses carry a voltage-magnitude
-    meter, which carry a PMU (|V| and angle), which carry P/Q injection meters, and which branches
-    carry a flow meter."""
-
-    vbus: Set[int]
-    pmu: Set[int]
-    inj: List[int]
-    flow: np.ndarray  # [E] bool
-
-
-class MeterBias(NamedTuple):
-    """The per-meter SYSTEMATIC bias drawn once (constant across scans): relative for P/Q
-    injections and flows, absolute for |V| and angle (radians)."""
-
-    pi: np.ndarray  # [N]
-    qi: np.ndarray  # [N]
-    v: np.ndarray  # [N]
-    va: np.ndarray  # [N]
-    pf: np.ndarray  # [E]
-    qf: np.ndarray  # [E]
-
-
-class Outage(NamedTuple):
-    """The N-1 contingency a generator was built with: the pandapower line id (None = intact), its
-    branch position, its name, its terminals, and its intact-case active flow (the contingency's
-    size)."""
-
-    line: Optional[int]
-    pos: int
-    name: str
-    from_bus: int
-    to_bus: int
-    base_flow_mw: float
-
-
-INTACT = Outage(None, -1, "", -1, -1, float("nan"))
 
 
 def _deprecated(old: str, new: str) -> None:

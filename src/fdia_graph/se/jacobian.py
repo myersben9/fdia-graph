@@ -26,13 +26,12 @@ Needs the [se] extra (torch + pandapower) and a v0.7.2+ shard (the clean layer).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import numpy as np
 
-from ..models import Bundle
+from ..models.scores import JacobianOutputs  # noqa: F401  re-exported: defined here before the models package
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -64,19 +63,6 @@ def bus_incidence(est: "SEBase", edge_index: np.ndarray) -> List[np.ndarray]:
         inc[edge_index[1], cols] = True
     incm = inc[:, est.mask]
     return [np.where(incm[b])[0] for b in range(N)]
-
-
-@dataclass(frozen=True, eq=False)
-class JacobianOutputs(Bundle):
-    """`JacobianFeatures.transform`: the per-bus block [n, N, 8], the global features [n, 4]
-    (under the dict key "global"), the implied state change [n, SD] and the unexplained residual
-    [n, m]."""
-
-    _keys = {"global_": "global"}
-    bus: np.ndarray  # [n, N, 8] per-bus features
-    global_: np.ndarray  # [n, 4] per-record features, dict key "global"
-    dx_hat: np.ndarray  # [n, 2N-1] implied state change (H^T W H)^-1 H^T W dz
-    r_perp: np.ndarray  # [n, m] residual the Jacobian cannot explain, (I - P) dz
 
 
 class JacobianFeatures:
