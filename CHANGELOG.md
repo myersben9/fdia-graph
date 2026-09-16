@@ -3,7 +3,14 @@
 Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.
 
-## Unreleased
+## 0.17.0
+
+State estimation without torch, the formula kernel complete, the loader as concerns, and the
+scheduled removals (PRs #74 to #78). What a user sees: `pip install "fdia-graph[se]"` no longer
+pulls torch (add `[torch]` for faster per-record inverses); the pre-0.16 generator attribute
+names are gone; every helper on the package namespace is the real function. Shards, streams and
+the localizer scores are bit-identical to 0.16.0; estimator scores moved by at most 2.7e-6
+relative (the closed-form Jacobian, see the entry below). No import path changes.
 
 - State estimation no longer needs torch: `formulas.network.ac_measurement` is the estimator's
   h(x) and `ac_jacobian` its closed-form Jacobian (equal to the automatic-differentiation Jacobian
