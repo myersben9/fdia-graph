@@ -50,6 +50,15 @@ class FrameKnobs(NamedTuple):
     with_benign: bool  # streams: also emit the un-attacked twin of the scan
 
 
+class Scan(NamedTuple):
+    """One emitted measurement scan in the shard's physical units: readings and their meter masks."""
+
+    node_x: np.ndarray  # [N, 4] |V|, P_inj, Q_inj, theta (zero where unmetered)
+    node_m: np.ndarray  # [N, 4] meter mask
+    edge_x: np.ndarray  # [E, 2] P_from, Q_from
+    edge_m: np.ndarray  # [E, 2] meter mask
+
+
 class Frame(NamedTuple):
     """One emitted scan. Measurement arrays are in the shard's physical units and column order."""
 
@@ -126,12 +135,23 @@ def _resolve_frame(g, Xt, family, targets, mult, k: FrameKnobs) -> Optional[Fram
     net = g.solve(Lp, Lq, Xt=Xt, Lp_true=Lp_true)
     if net is None:
         return None  # non-convergence, expected occasionally
-    nx, nm, ex, em = g.emit(net)
+    scan = g.emit(net)
     buses = g.load_bus[targets]
     y = np.zeros(g.C, np.uint8)
     y[buses] = 1
     bnx, bex = _benign_of(g, Xt) if k.with_benign else (None, None)
-    return Frame(nx, nm, ex, em, y, 1, buses, np.broadcast_to(dev, buses.shape).astype(float), bnx, bex)
+    return Frame(
+        scan.node_x,
+        scan.node_m,
+        scan.edge_x,
+        scan.edge_m,
+        y,
+        1,
+        buses,
+        np.broadcast_to(dev, buses.shape).astype(float),
+        bnx,
+        bex,
+    )
 
 
 def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
@@ -139,35 +159,47 @@ def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
     with generation pinned to the true dispatch [DAT26]."""
     Lp = Xt[g.load_bus, 1] + g.load_genP
     Lq = Xt[g.load_bus, 2].copy()
-    d, a = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor)  # d = per-bus delta, a = attacked positions
+    red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor)
+    a = red.buses
     if len(a) == 0:
         return None  # no feasible redistribution
-    dev = np.abs(d[a]) / (np.abs(Lp[a]) + 1e-6)  # designed redistribution fraction per bus
+    dev = np.abs(red.delta[a]) / (np.abs(Lp[a]) + 1e-6)  # designed redistribution fraction per bus
     if k.reject_below_floor and np.min(dev) < k.floor:
         return None  # a bus inside the noise floor
-    net = g.solve(Lp + d, Lq, Xt=Xt, Lp_true=Lp)
+    net = g.solve(Lp + red.delta, Lq, Xt=Xt, Lp_true=Lp)
     if net is None:
         return None
-    nx, nm, ex, em = g.emit(net)
+    scan = g.emit(net)
     buses = g.load_bus[a]
     y = np.zeros(g.C, np.uint8)
     y[buses] = 1
     bnx, bex = _benign_of(g, Xt) if k.with_benign else (None, None)
-    return Frame(nx, nm, ex, em, y, 1, buses, dev.astype(float), bnx, bex)
+    return Frame(scan.node_x, scan.node_m, scan.edge_x, scan.edge_m, y, 1, buses, dev.astype(float), bnx, bex)
 
 
 def _benign_frame(g, Xt) -> Frame:
     """A benign scan: the stored state emitted through the meter plan, and remembered for replay."""
-    nx, nm, ex, em = g.emit_from_state(Xt)
-    remember_benign(g, nx)
+    scan = g.emit_from_state(Xt)
+    remember_benign(g, scan.node_x)
     empty = np.zeros(0, int)
-    return Frame(nx, nm, ex, em, np.zeros(g.C, np.uint8), 0, empty, np.zeros(0, float), None, None)
+    return Frame(
+        scan.node_x,
+        scan.node_m,
+        scan.edge_x,
+        scan.edge_m,
+        np.zeros(g.C, np.uint8),
+        0,
+        empty,
+        np.zeros(0, float),
+        None,
+        None,
+    )
 
 
 def _corrupt_frame(g, Xt, family, targets, k: FrameKnobs) -> Optional[Frame]:
     """Ad, As, Ar: emit the true state, then tamper the measurements at the attacked buses and
     their incident branches without re-solving, so bad-data detection can see them [DAT26]."""
-    nx, nm, ex, em = g.emit_from_state(Xt)
+    nx, nm, ex, em = g.emit_from_state(Xt)  # unpacked: corrupt() rewrites nx and ex in place
     bnx, bex = (nx.copy(), ex.copy()) if k.with_benign else (None, None)  # before corruption: same noise
     buses = g.load_bus[targets]  # corrupt() and the label index by bus, targets index the load table
     replay = replay_frame(g.benign_buf, k.replay_tau, g.rng)
@@ -186,5 +218,5 @@ def _corrupt_frame(g, Xt, family, targets, k: FrameKnobs) -> Optional[Frame]:
 
 def _benign_of(g, Xt):
     """The un-attacked measurement of a scan whose attacked version was just emitted (streams)."""
-    bnx, _, bex, _ = g.emit_from_state(Xt)
-    return bnx, bex
+    scan = g.emit_from_state(Xt)
+    return scan.node_x, scan.edge_x

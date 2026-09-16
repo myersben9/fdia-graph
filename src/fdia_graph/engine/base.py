@@ -9,6 +9,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .records import Scan
+
 
 class GridBase:
     # grid + rng
@@ -62,7 +67,7 @@ class GridBase:
 
     # cross-mixin methods (defined in the concern mixins)
     def _n(self, s: float) -> float: ...
-    def emit_from_state(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: ...
+    def emit_from_state(self, X: np.ndarray) -> "Scan": ...
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray: ...
     def state_from_net(self, net: Any) -> np.ndarray: ...
 

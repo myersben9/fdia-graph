@@ -42,6 +42,14 @@ def series_admittance(r: np.ndarray, x: np.ndarray) -> np.ndarray:
     return ys
 
 
+class Admittances(NamedTuple):
+    """The nodal and branch admittance matrices of one topology, complex per unit."""
+
+    ybus: np.ndarray  # [N, N]
+    yf: np.ndarray  # [E, N] from-end: I_f = Yf @ V
+    yt: np.ndarray  # [E, N] to-end: I_t = Yt @ V
+
+
 class BranchModel(NamedTuple):
     """The per-branch pi model [MP19], one entry per branch, per unit; the shapes a shard stores."""
 
@@ -61,7 +69,7 @@ def branch_admittances(
     bus_shunt_g: Optional[np.ndarray] = None,
     bus_shunt_b: Optional[np.ndarray] = None,
     base_mva: float = 100.0,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Admittances:
     """Ybus [N, N], Yf [E, N] and Yt [E, N] from the per-branch pi model [MP19, makeYbus].
 
     Series admittance y_s, charging admittance (g + j b) split half per end, tap ratio and phase
@@ -74,7 +82,7 @@ def branch_admittances(
 
     branch     : the per-branch physics, a BranchModel
     edge_index : [2, E] from-bus and to-bus of every branch, in the bus order of the outputs
-    returns    : (Ybus, Yf, Yt), complex128
+    returns    : Admittances(ybus, yf, yt), complex128; unpacks as (Ybus, Yf, Yt)
     """
     E = len(branch.r)
     stat = np.ones(E) if branch.status is None else np.asarray(branch.status, np.float64)
@@ -104,7 +112,7 @@ def branch_admittances(
         bs = np.zeros(n_bus) if bus_shunt_b is None else np.asarray(bus_shunt_b, np.float64)
         d = np.arange(n_bus)
         Y[d, d] += (gs + 1j * bs) / base_mva
-    return Y, Yf, Yt
+    return Admittances(Y, Yf, Yt)
 
 
 def bus_injections(V: np.ndarray, Ybus: Any, base_mva: float = 1.0) -> np.ndarray:

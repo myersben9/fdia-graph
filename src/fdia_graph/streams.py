@@ -250,7 +250,7 @@ def _stream_result(
         [g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs, g.edge_tap, g.edge_shift], axis=1
     ).astype(np.float32)
     # Static availability masks (which channels carry a meter), the same sparse plan every frame.
-    _bnx, node_m, _bex, edge_m = g.emit_from_state(X[0])
+    masks = g.emit_from_state(X[0])  # the same sparse plan every frame
     result: Dict[str, Any] = dict(
         node_x=buf.node_x,
         benign=buf.benign,
@@ -260,8 +260,8 @@ def _stream_result(
         edge_clean=buf.edge_clean,
         edge_index=edge_index,
         edge_attr=edge_attr,
-        node_m=node_m.astype(np.uint8),
-        edge_m=edge_m.astype(np.uint8),
+        node_m=masks.node_m.astype(np.uint8),
+        edge_m=masks.edge_m.astype(np.uint8),
         y=buf.y,
         family=buf.family,
         temporal_delta=buf.temporal_delta,

@@ -7,6 +7,7 @@ Provisional until 1.0: names may still be adjusted once, with a deprecation alia
 
 from .attacks import ramp_profile
 from .network import (
+    Admittances,
     BranchModel,
     branch_admittances,
     branch_flows,
@@ -18,6 +19,7 @@ from .noise import bias_jitter_split
 from .temporal import recent_change_scale, swing_zscore, temporal_delta
 
 __all__ = [
+    "Admittances",
     "BranchModel",
     "bias_jitter_split",
     "branch_admittances",

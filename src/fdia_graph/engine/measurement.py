@@ -8,6 +8,7 @@ import numpy as np
 
 from ..formulas.network import branch_flows, complex_voltages
 from .base import GridBase
+from .records import Scan
 
 
 class MeasurementMixin(GridBase):
@@ -17,7 +18,7 @@ class MeasurementMixin(GridBase):
     def _n(self, s: float) -> float:
         return self.rng.normal(0, s)
 
-    def emit_from_state(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def emit_from_state(self, X: np.ndarray) -> Scan:
         # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
         # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
         C, SD, M = self.C, self.SD, self.M
@@ -53,7 +54,7 @@ class MeasurementMixin(GridBase):
                 ex[e, 0] = Sf.real[e] * (1.0 + self.bias_pf[e]) + self._n(abs(Sf.real[e]) * SDj["pf"] + 1e-3)
                 ex[e, 1] = Sf.imag[e] * (1.0 + self.bias_qf[e]) + self._n(abs(Sf.imag[e]) * SDj["qf"] + 1e-3)
                 em[e] = 1
-        return nx, nm, ex, em
+        return Scan(nx, nm, ex, em)
 
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray:
         # Batched, noiseless sibling of emit_from_state's Sf: exact from-end branch flows for a whole stack of
@@ -85,7 +86,7 @@ class MeasurementMixin(GridBase):
         TH = net.res_bus.va_degree.values
         return np.column_stack([V, Pi, Qi, TH])  # [N,4] = [|V|, Pinj, Qinj, theta]
 
-    def emit(self, net: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def emit(self, net: Any) -> Scan:
         # Emit from a SOLVED net (re-solving attacks) by routing its state through emit_from_state, so
         # attacked and benign samples use the IDENTICAL measurement path. Emitting flows from res_line here
         # (while benign uses the Ybus identity) left a ~7 MW systematic benign-vs-attack offset; sharing one

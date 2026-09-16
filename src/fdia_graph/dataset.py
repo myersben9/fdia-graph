@@ -24,7 +24,7 @@ import warnings
 import numpy as np
 import h5py
 
-from .formulas.network import BranchModel, branch_admittances, branch_flows, complex_voltages
+from .formulas.network import Admittances, BranchModel, branch_admittances, branch_flows, complex_voltages
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
@@ -422,7 +422,7 @@ class FdiaGraph:
             dim=1,
         )
 
-    def _admittances(self) -> Dict[str, np.ndarray]:
+    def _admittances(self) -> Admittances:
         """Ybus [N,N], Yf [E,N] and Yt [E,N] from the stored branch physics, built once and cached.
 
         Same branch model as pandapower's makeYbus: series admittance, charging split half per end,
@@ -441,7 +441,7 @@ class FdiaGraph:
                 f"ybus/yf/yt need a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
             )
         p = self._phys
-        Y, Yf, Yt = branch_admittances(
+        self._adm = branch_admittances(
             BranchModel(
                 p["edge_r"],
                 p["edge_x"],
@@ -457,7 +457,6 @@ class FdiaGraph:
             bus_shunt_b=p.get("bus_shunt_b"),
             base_mva=self.baseMVA,
         )
-        self._adm = {"ybus": Y, "yf": Yf, "yt": Yt}
         return self._adm
 
     def _clean_flows_full(self) -> Optional[np.ndarray]:
@@ -487,17 +486,17 @@ class FdiaGraph:
     @property
     def ybus_np(self) -> np.ndarray:
         """Full nodal admittance matrix Ybus [N,N], complex per-unit, node_x bus order (see _admittances)."""
-        return self._admittances()["ybus"]
+        return self._admittances().ybus
 
     @property
     def yf_np(self) -> np.ndarray:
         """From-end branch admittance matrix Yf [E,N]: `V[f] * conj(Yf @ V)` is the from-end flow."""
-        return self._admittances()["yf"]
+        return self._admittances().yf
 
     @property
     def yt_np(self) -> np.ndarray:
         """To-end branch admittance matrix Yt [E,N]: `V[t] * conj(Yt @ V)` is the to-end flow."""
-        return self._admittances()["yt"]
+        return self._admittances().yt
 
     @property
     def ybus(self) -> torch.Tensor:
