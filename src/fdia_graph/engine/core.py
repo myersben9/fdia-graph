@@ -15,12 +15,15 @@ FdiaGenerator is split by concern across three mixins: state setup lives here (_
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from ..formulas.network import BranchModel, series_admittance
 from ..formulas.noise import bias_jitter_split
+from ..models import Bundle
 from ..registry import system_id
 from .attacks import AttackMixin
 from .base import INTACT, MeterBias, MeterPlan, Outage
@@ -88,9 +91,23 @@ def _n_islands(net: Any) -> int:
     return int(nx.number_connected_components(top.create_nxgraph(net)))
 
 
+@dataclass(frozen=True, eq=False)
+class LineCandidate(Bundle):
+    """One line of `line_outage_candidates`: its pandapower index and branch position, terminals,
+    name, intact-case active flow, and, when rejected, the reason."""
+
+    line: int
+    pos: int
+    from_bus: int
+    to_bus: int
+    name: str
+    base_flow_mw: float
+    reason: Optional[str] = None
+
+
 def line_outage_candidates(
     system: Union[int, str], top_n: int = 5, seed_flow_from: Any = None
-) -> Tuple[List[Dict], List[Dict]]:
+) -> Tuple[List[LineCandidate], List[LineCandidate]]:
     """Rank single-line N-1 contingencies by base-case active power flow, keeping the network connected.
 
     Returns (accepted, rejected). `accepted` = the `top_n` highest-flow lines whose removal leaves one
@@ -118,7 +135,7 @@ def line_outage_candidates(
         why = _screen_line(NET, idx, lut0)
         rec = _line_record(base, idx, int(pos), float(flow[pos]))
         if why:
-            rejected.append({**rec, "reason": why})
+            rejected.append(LineCandidate(**rec, reason=why))
         else:
             accepted.append(rec)
     return accepted, rejected
@@ -152,10 +169,10 @@ def _screen_line(NET: Any, idx: int, lut0: np.ndarray) -> Optional[str]:
     return None
 
 
-def _line_record(base: Any, idx: int, pos: int, base_flow_mw: float) -> Dict[str, Any]:
+def _line_record(base: Any, idx: int, pos: int, base_flow_mw: float) -> "LineCandidate":
     """One candidate line as the caller reports it: index, position, terminals, name, base flow."""
     _nm = base.line.at[idx, "name"]
-    return dict(
+    return LineCandidate(
         line=idx,
         pos=pos,
         from_bus=int(base.line.at[idx, "from_bus"]),

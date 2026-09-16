@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:
+    from .engine.core import LineCandidate
     import datetime
     import numpy as np
 
@@ -54,10 +55,12 @@ __all__ = [
 ]
 
 
-def line_outage_candidates(system: Union[str, int], top_n: int = 5) -> Tuple[List[Dict], List[Dict]]:
+def line_outage_candidates(
+    system: Union[str, int], top_n: int = 5
+) -> Tuple[List["LineCandidate"], List["LineCandidate"]]:
     """Rank single-line N-1 contingencies by base-case flow, screening out any that island the grid.
 
-    Returns (accepted, rejected) lists of dicts. Use the accepted line indices as generate(..., outage=idx)
+    Returns (accepted, rejected) lists of LineCandidate (dicts as well). Use the accepted line indices as generate(..., outage=idx)
     to build one shard per post-contingency topology.
     """
     # Lazy: pulls in pandapower, which most SDK (loader) users don't have installed.
