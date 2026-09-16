@@ -78,14 +78,18 @@ def test_loader_admittances_match_kernel(shard):
 
 
 def test_estimator_measurement_function_is_the_kernel(splits):
-    """SEBase._h_t (torch, kept for the autograd Jacobian) equals the numpy kernel on real states."""
-    pytest.importorskip("torch")
+    """SEBase._h is `ac_measurement`, and the torch twin `_h_t` (kept for callers that differentiate
+    through it) equals it on real states."""
+    torch = pytest.importorskip("torch")
     from fdia_graph.se import WLS
 
     est = WLS().fit(splits["train"])
     d = splits["test"].to_numpy(["clean"])
     tr = est._truth_of(d["clean"][:8])
-    h_torch = est._h(tr["x"], tr["thsl"])  # [n, m] masked measurements in pu and rad
+    h_np = est._h(tr["x"], tr["thsl"])  # [n, m] masked measurements in pu and rad
+    with torch.no_grad():
+        h_torch = est._h_t(torch.tensor(tr["x"]), torch.tensor(tr["thsl"])).numpy()[:, est.mask]
+    assert np.allclose(h_torch, h_np, rtol=1e-12, atol=1e-12)
     ns, N = len(est.keep), est.N
     th = np.zeros((8, N))
     th[:, est.keep] = tr["x"][:, :ns]
@@ -99,7 +103,51 @@ def test_estimator_measurement_function_is_the_kernel(splits):
     Sf = branch_flows(Vc, Yft, est._fb)
     lut = est._lut
     full = np.concatenate([tr["x"][:, ns:], -Sb.real[:, lut], -Sb.imag[:, lut], th, Sf.real, Sf.imag], axis=1)
-    assert np.allclose(h_torch, full[:, est.mask], rtol=1e-10, atol=1e-10)
+    assert np.allclose(h_np, full[:, est.mask], rtol=1e-10, atol=1e-10)
+
+
+def test_closed_form_jacobian_matches_autograd(splits):
+    """`ac_jacobian` at the chord point equals the automatic-differentiation Jacobian of the torch
+    twin, which is how the estimator computed H before the closed form (max difference 1e-14 on
+    the tiny shard; the tolerance leaves room for other BLAS builds)."""
+    torch = pytest.importorskip("torch")
+    from torch.func import jacrev, vmap
+
+    from fdia_graph.se import WLS
+
+    est = WLS().fit(splits["train"])
+    x0 = torch.tensor(est.xmean, dtype=torch.float64)[None]
+    thsl = est._truth_of(splits["train"].to_numpy(["clean"])["clean"][:1])["thsl"]
+    t0 = torch.tensor([float(thsl[0])], dtype=torch.float64)
+
+    def h1(xi, ti):
+        return est._h_t(xi[None], ti[None])[0]
+
+    H_auto = vmap(jacrev(h1))(x0, t0)[0].numpy()[est.mask]
+    assert H_auto.shape == est.H.shape
+    assert np.abs(H_auto - est.H).max() < 1e-9 * max(1.0, np.abs(est.H).max())
+
+
+def test_estimator_fits_and_scores_without_torch(splits, monkeypatch):
+    """The estimator needs neither torch nor autograd: block the import and fit, estimate, score."""
+    import builtins
+    import sys
+
+    real_import = builtins.__import__
+
+    def no_torch(name, *a, **k):
+        if name == "torch" or name.startswith("torch."):
+            raise ImportError("torch blocked for this test")
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", no_torch)
+    for m in [m for m in sys.modules if m == "torch" or m.startswith("torch.")]:
+        monkeypatch.delitem(sys.modules, m)
+    from fdia_graph.se import AdaptiveWeighting
+
+    est = AdaptiveWeighting(c=1.5, npass=2).fit(splits["train"])
+    scores = est.score(splits["test"])
+    assert np.isfinite(scores.geo.angle_mae_deg) and not hasattr(est, "_Ybus")
 
 
 def test_bias_jitter_split_keeps_the_class_total():

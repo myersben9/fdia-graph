@@ -28,7 +28,7 @@ for batch in loader:
 pip install fdia-graph              # loader
 pip install "fdia-graph[torch]"     # + PyTorch DataLoader
 pip install "fdia-graph[pyg]"       # + torch_geometric
-pip install "fdia-graph[se]"        # + state estimation / residual localization (torch + pandapower)
+pip install "fdia-graph[se]"        # + state estimation / residual localization (pandapower + scipy; torch optional, faster)
 pip install "fdia-graph[generate]"  # + pandapower, to generate custom data
 ```
 

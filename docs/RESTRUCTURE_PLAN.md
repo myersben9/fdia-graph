@@ -60,7 +60,9 @@ Conventions for every function in `formulas/`:
   stay in the classes.
 - One test per function against a hand-checkable toy (the 3-meter example, a 2-bus line) or
   against the pandapower engine where that is the ground truth.
-- No torch inside the kernel. The one place torch does mathematics today is the Jacobian by
+- No torch inside the kernel. (Done: `network.ac_jacobian` is the closed-form Jacobian and the
+  estimator no longer needs torch; the torch twin `_h_t` stays for callers that differentiate.)
+  The one place torch did mathematics before was the Jacobian by
   automatic differentiation; the analytic AC Jacobian (Abur and Exposito, chapter 2) is itself a
   formula from a source and can replace it. That is optional (see open decisions).
 
@@ -151,6 +153,8 @@ step 3 two days; step 4 a day. Results must reproduce at every step from the exi
 1. **Package name:** `formulas` (proposed), or `math`, `equations`, `theory`.
 2. **Numpy-only kernel:** replace the autograd Jacobian with the analytic one from the textbook
    (removes torch from state estimation entirely; more work, cleaner story) or keep autograd.
+   Taken 2026-09-16: the analytic Jacobian (`formulas.network.ac_jacobian`), equal to autograd to
+   1e-14; scores move by at most 2.7e-6 relative through the Huber passes, references re-frozen.
 3. **Public or private:** are the formula functions documented API (users can call
    `fg.formulas.huber_weights`) or internal? Proposed: public, since the point is traceability.
 4. **Granularity:** one function per equation (`wls_step`, `residual_covariance_diag`) or per
