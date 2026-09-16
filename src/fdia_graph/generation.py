@@ -431,22 +431,21 @@ class Record(NamedTuple):
 _CHUNK_ROWS = 128  # per-record datasets are chunked along the record axis for efficient partial reads
 
 
+_RECORD_ARRAYS = ("node_x", "node_m", "edge_x", "edge_m", "y", "temporal_delta", "swing")
+_RECORD_SCALARS = (
+    ("family", np.int8),
+    ("seq_id", np.int32),
+    ("timestep", np.int32),
+    ("gap", np.uint8),
+    ("stealthy", np.uint8),
+)
+
+
 def _stack_records(recs: List[Record]) -> Dict[str, np.ndarray]:
     """The record tuples as [T, ...] arrays, scalar fields with dtypes sized to their range."""
-    return dict(
-        node_x=np.stack([r.node_x for r in recs]),
-        node_m=np.stack([r.node_m for r in recs]),
-        edge_x=np.stack([r.edge_x for r in recs]),
-        edge_m=np.stack([r.edge_m for r in recs]),
-        y=np.stack([r.y for r in recs]),
-        temporal_delta=np.stack([r.temporal_delta for r in recs]),
-        swing=np.stack([r.swing for r in recs]),
-        family=np.array([r.family for r in recs], np.int8),
-        seq_id=np.array([r.seq_id for r in recs], np.int32),
-        timestep=np.array([r.timestep for r in recs], np.int32),
-        gap=np.array([r.gap for r in recs], np.uint8),
-        stealthy=np.array([r.stealthy for r in recs], np.uint8),
-    )
+    out = {name: np.stack([getattr(r, name) for r in recs]) for name in _RECORD_ARRAYS}
+    out.update({name: np.array([getattr(r, name) for r in recs], dtype) for name, dtype in _RECORD_SCALARS})
+    return out
 
 
 def _shard_attrs(

@@ -113,7 +113,7 @@ class _StreamBuffers:
         self.store(t, nx, np.zeros(self.y.shape[1], np.uint8), 0, nx, ex, ex)
 
     def store_frame(self, t: int, fid: int, frame: Frame) -> None:
-        """An attacked frame with its un-attacked twin (stream frames are built with with_benign=True)."""
+        """An attacked frame with its un-attacked twin; stream frames set with_benign=True, so both exist."""
         assert frame.benign_node_x is not None and frame.benign_edge_x is not None
         self.store(t, frame.node_x, frame.y, fid, frame.benign_node_x, frame.edge_x, frame.benign_edge_x)
 
