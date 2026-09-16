@@ -224,30 +224,7 @@ class BusCNN(LearnedLocalizer):
         self.kernel = kernel
 
     def _build(self, N: int) -> Any:
-        torch = _torch()
-        nn = torch.nn
-        H, L, k, p, F = self.hidden, self.layers, self.kernel, self.dropout, self.n_feat
-
-        class _CNN(nn.Module):  # type: ignore[misc,name-defined]
-            def __init__(self) -> None:
-                super().__init__()
-                self.convs = nn.ModuleList(
-                    [nn.Conv1d(F if i == 0 else H, H, k, padding="same") for i in range(L)]
-                )
-                self.norms = nn.ModuleList([nn.GroupNorm(max(H // 8, 1), H) for _ in range(L // 2)])
-                self.drop = nn.Dropout(p)
-                self.head = nn.Linear(H, 1)
-
-            def forward(self, x: Any) -> Any:  # [B, N, 14] -> [B, N]
-                x = x.permute(0, 2, 1)  # Conv1d wants [B, C, N]: the bus axis is the sequence
-                for i, conv in enumerate(self.convs):
-                    x = conv(x)
-                    if (i + 1) % 2 == 0:
-                        x = self.norms[i // 2](x)
-                    x = self.drop(torch.relu(x))
-                return self.head(x.permute(0, 2, 1)).squeeze(-1)
-
-        return _CNN()
+        return _cnn_net(self.n_feat, self.hidden, self.layers, self.kernel, self.dropout)
 
 
 class BusMLP(LearnedLocalizer):
@@ -260,24 +237,59 @@ class BusMLP(LearnedLocalizer):
     """
 
     def _build(self, N: int) -> Any:
-        torch = _torch()
-        nn = torch.nn
-        H, L, p, F = self.hidden, self.layers, self.dropout, self.n_feat
+        return _mlp_net(self.n_feat, self.hidden, self.layers, self.dropout)
 
-        class _MLP(nn.Module):  # type: ignore[misc,name-defined]
-            def __init__(self) -> None:
-                super().__init__()
-                self.lins = nn.ModuleList([nn.Linear(F if i == 0 else H, H) for i in range(L)])
-                self.norms = nn.ModuleList([nn.LayerNorm(H) for _ in range(L // 2)])
-                self.drop = nn.Dropout(p)
-                self.head = nn.Linear(H, 1)
 
-            def forward(self, x: Any) -> Any:  # [B, N, 14] -> [B, N]
-                for i, lin in enumerate(self.lins):
-                    x = lin(x)
-                    if (i + 1) % 2 == 0:
-                        x = self.norms[i // 2](x)
-                    x = self.drop(torch.relu(x))
-                return self.head(x).squeeze(-1)
+def _cnn_net(n_feat: int, hidden: int, layers: int, kernel: int, dropout: float) -> Any:
+    """The BusCNN network: 1-D convolutions across the bus axis (kernel `kernel`, padding same),
+    GroupNorm after every second convolution, ReLU, dropout, a linear head per bus."""
+    nn = _torch().nn
 
-        return _MLP()
+    class _CNN(nn.Module):  # type: ignore[misc,name-defined]
+        def __init__(self, F: int, H: int, L: int, k: int, p: float) -> None:
+            super().__init__()
+            nn = _torch().nn
+            self.convs = nn.ModuleList(
+                [nn.Conv1d(F if i == 0 else H, H, k, padding="same") for i in range(L)]
+            )
+            self.norms = nn.ModuleList([nn.GroupNorm(max(H // 8, 1), H) for _ in range(L // 2)])
+            self.drop = nn.Dropout(p)
+            self.head = nn.Linear(H, 1)
+
+        def forward(self, x: Any) -> Any:  # [B, N, F] -> [B, N]
+            torch = _torch()
+            x = x.permute(0, 2, 1)  # Conv1d wants [B, C, N]: the bus axis is the sequence
+            for i, conv in enumerate(self.convs):
+                x = conv(x)
+                if (i + 1) % 2 == 0:
+                    x = self.norms[i // 2](x)
+                x = self.drop(torch.relu(x))
+            return self.head(x.permute(0, 2, 1)).squeeze(-1)
+
+    return _CNN(n_feat, hidden, layers, kernel, dropout)
+
+
+def _mlp_net(n_feat: int, hidden: int, layers: int, dropout: float) -> Any:
+    """The BusMLP network: the same per-bus MLP applied to every bus on its own, LayerNorm after
+    every second layer, ReLU, dropout, a linear head."""
+    nn = _torch().nn
+
+    class _MLP(nn.Module):  # type: ignore[misc,name-defined]
+        def __init__(self, F: int, H: int, L: int, p: float) -> None:
+            super().__init__()
+            nn = _torch().nn
+            self.lins = nn.ModuleList([nn.Linear(F if i == 0 else H, H) for i in range(L)])
+            self.norms = nn.ModuleList([nn.LayerNorm(H) for _ in range(L // 2)])
+            self.drop = nn.Dropout(p)
+            self.head = nn.Linear(H, 1)
+
+        def forward(self, x: Any) -> Any:  # [B, N, F] -> [B, N]
+            torch = _torch()
+            for i, lin in enumerate(self.lins):
+                x = lin(x)
+                if (i + 1) % 2 == 0:
+                    x = self.norms[i // 2](x)
+                x = self.drop(torch.relu(x))
+            return self.head(x).squeeze(-1)
+
+    return _MLP(n_feat, hidden, layers, dropout)

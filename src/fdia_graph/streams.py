@@ -321,6 +321,47 @@ def generate_stream(
     return _stream_result(g, X, buf, T, out)
 
 
+_GRAPH_KEYS = ("edge_index", "edge_attr", "node_m", "edge_m")  # PyG-ready graph + static meter masks
+
+
+def _asset_spec(name: str, file: str, release: Optional[str]) -> Dict[str, Any]:
+    from .registry import _REPO, STREAM_RELEASE
+
+    return {
+        "kind": "builtin",
+        "name": name,
+        "file": file,
+        "release": release or STREAM_RELEASE,
+        "repo": _REPO,
+        "sha256": None,
+    }
+
+
+def _attach_graph_sidecar(out: Dict[str, Any], C: int, release: Optional[str]) -> None:
+    """Newer streams embed the graph and masks; streams that predate them (e.g. the v0.7.1 assets) get
+    the tiny per-system graph sidecar, so every load_stream dict is complete."""
+    from .download import ensure_local
+
+    if all(k in out for k in _GRAPH_KEYS):
+        return
+    gz = np.load(ensure_local(_asset_spec(f"graph{C}", f"graph_ieee{C}.npz", release)))
+    for k in _GRAPH_KEYS:
+        if k not in out and k in gz.files:
+            out[k] = gz[k]
+
+
+def _normalize_graph_dtypes(out: Dict[str, Any]) -> None:
+    """The same dtypes whatever the source: edge_index int64 (torch.long), edge_attr float32, meter
+    masks uint8 (as generate_stream writes them), so embedded and sidecar loads are identical."""
+    if "edge_index" in out:
+        out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)
+    if "edge_attr" in out:
+        out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
+    for m in ("node_m", "edge_m"):
+        if m in out:
+            out[m] = np.asarray(out[m], dtype=np.uint8)
+
+
 def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[str, Any]:
     """Download (and cache) the published continuous stream for a system and return it as a dict.
 
@@ -330,44 +371,13 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
     tracks the latest continuous-dataset release without disturbing which shard release fg.load() uses.
     """
     from .download import ensure_local
-    from .registry import _REPO, STREAM_RELEASE, system_id
+    from .registry import system_id
 
     C = system_id(system)
-    spec = {
-        "kind": "builtin",
-        "name": f"stream{C}",
-        "file": f"stream_ieee{C}.npz",
-        "release": release or STREAM_RELEASE,
-        "repo": _REPO,
-        "sha256": None,
-    }
-    z = np.load(ensure_local(spec), allow_pickle=True)
+    z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", release)), allow_pickle=True)
     out = {k: z[k] for k in z.files}
-    # PyG-ready graph + static meter masks. Newer streams embed them; for streams that predate them (e.g. the
-    # v0.7.1 assets), pull the tiny per-system graph sidecar so every load_stream dict is complete.
-    _GKEYS = ("edge_index", "edge_attr", "node_m", "edge_m")
-    if any(k not in out for k in _GKEYS):
-        gspec = {
-            "kind": "builtin",
-            "name": f"graph{C}",
-            "file": f"graph_ieee{C}.npz",
-            "release": release or STREAM_RELEASE,
-            "repo": _REPO,
-            "sha256": None,
-        }
-        gz = np.load(ensure_local(gspec))
-        for k in _GKEYS:
-            if k not in out and k in gz.files:
-                out[k] = gz[k]
-    # Normalize dtypes regardless of source: PyG expects edge_index as int64 (torch.long); features float32;
-    # meter masks uint8 (matches generate_stream) so embedded-stream and sidecar loads are identical.
-    if "edge_index" in out:
-        out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)
-    if "edge_attr" in out:
-        out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
-    for _m in ("node_m", "edge_m"):
-        if _m in out:
-            out[_m] = np.asarray(out[_m], dtype=np.uint8)
+    _attach_graph_sidecar(out, C, release)
+    _normalize_graph_dtypes(out)
     return out
 
 

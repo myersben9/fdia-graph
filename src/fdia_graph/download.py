@@ -7,7 +7,7 @@ without one it uses the public releases/download URL directly.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import hashlib
 import os
@@ -58,6 +58,18 @@ def _sha256(path: str) -> str:
     return h.hexdigest()
 
 
+def _stream_to_file(session: Any, url: str, headers: Dict[str, str], path: str, label: str) -> None:
+    """Pull the asset incrementally (stream=True) into `path` with a progress bar; the response is
+    closed even on error and a 401/403/404/5xx surfaces before any byte is written."""
+    with session.get(url, headers=headers, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        total = int(r.headers.get("content-length", 0))  # 0 if missing -> the bar shows bytes so far, no %
+        with open(path, "wb") as f, tqdm(total=total, unit="B", unit_scale=True, desc=f"↓ {label}") as bar:
+            for chunk in r.iter_content(1 << 20):
+                f.write(chunk)
+                bar.update(len(chunk))
+
+
 def ensure_local(spec: Dict) -> str:
     """Given a registry spec, return a local path to the .h5, downloading it if needed.
     Built-in -> GitHub release asset (cached, sha-verified when known). Local -> the registered path."""
@@ -81,15 +93,7 @@ def ensure_local(spec: Dict) -> str:
     with requests.Session() as session:
         # authenticated API asset endpoint for private repos, plain URL for public; keep the download in the session.
         url, dl_headers = _asset_url(spec, session)
-        # stream=True pulls incrementally; the `with` closes the response even on error.
-        with session.get(url, headers=dl_headers, stream=True, timeout=60) as r:
-            r.raise_for_status()  # surface 401/403/404/5xx before writing bytes
-            total = int(r.headers.get("content-length", 0))  # 0 if missing -> bar shows bytes-so-far, no %
-            with open(tmp, "wb") as f:
-                with tqdm(total=total, unit="B", unit_scale=True, desc=f"↓ {spec['file']}") as bar:
-                    for chunk in r.iter_content(1 << 20):
-                        f.write(chunk)
-                        bar.update(len(chunk))
+        _stream_to_file(session, url, dl_headers, tmp, spec["file"])
     # Integrity gate: verify a pinned sha256 before trusting; on mismatch delete the .part and fail loudly.
     if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
         os.remove(tmp)

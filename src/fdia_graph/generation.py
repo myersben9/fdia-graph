@@ -29,6 +29,8 @@ import h5py
 # FdiaGenerator = physics/attack math; FAM_ID = family name -> integer id; attack_frame = one scan.
 from .engine import FdiaGenerator, FAM_ID
 from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs, attack_frame
+from .formulas.attacks import ramp_profile
+from .formulas.temporal import recent_change_scale, swing_zscore, temporal_delta
 
 # CACHE_DIR = on-disk shard home; register_local makes the new dataset findable by load(name).
 from .registry import CACHE_DIR, register_local
@@ -121,39 +123,11 @@ def _read_states(
 
 
 def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
-    """Per-timestep typical recent change of every bus's injections [FED26]: the std over the last
-    SWING_W scans of the scan-to-scan |change| in [P_inj, Q_inj], floored at 1e-3, so the swing
-    feature can express a change as a z-score of what the bus usually does.
-
-    X : [T, N, 4] operating-point pool in [|V|, P_inj, Q_inj, theta] order
-    returns [T, N, 2] float32; scale[t] uses the changes strictly before t (prefix sums, one pass)
-    """
-    T = len(X)
-    D = np.abs(np.diff(X[:, :, 1:3], axis=0))  # [T-1, N, 2] scan-to-scan |change| in [Pinj, Qinj]
-    c1 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D, 0)], 0)  # prefix sum
-    c2 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D**2, 0)], 0)  # prefix sum of squares
-    SCALE = np.full((T, C, 2), 1e-3, np.float32)
-    for t in range(2, T):  # window covers D[max(0, t-W) .. t-2]
-        s = max(0, t - SWING_W)
-        e = t - 1
-        n = e - s
-        if n >= 3:
-            su = c1[e] - c1[s]
-            sq = c2[e] - c2[s]
-            SCALE[t] = np.sqrt(np.maximum(sq / n - (su / n) ** 2, 0.0)) + 1e-3
-    return SCALE
+    """The swing feature's scale for a pool: formulas.temporal.recent_change_scale over SWING_W scans."""
+    return recent_change_scale(X, SWING_W, C)
 
 
-def _ramp_profile(i: int, rise: int, hold: int, rate_up: float, rate_down: float) -> float:
-    """Deviation of the slow ramp At at step i of a sequence [DAT26]: rise at rate_up for `rise`
-    steps to the peak, hold there for `hold` steps, then return at rate_down and never below zero.
-    Direction (surge or dip) is applied by the caller as 1 +/- dev."""
-    peak = rate_up * rise
-    if i < rise:
-        return rate_up * i
-    if i < rise + hold:
-        return peak
-    return max(0.0, peak - rate_down * (i - rise - hold))
+_ramp_profile = ramp_profile  # the At shape, see formulas.attacks
 
 
 @dataclass
@@ -168,19 +142,9 @@ class _FrameContext:
 
 
 def _record_features(nx: np.ndarray, nm: np.ndarray, prev: np.ndarray, scale_t: np.ndarray, C: int):
-    """The two temporal features of a record at injection-metered buses [FED26], zero elsewhere:
-    temporal_delta = current injection minus the previous scan's; swing = that change as a
-    z-score of the bus's typical recent change (scale_t). Spikes (Aq, Al) read large, the ramp
-    and benign scans stay near 1."""
-    mP = nm[:, 1] > 0
-    td = np.zeros((C, 2), np.float32)
-    td[mP, 0] = nx[mP, 1] - prev[mP, 1]
-    td[mP, 1] = nx[mP, 2] - prev[mP, 2]
-    sw = np.zeros((C, 2), np.float32)
-    # Divide the float64 difference, not the float32 td, so shards stay bit-identical to older releases.
-    sw[mP, 0] = (nx[mP, 1] - prev[mP, 1]) / scale_t[mP, 0]
-    sw[mP, 1] = (nx[mP, 2] - prev[mP, 2]) / scale_t[mP, 1]
-    return td, sw
+    """The two temporal features of a record (formulas.temporal), at injection-metered buses."""
+    metered = nm[:, 1] > 0
+    return temporal_delta(nx, prev, metered), swing_zscore(nx, prev, scale_t, metered)
 
 
 def _make_record(ctx: _FrameContext, t: int, family: int, sid: int, atk: Any) -> Optional[Record]:

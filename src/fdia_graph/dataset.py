@@ -9,7 +9,7 @@ Masked measurements (mask==0) are already zeroed; the model consumes the masks.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -71,6 +71,20 @@ _STATIC_PHYSICS = (
     "bus_base_qd",
     "bus_attackable",
 )
+# Per-record tensors collate() stacks into a batch (those the record carries), and the scalars it gathers.
+_BATCH_STACKED = (
+    "node_x",
+    "node_m",
+    "edge_x",
+    "edge_m",
+    "y",
+    "temporal_delta",
+    "swing",
+    "clean",
+    "edge_clean",
+    "edge_clean_full",
+)
+_BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 # Layers stored once per POOL timestep (not per record), resolved through data/timestep.
 _CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
 # Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
@@ -528,67 +542,65 @@ class FdiaGraph:
         return a
 
     def __getitem__(self, i: int) -> Union[Dict[str, Any], "Data"]:
-        # Build ONE record dict. Map view index `i` back to file row `j` via self.idx; h5py reads only row j.
-        torch = _torch()
+        """One record as a dict of tensors (or a PyG Data with format="pyg"): the measurements and
+        masks, the labels and provenance, and whichever optional layers the file carries."""
+        d, j = self._record_source(i)
+        item = self._base_item(d, j)
+        self._add_optional_layers(item, d, j)
+        return self._to_pyg(item) if self.format == "pyg" else item
+
+    def _record_source(self, i: int) -> Tuple[Any, int]:
+        """Where record i is read from: the preloaded arrays (position-aligned with the view) or the
+        file's data group at the real file row self.idx[i]."""
         if self._mem is not None:
-            d, j = self._mem, i  # preloaded: arrays are position-aligned with the view
-        else:
-            d, j = (
-                self._h()["data"],
-                int(self.idx[i]),
-            )  # j = real file row; d = the "data" group of measurements
-        # Static graph shared by every record dict (references, not copies). edge_attr needs the v0.5.0+
-        # physics schema, so attach it only when present (older shards would raise otherwise).
+            return self._mem, i
+        return self._h()["data"], int(self.idx[i])
+
+    def _base_item(self, d: Any, j: int) -> Dict[str, Any]:
+        """The fields every record has: the static graph (shared tensors, not copies), the measurements
+        in self.units, the masks, the label and the scalar provenance."""
+        torch = _torch()
+        # edge_attr needs the v0.5.0+ physics schema, so attach it only when present.
         if not hasattr(self, "_ei_t"):
             self._ei_t = self.edge_index
             self._ea_t = self.edge_attr if self.has_physics else None
         item = dict(
             edge_index=self._ei_t,  # [2,E] static connectivity (same tensor every record)
-            node_x=torch.as_tensor(
-                self._to_units(d["node_x"][j], "node"), dtype=torch.float32
-            ),  # [N,4]=[|V|,P_inj,Q_inj,theta]
-            node_m=torch.as_tensor(
-                d["node_m"][j], dtype=torch.float32
-            ),  # [N,4] availability mask (1=measured)
-            edge_x=torch.as_tensor(
-                self._to_units(d["edge_x"][j], "edge"), dtype=torch.float32
-            ),  # [E,2]=[P_from,Q_from] flows
-            edge_m=torch.as_tensor(
-                d["edge_m"][j], dtype=torch.float32
-            ),  # [E,2] branch-flow availability mask
-            y=torch.as_tensor(
-                d["y"][j], dtype=torch.float32
-            ),  # [N] per-bus attack label (multi-label target)
+            node_x=torch.as_tensor(self._to_units(d["node_x"][j], "node"), dtype=torch.float32),  # [N,4]
+            node_m=torch.as_tensor(d["node_m"][j], dtype=torch.float32),  # [N,4] availability mask
+            edge_x=torch.as_tensor(self._to_units(d["edge_x"][j], "edge"), dtype=torch.float32),  # [E,2]
+            edge_m=torch.as_tensor(d["edge_m"][j], dtype=torch.float32),  # [E,2] flow availability mask
+            y=torch.as_tensor(d["y"][j], dtype=torch.float32),  # [N] per-bus attack label
             family=int(d["family"][j]),
-            stealthy=int(d["stealthy"][j]),  # scalar metadata: attack type + stealth flag
+            stealthy=int(d["stealthy"][j]),
             seq_id=int(d["seq_id"][j]),
             timestep=int(d["timestep"][j]),
-        )  # provenance: which sequence + which scan in it
+        )
         if self._ea_t is not None:
-            item["edge_attr"] = (
-                self._ea_t
-            )  # [E,8] per-unit line features (r,x,b,g,gs,bs,tap,shift); v0.5.0+ shards only
+            item["edge_attr"] = self._ea_t  # [E,8] per-unit line features; v0.5.0+ shards only
+        return item
+
+    def _add_optional_layers(self, item: Dict[str, Any], d: Any, j: int) -> None:
+        """The layers a file may carry: the temporal features and the noiseless truth at the record's
+        pool timestep (node, metered flows, flows on every branch)."""
+        torch = _torch()
         if self.has_temporal:  # [N,2] current-minus-previous-scan injection (v0.3+)
             item["temporal_delta"] = torch.as_tensor(
                 self._to_units(d["temporal_delta"][j], "td"), dtype=torch.float32
             )
         if self.has_swing:  # [N,2] windowed relative swing (recent-window z-score)
             item["swing"] = torch.as_tensor(d["swing"][j], dtype=torch.float32)
-        if self._clean_np is not None:  # [N,4] noiseless attack-free truth at this timestep (SE target)
-            t = item["timestep"]
-            # torch.tensor COPIES: with units="physical" _to_units is a no-op view into the shared cached
-            # table, and an aliased tensor would let one record's in-place edit corrupt every other record.
-            item["clean"] = torch.tensor(self._to_units(self._clean_np[t], "node"), dtype=torch.float32)
-            if self._eclean_np is not None:  # [E,2] exact true flows (unmetered zeroed)
-                item["edge_clean"] = torch.tensor(
-                    self._to_units(self._eclean_np[t], "edge"), dtype=torch.float32
-                )
-            ecf = self._clean_flows_full()
-            if ecf is not None:  # [E,2] exact true flows on EVERY branch, metered or not
-                item["edge_clean_full"] = torch.tensor(self._to_units(ecf[t], "edge"), dtype=torch.float32)
-        if self.format == "pyg":
-            return self._to_pyg(item)  # optionally repackage as a PyG Data object
-        return item  # default: plain dict of tensors
+        if self._clean_np is None:
+            return
+        t = item["timestep"]
+        # torch.tensor COPIES: with units="physical" _to_units is a no-op view into the shared cached
+        # table, and an aliased tensor would let one record's in-place edit corrupt every other record.
+        item["clean"] = torch.tensor(self._to_units(self._clean_np[t], "node"), dtype=torch.float32)
+        if self._eclean_np is not None:  # [E,2] exact true flows (unmetered zeroed)
+            item["edge_clean"] = torch.tensor(self._to_units(self._eclean_np[t], "edge"), dtype=torch.float32)
+        ecf = self._clean_flows_full()
+        if ecf is not None:  # [E,2] exact true flows on EVERY branch, metered or not
+            item["edge_clean_full"] = torch.tensor(self._to_units(ecf[t], "edge"), dtype=torch.float32)
 
     # Dict-record key -> PyG attribute name. Everything not listed keeps its dict name, so a field
     # added to __getitem__ shows up in PyG records and batches without touching this method. The
@@ -612,29 +624,16 @@ class FdiaGraph:
 
     @staticmethod
     def collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
-        # Dict-format collate: every record shares N and E, so tensors stack into a batch dim and
-        # scalar metadata becomes one tensor. (PyG has its own loader.)
+        """Dict-format collate: every record shares N and E, so per-record tensors stack into a batch
+        dimension, the static graph rides along once, and scalar metadata becomes one long tensor.
+        (PyG has its own loader.)"""
         torch = _torch()
-        out = {}
-        # Feature keys to stack; include temporal_delta only if this file carries it.
-        fkeys = (
-            ["node_x", "node_m", "edge_x", "edge_m", "y"]
-            + (["temporal_delta"] if "temporal_delta" in batch[0] else [])
-            + (["swing"] if "swing" in batch[0] else [])
-            + (["clean"] if "clean" in batch[0] else [])
-            + (["edge_clean"] if "edge_clean" in batch[0] else [])
-            + (["edge_clean_full"] if "edge_clean_full" in batch[0] else [])
-        )
-        for k in fkeys:
-            out[k] = torch.stack([b[k] for b in batch])  # [B, N/E, C] batched features/labels/masks
-        # Static graph rides along ONCE per batch (not stacked): every sample shares the same topology.
-        out["edge_index"] = batch[0]["edge_index"]
+        out = {k: torch.stack([b[k] for b in batch]) for k in _BATCH_STACKED if k in batch[0]}
+        out["edge_index"] = batch[0]["edge_index"]  # same topology for every sample
         if "edge_attr" in batch[0]:  # absent on older no-physics shards
             out["edge_attr"] = batch[0]["edge_attr"]
-        for k in ("family", "stealthy", "seq_id", "timestep"):
-            out[k] = torch.as_tensor(
-                [b[k] for b in batch], dtype=torch.long
-            )  # [B] scalar metadata per record
+        for k in _BATCH_SCALARS:
+            out[k] = torch.as_tensor([b[k] for b in batch], dtype=torch.long)  # [B] per record
         return out
 
     def loader(

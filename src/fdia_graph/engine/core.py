@@ -99,7 +99,6 @@ def line_outage_candidates(
     """
     import pandapower as pp
     import pandapower.networks as pn
-    from pandapower.pypower.makePTDF import makePTDF
 
     NET = getattr(pn, _CASE[system_id(system)])
     base = seed_flow_from if seed_flow_from is not None else NET()
@@ -115,41 +114,54 @@ def line_outage_candidates(
         idx = int(base.line.index[pos])
         if not bool(base.line.at[idx, "in_service"]):
             continue  # already open: not a contingency
-        net = NET()
-        net.line.at[idx, "in_service"] = False
-        why = None
-        if _n_islands(net) != 1:
-            why = f"removing it splits the grid into {_n_islands(net)} islands"
-        else:
-            try:
-                pp.runpp(net)
-            except Exception as e:
-                why = f"post-contingency AC power flow does not converge ({type(e).__name__})"
-            else:
-                n_iso = int((net._ppc["bus"][:, 1].real == 4).sum())
-                if n_iso:
-                    why = f"leaves {n_iso} isolated bus(es)"
-                elif not np.array_equal(lut0, net._pd2ppc_lookups["bus"]):
-                    why = "changes the ppc bus ordering (not comparable to the base shard)"
-                else:
-                    try:
-                        makePTDF(net._ppc["baseMVA"], net._ppc["bus"], net._ppc["branch"])
-                    except Exception:
-                        why = "PTDF is singular (the DC network is islanded)"
-        _nm = base.line.at[idx, "name"]
-        rec = dict(
-            line=idx,
-            pos=int(pos),
-            from_bus=int(base.line.at[idx, "from_bus"]),
-            to_bus=int(base.line.at[idx, "to_bus"]),
-            name=(f"line{idx}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)),
-            base_flow_mw=float(flow[pos]),
-        )
+        why = _screen_line(NET, idx, lut0)
+        rec = _line_record(base, idx, int(pos), float(flow[pos]))
         if why:
             rejected.append({**rec, "reason": why})
         else:
             accepted.append(rec)
     return accepted, rejected
+
+
+def _screen_line(NET: Any, idx: int, lut0: np.ndarray) -> Optional[str]:
+    """Why opening line `idx` is not an acceptable contingency, or None when it is: the grid must stay
+    one island, the post-contingency power flow must converge with no isolated bus, the ppc bus
+    ordering must not change (or the shard is not comparable to the base shard), and the DC PTDF
+    must be well posed."""
+    import pandapower as pp
+    from pandapower.pypower.makePTDF import makePTDF
+
+    net = NET()
+    net.line.at[idx, "in_service"] = False
+    if _n_islands(net) != 1:
+        return f"removing it splits the grid into {_n_islands(net)} islands"
+    try:
+        pp.runpp(net)
+    except Exception as e:
+        return f"post-contingency AC power flow does not converge ({type(e).__name__})"
+    n_iso = int((net._ppc["bus"][:, 1].real == 4).sum())
+    if n_iso:
+        return f"leaves {n_iso} isolated bus(es)"
+    if not np.array_equal(lut0, net._pd2ppc_lookups["bus"]):
+        return "changes the ppc bus ordering (not comparable to the base shard)"
+    try:
+        makePTDF(net._ppc["baseMVA"], net._ppc["bus"], net._ppc["branch"])
+    except Exception:
+        return "PTDF is singular (the DC network is islanded)"
+    return None
+
+
+def _line_record(base: Any, idx: int, pos: int, base_flow_mw: float) -> Dict[str, Any]:
+    """One candidate line as the caller reports it: index, position, terminals, name, base flow."""
+    _nm = base.line.at[idx, "name"]
+    return dict(
+        line=idx,
+        pos=pos,
+        from_bus=int(base.line.at[idx, "from_bus"]),
+        to_bus=int(base.line.at[idx, "to_bus"]),
+        name=(f"line{idx}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)),
+        base_flow_mw=base_flow_mw,
+    )
 
 
 class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):

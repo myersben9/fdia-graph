@@ -13,7 +13,7 @@ The operating states are the [T, N, 4] pool the attack generator injects onto:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
 
 import os
 import io
@@ -124,15 +124,23 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> List[np.ndarray]:
             continue  # infeasible operating point -> skip this timestep
         # [N,4] = [|V|, Pinj, Qinj, theta], the one column order the pool, the engine and node_x share.
         z = base.res_bus.reindex(nodelist)[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy().copy()
-        if len(base.res_shunt):  # SE excludes the shunt, so subtract it -> BDD-clean injection
-            for b, ps, qs in zip(
-                base.shunt.bus.to_numpy(), base.res_shunt.p_mw.to_numpy(), base.res_shunt.q_mvar.to_numpy()
-            ):
-                if int(b) in pos:
-                    z[pos[int(b)], 1] -= ps
-                    z[pos[int(b)], 2] -= qs
+        _remove_shunt_injections(z, base, pos)
         out.append(z)
     return out
+
+
+def _remove_shunt_injections(z: np.ndarray, base: Any, pos: Dict[int, int]) -> None:
+    """Subtract each shunt's draw from its bus's P and Q in place: state estimation models the shunt in
+    the admittance matrix, not as an injection, so the stored injection must exclude it to be
+    bad-data-clean."""
+    if not len(base.res_shunt):
+        return
+    for b, ps, qs in zip(
+        base.shunt.bus.to_numpy(), base.res_shunt.p_mw.to_numpy(), base.res_shunt.q_mvar.to_numpy()
+    ):
+        if int(b) in pos:
+            z[pos[int(b)], 1] -= ps
+            z[pos[int(b)], 2] -= qs
 
 
 def _ar1_scale(
