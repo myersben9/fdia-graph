@@ -74,8 +74,8 @@ class Stream(Bundle):
     benign: np.ndarray  # [T, N, 4] attack removed, noise kept
     clean: np.ndarray  # [T, N, 4] noiseless truth
     edge_x: np.ndarray  # [T, E, 2] observed flows
-    edge_benign: np.ndarray
-    edge_clean: np.ndarray
+    edge_benign: np.ndarray  # [T, E, 2] attack removed, noise kept
+    edge_clean: np.ndarray  # [T, E, 2] noiseless true flows
     edge_index: np.ndarray  # [2, E]
     edge_attr: np.ndarray  # [E, 8]
     node_m: np.ndarray  # [N, 4]
@@ -86,8 +86,8 @@ class Stream(Bundle):
     swing: np.ndarray  # [T, N, 2]
     timestep: np.ndarray  # [T]
     episodes: Any  # list of {onset, length, family, buses}
-    system: Optional[int] = None
-    attacked_frac: Optional[float] = None
+    system: Optional[int] = None  # bus count, set by generate_stream
+    attacked_frac: Optional[float] = None  # fraction of frames with an attacked bus, set by generate_stream
 
 
 class _StreamBuffers:

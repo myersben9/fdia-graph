@@ -151,10 +151,10 @@ class RecordBundle(Bundle):
     edge_x: Any  # [E, 2] P_from, Q_from
     edge_m: Any  # [E, 2] flow-meter mask
     y: Any  # [N] per-bus attack label
-    family: int
-    stealthy: int
-    seq_id: int
-    timestep: int
+    family: int  # 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al
+    stealthy: int  # 1 for the re-solve families Aq, At, Al
+    seq_id: int  # source sequence of the record
+    timestep: int  # position in the source load profile
     edge_attr: Any = None  # [E, 8] per-unit line physics (v0.5.0+ shards)
     temporal_delta: Any = None  # [N, 2] injection change vs the previous pool scan (v0.3+)
     swing: Any = None  # [N, 2] that change as a z-score of the bus's typical recent change (v0.4.1+)
@@ -166,48 +166,48 @@ class RecordBundle(Bundle):
 @dataclass(frozen=True, eq=False)
 class BatchBundle(Bundle):
     """A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a
-    leading batch axis, the static graph once, scalar metadata as long tensors."""
+    leading batch axis B, the static graph once, scalar metadata as long tensors."""
 
-    node_x: Any
-    node_m: Any
-    edge_x: Any
-    edge_m: Any
-    y: Any
-    temporal_delta: Any = None
-    swing: Any = None
-    clean: Any = None
-    edge_clean: Any = None
-    edge_clean_full: Any = None
-    edge_index: Any = None
-    edge_attr: Any = None
-    family: Any = None
-    stealthy: Any = None
-    seq_id: Any = None
-    timestep: Any = None
+    node_x: Any  # [B, N, 4]
+    node_m: Any  # [B, N, 4]
+    edge_x: Any  # [B, E, 2]
+    edge_m: Any  # [B, E, 2]
+    y: Any  # [B, N]
+    temporal_delta: Any = None  # [B, N, 2]
+    swing: Any = None  # [B, N, 2]
+    clean: Any = None  # [B, N, 4]
+    edge_clean: Any = None  # [B, E, 2]
+    edge_clean_full: Any = None  # [B, E, 2]
+    edge_index: Any = None  # [2, E], the first record's (the same for every record)
+    edge_attr: Any = None  # [E, 8], the first record's
+    family: Any = None  # [B] long
+    stealthy: Any = None  # [B] long
+    seq_id: Any = None  # [B] long
+    timestep: Any = None  # [B] long
 
 
 @dataclass(frozen=True, eq=False)
 class ArraysBundle(Bundle):
-    """A whole split as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return it: every
-    per-record field that was requested and the file carries, plus the static graph. Fields not
-    requested are absent from the dict view."""
+    """A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return
+    it: every per-record field that was requested and the file carries, plus the static graph.
+    Fields not requested are absent from the dict view."""
 
     edge_index: Any = None  # [2, E]
-    edge_reactance: Any = None  # [E], deprecated units
+    edge_reactance: Any = None  # [E], deprecated units, kept for old callers
     node_x: Any = None  # [n, N, 4]
-    node_m: Any = None
+    node_m: Any = None  # [n, N, 4]
     edge_x: Any = None  # [n, E, 2]
-    edge_m: Any = None
+    edge_m: Any = None  # [n, E, 2]
     y: Any = None  # [n, N]
-    temporal_delta: Any = None
-    swing: Any = None
-    clean: Any = None
-    edge_clean: Any = None
-    edge_clean_full: Any = None
+    temporal_delta: Any = None  # [n, N, 2]
+    swing: Any = None  # [n, N, 2]
+    clean: Any = None  # [n, N, 4]
+    edge_clean: Any = None  # [n, E, 2]
+    edge_clean_full: Any = None  # [n, E, 2]
     family: Any = None  # [n]
-    stealthy: Any = None
-    seq_id: Any = None
-    timestep: Any = None
+    stealthy: Any = None  # [n]
+    seq_id: Any = None  # [n]
+    timestep: Any = None  # [n]
 
 
 @dataclass(frozen=True, eq=False)
@@ -215,11 +215,11 @@ class Summary(Bundle):
     """`FdiaGraph.summary()`: the system, its size, the number of records in the view, and the
     record count per family present."""
 
-    system: int
-    N: int
-    E: int
-    n: int
-    families: Dict[str, int]
+    system: int  # bus count of the system (14, 118, 300, ...)
+    N: int  # buses
+    E: int  # branches
+    n: int  # records in this view
+    families: Dict[str, int]  # record count per family name present
 
 
 class FdiaGraph:
