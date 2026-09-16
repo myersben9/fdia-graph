@@ -16,6 +16,10 @@ the public API, the generated files and the numbers are the same as the previous
   (`edge_r` ... `edge_status`, `M`, `flow_meter`, `bias_pi` ... `bias_qf`, `outage`,
   `outage_pos` ... `outage_base_flow_mw`; read `g.branch`, `g.meters`, `g.bias`, `g.contingency`)
   and `fdia_graph.streams._swing_scale` (use `fdia_graph.generation._swing_scale`).
+- `fdia_graph.generate`, `generate_stream`, `load_stream`, `windows`, `pyg_stream`, `torch_windows`,
+  `load_profile`, `fetch_profile`, `generate_states` and `line_outage_candidates` are the real
+  functions, resolved on first use (PEP 562) instead of wrappers that restated their docstrings.
+  Same names, same calls, same lazy imports; `help(fg.generate)` now shows the one docstring.
 - The loader is the `fdia_graph.dataset` package: `FdiaGraph` is assembled from `graph`,
   `physics`, `records` and `export` mixins over a `base` that declares the shared state, the same
   pattern as the generator. Same import path, same names, same behaviour (docs/READABILITY_PLAN.md,
