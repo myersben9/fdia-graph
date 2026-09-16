@@ -7,7 +7,7 @@ without one it uses the public releases/download URL directly.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import hashlib
 import os
@@ -17,18 +17,12 @@ if TYPE_CHECKING:
     from .registry import AssetSpec
 from tqdm import tqdm  # download progress bar
 from .registry import CACHE_DIR  # ~/.cache/fdia_graph, owned by registry.py
+from .models.assets import DownloadTarget  # noqa: F401  re-exported: defined here before the models package
 
 
 def _token() -> Optional[str]:
     # SDK-specific FDIA_GRAPH_TOKEN wins (scope a PAT to just this repo), else generic GITHUB_TOKEN; None -> public.
     return os.environ.get("FDIA_GRAPH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-
-
-class DownloadTarget(NamedTuple):
-    """Where the bytes of a release asset are fetched from: the URL and the request headers."""
-
-    url: str
-    headers: Dict[str, str]
 
 
 def _asset_url(spec: "AssetSpec", session: requests.Session) -> DownloadTarget:

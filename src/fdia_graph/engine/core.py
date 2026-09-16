@@ -15,7 +15,6 @@ FdiaGenerator is split by concern across three mixins: state setup lives here (_
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -23,7 +22,7 @@ import numpy as np
 
 from ..formulas.network import BranchModel, series_admittance
 from ..formulas.noise import bias_jitter_split
-from ..models import Bundle
+from ..models.assets import LineCandidate  # noqa: F401  re-exported: defined here before the models package
 from ..registry import system_id
 from .attacks import AttackMixin
 from .base import INTACT, MeterBias, MeterPlan, Outage
@@ -89,20 +88,6 @@ def _n_islands(net: Any) -> int:
     from pandapower import topology as top
 
     return int(nx.number_connected_components(top.create_nxgraph(net)))
-
-
-@dataclass(frozen=True, eq=False)
-class LineCandidate(Bundle):
-    """One line of `line_outage_candidates`: its pandapower index and branch position, terminals,
-    name, intact-case active flow, and, when rejected, the reason."""
-
-    line: int  # pandapower line index, the generate(..., outage=) argument
-    pos: int  # branch position in edge_index
-    from_bus: int  # from-end bus
-    to_bus: int  # to-end bus
-    name: str  # line name from the case, or line<idx>
-    base_flow_mw: float  # active flow in the intact case, MW
-    reason: Optional[str] = None  # why the line was rejected (islands the grid), rejected list only
 
 
 def line_outage_candidates(

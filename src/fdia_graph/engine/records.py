@@ -21,9 +21,10 @@ file. tests/test_frozen.py holds the line.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import numpy as np
+from ..models.frames import FrameKnobs, Scan, Frame  # noqa: F401  re-exported: defined here before the models package
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
@@ -37,41 +38,6 @@ SINGLE_SHOT_ORDER = (1, 2, 3, 4, 6)
 CORRUPT_KIND = {2: "Ad", 3: "As", 4: "Ar"}  # corrupt-in-place families and their AttackMixin.corrupt code
 BENIGN_BUFFER = 300  # recent benign scans kept for the replay families (FIFO)
 REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans back
-
-
-class FrameKnobs(NamedTuple):
-    """The attack settings of one generation run, fixed for every scan."""
-
-    intensity: float  # attack_intensity: load-shift bound of Aq/Al and the plausibility cap of Ad/As/Ar
-    floor: float  # lower edge of the plausibility band (NOISE_FLOOR)
-    lra_k: int  # most buses an LRA redistribution may touch
-    replay_tau: Optional[int]  # Ar/As replay depth in scans, None = random lag of at least REPLAY_MIN_LAG
-    reject_below_floor: bool  # shards: reject a within-noise scan so the draw loop redraws
-    with_benign: bool  # streams: also emit the un-attacked twin of the scan
-
-
-class Scan(NamedTuple):
-    """One emitted measurement scan in the shard's physical units: readings and their meter masks."""
-
-    node_x: np.ndarray  # [N, 4] |V|, P_inj, Q_inj, theta (zero where unmetered)
-    node_m: np.ndarray  # [N, 4] meter mask
-    edge_x: np.ndarray  # [E, 2] P_from, Q_from
-    edge_m: np.ndarray  # [E, 2] meter mask
-
-
-class Frame(NamedTuple):
-    """One emitted scan. Measurement arrays are in the shard's physical units and column order."""
-
-    node_x: np.ndarray  # [N, 4] observed |V|, P_inj, Q_inj, theta (zero where unmetered)
-    node_m: np.ndarray  # [N, 4] meter mask
-    edge_x: np.ndarray  # [E, 2] observed P_from, Q_from
-    edge_m: np.ndarray  # [E, 2] meter mask
-    y: np.ndarray  # [N] uint8 per-bus attack label
-    stealthy: int  # 1 when the scan is a re-solved state (evades bad-data detection), else 0
-    mag_bus: np.ndarray  # buses with a designed magnitude (int), empty on benign scans
-    mag: np.ndarray  # designed |change| / |base| per entry of mag_bus, the plausibility-band record
-    benign_node_x: Optional[np.ndarray]  # un-attacked node measurement of the same scan (with_benign)
-    benign_edge_x: Optional[np.ndarray]  # un-attacked branch flows of the same scan (with_benign)
 
 
 def replay_frame(
