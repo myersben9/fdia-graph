@@ -5,6 +5,18 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+Readability series, step 5 (docs/READABILITY_PLAN.md): the generator constructor, the loader
+constructor and `to_numpy` split into named steps. No user-visible change (bit-identical shards
+and streams, same loader outputs).
+
+- `FdiaGenerator.__init__` reads as a list of what it builds: the case with its contingency, the
+  load tables, the meter plan, the edge index, the branch physics, the admittances, the meter
+  biases; the accuracy-class split of the meter error is `formulas.noise.bias_jitter_split` and the
+  series admittance comes from `formulas.network`.
+- `FdiaGraph.__init__` delegates to `_read_header`, `_read_static_graph`, `_read_layers`,
+  `_reference_bus`, `_record_mask` and `_preload`; `family_ids` translates family names or codes in
+  one place; `to_numpy` gathers the clean layers and converts units through small helpers.
+
 Readability series, step 4 (docs/READABILITY_PLAN.md): one AC measurement function. No
 user-visible change (bit-identical shards and streams; `ybus`, `yf`, `yt` and `edge_clean_full`
 unchanged).

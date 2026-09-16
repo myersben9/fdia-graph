@@ -13,9 +13,11 @@ from .network import (
     complex_voltages,
     series_admittance,
 )
+from .noise import bias_jitter_split
 
 __all__ = [
     "BranchModel",
+    "bias_jitter_split",
     "branch_admittances",
     "branch_flows",
     "bus_injections",
