@@ -67,14 +67,28 @@ def test_read_only_json_and_pickle():
     with pytest.raises(TypeError):
         r |= {"family": 3}  # type: ignore[misc]
     assert r.family == 2 and r["family"] == 2 and "z" not in r
+    assert json.loads(json.dumps(_Aliased(1, 2)))["global"] == 2  # json.dump works on the dict side
+    back = pickle.loads(pickle.dumps(r))
+    assert back.family == 2 and np.array_equal(back["node_x"], r.node_x)
+
+
+@dataclass(frozen=True, eq=False)
+class _Tailed(Bundle):
+    _tail = ("geo",)
+    geo: int
+    benign: Optional[int] = None
+
+
+def test_pickle_restores_fields_and_key_order():
+    t = pickle.loads(pickle.dumps(_Tailed(geo=1, benign=2)))
+    assert t.geo == 1 and t.benign == 2 and list(t) == ["benign", "geo"]  # geo is required yet listed last
+    r = pickle.loads(pickle.dumps(_Rec.ordered({"family": 2, "y": np.zeros(3), "node_x": np.ones((3, 4))})))
+    assert list(r) == ["family", "y", "node_x"] and r.family == 2
 
 
 def test_ordered_keeps_the_mapping_key_order():
     r = _Rec.ordered({"family": 2, "y": np.zeros(3), "node_x": np.ones((3, 4))})
     assert list(r) == ["family", "y", "node_x"] and r.node_x.shape == (3, 4) and "swing" not in r
-    assert json.loads(json.dumps(_Aliased(1, 2)))["global"] == 2  # json.dump works on the dict side
-    back = pickle.loads(pickle.dumps(r))
-    assert back.family == 2 and np.array_equal(back["node_x"], r.node_x)
 
 
 def test_aliased_key():

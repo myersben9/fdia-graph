@@ -115,5 +115,16 @@ class Bundle(dict):
     def clear(self) -> None:
         raise self._read_only()
 
-    def __reduce__(self) -> Any:  # pickle through the fields, not the dict storage
-        return (type(self), tuple(getattr(self, n) for n in self._names()))
+    def __reduce__(self) -> Any:  # pickle through the fields by name, and keep the dict view's key order
+        return (_rebuild, (type(self), {n: getattr(self, n) for n in self._names()}, list(self)))
+
+
+def _rebuild(cls: Type[_B], field_values: Dict[str, Any], key_order: list) -> _B:
+    """Unpickle: construct by field name (positional order and dict order can differ), then restore
+    the dict view's key order."""
+    obj = cls(**field_values)
+    if list(obj) != key_order:
+        items = {k: dict.__getitem__(obj, k) for k in key_order}
+        dict.clear(obj)
+        dict.update(obj, items)
+    return obj
