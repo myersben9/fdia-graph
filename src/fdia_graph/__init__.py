@@ -102,6 +102,9 @@ def load(
 # The generators, profiles, stream and torch helpers pull in pandapower, torch or torch_geometric,
 # so they are imported on first use rather than at `import fdia_graph`. Each name resolves to the
 # real function (its own docstring and signature), not a wrapper that could drift from it.
+# `from fdia_graph import *` resolves all of them (it binds every name in __all__), which loads
+# those modules but still no optional dependency: each imports pandapower, torch or torch_geometric
+# inside the functions that need them (tests/test_namespace.py checks this in a fresh interpreter).
 _LAZY = {
     "generate": ".generation",
     "generate_stream": ".streams",

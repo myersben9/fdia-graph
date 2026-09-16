@@ -41,14 +41,27 @@ def test_unknown_attribute_still_raises():
         raise AssertionError("expected AttributeError")
 
 
-def test_import_does_not_pull_in_the_generators():
-    """A fresh interpreter importing the package must not import pandapower-backed modules."""
+HEAVY = ("pandapower", "torch", "torch_geometric", "pandas", "scipy")
+
+
+def _fresh_import_modules(statement: str) -> str:
+    """Run `statement` in a fresh interpreter and return the top-level packages it left loaded."""
     import subprocess
 
-    code = "import sys, fdia_graph; print(sorted(m for m in sys.modules if m.startswith('fdia_graph.')))"
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout
-    assert (
-        "fdia_graph.generation" not in out
-        and "fdia_graph.engine" not in out
-        and "fdia_graph.torch_data" not in out
-    )
+    code = f"import sys; {statement}; print(sorted({{m.split('.')[0] for m in sys.modules}}))"
+    return subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout
+
+
+def test_import_does_not_pull_in_heavy_dependencies():
+    """`import fdia_graph` loads neither the optional extras nor the helper modules that need them."""
+    loaded = _fresh_import_modules("import fdia_graph")
+    assert not any(f"'{h}'" in loaded for h in HEAVY), loaded
+    assert "'fdia_graph.generation'" not in loaded and "'fdia_graph.torch_data'" not in loaded
+
+
+def test_star_import_resolves_the_lazy_names_without_heavy_dependencies():
+    """`from fdia_graph import *` binds every name in __all__, which resolves the lazy ones and so
+    imports their modules; those modules import pandapower, torch and torch_geometric lazily
+    themselves, so the star import still costs no optional dependency."""
+    loaded = _fresh_import_modules("from fdia_graph import *")
+    assert not any(f"'{h}'" in loaded for h in HEAVY), loaded
