@@ -14,4 +14,11 @@ from .network import (
     series_admittance,
 )
 
-__all__ = ["branch_admittances", "branch_flows", "bus_injections", "complex_voltages", "series_admittance"]
+__all__ = [
+    "BranchModel",
+    "branch_admittances",
+    "branch_flows",
+    "bus_injections",
+    "complex_voltages",
+    "series_admittance",
+]
