@@ -24,7 +24,7 @@ import warnings
 import numpy as np
 import h5py
 
-from .formulas.network import branch_admittances, branch_flows, complex_voltages
+from .formulas.network import BranchModel, branch_admittances, branch_flows, complex_voltages
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
@@ -381,13 +381,15 @@ class FdiaGraph:
             )
         p = self._phys
         Y, Yf, Yt = branch_admittances(
-            p["edge_r"],
-            p["edge_x"],
-            p["edge_b"],
-            p["edge_g"],
-            p["edge_tap"],
-            p["edge_shift"],
-            p["edge_status"],
+            BranchModel(
+                p["edge_r"],
+                p["edge_x"],
+                p["edge_b"],
+                p["edge_g"],
+                p["edge_tap"],
+                p["edge_shift"],
+                p["edge_status"],
+            ),
             self.edge_index_np,
             self.N,
             bus_shunt_g=p.get("bus_shunt_g"),

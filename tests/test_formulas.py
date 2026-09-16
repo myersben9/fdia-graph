@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from fdia_graph.formulas import (
+    BranchModel,
     branch_admittances,
     branch_flows,
     bus_injections,
@@ -25,7 +26,9 @@ def test_two_bus_line_flow_and_injection():
     active flow is sin(0.1)/0.1 pu and the two injections are the sending and receiving ends."""
     r, x = np.array([0.0]), np.array([0.1])
     zeros = np.zeros(1)
-    Y, Yf, Yt = branch_admittances(r, x, zeros, zeros, np.ones(1), zeros, np.ones(1), np.array([[0], [1]]), 2)
+    Y, Yf, Yt = branch_admittances(
+        BranchModel(r, x, zeros, zeros, np.ones(1), zeros), np.array([[0], [1]]), 2
+    )
     V = complex_voltages(np.array([1.0, 1.0]), np.rad2deg(np.array([0.1, 0.0])))
     Sf = branch_flows(V, Yf, np.array([0]))
     S = bus_injections(V, Y)
@@ -40,17 +43,15 @@ def test_branch_flows_stack_matches_single():
     N, E = 5, 7
     ei = np.array([rng.integers(0, N, E), rng.integers(0, N, E)])
     ei[1] = (ei[0] + 1 + rng.integers(0, N - 1, E)) % N  # no self loops
-    Y, Yf, Yt = branch_admittances(
+    branch = BranchModel(
         rng.uniform(0.01, 0.1, E),
         rng.uniform(0.05, 0.5, E),
         np.zeros(E),
         np.zeros(E),
         np.ones(E),
         np.zeros(E),
-        np.ones(E),
-        ei,
-        N,
     )
+    Y, Yf, Yt = branch_admittances(branch, ei, N)
     V = complex_voltages(rng.uniform(0.95, 1.05, (3, N)), rng.uniform(-5, 5, (3, N)))
     stack = branch_flows(V, Yf, ei[0], 100.0)
     for t in range(3):
@@ -62,19 +63,11 @@ def test_loader_admittances_match_kernel(shard):
 
     ds = fg.load(shard)
     p = ds._phys
+    branch = BranchModel(
+        p["edge_r"], p["edge_x"], p["edge_b"], p["edge_g"], p["edge_tap"], p["edge_shift"], p["edge_status"]
+    )
     Y, Yf, Yt = branch_admittances(
-        p["edge_r"],
-        p["edge_x"],
-        p["edge_b"],
-        p["edge_g"],
-        p["edge_tap"],
-        p["edge_shift"],
-        p["edge_status"],
-        ds.edge_index_np,
-        ds.N,
-        p["bus_shunt_g"],
-        p["bus_shunt_b"],
-        ds.baseMVA,
+        branch, ds.edge_index_np, ds.N, p["bus_shunt_g"], p["bus_shunt_b"], ds.baseMVA
     )
     assert np.array_equal(Y, ds.ybus_np) and np.array_equal(Yf, ds.yf_np) and np.array_equal(Yt, ds.yt_np)
 

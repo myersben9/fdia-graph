@@ -1,7 +1,7 @@
 """The AC network model: branch admittances, bus injections and branch flows [AE04, ch. 2], [MP19].
 
-These are the one implementation of the measurement function h(x) the generator, the loader and
-the state estimator share. The estimator's torch twin (fdia_graph.se.base.SEBase._h_t) exists only
+This is the one implementation of the measurement function h(x) that the generator, the loader
+and the state estimator share. The estimator's torch twin (fdia_graph.se.base.SEBase._h_t) exists only
 because the Jacobian is taken by automatic differentiation; tests/test_formulas.py pins it to the
 functions here.
 
@@ -13,7 +13,7 @@ generator and the loader always used.
 
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Any, NamedTuple, Optional, Tuple
 
 import numpy as np
 
@@ -42,18 +42,24 @@ def series_admittance(r: np.ndarray, x: np.ndarray) -> np.ndarray:
     return ys
 
 
+class BranchModel(NamedTuple):
+    """The per-branch pi model [MP19], one entry per branch, per unit; the shapes a shard stores."""
+
+    r: np.ndarray  # series resistance
+    x: np.ndarray  # series reactance
+    b: np.ndarray  # charging susceptance
+    g: np.ndarray  # charging conductance (transformer iron losses)
+    tap: np.ndarray  # turns ratio, 1 (or 0, read as 1) for lines
+    shift_deg: np.ndarray  # phase shift in degrees
+    status: Optional[np.ndarray] = None  # 1 in service, 0 out; None = all in service
+
+
 def branch_admittances(
-    r: np.ndarray,
-    x: np.ndarray,
-    b: np.ndarray,
-    g: np.ndarray,
-    tap: np.ndarray,
-    shift_deg: np.ndarray,
-    status: np.ndarray,
+    branch: BranchModel,
     edge_index: np.ndarray,
     n_bus: int,
-    bus_shunt_g: Any = None,
-    bus_shunt_b: Any = None,
+    bus_shunt_g: Optional[np.ndarray] = None,
+    bus_shunt_b: Optional[np.ndarray] = None,
     base_mva: float = 100.0,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Ybus [N, N], Yf [E, N] and Yt [E, N] from the per-branch pi model [MP19, makeYbus].
@@ -66,16 +72,16 @@ def branch_admittances(
         y_tt = y_s + (g + j b) / 2
         y_ff = y_tt / (tap * conj(tap)),  y_ft = -y_s / conj(tap),  y_tf = -y_s / tap
 
-    r, x, b, g, tap, shift_deg, status : [E] per-branch physics; a zero tap entry reads as unity
+    branch     : the per-branch physics, a BranchModel
     edge_index : [2, E] from-bus and to-bus of every branch, in the bus order of the outputs
     returns    : (Ybus, Yf, Yt), complex128
     """
-    E = len(r)
-    stat = np.ones(E) if status is None else np.asarray(status, np.float64)
-    ys = stat * series_admittance(r, x)
-    bc = stat * (np.asarray(g, np.float64) + 1j * np.asarray(b, np.float64))
-    tap = np.asarray(tap, np.float64)
-    t = np.where(tap == 0.0, 1.0, tap) * np.exp(1j * np.pi / 180 * np.asarray(shift_deg, np.float64))
+    E = len(branch.r)
+    stat = np.ones(E) if branch.status is None else np.asarray(branch.status, np.float64)
+    ys = stat * series_admittance(branch.r, branch.x)
+    bc = stat * (np.asarray(branch.g, np.float64) + 1j * np.asarray(branch.b, np.float64))
+    tap = np.asarray(branch.tap, np.float64)
+    t = np.where(tap == 0.0, 1.0, tap) * np.exp(1j * np.pi / 180 * np.asarray(branch.shift_deg, np.float64))
     ytt = ys + bc / 2
     yff = ytt / (t * np.conj(t))
     yft = -ys / np.conj(t)
