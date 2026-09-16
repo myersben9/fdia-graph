@@ -8,9 +8,10 @@ the public API, the generated files and the numbers are the same as the previous
 Readability series, step 1 (docs/READABILITY_PLAN.md): the safety net. No user-visible change.
 
 - `tests/test_frozen.py`: a generated shard, a generated stream, and the estimator and localizer
-  scores on the test shard are compared with frozen references (`tests/frozen/`), exactly in
-  strict mode and to 1e-7 otherwise. `tools/freeze_reference.py` rewrites the references when a
-  change to the generator or an estimator is intended.
+  scores on the test shard are compared with frozen references (`tests/frozen/`): exactly in
+  strict mode; otherwise arrays to 1e-7 relative and estimator and localizer scores to 1e-4
+  relative, the cross-platform tolerances the test module documents. `tools/freeze_reference.py`
+  rewrites the references when a change to the generator or an estimator is intended.
 - `tools/readability.py`: the readability measures (complexity, nesting, closures, parameters,
   positional indexing) as a report over the package and as a gate on the functions a change
   touched; runs in CI.
