@@ -3,7 +3,14 @@
 Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.
 
-## Unreleased
+## 0.16.0
+
+The readability and data-models series (PRs #64 to #72). What a user sees: every dict the package
+returns is now a typed bundle with attributes and a docstring, still the same dict with the same
+keys; every model lives in `fdia_graph.models`; the generator's old attribute names warn. Shards,
+streams and every score are bit-identical to 0.15.0 (the strict frozen tests are the proof), no
+data release moves, and no import path changes. The entries below are in the order the steps
+merged, newest first within each series.
 
 Data models, steps 1 and 2 (docs/DATA_MODELS_PLAN.md). No user-visible change; one deprecation.
 
