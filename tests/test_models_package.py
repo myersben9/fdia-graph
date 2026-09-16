@@ -1,5 +1,5 @@
 """Every data model lives in fdia_graph.models (data models plan, step 5): the package names them
-all, they are defined nowhere else, and the package depends on nothing but numpy and typing."""
+all, they are defined nowhere else, and its own modules depend on nothing but numpy and typing."""
 
 import ast
 import importlib
@@ -50,8 +50,7 @@ def test_all_names_every_model_and_public_is_a_subset():
 
 
 def test_package_imports_only_numpy_and_typing():
-    """Models never import a producer, so no import cycle is possible and the package loads without
-    torch, pandapower or h5py."""
+    """Models never import a producer, so no import cycle is possible."""
     allowed = {"__future__", "dataclasses", "typing", "numpy"}
     for info in pkgutil.iter_modules(models.__path__):
         tree = ast.parse(open(os.path.join(SRC, "models", info.name + ".py"), encoding="utf8").read())

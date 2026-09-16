@@ -2,9 +2,10 @@
 
 Grouped by what the data is: `grid` (the static system), `frames` (what the generators pass
 around per scan), `data` (what a user gets back), `scores` (result tables), `assets` (how files
-are found). Models import only numpy and typing, so this package imports without torch,
-pandapower or h5py. Every model is also importable from the module that produces it, which is
-where it used to be defined.
+are found). The package's own modules import only numpy, typing and dataclasses, so no model
+depends on a producer and no import cycle is possible (importing it still runs the parent
+package, loader and h5py included). Every model is also importable from the module that
+produces it, which is where it used to be defined.
 
 PUBLIC names the bundles a user receives from the public API; the data dictionary lists those.
 """

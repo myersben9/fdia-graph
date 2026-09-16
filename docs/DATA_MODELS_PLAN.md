@@ -182,7 +182,7 @@ by the loop next to them, so they stay beside it.
 1. **Models import only numpy and typing** (`models/data.py` may import `Bundle` from `base`,
    `models/scores.py` may import `ErrorPair` and the metric rows from itself). Producers import
    from `models`; nothing under `models/` imports a producer. Import cycles are therefore
-   impossible, and the package can be imported without torch, pandapower or h5py.
+   impossible. (The parent package still imports the loader, h5py included, on any import.)
 2. **Every old import path keeps working.** Each producer module re-exports the names it used to
    define (`from .models.data import Stream` at the top of `streams.py`, and so on), so
    `from fdia_graph.streams import Stream`, `from fdia_graph.se.base import TrueState`,
@@ -191,10 +191,10 @@ by the loop next to them, so they stay beside it.
 3. **A test keeps it from scattering again.** `tests/test_models_package.py` walks every module of
    the package and fails if a `Bundle` subclass or a `NamedTuple` with a public name is defined
    outside `models/`. It also checks that `fdia_graph.models.__all__` names every one of them, and
-   that importing `fdia_graph.models` pulls in no producer module.
-4. **The data dictionary follows the package.** `tools/models_doc.py` iterates
-   `fdia_graph.models.__all__` for the public bundles instead of its hand-kept list, in the file
-   order above.
+   that no module under `models/` imports anything but numpy, typing and dataclasses.
+4. **The data dictionary follows the package.** `fdia_graph.models.PUBLIC` names the bundles a
+   user receives (`__all__` also holds the internal models and `Bundle`); `tools/models_doc.py`
+   iterates `PUBLIC` instead of its hand-kept list.
 5. **No behaviour change.** The strict frozen tests, pyright and the readability gate are the
    proof, as in every step before.
 
