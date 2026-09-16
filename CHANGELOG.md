@@ -8,7 +8,7 @@ the public API, the generated files and the numbers are the same as the previous
 - State estimation no longer needs torch: `formulas.network.ac_measurement` is the estimator's
   h(x) and `ac_jacobian` its closed-form Jacobian (equal to the automatic-differentiation Jacobian
   to 1e-14), so `fit` takes no gradient; torch, when installed, only speeds up the per-record
-  inverses. The frozen estimator scores moved by at most 2.7e-6 relative (six of 56 cells above
+  inverses, and the `[se]` extra no longer installs it. The frozen estimator scores moved by at most 2.7e-6 relative (six of 56 cells above
   1e-9, all in the Huber arm, whose passes amplify last-bit differences in h); shards, streams
   and every other score are bit-identical. The torch twin `SEBase._h_t` stays for callers that
   differentiate through it.
