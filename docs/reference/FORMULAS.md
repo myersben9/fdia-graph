@@ -34,13 +34,13 @@ objects); one test checks it on a case small enough to verify by hand.
 
 | formula | function | equation | source | used by |
 |---|---|---|---|---|
-| swing z-score | *today:* inline in `generation.generate._fin` and `streams.generate_stream._store`; planned `formulas.temporal.swing_zscore` | swing = (P_t − P_{t−1}) / scale_t | [FED26] | the swing feature of every shard and stream, `SwingThreshold` |
-| recent-change scale | *today:* prefix-sum loop in `generation.generate` and `streams._swing_scale`; planned `formulas.temporal.recent_change_scale` | scale_t = std over [t − W, t) of the one-step change, floor 1e-3 | [FED26] | the swing feature |
-| temporal delta | *today:* inline in the same two places; planned `formulas.temporal.temporal_delta` | delta_t = z_t − z_{t−1} at injection-metered buses | [FED26] | the temporal_delta feature, `DeltaThreshold` |
+| swing z-score and temporal delta | `generation._record_features` (shards) and `streams._StreamBuffers.store` (streams, against the previous emitted frame); planned `formulas.temporal.swing_zscore`, `temporal_delta` | delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t | [FED26] | the swing and temporal_delta features, `SwingThreshold`, `DeltaThreshold` |
+| recent-change scale | `generation._swing_scale` (shared by shards and streams); planned `formulas.temporal.recent_change_scale` | scale_t = std over [t − W, t) of the one-step change, floor 1e-3 | [FED26] | the swing feature |
+| replay policy | `engine.records.replay_frame` | fixed lag tau, else a random lag of at least 20 scans, else the oldest scan | [DAT26] | the Ar and As families |
 | AC measurement function | *today:* `engine.measurement.emit_from_state`, `se.base.SEBase._h_t`, `dataset._admittances` docstring; planned `formulas.network.ac_measurement` | S = V ∘ conj(Y V), S_f = V_from ∘ conj(Y_f V) | [AE04, ch. 2] | generation, streams, every estimator |
 | series admittance | *today:* inline in `engine.core.FdiaGenerator.__init__`; planned `formulas.network.series_admittance` | y_s = 1 / (r + jx), zero when the branch has no impedance | [MP19, branch model] | the static edge physics |
 | accuracy-class error split | *today:* inline in `FdiaGenerator.__init__`; planned `formulas.noise.bias_jitter_split` | bias² + jitter² = SD², jitter = 0.25 SD | [ASP14], our split | every emitted measurement |
-| ramp profile | *today:* inline in both generators; planned `formulas.attacks.ramp_profile` | dev(i) = rate_up·i for i < rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after | [DAT26] | the At family |
+| ramp profile | `generation._ramp_profile` (shared by shards and streams); planned `formulas.attacks.ramp_profile` | dev(i) = rate_up·i for i < rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after | [DAT26] | the At family |
 | WLS step | *today:* `se.base.SEBase._solve_plain`; planned `formulas.estimation.wls_step` | Δx = (HᵀWH)⁻¹HᵀW (z − h(x)) | [SCH70, part II] | every estimator |
 | normalized residual | *today:* `se.base.SEBase._nres`; planned `formulas.estimation.normalized_residual` | r_N,i = (z_i − h_i(x̂)) / √Ω_ii, Ω = R − H G⁻¹ Hᵀ | [HAN75] | Huber, residual removal, `ResidualLocalizer` |
 | Huber weight | *today:* inline in `se.methods`; planned `formulas.estimation.huber_weights` | a_i = min(1, c / |r_N,i|) | [HUB64] | `AdaptiveWeighting`, `SubspacePrior`, `JacobianWeighting` |

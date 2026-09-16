@@ -5,8 +5,8 @@
 
 A function is measured on five things: cyclomatic complexity (radon), nesting depth of loops and
 branches, nested functions that read variables of the enclosing function, parameter count on
-private functions, and positional record indexing (an integer subscript of 4 or more on a bare
-name, the `r[10]` pattern). The sixth rule of the plan, one copy of every formula, is a review
+private functions, and positional record indexing (a bare name indexed by two or more distinct
+integer constants of 4 or more, the `r[10]`, `r[11]` pattern). The sixth rule of the plan, one copy of every formula, is a review
 rule and is not measured here.
 
 Exceptions: a function listed in EXCEPTIONS with a one-line reason passes the gate. Adding one
@@ -90,7 +90,10 @@ def _captures(inner: ast.FunctionDef, outer_names: Set[str]) -> int:
 
 
 def _positional(fn: ast.AST) -> int:
-    n = 0
+    """Sites where a bare name is indexed by an integer constant of 4 or more, counted only for
+    names indexed at two or more distinct such positions: that is a record tuple read by position
+    (r[10], r[11]); a single site is usually a dict keyed by an id."""
+    sites: Dict[str, Set[int]] = {}
     for s in ast.walk(fn):
         if (
             isinstance(s, ast.Subscript)
@@ -99,8 +102,8 @@ def _positional(fn: ast.AST) -> int:
             and isinstance(s.slice.value, int)
             and s.slice.value >= 4
         ):
-            n += 1
-    return n
+            sites.setdefault(s.value.id, set()).add(s.slice.value)
+    return sum(len(v) for v in sites.values() if len(v) >= 2)
 
 
 def _complexities(path: str) -> Dict[Tuple[str, int], int]:
