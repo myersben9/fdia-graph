@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import NamedTuple, List, Optional, Tuple
 
 import numpy as np
 
 from .base import GridBase
+
+
+class Redistribution(NamedTuple):
+    """A load-redistribution attack: the per-load-bus delta (MW), the attacked load-table positions,
+    and the flow change it induces on the target line (MW)."""
+
+    delta: np.ndarray
+    buses: np.ndarray
+    line_flow_change: float
 
 
 class AttackMixin(GridBase):
@@ -95,7 +104,7 @@ class AttackMixin(GridBase):
 
     def _lra_for_line(
         self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = False, floor: float = 0.02
-    ) -> Optional[Tuple[np.ndarray, np.ndarray, float]]:
+    ) -> Optional[Redistribution]:
         # Load Redistribution Attack for target line L: a load-injection delta that is LOAD-CONSERVING (total
         # unchanged -> looks like normal re-dispatch), PER-BUS BOUNDED (|delta_b| <= rel*|Lp_b|), and steers
         # line-L flow via PTDF. rand=True picks buses from the top-2K high-PTDF candidates (varies per record,
@@ -127,7 +136,7 @@ class AttackMixin(GridBase):
         d[pos] = up
         d[neg] = -dn
         # Return (delta, attacked-bus indices, achieved line-L flow change = -sum(PTDF*delta)).
-        return d, np.r_[pos, neg], float(-np.sum(pl * d))
+        return Redistribution(d, np.r_[pos, neg], float(-np.sum(pl * d)))
 
     def _pick_side(self, side: np.ndarray, score: np.ndarray, K: int, rand: bool) -> np.ndarray:
         """Rank one PTDF-sign side by score and keep the strongest K, or a random K of the top 2K
@@ -146,22 +155,23 @@ class AttackMixin(GridBase):
         bl = self.base.load.p_mw.values
         # Skip the outaged line explicitly: its PTDF row is zero (ranks last anyway) but its base-case flow is
         # NaN, and a NaN reaching self._sgn would poison every LRA delta on that line.
-        pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl) if L != self.outage_pos]
+        pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl) if L != self.contingency.pos]
         pot = [(L, r) for L, r in pot if r is not None]
-        pot.sort(key=lambda x: -abs(x[1][2]))  # most attackable lines first
+        pot.sort(key=lambda x: -abs(x[1].line_flow_change))  # most attackable lines first
         self._Lcands = [L for L, _ in pot[: min(n_targets, len(pot))]]
         # Sign of each candidate's base flow (fallback +1) so the attack WORSENS existing loading (masks a real
         # overload rather than relieving it).
         self._sgn = {L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._Lcands}
         self._Ltgt = self._Lcands[0]  # default/primary target = most attackable line
 
-    def lra_delta(
-        self, Lp: np.ndarray, rel: float, K: int, floor: float = 0.02
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def lra_delta(self, Lp: np.ndarray, rel: float, K: int, floor: float = 0.02) -> Redistribution:
         L = int(self.rng.choice(self._Lcands))  # random target line per attack
         r = self._lra_for_line(
             L, Lp, rel, K, rand=True, floor=floor
         )  # + randomized bus subset -> not memorizable
         # Apply the base-flow sign so redistribution masks (not relieves) the overload; no feasible delta ->
         # zero delta and empty attacked-bus set (record stays effectively benign).
-        return (r[0] * self._sgn[L], r[1]) if r is not None else (np.zeros_like(Lp), np.array([], int))
+        if r is None:
+            return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0)
+        # The flow change carries the same sign so the model describes the redistribution it holds.
+        return Redistribution(r.delta * self._sgn[L], r.buses, r.line_flow_change * self._sgn[L])

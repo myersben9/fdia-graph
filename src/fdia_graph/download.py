@@ -7,11 +7,14 @@ without one it uses the public releases/download URL directly.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, NamedTuple, Any, Dict, Optional, Tuple
 
 import hashlib
 import os
 import requests
+
+if TYPE_CHECKING:
+    from .registry import AssetSpec
 from tqdm import tqdm  # download progress bar
 from .registry import CACHE_DIR  # ~/.cache/fdia_graph, owned by registry.py
 
@@ -21,13 +24,22 @@ def _token() -> Optional[str]:
     return os.environ.get("FDIA_GRAPH_TOKEN") or os.environ.get("GITHUB_TOKEN")
 
 
-def _asset_url(spec: Dict, session: requests.Session) -> Tuple[str, Dict[str, str]]:
+class DownloadTarget(NamedTuple):
+    """Where the bytes of a release asset are fetched from: the URL and the request headers."""
+
+    url: str
+    headers: Dict[str, str]
+
+
+def _asset_url(spec: "AssetSpec", session: requests.Session) -> DownloadTarget:
     """Resolve a release asset to a download URL. Private repos go through the authenticated GitHub API (find
     the asset id, GET it with Accept: octet-stream); public repos use the plain browser download URL."""
     tok = _token()
     # No token -> PUBLIC: browser download URL serves bytes directly, no auth, no API round-trip.
     if not tok:
-        return f"https://github.com/{spec['repo']}/releases/download/{spec['release']}/{spec['file']}", {}
+        return DownloadTarget(
+            f"https://github.com/{spec['repo']}/releases/download/{spec['release']}/{spec['file']}", {}
+        )
     # PRIVATE: browser URL 404s without a cookie, so go through the REST API.
     # Step 1: look up the release by tag (JSON metadata incl. its assets).
     hdr = {"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json"}
@@ -46,7 +58,9 @@ def _asset_url(spec: Dict, session: requests.Session) -> Tuple[str, Dict[str, st
         )
     # Step 3: return the asset's API url with Accept: octet-stream -> GitHub streams raw bytes (302 to a
     # signed URL) instead of JSON metadata; token authorizes the private asset.
-    return asset["url"], {"Authorization": f"Bearer {tok}", "Accept": "application/octet-stream"}
+    return DownloadTarget(
+        asset["url"], {"Authorization": f"Bearer {tok}", "Accept": "application/octet-stream"}
+    )
 
 
 def _sha256(path: str) -> str:
@@ -70,7 +84,7 @@ def _stream_to_file(session: Any, url: str, headers: Dict[str, str], path: str, 
                 bar.update(len(chunk))
 
 
-def ensure_local(spec: Dict) -> str:
+def ensure_local(spec: "AssetSpec") -> str:
     """Given a registry spec, return a local path to the .h5, downloading it if needed.
     Built-in -> GitHub release asset (cached, sha-verified when known). Local -> the registered path."""
     # LOCAL: spec points at an existing .h5; verify it's there and hand back the path.
@@ -92,8 +106,8 @@ def ensure_local(spec: Dict) -> str:
     tmp = dest + ".part"
     with requests.Session() as session:
         # authenticated API asset endpoint for private repos, plain URL for public; keep the download in the session.
-        url, dl_headers = _asset_url(spec, session)
-        _stream_to_file(session, url, dl_headers, tmp, spec["file"])
+        target = _asset_url(spec, session)
+        _stream_to_file(session, target.url, target.headers, tmp, spec["file"])
     # Integrity gate: verify a pinned sha256 before trusting; on mismatch delete the .part and fail loudly.
     if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
         os.remove(tmp)

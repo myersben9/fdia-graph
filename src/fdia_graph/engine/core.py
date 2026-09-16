@@ -19,10 +19,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ..formulas.network import series_admittance
+from ..formulas.network import BranchModel, series_admittance
 from ..formulas.noise import bias_jitter_split
 from ..registry import system_id
 from .attacks import AttackMixin
+from .base import INTACT, MeterBias, MeterPlan, Outage
 from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
 
@@ -203,14 +204,15 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         # Reusable net for re-solving under attacked loads. Apply the contingency here too, else attacked
         # records solve on the INTACT network while benign came from the post-contingency one.
         self._solvenet = self.NET()
-        if self.outage is not None:
-            self._solvenet.line.at[self.outage, "in_service"] = False
+        if self.contingency.line is not None:
+            self._solvenet.line.at[self.contingency.line, "in_service"] = False
         self._meter_bias()
         # Buffer of recent benign records: replay attacks (Ar) copy an earlier clean snapshot from here.
         self.benign_buf = []
 
     def _open_case(self, outage: Optional[Union[int, str]]) -> Any:
-        """The pandapower case with the contingency applied and its base power flow solved.
+        """The pandapower case with the contingency applied and its base power flow solved; sets
+        self.contingency (an Outage, INTACT when no line is opened).
 
         `outage` (line index or name, None = intact) opens the line BEFORE the base power flow, so every
         derived quantity (Ybus, Yf/Yt, PTDF, edge_status, base state, all measurements) is
@@ -220,39 +222,35 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         makePTDF would hit a singular matrix mid-build).
         """
         pp = self.pp
-        self.outage = None
-        self.outage_pos = -1
-        self.outage_name = ""
-        self.outage_from_bus = -1
-        self.outage_to_bus = -1
-        self.outage_base_flow_mw = float("nan")
         base = self.NET()
+        self.contingency = INTACT
         if outage is not None:
-            self.outage = _line_id(base, outage)
+            line = _line_id(base, outage)
             # Record the INTACT flow on the line to be opened, so the shard reports the contingency's size.
             intact = self.NET()
             pp.runpp(intact)
-            self.outage_base_flow_mw = float(intact.res_line.at[self.outage, "p_from_mw"])
-            self.outage_pos = int(base.line.index.get_loc(self.outage))
             # IEEE cases carry no line names (None), so fall back to a "line<idx>" tag.
-            _nm = base.line.at[self.outage, "name"]
-            self.outage_name = (
-                f"line{self.outage}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)
+            _nm = base.line.at[line, "name"]
+            self.contingency = Outage(
+                line=line,
+                pos=int(base.line.index.get_loc(line)),
+                name=(f"line{line}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)),
+                from_bus=int(base.line.at[line, "from_bus"]),
+                to_bus=int(base.line.at[line, "to_bus"]),
+                base_flow_mw=float(intact.res_line.at[line, "p_from_mw"]),
             )
-            self.outage_from_bus = int(base.line.at[self.outage, "from_bus"])
-            self.outage_to_bus = int(base.line.at[self.outage, "to_bus"])
-            base.line.at[self.outage, "in_service"] = False
+            base.line.at[line, "in_service"] = False
             if _n_islands(base) != 1:
                 raise ValueError(
-                    f"line {self.outage} outage splits the grid into {_n_islands(base)} islands; "
+                    f"line {line} outage splits the grid into {_n_islands(base)} islands; "
                     f"screen with line_outage_candidates() before generating"
                 )
         # Solve the (possibly post-contingency) AC power flow for the base operating point.
         pp.runpp(base)
-        if self.outage is not None:
+        if self.contingency.line is not None:
             n_iso = int((base._ppc["bus"][:, 1].real == 4).sum())
             if n_iso:
-                raise ValueError(f"line {self.outage} outage leaves {n_iso} isolated bus(es)")
+                raise ValueError(f"line {self.contingency.line} outage leaves {n_iso} isolated bus(es)")
         return base
 
     def _load_tables(self, base: Any) -> None:
@@ -286,16 +284,15 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.load_genP = np.array([genP.get(int(b), 0.0) for b in self.load_bus])
 
     def _meter_plan(self, base: Any, vbus_frac: float, pmu_frac: float, flow_frac: float) -> None:
-        """The sparse metering plan, sampled once: vbus = voltage-magnitude meters, pmu = |V| + angle
-        meters, inj = metered P/Q injection buses (all injection buses), and a per-branch flow-meter
-        mask with fraction flow_frac. Three draws from the seeded RNG, in this order."""
+        """The sparse metering plan, sampled once (self.meters, a MeterPlan): vbus = voltage-magnitude
+        meters, pmu = |V| + angle meters, inj = metered P/Q injection buses (all injection buses), and
+        a per-branch flow-meter mask with fraction flow_frac. Three draws from the seeded RNG, in this
+        order."""
         C = self.C
-        self.M = dict(
-            vbus=set(self.rng.choice(C, int(vbus_frac * C), replace=False).tolist()),
-            pmu=set(self.rng.choice(C, max(1, int(pmu_frac * C)), replace=False).tolist()),
-            inj=self._inj_buses,
-        )
-        self.flow_meter = self.rng.random(len(base.line) + len(base.trafo)) < flow_frac
+        vbus = set(self.rng.choice(C, int(vbus_frac * C), replace=False).tolist())
+        pmu = set(self.rng.choice(C, max(1, int(pmu_frac * C)), replace=False).tolist())
+        flow = self.rng.random(len(base.line) + len(base.trafo)) < flow_frac
+        self.meters = MeterPlan(vbus, pmu, self._inj_buses, flow)
 
     def _edge_index(self, base: Any) -> None:
         """Edge index (2 x E): row 0 = from-bus, row 1 = to-bus; lines use from/to, transformers hv/lv,
@@ -329,18 +326,20 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         _br = ppc["branch"]
         _tap = _br[:, 8].real.astype(np.float64).copy()
         _tap[_tap == 0] = 1.0  # PYPOWER reads a zero tap entry as unity
-        self.edge_r = _br[:, 2].real.astype(np.float64)  # series resistance, p.u.
-        self.edge_x = _br[:, 3].real.astype(np.float64)  # series reactance, p.u.
-        self.edge_b = _br[:, 4].real.astype(np.float64)  # charging susceptance, p.u.
-        self.edge_g = _br[:, 23].real.astype(np.float64)  # charging conductance, p.u. (iron losses)
+        self.branch = BranchModel(
+            r=_br[:, 2].real.astype(np.float64),  # series resistance, p.u.
+            x=_br[:, 3].real.astype(np.float64),  # series reactance, p.u.
+            b=_br[:, 4].real.astype(np.float64),  # charging susceptance, p.u.
+            g=_br[:, 23].real.astype(np.float64),  # charging conductance, p.u. (iron losses)
+            tap=_tap,  # transformer turns ratio, 1.0 for lines
+            shift_deg=_br[:, 9].real.astype(np.float64),  # phase shift, degrees
+            status=_br[:, 10].real.astype(np.float64),  # 1 in service, 0 out
+        )
         # Series admittance g_s + j b_s = 1 / (r + jx): the admittance form of the branch, so the edge set
         # carries admittance directly, not just impedance (formulas.network.series_admittance).
-        _ys = series_admittance(self.edge_r, self.edge_x)
+        _ys = series_admittance(self.branch.r, self.branch.x)
         self.edge_gs = np.real(_ys).astype(np.float64)  # series conductance, p.u.
         self.edge_bs = np.imag(_ys).astype(np.float64)  # series susceptance, p.u. (negative for inductive)
-        self.edge_tap = _tap  # transformer turns ratio, 1.0 for lines
-        self.edge_shift = _br[:, 9].real.astype(np.float64)  # phase shift, degrees
-        self.edge_status = _br[:, 10].real.astype(np.float64)  # 1 in service, 0 out
         self.edge_is_trafo = np.r_[np.zeros(self.nl), np.ones(self.E - self.nl)].astype(np.float64)
         self.bus_shunt_g = ppc["bus"][:, 4].real.astype(np.float64)
         self.bus_shunt_b = ppc["bus"][:, 5].real.astype(np.float64)
@@ -367,16 +366,19 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self._ptdf_lb = self._ptdf[:, [self._lut[b] for b in range(C)]][:, self.load_bus]
 
     def _meter_bias(self) -> None:
-        """The per-meter SYSTEMATIC bias, drawn ONCE (constant across scans; relative for P/Q and flows,
-        absolute for V and angle): the slow part of the accuracy-class error. The per-scan jitter
-        (self.SDj) is added fresh at emit. Six draws from the seeded RNG, after the meter plan."""
-        sb = self._sd_bias
-        self.bias_pi = self.rng.normal(0, sb["pi"], self.C)
-        self.bias_qi = self.rng.normal(0, sb["qi"], self.C)
-        self.bias_v = self.rng.normal(0, sb["v"], self.C)
-        self.bias_va = self.rng.normal(0, sb["va"], self.C)
-        self.bias_pf = self.rng.normal(0, sb["pf"], self.E)
-        self.bias_qf = self.rng.normal(0, sb["qf"], self.E)
+        """The per-meter SYSTEMATIC bias, drawn ONCE (self.bias, a MeterBias): constant across scans,
+        relative for P/Q and flows, absolute for V and angle, the slow part of the accuracy-class error.
+        The per-scan jitter (self.SDj) is added fresh at emit. Six draws from the seeded RNG, after the
+        meter plan, in this order."""
+        sb, C, E = self._sd_bias, self.C, self.E
+        self.bias = MeterBias(
+            pi=self.rng.normal(0, sb["pi"], C),
+            qi=self.rng.normal(0, sb["qi"], C),
+            v=self.rng.normal(0, sb["v"], C),
+            va=self.rng.normal(0, sb["va"], C),
+            pf=self.rng.normal(0, sb["pf"], E),
+            qf=self.rng.normal(0, sb["qf"], E),
+        )
 
     def centrality_probs(self, strength: float = 1.5) -> np.ndarray:
         """Sampling probability over attackable positions, biased toward structurally CRITICAL buses.

@@ -12,9 +12,13 @@ clean layer supplies the truth) loaded with units="physical" (the default).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
+
+from ..models import Bundle
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -47,6 +51,15 @@ def _scipy_linalg():
         return scipy.linalg
     except ImportError as e:
         raise ImportError("state estimation needs scipy: pip install 'fdia-graph[se]'") from e
+
+
+@dataclass(frozen=True, eq=False)
+class TrueState(Bundle):
+    """The true state of a batch of records from the clean layer: x [n, 2N-1] = [theta (rad, non-slack)
+    | V (pu, every bus)] and the slack angle reference thsl [n] (rad) the solver pins."""
+
+    x: np.ndarray
+    thsl: np.ndarray
 
 
 class SEBase:
@@ -150,13 +163,10 @@ class SEBase:
         )
         return z[:, self.mask].astype(np.float64)
 
-    def _truth_of(self, clean: np.ndarray) -> Dict[str, np.ndarray]:
+    def _truth_of(self, clean: np.ndarray) -> "TrueState":
         # clean [n,N,4] = [V, P, Q, theta] physical -> true 2N-1 state + slack angle reference
         x = np.concatenate([np.deg2rad(clean[:, self.keep, 3]), clean[:, :, 0]], axis=1)
-        return {
-            "x": x.astype(np.float64),
-            "thsl": np.deg2rad(clean[:, self.slack, 3]).astype(np.float64),
-        }
+        return TrueState(x.astype(np.float64), np.deg2rad(clean[:, self.slack, 3]).astype(np.float64))
 
     # ---- fitting ----------------------------------------------------------------------------
     def fit(self, ds: "FdiaGraph", n_calib: int = 600) -> "SEBase":

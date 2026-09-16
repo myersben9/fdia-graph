@@ -5,6 +5,18 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+Data models, steps 1 and 2 (docs/DATA_MODELS_PLAN.md). No user-visible change; one deprecation.
+
+- `fdia_graph.models.Bundle`: the base of typed records, a frozen dataclass that is also a read-only
+  mapping, so a bundle works wherever a dict did.
+- Internal tuples and dicts are models: `Scan`, `TrueState`, `Redistribution`, `ResolvedPool`,
+  `Admittances` (also returned by `formulas.network.branch_admittances`), `AssetSpec` (returned by
+  `registry.resolve`, indexable as before), `DownloadTarget`, `ShardArrays`.
+- `FdiaGenerator` holds `branch`, `meters`, `bias` and `contingency` models. Deprecated: the previous
+  attribute names (`edge_r` ... `edge_status`, `M`, `flow_meter`, `bias_pi` ... `bias_qf`, `outage`,
+  `outage_pos` ... `outage_base_flow_mw`) still work as read-only properties and warn; they are
+  removed one minor version later.
+
 Readability series, steps 6 and 7 (docs/READABILITY_PLAN.md): the temporal and ramp formulas in
 the kernel, and the rest of the backlog. No user-visible change (bit-identical shards and
 streams, identical estimator and localizer scores).

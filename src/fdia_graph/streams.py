@@ -43,6 +43,7 @@ from .formulas.attacks import ramp_profile
 from .formulas.temporal import swing_zscore, temporal_delta
 from .generation import _FrameContext, _load_states, NOISE_FLOOR
 from .generation import _swing_scale as _generation_swing_scale
+from .registry import AssetSpec
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
 # families persist for a shorter, variable window. Benign gaps are drawn from the same overall scale so the
@@ -247,10 +248,20 @@ def _stream_result(
     # [E,8] line features (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame.
     edge_index = np.asarray(g.ei, dtype=np.int64)
     edge_attr = np.stack(
-        [g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs, g.edge_tap, g.edge_shift], axis=1
+        [
+            g.branch.r,
+            g.branch.x,
+            g.branch.b,
+            g.branch.g,
+            g.edge_gs,
+            g.edge_bs,
+            g.branch.tap,
+            g.branch.shift_deg,
+        ],
+        axis=1,
     ).astype(np.float32)
     # Static availability masks (which channels carry a meter), the same sparse plan every frame.
-    _bnx, node_m, _bex, edge_m = g.emit_from_state(X[0])
+    masks = g.emit_from_state(X[0])  # the same sparse plan every frame
     result: Dict[str, Any] = dict(
         node_x=buf.node_x,
         benign=buf.benign,
@@ -260,8 +271,8 @@ def _stream_result(
         edge_clean=buf.edge_clean,
         edge_index=edge_index,
         edge_attr=edge_attr,
-        node_m=node_m.astype(np.uint8),
-        edge_m=edge_m.astype(np.uint8),
+        node_m=masks.node_m.astype(np.uint8),
+        edge_m=masks.edge_m.astype(np.uint8),
         y=buf.y,
         family=buf.family,
         temporal_delta=buf.temporal_delta,
@@ -326,17 +337,10 @@ def generate_stream(
 _GRAPH_KEYS = ("edge_index", "edge_attr", "node_m", "edge_m")  # PyG-ready graph + static meter masks
 
 
-def _asset_spec(name: str, file: str, release: Optional[str]) -> Dict[str, Any]:
+def _asset_spec(name: str, file: str, release: Optional[str]) -> AssetSpec:
     from .registry import _REPO, STREAM_RELEASE
 
-    return {
-        "kind": "builtin",
-        "name": name,
-        "file": file,
-        "release": release or STREAM_RELEASE,
-        "repo": _REPO,
-        "sha256": None,
-    }
+    return AssetSpec("builtin", name, file=file, release=release or STREAM_RELEASE, repo=_REPO)
 
 
 def _attach_graph_sidecar(out: Dict[str, Any], C: int, release: Optional[str]) -> None:

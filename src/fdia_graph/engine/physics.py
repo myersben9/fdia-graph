@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import NamedTuple, Any, Dict, Optional, Tuple
 
 import numpy as np
 
 from .base import GridBase
 
 
+class ResolvedPool(NamedTuple):
+    """A pool re-solved under this generator's topology: the states [T', N, 4] and the boolean mask
+    of the pool timesteps that converged (T' = mask.sum())."""
+
+    states: np.ndarray
+    converged: np.ndarray
+
+
 class PhysicsMixin(GridBase):
     """Re-solve the grid under attacked/redistributed loads. Mixed into FdiaGenerator."""
 
-    def resolve_states(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def resolve_states(self, X: np.ndarray) -> "ResolvedPool":
         """Re-solve a pool of operating points [T,N,4] under THIS generator's topology.
 
         A stored state carries the injections AND the voltages the INTACT network produced. Under a
@@ -42,7 +50,7 @@ class PhysicsMixin(GridBase):
                 continue
             out[t] = s
             ok[t] = True
-        return out, ok
+        return ResolvedPool(out, ok)
 
     def _pin_generation(self, net: Any, Lp: np.ndarray, base_load: np.ndarray, Xt: np.ndarray) -> None:
         """Hold every generator at the TRUE dispatch of the unattacked state and spread the attack's net
