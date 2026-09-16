@@ -19,7 +19,7 @@ Research knobs (all optional, sensible defaults matching the published shards):
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import glob
 import os
@@ -183,7 +183,7 @@ def _record_features(nx: np.ndarray, nm: np.ndarray, prev: np.ndarray, scale_t: 
     return td, sw
 
 
-def _make_record(ctx: _FrameContext, t: int, family: int, sid: int, atk: Any) -> Optional[Tuple]:
+def _make_record(ctx: _FrameContext, t: int, family: int, sid: int, atk: Any) -> Optional[Record]:
     """One record of `family` on pool timestep t through the shared per-frame physics
     (engine.records), finished with its temporal features. sid = ramp sequence id (-1 otherwise),
     atk = (load-table positions, multiplier). None when the scan was rejected."""
@@ -199,7 +199,7 @@ def _make_record(ctx: _FrameContext, t: int, family: int, sid: int, atk: Any) ->
         mf[frame.mag_bus] = frame.mag
         yb = frame.y.astype(bool)
         ctx.mag_log.append((family, mf[yb], np.abs(sw[yb]).max(1)))
-    return (
+    return Record(
         frame.node_x,
         frame.node_m,
         frame.edge_x,
@@ -230,7 +230,7 @@ def _draw_targets(
     return a, 1 + rng.uniform(0.05, intensity)
 
 
-def _draw_benign(ctx: _FrameContext, rng: np.random.Generator, n_benign: int) -> List[Tuple]:
+def _draw_benign(ctx: _FrameContext, rng: np.random.Generator, n_benign: int) -> List[Record]:
     """n_benign records on distinct pool timesteps, in draw order."""
     nT = len(ctx.X)
     recs = []
@@ -249,7 +249,7 @@ def _draw_single_shot(
     attempts count is the honest measure of how hard the topology is to attack."""
     apos = ctx.g.attackable_pos  # targets come only from attackable positions (real active load)
     nT = len(ctx.X)
-    recs: List[Tuple] = []
+    recs: List[Record] = []
     got = tries = 0
     while got < per_family and tries < per_family * 25:
         tries += 1
@@ -276,7 +276,7 @@ def _ramp_sequence(
     rate_down = ramp_rate * rng.uniform(0.7, 1.3)  # independent slopes
     rise_len = max(1, int(rng.uniform(0.20, 0.45) * ramp_len))  # steps ramping to the peak/trough
     hold_len = int(rng.uniform(0.0, 0.25) * ramp_len)  # steps held at the peak (0 = no plateau)
-    seq: List[Tuple] = []
+    seq: List[Record] = []
     steps = 0
     for i in range(ramp_len):
         steps += 1
@@ -293,7 +293,7 @@ def _draw_ramps(
 ):
     """Ramp sequences until about per_family records; a sequence counts only if at least 10 steps
     solved. Returns (records, (steps solved, accepted)): attempts minus accepted is what was thrown away."""
-    recs: List[Tuple] = []
+    recs: List[Record] = []
     got = steps = sid = 0
     while got < per_family:
         seq, solved = _ramp_sequence(ctx, rng, sid, ramp_len, ramp_rate, p)
@@ -316,7 +316,7 @@ def _draw_families(
     """Every attacked family in the fixed draw order (single-shot families 1, 2, 3, 4, 6, then the
     ramp), so the RNG sequence, and with it the shard, stays identical release to release.
     Returns (records, {family: (attempts, accepted)})."""
-    recs: List[Tuple] = []
+    recs: List[Record] = []
     yield_: Dict[int, Tuple[int, int]] = {}
     for fam in [k for k in SINGLE_SHOT_ORDER if k in fam_ids]:
         got, yield_[fam] = _draw_single_shot(ctx, rng, fam, per_family, p)
@@ -411,155 +411,165 @@ def generate(
     return out
 
 
+class Record(NamedTuple):
+    """One finished shard record: the emitted scan, its labels and ids, and its two temporal features."""
+
+    node_x: np.ndarray  # [N, 4] |V|, P_inj, Q_inj, theta (physical units), zero where unmetered
+    node_m: np.ndarray  # [N, 4] meter mask
+    edge_x: np.ndarray  # [E, 2] P_from, Q_from
+    edge_m: np.ndarray  # [E, 2] meter mask
+    y: np.ndarray  # [N] per-bus attack label
+    family: int  # attack family id (0 benign)
+    seq_id: int  # ramp sequence id, -1 otherwise
+    timestep: int  # pool timestep the record was built on
+    gap: int  # 1 for a gap (skipped scan) record, else 0
+    stealthy: int  # 1 when the scan is a re-solved state
+    temporal_delta: np.ndarray  # [N, 2] injection change vs the previous pool scan
+    swing: np.ndarray  # [N, 2] that change as a z-score of the bus's typical recent change
+
+
+_CHUNK_ROWS = 128  # per-record datasets are chunked along the record axis for efficient partial reads
+
+
+def _stack_records(recs: List[Record]) -> Dict[str, np.ndarray]:
+    """The record tuples as [T, ...] arrays, scalar fields with dtypes sized to their range."""
+    return dict(
+        node_x=np.stack([r.node_x for r in recs]),
+        node_m=np.stack([r.node_m for r in recs]),
+        edge_x=np.stack([r.edge_x for r in recs]),
+        edge_m=np.stack([r.edge_m for r in recs]),
+        y=np.stack([r.y for r in recs]),
+        temporal_delta=np.stack([r.temporal_delta for r in recs]),
+        swing=np.stack([r.swing for r in recs]),
+        family=np.array([r.family for r in recs], np.int8),
+        seq_id=np.array([r.seq_id for r in recs], np.int32),
+        timestep=np.array([r.timestep for r in recs], np.int32),
+        gap=np.array([r.gap for r in recs], np.uint8),
+        stealthy=np.array([r.stealthy for r in recs], np.uint8),
+    )
+
+
+def _shard_attrs(
+    g: "FdiaGenerator", n_records: int, seed: int, solve_stats: Optional[Tuple[Dict, Dict]]
+) -> Dict[str, Any]:
+    """File attributes: dims, feature legends, units, the family legend, topology provenance, yield.
+
+    Units are ENGINEERING quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows
+    MW/MVAr); baseMVA lets the loader also serve a per-unit view. Topology: "base" = intact,
+    "n1_line" = one line out for every record, with the contingency's size (outage_base_flow_mw) so
+    a shard is self-describing. solve_yield = "famid:attempts/accepted" per family, the drop rate.
+    """
+    attrs = dict(
+        system=g.C,
+        N=g.C,
+        E=g.E,
+        n_records=n_records,
+        node_feat="V,P_inj,Q_inj,theta",
+        edge_feat="P_from,Q_from",
+        node_units="V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
+        edge_units="P_from:MW,Q_from:MVAr",
+        baseMVA=float(g.base.sn_mva),
+        families="0benign,1Aq,2Ad,3As,4Ar,5At,6Al",
+        lra_target_line=g._Ltgt,
+        seed=seed,
+        topology=("base" if g.outage is None else "n1_line"),
+        outage_line=(-1 if g.outage is None else int(g.outage)),
+        outage_branch_pos=int(g.outage_pos),
+        outage_line_name=g.outage_name,
+        outage_from_bus=int(g.outage_from_bus),
+        outage_to_bus=int(g.outage_to_bus),
+        outage_base_flow_mw=float(g.outage_base_flow_mw),
+    )
+    if solve_stats is not None:
+        tried, taken = solve_stats
+        attrs["solve_yield"] = ",".join(f"{k}:{tried[k]}/{taken[k]}" for k in sorted(tried))
+    return attrs
+
+
+def _write_graph(f: Any, g: "FdiaGenerator") -> None:
+    """graph/ group: the static topology shared by all records, including the full per-unit branch
+    physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
+    and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics."""
+    gg = f.create_group("graph")
+    gg.create_dataset("edge_index", data=g.ei)
+    # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for trafos). Kept for v0.4.x readers.
+    gg.create_dataset("edge_reactance", data=g.x_react)
+    for name in (
+        "edge_r",
+        "edge_x",
+        "edge_b",
+        "edge_g",
+        "edge_gs",
+        "edge_bs",
+        "edge_tap",
+        "edge_shift",
+        "edge_status",
+        "edge_is_trafo",
+        "bus_shunt_g",
+        "bus_shunt_b",
+    ):
+        gg.create_dataset(name, data=getattr(g, name))
+    gg.attrs.update(
+        dict(
+            edge_feat_static="r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
+            bus_feat_static="shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
+            edge_reactance_deprecated="mixes ohms (lines) with vk_percent (trafos); use edge_x",
+            ybus_reconstructible="yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
+        )
+    )
+
+
+def _chunked(group: Any, name: str, data: np.ndarray) -> None:
+    """A per-record dataset chunked along the record axis (at most _CHUNK_ROWS rows) and gzipped."""
+    ch = (min(_CHUNK_ROWS, len(data)),) + data.shape[1:]
+    group.create_dataset(name, data=data, chunks=ch, compression="gzip", compression_opts=4)
+
+
+def _write_data(f: Any, arrays: Dict[str, np.ndarray], split_code: np.ndarray) -> None:
+    """data/ group: the per-record tensors and the scalar fields (including the split)."""
+    d = f.create_group("data")
+    for name in ("node_x", "edge_x", "temporal_delta", "swing"):
+        _chunked(d, name, arrays[name])
+    for name in ("node_m", "edge_m", "y"):
+        d.create_dataset(name, data=arrays[name], compression="gzip")
+    for name in ("family", "seq_id", "timestep", "gap", "stealthy"):
+        d.create_dataset(name, data=arrays[name])
+    d.create_dataset("split", data=split_code)
+
+
+def _write_clean(f: Any, g: "FdiaGenerator", pool: np.ndarray, timestep: np.ndarray) -> None:
+    """clean/ group (v0.7.2+): the NOISELESS attack-free truth per POOL timestep (the SE target),
+    resolved per record via data/timestep; the same layer the streams ship. node_clean is the pool
+    itself (already in node_x column order); edge_clean = exact Ybus flows, unmetered zeroed."""
+    Xp = np.asarray(pool, np.float64)[: int(timestep.max()) + 1]
+    cg = f.create_group("clean")
+    _chunked(cg, "node_clean", Xp.astype(np.float32))  # [Tpool, N, 4]
+    _chunked(cg, "edge_clean", g.clean_flows_from_states(Xp))  # [Tpool, E, 2]
+
+
 def _write(
     g: "FdiaGenerator",
-    recs: List,
+    recs: List[Record],
     out: str,
     split: Tuple[float, float, float],
     seed: int,
     solve_stats: Optional[Tuple[Dict, Dict]] = None,
     pool: Optional[np.ndarray] = None,
 ) -> None:
-    # pool is the operating-point pool as _load_states returned it: an in-memory [T,N,4] array already in
-    # [|V|, Pinj, Qinj, theta] order, never the caller's raw `states` argument (which may be a path or P-first).
-    # Serialize the record-tuples to one HDF5 file: graph structure + stacked per-record arrays + split.
-    T = len(recs)
-    C, E = g.C, g.E  # T records, C nodes, E edges
+    """Serialize the records to one HDF5 file: attributes, graph/, data/ and (with a pool) clean/.
 
-    def arr(i, dt):
-        return np.array([r[i] for r in recs], dt)  # pull tuple field i across all records as dtype dt
-
-    # Array-valued fields -> [T, ...] tensors.
-    node_x = np.stack([r[0] for r in recs])
-    node_m = np.stack([r[1] for r in recs])
-    edge_x = np.stack([r[2] for r in recs])
-    edge_m = np.stack([r[3] for r in recs])
-    y = np.stack([r[4] for r in recs])
-    temporal_delta = np.stack([r[10] for r in recs])  # [T,N,2] current-minus-previous-scan injection
-    swing = np.stack([r[11] for r in recs])  # [T,N,2] windowed relative-swing (z-score)
-    # Scalar-per-record fields (dtypes sized to range).
-    fam = arr(5, np.int8)
-    seq = arr(6, np.int32)
-    tstep = arr(7, np.int32)
-    gap = arr(8, np.uint8)
-    st = arr(9, np.uint8)
-    # train/val/test (0/1/2) per record, chronological and sequence-aware.
-    sp = _chrono_split(tstep, seq, split)
+    pool is the operating-point pool as _load_states returned it, an in-memory [T, N, 4] array
+    already in [|V|, Pinj, Qinj, theta] order, never the caller's raw `states` argument.
+    """
+    arrays = _stack_records(recs)
+    split_code = _chrono_split(arrays["timestep"], arrays["seq_id"], split)  # train/val/test = 0/1/2
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:
-        # File attrs: dims, feature legends, family legend, LRA target line, seed. Units are ENGINEERING
-        # quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows MW/MVAr); baseMVA is the
-        # power base letting the loader also serve a per-unit view.
-        f.attrs.update(
-            dict(
-                system=C,
-                N=C,
-                E=E,
-                n_records=T,
-                node_feat="V,P_inj,Q_inj,theta",
-                edge_feat="P_from,Q_from",
-                node_units="V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
-                edge_units="P_from:MW,Q_from:MVAr",
-                baseMVA=float(g.base.sn_mva),
-                families="0benign,1Aq,2Ad,3As,4Ar,5At,6Al",
-                lra_target_line=g._Ltgt,
-                seed=seed,
-            )
-        )
-        # TOPOLOGY provenance: "base" = intact, "n1_line" = one line out for every record. base_flow gives the
-        # contingency size (the ranking the scenario was selected by). Recorded so a shard is self-describing.
-        f.attrs.update(
-            dict(
-                topology=("base" if g.outage is None else "n1_line"),
-                outage_line=(-1 if g.outage is None else int(g.outage)),
-                outage_branch_pos=int(g.outage_pos),
-                outage_line_name=g.outage_name,
-                outage_from_bus=int(g.outage_from_bus),
-                outage_to_bus=int(g.outage_to_bus),
-                outage_base_flow_mw=float(g.outage_base_flow_mw),
-            )
-        )
-        # Per-family yield "famid:attempts/accepted" so the drop rate is readable from the file.
-        if solve_stats is not None:
-            _tr, _tk = solve_stats
-            f.attrs["solve_yield"] = ",".join(f"{k}:{_tr[k]}/{_tk[k]}" for k in sorted(_tr))
-        # graph/ group: static topology shared by all records.
-        gg = f.create_group("graph")
-        gg.create_dataset("edge_index", data=g.ei)
-        # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for trafos). Kept for v0.4.x readers.
-        gg.create_dataset("edge_reactance", data=g.x_react)
-        # Full per-unit branch physics + bus shunts: reconstruct Ybus EXACTLY (verified vs makeYbus to
-        # 7e-15/3e-14/5e-13 on IEEE 14/118/300), so a model reads exactly the estimator's physics.
-        for _n, _v in (
-            ("edge_r", g.edge_r),
-            ("edge_x", g.edge_x),
-            ("edge_b", g.edge_b),
-            ("edge_g", g.edge_g),
-            ("edge_gs", g.edge_gs),
-            ("edge_bs", g.edge_bs),
-            ("edge_tap", g.edge_tap),
-            ("edge_shift", g.edge_shift),
-            ("edge_status", g.edge_status),
-            ("edge_is_trafo", g.edge_is_trafo),
-            ("bus_shunt_g", g.bus_shunt_g),
-            ("bus_shunt_b", g.bus_shunt_b),
-        ):
-            gg.create_dataset(_n, data=_v)
-        gg.attrs.update(
-            dict(
-                edge_feat_static="r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
-                bus_feat_static="shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
-                edge_reactance_deprecated="mixes ohms (lines) with vk_percent (trafos); use edge_x",
-                ybus_reconstructible="yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
-            )
-        )
-        # data/ group: per-record tensors, chunked along the record axis (<=128) for efficient partial reads.
-        d = f.create_group("data")
-        ch = (min(128, T),)
-        d.create_dataset(
-            "node_x", data=node_x, chunks=ch + node_x.shape[1:], compression="gzip", compression_opts=4
-        )
-        d.create_dataset("node_m", data=node_m, compression="gzip")
-        d.create_dataset(
-            "edge_x", data=edge_x, chunks=ch + edge_x.shape[1:], compression="gzip", compression_opts=4
-        )
-        d.create_dataset("edge_m", data=edge_m, compression="gzip")
-        d.create_dataset("y", data=y, compression="gzip")
-        d.create_dataset(
-            "temporal_delta",
-            data=temporal_delta,
-            chunks=ch + temporal_delta.shape[1:],
-            compression="gzip",
-            compression_opts=4,
-        )
-        d.create_dataset(
-            "swing", data=swing, chunks=ch + swing.shape[1:], compression="gzip", compression_opts=4
-        )
-        # Each scalar field (including the split) as its own dataset.
-        # clean/ group (v0.7.2+): the NOISELESS attack-free truth per POOL timestep (the SE target), resolved
-        # per record via data/timestep. Same layer the streams ship. node_clean is the pool itself (already in
-        # node_x column order [V, P_inj, Q_inj, theta]); edge_clean = exact Ybus flows, unmetered zeroed.
+        f.attrs.update(_shard_attrs(g, len(recs), seed, solve_stats))
+        _write_graph(f, g)
+        _write_data(f, arrays, split_code)
         if pool is not None:
-            Xp = np.asarray(pool, np.float64)[: int(tstep.max()) + 1]
-            nc = Xp.astype(np.float32)
-            ec = g.clean_flows_from_states(Xp)  # exact Ybus from-end flows, unmetered branches zeroed
-            cg = f.create_group("clean")
-            cch = (min(128, len(Xp)),)  # same chunk+gzip pattern as the per-record arrays
-            cg.create_dataset(  # [Tpool,N,4] noiseless truth per pool timestep
-                "node_clean", data=nc, chunks=cch + nc.shape[1:], compression="gzip", compression_opts=4
-            )
-            cg.create_dataset(  # [Tpool,E,2] exact flows, unmetered zeroed
-                "edge_clean", data=ec, chunks=cch + ec.shape[1:], compression="gzip", compression_opts=4
-            )
-        for nm_, a in [
-            ("family", fam),
-            ("seq_id", seq),
-            ("timestep", tstep),
-            ("gap", gap),
-            ("stealthy", st),
-            ("split", sp),
-        ]:
-            d.create_dataset(nm_, data=a)
+            _write_clean(f, g, pool, arrays["timestep"])
 
 
 def _chrono_split(tstep: np.ndarray, seq: np.ndarray, frac: Tuple[float, float, float]) -> np.ndarray:

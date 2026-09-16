@@ -33,16 +33,30 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
+import warnings
+
 import numpy as np
 
 from .engine import FdiaGenerator, FAM_ID
 from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, Frame, FrameKnobs, attack_frame
-from .generation import _FrameContext, _load_states, _ramp_profile, _swing_scale, NOISE_FLOOR
+from .generation import _FrameContext, _load_states, _ramp_profile, NOISE_FLOOR
+from .generation import _swing_scale as _generation_swing_scale
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
 # families persist for a shorter, variable window. Benign gaps are drawn from the same overall scale so the
 # attacked fraction lands near the requested target.
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}  # Aq, Ad, As, Ar, Al
+
+
+def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
+    """Deprecated alias: the swing scale moved to fdia_graph.generation._swing_scale (shared by shards
+    and streams). Removed one minor version after 0.16."""
+    warnings.warn(
+        "fdia_graph.streams._swing_scale moved to fdia_graph.generation._swing_scale",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _generation_swing_scale(X, C)
 
 
 class _StreamBuffers:
@@ -99,6 +113,8 @@ class _StreamBuffers:
         self.store(t, nx, np.zeros(self.y.shape[1], np.uint8), 0, nx, ex, ex)
 
     def store_frame(self, t: int, fid: int, frame: Frame) -> None:
+        """An attacked frame with its un-attacked twin (stream frames are built with with_benign=True)."""
+        assert frame.benign_node_x is not None and frame.benign_edge_x is not None
         self.store(t, frame.node_x, frame.y, fid, frame.benign_node_x, frame.edge_x, frame.benign_edge_x)
 
 
@@ -233,7 +249,7 @@ def _stream_result(
     ).astype(np.float32)
     # Static availability masks (which channels carry a meter), the same sparse plan every frame.
     _bnx, node_m, _bex, edge_m = g.emit_from_state(X[0])
-    result = dict(
+    result: Dict[str, Any] = dict(
         node_x=buf.node_x,
         benign=buf.benign,
         clean=clean,
@@ -286,7 +302,7 @@ def generate_stream(
     knobs = FrameKnobs(
         attack_intensity, NOISE_FLOOR, lra_k, replay_tau, reject_below_floor=False, with_benign=True
     )
-    ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
+    ctx = _FrameContext(g, X, _generation_swing_scale(X, C), knobs, [])
     fam_ids = [FAM_ID[f] for f in families]
     plan = _StreamPlan(
         [f for f in fam_ids if f in SINGLE_SHOT_ORDER],

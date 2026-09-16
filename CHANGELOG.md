@@ -14,8 +14,10 @@ seeded stream are bit-identical to the previous release (`tests/test_frozen.py`,
   switches that differ between them; `replay_frame` and `remember_benign` name the replay policy.
 - `generate` and `generate_stream` are sequences of named draws and episodes; the swing scale,
   the temporal features and the ramp profile are functions with their source keys, shared by both.
-- No public name changed. The private stream helper `_swing_scale` now lives in `generation` and
-  is re-exported by `streams`.
+- Shard records are a named `Record` tuple and the writer reads them by field name; the writer is
+  split into the attributes, graph, data and clean groups.
+- No public name changed. The private stream helper `_swing_scale` now lives in `generation`;
+  `streams._swing_scale` stays as a deprecated alias that warns, removed one minor version later.
 
 Readability series, step 1 (docs/READABILITY_PLAN.md): the safety net. No user-visible change.
 
