@@ -15,13 +15,14 @@ Quickstart
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Union
 
-if TYPE_CHECKING:
-    from .engine.core import LineCandidate
-    from .streams import Stream
-    import datetime
-    import numpy as np
+if TYPE_CHECKING:  # the lazy names below, with their real signatures for type checkers
+    from .engine import line_outage_candidates
+    from .generation import generate
+    from .profiles import fetch_profile, generate_states, load_profile
+    from .streams import generate_stream, load_stream, windows
+    from .torch_data import pyg_stream, torch_windows
 
 # Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
 # FdiaGraph: torch Dataset over one .h5 shard; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
@@ -54,67 +55,6 @@ __all__ = [
     "FAMILIES",
     "STEALTHY_FAMILIES",
 ]
-
-
-def line_outage_candidates(
-    system: Union[str, int], top_n: int = 5
-) -> Tuple[List["LineCandidate"], List["LineCandidate"]]:
-    """Rank single-line N-1 contingencies by base-case flow, screening out any that island the grid.
-
-    Returns (accepted, rejected) lists of LineCandidate (dicts as well). Use the accepted line indices as generate(..., outage=idx)
-    to build one shard per post-contingency topology.
-    """
-    # Lazy: pulls in pandapower, which most SDK (loader) users don't have installed.
-    from .engine import line_outage_candidates as _cands
-
-    return _cands(system, top_n=top_n)
-
-
-def fetch_profile(
-    iso: str,
-    start: Union[str, "datetime.date", "datetime.datetime"],
-    end: Union[str, "datetime.date", "datetime.datetime"],
-    out: Optional[str] = None,
-    resample_min: Optional[int] = None,
-) -> np.ndarray:
-    """Auto-download an ISO system-load series and return a normalized scaling vector S [T].
-
-    iso is "caiso"/"nyiso"/"ercot"; start/end are 'YYYY-MM-DD' (or date/datetime). NYISO needs no account
-    or extra deps; CAISO/ERCOT use the gridstatus package (pip install 'fdia-graph[iso]'). resample_min
-    (e.g. 1) time-interpolates the load to that minute cadence (upsample the 5-min feed to 1-min). See
-    fdia_graph.profiles. Feed the result to generate_states().
-    """
-    from .profiles import fetch_profile as _fetch_profile
-
-    return _fetch_profile(iso, start, end, out=out, resample_min=resample_min)
-
-
-def load_profile(
-    source: Union[str, Sequence[float], np.ndarray], path: Optional[str] = None, column: Optional[str] = None
-) -> np.ndarray:
-    """Ingest a load time series into a normalized scaling vector S [T] (see fdia_graph.profiles).
-
-    Pluggable front of the pipeline: `source` is "caiso"/"nyiso" (+ a `path` to the ISO CSV directory),
-    a generic CSV path (+ `column`), or an array of raw load values. Swap sources/time periods freely.
-    Requires the generation extra: pip install 'fdia-graph[generate]'.
-    """
-    from .profiles import load_profile as _load_profile
-
-    return _load_profile(source, path=path, column=column)
-
-
-def generate_states(
-    system: Union[str, int], profile: Union[np.ndarray, Sequence[float]], **knobs: Any
-) -> np.ndarray:
-    """Turn a load profile into a pool of AC operating states [T,N,4] to inject attacks onto.
-
-    Columns are [|V|, P_inj, Q_inj, theta], the same order as node_x and clean. Pass the result straight
-    to generate(system, name, states=...). Knobs: k, sigma, clip, n, seed (see
-    fdia_graph.profiles.generate_states). Requires the generation extra.
-    """
-    from .profiles import generate_states as _generate_states
-
-    return _generate_states(system, profile, **knobs)
 
 
 def load(
@@ -159,114 +99,32 @@ def load(
     )
 
 
-def generate(system: Union[str, int], name: str, **knobs: Any) -> str:
-    """Generate a custom dataset with research knobs and register it as `name` (loadable via load(name)).
-
-    Knobs (all optional): per_family, families, attack_intensity, ramp_rate, ramp_len, replay_tau, n_benign,
-    redundancy, split, seed, out. See fdia_graph.generation module for the full documented signature.
-    Requires the generation extra: pip install 'fdia-graph[generate]'.
-    """
-    # Lazy: the generator pulls in heavy deps (pandapower, engine), so deferring keeps plain load() users
-    # from needing the optional [generate] extra.
-    from .generation import generate as _generate
-
-    # **knobs forwarded untouched so this wrapper never goes stale as knobs change.
-    return _generate(system, name=name, **knobs)
-
-
-def generate_stream(system: Union[str, int], **knobs: Any) -> "Stream":
-    """Build ONE continuous attacked time series for temporal models (LSTM/TGN), not a shuffled table.
-
-    Returns a Stream (a dict as well) with node_x [T,N,4], clean [T,N,4] (noiseless attack-free SE target), y [T,N], family [T],
-    temporal_delta/swing [T,N,2], and an episode list; saved to `out` (npz) if given. Knobs: states,
-    attacked_frac, families, attack_intensity, ramp_rate, ramp_len, replay_tau, seed, out. Needs the generation extra.
-    """
-    from .streams import generate_stream as _gs
-
-    return _gs(system, **knobs)
+# The generators, profiles, stream and torch helpers pull in pandapower, torch or torch_geometric,
+# so they are imported on first use rather than at `import fdia_graph`. Each name resolves to the
+# real function (its own docstring and signature), not a wrapper that could drift from it.
+_LAZY = {
+    "generate": ".generation",
+    "generate_stream": ".streams",
+    "load_stream": ".streams",
+    "windows": ".streams",
+    "pyg_stream": ".torch_data",
+    "torch_windows": ".torch_data",
+    "load_profile": ".profiles",
+    "fetch_profile": ".profiles",
+    "generate_states": ".profiles",
+    "line_outage_candidates": ".engine",
+}
 
 
-def load_stream(system: Union[str, int], release: Optional[str] = None) -> "Stream":
-    """Download the published continuous attacked stream for a system (a Stream, a dict as well: node_x, y, family, ...).
+def __getattr__(name: str) -> Any:
+    if name in _LAZY:
+        import importlib
 
-    Built-in systems 14/30/57/89/118/145/200/300. Feed to windows() for LSTM/TGN training. release pins a
-    version. See fdia_graph.streams.load_stream.
-    """
-    from .streams import load_stream as _ls
-
-    return _ls(system, release=release)
-
-
-def windows(
-    stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any"
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Slide a length-W window over a stream (from generate_stream/load_stream) into (Xw [n,W,N,4], yw) for an LSTM.
-
-    label: "frame" -> yw [n,W,N] per-frame; "any" -> yw [n,N] attacked-anywhere-in-window; "last" -> yw [n,N]
-    at the final frame. See fdia_graph.streams.windows.
-    """
-    from .streams import windows as _windows
-
-    return _windows(stream, W, stride=stride, label=label)
+        value = getattr(importlib.import_module(_LAZY[name], __name__), name)
+        globals()[name] = value  # resolved once; later lookups skip __getattr__
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def pyg_stream(
-    system: Optional[Union[str, int]] = None,
-    train_frac: float = 0.8,
-    val_frac: float = 0.0,
-    layer: str = "node_x",
-    max_test: Optional[int] = None,
-    release: Optional[str] = None,
-    stream: Optional[Dict[str, Any]] = None,
-) -> Tuple[List[Any], ...]:
-    """Continuous stream as ready PyTorch-Geometric graphs: (train, test) lists of Data objects.
-
-    One Data(x=[N,4], edge_index, edge_attr, y=[N]) per scan, chronological split — no conversion glue
-    needed. val_frac > 0 returns (train, val, test). See fdia_graph.torch_data.pyg_stream.
-    Needs pip install "fdia-graph[pyg]".
-    """
-    from .torch_data import pyg_stream as _pyg
-
-    return _pyg(
-        system,
-        train_frac=train_frac,
-        val_frac=val_frac,
-        layer=layer,
-        max_test=max_test,
-        release=release,
-        stream=stream,
-    )
-
-
-def torch_windows(
-    system: Optional[Union[str, int]] = None,
-    W: int = 16,
-    stride: int = 8,
-    label: str = "last",
-    per_bus: bool = True,
-    train_frac: float = 0.8,
-    val_frac: float = 0.0,
-    layer: str = "node_x",
-    release: Optional[str] = None,
-    stream: Optional[Dict[str, Any]] = None,
-) -> Tuple[Tuple[Any, Any], ...]:
-    """Continuous stream as LSTM-ready per-bus sequence tensors: ((Xtr, ytr), (Xte, yte)).
-
-    Windows the stream, reshapes to per-bus sequences [n*N, W, 4], splits chronologically (boundary
-    straddlers dropped); val_frac > 0 returns train/val/test. See fdia_graph.torch_data.torch_windows.
-    Needs pip install "fdia-graph[torch]".
-    """
-    from .torch_data import torch_windows as _tw
-
-    return _tw(
-        system,
-        W=W,
-        stride=stride,
-        label=label,
-        per_bus=per_bus,
-        train_frac=train_frac,
-        val_frac=val_frac,
-        layer=layer,
-        release=release,
-        stream=stream,
-    )
+def __dir__() -> List[str]:
+    return sorted(set(globals()) | set(_LAZY))
