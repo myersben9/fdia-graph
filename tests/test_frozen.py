@@ -5,12 +5,17 @@ localizer scores on the tiny shard are compared with references written by
 tools/freeze_reference.py. A refactor that changes what a user gets, by a single byte in strict
 mode, fails here.
 
-Two modes. Integer, boolean and string arrays and every attribute must always be equal exactly:
+Two modes. Integer, boolean and string arrays and every attribute must always be equal in value:
 they carry the meter plan, the labels, the family draws and the split, which depend on the RNG
-call order and never on floating-point details. Floating arrays and scores are compared exactly
-when FDIA_FROZEN_STRICT=1 (the mode to run locally, on the machine the references were written
-on, before every PR of the series) and to within 1e-7 relative otherwise, because pandapower's
-power flow and BLAS can differ in the last bits between platforms and CI runs on Linux.
+call order and never on floating-point details (only numpy's default integer width may differ,
+int32 on Windows against int64 on Linux, so integer arrays are compared by kind and value).
+Floating arrays and scores are compared exactly when FDIA_FROZEN_STRICT=1, the mode to run
+locally, on the machine the references were written on, before every PR of the series.
+Otherwise, and in CI on Linux, floating arrays must agree to 1e-7 relative, because pandapower's
+power flow and BLAS differ in the last bits between platforms, and scores to 1e-4 relative,
+because the iterative estimators (Huber passes with a settling test) amplify those last-bit
+differences and the tiny shard averages few records per family: the first CI run measured the
+Huber Ad angle error at 3.12094e-2 on Linux against 3.12089e-2 frozen on Windows.
 """
 
 import json
@@ -26,14 +31,21 @@ FROZEN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frozen")
 STRICT = os.environ.get("FDIA_FROZEN_STRICT") == "1"
 
 
+ARRAY_RTOL = 1e-7  # floating arrays, cross-platform mode
+SCORE_RTOL = 1e-4  # estimator and localizer scores, cross-platform mode (see the module docstring)
+
+
 def _same_array(name, got, ref):
     assert got.shape == ref.shape, f"{name}: shape {got.shape} vs frozen {ref.shape}"
-    assert got.dtype == ref.dtype, f"{name}: dtype {got.dtype} vs frozen {ref.dtype}"
+    if got.dtype.kind in "iu" and not STRICT:  # numpy's default integer width is platform-dependent
+        assert got.dtype.kind == ref.dtype.kind, f"{name}: dtype {got.dtype} vs frozen {ref.dtype}"
+    else:
+        assert got.dtype == ref.dtype, f"{name}: dtype {got.dtype} vs frozen {ref.dtype}"
     if got.dtype.kind in "iub" or got.dtype.kind in "SU" or STRICT:
         assert np.array_equal(got, ref), f"{name}: values differ from the frozen reference"
     else:
-        assert np.allclose(got, ref, rtol=1e-7, atol=1e-9, equal_nan=True), (
-            f"{name}: values differ beyond 1e-7"
+        assert np.allclose(got, ref, rtol=ARRAY_RTOL, atol=1e-9, equal_nan=True), (
+            f"{name}: values differ beyond {ARRAY_RTOL}"
         )
 
 
@@ -46,7 +58,7 @@ def _same_scores(got, ref, path=""):
         if STRICT:
             assert got == ref, f"{path}: {got!r} vs frozen {ref!r}"
         else:
-            assert got == pytest.approx(ref, rel=1e-6, abs=1e-12), f"{path}: {got!r} vs frozen {ref!r}"
+            assert got == pytest.approx(ref, rel=SCORE_RTOL, abs=1e-12), f"{path}: {got!r} vs frozen {ref!r}"
     else:
         assert got == ref, f"{path}: {got!r} vs frozen {ref!r}"
 

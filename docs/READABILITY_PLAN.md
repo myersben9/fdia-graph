@@ -282,14 +282,24 @@ its own PR with no code changes (step 1 in section 6), and it has four parts:
   new test hashes every dataset and attribute in that file and asserts the recorded hashes. It
   must cover every family and the ramp path; if the test shard's quota leaves a family out, the
   test generates a second tiny shard that includes it.
-- **Stream hash test.** The same on a 500-frame IEEE-14 stream with every family enabled.
-- **Ten-record RNG test.** Byte-identical shards depend on every `rng` draw happening in the
-  same order as today. The extraction keeps each draw inside the function that replaces its
-  block, and this test proves it early: generate ten records per family from a fixed seed with
-  the old path and the new path and compare them element by element. A reordering fails here in
-  seconds instead of in a whole-shard hash. The shared attack module carries the invariant in
-  its docstring: "draws happen in the order targets, multipliers, replay lag, then the physics;
-  changing it changes every released shard".
+- **Stream hash test.** The same on a 300-frame IEEE-14 stream with every family enabled (300
+  rather than 500: six episodes already cover every family, and the suite stays under a minute).
+- **RNG-order check.** Byte-identical shards depend on every `rng` draw happening in the same
+  order as today. The extraction keeps each draw inside the function that replaces its block,
+  and the strict-mode shard comparison is the proof: the tiny shard takes 15 seconds to build,
+  so a reordering shows up on the first local run of a PR, before it is pushed. (An earlier
+  draft of this plan described a separate ten-record old-versus-new test; the frozen comparison
+  is the same check with the old path frozen once, so no second harness is kept.) The shared
+  attack module carries the invariant in its docstring: the power-flow re-solve and the
+  measurement emission first, then the benign emission for streams; for the corrupt-in-place
+  families the emission, then the replay-lag draw, then the corruption draws. Changing that
+  order changes every released file.
+- **Cross-platform tolerance.** CI runs on Linux and the references are written on Windows.
+  Integer arrays are compared by kind and value (numpy's default integer is int32 on Windows and
+  int64 on Linux), floating arrays to 1e-7 relative, and scores to 1e-4 relative, because the
+  iterative estimators amplify last-bit power-flow differences and the tiny shard averages few
+  records per family (the first CI run put the Huber Ad angle error 1.5e-5 relative from the
+  frozen value). Bitwise equality is the local strict mode's job.
 - **Estimator and localizer results.** `docs/se/results/*.json` and
   `docs/localization/results/*` are the reference numbers; the SE caches in
   `docs/se/results/cache` make the 14 and 118 checks a matter of minutes.

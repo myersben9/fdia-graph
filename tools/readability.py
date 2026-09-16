@@ -114,38 +114,54 @@ def _complexities(path: str) -> Dict[Tuple[str, int], int]:
     return out
 
 
+def _functions_with_qualnames(tree: ast.AST) -> List[Tuple[str, ast.AST]]:
+    """Every function in the module with its qualified name (Class.method, outer.inner), so two
+    methods called __init__ never share a key."""
+    found: List[Tuple[str, ast.AST]] = []
+
+    def walk(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, _FUNC):
+                found.append((prefix + child.name, child))
+                walk(child, prefix + child.name + ".")
+            elif isinstance(child, ast.ClassDef):
+                walk(child, prefix + child.name + ".")
+            else:
+                walk(child, prefix)
+
+    walk(tree, "")
+    return found
+
+
+def _measure_function(rel: str, qualname: str, node: ast.AST, cc: Dict[Tuple[str, int], int]) -> Measure:
+    outer = {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
+    outer |= {a.arg for a in node.args.args + node.args.kwonlyargs}
+    caps = 0
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.FunctionDef) and inner is not node:
+            caps = max(caps, _captures(inner, outer))
+    params = len(node.args.args) + len(node.args.kwonlyargs)
+    if params and node.args.args and node.args.args[0].arg in ("self", "cls"):
+        params -= 1
+    return Measure(
+        file=rel,
+        name=qualname,
+        line=node.lineno,
+        end=node.end_lineno or node.lineno,
+        complexity=cc.get((node.name, node.lineno), 1),
+        nesting=_nesting(node),
+        captures=caps,
+        params=params,
+        positional=_positional(node),
+        private=node.name.startswith("_") and not node.name.startswith("__"),  # dunders are public API
+    )
+
+
 def measure_file(path: str) -> List[Measure]:
     rel = os.path.relpath(path, ROOT)
     tree = ast.parse(open(path, encoding="utf8").read())
     cc = _complexities(path)
-    out: List[Measure] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, _FUNC):
-            continue
-        outer = {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
-        outer |= {a.arg for a in node.args.args + node.args.kwonlyargs}
-        caps = 0
-        for inner in ast.walk(node):
-            if isinstance(inner, ast.FunctionDef) and inner is not node:
-                caps = max(caps, _captures(inner, outer))
-        params = len(node.args.args) + len(node.args.kwonlyargs)
-        if params and node.args.args and node.args.args[0].arg in ("self", "cls"):
-            params -= 1
-        out.append(
-            Measure(
-                file=rel,
-                name=node.name,
-                line=node.lineno,
-                end=node.end_lineno or node.lineno,
-                complexity=cc.get((node.name, node.lineno), 1),
-                nesting=_nesting(node),
-                captures=caps,
-                params=params,
-                positional=_positional(node),
-                private=node.name.startswith("_"),
-            )
-        )
-    return out
+    return [_measure_function(rel, qualname, node, cc) for qualname, node in _functions_with_qualnames(tree)]
 
 
 def measure_all() -> List[Measure]:
