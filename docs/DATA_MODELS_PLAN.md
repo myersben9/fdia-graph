@@ -127,8 +127,8 @@ previous dict exactly.
 |---|---|---|
 | 1 `Bundle` and the internal models | #69 | merged |
 | 2 the generator's attribute groups | #69 | merged |
-| 3 public dual-access bundles | #70 | open |
-| 4 the data dictionary's models section | after 3 | |
+| 3 public dual-access bundles | #70 | merged |
+| 4 the data dictionary's models section | #71 | open |
 
 Decisions taken 2026-09-16: dual-access bundles for the public dicts; the DataLoader test came
 first (`tests/test_models.py`); the base class is named `Bundle`; the generator's old attribute

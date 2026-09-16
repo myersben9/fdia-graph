@@ -57,8 +57,8 @@ def _scipy_linalg():
 class ErrorPair(Bundle):
     """Mean absolute error of one record class: angles in degrees, voltage magnitudes per unit."""
 
-    angle_mae_deg: float
-    voltage_mae_pu: float
+    angle_mae_deg: float  # mean |theta_hat - theta| over buses and records, degrees
+    voltage_mae_pu: float  # mean ||V|_hat - |V|| over buses and records, per unit
 
 
 @dataclass(frozen=True, eq=False)
@@ -67,14 +67,14 @@ class EstimatorScores(Bundle):
     (`geo`, the estimation paper's table cell). Indexable by family name as before, `geo` last."""
 
     _tail = ("geo",)
-    geo: ErrorPair
-    benign: Optional[ErrorPair] = None
-    Aq: Optional[ErrorPair] = None
-    Ad: Optional[ErrorPair] = None
-    As: Optional[ErrorPair] = None
-    Ar: Optional[ErrorPair] = None
-    At: Optional[ErrorPair] = None
-    Al: Optional[ErrorPair] = None
+    geo: ErrorPair  # geometric mean over the classes present
+    benign: Optional[ErrorPair] = None  # attack-free records
+    Aq: Optional[ErrorPair] = None  # stealthy re-solve attack
+    Ad: Optional[ErrorPair] = None  # additive bias
+    As: Optional[ErrorPair] = None  # scaling
+    Ar: Optional[ErrorPair] = None  # replay
+    At: Optional[ErrorPair] = None  # slow ramp
+    Al: Optional[ErrorPair] = None  # load redistribution
 
 
 @dataclass(frozen=True, eq=False)

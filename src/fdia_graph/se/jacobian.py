@@ -73,10 +73,10 @@ class JacobianOutputs(Bundle):
     [n, m]."""
 
     _keys = {"global_": "global"}
-    bus: np.ndarray
-    global_: np.ndarray
-    dx_hat: np.ndarray
-    r_perp: np.ndarray
+    bus: np.ndarray  # [n, N, 8] per-bus features
+    global_: np.ndarray  # [n, 4] per-record features, dict key "global"
+    dx_hat: np.ndarray  # [n, 2N-1] implied state change (H^T W H)^-1 H^T W dz
+    r_perp: np.ndarray  # [n, m] residual the Jacobian cannot explain, (I - P) dz
 
 
 class JacobianFeatures:
