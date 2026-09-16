@@ -127,9 +127,6 @@ def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
     return recent_change_scale(X, SWING_W, C)
 
 
-_ramp_profile = ramp_profile  # the At shape, see formulas.attacks
-
-
 @dataclass
 class _FrameContext:
     """What every record of one generation run shares, passed explicitly to the record functions."""
@@ -244,7 +241,7 @@ def _ramp_sequence(
     steps = 0
     for i in range(ramp_len):
         steps += 1
-        dev = _ramp_profile(i, rise_len, hold_len, rate_up, rate_down)
+        dev = ramp_profile(i, rise_len, hold_len, rate_up, rate_down)
         r = _make_record(ctx, t0 + i, RAMP_FAMILY, sid, (atk, 1 + direction * dev))  # multiplier = 1 +/- dev
         if r is None:
             break  # abort the sequence on the first non-converging step

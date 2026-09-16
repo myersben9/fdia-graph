@@ -39,7 +39,9 @@ import numpy as np
 
 from .engine import FdiaGenerator, FAM_ID
 from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, Frame, FrameKnobs, attack_frame
-from .generation import _FrameContext, _load_states, _ramp_profile, NOISE_FLOOR
+from .formulas.attacks import ramp_profile
+from .formulas.temporal import swing_zscore, temporal_delta
+from .generation import _FrameContext, _load_states, NOISE_FLOOR
 from .generation import _swing_scale as _generation_swing_scale
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
@@ -82,6 +84,7 @@ class _StreamBuffers:
         self._scale = scale
         self._edge_clean_full = edge_clean_full
         self._prev_nx: Optional[np.ndarray] = None
+        self._all_buses = np.ones(C, bool)
 
     def store(
         self,
@@ -100,12 +103,11 @@ class _StreamBuffers:
         self.edge_x[t] = ex
         self.edge_benign[t] = benign_ex
         self.edge_clean[t] = self._edge_clean_full[t]
+        # The two temporal features against the previous EMITTED frame, through the same kernel the
+        # shard uses; the stream computes them at every bus (an unmetered bus reads 0 - 0).
         p = self._prev_nx if self._prev_nx is not None else nx
-        self.temporal_delta[t, :, 0] = nx[:, 1] - p[:, 1]
-        self.temporal_delta[t, :, 1] = nx[:, 2] - p[:, 2]  # vs previous EMITTED frame
-        sc = self._scale[t]
-        self.swing[t, :, 0] = self.temporal_delta[t, :, 0] / sc[:, 0]
-        self.swing[t, :, 1] = self.temporal_delta[t, :, 1] / sc[:, 1]
+        self.temporal_delta[t] = temporal_delta(nx, p, self._all_buses)
+        self.swing[t] = swing_zscore(nx, p, self._scale[t], self._all_buses)
         self._prev_nx = nx
 
     def store_benign(self, t: int, nx: np.ndarray, ex: np.ndarray) -> None:
@@ -192,7 +194,7 @@ def _ramp_episode(
     for i in range(plan.ramp_len):
         if t >= T:
             break
-        dev = _ramp_profile(i, rise, hold, plan.ramp_rate, plan.ramp_rate)
+        dev = ramp_profile(i, rise, hold, plan.ramp_rate, plan.ramp_rate)
         frame = attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, a, 1 + direction * dev, ctx.knobs)
         _store_or_benign(ctx, buf, t, RAMP_FAMILY, frame, ok)
         t += 1
