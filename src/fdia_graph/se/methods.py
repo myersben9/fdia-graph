@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..formulas.estimation import gate_weights, huber_weights, normal_matrix, whitened_svd_basis
+from ..formulas.linalg import condition_number
 from .base import SEBase
 
 if TYPE_CHECKING:
@@ -36,7 +38,7 @@ class AdaptiveWeighting(SEBase):
         x = self._solve_plain(z, thsl)
         prev = None
         for _ in range(self.npass):
-            a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z, thsl), 1e-9))
+            a = huber_weights(self._nres(x, z, thsl), self.c)
             if prev is not None and np.abs(a - prev).max() < self.tol:
                 break  # weights settled: further passes reproduce the same estimate
             x = self._w_solve(z, self.Wk * a, thsl)
@@ -64,12 +66,12 @@ class ResidualRemoval(SEBase):
         self.cond_mult = cond_mult
 
     def _post_fit(self) -> None:
-        self._cond_full = self._cond(self.H.T @ (self.Wk[:, None] * self.H))
+        self._cond_full = condition_number(normal_matrix(self.H, self.Wk))
 
     def _observable(self, w: np.ndarray) -> bool:
         # The guard runs once per bad record per trial, so it uses the Cholesky/power-iteration
-        # condition estimate rather than a full eigen-decomposition (see SEBase._cond).
-        return self._cond(self.H.T @ (w[:, None] * self.H)) <= self.cond_mult * self._cond_full
+        # condition estimate rather than a full eigen-decomposition (formulas.linalg.condition_number).
+        return condition_number(normal_matrix(self.H, w)) <= self.cond_mult * self._cond_full
 
     def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         keep = np.ones_like(z)
@@ -133,12 +135,7 @@ class SubspacePrior(SEBase):
         self.c = c
 
     def _fit_states(self, x_benign: np.ndarray) -> None:
-        mean = x_benign.mean(axis=0)
-        std = np.maximum(x_benign.std(axis=0), 1e-9)  # whiten: angle and voltage differ ~10x in scale
-        _, _, Vt = np.linalg.svd((x_benign - mean) / std, full_matrices=False)
-        K = max(1, int(round(self.rank_frac * x_benign.shape[1])))
-        self.K = K
-        self.VK = np.linalg.qr((Vt[:K].T * std[:, None]))[0]  # un-whiten, re-orthonormalize
+        self.K, self.VK = whitened_svd_basis(x_benign, self.rank_frac)
 
     def _basis(self) -> np.ndarray:
         return self.VK
@@ -154,7 +151,7 @@ class SubspacePrior(SEBase):
         with w * a, until no weight moves by more than tol or npass passes are done."""
         prev = None
         for _ in range(self.npass):
-            a = np.minimum(1.0, self.c / np.maximum(self._nres(x, z, thsl), 1e-9))
+            a = huber_weights(self._nres(x, z, thsl), self.c)
             if prev is not None and np.abs(a - prev).max() < self.tol:
                 break  # weights settled: further passes reproduce the same estimate
             x = self._w_solve(z, w * a, thsl)
@@ -201,7 +198,7 @@ class JacobianWeighting(SEBase):
         jf = JacobianFeatures(estimator=self).fit(ds)
         d = ds.to_numpy(["node_x", "edge_x", "timestep"])
         u = np.abs(jf.transform(d)["r_perp"]) * np.sqrt(self.Wk)[None, :]
-        return self.Wk[None, :] * np.minimum(1.0, self.c / np.maximum(u, 1e-9))
+        return self.Wk[None, :] * huber_weights(u, self.c)
 
     def estimate(self, ds: "FdiaGraph", chunk: int = 1000) -> np.ndarray:
         d = ds.to_numpy(["node_x", "edge_x", "clean"])
@@ -214,7 +211,7 @@ class JacobianWeighting(SEBase):
             x = self._w_solve(z[e], w[e], tr["thsl"][e])
             if self.reweight == "huber":  # temporal weights first, then the classical passes on top
                 for _ in range(self.npass):
-                    a = np.minimum(1.0, self.huber_c / np.maximum(self._nres(x, z[e], tr["thsl"][e]), 1e-9))
+                    a = huber_weights(self._nres(x, z[e], tr["thsl"][e]), self.huber_c)
                     x = self._w_solve(z[e], w[e] * a, tr["thsl"][e])
             out[e] = x
         return out
@@ -250,13 +247,7 @@ class GatedPrior(SubspacePrior):
             flags = ds.to_numpy(["y"])["y"].astype(bool)  # the ceiling: true labels
         else:
             flags = np.asarray(self.gate.localize(ds), bool)
-        inc = bus_incidence(self, ds.edge_index_np)
-        w = np.repeat(self.Wk[None, :], flags.shape[0], axis=0)
-        for b, ix in enumerate(inc):
-            if len(ix):
-                hit = flags[:, b]
-                w[np.ix_(hit, ix)] *= self.gate_factor
-        return w
+        return gate_weights(self.Wk, flags, bus_incidence(self, ds.edge_index_np), self.gate_factor)
 
     def estimate(self, ds: "FdiaGraph", chunk: int = 1000) -> np.ndarray:
         d = ds.to_numpy(["node_x", "edge_x", "clean"])

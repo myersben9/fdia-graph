@@ -6,6 +6,20 @@ Provisional until 1.0: names may still be adjusted once, with a deprecation alia
 """
 
 from .attacks import ramp_profile
+from .estimation import (
+    critical_measurements,
+    floored_covariance,
+    gate_weights,
+    huber_weights,
+    normal_matrix,
+    normalized_residual,
+    residual_covariance_diag,
+    weighted_objective,
+    whitened_svd_basis,
+    wls_step,
+    wls_step_batched,
+)
+from .linalg import batched_normal_matrices, condition_number, guarded_inverse
 from .network import (
     Admittances,
     BranchModel,
@@ -16,19 +30,51 @@ from .network import (
     series_admittance,
 )
 from .noise import bias_jitter_split
+from .projection import (
+    bus_incidence,
+    direction_coefficients,
+    explained_unexplained,
+    leverage,
+    meters_to_buses,
+    weak_directions,
+    weak_move,
+    weighted_pseudoinverse,
+)
 from .temporal import recent_change_scale, swing_zscore, temporal_delta
 
 __all__ = [
     "Admittances",
     "BranchModel",
+    "batched_normal_matrices",
     "bias_jitter_split",
     "branch_admittances",
     "branch_flows",
+    "bus_incidence",
     "bus_injections",
     "complex_voltages",
+    "condition_number",
+    "critical_measurements",
+    "direction_coefficients",
+    "explained_unexplained",
+    "floored_covariance",
+    "gate_weights",
+    "guarded_inverse",
+    "huber_weights",
+    "leverage",
+    "meters_to_buses",
+    "normal_matrix",
+    "normalized_residual",
     "ramp_profile",
     "recent_change_scale",
+    "residual_covariance_diag",
     "series_admittance",
     "swing_zscore",
     "temporal_delta",
+    "weak_directions",
+    "weak_move",
+    "weighted_objective",
+    "weighted_pseudoinverse",
+    "whitened_svd_basis",
+    "wls_step",
+    "wls_step_batched",
 ]

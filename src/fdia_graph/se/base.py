@@ -17,6 +17,17 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
 
+from ..formulas.estimation import (
+    critical_measurements,
+    floored_covariance,
+    normal_matrix,
+    normalized_residual,
+    residual_covariance_diag,
+    weighted_objective,
+    wls_step,
+    wls_step_batched,
+)
+from ..formulas.linalg import batched_normal_matrices, condition_number, guarded_inverse
 from ..models.scores import ErrorPair, EstimatorScores  # noqa: F401  re-exported: defined here before the models package
 from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
 
@@ -42,15 +53,6 @@ def _torch():
         return torch
     except ImportError as e:
         raise ImportError("state estimation needs torch: pip install 'fdia-graph[se]'") from e
-
-
-def _scipy_linalg():
-    try:
-        import scipy.linalg
-
-        return scipy.linalg
-    except ImportError as e:
-        raise ImportError("state estimation needs scipy: pip install 'fdia-graph[se]'") from e
 
 
 class SEBase:
@@ -188,13 +190,11 @@ class SEBase:
         x0 = torch.tensor(self.xmean, dtype=torch.float64)[None]
         t0 = torch.tensor([float(tr["thsl"][0])], dtype=torch.float64)
         self.H = vmap(jacrev(h1))(x0, t0)[0].numpy()[self.mask]
-        A = self.H.T @ (self.Wk[:, None] * self.H)
-        self._Ai = self._inv(A)
+        self._Ai = guarded_inverse(normal_matrix(self.H, self.Wk))
         # residual covariance diagonal for normalized residuals; critical measurements excluded
-        R = 1.0 / self.Wk
-        om = R - np.einsum("ij,jk,ik->i", self.H, self._Ai, self.H)
-        self.critical = om < 1e-6 * R
-        self._om = np.maximum(om, 1e-12 * R)
+        om, R = residual_covariance_diag(self.H, self.Wk, self._Ai)
+        self.critical = critical_measurements(om, R)
+        self._om = floored_covariance(om, R)
         self._post_fit()
         return self
 
@@ -206,38 +206,13 @@ class SEBase:
 
     @staticmethod
     def _inv(A: np.ndarray) -> np.ndarray:
-        # Direct inverse of a symmetric positive-definite normal matrix, pinv only when it is
-        # (numerically) singular. Positive-definiteness is decided by a Cholesky factorization and
-        # near-singularity by LAPACK's condition estimate of the triangular factor, both O(n^2) after
-        # the factorization; an eigen-decomposition here cost 240 ms per call at IEEE-300 size and
-        # was the reason every robust arm (one inverse per record per pass) took hours to days.
-        lapack = _scipy_linalg().lapack
-
-        A = np.asarray(A)
-        eps = np.finfo(A.dtype if np.issubdtype(A.dtype, np.floating) else np.float64).eps
-        S = 0.5 * (A + A.T)
-        try:
-            L = np.linalg.cholesky(S)
-            rcond, _ = lapack.dtrcon(L, norm="1", uplo="L", diag="N")
-            if rcond**2 > 100 * eps:  # cond(A) ~ cond(L)^2; the same 1e-14 relative floor as before
-                return np.linalg.inv(S)
-        except np.linalg.LinAlgError:
-            pass
-        return np.linalg.pinv(S, rcond=100 * eps)
+        """Guarded inverse of a normal matrix: `formulas.linalg.guarded_inverse`."""
+        return guarded_inverse(A)
 
     @staticmethod
     def _normal_matrices(w: np.ndarray, B_: np.ndarray, sub: int = 50) -> np.ndarray:
-        """Per-record weighted normal matrices B^T diag(w_i) B as [n, k, k], built in sub-batches so
-        the [sub, k, m] intermediate stays small. One einsum over the whole chunk materialized an
-        8 GB intermediate at IEEE-300 size and took 260 s per 200 records; this takes 1.4 s."""
-        if sub < 1:
-            raise ValueError(f"sub must be a positive sub-batch size, got {sub}")
-        n, k = w.shape[0], B_.shape[1]
-        out = np.empty((n, k, k), dtype=np.result_type(w, B_))
-        BT = B_.T[None]  # [1, k, m]
-        for a in range(0, n, sub):
-            out[a : a + sub] = (BT * w[a : a + sub, None, :]) @ B_
-        return out
+        """Per-record normal matrices: `formulas.linalg.batched_normal_matrices`."""
+        return batched_normal_matrices(w, B_, sub)
 
     @classmethod
     def _inv_batch(cls, A: np.ndarray) -> np.ndarray:
@@ -259,32 +234,8 @@ class SEBase:
 
     @staticmethod
     def _cond(A: np.ndarray, its: int = 40) -> float:
-        """Spectral condition number of a symmetric positive-definite matrix, inf if it is not PD.
-
-        Cholesky for the PD test, then power iteration for the largest eigenvalue and inverse
-        iteration through the Cholesky factor for the smallest; tens of milliseconds where a full
-        eigen-decomposition takes hundreds, and equal to it to three decimals on the real normal
-        matrices (checked on IEEE 14/118 with and without removed meters)."""
-        sl = _scipy_linalg()
-        cho_factor, cho_solve = sl.cho_factor, sl.cho_solve
-
-        S = 0.5 * (A + A.T)
-        try:
-            cf = cho_factor(S, lower=True, check_finite=False)
-        except np.linalg.LinAlgError:
-            return float("inf")
-        n = S.shape[0]
-        v = np.ones(n) / np.sqrt(n)
-        for _ in range(its):
-            v = S @ v
-            v /= np.linalg.norm(v)
-        lmax = float(v @ (S @ v))
-        u = np.ones(n) / np.sqrt(n)
-        for _ in range(its):
-            u = cho_solve(cf, u, check_finite=False)
-            u /= np.linalg.norm(u)
-        lmin = float(u @ (S @ u))
-        return lmax / max(lmin, 1e-300)
+        """Spectral condition number of a normal matrix: `formulas.linalg.condition_number`."""
+        return condition_number(A, its)
 
     # ---- solving ----------------------------------------------------------------------------
     def _basis(self) -> Optional[np.ndarray]:
@@ -296,13 +247,13 @@ class SEBase:
         B_, Ai = (
             (self.H, self._Ai)
             if VK is None
-            else (self.H @ VK, self._inv((self.H @ VK).T @ (self.Wk[:, None] * (self.H @ VK))))
+            else (self.H @ VK, guarded_inverse(normal_matrix(self.H @ VK, self.Wk)))
         )
         c = np.zeros((z.shape[0], B_.shape[1]))
         for _ in range(self.iters):
             x = self.xmean + (c @ VK.T if VK is not None else c)
             hz = self._h(x, thsl)
-            c = c + ((z - hz) * self.Wk) @ B_ @ Ai.T
+            c = c + wls_step(z - hz, self.Wk, B_, Ai)
         return self.xmean + (c @ VK.T if VK is not None else c)
 
     def _w_solve(self, z: np.ndarray, w: np.ndarray, thsl: np.ndarray) -> np.ndarray:
@@ -315,23 +266,23 @@ class SEBase:
         VK = self._basis()
         B_ = self.H if VK is None else self.H @ VK
         n, kd = z.shape[0], B_.shape[1]
-        Ai = self._inv_batch(self._normal_matrices(w, B_))
+        Ai = self._inv_batch(batched_normal_matrices(w, B_))
         c = np.zeros((n, kd))
         best_c, best_J = c.copy(), np.full(n, np.inf)
         for _ in range(self.iters):
             x = self.xmean + (c @ VK.T if VK is not None else c)
             hz = self._h(x, thsl)
-            J = (w * (z - hz) ** 2).sum(axis=1)
+            J = weighted_objective(z - hz, w)
             ok = np.isfinite(J) & (J < best_J)
             best_J = np.where(ok, J, best_J)
             best_c[ok] = c[ok]
-            c = c + np.einsum("bij,bj->bi", Ai, ((z - hz) * w) @ B_)
+            c = c + wls_step_batched(z - hz, w, B_, Ai)
             c = np.where(np.isfinite(c), c, best_c)
         return self.xmean + (best_c @ VK.T if VK is not None else best_c)
 
     def _nres(self, x: np.ndarray, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        """Residuals normalized by the residual covariance diagonal."""
-        return np.abs(z - self._h(x, thsl)) / np.sqrt(self._om)[None, :]
+        """Residuals normalized by the residual covariance diagonal [HAN75]."""
+        return normalized_residual(z - self._h(x, thsl), self._om)
 
     def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         return self._solve_plain(z, thsl)  # WLS; robust subclasses override

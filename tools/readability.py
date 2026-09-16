@@ -197,6 +197,8 @@ def _changed_lines(base: str) -> Dict[str, Set[int]]:
         ["git", "diff", "-U0", f"{base}...HEAD", "--", "src/fdia_graph"],
         capture_output=True,
         text=True,
+        encoding="utf-8",  # docstrings carry equation symbols; the Windows default codepage cannot decode them
+        errors="replace",
         check=True,
         cwd=top,
     ).stdout

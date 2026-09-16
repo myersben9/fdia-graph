@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `formulas.estimation` (the WLS step, gain matrix, residual covariance, normalized residual,
+  Huber weight, the operating-point prior basis, the localization gate), `formulas.linalg` (the
+  guarded inverse, condition number, per-record normal matrices) and `formulas.projection` (the
+  weighted pseudo-inverse, explained/unexplained split, leverage, weak directions, meter-to-bus
+  aggregation): the estimators and the Jacobian features now call these named functions, each
+  with its equation and source key. Identical numbers (bit-identical frozen scores); the
+  estimator's private helpers keep their names and delegate.
 - Removed, as scheduled one minor version after 0.16: the generator's pre-0.16 attribute names
   (`edge_r` ... `edge_status`, `M`, `flow_meter`, `bias_pi` ... `bias_qf`, `outage`,
   `outage_pos` ... `outage_base_flow_mw`; read `g.branch`, `g.meters`, `g.bias`, `g.contingency`)
