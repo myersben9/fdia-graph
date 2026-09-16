@@ -46,7 +46,7 @@ def _field_comments(cls: Type[Any]) -> dict:
 
 def _type_name(f: Any) -> str:
     t = f.type if isinstance(f.type, str) else getattr(f.type, "__name__", str(f.type))
-    t = re.sub(r"^Optional\[(.*)\]$", r"", t)  # the table marks optional fields itself
+    t = re.sub(r"^Optional\[(.*)\]$", lambda m: m.group(1), t)  # the table marks optional fields itself
     return t.replace("np.ndarray", "array")
 
 

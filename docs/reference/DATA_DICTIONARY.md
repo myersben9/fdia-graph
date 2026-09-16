@@ -246,8 +246,8 @@ A continuous attacked time series as `generate_stream` and `load_stream` return 
 | `swing` | `swing` | array | [T, N, 2] |
 | `timestep` | `timestep` | array | [T] |
 | `episodes` | `episodes` | Any | list of {onset, length, family, buses} |
-| `system` | `system` |  (optional) | bus count, set by generate_stream |
-| `attacked_frac` | `attacked_frac` |  (optional) | fraction of frames with an attacked bus, set by generate_stream |
+| `system` | `system` | int (optional) | bus count, set by generate_stream |
+| `attacked_frac` | `attacked_frac` | float (optional) | fraction of frames with an attacked bus, set by generate_stream |
 
 ### `EstimatorScores` (`fdia_graph.se.base`)
 
@@ -256,13 +256,13 @@ A continuous attacked time series as `generate_stream` and `load_stream` return 
 | field | dict key | type | meaning |
 |---|---|---|---|
 | `geo` | `geo` | ErrorPair | geometric mean over the classes present |
-| `benign` | `benign` |  (optional) | attack-free records |
-| `Aq` | `Aq` |  (optional) | stealthy re-solve attack |
-| `Ad` | `Ad` |  (optional) | additive bias |
-| `As` | `As` |  (optional) | scaling |
-| `Ar` | `Ar` |  (optional) | replay |
-| `At` | `At` |  (optional) | slow ramp |
-| `Al` | `Al` |  (optional) | load redistribution |
+| `benign` | `benign` | ErrorPair (optional) | attack-free records |
+| `Aq` | `Aq` | ErrorPair (optional) | stealthy re-solve attack |
+| `Ad` | `Ad` | ErrorPair (optional) | additive bias |
+| `As` | `As` | ErrorPair (optional) | scaling |
+| `Ar` | `Ar` | ErrorPair (optional) | replay |
+| `At` | `At` | ErrorPair (optional) | slow ramp |
+| `Al` | `Al` | ErrorPair (optional) | load redistribution |
 
 ### `ErrorPair` (`fdia_graph.se.base`)
 
@@ -280,13 +280,13 @@ Mean absolute error of one record class: angles in degrees, voltage magnitudes p
 | field | dict key | type | meaning |
 |---|---|---|---|
 | `all` | `all` | OverallMetrics | pooled over every record |
-| `benign` | `benign` |  (optional) | attack-free records |
-| `Aq` | `Aq` |  (optional) | stealthy re-solve attack |
-| `Ad` | `Ad` |  (optional) | additive bias |
-| `As` | `As` |  (optional) | scaling |
-| `Ar` | `Ar` |  (optional) | replay |
-| `At` | `At` |  (optional) | slow ramp |
-| `Al` | `Al` |  (optional) | load redistribution |
+| `benign` | `benign` | BenignMetrics (optional) | attack-free records |
+| `Aq` | `Aq` | FamilyMetrics (optional) | stealthy re-solve attack |
+| `Ad` | `Ad` | FamilyMetrics (optional) | additive bias |
+| `As` | `As` | FamilyMetrics (optional) | scaling |
+| `Ar` | `Ar` | FamilyMetrics (optional) | replay |
+| `At` | `At` | FamilyMetrics (optional) | slow ramp |
+| `Al` | `Al` | FamilyMetrics (optional) | load redistribution |
 
 ### `OverallMetrics` (`fdia_graph.localization.base`)
 
@@ -345,5 +345,5 @@ One line of `line_outage_candidates`: its pandapower index and branch position, 
 | `to_bus` | `to_bus` | int | to-end bus |
 | `name` | `name` | str | line name from the case, or line<idx> |
 | `base_flow_mw` | `base_flow_mw` | float | active flow in the intact case, MW |
-| `reason` | `reason` |  (optional) | why the line was rejected (islands the grid), rejected list only |
+| `reason` | `reason` | str (optional) | why the line was rejected (islands the grid), rejected list only |
 <!-- models:end -->
