@@ -66,3 +66,23 @@ jobs:
         run: pip install ruff
       - name: Check formatting (ruff format)
         run: ruff format --check src/fdia_graph
+
+  readability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the gate diffs against the base branch
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install radon
+        run: pip install radon
+      # The report covers the whole package and never fails; it is the backlog of
+      # docs/READABILITY_PLAN.md. The gate fails only when a function this change touched is
+      # outside a limit and not on the exceptions list in tools/readability.py.
+      - name: Readability report
+        run: python tools/readability.py --report
+      - name: Readability gate on touched functions
+        if: github.event_name == 'pull_request'
+        run: python tools/readability.py --check --base origin/${{ github.base_ref }}
