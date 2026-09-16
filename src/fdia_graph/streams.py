@@ -30,12 +30,14 @@ per-step change and a spike looking like an abrupt jump — the spike-vs-ramp si
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
 from .engine import FdiaGenerator, FAM_ID
-from .generation import _load_states, SWING_W, NOISE_FLOOR, _FAMK
+from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, Frame, FrameKnobs, attack_frame
+from .generation import _FrameContext, _load_states, _ramp_profile, _swing_scale, NOISE_FLOOR
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
 # families persist for a shorter, variable window. Benign gaps are drawn from the same overall scale so the
@@ -43,22 +45,217 @@ from .generation import _load_states, SWING_W, NOISE_FLOOR, _FAMK
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}  # Aq, Ad, As, Ar, Al
 
 
-def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
-    """Per-timestep benign 'typical recent change' std over the last SWING_W scans (prefix-sum, same as the shard)."""
-    T = len(X)
-    D = np.abs(np.diff(X[:, :, 1:3], axis=0))  # [T-1,N,2] scan-to-scan |change| in [Pinj, Qinj]
-    c1 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D, 0)], 0)
-    c2 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D**2, 0)], 0)
-    SCALE = np.full((T, C, 2), 1e-3, np.float32)
-    for t in range(2, T):
-        s = max(0, t - SWING_W)
-        e = t - 1
-        n = e - s
-        if n >= 3:
-            su = c1[e] - c1[s]
-            sq = c2[e] - c2[s]
-            SCALE[t] = np.sqrt(np.maximum(sq / n - (su / n) ** 2, 0.0)) + 1e-3
-    return SCALE
+class _StreamBuffers:
+    """The per-frame layers of one stream, allocated once and filled frame by frame.
+
+    node_x / edge_x are the OBSERVED measurements (attacked + noisy where attacked, else benign + noisy);
+    benign / edge_benign the same scan with the attack removed and the noise kept; edge_clean the
+    noiseless true flows on metered branches. temporal_delta and swing are the two temporal features,
+    taken against the previous EMITTED frame (the stream has no per-record pool lookup).
+    """
+
+    def __init__(self, T: int, C: int, E: int, scale: np.ndarray, edge_clean_full: np.ndarray) -> None:
+        self.node_x = np.zeros((T, C, 4), np.float32)
+        self.benign = np.zeros((T, C, 4), np.float32)
+        self.edge_x = np.zeros((T, E, 2), np.float32)
+        self.edge_benign = np.zeros((T, E, 2), np.float32)
+        self.edge_clean = np.zeros((T, E, 2), np.float32)
+        self.y = np.zeros((T, C), np.uint8)
+        self.family = np.zeros(T, np.int16)
+        self.temporal_delta = np.zeros((T, C, 2), np.float32)
+        self.swing = np.zeros((T, C, 2), np.float32)
+        self.episodes: List[Dict[str, Any]] = []
+        self._scale = scale
+        self._edge_clean_full = edge_clean_full
+        self._prev_nx: Optional[np.ndarray] = None
+
+    def store(
+        self,
+        t: int,
+        nx: np.ndarray,
+        yt: np.ndarray,
+        fid: int,
+        benign_nx: np.ndarray,
+        ex: np.ndarray,
+        benign_ex: np.ndarray,
+    ) -> None:
+        self.node_x[t] = nx
+        self.benign[t] = benign_nx
+        self.y[t] = yt
+        self.family[t] = fid
+        self.edge_x[t] = ex
+        self.edge_benign[t] = benign_ex
+        self.edge_clean[t] = self._edge_clean_full[t]
+        p = self._prev_nx if self._prev_nx is not None else nx
+        self.temporal_delta[t, :, 0] = nx[:, 1] - p[:, 1]
+        self.temporal_delta[t, :, 1] = nx[:, 2] - p[:, 2]  # vs previous EMITTED frame
+        sc = self._scale[t]
+        self.swing[t, :, 0] = self.temporal_delta[t, :, 0] / sc[:, 0]
+        self.swing[t, :, 1] = self.temporal_delta[t, :, 1] / sc[:, 1]
+        self._prev_nx = nx
+
+    def store_benign(self, t: int, nx: np.ndarray, ex: np.ndarray) -> None:
+        """A benign frame: observed == un-attacked."""
+        self.store(t, nx, np.zeros(self.y.shape[1], np.uint8), 0, nx, ex, ex)
+
+    def store_frame(self, t: int, fid: int, frame: Frame) -> None:
+        self.store(t, frame.node_x, frame.y, fid, frame.benign_node_x, frame.edge_x, frame.benign_edge_x)
+
+
+@dataclass
+class _StreamPlan:
+    """How the timeline is walked: which families rotate, whether the ramp is among them, the
+    ramp shape, and the attacked fraction the gaps are sized for."""
+
+    single: List[int]  # single-shot families (persist as a flat episode)
+    has_ramp: bool
+    ramp_len: int
+    ramp_rate: float
+    attacked_frac: float
+
+
+def _emit_benign(ctx: _FrameContext, t: int) -> Tuple[np.ndarray, np.ndarray]:
+    """The benign scan of timestep t (also remembered for the replay families)."""
+    frame = attack_frame(ctx.g, ctx.X[t], 0, None, None, ctx.knobs)
+    assert frame is not None  # a benign emission cannot fail
+    return frame.node_x, frame.edge_x
+
+
+def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
+    """Attacked load-table positions for a stream episode: 1 to 6 buses for Aq, up to 4 otherwise."""
+    nab = len(apos)
+    k = int(rng.integers(1, min(6, nab) + 1)) if fid == 1 else min(4, nab)
+    return rng.choice(apos, k, replace=False)
+
+
+def _want_attack(y: np.ndarray, t: int, attacked_frac: float) -> bool:
+    """Start an attack episode when the attacked fraction so far is below the target."""
+    if t == 0:
+        return True
+    atk_so_far = int((y[:t].sum(axis=1) > 0).sum())  # frames with any attacked bus, so far
+    return (atk_so_far / max(1, t)) < attacked_frac
+
+
+def _benign_gap(ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int) -> int:
+    """A benign gap of 5 to 39 frames; returns the next free timestep."""
+    T = len(ctx.X)
+    gap = int(rng.integers(5, 40))
+    for _ in range(gap):
+        if t >= T:
+            break
+        bn, bex = _emit_benign(ctx, t)
+        buf.store_benign(t, bn, bex)
+        t += 1
+    return t
+
+
+def _store_or_benign(
+    ctx: _FrameContext, buf: _StreamBuffers, t: int, fid: int, frame: Optional[Frame], ok: np.ndarray
+) -> None:
+    """Store the attacked frame, or a benign one when the attack could not be built at this timestep."""
+    if frame is None:
+        bn, bex = _emit_benign(ctx, t)
+        buf.store_benign(t, bn, bex)
+    else:
+        buf.store_frame(t, fid, frame)
+        ok |= frame.y
+
+
+def _ramp_episode(
+    ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int, plan: _StreamPlan
+) -> int:
+    """One slow-ramp episode on a fixed bus set (rise, hold, return); returns the next free timestep."""
+    T, C = len(ctx.X), ctx.g.C
+    apos = ctx.g.attackable_pos
+    a = rng.choice(apos, min(5, len(apos)), replace=False)  # fixed bus set for the ramp
+    direction = 1.0 if rng.random() < 0.5 else -1.0
+    rise = max(1, int(rng.uniform(0.2, 0.45) * plan.ramp_len))
+    hold = int(rng.uniform(0.0, 0.25) * plan.ramp_len)
+    t0 = t
+    ok = np.zeros(C, np.uint8)
+    for i in range(plan.ramp_len):
+        if t >= T:
+            break
+        dev = _ramp_profile(i, rise, hold, plan.ramp_rate, plan.ramp_rate)
+        frame = attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, a, 1 + direction * dev, ctx.knobs)
+        _store_or_benign(ctx, buf, t, RAMP_FAMILY, frame, ok)
+        t += 1
+    buf.episodes.append(dict(onset=t0, length=t - t0, family=RAMP_FAMILY, buses=np.where(ok)[0].tolist()))
+    return t
+
+
+def _single_shot_episode(
+    ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int, fid: int
+) -> int:
+    """One episode of a single-shot family held for a random length; returns the next free timestep."""
+    T, C = len(ctx.X), ctx.g.C
+    a = _pick_targets(rng, ctx.g.attackable_pos, fid)
+    mult = 1 + rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
+    L = int(rng.integers(*_EP_LEN.get(fid, (5, 25))))
+    t0 = t
+    ok = np.zeros(C, np.uint8)
+    for _ in range(L):
+        if t >= T:
+            break
+        _store_or_benign(ctx, buf, t, fid, attack_frame(ctx.g, ctx.X[t], fid, a, mult, ctx.knobs), ok)
+        t += 1
+    buf.episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
+    return t
+
+
+def _advance(
+    ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int, plan: _StreamPlan
+) -> int:
+    """One step of the timeline walk: a benign gap when the attacked fraction is on target (or
+    nothing can attack), else a ramp episode or a single-shot episode. Returns the next free timestep."""
+    if not _want_attack(buf.y, t, plan.attacked_frac) or not (plan.single or plan.has_ramp):
+        return _benign_gap(ctx, buf, rng, t)
+    use_ramp = plan.has_ramp and (not plan.single or rng.random() < 1.0 / (len(plan.single) + 1))
+    if use_ramp and t < len(ctx.X) - plan.ramp_len:
+        return _ramp_episode(ctx, buf, rng, t, plan)
+    fid = int(rng.choice(plan.single)) if plan.single else RAMP_FAMILY
+    return _single_shot_episode(ctx, buf, rng, t, fid)
+
+
+def _stream_result(
+    g: FdiaGenerator, X: np.ndarray, buf: _StreamBuffers, T: int, out: Optional[str]
+) -> Dict[str, Any]:
+    """Assemble the stream dict (and save it when `out` is given)."""
+    # clean = the NOISELESS healthy state at every timestep (the truth the attack was injected onto), in the
+    # same column order as node_x ([|V|, Pinj, Qinj, angle]). Three aligned layers per frame: node_x
+    # (attacked+noisy observed) -> benign (attack removed, noise kept) -> clean (noise removed too).
+    clean = X[:T].astype(np.float32)
+    # Static graph for PyG-style models: edge_index [2,E] connectivity (int64 -> torch.long) + edge_attr
+    # [E,8] line features (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame.
+    edge_index = np.asarray(g.ei, dtype=np.int64)
+    edge_attr = np.stack(
+        [g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs, g.edge_tap, g.edge_shift], axis=1
+    ).astype(np.float32)
+    # Static availability masks (which channels carry a meter), the same sparse plan every frame.
+    _bnx, node_m, _bex, edge_m = g.emit_from_state(X[0])
+    result = dict(
+        node_x=buf.node_x,
+        benign=buf.benign,
+        clean=clean,
+        edge_x=buf.edge_x,
+        edge_benign=buf.edge_benign,
+        edge_clean=buf.edge_clean,
+        edge_index=edge_index,
+        edge_attr=edge_attr,
+        node_m=node_m.astype(np.uint8),
+        edge_m=edge_m.astype(np.uint8),
+        y=buf.y,
+        family=buf.family,
+        temporal_delta=buf.temporal_delta,
+        swing=buf.swing,
+        timestep=np.arange(T),
+        episodes=buf.episodes,
+    )
+    if out:
+        np.savez_compressed(out, **{**result, "episodes": np.array(buf.episodes, dtype=object)})
+    result["system"] = g.C
+    result["attacked_frac"] = float((buf.y.sum(axis=1) > 0).mean())
+    return result
 
 
 def generate_stream(
@@ -82,247 +279,30 @@ def generate_stream(
     """
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, **red)
-    g._pick_lra_target(attack_intensity, min(6, len(g.load_bus)), n_targets=15)
-    K = min(6, len(g.load_bus))
-    rng = g.rng
+    lra_k = min(6, len(g.load_bus))
+    g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
-    T = len(X)
-    C = g.C
-    SCALE = _swing_scale(X, C)
-    apos = g.attackable_pos
+    T, C = len(X), g.C
+    knobs = FrameKnobs(
+        attack_intensity, NOISE_FLOOR, lra_k, replay_tau, reject_below_floor=False, with_benign=True
+    )
+    ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
     fam_ids = [FAM_ID[f] for f in families]
-    single = [f for f in fam_ids if f in (1, 2, 3, 4, 6)]  # single-shot families (persist as a flat episode)
-    has_ramp = 5 in fam_ids
-
-    E = g.E
-    node_x = np.zeros(
-        (T, C, 4), np.float32
-    )  # OBSERVED node feed: attacked+noisy where attacked, else benign+noisy
-    benign = np.zeros((T, C, 4), np.float32)  # UN-ATTACKED node measurement (benign+noisy), attack removed
-    edge_x = np.zeros(
-        (T, E, 2), np.float32
-    )  # OBSERVED branch flows [P_from, Q_from] (attacked+noisy / benign+noisy)
-    edge_ben = np.zeros((T, E, 2), np.float32)  # UN-ATTACKED branch flows (benign+noisy)
-    edge_cln = np.zeros(
-        (T, E, 2), np.float32
-    )  # NOISELESS true branch flows (metered branches only, matching edge_x)
-
-    # All noiseless from-end flows over the whole timeline in one batched matmul (masked to metered branches, so
-    # edge_ben - edge_cln is the meter error, systematic bias plus per-scan jitter, on the measured channels).
-    # Shared physics primitive, see engine.
-    edge_clean_full = g.clean_flows_from_states(X[:T])
-    y = np.zeros((T, C), np.uint8)
-    fam = np.zeros(T, np.int16)
-    td_all = np.zeros((T, C, 2), np.float32)
-    sw_all = np.zeros((T, C, 2), np.float32)
-    episodes: List[Dict[str, Any]] = []
-    prev_nx: Optional[np.ndarray] = None
-
-    def _emit_benign(t: int) -> Tuple[np.ndarray, np.ndarray]:
-        nx, nm, ex, em = g.emit_from_state(X[t])
-        g.benign_buf.append(nx.copy())
-        if len(g.benign_buf) > 300:
-            g.benign_buf.pop(0)
-        return nx, ex
-
-    def _store(
-        t: int,
-        nx: np.ndarray,
-        yt: np.ndarray,
-        fid: int,
-        benign_nx: np.ndarray,
-        ex: np.ndarray,
-        benign_ex: np.ndarray,
-    ) -> None:
-        nonlocal prev_nx
-        node_x[t] = nx
-        benign[t] = benign_nx
-        y[t] = yt
-        fam[t] = fid
-        edge_x[t] = ex
-        edge_ben[t] = benign_ex
-        edge_cln[t] = edge_clean_full[t]
-        p = prev_nx if prev_nx is not None else nx
-        td_all[t, :, 0] = nx[:, 1] - p[:, 1]
-        td_all[t, :, 1] = nx[:, 2] - p[:, 2]  # vs previous EMITTED frame
-        sc = SCALE[t]
-        sw_all[t, :, 0] = td_all[t, :, 0] / sc[:, 0]
-        sw_all[t, :, 1] = td_all[t, :, 1] / sc[:, 1]
-        prev_nx = nx
-
-    def _attack_frame(
-        t: int, fid: int, a: np.ndarray, mult: Union[float, np.ndarray]
-    ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-        """Apply family `fid` at timestep t. Returns (nx, y, benign_nx, ex, benign_ex) or None, where ex is the
-        OBSERVED branch flows and benign_ex the un-attacked branch flows (node + edge from the same scan)."""
-        yt = np.zeros(C, np.uint8)
-        if fid in (1, 5):  # Aq / ramp: re-solve with scaled load. X[t] = [|V|, Pinj, Qinj, theta]
-            Lp = X[t][g.load_bus, 1] + g.load_genP
-            Lq = X[t][g.load_bus, 2].copy()
-            Lp_true = Lp.copy()
-            Lp = Lp.copy()
-            Lp[a] *= mult
-            net = g.solve(Lp, Lq, Xt=X[t], Lp_true=Lp_true)
-            if net is None:
-                return None
-            nx, nm, ex, em = g.emit(net)
-            yt[g.load_bus[a]] = 1
-            bnx, bnm, bex, bem = g.emit_from_state(X[t])  # benign = un-attacked emit of the true state
-            return nx, yt, bnx, ex, bex
-        if fid == 6:  # Al / LRA: load-redistribution re-solve
-            Lp = X[t][g.load_bus, 1] + g.load_genP
-            Lq = X[t][g.load_bus, 2].copy()
-            d, aa = g.lra_delta(Lp, attack_intensity, K, floor=NOISE_FLOOR)
-            if len(aa) == 0:
-                return None
-            net = g.solve(Lp + d, Lq, Xt=X[t], Lp_true=Lp)
-            if net is None:
-                return None
-            nx, nm, ex, em = g.emit(net)
-            yt[g.load_bus[aa]] = 1
-            bnx, bnm, bex, bem = g.emit_from_state(X[t])
-            return nx, yt, bnx, ex, bex
-        nx, nm, ex, em = g.emit_from_state(X[t])  # Ad/As/Ar: corrupt measurements in place
-        benign_nx = nx.copy()
-        benign_ex = ex.copy()  # capture BEFORE corruption -> shares noise with nx/ex
-        abus = g.load_bus[a]
-        if replay_tau is not None and g.benign_buf:  # fixed replay depth, else random lag >=20
-            replay = g.benign_buf[-min(replay_tau, len(g.benign_buf))]
-        elif len(g.benign_buf) > 20:
-            replay = g.benign_buf[int(rng.integers(0, len(g.benign_buf) - 20))]
-        else:
-            replay = g.benign_buf[0] if g.benign_buf else None
-        nx, ex, weak, mags = g.corrupt(
-            nx, ex, abus, _FAMK[fid], replay, floor=NOISE_FLOOR, cap=attack_intensity
-        )
-        nx[nm == 0] = 0.0
-        ex[em == 0] = 0.0  # corrupt() can write unmetered channels; re-assert mask==0 -> value==0
-        yt[abus] = 1
-        return nx, yt, benign_nx, ex, benign_ex  # un-attacked node/edge in benign == nx/ex exactly
-
-    def _pick_targets(fid: int) -> np.ndarray:
-        nab = len(apos)
-        k = int(rng.integers(1, min(6, nab) + 1)) if fid == 1 else min(4, nab)
-        return rng.choice(apos, k, replace=False)
-
+    plan = _StreamPlan(
+        [f for f in fam_ids if f in SINGLE_SHOT_ORDER],
+        RAMP_FAMILY in fam_ids,
+        ramp_len,
+        ramp_rate,
+        attacked_frac,
+    )
+    # All noiseless from-end flows over the whole timeline in one batched matmul (metered branches only, so
+    # edge_benign - edge_clean is the meter error on the measured channels). Shared physics primitive.
+    buf = _StreamBuffers(T, C, g.E, ctx.scale, g.clean_flows_from_states(X[:T]))
     # Walk the timeline: alternate a benign gap and an attack episode, sized so the attacked fraction ~ target.
     t = 0
     while t < T:
-        atk_so_far = int((y[:t].sum(axis=1) > 0).sum())  # frames with any attacked bus, so far
-        want_attack = (atk_so_far / max(1, t)) < attacked_frac if t > 0 else True
-        if not want_attack or not (single or has_ramp):
-            gap = int(rng.integers(5, 40))
-            for _ in range(gap):
-                if t >= T:
-                    break
-                bn, bex = _emit_benign(t)
-                _store(t, bn, np.zeros(C, np.uint8), 0, bn, bex, bex)
-                t += 1  # benign: observed == un-attacked
-            continue
-        # start an attack episode
-        use_ramp = has_ramp and (not single or rng.random() < 1.0 / (len(single) + 1))
-        if use_ramp and t < T - ramp_len:
-            a = rng.choice(apos, min(5, len(apos)), replace=False)  # fixed bus set for the ramp
-            direction = 1.0 if rng.random() < 0.5 else -1.0
-            rise = max(1, int(rng.uniform(0.2, 0.45) * ramp_len))
-            hold = int(rng.uniform(0.0, 0.25) * ramp_len)
-            t0 = t
-            ok = np.zeros(C, np.uint8)
-            for i in range(ramp_len):
-                if t >= T:
-                    break
-                dev = ramp_rate * (
-                    i if i < rise else (rise if i < rise + hold else max(0, rise - (i - rise - hold)))
-                )
-                res = _attack_frame(t, 5, a, 1 + direction * dev)
-                if res is None:
-                    bn, bex = _emit_benign(t)
-                    _store(t, bn, np.zeros(C, np.uint8), 0, bn, bex, bex)
-                else:
-                    _store(t, res[0], res[1], 5, res[2], res[3], res[4])
-                    ok |= res[1]
-                t += 1
-            episodes.append(dict(onset=t0, length=t - t0, family=5, buses=np.where(ok)[0].tolist()))
-        else:
-            fid = int(rng.choice(single)) if single else 5
-            a = _pick_targets(fid)
-            mult = 1 + rng.uniform(0.05, attack_intensity, size=len(a))
-            L = int(rng.integers(*_EP_LEN.get(fid, (5, 25))))
-            t0 = t
-            ok = np.zeros(C, np.uint8)
-            for _ in range(L):
-                if t >= T:
-                    break
-                res = _attack_frame(t, fid, a, mult)
-                if res is None:
-                    bn, bex = _emit_benign(t)
-                    _store(t, bn, np.zeros(C, np.uint8), 0, bn, bex, bex)
-                else:
-                    _store(t, res[0], res[1], fid, res[2], res[3], res[4])
-                    ok |= res[1]
-                t += 1
-            episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
-
-    # clean = the NOISELESS healthy state at every timestep (the truth the attack was injected onto), in the
-    # same column order as node_x ([|V|, Pinj, Qinj, angle]), which the pool already uses. This is the SE /
-    # reconstruction target: pair (node_x[t], clean[t]) is (attacked measurements, true state) on every frame.
-    clean = X[:T].astype(np.float32)
-    # Three aligned layers per frame: node_x (attacked+noisy observed) -> benign (attack removed, noise kept)
-    # -> clean (noise removed too, the true state). node_x == benign on benign frames.
-    # Static graph for PyG-style models: edge_index [2,E] connectivity (COO, int64 so it maps to torch.long)
-    # + edge_attr [E,8] line features (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame.
-    edge_index = np.asarray(g.ei, dtype=np.int64)
-    edge_attr = np.stack(
-        [g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs, g.edge_tap, g.edge_shift], axis=1
-    ).astype(np.float32)
-    # Static availability masks (which channels carry a meter) — same sparse plan every frame, so a consumer
-    # knows which node_x/edge_x entries are measured vs zero-filled. node_m [N,4], edge_m [E,2].
-    _bnx, node_m, _bex, edge_m = g.emit_from_state(X[0])
-    node_m = node_m.astype(np.uint8)
-    edge_m = edge_m.astype(np.uint8)
-    # Branch-flow measurements mirror the node layers: edge_x (observed) -> edge_benign (attack removed)
-    # -> edge_clean (noiseless true flows, metered branches). Node + edge from the same scan = full SE meas set.
-    result = dict(
-        node_x=node_x,
-        benign=benign,
-        clean=clean,
-        edge_x=edge_x,
-        edge_benign=edge_ben,
-        edge_clean=edge_cln,
-        edge_index=edge_index,
-        edge_attr=edge_attr,
-        node_m=node_m,
-        edge_m=edge_m,
-        y=y,
-        family=fam,
-        temporal_delta=td_all,
-        swing=sw_all,
-        timestep=np.arange(T),
-        system=C,
-        episodes=episodes,
-        attacked_frac=float((y.sum(axis=1) > 0).mean()),
-    )
-    if out:
-        np.savez_compressed(
-            out,
-            node_x=node_x,
-            benign=benign,
-            clean=clean,
-            edge_x=edge_x,
-            edge_benign=edge_ben,
-            edge_clean=edge_cln,
-            edge_index=edge_index,
-            edge_attr=edge_attr,
-            node_m=node_m,
-            edge_m=edge_m,
-            y=y,
-            family=fam,
-            temporal_delta=td_all,
-            swing=sw_all,
-            timestep=np.arange(T),
-            episodes=np.array(episodes, dtype=object),
-        )
-    return result
+        t = _advance(ctx, buf, g.rng, t, plan)
+    return _stream_result(g, X, buf, T, out)
 
 
 def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[str, Any]:
