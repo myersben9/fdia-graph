@@ -173,4 +173,5 @@ class AttackMixin(GridBase):
         # zero delta and empty attacked-bus set (record stays effectively benign).
         if r is None:
             return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0)
-        return Redistribution(r.delta * self._sgn[L], r.buses, r.line_flow_change)
+        # The flow change carries the same sign so the model describes the redistribution it holds.
+        return Redistribution(r.delta * self._sgn[L], r.buses, r.line_flow_change * self._sgn[L])

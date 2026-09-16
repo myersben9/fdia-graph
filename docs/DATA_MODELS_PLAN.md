@@ -38,12 +38,12 @@ Tuple, plus the generator's attribute groups).
 | `MeasurementMixin.emit_from_state`, `emit` | 4-tuple `(nx, nm, ex, em)` | `Scan(node_x, node_m, edge_x, edge_m)` | called at seven sites, always unpacked positionally; `Frame` already holds the same four fields, so `Frame` can be built from a `Scan` |
 | `SEBase._truth_of` | dict `{"x", "thsl"}` | `TrueState(x, slack_angle)` | eleven call sites read `tr["x"]`, `tr["thsl"]` |
 | `AttackMixin.lra_delta`, `_lra_for_line` | tuples `(delta, buses)`, `(delta, buses, flow_change)` | `Redistribution(delta, buses, line_flow_change)` | the plausibility band check reads the pieces |
-| `PhysicsMixin.resolve_states` | tuple `(X, kept)` | `ResolvedPool(states, kept_timesteps)` | |
+| `PhysicsMixin.resolve_states` | tuple `(X, kept)` | `ResolvedPool(states, converged)` | |
 | `FdiaGraph._admittances` | dict `{"ybus", "yf", "yt"}` | `Admittances(ybus, yf, yt)` | the three properties `ybus_np`, `yf_np`, `yt_np` read it; `branch_admittances` returns the same three, so the kernel returns the model too |
 | `generation._stack_records` | dict of arrays | `ShardArrays` (dataclass with one field per dataset) | the writer reads it by key |
 | `registry` specs (`resolve`, `_asset_spec`, `download.ensure_local(spec)`) | dict `{"kind", "name", "file", "release", "repo", "sha256", "path"}` | `AssetSpec` (frozen dataclass) | four producers, one consumer; `ensure_local` branches on `kind` |
 | `download._asset_url` | tuple `(url, headers)` | `DownloadTarget(url, headers)` | |
-| `FdiaGenerator` attribute groups | `edge_r … bus_shunt_b` (12 arrays), `M` dict + `flow_meter`, six `bias_*` vectors, six `outage_*` fields | `g.branch: BranchModel` (the model already exists), `g.meters: MeterPlan(vbus, pmu, inj, flow)`, `g.bias: MeterBias(pi, qi, v, va, pf, qf)`, `g.outage: Outage(line, pos, name, from_bus, to_bus, base_flow_mw)` | the old attribute names stay as read-only properties for one minor version (the writer, the docs scripts and the temporal harness read them) |
+| `FdiaGenerator` attribute groups | `edge_r … bus_shunt_b` (12 arrays), `M` dict + `flow_meter`, six `bias_*` vectors, six `outage_*` fields | `g.branch: BranchModel` (the model already exists), `g.meters: MeterPlan(vbus, pmu, inj, flow)`, `g.bias: MeterBias(pi, qi, v, va, pf, qf)`, `g.contingency: Outage(line, pos, name, from_bus, to_bus, base_flow_mw)` (`INTACT` when no line is opened) | the old attribute names stay as read-only properties for one minor version (the writer, the docs scripts and the temporal harness read them) |
 | `localization.LocalizerBase._pull` | dict of arrays | `LocalizerInputs` | internal |
 
 ### 2b. Public API returning dicts (compatibility-bound)
@@ -83,7 +83,7 @@ JSON dumping, and the default collate. The rule for them is section 3.
    ```
 
    A `RecordBundle`, `BatchBundle`, `StreamBundle`, `ScoreTable`, `JacobianOutputs` built on it
-   keep every existing use working (`out["node_x"]`, `**out`, `json.dump(out.to_dict())`, the
+   keep every existing use working (`out["node_x"]`, `**out`, `json.dump` of a table of scalars, the
    default collate treats a `Mapping` as a dict) and add `out.node_x`, pyright-checked field
    names, and one place that documents what each field is. Optional layers are `Optional[...]`
    fields; absent ones do not appear in iteration, so `"swing" in out` keeps its meaning.

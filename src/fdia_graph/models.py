@@ -3,8 +3,8 @@
 The package's public functions have always returned dicts of arrays (records, batches, streams,
 score tables). A Bundle is a frozen dataclass whose fields are those keys, so a reader sees them
 in one place and pyright checks them, and it is also a Mapping, so every existing use keeps
-working: ``out["node_x"]``, ``**out``, ``for k in out``, ``"swing" in out``, ``json.dump(out.to_dict())``,
-and PyTorch's default collate (which treats a Mapping as a dict). Fields set to None are absent
+working: ``out["node_x"]``, ``**out``, ``for k in out``, ``"swing" in out``, ``json.dump`` of a
+table of scalars (a record of arrays needs ``.tolist()``, as any dict of arrays does), and PyTorch's default collate (which treats a Mapping as a dict). Fields set to None are absent
 from the mapping view, which is how optional layers behave today.
 
     @dataclass(frozen=True, eq=False)
