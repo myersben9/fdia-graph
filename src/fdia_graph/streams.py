@@ -43,6 +43,7 @@ from .formulas.attacks import ramp_profile
 from .formulas.temporal import swing_zscore, temporal_delta
 from .generation import _FrameContext, _load_states, NOISE_FLOOR
 from .generation import _swing_scale as _generation_swing_scale
+from .registry import AssetSpec
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
 # families persist for a shorter, variable window. Benign gaps are drawn from the same overall scale so the
@@ -326,17 +327,10 @@ def generate_stream(
 _GRAPH_KEYS = ("edge_index", "edge_attr", "node_m", "edge_m")  # PyG-ready graph + static meter masks
 
 
-def _asset_spec(name: str, file: str, release: Optional[str]) -> Dict[str, Any]:
+def _asset_spec(name: str, file: str, release: Optional[str]) -> AssetSpec:
     from .registry import _REPO, STREAM_RELEASE
 
-    return {
-        "kind": "builtin",
-        "name": name,
-        "file": file,
-        "release": release or STREAM_RELEASE,
-        "repo": _REPO,
-        "sha256": None,
-    }
+    return AssetSpec("builtin", name, file=file, release=release or STREAM_RELEASE, repo=_REPO)
 
 
 def _attach_graph_sidecar(out: Dict[str, Any], C: int, release: Optional[str]) -> None:

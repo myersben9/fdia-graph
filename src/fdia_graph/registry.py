@@ -7,7 +7,10 @@ recorded in a small JSON under the cache dir so they are loadable by name exactl
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Union
+from dataclasses import dataclass
+
+from .models import Bundle
+from typing import Any, Dict, Optional, Union
 
 import json
 import os
@@ -35,6 +38,23 @@ def system_id(system: Union[str, int]) -> int:
 
 # Built-in shards. Each entry is the full spec download.py needs: asset `file`, `release` tag, `repo`,
 # expected `sha256` (None = skip verification), and the IEEE `system` size.
+@dataclass(frozen=True, eq=False)
+class AssetSpec(Bundle):
+    """Where a dataset comes from: a built-in release asset (kind "builtin": file, release, repo,
+    optional pinned sha256) or a locally generated file (kind "local": path, meta). Indexable like
+    the dict it replaces (spec["release"], spec.get("sha256"))."""
+
+    kind: str
+    name: str
+    file: Optional[str] = None
+    release: Optional[str] = None
+    repo: Optional[str] = None
+    sha256: Optional[str] = None
+    system: Optional[int] = None
+    path: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
+
+
 BUILTIN = {
     "ieee14": {
         "file": "ml_only_ieee14.h5",
@@ -169,23 +189,29 @@ def list_datasets() -> Dict[str, str]:
     return out
 
 
-def resolve(name: Union[str, int], release: Optional[str] = None) -> Dict:
-    """Map a name/alias to a spec dict: {'kind': 'builtin'|'local', ...}.
+def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
+    """Map a name/alias to its AssetSpec (kind "builtin" or "local").
 
-    For built-ins, `release`: None -> newest published release (queried live); an explicit tag -> that exact
-    release (reproducible pin). Local datasets live at a fixed path, so `release` is ignored for them.
+    For built-ins, `release`: None -> the pinned _RELEASE (not a live "newest tag" query: a partial
+    tag once 404'd fresh loads); an explicit tag -> that exact release (reproducible pin). The pinned
+    sha256 describes the _RELEASE assets only, so it is dropped for any other release rather than
+    failing the integrity check against bytes it was never computed from. Local datasets live at a
+    fixed path, so `release` is ignored for them.
     """
     name = _ALIASES.get(name, name)  # "118"/118 -> "ieee118"; canonical unchanged
     if name in BUILTIN:
-        spec = {"kind": "builtin", "name": name, **BUILTIN[name]}
-        # Pin _RELEASE, not a live "newest tag" query (a partial tag once 404'd fresh loads).
-        spec["release"] = release or _RELEASE
-        # The pinned sha256 describes the _RELEASE assets only; drop it for any other release rather than
-        # fail the integrity check against bytes it was never computed from.
-        if spec["release"] != _RELEASE:
-            spec["sha256"] = None
-        return spec
+        b = BUILTIN[name]
+        rel = release or _RELEASE
+        return AssetSpec(
+            "builtin",
+            name,
+            file=b["file"],
+            release=rel,
+            repo=b["repo"],
+            sha256=b["sha256"] if rel == _RELEASE else None,
+            system=b.get("system"),
+        )
     local = _load_local()
     if name in local:
-        return {"kind": "local", "name": name, **local[name]}
+        return AssetSpec("local", name, path=local[name]["path"], meta=local[name].get("meta"))
     raise KeyError(f"unknown dataset '{name}'. Known: {sorted(list_datasets())}")

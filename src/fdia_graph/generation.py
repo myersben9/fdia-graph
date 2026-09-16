@@ -33,6 +33,7 @@ from .formulas.attacks import ramp_profile
 from .formulas.temporal import recent_change_scale, swing_zscore, temporal_delta
 
 # CACHE_DIR = on-disk shard home; register_local makes the new dataset findable by load(name).
+from .models import Bundle
 from .registry import CACHE_DIR, register_local
 
 # Single-shot family name -> id (Aq=1, Ad=2, As=3, Ar=4, Al/LRA=6).
@@ -105,19 +106,14 @@ def _read_states(
         return np.load(src)["X"].astype(np.float64)  # precomputed compact pool (the SDK default)
     # fall back to the downloadable operating-point pool for this system
     from .download import ensure_local
-    from .registry import _RELEASE, system_id
+    from .registry import _RELEASE, AssetSpec, system_id
 
     # Built-in release asset spec (pool_ieee{C}.npz); follows the pinned shard release, which carries
     # all 8 ladder pools (a hardcoded old tag here 404'd generate() on systems added after that tag).
     C = system_id(system)
-    spec = {
-        "kind": "builtin",
-        "name": f"pool{C}",
-        "file": f"pool_ieee{C}.npz",
-        "release": _RELEASE,
-        "repo": "myersben9/fdia-graph",
-        "sha256": None,
-    }
+    spec = AssetSpec(
+        "builtin", f"pool{C}", file=f"pool_ieee{C}.npz", release=_RELEASE, repo="myersben9/fdia-graph"
+    )
     # ensure_local downloads/caches and returns the local path.
     return np.load(ensure_local(spec))["X"].astype(np.float64)
 
@@ -392,6 +388,24 @@ class Record(NamedTuple):
 _CHUNK_ROWS = 128  # per-record datasets are chunked along the record axis for efficient partial reads
 
 
+@dataclass(frozen=True, eq=False)
+class ShardArrays(Bundle):
+    """The records of a shard stacked into the arrays the file stores, one field per dataset."""
+
+    node_x: np.ndarray  # [T, N, 4]
+    node_m: np.ndarray  # [T, N, 4]
+    edge_x: np.ndarray  # [T, E, 2]
+    edge_m: np.ndarray  # [T, E, 2]
+    y: np.ndarray  # [T, N]
+    temporal_delta: np.ndarray  # [T, N, 2]
+    swing: np.ndarray  # [T, N, 2]
+    family: np.ndarray  # [T] int8
+    seq_id: np.ndarray  # [T] int32
+    timestep: np.ndarray  # [T] int32
+    gap: np.ndarray  # [T] uint8
+    stealthy: np.ndarray  # [T] uint8
+
+
 _RECORD_ARRAYS = ("node_x", "node_m", "edge_x", "edge_m", "y", "temporal_delta", "swing")
 _RECORD_SCALARS = (
     ("family", np.int8),
@@ -402,11 +416,11 @@ _RECORD_SCALARS = (
 )
 
 
-def _stack_records(recs: List[Record]) -> Dict[str, np.ndarray]:
+def _stack_records(recs: List[Record]) -> ShardArrays:
     """The record tuples as [T, ...] arrays, scalar fields with dtypes sized to their range."""
-    out = {name: np.stack([getattr(r, name) for r in recs]) for name in _RECORD_ARRAYS}
-    out.update({name: np.array([getattr(r, name) for r in recs], dtype) for name, dtype in _RECORD_SCALARS})
-    return out
+    stacked = {name: np.stack([getattr(r, name) for r in recs]) for name in _RECORD_ARRAYS}
+    scalars = {name: np.array([getattr(r, name) for r in recs], dtype) for name, dtype in _RECORD_SCALARS}
+    return ShardArrays(**stacked, **scalars)
 
 
 def _shard_attrs(
@@ -485,7 +499,7 @@ def _chunked(group: Any, name: str, data: np.ndarray) -> None:
     group.create_dataset(name, data=data, chunks=ch, compression="gzip", compression_opts=4)
 
 
-def _write_data(f: Any, arrays: Dict[str, np.ndarray], split_code: np.ndarray) -> None:
+def _write_data(f: Any, arrays: ShardArrays, split_code: np.ndarray) -> None:
     """data/ group: the per-record tensors and the scalar fields (including the split)."""
     d = f.create_group("data")
     for name in ("node_x", "edge_x", "temporal_delta", "swing"):
@@ -522,14 +536,14 @@ def _write(
     already in [|V|, Pinj, Qinj, theta] order, never the caller's raw `states` argument.
     """
     arrays = _stack_records(recs)
-    split_code = _chrono_split(arrays["timestep"], arrays["seq_id"], split)  # train/val/test = 0/1/2
+    split_code = _chrono_split(arrays.timestep, arrays.seq_id, split)  # train/val/test = 0/1/2
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:
         f.attrs.update(_shard_attrs(g, len(recs), seed, solve_stats))
         _write_graph(f, g)
         _write_data(f, arrays, split_code)
         if pool is not None:
-            _write_clean(f, g, pool, arrays["timestep"])
+            _write_clean(f, g, pool, arrays.timestep)
 
 
 def _chrono_split(tstep: np.ndarray, seq: np.ndarray, frac: Tuple[float, float, float]) -> np.ndarray:
