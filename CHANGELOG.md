@@ -17,6 +17,22 @@ Data models, steps 1 and 2 (docs/DATA_MODELS_PLAN.md). No user-visible change; o
   `outage_pos` ... `outage_base_flow_mw`) still work as read-only properties and warn; they are
   removed one minor version later.
 
+Data models, step 3: the public dicts are typed bundles. No user-visible change: every one is
+still the dict it was (a `dict` subclass with the same keys in the same order), so indexing,
+`**`, iteration, JSON dumping of score tables and PyTorch's default collate keep working; each
+also has attributes and a docstring naming its fields.
+
+- `dataset.RecordBundle` (`FdiaGraph[i]`), `BatchBundle` (`collate`), `ArraysBundle` (`to_numpy`,
+  `to_torch`, `to_tf`), `Summary` (`summary`).
+- `se.base.EstimatorScores` of `ErrorPair` rows (`SEBase.score`); `localization.base.LocalizerScores`
+  of `OverallMetrics`, `BenignMetrics` and `FamilyMetrics` (`LocalizerBase.score`).
+- `se.jacobian.JacobianOutputs` (`JacobianFeatures.transform`; the `"global"` key is the
+  `global_` attribute).
+- `streams.Stream` (`generate_stream`, `load_stream`) and `engine.core.LineCandidate`
+  (`line_outage_candidates`).
+- `Bundle` is now a `dict` subclass rather than a `Mapping`, so `isinstance(out, dict)` and
+  `json.dump(out)` hold as well; it is read-only on both sides.
+
 Readability series, steps 6 and 7 (docs/READABILITY_PLAN.md): the temporal and ramp formulas in
 the kernel, and the rest of the backlog. No user-visible change (bit-identical shards and
 streams, identical estimator and localizer scores).

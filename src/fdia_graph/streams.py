@@ -43,6 +43,7 @@ from .formulas.attacks import ramp_profile
 from .formulas.temporal import swing_zscore, temporal_delta
 from .generation import _FrameContext, _load_states, NOISE_FLOOR
 from .generation import _swing_scale as _generation_swing_scale
+from .models import Bundle
 from .registry import AssetSpec
 
 # Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
@@ -60,6 +61,33 @@ def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
         stacklevel=2,
     )
     return _generation_swing_scale(X, C)
+
+
+@dataclass(frozen=True, eq=False)
+class Stream(Bundle):
+    """A continuous attacked time series as `generate_stream` and `load_stream` return it: three
+    aligned measurement layers per frame, the same three for branch flows, the static graph and
+    meter masks, labels, the two temporal features, and the episode list. A dict as well, so
+    `windows`, `pyg_stream` and every `s["node_x"]` keep working."""
+
+    node_x: np.ndarray  # [T, N, 4] observed
+    benign: np.ndarray  # [T, N, 4] attack removed, noise kept
+    clean: np.ndarray  # [T, N, 4] noiseless truth
+    edge_x: np.ndarray  # [T, E, 2] observed flows
+    edge_benign: np.ndarray
+    edge_clean: np.ndarray
+    edge_index: np.ndarray  # [2, E]
+    edge_attr: np.ndarray  # [E, 8]
+    node_m: np.ndarray  # [N, 4]
+    edge_m: np.ndarray  # [E, 2]
+    y: np.ndarray  # [T, N]
+    family: np.ndarray  # [T]
+    temporal_delta: np.ndarray  # [T, N, 2]
+    swing: np.ndarray  # [T, N, 2]
+    timestep: np.ndarray  # [T]
+    episodes: Any  # list of {onset, length, family, buses}
+    system: Optional[int] = None
+    attacked_frac: Optional[float] = None
 
 
 class _StreamBuffers:
@@ -238,7 +266,7 @@ def _advance(
 
 def _stream_result(
     g: FdiaGenerator, X: np.ndarray, buf: _StreamBuffers, T: int, out: Optional[str]
-) -> Dict[str, Any]:
+) -> Stream:
     """Assemble the stream dict (and save it when `out` is given)."""
     # clean = the NOISELESS healthy state at every timestep (the truth the attack was injected onto), in the
     # same column order as node_x ([|V|, Pinj, Qinj, angle]). Three aligned layers per frame: node_x
@@ -282,9 +310,7 @@ def _stream_result(
     )
     if out:
         np.savez_compressed(out, **{**result, "episodes": np.array(buf.episodes, dtype=object)})
-    result["system"] = g.C
-    result["attacked_frac"] = float((buf.y.sum(axis=1) > 0).mean())
-    return result
+    return Stream(**result, system=g.C, attacked_frac=float((buf.y.sum(axis=1) > 0).mean()))
 
 
 def generate_stream(
@@ -299,7 +325,7 @@ def generate_stream(
     redundancy: Optional[Dict] = None,
     seed: int = 123,
     out: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> Stream:
     """Build one continuous attacked time series for `system`. Returns a dict (also saved to `out` if given).
 
     attacked_frac : target fraction of timesteps under an attack episode (~0.5 = balanced).
@@ -368,7 +394,7 @@ def _normalize_graph_dtypes(out: Dict[str, Any]) -> None:
             out[m] = np.asarray(out[m], dtype=np.uint8)
 
 
-def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[str, Any]:
+def load_stream(system: Union[int, str], release: Optional[str] = None) -> Stream:
     """Download (and cache) the published continuous stream for a system and return it as a dict.
 
     Same dict shape as generate_stream (node_x, benign, clean, edge_x/edge_benign/edge_clean, y, family, ...).
@@ -384,7 +410,7 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Dict[
     out = {k: z[k] for k in z.files}
     _attach_graph_sidecar(out, C, release)
     _normalize_graph_dtypes(out)
-    return out
+    return Stream(**out)
 
 
 def windows(

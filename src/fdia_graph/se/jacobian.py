@@ -26,9 +26,13 @@ Needs the [se] extra (torch + pandapower) and a v0.7.2+ shard (the clean layer).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import numpy as np
+
+from ..models import Bundle
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -60,6 +64,19 @@ def bus_incidence(est: "SEBase", edge_index: np.ndarray) -> List[np.ndarray]:
         inc[edge_index[1], cols] = True
     incm = inc[:, est.mask]
     return [np.where(incm[b])[0] for b in range(N)]
+
+
+@dataclass(frozen=True, eq=False)
+class JacobianOutputs(Bundle):
+    """`JacobianFeatures.transform`: the per-bus block [n, N, 8], the global features [n, 4]
+    (under the dict key "global"), the implied state change [n, SD] and the unexplained residual
+    [n, m]."""
+
+    _keys = {"global_": "global"}
+    bus: np.ndarray
+    global_: np.ndarray
+    dx_hat: np.ndarray
+    r_perp: np.ndarray
 
 
 class JacobianFeatures:
@@ -116,7 +133,7 @@ class JacobianFeatures:
         return z - est._h(tr["x"], tr["thsl"])
 
     # ---- features ------------------------------------------------------------------------
-    def transform(self, d: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    def transform(self, d: Dict[str, np.ndarray]) -> JacobianOutputs:
         """d must carry node_x, edge_x, timestep (as fdia_graph's to_numpy returns them, physical
         units). Returns {"bus": [n, N, 8], "global": [n, 4], "dx_hat": [n, SD], "r_perp": [n, m]}."""
         est = self.est
@@ -155,4 +172,4 @@ class JacobianFeatures:
                 sens[:, b] = sens_change[:, ix].max(axis=1)
         bus_ratio = np.sqrt(unexp) / (np.sqrt(expl) + 1e-9)
         bus = np.stack([dth, dv, unexp, expl, bus_ratio, lev, sens, weak_move], axis=2)
-        return {"bus": bus, "global": glob, "dx_hat": dx, "r_perp": r_perp}
+        return JacobianOutputs(bus=bus, global_=glob, dx_hat=dx, r_perp=r_perp)

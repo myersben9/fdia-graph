@@ -2,6 +2,7 @@
 on must keep working, and the attribute view must agree with it."""
 
 import json
+import pickle
 from dataclasses import dataclass
 from typing import Optional
 
@@ -19,12 +20,20 @@ class _Rec(Bundle):
     swing: Optional[np.ndarray] = None
 
 
+@dataclass(frozen=True, eq=False)
+class _Aliased(Bundle):
+    _keys = {"global_": "global"}
+    bus: int
+    global_: int
+
+
 def _rec(with_swing: bool) -> _Rec:
     return _Rec(np.ones((3, 4)), np.zeros(3), 2, np.ones((3, 2)) if with_swing else None)
 
 
 def test_dict_view_equals_attribute_view():
     r = _rec(True)
+    assert isinstance(r, dict)
     assert r["family"] == r.family == 2
     assert np.array_equal(r["node_x"], r.node_x)
     assert list(r) == ["node_x", "y", "family", "swing"]
@@ -38,25 +47,59 @@ def test_optional_fields_are_absent_when_none():
     assert list(r) == ["node_x", "y", "family"] and len(r) == 3
     with pytest.raises(KeyError):
         r["swing"]
-    with pytest.raises(KeyError):
-        r["nope"]
 
 
-def test_frozen_and_json_ready():
+def test_read_only_json_and_pickle():
     r = _rec(False)
     with pytest.raises(Exception):
         r.family = 3  # type: ignore[misc]
-    assert (
-        json.loads(json.dumps({k: (v.tolist() if hasattr(v, "tolist") else v) for k, v in r.items()}))[
-            "family"
-        ]
-        == 2
-    )
+    with pytest.raises(TypeError):
+        r["family"] = 3
+    for mutate in (
+        lambda: r.update(family=3),
+        lambda: r.pop("family"),
+        r.clear,
+        r.popitem,
+        lambda: r.setdefault("z", 1),
+    ):
+        with pytest.raises(TypeError):
+            mutate()
+    with pytest.raises(TypeError):
+        r |= {"family": 3}  # type: ignore[misc]
+    assert r.family == 2 and r["family"] == 2 and "z" not in r
+    assert json.loads(json.dumps(_Aliased(1, 2)))["global"] == 2  # json.dump works on the dict side
+    back = pickle.loads(pickle.dumps(r))
+    assert back.family == 2 and np.array_equal(back["node_x"], r.node_x)
 
 
-def test_default_collate_treats_a_bundle_as_a_mapping():
-    """PyTorch's default collate falls back to a plain dict for a Mapping it cannot construct
-    from a dict, so a DataLoader over bundle records batches exactly as it batched dict records."""
+@dataclass(frozen=True, eq=False)
+class _Tailed(Bundle):
+    _tail = ("geo",)
+    geo: int
+    benign: Optional[int] = None
+
+
+def test_pickle_restores_fields_and_key_order():
+    t = pickle.loads(pickle.dumps(_Tailed(geo=1, benign=2)))
+    assert t.geo == 1 and t.benign == 2 and list(t) == ["benign", "geo"]  # geo is required yet listed last
+    r = pickle.loads(pickle.dumps(_Rec.ordered({"family": 2, "y": np.zeros(3), "node_x": np.ones((3, 4))})))
+    assert list(r) == ["family", "y", "node_x"] and r.family == 2
+
+
+def test_ordered_keeps_the_mapping_key_order():
+    r = _Rec.ordered({"family": 2, "y": np.zeros(3), "node_x": np.ones((3, 4))})
+    assert list(r) == ["family", "y", "node_x"] and r.node_x.shape == (3, 4) and "swing" not in r
+
+
+def test_aliased_key():
+    a = _Aliased(bus=1, global_=2)
+    assert a["global"] == a.global_ == 2 and list(a) == ["bus", "global"]
+
+
+def test_default_collate_treats_a_bundle_as_a_dict():
+    """PyTorch's default collate batches a Mapping key by key and falls back to a plain dict when the
+    mapping type cannot be built from a dict, so a DataLoader over bundle records batches exactly
+    as it batched dict records."""
     torch = pytest.importorskip("torch")
     from torch.utils.data import DataLoader
 

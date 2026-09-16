@@ -69,32 +69,37 @@ JSON dumping, and the default collate. The rule for them is section 3.
 2. **Larger models with behaviour are frozen dataclasses** (`AssetSpec`, `MeterPlan`, `MeterBias`,
    `Outage`, `ShardArrays`): named fields, a `__post_init__` for validation where useful, methods
    where they belong (`AssetSpec.cache_name()`).
-3. **Public dict returns become dual-access models.** A small base class in a new module
-   `fdia_graph.models`:
+3. **Public dict returns become dual-access models.** `fdia_graph.models.Bundle` is a frozen
+   dataclass that is also a real `dict` subclass: `__post_init__` fills the dict with the non-None
+   fields, the dict side refuses writes, and pickling goes through the fields.
 
    ```python
-   @dataclass(frozen=True)
-   class Bundle(Mapping[str, Any]):
-       """A typed record that still behaves as the dict it used to be."""
-       def __getitem__(self, k): return getattr(self, k)
-       def __iter__(self): return iter(f.name for f in fields(self) if getattr(self, f.name) is not None)
-       def __len__(self): return sum(1 for _ in self)
-       def to_dict(self): return {k: self[k] for k in self}
+   @dataclass(frozen=True, eq=False)
+   class TrueState(Bundle):
+       x: np.ndarray      # the 2N-1 state per record
+       thsl: np.ndarray   # the slack angle reference per record
    ```
 
-   A `RecordBundle`, `BatchBundle`, `StreamBundle`, `ScoreTable`, `JacobianOutputs` built on it
-   keep every existing use working (`out["node_x"]`, `**out`, `json.dump` of a table of scalars, the
-   default collate treats a `Mapping` as a dict) and add `out.node_x`, pyright-checked field
-   names, and one place that documents what each field is. Optional layers are `Optional[...]`
-   fields; absent ones do not appear in iteration, so `"swing" in out` keeps its meaning.
-4. **Serialization is explicit.** Every model has `to_dict()`; the frozen references, the
-   result JSON files and `savez` go through it, so files do not change.
+   A bundle keeps every existing use working (`isinstance(out, dict)`, `out["node_x"]`, `**out`,
+   `for k in out`, `json.dump` of a score table, PyTorch's default collate, which batches a dict
+   key by key) and adds `out.node_x`, pyright-checked field names, and one docstring naming every
+   field. Optional layers are `Optional[...]` fields; absent ones are not in the dict, so
+   `"swing" in out` keeps its meaning. A dict key that is not a valid attribute name (`"global"`)
+   is declared with a trailing underscore and mapped through `_keys`; a required field the old
+   dict listed last (`geo`) is named in `_tail` so the key order does not change. A `dict`
+   subclass rather than a `Mapping` because users test `isinstance(x, dict)` and `json.dump`
+   score tables directly.
+4. **Serialization is explicit.** Every model has `to_dict()`; a bundle is already the dict
+   `savez` and `json.dump` see, so files do not change.
 5. **Models live next to their producers**, not in one giant module: `engine.records.Scan`,
    `se.base.TrueState`, `dataset.RecordBundle`, and so on. `fdia_graph.models` holds only the
-   `Bundle` base and re-exports the public ones for discoverability.
-6. **The readability measures apply**: a model with more than about twelve fields is two models
-   (the stream dict has eighteen keys: `StreamBundle` holds the per-frame layers, `StreamGraph`
-   the static graph and masks, and the stream is the pair).
+   `Bundle` base (re-exporting the producers' models from it would import the whole package);
+   the data dictionary lists them (step 4).
+6. **A public bundle keeps the shape of the dict it replaces**, whatever its size: the stream
+   dict has eighteen keys and `Stream` has eighteen fields, because splitting it into a pair would
+   change what `s["node_x"]` and `**s` mean for every caller. The readability measures apply to
+   functions, not to the field count of a record; a long field list with one comment per field is
+   the documentation the old dict never had.
 
 ## 4. Sequencing
 
@@ -105,9 +110,10 @@ JSON dumping, and the default collate. The rule for them is section 3.
 3. The generator's attribute groups (`g.branch`, `g.meters`, `g.bias`, `g.outage`) with the old
    attribute names as properties for one minor version; the writer and the docs scripts move to
    the models in the same PR.
-4. The public dual-access models, one PR each in order of blast radius: `ScoreTable` (smallest,
-   used by the report scripts), `JacobianOutputs`, `StreamBundle` + `StreamGraph`, then
-   `RecordBundle` and `BatchBundle` (the loader).
+4. The public dual-access models, one PR: `EstimatorScores` and `LocalizerScores` with their
+   row models, `JacobianOutputs`, `Stream`, `LineCandidate`, `Summary`, then `RecordBundle`,
+   `BatchBundle` and `ArraysBundle` (the loader). One PR rather than four because the base class
+   change (`Mapping` to `dict` subclass) touches them all and each is a few lines at its producer.
 5. Docs: `docs/reference/DATA_DICTIONARY.md` gains a "models" section listing every public
    model and its fields, generated from the dataclasses so it cannot drift.
 
@@ -119,9 +125,9 @@ previous dict exactly.
 
 | step | pull request | state |
 |---|---|---|
-| 1 `Bundle` and the internal models | #69 | open |
-| 2 the generator's attribute groups | #69 | open |
-| 3 public dual-access bundles | next | |
+| 1 `Bundle` and the internal models | #69 | merged |
+| 2 the generator's attribute groups | #69 | merged |
+| 3 public dual-access bundles | #70 | open |
 | 4 the data dictionary's models section | after 3 | |
 
 Decisions taken 2026-09-16: dual-access bundles for the public dicts; the DataLoader test came

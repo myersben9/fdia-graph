@@ -54,6 +54,30 @@ def _scipy_linalg():
 
 
 @dataclass(frozen=True, eq=False)
+class ErrorPair(Bundle):
+    """Mean absolute error of one record class: angles in degrees, voltage magnitudes per unit."""
+
+    angle_mae_deg: float
+    voltage_mae_pu: float
+
+
+@dataclass(frozen=True, eq=False)
+class EstimatorScores(Bundle):
+    """`SEBase.score`: the error pair of every record class present and their geometric mean
+    (`geo`, the estimation paper's table cell). Indexable by family name as before, `geo` last."""
+
+    _tail = ("geo",)
+    geo: ErrorPair
+    benign: Optional[ErrorPair] = None
+    Aq: Optional[ErrorPair] = None
+    Ad: Optional[ErrorPair] = None
+    As: Optional[ErrorPair] = None
+    Ar: Optional[ErrorPair] = None
+    At: Optional[ErrorPair] = None
+    Al: Optional[ErrorPair] = None
+
+
+@dataclass(frozen=True, eq=False)
 class TrueState(Bundle):
     """The true state of a batch of records from the clean layer: x [n, 2N-1] = [theta (rad, non-slack)
     | V (pu, every bus)] and the slack angle reference thsl [n] (rad) the solver pins."""
@@ -357,9 +381,7 @@ class SEBase:
             out[e] = self._solve(z[e], tr["thsl"][e])
         return out
 
-    def score(
-        self, ds: "FdiaGraph", chunk: int = 1000, xhat: Optional[np.ndarray] = None
-    ) -> Dict[str, Dict[str, float]]:
+    def score(self, ds: "FdiaGraph", chunk: int = 1000, xhat: Optional[np.ndarray] = None) -> EstimatorScores:
         """Per-family angle (deg) and voltage (pu) MAE vs the clean truth, plus the geometric
         mean over families ('geo', the paper's table cell). Pass `xhat` (a previous `estimate(ds)`)
         to score without re-solving, e.g. from a cache; it must be in record order of `ds`."""
@@ -387,4 +409,4 @@ class SEBase:
             "angle_mae_deg": float(np.exp(np.mean(np.log(geo_a)))),
             "voltage_mae_pu": float(np.exp(np.mean(np.log(geo_v)))),
         }
-        return out
+        return EstimatorScores(**{k: ErrorPair(**v) for k, v in out.items()})

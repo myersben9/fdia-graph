@@ -13,9 +13,13 @@ needs the [se] extra; the threshold methods run anywhere the loader runs.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence
+from dataclasses import dataclass
+
+from typing import Any, TYPE_CHECKING, Dict, List, Optional, Sequence
 
 import numpy as np
+
+from ..models import Bundle
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -23,6 +27,54 @@ if TYPE_CHECKING:
 # Per-record fields that only exist on newer shards, and the FdiaGraph flag that says so — checked
 # up front so a missing field is a clear message instead of an h5py KeyError mid-read.
 _FIELD_FLAG = {"swing": "has_swing", "temporal_delta": "has_temporal", "clean": "has_clean"}
+
+
+@dataclass(frozen=True, eq=False)
+class OverallMetrics(Bundle):
+    """Pooled over every record, benign included: the papers' per-bus macro F1, detection rate
+    and false-positive rate over the attackable buses, and the micro node F1."""
+
+    macro_f1: float
+    macro_dr: float
+    macro_fr: float
+    node_f1: float
+
+
+@dataclass(frozen=True, eq=False)
+class BenignMetrics(Bundle):
+    """On benign records: the record-level false-alarm rate and the mean per-bus alarm rate."""
+
+    false_alarm_rate: float
+    bus_alarm_rate: float
+
+
+@dataclass(frozen=True, eq=False)
+class FamilyMetrics(Bundle):
+    """On one attacked family: strict localization accuracy, micro node precision/recall/F1, per-bus
+    macro F1 over the buses the family attacks, per-sample F1, and the record-level detection rate."""
+
+    strict_acc: float
+    node_precision: float
+    node_recall: float
+    node_f1: float
+    macro_f1: float
+    sample_f1: float
+    detection_rate: float
+
+
+@dataclass(frozen=True, eq=False)
+class LocalizerScores(Bundle):
+    """`LocalizerBase.score`: `all` (pooled), `benign`, and one entry per attacked family present.
+    Indexable by family name as before."""
+
+    all: OverallMetrics
+    benign: Optional[BenignMetrics] = None
+    Aq: Optional[FamilyMetrics] = None
+    Ad: Optional[FamilyMetrics] = None
+    As: Optional[FamilyMetrics] = None
+    Ar: Optional[FamilyMetrics] = None
+    At: Optional[FamilyMetrics] = None
+    Al: Optional[FamilyMetrics] = None
 
 
 class LocalizerBase:
@@ -86,7 +138,7 @@ class LocalizerBase:
         """Boolean per-bus attack calls [n, N]: score above the bus's calibrated threshold."""
         return self.scores(ds) > self.thr[None, :]
 
-    def score(self, ds: "FdiaGraph", scores: Optional[np.ndarray] = None) -> Dict[str, Dict[str, float]]:
+    def score(self, ds: "FdiaGraph", scores: Optional[np.ndarray] = None) -> "LocalizerScores":
         """Per-family localization metrics against the per-bus labels. Pass `scores` (a previous
         `scores(ds)`, record order of `ds`) to skip recomputing them, e.g. from a cache.
 
@@ -106,36 +158,36 @@ class LocalizerBase:
             raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
         pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
-        out: Dict[str, Dict[str, float]] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
+        out: Dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
         for fid, name in FAMILIES.items():
             m = d["family"] == fid
             if m.any():
                 out[name] = _benign_metrics(pred[m]) if fid == 0 else _family_metrics(pred[m], y[m])
-        return out
+        return LocalizerScores(**out)
 
 
-def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> Dict[str, float]:
+def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> "OverallMetrics":
     """Pooled over every record, benign included: the papers' per-bus macro scores over the
     attackable set (F1 and recall accumulate over every record, the false-positive rate over
     benign records only) and the micro node F1. macro_f1 reads 0.0 when no bus is ever attacked."""
     act = y.any(axis=0)
     tp = (pred & y).sum(axis=0).astype(np.float64)
     fn = (~pred & y).sum(axis=0).astype(np.float64)
-    return {
-        "macro_f1": float(_perbus_f1(pred, y)[act].mean()) if act.any() else 0.0,
-        "macro_dr": float((tp / np.maximum(tp + fn, 1e-9))[act].mean()) if act.any() else 0.0,
-        "macro_fr": float(pred[ben][:, act].mean()) if act.any() and ben.any() else 0.0,
-        "node_f1": _micro_f1(pred, y),
-    }
+    return OverallMetrics(
+        macro_f1=float(_perbus_f1(pred, y)[act].mean()) if act.any() else 0.0,
+        macro_dr=float((tp / np.maximum(tp + fn, 1e-9))[act].mean()) if act.any() else 0.0,
+        macro_fr=float(pred[ben][:, act].mean()) if act.any() and ben.any() else 0.0,
+        node_f1=_micro_f1(pred, y),
+    )
 
 
-def _benign_metrics(p: np.ndarray) -> Dict[str, float]:
+def _benign_metrics(p: np.ndarray) -> "BenignMetrics":
     """On benign records: the record-level false-alarm rate and the mean per-bus alarm rate (which
     fit calibrated to fa_target)."""
-    return {"false_alarm_rate": float(p.any(axis=1).mean()), "bus_alarm_rate": float(p.mean())}
+    return BenignMetrics(false_alarm_rate=float(p.any(axis=1).mean()), bus_alarm_rate=float(p.mean()))
 
 
-def _family_metrics(p: np.ndarray, t: np.ndarray) -> Dict[str, float]:
+def _family_metrics(p: np.ndarray, t: np.ndarray) -> "FamilyMetrics":
     """On one attacked family: strict localization accuracy (predicted set equals the true set),
     micro node precision/recall/F1 over bus calls, per-bus macro-F1 over the buses the family
     attacks, per-sample macro-F1, and the record-level detection rate (any bus flagged)."""
@@ -145,15 +197,15 @@ def _family_metrics(p: np.ndarray, t: np.ndarray) -> Dict[str, float]:
     inter = (p & t).sum(axis=1).astype(np.float64)
     denom = np.maximum(p.sum(axis=1) + t.sum(axis=1), 1e-12)
     act = t.any(axis=0)
-    return {
-        "strict_acc": float((p == t).all(axis=1).mean()),
-        "node_precision": prec,
-        "node_recall": rec,
-        "node_f1": 2 * prec * rec / max(prec + rec, 1e-12),
-        "macro_f1": float(_perbus_f1(p, t)[act].mean()),
-        "sample_f1": float((2 * inter / denom).mean()),
-        "detection_rate": float(p.any(axis=1).mean()),
-    }
+    return FamilyMetrics(
+        strict_acc=float((p == t).all(axis=1).mean()),
+        node_precision=prec,
+        node_recall=rec,
+        node_f1=2 * prec * rec / max(prec + rec, 1e-12),
+        macro_f1=float(_perbus_f1(p, t)[act].mean()),
+        sample_f1=float((2 * inter / denom).mean()),
+        detection_rate=float(p.any(axis=1).mean()),
+    )
 
 
 def _perbus_f1(pred: np.ndarray, truth: np.ndarray) -> np.ndarray:

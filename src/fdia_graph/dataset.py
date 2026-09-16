@@ -9,6 +9,8 @@ Masked measurements (mask==0) are already zeroed; the model consumes the masks.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 if TYPE_CHECKING:
@@ -24,6 +26,7 @@ import warnings
 import numpy as np
 import h5py
 
+from .models import Bundle
 from .formulas.network import Admittances, BranchModel, branch_admittances, branch_flows, complex_voltages
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
@@ -134,6 +137,89 @@ def _record_mask(
     if filt.families is not None:
         keep &= np.isin(fam, family_ids(filt.families))
     return np.nonzero(keep)[0]
+
+
+@dataclass(frozen=True, eq=False)
+class RecordBundle(Bundle):
+    """One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units, the static
+    graph shared by every record, the label and provenance, and the optional layers the file carries.
+    A dict as well, so DataLoaders, `**item` and `item["node_x"]` keep working."""
+
+    edge_index: Any  # [2, E] long, the same tensor for every record
+    node_x: Any  # [N, 4] |V|, P_inj, Q_inj, theta
+    node_m: Any  # [N, 4] meter mask
+    edge_x: Any  # [E, 2] P_from, Q_from
+    edge_m: Any  # [E, 2] flow-meter mask
+    y: Any  # [N] per-bus attack label
+    family: int
+    stealthy: int
+    seq_id: int
+    timestep: int
+    edge_attr: Any = None  # [E, 8] per-unit line physics (v0.5.0+ shards)
+    temporal_delta: Any = None  # [N, 2] injection change vs the previous pool scan (v0.3+)
+    swing: Any = None  # [N, 2] that change as a z-score of the bus's typical recent change (v0.4.1+)
+    clean: Any = None  # [N, 4] noiseless attack-free truth at the record's timestep (v0.7.2+)
+    edge_clean: Any = None  # [E, 2] exact true flows on metered branches
+    edge_clean_full: Any = None  # [E, 2] exact true flows on every branch
+
+
+@dataclass(frozen=True, eq=False)
+class BatchBundle(Bundle):
+    """A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a
+    leading batch axis, the static graph once, scalar metadata as long tensors."""
+
+    node_x: Any
+    node_m: Any
+    edge_x: Any
+    edge_m: Any
+    y: Any
+    temporal_delta: Any = None
+    swing: Any = None
+    clean: Any = None
+    edge_clean: Any = None
+    edge_clean_full: Any = None
+    edge_index: Any = None
+    edge_attr: Any = None
+    family: Any = None
+    stealthy: Any = None
+    seq_id: Any = None
+    timestep: Any = None
+
+
+@dataclass(frozen=True, eq=False)
+class ArraysBundle(Bundle):
+    """A whole split as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return it: every
+    per-record field that was requested and the file carries, plus the static graph. Fields not
+    requested are absent from the dict view."""
+
+    edge_index: Any = None  # [2, E]
+    edge_reactance: Any = None  # [E], deprecated units
+    node_x: Any = None  # [n, N, 4]
+    node_m: Any = None
+    edge_x: Any = None  # [n, E, 2]
+    edge_m: Any = None
+    y: Any = None  # [n, N]
+    temporal_delta: Any = None
+    swing: Any = None
+    clean: Any = None
+    edge_clean: Any = None
+    edge_clean_full: Any = None
+    family: Any = None  # [n]
+    stealthy: Any = None
+    seq_id: Any = None
+    timestep: Any = None
+
+
+@dataclass(frozen=True, eq=False)
+class Summary(Bundle):
+    """`FdiaGraph.summary()`: the system, its size, the number of records in the view, and the
+    record count per family present."""
+
+    system: int
+    N: int
+    E: int
+    n: int
+    families: Dict[str, int]
 
 
 class FdiaGraph:
@@ -540,13 +626,14 @@ class FdiaGraph:
             a /= b  # branch flows / temporal delta: power -> p.u.
         return a
 
-    def __getitem__(self, i: int) -> Union[Dict[str, Any], "Data"]:
+    def __getitem__(self, i: int) -> Union[RecordBundle, "Data"]:
         """One record as a dict of tensors (or a PyG Data with format="pyg"): the measurements and
         masks, the labels and provenance, and whichever optional layers the file carries."""
         d, j = self._record_source(i)
         item = self._base_item(d, j)
         self._add_optional_layers(item, d, j)
-        return self._to_pyg(item) if self.format == "pyg" else item
+        record = RecordBundle(**item)
+        return self._to_pyg(record) if self.format == "pyg" else record
 
     def _record_source(self, i: int) -> Tuple[Any, int]:
         """Where record i is read from: the preloaded arrays (position-aligned with the view) or the
@@ -622,7 +709,7 @@ class FdiaGraph:
         return Data(**fields)
 
     @staticmethod
-    def collate(batch: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
+    def collate(batch: List[Dict[str, Any]]) -> BatchBundle:
         """Dict-format collate: every record shares N and E, so per-record tensors stack into a batch
         dimension, the static graph rides along once, and scalar metadata becomes one long tensor.
         (PyG has its own loader.)"""
@@ -633,7 +720,7 @@ class FdiaGraph:
             out["edge_attr"] = batch[0]["edge_attr"]
         for k in _BATCH_SCALARS:
             out[k] = torch.as_tensor([b[k] for b in batch], dtype=torch.long)  # [B] per record
-        return out
+        return BatchBundle(**out)
 
     def loader(
         self, batch_size: int = 64, shuffle: Optional[bool] = None, num_workers: int = 0, **kw: Any
@@ -661,11 +748,11 @@ class FdiaGraph:
             **kw,
         )
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> Summary:
         # Cheap overview: read only the family column for this view's rows, tally per family.
         with h5py.File(self.path, "r") as f:
             fam = f["data/family"][:][self.idx]  # family codes for just the kept rows
-        return dict(
+        return Summary(
             system=self.system,
             N=self.N,
             E=self.E,
@@ -701,7 +788,7 @@ class FdiaGraph:
                 out["edge_clean_full"] = ecf[ts]
         return out
 
-    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> Dict[str, np.ndarray]:
+    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
         """Return the whole selected split as a dict of numpy arrays (batched over records).
 
         Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/timestep [n],
@@ -720,7 +807,7 @@ class FdiaGraph:
                 out[k] = d[k][self.idx]  # one bulk gather per field -> [n, ...] numpy array
             if clean_want:
                 out.update(self._clean_layers(clean_want, d["timestep"][self.idx]))
-        return self._in_units(out)
+        return ArraysBundle.ordered(self._in_units(out))  # keeps the caller's field order
 
     def _in_units(self, out: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
         """The returned arrays in self.units: power and angle arrays converted to per unit when asked,
@@ -733,7 +820,7 @@ class FdiaGraph:
 
     def to_torch(
         self, fields: Optional[Sequence[str]] = None, device: Optional[Union[str, "torch.device"]] = None
-    ) -> Dict[str, torch.Tensor]:
+    ) -> ArraysBundle:
         """Same data as to_numpy(), but as torch tensors (floats stay float32, label ids stay int64).
         Handy when you want the full split resident as tensors rather than streamed via a DataLoader."""
         torch = _torch()
@@ -750,9 +837,9 @@ class FdiaGraph:
             t = torch.as_tensor(v)
             t = t.long() if k in int_keys else t.float()
             out[k] = t.to(device) if device else t  # optionally move onto the target device
-        return out
+        return ArraysBundle.ordered(out)
 
-    def to_tf(self, fields: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+    def to_tf(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
         """Same data as to_numpy(), but as TensorFlow tensors (requires tensorflow installed).
         Returns a dict of tf.Tensors; wrap in tf.data.Dataset.from_tensor_slices(...) if you want a pipeline."""
         try:
@@ -760,7 +847,7 @@ class FdiaGraph:
         except ImportError as e:
             raise ImportError("TensorFlow is required for to_tf(): pip install tensorflow") from e
         # Same single to_numpy() read, wrapped as tf.Tensors.
-        return {k: tf.convert_to_tensor(v) for k, v in self.to_numpy(fields).items()}
+        return ArraysBundle.ordered({k: tf.convert_to_tensor(v) for k, v in self.to_numpy(fields).items()})
 
     def to_pandas(self, flatten_features: bool = True) -> "pd.DataFrame":
         """Return a pandas DataFrame — one row per record — for tabular analysis / filtering.
