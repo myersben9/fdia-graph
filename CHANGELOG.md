@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Removed, as scheduled one minor version after 0.16: the generator's pre-0.16 attribute names
+  (`edge_r` ... `edge_status`, `M`, `flow_meter`, `bias_pi` ... `bias_qf`, `outage`,
+  `outage_pos` ... `outage_base_flow_mw`; read `g.branch`, `g.meters`, `g.bias`, `g.contingency`)
+  and `fdia_graph.streams._swing_scale` (use `fdia_graph.generation._swing_scale`).
 - The loader is the `fdia_graph.dataset` package: `FdiaGraph` is assembled from `graph`,
   `physics`, `records` and `export` mixins over a `base` that declares the shared state, the same
   pattern as the generator. Same import path, same names, same behaviour (docs/READABILITY_PLAN.md,

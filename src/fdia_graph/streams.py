@@ -33,8 +33,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-import warnings
-
 import numpy as np
 
 from .engine import FdiaGenerator, FAM_ID
@@ -50,17 +48,6 @@ from .registry import AssetSpec
 # families persist for a shorter, variable window. Benign gaps are drawn from the same overall scale so the
 # attacked fraction lands near the requested target.
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}  # Aq, Ad, As, Ar, Al
-
-
-def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
-    """Deprecated alias: the swing scale moved to fdia_graph.generation._swing_scale (shared by shards
-    and streams). Removed one minor version after 0.16."""
-    warnings.warn(
-        "fdia_graph.streams._swing_scale moved to fdia_graph.generation._swing_scale",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _generation_swing_scale(X, C)
 
 
 class _StreamBuffers:

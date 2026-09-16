@@ -134,7 +134,7 @@ previous dict exactly.
 
 Decisions taken 2026-09-16: dual-access bundles for the public dicts; the DataLoader test came
 first (`tests/test_models.py`); the base class is named `Bundle`; the generator's old attribute
-names are properties that warn for one minor version.
+names are properties that warn for one minor version (removed after 0.16.0, #75).
 
 ## 5. Decisions for Ben
 
