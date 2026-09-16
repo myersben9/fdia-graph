@@ -23,6 +23,8 @@ from .linalg import batched_normal_matrices, condition_number, guarded_inverse
 from .network import (
     Admittances,
     BranchModel,
+    ac_jacobian,
+    ac_measurement,
     branch_admittances,
     branch_flows,
     bus_injections,
@@ -45,6 +47,8 @@ from .temporal import recent_change_scale, swing_zscore, temporal_delta
 __all__ = [
     "Admittances",
     "BranchModel",
+    "ac_jacobian",
+    "ac_measurement",
     "batched_normal_matrices",
     "bias_jitter_split",
     "branch_admittances",

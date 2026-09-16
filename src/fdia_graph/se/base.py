@@ -6,8 +6,10 @@ from benign residuals, and the reference handling (the classical 2N-1 state: onl
 is fixed, pinned per record to the clean layer so estimates and truth share one frame; every
 voltage magnitude including the slack is estimated, matching production practice). Subclasses change only the state space and the weights, mirroring the paper's protocol.
 
-Needs torch and pandapower: pip install "fdia-graph[se]". Datasets must be v0.7.2+ shards (the
-clean layer supplies the truth) loaded with units="physical" (the default).
+Needs pandapower and scipy: pip install "fdia-graph[se]". The measurement function and its Jacobian
+are the closed-form numpy kernel (`formulas.network.ac_measurement`, `ac_jacobian`); torch, when
+installed, only speeds up the per-record inverses. Datasets must be v0.7.2+ shards (the clean layer
+supplies the truth) loaded with units="physical" (the default).
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from ..formulas.estimation import (
     wls_step_batched,
 )
 from ..formulas.linalg import batched_normal_matrices, condition_number, guarded_inverse
+from ..formulas.network import ac_jacobian, ac_measurement
 from ..models.scores import ErrorPair, EstimatorScores  # noqa: F401  re-exported: defined here before the models package
 from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
 
@@ -52,7 +55,16 @@ def _torch():
 
         return torch
     except ImportError as e:
-        raise ImportError("state estimation needs torch: pip install 'fdia-graph[se]'") from e
+        raise ImportError("the differentiable twin _h_t needs torch: pip install 'fdia-graph[torch]'") from e
+
+
+def _torch_or_none():
+    try:
+        import torch
+
+        return torch
+    except ImportError:
+        return None
 
 
 class SEBase:
@@ -76,7 +88,6 @@ class SEBase:
 
     # ---- network + measurement model -------------------------------------------------------
     def _build_network(self, ds: "FdiaGraph") -> None:
-        torch = _torch()
         try:
             import pandapower as pp
             import pandapower.networks as pn
@@ -97,8 +108,12 @@ class SEBase:
         self._nppc = ppc["bus"].shape[0]
         self._lut = net._pd2ppc_lookups["bus"][: self.N].astype(np.int64)
         self._fb = ppc["branch"][:, 0].real.astype(np.int64)
-        self._Ybus = torch.tensor(np.asarray(Yb.todense()), dtype=torch.complex128)
-        self._Yft = torch.tensor(np.asarray(Yf.todense()), dtype=torch.complex128)
+        self._Ybus_np = np.asarray(Yb.todense())
+        self._Yf_np = np.asarray(Yf.todense())
+        torch = _torch_or_none()
+        if torch is not None:  # the torch twin of h, kept for callers that differentiate through it
+            self._Ybus = torch.tensor(self._Ybus_np, dtype=torch.complex128)
+            self._Yft = torch.tensor(self._Yf_np, dtype=torch.complex128)
         self.slack = int(net.ext_grid.bus.values[0])
         self.keep = np.array([i for i in range(self.N) if i != self.slack])  # angle buses
         # Classical 2N-1 state: angles at every non-slack bus, voltage magnitude at EVERY bus.
@@ -106,23 +121,41 @@ class SEBase:
         # estimated like any other, matching production practice and pandapower's estimator.
         self.SD = len(self.keep) + self.N
         # measurement mask, constant across records: [V(N), P(N), Q(N), theta(N), Pf(E), Qf(E)]
-        nm = ds[0]["node_m"].numpy().astype(bool)
-        em = ds[0]["edge_m"].numpy().astype(bool)
+        masks = ds.to_numpy(["node_m", "edge_m"])  # numpy, so the estimator does not need torch
+        nm = masks["node_m"][0].astype(bool)
+        em = masks["edge_m"][0].astype(bool)
         self.mask = np.concatenate([nm[:, 0], nm[:, 1], nm[:, 2], nm[:, 3], em[:, 0], em[:, 1]])
         self.m = int(self.mask.sum())
 
+    def _angles(self, x: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+        """Every bus angle [n, N]: the state's non-slack angles and the pinned slack angle."""
+        th = np.zeros((x.shape[0], self.N))
+        th[:, self.keep] = x[:, : len(self.keep)]
+        th[:, self.slack] = thsl
+        return th
+
     def _h(self, x: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        """Masked measurement prediction for a batch of states (slack angle pinned per record)."""
-        torch = _torch()
-        with torch.no_grad():
-            return self._h_t(
-                torch.tensor(x, dtype=torch.float64),
-                torch.tensor(thsl, dtype=torch.float64),
-            ).numpy()[:, self.mask]
+        """Masked measurement prediction for a batch of states (slack angle pinned per record):
+        `formulas.network.ac_measurement` at the state's angles and magnitudes."""
+        ns = len(self.keep)
+        full = ac_measurement(
+            x[:, ns:], self._angles(x, thsl), self._Ybus_np, self._Yf_np, self._fb, self._lut, self._nppc
+        )
+        return full[:, self.mask]
+
+    def _jacobian(self, x: np.ndarray, thsl: float) -> np.ndarray:
+        """The masked measurement Jacobian [m, SD] at one state, in closed form
+        (`formulas.network.ac_jacobian`); the slack angle column is dropped."""
+        ns, N = len(self.keep), self.N
+        th = self._angles(x[None], np.array([thsl]))[0]
+        J = ac_jacobian(x[ns:], th, self._Ybus_np, self._Yf_np, self._fb, self._lut, self._nppc)
+        cols = np.concatenate([self.keep, N + np.arange(N)])
+        return J[:, cols][self.mask]
 
     def _h_t(self, x: Any, thsl: Any) -> Any:
-        # Full AC forward map (torch, unmasked). Shard injections are load-positive, so bus
-        # injections are emitted as -S; flows are from-end. Exactly the paper's h.
+        """The torch twin of `_h`, unmasked: the same AC forward map, differentiable, kept for
+        callers that take gradients through it (the estimator itself uses the numpy kernel and the
+        closed-form Jacobian). Needs torch."""
         torch = _torch()
         B, N, ns = x.shape[0], self.N, len(self.keep)
         thsl = thsl.to(x.dtype)
@@ -163,7 +196,6 @@ class SEBase:
 
     # ---- fitting ----------------------------------------------------------------------------
     def fit(self, ds: "FdiaGraph", n_calib: int = 600) -> "SEBase":
-        torch = _torch()
         self._build_network(ds)
         d = ds.to_numpy(["node_x", "edge_x", "family", "clean"])
         ben = np.where(d["family"] == 0)[0]
@@ -182,14 +214,7 @@ class SEBase:
         self.sig = np.maximum(np.sqrt(((zc - hz) ** 2).mean(axis=0)), 1e-9)
         self.Wk = 1.0 / self.sig**2
         # chord Jacobian at the benign mean, weighted normal matrix, and its inverse
-        from torch.func import jacrev, vmap
-
-        def h1(xi, ti):
-            return self._h_t(xi[None], ti[None])[0]
-
-        x0 = torch.tensor(self.xmean, dtype=torch.float64)[None]
-        t0 = torch.tensor([float(tr["thsl"][0])], dtype=torch.float64)
-        self.H = vmap(jacrev(h1))(x0, t0)[0].numpy()[self.mask]
+        self.H = self._jacobian(self.xmean, float(tr["thsl"][0]))
         self._Ai = guarded_inverse(normal_matrix(self.H, self.Wk))
         # residual covariance diagonal for normalized residuals; critical measurements excluded
         om, R = residual_covariance_diag(self.H, self.Wk, self._Ai)
@@ -216,13 +241,16 @@ class SEBase:
 
     @classmethod
     def _inv_batch(cls, A: np.ndarray) -> np.ndarray:
-        """Inverses of a stack of normal matrices [n, k, k] through torch's batched Cholesky (about
-        100x faster than NumPy's batched inverse on this LAPACK build: 0.2 s per 1000 records at
-        IEEE-118 size, 1 s at IEEE-300), falling back to the guarded per-matrix path only for the
-        members that are not positive definite. The per-record Python loop this replaces, and the
-        NumPy batched inverse after it, were the dominant cost of every robust arm."""
-        torch = _torch()
+        """Inverses of a stack of normal matrices [n, k, k] through torch's batched Cholesky when
+        torch is installed (about 100x faster than NumPy's batched inverse on this LAPACK build:
+        0.2 s per 1000 records at IEEE-118 size, 1 s at IEEE-300), falling back to the guarded
+        per-matrix path for the members that are not positive definite, or for every member
+        without torch. The per-record Python loop this replaces, and the NumPy batched inverse
+        after it, were the dominant cost of every robust arm."""
         S = 0.5 * (A + np.swapaxes(A, 1, 2))
+        torch = _torch_or_none()
+        if torch is None:
+            return np.stack([cls._inv(Si) for Si in S])
         L, info = torch.linalg.cholesky_ex(torch.from_numpy(S))
         good = info.numpy() == 0
         out = np.empty_like(S)
