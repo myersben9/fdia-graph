@@ -155,7 +155,7 @@ class AttackMixin(GridBase):
         bl = self.base.load.p_mw.values
         # Skip the outaged line explicitly: its PTDF row is zero (ranks last anyway) but its base-case flow is
         # NaN, and a NaN reaching self._sgn would poison every LRA delta on that line.
-        pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl) if L != self.outage_pos]
+        pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl) if L != self.contingency.pos]
         pot = [(L, r) for L, r in pot if r is not None]
         pot.sort(key=lambda x: -abs(x[1].line_flow_change))  # most attackable lines first
         self._Lcands = [L for L, _ in pot[: min(n_targets, len(pot))]]

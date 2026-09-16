@@ -362,7 +362,7 @@ def generate(
         attack_intensity=attack_intensity,
         ramp_rate=ramp_rate,
         seed=seed,
-        outage_line=g.outage if g.outage is not None else -1,
+        outage_line=g.contingency.line if g.contingency.line is not None else -1,
     )
     register_local(name, out, meta=meta)
     return out
@@ -446,13 +446,13 @@ def _shard_attrs(
         families="0benign,1Aq,2Ad,3As,4Ar,5At,6Al",
         lra_target_line=g._Ltgt,
         seed=seed,
-        topology=("base" if g.outage is None else "n1_line"),
-        outage_line=(-1 if g.outage is None else int(g.outage)),
-        outage_branch_pos=int(g.outage_pos),
-        outage_line_name=g.outage_name,
-        outage_from_bus=int(g.outage_from_bus),
-        outage_to_bus=int(g.outage_to_bus),
-        outage_base_flow_mw=float(g.outage_base_flow_mw),
+        topology=("base" if g.contingency.line is None else "n1_line"),
+        outage_line=(-1 if g.contingency.line is None else int(g.contingency.line)),
+        outage_branch_pos=int(g.contingency.pos),
+        outage_line_name=g.contingency.name,
+        outage_from_bus=int(g.contingency.from_bus),
+        outage_to_bus=int(g.contingency.to_bus),
+        outage_base_flow_mw=float(g.contingency.base_flow_mw),
     )
     if solve_stats is not None:
         tried, taken = solve_stats
@@ -468,21 +468,22 @@ def _write_graph(f: Any, g: "FdiaGenerator") -> None:
     gg.create_dataset("edge_index", data=g.ei)
     # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for trafos). Kept for v0.4.x readers.
     gg.create_dataset("edge_reactance", data=g.x_react)
-    for name in (
-        "edge_r",
-        "edge_x",
-        "edge_b",
-        "edge_g",
-        "edge_gs",
-        "edge_bs",
-        "edge_tap",
-        "edge_shift",
-        "edge_status",
-        "edge_is_trafo",
-        "bus_shunt_g",
-        "bus_shunt_b",
+    br = g.branch
+    for name, data in (
+        ("edge_r", br.r),
+        ("edge_x", br.x),
+        ("edge_b", br.b),
+        ("edge_g", br.g),
+        ("edge_gs", g.edge_gs),
+        ("edge_bs", g.edge_bs),
+        ("edge_tap", br.tap),
+        ("edge_shift", br.shift_deg),
+        ("edge_status", br.status),
+        ("edge_is_trafo", g.edge_is_trafo),
+        ("bus_shunt_g", g.bus_shunt_g),
+        ("bus_shunt_b", g.bus_shunt_b),
     ):
-        gg.create_dataset(name, data=getattr(g, name))
+        gg.create_dataset(name, data=data)
     gg.attrs.update(
         dict(
             edge_feat_static="r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",

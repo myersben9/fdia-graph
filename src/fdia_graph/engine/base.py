@@ -5,14 +5,59 @@ and cross-mixin method calls type-check. See core.py for the actual assignments.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import warnings
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 import numpy as np
 
-from typing import TYPE_CHECKING
+from ..formulas.network import BranchModel
 
 if TYPE_CHECKING:
+    from .attacks import Redistribution
     from .records import Scan
+
+
+class MeterPlan(NamedTuple):
+    """The sparse metering plan, sampled once per generator: which buses carry a voltage-magnitude
+    meter, which carry a PMU (|V| and angle), which carry P/Q injection meters, and which branches
+    carry a flow meter."""
+
+    vbus: Set[int]
+    pmu: Set[int]
+    inj: List[int]
+    flow: np.ndarray  # [E] bool
+
+
+class MeterBias(NamedTuple):
+    """The per-meter SYSTEMATIC bias drawn once (constant across scans): relative for P/Q
+    injections and flows, absolute for |V| and angle (radians)."""
+
+    pi: np.ndarray  # [N]
+    qi: np.ndarray  # [N]
+    v: np.ndarray  # [N]
+    va: np.ndarray  # [N]
+    pf: np.ndarray  # [E]
+    qf: np.ndarray  # [E]
+
+
+class Outage(NamedTuple):
+    """The N-1 contingency a generator was built with: the pandapower line id (None = intact), its
+    branch position, its name, its terminals, and its intact-case active flow (the contingency's
+    size)."""
+
+    line: Optional[int]
+    pos: int
+    name: str
+    from_bus: int
+    to_bus: int
+    base_flow_mw: float
+
+
+INTACT = Outage(None, -1, "", -1, -1, float("nan"))
+
+
+def _deprecated(old: str, new: str) -> None:
+    warnings.warn(f"FdiaGenerator.{old} is deprecated, use {new}", DeprecationWarning, stacklevel=3)
 
 
 class GridBase:
@@ -28,16 +73,11 @@ class GridBase:
     SD: Dict[str, float]
     SDj: Dict[str, float]
     _sd_bias: Dict[str, float]
-    bias_pi: np.ndarray
-    bias_qi: np.ndarray
-    bias_v: np.ndarray
-    bias_va: np.ndarray
-    bias_pf: np.ndarray
-    bias_qf: np.ndarray
+    bias: MeterBias
     # metering plan
-    M: Dict[str, Any]
-    flow_meter: np.ndarray
+    meters: MeterPlan
     zero_inj: List[int]
+    _inj_buses: List[int]
     # buses / loads / attackability
     load_bus: np.ndarray
     load_genP: np.ndarray
@@ -45,6 +85,13 @@ class GridBase:
     _attackable_mask: np.ndarray
     # topology + admittance
     ei: np.ndarray
+    branch: BranchModel
+    edge_gs: np.ndarray
+    edge_bs: np.ndarray
+    edge_is_trafo: np.ndarray
+    bus_shunt_g: np.ndarray
+    bus_shunt_b: np.ndarray
+    x_react: np.ndarray
     _Ybus: Any
     _Yf: Any
     _Yt: Any
@@ -56,8 +103,7 @@ class GridBase:
     _ptdf_lb: np.ndarray
     _solvenet: Any
     # contingency
-    outage: Optional[int]
-    outage_pos: int
+    contingency: Outage
     # LRA target pool (set in _pick_lra_target)
     _Lcands: List[int]
     _sgn: Dict[int, float]
@@ -81,4 +127,112 @@ class GridBase:
 
     def _lra_for_line(
         self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = ..., floor: float = ...
-    ) -> Optional[Tuple[np.ndarray, np.ndarray, float]]: ...
+    ) -> Optional["Redistribution"]: ...
+
+    # ---- the attribute names of releases before 0.16, kept for one minor version ----------------------
+    # Each reads from the model that replaced it and warns once per call site.
+    @property
+    def M(self) -> Dict[str, Any]:
+        _deprecated("M", "meters (MeterPlan)")
+        return {"vbus": self.meters.vbus, "pmu": self.meters.pmu, "inj": self.meters.inj}
+
+    @property
+    def flow_meter(self) -> np.ndarray:
+        _deprecated("flow_meter", "meters.flow")
+        return self.meters.flow
+
+    @property
+    def bias_pi(self) -> np.ndarray:
+        _deprecated("bias_pi", "bias.pi")
+        return self.bias.pi
+
+    @property
+    def bias_qi(self) -> np.ndarray:
+        _deprecated("bias_qi", "bias.qi")
+        return self.bias.qi
+
+    @property
+    def bias_v(self) -> np.ndarray:
+        _deprecated("bias_v", "bias.v")
+        return self.bias.v
+
+    @property
+    def bias_va(self) -> np.ndarray:
+        _deprecated("bias_va", "bias.va")
+        return self.bias.va
+
+    @property
+    def bias_pf(self) -> np.ndarray:
+        _deprecated("bias_pf", "bias.pf")
+        return self.bias.pf
+
+    @property
+    def bias_qf(self) -> np.ndarray:
+        _deprecated("bias_qf", "bias.qf")
+        return self.bias.qf
+
+    @property
+    def edge_r(self) -> np.ndarray:
+        _deprecated("edge_r", "branch.r")
+        return self.branch.r
+
+    @property
+    def edge_x(self) -> np.ndarray:
+        _deprecated("edge_x", "branch.x")
+        return self.branch.x
+
+    @property
+    def edge_b(self) -> np.ndarray:
+        _deprecated("edge_b", "branch.b")
+        return self.branch.b
+
+    @property
+    def edge_g(self) -> np.ndarray:
+        _deprecated("edge_g", "branch.g")
+        return self.branch.g
+
+    @property
+    def edge_tap(self) -> np.ndarray:
+        _deprecated("edge_tap", "branch.tap")
+        return self.branch.tap
+
+    @property
+    def edge_shift(self) -> np.ndarray:
+        _deprecated("edge_shift", "branch.shift_deg")
+        return self.branch.shift_deg
+
+    @property
+    def edge_status(self) -> np.ndarray:
+        _deprecated("edge_status", "branch.status")
+        assert self.branch.status is not None
+        return self.branch.status
+
+    @property
+    def outage(self) -> Optional[int]:
+        _deprecated("outage", "contingency.line")
+        return self.contingency.line
+
+    @property
+    def outage_pos(self) -> int:
+        _deprecated("outage_pos", "contingency.pos")
+        return self.contingency.pos
+
+    @property
+    def outage_name(self) -> str:
+        _deprecated("outage_name", "contingency.name")
+        return self.contingency.name
+
+    @property
+    def outage_from_bus(self) -> int:
+        _deprecated("outage_from_bus", "contingency.from_bus")
+        return self.contingency.from_bus
+
+    @property
+    def outage_to_bus(self) -> int:
+        _deprecated("outage_to_bus", "contingency.to_bus")
+        return self.contingency.to_bus
+
+    @property
+    def outage_base_flow_mw(self) -> float:
+        _deprecated("outage_base_flow_mw", "contingency.base_flow_mw")
+        return self.contingency.base_flow_mw

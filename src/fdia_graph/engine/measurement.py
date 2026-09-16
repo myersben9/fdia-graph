@@ -21,7 +21,7 @@ class MeasurementMixin(GridBase):
     def emit_from_state(self, X: np.ndarray) -> Scan:
         # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
         # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
-        C, SD, M = self.C, self.SD, self.M
+        C, plan, bias = self.C, self.meters, self.bias
         V, Pi, Qi, TH = X[:, 0], X[:, 1], X[:, 2], X[:, 3]
         # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
         # one physics primitive (formulas.network) shared with the loader and the estimator.
@@ -35,24 +35,24 @@ class MeasurementMixin(GridBase):
         # biases absolute. va bias/jitter are radians -> degrees to match TH.
         SDj = self.SDj
         for b in range(C):
-            if b in M["vbus"] or b in M["pmu"]:  # |V| and angle observed at the same buses
-                nx[b, 0] = V[b] + self.bias_v[b] + self._n(SDj["v"])
+            if b in plan.vbus or b in plan.pmu:  # |V| and angle observed at the same buses
+                nx[b, 0] = V[b] + bias.v[b] + self._n(SDj["v"])
                 nm[b, 0] = 1
-                nx[b, 3] = TH[b] + np.degrees(self.bias_va[b]) + self._n(np.degrees(SDj["va"]))
+                nx[b, 3] = TH[b] + np.degrees(bias.va[b]) + self._n(np.degrees(SDj["va"]))
                 nm[b, 3] = 1
             # Injection/zero-injection buses emit P/Q: relative bias + jitter (+small floor so ~0 injection
             # still gets a nonzero std).
-            if b in M["inj"] or b in self.zero_inj:
-                nx[b, 1] = Pi[b] * (1.0 + self.bias_pi[b]) + self._n(abs(Pi[b]) * SDj["pi"] + 1e-3)
-                nx[b, 2] = Qi[b] * (1.0 + self.bias_qi[b]) + self._n(abs(Qi[b]) * SDj["qi"] + 1e-3)
+            if b in plan.inj or b in self.zero_inj:
+                nx[b, 1] = Pi[b] * (1.0 + bias.pi[b]) + self._n(abs(Pi[b]) * SDj["pi"] + 1e-3)
+                nx[b, 2] = Qi[b] * (1.0 + bias.qi[b]) + self._n(abs(Qi[b]) * SDj["qi"] + 1e-3)
                 nm[b, 1:3] = 1
         # Edge buffers: cols [P_from, Q_from]; mask=1 where a flow meter exists.
         ex = np.zeros((self.E, 2), np.float32)
         em = np.zeros((self.E, 2), np.uint8)
         for e in range(self.E):
-            if self.flow_meter[e]:  # metered branch flow: relative bias + jitter on P and Q
-                ex[e, 0] = Sf.real[e] * (1.0 + self.bias_pf[e]) + self._n(abs(Sf.real[e]) * SDj["pf"] + 1e-3)
-                ex[e, 1] = Sf.imag[e] * (1.0 + self.bias_qf[e]) + self._n(abs(Sf.imag[e]) * SDj["qf"] + 1e-3)
+            if plan.flow[e]:  # metered branch flow: relative bias + jitter on P and Q
+                ex[e, 0] = Sf.real[e] * (1.0 + bias.pf[e]) + self._n(abs(Sf.real[e]) * SDj["pf"] + 1e-3)
+                ex[e, 1] = Sf.imag[e] * (1.0 + bias.qf[e]) + self._n(abs(Sf.imag[e]) * SDj["qf"] + 1e-3)
                 em[e] = 1
         return Scan(nx, nm, ex, em)
 
@@ -69,7 +69,7 @@ class MeasurementMixin(GridBase):
         Vc[:, self._lut[np.arange(C)]] = complex_voltages(X[:, :, 0], X[:, :, 3])
         Sf = branch_flows(Vc, self._Yf, self._fb, self._bMVA)
         ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
-        ec[:, ~np.asarray(self.flow_meter, bool), :] = 0.0
+        ec[:, ~np.asarray(self.meters.flow, bool), :] = 0.0
         return ec
 
     def state_from_net(self, net: Any) -> np.ndarray:

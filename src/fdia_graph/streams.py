@@ -248,7 +248,17 @@ def _stream_result(
     # [E,8] line features (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame.
     edge_index = np.asarray(g.ei, dtype=np.int64)
     edge_attr = np.stack(
-        [g.edge_r, g.edge_x, g.edge_b, g.edge_g, g.edge_gs, g.edge_bs, g.edge_tap, g.edge_shift], axis=1
+        [
+            g.branch.r,
+            g.branch.x,
+            g.branch.b,
+            g.branch.g,
+            g.edge_gs,
+            g.edge_bs,
+            g.branch.tap,
+            g.branch.shift_deg,
+        ],
+        axis=1,
     ).astype(np.float32)
     # Static availability masks (which channels carry a meter), the same sparse plan every frame.
     masks = g.emit_from_state(X[0])  # the same sparse plan every frame
