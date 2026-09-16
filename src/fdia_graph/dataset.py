@@ -24,6 +24,8 @@ import warnings
 import numpy as np
 import h5py
 
+from .formulas.network import BranchModel, branch_admittances, branch_flows, complex_voltages
+
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
 STEALTHY_FAMILIES = {1, 5, 6}  # Aq, At, Al — evade classical bad-data detection
@@ -378,37 +380,22 @@ class FdiaGraph:
                 f"ybus/yf/yt need a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
             )
         p = self._phys
-        E, N = self.E, self.N
-        stat = p["edge_status"] if p["edge_status"] is not None else np.ones(E)
-        z = p["edge_r"] + 1j * p["edge_x"]
-        ys = np.zeros(E, np.complex128)  # series admittance; a zero-impedance branch contributes none,
-        nz = np.abs(z) > 1e-12  # the same guard the engine uses when it derives gs/bs
-        ys[nz] = stat[nz] / z[nz]
-        bc = stat * (p["edge_g"] + 1j * p["edge_b"])  # charging admittance (g = iron losses)
-        tap = np.where(p["edge_tap"] == 0.0, 1.0, p["edge_tap"]) * np.exp(1j * np.pi / 180 * p["edge_shift"])
-        ytt = ys + bc / 2
-        yff = ytt / (tap * np.conj(tap))
-        yft = -ys / np.conj(tap)
-        ytf = -ys / tap
-        f, t = self.edge_index_np
-        rows = np.arange(E)
-        Yf = np.zeros((E, N), np.complex128)  # from-end: I_f = Yf @ V
-        Yf[rows, f] += yff
-        Yf[rows, t] += yft
-        Yt = np.zeros((E, N), np.complex128)  # to-end: I_t = Yt @ V
-        Yt[rows, f] += ytf
-        Yt[rows, t] += ytt
-        Y = np.zeros((N, N), np.complex128)
-        np.add.at(Y, (f, f), yff)
-        np.add.at(Y, (f, t), yft)
-        np.add.at(Y, (t, f), ytf)
-        np.add.at(Y, (t, t), ytt)
-        gs, bs = p.get("bus_shunt_g"), p.get("bus_shunt_b")
-        if gs is not None or bs is not None:  # MW/MVAr at 1 pu -> per-unit admittance on the diagonal
-            gs = np.zeros(N) if gs is None else gs
-            bs = np.zeros(N) if bs is None else bs
-            d = np.arange(N)
-            Y[d, d] += (gs + 1j * bs) / self.baseMVA
+        Y, Yf, Yt = branch_admittances(
+            BranchModel(
+                p["edge_r"],
+                p["edge_x"],
+                p["edge_b"],
+                p["edge_g"],
+                p["edge_tap"],
+                p["edge_shift"],
+                p["edge_status"],
+            ),
+            self.edge_index_np,
+            self.N,
+            bus_shunt_g=p.get("bus_shunt_g"),
+            bus_shunt_b=p.get("bus_shunt_b"),
+            base_mva=self.baseMVA,
+        )
         self._adm = {"ybus": Y, "yf": Yf, "yt": Yt}
         return self._adm
 
@@ -426,11 +413,13 @@ class FdiaGraph:
             return self._eclean_full_np
         if not self.has_clean_full or self._clean_np is None:
             return None
-        vm = self._clean_np[:, :, 0].astype(np.float64)  # only |V| and theta enter the flow
-        th = np.deg2rad(self._clean_np[:, :, 3].astype(np.float64))
-        V = vm * np.exp(1j * th)  # [Tpool,N] complex bus voltage (pu)
-        f = self.edge_index_np[0]
-        Sf = V[:, f] * np.conj(V @ self.yf_np.T) * self.baseMVA  # [Tpool,E] from-end complex flow
+        # Only |V| and theta enter the flow; the same physics primitive the generator emits with.
+        V = complex_voltages(
+            self._clean_np[:, :, 0].astype(np.float64), self._clean_np[:, :, 3].astype(np.float64)
+        )
+        Sf = branch_flows(
+            V, self.yf_np, self.edge_index_np[0], self.baseMVA
+        )  # [Tpool,E] from-end complex flow
         self._eclean_full_np = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         return self._eclean_full_np
 

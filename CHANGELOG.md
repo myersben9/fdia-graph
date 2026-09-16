@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+Readability series, step 4 (docs/READABILITY_PLAN.md): one AC measurement function. No
+user-visible change (bit-identical shards and streams; `ybus`, `yf`, `yt` and `edge_clean_full`
+unchanged).
+
+- `fdia_graph.formulas` (new, public, provisional until 1.0): `formulas.network` holds the AC
+  network model as pure functions, `complex_voltages`, `series_admittance`, `branch_admittances`
+  (the pi model behind `ybus`/`yf`/`yt`), `bus_injections` and `branch_flows`, each with its
+  equation and source key. The generator's measurement emission and the loader's admittance
+  and clean-flow computations call them; the estimator's torch measurement function is pinned to
+  them by a test, so the package has one AC model.
+
 Readability series, steps 2 and 3 (docs/READABILITY_PLAN.md): one attack frame for shards and
 streams, both generators split into named steps. No user-visible change: a seeded shard and a
 seeded stream are bit-identical to the previous release (`tests/test_frozen.py`, strict mode).
