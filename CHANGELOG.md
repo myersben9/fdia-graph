@@ -9,6 +9,12 @@ the public API, the generated files and the numbers are the same as the previous
   comments, reply, merge, with the merge rule enforced) and `tools/release.py` (tag, GitHub
   release, PyPI wait) so a second maintainer can ship; the plan documents move to `docs/plans/`.
 
+## Unreleased
+
+- `tools/bench.py` and `docs/reference/BENCHMARKS.md`: per-record timings of shard generation and
+  the WLS, Huber and prior+Huber estimators on the tiny shard, appended per run with the machine
+  and torch state; `--check` fails when a timing is more than 3x slower than the last row.
+
 ## 0.17.0
 
 State estimation without torch, the formula kernel complete, the loader as concerns, and the

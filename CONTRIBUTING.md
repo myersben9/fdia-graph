@@ -37,7 +37,10 @@ pytest tests                                  # about a minute; downloads a 13 M
    key from `docs/reference/REFERENCES.md`; every value bundle a function returns is a model in
    `fdia_graph.models`. `python tools/readability.py --report` shows the state of the package,
    `--check --base origin/main` is the gate CI runs on what you touched.
-4. **Typed and formatted.** `pyright src/fdia_graph` reports zero errors, `ruff format --check src`
+4. **Speed is tracked.** `python tools/bench.py --check` compares per-record timings of the
+   generator and the estimators with the last row of `docs/reference/BENCHMARKS.md` and fails at
+   3x slower; run it before a release, and `python tools/bench.py` to append a row after one.
+5. **Typed and formatted.** `pyright src/fdia_graph` reports zero errors, `ruff format --check src`
    passes; both run in CI.
 
 ## The pull request
