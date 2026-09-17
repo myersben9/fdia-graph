@@ -375,6 +375,26 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     return Stream(**out)
 
 
+def _check_window_args(T: int, W: int, stride: int, label: str) -> None:
+    """Reject a window request the docstring of `windows` does not allow, before any slicing."""
+    if label not in ("frame", "any", "last"):
+        raise ValueError(f"label must be 'frame', 'any' or 'last', got {label!r}")
+    integral = all(isinstance(v, numbers.Integral) and not isinstance(v, bool) for v in (W, stride))
+    if not integral or not 1 <= W <= T or stride < 1:
+        raise ValueError(
+            f"need integers 1 <= W <= {T} frames and stride >= 1, got W={W!r}, stride={stride!r}"
+        )
+
+
+def _window_labels(y: np.ndarray, starts: range, W: int, label: str) -> np.ndarray:
+    """Per-window labels: every frame ("frame"), attacked at any frame ("any"), or the last frame."""
+    if label == "frame":
+        return np.stack([y[s : s + W] for s in starts])
+    if label == "last":
+        return np.stack([y[s + W - 1] for s in starts])
+    return np.stack([y[s : s + W].max(0) for s in starts])
+
+
 def windows(
     stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any"
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -383,22 +403,10 @@ def windows(
     label: "frame" -> per-frame per-bus labels yw [n,W,N]; "any" -> window-level per-bus label yw [n,N]
     (bus attacked at ANY frame in the window); "last" -> label at the final frame yw [n,N].
     """
-    if label not in ("frame", "any", "last"):
-        raise ValueError(f"label must be 'frame', 'any' or 'last', got {label!r}")
     nx = stream["node_x"]
     y = stream["y"]
     T = len(nx)
-    integral = all(isinstance(v, numbers.Integral) and not isinstance(v, bool) for v in (W, stride))
-    if not integral or not 1 <= W <= T or stride < 1:
-        raise ValueError(
-            f"need integers 1 <= W <= {T} frames and stride >= 1, got W={W!r}, stride={stride!r}"
-        )
+    _check_window_args(T, W, stride, label)
     starts = range(0, T - W + 1, stride)
     Xw = np.stack([nx[s : s + W] for s in starts])
-    if label == "frame":
-        yw = np.stack([y[s : s + W] for s in starts])
-    elif label == "last":
-        yw = np.stack([y[s + W - 1] for s in starts])
-    else:
-        yw = np.stack([y[s : s + W].max(0) for s in starts])
-    return Xw, yw
+    return Xw, _window_labels(y, starts, W, label)
