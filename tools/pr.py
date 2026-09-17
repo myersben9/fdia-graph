@@ -51,18 +51,32 @@ def api(method: str, path: str, **kw: Any) -> Any:
     return r.json() if r.text else {}
 
 
+def api_all(path: str) -> List[Any]:
+    """Every item of a list endpoint, following pagination (GitHub returns 30 per page by default)."""
+    out: List[Any] = []
+    page = 1
+    while True:
+        sep = "&" if "?" in path else "?"
+        batch = api("GET", f"{path}{sep}per_page=100&page={page}")
+        items = batch.get("check_runs", batch) if isinstance(batch, dict) else batch
+        out.extend(items)
+        if len(items) < 100:
+            return out
+        page += 1
+
+
 def _head_state(num: int) -> Dict[str, Any]:
     pr = api("GET", f"/pulls/{num}")
     sha = pr["head"]["sha"]
-    checks = api("GET", f"/commits/{sha}/check-runs").get("check_runs", [])
-    reviews = api("GET", f"/pulls/{num}/reviews")
+    checks = api_all(f"/commits/{sha}/check-runs")
+    reviews = api_all(f"/pulls/{num}/reviews")
     copilot = [r for r in reviews if COPILOT in r["user"]["login"].lower() and r["commit_id"] == sha]
     return {
         "pr": pr,
         "sha": sha,
         "checks": {c["name"]: (c["status"], c["conclusion"]) for c in checks},
         "copilot_on_head": [(r["state"], r["submitted_at"]) for r in copilot],
-        "n_comments": len(api("GET", f"/pulls/{num}/comments")),
+        "n_comments": len(api_all(f"/pulls/{num}/comments")),
     }
 
 
@@ -96,7 +110,7 @@ def status(num: int) -> None:
 
 
 def comments(num: int) -> None:
-    for c in api("GET", f"/pulls/{num}/comments"):
+    for c in api_all(f"/pulls/{num}/comments"):
         kind = "reply" if c.get("in_reply_to_id") else "comment"
         print(
             f"--- {c['path']}:{c.get('line') or c.get('original_line')}  id={c['id']}  {kind} by {c['user']['login']}"
@@ -141,10 +155,11 @@ def merge(num: int) -> None:
     if not s["copilot_on_head"]:
         raise SystemExit(f"no Copilot review on {s['sha'][:8]} yet; run `wait {num}` first")
     pr = s["pr"]
+    # `sha` binds the merge to the head that was checked: GitHub refuses if a push moved it meanwhile.
     r = api(
         "PUT",
         f"/pulls/{num}/merge",
-        json={"merge_method": "squash", "commit_title": f"{pr['title']} (#{num})"},
+        json={"merge_method": "squash", "commit_title": f"{pr['title']} (#{num})", "sha": s["sha"]},
     )
     print("merged:", r.get("merged"), r.get("message"))
     if r.get("merged"):

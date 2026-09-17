@@ -54,9 +54,13 @@ def main(tag: str, notes_file: str) -> None:
         raise SystemExit("local main is not at origin/main; pull first")
     if git("tag", "-l", tag):
         raise SystemExit(f"{tag} already exists; a released version is never re-cut")
+    notes = (
+        open(notes_file, encoding="utf8").read().strip()
+    )  # before the tag, so a bad file leaves nothing behind
+    if not notes:
+        raise SystemExit(f"{notes_file} is empty; write the release notes first")
     git("tag", "-a", tag, "-m", f"{want}: see CHANGELOG.md")
     git("push", "origin", tag)
-    notes = open(notes_file, encoding="utf8").read()
     rel = api(
         "POST",
         "/releases",
@@ -67,8 +71,14 @@ def main(tag: str, notes_file: str) -> None:
         runs = api("GET", "/actions/workflows/publish.yml/runs?per_page=1")["workflow_runs"]
         if runs and runs[0]["head_branch"] == tag and runs[0]["status"] == "completed":
             print("publish workflow:", runs[0]["conclusion"], runs[0]["html_url"])
+            if runs[0]["conclusion"] != "success":
+                raise SystemExit(
+                    f"publish workflow {runs[0]['conclusion']}: the tag and release exist, PyPI has nothing"
+                )
             break
         time.sleep(15)
+    else:
+        raise SystemExit("publish workflow did not finish in ten minutes; check the Actions tab")
     for _ in range(20):
         try:
             d = json.load(
@@ -78,7 +88,7 @@ def main(tag: str, notes_file: str) -> None:
             return
         except Exception:
             time.sleep(15)
-    print("not on PyPI yet; check the publish workflow")
+    raise SystemExit(f"{want} is not on PyPI five minutes after a successful publish run; check pypi.org")
 
 
 if __name__ == "__main__":
