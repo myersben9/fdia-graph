@@ -134,7 +134,7 @@ def test_windows_labels_and_bounds():
     assert np.array_equal(y_any, yw.max(axis=1)) and np.array_equal(y_last, yw[:, -1])
     with pytest.raises(ValueError, match="label must be"):
         fg.windows(s, W=4, label="bogus")
-    with pytest.raises(ValueError, match="need 1 <= W"):
+    with pytest.raises(ValueError, match="need integers 1 <= W"):
         fg.windows(s, W=13)
     with pytest.raises(ValueError, match="stride"):
         fg.windows(s, W=4, stride=0)
