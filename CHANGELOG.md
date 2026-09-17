@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `ruff check` configured in `pyproject.toml` with pyflakes, import order and modern-syntax rules,
+  and the package clean under them (`list[int]`-style generics and `collections.abc` imports;
+  `Optional`/`Union` stay, since `typing.get_type_hints` on 3.9 cannot evaluate `X | None`). The
+  CI step that runs it follows separately. No behaviour change.
 - `tools/bench.py` and `docs/reference/BENCHMARKS.md`: per-record timings of shard generation and
   the WLS, Huber and prior+Huber estimators on the tiny shard, appended per run with the machine
   and torch state; `--check` fails when a timing is more than 3x slower than the last row.

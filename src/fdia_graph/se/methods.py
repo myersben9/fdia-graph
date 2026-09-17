@@ -191,7 +191,7 @@ class JacobianWeighting(SEBase):
         )
         self.huber_c = huber_c
 
-    def weights(self, ds: "FdiaGraph") -> np.ndarray:
+    def weights(self, ds: FdiaGraph) -> np.ndarray:
         """Per-record meter weights [n, m] from the unexplained temporal residual."""
         from .jacobian import JacobianFeatures
 
@@ -200,7 +200,7 @@ class JacobianWeighting(SEBase):
         u = np.abs(jf.transform(d)["r_perp"]) * np.sqrt(self.Wk)[None, :]
         return self.Wk[None, :] * huber_weights(u, self.c)
 
-    def estimate(self, ds: "FdiaGraph", chunk: int = 1000) -> np.ndarray:
+    def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
         d = ds.to_numpy(["node_x", "edge_x", "clean"])
         tr = self._truth_of(d["clean"])
         z = self._z_of(d["node_x"], d["edge_x"])
@@ -237,7 +237,7 @@ class GatedPrior(SubspacePrior):
         self.gate = gate
         self.gate_factor = gate_factor
 
-    def gated_weights(self, ds: "FdiaGraph") -> np.ndarray:
+    def gated_weights(self, ds: FdiaGraph) -> np.ndarray:
         """Per-record meter weights [n, m]: Wk, times gate_factor on meters incident to flagged buses."""
         from .jacobian import bus_incidence
 
@@ -249,7 +249,7 @@ class GatedPrior(SubspacePrior):
             flags = np.asarray(self.gate.localize(ds), bool)
         return gate_weights(self.Wk, flags, bus_incidence(self, ds.edge_index_np), self.gate_factor)
 
-    def estimate(self, ds: "FdiaGraph", chunk: int = 1000) -> np.ndarray:
+    def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
         d = ds.to_numpy(["node_x", "edge_x", "clean"])
         tr = self._truth_of(d["clean"])
         z = self._z_of(d["node_x"], d["edge_x"])

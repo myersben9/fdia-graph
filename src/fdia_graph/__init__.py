@@ -15,7 +15,8 @@ Quickstart
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:  # the lazy names below, with their real signatures for type checkers
     from .engine import line_outage_candidates
@@ -27,14 +28,15 @@ if TYPE_CHECKING:  # the lazy names below, with their real signatures for type c
 # Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
 # FdiaGraph: torch Dataset over one .h5 shard; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
 # BDD-evading subset (hard cases, e.g. Aq).
-from .dataset import FdiaGraph, FAMILIES, STEALTHY_FAMILIES, family_ids
-
-# registry = dataset "version control": list_datasets (known built-in + local), register_local (name a local
-# dataset), resolve ((name, release) -> download spec).
-from .registry import list_datasets, register_local, resolve
+from .dataset import FAMILIES, STEALTHY_FAMILIES, FdiaGraph, family_ids
 
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
+
+# registry = dataset "version control": list_datasets (known built-in + local), register_local (name a local
+# dataset), resolve ((name, release) -> download spec).
+from .registry import list_datasets, resolve
+from .registry import register_local as register_local  # re-exported for `fg.register_local`
 
 __version__ = "0.17.0"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
@@ -135,5 +137,5 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return sorted(set(globals()) | set(_LAZY))

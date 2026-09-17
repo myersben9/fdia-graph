@@ -31,7 +31,7 @@ construction. See docs/plans/DATA_MODELS_PLAN.md.
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
-from typing import Any, ClassVar, Dict, Tuple, Type, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 _B = TypeVar("_B", bound="Bundle")
 
@@ -41,15 +41,15 @@ class Bundle(dict):
     """Base of every typed record: a frozen dataclass that is also the dict of its non-None
     fields. Subclass with ``@dataclass(frozen=True, eq=False)``."""
 
-    _keys: ClassVar[Dict[str, str]] = {}  # field name -> dict key, only where they differ
-    _tail: ClassVar[Tuple[str, ...]] = ()  # fields the dict view lists last, where the old dict put them last
-    _names_cache: ClassVar[Tuple[str, ...]] = ()
+    _keys: ClassVar[dict[str, str]] = {}  # field name -> dict key, only where they differ
+    _tail: ClassVar[tuple[str, ...]] = ()  # fields the dict view lists last, where the old dict put them last
+    _names_cache: ClassVar[tuple[str, ...]] = ()
 
     def __post_init__(self) -> None:
         dict.__init__(self, {self.key_of(n): getattr(self, n) for n in self._present()})
 
     @classmethod
-    def _names(cls) -> Tuple[str, ...]:
+    def _names(cls) -> tuple[str, ...]:
         if "_names_cache" not in cls.__dict__:  # computed once per subclass, after the decorator ran
             names = [f.name for f in fields(cls)]
             cls._names_cache = tuple(n for n in names if n not in cls._tail) + tuple(
@@ -62,10 +62,10 @@ class Bundle(dict):
         """The dict key of a field (the field name unless ``_keys`` says otherwise)."""
         return cls._keys.get(field_name, field_name)
 
-    def _present(self) -> Tuple[str, ...]:
+    def _present(self) -> tuple[str, ...]:
         return tuple(n for n in self._names() if getattr(self, n) is not None)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """A plain dict copy of the bundle: every non-None field under its dict key."""
         return dict(self)
 
@@ -77,7 +77,7 @@ class Bundle(dict):
         return f"{type(self).__name__}({', '.join(parts)})"
 
     @classmethod
-    def ordered(cls: Type[_B], mapping: Dict[str, Any]) -> _B:
+    def ordered(cls: type[_B], mapping: dict[str, Any]) -> _B:
         """A bundle whose dict view lists the keys in the mapping's order rather than the field order
         (a caller's requested field order in `to_numpy`). Keys are dict keys; None values are absent."""
         field_of = {cls.key_of(n): n for n in cls._names()}
@@ -97,7 +97,7 @@ class Bundle(dict):
     def __delitem__(self, key: str) -> None:
         raise self._read_only()
 
-    def __ior__(self, other: Any) -> "Bundle":
+    def __ior__(self, other: Any) -> Bundle:
         raise self._read_only()
 
     def update(self, *args: Any, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -119,7 +119,7 @@ class Bundle(dict):
         return (_rebuild, (type(self), {n: getattr(self, n) for n in self._names()}, list(self)))
 
 
-def _rebuild(cls: Type[_B], field_values: Dict[str, Any], key_order: list) -> _B:
+def _rebuild(cls: type[_B], field_values: dict[str, Any], key_order: list) -> _B:
     """Unpickle: construct by field name (positional order and dict order can differ), then restore
     the dict view's key order."""
     obj = cls(**field_values)

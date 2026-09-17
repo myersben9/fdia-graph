@@ -5,11 +5,17 @@ and cross-mixin method calls type-check. See core.py for the actual assignments.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from ..models.grid import BranchModel, MeterPlan, MeterBias, Outage, INTACT  # noqa: F401  re-exported: defined here before the models package
+from ..models.grid import (  # noqa: F401  re-exported: defined here before the models package
+    INTACT,
+    BranchModel,
+    MeterBias,
+    MeterPlan,
+    Outage,
+)
 
 if TYPE_CHECKING:
     from .attacks import Redistribution
@@ -26,14 +32,14 @@ class GridBase:
     nl: int
     rng: np.random.Generator
     # noise model
-    SD: Dict[str, float]
-    SDj: Dict[str, float]
-    _sd_bias: Dict[str, float]
+    SD: dict[str, float]
+    SDj: dict[str, float]
+    _sd_bias: dict[str, float]
     bias: MeterBias
     # metering plan
     meters: MeterPlan
-    zero_inj: List[int]
-    _inj_buses: List[int]
+    zero_inj: list[int]
+    _inj_buses: list[int]
     # buses / loads / attackability
     load_bus: np.ndarray
     load_genP: np.ndarray
@@ -61,15 +67,15 @@ class GridBase:
     # contingency
     contingency: Outage
     # LRA target pool (set in _pick_lra_target)
-    _Lcands: List[int]
-    _sgn: Dict[int, float]
+    _Lcands: list[int]
+    _sgn: dict[int, float]
     _Ltgt: int
     # replay buffer
-    benign_buf: List[np.ndarray]
+    benign_buf: list[np.ndarray]
 
     # cross-mixin methods (defined in the concern mixins)
     def _n(self, s: float) -> float: ...
-    def emit_from_state(self, X: np.ndarray) -> "Scan": ...
+    def emit_from_state(self, X: np.ndarray) -> Scan: ...
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray: ...
     def state_from_net(self, net: Any) -> np.ndarray: ...
 
@@ -83,4 +89,4 @@ class GridBase:
 
     def _lra_for_line(
         self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = ..., floor: float = ...
-    ) -> Optional["Redistribution"]: ...
+    ) -> Optional[Redistribution]: ...

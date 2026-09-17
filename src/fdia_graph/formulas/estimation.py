@@ -12,8 +12,6 @@ Shapes: m measurements, k state (or basis) coordinates, n records. `w` is a weig
 
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import numpy as np
 
 
@@ -63,7 +61,7 @@ def weighted_objective(residual: np.ndarray, w: np.ndarray) -> np.ndarray:
     return (w * residual**2).sum(axis=1)
 
 
-def residual_covariance_diag(H: np.ndarray, w: np.ndarray, Ai: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def residual_covariance_diag(H: np.ndarray, w: np.ndarray, Ai: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Diagonal of the residual covariance Ω = R − H G⁻¹ Hᵀ [HAN75], with R = diag(1/w).
 
     H       : [m, k] Jacobian
@@ -112,7 +110,7 @@ def huber_weights(r_n: np.ndarray, c: float, eps: float = 1e-9) -> np.ndarray:
     return np.minimum(1.0, c / np.maximum(r_n, eps))
 
 
-def whitened_svd_basis(X: np.ndarray, rank_frac: float) -> Tuple[int, np.ndarray]:
+def whitened_svd_basis(X: np.ndarray, rank_frac: float) -> tuple[int, np.ndarray]:
     """The learned operating-point prior [EST26]: whiten the benign states per coordinate, take
     the SVD, keep the leading rank_frac fraction of directions, un-whiten and re-orthonormalize.
 
@@ -127,11 +125,11 @@ def whitened_svd_basis(X: np.ndarray, rank_frac: float) -> Tuple[int, np.ndarray
     std = np.maximum(X.std(axis=0), 1e-9)  # angle and voltage differ ~10x in scale
     _, _, Vt = np.linalg.svd((X - mean) / std, full_matrices=False)
     K = max(1, int(round(rank_frac * X.shape[1])))
-    VK = np.linalg.qr((Vt[:K].T * std[:, None]))[0]  # un-whiten, re-orthonormalize
+    VK = np.linalg.qr(Vt[:K].T * std[:, None])[0]  # un-whiten, re-orthonormalize
     return K, VK
 
 
-def gate_weights(w: np.ndarray, flags: np.ndarray, incidence: List[np.ndarray], factor: float) -> np.ndarray:
+def gate_weights(w: np.ndarray, flags: np.ndarray, incidence: list[np.ndarray], factor: float) -> np.ndarray:
     """Localization-gated weights [EST26]: every meter incident to a flagged bus is down-weighted
     by `factor` before the solve, so the prior supplies the state there.
 

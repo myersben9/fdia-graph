@@ -2,7 +2,7 @@
 tests/test_frozen.py (reader), so the two cannot disagree about what is compared."""
 
 import hashlib
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -11,12 +11,12 @@ STREAM_T = 300
 CLEAN_ROWS = 256  # rows of the clean pool kept in the reference; the rest is covered by a hash
 
 
-def shard_arrays(path: str) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
+def shard_arrays(path: str) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Every dataset in the HDF5 file, keyed by its path, and every attribute as JSON-safe values."""
     import h5py
 
-    arrays: Dict[str, np.ndarray] = {}
-    attrs: Dict[str, Any] = {}
+    arrays: dict[str, np.ndarray] = {}
+    attrs: dict[str, Any] = {}
 
     def visit(name: str, obj: Any) -> None:
         if isinstance(obj, h5py.Dataset):
@@ -52,7 +52,7 @@ def jsonable(v: Any) -> Any:
     return v
 
 
-def stream_arrays(s: Dict[str, Any]) -> Dict[str, np.ndarray]:
+def stream_arrays(s: dict[str, Any]) -> dict[str, np.ndarray]:
     out = {k: np.asarray(v) for k, v in s.items() if isinstance(v, np.ndarray)}
     out["episode_onset"] = np.array([e["onset"] for e in s["episodes"]], np.int64)
     out["episode_length"] = np.array([e["length"] for e in s["episodes"]], np.int64)
@@ -61,9 +61,9 @@ def stream_arrays(s: Dict[str, Any]) -> Dict[str, np.ndarray]:
     return out
 
 
-def se_scores(name: str) -> Dict[str, Dict[str, Dict[str, float]]]:
+def se_scores(name: str) -> dict[str, dict[str, dict[str, float]]]:
     import fdia_graph as fg
-    from fdia_graph.se import AdaptiveWeighting, JacobianWeighting, SubspacePrior, WLS
+    from fdia_graph.se import WLS, AdaptiveWeighting, JacobianWeighting, SubspacePrior
 
     train, test = fg.load(name, split="train"), fg.load(name, split="test")
     arms = {
@@ -75,7 +75,7 @@ def se_scores(name: str) -> Dict[str, Dict[str, Dict[str, float]]]:
     return {k: jsonable(est.fit(train).score(test)) for k, est in arms.items()}
 
 
-def loc_scores(name: str) -> Dict[str, Any]:
+def loc_scores(name: str) -> dict[str, Any]:
     import fdia_graph as fg
     from fdia_graph.localization import DeltaThreshold, ResidualLocalizer, SwingThreshold
 

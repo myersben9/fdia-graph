@@ -31,17 +31,17 @@ per-step change and a spike looking like an abrupt jump — the spike-vs-ramp si
 from __future__ import annotations
 
 import numbers
-
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 
-from .engine import FdiaGenerator, FAM_ID
+from .engine import FAM_ID, FdiaGenerator
 from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, Frame, FrameKnobs, attack_frame
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import swing_zscore, temporal_delta
-from .generation import _FrameContext, _load_states, NOISE_FLOOR
+from .generation import NOISE_FLOOR, _FrameContext, _load_states
 from .generation import _swing_scale as _generation_swing_scale
 from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
 from .registry import AssetSpec
@@ -71,7 +71,7 @@ class _StreamBuffers:
         self.family = np.zeros(T, np.int16)
         self.temporal_delta = np.zeros((T, C, 2), np.float32)
         self.swing = np.zeros((T, C, 2), np.float32)
-        self.episodes: List[Dict[str, Any]] = []
+        self.episodes: list[dict[str, Any]] = []
         self._scale = scale
         self._edge_clean_full = edge_clean_full
         self._prev_nx: Optional[np.ndarray] = None
@@ -116,14 +116,14 @@ class _StreamPlan:
     """How the timeline is walked: which families rotate, whether the ramp is among them, the
     ramp shape, and the attacked fraction the gaps are sized for."""
 
-    single: List[int]  # single-shot families (persist as a flat episode)
+    single: list[int]  # single-shot families (persist as a flat episode)
     has_ramp: bool
     ramp_len: int
     ramp_rate: float
     attacked_frac: float
 
 
-def _emit_benign(ctx: _FrameContext, t: int) -> Tuple[np.ndarray, np.ndarray]:
+def _emit_benign(ctx: _FrameContext, t: int) -> tuple[np.ndarray, np.ndarray]:
     """The benign scan of timestep t (also remembered for the replay families)."""
     frame = attack_frame(ctx.g, ctx.X[t], 0, None, None, ctx.knobs)
     assert frame is not None  # a benign emission cannot fail
@@ -252,7 +252,7 @@ def _stream_result(
     ).astype(np.float32)
     # Static availability masks (which channels carry a meter), the same sparse plan every frame.
     masks = g.emit_from_state(X[0])  # the same sparse plan every frame
-    result: Dict[str, Any] = dict(
+    result: dict[str, Any] = dict(
         node_x=buf.node_x,
         benign=buf.benign,
         clean=clean,
@@ -284,7 +284,7 @@ def generate_stream(
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
     replay_tau: Optional[int] = None,
-    redundancy: Optional[Dict] = None,
+    redundancy: Optional[dict] = None,
     seed: int = 123,
     out: Optional[str] = None,
 ) -> Stream:
@@ -331,7 +331,7 @@ def _asset_spec(name: str, file: str, release: Optional[str]) -> AssetSpec:
     return AssetSpec("builtin", name, file=file, release=release or STREAM_RELEASE, repo=_REPO)
 
 
-def _attach_graph_sidecar(out: Dict[str, Any], C: int, release: Optional[str]) -> None:
+def _attach_graph_sidecar(out: dict[str, Any], C: int, release: Optional[str]) -> None:
     """Newer streams embed the graph and masks; streams that predate them (e.g. the v0.7.1 assets) get
     the tiny per-system graph sidecar, so every load_stream dict is complete."""
     from .download import ensure_local
@@ -344,7 +344,7 @@ def _attach_graph_sidecar(out: Dict[str, Any], C: int, release: Optional[str]) -
             out[k] = gz[k]
 
 
-def _normalize_graph_dtypes(out: Dict[str, Any]) -> None:
+def _normalize_graph_dtypes(out: dict[str, Any]) -> None:
     """The same dtypes whatever the source: edge_index int64 (torch.long), edge_attr float32, meter
     masks uint8 (as generate_stream writes them), so embedded and sidecar loads are identical."""
     if "edge_index" in out:
@@ -396,8 +396,8 @@ def _window_labels(y: np.ndarray, starts: range, W: int, label: str) -> np.ndarr
 
 
 def windows(
-    stream: Dict[str, Any], W: int, stride: int = 1, label: str = "any"
-) -> Tuple[np.ndarray, np.ndarray]:
+    stream: dict[str, Any], W: int, stride: int = 1, label: str = "any"
+) -> tuple[np.ndarray, np.ndarray]:
     """Slide a length-W window over a stream. Returns (Xw [n,W,N,4], yw).
 
     label: "frame" -> per-frame per-bus labels yw [n,W,N]; "any" -> window-level per-bus label yw [n,N]

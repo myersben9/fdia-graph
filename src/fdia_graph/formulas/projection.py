@@ -9,12 +9,10 @@ function keeps the exact expression `se.jacobian.JacobianFeatures` used before i
 
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import numpy as np
 
 
-def bus_incidence(n_bus: int, n_branch: int, edge_index: np.ndarray, mask: np.ndarray) -> List[np.ndarray]:
+def bus_incidence(n_bus: int, n_branch: int, edge_index: np.ndarray, mask: np.ndarray) -> list[np.ndarray]:
     """Masked-measurement indices touching each bus: its own V, P, Q, θ channels plus the flows of
     every incident branch (a flow meter reacts to both endpoints) [JAC26].
 
@@ -58,7 +56,7 @@ def leverage(Hw: np.ndarray, Ai: np.ndarray) -> np.ndarray:
     return np.clip(np.diag(P), 0.0, 1.0)
 
 
-def weak_directions(Hw: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def weak_directions(Hw: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """SVD of the whitened Jacobian and its k weakest right-singular directions [JAC26].
 
     Hw      : [m, d]
@@ -72,7 +70,7 @@ def weak_directions(Hw: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray, np.
 
 def explained_unexplained(
     dz: np.ndarray, H: np.ndarray, pinv: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Split a measurement change into what a state change explains and what it cannot [JAC26].
 
         dx̂ = H_W⁺ Δz,   r∥ = H dx̂,   r⊥ = Δz − r∥
@@ -107,7 +105,7 @@ def weak_move(dx: np.ndarray, V_weak: np.ndarray) -> np.ndarray:
     return (dx @ V_weak) @ V_weak.T
 
 
-def meters_to_buses(values: np.ndarray, incidence: List[np.ndarray], reduce: str) -> np.ndarray:
+def meters_to_buses(values: np.ndarray, incidence: list[np.ndarray], reduce: str) -> np.ndarray:
     """Aggregate a per-meter quantity to each bus over the meters incident to it [JAC26].
 
     values    : [n, m]

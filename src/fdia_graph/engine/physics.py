@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 
-from .base import GridBase
 from ..models.frames import ResolvedPool  # noqa: F401  re-exported: defined here before the models package
+from .base import GridBase
 
 
 class PhysicsMixin(GridBase):
     """Re-solve the grid under attacked/redistributed loads. Mixed into FdiaGenerator."""
 
-    def resolve_states(self, X: np.ndarray) -> "ResolvedPool":
+    def resolve_states(self, X: np.ndarray) -> ResolvedPool:
         """Re-solve a pool of operating points [T,N,4] under THIS generator's topology.
 
         A stored state carries the injections AND the voltages the INTACT network produced. Under a
@@ -62,7 +62,7 @@ class PhysicsMixin(GridBase):
             Lfull[int(b)] += val
         Pinj_true = Xt[:, 1]  # Xt = [|V|, Pinj, Qinj, theta]
         gbus = net.gen["bus"].values
-        ncnt: Dict[int, int] = {}
+        ncnt: dict[int, int] = {}
         for b in gbus:
             ncnt[int(b)] = ncnt.get(int(b), 0) + 1
         gp = np.array([(Lfull[int(b)] - Pinj_true[int(b)]) / ncnt[int(b)] for b in gbus], float)

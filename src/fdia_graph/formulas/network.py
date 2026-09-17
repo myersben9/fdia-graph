@@ -17,7 +17,11 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import numpy as np
-from ..models.grid import Admittances, BranchModel  # noqa: F401  re-exported: defined here before the models package
+
+from ..models.grid import (  # noqa: F401  re-exported: defined here before the models package
+    Admittances,
+    BranchModel,
+)
 
 
 def complex_voltages(vm: np.ndarray, theta_deg: np.ndarray) -> np.ndarray:

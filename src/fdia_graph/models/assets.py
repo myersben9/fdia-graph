@@ -4,7 +4,7 @@ of the N-1 candidate list."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 from .base import Bundle
 
@@ -23,14 +23,14 @@ class AssetSpec(Bundle):
     sha256: Optional[str] = None
     system: Optional[int] = None
     path: Optional[str] = None
-    meta: Optional[Dict[str, Any]] = None
+    meta: Optional[dict[str, Any]] = None
 
 
 class DownloadTarget(NamedTuple):
     """Where the bytes of a release asset are fetched from: the URL and the request headers."""
 
     url: str
-    headers: Dict[str, str]
+    headers: dict[str, str]
 
 
 @dataclass(frozen=True, eq=False)

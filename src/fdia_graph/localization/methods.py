@@ -4,7 +4,7 @@ calibration or metrics code."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -24,10 +24,10 @@ class SwingThreshold(LocalizerBase):
     slow ramp At, which stays inside typical per-scan change by construction.
     """
 
-    def _fields(self) -> List[str]:
+    def _fields(self) -> list[str]:
         return ["swing"]
 
-    def _score(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
         return np.abs(d["swing"]).max(axis=2)  # worst channel (dP or dQ) per bus
 
 
@@ -39,14 +39,14 @@ class DeltaThreshold(LocalizerBase):
     is exactly what the windowing buys.
     """
 
-    def _fields(self) -> List[str]:
+    def _fields(self) -> list[str]:
         return ["temporal_delta"]
 
-    def _fit_stats(self, d: Dict[str, np.ndarray], ben: np.ndarray, ds: "FdiaGraph") -> None:
+    def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         td = d["temporal_delta"][ben]
         self.sd = np.maximum(np.sqrt((td**2).mean(axis=0)), 1e-9)  # [N, 2] benign RMS per channel
 
-    def _score(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
         return np.abs(d["temporal_delta"] / self.sd[None]).max(axis=2)
 
 
@@ -62,14 +62,14 @@ class ResidualLocalizer(LocalizerBase):
     be localized by residuals. Needs the [se] extra (torch + pandapower).
     """
 
-    def __init__(self, estimator: Optional["SEBase"] = None, fa_target: float = 0.01) -> None:
+    def __init__(self, estimator: Optional[SEBase] = None, fa_target: float = 0.01) -> None:
         super().__init__(fa_target=fa_target)
         self.estimator = estimator  # None -> a fresh WLS is fitted in fit()
 
-    def _fields(self) -> List[str]:
+    def _fields(self) -> list[str]:
         return ["node_x", "edge_x", "clean"]
 
-    def _fit_stats(self, d: Dict[str, np.ndarray], ben: np.ndarray, ds: "FdiaGraph") -> None:
+    def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         from ..se import WLS
 
         self.est = self.estimator if self.estimator is not None else WLS()
@@ -89,7 +89,7 @@ class ResidualLocalizer(LocalizerBase):
         incm = inc[:, self.est.mask]  # restrict to measurements that actually exist
         self._inc = [np.where(incm[b])[0] for b in range(N)]
 
-    def _score(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
         # Same-package composition: the estimator's conversion/solve/residual internals are the
         # protocol being scored, so they are used directly rather than re-implemented here.
         chunk = 1000  # solve in blocks; matches SEBase.estimate's chunking
