@@ -16,9 +16,11 @@ rep  = loc.score(test)                             # per-family metrics + benign
 
 ```mermaid
 flowchart LR
-    subgraph fit["loc.fit(train)"]
-        b[benign records only] --> s1["per-bus score<br/>hook: each method"]
+    subgraph fit["loc.fit(train, val=None)"]
+        b[threshold arms: benign records only] --> s1["per-bus score<br/>hook: each method"]
         s1 --> t["threshold per bus at the<br/>(1 − fa_target) benign quantile"]
+        l[learned arms: every record given,<br/>attacks included] --> tr[train the CNN / MLP]
+        tr --> t2["val given: one global<br/>validation-best threshold<br/>else: the benign quantile"]
     end
     subgraph localize["loc.localize(test)"]
         s2[per-bus score] --> f["flag = score > threshold<br/>[n, N] bool"]

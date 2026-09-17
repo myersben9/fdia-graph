@@ -128,7 +128,8 @@ Leading time axis `T`, three aligned layers each for node and edge:
 ```mermaid
 flowchart LR
     clean["clean / edge_clean<br/>noiseless true state"] -- "+ meter noise" --> benign["benign / edge_benign"]
-    benign -- "+ attack (Ad, As, Ar exact;<br/>Aq, At, Al re-solved)" --> obs["node_x / edge_x<br/>observed, the model input"]
+    benign -- "Ad As Ar: + the corruption<br/>(observed − benign = attack, exact)" --> obs["node_x / edge_x<br/>observed, the model input"]
+    clean -- "Aq At Al: re-solved state<br/>+ its own noise draw" --> obs
 ```
 
 | layer | meaning |
