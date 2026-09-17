@@ -33,7 +33,7 @@ flowchart LR
 
 | | |
 |---|---|
-| shared | calibration and metrics in `LocalizerBase`; each method changes only the per-bus score |
+| shared | metrics and the benign-quantile calibration in `LocalizerBase`; a threshold arm changes only the per-bus score, a learned arm also overrides `fit` to train on every record and, given `val`, the threshold |
 | budget | every method runs at the same false-alarm rate, set on benign records; the one exception is a learned arm given `val`, which picks one global validation-best threshold from labelled records (the papers' zero-shot protocol) |
 | `"all"` entry | pools every record; the papers' per-bus macro F1, DR and FR over the attackable buses |
 
