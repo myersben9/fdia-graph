@@ -14,14 +14,26 @@ flag = loc.localize(test)                          # [n, N] bool: which buses ar
 rep  = loc.score(test)                             # per-family metrics + benign false alarms
 ```
 
-- Mirrors [`fdia_graph.se`](../se/README.md): one base class owns calibration and metrics, each
-  method class changes only the per-bus score.
-- `fit()` sets a per-bus threshold at the `(1 - fa_target)` benign quantile. Every method runs at
-  the same false-alarm budget and no attack data is used to tune.
-- `score()` reports per family: **strict localization accuracy** (predicted set equals the truth
-  exactly), node precision/recall/F1, per-bus macro-F1, per-sample macro-F1, and detection rate,
-  always next to the benign false-alarm rate. The `"all"` entry pools every record and carries the
-  papers' per-bus macro scores F1, DR, and FR over the attackable buses.
+```mermaid
+flowchart LR
+    subgraph fit["loc.fit(train)"]
+        b[benign records only] --> s1["per-bus score<br/>hook: each method"]
+        s1 --> t["threshold per bus at the<br/>(1 − fa_target) benign quantile"]
+    end
+    subgraph localize["loc.localize(test)"]
+        s2[per-bus score] --> f["flag = score > threshold<br/>[n, N] bool"]
+    end
+    subgraph score["loc.score(test)"]
+        f2[flags vs y] --> m["per family: strict accuracy, node P/R/F1,<br/>macro-F1, DR next to the benign FA"]
+    end
+    fit --> localize --> score
+```
+
+| | |
+|---|---|
+| shared | calibration and metrics in `LocalizerBase`; each method changes only the per-bus score |
+| budget | every method runs at the same false-alarm rate; no attack data is used to tune |
+| `"all"` entry | pools every record; the papers' per-bus macro F1, DR and FR over the attackable buses |
 
 ## The methods
 
@@ -33,19 +45,21 @@ rep  = loc.score(test)                             # per-family metrics + benign
 | `BusMLP` | The papers' lightweight arm: one 4x128 MLP applied to every bus's own 14-dim vector (readings, meter mask, partial KCL residual, delta, swing). 52k parameters | `[torch]` extra |
 | `BusCNN` | The papers' best localizer: a 1-D convolution across the bus axis over the same 14-dim vector, 4 layers of 128 channels, kernel 3. No graph read. 154k parameters | `[torch]` extra |
 
-The learned arms train on whatever records they are given, so the protocol is the load call.
-`fit(train, val=val)` also picks the papers' single validation-best threshold instead of the
-false-alarm calibration.
+The learned arms train on the records they are given, so the protocol is the load call;
+`fit(train, val=val)` picks the papers' validation-best threshold instead of the false-alarm one.
 
 ## Results
 
-F1, DR, and FR are the localization paper's per-bus macro scores over the attackable buses: per-bus
-F1 and recall accumulate over every test record, FR is the per-bus false-positive rate on benign
-records. Full metrics per system in `results/loc_ieee{14,118,300}.json`.
+| protocol | train and val | test | threshold |
+|---|---|---|---|
+| zero-shot (the paper's) | benign + `Aq` + `Ad` | adds `As` and `Ar`, never seen in training | learned arms validation-best; swing keeps its benign calibration |
+| common | every family, unfiltered | the full split | benign quantile at `fa_target=0.01` for every method |
 
-**Zero-shot protocol** (the paper's). Train and val hold benign + `Aq` + `Ad` only. Test adds `As`
-and `Ar`, never seen in training. The learned arms use the validation-best threshold; swing keeps
-its benign calibration.
+F1, DR and FR are the paper's per-bus macro scores over the attackable buses (F1 and recall over
+every test record, FR the per-bus false-positive rate on benign records); full metrics in
+`results/loc_ieee{14,118,300}.json`.
+
+**Zero-shot protocol**
 
 | Method | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -56,9 +70,7 @@ its benign calibration.
 The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 / 0.9327 for the MLP on
 v0.4.1 data. The SDK classes reproduce those numbers on the current v0.7.2 shards.
 
-**Common protocol.** Every method fits on the unfiltered train split (all six families
-in-distribution for the learned arms), calibrates on benign records at `fa_target=0.01`, and scores
-the full test split.
+**Common protocol**
 
 | Method | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -76,11 +88,16 @@ Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.
 
 ## Jacobian-informed features: the digest's ablation
 
-`fdia_graph.se.JacobianFeatures` implements the Jacobian-informed transform of the measurement
-change (implied state move `H⁺Δz`, explained and unexplained components and their ratio, meter
-sensitivity, leverage, weak-direction energy), aggregated to buses, and `BusCNN` / `BusMLP` take a
-`features=` argument that is the digest's ablation: A measurements only, B the papers' 14-dim vector
-(the rows above), C = B + the 8 Jacobian features, D the Jacobian features alone.
+`fdia_graph.se.JacobianFeatures` transforms the measurement change through the estimator's Jacobian
+(implied state move `H⁺Δz`, explained and unexplained parts and their ratio, sensitivity, leverage,
+weak-direction energy) and aggregates it to buses; `BusCNN` / `BusMLP` take `features=`:
+
+| set | input |
+|---|---|
+| A | measurements only |
+| B | the papers' 14-dim vector (the rows above) |
+| C | B + the 8 Jacobian features |
+| D | the Jacobian features alone |
 
 | Model (1D CNN, zero-shot) | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -92,28 +109,19 @@ sensitivity, leverage, weak-direction energy), aggregated to buses, and `BusCNN`
 In the common protocol (every family in-distribution) C and B are within noise of each other
 (0.911 vs 0.917 on 14, 0.740 vs 0.734 on 118).
 
-Reading: the features carry the signal the digest describes. On the stealthy re-solve families the
-unexplained energy stays at the benign level while the explained energy and the implied state move
-are 10× to 24× benign at the attacked buses, and D alone reaches 0.93 node-F1 on `Aq`. But the
-papers' temporal features already encode that spike per bus, so adding the block to B gains nothing
-and costs one to nine points of zero-shot generalization on replay. The one place it could still pay
-is as the localizer that gates the state estimator, see [`../se/README.md`](../se/README.md).
+| finding | evidence |
+|---|---|
+| the features carry the digest's signal | on stealthy re-solves the explained energy and implied state move are 10× to 24× benign at the attacked buses; D alone reaches 0.93 node-F1 on `Aq` |
+| they add nothing to the papers' vector | B already encodes that spike per bus; C costs one to nine zero-shot points on replay |
+| where they could still pay | as the localizer that gates the estimator, [`../se/README.md`](../se/README.md) |
 
 ## Three readings
 
-1. **The temporal spike catches almost everything.** Any attack edit above the noise floor shows up
-   as a per-bus spike the moment it starts, including the BDD-stealthy families `Aq`/`Al` the
-   residual arm cannot see. The one family built to defeat it is the slow ramp `At`, which stays
-   inside typical per-scan change by construction. `At` is the open frontier on every system.
-2. **The classical arm misses every stealthy family by construction.** `ResidualLocalizer` detects
-   the in-place corruptions but localizes them coarsely, since residuals smear over neighboring
-   buses, and on `Aq`/`At`/`Al` its per-bus F1 sits near zero. Those measurements are
-   physics-consistent, so there is no residual to find.
-3. **Learning on top of the feature buys precision and holds up with size.** In the zero-shot
-   protocol the CNN keeps F1 above 0.94 from 14 to 300 buses at FR of 10^-4 or below, while the
-   swing threshold alone falls from 0.88 to 0.51 because a fixed per-bus false-alarm budget costs
-   more as the bus count grows. The ramp is the weakest column for every method, and the
-   in-distribution `At` rows of the common protocol are where the remaining headroom is.
+| reading | evidence | open case |
+|---|---|---|
+| the temporal spike catches almost everything | any edit above the noise floor spikes the bus the moment it starts, BDD-stealthy `Aq` / `Al` included | the slow ramp `At` stays inside typical per-scan change by construction |
+| the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption but smears it over neighbours; on `Aq` / `At` / `Al` its F1 sits near zero, there is no residual | |
+| learning buys precision and holds with size | zero-shot CNN F1 above 0.94 from 14 to 300 buses at FR 1e-4 or below; the swing threshold alone falls 0.88 to 0.51 as a fixed per-bus budget gets costlier | the in-distribution `At` rows are where the headroom is |
 
 ## Regenerate
 
@@ -124,5 +132,4 @@ FG_SYSTEM=ieee300 python docs/localization/run_localization.py
 python docs/localization/make_report.py                          # tables (markdown) + figures + CSV from the JSON
 ```
 
-IEEE-14 takes minutes on a GPU laptop; 300 takes about half an hour, most of it the residual arm's
-state-estimation solves.
+Minutes for IEEE-14 on a GPU laptop; about half an hour for 300, mostly the residual arm's solves.

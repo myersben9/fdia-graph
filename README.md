@@ -7,148 +7,133 @@ Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line. 
 import fdia_graph as fg
 
 ds = fg.load("ieee118", split="train")     # auto-downloads + caches
-loader = ds.loader(batch_size=64)
-for batch in loader:
+for batch in ds.loader(batch_size=64):
     batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"]
 ```
 
-**New here?**
+```mermaid
+flowchart LR
+    P[ISO load profiles] --> G[fg.generate / generate_stream]
+    G --> S[(shard .h5)]
+    G --> T[(stream .npz)]
+    S --> L[fg.load]
+    T --> LS[fg.load_stream]
+    L --> D[FdiaGraph<br/>records, batches, PyG]
+    LS --> W[windows / torch_windows]
+    D --> SE[fdia_graph.se<br/>state estimation]
+    D --> LOC[fdia_graph.localization<br/>which buses]
+    W --> M[your temporal model]
+```
 
 | Read | To learn |
 |---|---|
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what, and how the paths connect |
 | [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) | what every array means |
-| [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations → functions |
+| [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
 | [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, streams, dataset stats |
-| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) | the two analysis modules, with real results |
+| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) | the two analysis modules, with results |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |
 
 ## Install
 
-```bash
-pip install fdia-graph              # loader
-pip install "fdia-graph[torch]"     # + PyTorch DataLoader
-pip install "fdia-graph[pyg]"       # + torch_geometric
-pip install "fdia-graph[se]"        # + state estimation / residual localization (pandapower + scipy; add [torch] for speed)
-pip install "fdia-graph[generate]"  # + pandapower, to generate custom data
-```
+| command | gives |
+|---|---|
+| `pip install fdia-graph` | the loader (numpy, h5py) |
+| `pip install "fdia-graph[torch]"` | + PyTorch DataLoader, learned localizers |
+| `pip install "fdia-graph[pyg]"` | + torch_geometric records and streams |
+| `pip install "fdia-graph[se]"` | + state estimation, residual localization (pandapower, scipy; add `[torch]` for speed) |
+| `pip install "fdia-graph[generate]"` | + pandapower, to generate custom data |
 
-Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. Pin a data version with
-`fg.load(..., release="v0.7.2")`; `pip install --upgrade fdia-graph` moves it forward.
+Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.7.2")`
+pins a data version; `pip install --upgrade fdia-graph` moves it forward.
 
 ## Load
 
 ```python
 fg.load("ieee300", split="train")                              # 60/20/20 chronological split
-fg.load("ieee118", split="test", families=["Aq","At","Al"])    # family subset
-fg.load("ieee118", units="pu")                                 # per-unit + radians (default is physical)
+fg.load("ieee118", split="test", families=["Aq", "At", "Al"])  # family subset
+fg.load("ieee118", units="pu")                                 # per-unit + radians (default: physical)
 ```
 
-- Whole split at once: `ds.to_numpy()` / `.to_torch()` / `.to_pandas()`.
-- Custom data: `fg.generate(system, name, per_family=..., attack_intensity=..., ...)` then `fg.load(name)`.
-- Continuous timeline for LSTM/TGN: `fg.load_stream(system)`.
-
-Details for all three in [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md).
+| you want | call |
+|---|---|
+| a whole split at once | `ds.to_numpy()`, `ds.to_torch()`, `ds.to_pandas()` |
+| custom data | `fg.generate(system, name, per_family=..., attack_intensity=...)`, then `fg.load(name)` |
+| a continuous timeline for LSTM / TGN | `fg.load_stream(system)`, then `fg.windows(s, W=24)` |
 
 ## State estimation
 
 ```python
-from fdia_graph.se import WLS, SubspacePrior   # pip install "fdia-graph[se]"
+from fdia_graph.se import SubspacePrior                       # pip install "fdia-graph[se]"
 
 train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
 est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(train)
 xhat = est.estimate(test)          # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
-print(est.score(test))             # per-family angle/voltage MAE vs the clean truth
+print(est.score(test))             # per-family angle / voltage MAE vs the clean truth
 ```
 
-`WLS`, `AdaptiveWeighting`, `ResidualRemoval`, `SubspacePrior` share one solver and differ only in
-state space and weights. Results and a walkthrough: [`docs/se/`](docs/se/README.md).
+One solver, six estimators that each change one thing: `WLS`, `AdaptiveWeighting`, `ResidualRemoval`,
+`SubspacePrior`, `JacobianWeighting`, `GatedPrior`. Results: [`docs/se/`](docs/se/README.md).
 
 ## Localization
 
 ```python
-from fdia_graph.localization import SwingThreshold   # numpy only
+from fdia_graph.localization import SwingThreshold, BusCNN     # numpy only / [torch]
 
 loc = SwingThreshold(fa_target=0.01).fit(train)     # per-bus thresholds from benign records only
 flag = loc.localize(test)                           # [n, N] bool: which buses are called attacked
 print(loc.score(test))                              # per-family node-F1, strict accuracy, DR next to FA
-```
 
-`SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer` share one calibration and metric protocol and
-differ only in the per-bus score. `BusCNN` and `BusMLP` are the papers' learned localizers on the
-14-dim per-bus feature vector (needs `[torch]`):
-
-```python
-from fdia_graph.localization import BusCNN
-
-zs = dict(families=[0, 1, 2])                        # papers' zero-shot protocol: As/Ar unseen in train
+zs = dict(families=[0, 1, 2])                       # the papers' zero-shot protocol
 cnn = BusCNN().fit(fg.load("ieee118", split="train", **zs), val=fg.load("ieee118", split="val", **zs))
-print(cnn.score(fg.load("ieee118", split="test", families=[0, 1, 2, 3, 4]))["all"]["macro_f1"])
 ```
 
-Results: [`docs/localization/`](docs/localization/README.md).
+One calibration, five localizers: `SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer`, `BusMLP`,
+`BusCNN`. Results: [`docs/localization/`](docs/localization/README.md).
 
 ## Data
 
 Each record is a sparse measurement graph with **N buses** (nodes) and **E branches** (edges).
-Read a shape as "values per item": `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch.
+A shape reads "values per item": `[N,4]` is 4 numbers per bus.
 
 | field | shape | columns | meaning |
 |---|---|---|---|
-| `node_x` | `[N,4]` | <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` | bus meters (`node_m` `[N,4]` is the mask) |
-| `edge_x` | `[E,2]` | `P_from`, `Q_from` | branch flows (`edge_m` `[E,2]` is the mask) |
+| `node_x` | `[N,4]` | <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` | bus meters (`node_m` is the mask) |
+| `edge_x` | `[E,2]` | `P_from`, `Q_from` | branch flows (`edge_m` is the mask) |
 | `edge_index` | `[2,E]` | `from_bus`; `to_bus` | connectivity |
-| `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`ds.edge_attr`; in PyG format `Data.edge_phys`) |
-| `y` | `[N]` | | 1 attacked, 0 clean. Which buses |
-| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al. Which attack (`fg.FAMILIES`); one family per record by construction, possibly on several buses |
-| `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | temporal features |
-| `clean` | `[N,4]` | same as `node_x` | noiseless truth, all buses. SE target (v0.7.2+) |
-| `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
-| `edge_clean_full` | `[E,2]` | same as `edge_x` | noiseless true flows on every branch, metered or not (computed from `clean` through `yf` on load; equals `edge_clean` where a flow meter exists) |
-| `slack` | scalar | | index of the reference bus (`ds.slack`, `Data.slack` in PyG) |
-| `ybus` | `[N,N]` complex | | full nodal admittance matrix in `node_x` bus order (`ds.ybus`, static per shard) |
-| `yf`, `yt` | `[E,N]` complex | | from-end / to-end branch admittance matrices (`ds.yf`, `ds.yt`); `V[from] * conj(Yf @ V)` is the from-end flow |
+| `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`Data.edge_phys` in PyG) |
+| `y` | `[N]` | | 1 attacked, 0 clean |
+| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (`fg.FAMILIES`) |
+| `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | scan-to-scan change, and as a z-score of recent change |
+| `clean`, `edge_clean`, `edge_clean_full` | `[N,4]`, `[E,2]`, `[E,2]` | as above | noiseless truth: buses, metered branches, every branch |
+| `slack`, `ybus`, `yf`, `yt` | dataset attributes | | reference bus, admittance matrices |
 
-In PyG format (`format="pyg"` and `fg.pyg_stream`) the flows are `Data.edge_attr` (alias `Data.edge_x`),
-the mask is `edge_mask`, and the static line physics are `Data.edge_phys`.
 Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
 
 ## Attacks
 
-Three **stealthy** families that evade classical bad-data detection (BDD), plus three **detectable**
-ones as a contrast set.
-
-| family | attack | classical BDD |
-|--------|--------|---------------|
-| `Aq` | stealthy load rescale + AC re-solve | evades |
-| `At` | slow temporal load ramp | evades |
-| `Al` | targeted load redistribution (hides overloads) | evades |
-| `Ad` / `As` / `Ar` | meter corruption / scaling / replay | caught |
+| family | attack | classical BDD | plausibility |
+|---|---|---|---|
+| `Aq` | load rescale, AC re-solve | evades | every per-bus change within a 2% to 20% band |
+| `At` | slow load ramp, AC re-solve | evades | same band, spread over 60 scans |
+| `Al` | load redistribution that hides an overload | evades | same band, load conserved |
+| `Ad` / `As` / `Ar` | meter bias / scaling / replay | caught | same band |
 
 ![BDD statistic per family: the three stealthy families sit below the alarm line with benign, the three tampering families sit far above it](docs/figures/fig_bdd.png)
 
-*Bad-data statistic J relative to the alarm threshold, per family (Aq is labeled A_o here). Green
-families are indistinguishable from benign; red ones trip the alarm.*
-
-- Every per-bus change stays in a plausibility band: 2% noise floor to 20% cap.
-- Meter error follows an accuracy-class model (per-meter bias plus per-scan jitter).
-- Report **per-family node-F1 with the false-alarm rate**, not accuracy: clean buses dominate.
-- A lightweight per-bus MLP reaches ~0.92 localization macro-F1 (see the examples page).
-
-## Contributing
-
-`CONTRIBUTING.md`: the rules (nothing a user sees changes without a changelog entry, every change is
-proven behaviour-free by the strict frozen suite), the pull-request flow with `tools/pr.py`, and how a
-release is cut with `tools/release.py`.
+*Bad-data statistic relative to the alarm threshold, per family. Green families are indistinguishable
+from benign; red ones trip the alarm.* Meter error follows an accuracy-class model (per-meter bias
+plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, never accuracy.
 
 ## Citation
 
-Cite the attack- and measurement-model sources:
-
-- Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE T-SG 2(2), 2011. *(LRA)*
-- Haghshenas, Hasnat & Naeini, *A Temporal GNN for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023. *(ramp)*
-- Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025. *(measurement model)*
-- Asprou, Kyriakides & Albu, *Variable Weights in a WLS State Estimator*, IEEE T-IM 63, 2014. *(meter noise)*
-- Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE T-SG, 2022. *(protocol)*
+| cite | for |
+|---|---|
+| Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE T-SG 2(2), 2011 | LRA |
+| Haghshenas, Hasnat & Naeini, *A Temporal GNN for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023 | ramp |
+| Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025 | measurement model |
+| Asprou, Kyriakides & Albu, *Variable Weights in a WLS State Estimator*, IEEE T-IM 63, 2014 | meter noise |
+| Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE T-SG, 2022 | protocol |
 
 ## License
 

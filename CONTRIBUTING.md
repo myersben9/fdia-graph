@@ -1,95 +1,79 @@
 # Contributing
 
-How a change gets into fdia-graph. Other groups load this package in their experiments, so the
-rules below exist to keep their numbers stable; every one of them is enforced by a command you
-can run yourself.
+Other groups load this package in their experiments, so the rules keep their numbers stable. Every
+rule is a command you can run.
 
 ## Setup
 
 ```bash
 git clone https://github.com/myersben9/fdia-graph
 cd fdia-graph
-pip install -e ".[generate,se,torch,dev]"     # generation needs pandapower; the tests build a tiny shard
-pytest tests                                  # about a minute; downloads a 13 MB operating-point pool once
+pip install -e ".[generate,se,torch,dev]"
+pytest tests                                  # about a minute; one 13 MB pool download
 ```
 
-`docs/ROADMAP.md` is the map of the package and the reading order for a new student.
+`docs/ROADMAP.md` is the map and the reading order.
 
 ## The rules
 
-1. **Nothing a user can see changes without a changelog entry.** Public API, file formats, and
-   the numbers a shard, a stream or an estimator produces. Internal names that move get an alias
-   that warns for one minor version, and our own callers switch in the same pull request.
-2. **Every change is proven behaviour-free, or its effect is measured.** The strict frozen suite
-   compares a tiny shard, a stream and the estimator and localizer scores bit for bit against
-   `tests/frozen/`. Run it before every push:
-
-   ```bash
-   FDIA_FROZEN_STRICT=1 pytest -W "error::DeprecationWarning:fdia_graph" tests
-   ```
-
-   If a change is meant to move numbers (a new attack, a different solver), regenerate the
-   references with `python tools/freeze_reference.py` in the same pull request and state the
-   deltas in its description. CI runs the same tests with a small cross-platform tolerance.
-3. **Code reads as its subject.** Functions stay within the readability limits (complexity 10,
-   nesting 3, no closure captures, at most 7 parameters, no positional record indexing); every
-   equation from a paper or textbook is a named function in `fdia_graph.formulas` with its source
-   key from `docs/reference/REFERENCES.md`; every value bundle a function returns is a model in
-   `fdia_graph.models`. `python tools/readability.py --report` shows the state of the package,
-   `--check --base origin/main` is the gate CI runs on what you touched.
-4. **Speed is tracked.** `python tools/bench.py --check` compares per-record timings of the
-   generator and the estimators with the last row of `docs/reference/BENCHMARKS.md` and fails at
-   3x slower; run it before a release, and `python tools/bench.py` to append a row after one.
-5. **Typed and formatted.** `pyright src/fdia_graph` reports zero errors, `ruff format --check src`
-   passes; both run in CI.
+| rule | means | command |
+|---|---|---|
+| nothing a user sees changes without a changelog entry | public API, file formats, the numbers a shard, stream or estimator produces; moved private names get a warning alias for one minor version | `CHANGELOG.md`, `## Unreleased` |
+| every change is proven behaviour-free, or its effect is measured | the strict frozen suite compares a tiny shard, a stream and the scores bit for bit; an intended change re-freezes in the same PR and states the deltas | `FDIA_FROZEN_STRICT=1 pytest -W "error::DeprecationWarning:fdia_graph" tests`, `python tools/freeze_reference.py` |
+| code reads as its subject | complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in `formulas/` with a source key; every returned bundle a model in `models/` | `python tools/readability.py --report`, `--check --base origin/main` |
+| typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src`, `ruff check src tests tools` |
+| speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python tools/bench.py --check` before a release, `python tools/bench.py` after |
 
 ## The pull request
 
-Work on a branch, never on main. When the strict suite, pyright and the gate pass locally:
+```mermaid
+flowchart LR
+    A[branch off main] --> B[strict suite<br/>pyright · ruff · gate]
+    B --> C["tools/pr.py create"]
+    C --> D[CI + Copilot review]
+    D --> E{comments?}
+    E -- yes --> F[apply what is right,<br/>reply to every one]
+    F --> D
+    E -- no --> G["tools/pr.py merge<br/>(green + review on head)"]
+```
 
 ```bash
 python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked
 python tools/pr.py wait 80                                     # CI plus the Copilot review
-python tools/pr.py comments 80                                 # read the review
-python tools/pr.py reply 80 <comment-id> "what changed"        # answer each comment with what you did
-python tools/pr.py merge 80                                    # squash on green, deletes the branch
+python tools/pr.py comments 80
+python tools/pr.py reply 80 <comment-id> "what changed"
+python tools/pr.py merge 80                                    # refuses unless green with a review on the head
 ```
 
-Copilot reviews every push automatically. Its comments are suggestions, not orders: apply the
-ones that are right (in this repo about one in two has been), answer every one with what you
-changed or why not, and merge only when CI is green and the review has landed on the final head.
-`tools/pr.py` uses the token the Git Credential Manager already holds for `git push`; there is
-no gh CLI on the lab machines.
-
-Commit as yourself, with a message that says what the change does.
+Copilot reviews every push. Its comments are suggestions: apply the ones that are right (about one
+in two has been), answer every one with what you changed or why not. The tool uses the token the
+Git Credential Manager already holds for `git push`; there is no gh CLI on the lab machines. Commit
+as yourself, with a message that says what the change does. If CI does not start on a push, check the
+account's Actions and Copilot credits before anything else.
 
 ## Releasing
 
-A release is a pull request like any other: bump `version` in `pyproject.toml` and
-`__version__` in `src/fdia_graph/__init__.py`, turn the changelog's `## Unreleased` heading into
-the version with a short paragraph on what a user sees, and merge. Then, on a clean main at
-`origin/main`:
-
-```bash
-python tools/release.py v0.18.0 notes.md
+```mermaid
+flowchart LR
+    A["bump PR:<br/>pyproject, __init__, changelog heading"] --> B[merge on green]
+    B --> C["tools/release.py vX.Y.Z notes.md"]
+    C --> D[tag on main · GitHub release]
+    D --> E[publish.yml → PyPI]
 ```
 
-It tags the merged commit, pushes the tag, creates the GitHub release with the notes, and waits
-for `publish.yml` to build and upload to PyPI (Trusted Publishing, no token). A released version
-is never re-cut; fix forward with a new version. Data releases (shards, pools, streams) carry
-their own tags and do not move the package version; see the release notes of `v0.7.2`.
+A released version is never re-cut; fix forward. Data releases (shards, pools, streams) have their
+own tags and do not move the package version.
 
 ## Where things live
 
 | you want to change | look in |
 |---|---|
-| an attack family, the plausibility band, the meter model | `engine/` (the generator), `formulas/attacks.py`, `formulas/noise.py` |
+| an attack family, the plausibility band, the meter model | `engine/`, `formulas/attacks.py`, `formulas/noise.py` |
 | what a shard or stream contains | `generation.py`, `streams.py`, then `docs/reference/DATA_DICTIONARY.md` |
-| how a shard is loaded or exported | `dataset/` (one concern per file) |
-| an estimator | `se/methods.py`, with its algebra in `formulas/estimation.py` |
+| how a shard is loaded or exported | `dataset/`, one concern per file |
+| an estimator | `se/methods.py`, its algebra in `formulas/estimation.py` |
 | a localizer | `localization/methods.py` or `learned.py` |
 | a returned record's fields | `models/` |
 | a formula | `formulas/`, and its row in `docs/reference/FORMULAS.md` |
 
-The plans that shaped the current layout are archived under `docs/plans/`; they explain why the
-code looks the way it does, not how to change it.
+The design documents behind the current layout are archived in `docs/plans/`.

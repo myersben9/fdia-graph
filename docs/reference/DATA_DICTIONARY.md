@@ -125,6 +125,12 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 
 Leading time axis `T`, three aligned layers each for node and edge:
 
+```mermaid
+flowchart LR
+    clean["clean / edge_clean<br/>noiseless true state"] -- "+ meter noise" --> benign["benign / edge_benign"]
+    benign -- "+ attack (Ad, As, Ar exact;<br/>Aq, At, Al re-solved)" --> obs["node_x / edge_x<br/>observed, the model input"]
+```
+
 | layer | meaning |
 |-------|---------|
 | `node_x` / `edge_x` | observed (attacked + noise). The model input. |

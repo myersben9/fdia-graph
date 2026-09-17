@@ -3,6 +3,18 @@
 Paper ideas → the function that implements them. Pair with `DATA_DICTIONARY.md`.
 Paths are under `src/fdia_graph/`.
 
+## One record, start to finish
+
+```mermaid
+flowchart LR
+    X["operating state x<br/>(pool, from an ISO profile)"] --> h["h(x): exact AC scan<br/>engine.measurement"]
+    X --> atk["attack: re-solve (Aq At Al)<br/>or corrupt (Ad As Ar)<br/>engine.attacks · records.attack_frame"]
+    atk --> h
+    h --> n["accuracy-class noise:<br/>bias + jitter"]
+    n --> rec["record: node_x, edge_x,<br/>masks, y, family, temporal features"]
+    X --> cl["clean layer (no attack, no noise)"]
+```
+
 ## Modules
 
 The paper's math lives in `engine/`. At the top level, `generation.py`/`profiles.py` drive the

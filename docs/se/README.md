@@ -15,12 +15,29 @@ xhat = est.estimate(test)   # [n, 2N-1] = [theta rad (non-slack) | V pu (all bus
 rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 ```
 
-- Needs the `[se]` extra (`pip install "fdia-graph[se]"`) and a v0.7.2+ shard.
-- sklearn style: one base class owns the shared machinery (AC measurement model, chord-Newton solve,
-  meter-weight calibration, the 2N-1 state with the slack angle as reference, `ds.slack`). Each
-  method class changes exactly one thing, so comparing two methods compares estimators, not
-  implementations.
-- Walkthrough: [`../guides/state_estimation.md`](../guides/state_estimation.md).
+```mermaid
+flowchart LR
+    subgraph shared["SEBase (shared)"]
+        h["h(x): formulas.network.ac_measurement"]
+        H["chord Jacobian: ac_jacobian"]
+        w["meter weights from benign residuals"]
+        it["chord-Newton loop, divergence guard"]
+    end
+    subgraph one["each estimator changes one thing"]
+        WLS["WLS: nothing"]
+        AW["AdaptiveWeighting: Huber weights"]
+        RR["ResidualRemoval: drop large residuals"]
+        SP["SubspacePrior: low-rank basis"]
+        JW["JacobianWeighting: weights from r⊥"]
+        GP["GatedPrior: localizer gates the weights"]
+    end
+    shared --> one
+```
+
+| needs | `pip install "fdia-graph[se]"`, a v0.7.2+ shard |
+|---|---|
+| walkthrough | [`../guides/state_estimation.md`](../guides/state_estimation.md) |
+| state | 2N-1: every voltage magnitude, every non-slack angle; slack angle pinned per record (`ds.slack`) |
 
 ## The method classes
 
@@ -35,12 +52,12 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 
 ## Results
 
-Test partition, validation-selected hyperparameters from the estimation paper (Huber `c` 1.5 / 2.5 /
-6.0, rank fraction 0.20 / 0.50 / 0.50 on IEEE 14 / 118 / 300; removal threshold 4.0 / 5.0 on 14 / 118). Each cell
-is the mean absolute error aggregated over the seven record classes as a geometric mean. Full metrics
-in `results/se_ieee{14,118,300}.json`. Residual removal is not run on IEEE 300: its per-record
-observability guard takes many hours at that size, and the estimation paper found no removal
-threshold that helped on 300.
+| protocol | |
+|---|---|
+| partition | test split, hyperparameters validation-selected in the estimation paper |
+| Huber `c` / rank fraction | 1.5 / 0.20 (14), 2.5 / 0.50 (118), 6.0 / 0.50 (300) |
+| removal threshold | 4.0 (14), 5.0 (118); not run on 300 (hours per record, and no threshold helped in the paper) |
+| cell | geometric mean of the MAE over the seven record classes; full metrics in `results/se_ieee{14,118,300}.json` |
 
 **Estimator comparison**
 
@@ -69,10 +86,13 @@ threshold that helped on 300.
 | Prior + Huber + oracle gate (ceiling) | 0.158 | 0.027 | 0.105 |
 | WLS error reduction (proposed) | 76% | 83% | 64% |
 
-The estimation paper reports, on v0.4.1 data, angle 0.164 → 0.068 (14), 0.075 → 0.033 (118) and
-0.129 → 0.068 (300) from WLS to the proposed estimator, and voltage reductions of 57%, 85% and 68%.
-The v0.7.2 shards carry the accuracy-class meter model, so absolute errors are lower, and the
-ordering and the reductions hold on all three systems.
+| paper (v0.4.1 data) | 14 | 118 | 300 |
+|---|---:|---:|---:|
+| angle, WLS → proposed | 0.164 → 0.068 | 0.075 → 0.033 | 0.129 → 0.068 |
+| voltage reduction | 57% | 85% | 68% |
+
+The v0.7.2 shards carry the accuracy-class meter model, so absolute errors are lower; the ordering
+and the reductions hold.
 
 **Per-family results of the proposed estimator.** Baseline cells are the WLS error, reduction is
 the proposed estimator's percent reduction over that baseline.
@@ -93,39 +113,39 @@ Angle MAE per estimator and family (degrees, lower is better, `geo` is the summa
 |---|---|---|
 | ![](results/fig_se_ieee14.png) | ![](results/fig_se_ieee118.png) | ![](results/fig_se_ieee300.png) |
 
-Two readings:
-
-1. **Robustness cleans up what it can see.** `Ad`/`As`/`Ar` corrupt meters in place and leave large
-   residuals. Removal and Huber each cut their angle error, and the prior on top takes 66 to 82
-   percent off the baseline angle error on 14 and 118 (39 to 89 percent on 300, where the in-place
-   families start closer to the noise floor) and 73 to 97 percent off the voltage error everywhere.
-2. **The stealthy families barely move.** `Aq`/`At`/`Al` re-solve the physics, so there is nothing
-   for a robust weight or a residual test to reject. Angle reduction sits between -5 and 15 percent
-   on 14, 0 to 4 percent on 118 and 0 to 2 percent on 300 for every method. Recovering the truth
-   under a stealthy attack
-   needs temporal information, not better weighting. The detection side of that story is in
-   [`../localization/README.md`](../localization/README.md).
+| families | what happens | angle reduction | why |
+|---|---|---|---|
+| `Ad` `As` `Ar` (in place) | robustness cleans up what it can see | 66 to 82% on 14 and 118, 39 to 89% on 300; voltage 73 to 97% everywhere | corrupted meters leave large residuals for removal, Huber and the prior to reject |
+| `Aq` `At` `Al` (stealthy) | barely move, for every method | -5 to 15% on 14, 0 to 4% on 118, 0 to 2% on 300 | the physics is re-solved, so no residual exists; recovery needs temporal information ([`../localization/README.md`](../localization/README.md)) |
 
 ## Jacobian-informed weighting
 
-`JacobianWeighting` applies the digest's idea to estimation: the part of the measurement change
-since the previous clean state that no state change can explain, `r⊥ = (I − P_H)Δz`, sets Huber
-weights before a single solve. It cuts WLS angle error by 19% on 14, 26% on 118 and 23% on 300,
-entirely on the in-place corruption families (`Ad` 0.136 → 0.087, `As` 0.246 → 0.177, `Ar` 0.137 →
-0.066 on 14; `Ar` 0.132 → 0.032 on 300), and leaves the stealthy families untouched, exactly as
-`(I − P_H)a = 0` predicts. It does not reach the iterated Huber arm (0.068 on 14 and on 300), and
-composing the two (Jacobian weights first, Huber passes on
-top) lands on Huber's number (0.067). The temporal unexplained residual carries the information
-Huber already recovers from the estimate's own residual, so this route cannot move the proposed
-estimator; the route that can is gating it with a localizer (`GatedPrior`), since localization sees
-the stealthy families that no residual does.
+```mermaid
+flowchart LR
+    z["z_t"] --> dz["Δz = z_t − h(x_{t−1} clean)"]
+    dz --> split["r∥ = P_H Δz · r⊥ = (I − P_H) Δz"]
+    split --> w["Huber weights from r⊥ / σ"]
+    w --> solve["one weighted solve"]
+```
+
+| result | 14 | 118 | 300 |
+|---|---:|---:|---:|
+| WLS angle error reduction | 19% | 26% | 23% |
+| where it comes from | `Ad` 0.136 → 0.087, `As` 0.246 → 0.177, `Ar` 0.137 → 0.066 | in-place families only | `Ar` 0.132 → 0.032 |
+| stealthy families | untouched, as `(I − P_H)a = 0` predicts | same | same |
+| against iterated Huber | 0.087 vs 0.068 | | 0.074 vs 0.068 |
+| composed with Huber passes | 0.067, Huber's number | | |
+
+The temporal unexplained residual carries what Huber already recovers from the estimate's own
+residual, so this route cannot move the proposed estimator. The route that can is a localizer gate.
 
 ## Localization-gated estimation
 
-`GatedPrior` runs the proposed estimator with a localizer deciding which meters to trust: every meter
-on a flagged bus and every flow on a branch incident to it is down-weighted by 1e-3, so the benign
-prior supplies the state there. The CNN gate is the papers' localizer trained on the same train split
-(all families); the oracle gate uses the true labels and is the ceiling for any gate.
+```mermaid
+flowchart LR
+    loc["localizer flags buses<br/>(CNN, or the oracle labels)"] --> gate["weights × 1e-3 on every meter<br/>of a flagged bus and its branches"]
+    gate --> est["prior + Huber solve:<br/>the benign prior fills the gap"]
+```
 
 | | IEEE 14 | | | IEEE 118 | | | IEEE 300 | | |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -136,17 +156,15 @@ prior supplies the state there. The CNN gate is the papers' localizer trained on
 | Al redistribution | 0.154 | 0.153 | 0.152 | 0.764 | 0.766 | 0.765 | 2.276 | 2.277 | 2.277 |
 | geometric mean | 0.059 | **0.041** | 0.039 | 0.030 | **0.028** | 0.027 | 0.058 | **0.055** | 0.054 |
 
-Reading: on IEEE 14 the predicted gate takes 31 percent off the proposed estimator and lands within 4
-percent of the oracle, and it is the first thing that moves the stealthy `Aq` family. On IEEE 118 and
-300 the gain shrinks to 5 percent, all of it on the in-place families, and `Aq`, `At` and `Al` do not
-move even with the oracle gate. Removing a few buses'
-meters on a small grid removes most of the evidence of the re-solved state and the prior pulls the
-estimate back toward typical operation; on a large grid the attack's footprint spreads over many
-unflagged branches and the remaining measurements still describe the attacked physics. Gating helps
-the in-place families at any size and the stealthy families only when the grid is small. Recovering
-the pre-attack state under a stealthy re-solve needs the previous state, which is the streams'
-territory, not a better weight. A CNN gate with the Jacobian features gives the same numbers as the
-CNN gate. Voltage error rises slightly under gating (voltage meters are among those removed).
+| system | gain over the proposed estimator | on which families | why |
+|---|---|---|---|
+| IEEE 14 | 31%, within 4% of the oracle | the first thing that moves stealthy `Aq` | removing a few buses' meters removes most evidence of the re-solved state, the prior pulls back to typical operation |
+| IEEE 118, 300 | 5% | in-place families only; `Aq` `At` `Al` unchanged even with the oracle | the attack's footprint spreads over many unflagged branches, the rest still describes the attacked physics |
+
+Gating helps the in-place families at any size and the stealthy families only on a small grid.
+Recovering the pre-attack state under a stealthy re-solve needs the previous state (the streams).
+A CNN gate on the Jacobian features gives the same numbers; voltage error rises slightly under
+gating since voltage meters are among those removed.
 
 ## Regenerate
 
@@ -157,8 +175,8 @@ FG_SYSTEM=ieee300 python docs/se/run_se.py
 python docs/se/make_report.py                  # tables (markdown) + figures + CSV from the JSON
 ```
 
-`FG_SKIP=removal,...` leaves arms out of a run; the IEEE-300 column was made with `FG_SKIP=removal`.
-Wall time on the CPU with 0.14.1's batched solver: minutes on IEEE-14; on IEEE-300 WLS 1 min, Huber
-2.1 h, prior + Huber 47 min, Jacobian weighting 5 min, each gated arm 48 min (the IEEE-118 arms were
-run before the 0.14.1 speedups and took 1 to 6 h each). Re-runs score from `results/cache/` in about
-a minute per arm.
+| | |
+|---|---|
+| skip arms | `FG_SKIP=removal,...` (the IEEE-300 column used `FG_SKIP=removal`) |
+| wall time, CPU, IEEE-300 | WLS 1 min, Huber 2.1 h, prior + Huber 47 min, Jacobian weighting 5 min, each gated arm 48 min |
+| re-runs | score from `results/cache/` in about a minute per arm |
