@@ -9,6 +9,8 @@ its own, and stubs the methods one mixin calls on another.
 
 from __future__ import annotations
 
+import numbers
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -30,6 +32,20 @@ FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
 STEALTHY_FAMILIES = {1, 5, 6}  # Aq, At, Al — evade classical bad-data detection
 _FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
 _SPLIT = {"train": 0, "val": 1, "test": 2}  # on-disk `data/split` codes (precomputed)
+
+
+def check_split(split):
+    """Reject an unknown partition name before any file is opened or downloaded."""
+    if split is not None and split not in _SPLIT:
+        raise ValueError(f"split must be one of {sorted(_SPLIT)} or None, got {split!r}")
+
+
+def check_units(units):
+    """Reject an unknown unit system before any file is opened or downloaded."""
+    if units not in ("physical", "pu"):
+        raise ValueError(f"units must be 'physical' or 'pu', got {units!r}")
+
+
 _HELDOUT_TRAIN_EXCLUDE = {
     3,
     4,
@@ -37,12 +53,22 @@ _HELDOUT_TRAIN_EXCLUDE = {
 
 
 def family_ids(families: Sequence[Union[str, int]]) -> List[int]:
-    """Family names (with the legacy aliases) or raw integer codes as integer codes."""
-    if isinstance(next(iter(families)), str):
-        return [k for k, v in FAMILIES.items() if v in families] + [
-            _FAMILY_ALIAS[n] for n in families if n in _FAMILY_ALIAS
-        ]
-    return [int(f) for f in families]
+    """Family names (with the legacy aliases) or raw integer codes as integer codes. An unknown
+    name or code is an error rather than a silently empty selection."""
+    names = {v: k for k, v in FAMILIES.items()}
+    names.update(_FAMILY_ALIAS)
+    out: List[int] = []
+    for f in families:
+        if isinstance(f, str):
+            code = names.get(f)
+        elif isinstance(f, numbers.Integral) and not isinstance(f, bool) and int(f) in FAMILIES:
+            code = int(f)
+        else:
+            code = None  # a float such as 1.9, a bool, or a code outside the table
+        if code is None:
+            raise ValueError(f"unknown family {f!r}; known: {sorted(names)} or codes {sorted(FAMILIES)}")
+        out.append(code)
+    return out
 
 
 def _torch() -> ModuleType:
