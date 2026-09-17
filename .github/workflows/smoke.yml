@@ -66,6 +66,8 @@ jobs:
         run: pip install ruff
       - name: Check formatting (ruff format)
         run: ruff format --check src/fdia_graph
+      - name: "Lint (ruff check: pyflakes, import order, modern syntax)"
+        run: ruff check src tests tools
 
   readability:
     runs-on: ubuntu-latest
