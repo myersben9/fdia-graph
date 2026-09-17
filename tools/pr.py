@@ -168,6 +168,10 @@ def merge(num: int) -> None:
 
 
 def main(argv: list[str]) -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(
+            encoding="utf-8", errors="replace"
+        )  # review comments carry math symbols; Windows consoles default to cp1252
     if not argv:
         raise SystemExit(__doc__)
     cmd, args = argv[0], argv[1:]
