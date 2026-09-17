@@ -3,7 +3,7 @@
     python tools/models_doc.py          # rewrite the section between the markers
     python tools/models_doc.py --check  # exit 1 when the file is out of date (the tests run this)
 
-The section lists every public bundle (`fdia_graph.models.PUBLIC`, docs/DATA_MODELS_PLAN.md
+The section lists every public bundle (`fdia_graph.models.PUBLIC`, docs/plans/DATA_MODELS_PLAN.md
 steps 4 and 5): its module, what
 produces it, and one row per field with the dict key, the type and the comment written next to
 the field in the source. It is generated from the dataclasses, so it cannot drift from the code.

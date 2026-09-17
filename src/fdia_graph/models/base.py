@@ -25,7 +25,7 @@ A required field the old dict listed last (a score table's ``geo`` row) is named
 the dict view keeps the old key order; dataclasses need required fields before optional ones.
 
 Treat a bundle as read-only: the dataclass side is frozen, and the dict side mirrors it at
-construction. See docs/DATA_MODELS_PLAN.md.
+construction. See docs/plans/DATA_MODELS_PLAN.md.
 """
 
 from __future__ import annotations

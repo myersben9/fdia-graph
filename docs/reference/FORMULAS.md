@@ -5,8 +5,8 @@ even when it is called once, so a reader can go from an equation to the code and
 catalogue is the index: one row per formula, the function that implements it, the equation in
 plain text, the source with a key from [`REFERENCES.md`](REFERENCES.md), and where it is used.
 
-The plan behind it is [`../READABILITY_PLAN.md`](../READABILITY_PLAN.md) (rule 3) and
-[`../RESTRUCTURE_PLAN.md`](../RESTRUCTURE_PLAN.md) (the `formulas/` kernel). Rows are added as
+The plan behind it is [`../READABILITY_PLAN.md`](../plans/READABILITY_PLAN.md) (rule 3) and
+[`../RESTRUCTURE_PLAN.md`](../plans/RESTRUCTURE_PLAN.md) (the `formulas/` kernel). Rows are added as
 the functions land; a row whose function column says *today:* names where the operation lives
 until its function exists.
 

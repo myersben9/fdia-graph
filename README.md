@@ -134,6 +134,12 @@ families are indistinguishable from benign; red ones trip the alarm.*
 - Report **per-family node-F1 with the false-alarm rate**, not accuracy: clean buses dominate.
 - A lightweight per-bus MLP reaches ~0.92 localization macro-F1 (see the examples page).
 
+## Contributing
+
+`CONTRIBUTING.md`: the rules (nothing a user sees changes without a changelog entry, every change is
+proven behaviour-free by the strict frozen suite), the pull-request flow with `tools/pr.py`, and how a
+release is cut with `tools/release.py`.
+
 ## Citation
 
 Cite the attack- and measurement-model sources:

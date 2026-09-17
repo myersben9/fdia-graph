@@ -1,4 +1,4 @@
-"""The safety net for the readability series (docs/READABILITY_PLAN.md, section 5).
+"""The safety net for the readability series (docs/plans/READABILITY_PLAN.md, section 5).
 
 Every array a generated shard or stream contains, every file attribute, and the estimator and
 localizer scores on the tiny shard are compared with references written by

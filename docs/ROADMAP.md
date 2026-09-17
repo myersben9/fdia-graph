@@ -92,6 +92,7 @@ and do not move the package version.
 
 ## Reading order for new students
 
+0. `CONTRIBUTING.md`: the rules and the pull-request flow, before touching anything.
 1. `README.md`: install + quickstart.
 2. `docs/reference/DATA_DICTIONARY.md`: what every array and shape means.
 3. This page: which file does what.
@@ -99,3 +100,5 @@ and do not move the package version.
 5. `docs/reference/EXAMPLES.md`: full training examples to copy from.
 6. `docs/se/README.md` and `docs/guides/state_estimation.md`: measurements in, better-than-WLS state out.
 7. `docs/localization/README.md`: which buses are under attack, and why the slow ramp is the open case.
+
+The design documents behind the 0.16 and 0.17 refactors are archived in `docs/plans/`.
