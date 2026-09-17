@@ -26,9 +26,9 @@ _CACHE = tempfile.mkdtemp(prefix="fdia_bench_")
 os.environ["FDIA_GRAPH_CACHE"] = _CACHE
 atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 
-import numpy as np  # noqa: E402
+import numpy as np
 
-import fdia_graph as fg  # noqa: E402
+import fdia_graph as fg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "BENCHMARKS.md")
