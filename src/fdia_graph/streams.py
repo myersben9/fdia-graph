@@ -30,6 +30,8 @@ per-step change and a spike looking like an abrupt jump — the spike-vs-ramp si
 
 from __future__ import annotations
 
+import numbers
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -386,8 +388,11 @@ def windows(
     nx = stream["node_x"]
     y = stream["y"]
     T = len(nx)
-    if not 1 <= W <= T or stride < 1:
-        raise ValueError(f"need 1 <= W <= {T} frames and stride >= 1, got W={W}, stride={stride}")
+    integral = all(isinstance(v, numbers.Integral) and not isinstance(v, bool) for v in (W, stride))
+    if not integral or not 1 <= W <= T or stride < 1:
+        raise ValueError(
+            f"need integers 1 <= W <= {T} frames and stride >= 1, got W={W!r}, stride={stride!r}"
+        )
     starts = range(0, T - W + 1, stride)
     Xw = np.stack([nx[s : s + W] for s in starts])
     if label == "frame":

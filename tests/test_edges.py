@@ -87,6 +87,16 @@ def test_to_numpy_rejects_unknown_fields_and_empty_means_default(splits):
     assert list(ds.to_numpy(["y"])) == ["edge_index", "edge_reactance", "y"]
 
 
+def test_default_fields_follow_the_layers_present(splits):
+    """`edge_clean` is offered only when the file carries it, so a requested field is always in
+    the returned bundle (the check and the gather use the same list)."""
+    ds = splits["test"]
+    fields = ds._default_fields()
+    assert ("clean" in fields) == (ds._clean_np is not None)
+    assert ("edge_clean" in fields) == (ds._eclean_np is not None)
+    assert set(ds.to_numpy(fields)) == set(fields) | {"edge_index", "edge_reactance"}
+
+
 def test_summary_counts_add_up(splits):
     ds = splits["train"]
     s = ds.summary()
@@ -128,6 +138,9 @@ def test_windows_labels_and_bounds():
         fg.windows(s, W=13)
     with pytest.raises(ValueError, match="stride"):
         fg.windows(s, W=4, stride=0)
+    for bad in ({"W": 4.5}, {"W": 4, "stride": 1.5}, {"W": True}):
+        with pytest.raises(ValueError, match="need integers"):
+            fg.windows(s, **{"W": 4, **bad})
 
 
 def test_load_stream_rejects_an_unknown_system():

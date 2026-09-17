@@ -55,7 +55,8 @@ class ExportMixin(DatasetBase):
             ["node_x", "node_m", "edge_x", "edge_m", "y"]
             + (["temporal_delta"] if self.has_temporal else [])
             + (["swing"] if self.has_swing else [])
-            + (["clean", "edge_clean"] if self.has_clean else [])
+            + (["clean"] if self._clean_np is not None else [])
+            + (["edge_clean"] if self._eclean_np is not None else [])
             + (["edge_clean_full"] if self.has_clean_full else [])
             + ["family", "stealthy", "seq_id", "timestep"]
         )
