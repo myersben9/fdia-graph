@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
@@ -13,10 +13,10 @@ import numpy as np
 
 from ..models.data import BatchBundle, RecordBundle
 from .base import (
+    _BATCH_SCALARS,
+    _BATCH_STACKED,
     DatasetBase,
     _torch,
-    _BATCH_STACKED,
-    _BATCH_SCALARS,
 )
 
 
@@ -38,7 +38,7 @@ class RecordsMixin(DatasetBase):
             a /= b  # branch flows / temporal delta: power -> p.u.
         return a
 
-    def __getitem__(self, i: int) -> Union[RecordBundle, "Data"]:
+    def __getitem__(self, i: int) -> Union[RecordBundle, Data]:
         """One record as a dict of tensors (or a PyG Data with format="pyg"): the measurements and
         masks, the labels and provenance, and whichever optional layers the file carries."""
         d, j = self._record_source(i)
@@ -47,14 +47,14 @@ class RecordsMixin(DatasetBase):
         record = RecordBundle(**item)
         return self._to_pyg(record) if self.format == "pyg" else record
 
-    def _record_source(self, i: int) -> Tuple[Any, int]:
+    def _record_source(self, i: int) -> tuple[Any, int]:
         """Where record i is read from: the preloaded arrays (position-aligned with the view) or the
         file's data group at the real file row self.idx[i]."""
         if self._mem is not None:
             return self._mem, i
         return self._h()["data"], int(self.idx[i])
 
-    def _base_item(self, d: Any, j: int) -> Dict[str, Any]:
+    def _base_item(self, d: Any, j: int) -> dict[str, Any]:
         """The fields every record has: the static graph (shared tensors, not copies), the measurements
         in self.units, the masks, the label and the scalar provenance."""
         torch = _torch()
@@ -78,7 +78,7 @@ class RecordsMixin(DatasetBase):
             item["edge_attr"] = self._ea_t  # [E,8] per-unit line features; v0.5.0+ shards only
         return item
 
-    def _add_optional_layers(self, item: Dict[str, Any], d: Any, j: int) -> None:
+    def _add_optional_layers(self, item: dict[str, Any], d: Any, j: int) -> None:
         """The layers a file may carry: the temporal features and the noiseless truth at the record's
         pool timestep (node, metered flows, flows on every branch)."""
         torch = _torch()
@@ -106,7 +106,7 @@ class RecordsMixin(DatasetBase):
     # branch flows, the same contract torch_data.pyg_stream follows.
     _PYG_RENAME = {"node_x": "x", "node_m": "node_mask", "edge_m": "edge_mask", "edge_attr": "edge_phys"}
 
-    def _to_pyg(self, item: Dict[str, Any]) -> "Data":
+    def _to_pyg(self, item: dict[str, Any]) -> Data:
         # Repackage the dict record as a torch_geometric Data object, mechanically. PyG batches every
         # per-node/per-edge tensor along dim 0 and every scalar into a [B] tensor, so masks, temporal
         # features, clean layers and metadata all ride along.
@@ -121,7 +121,7 @@ class RecordsMixin(DatasetBase):
         return Data(**fields)
 
     @staticmethod
-    def collate(batch: List[Dict[str, Any]]) -> BatchBundle:
+    def collate(batch: list[dict[str, Any]]) -> BatchBundle:
         """Dict-format collate: every record shares N and E, so per-record tensors stack into a batch
         dimension, the static graph rides along once, and scalar metadata becomes one long tensor.
         (PyG has its own loader.)"""
@@ -136,9 +136,9 @@ class RecordsMixin(DatasetBase):
 
     def loader(
         self, batch_size: int = 64, shuffle: Optional[bool] = None, num_workers: int = 0, **kw: Any
-    ) -> "DataLoader":
+    ) -> DataLoader:
         """Return a ready DataLoader. Shuffle defaults on for train-like use; masks/labels included per batch."""
-        torch = _torch()
+        _torch()
         from torch.utils.data import DataLoader
 
         if shuffle is None:

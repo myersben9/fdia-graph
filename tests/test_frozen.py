@@ -23,7 +23,6 @@ import os
 
 import numpy as np
 import pytest
-
 from conftest import TINY
 from frozen_spec import STREAM_T, loc_scores, se_scores, shard_arrays, stream_arrays
 

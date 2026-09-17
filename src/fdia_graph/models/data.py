@@ -5,7 +5,7 @@ a Bundle, so it is still the dict it always was."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -92,7 +92,7 @@ class Summary(Bundle):
     N: int  # buses
     E: int  # branches
     n: int  # records in this view
-    families: Dict[str, int]  # record count per family name present
+    families: dict[str, int]  # record count per family name present
 
 
 @dataclass(frozen=True, eq=False)

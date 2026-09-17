@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Lint in CI: `ruff check` with pyflakes, import order and modern-syntax rules runs on `src`,
+  `tests` and `tools`, and the package is clean under it (`list[int]`-style generics and
+  `collections.abc` imports; `Optional`/`Union` stay, since `typing.get_type_hints` on 3.9 cannot
+  evaluate `X | None`). No behaviour change.
 - `CONTRIBUTING.md` (the rules, the pull-request flow, releasing), `tools/pr.py` (create, wait,
   comments, reply, merge, with the merge rule enforced) and `tools/release.py` (tag, GitHub
   release, PyPI wait) so a second maintainer can ship; the plan documents move to `docs/plans/`.

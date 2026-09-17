@@ -62,3 +62,9 @@ reportMissingModuleSource = false
 [tool.ruff]
 line-length = 110
 target-version = "py39"
+
+[tool.ruff.lint]
+select = ["F", "I", "UP"]  # pyflakes, import order, modern syntax; `ruff check src tests tools` runs in CI
+# Keep Optional[X] / Union[X, Y]: the package supports 3.9, where typing.get_type_hints cannot
+# evaluate the postponed "X | None" string (PEP 604 is 3.10+). list[int] and dict[str, X] are fine on 3.9.
+ignore = ["UP007", "UP045"]

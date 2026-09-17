@@ -30,7 +30,7 @@ OUT = os.path.join(os.path.dirname(HERE), "tests", "frozen")
 os.makedirs(OUT, exist_ok=True)
 
 # The single definition of what is frozen; the test imports these so the two can never drift.
-from frozen_spec import STREAM_T, SHARD_KW, shard_arrays, stream_arrays, se_scores, loc_scores  # noqa: E402
+from frozen_spec import SHARD_KW, STREAM_T, loc_scores, se_scores, shard_arrays, stream_arrays  # noqa: E402
 
 shard_path = os.path.join(_CACHE, "tiny.h5")
 fg.generate("ieee14", "tiny_ieee14", out=shard_path, **SHARD_KW)

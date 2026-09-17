@@ -9,8 +9,8 @@ if TYPE_CHECKING:
     import torch
 
 
-import numpy as np
 import h5py
+import numpy as np
 
 from ..formulas.network import Admittances, BranchModel, branch_admittances, branch_flows, complex_voltages
 from .base import (

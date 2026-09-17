@@ -18,23 +18,24 @@ Research knobs (all optional, sensible defaults matching the published shards):
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
-
 import glob
 import os
-import numpy as np
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any, Optional, Union
+
 import h5py
+import numpy as np
 
 # FdiaGenerator = physics/attack math; FAM_ID = family name -> integer id; attack_frame = one scan.
-from .engine import FdiaGenerator, FAM_ID
+from .engine import FAM_ID, FdiaGenerator
 from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs, attack_frame
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import recent_change_scale, swing_zscore, temporal_delta
+from .models.data import ShardArrays  # noqa: F401  re-exported: defined here before the models package
 
 # CACHE_DIR = on-disk shard home; register_local makes the new dataset findable by load(name).
 from .models.frames import Record  # noqa: F401  re-exported: defined here before the models package
-from .models.data import ShardArrays  # noqa: F401  re-exported: defined here before the models package
 from .registry import CACHE_DIR, register_local
 
 # Single-shot family name -> id (Aq=1, Ad=2, As=3, Ar=4, Al/LRA=6).
@@ -132,7 +133,7 @@ class _FrameContext:
     X: np.ndarray  # operating-point pool [T, N, 4] in [|V|, Pinj, Qinj, theta] order
     scale: np.ndarray  # swing scale per timestep [T, N, 2], from _swing_scale
     knobs: FrameKnobs  # the attack settings every scan shares
-    mag_log: List[Tuple[int, np.ndarray, np.ndarray]]  # (family, designed magnitude, swing) per attacked bus
+    mag_log: list[tuple[int, np.ndarray, np.ndarray]]  # (family, designed magnitude, swing) per attacked bus
 
 
 def _record_features(nx: np.ndarray, nm: np.ndarray, prev: np.ndarray, scale_t: np.ndarray, C: int):
@@ -188,7 +189,7 @@ def _draw_targets(
     return a, 1 + rng.uniform(0.05, intensity)
 
 
-def _draw_benign(ctx: _FrameContext, rng: np.random.Generator, n_benign: int) -> List[Record]:
+def _draw_benign(ctx: _FrameContext, rng: np.random.Generator, n_benign: int) -> list[Record]:
     """n_benign records on distinct pool timesteps, in draw order."""
     nT = len(ctx.X)
     recs = []
@@ -207,7 +208,7 @@ def _draw_single_shot(
     attempts count is the honest measure of how hard the topology is to attack."""
     apos = ctx.g.attackable_pos  # targets come only from attackable positions (real active load)
     nT = len(ctx.X)
-    recs: List[Record] = []
+    recs: list[Record] = []
     got = tries = 0
     while got < per_family and tries < per_family * 25:
         tries += 1
@@ -234,7 +235,7 @@ def _ramp_sequence(
     rate_down = ramp_rate * rng.uniform(0.7, 1.3)  # independent slopes
     rise_len = max(1, int(rng.uniform(0.20, 0.45) * ramp_len))  # steps ramping to the peak/trough
     hold_len = int(rng.uniform(0.0, 0.25) * ramp_len)  # steps held at the peak (0 = no plateau)
-    seq: List[Record] = []
+    seq: list[Record] = []
     steps = 0
     for i in range(ramp_len):
         steps += 1
@@ -251,7 +252,7 @@ def _draw_ramps(
 ):
     """Ramp sequences until about per_family records; a sequence counts only if at least 10 steps
     solved. Returns (records, (steps solved, accepted)): attempts minus accepted is what was thrown away."""
-    recs: List[Record] = []
+    recs: list[Record] = []
     got = steps = sid = 0
     while got < per_family:
         seq, solved = _ramp_sequence(ctx, rng, sid, ramp_len, ramp_rate, p)
@@ -266,16 +267,16 @@ def _draw_ramps(
 def _draw_families(
     ctx: _FrameContext,
     rng: np.random.Generator,
-    fam_ids: List[int],
+    fam_ids: list[int],
     per_family: int,
-    ramp: Tuple[int, float],
+    ramp: tuple[int, float],
     p,
 ):
     """Every attacked family in the fixed draw order (single-shot families 1, 2, 3, 4, 6, then the
     ramp), so the RNG sequence, and with it the shard, stays identical release to release.
     Returns (records, {family: (attempts, accepted)})."""
-    recs: List[Record] = []
-    yield_: Dict[int, Tuple[int, int]] = {}
+    recs: list[Record] = []
+    yield_: dict[int, tuple[int, int]] = {}
     for fam in [k for k in SINGLE_SHOT_ORDER if k in fam_ids]:
         got, yield_[fam] = _draw_single_shot(ctx, rng, fam, per_family, p)
         recs += got
@@ -286,7 +287,7 @@ def _draw_families(
 
 
 def _write_magnitude_sidecar(
-    out: str, mag_log: List[Tuple[int, np.ndarray, np.ndarray]], floor: float, cap: float
+    out: str, mag_log: list[tuple[int, np.ndarray, np.ndarray]], floor: float, cap: float
 ) -> None:
     """<out>.mag.npz: (family, designed magnitude, realized swing) per attacked bus, so the
     plausibility band can be verified against what the gate enforced."""
@@ -309,8 +310,8 @@ def generate(
     replay_tau: Optional[int] = None,
     n_benign: int = 20000,
     lra_targets: int = 15,
-    redundancy: Optional[Dict] = None,
-    split: Tuple[float, float, float] = (0.6, 0.2, 0.2),
+    redundancy: Optional[dict] = None,
+    split: tuple[float, float, float] = (0.6, 0.2, 0.2),
     seed: int = 123,
     states: Optional[Union[str, np.ndarray]] = None,
     out: Optional[str] = None,
@@ -382,7 +383,7 @@ _RECORD_SCALARS = (
 )
 
 
-def _stack_records(recs: List[Record]) -> ShardArrays:
+def _stack_records(recs: list[Record]) -> ShardArrays:
     """The record tuples as [T, ...] arrays, scalar fields with dtypes sized to their range."""
     stacked = {name: np.stack([getattr(r, name) for r in recs]) for name in _RECORD_ARRAYS}
     scalars = {name: np.array([getattr(r, name) for r in recs], dtype) for name, dtype in _RECORD_SCALARS}
@@ -390,8 +391,8 @@ def _stack_records(recs: List[Record]) -> ShardArrays:
 
 
 def _shard_attrs(
-    g: "FdiaGenerator", n_records: int, seed: int, solve_stats: Optional[Tuple[Dict, Dict]]
-) -> Dict[str, Any]:
+    g: FdiaGenerator, n_records: int, seed: int, solve_stats: Optional[tuple[dict, dict]]
+) -> dict[str, Any]:
     """File attributes: dims, feature legends, units, the family legend, topology provenance, yield.
 
     Units are ENGINEERING quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows
@@ -426,7 +427,7 @@ def _shard_attrs(
     return attrs
 
 
-def _write_graph(f: Any, g: "FdiaGenerator") -> None:
+def _write_graph(f: Any, g: FdiaGenerator) -> None:
     """graph/ group: the static topology shared by all records, including the full per-unit branch
     physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
     and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics."""
@@ -478,7 +479,7 @@ def _write_data(f: Any, arrays: ShardArrays, split_code: np.ndarray) -> None:
     d.create_dataset("split", data=split_code)
 
 
-def _write_clean(f: Any, g: "FdiaGenerator", pool: np.ndarray, timestep: np.ndarray) -> None:
+def _write_clean(f: Any, g: FdiaGenerator, pool: np.ndarray, timestep: np.ndarray) -> None:
     """clean/ group (v0.7.2+): the NOISELESS attack-free truth per POOL timestep (the SE target),
     resolved per record via data/timestep; the same layer the streams ship. node_clean is the pool
     itself (already in node_x column order); edge_clean = exact Ybus flows, unmetered zeroed."""
@@ -489,12 +490,12 @@ def _write_clean(f: Any, g: "FdiaGenerator", pool: np.ndarray, timestep: np.ndar
 
 
 def _write(
-    g: "FdiaGenerator",
-    recs: List[Record],
+    g: FdiaGenerator,
+    recs: list[Record],
     out: str,
-    split: Tuple[float, float, float],
+    split: tuple[float, float, float],
     seed: int,
-    solve_stats: Optional[Tuple[Dict, Dict]] = None,
+    solve_stats: Optional[tuple[dict, dict]] = None,
     pool: Optional[np.ndarray] = None,
 ) -> None:
     """Serialize the records to one HDF5 file: attributes, graph/, data/ and (with a pool) clean/.
@@ -513,7 +514,7 @@ def _write(
             _write_clean(f, g, pool, arrays.timestep)
 
 
-def _chrono_split(tstep: np.ndarray, seq: np.ndarray, frac: Tuple[float, float, float]) -> np.ndarray:
+def _chrono_split(tstep: np.ndarray, seq: np.ndarray, frac: tuple[float, float, float]) -> np.ndarray:
     # Assign train(0)/val(1)/test(2) by chronological order, keeping ramp sequences intact (no future leak).
     T = len(tstep)
     # Groups: one per ramp sequence id (seq>=0), plus a singleton per non-sequence record (seq<0).

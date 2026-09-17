@@ -26,13 +26,14 @@ Needs the [se] extra (pandapower + scipy) and a v0.7.2+ shard (the clean layer).
 
 from __future__ import annotations
 
-
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
 from ..formulas.projection import (
     bus_incidence as _bus_incidence,
+)
+from ..formulas.projection import (
     direction_coefficients,
     explained_unexplained,
     leverage,
@@ -60,7 +61,7 @@ BUS_FEATURE_NAMES = [
 GLOBAL_FEATURE_NAMES = ["q_perp", "q_par", "ratio", "alpha_weak"]
 
 
-def bus_incidence(est: "SEBase", edge_index: np.ndarray) -> List[np.ndarray]:
+def bus_incidence(est: SEBase, edge_index: np.ndarray) -> list[np.ndarray]:
     """Masked-measurement indices touching each bus: its own V/P/Q/theta channels plus the flows
     of every incident branch (a flow meter reacts to both endpoints). Same map as ResidualLocalizer."""
     return _bus_incidence(est.N, est.E, edge_index, est.mask)
@@ -74,11 +75,11 @@ class JacobianFeatures:
     (default: 10 percent of the state dimension, at least 2).
     """
 
-    def __init__(self, estimator: Optional["SEBase"] = None, n_weak: Optional[int] = None) -> None:
+    def __init__(self, estimator: Optional[SEBase] = None, n_weak: Optional[int] = None) -> None:
         self.estimator = estimator
         self.n_weak = n_weak
 
-    def fit(self, ds: "FdiaGraph") -> "JacobianFeatures":
+    def fit(self, ds: FdiaGraph) -> JacobianFeatures:
         from .base import SEBase  # noqa: F401  (typing aid)
         from .methods import WLS
 
@@ -110,7 +111,7 @@ class JacobianFeatures:
         return self
 
     # ---- the measurement change against the previous clean state --------------------------
-    def delta_z(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+    def delta_z(self, d: dict[str, np.ndarray]) -> np.ndarray:
         est = self.est
         z = est._z_of(d["node_x"], d["edge_x"])
         t = d["timestep"].astype(int)
@@ -119,7 +120,7 @@ class JacobianFeatures:
         return z - est._h(tr["x"], tr["thsl"])
 
     # ---- features ------------------------------------------------------------------------
-    def transform(self, d: Dict[str, np.ndarray]) -> JacobianOutputs:
+    def transform(self, d: dict[str, np.ndarray]) -> JacobianOutputs:
         """d must carry node_x, edge_x, timestep (as fdia_graph's to_numpy returns them, physical
         units). Returns {"bus": [n, N, 8], "global": [n, 4], "dx_hat": [n, SD], "r_perp": [n, m]}."""
         est = self.est

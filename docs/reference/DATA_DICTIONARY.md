@@ -222,7 +222,7 @@ A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_t
 | `N` | `N` | int | buses |
 | `E` | `E` | int | branches |
 | `n` | `n` | int | records in this view |
-| `families` | `families` | Dict[str, int] | record count per family name present |
+| `families` | `families` | dict[str, int] | record count per family name present |
 
 ### `Stream` (`fdia_graph.models.data`)
 

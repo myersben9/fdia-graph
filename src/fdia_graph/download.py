@@ -7,17 +7,18 @@ without one it uses the public releases/download URL directly.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
-
 import hashlib
 import os
+from typing import TYPE_CHECKING, Any, Optional
+
 import requests
 
 if TYPE_CHECKING:
     from .registry import AssetSpec
 from tqdm import tqdm  # download progress bar
-from .registry import CACHE_DIR  # ~/.cache/fdia_graph, owned by registry.py
+
 from .models.assets import DownloadTarget  # noqa: F401  re-exported: defined here before the models package
+from .registry import CACHE_DIR  # ~/.cache/fdia_graph, owned by registry.py
 
 
 def _token() -> Optional[str]:
@@ -25,7 +26,7 @@ def _token() -> Optional[str]:
     return os.environ.get("FDIA_GRAPH_TOKEN") or os.environ.get("GITHUB_TOKEN")
 
 
-def _asset_url(spec: "AssetSpec", session: requests.Session) -> DownloadTarget:
+def _asset_url(spec: AssetSpec, session: requests.Session) -> DownloadTarget:
     """Resolve a release asset to a download URL. Private repos go through the authenticated GitHub API (find
     the asset id, GET it with Accept: octet-stream); public repos use the plain browser download URL."""
     tok = _token()
@@ -66,7 +67,7 @@ def _sha256(path: str) -> str:
     return h.hexdigest()
 
 
-def _stream_to_file(session: Any, url: str, headers: Dict[str, str], path: str, label: str) -> None:
+def _stream_to_file(session: Any, url: str, headers: dict[str, str], path: str, label: str) -> None:
     """Pull the asset incrementally (stream=True) into `path` with a progress bar; the response is
     closed even on error and a 401/403/404/5xx surfaces before any byte is written."""
     with session.get(url, headers=headers, stream=True, timeout=60) as r:
@@ -78,7 +79,7 @@ def _stream_to_file(session: Any, url: str, headers: Dict[str, str], path: str, 
                 bar.update(len(chunk))
 
 
-def ensure_local(spec: "AssetSpec") -> str:
+def ensure_local(spec: AssetSpec) -> str:
     """Given a registry spec, return a local path to the .h5, downloading it if needed.
     Built-in -> GitHub release asset (cached, sha-verified when known). Local -> the registered path."""
     # LOCAL: spec points at an existing .h5; verify it's there and hand back the path.
@@ -105,7 +106,7 @@ def ensure_local(spec: "AssetSpec") -> str:
     # Integrity gate: verify a pinned sha256 before trusting; on mismatch delete the .part and fail loudly.
     if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
         os.remove(tmp)
-        raise IOError(f"checksum mismatch for {spec['file']} — download corrupted, please retry")
+        raise OSError(f"checksum mismatch for {spec['file']} — download corrupted, please retry")
     # Atomic rename only after a full, verified download, so `dest` only ever exists as a valid shard.
     os.replace(tmp, dest)
     return dest
