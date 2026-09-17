@@ -39,6 +39,16 @@ class ExportMixin(DatasetBase):
     #  Whole-split exporters: unlike __getitem__/.loader() (stream one record), these pull the ENTIRE
     #  filtered split into memory. All share to_numpy() as the single HDF5 read, so views are identical.
     # ------------------------------------------------------------------ #
+    def _checked_fields(self, fields: Optional[Sequence[str]]) -> List[str]:
+        """The requested fields, or every field the file carries; an unknown name is an error."""
+        known = self._default_fields()
+        if not fields:
+            return known
+        unknown = [k for k in fields if k not in known]
+        if unknown:
+            raise ValueError(f"unknown field(s) {unknown}; this shard carries {known}")
+        return list(fields)
+
     def _default_fields(self) -> List[str]:
         """Every per-record array the file carries, in the order to_numpy returns them."""
         return (
@@ -70,10 +80,7 @@ class ExportMixin(DatasetBase):
         plus the static graph: edge_index [2,E], edge_reactance [E]. `fields` optionally limits the per-record
         arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
         """
-        want = list(fields) if fields else self._default_fields()
-        unknown = [k for k in want if k not in self._default_fields()]
-        if unknown:
-            raise ValueError(f"unknown field(s) {unknown}; this shard carries {self._default_fields()}")
+        want = self._checked_fields(fields)
         per_record = [k for k in want if k not in _CLEAN_LAYERS]
         clean_want = [k for k in want if k in _CLEAN_LAYERS]
         # Static graph arrays always included (tiny, and needed to interpret edges).
