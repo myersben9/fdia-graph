@@ -43,8 +43,8 @@ def _timings() -> dict[str, float]:
     path = os.path.join(_CACHE, "tiny.h5")
     t0 = time.perf_counter()
     fg.generate("ieee14", "tiny", out=path, **SHARD_KW)
-    ds_all = fg.load("tiny")
-    out["generate ms/record"] = 1e3 * (time.perf_counter() - t0) / len(ds_all)
+    gen_s = time.perf_counter() - t0  # generation alone; the load below only supplies the record count
+    out["generate ms/record"] = 1e3 * gen_s / len(fg.load("tiny"))
     train, test = fg.load("tiny", split="train"), fg.load("tiny", split="test")
     for name, est in (
         ("wls", WLS()),
