@@ -14,8 +14,7 @@ supplies the truth) loaded with units="physical" (the default).
 
 from __future__ import annotations
 
-
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
@@ -31,8 +30,11 @@ from ..formulas.estimation import (
 )
 from ..formulas.linalg import batched_normal_matrices, condition_number, guarded_inverse
 from ..formulas.network import ac_jacobian, ac_measurement
-from ..models.scores import ErrorPair, EstimatorScores  # noqa: F401  re-exported: defined here before the models package
 from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
+from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
+    ErrorPair,
+    EstimatorScores,
+)
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -87,7 +89,7 @@ class SEBase:
         self.iters = iters  # chord-Newton steps inside each solve
 
     # ---- network + measurement model -------------------------------------------------------
-    def _build_network(self, ds: "FdiaGraph") -> None:
+    def _build_network(self, ds: FdiaGraph) -> None:
         try:
             import pandapower as pp
             import pandapower.networks as pn
@@ -189,13 +191,13 @@ class SEBase:
         )
         return z[:, self.mask].astype(np.float64)
 
-    def _truth_of(self, clean: np.ndarray) -> "TrueState":
+    def _truth_of(self, clean: np.ndarray) -> TrueState:
         # clean [n,N,4] = [V, P, Q, theta] physical -> true 2N-1 state + slack angle reference
         x = np.concatenate([np.deg2rad(clean[:, self.keep, 3]), clean[:, :, 0]], axis=1)
         return TrueState(x.astype(np.float64), np.deg2rad(clean[:, self.slack, 3]).astype(np.float64))
 
     # ---- fitting ----------------------------------------------------------------------------
-    def fit(self, ds: "FdiaGraph", n_calib: int = 600) -> "SEBase":
+    def fit(self, ds: FdiaGraph, n_calib: int = 600) -> SEBase:
         self._build_network(ds)
         d = ds.to_numpy(["node_x", "edge_x", "family", "clean"])
         ben = np.where(d["family"] == 0)[0]
@@ -316,7 +318,7 @@ class SEBase:
         return self._solve_plain(z, thsl)  # WLS; robust subclasses override
 
     # ---- public API -------------------------------------------------------------------------
-    def estimate(self, ds: "FdiaGraph", chunk: int = 1000) -> np.ndarray:
+    def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
         """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order."""
         d = ds.to_numpy(["node_x", "edge_x", "clean"])
         tr = self._truth_of(d["clean"])  # slack angle reference only; the true state is never read here
@@ -327,7 +329,7 @@ class SEBase:
             out[e] = self._solve(z[e], tr["thsl"][e])
         return out
 
-    def score(self, ds: "FdiaGraph", chunk: int = 1000, xhat: Optional[np.ndarray] = None) -> EstimatorScores:
+    def score(self, ds: FdiaGraph, chunk: int = 1000, xhat: Optional[np.ndarray] = None) -> EstimatorScores:
         """Per-family angle (deg) and voltage (pu) MAE vs the clean truth, plus the geometric
         mean over families ('geo', the paper's table cell). Pass `xhat` (a previous `estimate(ds)`)
         to score without re-solving, e.g. from a cache; it must be in record order of `ds`."""
@@ -342,7 +344,7 @@ class SEBase:
         err = est - tr["x"]
         ang = np.abs(err[:, :ns]).mean(axis=1) * 180.0 / np.pi
         volt = np.abs(err[:, ns:]).mean(axis=1)
-        out: Dict[str, Dict[str, float]] = {}
+        out: dict[str, dict[str, float]] = {}
         geo_a, geo_v = [], []
         for fid, name in FAMILIES.items():
             m = d["family"] == fid

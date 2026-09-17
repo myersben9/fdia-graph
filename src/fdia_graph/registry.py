@@ -7,12 +7,11 @@ recorded in a small JSON under the cache dir so they are loadable by name exactl
 
 from __future__ import annotations
 
-
-from .models.assets import AssetSpec  # noqa: F401  re-exported: defined here before the models package
-from typing import Dict, Optional, Union
-
 import json
 import os
+from typing import Optional, Union
+
+from .models.assets import AssetSpec  # noqa: F401  re-exported: defined here before the models package
 
 # Cache dir for downloaded shards + the local-datasets JSON; override via FDIA_GRAPH_CACHE.
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
@@ -139,7 +138,7 @@ def latest_release(repo: str = _REPO) -> str:
         return _RELEASE  # offline / unauth / no releases yet -> pinned default
 
 
-def _load_local() -> Dict[str, Dict]:
+def _load_local() -> dict[str, dict]:
     # Read the local-datasets index; missing/corrupt -> {} (degrade to "no local datasets", never crash load()).
     if os.path.exists(_LOCAL_JSON):
         try:
@@ -149,13 +148,13 @@ def _load_local() -> Dict[str, Dict]:
     return {}
 
 
-def _save_local(d: Dict[str, Dict]) -> None:
+def _save_local(d: dict[str, dict]) -> None:
     # Persist the local-datasets index, ensuring the cache dir exists first.
     os.makedirs(CACHE_DIR, exist_ok=True)
     json.dump(d, open(_LOCAL_JSON, "w"), indent=2)
 
 
-def register_local(name: str, path: str, meta: Optional[Dict] = None) -> str:
+def register_local(name: str, path: str, meta: Optional[dict] = None) -> str:
     """Register a locally generated .h5 under `name` so load(name) finds it."""
     local = _load_local()
     # Absolute path so load() works regardless of CWD.
@@ -164,7 +163,7 @@ def register_local(name: str, path: str, meta: Optional[Dict] = None) -> str:
     return name
 
 
-def list_datasets() -> Dict[str, str]:
+def list_datasets() -> dict[str, str]:
     """Return {name: 'builtin'|'local'} for everything loadable by name."""
     out = {k: "builtin" for k in BUILTIN}
     out.update({k: "local" for k in _load_local()})  # local entries may shadow a builtin name

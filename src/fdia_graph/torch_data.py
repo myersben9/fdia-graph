@@ -9,7 +9,7 @@ These wrap ``load_stream()`` so a model script starts at the tensors: ``pyg_stre
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-fre
 __all__ = ["pyg_stream", "torch_windows"]
 
 
-def _f32(a: Any) -> "torch.Tensor":
+def _f32(a: Any) -> torch.Tensor:
     """numpy -> float32 torch tensor, zero-copy when the array is already contiguous float32."""
     import torch
 
@@ -33,8 +33,8 @@ def _check_frac(train_frac: float) -> None:
 
 
 def _resolve_stream(
-    system: Optional[Union[str, int]], release: Optional[str], stream: Optional[Dict[str, Any]]
-) -> Dict[str, Any]:
+    system: Optional[Union[str, int]], release: Optional[str], stream: Optional[dict[str, Any]]
+) -> dict[str, Any]:
     """Accept either a system name (loaded here) or an already-loaded stream dict."""
     if stream is not None:
         return stream
@@ -45,7 +45,7 @@ def _resolve_stream(
     return load_stream(system, release=release)
 
 
-def _graphs(a: int, b: int, X: Any, F: Any, Y: Any, ei: Any, static: Dict[str, Any]) -> List["Data"]:
+def _graphs(a: int, b: int, X: Any, F: Any, Y: Any, ei: Any, static: dict[str, Any]) -> list[Data]:
     """Scans a..b-1 as PyG Data objects sharing the static tensors."""
     from torch_geometric.data import Data
 
@@ -59,8 +59,8 @@ def pyg_stream(
     layer: str = "node_x",
     max_test: Optional[int] = None,
     release: Optional[str] = None,
-    stream: Optional[Dict[str, Any]] = None,
-) -> Tuple[List["Data"], ...]:
+    stream: Optional[dict[str, Any]] = None,
+) -> tuple[list[Data], ...]:
     """Continuous stream as ready PyTorch-Geometric graphs, split chronologically.
 
     Each scan becomes one ``Data`` with the same attribute names as ``fg.load(..., format="pyg")``:
@@ -121,8 +121,8 @@ def torch_windows(
     val_frac: float = 0.0,
     layer: str = "node_x",
     release: Optional[str] = None,
-    stream: Optional[Dict[str, Any]] = None,
-) -> Tuple[Tuple["torch.Tensor", "torch.Tensor"], ...]:
+    stream: Optional[dict[str, Any]] = None,
+) -> tuple[tuple[torch.Tensor, torch.Tensor], ...]:
     """Continuous stream as LSTM-ready sequence tensors, split chronologically.
 
     Slides a length-``W`` window over the stream. Windows straddling a split boundary are dropped, so no
@@ -176,7 +176,7 @@ def torch_windows(
 
 def _sequences(
     Xp: np.ndarray, yp: np.ndarray, per_bus: bool, label: str
-) -> Tuple["torch.Tensor", "torch.Tensor"]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Windows as tensors: one sequence per bus ([n*N, W, C], what nn.LSTM consumes) or whole-grid
     windows ([n, W, N, C]); per-frame labels keep the window axis."""
     if not per_bus:

@@ -21,10 +21,15 @@ file. tests/test_frozen.py holds the line.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
-from ..models.frames import FrameKnobs, Scan, Frame  # noqa: F401  re-exported: defined here before the models package
+
+from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
+    Frame,
+    FrameKnobs,
+    Scan,
+)
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
@@ -41,7 +46,7 @@ REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans b
 
 
 def replay_frame(
-    buffer: List[np.ndarray], tau: Optional[int], rng: np.random.Generator
+    buffer: list[np.ndarray], tau: Optional[int], rng: np.random.Generator
 ) -> Optional[np.ndarray]:
     """The benign scan an Ar/As attack replays [DAT26].
 
@@ -56,7 +61,7 @@ def replay_frame(
     return buffer[0] if buffer else None
 
 
-def remember_benign(g: "FdiaGenerator", nx: np.ndarray) -> None:
+def remember_benign(g: FdiaGenerator, nx: np.ndarray) -> None:
     """Keep a benign scan for the replay families, FIFO of BENIGN_BUFFER scans."""
     g.benign_buf.append(nx.copy())
     if len(g.benign_buf) > BENIGN_BUFFER:
@@ -64,7 +69,7 @@ def remember_benign(g: "FdiaGenerator", nx: np.ndarray) -> None:
 
 
 def attack_frame(
-    g: "FdiaGenerator",
+    g: FdiaGenerator,
     Xt: np.ndarray,
     family: int,
     targets: Optional[np.ndarray],

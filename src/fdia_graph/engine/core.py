@@ -15,8 +15,7 @@ FdiaGenerator is split by concern across three mixins: state setup lives here (_
 
 from __future__ import annotations
 
-
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 
@@ -92,7 +91,7 @@ def _n_islands(net: Any) -> int:
 
 def line_outage_candidates(
     system: Union[int, str], top_n: int = 5, seed_flow_from: Any = None
-) -> Tuple[List[LineCandidate], List[LineCandidate]]:
+) -> tuple[list[LineCandidate], list[LineCandidate]]:
     """Rank single-line N-1 contingencies by base-case active power flow, keeping the network connected.
 
     Returns (accepted, rejected). `accepted` = the `top_n` highest-flow lines whose removal leaves one
@@ -154,7 +153,7 @@ def _screen_line(NET: Any, idx: int, lut0: np.ndarray) -> Optional[str]:
     return None
 
 
-def _line_record(base: Any, idx: int, pos: int, base_flow_mw: float) -> "LineCandidate":
+def _line_record(base: Any, idx: int, pos: int, base_flow_mw: float) -> LineCandidate:
     """One candidate line as the caller reports it: index, position, terminals, name, base flow."""
     _nm = base.line.at[idx, "name"]
     return LineCandidate(
@@ -280,7 +279,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self._inj_buses = sorted(set(inj.tolist()))
         # Total generator MW per bus (summing co-located gens), aligned to load-bus ordering, so attacks
         # can reason about net (load - gen) per bus.
-        genP: Dict[int, float] = {}
+        genP: dict[int, float] = {}
         for r in base.gen.itertuples():
             genP[int(r.bus)] = genP.get(int(r.bus), 0.0) + r.p_mw
         self.load_genP = np.array([genP.get(int(b), 0.0) for b in self.load_bus])
@@ -353,8 +352,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         _lut maps pandapower bus index -> ppc row index (the orderings differ, a classic footgun);
         _fb is the from-bus (ppc index) per branch; Vc is built in ppc ordering.
         """
-        from pandapower.pypower.makeYbus import makeYbus
         from pandapower.pypower.makePTDF import makePTDF
+        from pandapower.pypower.makeYbus import makeYbus
 
         C = self.C
         self._Ybus, self._Yf, self._Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
@@ -405,7 +404,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         cc = nx.closeness_centrality(G)
         bc = nx.betweenness_centrality(G, normalized=True)
 
-        def _z(dct: Dict) -> np.ndarray:
+        def _z(dct: dict) -> np.ndarray:
             v = np.array([dct[b] for b in range(self.C)], float)
             sd = v.std()
             return (v - v.mean()) / (sd if sd > 1e-12 else 1.0)

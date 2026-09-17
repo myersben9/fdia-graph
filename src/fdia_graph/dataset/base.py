@@ -10,22 +10,21 @@ its own, and stubs the methods one mixin calls on another.
 from __future__ import annotations
 
 import numbers
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import torch
 
+from collections.abc import Sequence
 from types import ModuleType
-from typing import Any, TYPE_CHECKING, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     pass
 
 
-import numpy as np
 import h5py
-
+import numpy as np
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
@@ -52,12 +51,12 @@ _HELDOUT_TRAIN_EXCLUDE = {
 }  # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
 
 
-def family_ids(families: Sequence[Union[str, int]]) -> List[int]:
+def family_ids(families: Sequence[Union[str, int]]) -> list[int]:
     """Family names (with the legacy aliases) or raw integer codes as integer codes. An unknown
     name or code is an error rather than a silently empty selection."""
     names = {v: k for k, v in FAMILIES.items()}
     names.update(_FAMILY_ALIAS)
-    out: List[int] = []
+    out: list[int] = []
     for f in families:
         if isinstance(f, str):
             code = names.get(f)
@@ -157,20 +156,20 @@ class DatasetBase:
     has_clean_full: bool
     edge_status_per_record: Optional[np.ndarray]
     _f: Optional[h5py.File]
-    _phys: Dict[str, Any]  # graph/* arrays, None where the file predates the schema
+    _phys: dict[str, Any]  # graph/* arrays, None where the file predates the schema
     _clean_np: Optional[np.ndarray]
     _eclean_np: Optional[np.ndarray]
     _eclean_full_np: Optional[np.ndarray]
-    _mem: Optional[Dict[str, np.ndarray]]
+    _mem: Optional[dict[str, np.ndarray]]
 
     def __len__(self) -> int: ...
 
     # cross-mixin members (defined in the concern mixins)
     @property
-    def edge_index(self) -> "torch.Tensor": ...
+    def edge_index(self) -> torch.Tensor: ...
 
     @property
-    def edge_attr(self) -> "torch.Tensor": ...
+    def edge_attr(self) -> torch.Tensor: ...
 
     def _h(self) -> h5py.File: ...
 

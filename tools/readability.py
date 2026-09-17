@@ -21,14 +21,14 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Optional
 
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "fdia_graph")
 
 LIMITS = {"complexity": 10, "nesting": 3, "captures": 0, "params": 7, "positional": 0}
 
 # "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
-EXCEPTIONS: Dict[str, str] = {}
+EXCEPTIONS: dict[str, str] = {}
 
 _NEST = (ast.For, ast.While, ast.If, ast.With, ast.Try)
 _FUNC = (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -47,7 +47,7 @@ class Measure:
     positional: int
     private: bool
 
-    def failures(self) -> List[str]:
+    def failures(self) -> list[str]:
         out = []
         if self.complexity > LIMITS["complexity"]:
             out.append(f"complexity {self.complexity}")
@@ -82,7 +82,7 @@ def _nesting(node: ast.AST) -> int:
     return best
 
 
-def _captures(inner: ast.FunctionDef, outer_names: Set[str]) -> int:
+def _captures(inner: ast.FunctionDef, outer_names: set[str]) -> int:
     params = {a.arg for a in inner.args.args + inner.args.kwonlyargs}
     stored = {n.id for n in ast.walk(inner) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
     loaded = {n.id for n in ast.walk(inner) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
@@ -93,7 +93,7 @@ def _positional(fn: ast.AST) -> int:
     """Sites where a bare name is indexed by an integer constant of 4 or more, counted only for
     names indexed at two or more distinct such positions: that is a record tuple read by position
     (r[10], r[11]); a single site is usually a dict keyed by an id."""
-    sites: Dict[str, Set[int]] = {}
+    sites: dict[str, set[int]] = {}
     for s in ast.walk(fn):
         if (
             isinstance(s, ast.Subscript)
@@ -106,7 +106,7 @@ def _positional(fn: ast.AST) -> int:
     return sum(len(v) for v in sites.values() if len(v) >= 2)
 
 
-def _complexities(path: str) -> Dict[Tuple[str, int], int]:
+def _complexities(path: str) -> dict[tuple[str, int], int]:
     from radon.complexity import cc_visit
 
     out = {}
@@ -117,10 +117,10 @@ def _complexities(path: str) -> Dict[Tuple[str, int], int]:
     return out
 
 
-def _functions_with_qualnames(tree: ast.AST) -> List[Tuple[str, ast.AST]]:
+def _functions_with_qualnames(tree: ast.AST) -> list[tuple[str, ast.AST]]:
     """Every function in the module with its qualified name (Class.method, outer.inner), so two
     methods called __init__ never share a key."""
-    found: List[Tuple[str, ast.AST]] = []
+    found: list[tuple[str, ast.AST]] = []
 
     def walk(node: ast.AST, prefix: str) -> None:
         for child in ast.iter_child_nodes(node):
@@ -136,7 +136,7 @@ def _functions_with_qualnames(tree: ast.AST) -> List[Tuple[str, ast.AST]]:
     return found
 
 
-def _measure_function(rel: str, qualname: str, node: ast.AST, cc: Dict[Tuple[str, int], int]) -> Measure:
+def _measure_function(rel: str, qualname: str, node: ast.AST, cc: dict[tuple[str, int], int]) -> Measure:
     outer = {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
     outer |= {a.arg for a in node.args.args + node.args.kwonlyargs}
     caps = 0
@@ -160,15 +160,15 @@ def _measure_function(rel: str, qualname: str, node: ast.AST, cc: Dict[Tuple[str
     )
 
 
-def measure_file(path: str) -> List[Measure]:
+def measure_file(path: str) -> list[Measure]:
     rel = os.path.relpath(path, ROOT)
     tree = ast.parse(open(path, encoding="utf8").read())
     cc = _complexities(path)
     return [_measure_function(rel, qualname, node, cc) for qualname, node in _functions_with_qualnames(tree)]
 
 
-def measure_all() -> List[Measure]:
-    out: List[Measure] = []
+def measure_all() -> list[Measure]:
+    out: list[Measure] = []
     for dp, _, fs in os.walk(ROOT):
         for f in sorted(fs):
             if f.endswith(".py"):
@@ -176,7 +176,7 @@ def measure_all() -> List[Measure]:
     return out
 
 
-def report(ms: List[Measure]) -> int:
+def report(ms: list[Measure]) -> int:
     bad = [m for m in ms if m.failures()]
     print(
         f"{len(ms)} functions measured, {len(bad)} outside a limit "
@@ -188,7 +188,7 @@ def report(ms: List[Measure]) -> int:
     return 0
 
 
-def _changed_lines(base: str) -> Dict[str, Set[int]]:
+def _changed_lines(base: str) -> dict[str, set[int]]:
     """Lines added or modified since `base`, per file under src/fdia_graph, from `git diff -U0`."""
     top = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True
@@ -202,7 +202,7 @@ def _changed_lines(base: str) -> Dict[str, Set[int]]:
         check=True,
         cwd=top,
     ).stdout
-    out: Dict[str, Set[int]] = {}
+    out: dict[str, set[int]] = {}
     cur: Optional[str] = None
     for line in diff.splitlines():
         if line.startswith("+++ b/"):

@@ -4,7 +4,7 @@ built with. Nothing here changes from one scan to the next."""
 
 from __future__ import annotations
 
-from typing import List, NamedTuple, Optional, Set
+from typing import NamedTuple, Optional
 
 import numpy as np
 
@@ -34,9 +34,9 @@ class MeterPlan(NamedTuple):
     meter, which carry a PMU (|V| and angle), which carry P/Q injection meters, and which branches
     carry a flow meter."""
 
-    vbus: Set[int]
-    pmu: Set[int]
-    inj: List[int]
+    vbus: set[int]
+    pmu: set[int]
+    inj: list[int]
     flow: np.ndarray  # [E] bool
 
 

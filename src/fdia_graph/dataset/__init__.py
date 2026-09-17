@@ -9,21 +9,27 @@ Masked measurements (mask==0) are already zeroed; the model consumes the masks.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import NamedTuple, Optional, Union
 
-from typing import Dict, NamedTuple, Optional, Sequence, Union
+import h5py
 
 # numpy + h5py are the import-time deps (both required); torch/pandas are lazy (optional extras, see base._torch).
 import numpy as np
-import h5py
 
-from ..models.data import RecordBundle, BatchBundle, ArraysBundle, Summary  # noqa: F401  re-exported: defined here before the models package
+from ..models.data import (  # noqa: F401  re-exported: defined here before the models package
+    ArraysBundle,
+    BatchBundle,
+    RecordBundle,
+    Summary,
+)
 from .base import (  # noqa: F401  re-exported: defined here before the split
-    FAMILIES,
-    STEALTHY_FAMILIES,
     _FAMILY_ALIAS,
     _HELDOUT_TRAIN_EXCLUDE,
     _SPLIT,
     _STATIC_PHYSICS,
+    FAMILIES,
+    STEALTHY_FAMILIES,
     _torch,
     check_split,
     check_units,
@@ -102,7 +108,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
             sp = f["data/split"][:] if "data/split" in f else None  # split code, or None on unsplit files
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
         self.idx = _record_mask(fam, gap, sp, _RecordFilter(split, families, include_gaps, heldout), path)
-        self._mem: Optional[Dict[str, np.ndarray]] = None
+        self._mem: Optional[dict[str, np.ndarray]] = None
         if preload and len(self.idx):
             self._preload(path)
 

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 
-from .base import GridBase
 from ..models.frames import Redistribution  # noqa: F401  re-exported: defined here before the models package
+from .base import GridBase
 
 
 class AttackMixin(GridBase):
@@ -22,7 +22,7 @@ class AttackMixin(GridBase):
         replay: Optional[np.ndarray],
         floor: float = 0.02,
         cap: float = 0.20,
-    ) -> Tuple[np.ndarray, np.ndarray, bool, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, bool, np.ndarray]:
         """Measurement-level attacks (the BDD-detectable contrast families): tamper the already-emitted
         measurements at the attacked buses `atk` and their incident branches WITHOUT respecting the
         power-flow physics, which is why bad-data detection catches them [DAT26].
@@ -55,7 +55,7 @@ class AttackMixin(GridBase):
         sign = np.where(self.rng.random(cur.shape) < 0.5, -1.0, 1.0)
         return sign * rel * base
 
-    def _corrupt_bias(self, nx, ex, atk, inc, floor, cap) -> List[float]:
+    def _corrupt_bias(self, nx, ex, atk, inc, floor, cap) -> list[float]:
         """Ad: an in-band additive shift on P/Q and a small |V| shift at each attacked bus, then an
         in-band shift on the flows of every incident branch."""
         mags = []
@@ -69,7 +69,7 @@ class AttackMixin(GridBase):
             ex[e] += self._band_shift(ex[e], floor, cap)
         return mags
 
-    def _corrupt_scaling(self, nx, ex, atk, inc, floor, cap) -> List[float]:
+    def _corrupt_scaling(self, nx, ex, atk, inc, floor, cap) -> list[float]:
         """As: a multiplicative gain inside the band on P/Q at each attacked bus and on each incident flow."""
         mags = []
         for b in atk:
@@ -80,7 +80,7 @@ class AttackMixin(GridBase):
             ex[e] *= self.rng.uniform(1.0 + floor, 1.0 + cap)
         return mags
 
-    def _corrupt_replay(self, nx, atk, replay, floor, cap) -> Tuple[List[float], bool]:
+    def _corrupt_replay(self, nx, atk, replay, floor, cap) -> tuple[list[float], bool]:
         """Ar: replace each attacked bus's reading with an earlier benign scan's; weak when the realized
         change leaves the plausibility band."""
         mags, weak = [], False

@@ -16,7 +16,7 @@ import os
 import re
 import sys
 from dataclasses import fields
-from typing import Any, List, Type
+from typing import Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "DATA_DICTIONARY.md")
@@ -27,7 +27,7 @@ BEGIN, END = "<!-- models:begin -->", "<!-- models:end -->"
 _FIELD_LINE = re.compile(r"^\s*(\w+)\s*:\s*(.+?)(?:\s*=\s*[^#]+?)?\s*(?:#\s*(.*))?$")
 
 
-def _field_comments(cls: Type[Any]) -> dict:
+def _field_comments(cls: type[Any]) -> dict:
     """The comment written after each field in the class body, by field name."""
     out = {}
     for line in inspect.getsource(cls).splitlines():
@@ -43,7 +43,7 @@ def _type_name(f: Any) -> str:
     return t.replace("np.ndarray", "array")
 
 
-def _render_model(cls: Type[Any]) -> List[str]:
+def _render_model(cls: type[Any]) -> list[str]:
     doc = inspect.getdoc(cls) or ""
     comments = _field_comments(cls)
     lines = [f"### `{cls.__name__}` (`{cls.__module__}`)", "", " ".join(doc.split()), ""]

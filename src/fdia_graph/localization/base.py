@@ -13,12 +13,17 @@ needs the [se] extra; the threshold methods run anywhere the loader runs.
 
 from __future__ import annotations
 
-
-from typing import Any, TYPE_CHECKING, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from ..models.scores import OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores  # noqa: F401  re-exported: defined here before the models package
+from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
+    BenignMetrics,
+    FamilyMetrics,
+    LocalizerScores,
+    OverallMetrics,
+)
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -47,19 +52,19 @@ class LocalizerBase:
         self.fa_target = fa_target  # per-bus benign alarm rate the threshold is calibrated to
 
     # ---- subclass hooks ---------------------------------------------------------------------
-    def _fields(self) -> List[str]:
+    def _fields(self) -> list[str]:
         """Per-record arrays the score needs (beyond y/family, which fit/score always pull)."""
         raise NotImplementedError
 
-    def _fit_stats(self, d: Dict[str, np.ndarray], ben: np.ndarray, ds: "FdiaGraph") -> None:
+    def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         """Learn anything the score needs from the benign training records (default: nothing)."""
 
-    def _score(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
         """Per-bus attack score [n, N]; higher means more suspicious. The one thing methods change."""
         raise NotImplementedError
 
     # ---- data -------------------------------------------------------------------------------
-    def _pull(self, ds: "FdiaGraph", extra: Sequence[str] = ()) -> Dict[str, np.ndarray]:
+    def _pull(self, ds: FdiaGraph, extra: Sequence[str] = ()) -> dict[str, np.ndarray]:
         want = list(dict.fromkeys(list(self._fields()) + list(extra)))  # ordered de-dup
         for k in want:
             flag = _FIELD_FLAG.get(k)
@@ -68,7 +73,7 @@ class LocalizerBase:
         return ds.to_numpy(want)
 
     # ---- fitting ----------------------------------------------------------------------------
-    def fit(self, ds: "FdiaGraph") -> "LocalizerBase":
+    def fit(self, ds: FdiaGraph) -> LocalizerBase:
         d = self._pull(ds, extra=["family"])
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
@@ -81,15 +86,15 @@ class LocalizerBase:
         return self
 
     # ---- public API -------------------------------------------------------------------------
-    def scores(self, ds: "FdiaGraph") -> np.ndarray:
+    def scores(self, ds: FdiaGraph) -> np.ndarray:
         """Continuous per-bus attack scores [n, N] in record order."""
         return self._score(self._pull(ds))
 
-    def localize(self, ds: "FdiaGraph") -> np.ndarray:
+    def localize(self, ds: FdiaGraph) -> np.ndarray:
         """Boolean per-bus attack calls [n, N]: score above the bus's calibrated threshold."""
         return self.scores(ds) > self.thr[None, :]
 
-    def score(self, ds: "FdiaGraph", scores: Optional[np.ndarray] = None) -> "LocalizerScores":
+    def score(self, ds: FdiaGraph, scores: Optional[np.ndarray] = None) -> LocalizerScores:
         """Per-family localization metrics against the per-bus labels. Pass `scores` (a previous
         `scores(ds)`, record order of `ds`) to skip recomputing them, e.g. from a cache.
 
@@ -109,7 +114,7 @@ class LocalizerBase:
             raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
         pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
-        out: Dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
+        out: dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
         for fid, name in FAMILIES.items():
             m = d["family"] == fid
             if m.any():
@@ -117,7 +122,7 @@ class LocalizerBase:
         return LocalizerScores(**out)
 
 
-def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> "OverallMetrics":
+def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> OverallMetrics:
     """Pooled over every record, benign included: the papers' per-bus macro scores over the
     attackable set (F1 and recall accumulate over every record, the false-positive rate over
     benign records only) and the micro node F1. macro_f1 reads 0.0 when no bus is ever attacked."""
@@ -132,13 +137,13 @@ def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> "Overa
     )
 
 
-def _benign_metrics(p: np.ndarray) -> "BenignMetrics":
+def _benign_metrics(p: np.ndarray) -> BenignMetrics:
     """On benign records: the record-level false-alarm rate and the mean per-bus alarm rate (which
     fit calibrated to fa_target)."""
     return BenignMetrics(false_alarm_rate=float(p.any(axis=1).mean()), bus_alarm_rate=float(p.mean()))
 
 
-def _family_metrics(p: np.ndarray, t: np.ndarray) -> "FamilyMetrics":
+def _family_metrics(p: np.ndarray, t: np.ndarray) -> FamilyMetrics:
     """On one attacked family: strict localization accuracy (predicted set equals the true set),
     micro node precision/recall/F1 over bus calls, per-bus macro-F1 over the buses the family
     attacks, per-sample macro-F1, and the record-level detection rate (any bus flagged)."""

@@ -16,7 +16,7 @@ Needs torch: pip install "fdia-graph[torch]". Trains on the GPU when one is visi
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
@@ -57,7 +57,7 @@ def kcl_residual(node_x: np.ndarray, edge_x: np.ndarray, ei: np.ndarray) -> np.n
     return inflow.transpose(1, 0, 2) - node_x[:, :, 1:3]
 
 
-def full14(d: Dict[str, np.ndarray]) -> np.ndarray:
+def full14(d: dict[str, np.ndarray]) -> np.ndarray:
     """The papers' [n, N, 14] per-bus feature vector, in the order every trained model expects."""
     nx = d["node_x"].astype(np.float64)
     kcl = kcl_residual(nx, d["edge_x"].astype(np.float64), d["edge_index"])
@@ -112,7 +112,7 @@ class LearnedLocalizer(LocalizerBase):
         raise NotImplementedError
 
     # ---- LocalizerBase hooks --------------------------------------------------------------
-    def _fields(self) -> List[str]:
+    def _fields(self) -> list[str]:
         # Only what the chosen feature set reads: measurement-only and Jacobian-only models run on
         # shards without the temporal fields; the Jacobian block needs the record timestep.
         f = ["node_x", "node_m", "edge_x", "y"]
@@ -122,7 +122,7 @@ class LearnedLocalizer(LocalizerBase):
             f += ["timestep"]
         return f
 
-    def _features(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+    def _features(self, d: dict[str, np.ndarray]) -> np.ndarray:
         """The per-bus vector for the chosen feature set, [n, N, n_feat], raw (standardized later)."""
         if self.features == "meas":
             return np.concatenate([d["node_x"].astype(np.float64), d["node_m"].astype(np.float64)], -1)
@@ -131,7 +131,7 @@ class LearnedLocalizer(LocalizerBase):
         jac = self._jac.transform(d)["bus"]  # [n, N, 8] from fdia_graph.se.jacobian
         return jac if self.features == "jac" else np.concatenate([full14(d), jac], -1)
 
-    def _fit_stats(self, d: Dict[str, np.ndarray], ben: np.ndarray, ds: "FdiaGraph") -> None:
+    def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         torch = _torch()
         if "jac" in self.features:  # the Jacobian block needs the [se] physics, fitted on this split
             from ..se.jacobian import JacobianFeatures
@@ -170,7 +170,7 @@ class LearnedLocalizer(LocalizerBase):
                 opt.step()
         self.net.eval()
 
-    def _score(self, d: Dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
         torch = _torch()
         Xs = ((self._features(d) - self.mu) / self.sd).astype(np.float32)
         out = np.empty(Xs.shape[:2], np.float64)
@@ -183,7 +183,7 @@ class LearnedLocalizer(LocalizerBase):
         return out
 
     # ---- fitting ----------------------------------------------------------------------------
-    def fit(self, ds: "FdiaGraph", val: Optional["FdiaGraph"] = None) -> "LearnedLocalizer":
+    def fit(self, ds: FdiaGraph, val: Optional[FdiaGraph] = None) -> LearnedLocalizer:
         """Train on every record in ds; calibrate thresholds on benign records (base protocol),
         or, when val is given, pick the papers' single validation-best probability threshold."""
         super().fit(ds)
@@ -193,7 +193,7 @@ class LearnedLocalizer(LocalizerBase):
             self.tune_threshold(val)
         return self
 
-    def tune_threshold(self, val: "FdiaGraph") -> "LearnedLocalizer":
+    def tune_threshold(self, val: FdiaGraph) -> LearnedLocalizer:
         """The papers' rule: one global tau on a 0.05..0.95 grid maximizing mean per-bus F1 on val,
         the mean taken over buses that carry an attack label in val."""
         d = self._pull(val, extra=["y"])

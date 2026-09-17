@@ -339,7 +339,7 @@ def test_learned_localizer_feature_sets(splits):
 
 def test_jacobian_weighting_estimator(splits):
     pytest.importorskip("torch")
-    from fdia_graph.se import JacobianWeighting, WLS
+    from fdia_graph.se import WLS, JacobianWeighting
 
     est = JacobianWeighting(c=3.0).fit(splits["train"])
     w = est.weights(splits["test"])

@@ -9,7 +9,6 @@ import pytest
 import fdia_graph as fg
 from fdia_graph.dataset import FAMILIES, family_ids
 
-
 # ---- registry and loading -------------------------------------------------------------------------
 
 
@@ -153,12 +152,12 @@ def test_load_stream_rejects_an_unknown_system():
 
 def test_estimator_constructor_checks():
     from fdia_graph.se import (
+        WLS,
         AdaptiveWeighting,
         GatedPrior,
         JacobianWeighting,
         ResidualRemoval,
         SubspacePrior,
-        WLS,
     )
 
     with pytest.raises(ValueError, match="npass and iters"):

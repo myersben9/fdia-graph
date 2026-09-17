@@ -3,12 +3,10 @@ bias and a per-scan jitter [ASP14], our split."""
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
-
 
 def bias_jitter_split(
-    sd: Dict[str, float], jitter_frac: float = 0.25
-) -> Tuple[Dict[str, float], Dict[str, float]]:
+    sd: dict[str, float], jitter_frac: float = 0.25
+) -> tuple[dict[str, float], dict[str, float]]:
     """Split each accuracy-class std into a per-scan jitter and a per-meter bias [ASP14], our split.
 
         jitter = jitter_frac * SD,   bias = sqrt(1 - jitter_frac^2) * SD,   so bias^2 + jitter^2 = SD^2

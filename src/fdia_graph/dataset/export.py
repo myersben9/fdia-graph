@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     import pandas as pd
     import torch
 
 
-import numpy as np
 import h5py
+import numpy as np
 
 from ..models.data import ArraysBundle, Summary
 from .base import (
+    _CLEAN_LAYERS,
+    _UNIT_KIND,
     FAMILIES,
     DatasetBase,
     _torch,
-    _CLEAN_LAYERS,
-    _UNIT_KIND,
 )
 
 
@@ -39,7 +40,7 @@ class ExportMixin(DatasetBase):
     #  Whole-split exporters: unlike __getitem__/.loader() (stream one record), these pull the ENTIRE
     #  filtered split into memory. All share to_numpy() as the single HDF5 read, so views are identical.
     # ------------------------------------------------------------------ #
-    def _checked_fields(self, fields: Optional[Sequence[str]]) -> List[str]:
+    def _checked_fields(self, fields: Optional[Sequence[str]]) -> list[str]:
         """The requested fields, or every field the file carries; an unknown name is an error."""
         known = self._default_fields()
         if not fields:
@@ -49,7 +50,7 @@ class ExportMixin(DatasetBase):
             raise ValueError(f"unknown field(s) {unknown}; this shard carries {known}")
         return list(fields)
 
-    def _default_fields(self) -> List[str]:
+    def _default_fields(self) -> list[str]:
         """Every per-record array the file carries, in the order to_numpy returns them."""
         return (
             ["node_x", "node_m", "edge_x", "edge_m", "y"]
@@ -61,9 +62,9 @@ class ExportMixin(DatasetBase):
             + ["family", "stealthy", "seq_id", "timestep"]
         )
 
-    def _clean_layers(self, want: Sequence[str], ts: np.ndarray) -> Dict[str, np.ndarray]:
+    def _clean_layers(self, want: Sequence[str], ts: np.ndarray) -> dict[str, np.ndarray]:
         """The requested clean layers gathered per record through the pool timestep."""
-        out: Dict[str, np.ndarray] = {}
+        out: dict[str, np.ndarray] = {}
         if "clean" in want and self._clean_np is not None:
             out["clean"] = self._clean_np[ts]
         if "edge_clean" in want and self._eclean_np is not None:
@@ -95,7 +96,7 @@ class ExportMixin(DatasetBase):
                 out.update(self._clean_layers(clean_want, d["timestep"][self.idx]))
         return ArraysBundle.ordered(self._in_units(out))  # keeps the caller's field order
 
-    def _in_units(self, out: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    def _in_units(self, out: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """The returned arrays in self.units: power and angle arrays converted to per unit when asked,
         masks, labels and the swing z-score untouched."""
         if self.units == "pu":
@@ -105,7 +106,7 @@ class ExportMixin(DatasetBase):
         return out
 
     def to_torch(
-        self, fields: Optional[Sequence[str]] = None, device: Optional[Union[str, "torch.device"]] = None
+        self, fields: Optional[Sequence[str]] = None, device: Optional[Union[str, torch.device]] = None
     ) -> ArraysBundle:
         """Same data as to_numpy(), but as torch tensors (floats stay float32, label ids stay int64).
         Handy when you want the full split resident as tensors rather than streamed via a DataLoader."""
@@ -135,7 +136,7 @@ class ExportMixin(DatasetBase):
         # Same single to_numpy() read, wrapped as tf.Tensors.
         return ArraysBundle.ordered({k: tf.convert_to_tensor(v) for k, v in self.to_numpy(fields).items()})
 
-    def to_pandas(self, flatten_features: bool = True) -> "pd.DataFrame":
+    def to_pandas(self, flatten_features: bool = True) -> pd.DataFrame:
         """Return a pandas DataFrame — one row per record — for tabular analysis / filtering.
 
         Always includes the metadata columns (family name, stealthy flag, seq_id, timestep, and n_attacked

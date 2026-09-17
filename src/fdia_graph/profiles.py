@@ -13,13 +13,14 @@ The operating states are the [T, N, 4] pool the attack generator injects onto:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterator, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
-
-import os
-import io
-import glob
-import zipfile
 import datetime as _dt
+import glob
+import io
+import os
+import zipfile
+from collections.abc import Iterator, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Union
+
 import numpy as np
 
 from .engine.core import _CASE  # bus-count -> pandapower builder; single source of supported systems
@@ -95,7 +96,7 @@ def _case_buses(key: int) -> np.ndarray:
     return np.unique(np.concatenate([base.load["bus"].to_numpy(), base.gen["bus"].to_numpy()]))
 
 
-def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> List[np.ndarray]:
+def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
     """Solve the AC operating state for each PRECOMPUTED per-bus scale-factor row in sf_chunk [L, nbus] (aligned
     to _case_buses order). Module-level/picklable so it runs as a multiprocessing worker. Returns a list of
     [N,4] state arrays; non-converging steps are skipped."""
@@ -129,7 +130,7 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> List[np.ndarray]:
     return out
 
 
-def _remove_shunt_injections(z: np.ndarray, base: Any, pos: Dict[int, int]) -> None:
+def _remove_shunt_injections(z: np.ndarray, base: Any, pos: dict[int, int]) -> None:
     """Subtract each shunt's draw from its bus's P and Q in place: state estimation models the shunt in
     the admittance matrix, not as an injection, so the stored injection must exclude it to be
     bad-data-clean."""
@@ -144,7 +145,7 @@ def _remove_shunt_injections(z: np.ndarray, base: Any, pos: Dict[int, int]) -> N
 
 
 def _ar1_scale(
-    S: np.ndarray, nbus: int, k: float, sigma: float, clip: Tuple[float, float], rho: float, seed: int
+    S: np.ndarray, nbus: int, k: float, sigma: float, clip: tuple[float, float], rho: float, seed: int
 ) -> np.ndarray:
     """Build the [T, nbus] per-bus scale-factor matrix clip(1 + k*S_t + jitter_t), where jitter is a per-bus
     AR(1) process jitter_t = rho*jitter_{t-1} + sqrt(1-rho^2)*sigma*eps. AR(1) evolves the load smoothly
@@ -165,7 +166,7 @@ def generate_states(
     profile: Union[np.ndarray, Sequence[float]],
     k: float = K_DEFAULT,
     sigma: float = SIGMA_DEFAULT,
-    clip: Tuple[float, float] = CLIP_DEFAULT,
+    clip: tuple[float, float] = CLIP_DEFAULT,
     n: Optional[int] = None,
     seed: int = 123,
     workers: Optional[int] = None,
@@ -233,7 +234,7 @@ def _month_firsts(start: _dt.date, end: _dt.date) -> Iterator[_dt.date]:
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
 
 
-def _fetch_nyiso(start: _dt.date, end: _dt.date) -> "pd.Series":
+def _fetch_nyiso(start: _dt.date, end: _dt.date) -> pd.Series:
     """NYISO system load (MW) over [start, end] at 5-MINUTE resolution, built-in and account-free.
 
     Uses the 'pal' feed (real-time actual, ~288 samples/day; 'palIntegrated' is only hourly), one CSV per day
@@ -263,7 +264,7 @@ def _fetch_nyiso(start: _dt.date, end: _dt.date) -> "pd.Series":
     return system[mask]
 
 
-def _fetch_gridstatus(iso: str, start: _dt.date, end: _dt.date) -> "pd.Series":
+def _fetch_gridstatus(iso: str, start: _dt.date, end: _dt.date) -> pd.Series:
     """System load (MW) over [start, end] via the `gridstatus` package — uniform across CAISO/NYISO/ERCOT.
 
     gridstatus wraps each operator's data service behind one `.get_load(start, end)`. Returns a pandas Series.

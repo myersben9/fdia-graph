@@ -18,7 +18,7 @@ import json
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 import requests
 
@@ -51,9 +51,9 @@ def api(method: str, path: str, **kw: Any) -> Any:
     return r.json() if r.text else {}
 
 
-def api_all(path: str) -> List[Any]:
+def api_all(path: str) -> list[Any]:
     """Every item of a list endpoint, following pagination (GitHub returns 30 per page by default)."""
-    out: List[Any] = []
+    out: list[Any] = []
     page = 1
     while True:
         sep = "&" if "?" in path else "?"
@@ -65,7 +65,7 @@ def api_all(path: str) -> List[Any]:
         page += 1
 
 
-def _head_state(num: int) -> Dict[str, Any]:
+def _head_state(num: int) -> dict[str, Any]:
     pr = api("GET", f"/pulls/{num}")
     sha = pr["head"]["sha"]
     checks = api_all(f"/commits/{sha}/check-runs")
@@ -80,7 +80,7 @@ def _head_state(num: int) -> Dict[str, Any]:
     }
 
 
-def _green(state: Dict[str, Any]) -> bool:
+def _green(state: dict[str, Any]) -> bool:
     checks = state["checks"]
     return len(checks) >= MIN_CHECKS and all(s == "completed" and c == "success" for s, c in checks.values())
 
@@ -167,7 +167,7 @@ def merge(num: int) -> None:
         print("deleted branch", pr["head"]["ref"])
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
     if not argv:
         raise SystemExit(__doc__)
     cmd, args = argv[0], argv[1:]
