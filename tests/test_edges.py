@@ -30,6 +30,27 @@ def test_family_ids_accept_names_codes_and_aliases_and_reject_unknowns():
         family_ids(["Bogus"])
     with pytest.raises(ValueError, match="unknown family"):
         family_ids([42])
+    with pytest.raises(ValueError, match="unknown family"):
+        family_ids([1.9])  # a float is not a code, even one that truncates to a valid one
+    with pytest.raises(ValueError, match="unknown family"):
+        family_ids([True])
+    assert family_ids([np.int64(2)]) == [2]
+
+
+def test_bad_split_or_family_fails_before_any_download(monkeypatch):
+    """`fg.load("ieee118", split="bogus")` must not fetch 317 MB first: the argument checks run
+    before the registry is consulted."""
+    import fdia_graph.registry as registry
+
+    def boom(*a, **k):
+        raise AssertionError("resolve was called before the argument check")
+
+    monkeypatch.setattr(registry, "resolve", boom)
+    monkeypatch.setattr(fg, "resolve", boom)
+    with pytest.raises(ValueError, match="split must be one of"):
+        fg.load("ieee118", split="bogus")
+    with pytest.raises(ValueError, match="unknown family"):
+        fg.load("ieee118", families=["Bogus"])
 
 
 def test_load_rejects_bad_units_split_and_family(shard):
@@ -116,7 +137,14 @@ def test_load_stream_rejects_an_unknown_system():
 
 
 def test_estimator_constructor_checks():
-    from fdia_graph.se import AdaptiveWeighting, GatedPrior, JacobianWeighting, ResidualRemoval, SubspacePrior, WLS
+    from fdia_graph.se import (
+        AdaptiveWeighting,
+        GatedPrior,
+        JacobianWeighting,
+        ResidualRemoval,
+        SubspacePrior,
+        WLS,
+    )
 
     with pytest.raises(ValueError, match="npass and iters"):
         WLS(npass=0)
@@ -163,7 +191,9 @@ def test_localizer_input_checks(shard, splits):
 # ---- opt-in: the real IEEE-118 shard --------------------------------------------------------------------
 
 
-@pytest.mark.skipif(not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: downloads the 317 MB IEEE-118 shard")
+@pytest.mark.skipif(
+    not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: downloads the 317 MB IEEE-118 shard"
+)
 def test_ieee118_estimator_sanity():
     """WLS on the published IEEE-118 shard: the benign angle error is a fraction of a degree and
     every class scores finite. A loose bound, so a data or solver regression shows without pinning

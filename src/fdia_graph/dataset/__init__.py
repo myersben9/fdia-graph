@@ -25,6 +25,7 @@ from .base import (  # noqa: F401  re-exported: defined here before the split
     _SPLIT,
     _STATIC_PHYSICS,
     _torch,
+    check_split,
     family_ids,
 )
 from .export import ExportMixin
@@ -52,8 +53,7 @@ def _record_mask(
     if not filt.include_gaps:
         keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
     if filt.split is not None:
-        if filt.split not in _SPLIT:
-            raise ValueError(f"split must be one of {sorted(_SPLIT)} or None, got {filt.split!r}")
+        check_split(filt.split)
         if sp is None:
             raise ValueError(f"{path} has no split; run the split step first")
         keep &= sp == _SPLIT[filt.split]
@@ -87,6 +87,9 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
         # swing is a dimensionless z-score, never rescaled.
         if units not in ("physical", "pu"):
             raise ValueError("units must be 'physical' or 'pu'")
+        check_split(split)  # before the file is opened
+        if families is not None:
+            family_ids(families)  # an unknown family fails here, not after the read
         self.units = units
         self._f = None  # lazy per-worker h5py handle, opened on first __getitem__
         with h5py.File(path, "r") as f:  # read-only; metadata copied out before block exit

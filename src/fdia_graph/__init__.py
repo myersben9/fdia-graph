@@ -27,7 +27,7 @@ if TYPE_CHECKING:  # the lazy names below, with their real signatures for type c
 # Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
 # FdiaGraph: torch Dataset over one .h5 shard; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
 # BDD-evading subset (hard cases, e.g. Aq).
-from .dataset import FdiaGraph, FAMILIES, STEALTHY_FAMILIES
+from .dataset import FdiaGraph, FAMILIES, STEALTHY_FAMILIES, family_ids
 
 # registry = dataset "version control": list_datasets (known built-in + local), register_local (name a local
 # dataset), resolve ((name, release) -> download spec).
@@ -85,6 +85,11 @@ def load(
     """
     # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
     # short-circuit to their file).
+    from .dataset.base import check_split
+
+    check_split(split)  # a wrong split fails before any download
+    if families is not None:
+        family_ids(families)
     path = ensure_local(resolve(name, release=release))
     # Thin factory: the Dataset applies split/families/gaps/heldout and the export format lazily.
     return FdiaGraph(

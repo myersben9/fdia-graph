@@ -9,6 +9,8 @@ its own, and stubs the methods one mixin calls on another.
 
 from __future__ import annotations
 
+import numbers
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -30,6 +32,14 @@ FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
 STEALTHY_FAMILIES = {1, 5, 6}  # Aq, At, Al — evade classical bad-data detection
 _FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
 _SPLIT = {"train": 0, "val": 1, "test": 2}  # on-disk `data/split` codes (precomputed)
+
+
+def check_split(split):
+    """Reject an unknown partition name before any file is opened or downloaded."""
+    if split is not None and split not in _SPLIT:
+        raise ValueError(f"split must be one of {sorted(_SPLIT)} or None, got {split!r}")
+
+
 _HELDOUT_TRAIN_EXCLUDE = {
     3,
     4,
@@ -43,7 +53,12 @@ def family_ids(families: Sequence[Union[str, int]]) -> List[int]:
     names.update(_FAMILY_ALIAS)
     out: List[int] = []
     for f in families:
-        code = names.get(f) if isinstance(f, str) else (int(f) if int(f) in FAMILIES else None)
+        if isinstance(f, str):
+            code = names.get(f)
+        elif isinstance(f, numbers.Integral) and not isinstance(f, bool) and int(f) in FAMILIES:
+            code = int(f)
+        else:
+            code = None  # a float such as 1.9, a bool, or a code outside the table
         if code is None:
             raise ValueError(f"unknown family {f!r}; known: {sorted(names)} or codes {sorted(FAMILIES)}")
         out.append(code)
