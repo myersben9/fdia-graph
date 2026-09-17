@@ -70,30 +70,39 @@ def _machine() -> str:
     return f"{platform.machine()} {platform.processor() or platform.system()}, numpy {np.__version__}, {torch_state}"
 
 
-def _last_row(text: str) -> dict[str, float]:
-    rows = [ln for ln in text.splitlines() if ln.startswith("| 20")]
-    if not rows:
+def _last_row(text: str, machine: str) -> dict[str, float]:
+    """The timings of the most recent row measured on `machine`; empty when there is none, since
+    rows from different machines are not comparable."""
+    lines = text.splitlines()
+    heads = [ln for ln in lines if ln.startswith("| date")]
+    if not heads:
         return {}
-    cells = [c.strip() for c in rows[-1].strip("|").split("|")]
-    header = [
-        c.strip()
-        for c in [ln for ln in text.splitlines() if ln.startswith("| date")][0].strip("|").split("|")
-    ]
-    return {
-        h: float(v) for h, v in zip(header, cells) if h.endswith("ms/record") and re.fullmatch(r"[0-9.]+", v)
-    }
+    header = [c.strip() for c in heads[0].strip("|").split("|")]
+    for ln in reversed([ln for ln in lines if ln.startswith("| 20")]):
+        row = dict(zip(header, [c.strip() for c in ln.strip("|").split("|")]))
+        if row.get("machine") == machine:
+            return {
+                h: float(v) for h, v in row.items() if h.endswith("ms/record") and re.fullmatch(r"[0-9.]+", v)
+            }
+    return {}
 
 
 def main(check: bool) -> int:
     t = _timings()
     text = open(DOC, encoding="utf8").read() if os.path.exists(DOC) else ""
-    last = _last_row(text)
+    machine = _machine()
+    last = _last_row(text, machine)
     slow = {k: (last[k], v) for k, v in t.items() if k in last and v > SLOW_FACTOR * last[k]}
     for k, v in t.items():
         print(f"{k:24} {v:8.3f}" + (f"   (last {last[k]:.3f})" if k in last else ""))
     if check:
+        if not last:
+            print(
+                f"no earlier row from this machine ({machine}); nothing to compare, run without --check first"
+            )
+            return 0
         if slow:
-            print("slower than 3x the last row:", slow)
+            print("slower than 3x the last row from this machine:", slow)
             return 1
         print("no timing regression")
         return 0
@@ -105,7 +114,7 @@ def main(check: bool) -> int:
             "comparable with each other, not with another machine's.\n\n"
             "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols) + "\n"
         )
-    row = [dt.date.today().isoformat(), *(f"{v:.3f}" for v in t.values()), fg.__version__, _machine()]
+    row = [dt.date.today().isoformat(), *(f"{v:.3f}" for v in t.values()), fg.__version__, machine]
     text = text.rstrip("\n") + "\n| " + " | ".join(row) + " |\n"
     open(DOC, "w", encoding="utf8", newline="\n").write(text)
     print("appended to", DOC)
