@@ -26,6 +26,7 @@ from .base import (  # noqa: F401  re-exported: defined here before the split
     _STATIC_PHYSICS,
     _torch,
     check_split,
+    check_units,
     family_ids,
 )
 from .export import ExportMixin
@@ -85,9 +86,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
         # units="pu" converts losslessly on the fly (P/Q + branch flows / baseMVA, theta deg->rad, V already p.u.),
         # so one shard serves both physical and normalized views. temporal_delta scales with power (->p.u.);
         # swing is a dimensionless z-score, never rescaled.
-        if units not in ("physical", "pu"):
-            raise ValueError("units must be 'physical' or 'pu'")
-        check_split(split)  # before the file is opened
+        check_units(units)  # the argument checks run before the file is opened
+        check_split(split)
         if families is not None:
             family_ids(families)  # an unknown family fails here, not after the read
         self.units = units

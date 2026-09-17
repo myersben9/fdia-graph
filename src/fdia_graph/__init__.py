@@ -85,9 +85,10 @@ def load(
     """
     # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
     # short-circuit to their file).
-    from .dataset.base import check_split
+    from .dataset.base import check_split, check_units
 
-    check_split(split)  # a wrong split fails before any download
+    check_units(units)  # a wrong argument fails before any download
+    check_split(split)
     if families is not None:
         family_ids(families)
     path = ensure_local(resolve(name, release=release))

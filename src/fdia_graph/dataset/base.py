@@ -40,6 +40,12 @@ def check_split(split):
         raise ValueError(f"split must be one of {sorted(_SPLIT)} or None, got {split!r}")
 
 
+def check_units(units):
+    """Reject an unknown unit system before any file is opened or downloaded."""
+    if units not in ("physical", "pu"):
+        raise ValueError(f"units must be 'physical' or 'pu', got {units!r}")
+
+
 _HELDOUT_TRAIN_EXCLUDE = {
     3,
     4,

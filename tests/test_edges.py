@@ -51,6 +51,8 @@ def test_bad_split_or_family_fails_before_any_download(monkeypatch):
         fg.load("ieee118", split="bogus")
     with pytest.raises(ValueError, match="unknown family"):
         fg.load("ieee118", families=["Bogus"])
+    with pytest.raises(ValueError, match="units must be"):
+        fg.load("ieee118", units="feet")
 
 
 def test_load_rejects_bad_units_split_and_family(shard):
