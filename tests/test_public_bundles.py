@@ -129,6 +129,7 @@ def test_stream_bundle():
 def test_load_stream_fills_the_summary_fields(tmp_path, monkeypatch):
     """`fg.load_stream` itself, with the download replaced by a file built from the frozen stream's
     arrays: `system` and `attacked_frac` come back filled (they were None before 0.18)."""
+    import fdia_graph as fg
     import fdia_graph.download as download
 
     z = np.load(os.path.join(FROZEN, "ieee14_stream.npz"))
