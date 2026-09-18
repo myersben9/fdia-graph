@@ -272,7 +272,18 @@ def _stream_result(
     )
     if out:
         np.savez_compressed(out, **{**result, "episodes": np.array(buf.episodes, dtype=object)})
-    return Stream(**result, system=g.C, attacked_frac=float((buf.y.sum(axis=1) > 0).mean()))
+    return Stream(**result, **stream_summary(result))
+
+
+def stream_summary(s: dict[str, Any]) -> dict[str, Any]:
+    """The two summary fields of a stream, derived from its arrays: `system` is the bus count and
+    `attacked_frac` the fraction of frames with at least one attacked bus. `load_stream` uses this
+    because the stream files carry the arrays only."""
+    y = np.asarray(s["y"])
+    return {
+        "system": int(np.asarray(s["node_x"]).shape[1]),
+        "attacked_frac": float((y.sum(axis=1) > 0).mean()),
+    }
 
 
 def generate_stream(
@@ -372,7 +383,7 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     out = {k: z[k] for k in z.files}
     _attach_graph_sidecar(out, C, release)
     _normalize_graph_dtypes(out)
-    return Stream(**out)
+    return Stream(**out, **{k: v for k, v in stream_summary(out).items() if k not in out})
 
 
 def _check_window_args(T: int, W: int, stride: int, label: str) -> None:

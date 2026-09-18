@@ -114,6 +114,13 @@ def test_stream_bundle():
     ]
     s = Stream(**raw)
     _agree(s)
-    assert list(s) == list(raw) and s.system is None and "system" not in s
+    assert list(s) == list(raw) and s.system is None and "system" not in s  # the file carries arrays only
+    from fdia_graph.streams import stream_summary
+
+    summ = stream_summary(raw)  # what load_stream adds on top of the file
+    assert summ["system"] == raw["node_x"].shape[1] == 14
+    assert summ["attacked_frac"] == float((raw["y"].sum(axis=1) > 0).mean()) and 0 < summ["attacked_frac"] < 1
+    full = Stream(**raw, **summ)
+    assert full.system == 14 and full["attacked_frac"] == summ["attacked_frac"]
     assert s.episodes[0]["onset"] >= 0 and len(s.episodes) > 1
     assert s.node_x.shape[0] == s.y.shape[0] == len(s.timestep)

@@ -253,8 +253,8 @@ A continuous attacked time series as `generate_stream` and `load_stream` return 
 | `swing` | `swing` | array | [T, N, 2] |
 | `timestep` | `timestep` | array | [T] |
 | `episodes` | `episodes` | Any | list of {onset, length, family, buses} |
-| `system` | `system` | int (optional) | bus count, set by generate_stream |
-| `attacked_frac` | `attacked_frac` | float (optional) | fraction of frames with an attacked bus, set by generate_stream |
+| `system` | `system` | int (optional) | bus count (generate_stream and load_stream both set it) |
+| `attacked_frac` | `attacked_frac` | float (optional) | fraction of frames with at least one attacked bus (both set it) |
 
 ### `EstimatorScores` (`fdia_graph.models.scores`)
 

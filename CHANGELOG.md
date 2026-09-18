@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `fg.load_stream` now fills `system` and `attacked_frac` (they were None: the stream files carry
+  the arrays only and the generator attached the two values after writing). Both are derived from
+  the arrays on load, the same way `generate_stream` computes them; `fdia_graph.streams.stream_summary`
+  is the shared helper.
 - `ruff check` configured in `pyproject.toml` with pyflakes, import order and modern-syntax rules,
   and the package clean under them (`list[int]`-style generics and `collections.abc` imports;
   `Optional`/`Union` stay, since `typing.get_type_hints` on 3.9 cannot evaluate `X | None`). The
