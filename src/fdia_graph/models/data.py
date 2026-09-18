@@ -136,8 +136,8 @@ class Stream(Bundle):
     swing: np.ndarray  # [T, N, 2]
     timestep: np.ndarray  # [T]
     episodes: Any  # list of {onset, length, family, buses}
-    system: Optional[int] = None  # bus count, set by generate_stream
-    attacked_frac: Optional[float] = None  # fraction of frames with an attacked bus, set by generate_stream
+    system: Optional[int] = None  # bus count (generate_stream and load_stream both set it)
+    attacked_frac: Optional[float] = None  # fraction of frames with at least one attacked bus (both set it)
 
 
 @dataclass(frozen=True, eq=False)

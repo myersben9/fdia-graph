@@ -114,6 +114,37 @@ def test_stream_bundle():
     ]
     s = Stream(**raw)
     _agree(s)
-    assert list(s) == list(raw) and s.system is None and "system" not in s
+    assert list(s) == list(raw) and s.system is None and "system" not in s  # the file carries arrays only
+    from fdia_graph.streams import stream_summary
+
+    summ = stream_summary(raw)  # what load_stream adds on top of the file
+    assert summ["system"] == raw["node_x"].shape[1] == 14
+    assert summ["attacked_frac"] == float((raw["y"].sum(axis=1) > 0).mean()) and 0 < summ["attacked_frac"] < 1
+    full = Stream(**raw, **summ)
+    assert full.system == 14 and full["attacked_frac"] == summ["attacked_frac"]
     assert s.episodes[0]["onset"] >= 0 and len(s.episodes) > 1
     assert s.node_x.shape[0] == s.y.shape[0] == len(s.timestep)
+
+
+def test_load_stream_fills_the_summary_fields(tmp_path, monkeypatch):
+    """`fg.load_stream` itself, with the download replaced by a file built from the frozen stream's
+    arrays: `system` and `attacked_frac` come back filled (they were None before 0.18)."""
+    import fdia_graph as fg
+    import fdia_graph.download as download
+
+    z = np.load(os.path.join(FROZEN, "ieee14_stream.npz"))
+    arrays = {k: z[k] for k in z.files if not k.startswith("episode_")}
+    episodes = [
+        {"onset": int(o), "length": int(n), "family": int(f), "buses": [int(b) for b in bs.split(",") if b]}
+        for o, n, f, bs in zip(
+            z["episode_onset"], z["episode_length"], z["episode_family"], z["episode_buses"]
+        )
+    ]
+    path = tmp_path / "stream_ieee14.npz"
+    np.savez_compressed(path, **arrays, episodes=np.array(episodes, dtype=object))
+    monkeypatch.setattr(download, "ensure_local", lambda spec: str(path))
+
+    s = fg.load_stream("ieee14")
+    assert s.system == 14 and s["system"] == 14
+    assert s.attacked_frac == float((arrays["y"].sum(axis=1) > 0).mean()) and 0 < s.attacked_frac < 1
+    assert s.node_x.shape == arrays["node_x"].shape and len(s.episodes) == len(episodes)
