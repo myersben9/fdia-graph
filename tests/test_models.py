@@ -164,6 +164,18 @@ def test_field_groups_keep_every_key_order_and_required_set():
         assert list(cls._required) == required, name
 
 
+def test_group_built_bundles_are_keyword_only():
+    """Positional construction would bind to the inherited field order, not the documented one, so
+    it is refused outright rather than allowed to mis-bind silently."""
+    from fdia_graph.models import RecordBundle, TrueState
+
+    with pytest.raises(TypeError, match="by keyword"):
+        RecordBundle(np.zeros((2, 1)), np.ones((3, 4)))
+    assert TrueState(np.zeros((2, 5)), np.zeros(2)).thsl.shape == (
+        2,
+    )  # explicit bundles still take positionals
+
+
 def test_required_fields_raise_at_construction():
     from fdia_graph.models import RecordBundle
 

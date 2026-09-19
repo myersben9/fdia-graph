@@ -9,7 +9,9 @@ the public API, the generated files and the numbers are the same as the previous
   are built from field groups (`fdia_graph.models.fields`: scan, labels, record ids, temporal,
   clean, graph, stream layers), so each shared field is declared once; `Bundle` gains `_order`
   (the dict-key order, unchanged from before) and `_required` (a missing required field raises
-  `TypeError` at construction, as a missing argument did). No user-visible change.
+  `TypeError` at construction, as a missing argument did). These four bundles are keyword-only
+  (a positional call raises `TypeError` instead of binding to the inherited field order); they
+  are return types, and no caller in the package or its examples built them positionally.
 - `fg.load_stream` now fills `system` and `attacked_frac` (they were None: the stream files carry
   the arrays only and the generator attached the two values after writing). Both are derived from
   the arrays on load, the same way `generate_stream` computes them; `fdia_graph.streams.stream_summary`
