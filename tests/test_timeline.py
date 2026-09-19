@@ -244,6 +244,17 @@ def test_stream_buffers_stage_no_clean_states_or_attack_layers():
     assert buf.node_x.shape == (5, 3, 4) and buf.mag == []  # whole arrays, no sink
 
 
+def test_the_stream_clean_slice_computes_flows_only():
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.generation import _load_states
+    from fdia_graph.timeline import _clean_slice
+
+    g, X = FdiaGenerator(14, seed=1), _load_states(14, None)[:8]
+    states, flows = _clean_slice(g, X, 2, 6, states=False)
+    assert states is None and flows.shape == (4, 20, 2)
+    assert np.array_equal(_clean_slice(g, X, 2, 6)[0], X[2:6].astype(np.float32))
+
+
 def test_am_direction_and_the_pool_as_hdf5(tmp_path, pool):
     with pytest.raises(ValueError, match="am_direction"):
         generate_timeline(

@@ -182,7 +182,9 @@ def generate_stream(
     )
     # All noiseless from-end flows over the whole timeline in one batched matmul (metered branches only, so
     # edge_benign - edge_clean is the meter error on the measured channels). Shared physics primitive.
-    buf = _TimelineBuffers((T, C, g.E), ctx.scale, partial(_clean_slice, g, X[:T]), attack=False)
+    buf = _TimelineBuffers(
+        (T, C, g.E), ctx.scale, partial(_clean_slice, g, X[:T], states=False), attack=False
+    )
     # Walk the timeline: alternate a benign gap and an attack episode, sized so the attacked fraction ~ target.
     t = 0
     while t < T:

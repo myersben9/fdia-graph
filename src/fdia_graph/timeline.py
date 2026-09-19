@@ -73,13 +73,16 @@ _LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
     "attack/edge_tamper": (lambda C, E: (E, 2), np.uint8),
 }
 _ATTACK_LAYERS = ("attack/node_tamper", "attack/edge_tamper")
-CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
+CleanSlice = Callable[[int, int], tuple[Optional[np.ndarray], np.ndarray]]
 
 
-def _clean_slice(g: FdiaGenerator, X: np.ndarray, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
-    """The noiseless truth of frames a..b-1: the states as float32 and the exact flows on metered
-    branches (one batched matmul, the physics primitive the shards use)."""
-    return X[a:b].astype(np.float32), g.clean_flows_from_states(X[a:b])
+def _clean_slice(
+    g: FdiaGenerator, X: np.ndarray, a: int, b: int, states: bool = True
+) -> tuple[Optional[np.ndarray], np.ndarray]:
+    """The noiseless truth of frames a..b-1: the states as float32 (None when the caller keeps the
+    pool itself, the streams) and the exact flows on metered branches (one batched matmul, the
+    physics primitive the shards use)."""
+    return (X[a:b].astype(np.float32) if states else None), g.clean_flows_from_states(X[a:b])
 
 
 class _TimelineBuffers:
@@ -158,6 +161,7 @@ class _TimelineBuffers:
         L["data/edge_x"][r] = frame.edge_x
         L["benign/edge_benign"][r] = bex
         if "clean/node_clean" in L:
+            assert self._clean_batch[0] is not None
             L["clean/node_clean"][r] = self._clean_batch[0][r]
         L["clean/edge_clean"][r] = self._clean_batch[1][r]
         self.family[t] = fid
