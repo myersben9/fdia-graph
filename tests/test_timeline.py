@@ -175,6 +175,15 @@ def test_am_is_refused_by_the_shard_and_stream_generators(tmp_path, pool):
         fg.generate_stream(14, states=pool[:20], families=("Am",))
 
 
+def test_am_direction_sign_follows_the_engine_convention():
+    """`lra_delta` raises the target line's loading in the false state, so induce keeps its sign."""
+    from fdia_graph.timeline import _am_sign
+
+    rng = np.random.default_rng(0)
+    assert _am_sign("induce", rng) == 1.0 and _am_sign("mask", rng) == -1.0
+    assert {_am_sign("both", rng) for _ in range(50)} == {1.0, -1.0}
+
+
 def test_a_short_am_episode_keeps_the_capped_rate():
     from fdia_graph.timeline import _AmShape
 

@@ -74,8 +74,9 @@ FDIA) as family 7, `Am`, built from the pieces the engine has:
 | labels | `y` on the redistribution buses from onset, as `At` labels its buses | same; the sparse tamper set is a second, per-frame mask in `attack/` for the papers that want meter-level truth |
 
 Knobs: `am_rate` (per-frame cap as a fraction of the noise floor, default 0.9), `am_sigma` (sparsity
-threshold, default 3), `am_direction` (`"mask"` hides a real overload as `Al` does, `"induce"` makes a
-safe line read as overloaded as Wu does; default both, drawn per episode). What it is not: Wu's
+threshold, default 3), `am_direction` (`"induce"` keeps the engine's redistribution sign, so the target
+line reads more loaded than it is, as Wu's attack does; `"mask"` flips it so a real overload reads
+lighter; default both, drawn per episode). What it is not: Wu's
 Pyomo/IPOPT optimization; the engine's PTDF redistribution is the closed-form version of the same
 objective, and the ramp is what their l0-with-noise-floor objective produces. `Am` lands in the same
 PR as the writer (step 1) so the eight systems are generated once.
