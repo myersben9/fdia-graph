@@ -23,7 +23,20 @@ from .fields import (
     TemporalFields,
 )
 from .frames import Frame, FrameKnobs, Record, Redistribution, ResolvedPool, Scan
-from .grid import INTACT, Admittances, BranchModel, MeterBias, MeterPlan, Outage
+from .grid import (
+    BRANCH,
+    EDGE,
+    INTACT,
+    NODE,
+    Admittances,
+    BranchColumns,
+    BranchModel,
+    EdgeColumns,
+    MeterBias,
+    MeterPlan,
+    NodeColumns,
+    Outage,
+)
 from .scores import (
     BenignMetrics,
     ErrorPair,
@@ -60,6 +73,12 @@ __all__ = [
     "GraphFields",
     "StreamLayers",
     "BranchModel",
+    "NodeColumns",
+    "EdgeColumns",
+    "BranchColumns",
+    "NODE",
+    "EDGE",
+    "BRANCH",
     "Admittances",
     "MeterPlan",
     "MeterBias",

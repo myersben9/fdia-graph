@@ -7,6 +7,7 @@ from typing import Any, Optional
 import numpy as np
 
 from ..models.frames import ResolvedPool  # noqa: F401  re-exported: defined here before the models package
+from ..models.grid import NODE
 from .base import GridBase
 
 
@@ -60,7 +61,7 @@ class PhysicsMixin(GridBase):
         Lfull = np.zeros(self.C)  # total true load per bus (bus-indexed)
         for val, b in zip(base_load, self.load_bus):
             Lfull[int(b)] += val
-        Pinj_true = Xt[:, 1]  # Xt = [|V|, Pinj, Qinj, theta]
+        Pinj_true = Xt[:, NODE.p_inj]  # Xt = [|V|, Pinj, Qinj, theta]
         gbus = net.gen["bus"].values
         ncnt: dict[int, int] = {}
         for b in gbus:

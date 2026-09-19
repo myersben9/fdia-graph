@@ -31,6 +31,7 @@ from ..formulas.estimation import (
 from ..formulas.linalg import batched_normal_matrices, condition_number, guarded_inverse
 from ..formulas.network import ac_jacobian, ac_measurement
 from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
+from ..models.grid import EDGE, NODE, EdgeColumns, NodeColumns
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     ErrorPair,
     EstimatorScores,
@@ -126,7 +127,7 @@ class SEBase:
         masks = ds.to_numpy(["node_m", "edge_m"])  # numpy, so the estimator does not need torch
         nm = masks["node_m"][0].astype(bool)
         em = masks["edge_m"][0].astype(bool)
-        self.mask = np.concatenate([nm[:, 0], nm[:, 1], nm[:, 2], nm[:, 3], em[:, 0], em[:, 1]])
+        self.mask = np.concatenate([*NodeColumns.of(nm), *EdgeColumns.of(em)])
         self.m = int(self.mask.sum())
 
     def _angles(self, x: np.ndarray, thsl: np.ndarray) -> np.ndarray:
@@ -180,12 +181,12 @@ class SEBase:
         b = self.baseMVA
         z = np.concatenate(
             [
-                node_x[:, :, 0],
-                node_x[:, :, 1] / b,
-                node_x[:, :, 2] / b,
-                np.deg2rad(node_x[:, :, 3]),
-                edge_x[:, :, 0] / b,
-                edge_x[:, :, 1] / b,
+                node_x[:, :, NODE.v],
+                node_x[:, :, NODE.p_inj] / b,
+                node_x[:, :, NODE.q_inj] / b,
+                np.deg2rad(node_x[:, :, NODE.theta]),
+                edge_x[:, :, EDGE.p_from] / b,
+                edge_x[:, :, EDGE.q_from] / b,
             ],
             axis=1,
         )
@@ -193,7 +194,7 @@ class SEBase:
 
     def _truth_of(self, clean: np.ndarray) -> TrueState:
         # clean [n,N,4] = [V, P, Q, theta] physical -> true 2N-1 state + slack angle reference
-        x = np.concatenate([np.deg2rad(clean[:, self.keep, 3]), clean[:, :, 0]], axis=1)
+        x = np.concatenate([np.deg2rad(clean[:, self.keep, NODE.theta]), clean[:, :, NODE.v]], axis=1)
         return TrueState(x.astype(np.float64), np.deg2rad(clean[:, self.slack, 3]).astype(np.float64))
 
     # ---- fitting ----------------------------------------------------------------------------

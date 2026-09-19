@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from ..formulas.network import branch_flows, complex_voltages
+from ..models.grid import NODE, NodeColumns
 from .base import GridBase
 from .records import Scan
 
@@ -22,7 +23,7 @@ class MeasurementMixin(GridBase):
         # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
         # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
         C, plan, bias = self.C, self.meters, self.bias
-        V, Pi, Qi, TH = X[:, 0], X[:, 1], X[:, 2], X[:, 3]
+        V, Pi, Qi, TH = NodeColumns.of(X)
         # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
         # one physics primitive (formulas.network) shared with the loader and the estimator.
         Vc = np.zeros(self._nppc, complex)
@@ -66,7 +67,7 @@ class MeasurementMixin(GridBase):
         X = np.asarray(X, float)
         C = X.shape[1]
         Vc = np.zeros((len(X), self._nppc), complex)
-        Vc[:, self._lut[np.arange(C)]] = complex_voltages(X[:, :, 0], X[:, :, 3])
+        Vc[:, self._lut[np.arange(C)]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
         Sf = branch_flows(Vc, self._Yf, self._fb, self._bMVA)
         ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         ec[:, ~np.asarray(self.meters.flow, bool), :] = 0.0

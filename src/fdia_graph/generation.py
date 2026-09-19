@@ -36,6 +36,7 @@ from .models.data import ShardArrays  # noqa: F401  re-exported: defined here be
 
 # CACHE_DIR = on-disk shard home; register_local makes the new dataset findable by load(name).
 from .models.frames import Record  # noqa: F401  re-exported: defined here before the models package
+from .models.grid import NODE
 from .registry import CACHE_DIR, register_local
 
 # Single-shot family name -> id (Aq=1, Ad=2, As=3, Ar=4, Al/LRA=6).
@@ -69,7 +70,7 @@ def as_v_first(X: np.ndarray) -> np.ndarray:
     def looks_like_v(col: np.ndarray) -> bool:
         return bool(np.all((col > 0.5) & (col < 1.5)))
 
-    v0, v2 = looks_like_v(X[:, :, 0]), looks_like_v(X[:, :, 2])
+    v0, v2 = looks_like_v(X[:, :, NODE.v]), looks_like_v(X[:, :, NODE.q_inj])
     if v0 and not v2:
         return X
     if v2 and not v0:
@@ -138,7 +139,7 @@ class _FrameContext:
 
 def _record_features(nx: np.ndarray, nm: np.ndarray, prev: np.ndarray, scale_t: np.ndarray, C: int):
     """The two temporal features of a record (formulas.temporal), at injection-metered buses."""
-    metered = nm[:, 1] > 0
+    metered = nm[:, NODE.p_inj] > 0
     return temporal_delta(nx, prev, metered), swing_zscore(nx, prev, scale_t, metered)
 
 
