@@ -469,6 +469,17 @@ def write_timeline(
     return out
 
 
+def _check_knobs(attacked_frac: float, am_direction: str, lengths: dict[str, Optional[int]]) -> None:
+    """Refuse the knob values that would hang or mislead the walk, before any physics is built."""
+    if am_direction not in ("mask", "induce", "both"):
+        raise ValueError(f"am_direction must be 'mask', 'induce' or 'both', got {am_direction!r}")
+    if not 0.0 <= attacked_frac <= 1.0:
+        raise ValueError(f"attacked_frac is a fraction of frames, got {attacked_frac!r}")
+    for knob, value in lengths.items():
+        if value is not None and value < 1:  # an empty episode would store no frame and never advance
+            raise ValueError(f"{knob} must be at least 1 frame, got {value!r}")
+
+
 def generate_timeline(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
@@ -505,14 +516,8 @@ def generate_timeline(
     redundancy       meter coverage {vbus_frac, pmu_frac, flow_frac}, default 0.6/0.2/0.9
     split            chronological train/val/test fractions by frame, episodes never cut
     """
-    if am_direction not in ("mask", "induce", "both"):
-        raise ValueError(f"am_direction must be 'mask', 'induce' or 'both', got {am_direction!r}")
-    if not 0.0 <= attacked_frac <= 1.0:
-        raise ValueError(f"attacked_frac is a fraction of frames, got {attacked_frac!r}")
     am_len = ramp_len if am_len is None else am_len
-    for knob, value in (("ramp_len", ramp_len), ("am_len", am_len), ("corrupt_len", corrupt_len)):
-        if value is not None and value < 1:  # an empty episode would store no frame and never advance
-            raise ValueError(f"{knob} must be at least 1 frame, got {value!r}")
+    _check_knobs(attacked_frac, am_direction, dict(ramp_len=ramp_len, am_len=am_len, corrupt_len=corrupt_len))
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, **red)
     lra_k = min(6, len(g.load_bus))
