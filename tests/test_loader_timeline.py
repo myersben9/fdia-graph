@@ -11,6 +11,12 @@ pytest.importorskip("torch")
 import fdia_graph as fg  # noqa: E402
 
 
+def test_generate_rejects_a_bad_frame_cap(tmp_path):
+    for bad in (0, -5, 2.5, True):
+        with pytest.raises(ValueError, match="frames"):
+            fg.generate("ieee14", "never", frames=bad, out=str(tmp_path / "x.h5"))
+
+
 def test_generate_registers_a_timeline_that_load_reads(timeline):
     assert fg.list_datasets()[timeline] == "local"
     ds = fg.load(timeline)

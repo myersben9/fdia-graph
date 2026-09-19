@@ -316,6 +316,10 @@ def generate(
     redundancy, split)."""
     from .timeline import generate_timeline
 
+    if frames is not None and (isinstance(frames, bool) or not isinstance(frames, int) or frames < 1):
+        raise ValueError(
+            f"frames caps the pool timesteps walked and must be a positive integer, got {frames!r}"
+        )
     X = _load_states(system, states)
     if frames is not None:
         X = X[:frames]
