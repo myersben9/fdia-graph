@@ -54,9 +54,7 @@ class LabelFields:
     """The attack labels of a scan."""
 
     y: Optional[Array] = None  # [..., N] per-bus attack label, 1 attacked
-    family: Optional[Scalars] = (
-        None  # [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timelines only)
-    )
+    family: Optional[Scalars] = None  # [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline)
 
 
 @dataclass(frozen=True, eq=False)
