@@ -1,13 +1,13 @@
-"""Time the estimators and the generator on the tiny shard, and write the numbers where a reader
+"""Time the estimators and the generator on the tiny timeline, and write the numbers where a reader
 can compare them with the last run (docs/reference/BENCHMARKS.md).
 
     python tools/bench.py            # append this machine's row to the table
     python tools/bench.py --check    # exit 1 if any timing is more than 3x slower than the last row
 
-Timings are per record for the estimators (fit excluded) and per record for shard generation,
-in milliseconds, on the tiny IEEE-14 shard the test suite builds (seed 1, 80 benign, 12 per
-family). They are for spotting a regression on one machine, not for comparing machines: the
-table carries the CPU and the torch state with every row for that reason.
+Timings are per record for the estimators (fit excluded) and per frame for timeline generation,
+in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, every family,
+20-frame ramps, seed 3). They are for spotting a regression on one machine, not for comparing
+machines: the table carries the CPU and the torch state with every row for that reason.
 """
 
 from __future__ import annotations
