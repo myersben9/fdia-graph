@@ -195,6 +195,14 @@ def test_split_boundaries_settle_in_order():
     assert (split[:65] == 0).all() and (split[65:80] == 1).all() and (split[80:] == 2).all()
 
 
+def test_attacked_frac_zero_is_all_benign(tmp_path, pool):
+    out = generate_timeline(14, states=pool[:40], attacked_frac=0.0, out=str(tmp_path / "b.h5"))
+    a, attrs = _read(out)
+    assert (a["data/family"] == 0).all() and attrs["n_episodes"] == 0 and attrs["attacked_frac"] == 0.0
+    with pytest.raises(ValueError, match="attacked_frac"):
+        generate_timeline(14, states=pool[:20], attacked_frac=1.5, out=str(tmp_path / "x.h5"))
+
+
 def test_empty_episode_lengths_are_refused(tmp_path, pool):
     for bad in (dict(ramp_len=0), dict(am_len=0), dict(corrupt_len=0)):
         with pytest.raises(ValueError, match="at least 1 frame"):

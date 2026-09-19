@@ -68,7 +68,10 @@ class _TimelineBuffers:
     designed change per attacked bus.
     """
 
-    def __init__(self, T: int, C: int, E: int, scale: np.ndarray, edge_clean_full: np.ndarray) -> None:
+    def __init__(
+        self, T: int, C: int, E: int, scale: np.ndarray, edge_clean_full: np.ndarray, attack: bool = True
+    ) -> None:
+        """`attack=False` (the streams) skips the tamper masks and magnitude lists nothing reads."""
         self.node_x = np.zeros((T, C, 4), np.float32)
         self.benign = np.zeros((T, C, 4), np.float32)
         self.edge_x = np.zeros((T, E, 2), np.float32)
@@ -79,10 +82,11 @@ class _TimelineBuffers:
         self.seq_id = np.full(T, -1, np.int32)
         self.temporal_delta = np.zeros((T, C, 2), np.float32)
         self.swing = np.zeros((T, C, 2), np.float32)
-        self.node_tamper = np.zeros((T, C, 4), np.uint8)
-        self.edge_tamper = np.zeros((T, E, 2), np.uint8)
-        self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T
-        self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T
+        self.attack = attack
+        self.node_tamper = np.zeros((T, C, 4), np.uint8) if attack else None
+        self.edge_tamper = np.zeros((T, E, 2), np.uint8) if attack else None
+        self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T if attack else []
+        self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T if attack else []
         self.node_m: Optional[np.ndarray] = None  # the meter plan, from the first stored frame
         self.edge_m: Optional[np.ndarray] = None
         self.episodes: list[dict[str, Any]] = []
@@ -118,8 +122,9 @@ class _TimelineBuffers:
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
         """The attacker's footprint on this frame: the designed magnitudes and the tamper masks."""
-        if fid == 0:
+        if fid == 0 or not self.attack:
             return
+        assert self.node_tamper is not None and self.edge_tamper is not None
         self.mag_bus[t] = np.asarray(frame.mag_bus, np.int32)
         self.mag[t] = np.asarray(frame.mag, np.float32)
         if frame.tamper is not None:  # Am decides per meter
@@ -147,8 +152,9 @@ def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.nd
 
 
 def _want_attack(buf: _TimelineBuffers, t: int, attacked_frac: float) -> bool:
-    """Start an attack episode when the attacked fraction so far is below the target."""
-    return t == 0 or (buf.attacked / max(1, t)) < attacked_frac
+    """Start an attack episode when the attacked fraction so far is below the target (so a target
+    of 0 never attacks, and the walk opens with an episode for any positive target)."""
+    return (buf.attacked / max(1, t)) < attacked_frac
 
 
 def _benign_gap(ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, t: int) -> int:
@@ -413,6 +419,7 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     eg.create_dataset("bus_ptr", data=ptr)
     eg.create_dataset("bus_idx", data=idx)
     ag = f.create_group("attack")
+    assert buf.node_tamper is not None and buf.edge_tamper is not None, "buffers built without attack storage"
     ptr, bus = _ragged(buf.mag_bus, np.int32)
     _, mag = _ragged(buf.mag, np.float32)
     ag.create_dataset("mag_ptr", data=ptr)
@@ -500,6 +507,8 @@ def generate_timeline(
     """
     if am_direction not in ("mask", "induce", "both"):
         raise ValueError(f"am_direction must be 'mask', 'induce' or 'both', got {am_direction!r}")
+    if not 0.0 <= attacked_frac <= 1.0:
+        raise ValueError(f"attacked_frac is a fraction of frames, got {attacked_frac!r}")
     am_len = ramp_len if am_len is None else am_len
     for knob, value in (("ramp_len", ramp_len), ("am_len", am_len), ("corrupt_len", corrupt_len)):
         if value is not None and value < 1:  # an empty episode would store no frame and never advance
