@@ -17,8 +17,7 @@ its episode applied (or none), and the file carries everything a user reads afte
 Temporal features are taken against the previous EMITTED frame, so a stealthy ramp reads as a
 small per-step change and a spike as an abrupt jump (the signal the dataset is built on).
 
-The episode primitives here are shared with `generate_stream`, whose scheduler and RNG order stay
-what the published streams were built with until the streams retire.
+`generate_stream` (deprecated) is this writer followed by a read of the file it wrote.
 """
 
 from __future__ import annotations
@@ -41,9 +40,9 @@ from .formulas.temporal import swing_zscore, temporal_delta
 from .generation import (
     _CHUNK_ROWS,
     NOISE_FLOOR,
+    _base_attrs,
     _FrameContext,
     _load_states,
-    _shard_attrs,
     _swing_scale,
     _write_graph,
 )
@@ -72,17 +71,13 @@ _LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
     "attack/node_tamper": (lambda C, E: (C, 4), np.uint8),
     "attack/edge_tamper": (lambda C, E: (E, 2), np.uint8),
 }
-_ATTACK_LAYERS = ("attack/node_tamper", "attack/edge_tamper")
-CleanSlice = Callable[[int, int], tuple[Optional[np.ndarray], np.ndarray]]
+CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
 
 
-def _clean_slice(
-    g: FdiaGenerator, X: np.ndarray, a: int, b: int, states: bool = True
-) -> tuple[Optional[np.ndarray], np.ndarray]:
-    """The noiseless truth of frames a..b-1: the states as float32 (None when the caller keeps the
-    pool itself, the streams) and the exact flows on metered branches (one batched matmul, the
-    physics primitive the shards use)."""
-    return (X[a:b].astype(np.float32) if states else None), g.clean_flows_from_states(X[a:b])
+def _clean_slice(g: FdiaGenerator, X: np.ndarray, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
+    """The noiseless truth of frames a..b-1: the states as float32 and the exact flows on metered
+    branches (one batched matmul, the engine's physics primitive)."""
+    return X[a:b].astype(np.float32), g.clean_flows_from_states(X[a:b])
 
 
 class _TimelineBuffers:
@@ -95,37 +90,23 @@ class _TimelineBuffers:
     attacked frame, the tamper masks the meters the attacker wrote, and the magnitude lists the
     designed change per attacked bus.
 
-    With a `sink` (the writer: name -> HDF5 dataset of full length T) the layers are staged in a
-    batch of _BATCH frames and flushed as the walk passes them, so memory is bounded whatever T;
-    without one (the streams) every layer is held whole and read back by the caller, and the clean
-    states are not staged at all (the caller has the pool). `attack=False` skips the tamper masks
-    and magnitude lists nothing reads.
+    The `sink` (name -> HDF5 dataset of full length T) receives the layers in batches of _BATCH
+    frames, flushed as the walk passes them, so memory is bounded whatever T.
     """
 
     def __init__(
-        self,
-        dims: tuple[int, int, int],
-        scale: np.ndarray,
-        clean: CleanSlice,
-        attack: bool = True,
-        sink: Optional[dict[str, Any]] = None,
+        self, dims: tuple[int, int, int], scale: np.ndarray, clean: CleanSlice, sink: dict[str, Any]
     ) -> None:
         T, C, E = dims
-        n = T if sink is None else min(_BATCH, T)
+        n = min(_BATCH, T)
         self.T, self._n, self._base, self._sink = T, n, 0, sink
-        self.attack = attack
-        skip: set[str] = set() if attack else set(_ATTACK_LAYERS)
-        if sink is None:
-            skip.add("clean/node_clean")  # the streams read the pool itself
         self._layers: dict[str, np.ndarray] = {
-            name: np.zeros((n, *shape(C, E)), dtype)
-            for name, (shape, dtype) in _LAYERS.items()
-            if name not in skip
+            name: np.zeros((n, *shape(C, E)), dtype) for name, (shape, dtype) in _LAYERS.items()
         }
         self.family = np.zeros(T, np.int16)
         self.seq_id = np.full(T, -1, np.int32)
-        self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T if attack else []
-        self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T if attack else []
+        self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T
+        self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T
         self.node_m: Optional[np.ndarray] = None  # the meter plan, from the first stored frame
         self.edge_m: Optional[np.ndarray] = None
         self.episodes: list[dict[str, Any]] = []
@@ -135,16 +116,6 @@ class _TimelineBuffers:
         self._clean_batch = clean(0, n)
         self._prev_nx: Optional[np.ndarray] = None
         self._all_buses = np.ones(C, bool)
-
-    # The whole layers, for the streams (no sink): the names the stream result reads.
-    node_x = property(lambda self: self._layers["data/node_x"])
-    benign = property(lambda self: self._layers["benign/node_benign"])
-    edge_x = property(lambda self: self._layers["data/edge_x"])
-    edge_benign = property(lambda self: self._layers["benign/edge_benign"])
-    edge_clean = property(lambda self: self._layers["clean/edge_clean"])
-    y = property(lambda self: self._layers["data/y"])
-    temporal_delta = property(lambda self: self._layers["data/temporal_delta"])
-    swing = property(lambda self: self._layers["data/swing"])
 
     def store(self, t: int, fid: int, frame: Frame, sid: int = -1) -> None:
         """Store frame t (frames arrive in order): an attacked frame with its un-attacked twin
@@ -160,10 +131,7 @@ class _TimelineBuffers:
         L["data/y"][r] = frame.y
         L["data/edge_x"][r] = frame.edge_x
         L["benign/edge_benign"][r] = bex
-        if "clean/node_clean" in L:
-            assert self._clean_batch[0] is not None
-            L["clean/node_clean"][r] = self._clean_batch[0][r]
-        L["clean/edge_clean"][r] = self._clean_batch[1][r]
+        L["clean/node_clean"][r], L["clean/edge_clean"][r] = self._clean_batch[0][r], self._clean_batch[1][r]
         self.family[t] = fid
         self.seq_id[t] = sid if fid else -1
         self.attacked += int(frame.y.any())
@@ -181,8 +149,6 @@ class _TimelineBuffers:
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
         """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
         (zeroed on a benign frame: the staged batch rows are reused between flushes)."""
-        if not self.attack:
-            return
         r = t - self._base
         if fid == 0:
             self._layers["attack/node_tamper"][r] = 0
@@ -200,9 +166,7 @@ class _TimelineBuffers:
         self._layers["attack/edge_tamper"][r] = edge
 
     def flush(self) -> None:
-        """Write the staged frames to the sink and stage the next batch (no-op without a sink)."""
-        if self._sink is None:
-            return
+        """Write the staged frames to the sink and stage the next batch."""
         m = min(self._n, self.T - self._base)  # frames staged in this batch
         for name, arr in self._layers.items():
             self._sink[name][self._base : self._base + m] = arr[:m]
@@ -503,7 +467,6 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     eg.create_dataset("bus_ptr", data=ptr)
     eg.create_dataset("bus_idx", data=idx)
     ag = f["attack"]
-    assert buf.attack, "buffers built without attack storage"
     ptr, bus = _ragged(buf.mag_bus, np.int32)
     _, mag = _ragged(buf.mag, np.float32)
     ag.create_dataset("mag_ptr", data=ptr)
@@ -518,8 +481,8 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
 def _timeline_attrs(
     g: FdiaGenerator, T: int, seed: int, buf: _TimelineBuffers, knobs: dict[str, Any]
 ) -> dict[str, Any]:
-    """The shard's attributes (dims, units, provenance) plus what makes this file a timeline."""
-    attrs = _shard_attrs(g, T, seed, None)
+    """The attributes every file carries (dims, units, provenance) plus what makes this one a timeline."""
+    attrs = _base_attrs(g, T, seed)
     attrs.update(
         kind=KIND,
         T=T,

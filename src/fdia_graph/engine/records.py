@@ -1,22 +1,18 @@
-"""One attacked (or benign) scan, the per-frame physics shared by the shard and stream generators.
+"""One attacked (or benign) scan, the per-frame physics of the timeline writer.
 
-`generate` (shards) and `generate_stream` (streams) used to carry their own copy of this: re-solve
-the grid under a scaled load for the stealthy families, re-solve under a load redistribution for
-Al, corrupt the emitted measurements in place for Ad/As/Ar, emit the stored state for a benign
-scan. One function now does it for both, with two switches in `FrameKnobs` for the two behaviours
-that differ:
+Re-solve the grid under a scaled load for the stealthy families, re-solve under a load
+redistribution for Al and Am, corrupt the emitted measurements in place for Ad/As/Ar, emit the
+stored state for a benign scan. Two switches in `FrameKnobs` remain from the record-shard writer
+that shared this code until 0.18: `reject_below_floor` (reject a stealthy scan whose designed
+change sits inside the noise floor; the timeline keeps every scan and lets the label say what
+happened) and `with_benign` (also emit the un-attacked measurement of the same scan, the timeline's
+`benign` layer).
 
-- `reject_below_floor`: the shard generator rejects a stealthy scan whose designed change sits
-  inside the noise floor, and a replay whose realized change leaves the plausibility band, so the
-  draw loop redraws; the stream keeps every scan and lets the label say what happened.
-- `with_benign`: the stream also emits the un-attacked measurement of the same scan (attack
-  removed, noise kept) as its `benign` layer; the shard does not.
-
-RNG-order invariant: every released shard and stream is reproduced bit for bit from its seed, so
-the order of random draws here is fixed: the power-flow re-solve and the measurement emission
-first, then (streams only) the benign emission; for the corrupt-in-place families the emission,
-then the replay-lag draw, then the corruption draws. Changing that order changes every released
-file. tests/test_frozen.py holds the line.
+RNG-order invariant: every released file is reproduced bit for bit from its seed, so the order of
+random draws here is fixed: the power-flow re-solve and the measurement emission first, then the
+benign emission; for the corrupt-in-place families the emission, then the replay-lag draw, then
+the corruption draws. Changing that order changes every released file. tests/test_frozen.py holds
+the line.
 """
 
 from __future__ import annotations
@@ -41,8 +37,6 @@ RESOLVE_FAMILIES = (1, 5)  # stealthy: the grid is re-solved under a scaled load
 RAMP_FAMILY = 5
 LRA_FAMILY = 6
 AM_FAMILY = 7
-# The draw order of the single-shot families. Fixed: it sets the RNG sequence of every shard and stream.
-SINGLE_SHOT_ORDER = (1, 2, 3, 4, 6)
 CORRUPT_KIND = {2: "Ad", 3: "As", 4: "Ar"}  # corrupt-in-place families and their AttackMixin.corrupt code
 BENIGN_BUFFER = 300  # recent benign scans kept for the replay families (FIFO)
 REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans back

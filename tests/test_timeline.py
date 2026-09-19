@@ -164,16 +164,16 @@ def test_am_is_a_sparse_sub_floor_ramp_of_a_held_redistribution(am_timeline):
         assert (y[frames][:, buses] == 1).all()
 
 
-def test_am_is_refused_by_the_shard_and_stream_generators(tmp_path, pool):
+def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
     import fdia_graph as fg
-    from fdia_graph.generation import generate_shard
 
-    with pytest.raises(ValueError, match="timeline family"):
-        generate_shard(
-            "ieee14", "never", families=("Aq", "Am"), per_family=2, n_benign=2, out=str(tmp_path / "s.h5")
+    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
+        s = fg.generate_stream(
+            14, states=pool[:60], seed=SEED, families=("Am", "Ad"), ramp_len=10, out=str(tmp_path / "s.h5")
         )
-    with pytest.raises(ValueError, match="timeline family"), pytest.warns(DeprecationWarning):
-        fg.generate_stream(14, states=pool[:20], families=("Am",))
+    assert s.system == 14 and s.node_x.shape == (60, 14, 4) and s.node_m.shape == (14, 4)
+    assert set(np.unique(s.family).tolist()) <= {0, 2, 7} and len(s.episodes) > 0
+    assert os.path.exists(tmp_path / "s.h5")
 
 
 def test_am_direction_sign_follows_the_engine_convention():
@@ -221,56 +221,6 @@ def test_empty_episode_lengths_are_refused(tmp_path, pool):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_rate=0.0)
     with pytest.raises(ValueError, match="am_sigma"):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_sigma=-1.0)
-
-
-def test_stream_buffers_stage_no_clean_states_or_attack_layers():
-    from fdia_graph.timeline import _TimelineBuffers
-
-    buf = _TimelineBuffers(
-        (5, 3, 2),
-        np.ones((5, 3, 2), np.float32),
-        lambda a, b: (np.zeros((b - a, 3, 4)), np.zeros((b - a, 2, 2))),
-        attack=False,
-    )
-    assert set(buf._layers) == {
-        "data/node_x",
-        "data/edge_x",
-        "data/y",
-        "data/temporal_delta",
-        "data/swing",
-        "benign/node_benign",
-        "benign/edge_benign",
-        "clean/edge_clean",
-    }
-    assert buf.node_x.shape == (5, 3, 4) and buf.mag == []  # whole arrays, no sink
-
-
-def test_the_stream_clean_slice_computes_flows_only():
-    from fdia_graph.engine import FdiaGenerator
-    from fdia_graph.generation import _load_states
-    from fdia_graph.timeline import _clean_slice
-
-    g, X = FdiaGenerator(14, seed=1), _load_states(14, None)[:8]
-    states, flows = _clean_slice(g, X, 2, 6, states=False)
-    assert states is None and flows.shape == (4, 20, 2)
-    assert np.array_equal(_clean_slice(g, X, 2, 6)[0], X[2:6].astype(np.float32))
-
-
-def test_am_direction_and_the_pool_as_hdf5(tmp_path, pool):
-    with pytest.raises(ValueError, match="am_direction"):
-        generate_timeline(
-            14, states=pool[:20], families=("Am",), am_direction="up", out=str(tmp_path / "x.h5")
-        )
-    h5 = tmp_path / "pool.h5"
-    with h5py.File(h5, "w") as f:
-        f.create_dataset("X", data=pool[:60])
-    assert np.array_equal(_load_states(14, str(h5)), pool[:60])
-    out = generate_timeline(
-        14, states=str(h5), seed=SEED, families=("Am", "Ad"), ramp_len=10, out=str(tmp_path / "t.h5")
-    )
-    assert os.path.exists(out)
-    a, attrs = _read(out)
-    assert attrs["T"] == 60 and set(np.unique(a["data/family"]).tolist()) <= {0, 2, 7}
 
 
 def test_score_bundles_accept_the_seventh_family():

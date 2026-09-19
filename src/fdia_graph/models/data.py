@@ -1,6 +1,6 @@
-"""What a user gets back: one record, a batch, a whole split, a summary, a stream, the stacked
-arrays a shard is written from, and the per-record truth an estimator is scored against. Each is
-a Bundle, so it is still the dict it always was.
+"""What a user gets back: one record, a batch, a whole split, a summary, a stream, the episode
+table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still
+the dict it always was.
 
 The shard-shaped bundles are built from the field groups in `fields.py`, so each field's meaning
 is written once; what a bundle adds is its leading axis, which fields it requires, and the order
@@ -73,26 +73,6 @@ class EpisodeTable(Bundle):
 
     def __len__(self) -> int:
         return len(self.onset)
-
-
-@dataclass(frozen=True, eq=False)
-class ShardArrays(Bundle):
-    """The stacked arrays of a whole shard as the writer receives them, leading axis n: one row per
-    record in the order the records were built. Kept explicit rather than built from the field
-    groups: every field is required and numpy, and the writer relies on both."""
-
-    node_x: np.ndarray  # [n, N, 4]
-    node_m: np.ndarray  # [n, N, 4]
-    edge_x: np.ndarray  # [n, E, 2]
-    edge_m: np.ndarray  # [n, E, 2]
-    y: np.ndarray  # [n, N]
-    temporal_delta: np.ndarray  # [n, N, 2]
-    swing: np.ndarray  # [n, N, 2]
-    family: np.ndarray  # [n]
-    seq_id: np.ndarray  # [n]
-    timestep: np.ndarray  # [n]
-    gap: np.ndarray  # [n] 1 for a gap (skipped scan) record, else 0
-    stealthy: np.ndarray  # [n]
 
 
 @dataclass(frozen=True, eq=False)

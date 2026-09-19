@@ -1,17 +1,14 @@
 """What the frozen references contain, shared by tools/freeze_reference.py (writer) and
 tests/test_frozen.py (reader), so the two cannot disagree about what is compared."""
 
-import hashlib
 from typing import Any
 
 import numpy as np
 
-SHARD_KW = dict(per_family=12, n_benign=80, seed=1)  # the conftest tiny shard, exactly
-STREAM_T = 300
-CLEAN_ROWS = 256  # rows of the clean pool kept in the reference; the rest is covered by a hash
+TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=3)  # the conftest tiny timeline, exactly
 
 
-def shard_arrays(path: str) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+def file_arrays(path: str) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Every dataset in the HDF5 file, keyed by its path, and every attribute as JSON-safe values."""
     import h5py
 
@@ -20,15 +17,7 @@ def shard_arrays(path: str) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
 
     def visit(name: str, obj: Any) -> None:
         if isinstance(obj, h5py.Dataset):
-            data = obj[()]
-            key = name.replace("/", "__")
-            if name.startswith("clean/"):
-                # The clean group holds the WHOLE operating-point pool (thousands of timesteps, most
-                # of the file). Freeze its first rows for the tolerance comparison and a hash of all
-                # of it for the strict comparison, so the reference stays small.
-                attrs[f"{name}::sha256"] = hashlib.sha256(np.ascontiguousarray(data).tobytes()).hexdigest()
-                data = data[:CLEAN_ROWS]
-            arrays[key] = data
+            arrays[name.replace("/", "__")] = obj[()]
         for k, v in obj.attrs.items():
             attrs[f"{name}::{k}"] = jsonable(v)
 
@@ -50,15 +39,6 @@ def jsonable(v: Any) -> Any:
     if isinstance(v, float) and v != v:  # NaN never equals itself, so it would fail every comparison
         return "nan"
     return v
-
-
-def stream_arrays(s: dict[str, Any]) -> dict[str, np.ndarray]:
-    out = {k: np.asarray(v) for k, v in s.items() if isinstance(v, np.ndarray)}
-    out["episode_onset"] = np.array([e["onset"] for e in s["episodes"]], np.int64)
-    out["episode_length"] = np.array([e["length"] for e in s["episodes"]], np.int64)
-    out["episode_family"] = np.array([e["family"] for e in s["episodes"]], np.int64)
-    out["episode_buses"] = np.array([",".join(map(str, e["buses"])) for e in s["episodes"]])
-    return out
 
 
 def se_scores(name: str) -> dict[str, dict[str, dict[str, float]]]:

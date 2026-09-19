@@ -97,7 +97,7 @@ PR as the writer (step 1) so the eight systems are generated once.
 |---|---|---|---|
 | 1 | writer | `timeline.generate_timeline` writes the one file (the walker's episode primitives shared with `generate_stream`, whose scheduler stays bit-identical until step 3); the `Am` family and its knobs; `episodes/` and `attack/` groups; families scheduled by inverse expected length; the pool read from HDF5 | no |
 | 2 | loader | reads `kind="timeline"` files: `benign/`, `episodes/`, stored split; `order="time" | "random"` with `seed`; `ds.windows`, `ds.episodes`; `torch_windows` / `pyg_stream` on a dataset; `fg.generate` writes timelines; `load_stream` / `generate_stream` / `windows` warn (`Stream` and the `attack/` group reach the loader in step 3) | no |
-| 3 | delete | the shard writer, the npz path, both sidecars, the graph sidecar assets; the frozen references re-frozen on the new tiny file | no (references only) |
+| 3 | delete | the shard writer, the stream walker and npz writer, both sidecars, the graph sidecar read; the frozen references re-frozen on the tiny timeline; a checked-in v0.7.2 shard keeps the old-layout reader tested (`load_stream` reads the v0.7.2 stream files until step 4) | no (references only) |
 | 4 | data | the eight systems regenerated with the seven families, pools converted, **one file per system**, one release `v0.8.0`; `registry` points at it; `FDIA_GRAPH_RELEASE=v0.7.2` still loads the old shards through the old layout for one minor version | yes |
 | 5 | results and docs | `docs/se` and `docs/localization` re-run (IEEE-300 hours), one "Load" section, the data dictionary as one table with a "series" column, changelog with the number deltas | no |
 
