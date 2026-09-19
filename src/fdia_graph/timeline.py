@@ -94,8 +94,9 @@ class _TimelineBuffers:
 
     With a `sink` (the writer: name -> HDF5 dataset of full length T) the layers are staged in a
     batch of _BATCH frames and flushed as the walk passes them, so memory is bounded whatever T;
-    without one (the streams) every layer is held whole and read back by the caller.
-    `attack=False` skips the tamper masks and magnitude lists nothing reads.
+    without one (the streams) every layer is held whole and read back by the caller, and the clean
+    states are not staged at all (the caller has the pool). `attack=False` skips the tamper masks
+    and magnitude lists nothing reads.
     """
 
     def __init__(
@@ -110,10 +111,13 @@ class _TimelineBuffers:
         n = T if sink is None else min(_BATCH, T)
         self.T, self._n, self._base, self._sink = T, n, 0, sink
         self.attack = attack
+        skip: set[str] = set() if attack else set(_ATTACK_LAYERS)
+        if sink is None:
+            skip.add("clean/node_clean")  # the streams read the pool itself
         self._layers: dict[str, np.ndarray] = {
             name: np.zeros((n, *shape(C, E)), dtype)
             for name, (shape, dtype) in _LAYERS.items()
-            if attack or name not in _ATTACK_LAYERS
+            if name not in skip
         }
         self.family = np.zeros(T, np.int16)
         self.seq_id = np.full(T, -1, np.int32)
@@ -153,7 +157,9 @@ class _TimelineBuffers:
         L["data/y"][r] = frame.y
         L["data/edge_x"][r] = frame.edge_x
         L["benign/edge_benign"][r] = bex
-        L["clean/node_clean"][r], L["clean/edge_clean"][r] = self._clean_batch[0][r], self._clean_batch[1][r]
+        if "clean/node_clean" in L:
+            L["clean/node_clean"][r] = self._clean_batch[0][r]
+        L["clean/edge_clean"][r] = self._clean_batch[1][r]
         self.family[t] = fid
         self.seq_id[t] = sid if fid else -1
         self.attacked += int(frame.y.any())
@@ -543,10 +549,18 @@ def _finish_timeline(
     f.attrs.update(_timeline_attrs(g, T, seed, buf, knobs))
 
 
-def _check_knobs(attacked_frac: float, am_direction: str, lengths: dict[str, Optional[int]]) -> None:
-    """Refuse the knob values that would hang or mislead the walk, before any physics is built."""
+def _check_knobs(
+    attacked_frac: float, am: tuple[float, float, str], lengths: dict[str, Optional[int]]
+) -> None:
+    """Refuse the knob values that would hang or mislead the walk, before any physics is built.
+    `am` = (am_rate, am_sigma, am_direction)."""
+    am_rate, am_sigma, am_direction = am
     if am_direction not in ("mask", "induce", "both"):
         raise ValueError(f"am_direction must be 'mask', 'induce' or 'both', got {am_direction!r}")
+    if not am_rate > 0:
+        raise ValueError(f"am_rate is the per-frame step as a fraction of the noise floor, got {am_rate!r}")
+    if not am_sigma >= 0:
+        raise ValueError(f"am_sigma is a number of accuracy-class stds, got {am_sigma!r}")
     if not 0.0 <= attacked_frac <= 1.0:
         raise ValueError(f"attacked_frac is a fraction of frames, got {attacked_frac!r}")
     for knob, value in lengths.items():
@@ -592,7 +606,11 @@ def generate_timeline(
     split            chronological train/val/test fractions by frame, episodes never cut
     """
     am_len = ramp_len if am_len is None else am_len
-    _check_knobs(attacked_frac, am_direction, dict(ramp_len=ramp_len, am_len=am_len, corrupt_len=corrupt_len))
+    _check_knobs(
+        attacked_frac,
+        (am_rate, am_sigma, am_direction),
+        dict(ramp_len=ramp_len, am_len=am_len, corrupt_len=corrupt_len),
+    )
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, **red)
     lra_k = min(6, len(g.load_bus))

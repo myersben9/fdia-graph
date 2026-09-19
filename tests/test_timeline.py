@@ -216,6 +216,32 @@ def test_empty_episode_lengths_are_refused(tmp_path, pool):
     for bad in (dict(ramp_len=0), dict(am_len=0), dict(corrupt_len=0)):
         with pytest.raises(ValueError, match="at least 1 frame"):
             generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), **bad)
+    with pytest.raises(ValueError, match="am_rate"):
+        generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_rate=0.0)
+    with pytest.raises(ValueError, match="am_sigma"):
+        generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_sigma=-1.0)
+
+
+def test_stream_buffers_stage_no_clean_states_or_attack_layers():
+    from fdia_graph.timeline import _TimelineBuffers
+
+    buf = _TimelineBuffers(
+        (5, 3, 2),
+        np.ones((5, 3, 2), np.float32),
+        lambda a, b: (np.zeros((b - a, 3, 4)), np.zeros((b - a, 2, 2))),
+        attack=False,
+    )
+    assert set(buf._layers) == {
+        "data/node_x",
+        "data/edge_x",
+        "data/y",
+        "data/temporal_delta",
+        "data/swing",
+        "benign/node_benign",
+        "benign/edge_benign",
+        "clean/edge_clean",
+    }
+    assert buf.node_x.shape == (5, 3, 4) and buf.mag == []  # whole arrays, no sink
 
 
 def test_am_direction_and_the_pool_as_hdf5(tmp_path, pool):
