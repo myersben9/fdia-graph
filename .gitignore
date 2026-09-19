@@ -51,3 +51,7 @@ site/
 
 # per-method estimate/score caches written by the docs example scripts
 docs/*/results/cache/
+
+# the one checked-in v0.7.2 record shard the loader tests read (156 KB)
+!tests/data/tiny_shard_v072.h5
+!tests/frozen/tiny_ieee14_timeline.npz

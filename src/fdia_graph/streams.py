@@ -1,134 +1,27 @@
-"""Continuous attacked streams — the realistic time series for temporal models (LSTM / TGN).
+"""The deprecated stream entry points (retire in 0.19): `generate_stream` writes a timeline file
+through `fdia_graph.timeline` and returns it as the stream dict, `load_stream` reads the v0.7.2
+stream files, and `windows` slides over a stream dict. The timeline file is the dataset now:
+`fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`.
 
-The classification shard (`generate`) is a SHUFFLED table of independent labeled snapshots: attacks are
-injected at scattered timesteps and mixed together, so its rows are not contiguous in time. A temporal model
-wants the opposite: one running timeline where the grid operates normally and an attack appears over a
-contiguous EPISODE, then clears. `generate_stream` produces exactly that, per system:
-
-    Three aligned measurement layers per frame ([|V|, Pinj, Qinj, angle] columns):
-    node_x   [T, N, 4]  OBSERVED feed — attacked+noisy where attacked, benign+noisy elsewhere (the model input)
-    benign   [T, N, 4]  the same meters with the ATTACK REMOVED (benign+noisy) — what they would read un-attacked
-    clean    [T, N, 4]  NOISELESS attack-free TRUE state — the SE / reconstruction target
-                        (benign-clean = noise always; node_x-benign = attack exactly for Ad/As/Ar only.
-                        Aq/At/Al re-solve, so node_x-benign there also carries a noise term; use clean as SE target.)
-    edge_x, edge_benign, edge_clean [T, E, 2]  the SAME three layers for branch flows [P_from, Q_from]
-                        (observed / attack-removed / noiseless). Node + edge together are the full SE measurement set.
-    edge_index [2, E]    static graph connectivity (COO, int64 -> torch.long); edge_attr [E, 8] static line
-                        features (r, x, b, g, gs, bs, tap, shift) — the two holders PyTorch-Geometric models expect.
-    node_m [N, 4], edge_m [E, 2]  static meter-availability masks (metering is SPARSE; 0 = no meter, entry is
-                        zero-filled). The benign-clean = meter-noise identity holds on measured channels for all
-                        families; the node_x - benign = attack identity holds exactly only for Ad/As/Ar (see above).
-    y        [T, N]      per-timestep, per-bus attack label (0 on benign frames/buses)
-    family   [T]         active attack family id at each timestep (0 = benign)
-    temporal_delta, swing [T, N, 2]   change vs the PREVIOUS EMITTED frame (see note below)
-    episodes list        (onset, length, family, attacked buses) for every attack episode
-
-Temporal-feature note: unlike the shard (which compares an attacked snapshot to the benign X[t-1]), a stream
-compares each frame to the previous EMITTED frame. That is what keeps a stealthy ramp looking like a small
-per-step change and a spike looking like an abrupt jump — the spike-vs-ramp signal the dataset is built on.
+A stream dict has, per frame, three aligned measurement layers ([|V|, Pinj, Qinj, angle] columns):
+node_x (observed), benign (attack removed, noise kept), clean (noiseless truth), the same three for
+branch flows, the static graph and meter masks, the labels, the two temporal features, and the
+episode list (see the timeline module for what each layer means).
 """
 
 from __future__ import annotations
 
+import os
 import warnings
 from collections.abc import Sequence
-from dataclasses import dataclass
-from functools import partial
 from typing import Any, Optional, Union
 
 import numpy as np
 
 from .dataset.sequence import check_window_args, window_labels
-from .engine import FAM_ID, FdiaGenerator
-from .engine.records import AM_FAMILY, RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs
-from .generation import NOISE_FLOOR, _FrameContext, _load_states
-from .generation import _swing_scale as _generation_swing_scale
 from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
 from .registry import AssetSpec
-from .timeline import (
-    _benign_gap,
-    _clean_slice,
-    _ramp_episode,
-    _single_shot_episode,
-    _TimelineBuffers,
-    _want_attack,
-)
-
-
-@dataclass
-class _StreamPlan:
-    """How a stream is walked: which families rotate, whether the ramp is among them, the ramp
-    shape, and the attacked fraction the gaps are sized for. The published streams' scheduler:
-    families drawn uniformly, the ramp with probability 1/(n+1), the stream episode-length bands."""
-
-    single: list[int]  # single-shot families (persist as a flat episode)
-    has_ramp: bool
-    ramp_len: int
-    ramp_rate: float
-    attacked_frac: float
-
-
-def _advance(
-    ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, t: int, plan: _StreamPlan
-) -> int:
-    """One step of the timeline walk: a benign gap when the attacked fraction is on target (or
-    nothing can attack), else a ramp episode or a single-shot episode. Returns the next free timestep."""
-    if not _want_attack(buf, t, plan.attacked_frac) or not (plan.single or plan.has_ramp):
-        return _benign_gap(ctx, buf, rng, t)
-    use_ramp = plan.has_ramp and (not plan.single or rng.random() < 1.0 / (len(plan.single) + 1))
-    if use_ramp and t < len(ctx.X) - plan.ramp_len:
-        return _ramp_episode(ctx, buf, rng, t, plan.ramp_len, plan.ramp_rate)
-    fid = int(rng.choice(plan.single)) if plan.single else RAMP_FAMILY
-    return _single_shot_episode(ctx, buf, rng, t, fid)
-
-
-def _stream_result(
-    g: FdiaGenerator, X: np.ndarray, buf: _TimelineBuffers, T: int, out: Optional[str]
-) -> Stream:
-    """Assemble the stream dict (and save it when `out` is given)."""
-    # clean = the NOISELESS healthy state at every timestep (the truth the attack was injected onto), in the
-    # same column order as node_x ([|V|, Pinj, Qinj, angle]). Three aligned layers per frame: node_x
-    # (attacked+noisy observed) -> benign (attack removed, noise kept) -> clean (noise removed too).
-    clean = X[:T].astype(np.float32)
-    # Static graph for PyG-style models: edge_index [2,E] connectivity (int64 -> torch.long) + edge_attr
-    # [E,8] line features (r, x, b, g, series-admittance gs/bs, tap, shift). Same every frame.
-    edge_index = np.asarray(g.ei, dtype=np.int64)
-    edge_attr = np.stack(
-        [
-            g.branch.r,
-            g.branch.x,
-            g.branch.b,
-            g.branch.g,
-            g.edge_gs,
-            g.edge_bs,
-            g.branch.tap,
-            g.branch.shift_deg,
-        ],
-        axis=1,
-    ).astype(np.float32)
-    # Static availability masks (which channels carry a meter), the same sparse plan every frame.
-    masks = g.emit_from_state(X[0])  # the same sparse plan every frame
-    result: dict[str, Any] = dict(
-        node_x=buf.node_x,
-        benign=buf.benign,
-        clean=clean,
-        edge_x=buf.edge_x,
-        edge_benign=buf.edge_benign,
-        edge_clean=buf.edge_clean,
-        edge_index=edge_index,
-        edge_attr=edge_attr,
-        node_m=masks.node_m.astype(np.uint8),
-        edge_m=masks.edge_m.astype(np.uint8),
-        y=buf.y,
-        family=buf.family,
-        temporal_delta=buf.temporal_delta,
-        swing=buf.swing,
-        timestep=np.arange(T),
-        episodes=buf.episodes,
-    )
-    if out:
-        np.savez_compressed(out, **{**result, "episodes": np.array(buf.episodes, dtype=object)})
-    return Stream(**result, **stream_summary(result))
+from .timeline import DEFAULT_FAMILIES
 
 
 def stream_summary(s: dict[str, Any]) -> dict[str, Any]:
@@ -146,7 +39,7 @@ def generate_stream(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
     attacked_frac: float = 0.5,
-    families: Sequence[str] = ("Aq", "Ad", "As", "Ar", "At", "Al"),
+    families: Sequence[str] = DEFAULT_FAMILIES,
     attack_intensity: float = 0.20,
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
@@ -154,83 +47,92 @@ def generate_stream(
     redundancy: Optional[dict] = None,
     seed: int = 123,
     out: Optional[str] = None,
+    **knobs: Any,
 ) -> Stream:
-    """Build one continuous attacked time series for `system`. Returns a dict (also saved to `out` if given).
+    """Deprecated: `fg.generate` writes the timeline and `fg.load(name, order="time")` reads it.
+    Builds one timeline file for `system` (`out`, default `stream_ieee{N}.h5` under the cache
+    directory) and returns it as the stream dict. The parameters keep their pre-0.18 positions;
+    the Am knobs and `corrupt_len` of `timeline.generate_timeline` pass through `knobs`."""
+    from .dataset import FdiaGraph
+    from .registry import CACHE_DIR, system_id
+    from .timeline import generate_timeline
 
-    attacked_frac : target fraction of timesteps under an attack episode (~0.5 = balanced).
-    families      : attack families to rotate through; "At" is the slow ramp (its own episode shape).
-    Other knobs mirror `generate`. Reuses the exact per-frame attack physics so streamed attacks match the shard.
-    """
     warnings.warn(
         "generate_stream is deprecated and retires in 0.19: fg.generate writes the same timeline as "
         "one HDF5 file and fg.load(name, order='time') reads it",
         DeprecationWarning,
         stacklevel=2,
     )
-    red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
-    g = FdiaGenerator(system, seed=seed, **red)
-    lra_k = min(6, len(g.load_bus))
-    g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
-    X = _load_states(system, states)
-    T, C = len(X), g.C
-    knobs = FrameKnobs(
-        attack_intensity, NOISE_FLOOR, lra_k, replay_tau, reject_below_floor=False, with_benign=True
+    out = out or os.path.join(CACHE_DIR, f"stream_ieee{system_id(system)}.h5")
+    path = generate_timeline(
+        system,
+        states=states,
+        attacked_frac=attacked_frac,
+        families=families,
+        attack_intensity=attack_intensity,
+        ramp_rate=ramp_rate,
+        ramp_len=ramp_len,
+        replay_tau=replay_tau,
+        redundancy=redundancy,
+        seed=seed,
+        out=out,
+        **knobs,
     )
-    ctx = _FrameContext(g, X, _generation_swing_scale(X, C), knobs, [])
-    fam_ids = [FAM_ID[f] for f in families]
-    if AM_FAMILY in fam_ids:
-        raise ValueError("Am is a timeline family: fdia_graph.timeline.generate_timeline builds it")
-    plan = _StreamPlan(
-        [f for f in fam_ids if f in SINGLE_SHOT_ORDER],
-        RAMP_FAMILY in fam_ids,
-        ramp_len,
-        ramp_rate,
-        attacked_frac,
-    )
-    # All noiseless from-end flows over the whole timeline in one batched matmul (metered branches only, so
-    # edge_benign - edge_clean is the meter error on the measured channels). Shared physics primitive.
-    buf = _TimelineBuffers(
-        (T, C, g.E), ctx.scale, partial(_clean_slice, g, X[:T], states=False), attack=False
-    )
-    # Walk the timeline: alternate a benign gap and an attack episode, sized so the attacked fraction ~ target.
-    t = 0
-    while t < T:
-        t = _advance(ctx, buf, g.rng, t, plan)
-    return _stream_result(g, X, buf, T, out)
+    return stream_of(FdiaGraph(path))
 
 
-_GRAPH_KEYS = ("edge_index", "edge_attr", "node_m", "edge_m")  # PyG-ready graph + static meter masks
+_STREAM_FIELDS = (
+    "node_x",
+    "node_m",
+    "edge_x",
+    "edge_m",
+    "y",
+    "family",
+    "timestep",
+    "temporal_delta",
+    "swing",
+    "clean",
+    "edge_clean",
+    "benign",
+    "edge_benign",
+)
+
+
+def stream_of(ds: Any) -> Stream:
+    """A time-ordered, contiguous timeline view as the stream dict: the per-frame layers, the
+    static graph and masks, and the episode list. A random order or a family subset is refused,
+    since the frames of a stream are consecutive."""
+    ds._check_timeline("stream_of")
+    a = ds.to_numpy(_STREAM_FIELDS)  # only what the dict carries; edge_clean_full would cost a Yf pass
+    ep = ds.episodes
+    return Stream(
+        node_x=a.node_x,
+        benign=a.benign,
+        clean=a.clean,
+        edge_x=a.edge_x,
+        edge_benign=a.edge_benign,
+        edge_clean=a.edge_clean,
+        edge_index=a.edge_index,
+        edge_attr=ds.edge_attr_np,
+        node_m=a.node_m[0],
+        edge_m=a.edge_m[0],
+        y=a.y,
+        family=a.family,
+        temporal_delta=a.temporal_delta,
+        swing=a.swing,
+        timestep=a.timestep,
+        episodes=[
+            dict(onset=int(o), length=int(n), family=int(f), buses=b.tolist())
+            for o, n, f, b in zip(ep.onset, ep.length, ep.family, ep.buses)
+        ],
+        **stream_summary(a),
+    )
 
 
 def _asset_spec(name: str, file: str, release: Optional[str]) -> AssetSpec:
     from .registry import _REPO, STREAM_RELEASE
 
     return AssetSpec("builtin", name, file=file, release=release or STREAM_RELEASE, repo=_REPO)
-
-
-def _attach_graph_sidecar(out: dict[str, Any], C: int, release: Optional[str]) -> None:
-    """Newer streams embed the graph and masks; streams that predate them (e.g. the v0.7.1 assets) get
-    the tiny per-system graph sidecar, so every load_stream dict is complete."""
-    from .download import ensure_local
-
-    if all(k in out for k in _GRAPH_KEYS):
-        return
-    gz = np.load(ensure_local(_asset_spec(f"graph{C}", f"graph_ieee{C}.npz", release)))
-    for k in _GRAPH_KEYS:
-        if k not in out and k in gz.files:
-            out[k] = gz[k]
-
-
-def _normalize_graph_dtypes(out: dict[str, Any]) -> None:
-    """The same dtypes whatever the source: edge_index int64 (torch.long), edge_attr float32, meter
-    masks uint8 (as generate_stream writes them), so embedded and sidecar loads are identical."""
-    if "edge_index" in out:
-        out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)
-    if "edge_attr" in out:
-        out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
-    for m in ("node_m", "edge_m"):
-        if m in out:
-            out[m] = np.asarray(out[m], dtype=np.uint8)
 
 
 def load_stream(system: Union[int, str], release: Optional[str] = None) -> Stream:
@@ -253,8 +155,10 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     C = system_id(system)
     z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", release)), allow_pickle=True)
     out = {k: z[k] for k in z.files}
-    _attach_graph_sidecar(out, C, release)
-    _normalize_graph_dtypes(out)
+    out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)  # torch.long
+    out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
+    for m in ("node_m", "edge_m"):
+        out[m] = np.asarray(out[m], dtype=np.uint8)
     return Stream(**out, **{k: v for k, v in stream_summary(out).items() if k not in out})
 
 

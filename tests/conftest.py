@@ -17,36 +17,28 @@ atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 import pytest  # noqa: E402
 
 TINY = "tiny_ieee14"
-TINY_TL = "tiny_ieee14_timeline"
-
-
-@pytest.fixture(scope="session")
-def shard(tmp_path_factory):
-    """Name of a small generated IEEE-14 record shard (the v0.7.2 layout): 80 benign + 12 per
-    family (At ramps expand). The frozen references are built from it until step 3 of
-    docs/plans/ONE_DATASET_PLAN.md re-freezes them on a timeline."""
-    pytest.importorskip("pandapower")
-    from fdia_graph.generation import generate_shard
-
-    out = tmp_path_factory.mktemp("shard") / "tiny.h5"
-    # The string system name is deliberate: it is the documented public form and once crashed generate().
-    generate_shard("ieee14", TINY, per_family=12, n_benign=80, out=str(out), seed=1)
-    return TINY
+# The v0.7.2 record-shard layout the loader still reads: 12 benign + 3 per family on a 200-timestep
+# pool slice, written by the pre-0.18 writer (deleted in 0.18) and checked in.
+SHARD_V072 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tiny_shard_v072.h5")
 
 
 @pytest.fixture(scope="session")
 def timeline(tmp_path_factory):
-    """Name of a small generated IEEE-14 timeline: 1000 frames, every family, 20-frame ramps."""
+    """Name of a small generated IEEE-14 timeline: 1000 frames, every family, 20-frame ramps
+    (the frozen references are built from it with the same knobs, see frozen_spec.TIMELINE_KW)."""
     pytest.importorskip("pandapower")
+    from frozen_spec import TIMELINE_KW
+
     import fdia_graph as fg
 
-    out = tmp_path_factory.mktemp("timeline") / "tiny_tl.h5"
-    fg.generate("ieee14", TINY_TL, frames=1000, ramp_len=20, out=str(out), seed=3)
-    return TINY_TL
+    out = tmp_path_factory.mktemp("timeline") / "tiny.h5"
+    # The string system name is deliberate: it is the documented public form and once crashed generate().
+    fg.generate("ieee14", TINY, out=str(out), **TIMELINE_KW)
+    return TINY
 
 
 @pytest.fixture(scope="session")
-def splits(shard):
+def splits(timeline):
     import fdia_graph as fg
 
-    return {s: fg.load(shard, split=s) for s in ("train", "val", "test")}
+    return {s: fg.load(timeline, split=s) for s in ("train", "val", "test")}

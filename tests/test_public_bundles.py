@@ -64,14 +64,14 @@ def test_record_batch_and_arrays(splits):
     json.dumps(summ)  # scalar bundles serialize as the dicts they are
 
 
-def test_estimator_and_localizer_scores(shard):
+def test_estimator_and_localizer_scores(timeline):
     import fdia_graph as fg
     from fdia_graph.localization import SwingThreshold
     from fdia_graph.localization.base import LocalizerScores, OverallMetrics
     from fdia_graph.se import WLS
     from fdia_graph.se.base import ErrorPair, EstimatorScores
 
-    train, test = fg.load(shard, split="train"), fg.load(shard, split="test")
+    train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
     se = WLS().fit(train).score(test)
     assert isinstance(se, EstimatorScores) and isinstance(se.geo, ErrorPair)
     _agree(se)
@@ -89,11 +89,11 @@ def test_estimator_and_localizer_scores(shard):
     json.dumps(loc)
 
 
-def test_jacobian_outputs(shard):
+def test_jacobian_outputs(timeline):
     import fdia_graph as fg
     from fdia_graph.se.jacobian import JacobianFeatures, JacobianOutputs
 
-    train, test = fg.load(shard, split="train"), fg.load(shard, split="test")
+    train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
     out = JacobianFeatures().fit(train).transform(test.to_numpy())
     assert isinstance(out, JacobianOutputs)
     _agree(out)
@@ -101,17 +101,21 @@ def test_jacobian_outputs(shard):
     assert out["global"] is out.global_ and out.bus.shape[:2] == (len(test), test.N)
 
 
-def test_stream_bundle():
+@pytest.fixture(scope="module")
+def raw_stream(timeline):
+    """A stream dict as `generate_stream` returns it, minus the two summary fields: what a stream
+    file carries."""
+    import fdia_graph as fg
+    from fdia_graph.streams import stream_of
+
+    s = stream_of(fg.load(timeline, split="test"))
+    return {k: v for k, v in s.items() if k not in ("system", "attacked_frac")}
+
+
+def test_stream_bundle(raw_stream):
     from fdia_graph.streams import Stream
 
-    z = np.load(os.path.join(FROZEN, "ieee14_stream.npz"))  # the frozen file flattens the episode list
-    raw = {k: z[k] for k in z.files if not k.startswith("episode_")}
-    raw["episodes"] = [
-        {"onset": int(o), "length": int(n), "family": int(f), "buses": [int(b) for b in bs.split(",") if b]}
-        for o, n, f, bs in zip(
-            z["episode_onset"], z["episode_length"], z["episode_family"], z["episode_buses"]
-        )
-    ]
+    raw = raw_stream
     s = Stream(**raw)
     _agree(s)
     assert list(s) == list(raw) and s.system is None and "system" not in s  # the file carries arrays only
@@ -126,20 +130,14 @@ def test_stream_bundle():
     assert s.node_x.shape[0] == s.y.shape[0] == len(s.timestep)
 
 
-def test_load_stream_fills_the_summary_fields(tmp_path, monkeypatch):
-    """`fg.load_stream` itself, with the download replaced by a file built from the frozen stream's
-    arrays: `system` and `attacked_frac` come back filled (they were None before 0.18)."""
+def test_load_stream_fills_the_summary_fields(tmp_path, monkeypatch, raw_stream):
+    """`fg.load_stream` itself, with the download replaced by a file built from a stream's arrays
+    (the v0.7.2 stream files): `system` and `attacked_frac` come back filled."""
     import fdia_graph as fg
     import fdia_graph.download as download
 
-    z = np.load(os.path.join(FROZEN, "ieee14_stream.npz"))
-    arrays = {k: z[k] for k in z.files if not k.startswith("episode_")}
-    episodes = [
-        {"onset": int(o), "length": int(n), "family": int(f), "buses": [int(b) for b in bs.split(",") if b]}
-        for o, n, f, bs in zip(
-            z["episode_onset"], z["episode_length"], z["episode_family"], z["episode_buses"]
-        )
-    ]
+    arrays = {k: v for k, v in raw_stream.items() if k != "episodes"}
+    episodes = raw_stream["episodes"]
     path = tmp_path / "stream_ieee14.npz"
     np.savez_compressed(path, **arrays, episodes=np.array(episodes, dtype=object))
     monkeypatch.setattr(download, "ensure_local", lambda spec: str(path))

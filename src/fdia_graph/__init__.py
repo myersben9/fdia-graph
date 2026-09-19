@@ -9,7 +9,7 @@ Quickstart
         batch["node_x"], batch["edge_x"], batch["y"], batch["family"], ...
 
     # custom dataset with research knobs, then load it by name:
-    fg.generate("ieee118", name="my_run", per_family=5000, attack_intensity=0.20, ramp_rate=0.003)
+    fg.generate("ieee118", name="my_run", attacked_frac=0.5, attack_intensity=0.20, ramp_rate=0.003)
     ds = fg.load("my_run", split="train")
 """
 

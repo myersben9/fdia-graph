@@ -54,25 +54,25 @@ def test_bad_split_or_family_fails_before_any_download(monkeypatch):
         fg.load("ieee118", units="feet")
 
 
-def test_load_rejects_bad_units_split_and_family(shard):
+def test_load_rejects_bad_units_split_and_family(timeline):
     with pytest.raises(ValueError, match="units must be"):
-        fg.load(shard, units="feet")
+        fg.load(timeline, units="feet")
     with pytest.raises(ValueError, match="split must be one of"):
-        fg.load(shard, split="bogus")
+        fg.load(timeline, split="bogus")
     with pytest.raises(ValueError, match="unknown family"):
-        fg.load(shard, families=["Bogus"])
+        fg.load(timeline, families=["Bogus"])
 
 
-def test_family_filter_aliases_and_heldout_protocol(shard):
-    by_alias = fg.load(shard, families=["Ao"])
-    by_code = fg.load(shard, families=[1])
+def test_family_filter_aliases_and_heldout_protocol(timeline):
+    by_alias = fg.load(timeline, families=["Ao"])
+    by_code = fg.load(timeline, families=[1])
     assert len(by_alias) == len(by_code) > 0 and np.array_equal(by_alias.idx, by_code.idx)
     for split in ("train", "val"):
-        fams = set(fg.load(shard, split=split, heldout=True).to_numpy(["family"])["family"].tolist())
+        fams = set(fg.load(timeline, split=split, heldout=True).to_numpy(["family"])["family"].tolist())
         assert not fams & {3, 4}, f"As/Ar must be held out of {split}"
-    test_fams = set(fg.load(shard, split="test", heldout=True).to_numpy(["family"])["family"].tolist())
+    test_fams = set(fg.load(timeline, split="test", heldout=True).to_numpy(["family"])["family"].tolist())
     assert test_fams & {3, 4}, "the test split keeps As/Ar"
-    assert len(fg.load(shard, include_gaps=True)) >= len(fg.load(shard))
+    assert len(fg.load(timeline, include_gaps=True)) >= len(fg.load(timeline))
 
 
 # ---- exports ----------------------------------------------------------------------------------------
@@ -184,38 +184,38 @@ def test_estimator_constructor_checks():
         GatedPrior(gate="oracle", gate_factor=2.0)
 
 
-def test_estimator_fit_and_score_input_checks(shard, splits):
+def test_estimator_fit_and_score_input_checks(timeline, splits):
     from fdia_graph.se import WLS
 
     with pytest.raises(ValueError, match="units='physical'"):
-        WLS().fit(fg.load(shard, split="train", units="pu"))
+        WLS().fit(fg.load(timeline, split="train", units="pu"))
     with pytest.raises(ValueError, match="benign records"):
-        WLS().fit(fg.load(shard, split="train", families=["Aq"]))
+        WLS().fit(fg.load(timeline, split="train", families=["Aq"]))
     est = WLS().fit(splits["train"])
     with pytest.raises(ValueError, match="xhat must be"):
         est.score(splits["test"], xhat=np.zeros((3, est.SD)))
 
 
-def test_localizer_input_checks(shard, splits):
+def test_localizer_input_checks(timeline, splits):
     from fdia_graph.localization import SwingThreshold
 
     with pytest.raises(ValueError, match="fa_target"):
         SwingThreshold(fa_target=1.5)
     with pytest.raises(ValueError, match="benign records"):
-        SwingThreshold().fit(fg.load(shard, split="train", families=["Aq"]))
+        SwingThreshold().fit(fg.load(timeline, split="train", families=["Aq"]))
     loc = SwingThreshold().fit(splits["train"])
     with pytest.raises(ValueError, match="scores must be"):
         loc.score(splits["test"], scores=np.zeros((2, 2)))
 
 
-# ---- opt-in: the real IEEE-118 shard --------------------------------------------------------------------
+# ---- opt-in: the real IEEE-118 timeline --------------------------------------------------------------------
 
 
 @pytest.mark.skipif(
-    not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: downloads the 317 MB IEEE-118 shard"
+    not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: downloads the 317 MB IEEE-118 timeline"
 )
 def test_ieee118_estimator_sanity():
-    """WLS on the published IEEE-118 shard: the benign angle error is a fraction of a degree and
+    """WLS on the published IEEE-118 timeline: the benign angle error is a fraction of a degree and
     every class scores finite. A loose bound, so a data or solver regression shows without pinning
     the paper's numbers here (docs/se/README.md holds those)."""
     from fdia_graph.se import WLS

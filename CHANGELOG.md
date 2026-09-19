@@ -5,6 +5,18 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- One generator path, step 3 of `docs/plans/ONE_DATASET_PLAN.md`: the record-shard writer
+  (`generation.generate_shard` and its draw loop), the stream walker and its `.npz` output, the
+  magnitude sidecar (`<out>.mag.npz`) and the graph sidecar read of `load_stream` are deleted, with
+  the `ShardArrays` and `Record` models and `SINGLE_SHOT_ORDER`. `generate_stream` is now the
+  timeline writer followed by a read of the file it wrote (`streams.stream_of` turns a time-ordered
+  dataset into the stream dict), so its output is the timeline's and its `out` is the HDF5 path;
+  `load_stream` still reads the v0.7.2 stream files (which embed their graph) until the v0.8.0 data
+  release. The loader keeps reading the v0.7.2 record shards; `tests/data/tiny_shard_v072.h5` is a
+  checked-in file in that layout that the suite loads.
+- The frozen references are re-frozen on the tiny timeline the suite builds (`frozen_spec.TIMELINE_KW`,
+  1000 IEEE-14 frames, every family): the file's arrays and attributes, and the estimator and
+  localizer scores on its test split. The shard and stream references are gone with their writers.
 - One loader for both kinds of file, step 2 of `docs/plans/ONE_DATASET_PLAN.md`. `fg.load(name)`
   reads a timeline file (`kind="timeline"`) as well as a v0.7.2 record shard. New arguments:
   `order="time"` (default) keeps the file order, chronological on a timeline; `order="random"` is
@@ -19,8 +31,7 @@ the public API, the generated files and the numbers are the same as the previous
 - `fg.generate(system, name, frames=None, **knobs)` now writes a timeline (the knobs of
   `timeline.generate_timeline`, plus `frames` to cap the pool timesteps walked) and registers it, so
   `fg.load(name)` and `fg.load(name, order="random")` read it back. The record-shard writer is
-  `fdia_graph.generation.generate_shard` for one minor version (the frozen references are still
-  built from it) and retires in 0.19.
+  gone (the entry above): the loader still reads the v0.7.2 shards, nothing writes them.
 - `generate_stream`, `load_stream` and `windows(stream, ...)` warn with `DeprecationWarning` and
   retire in 0.19: the timeline file replaces the stream, `fg.load(name, order="time")` reads it, and
   `ds.windows` replaces `windows`. They keep working unchanged until then (`load_stream` reads the

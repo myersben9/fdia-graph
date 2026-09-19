@@ -97,14 +97,28 @@ def test_windows_on_the_time_ordered_view(timeline):
         ds.windows(T + 1)
 
 
-def test_windows_refuse_a_record_shard(shard):
-    ds = fg.load(shard)
-    assert not ds.is_timeline and not ds.has_benign
+def test_the_v072_record_shard_still_loads():
+    """The pre-0.18 layout (gap rows, the clean pool once per pool timestep) reads as before."""
+    from conftest import SHARD_V072
+
+    from fdia_graph.dataset import FdiaGraph
+
+    ds = FdiaGraph(SHARD_V072)
+    assert not ds.is_timeline and not ds.has_benign and ds.has_clean and len(ds) > 0
+    assert len(FdiaGraph(SHARD_V072, include_gaps=True)) >= len(ds)
+    rec = ds[0]
+    assert "benign" not in rec and "benign" not in ds.to_numpy() and tuple(rec["clean"].shape) == (14, 4)
+    assert set(np.unique(ds.to_numpy(["family"])["family"]).tolist()) <= set(range(7))
+    train, test = FdiaGraph(SHARD_V072, split="train"), FdiaGraph(SHARD_V072, split="test")
+    assert len(train) > len(test) > 0
     with pytest.raises(ValueError, match="timeline file"):
         ds.windows(4)
     with pytest.raises(AttributeError, match="no episodes"):
         ds.episodes
-    assert "benign" not in ds[0] and "benign" not in ds.to_numpy()
+    rnd = FdiaGraph(SHARD_V072, order="random")
+    assert sorted(int(rnd[i]["timestep"]) for i in range(len(rnd))) == sorted(
+        int(ds[i]["timestep"]) for i in range(len(ds))
+    )
 
 
 def test_episodes_table_follows_the_view(timeline):
@@ -123,6 +137,27 @@ def test_episodes_table_follows_the_view(timeline):
     sub = test.episodes
     assert 0 < len(sub) < len(ep) and np.isin(sub.onset, test.idx).all()
     assert len(fg.load(timeline, families=["At"]).episodes) == int((ep.family == 5).sum())
+
+
+def test_edge_attr_np_is_torch_free_and_equal_to_edge_attr(timeline):
+    import torch
+
+    ds = fg.load(timeline)
+    assert np.array_equal(ds.edge_attr_np, ds.edge_attr.numpy().astype(np.float32))
+    ds._phys["edge_gs"] = None  # a file that predates the stored series admittance derives it
+    assert np.allclose(ds.edge_attr_np, ds.edge_attr.numpy(), rtol=1e-6)
+    assert isinstance(torch.as_tensor(ds.edge_attr_np), torch.Tensor)
+
+
+def test_stream_of_refuses_a_shuffled_or_filtered_view(timeline):
+    from fdia_graph.streams import stream_of
+
+    with pytest.raises(ValueError, match="order='time'"):
+        stream_of(fg.load(timeline, order="random"))
+    with pytest.raises(ValueError, match="consecutive frames"):
+        stream_of(fg.load(timeline, families=["Aq"]))
+    s = stream_of(fg.load(timeline, split="test"))
+    assert s.node_x.shape[0] == len(fg.load(timeline, split="test"))
 
 
 def test_torch_helpers_take_a_dataset(timeline):

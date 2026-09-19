@@ -63,10 +63,10 @@ def test_branch_flows_stack_matches_single():
         assert np.allclose(stack[t], branch_flows(V[t], Yf, ei[0], 100.0), rtol=1e-12, atol=1e-12)
 
 
-def test_loader_admittances_match_kernel(shard):
+def test_loader_admittances_match_kernel(timeline):
     import fdia_graph as fg
 
-    ds = fg.load(shard)
+    ds = fg.load(timeline)
     p = ds._phys
     branch = BranchModel(
         p["edge_r"], p["edge_x"], p["edge_b"], p["edge_g"], p["edge_tap"], p["edge_shift"], p["edge_status"]
