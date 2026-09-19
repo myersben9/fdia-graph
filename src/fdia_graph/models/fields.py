@@ -93,10 +93,11 @@ class GraphFields:
 
 @dataclass(frozen=True, eq=False)
 class StreamLayers:
-    """A stream's attack-removed layer, next to the observed and the clean ones."""
+    """The attack-removed layer, next to the observed and the clean ones (streams, and every
+    record of a timeline file)."""
 
-    benign: Optional[np.ndarray] = None  # [T, N, 4] attack removed, noise kept
-    edge_benign: Optional[np.ndarray] = None  # [T, E, 2] attack removed, noise kept
+    benign: Optional[Array] = None  # [..., N, 4] attack removed, noise kept
+    edge_benign: Optional[Array] = None  # [..., E, 2] attack removed, noise kept
 
 
 __all__ = [

@@ -8,7 +8,7 @@ its dict view keeps (the order the old dict had)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import numpy as np
@@ -20,31 +20,38 @@ _SCAN = ("node_x", "node_m", "edge_x", "edge_m")
 _TEMPORAL = ("temporal_delta", "swing")
 _CLEAN = ("clean", "edge_clean", "edge_clean_full")
 _IDS = ("family", "stealthy", "seq_id", "timestep")
+_BENIGN = ("benign", "edge_benign")
 
 
 @dataclass(frozen=True, eq=False)
-class RecordBundle(GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle):
+class RecordBundle(
+    StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
+):
     """One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units with no
     leading axis, the static graph shared by every record, the label and provenance, and the
-    optional layers the file carries. A dict as well, so DataLoaders, `**item` and `item["node_x"]`
-    keep working."""
+    optional layers the file carries (the benign layer on a timeline file). A dict as well, so
+    DataLoaders, `**item` and `item["node_x"]` keep working."""
 
     _required = ("edge_index", *_SCAN, "y", *_IDS)
-    _order = ("edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN)
+    _order = ("edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN, *_BENIGN)
 
 
 @dataclass(frozen=True, eq=False)
-class BatchBundle(GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle):
+class BatchBundle(
+    StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
+):
     """A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a
     leading batch axis B, the static graph once (the first record's), scalar metadata as long
     tensors [B]."""
 
     _required = (*_SCAN, "y")
-    _order = (*_SCAN, "y", *_TEMPORAL, *_CLEAN, "edge_index", "edge_attr", *_IDS)
+    _order = (*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS)
 
 
 @dataclass(frozen=True, eq=False)
-class ArraysBundle(GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle):
+class ArraysBundle(
+    StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
+):
     """A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return
     it, leading axis n: every per-record field that was requested and the file carries, plus the
     static graph. Fields not requested are absent from the dict view."""
@@ -52,7 +59,20 @@ class ArraysBundle(GraphFields, CleanFields, TemporalFields, RecordIds, LabelFie
     edge_reactance: Optional[np.ndarray] = None  # [E], deprecated units, kept for old callers
 
     # edge_attr comes with GraphFields; the exports never fill it, so it is None and absent from the dict
-    _order = ("edge_index", "edge_reactance", *_SCAN, "y", *_TEMPORAL, *_CLEAN, *_IDS, "edge_attr")
+    _order = ("edge_index", "edge_reactance", *_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, *_IDS, "edge_attr")
+
+
+@dataclass(frozen=True, eq=False)
+class EpisodeTable(Bundle):
+    """`FdiaGraph.episodes` on a timeline file: one row per attack episode in the view."""
+
+    onset: np.ndarray  # [K] the file row (frame) the episode starts at
+    length: np.ndarray  # [K] frames
+    family: np.ndarray  # [K] family code
+    buses: list[np.ndarray] = field(default_factory=list)  # K arrays, the buses the episode labelled
+
+    def __len__(self) -> int:
+        return len(self.onset)
 
 
 @dataclass(frozen=True, eq=False)

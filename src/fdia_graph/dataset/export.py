@@ -15,6 +15,7 @@ import numpy as np
 
 from ..models.data import ArraysBundle, Summary
 from .base import (
+    _BENIGN_LAYERS,
     _CLEAN_LAYERS,
     _UNIT_KIND,
     FAMILIES,
@@ -59,6 +60,7 @@ class ExportMixin(DatasetBase):
             + (["clean"] if self._clean_np is not None else [])
             + (["edge_clean"] if self._eclean_np is not None else [])
             + (["edge_clean_full"] if self.has_clean_full else [])
+            + (list(_BENIGN_LAYERS) if self.has_benign else [])
             + ["family", "stealthy", "seq_id", "timestep"]
         )
 
@@ -83,18 +85,24 @@ class ExportMixin(DatasetBase):
         arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
         """
         want = self._checked_fields(fields)
-        per_record = [k for k in want if k not in _CLEAN_LAYERS]
-        clean_want = [k for k in want if k in _CLEAN_LAYERS]
         # Static graph arrays always included (tiny, and needed to interpret edges).
         out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
-        with h5py.File(self.path, "r") as f:
-            d = f["data"]
-            for k in per_record:
-                # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
-                out[k] = d[k][self.idx]  # one bulk gather per field -> [n, ...] numpy array
-            if clean_want:
-                out.update(self._clean_layers(clean_want, d["timestep"][self.idx]))
+        out.update(self._gather(want))
+        if self._perm is not None:  # order="random": the gathered rows in the view's permutation
+            out.update({k: out[k][self._perm] for k in want})
         return ArraysBundle.ordered(self._in_units(out))  # keeps the caller's field order
+
+    def _gather(self, want: Sequence[str]) -> dict[str, np.ndarray]:
+        """The requested per-record arrays for the kept rows, in file order: one bulk gather per
+        field from data/, the benign layers from benign/, the clean layers through the timestep."""
+        clean_want = [k for k in want if k in _CLEAN_LAYERS]
+        # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
+        with h5py.File(self.path, "r") as f:
+            paths = {k: _BENIGN_LAYERS.get(k, f"data/{k}") for k in want if k not in _CLEAN_LAYERS}
+            out = {k: f[path][self.idx] for k, path in paths.items()}  # -> [n, ...] numpy arrays
+            if clean_want:
+                out.update(self._clean_layers(clean_want, f["data/timestep"][self.idx]))
+        return out
 
     def _in_units(self, out: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """The returned arrays in self.units: power and angle arrays converted to per unit when asked,

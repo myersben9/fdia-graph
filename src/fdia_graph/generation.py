@@ -1,16 +1,13 @@
 """generate(system, name, **knobs) — build a custom dataset and register it as `name`.
 
-Research knobs (all optional, sensible defaults matching the published shards):
-  per_family        int   attacked records per family (default 3000)
-  families          list  which attacks to include (default all: Aq,Ad,As,Ar,At,Al)
-  attack_intensity  float per-bus load shift magnitude for Aq / Al(LRA) bound; also the upper plausibility cap (default 0.20 = 20%)
-  ramp_rate         float ramp perturbation growth per step (default 0.002)
-  ramp_len          int   ramp sequence length (default 60)
-  replay_tau        int   Ar/As replay depth in frames back (default None = random lag >=20; set for a fixed lag)
-  n_benign          int   benign records (default 20000)
-  redundancy        dict  meter coverage: {vbus_frac,pmu_frac,flow_frac} (default 0.6/0.2/0.9)
-  split             tuple chronological train/val/test fractions (default (0.6,0.2,0.2))
-  seed              int   (default 123)
+Since 0.18 `generate` writes one timeline file (`fdia_graph.timeline`): every frame of the
+operating-point pool scanned in time order with attack episodes of every family, which
+`fg.load(name)` reads as a record table (`order="random"`) or as the timeline (`order="time"`).
+The knobs are those of `timeline.generate_timeline` plus `frames` (how many pool timesteps to
+walk, default the whole pool). `generate_shard` is the pre-0.18 record-shard writer, kept for one
+minor version; its knobs are listed on the function.
+
+Shared by both:
   states            source of operating points: path to a pool .npz or .h5 (key 'X' [T,N,4]) or an init dir of
                     X_*.npy; if None, uses $FDIA_GRAPH_INIT or downloads the system's operating-point pool.
   out               output .h5 path (default under the cache dir)
@@ -306,6 +303,35 @@ def _write_magnitude_sidecar(
 def generate(
     system: Union[int, str],
     name: str,
+    frames: Optional[int] = None,
+    states: Optional[Union[str, np.ndarray]] = None,
+    out: Optional[str] = None,
+    seed: int = 123,
+    **knobs: Any,
+) -> str:
+    """Walk one attacked timeline over the operating-point pool of `system`, write it as one HDF5
+    file and register it as `name`; returns the path. `frames` caps the pool timesteps walked;
+    every other knob is `timeline.generate_timeline`'s (families, attacked_frac, attack_intensity,
+    ramp_rate, ramp_len, am_len, am_rate, am_sigma, am_direction, corrupt_len, replay_tau,
+    redundancy, split)."""
+    from .timeline import generate_timeline
+
+    if frames is not None and (isinstance(frames, bool) or not isinstance(frames, int) or frames < 1):
+        raise ValueError(
+            f"frames caps the pool timesteps walked and must be a positive integer, got {frames!r}"
+        )
+    X = _load_states(system, states)
+    if frames is not None:
+        X = X[:frames]
+    out = out or os.path.join(CACHE_DIR, f"{name}.h5")
+    path = generate_timeline(system, states=X, seed=seed, out=out, **knobs)
+    register_local(name, path, meta=dict(system=system, kind="timeline", frames=len(X), seed=seed, **knobs))
+    return path
+
+
+def generate_shard(
+    system: Union[int, str],
+    name: str,
     per_family: int = 3000,
     families: Sequence[str] = ("Aq", "Ad", "As", "Ar", "At", "Al"),
     attack_intensity: float = 0.20,
@@ -323,8 +349,14 @@ def generate(
     targeting: str = "uniform",
     targeting_strength: float = 1.5,
 ) -> str:
-    """Build a shard and register it as `name`; returns the .h5 path. See the module docstring for the knobs.
+    """Build a pre-0.18 record shard and register it as `name`; returns the .h5 path. Retires in 0.19.
 
+    per_family        attacked records per family (default 3000); n_benign benign records (default 20000)
+    families          which attacks to include (default all six; Am is timeline-only)
+    attack_intensity  per-bus load shift bound of Aq / Al and the upper plausibility cap (default 0.20)
+    ramp_rate, ramp_len   the At ramp; replay_tau the Ar/As replay depth (None = random lag >= 20)
+    redundancy        meter coverage {vbus_frac, pmu_frac, flow_frac} (default 0.6/0.2/0.9)
+    split             chronological train/val/test fractions by record (default (0.6, 0.2, 0.2))
     targeting: how attacked-bus SETS are drawn. "uniform" (default) = uniform over attackable load buses,
     byte-identical to prior releases. "centrality" tilts toward structurally critical buses (fused
     degree/closeness/betweenness; Doostinia et al., IEEE TIA 2025), more realistic and more damaging;

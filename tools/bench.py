@@ -1,13 +1,13 @@
-"""Time the estimators and the generator on the tiny shard, and write the numbers where a reader
+"""Time the estimators and the generator on the tiny timeline, and write the numbers where a reader
 can compare them with the last run (docs/reference/BENCHMARKS.md).
 
     python tools/bench.py            # append this machine's row to the table
     python tools/bench.py --check    # exit 1 if any timing is more than 3x slower than the last row
 
-Timings are per record for the estimators (fit excluded) and per record for shard generation,
-in milliseconds, on the tiny IEEE-14 shard the test suite builds (seed 1, 80 benign, 12 per
-family). They are for spotting a regression on one machine, not for comparing machines: the
-table carries the CPU and the torch state with every row for that reason.
+Timings are per record for the estimators (fit excluded) and per frame for timeline generation,
+in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, every family,
+20-frame ramps, seed 3). They are for spotting a regression on one machine, not for comparing
+machines: the table carries the CPU and the torch state with every row for that reason.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import fdia_graph as fg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "BENCHMARKS.md")
-SHARD_KW = dict(per_family=12, n_benign=80, seed=1)
+TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=3)  # the test suite's tiny timeline
 SLOW_FACTOR = 3.0
 
 
@@ -42,8 +42,8 @@ def _timings() -> dict[str, float]:
     out: dict[str, float] = {}
     path = os.path.join(_CACHE, "tiny.h5")
     t0 = time.perf_counter()
-    fg.generate("ieee14", "tiny", out=path, **SHARD_KW)
-    gen_s = time.perf_counter() - t0  # generation alone; the load below only supplies the record count
+    fg.generate("ieee14", "tiny", out=path, **TIMELINE_KW)
+    gen_s = time.perf_counter() - t0  # generation alone; the load below only supplies the frame count
     out["generate ms/record"] = 1e3 * gen_s / len(fg.load("tiny"))
     train, test = fg.load("tiny", split="train"), fg.load("tiny", split="test")
     for name, est in (

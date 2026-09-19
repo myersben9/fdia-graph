@@ -1,6 +1,6 @@
 # Plan: one generator, one file, one loader
 
-Status: approved 2026-09-19, step 1 in progress (the writer and `Am`, as `fdia_graph.timeline.generate_timeline`; `generate` is rewired to it in step 2 once the loader reads the file). Ben: "one path for generation; load should just be out-of-order
+Status: approved 2026-09-19. Step 1 (#93): the writer and `Am` as `fdia_graph.timeline.generate_timeline`. Step 2: the loader reads timeline files, `order`/`seed`, `ds.windows`, `ds.episodes`, the benign fields, the torch helpers on a dataset; `fg.generate` writes timelines (`generate_shard` keeps the old writer until step 3); the stream entry points warn. Ben: "one path for generation; load should just be out-of-order
 load_stream with all the things we have put into them; sidecars make no sense; it makes no sense
 that data was stored in HDF5 and then npz." This is a breaking data release; the published 0.7.2
 data and the code that reads it stay available for anyone citing them.
@@ -96,7 +96,7 @@ PR as the writer (step 1) so the eight systems are generated once.
 | step | PR | contents | data release |
 |---|---|---|---|
 | 1 | writer | `timeline.generate_timeline` writes the one file (the walker's episode primitives shared with `generate_stream`, whose scheduler stays bit-identical until step 3); the `Am` family and its knobs; `episodes/` and `attack/` groups; families scheduled by inverse expected length; the pool read from HDF5 | no |
-| 2 | loader | reads `kind="timeline"` files: `benign/`, `episodes/`, `attack/`, stored split; `order="time" | "random"` with `seed`; `ds.windows`; `torch_windows` / `pyg_stream` on a dataset; `load_stream` / `generate_stream` / `Stream` as aliases that warn | no |
+| 2 | loader | reads `kind="timeline"` files: `benign/`, `episodes/`, stored split; `order="time" | "random"` with `seed`; `ds.windows`, `ds.episodes`; `torch_windows` / `pyg_stream` on a dataset; `fg.generate` writes timelines; `load_stream` / `generate_stream` / `windows` warn (`Stream` and the `attack/` group reach the loader in step 3) | no |
 | 3 | delete | the shard writer, the npz path, both sidecars, the graph sidecar assets; the frozen references re-frozen on the new tiny file | no (references only) |
 | 4 | data | the eight systems regenerated with the seven families, pools converted, **one file per system**, one release `v0.8.0`; `registry` points at it; `FDIA_GRAPH_RELEASE=v0.7.2` still loads the old shards through the old layout for one minor version | yes |
 | 5 | results and docs | `docs/se` and `docs/localization` re-run (IEEE-300 hours), one "Load" section, the data dictionary as one table with a "series" column, changelog with the number deltas | no |

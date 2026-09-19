@@ -1,10 +1,11 @@
 """The loader's shared state and the constants its concerns read.
 
-`FdiaGraph` is assembled from four mixins over `DatasetBase` (the same pattern as the generator's
+`FdiaGraph` is assembled from five mixins over `DatasetBase` (the same pattern as the generator's
 `GridBase`): `GraphMixin` (the static graph), `AdmittanceMixin` (the admittance matrices and clean
-flows), `RecordsMixin` (indexing, collate, DataLoader) and `ExportMixin` (whole-split arrays and
-tables). `DatasetBase` declares every attribute the constructor sets so each mixin type-checks on
-its own, and stubs the methods one mixin calls on another.
+flows), `RecordsMixin` (indexing, collate, DataLoader), `ExportMixin` (whole-split arrays and
+tables) and `SequenceMixin` (windows and episodes of a timeline file). `DatasetBase` declares
+every attribute the constructor sets so each mixin type-checks on its own, and stubs the methods
+one mixin calls on another.
 """
 
 from __future__ import annotations
@@ -43,6 +44,12 @@ def check_units(units):
     """Reject an unknown unit system before any file is opened or downloaded."""
     if units not in ("physical", "pu"):
         raise ValueError(f"units must be 'physical' or 'pu', got {units!r}")
+
+
+def check_order(order):
+    """Reject an unknown record order before any file is opened or downloaded."""
+    if order not in ("time", "random"):
+        raise ValueError(f"order must be 'time' or 'random', got {order!r}")
 
 
 _HELDOUT_TRAIN_EXCLUDE = {
@@ -118,19 +125,25 @@ _BATCH_STACKED = (
     "clean",
     "edge_clean",
     "edge_clean_full",
+    "benign",
+    "edge_benign",
 )
 _BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 # Layers stored once per POOL timestep (not per record), resolved through data/timestep.
 
 
 _CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
+# The attack-removed layer of a timeline file: record field -> dataset path, one row per frame.
+_BENIGN_LAYERS = {"benign": "benign/node_benign", "edge_benign": "benign/edge_benign"}
 # Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
 _UNIT_KIND = {
     "node_x": "node",
     "clean": "node",
+    "benign": "node",
     "edge_x": "edge",
     "edge_clean": "edge",
     "edge_clean_full": "edge",
+    "edge_benign": "edge",
     "temporal_delta": "td",
 }
 
@@ -154,7 +167,11 @@ class DatasetBase:
     has_swing: bool
     has_clean: bool
     has_clean_full: bool
+    has_benign: bool
+    is_timeline: bool  # the file attribute kind == "timeline" (one row per frame, in time order)
     edge_status_per_record: Optional[np.ndarray]
+    _perm: Optional[np.ndarray]  # order="random": view position -> position in idx
+    _episodes: Optional[Any]  # EpisodeTable of the whole file, None on a shard
     _f: Optional[h5py.File]
     _phys: dict[str, Any]  # graph/* arrays, None where the file predates the schema
     _clean_np: Optional[np.ndarray]
@@ -176,3 +193,5 @@ class DatasetBase:
     def _to_units(self, arr: np.ndarray, kind: str) -> np.ndarray: ...
 
     def _clean_flows_full(self) -> Optional[np.ndarray]: ...
+
+    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> Any: ...

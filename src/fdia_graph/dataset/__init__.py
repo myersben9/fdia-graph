@@ -1,10 +1,14 @@
-"""FdiaGraph: a PyTorch-ready dataset over one ml_only_ieee{C}.h5 shard.
+"""FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (0.18+, one row per frame in
+time order, `kind="timeline"`) or a record shard (the v0.7.2 release).
 
 Static graph read once; per-record tensors sliced lazily so the whole file is never loaded. Each item:
   node_x [N,4]=[|V|,P_inj,Q_inj,theta]  node_m [N,4] availability mask
   edge_x [E,2]=[P_from,Q_from]          edge_m [E,2] availability mask
-  y [N] per-bus attack label  + family / stealthy / gap / seq_id / timestep
-Masked measurements (mask==0) are already zeroed; the model consumes the masks.
+  y [N] per-bus attack label  + family / stealthy / seq_id / timestep
+  and, on a timeline, benign / edge_benign (the attack removed, the noise kept).
+Masked measurements (mask==0) are already zeroed; the model consumes the masks. `order="random"`
+is the same frames in a permutation fixed by `seed`; `order="time"` keeps the file order, which on
+a timeline is chronological, so `ds.windows` and `ds.episodes` work on it.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from ..models.data import (  # noqa: F401  re-exported: defined here before the 
 )
 from ..models.grid import NODE
 from .base import (  # noqa: F401  re-exported: defined here before the split
+    _BENIGN_LAYERS,
     _FAMILY_ALIAS,
     _HELDOUT_TRAIN_EXCLUDE,
     _SPLIT,
@@ -32,6 +37,7 @@ from .base import (  # noqa: F401  re-exported: defined here before the split
     FAMILIES,
     STEALTHY_FAMILIES,
     _torch,
+    check_order,
     check_split,
     check_units,
     family_ids,
@@ -40,6 +46,7 @@ from .export import ExportMixin
 from .graph import GraphMixin
 from .physics import AdmittanceMixin
 from .records import RecordsMixin
+from .sequence import SequenceMixin, read_episodes
 
 
 class _RecordFilter(NamedTuple):
@@ -72,8 +79,8 @@ def _record_mask(
     return np.nonzero(keep)[0]
 
 
-class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
-    """torch.utils.data.Dataset over an .h5 shard. Use `.loader(...)` for a ready DataLoader, or index items."""
+class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, SequenceMixin):
+    """torch.utils.data.Dataset over one .h5 file. Use `.loader(...)` for a ready DataLoader, or index items."""
 
     def __init__(
         self,
@@ -85,6 +92,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
         format: str = "torch",
         units: str = "physical",
         preload: bool = False,
+        order: str = "time",
+        seed: int = 0,
     ) -> None:
         # ONE pass over the small metadata arrays (family/gap/split) picks the kept rows;
         # the big measurement arrays are read only in __getitem__.
@@ -95,6 +104,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
         # swing is a dimensionless z-score, never rescaled.
         check_units(units)  # the argument checks run before the file is opened
         check_split(split)
+        check_order(order)
         if families is not None:
             family_ids(families)  # an unknown family fails here, not after the read
         self.units = units
@@ -105,10 +115,14 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
             self._read_layers(f)
             self.slack = self._reference_bus()
             fam = f["data/family"][:]
-            gap = f["data/gap"][:]  # per-record metadata copied to RAM for filtering
+            # per-record metadata copied to RAM for filtering; a timeline has no gap rows
+            gap = f["data/gap"][:] if "data/gap" in f else np.zeros(len(fam), np.uint8)
             sp = f["data/split"][:] if "data/split" in f else None  # split code, or None on unsplit files
+            self._episodes = read_episodes(f, "episodes" in f)
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
         self.idx = _record_mask(fam, gap, sp, _RecordFilter(split, families, include_gaps, heldout), path)
+        # order="random": the same rows in a permutation fixed by the seed, applied as a view index.
+        self._perm = np.random.default_rng(seed).permutation(len(self.idx)) if order == "random" else None
         self._mem: Optional[dict[str, np.ndarray]] = None
         if preload and len(self.idx):
             self._preload(path)
@@ -119,6 +133,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
         self.N = int(f.attrs["N"])
         self.E = int(f.attrs["E"])  # fixed graph size: bus count N, branch count E
         self.baseMVA = float(f.attrs.get("baseMVA", 100.0))  # p.u. base; v0.4.1+, default 100 MVA
+        self.is_timeline = str(f.attrs.get("kind", "")) == "timeline"
 
     def _read_static_graph(self, f: h5py.File) -> None:
         """The static graph, read ONCE and cached as numpy (same for every record): edge index, the
@@ -143,6 +158,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
         self._clean_np = f["clean/node_clean"][:] if "clean/node_clean" in f else None
         self._eclean_np = f["clean/edge_clean"][:] if "clean/edge_clean" in f else None
         self.has_clean = self._clean_np is not None
+        self.has_benign = "benign/node_benign" in f  # timeline files: the attack-removed layer per frame
         # edge_clean_full ([Tpool,E,2], the same flows on EVERY branch) is derived from the clean
         # state through Yf on first use, so it needs the clean layer and the branch physics.
         self._eclean_full_np: Optional[np.ndarray] = None
@@ -180,6 +196,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
             lo, hi = int(self.idx[0]), int(self.idx[-1]) + 1
             rel = self.idx - lo
             self._mem = {k: dg[k][lo:hi][rel] for k in keys if k in dg}
+            if self.has_benign:
+                self._mem.update({k: f[p][lo:hi][rel] for k, p in _BENIGN_LAYERS.items()})
 
     def __len__(self) -> int:
         return len(self.idx)  # number of records this filtered view exposes

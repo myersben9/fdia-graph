@@ -1,10 +1,11 @@
-"""PyTorch-ready views of the continuous streams — no conversion glue in user code.
+"""PyTorch-ready views of a continuous timeline — no conversion glue in user code.
 
-These wrap ``load_stream()`` so a model script starts at the tensors: ``pyg_stream()`` hands back
-``torch_geometric.data.Data`` objects (one graph per scan, connectivity and branch physics attached),
-``torch_windows()`` hands back per-bus sequence tensors for an LSTM/GRU. Both split chronologically
-(train first, test last), matching how the stream would be consumed live. ``torch`` /
-``torch_geometric`` are imported lazily so the base install stays torch-free.
+``pyg_stream()`` hands back ``torch_geometric.data.Data`` objects (one graph per scan, connectivity
+and branch physics attached), ``torch_windows()`` hands back per-bus sequence tensors for an
+LSTM/GRU. Both split chronologically (train first, test last), matching how the timeline would be
+consumed live. The source is a timeline loaded with ``fg.load(name, order="time")`` (``dataset=``),
+or, until the streams retire, a stream dict (``stream=``) or a system name (``load_stream``).
+``torch`` / ``torch_geometric`` are imported lazily so the base install stays torch-free.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ import numpy as np
 if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-free
     import torch
     from torch_geometric.data import Data
+
+    from .dataset import FdiaGraph
 
 __all__ = ["pyg_stream", "torch_windows"]
 
@@ -33,16 +36,32 @@ def _check_frac(train_frac: float) -> None:
 
 
 def _resolve_stream(
-    system: Optional[Union[str, int]], release: Optional[str], stream: Optional[dict[str, Any]]
+    system: Optional[Union[str, int]],
+    release: Optional[str],
+    stream: Optional[dict[str, Any]],
+    dataset: Optional[FdiaGraph] = None,
 ) -> dict[str, Any]:
-    """Accept either a system name (loaded here) or an already-loaded stream dict."""
+    """The frames as one stream-shaped dict: from a loaded timeline dataset (the whole view, in
+    time order), an already-loaded stream dict, or a system name (the v0.7.2 streams)."""
+    if dataset is not None:
+        return _dataset_stream(dataset)
     if stream is not None:
         return stream
     if system is None:
-        raise ValueError("pass a system name (e.g. 'ieee118') or stream=<loaded stream dict>")
+        raise ValueError("pass dataset=<fg.load(..., order='time')>, stream=<dict>, or a system name")
     from .streams import load_stream
 
     return load_stream(system, release=release)
+
+
+def _dataset_stream(ds: FdiaGraph) -> dict[str, Any]:
+    """A time-ordered timeline view as the stream dict the helpers consume: the per-frame layers
+    plus the static graph and masks (the same for every frame)."""
+    ds._check_timeline("torch_windows / pyg_stream")
+    s: dict[str, Any] = dict(ds.to_numpy())
+    s["edge_attr"] = ds.edge_attr_np
+    s["node_m"], s["edge_m"] = s["node_m"][0], s["edge_m"][0]
+    return s
 
 
 def _graphs(a: int, b: int, X: Any, F: Any, Y: Any, ei: Any, static: dict[str, Any]) -> list[Data]:
@@ -60,8 +79,9 @@ def pyg_stream(
     max_test: Optional[int] = None,
     release: Optional[str] = None,
     stream: Optional[dict[str, Any]] = None,
+    dataset: Optional[FdiaGraph] = None,
 ) -> tuple[list[Data], ...]:
-    """Continuous stream as ready PyTorch-Geometric graphs, split chronologically.
+    """A continuous timeline as ready PyTorch-Geometric graphs, split chronologically.
 
     Each scan becomes one ``Data`` with the same attribute names as ``fg.load(..., format="pyg")``:
     ``x=[N,4]`` from the chosen layer, ``edge_attr`` and ``edge_x`` both the ``[E,2]`` branch flows
@@ -77,6 +97,7 @@ def pyg_stream(
         max_test: cap on the test list length (e.g. 1000 for a quick eval); None = all remaining.
         release: dataset release tag to pin; None = the installed default.
         stream: an already-loaded stream dict, to reuse instead of loading by ``system``.
+        dataset: a timeline loaded with ``fg.load(name, order="time")``; its whole view is the stream.
 
     Returns:
         ``(train, test)`` lists of ``Data``, or ``(train, val, test)`` when ``val_frac`` > 0.
@@ -86,7 +107,7 @@ def pyg_stream(
     _check_frac(train_frac)
     if max_test is not None and max_test < 0:
         raise ValueError(f"max_test must be >= 0, got {max_test}")
-    s = _resolve_stream(system, release, stream)
+    s = _resolve_stream(system, release, stream, dataset)
     X = _f32(s[layer])  # [T, N, 4]
     # The branch flows of the same layer: observed edge_x, or the benign / clean edge layer.
     F = _f32(s["edge_x" if layer == "node_x" else f"edge_{layer}"])  # [T, E, 2]
@@ -122,8 +143,9 @@ def torch_windows(
     layer: str = "node_x",
     release: Optional[str] = None,
     stream: Optional[dict[str, Any]] = None,
+    dataset: Optional[FdiaGraph] = None,
 ) -> tuple[tuple[torch.Tensor, torch.Tensor], ...]:
-    """Continuous stream as LSTM-ready sequence tensors, split chronologically.
+    """A continuous timeline as LSTM-ready sequence tensors, split chronologically.
 
     Slides a length-``W`` window over the stream. Windows straddling a split boundary are dropped, so no
     eval frame is ever seen in training. Needs ``pip install "fdia-graph[torch]"``.
@@ -140,24 +162,22 @@ def torch_windows(
         layer: measurement layer to window -- "node_x" (default), "benign", or "clean".
         release: dataset release tag to pin; None = the installed default.
         stream: an already-loaded stream dict, to reuse instead of loading by ``system``.
+        dataset: a timeline loaded with ``fg.load(name, order="time")``; its whole view is the stream.
 
     Returns:
         ``((Xtr, ytr), (Xte, yte))``, or ``((Xtr, ytr), (Xva, yva), (Xte, yte))`` when ``val_frac`` > 0.
     """
-    from .streams import windows as _windows
+    from .dataset.sequence import check_window_args, window_labels
 
     _check_frac(train_frac)
     if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
         raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
-    s = _resolve_stream(system, release, stream)
-    if layer != "node_x":
-        s = {**s, "node_x": s[layer]}
-    T = int(np.asarray(s["node_x"]).shape[0])
-    if not 1 <= W <= T:
-        raise ValueError(f"W must be in [1, {T}] (stream length), got {W}")
-    if stride < 1:
-        raise ValueError(f"stride must be >= 1, got {stride}")
-    Xw, yw = _windows(s, W, stride=stride, label=label)
+    s = _resolve_stream(system, release, stream, dataset)
+    nx, y = np.asarray(s[layer]), np.asarray(s["y"])
+    T = int(nx.shape[0])
+    check_window_args(T, W, stride, label)
+    starts = range(0, T - W + 1, stride)
+    Xw, yw = np.stack([nx[a : a + W] for a in starts]), window_labels(y, starts, W, label)
     cut = int(train_frac * T)
     cut2 = cut + int(val_frac * T)
     starts = np.arange(0, T - W + 1, stride)

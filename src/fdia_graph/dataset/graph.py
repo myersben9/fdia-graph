@@ -196,3 +196,8 @@ class GraphMixin(DatasetBase):
             ],
             dim=1,
         )
+
+    @property
+    def edge_attr_np(self) -> np.ndarray:
+        """`edge_attr` as a float32 numpy array, for the torch-free helpers."""
+        return self.edge_attr.numpy().astype(np.float32)

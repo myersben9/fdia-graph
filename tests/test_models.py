@@ -90,17 +90,22 @@ def test_pickle_restores_fields_and_key_order():
 # field groups (docs/plans/FIELD_GROUPS_PLAN.md): the groups must not change what a user sees.
 _SCAN = ["node_x", "node_m", "edge_x", "edge_m"]
 _IDS = ["family", "stealthy", "seq_id", "timestep"]
+_BENIGN = ["benign", "edge_benign"]
 _TEMPORAL = ["temporal_delta", "swing"]
 _CLEAN = ["clean", "edge_clean", "edge_clean_full"]
 EXPECTED = {
+    # benign / edge_benign (0.18, timeline files) come after the layers a shard record carries
     "RecordBundle": (
-        ["edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN],
+        ["edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN, *_BENIGN],
         ["edge_index", *_SCAN, "y", *_IDS],
     ),
-    "BatchBundle": ([*_SCAN, "y", *_TEMPORAL, *_CLEAN, "edge_index", "edge_attr", *_IDS], [*_SCAN, "y"]),
+    "BatchBundle": (
+        [*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS],
+        [*_SCAN, "y"],
+    ),
     # edge_attr is new on ArraysBundle (it comes with GraphFields), last and never filled by the exports
     "ArraysBundle": (
-        ["edge_index", "edge_reactance", *_SCAN, "y", *_TEMPORAL, *_CLEAN, *_IDS, "edge_attr"],
+        ["edge_index", "edge_reactance", *_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, *_IDS, "edge_attr"],
         [],
     ),
     "Stream": (

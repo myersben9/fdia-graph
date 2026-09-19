@@ -5,6 +5,26 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- One loader for both kinds of file, step 2 of `docs/plans/ONE_DATASET_PLAN.md`. `fg.load(name)`
+  reads a timeline file (`kind="timeline"`) as well as a v0.7.2 record shard. New arguments:
+  `order="time"` (default) keeps the file order, chronological on a timeline; `order="random"` is
+  the same records in a permutation fixed by `seed` (default 0), a view index, nothing copied, so
+  two people asking for the same seed get the same record table. On a timeline every record,
+  batch and export carries `benign` and `edge_benign` (the attack removed, the noise kept, in the
+  requested units), `ds.windows(W, stride, label, layer)` slides windows over a time-ordered
+  contiguous view (a split or the whole file; it refuses a random order, a family subset and a
+  shard), `ds.episodes` is the episode table (`EpisodeTable`: onset, length, family, buses) of the
+  view, and `torch_windows(dataset=ds)` / `pyg_stream(dataset=ds)` take the loaded timeline.
+  `ds.is_timeline` and `ds.has_benign` say which kind a file is.
+- `fg.generate(system, name, frames=None, **knobs)` now writes a timeline (the knobs of
+  `timeline.generate_timeline`, plus `frames` to cap the pool timesteps walked) and registers it, so
+  `fg.load(name)` and `fg.load(name, order="random")` read it back. The record-shard writer is
+  `fdia_graph.generation.generate_shard` for one minor version (the frozen references are still
+  built from it) and retires in 0.19.
+- `generate_stream`, `load_stream` and `windows(stream, ...)` warn with `DeprecationWarning` and
+  retire in 0.19: the timeline file replaces the stream, `fg.load(name, order="time")` reads it, and
+  `ds.windows` replaces `windows`. They keep working unchanged until then (`load_stream` reads the
+  v0.7.2 stream files).
 - The timeline writer, step 1 of `docs/plans/ONE_DATASET_PLAN.md`: `fdia_graph.timeline.generate_timeline`
   walks one attacked timeline over a system's operating-point pool and writes one HDF5 file
   (`kind="timeline"`) carrying every layer the streams and shards had between them: the observed,

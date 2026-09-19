@@ -30,7 +30,7 @@ per-step change and a spike looking like an abrupt jump — the spike-vs-ramp si
 
 from __future__ import annotations
 
-import numbers
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -38,6 +38,7 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
+from .dataset.sequence import check_window_args, window_labels
 from .engine import FAM_ID, FdiaGenerator
 from .engine.records import AM_FAMILY, RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs
 from .generation import NOISE_FLOOR, _FrameContext, _load_states
@@ -160,6 +161,12 @@ def generate_stream(
     families      : attack families to rotate through; "At" is the slow ramp (its own episode shape).
     Other knobs mirror `generate`. Reuses the exact per-frame attack physics so streamed attacks match the shard.
     """
+    warnings.warn(
+        "generate_stream is deprecated and retires in 0.19: fg.generate writes the same timeline as "
+        "one HDF5 file and fg.load(name, order='time') reads it",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, **red)
     lra_k = min(6, len(g.load_bus))
@@ -237,32 +244,18 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     from .download import ensure_local
     from .registry import system_id
 
+    warnings.warn(
+        "load_stream is deprecated and retires in 0.19: it reads the v0.7.2 stream files; the next "
+        "data release is one timeline per system, read by fg.load(system, order='time')",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     C = system_id(system)
     z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", release)), allow_pickle=True)
     out = {k: z[k] for k in z.files}
     _attach_graph_sidecar(out, C, release)
     _normalize_graph_dtypes(out)
     return Stream(**out, **{k: v for k, v in stream_summary(out).items() if k not in out})
-
-
-def _check_window_args(T: int, W: int, stride: int, label: str) -> None:
-    """Reject a window request the docstring of `windows` does not allow, before any slicing."""
-    if label not in ("frame", "any", "last"):
-        raise ValueError(f"label must be 'frame', 'any' or 'last', got {label!r}")
-    integral = all(isinstance(v, numbers.Integral) and not isinstance(v, bool) for v in (W, stride))
-    if not integral or not 1 <= W <= T or stride < 1:
-        raise ValueError(
-            f"need integers 1 <= W <= {T} frames and stride >= 1, got W={W!r}, stride={stride!r}"
-        )
-
-
-def _window_labels(y: np.ndarray, starts: range, W: int, label: str) -> np.ndarray:
-    """Per-window labels: every frame ("frame"), attacked at any frame ("any"), or the last frame."""
-    if label == "frame":
-        return np.stack([y[s : s + W] for s in starts])
-    if label == "last":
-        return np.stack([y[s + W - 1] for s in starts])
-    return np.stack([y[s : s + W].max(0) for s in starts])
 
 
 def windows(
@@ -276,7 +269,13 @@ def windows(
     nx = stream["node_x"]
     y = stream["y"]
     T = len(nx)
-    _check_window_args(T, W, stride, label)
+    warnings.warn(
+        "windows(stream, ...) is deprecated and retires in 0.19: use ds.windows(W, stride, label) on a "
+        "timeline loaded with fg.load(name, order='time')",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    check_window_args(T, W, stride, label)
     starts = range(0, T - W + 1, stride)
     Xw = np.stack([nx[s : s + W] for s in starts])
-    return Xw, _window_labels(y, starts, W, label)
+    return Xw, window_labels(y, starts, W, label)

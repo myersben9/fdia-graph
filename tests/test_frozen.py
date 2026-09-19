@@ -85,7 +85,8 @@ def test_stream_matches_frozen_reference():
     import fdia_graph as fg
     from fdia_graph.generation import _load_states
 
-    s = fg.generate_stream(14, states=_load_states(14, None)[:STREAM_T], seed=1)
+    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
+        s = fg.generate_stream(14, states=_load_states(14, None)[:STREAM_T], seed=1)
     got = stream_arrays(s)
     ref = np.load(os.path.join(FROZEN, "ieee14_stream.npz"), allow_pickle=False)
     assert set(got) == set(ref.files), "the set of stream arrays changed"

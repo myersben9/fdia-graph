@@ -124,26 +124,32 @@ def _tiny_stream(T: int = 12, N: int = 3):
 
 
 def test_windows_labels_and_bounds():
+    """The deprecated stream-dict `windows` (retires in 0.19) and the label helper it shares with
+    `ds.windows`."""
+    from fdia_graph.dataset.sequence import check_window_args, window_labels
+
     s = _tiny_stream()
-    Xw, yw = fg.windows(s, W=4, stride=2, label="frame")
+    with pytest.warns(DeprecationWarning, match="windows.*deprecated"):
+        Xw, yw = fg.windows(s, W=4, stride=2, label="frame")
     assert Xw.shape == (5, 4, 3, 4) and yw.shape == (5, 4, 3)
-    _, y_any = fg.windows(s, W=4, stride=2, label="any")
-    _, y_last = fg.windows(s, W=4, stride=2, label="last")
+    starts = range(0, 12 - 4 + 1, 2)
+    y_any = window_labels(s["y"], starts, 4, "any")
+    y_last = window_labels(s["y"], starts, 4, "last")
     assert y_any.shape == y_last.shape == (5, 3)
     assert np.array_equal(y_any, yw.max(axis=1)) and np.array_equal(y_last, yw[:, -1])
     with pytest.raises(ValueError, match="label must be"):
-        fg.windows(s, W=4, label="bogus")
+        check_window_args(12, 4, 1, "bogus")
     with pytest.raises(ValueError, match="need integers 1 <= W"):
-        fg.windows(s, W=13)
+        check_window_args(12, 13, 1, "any")
     with pytest.raises(ValueError, match="stride"):
-        fg.windows(s, W=4, stride=0)
-    for bad in ({"W": 4.5}, {"W": 4, "stride": 1.5}, {"W": True}):
+        check_window_args(12, 4, 0, "any")
+    for W, stride in ((4.5, 1), (4, 1.5), (True, 1)):
         with pytest.raises(ValueError, match="need integers"):
-            fg.windows(s, **{"W": 4, **bad})
+            check_window_args(12, W, stride, "any")
 
 
 def test_load_stream_rejects_an_unknown_system():
-    with pytest.raises(ValueError, match="system must be"):
+    with pytest.raises(ValueError, match="system must be"), pytest.warns(DeprecationWarning):
         fg.load_stream("bogus")
 
 
