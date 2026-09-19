@@ -253,10 +253,11 @@ class _AmShape:
     def under_floor(cls, rel: float, length: int, am_rate: float, floor: float) -> _AmShape:
         """Rise so that the largest per-bus per-frame load change stays under `am_rate` of the noise
         floor: `rel` is the largest per-bus redistribution fraction, so a step of `rate` of the whole
-        moves that bus by rate * rel. A short episode caps the rise at half its length."""
-        rate = am_rate * floor / max(rel, 1e-9)
-        rise = min(max(1, math.ceil(1.0 / rate)), max(1, length // 2))
-        return cls(1.0 / rise, rise, max(0, length - 2 * rise))
+        moves that bus by rate * rel. The rate is never raised: an episode too short to reach the
+        full redistribution ramps as far as it gets and returns, its peak below the full delta."""
+        rate = min(1.0, am_rate * floor / max(rel, 1e-9))
+        rise = min(math.ceil(1.0 / rate), max(1, length // 2))
+        return cls(rate, rise, max(0, length - 2 * rise))
 
     def at(self, i: int) -> float:
         return min(1.0, ramp_profile(i, self.rise, self.hold, self.rate, self.rate))

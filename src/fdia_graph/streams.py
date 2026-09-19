@@ -38,7 +38,7 @@ from typing import Any, Optional, Union
 import numpy as np
 
 from .engine import FAM_ID, FdiaGenerator
-from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs
+from .engine.records import AM_FAMILY, RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs
 from .generation import NOISE_FLOOR, _FrameContext, _load_states
 from .generation import _swing_scale as _generation_swing_scale
 from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
@@ -169,6 +169,8 @@ def generate_stream(
     )
     ctx = _FrameContext(g, X, _generation_swing_scale(X, C), knobs, [])
     fam_ids = [FAM_ID[f] for f in families]
+    if AM_FAMILY in fam_ids:
+        raise ValueError("Am is a timeline family: fdia_graph.timeline.generate_timeline builds it")
     plan = _StreamPlan(
         [f for f in fam_ids if f in SINGLE_SHOT_ORDER],
         RAMP_FAMILY in fam_ids,

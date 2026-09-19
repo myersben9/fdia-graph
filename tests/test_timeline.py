@@ -164,6 +164,27 @@ def test_am_is_a_sparse_sub_floor_ramp_of_a_held_redistribution(am_timeline):
         assert (y[frames][:, buses] == 1).all()
 
 
+def test_am_is_refused_by_the_shard_and_stream_generators(tmp_path, pool):
+    import fdia_graph as fg
+
+    with pytest.raises(ValueError, match="timeline family"):
+        fg.generate(
+            "ieee14", "never", families=("Aq", "Am"), per_family=2, n_benign=2, out=str(tmp_path / "s.h5")
+        )
+    with pytest.raises(ValueError, match="timeline family"):
+        fg.generate_stream(14, states=pool[:20], families=("Am",))
+
+
+def test_a_short_am_episode_keeps_the_capped_rate():
+    from fdia_graph.timeline import _AmShape
+
+    full = _AmShape.under_floor(rel=0.2, length=60, am_rate=0.9, floor=0.02)
+    short = _AmShape.under_floor(rel=0.2, length=4, am_rate=0.9, floor=0.02)
+    assert full.rate == short.rate == pytest.approx(0.09) and full.rise == 12 and short.rise == 2
+    assert max(short.at(i) for i in range(4)) == pytest.approx(0.18)  # never reaches the full delta
+    assert max(full.at(i) for i in range(60)) == pytest.approx(1.0)
+
+
 def test_am_direction_and_the_pool_as_hdf5(tmp_path, pool):
     with pytest.raises(ValueError, match="am_direction"):
         generate_timeline(

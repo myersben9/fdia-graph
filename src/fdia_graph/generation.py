@@ -29,7 +29,7 @@ import numpy as np
 
 # FdiaGenerator = physics/attack math; FAM_ID = family name -> integer id; attack_frame = one scan.
 from .engine import FAM_ID, FdiaGenerator
-from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs, attack_frame
+from .engine.records import AM_FAMILY, RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs, attack_frame
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import recent_change_scale, swing_zscore, temporal_delta
 from .models.data import ShardArrays  # noqa: F401  re-exported: defined here before the models package
@@ -350,10 +350,11 @@ def generate(
     )
     ctx = _FrameContext(g, X, _swing_scale(X, g.C), knobs, [])
 
+    fam_ids = [FAM_ID[f] for f in families]
+    if AM_FAMILY in fam_ids:
+        raise ValueError("Am is a timeline family: fdia_graph.timeline.generate_timeline builds it")
     recs = _draw_benign(ctx, rng, n_benign)
-    attacked, yield_ = _draw_families(
-        ctx, rng, [FAM_ID[f] for f in families], per_family, (ramp_len, ramp_rate), cent_p
-    )
+    attacked, yield_ = _draw_families(ctx, rng, fam_ids, per_family, (ramp_len, ramp_rate), cent_p)
     recs += attacked
 
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
