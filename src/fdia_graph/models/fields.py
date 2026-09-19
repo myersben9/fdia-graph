@@ -55,7 +55,7 @@ class LabelFields:
 
     y: Optional[Array] = None  # [..., N] per-bus attack label, 1 attacked
     family: Optional[Scalars] = (
-        None  # [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline files only)
+        None  # [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timelines only)
     )
 
 
