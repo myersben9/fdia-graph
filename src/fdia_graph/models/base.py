@@ -52,7 +52,7 @@ class Bundle(dict):
     _required: ClassVar[tuple[str, ...]] = ()  # fields that may not be None (construction raises TypeError)
     _names_cache: ClassVar[tuple[str, ...]] = ()
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> "Bundle":
+    def __new__(cls, *args: Any, **kwargs: Any) -> Bundle:
         # A bundle built from field groups has a field order set by inheritance, so positional
         # arguments would bind silently to the wrong fields: those bundles are keyword-only.
         if args and cls._order:
