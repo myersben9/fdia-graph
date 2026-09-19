@@ -15,6 +15,7 @@ Keys cited by docstrings in the code and by [`FORMULAS.md`](FORMULAS.md), in the
 | [JAC26] | R. Abdulin and R. Narimani, Jacobian-informed features for FDIA localization (working digest, 2026); see `docs/localization/README.md`, section "Jacobian-informed features". |
 | [MP19] | R. D. Zimmerman and C. E. Murillo-Sánchez, *MATPOWER User's Manual*, version 7.0, 2019. Branch model and `makeYbus`. |
 | [SCH70] | F. C. Schweppe and J. Wildes, "Power system static-state estimation, Part I: Exact model"; F. C. Schweppe and D. B. Rom, "Part II: Approximate model"; F. C. Schweppe, "Part III: Implementation," IEEE Trans. Power App. Syst., vol. PAS-89, no. 1, 1970. |
+| [WU26] | Y. Wu, H. Wang, S. Hu, J. Ye and Y. Tang, "Dynamic PMU configuration for stealthy multi-snapshot FDIA mitigation," IEEE Trans. Smart Grid, vol. 17, no. 1, pp. 650–665, 2026. The multi-snapshot attack: a held target reached in per-snapshot steps under the noise floor with an l0-sparse tamper set, every snapshot AC-consistent. |
 
 Entries marked "our" or "working digest" are the group's own work and are cited so the code
 points at the document that defines the quantity, not at a published paper.

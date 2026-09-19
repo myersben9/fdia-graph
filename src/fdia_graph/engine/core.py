@@ -42,6 +42,7 @@ FAM_ID = {
     "ramp": 5,
     "Al": 6,
     "LRA": 6,
+    "Am": 7,
 }
 # Bus-count knob (14/118/300) -> pandapower.networks factory name.
 # Bus-count -> pandapower.networks builder. Transmission systems only (>=110 kV, meshed). A system is

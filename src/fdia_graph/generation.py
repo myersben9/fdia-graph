@@ -11,7 +11,7 @@ Research knobs (all optional, sensible defaults matching the published shards):
   redundancy        dict  meter coverage: {vbus_frac,pmu_frac,flow_frac} (default 0.6/0.2/0.9)
   split             tuple chronological train/val/test fractions (default (0.6,0.2,0.2))
   seed              int   (default 123)
-  states            source of operating points: path to a pool .npz (key 'X' [T,N,4]) or an init dir of
+  states            source of operating points: path to a pool .npz or .h5 (key 'X' [T,N,4]) or an init dir of
                     X_*.npy; if None, uses $FDIA_GRAPH_INIT or downloads the system's operating-point pool.
   out               output .h5 path (default under the cache dir)
 """
@@ -29,7 +29,7 @@ import numpy as np
 
 # FdiaGenerator = physics/attack math; FAM_ID = family name -> integer id; attack_frame = one scan.
 from .engine import FAM_ID, FdiaGenerator
-from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs, attack_frame
+from .engine.records import AM_FAMILY, RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs, attack_frame
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import recent_change_scale, swing_zscore, temporal_delta
 from .models.data import ShardArrays  # noqa: F401  re-exported: defined here before the models package
@@ -107,6 +107,9 @@ def _read_states(
         return np.stack([np.load(f) for f in xs[::stride][:pool_cap]]).astype(np.float64)
     if src and src.endswith(".npz"):
         return np.load(src)["X"].astype(np.float64)  # precomputed compact pool (the SDK default)
+    if src and src.endswith((".h5", ".hdf5")):
+        with h5py.File(src, "r") as f:  # the pool as HDF5, dataset "X" [T, N, 4]
+            return np.asarray(f["X"], np.float64)
     # fall back to the downloadable operating-point pool for this system
     from .download import ensure_local
     from .registry import _RELEASE, AssetSpec, system_id
@@ -347,10 +350,11 @@ def generate(
     )
     ctx = _FrameContext(g, X, _swing_scale(X, g.C), knobs, [])
 
+    fam_ids = [FAM_ID[f] for f in families]
+    if AM_FAMILY in fam_ids:
+        raise ValueError("Am is a timeline family: fdia_graph.timeline.generate_timeline builds it")
     recs = _draw_benign(ctx, rng, n_benign)
-    attacked, yield_ = _draw_families(
-        ctx, rng, [FAM_ID[f] for f in families], per_family, (ramp_len, ramp_rate), cent_p
-    )
+    attacked, yield_ = _draw_families(ctx, rng, fam_ids, per_family, (ramp_len, ramp_rate), cent_p)
     recs += attacked
 
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")

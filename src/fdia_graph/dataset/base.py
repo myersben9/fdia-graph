@@ -27,8 +27,8 @@ import h5py
 import numpy as np
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
-FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
-STEALTHY_FAMILIES = {1, 5, 6}  # Aq, At, Al — evade classical bad-data detection
+FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
+STEALTHY_FAMILIES = {1, 5, 6, 7}  # Aq, At, Al, Am — re-solved states that evade classical bad-data detection
 _FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
 _SPLIT = {"train": 0, "val": 1, "test": 2}  # on-disk `data/split` codes (precomputed)
 

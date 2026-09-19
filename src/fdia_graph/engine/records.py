@@ -30,14 +30,17 @@ from ..models.frames import (  # noqa: F401  re-exported: defined here before th
     FrameKnobs,
     Scan,
 )
+from ..models.grid import EDGE, NODE
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
 
-# Family ids (see fdia_graph.FAMILIES): 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At (ramp), 6 Al (LRA).
+# Family ids (see fdia_graph.FAMILIES): 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At (ramp), 6 Al (LRA),
+# 7 Am (multi-snapshot, timelines only).
 RESOLVE_FAMILIES = (1, 5)  # stealthy: the grid is re-solved under a scaled load
 RAMP_FAMILY = 5
 LRA_FAMILY = 6
+AM_FAMILY = 7
 # The draw order of the single-shot families. Fixed: it sets the RNG sequence of every shard and stream.
 SINGLE_SHOT_ORDER = (1, 2, 3, 4, 6)
 CORRUPT_KIND = {2: "Ad", 3: "As", 4: "Ar"}  # corrupt-in-place families and their AttackMixin.corrupt code
@@ -87,6 +90,8 @@ def attack_frame(
         return _resolve_frame(g, Xt, family, targets, mult, knobs)
     if family == LRA_FAMILY:
         return _lra_frame(g, Xt, knobs)
+    if family == AM_FAMILY:
+        return _am_frame(g, Xt, targets, mult, knobs)
     if family == 0:
         return _benign_frame(g, Xt)
     return _corrupt_frame(g, Xt, family, targets, knobs)
@@ -146,6 +151,57 @@ def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
     y[buses] = 1
     bnx, bex = _benign_of(g, Xt) if k.with_benign else (None, None)
     return Frame(scan.node_x, scan.node_m, scan.edge_x, scan.edge_m, y, 1, buses, dev.astype(float), bnx, bex)
+
+
+def _am_frame(g, Xt, targets, mult, k: FrameKnobs) -> Optional[Frame]:
+    """Am, the multi-snapshot attack [WU26]: one step of a load redistribution held over an episode,
+    re-solved with generation pinned like Aq, then made sparse. The timeline walker draws the
+    redistribution once at onset and passes this frame's fraction of it as `mult` (one multiplier
+    per target); after emission every meter whose designed change against the true state sits
+    under `am_sigma` accuracy-class stds is left at its un-attacked reading, so the tampered set is
+    the meters the attack moves beyond noise (the l0 objective of [WU26], with the noise floor as
+    the threshold). Needs `with_benign`: the twin is what the untouched meters read.
+    """
+    assert k.with_benign, "Am needs the benign twin (with_benign=True)"
+    Lp = Xt[g.load_bus, NODE.p_inj] + g.load_genP
+    Lq = Xt[g.load_bus, NODE.q_inj].copy()
+    Lp_true = Lp.copy()
+    Lp = Lp.copy()
+    Lp[targets] *= mult
+    net = g.solve(Lp, Lq, Xt=Xt, Lp_true=Lp_true)
+    if net is None:
+        return None
+    Xa = g.state_from_net(net)  # the attacked state, AC-consistent by construction
+    scan = g.emit_from_state(Xa)
+    bnx, bex = _benign_of(g, Xt)
+    tamper = _beyond_noise(g, Xa, Xt, scan, k.am_sigma)
+    nx, ex = scan.node_x.copy(), scan.edge_x.copy()
+    nx[~tamper[0]] = bnx[~tamper[0]]
+    ex[~tamper[1]] = bex[~tamper[1]]
+    buses = g.load_bus[targets]
+    y = np.zeros(g.C, np.uint8)
+    y[buses] = 1
+    dev = np.abs(np.asarray(mult, float) - 1.0)
+    return Frame(nx, scan.node_m, ex, scan.edge_m, y, 1, buses, dev, bnx, bex, tamper)
+
+
+def _beyond_noise(g, Xa, Xt, scan: Scan, sigma: float) -> tuple[np.ndarray, np.ndarray]:
+    """The metered channels whose noiseless change from the true state `Xt` to the attacked state
+    `Xa` exceeds `sigma` accuracy-class stds (relative stds for P and Q with the emitter's floor,
+    absolute for |V| and the angle). Am tampers exactly these; the rest read un-attacked."""
+    sd = g.SD
+    thr_node = np.empty(Xt.shape, float)
+    thr_node[:, NODE.v] = sd["v"]
+    thr_node[:, NODE.theta] = np.degrees(sd["va"])
+    thr_node[:, NODE.p_inj] = np.abs(Xt[:, NODE.p_inj]) * sd["pi"] + 1e-3
+    thr_node[:, NODE.q_inj] = np.abs(Xt[:, NODE.q_inj]) * sd["qi"] + 1e-3
+    flows = g.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
+    thr_edge = np.empty(flows[1].shape, float)
+    thr_edge[:, EDGE.p_from] = np.abs(flows[1][:, EDGE.p_from]) * sd["pf"] + 1e-3
+    thr_edge[:, EDGE.q_from] = np.abs(flows[1][:, EDGE.q_from]) * sd["qf"] + 1e-3
+    node = (np.abs(Xa - Xt) >= sigma * thr_node) & (scan.node_m > 0)
+    edge = (np.abs(flows[0] - flows[1]) >= sigma * thr_edge) & (scan.edge_m > 0)
+    return node, edge
 
 
 def _benign_frame(g, Xt) -> Frame:

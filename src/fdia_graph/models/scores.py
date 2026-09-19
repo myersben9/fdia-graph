@@ -33,6 +33,7 @@ class EstimatorScores(Bundle):
     Ar: Optional[ErrorPair] = None  # replay
     At: Optional[ErrorPair] = None  # slow ramp
     Al: Optional[ErrorPair] = None  # load redistribution
+    Am: Optional[ErrorPair] = None  # multi-snapshot (timeline files)
 
 
 @dataclass(frozen=True, eq=False)
@@ -81,6 +82,7 @@ class LocalizerScores(Bundle):
     Ar: Optional[FamilyMetrics] = None  # replay
     At: Optional[FamilyMetrics] = None  # slow ramp
     Al: Optional[FamilyMetrics] = None  # load redistribution
+    Am: Optional[FamilyMetrics] = None  # multi-snapshot (timeline files)
 
 
 @dataclass(frozen=True, eq=False)

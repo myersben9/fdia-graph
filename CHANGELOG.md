@@ -5,6 +5,24 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The timeline writer, step 1 of `docs/plans/ONE_DATASET_PLAN.md`: `fdia_graph.timeline.generate_timeline`
+  walks one attacked timeline over a system's operating-point pool and writes one HDF5 file
+  (`kind="timeline"`) carrying every layer the streams and shards had between them: the observed,
+  benign and clean scans per frame, the full static graph, per-frame `stealthy`, `seq_id` (the
+  episode index) and a chronological `split` that never cuts an episode, an `episodes/` table, and
+  an `attack/` group with the designed magnitude per attacked bus and the tamper masks (the meters
+  the attacker wrote). Families are scheduled by inverse expected episode length so each gets about
+  the same share of attacked frames; `corrupt_len=1` makes every Ad/As/Ar frame an independent draw.
+  The loader for these files is step 2; `generate` and `load` are unchanged in this release.
+- A seventh family, `Am` (code 7, stealthy), the multi-snapshot attack of Wu et al. 2026 built from
+  the engine's pieces: the Al load redistribution drawn once at episode onset, applied along a ramp
+  whose per-bus per-frame step stays under `am_rate` of the noise floor, every frame re-solved
+  with generation pinned, and made sparse by leaving every meter whose designed change is under
+  `am_sigma` accuracy-class stds at its un-attacked reading. `fg.FAMILIES[7] == "Am"`,
+  `fg.STEALTHY_FAMILIES` now `{1, 5, 6, 7}`; the published shards and streams carry no `Am` frames.
+- `generate_stream` builds its frames through the timeline module's episode primitives; its
+  scheduler and RNG order are unchanged and the streams are bit-identical. `generate(states=...)`
+  also accepts a pool stored as HDF5 (dataset `X`).
 - One definition of the measurement column orders: `fdia_graph.models.NodeColumns` (`v`, `p_inj`,
   `q_inj`, `theta`), `EdgeColumns` (`p_from`, `q_from`) and `BranchColumns` (the eight `edge_attr`
   columns), with `.of(array)` giving named views of any such array and `NODE`, `EDGE`, `BRANCH`

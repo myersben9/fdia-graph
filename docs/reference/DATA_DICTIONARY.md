@@ -36,9 +36,9 @@ in a new data release.
 | | shape | values | in a batch |
 |---|---|---|---|
 | `y` | `[N]` | 0 clean, 1 attacked | `batch["y"]` `[B,N]` (PyG: `batch.y` `[B*N]`) |
-| `family` | scalar | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al | `batch["family"]` `[B]` (PyG: `batch.family` `[B]`) |
+| `family` | scalar | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timelines only) | `batch["family"]` `[B]` (PyG: `batch.family` `[B]`) |
 
-- Names: `fg.FAMILIES[code]`. Stealthy subset: `fg.STEALTHY_FAMILIES` = `{1, 5, 6}`.
+- Names: `fg.FAMILIES[code]`. Stealthy subset: `fg.STEALTHY_FAMILIES` = `{1, 5, 6, 7}`.
 - Per-bus family label, if a model needs one: `y * family[:, None]` gives `[B,N]` with 0 on clean buses.
 - Every attacked record flags at least one bus. Benign records flag none.
 - Per-family evaluation: filter by `family` and score `y` inside each group. `fg.load(..., families=[...])`
@@ -174,8 +174,8 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 | `edge_x` | `edge_x` | Array | yes | [..., E, 2] P_from, Q_from (ScanFields) |
 | `edge_m` | `edge_m` | Array | yes | [..., E, 2] flow-meter mask (ScanFields) |
 | `y` | `y` | Array | yes | [..., N] per-bus attack label, 1 attacked (LabelFields) |
-| `family` | `family` | Scalars | yes | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (LabelFields) |
-| `stealthy` | `stealthy` | Scalars | yes | [...] 1 for the re-solve families Aq, At, Al (RecordIds) |
+| `family` | `family` | Scalars | yes | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
+| `stealthy` | `stealthy` | Scalars | yes | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars | yes | [...] ramp sequence id, -1 otherwise (RecordIds) |
 | `timestep` | `timestep` | Scalars | yes | [...] position in the source load profile (RecordIds) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
@@ -205,8 +205,8 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
 | `edge_index` | `edge_index` | Array |  | [2, E] from and to bus of every branch (GraphFields) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
-| `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (LabelFields) |
-| `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al (RecordIds) |
+| `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
+| `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
 | `timestep` | `timestep` | Scalars |  | [...] position in the source load profile (RecordIds) |
 
@@ -230,8 +230,8 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 | `clean` | `clean` | Array |  | [..., N, 4] true state at the record's timestep (CleanFields) |
 | `edge_clean` | `edge_clean` | Array |  | [..., E, 2] exact true flows on metered branches (CleanFields) |
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
-| `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (LabelFields) |
-| `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al (RecordIds) |
+| `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
+| `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
 | `timestep` | `timestep` | Scalars |  | [...] position in the source load profile (RecordIds) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
@@ -267,14 +267,14 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `node_m` | `node_m` | Array | yes | [..., N, 4] meter mask, 1 metered (ScanFields) |
 | `edge_m` | `edge_m` | Array | yes | [..., E, 2] flow-meter mask (ScanFields) |
 | `y` | `y` | Array | yes | [..., N] per-bus attack label, 1 attacked (LabelFields) |
-| `family` | `family` | Scalars | yes | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (LabelFields) |
+| `family` | `family` | Scalars | yes | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
 | `temporal_delta` | `temporal_delta` | Array | yes | [..., N, 2] injection change vs the previous pool scan (v0.3+) (TemporalFields) |
 | `swing` | `swing` | Array | yes | [..., N, 2] that change as a z-score of recent change (v0.4.1+) (TemporalFields) |
 | `timestep` | `timestep` | Scalars | yes | [...] position in the source load profile (RecordIds) |
 | `episodes` | `episodes` | list[dict[str, Any]] | yes | list of {onset, length, family, buses} |
 | `system` | `system` | int |  | bus count (generate_stream and load_stream both set it) |
 | `attacked_frac` | `attacked_frac` | float |  | fraction of frames with at least one attacked bus (both set it) |
-| `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al (RecordIds) |
+| `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
 
@@ -291,6 +291,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `Ar` | `Ar` | ErrorPair |  | replay |
 | `At` | `At` | ErrorPair |  | slow ramp |
 | `Al` | `Al` | ErrorPair |  | load redistribution |
+| `Am` | `Am` | ErrorPair |  | multi-snapshot (timeline files) |
 | `geo` | `geo` | ErrorPair | yes | geometric mean over the classes present |
 
 ### `ErrorPair` (`fdia_graph.models.scores`)
@@ -316,6 +317,7 @@ Mean absolute error of one record class: angles in degrees, voltage magnitudes p
 | `Ar` | `Ar` | FamilyMetrics |  | replay |
 | `At` | `At` | FamilyMetrics |  | slow ramp |
 | `Al` | `Al` | FamilyMetrics |  | load redistribution |
+| `Am` | `Am` | FamilyMetrics |  | multi-snapshot (timeline files) |
 
 ### `OverallMetrics` (`fdia_graph.models.scores`)
 

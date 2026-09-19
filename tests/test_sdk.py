@@ -19,8 +19,8 @@ def test_system_id_accepts_every_spelling():
 
 
 def test_family_codes_are_the_documented_ones():
-    assert fg.FAMILIES == {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al"}
-    assert fg.STEALTHY_FAMILIES == {1, 5, 6}
+    assert fg.FAMILIES == {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
+    assert fg.STEALTHY_FAMILIES == {1, 5, 6, 7}
 
 
 # ---- shard layout ------------------------------------------------------------------------------
