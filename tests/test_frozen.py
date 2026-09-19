@@ -11,8 +11,10 @@ call order and never on floating-point details (only numpy's default integer wid
 int32 on Windows against int64 on Linux, so integer arrays are compared by kind and value).
 Floating arrays and scores are compared exactly when FDIA_FROZEN_STRICT=1, the mode to run
 locally, on the machine the references were written on, before every PR of the series.
-Otherwise, and in CI on Linux, floating arrays must agree to 1e-7 relative, because pandapower's
-power flow and BLAS differ in the last bits between platforms, and scores to 1e-4 relative,
+Otherwise, and in CI on Linux, floating arrays must agree to 1e-6 relative, because pandapower's
+power flow and BLAS differ in the last bits between platforms and the layers are stored as float32
+(the first Linux run of the timeline reference put 2 of 56,000 node_x values 1.15e-7 off the
+Windows freeze), and scores to 1e-4 relative,
 because the iterative estimators (Huber passes with a settling test) amplify those last-bit
 differences and the tiny timeline averages few records per family: the first CI run measured the
 Huber Ad angle error at 3.12094e-2 on Linux against 3.12089e-2 frozen on Windows.
@@ -30,7 +32,7 @@ FROZEN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frozen")
 STRICT = os.environ.get("FDIA_FROZEN_STRICT") == "1"
 
 
-ARRAY_RTOL = 1e-7  # floating arrays, cross-platform mode
+ARRAY_RTOL = 1e-6  # floating arrays, cross-platform mode (see the module docstring)
 SCORE_RTOL = 1e-4  # estimator and localizer scores, cross-platform mode (see the module docstring)
 
 
