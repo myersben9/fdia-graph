@@ -346,12 +346,16 @@ def _advance(
 
 def _frame_split(T: int, episodes: list[dict[str, Any]], frac: Sequence[float]) -> np.ndarray:
     """train(0)/val(1)/test(2) by chronological order, each boundary moved to the end of the episode
-    it would cut, so no episode straddles a split."""
-    bounds = [int(frac[0] * T), int((frac[0] + frac[1]) * T)]
-    for i, b in enumerate(bounds):
+    it would cut, so no episode straddles a split. Boundaries are settled in order and a later one
+    never falls before an earlier one, so one long episode across both leaves an empty middle
+    split rather than a cut episode (episodes are in onset order, so one pass settles a boundary)."""
+    bounds: list[int] = []
+    for f in (frac[0], frac[0] + frac[1]):
+        b = max(int(f * T), bounds[-1] if bounds else 0)
         for e in episodes:
             if e["onset"] < b < e["onset"] + e["length"]:
-                bounds[i] = e["onset"] + e["length"]
+                b = e["onset"] + e["length"]
+        bounds.append(b)
     split = np.zeros(T, np.int8)
     split[bounds[0] :] = 1
     split[bounds[1] :] = 2
@@ -496,6 +500,10 @@ def generate_timeline(
     """
     if am_direction not in ("mask", "induce", "both"):
         raise ValueError(f"am_direction must be 'mask', 'induce' or 'both', got {am_direction!r}")
+    am_len = ramp_len if am_len is None else am_len
+    for knob, value in (("ramp_len", ramp_len), ("am_len", am_len), ("corrupt_len", corrupt_len)):
+        if value is not None and value < 1:  # an empty episode would store no frame and never advance
+            raise ValueError(f"{knob} must be at least 1 frame, got {value!r}")
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, **red)
     lra_k = min(6, len(g.load_bus))
@@ -504,7 +512,7 @@ def generate_timeline(
     T, C = len(X), g.C
     knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, am_sigma=am_sigma)
     ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
-    am = (am_len or ramp_len, am_rate, am_direction)
+    am = (am_len, am_rate, am_direction)
     plan = _Schedule.build([FAM_ID[f] for f in families], ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
     buf = _TimelineBuffers(T, C, g.E, ctx.scale, g.clean_flows_from_states(X[:T]))
     t = 0

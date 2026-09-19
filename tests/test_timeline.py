@@ -185,6 +185,22 @@ def test_a_short_am_episode_keeps_the_capped_rate():
     assert max(full.at(i) for i in range(60)) == pytest.approx(1.0)
 
 
+def test_split_boundaries_settle_in_order():
+    from fdia_graph.timeline import _frame_split
+
+    ep = [dict(onset=50, length=40), dict(onset=90, length=5)]  # 50..89 crosses both 60 and 80 of 100
+    split = _frame_split(100, ep, (0.6, 0.2, 0.2))
+    assert (split[:90] == 0).all() and (split[90:] == 2).all()  # the middle split is empty, nothing is cut
+    split = _frame_split(100, [dict(onset=55, length=10)], (0.6, 0.2, 0.2))
+    assert (split[:65] == 0).all() and (split[65:80] == 1).all() and (split[80:] == 2).all()
+
+
+def test_empty_episode_lengths_are_refused(tmp_path, pool):
+    for bad in (dict(ramp_len=0), dict(am_len=0), dict(corrupt_len=0)):
+        with pytest.raises(ValueError, match="at least 1 frame"):
+            generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), **bad)
+
+
 def test_am_direction_and_the_pool_as_hdf5(tmp_path, pool):
     with pytest.raises(ValueError, match="am_direction"):
         generate_timeline(
