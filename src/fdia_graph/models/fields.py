@@ -54,14 +54,14 @@ class LabelFields:
     """The attack labels of a scan."""
 
     y: Optional[Array] = None  # [..., N] per-bus attack label, 1 attacked
-    family: Optional[Scalars] = None  # [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al
+    family: Optional[Scalars] = None  # [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am
 
 
 @dataclass(frozen=True, eq=False)
 class RecordIds:
     """Where a shard record came from."""
 
-    stealthy: Optional[Scalars] = None  # [...] 1 for the re-solve families Aq, At, Al
+    stealthy: Optional[Scalars] = None  # [...] 1 for the re-solve families Aq, At, Al, Am
     seq_id: Optional[Scalars] = None  # [...] ramp sequence id, -1 otherwise
     timestep: Optional[Scalars] = None  # [...] position in the source load profile
 

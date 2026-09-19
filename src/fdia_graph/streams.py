@@ -38,83 +38,25 @@ from typing import Any, Optional, Union
 import numpy as np
 
 from .engine import FAM_ID, FdiaGenerator
-from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, Frame, FrameKnobs, attack_frame
-from .formulas.attacks import ramp_profile
-from .formulas.temporal import swing_zscore, temporal_delta
+from .engine.records import RAMP_FAMILY, SINGLE_SHOT_ORDER, FrameKnobs
 from .generation import NOISE_FLOOR, _FrameContext, _load_states
 from .generation import _swing_scale as _generation_swing_scale
 from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
 from .registry import AssetSpec
-
-# Per-family episode-length band (frames). Ramp spans its full ramp_len; spike/measurement/redistribution
-# families persist for a shorter, variable window. Benign gaps are drawn from the same overall scale so the
-# attacked fraction lands near the requested target.
-_EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}  # Aq, Ad, As, Ar, Al
-
-
-class _StreamBuffers:
-    """The per-frame layers of one stream, allocated once and filled frame by frame.
-
-    node_x / edge_x are the OBSERVED measurements (attacked + noisy where attacked, else benign + noisy);
-    benign / edge_benign the same scan with the attack removed and the noise kept; edge_clean the
-    noiseless true flows on metered branches. temporal_delta and swing are the two temporal features,
-    taken against the previous EMITTED frame (the stream has no per-record pool lookup).
-    """
-
-    def __init__(self, T: int, C: int, E: int, scale: np.ndarray, edge_clean_full: np.ndarray) -> None:
-        self.node_x = np.zeros((T, C, 4), np.float32)
-        self.benign = np.zeros((T, C, 4), np.float32)
-        self.edge_x = np.zeros((T, E, 2), np.float32)
-        self.edge_benign = np.zeros((T, E, 2), np.float32)
-        self.edge_clean = np.zeros((T, E, 2), np.float32)
-        self.y = np.zeros((T, C), np.uint8)
-        self.family = np.zeros(T, np.int16)
-        self.temporal_delta = np.zeros((T, C, 2), np.float32)
-        self.swing = np.zeros((T, C, 2), np.float32)
-        self.episodes: list[dict[str, Any]] = []
-        self._scale = scale
-        self._edge_clean_full = edge_clean_full
-        self._prev_nx: Optional[np.ndarray] = None
-        self._all_buses = np.ones(C, bool)
-
-    def store(
-        self,
-        t: int,
-        nx: np.ndarray,
-        yt: np.ndarray,
-        fid: int,
-        benign_nx: np.ndarray,
-        ex: np.ndarray,
-        benign_ex: np.ndarray,
-    ) -> None:
-        self.node_x[t] = nx
-        self.benign[t] = benign_nx
-        self.y[t] = yt
-        self.family[t] = fid
-        self.edge_x[t] = ex
-        self.edge_benign[t] = benign_ex
-        self.edge_clean[t] = self._edge_clean_full[t]
-        # The two temporal features against the previous EMITTED frame, through the same kernel the
-        # shard uses; the stream computes them at every bus (an unmetered bus reads 0 - 0).
-        p = self._prev_nx if self._prev_nx is not None else nx
-        self.temporal_delta[t] = temporal_delta(nx, p, self._all_buses)
-        self.swing[t] = swing_zscore(nx, p, self._scale[t], self._all_buses)
-        self._prev_nx = nx
-
-    def store_benign(self, t: int, nx: np.ndarray, ex: np.ndarray) -> None:
-        """A benign frame: observed == un-attacked."""
-        self.store(t, nx, np.zeros(self.y.shape[1], np.uint8), 0, nx, ex, ex)
-
-    def store_frame(self, t: int, fid: int, frame: Frame) -> None:
-        """An attacked frame with its un-attacked twin; stream frames set with_benign=True, so both exist."""
-        assert frame.benign_node_x is not None and frame.benign_edge_x is not None
-        self.store(t, frame.node_x, frame.y, fid, frame.benign_node_x, frame.edge_x, frame.benign_edge_x)
+from .timeline import (
+    _benign_gap,
+    _ramp_episode,
+    _single_shot_episode,
+    _TimelineBuffers,
+    _want_attack,
+)
 
 
 @dataclass
 class _StreamPlan:
-    """How the timeline is walked: which families rotate, whether the ramp is among them, the
-    ramp shape, and the attacked fraction the gaps are sized for."""
+    """How a stream is walked: which families rotate, whether the ramp is among them, the ramp
+    shape, and the attacked fraction the gaps are sized for. The published streams' scheduler:
+    families drawn uniformly, the ramp with probability 1/(n+1), the stream episode-length bands."""
 
     single: list[int]  # single-shot families (persist as a flat episode)
     has_ramp: bool
@@ -123,111 +65,22 @@ class _StreamPlan:
     attacked_frac: float
 
 
-def _emit_benign(ctx: _FrameContext, t: int) -> tuple[np.ndarray, np.ndarray]:
-    """The benign scan of timestep t (also remembered for the replay families)."""
-    frame = attack_frame(ctx.g, ctx.X[t], 0, None, None, ctx.knobs)
-    assert frame is not None  # a benign emission cannot fail
-    return frame.node_x, frame.edge_x
-
-
-def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
-    """Attacked load-table positions for a stream episode: 1 to 6 buses for Aq, up to 4 otherwise."""
-    nab = len(apos)
-    k = int(rng.integers(1, min(6, nab) + 1)) if fid == 1 else min(4, nab)
-    return rng.choice(apos, k, replace=False)
-
-
-def _want_attack(y: np.ndarray, t: int, attacked_frac: float) -> bool:
-    """Start an attack episode when the attacked fraction so far is below the target."""
-    if t == 0:
-        return True
-    atk_so_far = int((y[:t].sum(axis=1) > 0).sum())  # frames with any attacked bus, so far
-    return (atk_so_far / max(1, t)) < attacked_frac
-
-
-def _benign_gap(ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int) -> int:
-    """A benign gap of 5 to 39 frames; returns the next free timestep."""
-    T = len(ctx.X)
-    gap = int(rng.integers(5, 40))
-    for _ in range(gap):
-        if t >= T:
-            break
-        bn, bex = _emit_benign(ctx, t)
-        buf.store_benign(t, bn, bex)
-        t += 1
-    return t
-
-
-def _store_or_benign(
-    ctx: _FrameContext, buf: _StreamBuffers, t: int, fid: int, frame: Optional[Frame], ok: np.ndarray
-) -> None:
-    """Store the attacked frame, or a benign one when the attack could not be built at this timestep."""
-    if frame is None:
-        bn, bex = _emit_benign(ctx, t)
-        buf.store_benign(t, bn, bex)
-    else:
-        buf.store_frame(t, fid, frame)
-        ok |= frame.y
-
-
-def _ramp_episode(
-    ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int, plan: _StreamPlan
-) -> int:
-    """One slow-ramp episode on a fixed bus set (rise, hold, return); returns the next free timestep."""
-    T, C = len(ctx.X), ctx.g.C
-    apos = ctx.g.attackable_pos
-    a = rng.choice(apos, min(5, len(apos)), replace=False)  # fixed bus set for the ramp
-    direction = 1.0 if rng.random() < 0.5 else -1.0
-    rise = max(1, int(rng.uniform(0.2, 0.45) * plan.ramp_len))
-    hold = int(rng.uniform(0.0, 0.25) * plan.ramp_len)
-    t0 = t
-    ok = np.zeros(C, np.uint8)
-    for i in range(plan.ramp_len):
-        if t >= T:
-            break
-        dev = ramp_profile(i, rise, hold, plan.ramp_rate, plan.ramp_rate)
-        frame = attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, a, 1 + direction * dev, ctx.knobs)
-        _store_or_benign(ctx, buf, t, RAMP_FAMILY, frame, ok)
-        t += 1
-    buf.episodes.append(dict(onset=t0, length=t - t0, family=RAMP_FAMILY, buses=np.where(ok)[0].tolist()))
-    return t
-
-
-def _single_shot_episode(
-    ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int, fid: int
-) -> int:
-    """One episode of a single-shot family held for a random length; returns the next free timestep."""
-    T, C = len(ctx.X), ctx.g.C
-    a = _pick_targets(rng, ctx.g.attackable_pos, fid)
-    mult = 1 + rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
-    L = int(rng.integers(*_EP_LEN.get(fid, (5, 25))))
-    t0 = t
-    ok = np.zeros(C, np.uint8)
-    for _ in range(L):
-        if t >= T:
-            break
-        _store_or_benign(ctx, buf, t, fid, attack_frame(ctx.g, ctx.X[t], fid, a, mult, ctx.knobs), ok)
-        t += 1
-    buf.episodes.append(dict(onset=t0, length=t - t0, family=fid, buses=np.where(ok)[0].tolist()))
-    return t
-
-
 def _advance(
-    ctx: _FrameContext, buf: _StreamBuffers, rng: np.random.Generator, t: int, plan: _StreamPlan
+    ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, t: int, plan: _StreamPlan
 ) -> int:
     """One step of the timeline walk: a benign gap when the attacked fraction is on target (or
     nothing can attack), else a ramp episode or a single-shot episode. Returns the next free timestep."""
-    if not _want_attack(buf.y, t, plan.attacked_frac) or not (plan.single or plan.has_ramp):
+    if not _want_attack(buf, t, plan.attacked_frac) or not (plan.single or plan.has_ramp):
         return _benign_gap(ctx, buf, rng, t)
     use_ramp = plan.has_ramp and (not plan.single or rng.random() < 1.0 / (len(plan.single) + 1))
     if use_ramp and t < len(ctx.X) - plan.ramp_len:
-        return _ramp_episode(ctx, buf, rng, t, plan)
+        return _ramp_episode(ctx, buf, rng, t, plan.ramp_len, plan.ramp_rate)
     fid = int(rng.choice(plan.single)) if plan.single else RAMP_FAMILY
     return _single_shot_episode(ctx, buf, rng, t, fid)
 
 
 def _stream_result(
-    g: FdiaGenerator, X: np.ndarray, buf: _StreamBuffers, T: int, out: Optional[str]
+    g: FdiaGenerator, X: np.ndarray, buf: _TimelineBuffers, T: int, out: Optional[str]
 ) -> Stream:
     """Assemble the stream dict (and save it when `out` is given)."""
     # clean = the NOISELESS healthy state at every timestep (the truth the attack was injected onto), in the
@@ -325,7 +178,7 @@ def generate_stream(
     )
     # All noiseless from-end flows over the whole timeline in one batched matmul (metered branches only, so
     # edge_benign - edge_clean is the meter error on the measured channels). Shared physics primitive.
-    buf = _StreamBuffers(T, C, g.E, ctx.scale, g.clean_flows_from_states(X[:T]))
+    buf = _TimelineBuffers(T, C, g.E, ctx.scale, g.clean_flows_from_states(X[:T]))
     # Walk the timeline: alternate a benign gap and an attack episode, sized so the attacked fraction ~ target.
     t = 0
     while t < T:

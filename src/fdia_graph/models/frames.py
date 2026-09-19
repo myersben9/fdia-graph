@@ -31,6 +31,9 @@ class Frame(NamedTuple):
     mag: np.ndarray  # designed |change| / |base| per entry of mag_bus, the plausibility-band record
     benign_node_x: Optional[np.ndarray]  # un-attacked node measurement of the same scan (with_benign)
     benign_edge_x: Optional[np.ndarray]  # un-attacked branch flows of the same scan (with_benign)
+    # The meters the attacker wrote, when the family decides that per meter (Am): ([N, 4], [E, 2])
+    # boolean masks. None for the other families, whose tamper set follows from the family.
+    tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
 
 
 class FrameKnobs(NamedTuple):
@@ -42,6 +45,8 @@ class FrameKnobs(NamedTuple):
     replay_tau: Optional[int]  # Ar/As replay depth in scans, None = random lag of at least REPLAY_MIN_LAG
     reject_below_floor: bool  # shards: reject a within-noise scan so the draw loop redraws
     with_benign: bool  # streams: also emit the un-attacked twin of the scan
+    # Am: a meter whose designed change is under this many accuracy-class stds is left un-attacked
+    am_sigma: float = 3.0
 
 
 class Record(NamedTuple):

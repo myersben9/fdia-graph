@@ -11,7 +11,7 @@ Research knobs (all optional, sensible defaults matching the published shards):
   redundancy        dict  meter coverage: {vbus_frac,pmu_frac,flow_frac} (default 0.6/0.2/0.9)
   split             tuple chronological train/val/test fractions (default (0.6,0.2,0.2))
   seed              int   (default 123)
-  states            source of operating points: path to a pool .npz (key 'X' [T,N,4]) or an init dir of
+  states            source of operating points: path to a pool .npz or .h5 (key 'X' [T,N,4]) or an init dir of
                     X_*.npy; if None, uses $FDIA_GRAPH_INIT or downloads the system's operating-point pool.
   out               output .h5 path (default under the cache dir)
 """
@@ -107,6 +107,9 @@ def _read_states(
         return np.stack([np.load(f) for f in xs[::stride][:pool_cap]]).astype(np.float64)
     if src and src.endswith(".npz"):
         return np.load(src)["X"].astype(np.float64)  # precomputed compact pool (the SDK default)
+    if src and src.endswith((".h5", ".hdf5")):
+        with h5py.File(src, "r") as f:  # the pool as HDF5, dataset "X" [T, N, 4]
+            return np.asarray(f["X"], np.float64)
     # fall back to the downloadable operating-point pool for this system
     from .download import ensure_local
     from .registry import _RELEASE, AssetSpec, system_id

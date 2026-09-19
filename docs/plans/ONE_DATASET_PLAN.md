@@ -1,6 +1,6 @@
 # Plan: one generator, one file, one loader
 
-Status: proposed 2026-09-19. Ben: "one path for generation; load should just be out-of-order
+Status: approved 2026-09-19, step 1 in progress (the writer and `Am`, as `fdia_graph.timeline.generate_timeline`; `generate` is rewired to it in step 2 once the loader reads the file). Ben: "one path for generation; load should just be out-of-order
 load_stream with all the things we have put into them; sidecars make no sense; it makes no sense
 that data was stored in HDF5 and then npz." This is a breaking data release; the published 0.7.2
 data and the code that reads it stay available for anyone citing them.
@@ -94,7 +94,7 @@ PR as the writer (step 1) so the eight systems are generated once.
 
 | step | PR | contents | data release |
 |---|---|---|---|
-| 1 | writer | `generate()` writes the one file (the timeline walker, promoted from `streams.py`); the `Am` family and its knobs; `episodes/` and `attack/` groups; the pool read from HDF5 | no |
+| 1 | writer | `timeline.generate_timeline` writes the one file (the walker's episode primitives shared with `generate_stream`, whose scheduler stays bit-identical until step 3); the `Am` family and its knobs; `episodes/` and `attack/` groups; families scheduled by inverse expected length; the pool read from HDF5 | no |
 | 2 | loader | reads `kind="timeline"` files: `benign/`, `episodes/`, `attack/`, stored split; `order="time" | "random"` with `seed`; `ds.windows`; `torch_windows` / `pyg_stream` on a dataset; `load_stream` / `generate_stream` / `Stream` as aliases that warn | no |
 | 3 | delete | the shard writer, the npz path, both sidecars, the graph sidecar assets; the frozen references re-frozen on the new tiny file | no (references only) |
 | 4 | data | the eight systems regenerated with the seven families, pools converted, **one file per system**, one release `v0.8.0`; `registry` points at it; `FDIA_GRAPH_RELEASE=v0.7.2` still loads the old shards through the old layout for one minor version | yes |
@@ -107,7 +107,7 @@ Steps 1 to 3 are code and ship as 0.18; step 4 is the release that makes it real
 0. Family letter and code: `Am`, 7 (proposed), and whether `Am` counts as stealthy for the
    `stealthy` flag (proposed: yes, it is re-solved every frame).
 
-1. Keep single-shot families as length-1 episodes (a knob, default on) so `Ad`/`As`/`Ar` records stay independent draws as in the papers, or let every family run as episodes.
+1. Keep single-shot families as length-1 episodes (a knob, default on) so `Ad`/`As`/`Ar` records stay independent draws as in the papers, or let every family run as episodes. Implemented as `corrupt_len=1`: the corrupt-in-place families `Ad`/`As`/`Ar` are one-frame draws; `Aq` and `Al` keep their episode bands (their onset is the temporal signal the SE work reads), `At` and `Am` are ramps.
 2. Frame count per system: 72,000 as today (one pool pass), or more.
 3. Compression: gzip 4 (smaller files, slower first read) or none (the 300-bus file grows to about 4 GB).
 4. Drop the old-layout reader after one minor version, or keep it for good for the v0.7.2 citations.
