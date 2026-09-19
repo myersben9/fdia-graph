@@ -339,15 +339,24 @@ def _am_multipliers(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray
     return 1.0 + delta / np.where(np.abs(Lp) > 1e-9, Lp, 1e-9)
 
 
+def _am_sign(direction: str, rng: np.random.Generator) -> float:
+    """The sign applied to the engine's redistribution. `lra_delta` orients its delta to raise the
+    target line's loading in the false state, so "induce" (a safe line reads as overloaded, the
+    [WU26] objective) keeps it (+1) and "mask" (a real overload reads lighter) flips it (-1);
+    "both" draws one of the two per episode (one RNG draw)."""
+    if direction == "both":
+        direction = "induce" if rng.random() < 0.5 else "mask"
+    return 1.0 if direction == "induce" else -1.0
+
+
 def _am_episode(
     ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, t: int, shape: tuple[int, float, str]
 ) -> int:
     """One multi-snapshot episode [WU26]: a load redistribution drawn once at onset (the Al
     construction, PTDF-ranked buses, load-conserving), then applied frame by frame along a ramp
     whose per-bus per-frame step stays under the noise floor, every frame re-solved and made sparse
-    by `engine.records._am_frame`. `shape` = (length, am_rate, am_direction). "mask" keeps the
-    redistribution's own sign (it hides a real overload, as Al does); "induce" flips it (a safe line
-    reads as overloaded); "both" draws one of the two per episode. Returns the next free timestep."""
+    by `engine.records._am_frame`. `shape` = (length, am_rate, am_direction), the direction
+    resolved by `_am_sign`. Returns the next free timestep."""
     T, k = len(ctx.X), ctx.knobs
     length, am_rate, direction = shape
     Lp0 = ctx.X[t][ctx.g.load_bus, NODE.p_inj] + ctx.g.load_genP
@@ -356,9 +365,7 @@ def _am_episode(
     if len(a) == 0:  # no feasible redistribution at this operating point: one benign frame, no episode
         buf.store(t, 0, _emit_benign(ctx, t))
         return t + 1
-    if direction == "both":
-        direction = "mask" if rng.random() < 0.5 else "induce"
-    delta = red.delta[a] * (1.0 if direction == "mask" else -1.0)
+    delta = red.delta[a] * _am_sign(direction, rng)
     rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
     sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
     ep = _episode(ctx, buf, AM_FAMILY, t)
@@ -576,7 +583,8 @@ def generate_timeline(
     am_len           Am episode length (default ramp_len)
     am_rate          Am's largest per-bus per-frame load change as a fraction of the noise floor
     am_sigma         Am leaves every meter whose designed change is under this many stds un-attacked
-    am_direction     "mask" (hide a real overload), "induce" (a safe line reads overloaded) or "both"
+    am_direction     "induce" (the target line reads more loaded than it is, the engine's Al sign),
+                     "mask" (it reads lighter, a real overload hidden) or "both" (drawn per episode)
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
                      draw as in the papers, None draws the stream's 5 to 25 frame band
     replay_tau       Ar/As replay depth in frames, None = random lag of at least 20
