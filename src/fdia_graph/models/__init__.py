@@ -1,6 +1,6 @@
 """Every data model of the package in one place (docs/plans/DATA_MODELS_PLAN.md, step 5).
 
-Grouped by what the data is: `grid` (the static system), `frames` (what the generators pass
+Grouped by what the data is: `fields` (the field groups the data bundles share), `grid` (the static system), `frames` (what the generators pass
 around per scan), `data` (what a user gets back), `scores` (result tables), `assets` (how files
 are found). The package's own modules import only numpy, typing and dataclasses, so no model
 depends on a producer and no import cycle is possible (importing it still runs the parent
@@ -13,6 +13,15 @@ PUBLIC names the bundles a user receives from the public API; the data dictionar
 from .assets import AssetSpec, DownloadTarget, LineCandidate
 from .base import Bundle
 from .data import ArraysBundle, BatchBundle, RecordBundle, ShardArrays, Stream, Summary, TrueState
+from .fields import (
+    CleanFields,
+    GraphFields,
+    LabelFields,
+    RecordIds,
+    ScanFields,
+    StreamLayers,
+    TemporalFields,
+)
 from .frames import Frame, FrameKnobs, Record, Redistribution, ResolvedPool, Scan
 from .grid import INTACT, Admittances, BranchModel, MeterBias, MeterPlan, Outage
 from .scores import (
@@ -43,6 +52,13 @@ PUBLIC = (
 
 __all__ = [
     "Bundle",
+    "ScanFields",
+    "LabelFields",
+    "RecordIds",
+    "TemporalFields",
+    "CleanFields",
+    "GraphFields",
+    "StreamLayers",
     "BranchModel",
     "Admittances",
     "MeterPlan",

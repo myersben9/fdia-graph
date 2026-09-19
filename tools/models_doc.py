@@ -28,13 +28,31 @@ _FIELD_LINE = re.compile(r"^\s*(\w+)\s*:\s*(.+?)(?:\s*=\s*[^#]+?)?\s*(?:#\s*(.*)
 
 
 def _field_comments(cls: type[Any]) -> dict:
-    """The comment written after each field in the class body, by field name."""
-    out = {}
-    for line in inspect.getsource(cls).splitlines():
-        m = _FIELD_LINE.match(line)
-        if m and not line.lstrip().startswith(("_", "@", "class ", '"""')):
-            out[m.group(1)] = (m.group(3) or "").strip()
+    """The comment written after each field in the class body, by field name, gathered over the
+    class and its field groups (the nearest definition wins)."""
+    out: dict = {}
+    for klass in reversed(cls.__mro__):
+        if klass is object or not hasattr(klass, "__dataclass_fields__"):
+            continue
+        try:
+            src = inspect.getsource(klass)
+        except (OSError, TypeError):
+            continue
+        for line in src.splitlines():
+            m = _FIELD_LINE.match(line)
+            if m and not line.lstrip().startswith(("_", "@", "class ", '"""')):
+                out[m.group(1)] = (m.group(3) or "").strip()
     return out
+
+
+def _group_of(cls: type[Any], name: str) -> str:
+    """The field group that declares `name`, or "" when the bundle declares it itself."""
+    for klass in cls.__mro__[1:]:
+        if name in klass.__dict__.get("__dataclass_fields__", {}) and klass.__name__ != "Bundle":
+            own = klass.__dict__.get("__annotations__", {})
+            if name in own:
+                return klass.__name__
+    return ""
 
 
 def _type_name(f: Any) -> str:
@@ -47,13 +65,24 @@ def _render_model(cls: type[Any]) -> list[str]:
     doc = inspect.getdoc(cls) or ""
     comments = _field_comments(cls)
     lines = [f"### `{cls.__name__}` (`{cls.__module__}`)", "", " ".join(doc.split()), ""]
-    lines += ["| field | dict key | type | meaning |", "|---|---|---|---|"]
-    for f in fields(cls):
+    groups = [
+        k.__name__ for k in cls.__mro__[1:] if "__dataclass_fields__" in k.__dict__ and k.__name__ != "Bundle"
+    ]
+    if groups:
+        lines += ["Field groups: " + ", ".join(f"`{g}`" for g in groups) + ".", ""]
+    lines += ["| field | dict key | type | required | meaning |", "|---|---|---|---|---|"]
+    by_name = {f.name: f for f in fields(cls)}
+    for name in cls._names():
+        f = by_name[name]
         key = cls.key_of(f.name)
-        optional = f.default is None or "Optional" in str(f.type)  # a None default marks an optional layer
+        required = f.name in getattr(cls, "_required", ()) or (
+            f.default is not None and "Optional" not in str(f.type)
+        )
         meaning = comments.get(f.name, "").replace("|", "&#124;")  # a bare pipe would split the table cell
+        group = _group_of(cls, f.name)
+        src = f" ({group})" if group else ""
         lines.append(
-            f"| `{f.name}` | `{key}` | {_type_name(f)}{' (optional)' if optional else ''} | {meaning} |"
+            f"| `{f.name}` | `{key}` | {_type_name(f)} | {'yes' if required else ''} | {meaning}{src} |"
         )
     return lines + [""]
 
