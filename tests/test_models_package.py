@@ -51,7 +51,7 @@ def test_all_names_every_model_and_public_is_a_subset():
     for info in pkgutil.iter_modules(models.__path__):
         defined |= _defined_models(importlib.import_module(f"fdia_graph.models.{info.name}"))
     constants = {"INTACT", "NODE", "EDGE", "BRANCH"}  # the instances the package exports next to the models
-    assert defined | {"Bundle"} | constants == set(models.__all__) | constants
+    assert set(models.__all__) == defined | {"Bundle"} | constants
     assert set(models.PUBLIC) <= set(models.__all__)
     assert all(issubclass(getattr(models, n), Bundle) for n in models.PUBLIC)
 

@@ -195,7 +195,9 @@ class SEBase:
     def _truth_of(self, clean: np.ndarray) -> TrueState:
         # clean [n,N,4] = [V, P, Q, theta] physical -> true 2N-1 state + slack angle reference
         x = np.concatenate([np.deg2rad(clean[:, self.keep, NODE.theta]), clean[:, :, NODE.v]], axis=1)
-        return TrueState(x.astype(np.float64), np.deg2rad(clean[:, self.slack, 3]).astype(np.float64))
+        return TrueState(
+            x.astype(np.float64), np.deg2rad(clean[:, self.slack, NODE.theta]).astype(np.float64)
+        )
 
     # ---- fitting ----------------------------------------------------------------------------
     def fit(self, ds: FdiaGraph, n_calib: int = 600) -> SEBase:

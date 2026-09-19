@@ -223,11 +223,14 @@ def test_default_collate_treats_a_bundle_as_a_dict():
 def test_column_views_name_the_documented_order():
     """`NodeColumns` is the one definition of the node_x order (|V|, P_inj, Q_inj, theta) and
     `EdgeColumns` of the edge_x order (P_from, Q_from); the views share memory with the array."""
-    from fdia_graph.models import BRANCH, EDGE, NODE, EdgeColumns, NodeColumns, RecordBundle
+    from fdia_graph.models import BRANCH, EDGE, NODE, BranchColumns, EdgeColumns, NodeColumns, RecordBundle
 
     assert NODE == (0, 1, 2, 3) and NODE._fields == ("v", "p_inj", "q_inj", "theta")
     assert EDGE == (0, 1) and EDGE._fields == ("p_from", "q_from")
     assert BRANCH._fields == ("r", "x", "b", "g", "gs", "bs", "tap", "shift")
+    phys = np.arange(16.0).reshape(2, 8)
+    branch = BranchColumns.of(phys)
+    assert np.array_equal(branch.tap, phys[:, 6]) and np.shares_memory(branch.shift, phys)
     a = np.arange(24.0).reshape(2, 3, 4)
     cols = NodeColumns.of(a)
     assert np.array_equal(cols.theta, a[:, :, 3]) and np.shares_memory(cols.v, a)
@@ -253,4 +256,7 @@ def test_loader_columns_agree_with_the_definition(splits):
 
     ds = splits["test"]
     cols = NodeColumns.of(ds.to_numpy(["clean"]).clean)
-    assert 0.8 < cols.v.mean() < 1.2 and np.all(cols.theta[:, ds.slack] == 0.0)
+    assert 0.8 < cols.v.mean() < 1.2
+    assert np.allclose(
+        cols.theta[:, ds.slack], 0.0, atol=1e-6
+    )  # the layer is float32; same tolerance as the loader
