@@ -139,6 +139,27 @@ def test_episodes_table_follows_the_view(timeline):
     assert len(fg.load(timeline, families=["At"]).episodes) == int((ep.family == 5).sum())
 
 
+def test_edge_attr_np_is_torch_free_and_equal_to_edge_attr(timeline):
+    import torch
+
+    ds = fg.load(timeline)
+    assert np.array_equal(ds.edge_attr_np, ds.edge_attr.numpy().astype(np.float32))
+    ds._phys["edge_gs"] = None  # a file that predates the stored series admittance derives it
+    assert np.allclose(ds.edge_attr_np, ds.edge_attr.numpy(), rtol=1e-6)
+    assert isinstance(torch.as_tensor(ds.edge_attr_np), torch.Tensor)
+
+
+def test_stream_of_refuses_a_shuffled_or_filtered_view(timeline):
+    from fdia_graph.streams import stream_of
+
+    with pytest.raises(ValueError, match="order='time'"):
+        stream_of(fg.load(timeline, order="random"))
+    with pytest.raises(ValueError, match="consecutive frames"):
+        stream_of(fg.load(timeline, families=["Aq"]))
+    s = stream_of(fg.load(timeline, split="test"))
+    assert s.node_x.shape[0] == len(fg.load(timeline, split="test"))
+
+
 def test_torch_helpers_take_a_dataset(timeline):
     import torch
 

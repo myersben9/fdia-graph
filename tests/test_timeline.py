@@ -167,9 +167,9 @@ def test_am_is_a_sparse_sub_floor_ramp_of_a_held_redistribution(am_timeline):
 def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
     import fdia_graph as fg
 
-    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
+    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):  # the pre-0.18 positions
         s = fg.generate_stream(
-            14, states=pool[:60], seed=SEED, families=("Am", "Ad"), ramp_len=10, out=str(tmp_path / "s.h5")
+            14, pool[:60], 0.5, ("Am", "Ad"), 0.2, 0.002, 10, None, None, SEED, str(tmp_path / "s.h5")
         )
     assert s.system == 14 and s.node_x.shape == (60, 14, 4) and s.node_m.shape == (14, 4)
     assert set(np.unique(s.family).tolist()) <= {0, 2, 7} and len(s.episodes) > 0

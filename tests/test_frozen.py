@@ -43,9 +43,19 @@ def _same_array(name, got, ref):
     if got.dtype.kind in "iub" or got.dtype.kind in "SU" or STRICT:
         assert np.array_equal(got, ref), f"{name}: values differ from the frozen reference"
     else:
-        assert np.allclose(got, ref, rtol=ARRAY_RTOL, atol=1e-9, equal_nan=True), (
-            f"{name}: values differ beyond {ARRAY_RTOL}"
-        )
+        assert np.allclose(got, ref, rtol=ARRAY_RTOL, atol=1e-9, equal_nan=True), _differ(name, got, ref)
+
+
+def _differ(name, got, ref) -> str:
+    """What differs, for the CI log: how many elements, the largest relative gap, and the rows."""
+    g, r = np.asarray(got, np.float64), np.asarray(ref, np.float64)
+    bad = ~np.isclose(g, r, rtol=ARRAY_RTOL, atol=1e-9, equal_nan=True)
+    rel = np.abs(g - r) / np.maximum(np.abs(r), 1e-12)
+    rows = np.unique(np.nonzero(bad)[0])[:20] if bad.ndim else []
+    return (
+        f"{name}: {int(bad.sum())} of {bad.size} elements differ beyond {ARRAY_RTOL} "
+        f"(max relative gap {rel[bad].max():.3e}), first rows {rows.tolist()}"
+    )
 
 
 def _same_scores(got, ref, path=""):
@@ -62,7 +72,7 @@ def _same_scores(got, ref, path=""):
         assert got == ref, f"{path}: {got!r} vs frozen {ref!r}"
 
 
-def test_tiny_shard_matches_frozen_reference(timeline):
+def test_tiny_timeline_matches_frozen_reference(timeline):
     import fdia_graph as fg
 
     ds = fg.load(timeline)

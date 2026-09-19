@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import warnings
+from collections.abc import Sequence
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -20,6 +21,7 @@ import numpy as np
 from .dataset.sequence import check_window_args, window_labels
 from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
 from .registry import AssetSpec
+from .timeline import DEFAULT_FAMILIES
 
 
 def stream_summary(s: dict[str, Any]) -> dict[str, Any]:
@@ -36,13 +38,21 @@ def stream_summary(s: dict[str, Any]) -> dict[str, Any]:
 def generate_stream(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
+    attacked_frac: float = 0.5,
+    families: Sequence[str] = DEFAULT_FAMILIES,
+    attack_intensity: float = 0.20,
+    ramp_rate: float = 0.002,
+    ramp_len: int = 60,
+    replay_tau: Optional[int] = None,
+    redundancy: Optional[dict] = None,
     seed: int = 123,
     out: Optional[str] = None,
     **knobs: Any,
 ) -> Stream:
     """Deprecated: `fg.generate` writes the timeline and `fg.load(name, order="time")` reads it.
     Builds one timeline file for `system` (`out`, default `stream_ieee{N}.h5` under the cache
-    directory; the knobs are `timeline.generate_timeline`'s) and returns it as the stream dict."""
+    directory) and returns it as the stream dict. The parameters keep their pre-0.18 positions;
+    the Am knobs and `corrupt_len` of `timeline.generate_timeline` pass through `knobs`."""
     from .dataset import FdiaGraph
     from .registry import CACHE_DIR, system_id
     from .timeline import generate_timeline
@@ -54,12 +64,28 @@ def generate_stream(
         stacklevel=2,
     )
     out = out or os.path.join(CACHE_DIR, f"stream_ieee{system_id(system)}.h5")
-    return stream_of(FdiaGraph(generate_timeline(system, states=states, seed=seed, out=out, **knobs)))
+    path = generate_timeline(
+        system,
+        states=states,
+        attacked_frac=attacked_frac,
+        families=families,
+        attack_intensity=attack_intensity,
+        ramp_rate=ramp_rate,
+        ramp_len=ramp_len,
+        replay_tau=replay_tau,
+        redundancy=redundancy,
+        seed=seed,
+        out=out,
+        **knobs,
+    )
+    return stream_of(FdiaGraph(path))
 
 
 def stream_of(ds: Any) -> Stream:
-    """A time-ordered timeline dataset as the stream dict: the per-frame layers, the static graph
-    and masks, and the episode list."""
+    """A time-ordered, contiguous timeline view as the stream dict: the per-frame layers, the
+    static graph and masks, and the episode list. A random order or a family subset is refused,
+    since the frames of a stream are consecutive."""
+    ds._check_timeline("stream_of")
     a = ds.to_numpy()
     ep = ds.episodes
     return Stream(
