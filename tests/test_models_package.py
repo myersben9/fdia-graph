@@ -2,6 +2,7 @@
 all, they are defined nowhere else, and its own modules depend on nothing but numpy and typing."""
 
 import ast
+import dataclasses
 import importlib
 import inspect
 import os
@@ -15,9 +16,14 @@ SRC = os.path.dirname(fdia_graph.__file__)
 
 
 def _is_model(obj) -> bool:
+    """A Bundle, a NamedTuple, or a plain dataclass (the field groups)."""
     if not inspect.isclass(obj) or obj is Bundle:
         return False
-    return issubclass(obj, Bundle) or (issubclass(obj, tuple) and hasattr(obj, "_fields"))
+    return (
+        issubclass(obj, Bundle)
+        or (issubclass(obj, tuple) and hasattr(obj, "_fields"))
+        or dataclasses.is_dataclass(obj)
+    )
 
 
 def _defined_models(module):
@@ -54,7 +60,15 @@ def test_package_imports_only_numpy_and_typing():
     allowed = {"__future__", "dataclasses", "typing", "numpy"}
     for info in pkgutil.iter_modules(models.__path__):
         tree = ast.parse(open(os.path.join(SRC, "models", info.name + ".py"), encoding="utf8").read())
+        typing_only = {
+            n
+            for stmt in ast.walk(tree)
+            if isinstance(stmt, ast.If) and getattr(stmt.test, "id", "") == "TYPE_CHECKING"
+            for n in ast.walk(stmt)
+        }  # type-only imports (a torch tensor in an annotation) are not runtime dependencies
         for node in ast.walk(tree):
+            if node in typing_only:
+                continue
             if isinstance(node, ast.Import):
                 names = {a.name.split(".")[0] for a in node.names}
             elif isinstance(node, ast.ImportFrom):

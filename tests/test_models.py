@@ -86,6 +86,105 @@ def test_pickle_restores_fields_and_key_order():
     assert list(r) == ["family", "y", "node_x"] and r.family == 2
 
 
+# The dict-key order and the required fields of every shard-shaped bundle, as they were before the
+# field groups (docs/plans/FIELD_GROUPS_PLAN.md): the groups must not change what a user sees.
+_SCAN = ["node_x", "node_m", "edge_x", "edge_m"]
+_IDS = ["family", "stealthy", "seq_id", "timestep"]
+_TEMPORAL = ["temporal_delta", "swing"]
+_CLEAN = ["clean", "edge_clean", "edge_clean_full"]
+EXPECTED = {
+    "RecordBundle": (
+        ["edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN],
+        ["edge_index", *_SCAN, "y", *_IDS],
+    ),
+    "BatchBundle": ([*_SCAN, "y", *_TEMPORAL, *_CLEAN, "edge_index", "edge_attr", *_IDS], [*_SCAN, "y"]),
+    # edge_attr is new on ArraysBundle (it comes with GraphFields), last and never filled by the exports
+    "ArraysBundle": (
+        ["edge_index", "edge_reactance", *_SCAN, "y", *_TEMPORAL, *_CLEAN, *_IDS, "edge_attr"],
+        [],
+    ),
+    "Stream": (
+        [
+            "node_x",
+            "benign",
+            "clean",
+            "edge_x",
+            "edge_benign",
+            "edge_clean",
+            "edge_index",
+            "edge_attr",
+            "node_m",
+            "edge_m",
+            "y",
+            "family",
+            "temporal_delta",
+            "swing",
+            "timestep",
+            "episodes",
+            "system",
+            "attacked_frac",
+            "stealthy",
+            "seq_id",
+            "edge_clean_full",
+        ],
+        [
+            "node_x",
+            "benign",
+            "clean",
+            "edge_x",
+            "edge_benign",
+            "edge_clean",
+            "edge_index",
+            "edge_attr",
+            "node_m",
+            "edge_m",
+            "y",
+            "family",
+            "temporal_delta",
+            "swing",
+            "timestep",
+            "episodes",
+        ],
+    ),
+}
+
+
+def test_field_groups_keep_every_key_order_and_required_set():
+    import dataclasses
+
+    import fdia_graph.models as m
+
+    for name, (order, required) in EXPECTED.items():
+        cls = getattr(m, name)
+        assert list(cls._names()) == order, name
+        assert sorted(dataclasses.fields(cls), key=lambda f: f.name) == sorted(
+            dataclasses.fields(cls), key=lambda f: f.name
+        )
+        assert set(f.name for f in dataclasses.fields(cls)) == set(order), name
+        assert list(cls._required) == required, name
+
+
+def test_required_fields_raise_at_construction():
+    from fdia_graph.models import RecordBundle
+
+    kw = dict(
+        edge_index=np.zeros((2, 1)),
+        node_x=np.ones((3, 4)),
+        node_m=np.ones((3, 4)),
+        edge_x=np.ones((1, 2)),
+        edge_m=np.ones((1, 2)),
+        y=np.zeros(3),
+        family=0,
+        stealthy=0,
+        seq_id=-1,
+        timestep=0,
+    )
+    rec = RecordBundle(**kw)
+    assert list(rec) == EXPECTED["RecordBundle"][0][:10] and rec.swing is None and "swing" not in rec
+    with pytest.raises(TypeError, match="missing required"):
+        RecordBundle(**{k: v for k, v in kw.items() if k != "node_x"})
+
+
 def test_ordered_keeps_the_mapping_key_order():
     r = _Rec.ordered({"family": 2, "y": np.zeros(3), "node_x": np.ones((3, 4))})
     assert list(r) == ["family", "y", "node_x"] and r.node_x.shape == (3, 4) and "swing" not in r

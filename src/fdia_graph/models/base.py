@@ -12,6 +12,11 @@ to None are absent from the dict view, which is how optional layers behave today
         x: np.ndarray      # the 2N-1 state per record
         thsl: np.ndarray   # the slack angle reference per record
 
+A bundle can inherit field groups (``models/fields.py``), whose fields all default to None so any
+combination composes; it then names the fields it cannot do without in ``_required`` (a None
+there raises ``TypeError`` at construction, as a missing argument does) and its dict-key order in
+``_order`` (the order the old dict had), since dataclass inheritance fixes the field order.
+
 A field whose dict key is not a valid attribute name (``"global"``) is declared with a trailing
 underscore and mapped through ``_keys``:
 
@@ -43,19 +48,31 @@ class Bundle(dict):
 
     _keys: ClassVar[dict[str, str]] = {}  # field name -> dict key, only where they differ
     _tail: ClassVar[tuple[str, ...]] = ()  # fields the dict view lists last, where the old dict put them last
+    _order: ClassVar[tuple[str, ...]] = ()  # the full dict-key order, when it differs from the field order
+    _required: ClassVar[tuple[str, ...]] = ()  # fields that may not be None (construction raises TypeError)
     _names_cache: ClassVar[tuple[str, ...]] = ()
 
     def __post_init__(self) -> None:
+        missing = [n for n in self._required if getattr(self, n) is None]
+        if missing:
+            raise TypeError(f"{type(self).__name__} is missing required field(s) {missing}")
         dict.__init__(self, {self.key_of(n): getattr(self, n) for n in self._present()})
 
     @classmethod
     def _names(cls) -> tuple[str, ...]:
         if "_names_cache" not in cls.__dict__:  # computed once per subclass, after the decorator ran
-            names = [f.name for f in fields(cls)]
-            cls._names_cache = tuple(n for n in names if n not in cls._tail) + tuple(
-                n for n in names if n in cls._tail
-            )
+            cls._names_cache = cls._dict_order([f.name for f in fields(cls)])
         return cls._names_cache
+
+    @classmethod
+    def _dict_order(cls, names: list[str]) -> tuple[str, ...]:
+        """The field names in dict-key order: `_order` when the bundle declares it (field groups fix
+        the dataclass order), else the field order with `_tail` moved to the end."""
+        if cls._order:
+            field_of = {cls.key_of(n): n for n in names}
+            ordered = [field_of[k] for k in cls._order]
+            return tuple(ordered) + tuple(n for n in names if n not in ordered)
+        return tuple(n for n in names if n not in cls._tail) + tuple(n for n in names if n in cls._tail)
 
     @classmethod
     def key_of(cls, field_name: str) -> str:
