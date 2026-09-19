@@ -31,8 +31,7 @@ the public API, the generated files and the numbers are the same as the previous
 - `fg.generate(system, name, frames=None, **knobs)` now writes a timeline (the knobs of
   `timeline.generate_timeline`, plus `frames` to cap the pool timesteps walked) and registers it, so
   `fg.load(name)` and `fg.load(name, order="random")` read it back. The record-shard writer is
-  `fdia_graph.generation.generate_shard` for one minor version (the frozen references are still
-  built from it) and retires in 0.19.
+  gone (the entry above): the loader still reads the v0.7.2 shards, nothing writes them.
 - `generate_stream`, `load_stream` and `windows(stream, ...)` warn with `DeprecationWarning` and
   retire in 0.19: the timeline file replaces the stream, `fg.load(name, order="time")` reads it, and
   `ds.windows` replaces `windows`. They keep working unchanged until then (`load_stream` reads the

@@ -81,12 +81,29 @@ def generate_stream(
     return stream_of(FdiaGraph(path))
 
 
+_STREAM_FIELDS = (
+    "node_x",
+    "node_m",
+    "edge_x",
+    "edge_m",
+    "y",
+    "family",
+    "timestep",
+    "temporal_delta",
+    "swing",
+    "clean",
+    "edge_clean",
+    "benign",
+    "edge_benign",
+)
+
+
 def stream_of(ds: Any) -> Stream:
     """A time-ordered, contiguous timeline view as the stream dict: the per-frame layers, the
     static graph and masks, and the episode list. A random order or a family subset is refused,
     since the frames of a stream are consecutive."""
     ds._check_timeline("stream_of")
-    a = ds.to_numpy()
+    a = ds.to_numpy(_STREAM_FIELDS)  # only what the dict carries; edge_clean_full would cost a Yf pass
     ep = ds.episodes
     return Stream(
         node_x=a.node_x,
