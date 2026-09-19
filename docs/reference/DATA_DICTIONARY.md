@@ -291,6 +291,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `Ar` | `Ar` | ErrorPair |  | replay |
 | `At` | `At` | ErrorPair |  | slow ramp |
 | `Al` | `Al` | ErrorPair |  | load redistribution |
+| `Am` | `Am` | ErrorPair |  | multi-snapshot (timeline files) |
 | `geo` | `geo` | ErrorPair | yes | geometric mean over the classes present |
 
 ### `ErrorPair` (`fdia_graph.models.scores`)
@@ -316,6 +317,7 @@ Mean absolute error of one record class: angles in degrees, voltage magnitudes p
 | `Ar` | `Ar` | FamilyMetrics |  | replay |
 | `At` | `At` | FamilyMetrics |  | slow ramp |
 | `Al` | `Al` | FamilyMetrics |  | load redistribution |
+| `Am` | `Am` | FamilyMetrics |  | multi-snapshot (timeline files) |
 
 ### `OverallMetrics` (`fdia_graph.models.scores`)
 

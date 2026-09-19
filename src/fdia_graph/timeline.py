@@ -25,8 +25,9 @@ from __future__ import annotations
 
 import math
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Optional, Union
 
 import h5py
@@ -38,8 +39,8 @@ from .engine.records import AM_FAMILY, CORRUPT_KIND, RAMP_FAMILY, Frame, FrameKn
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import swing_zscore, temporal_delta
 from .generation import (
+    _CHUNK_ROWS,
     NOISE_FLOOR,
-    _chunked,
     _FrameContext,
     _load_states,
     _shard_attrs,
@@ -57,8 +58,32 @@ _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
 _GAP = (5, 40)  # a benign gap draws its length from this band
 
 
+_BATCH = 256  # frames staged in memory between two flushes to the file
+_LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
+    "data/node_x": (lambda C, E: (C, 4), np.float32),
+    "data/edge_x": (lambda C, E: (E, 2), np.float32),
+    "data/y": (lambda C, E: (C,), np.uint8),
+    "data/temporal_delta": (lambda C, E: (C, 2), np.float32),
+    "data/swing": (lambda C, E: (C, 2), np.float32),
+    "benign/node_benign": (lambda C, E: (C, 4), np.float32),
+    "benign/edge_benign": (lambda C, E: (E, 2), np.float32),
+    "clean/node_clean": (lambda C, E: (C, 4), np.float32),
+    "clean/edge_clean": (lambda C, E: (E, 2), np.float32),
+    "attack/node_tamper": (lambda C, E: (C, 4), np.uint8),
+    "attack/edge_tamper": (lambda C, E: (E, 2), np.uint8),
+}
+_ATTACK_LAYERS = ("attack/node_tamper", "attack/edge_tamper")
+CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
+
+
+def _clean_slice(g: FdiaGenerator, X: np.ndarray, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
+    """The noiseless truth of frames a..b-1: the states as float32 and the exact flows on metered
+    branches (one batched matmul, the physics primitive the shards use)."""
+    return X[a:b].astype(np.float32), g.clean_flows_from_states(X[a:b])
+
+
 class _TimelineBuffers:
-    """The per-frame layers of one timeline, allocated once and filled frame by frame.
+    """The per-frame layers of one timeline, filled frame by frame in time order.
 
     node_x / edge_x are the OBSERVED measurements (attacked + noisy where attacked, else benign +
     noisy); benign / edge_benign the same scan with the attack removed and the noise kept;
@@ -66,25 +91,32 @@ class _TimelineBuffers:
     temporal features against the previous EMITTED frame. seq_id is the episode index of an
     attacked frame, the tamper masks the meters the attacker wrote, and the magnitude lists the
     designed change per attacked bus.
+
+    With a `sink` (the writer: name -> HDF5 dataset of full length T) the layers are staged in a
+    batch of _BATCH frames and flushed as the walk passes them, so memory is bounded whatever T;
+    without one (the streams) every layer is held whole and read back by the caller.
+    `attack=False` skips the tamper masks and magnitude lists nothing reads.
     """
 
     def __init__(
-        self, T: int, C: int, E: int, scale: np.ndarray, edge_clean_full: np.ndarray, attack: bool = True
+        self,
+        dims: tuple[int, int, int],
+        scale: np.ndarray,
+        clean: CleanSlice,
+        attack: bool = True,
+        sink: Optional[dict[str, Any]] = None,
     ) -> None:
-        """`attack=False` (the streams) skips the tamper masks and magnitude lists nothing reads."""
-        self.node_x = np.zeros((T, C, 4), np.float32)
-        self.benign = np.zeros((T, C, 4), np.float32)
-        self.edge_x = np.zeros((T, E, 2), np.float32)
-        self.edge_benign = np.zeros((T, E, 2), np.float32)
-        self.edge_clean = np.zeros((T, E, 2), np.float32)
-        self.y = np.zeros((T, C), np.uint8)
+        T, C, E = dims
+        n = T if sink is None else min(_BATCH, T)
+        self.T, self._n, self._base, self._sink = T, n, 0, sink
+        self.attack = attack
+        self._layers: dict[str, np.ndarray] = {
+            name: np.zeros((n, *shape(C, E)), dtype)
+            for name, (shape, dtype) in _LAYERS.items()
+            if attack or name not in _ATTACK_LAYERS
+        }
         self.family = np.zeros(T, np.int16)
         self.seq_id = np.full(T, -1, np.int32)
-        self.temporal_delta = np.zeros((T, C, 2), np.float32)
-        self.swing = np.zeros((T, C, 2), np.float32)
-        self.attack = attack
-        self.node_tamper = np.zeros((T, C, 4), np.uint8) if attack else None
-        self.edge_tamper = np.zeros((T, E, 2), np.uint8) if attack else None
         self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T if attack else []
         self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T if attack else []
         self.node_m: Optional[np.ndarray] = None  # the meter plan, from the first stored frame
@@ -92,22 +124,38 @@ class _TimelineBuffers:
         self.episodes: list[dict[str, Any]] = []
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._scale = scale
-        self._edge_clean_full = edge_clean_full
+        self._clean = clean
+        self._clean_batch = clean(0, n)
         self._prev_nx: Optional[np.ndarray] = None
         self._all_buses = np.ones(C, bool)
 
+    # The whole layers, for the streams (no sink): the names the stream result reads.
+    node_x = property(lambda self: self._layers["data/node_x"])
+    benign = property(lambda self: self._layers["benign/node_benign"])
+    edge_x = property(lambda self: self._layers["data/edge_x"])
+    edge_benign = property(lambda self: self._layers["benign/edge_benign"])
+    edge_clean = property(lambda self: self._layers["clean/edge_clean"])
+    y = property(lambda self: self._layers["data/y"])
+    temporal_delta = property(lambda self: self._layers["data/temporal_delta"])
+    swing = property(lambda self: self._layers["data/swing"])
+
     def store(self, t: int, fid: int, frame: Frame, sid: int = -1) -> None:
-        """Store an attacked frame with its un-attacked twin (`with_benign`), or a benign one."""
+        """Store frame t (frames arrive in order): an attacked frame with its un-attacked twin
+        (`with_benign`), or a benign one."""
+        if t >= self._base + self._n:
+            self.flush()
+        r = t - self._base
+        L = self._layers
         bnx = frame.node_x if frame.benign_node_x is None else frame.benign_node_x
         bex = frame.edge_x if frame.benign_edge_x is None else frame.benign_edge_x
-        self.node_x[t] = frame.node_x
-        self.benign[t] = bnx
-        self.y[t] = frame.y
+        L["data/node_x"][r] = frame.node_x
+        L["benign/node_benign"][r] = bnx
+        L["data/y"][r] = frame.y
+        L["data/edge_x"][r] = frame.edge_x
+        L["benign/edge_benign"][r] = bex
+        L["clean/node_clean"][r], L["clean/edge_clean"][r] = self._clean_batch[0][r], self._clean_batch[1][r]
         self.family[t] = fid
         self.seq_id[t] = sid if fid else -1
-        self.edge_x[t] = frame.edge_x
-        self.edge_benign[t] = bex
-        self.edge_clean[t] = self._edge_clean_full[t]
         self.attacked += int(frame.y.any())
         if self.node_m is None:
             self.node_m, self.edge_m = frame.node_m, frame.edge_m
@@ -115,16 +163,21 @@ class _TimelineBuffers:
         # The two temporal features against the previous EMITTED frame, through the same kernel the
         # shard uses; computed at every bus (an unmetered bus reads 0 - 0).
         nx = frame.node_x
-        p = self._prev_nx if self._prev_nx is not None else nx
-        self.temporal_delta[t] = temporal_delta(nx, p, self._all_buses)
-        self.swing[t] = swing_zscore(nx, p, self._scale[t], self._all_buses)
+        prev = self._prev_nx if self._prev_nx is not None else nx
+        L["data/temporal_delta"][r] = temporal_delta(nx, prev, self._all_buses)
+        L["data/swing"][r] = swing_zscore(nx, prev, self._scale[t], self._all_buses)
         self._prev_nx = nx
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
-        """The attacker's footprint on this frame: the designed magnitudes and the tamper masks."""
-        if fid == 0 or not self.attack:
+        """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
+        (zeroed on a benign frame: the staged batch rows are reused between flushes)."""
+        if not self.attack:
             return
-        assert self.node_tamper is not None and self.edge_tamper is not None
+        r = t - self._base
+        if fid == 0:
+            self._layers["attack/node_tamper"][r] = 0
+            self._layers["attack/edge_tamper"][r] = 0
+            return
         self.mag_bus[t] = np.asarray(frame.mag_bus, np.int32)
         self.mag[t] = np.asarray(frame.mag, np.float32)
         if frame.tamper is not None:  # Am decides per meter
@@ -133,8 +186,19 @@ class _TimelineBuffers:
             node, edge = frame.node_x != bnx, frame.edge_x != bex
         else:  # a re-solved state: every metered channel carries the attacker's consistent value
             node, edge = frame.node_m > 0, frame.edge_m > 0
-        self.node_tamper[t] = node
-        self.edge_tamper[t] = edge
+        self._layers["attack/node_tamper"][r] = node
+        self._layers["attack/edge_tamper"][r] = edge
+
+    def flush(self) -> None:
+        """Write the staged frames to the sink and stage the next batch (no-op without a sink)."""
+        if self._sink is None:
+            return
+        m = min(self._n, self.T - self._base)  # frames staged in this batch
+        for name, arr in self._layers.items():
+            self._sink[name][self._base : self._base + m] = arr[:m]
+        self._base += m
+        if self._base < self.T:
+            self._clean_batch = self._clean(self._base, self._base + self._n)
 
 
 def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
@@ -376,40 +440,43 @@ def _ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:
     return ptr, flat
 
 
-def _write_data(f: h5py.File, X: np.ndarray, buf: _TimelineBuffers, split: np.ndarray) -> None:
-    """data/, benign/ and clean/: one row per frame, chunked along the frame axis."""
-    T = len(split)
+def _create_layers(f: h5py.File, T: int, C: int, E: int) -> dict[str, Any]:
+    """The per-frame datasets at full length, chunked along the frame axis and gzipped, empty
+    until the walk flushes into them."""
+    for group in ("data", "benign", "clean", "attack"):
+        f.create_group(group)
+    sink = {}
+    for name, (shape, dtype) in _LAYERS.items():
+        trailing = shape(C, E)
+        sink[name] = f.create_dataset(
+            name,
+            shape=(T, *trailing),
+            dtype=dtype,
+            chunks=(min(_CHUNK_ROWS, T), *trailing),
+            compression="gzip",
+            compression_opts=4,
+        )
+    return sink
+
+
+def _write_masks(f: h5py.File, buf: _TimelineBuffers, T: int) -> None:
+    """data/node_m and data/edge_m per frame (the static plan repeated, written in bounded slabs
+    so a future N-1 series can switch topology mid-file without a layout change)."""
     assert buf.node_m is not None and buf.edge_m is not None
-    d = f.create_group("data")
-    for name, arr in (
-        ("node_x", buf.node_x),
-        ("node_m", np.ascontiguousarray(np.broadcast_to(buf.node_m, (T, *buf.node_m.shape)))),
-        ("edge_x", buf.edge_x),
-        ("edge_m", np.ascontiguousarray(np.broadcast_to(buf.edge_m, (T, *buf.edge_m.shape)))),
-        ("y", buf.y),
-        ("temporal_delta", buf.temporal_delta),
-        ("swing", buf.swing),
-    ):
-        _chunked(d, name, arr)
-    stealthy = np.isin(buf.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8)
-    for name, arr in (
-        ("family", buf.family.astype(np.int8)),
-        ("stealthy", stealthy),
-        ("seq_id", buf.seq_id),
-        ("timestep", np.arange(T, dtype=np.int32)),
-        ("split", split),
-    ):
-        d.create_dataset(name, data=arr)
-    b = f.create_group("benign")
-    _chunked(b, "node_benign", buf.benign)
-    _chunked(b, "edge_benign", buf.edge_benign)
-    c = f.create_group("clean")
-    _chunked(c, "node_clean", X[:T].astype(np.float32))
-    _chunked(c, "edge_clean", buf.edge_clean)
+    for name, m in (("data/node_m", buf.node_m), ("data/edge_m", buf.edge_m)):
+        ds = f.create_dataset(
+            name,
+            shape=(T, *m.shape),
+            dtype=np.uint8,
+            chunks=(min(_CHUNK_ROWS, T), *m.shape),
+            compression="gzip",
+        )
+        for a in range(0, T, 4096):
+            ds[a : min(a + 4096, T)] = np.broadcast_to(m, (min(a + 4096, T) - a, *m.shape))
 
 
 def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
-    """episodes/ (one row per episode, buses ragged) and attack/ (magnitudes ragged per frame, masks)."""
+    """episodes/ (one row per episode, buses ragged) and the ragged magnitudes of attack/."""
     eg = f.create_group("episodes")
     ep = buf.episodes
     eg.create_dataset("onset", data=np.array([e["onset"] for e in ep], np.int32))
@@ -418,17 +485,16 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     ptr, idx = _ragged([np.asarray(e["buses"]) for e in ep], np.int32)
     eg.create_dataset("bus_ptr", data=ptr)
     eg.create_dataset("bus_idx", data=idx)
-    ag = f.create_group("attack")
-    assert buf.node_tamper is not None and buf.edge_tamper is not None, "buffers built without attack storage"
+    ag = f["attack"]
+    assert buf.attack, "buffers built without attack storage"
     ptr, bus = _ragged(buf.mag_bus, np.int32)
     _, mag = _ragged(buf.mag, np.float32)
     ag.create_dataset("mag_ptr", data=ptr)
     ag.create_dataset("mag_bus", data=bus)
     ag.create_dataset("mag", data=mag)
-    _chunked(ag, "node_tamper", buf.node_tamper)
-    _chunked(ag, "edge_tamper", buf.edge_tamper)
     ag.attrs["tamper"] = (
-        "1 where the attacker wrote the meter: every metered channel for the re-solved families, the changed channels for Ad/As/Ar, the beyond-noise set for Am"
+        "1 where the attacker wrote the meter: every metered channel for the re-solved families, "
+        "the changed channels for Ad/As/Ar, the beyond-noise set for Am"
     )
 
 
@@ -449,24 +515,25 @@ def _timeline_attrs(
     return attrs
 
 
-def write_timeline(
-    out: str,
-    g: FdiaGenerator,
-    X: np.ndarray,
-    buf: _TimelineBuffers,
-    split: Sequence[float],
-    seed: int,
-    knobs: dict,
-) -> str:
-    """Serialize a walked timeline to one HDF5 file (see the module docstring for the layout)."""
-    T = len(buf.family)
-    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-    with h5py.File(out, "w") as f:
-        f.attrs.update(_timeline_attrs(g, T, seed, buf, knobs))
-        _write_graph(f, g)
-        _write_data(f, X, buf, _frame_split(T, buf.episodes, split))
-        _write_episodes(f, buf)
-    return out
+def _finish_timeline(
+    f: h5py.File, g: FdiaGenerator, buf: _TimelineBuffers, split: Sequence[float], seed: int, knobs: dict
+) -> None:
+    """After the walk: the last batch, the masks, the small per-frame columns (family, stealthy,
+    seq_id, timestep, the split), the episodes, the ragged magnitudes and the attributes."""
+    buf.flush()
+    T = buf.T
+    _write_masks(f, buf, T)
+    d = f["data"]
+    for name, arr in (
+        ("family", buf.family.astype(np.int8)),
+        ("stealthy", np.isin(buf.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8)),
+        ("seq_id", buf.seq_id),
+        ("timestep", np.arange(T, dtype=np.int32)),
+        ("split", _frame_split(T, buf.episodes, split)),
+    ):
+        d.create_dataset(name, data=arr)
+    _write_episodes(f, buf)
+    f.attrs.update(_timeline_attrs(g, T, seed, buf, knobs))
 
 
 def _check_knobs(attacked_frac: float, am_direction: str, lengths: dict[str, Optional[int]]) -> None:
@@ -528,10 +595,6 @@ def generate_timeline(
     ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
     am = (am_len, am_rate, am_direction)
     plan = _Schedule.build([FAM_ID[f] for f in families], ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
-    buf = _TimelineBuffers(T, C, g.E, ctx.scale, g.clean_flows_from_states(X[:T]))
-    t = 0
-    while t < T:
-        t = _advance(ctx, buf, g.rng, t, plan)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = dict(
         target_attacked_frac=attacked_frac,
@@ -549,4 +612,13 @@ def generate_timeline(
         pmu_frac=red["pmu_frac"],
         flow_frac=red["flow_frac"],
     )
-    return write_timeline(out, g, X, buf, split, seed, recorded)
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
+        _write_graph(f, g)
+        sink = _create_layers(f, T, C, g.E)
+        buf = _TimelineBuffers((T, C, g.E), ctx.scale, partial(_clean_slice, g, X), sink=sink)
+        t = 0
+        while t < T:
+            t = _advance(ctx, buf, g.rng, t, plan)
+        _finish_timeline(f, g, buf, split, seed, recorded)
+    return out

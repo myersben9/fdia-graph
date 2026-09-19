@@ -224,3 +224,15 @@ def test_am_direction_and_the_pool_as_hdf5(tmp_path, pool):
     assert os.path.exists(out)
     a, attrs = _read(out)
     assert attrs["T"] == 60 and set(np.unique(a["data/family"]).tolist()) <= {0, 2, 7}
+
+
+def test_score_bundles_accept_the_seventh_family():
+    """`SEBase.score` and `LocalizerBase.score` build their bundles from `FAMILIES`, so both carry
+    an `Am` slot once a scored view holds Am frames."""
+    from fdia_graph.models import ErrorPair, EstimatorScores, FamilyMetrics, LocalizerScores, OverallMetrics
+
+    se = EstimatorScores(geo=ErrorPair(1.0, 0.1), Am=ErrorPair(2.0, 0.2))
+    assert list(se) == ["Am", "geo"] and se["Am"].angle_mae_deg == 2.0
+    fam = FamilyMetrics(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
+    loc = LocalizerScores(all=OverallMetrics(1.0, 1.0, 0.0, 1.0), Am=fam)
+    assert list(loc) == ["all", "Am"] and loc.Am is fam

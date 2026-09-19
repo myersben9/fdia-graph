@@ -33,6 +33,7 @@ from __future__ import annotations
 import numbers
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -45,6 +46,7 @@ from .models.data import Stream  # noqa: F401  re-exported: defined here before 
 from .registry import AssetSpec
 from .timeline import (
     _benign_gap,
+    _clean_slice,
     _ramp_episode,
     _single_shot_episode,
     _TimelineBuffers,
@@ -180,7 +182,7 @@ def generate_stream(
     )
     # All noiseless from-end flows over the whole timeline in one batched matmul (metered branches only, so
     # edge_benign - edge_clean is the meter error on the measured channels). Shared physics primitive.
-    buf = _TimelineBuffers(T, C, g.E, ctx.scale, g.clean_flows_from_states(X[:T]), attack=False)
+    buf = _TimelineBuffers((T, C, g.E), ctx.scale, partial(_clean_slice, g, X[:T]), attack=False)
     # Walk the timeline: alternate a benign gap and an attack episode, sized so the attacked fraction ~ target.
     t = 0
     while t < T:
