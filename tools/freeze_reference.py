@@ -15,6 +15,7 @@ import os
 import shutil
 import sys
 import tempfile
+import warnings
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tests"))
 _CACHE = tempfile.mkdtemp(prefix="fdia_graph_freeze_")
@@ -33,7 +34,9 @@ os.makedirs(OUT, exist_ok=True)
 from frozen_spec import SHARD_KW, STREAM_T, loc_scores, se_scores, shard_arrays, stream_arrays  # noqa: E402
 
 shard_path = os.path.join(_CACHE, "tiny.h5")
-fg.generate("ieee14", "tiny_ieee14", out=shard_path, **SHARD_KW)
+from fdia_graph.generation import generate_shard  # noqa: E402
+
+generate_shard("ieee14", "tiny_ieee14", out=shard_path, **SHARD_KW)
 arrays, attrs = shard_arrays(shard_path)
 np.savez_compressed(os.path.join(OUT, "tiny_ieee14_shard.npz"), **arrays)
 json.dump(attrs, open(os.path.join(OUT, "tiny_ieee14_shard_attrs.json"), "w"), indent=1, sort_keys=True)
@@ -42,7 +45,9 @@ print("shard:", len(arrays), "arrays,", len(attrs), "attrs")
 from fdia_graph.generation import _load_states  # noqa: E402
 
 X = _load_states(14, None)[:STREAM_T]
-s = fg.generate_stream(14, states=X, seed=1)
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)  # generate_stream retires in 0.19
+    s = fg.generate_stream(14, states=X, seed=1)
 np.savez_compressed(os.path.join(OUT, "ieee14_stream.npz"), **stream_arrays(s))
 print("stream:", STREAM_T, "frames,", len(s["episodes"]), "episodes")
 

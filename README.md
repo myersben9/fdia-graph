@@ -58,8 +58,9 @@ fg.load("ieee118", units="pu")                                 # per-unit + radi
 | you want | call |
 |---|---|
 | a whole split at once | `ds.to_numpy()`, `ds.to_torch()`, `ds.to_pandas()` |
-| custom data | `fg.generate(system, name, per_family=..., attack_intensity=...)`, then `fg.load(name)` |
-| a continuous timeline for LSTM / TGN | `fg.load_stream(system)`, then `fg.windows(s, W=24)` |
+| custom data | `fg.generate(system, name, attacked_frac=..., attack_intensity=...)`, then `fg.load(name)` |
+| a continuous timeline for LSTM / TGN | `ds = fg.load(name, order="time")`, then `ds.windows(W=24)` (a generated timeline; the published v0.7.2 streams still load through `fg.load_stream`) |
+| a fixed random record order | `fg.load(name, order="random", seed=0)` |
 
 ## State estimation
 

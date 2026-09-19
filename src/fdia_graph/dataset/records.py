@@ -16,6 +16,7 @@ from ..models.grid import NODE
 from .base import (
     _BATCH_SCALARS,
     _BATCH_STACKED,
+    _BENIGN_LAYERS,
     DatasetBase,
     _torch,
 )
@@ -42,18 +43,31 @@ class RecordsMixin(DatasetBase):
     def __getitem__(self, i: int) -> Union[RecordBundle, Data]:
         """One record as a dict of tensors (or a PyG Data with format="pyg"): the measurements and
         masks, the labels and provenance, and whichever optional layers the file carries."""
-        d, j = self._record_source(i)
+        pos = int(self._perm[i]) if self._perm is not None else i  # position in idx (the view order)
+        d, j = self._record_source(pos)
         item = self._base_item(d, j)
         self._add_optional_layers(item, d, j)
+        self._add_benign(item, pos)
         record = RecordBundle(**item)
         return self._to_pyg(record) if self.format == "pyg" else record
 
-    def _record_source(self, i: int) -> tuple[Any, int]:
-        """Where record i is read from: the preloaded arrays (position-aligned with the view) or the
-        file's data group at the real file row self.idx[i]."""
+    def _record_source(self, pos: int) -> tuple[Any, int]:
+        """Where the record at position `pos` of idx is read from: the preloaded arrays (aligned with
+        idx) or the file's data group at the real file row self.idx[pos]."""
         if self._mem is not None:
-            return self._mem, i
-        return self._h()["data"], int(self.idx[i])
+            return self._mem, pos
+        return self._h()["data"], int(self.idx[pos])
+
+    def _add_benign(self, item: dict[str, Any], pos: int) -> None:
+        """The attack-removed layer of a timeline record (noise kept), in self.units."""
+        if not self.has_benign:
+            return
+        torch = _torch()
+        for k, path in _BENIGN_LAYERS.items():
+            a = self._mem[k][pos] if self._mem is not None else self._h()[path][int(self.idx[pos])]
+            item[k] = torch.as_tensor(
+                self._to_units(a, "node" if k == "benign" else "edge"), dtype=torch.float32
+            )
 
     def _base_item(self, d: Any, j: int) -> dict[str, Any]:
         """The fields every record has: the static graph (shared tensors, not copies), the measurements

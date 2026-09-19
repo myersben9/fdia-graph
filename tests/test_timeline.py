@@ -166,12 +166,13 @@ def test_am_is_a_sparse_sub_floor_ramp_of_a_held_redistribution(am_timeline):
 
 def test_am_is_refused_by_the_shard_and_stream_generators(tmp_path, pool):
     import fdia_graph as fg
+    from fdia_graph.generation import generate_shard
 
     with pytest.raises(ValueError, match="timeline family"):
-        fg.generate(
+        generate_shard(
             "ieee14", "never", families=("Aq", "Am"), per_family=2, n_benign=2, out=str(tmp_path / "s.h5")
         )
-    with pytest.raises(ValueError, match="timeline family"):
+    with pytest.raises(ValueError, match="timeline family"), pytest.warns(DeprecationWarning):
         fg.generate_stream(14, states=pool[:20], families=("Am",))
 
 

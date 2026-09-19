@@ -162,9 +162,9 @@ by `tools/models_doc.py` from the dataclasses.
 
 ### `RecordBundle` (`fdia_graph.models.data`)
 
-One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units with no leading axis, the static graph shared by every record, the label and provenance, and the optional layers the file carries. A dict as well, so DataLoaders, `**item` and `item["node_x"]` keep working.
+One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units with no leading axis, the static graph shared by every record, the label and provenance, and the optional layers the file carries (the benign layer on a timeline file). A dict as well, so DataLoaders, `**item` and `item["node_x"]` keep working.
 
-Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -184,12 +184,14 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 | `clean` | `clean` | Array |  | [..., N, 4] true state at the record's timestep (CleanFields) |
 | `edge_clean` | `edge_clean` | Array |  | [..., E, 2] exact true flows on metered branches (CleanFields) |
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
+| `benign` | `benign` | Array |  | [..., N, 4] attack removed, noise kept (StreamLayers) |
+| `edge_benign` | `edge_benign` | Array |  | [..., E, 2] attack removed, noise kept (StreamLayers) |
 
 ### `BatchBundle` (`fdia_graph.models.data`)
 
 A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a leading batch axis B, the static graph once (the first record's), scalar metadata as long tensors [B].
 
-Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -203,6 +205,8 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 | `clean` | `clean` | Array |  | [..., N, 4] true state at the record's timestep (CleanFields) |
 | `edge_clean` | `edge_clean` | Array |  | [..., E, 2] exact true flows on metered branches (CleanFields) |
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
+| `benign` | `benign` | Array |  | [..., N, 4] attack removed, noise kept (StreamLayers) |
+| `edge_benign` | `edge_benign` | Array |  | [..., E, 2] attack removed, noise kept (StreamLayers) |
 | `edge_index` | `edge_index` | Array |  | [2, E] from and to bus of every branch (GraphFields) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
 | `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
@@ -214,7 +218,7 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 
 A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return it, leading axis n: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.
 
-Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -230,6 +234,8 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 | `clean` | `clean` | Array |  | [..., N, 4] true state at the record's timestep (CleanFields) |
 | `edge_clean` | `edge_clean` | Array |  | [..., E, 2] exact true flows on metered branches (CleanFields) |
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
+| `benign` | `benign` | Array |  | [..., N, 4] attack removed, noise kept (StreamLayers) |
+| `edge_benign` | `edge_benign` | Array |  | [..., E, 2] attack removed, noise kept (StreamLayers) |
 | `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
@@ -248,6 +254,17 @@ Field groups: `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `Labe
 | `n` | `n` | int | yes | records in this view |
 | `families` | `families` | dict[str, int] | yes | record count per family name present |
 
+### `EpisodeTable` (`fdia_graph.models.data`)
+
+`FdiaGraph.episodes` on a timeline file: one row per attack episode in the view.
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `onset` | `onset` | array | yes | [K] the file row (frame) the episode starts at |
+| `length` | `length` | array | yes | [K] frames |
+| `family` | `family` | array | yes | [K] family code |
+| `buses` | `buses` | list[array] | yes | K arrays, the buses the episode labelled |
+
 ### `Stream` (`fdia_graph.models.data`)
 
 A continuous attacked time series as `generate_stream` and `load_stream` return it, leading axis T: three aligned measurement layers per frame (observed `node_x`, `benign`, `clean`), the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list. `stealthy`, `seq_id` and `edge_clean_full` are not part of a stream. A dict as well, so `windows`, `pyg_stream` and every `s["node_x"]` keep working.
@@ -257,10 +274,10 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
 | `node_x` | `node_x` | Array | yes | [..., N, 4] &#124;V&#124;, P_inj, Q_inj, theta (zero where unmetered) (ScanFields) |
-| `benign` | `benign` | array | yes | [T, N, 4] attack removed, noise kept (StreamLayers) |
+| `benign` | `benign` | Array | yes | [..., N, 4] attack removed, noise kept (StreamLayers) |
 | `clean` | `clean` | Array | yes | [..., N, 4] true state at the record's timestep (CleanFields) |
 | `edge_x` | `edge_x` | Array | yes | [..., E, 2] P_from, Q_from (ScanFields) |
-| `edge_benign` | `edge_benign` | array | yes | [T, E, 2] attack removed, noise kept (StreamLayers) |
+| `edge_benign` | `edge_benign` | Array | yes | [..., E, 2] attack removed, noise kept (StreamLayers) |
 | `edge_clean` | `edge_clean` | Array | yes | [..., E, 2] exact true flows on metered branches (CleanFields) |
 | `edge_index` | `edge_index` | Array | yes | [2, E] from and to bus of every branch (GraphFields) |
 | `edge_attr` | `edge_attr` | Array | yes | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |

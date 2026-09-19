@@ -17,18 +17,32 @@ atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 import pytest  # noqa: E402
 
 TINY = "tiny_ieee14"
+TINY_TL = "tiny_ieee14_timeline"
 
 
 @pytest.fixture(scope="session")
 def shard(tmp_path_factory):
-    """Name of a small generated IEEE-14 shard: 80 benign + 12 per family (At ramps expand)."""
+    """Name of a small generated IEEE-14 record shard (the v0.7.2 layout): 80 benign + 12 per
+    family (At ramps expand). The frozen references are built from it until step 3 of
+    docs/plans/ONE_DATASET_PLAN.md re-freezes them on a timeline."""
     pytest.importorskip("pandapower")
-    import fdia_graph as fg
+    from fdia_graph.generation import generate_shard
 
     out = tmp_path_factory.mktemp("shard") / "tiny.h5"
     # The string system name is deliberate: it is the documented public form and once crashed generate().
-    fg.generate("ieee14", TINY, per_family=12, n_benign=80, out=str(out), seed=1)
+    generate_shard("ieee14", TINY, per_family=12, n_benign=80, out=str(out), seed=1)
     return TINY
+
+
+@pytest.fixture(scope="session")
+def timeline(tmp_path_factory):
+    """Name of a small generated IEEE-14 timeline: 1000 frames, every family, 20-frame ramps."""
+    pytest.importorskip("pandapower")
+    import fdia_graph as fg
+
+    out = tmp_path_factory.mktemp("timeline") / "tiny_tl.h5"
+    fg.generate("ieee14", TINY_TL, frames=1000, ramp_len=20, out=str(out), seed=3)
+    return TINY_TL
 
 
 @pytest.fixture(scope="session")

@@ -12,7 +12,16 @@ PUBLIC names the bundles a user receives from the public API; the data dictionar
 
 from .assets import AssetSpec, DownloadTarget, LineCandidate
 from .base import Bundle
-from .data import ArraysBundle, BatchBundle, RecordBundle, ShardArrays, Stream, Summary, TrueState
+from .data import (
+    ArraysBundle,
+    BatchBundle,
+    EpisodeTable,
+    RecordBundle,
+    ShardArrays,
+    Stream,
+    Summary,
+    TrueState,
+)
 from .fields import (
     CleanFields,
     GraphFields,
@@ -52,6 +61,7 @@ PUBLIC = (
     "BatchBundle",
     "ArraysBundle",
     "Summary",
+    "EpisodeTable",
     "Stream",
     "EstimatorScores",
     "ErrorPair",
@@ -94,6 +104,7 @@ __all__ = [
     "BatchBundle",
     "ArraysBundle",
     "Summary",
+    "EpisodeTable",
     "ShardArrays",
     "Stream",
     "TrueState",

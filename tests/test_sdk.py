@@ -174,7 +174,8 @@ def test_pyg_stream_matches_dataset_pyg_contract(shard):
     from fdia_graph.generation import _load_states
 
     X = _load_states(14, None)[:60]  # a short pool slice keeps the stream build to seconds
-    s = fg.generate_stream(14, states=X, seed=1)
+    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
+        s = fg.generate_stream(14, states=X, seed=1)
     tr, te = fg.pyg_stream(stream=s, train_frac=0.5)
     d = tr[0]
     assert tuple(d.x.shape) == (14, 4) and tuple(d.edge_attr.shape) == (20, 2)

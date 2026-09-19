@@ -69,28 +69,36 @@ def load(
     release: Optional[str] = None,
     units: str = "physical",
     preload: bool = False,
+    order: str = "time",
+    seed: int = 0,
 ) -> FdiaGraph:
-    """Load a dataset by name (built-in shard auto-downloads; local generated ones load from disk).
+    """Load a dataset by name (built-in files auto-download; locally generated ones load from disk).
 
     name        : "ieee14/30/57/89/118/145/200/300" (transmission ladder), or a locally-generated name.
     split       : None (all) | "train" | "val" | "test"  (chronological 60/20/20).
     families    : optional subset, e.g. ["Aq","At","Al"] or [1,5,6].
-    include_gaps: keep physics non-convergence NA rows (default False).
+    include_gaps: keep physics non-convergence NA rows of a v0.7.2 shard (default False; timelines have none).
     heldout     : unseen-attack protocol — exclude As/Ar from train/val (Boyaci et al. 2022).
     format      : "torch" (dict batches) | "pyg" (torch_geometric Data).
-    release     : dataset VERSION. None -> newest published release (default, always-current for the group);
-                  an explicit tag e.g. "v0.2.0" -> that exact version, for reproducible experiments.
+    release     : dataset VERSION. None -> the pinned release; an explicit tag e.g. "v0.7.2" -> that exact
+                  version, for reproducible experiments.
     units       : "physical" -> [V p.u., P_inj MW, Q_inj MVAr, theta deg] (as stored; human-readable for plots);
-                  "pu" -> everything per-unit on baseMVA with theta in radians (ML/physics). Same shard either way.
+                  "pu" -> everything per-unit on baseMVA with theta in radians (ML/physics). Same file either way.
     preload     : read the whole selected split into RAM once (~350MB for an ieee118 split) so .loader()
                   epochs skip per-record HDF5 overhead — much faster training loops.
+    order       : "time" (default) keeps the file order, chronological on a timeline, so `ds.windows(W)` and
+                  `ds.episodes` work; "random" is the same records in a permutation fixed by `seed`, the
+                  record table two people get identically for the same seed (`.loader(shuffle=True)`
+                  still reshuffles per epoch).
+    seed        : the permutation seed for order="random".
     """
     # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
     # short-circuit to their file).
-    from .dataset.base import check_split, check_units
+    from .dataset.base import check_order, check_split, check_units
 
     check_units(units)  # a wrong argument fails before any download
     check_split(split)
+    check_order(order)
     if families is not None:
         family_ids(families)
     path = ensure_local(resolve(name, release=release))
@@ -104,6 +112,8 @@ def load(
         format=format,
         units=units,
         preload=preload,
+        order=order,
+        seed=seed,
     )
 
 
