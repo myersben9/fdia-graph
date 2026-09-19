@@ -46,6 +46,16 @@ in a new data release.
 
 ## `node_x` `[N,4]`: bus measurements (voltage first)
 
+The column order is defined once, in `fdia_graph.models.NodeColumns` (`v`, `p_inj`, `q_inj`, `theta`);
+every record, batch, split and stream exposes named views of it through `.node()` and `.edge()`,
+and the generator, loader and estimator index columns through `NODE` and `EDGE` rather than literals:
+
+```python
+rec = ds[0]
+rec.node().theta            # the angle column, a view of rec.node_x[..., 3]
+NodeColumns.of(s.clean).v   # works on any [..., 4] array, a stream's clean layer included
+```
+
 | col | name | physical units | pu units |
 |-----|------|----------------|----------|
 | 0 | <code>&#124;V&#124;</code> | per-unit | per-unit |

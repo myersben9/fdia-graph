@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from ..models.data import BatchBundle, RecordBundle
+from ..models.grid import NODE
 from .base import (
     _BATCH_SCALARS,
     _BATCH_STACKED,
@@ -31,9 +32,9 @@ class RecordsMixin(DatasetBase):
         b = self.baseMVA
         a = np.array(arr, dtype=np.float32, copy=True)
         if kind == "node":
-            a[..., 1] /= b
-            a[..., 2] /= b  # P_inj, Q_inj  MW/MVAr -> p.u.
-            a[..., 3] = np.deg2rad(a[..., 3])  # theta  deg -> rad
+            a[..., NODE.p_inj] /= b
+            a[..., NODE.q_inj] /= b  # P_inj, Q_inj  MW/MVAr -> p.u.
+            a[..., NODE.theta] = np.deg2rad(a[..., NODE.theta])  # theta  deg -> rad
         else:
             a /= b  # branch flows / temporal delta: power -> p.u.
         return a

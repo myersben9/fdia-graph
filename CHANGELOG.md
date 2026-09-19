@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- One definition of the measurement column orders: `fdia_graph.models.NodeColumns` (`v`, `p_inj`,
+  `q_inj`, `theta`), `EdgeColumns` (`p_from`, `q_from`) and `BranchColumns` (the eight `edge_attr`
+  columns), with `.of(array)` giving named views of any such array and `NODE`, `EDGE`, `BRANCH`
+  the indices. Every record, batch, split and stream has `.node()` and `.edge()`; the generator,
+  loader and estimator index columns through the definition instead of literals. No behaviour change.
 - The shard-shaped bundles (`RecordBundle`, `BatchBundle`, `ArraysBundle`, `Stream`)
   are built from field groups (`fdia_graph.models.fields`: scan, labels, record ids, temporal,
   clean, graph, stream layers), so each shared field is declared once; `Bundle` gains `_order`

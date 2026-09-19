@@ -23,6 +23,7 @@ from ..models.data import (  # noqa: F401  re-exported: defined here before the 
     RecordBundle,
     Summary,
 )
+from ..models.grid import NODE
 from .base import (  # noqa: F401  re-exported: defined here before the split
     _FAMILY_ALIAS,
     _HELDOUT_TRAIN_EXCLUDE,
@@ -160,7 +161,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin):
             return int(ref[0])
         if self._clean_np is not None and len(self._clean_np) > 1:
             # Tolerance rather than exact zero: a pinned angle can carry float32 round-off.
-            pinned = np.where(self._clean_np[:, :, 3].std(axis=0) < 1e-6)[0]
+            pinned = np.where(self._clean_np[:, :, NODE.theta].std(axis=0) < 1e-6)[0]
             if len(pinned) == 1:
                 return int(pinned[0])
         return None
