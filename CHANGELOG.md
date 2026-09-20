@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- A stealthy frame (Aq, At, Al, Am) is the true scan plus the attack vector a = h(x_false) - h(x_true)
+  of its local false state: every meter keeps its own noise draw and the tampered meters are
+  shifted by exactly what the false state moves them, so `observed - benign` is the attack for
+  every family and a WLS residual test flags the stealthy families at the benign rate. Until now
+  the tampered meters were re-emitted from the false state, which drew their noise from the false
+  reading; where a boundary bus has a structurally zero injection (the IEEE-14 synchronous
+  condenser's P, a zero-injection bus) that noise is several times what the estimator calibrates
+  for the meter, and the residual test flagged about a third of the Aq, Al and Am frames on the
+  full IEEE-14 timeline. An Al frame whose drawn target line has no feasible redistribution in
+  its region redraws the line (up to ten) instead of falling back to a benign frame. Both change
+  every generated file; the frozen references are re-frozen.
 - `tools/pr.py merge` requires every smoke job green by name on the head (a job that has not
   registered yet is not green), every other check finished without failure, and Copilot's review on
   that head; `wait` waits for the same set. A merge can no longer slip in while CI is still starting.

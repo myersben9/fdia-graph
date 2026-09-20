@@ -203,8 +203,9 @@ def test_am_direction_sign_follows_the_engine_convention():
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
-    """Every stealthy frame is an exact local AC state: a WLS residual test at the benign alarm
-    level flags them at the benign rate, and flags the in-place corruption of Ad."""
+    """Every stealthy frame is an exact local AC state plus the true scan's own meter noise: a WLS
+    residual test at the 1% benign alarm level flags them at about the benign rate, and flags the
+    in-place corruption of Ad."""
     pytest.importorskip("torch")
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se import WLS
@@ -219,7 +220,7 @@ def test_stealthy_families_pass_the_residual_test(timeline):
     for fid in (1, 5, 6, 7):
         rows = d["family"] == fid
         if rows.sum() >= 10:
-            assert (r[rows] > level).mean() <= 0.15, fid
+            assert (r[rows] > level).mean() <= 0.05, fid
     ad = d["family"] == 2
     if ad.sum() >= 5:
         assert (r[ad] > level).mean() >= 0.8

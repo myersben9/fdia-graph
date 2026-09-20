@@ -34,7 +34,7 @@ On the metered channels:
 
 | difference | is | exact for |
 |---|---|---|
-| `observed − benign` | the attack | `Ad`/`As`/`Ar` (they share the benign meter draw) |
+| `observed − benign` | the attack | every family (the observed scan is the benign draw plus the attack) |
 | `benign − clean` | meter noise | all families |
 
 For `Aq`/`At`/`Al` the whole operating point moves, so `benign` is a separate noise draw and

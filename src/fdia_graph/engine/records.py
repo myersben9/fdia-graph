@@ -11,10 +11,10 @@ happened) and `with_benign` (also emit the un-attacked measurement of the same s
 `benign` layer).
 
 RNG-order invariant: every released file is reproduced bit for bit from its seed, so the order of
-random draws here is fixed: for the stealthy families the benign emission, then the emission of
-the false state; for the corrupt-in-place families the emission, then the replay-lag draw, then
-the corruption draws. Changing that order changes every released file. tests/test_frozen.py holds
-the line.
+random draws here is fixed: one emission per scan, the true one; a stealthy family adds its attack
+vector to it without a draw, and the corrupt-in-place families follow the emission with the
+replay-lag draw, then the corruption draws. Changing that order changes every released file.
+tests/test_frozen.py holds the line.
 """
 
 from __future__ import annotations
@@ -41,6 +41,7 @@ LRA_FAMILY = 6
 AM_FAMILY = 7
 CORRUPT_KIND = {2: "Ad", 3: "As", 4: "Ar"}  # corrupt-in-place families and their AttackMixin.corrupt code
 BENIGN_BUFFER = 300  # recent benign scans kept for the replay families (FIFO)
+LRA_DRAWS = 10  # target lines an Al frame tries before giving up (a region may hold too few loads)
 REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans back
 
 
@@ -97,9 +98,13 @@ def attack_frame(
 
 def _stealthy_frame(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[Frame]:
     """One local false state [WU26]: the targeted loads scaled by `mult`, the interior buses
-    re-solved with the boundary voltages held true, every meter the false state moves rewritten
-    (the tamper set), the rest untouched. Consistent with a full AC state, so the residual test
-    sees noise only. Needs `with_benign`: the twin is what the untouched meters read."""
+    re-solved with the boundary voltages held true, and the attack vector a = h(x_false) - h(x_true)
+    added to the true scan. Every meter keeps its own noise draw and the tampered ones (the meters
+    the false state moves) are shifted by exactly what it moves them, so the measurement is a full
+    AC state plus meter noise and the residual test sees noise only. A re-emission of the false
+    state would draw each tampered meter's noise from the false reading instead, which a meter
+    whose true reading is structurally zero (a condenser's P, a zero-injection bus) gives away.
+    Needs `with_benign`: the true scan is the benign twin."""
     assert k.with_benign, "a stealthy frame needs the benign twin (with_benign=True)"
     Lp = (
         Xt[g.load_bus, NODE.p_inj] + g.load_genP
@@ -110,12 +115,13 @@ def _stealthy_frame(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[F
     Xa = g.solve_local(Xt, interior, Lp, Lq)
     if Xa is None:
         return None  # the local power flow did not converge, expected occasionally
-    bnx, bex = _benign_of(g, Xt)
-    scan = g.emit_from_state(Xa)
-    tamper = _changed_meters(g, Xa, Xt, scan)
+    scan = g.emit_from_state(Xt)  # the true scan: the benign twin, and the draw every meter keeps
+    bnx, bex = scan.node_x, scan.edge_x
+    a_node, a_edge = _attack_vector(g, Xa, Xt)
+    tamper = _changed_meters(a_node, a_edge, scan)
     nx, ex = bnx.copy(), bex.copy()
-    nx[tamper[0]] = scan.node_x[tamper[0]]
-    ex[tamper[1]] = scan.edge_x[tamper[1]]
+    nx[tamper[0]] += a_node[tamper[0]]
+    ex[tamper[1]] += a_edge[tamper[1]]
     buses = g.load_bus[targets]
     y = np.zeros(g.C, np.uint8)
     y[buses] = 1
@@ -135,12 +141,21 @@ def _stealthy_frame(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[F
     )
 
 
-def _changed_meters(g, Xa, Xt, scan: Scan, tol: float = 1e-7) -> tuple[np.ndarray, np.ndarray]:
-    """The metered channels whose noiseless value the false state moves: the interior's and the
-    boundary's injections and voltages and every flow on a branch touching the interior."""
+def _attack_vector(g, Xa, Xt) -> tuple[np.ndarray, np.ndarray]:
+    """The attack vector a = h(x_false) - h(x_true) [WU26] per node channel [N, 4] and per flow
+    channel [E, 2], in the scan's physical units: the noiseless reading of the false state minus
+    that of the true state (unmetered flows zero on both sides)."""
     flows = g.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
-    node = (np.abs(Xa - Xt) > tol) & (scan.node_m > 0)
-    edge = (np.abs(flows[0] - flows[1]) > tol) & (scan.edge_m > 0)
+    return (np.asarray(Xa, float) - np.asarray(Xt, float)).astype(np.float32), flows[0] - flows[1]
+
+
+def _changed_meters(
+    a_node: np.ndarray, a_edge: np.ndarray, scan: Scan, tol: float = 1e-7
+) -> tuple[np.ndarray, np.ndarray]:
+    """The metered channels the attack vector moves (the tamper set): the interior's and the
+    boundary's injections and voltages and every flow on a branch touching the interior."""
+    node = (np.abs(a_node) > tol) & (scan.node_m > 0)
+    edge = (np.abs(a_edge) > tol) & (scan.edge_m > 0)
     return node, edge
 
 
@@ -159,10 +174,13 @@ def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
     """Al: a load-conserving redistribution over up to lra_k buses of the subnetwork around a
     target line, steering that line, re-solved locally [DAT26, WU26]."""
     Lp = Xt[g.load_bus, NODE.p_inj] + g.load_genP
-    red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
-    a = red.buses
-    if len(a) == 0:
-        return None  # no feasible redistribution
+    for _ in range(LRA_DRAWS):  # a line whose region holds too few loads to redistribute is redrawn
+        red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
+        a = red.buses
+        if len(a):
+            break
+    else:
+        return None  # no feasible redistribution on any drawn line
     dev = np.abs(red.delta[a]) / (np.abs(Lp[a]) + 1e-6)  # designed redistribution fraction per bus
     if k.reject_below_floor and np.min(dev) < k.floor:
         return None  # a bus inside the noise floor
@@ -218,9 +236,3 @@ def _corrupt_frame(g, Xt, family, targets, k: FrameKnobs) -> Optional[Frame]:
     y[buses] = 1
     mag_bus = buses if len(mags) else np.zeros(0, int)
     return Frame(nx, nm, ex, em, y, 0, mag_bus, np.asarray(mags, float), bnx, bex)
-
-
-def _benign_of(g, Xt):
-    """The un-attacked measurement of a scan whose attacked version was just emitted (streams)."""
-    scan = g.emit_from_state(Xt)
-    return scan.node_x, scan.edge_x
