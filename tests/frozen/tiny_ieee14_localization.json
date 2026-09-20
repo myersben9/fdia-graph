@@ -1,157 +1,139 @@
 {
  "delta": {
   "Ad": {
-   "detection_rate": 1.0,
-   "macro_f1": 0.7099468712517886,
-   "node_f1": 0.7391304347826086,
-   "node_precision": 0.6219512195121951,
-   "node_recall": 0.9107142857142857,
-   "sample_f1": 0.7400072150072151,
-   "strict_acc": 0.0
-  },
-  "Al": {
-   "detection_rate": 1.0,
-   "macro_f1": 0.6512865596930069,
-   "node_f1": 0.6385542168674699,
-   "node_precision": 0.7361111111111112,
-   "node_recall": 0.5638297872340425,
-   "sample_f1": 0.5983846455402183,
-   "strict_acc": 0.05
+   "detection_rate": 0.8181818181818182,
+   "macro_f1": 0.5535353534387174,
+   "node_f1": 0.6363636363636365,
+   "node_precision": 0.9545454545454546,
+   "node_recall": 0.4772727272727273,
+   "sample_f1": 0.5647907647907648,
+   "strict_acc": 0.09090909090909091
   },
   "Am": {
-   "detection_rate": 0.45,
-   "macro_f1": 0.09860509860071104,
-   "node_f1": 0.10416666666666666,
-   "node_precision": 0.8333333333333334,
-   "node_recall": 0.05555555555555555,
-   "sample_f1": 0.09454545454545456,
+   "detection_rate": 0.15,
+   "macro_f1": 0.0,
+   "node_f1": 0.0,
+   "node_precision": 0.0,
+   "node_recall": 0.0,
+   "sample_f1": 0.0,
+   "strict_acc": 0.0
+  },
+  "Aq": {
+   "detection_rate": 0.10526315789473684,
+   "macro_f1": 0.01282051282018409,
+   "node_f1": 0.012578616352201259,
+   "node_precision": 0.14285714285714285,
+   "node_recall": 0.006578947368421052,
+   "sample_f1": 0.006578947368421052,
    "strict_acc": 0.0
   },
   "Ar": {
-   "detection_rate": 1.0,
-   "macro_f1": 0.6039466982581415,
-   "node_f1": 0.6298342541436464,
-   "node_precision": 0.5643564356435643,
-   "node_recall": 0.7125,
-   "sample_f1": 0.626504329004329,
+   "detection_rate": 0.625,
+   "macro_f1": 0.32626262622122576,
+   "node_f1": 0.375,
+   "node_precision": 0.9375,
+   "node_recall": 0.234375,
+   "sample_f1": 0.3273809523809524,
    "strict_acc": 0.0
   },
   "As": {
-   "detection_rate": 1.0,
-   "macro_f1": 0.7677146382160681,
-   "node_f1": 0.7933884297520661,
-   "node_precision": 0.6956521739130435,
-   "node_recall": 0.9230769230769231,
-   "sample_f1": 0.7973970473970474,
-   "strict_acc": 0.07692307692307693
-  },
-  "At": {
-   "detection_rate": 0.05,
-   "macro_f1": 0.038095238093424036,
-   "node_f1": 0.038461538461538464,
-   "node_precision": 0.5,
-   "node_recall": 0.02,
-   "sample_f1": 0.02222222222222222,
+   "detection_rate": 0.6666666666666666,
+   "macro_f1": 0.27902400625584145,
+   "node_f1": 0.34375,
+   "node_precision": 0.6875,
+   "node_recall": 0.22916666666666666,
+   "sample_f1": 0.2865079365079365,
    "strict_acc": 0.0
   },
   "all": {
-   "macro_dr": 0.44775896028156426,
-   "macro_f1": 0.5163589478659586,
-   "macro_fr": 0.022482893450635387,
-   "node_f1": 0.4990892531876138
+   "macro_dr": 0.10195014603437064,
+   "macro_f1": 0.17030866969557043,
+   "macro_fr": 0.02559576345984113,
+   "node_f1": 0.15384615384615385
   },
   "benign": {
-   "bus_alarm_rate": 0.02304147465437788,
-   "false_alarm_rate": 0.21505376344086022
+   "bus_alarm_rate": 0.022191400832177532,
+   "false_alarm_rate": 0.20388349514563106
   }
  },
  "residual": {
   "Ad": {
    "detection_rate": 1.0,
-   "macro_f1": 0.5265888550303305,
-   "node_f1": 0.4745762711864407,
-   "node_precision": 0.3111111111111111,
+   "macro_f1": 0.5247624923747828,
+   "node_f1": 0.45360824742268036,
+   "node_precision": 0.29333333333333333,
    "node_recall": 1.0,
-   "sample_f1": 0.4777577697745765,
-   "strict_acc": 0.0
-  },
-  "Al": {
-   "detection_rate": 0.95,
-   "macro_f1": 0.2999011918101353,
-   "node_f1": 0.368,
-   "node_precision": 0.7419354838709677,
-   "node_recall": 0.24468085106382978,
-   "sample_f1": 0.35177100677100676,
+   "sample_f1": 0.4542483660130719,
    "strict_acc": 0.0
   },
   "Am": {
-   "detection_rate": 0.95,
-   "macro_f1": 0.6712529459786549,
-   "node_f1": 0.6578073089700998,
-   "node_precision": 0.8181818181818182,
-   "node_recall": 0.55,
-   "sample_f1": 0.5992437112251354,
+   "detection_rate": 1.0,
+   "macro_f1": 0.8981318294964208,
+   "node_f1": 0.837962962962963,
+   "node_precision": 0.8537735849056604,
+   "node_recall": 0.8227272727272728,
+   "sample_f1": 0.8024533172776879,
+   "strict_acc": 0.0
+  },
+  "Aq": {
+   "detection_rate": 0.6842105263157895,
+   "macro_f1": 0.23270120258501678,
+   "node_f1": 0.20487804878048782,
+   "node_precision": 0.39622641509433965,
+   "node_recall": 0.13815789473684212,
+   "sample_f1": 0.16733500417710945,
    "strict_acc": 0.0
   },
   "Ar": {
    "detection_rate": 1.0,
-   "macro_f1": 0.5481250949722083,
-   "node_f1": 0.5187713310580204,
-   "node_precision": 0.3568075117370892,
-   "node_recall": 0.95,
-   "sample_f1": 0.526687854629031,
+   "macro_f1": 0.5248653151006661,
+   "node_f1": 0.4549019607843137,
+   "node_precision": 0.3036649214659686,
+   "node_recall": 0.90625,
+   "sample_f1": 0.46031835811247573,
    "strict_acc": 0.0
   },
   "As": {
    "detection_rate": 1.0,
-   "macro_f1": 0.5138077225677281,
-   "node_f1": 0.4502164502164503,
-   "node_precision": 0.2905027932960894,
+   "macro_f1": 0.5316267065939723,
+   "node_f1": 0.4615384615384615,
+   "node_precision": 0.3,
    "node_recall": 1.0,
-   "sample_f1": 0.45072900955253903,
-   "strict_acc": 0.0
-  },
-  "At": {
-   "detection_rate": 0.9,
-   "macro_f1": 0.05714285714013606,
-   "node_f1": 0.042253521126760556,
-   "node_precision": 0.07142857142857142,
-   "node_recall": 0.03,
-   "sample_f1": 0.034722222222222224,
+   "sample_f1": 0.46461251167133527,
    "strict_acc": 0.0
   },
   "all": {
-   "macro_dr": 0.5206291598696662,
-   "macro_f1": 0.41781959325438867,
-   "macro_fr": 0.2179863147605083,
-   "node_f1": 0.38990017615971817
+   "macro_dr": 0.7380803803597922,
+   "macro_f1": 0.5829653416605081,
+   "macro_fr": 0.0794351279788173,
+   "node_f1": 0.5035765379113017
   },
   "benign": {
-   "bus_alarm_rate": 0.19201228878648233,
-   "false_alarm_rate": 0.967741935483871
+   "bus_alarm_rate": 0.07212205270457697,
+   "false_alarm_rate": 0.47572815533980584
   }
  },
  "swing": {
   "Ad": {
-   "detection_rate": 1.0,
-   "macro_f1": 0.5871406370740772,
-   "node_f1": 0.6274509803921569,
-   "node_precision": 0.6956521739130435,
-   "node_recall": 0.5714285714285714,
-   "sample_f1": 0.6039682539682539,
-   "strict_acc": 0.0
-  },
-  "Al": {
-   "detection_rate": 1.0,
-   "macro_f1": 0.3895197830347104,
-   "node_f1": 0.45692883895131087,
-   "node_precision": 0.7721518987341772,
-   "node_recall": 0.324468085106383,
-   "sample_f1": 0.4338244108832344,
+   "detection_rate": 0.7272727272727273,
+   "macro_f1": 0.3441558440952252,
+   "node_f1": 0.42857142857142855,
+   "node_precision": 1.0,
+   "node_recall": 0.2727272727272727,
+   "sample_f1": 0.3740259740259741,
    "strict_acc": 0.0
   },
   "Am": {
-   "detection_rate": 0.0,
+   "detection_rate": 0.15,
+   "macro_f1": 0.0,
+   "node_f1": 0.0,
+   "node_precision": 0.0,
+   "node_recall": 0.0,
+   "sample_f1": 0.0,
+   "strict_acc": 0.0
+  },
+  "Aq": {
+   "detection_rate": 0.07894736842105263,
    "macro_f1": 0.0,
    "node_f1": 0.0,
    "node_precision": 0.0,
@@ -160,41 +142,32 @@
    "strict_acc": 0.0
   },
   "Ar": {
-   "detection_rate": 0.75,
-   "macro_f1": 0.23730814637897524,
-   "node_f1": 0.2956521739130435,
-   "node_precision": 0.4857142857142857,
-   "node_recall": 0.2125,
-   "sample_f1": 0.2713095238095238,
+   "detection_rate": 0.375,
+   "macro_f1": 0.1847041846769967,
+   "node_f1": 0.19718309859154928,
+   "node_precision": 1.0,
+   "node_recall": 0.109375,
+   "sample_f1": 0.16666666666666669,
    "strict_acc": 0.0
   },
   "As": {
-   "detection_rate": 1.0,
-   "macro_f1": 0.5754882371711324,
-   "node_f1": 0.6436781609195402,
-   "node_precision": 0.8,
-   "node_recall": 0.5384615384615384,
-   "sample_f1": 0.6315018315018315,
-   "strict_acc": 0.07692307692307693
-  },
-  "At": {
-   "detection_rate": 0.05,
-   "macro_f1": 0.019047619046712018,
-   "node_f1": 0.0196078431372549,
-   "node_precision": 0.5,
-   "node_recall": 0.01,
-   "sample_f1": 0.014285714285714285,
+   "detection_rate": 0.4166666666666667,
+   "macro_f1": 0.18701298698367347,
+   "node_f1": 0.2413793103448276,
+   "node_precision": 0.7,
+   "node_recall": 0.14583333333333334,
+   "sample_f1": 0.18611111111111112,
    "strict_acc": 0.0
   },
   "all": {
-   "macro_dr": 0.2142711902657653,
-   "macro_f1": 0.31360988542777635,
-   "macro_fr": 0.0039100684261974585,
-   "node_f1": 0.3228803716608595
+   "macro_dr": 0.054070026563342075,
+   "macro_f1": 0.09782395295827345,
+   "macro_fr": 0.01323918799646955,
+   "node_f1": 0.0896551724137931
   },
   "benign": {
-   "bus_alarm_rate": 0.006144393241167435,
-   "false_alarm_rate": 0.053763440860215055
+   "bus_alarm_rate": 0.011095700416088766,
+   "false_alarm_rate": 0.1262135922330097
   }
  }
 }

@@ -1,8 +1,10 @@
 """One continuous attacked timeline per system, written as one HDF5 file (docs/plans/ONE_DATASET_PLAN.md).
 
-The timeline is the dataset. The walker alternates benign gaps and attack episodes over the
-operating-point pool, so every frame is a scan of the grid at one pool timestep, with the attack of
-its episode applied (or none), and the file carries everything a user reads afterwards:
+The timeline is the dataset. Attack episodes are placed at uniform random onsets over the
+operating-point pool, without overlap, until the attacked fraction reaches its target; whether two
+episodes touch or a long quiet stretch separates them is a property of that draw, not of any rule.
+The walk then emits every frame in time order, a scan of the grid at one pool timestep with the
+attack of its episode applied (or none), and the file carries everything a user reads afterwards:
 
     attrs         system, N, E, baseMVA, seed, T, families, kind="timeline", the knobs, attacked_frac
     data/         node_x, node_m [T, N, 4]; edge_x, edge_m [T, E, 2]; y [T, N]; family, stealthy,
@@ -52,9 +54,9 @@ from .registry import CACHE_DIR, system_id
 KIND = "timeline"  # the file attribute that tells a timeline from a shard
 DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 
-# Per-family episode-length band (frames) of the stream scheduler: Aq, Ad, As, Ar, Al.
+# Per-family episode-length band (frames): Aq, Ad, As, Ar, Al (the upper end excluded).
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
-_GAP = (5, 40)  # a benign gap draws its length from this band
+_PLACE_TRIES = 1000  # onset draws an episode gets before it is dropped as not fitting
 
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
@@ -189,22 +191,11 @@ def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.nd
     return rng.choice(apos, k, replace=False)
 
 
-def _want_attack(buf: _TimelineBuffers, t: int, attacked_frac: float) -> bool:
-    """Start an attack episode when the attacked fraction so far is below the target (so a target
-    of 0 never attacks, and the walk opens with an episode for any positive target)."""
-    return (buf.attacked / max(1, t)) < attacked_frac
-
-
-def _benign_gap(ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, t: int) -> int:
-    """A benign gap of 5 to 39 frames; returns the next free timestep."""
-    T = len(ctx.X)
-    gap = int(rng.integers(*_GAP))
-    for _ in range(gap):
-        if t >= T:
-            break
+def _benign_run(ctx: _FrameContext, buf: _TimelineBuffers, t: int, until: int) -> int:
+    """Benign frames from t up to `until` (excluded); returns `until`."""
+    for t in range(t, until):
         buf.store(t, 0, _emit_benign(ctx, t))
-        t += 1
-    return t
+    return until
 
 
 @dataclass
@@ -268,16 +259,14 @@ def _single_shot_episode(
     rng: np.random.Generator,
     t: int,
     fid: int,
-    length: Optional[int] = None,
+    length: int,
 ) -> int:
-    """One episode of a single-shot family held for `length` frames (None: a random length from the
-    family's band); returns the next free timestep."""
+    """One episode of a single-shot family held for `length` frames; returns the next free timestep."""
     T = len(ctx.X)
     a = _pick_targets(rng, ctx.g.attackable_pos, fid)
     mult = 1 + rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
-    L = int(rng.integers(*_EP_LEN.get(fid, (5, 25)))) if length is None else length
     ep = _episode(ctx, buf, fid, t)
-    for _ in range(L):
+    for _ in range(length):
         if t >= T:
             break
         ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], fid, a, mult, ctx.knobs))
@@ -336,9 +325,8 @@ def _am_episode(
     Lp0 = ctx.X[t][ctx.g.load_bus, NODE.p_inj] + ctx.g.load_genP
     red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor)
     a = red.buses
-    if len(a) == 0:  # no feasible redistribution at this operating point: one benign frame, no episode
-        buf.store(t, 0, _emit_benign(ctx, t))
-        return t + 1
+    if len(a) == 0:  # no feasible redistribution at this operating point: the placed frames stay benign
+        return _benign_run(ctx, buf, t, min(t + length, T))
     delta = red.delta[a] * _am_sign(direction, rng)
     rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
     sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
@@ -354,16 +342,16 @@ def _am_episode(
 
 @dataclass
 class _Schedule:
-    """How the timeline is walked: the families in rotation, weighted by the inverse of their
+    """What is placed on the timeline: the families in rotation, weighted by the inverse of their
     expected episode length so every family gets about the same share of attacked frames, the
-    episode shapes, and the attacked fraction the gaps are sized for."""
+    episode shapes, and the attacked fraction the placement fills up to."""
 
     families: list[int]
     weights: np.ndarray
     ramp_len: int
     ramp_rate: float
     am: tuple[int, float, str]  # (length, am_rate, am_direction)
-    corrupt_len: Optional[int]  # Ad/As/Ar episode length; None draws the stream band
+    corrupt_len: Optional[int]  # Ad/As/Ar episode length; None draws the band
     attacked_frac: float
 
     @classmethod
@@ -378,21 +366,73 @@ class _Schedule:
         w = np.array([1.0 / expected[f] for f in fams], float)
         return cls(fams, w / w.sum() if len(w) else w, ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
 
+    def length_of(self, fid: int, rng: np.random.Generator) -> int:
+        """The frames an episode of `fid` takes: the ramp lengths for At and Am, `corrupt_len` for
+        Ad/As/Ar when set, else a draw from the family's band."""
+        if fid == RAMP_FAMILY:
+            return self.ramp_len
+        if fid == AM_FAMILY:
+            return self.am[0]
+        if fid in CORRUPT_KIND and self.corrupt_len is not None:
+            return self.corrupt_len
+        return int(rng.integers(*_EP_LEN.get(fid, (5, 25))))
 
-def _advance(
-    ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, t: int, plan: _Schedule
+
+def _place_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[tuple[int, int, int]]:
+    """Where the episodes go: (onset, family, length), sorted by onset.
+
+    The episodes are drawn first (family by the schedule's weights, then its length) until their
+    frames reach the target fraction, then placed longest first at uniform random onsets, each
+    rejected and redrawn while it overlaps one already placed (longest first so a long episode is
+    not squeezed out by the many one-frame ones; an episode that finds no room after
+    _PLACE_TRIES draws is dropped). The gaps between episodes, and the episodes that touch, are
+    what that draw gives, not a rule."""
+    if not plan.families or plan.attacked_frac <= 0:
+        return []
+    drawn: list[tuple[int, int]] = []  # (length, family)
+    frames, target = 0, plan.attacked_frac * T
+    while frames < target:
+        fid = int(rng.choice(plan.families, p=plan.weights))
+        length = min(plan.length_of(fid, rng), T)
+        drawn.append((length, fid))
+        frames += length
+    occupied = np.zeros(T, bool)
+    placed: list[tuple[int, int, int]] = []
+    for length, fid in sorted(drawn, key=lambda x: -x[0]):
+        for _ in range(_PLACE_TRIES):
+            onset = int(rng.integers(0, T - length + 1))
+            if not occupied[onset : onset + length].any():
+                occupied[onset : onset + length] = True
+                placed.append((onset, fid, length))
+                break
+    return sorted(placed)
+
+
+def _run_episode(
+    ctx: _FrameContext,
+    buf: _TimelineBuffers,
+    rng: np.random.Generator,
+    at: tuple[int, int, int],
+    plan: _Schedule,
 ) -> int:
-    """One step of the walk: a benign gap when the attacked fraction is on target (or nothing can
-    attack), else one episode of a family drawn by the schedule's weights. Returns the next free timestep."""
-    if not plan.families or not _want_attack(buf, t, plan.attacked_frac):
-        return _benign_gap(ctx, buf, rng, t)
-    fid = int(rng.choice(plan.families, p=plan.weights))
+    """Build one placed episode; returns the next free timestep."""
+    onset, fid, length = at
     if fid == RAMP_FAMILY:
-        return _ramp_episode(ctx, buf, rng, t, plan.ramp_len, plan.ramp_rate)
+        return _ramp_episode(ctx, buf, rng, onset, length, plan.ramp_rate)
     if fid == AM_FAMILY:
-        return _am_episode(ctx, buf, rng, t, plan.am)
-    length = plan.corrupt_len if fid in CORRUPT_KIND else None
-    return _single_shot_episode(ctx, buf, rng, t, fid, length)
+        return _am_episode(ctx, buf, rng, onset, (length, plan.am[1], plan.am[2]))
+    return _single_shot_episode(ctx, buf, rng, onset, fid, length)
+
+
+def _walk(ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, plan: _Schedule) -> None:
+    """Place the episodes, then emit every frame in time order: benign runs between them, the
+    episodes where they were placed."""
+    T = len(ctx.X)
+    t = 0
+    for at in _place_episodes(rng, plan, T):
+        t = _benign_run(ctx, buf, t, at[0])
+        t = _run_episode(ctx, buf, rng, at, plan)
+    _benign_run(ctx, buf, t, T)
 
 
 def _frame_split(T: int, episodes: list[dict[str, Any]], frac: Sequence[float]) -> np.ndarray:
@@ -557,7 +597,9 @@ def generate_timeline(
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
 
-    attacked_frac    target fraction of frames under an attack episode (0.5 = balanced)
+    attacked_frac    target fraction of frames under an attack episode (0.5 = balanced); episodes
+                     are placed at uniform random onsets until it is reached, so adjacency and gaps
+                     are properties of the draw
     families         the families in rotation; each gets about the same share of attacked frames
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
@@ -610,8 +652,6 @@ def generate_timeline(
         _write_graph(f, g)
         sink = _create_layers(f, T, C, g.E)
         buf = _TimelineBuffers((T, C, g.E), ctx.scale, partial(_clean_slice, g, X), sink=sink)
-        t = 0
-        while t < T:
-            t = _advance(ctx, buf, g.rng, t, plan)
+        _walk(ctx, buf, g.rng, plan)
         _finish_timeline(f, g, buf, split, seed, recorded)
     return out
