@@ -17,7 +17,7 @@ from fdia_graph.engine.records import AM_FAMILY, CORRUPT_KIND  # noqa: E402
 from fdia_graph.generation import NOISE_FLOOR, _load_states  # noqa: E402
 from fdia_graph.timeline import KIND, generate_timeline  # noqa: E402
 
-SEED = 3  # covers every family in the 1000-frame fixture (the long families are rare per episode by design)
+SEED = 4  # covers every family in the 1000-frame fixture (the long families are few per 1000 frames)
 
 
 @pytest.fixture(scope="session")
@@ -106,6 +106,20 @@ def test_episodes_index_the_frames(timeline):
     assert sorted(np.unique(seq[seq >= 0]).tolist()) == list(range(len(onset)))
     # corrupt-in-place families are independent one-frame draws by default (corrupt_len=1)
     assert (length[np.isin(efam, list(CORRUPT_KIND))] == 1).all()
+
+
+def test_episodes_are_placed_at_random_without_overlap(timeline):
+    """No episode overlaps another, the attacked fraction lands near the target, and the onsets
+    spread over the whole timeline (no scheduler decides where an episode goes)."""
+    a, attrs = _read(timeline)
+    onset, length = a["episodes/onset"], a["episodes/length"]
+    order = np.argsort(onset)
+    assert (onset[order][1:] >= (onset + length)[order][:-1]).all()
+    # the episodes' frames are exactly the set fraction; only a non-converging frame falls back to benign
+    assert int(length.sum()) == round(0.5 * attrs["T"])
+    assert round(attrs["attacked_frac"] * attrs["T"]) + attrs["fallback_benign"] == int(length.sum())
+    thirds = np.bincount(np.minimum(onset * 3 // attrs["T"], 2), minlength=3) / len(onset)
+    assert thirds.min() > 0.2, thirds
 
 
 def test_split_is_chronological_and_never_cuts_an_episode(timeline):

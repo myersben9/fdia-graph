@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=3)  # the conftest tiny timeline, exactly
+TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=4)  # the conftest tiny timeline, exactly
 
 
 def file_arrays(path: str) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
