@@ -115,7 +115,9 @@ def test_episodes_are_placed_at_random_without_overlap(timeline):
     onset, length = a["episodes/onset"], a["episodes/length"]
     order = np.argsort(onset)
     assert (onset[order][1:] >= (onset + length)[order][:-1]).all()
-    assert 0.4 < attrs["attacked_frac"] < 0.6
+    # the episodes' frames are exactly the set fraction; only a non-converging frame falls back to benign
+    assert int(length.sum()) == round(0.5 * attrs["T"])
+    assert round(attrs["attacked_frac"] * attrs["T"]) + attrs["fallback_benign"] == int(length.sum())
     thirds = np.bincount(np.minimum(onset * 3 // attrs["T"], 2), minlength=3) / len(onset)
     assert thirds.min() > 0.2, thirds
 

@@ -1,8 +1,9 @@
 """One continuous attacked timeline per system, written as one HDF5 file (docs/plans/ONE_DATASET_PLAN.md).
 
 The timeline is the dataset. Attack episodes are placed at uniform random onsets over the
-operating-point pool, without overlap, until the attacked fraction reaches its target; whether two
-episodes touch or a long quiet stretch separates them is a property of that draw, not of any rule.
+operating-point pool, without overlap, their frames summing to exactly the attacked fraction;
+whether two episodes touch or a long quiet stretch separates them is a property of that draw, not
+of any rule.
 The walk then emits every frame in time order, a scan of the grid at one pool timestep with the
 attack of its episode applied (or none), and the file carries everything a user reads afterwards:
 
@@ -56,7 +57,7 @@ DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 
 # Per-family episode-length band (frames): Aq, Ad, As, Ar, Al (the upper end excluded).
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
-_PLACE_TRIES = 1000  # onset draws an episode gets before it is dropped as not fitting
+_AM_DRAWS = 10  # redistribution draws an Am episode gets at its onset before its frames stay benign
 
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
@@ -323,8 +324,11 @@ def _am_episode(
     T, k = len(ctx.X), ctx.knobs
     length, am_rate, direction = shape
     Lp0 = ctx.X[t][ctx.g.load_bus, NODE.p_inj] + ctx.g.load_genP
-    red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor)
-    a = red.buses
+    for _ in range(_AM_DRAWS):  # a redistribution the target-line pool cannot give is redrawn
+        red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor)
+        a = red.buses
+        if len(a):
+            break
     if len(a) == 0:  # no feasible redistribution at this operating point: the placed frames stay benign
         return _benign_run(ctx, buf, t, min(t + length, T))
     delta = red.delta[a] * _am_sign(direction, rng)
@@ -378,35 +382,45 @@ class _Schedule:
         return int(rng.integers(*_EP_LEN.get(fid, (5, 25))))
 
 
+def _draw_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[tuple[int, int]]:
+    """The episodes as (length, family), drawn by the schedule's weights until their frames sum to
+    exactly round(attacked_frac * T); the last one is clipped to the remainder."""
+    drawn: list[tuple[int, int]] = []
+    frames, target = 0, int(round(plan.attacked_frac * T))
+    while frames < target:
+        fid = int(rng.choice(plan.families, p=plan.weights))
+        length = min(plan.length_of(fid, rng), target - frames)
+        drawn.append((length, fid))
+        frames += length
+    return drawn
+
+
+def _uniform_onset(occupied: np.ndarray, length: int, rng: np.random.Generator) -> int:
+    """An onset drawn uniformly among every position where `length` consecutive frames are free."""
+    free = np.concatenate([[0], np.cumsum(~occupied)])
+    T = len(occupied)
+    feasible = np.flatnonzero(free[length : T + 1] - free[: T - length + 1] == length)
+    if len(feasible) == 0:
+        raise ValueError(f"no room for a {length}-frame episode: the attacked fraction cannot be placed")
+    return int(feasible[rng.integers(len(feasible))])
+
+
 def _place_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[tuple[int, int, int]]:
     """Where the episodes go: (onset, family, length), sorted by onset.
 
-    The episodes are drawn first (family by the schedule's weights, then its length) until their
-    frames reach the target fraction, then placed longest first at uniform random onsets, each
-    rejected and redrawn while it overlaps one already placed (longest first so a long episode is
-    not squeezed out by the many one-frame ones; an episode that finds no room after
-    _PLACE_TRIES draws is dropped). The gaps between episodes, and the episodes that touch, are
-    what that draw gives, not a rule."""
+    The episodes are drawn first so their frames sum to exactly the attacked fraction, then placed
+    longest first, each at an onset drawn uniformly among the onsets where it fits, so every
+    episode is placed (longest first so a long episode is never squeezed out by the many one-frame
+    ones). The gaps between episodes, and the episodes that touch, are what that draw gives, not
+    a rule."""
     if not plan.families or plan.attacked_frac <= 0:
         return []
-    drawn: list[tuple[int, int]] = []  # (length, family)
-    frames, target = 0, plan.attacked_frac * T
-    while frames < target:
-        fid = int(rng.choice(plan.families, p=plan.weights))
-        length = plan.length_of(fid, rng)
-        if frames + length > T:  # no room left on the timeline for another episode of this length
-            break
-        drawn.append((length, fid))
-        frames += length
     occupied = np.zeros(T, bool)
     placed: list[tuple[int, int, int]] = []
-    for length, fid in sorted(drawn, key=lambda x: -x[0]):
-        for _ in range(_PLACE_TRIES):
-            onset = int(rng.integers(0, T - length + 1))
-            if not occupied[onset : onset + length].any():
-                occupied[onset : onset + length] = True
-                placed.append((onset, fid, length))
-                break
+    for length, fid in sorted(_draw_episodes(rng, plan, T), key=lambda x: -x[0]):
+        onset = _uniform_onset(occupied, length, rng)
+        occupied[onset : onset + length] = True
+        placed.append((onset, fid, length))
     return sorted(placed)
 
 
@@ -599,11 +613,11 @@ def generate_timeline(
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
 
-    attacked_frac    target fraction of frames under an attack episode (0.5 = balanced); episodes
-                     are drawn up to it and placed at uniform random onsets, so adjacency and gaps
-                     are properties of the draw; the realized fraction (an episode that finds no
-                     room is dropped, an infeasible Am onset stays benign) is the file's
-                     `attacked_frac` attribute
+    attacked_frac    fraction of frames under an attack episode (0.5 = balanced): the episodes drawn
+                     sum to exactly round(attacked_frac * T) frames and every one is placed, at an
+                     onset uniform among those where it fits, so adjacency and gaps are properties
+                     of the draw; a frame whose power flow does not converge stays benign and is
+                     counted in the file's `fallback_benign` attribute
     families         the families in rotation; each gets about the same share of attacked frames
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length

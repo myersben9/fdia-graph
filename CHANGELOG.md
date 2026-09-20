@@ -5,11 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
-- The timeline writer places its attack episodes at uniform random onsets (longest first, no
-  overlap) until the attacked fraction is reached, and emits benign frames everywhere else. The
+- The timeline writer draws its attack episodes so their frames sum to exactly
+  `round(attacked_frac * T)`, places every one of them (longest first, each at an onset drawn
+  uniformly among the onsets where it fits), and emits benign frames everywhere else. The
   benign-gap band and the rule that started the next episode with no gap are gone, so whether two
-  episodes touch or a quiet stretch separates them is a property of the draw. The frozen references
-  are re-frozen on the tiny timeline (seed 4).
+  episodes touch or a quiet stretch separates them is a property of the draw; an Am episode redraws
+  its redistribution at onset rather than leaving frames benign, and only a non-converging power
+  flow falls back to a benign frame (counted in `fallback_benign`). The frozen references are
+  re-frozen on the tiny timeline (seed 4).
 - One generator path, step 3 of `docs/plans/ONE_DATASET_PLAN.md`: the record-shard writer
   (`generation.generate_shard` and its draw loop), the stream walker and its `.npz` output, the
   magnitude sidecar (`<out>.mag.npz`) and the graph sidecar read of `load_stream` are deleted, with
