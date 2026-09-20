@@ -159,12 +159,10 @@ class _TimelineBuffers:
             return
         self.mag_bus[t] = np.asarray(frame.mag_bus, np.int32)
         self.mag[t] = np.asarray(frame.mag, np.float32)
-        if frame.tamper is not None:  # Am decides per meter
+        if frame.tamper is not None:  # a stealthy family: the meters its local false state moves
             node, edge = frame.tamper
-        elif fid in CORRUPT_KIND:  # in-place corruption: exactly the meters that changed
+        else:  # in-place corruption: exactly the meters that changed
             node, edge = frame.node_x != bnx, frame.edge_x != bex
-        else:  # a re-solved state: every metered channel carries the attacker's consistent value
-            node, edge = frame.node_m > 0, frame.edge_m > 0
         self._layers["attack/node_tamper"][r] = node
         self._layers["attack/edge_tamper"][r] = edge
 
@@ -325,7 +323,7 @@ def _am_episode(
     length, am_rate, direction = shape
     Lp0 = ctx.X[t][ctx.g.load_bus, NODE.p_inj] + ctx.g.load_genP
     for _ in range(_AM_DRAWS):  # a redistribution the target-line pool cannot give is redrawn
-        red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor)
+        red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
         a = red.buses
         if len(a):
             break
@@ -339,7 +337,7 @@ def _am_episode(
         if t >= T:
             break
         mult = _am_multipliers(ctx, t, a, sh.at(i) * delta)
-        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, a, mult, k))
+        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, a, mult, k, red.interior))
         t += 1
     return ep.close(buf, t)
 
@@ -529,8 +527,8 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     ag.create_dataset("mag_bus", data=bus)
     ag.create_dataset("mag", data=mag)
     ag.attrs["tamper"] = (
-        "1 where the attacker wrote the meter: every metered channel for the re-solved families, "
-        "the changed channels for Ad/As/Ar, the beyond-noise set for Am"
+        "1 where the attacker wrote the meter: the meters the local false state moves for the "
+        "stealthy families, the changed channels for Ad/As/Ar"
     )
 
 
@@ -576,14 +574,14 @@ def _check_knobs(
     attacked_frac: float, am: tuple[float, float, str], lengths: dict[str, Optional[int]]
 ) -> None:
     """Refuse the knob values that would hang or mislead the walk, before any physics is built.
-    `am` = (am_rate, am_sigma, am_direction)."""
-    am_rate, am_sigma, am_direction = am
+    `am` = (am_rate, hops, am_direction)."""
+    am_rate, hops, am_direction = am
     if am_direction not in ("mask", "induce", "both"):
         raise ValueError(f"am_direction must be 'mask', 'induce' or 'both', got {am_direction!r}")
     if not am_rate > 0:
         raise ValueError(f"am_rate is the per-frame step as a fraction of the noise floor, got {am_rate!r}")
-    if not am_sigma >= 0:
-        raise ValueError(f"am_sigma is a number of accuracy-class stds, got {am_sigma!r}")
+    if not (isinstance(hops, int) and hops >= 1):
+        raise ValueError(f"hops is the attacker's reach in branches, at least 1, got {hops!r}")
     if not 0.0 <= attacked_frac <= 1.0:
         raise ValueError(f"attacked_frac is a fraction of frames, got {attacked_frac!r}")
     for knob, value in lengths.items():
@@ -601,8 +599,8 @@ def generate_timeline(
     ramp_len: int = 60,
     am_len: Optional[int] = None,
     am_rate: float = 0.9,
-    am_sigma: float = 3.0,
     am_direction: str = "both",
+    hops: int = 2,
     corrupt_len: Optional[int] = 1,
     replay_tau: Optional[int] = None,
     redundancy: Optional[dict] = None,
@@ -623,7 +621,9 @@ def generate_timeline(
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
     am_len           Am episode length (default ramp_len)
     am_rate          Am's largest per-bus per-frame load change as a fraction of the noise floor
-    am_sigma         Am leaves every meter whose designed change is under this many stds un-attacked
+    hops             the attacker's subnetwork for the stealthy families: buses within this many
+                     branches of the attacked loads (Aq, At) or of the target line (Al, Am); the
+                     boundary voltages are held true and only the subnetwork's meters are written
     am_direction     "induce" (the target line reads more loaded than it is, the engine's Al sign),
                      "mask" (it reads lighter, a real overload hidden) or "both" (drawn per episode)
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
@@ -635,7 +635,7 @@ def generate_timeline(
     am_len = ramp_len if am_len is None else am_len
     _check_knobs(
         attacked_frac,
-        (am_rate, am_sigma, am_direction),
+        (am_rate, hops, am_direction),
         dict(ramp_len=ramp_len, am_len=am_len, corrupt_len=corrupt_len),
     )
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
@@ -644,7 +644,7 @@ def generate_timeline(
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     T, C = len(X), g.C
-    knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, am_sigma=am_sigma)
+    knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops=hops)
     ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
     am = (am_len, am_rate, am_direction)
     plan = _Schedule.build([FAM_ID[f] for f in families], ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
@@ -656,8 +656,8 @@ def generate_timeline(
         ramp_len=ramp_len,
         am_len=am[0],
         am_rate=am_rate,
-        am_sigma=am_sigma,
         am_direction=am_direction,
+        hops=hops,
         corrupt_len=corrupt_len,
         replay_tau=replay_tau,
         noise_floor=NOISE_FLOOR,

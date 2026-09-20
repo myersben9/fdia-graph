@@ -69,14 +69,15 @@ FDIA) as family 7, `Am`, built from the pieces the engine has:
 |---|---|---|
 | target and direction | `lra_delta` picks a line and a load redistribution that steers its flow, PTDF-ranked buses, sign masks or manufactures an overload | drawn **once at episode onset** and held for the episode |
 | schedule | `ramp_profile` (rise, hold, fall) drives `At` | the same profile scales the redistribution frame by frame; the rise rate keeps every per-bus per-frame change under the noise floor, the plateau reaches the flow target |
-| consistency | `solve` with generation pinned, `emit` | every frame re-solved, so every frame is an AC-consistent state |
-| sparsity (Wu's l0) | none | after emission, every meter whose change from the benign twin is under `k` sigma is restored to the benign value; the tampered set is the meters that moved beyond noise, stored in `attack/` |
+| consistency | `solve` with generation pinned, `emit` | every frame re-solved locally: the subnetwork around the attack with the boundary voltages held true (`solve_local`), so every frame is an AC-consistent state and only the subnetwork's meters change; every stealthy family uses this since #98 |
+| sparsity (Wu's l0) | none | the sparsity is the locality: the tampered set is the meters the local false state moves (interior and boundary injections, the region's flows), stored in `attack/`; a threshold version was tried first and was not residual-stealthy |
 | labels | `y` on the redistribution buses from onset, as `At` labels its buses | same; the sparse tamper set is a second, per-frame mask in `attack/` for the papers that want meter-level truth |
 
-Knobs: `am_rate` (per-frame cap as a fraction of the noise floor, default 0.9), `am_sigma` (sparsity
-threshold, default 3), `am_direction` (`"induce"` keeps the engine's redistribution sign, so the target
-line reads more loaded than it is, as Wu's attack does; `"mask"` flips it so a real overload reads
-lighter; default both, drawn per episode). What it is not: Wu's
+Knobs: `am_rate` (per-frame cap as a fraction of the noise floor, default 0.9), `am_direction`
+(`"induce"` keeps the engine's redistribution sign, so the target line reads more loaded than it is,
+as Wu's attack does; `"mask"` flips it so a real overload reads lighter; default both, drawn per
+episode), and `hops` (the attacker's reach, buses within this many branches of the target line, at
+least 1, default 2; shared by every stealthy family since #98). What it is not: Wu's
 Pyomo/IPOPT optimization; the engine's PTDF redistribution is the closed-form version of the same
 objective, and the ramp is what their l0-with-noise-floor objective produces. `Am` lands in the same
 PR as the writer (step 1) so the eight systems are generated once.

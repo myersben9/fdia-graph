@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 import numpy as np
 
+from ..formulas.network import bus_injections, complex_voltages, local_ac_solve, subnetwork
 from ..models.frames import ResolvedPool  # noqa: F401  re-exported: defined here before the models package
 from ..models.grid import NODE
 from .base import GridBase
@@ -76,6 +77,62 @@ class PhysicsMixin(GridBase):
         sb = net.ext_grid["bus"].values  # pin the slack reference to the true voltage and angle
         net.ext_grid["vm_pu"] = [Xt[int(b), 0] for b in sb]
         net.ext_grid["va_degree"] = [Xt[int(b), 3] for b in sb]
+
+    def local_region(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]:
+        """The attacker's interior around `seeds` [WU26]: the buses within `hops` branches, never the
+        slack (the angle reference the estimator pins, so its voltage stays true), grown to take in
+        any zero-injection bus on the boundary (a boundary bus absorbs the changed power, and a bus
+        known to inject nothing cannot), and shrunk in reach until a boundary of fixed-voltage buses
+        exists at all. None when even the seeds alone leave no boundary."""
+        for h in range(hops, -1, -1):
+            interior, _ = subnetwork(self.ei, seeds, h, self.C)
+            interior, boundary = self._grow_over_zero_injection(interior[interior != self.slack_bus])
+            if len(interior) and len(boundary):
+                return interior
+        return None
+
+    def _grow_over_zero_injection(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The interior with every zero-injection bus of its boundary taken in (repeated until the
+        boundary holds none), and that boundary; the slack stays out."""
+        zero = {int(b) for b in self.zero_inj} - {self.slack_bus}
+        interior, boundary = subnetwork(self.ei, interior, 0, self.C)
+        while len(boundary):
+            grow = [int(b) for b in boundary if int(b) in zero]
+            if not grow:
+                break
+            interior, boundary = subnetwork(self.ei, np.union1d(interior, grow), 0, self.C)
+        return interior, boundary
+
+    def solve_local(
+        self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray
+    ) -> Optional[np.ndarray]:
+        """The local attacker's false state [WU26]: the interior buses re-solved under the false loads
+        `Lp`, `Lq` (per load-table position, MW/MVAr) with every other voltage held at its true value.
+        Returns the false state [N, 4] in the pool's columns, with the injections of the interior and
+        boundary buses recomputed from the false voltages (the meters the attack must write), or None
+        when the local power flow does not converge."""
+        C = self.C
+        Xa = np.array(Xt, np.float64, copy=True)
+        Pinj, Qinj = Xa[:, NODE.p_inj].copy(), Xa[:, NODE.q_inj].copy()
+        for pos, b in enumerate(
+            self.load_bus
+        ):  # the pool's injection is load-positive: load minus generation
+            Pinj[b] = Lp[pos] - self.load_genP[pos]
+            Qinj[b] = Lq[pos]
+        lut = self._lut[np.arange(C)]
+        Vc = np.zeros(self._nppc, complex)
+        Vc[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])
+        target = -(Pinj[interior] + 1j * Qinj[interior]) / self._bMVA  # generation-positive, per unit
+        Vf = local_ac_solve(self._Ybus, Vc, lut[interior], target)
+        if Vf is None:
+            return None
+        Xa[interior, NODE.v] = np.abs(Vf[lut[interior]])
+        Xa[interior, NODE.theta] = np.degrees(np.angle(Vf[lut[interior]]))
+        touched = np.union1d(interior, subnetwork(self.ei, interior, 0, C)[1])  # interior and its boundary
+        S = bus_injections(Vf, self._Ybus, self._bMVA)[lut[touched]]
+        Xa[touched, NODE.p_inj] = -S.real
+        Xa[touched, NODE.q_inj] = -S.imag
+        return Xa
 
     def solve(
         self,

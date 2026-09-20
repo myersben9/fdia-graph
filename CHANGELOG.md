@@ -63,12 +63,17 @@ the public API, the generated files and the numbers are the same as the previous
   the attacker wrote). Families are scheduled by inverse expected episode length so each gets about
   the same share of attacked frames; `corrupt_len=1` makes every Ad/As/Ar frame an independent draw.
   The loader for these files is step 2; `generate` and `load` are unchanged in this release.
-- A seventh family, `Am` (code 7, stealthy), the multi-snapshot attack of Wu et al. 2026 built from
-  the engine's pieces: the Al load redistribution drawn once at episode onset, applied along a ramp
-  whose per-bus per-frame step stays under `am_rate` of the noise floor, every frame re-solved
-  with generation pinned, and made sparse by leaving every meter whose designed change is under
-  `am_sigma` accuracy-class stds at its un-attacked reading. `fg.FAMILIES[7] == "Am"`,
-  `fg.STEALTHY_FAMILIES` now `{1, 5, 6, 7}`; the published shards and streams carry no `Am` frames.
+- A seventh family, `Am` (code 7, stealthy), the multi-snapshot attack of Wu et al. 2026: the Al
+  load redistribution drawn once at episode onset and applied along a ramp whose per-bus per-frame
+  step stays under `am_rate` of the noise floor. `fg.FAMILIES[7] == "Am"`, `fg.STEALTHY_FAMILIES`
+  now `{1, 5, 6, 7}`; the published shards and streams carry no `Am` frames.
+- Every stealthy family (Aq, At, Al, Am) is now a local false state, the attacker model of Wu et al.
+  2026: the attacker solves the power flow of the subnetwork within `hops` branches of the attacked
+  loads (or the target line) with every other bus voltage held true (`FdiaGenerator.solve_local`,
+  `formulas.network.local_ac_solve`), never the whole grid and never the slack, and writes only the
+  meters that false state moves (the tamper masks). The measurement vector is exactly consistent
+  with an AC state, so a WLS residual test flags these frames at the benign rate; the global
+  re-solve with pinned generation is gone from the writer. `hops` (default 2) replaces `am_sigma`.
 - `generate_stream` builds its frames through the timeline module's episode primitives; its
   scheduler and RNG order are unchanged and the streams are bit-identical. `generate(states=...)`
   also accepts a pool stored as HDF5 (dataset `X`).

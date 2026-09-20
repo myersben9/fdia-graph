@@ -31,8 +31,9 @@ class Frame(NamedTuple):
     mag: np.ndarray  # designed |change| / |base| per entry of mag_bus, the plausibility-band record
     benign_node_x: Optional[np.ndarray]  # un-attacked node measurement of the same scan (with_benign)
     benign_edge_x: Optional[np.ndarray]  # un-attacked branch flows of the same scan (with_benign)
-    # The meters the attacker wrote, when the family decides that per meter (Am): ([N, 4], [E, 2])
-    # boolean masks. None for the other families, whose tamper set follows from the family.
+    # The meters the attacker wrote: ([N, 4], [E, 2]) boolean masks. For the stealthy families the
+    # meters whose true value the local false state moves; None for the in-place families, whose
+    # tamper set is the meters that differ from the benign twin.
     tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
 
 
@@ -45,17 +46,21 @@ class FrameKnobs(NamedTuple):
     replay_tau: Optional[int]  # Ar/As replay depth in scans, None = random lag of at least REPLAY_MIN_LAG
     reject_below_floor: bool  # shards: reject a within-noise scan so the draw loop redraws
     with_benign: bool  # streams: also emit the un-attacked twin of the scan
-    # Am: a meter whose designed change is under this many accuracy-class stds is left un-attacked
-    am_sigma: float = 3.0
+    # the stealthy families are local false states [WU26]: the attacker solves the subnetwork within
+    # `hops` branches of the attacked buses (or the target line) with the boundary voltages held true
+    hops: int = 2
 
 
 class Redistribution(NamedTuple):
     """A load-redistribution attack: the per-load-bus delta (MW), the attacked load-table positions,
-    and the flow change it induces on the target line (MW)."""
+    the flow change it induces on the target line (MW), the target line, and the attacker's
+    interior buses (the subnetwork the false state is solved on)."""
 
     delta: np.ndarray
     buses: np.ndarray
     line_flow_change: float
+    line: int = -1
+    interior: Optional[np.ndarray] = None
 
 
 class ResolvedPool(NamedTuple):

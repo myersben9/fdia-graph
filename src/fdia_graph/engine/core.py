@@ -272,6 +272,9 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.load_bus = _lb["bus"].values
         self._attackable_mask = _lb["p_mw"].abs().values > 0.0
         self.attackable_pos = np.where(self._attackable_mask)[0]
+        self.slack_bus = int(
+            base.ext_grid.bus.values[0]
+        )  # the angle reference; a local attack never moves it
         # Every bus with some injection element (gen, load, ext_grid, shunt).
         inj = np.unique(
             np.r_[base.gen.bus.values, base.load.bus.values, base.ext_grid.bus.values, base.shunt.bus.values]

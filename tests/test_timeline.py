@@ -145,8 +145,11 @@ def test_layers_and_tamper_masks_agree(timeline):
     assert (nx[nt == 0] == bn[nt == 0]).all() and (ex[et == 0] == be[et == 0]).all()
     corrupt = np.isin(fam, list(CORRUPT_KIND))
     assert ((nx != bn) == (nt > 0))[corrupt].all()
-    resolved = np.isin(fam, [1, 5, 6])
-    assert (nt[resolved] == nm[resolved]).all()
+    # the stealthy families write the meters of a local region: some, never none, never all
+    stealthy = np.isin(fam, [1, 5, 6, 7])
+    assert (nt[stealthy] <= nm[stealthy]).all()
+    share = nt[stealthy].sum(axis=(1, 2)) / nm[stealthy].sum(axis=(1, 2))
+    assert 0 < share.min() and share.max() < 1
     # the benign layer is the clean truth plus a small meter error on metered voltages
     v = nm[:, :, 0] > 0
     assert np.abs(bn[:, :, 0] - cl[:, :, 0])[v].max() < 0.02
@@ -160,7 +163,7 @@ def test_am_is_a_sparse_sub_floor_ramp_of_a_held_redistribution(am_timeline):
     assert len(am) > 40 and (a["data/stealthy"][am] == 1).all()
     nt, nm = a["attack/node_tamper"], a["data/node_m"]
     share = nt[am].sum(axis=(1, 2)) / nm[am].sum(axis=(1, 2))
-    assert share.max() < 0.6 and share.min() < 0.1  # sparse at the plateau, nearly empty on the rise
+    assert 0 < share.min() and share.max() < 0.8  # the region's meters, never the whole grid
     ptr, bus, mag = a["attack/mag_ptr"], a["attack/mag_bus"], a["attack/mag"]
     per = {t: (bus[ptr[t] : ptr[t + 1]], mag[ptr[t] : ptr[t + 1]]) for t in am}
     onset, length = a["episodes/onset"], a["episodes/length"]
@@ -199,6 +202,45 @@ def test_am_direction_sign_follows_the_engine_convention():
     assert {_am_sign("both", rng) for _ in range(50)} == {1.0, -1.0}
 
 
+def test_stealthy_families_pass_the_residual_test(timeline):
+    """Every stealthy frame is an exact local AC state: a WLS residual test at the benign alarm
+    level flags them at the benign rate, and flags the in-place corruption of Ad."""
+    pytest.importorskip("torch")
+    from fdia_graph.dataset import FdiaGraph
+    from fdia_graph.se import WLS
+
+    train, test = FdiaGraph(timeline, split="train"), FdiaGraph(timeline, split="test", order="time")
+    est = WLS().fit(train)
+    d = test.to_numpy(["node_x", "edge_x", "clean", "family"])
+    z = est._z_of(d["node_x"], d["edge_x"])
+    thsl = est._truth_of(d["clean"])["thsl"]
+    r = np.abs(est._nres(est._solve(z, thsl), z, thsl)).max(axis=1)
+    level = np.quantile(r[d["family"] == 0], 0.99)
+    for fid in (1, 5, 6, 7):
+        rows = d["family"] == fid
+        if rows.sum() >= 10:
+            assert (r[rows] > level).mean() <= 0.15, fid
+    ad = d["family"] == 2
+    if ad.sum() >= 5:
+        assert (r[ad] > level).mean() >= 0.8
+
+
+def test_local_region_keeps_a_boundary_and_the_slack_fixed():
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.formulas.network import subnetwork
+
+    g = FdiaGenerator(14, seed=1)
+    for hops in (0, 1, 2, 3):
+        region = g.local_region(g.load_bus[:5], hops)
+        assert region is not None and g.slack_bus not in region
+        _, boundary = subnetwork(g.ei, region, 0, g.C)
+        assert len(boundary) and not set(boundary.tolist()) & (set(g.zero_inj) - {g.slack_bus})
+    whole = g.local_region(
+        np.arange(g.C), 0
+    )  # every bus as a seed: the slack alone is left to balance against
+    assert whole is not None and sorted(whole.tolist()) == sorted(set(range(g.C)) - {g.slack_bus})
+
+
 def test_a_short_am_episode_keeps_the_capped_rate():
     from fdia_graph.timeline import _AmShape
 
@@ -233,8 +275,8 @@ def test_empty_episode_lengths_are_refused(tmp_path, pool):
             generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), **bad)
     with pytest.raises(ValueError, match="am_rate"):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_rate=0.0)
-    with pytest.raises(ValueError, match="am_sigma"):
-        generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_sigma=-1.0)
+    with pytest.raises(ValueError, match="hops"):
+        generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), hops=0)
 
 
 def test_score_bundles_accept_the_seventh_family():
