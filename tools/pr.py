@@ -75,6 +75,17 @@ def api_all(path: str) -> list[Any]:
         page += 1
 
 
+def _latest_runs(checks: list[dict[str, Any]]) -> dict[str, tuple[str, str | None]]:
+    """One (status, conclusion) per check name: the run that started last. A rerun leaves the
+    earlier attempt in the list, so the order GitHub returns must not decide which one counts."""
+    latest: dict[str, dict[str, Any]] = {}
+    for c in checks:
+        prev = latest.get(c["name"])
+        if prev is None or (c.get("started_at") or "") >= (prev.get("started_at") or ""):
+            latest[c["name"]] = c
+    return {name: (c["status"], c["conclusion"]) for name, c in latest.items()}
+
+
 def _head_state(num: int) -> dict[str, Any]:
     pr = api("GET", f"/pulls/{num}")
     sha = pr["head"]["sha"]
@@ -84,7 +95,7 @@ def _head_state(num: int) -> dict[str, Any]:
     return {
         "pr": pr,
         "sha": sha,
-        "checks": {c["name"]: (c["status"], c["conclusion"]) for c in checks},
+        "checks": _latest_runs(checks),
         "copilot_on_head": [(r["state"], r["submitted_at"]) for r in copilot],
         "n_comments": len(api_all(f"/pulls/{num}/comments")),
     }
