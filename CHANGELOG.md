@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `fdia_graph.trust`: which meters to secure so that stealthy attacks stop being stealthy, after
+  the trusted-PMU defence of Wu et al. 2026. `TrustedMeters(k)` is the greedy row-reduction
+  selection on the WLS Jacobian (secure, on the cheapest open attack, the meter whose protection
+  raises the attack cost most), `TrustedMetersDQN(k, episodes)` the same selection learned as a
+  Markov decision process with a deep Q-network (state the secured set, reward the attack-cost
+  rise; needs torch). Both expose the order and the attack cost after each meter, and `score(test)`
+  on a time-ordered timeline pins the secured meters to their benign reading and reports the WLS
+  residual detection per family before and after (`TrustScores`). The kernel is
+  `formulas.trust` (`attack_subspace`, `sparse_basis`, `attack_cost`, `greedy_trusted_meters`);
+  `docs/trust/` has the guide and `run_trust.py`.
 - The timeline writer draws its attack episodes so their frames sum to exactly
   `round(attacked_frac * T)`, places every one of them (longest first, each at an onset drawn
   uniformly among the onsets where it fits), and emits benign frames everywhere else. The

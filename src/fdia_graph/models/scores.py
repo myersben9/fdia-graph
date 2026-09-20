@@ -86,6 +86,22 @@ class LocalizerScores(Bundle):
 
 
 @dataclass(frozen=True, eq=False)
+class TrustScores(Bundle):
+    """`TrustedMeters.score`: what securing the selected meters does. `cost` is the attack cost
+    after each secured meter (the meters the cheapest stealthy attack still has to touch, inf once
+    none is left); `detected_before` / `detected_after` the fraction of attacked records of each
+    family present whose largest normalized residual crosses the benign alarm level, with the
+    attacker free to write every meter and with the secured meters reading their un-attacked value;
+    `false_alarm` the benign record fraction over the alarm level (the calibration target)."""
+
+    order: list[int]  # the secured meters, in the order they were secured (masked measurement index)
+    cost: list[float]  # the attack cost after each
+    detected_before: dict[str, float]  # per family present: detection rate with every meter writable
+    detected_after: dict[str, float]  # per family present: detection rate with the secured meters pinned
+    false_alarm: float  # benign records over the alarm level
+
+
+@dataclass(frozen=True, eq=False)
 class JacobianOutputs(Bundle):
     """`JacobianFeatures.transform`: the per-bus block [n, N, 8], the global features [n, 4]
     (under the dict key "global"), the implied state change [n, SD] and the unexplained residual
