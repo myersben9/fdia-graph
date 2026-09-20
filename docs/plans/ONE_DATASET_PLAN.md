@@ -73,10 +73,11 @@ FDIA) as family 7, `Am`, built from the pieces the engine has:
 | sparsity (Wu's l0) | none | the sparsity is the locality: the tampered set is the meters the local false state moves (interior and boundary injections, the region's flows), stored in `attack/`; a threshold version was tried first and was not residual-stealthy |
 | labels | `y` on the redistribution buses from onset, as `At` labels its buses | same; the sparse tamper set is a second, per-frame mask in `attack/` for the papers that want meter-level truth |
 
-Knobs: `am_rate` (per-frame cap as a fraction of the noise floor, default 0.9), `am_sigma` (sparsity
-threshold, default 3), `am_direction` (`"induce"` keeps the engine's redistribution sign, so the target
-line reads more loaded than it is, as Wu's attack does; `"mask"` flips it so a real overload reads
-lighter; default both, drawn per episode). What it is not: Wu's
+Knobs: `am_rate` (per-frame cap as a fraction of the noise floor, default 0.9), `am_direction`
+(`"induce"` keeps the engine's redistribution sign, so the target line reads more loaded than it is,
+as Wu's attack does; `"mask"` flips it so a real overload reads lighter; default both, drawn per
+episode), and `hops` (the attacker's reach, buses within this many branches of the target line, at
+least 1, default 2; shared by every stealthy family since #98). What it is not: Wu's
 Pyomo/IPOPT optimization; the engine's PTDF redistribution is the closed-form version of the same
 objective, and the ramp is what their l0-with-noise-floor objective produces. `Am` lands in the same
 PR as the writer (step 1) so the eight systems are generated once.

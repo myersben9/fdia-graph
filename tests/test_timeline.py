@@ -148,7 +148,7 @@ def test_layers_and_tamper_masks_agree(timeline):
     # the stealthy families write the meters of a local region: some, never none, never all
     stealthy = np.isin(fam, [1, 5, 6, 7])
     assert (nt[stealthy] <= nm[stealthy]).all()
-    share = nt[stealthy].sum(axis=(1, 2)) / nm.sum()
+    share = nt[stealthy].sum(axis=(1, 2)) / nm[stealthy].sum(axis=(1, 2))
     assert 0 < share.min() and share.max() < 1
     # the benign layer is the clean truth plus a small meter error on metered voltages
     v = nm[:, :, 0] > 0
