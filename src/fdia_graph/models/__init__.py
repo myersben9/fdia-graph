@@ -53,6 +53,7 @@ from .scores import (
     JacobianOutputs,
     LocalizerScores,
     OverallMetrics,
+    TrustScores,
 )
 
 PUBLIC = (
@@ -65,6 +66,7 @@ PUBLIC = (
     "EstimatorScores",
     "ErrorPair",
     "LocalizerScores",
+    "TrustScores",
     "OverallMetrics",
     "BenignMetrics",
     "FamilyMetrics",
@@ -111,6 +113,7 @@ __all__ = [
     "BenignMetrics",
     "FamilyMetrics",
     "LocalizerScores",
+    "TrustScores",
     "JacobianOutputs",
     "AssetSpec",
     "DownloadTarget",

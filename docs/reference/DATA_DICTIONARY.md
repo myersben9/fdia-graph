@@ -52,8 +52,8 @@ and the generator, loader and estimator index columns through `NODE` and `EDGE` 
 
 ```python
 rec = ds[0]
-rec.node().theta            # the angle column, a view of rec.node_x[..., 3]
-NodeColumns.of(s.clean).v   # works on any [..., 4] array, a stream's clean layer included
+rec.node().theta  # the angle column, a view of rec.node_x[..., 3]
+NodeColumns.of(s.clean).v  # works on any [..., 4] array, a stream's clean layer included
 ```
 
 | col | name | physical units | pu units |
@@ -335,6 +335,18 @@ Mean absolute error of one record class: angles in degrees, voltage magnitudes p
 | `At` | `At` | FamilyMetrics |  | slow ramp |
 | `Al` | `Al` | FamilyMetrics |  | load redistribution |
 | `Am` | `Am` | FamilyMetrics |  | multi-snapshot (timeline files) |
+
+### `TrustScores` (`fdia_graph.models.scores`)
+
+`TrustedMeters.score`: what securing the selected meters does. `cost` is the attack cost after each secured meter (the meters the cheapest stealthy attack still has to touch, inf once none is left); `detected_before` / `detected_after` the fraction of attacked records of each family present whose largest normalized residual crosses the benign alarm level, with the attacker free to write every meter and with the secured meters reading their un-attacked value; `false_alarm` the benign record fraction over the alarm level (the calibration target).
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `order` | `order` | list[int] | yes | the secured meters, in the order they were secured (masked measurement index) |
+| `cost` | `cost` | list[float] | yes | the attack cost after each |
+| `detected_before` | `detected_before` | dict[str, float] | yes | per family present: detection rate with every meter writable |
+| `detected_after` | `detected_after` | dict[str, float] | yes | per family present: detection rate with the secured meters pinned |
+| `false_alarm` | `false_alarm` | float | yes | benign records over the alarm level |
 
 ### `OverallMetrics` (`fdia_graph.models.scores`)
 

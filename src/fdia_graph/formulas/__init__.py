@@ -43,12 +43,15 @@ from .projection import (
     weighted_pseudoinverse,
 )
 from .temporal import recent_change_scale, swing_zscore, temporal_delta
+from .trust import attack_cost, attack_subspace, greedy_trusted_meters, rref, sparse_basis
 
 __all__ = [
     "Admittances",
     "BranchModel",
     "ac_jacobian",
     "ac_measurement",
+    "attack_cost",
+    "attack_subspace",
     "batched_normal_matrices",
     "bias_jitter_split",
     "branch_admittances",
@@ -62,6 +65,7 @@ __all__ = [
     "explained_unexplained",
     "floored_covariance",
     "gate_weights",
+    "greedy_trusted_meters",
     "guarded_inverse",
     "huber_weights",
     "leverage",
@@ -71,7 +75,9 @@ __all__ = [
     "ramp_profile",
     "recent_change_scale",
     "residual_covariance_diag",
+    "rref",
     "series_admittance",
+    "sparse_basis",
     "swing_zscore",
     "temporal_delta",
     "weak_directions",
