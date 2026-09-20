@@ -5,6 +5,9 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `tools/pr.py merge` requires every smoke job green by name on the head (a job that has not
+  registered yet is not green), every other check finished without failure, and Copilot's review on
+  that head; `wait` waits for the same set. A merge can no longer slip in while CI is still starting.
 - `fdia_graph.trust`: which meters to secure so that stealthy attacks stop being stealthy, after
   the trusted-PMU defence of Wu et al. 2026. `TrustedMeters(k)` is the greedy row-reduction
   selection on the WLS Jacobian (secure, on the cheapest open attack, the meter whose protection
