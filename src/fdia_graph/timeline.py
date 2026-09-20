@@ -393,7 +393,9 @@ def _place_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[t
     frames, target = 0, plan.attacked_frac * T
     while frames < target:
         fid = int(rng.choice(plan.families, p=plan.weights))
-        length = min(plan.length_of(fid, rng), T)
+        length = plan.length_of(fid, rng)
+        if frames + length > T:  # no room left on the timeline for another episode of this length
+            break
         drawn.append((length, fid))
         frames += length
     occupied = np.zeros(T, bool)
@@ -598,8 +600,10 @@ def generate_timeline(
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
 
     attacked_frac    target fraction of frames under an attack episode (0.5 = balanced); episodes
-                     are placed at uniform random onsets until it is reached, so adjacency and gaps
-                     are properties of the draw
+                     are drawn up to it and placed at uniform random onsets, so adjacency and gaps
+                     are properties of the draw; the realized fraction (an episode that finds no
+                     room is dropped, an infeasible Am onset stays benign) is the file's
+                     `attacked_frac` attribute
     families         the families in rotation; each gets about the same share of attacked frames
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
