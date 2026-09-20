@@ -29,7 +29,9 @@ from .network import (
     branch_flows,
     bus_injections,
     complex_voltages,
+    local_ac_solve,
     series_admittance,
+    subnetwork,
 )
 from .noise import bias_jitter_split
 from .projection import (
@@ -69,6 +71,7 @@ __all__ = [
     "guarded_inverse",
     "huber_weights",
     "leverage",
+    "local_ac_solve",
     "meters_to_buses",
     "normal_matrix",
     "normalized_residual",
@@ -78,6 +81,7 @@ __all__ = [
     "rref",
     "series_admittance",
     "sparse_basis",
+    "subnetwork",
     "swing_zscore",
     "temporal_delta",
     "weak_directions",

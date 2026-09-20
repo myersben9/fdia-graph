@@ -1,16 +1,18 @@
 """One attacked (or benign) scan, the per-frame physics of the timeline writer.
 
-Re-solve the grid under a scaled load for the stealthy families, re-solve under a load
-redistribution for Al and Am, corrupt the emitted measurements in place for Ad/As/Ar, emit the
-stored state for a benign scan. Two switches in `FrameKnobs` remain from the record-shard writer
+The stealthy families (Aq, At, Al, Am) are local false states [WU26]: the attacker scales or
+redistributes loads inside a subnetwork and solves that subnetwork's power flow with the boundary
+voltages held true, so only the subnetwork's meters change and the measurement vector stays
+consistent with an AC state. Ad/As/Ar corrupt the emitted measurements in place; a benign scan
+emits the stored state. Two switches in `FrameKnobs` remain from the record-shard writer
 that shared this code until 0.18: `reject_below_floor` (reject a stealthy scan whose designed
 change sits inside the noise floor; the timeline keeps every scan and lets the label say what
 happened) and `with_benign` (also emit the un-attacked measurement of the same scan, the timeline's
 `benign` layer).
 
 RNG-order invariant: every released file is reproduced bit for bit from its seed, so the order of
-random draws here is fixed: the power-flow re-solve and the measurement emission first, then the
-benign emission; for the corrupt-in-place families the emission, then the replay-lag draw, then
+random draws here is fixed: for the stealthy families the benign emission, then the emission of
+the false state; for the corrupt-in-place families the emission, then the replay-lag draw, then
 the corruption draws. Changing that order changes every released file. tests/test_frozen.py holds
 the line.
 """
@@ -26,7 +28,7 @@ from ..models.frames import (  # noqa: F401  re-exported: defined here before th
     FrameKnobs,
     Scan,
 )
-from ..models.grid import EDGE, NODE
+from ..models.grid import NODE
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
@@ -72,48 +74,56 @@ def attack_frame(
     targets: Optional[np.ndarray],
     mult: Union[float, np.ndarray, None],
     knobs: FrameKnobs,
+    interior: Optional[np.ndarray] = None,
 ) -> Optional[Frame]:
     """Build the scan of `family` on the stored operating point `Xt` ([N, 4] = |V|, P_inj, Q_inj, theta).
 
     targets index the generator's load-bus table (positions, not bus numbers); mult is the load
-    multiplier of the re-solve families (a scalar for the ramp, one per target for Aq). Returns
-    None when the scan is rejected: a non-converging power flow, no feasible redistribution, or,
-    with knobs.reject_below_floor, a designed or realized change inside the noise floor.
+    multiplier of the stealthy families (a scalar for the ramp, one per target for Aq and Am);
+    `interior` the attacker's subnetwork when the caller holds it over an episode (Am). Returns
+    None when the scan is rejected: a non-converging local power flow, no feasible redistribution,
+    or, with knobs.reject_below_floor, a designed or realized change inside the noise floor.
     """
     if family in RESOLVE_FAMILIES:
         return _resolve_frame(g, Xt, family, targets, mult, knobs)
     if family == LRA_FAMILY:
         return _lra_frame(g, Xt, knobs)
     if family == AM_FAMILY:
-        return _am_frame(g, Xt, targets, mult, knobs)
+        return _am_frame(g, Xt, targets, mult, knobs, interior)
     if family == 0:
         return _benign_frame(g, Xt)
     return _corrupt_frame(g, Xt, family, targets, knobs)
 
 
-def _resolve_frame(g, Xt, family, targets, mult, k: FrameKnobs) -> Optional[Frame]:
-    """Aq and At: scale the targeted loads and re-solve the grid with generation pinned to the true
-    dispatch, so the emitted measurements are a consistent (stealthy) state [DAT26]."""
-    Lp = Xt[g.load_bus, 1] + g.load_genP  # base active load = stored P at load buses + generator P there
-    Lq = Xt[g.load_bus, 2].copy()
-    Lp_true = Lp.copy()  # the unattacked load pins the generation dispatch in solve()
-    dev = np.abs(np.asarray(mult) - 1.0)  # per-bus designed load-shift fraction
-    if k.reject_below_floor and family == 1 and np.max(dev) < k.floor:
-        return None  # a within-noise no-op; the ramp is exempt so its per-scan step may stay sub-floor
+def _stealthy_frame(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[Frame]:
+    """One local false state [WU26]: the targeted loads scaled by `mult`, the interior buses
+    re-solved with the boundary voltages held true, every meter the false state moves rewritten
+    (the tamper set), the rest untouched. Consistent with a full AC state, so the residual test
+    sees noise only. Needs `with_benign`: the twin is what the untouched meters read."""
+    assert k.with_benign, "a stealthy frame needs the benign twin (with_benign=True)"
+    Lp = (
+        Xt[g.load_bus, NODE.p_inj] + g.load_genP
+    )  # base active load = stored P at load buses + generator P there
+    Lq = Xt[g.load_bus, NODE.q_inj].copy()
     Lp = Lp.copy()
     Lp[targets] *= mult
-    net = g.solve(Lp, Lq, Xt=Xt, Lp_true=Lp_true)
-    if net is None:
-        return None  # non-convergence, expected occasionally
-    scan = g.emit(net)
+    Xa = g.solve_local(Xt, interior, Lp, Lq)
+    if Xa is None:
+        return None  # the local power flow did not converge, expected occasionally
+    bnx, bex = _benign_of(g, Xt)
+    scan = g.emit_from_state(Xa)
+    tamper = _changed_meters(g, Xa, Xt, scan)
+    nx, ex = bnx.copy(), bex.copy()
+    nx[tamper[0]] = scan.node_x[tamper[0]]
+    ex[tamper[1]] = scan.edge_x[tamper[1]]
     buses = g.load_bus[targets]
     y = np.zeros(g.C, np.uint8)
     y[buses] = 1
-    bnx, bex = _benign_of(g, Xt) if k.with_benign else (None, None)
+    dev = np.abs(np.asarray(mult, float) - 1.0)
     return Frame(
-        scan.node_x,
+        nx,
         scan.node_m,
-        scan.edge_x,
+        ex,
         scan.edge_m,
         y,
         1,
@@ -121,81 +131,54 @@ def _resolve_frame(g, Xt, family, targets, mult, k: FrameKnobs) -> Optional[Fram
         np.broadcast_to(dev, buses.shape).astype(float),
         bnx,
         bex,
+        tamper,
     )
 
 
+def _changed_meters(g, Xa, Xt, scan: Scan, tol: float = 1e-7) -> tuple[np.ndarray, np.ndarray]:
+    """The metered channels whose noiseless value the false state moves: the interior's and the
+    boundary's injections and voltages and every flow on a branch touching the interior."""
+    flows = g.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
+    node = (np.abs(Xa - Xt) > tol) & (scan.node_m > 0)
+    edge = (np.abs(flows[0] - flows[1]) > tol) & (scan.edge_m > 0)
+    return node, edge
+
+
+def _resolve_frame(g, Xt, family, targets, mult, k: FrameKnobs) -> Optional[Frame]:
+    """Aq and At: the targeted loads scaled, the subnetwork within `hops` of them re-solved locally."""
+    dev = np.abs(np.asarray(mult) - 1.0)  # per-bus designed load-shift fraction
+    if k.reject_below_floor and family == 1 and np.max(dev) < k.floor:
+        return None  # a within-noise no-op; the ramp is exempt so its per-scan step may stay sub-floor
+    interior = g.local_region(g.load_bus[targets], k.hops)
+    if interior is None:
+        return None
+    return _stealthy_frame(g, Xt, targets, mult, interior, k)
+
+
 def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
-    """Al: a load redistribution over up to lra_k buses that conserves total load, then re-solve
-    with generation pinned to the true dispatch [DAT26]."""
-    Lp = Xt[g.load_bus, 1] + g.load_genP
-    Lq = Xt[g.load_bus, 2].copy()
-    red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor)
+    """Al: a load-conserving redistribution over up to lra_k buses of the subnetwork around a
+    target line, steering that line, re-solved locally [DAT26, WU26]."""
+    Lp = Xt[g.load_bus, NODE.p_inj] + g.load_genP
+    red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
     a = red.buses
     if len(a) == 0:
         return None  # no feasible redistribution
     dev = np.abs(red.delta[a]) / (np.abs(Lp[a]) + 1e-6)  # designed redistribution fraction per bus
     if k.reject_below_floor and np.min(dev) < k.floor:
         return None  # a bus inside the noise floor
-    net = g.solve(Lp + red.delta, Lq, Xt=Xt, Lp_true=Lp)
-    if net is None:
-        return None
-    scan = g.emit(net)
-    buses = g.load_bus[a]
-    y = np.zeros(g.C, np.uint8)
-    y[buses] = 1
-    bnx, bex = _benign_of(g, Xt) if k.with_benign else (None, None)
-    return Frame(scan.node_x, scan.node_m, scan.edge_x, scan.edge_m, y, 1, buses, dev.astype(float), bnx, bex)
+    mult = 1.0 + red.delta[a] / np.where(np.abs(Lp[a]) > 1e-9, Lp[a], 1e-9)
+    return _stealthy_frame(g, Xt, a, mult, red.interior, k)
 
 
-def _am_frame(g, Xt, targets, mult, k: FrameKnobs) -> Optional[Frame]:
+def _am_frame(g, Xt, targets, mult, k: FrameKnobs, interior=None) -> Optional[Frame]:
     """Am, the multi-snapshot attack [WU26]: one step of a load redistribution held over an episode,
-    re-solved with generation pinned like Aq, then made sparse. The timeline walker draws the
-    redistribution once at onset and passes this frame's fraction of it as `mult` (one multiplier
-    per target); after emission every meter whose designed change against the true state sits
-    under `am_sigma` accuracy-class stds is left at its un-attacked reading, so the tampered set is
-    the meters the attack moves beyond noise (the l0 objective of [WU26], with the noise floor as
-    the threshold). Needs `with_benign`: the twin is what the untouched meters read.
-    """
-    assert k.with_benign, "Am needs the benign twin (with_benign=True)"
-    Lp = Xt[g.load_bus, NODE.p_inj] + g.load_genP
-    Lq = Xt[g.load_bus, NODE.q_inj].copy()
-    Lp_true = Lp.copy()
-    Lp = Lp.copy()
-    Lp[targets] *= mult
-    net = g.solve(Lp, Lq, Xt=Xt, Lp_true=Lp_true)
-    if net is None:
+    drawn once at onset by the timeline walker, which passes this frame's fraction of it as `mult`
+    (one multiplier per target) and the attacker's interior; the local false state of that step."""
+    if interior is None:
+        interior = g.local_region(g.load_bus[targets], k.hops)
+    if interior is None:
         return None
-    Xa = g.state_from_net(net)  # the attacked state, AC-consistent by construction
-    scan = g.emit_from_state(Xa)
-    bnx, bex = _benign_of(g, Xt)
-    tamper = _beyond_noise(g, Xa, Xt, scan, k.am_sigma)
-    nx, ex = scan.node_x.copy(), scan.edge_x.copy()
-    nx[~tamper[0]] = bnx[~tamper[0]]
-    ex[~tamper[1]] = bex[~tamper[1]]
-    buses = g.load_bus[targets]
-    y = np.zeros(g.C, np.uint8)
-    y[buses] = 1
-    dev = np.abs(np.asarray(mult, float) - 1.0)
-    return Frame(nx, scan.node_m, ex, scan.edge_m, y, 1, buses, dev, bnx, bex, tamper)
-
-
-def _beyond_noise(g, Xa, Xt, scan: Scan, sigma: float) -> tuple[np.ndarray, np.ndarray]:
-    """The metered channels whose noiseless change from the true state `Xt` to the attacked state
-    `Xa` exceeds `sigma` accuracy-class stds (relative stds for P and Q with the emitter's floor,
-    absolute for |V| and the angle). Am tampers exactly these; the rest read un-attacked."""
-    sd = g.SD
-    thr_node = np.empty(Xt.shape, float)
-    thr_node[:, NODE.v] = sd["v"]
-    thr_node[:, NODE.theta] = np.degrees(sd["va"])
-    thr_node[:, NODE.p_inj] = np.abs(Xt[:, NODE.p_inj]) * sd["pi"] + 1e-3
-    thr_node[:, NODE.q_inj] = np.abs(Xt[:, NODE.q_inj]) * sd["qi"] + 1e-3
-    flows = g.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
-    thr_edge = np.empty(flows[1].shape, float)
-    thr_edge[:, EDGE.p_from] = np.abs(flows[1][:, EDGE.p_from]) * sd["pf"] + 1e-3
-    thr_edge[:, EDGE.q_from] = np.abs(flows[1][:, EDGE.q_from]) * sd["qf"] + 1e-3
-    node = (np.abs(Xa - Xt) >= sigma * thr_node) & (scan.node_m > 0)
-    edge = (np.abs(flows[0] - flows[1]) >= sigma * thr_edge) & (scan.edge_m > 0)
-    return node, edge
+    return _stealthy_frame(g, Xt, targets, mult, interior, k)
 
 
 def _benign_frame(g, Xt) -> Frame:

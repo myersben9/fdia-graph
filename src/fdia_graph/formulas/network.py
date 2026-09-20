@@ -200,3 +200,73 @@ def ac_jacobian(
         np.concatenate([dSf_dVa.imag[:, lut], dSf_dVm.imag[:, lut]], axis=1),  # Q_f
     ]
     return np.concatenate(rows, axis=0)
+
+
+def subnetwork(
+    edge_index: np.ndarray, seeds: np.ndarray, hops: int, n_bus: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """The attacker's local subnetwork around `seeds` [WU26]: the interior, every bus within
+    `hops` branches of a seed, and its boundary, the buses one branch outside the interior.
+
+    edge_index : [2, E] from and to bus of every branch
+    seeds      : the buses the attack is built around (the target line's ends, the attacked loads)
+    hops       : how many branches the interior reaches from a seed
+    returns    : (interior [k] sorted, boundary [b] sorted), disjoint
+    """
+    adj: list[set[int]] = [set() for _ in range(n_bus)]
+    for a, b in zip(edge_index[0], edge_index[1]):
+        adj[int(a)].add(int(b))
+        adj[int(b)].add(int(a))
+    interior = {int(b) for b in seeds}
+    frontier = set(interior)
+    for _ in range(hops):
+        frontier = {j for i in frontier for j in adj[i]} - interior
+        interior |= frontier
+    boundary = {j for i in interior for j in adj[i]} - interior
+    return np.array(sorted(interior), int), np.array(sorted(boundary), int)
+
+
+def local_ac_solve(
+    Ybus: Any, V: np.ndarray, interior: np.ndarray, S_target: np.ndarray, iters: int = 30, tol: float = 1e-9
+) -> Optional[np.ndarray]:
+    """The false state of a local attacker [WU26]: the interior bus voltages that give the target
+    injections there, with every other bus voltage held at its true value.
+
+        S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i   for i in the interior, V_j fixed elsewhere
+
+    solved by Newton on [θ_I, |V|_I] with the closed-form injection derivatives of `ac_jacobian`.
+    Meters that depend only on the fixed voltages keep their true value, so the attack touches
+    exactly the interior's and the boundary's meters and is consistent with a full AC state.
+
+    Ybus     : [n, n] nodal admittance (dense or scipy sparse), per unit
+    V        : [n] true complex bus voltages
+    interior : the buses whose voltages may change
+    S_target : [len(interior)] target complex injections at those buses, per unit, generation positive
+    returns  : [n] the false voltages, or None when Newton does not converge in `iters` steps
+    """
+    Yb = np.asarray(Ybus.todense() if hasattr(Ybus, "todense") else Ybus)
+    V = np.array(V, np.complex128, copy=True)
+    I_ = np.asarray(interior, int)
+    for _ in range(iters):
+        Icur = Yb @ V
+        S = V * np.conj(Icur)
+        mis = S_target - S[I_]
+        f = np.concatenate([np.real(mis), np.imag(mis)])
+        if np.max(np.abs(f)) < tol:
+            return V
+        Vnorm = V / np.abs(V)
+        dS_dVa = 1j * (V[:, None] * np.conj(np.diag(Icur) - Yb * V[None, :]))
+        dS_dVm = V[:, None] * np.conj(Yb * Vnorm[None, :]) + np.conj(Icur)[:, None] * np.diag(Vnorm)
+        A = dS_dVa[np.ix_(I_, I_)]
+        B = dS_dVm[np.ix_(I_, I_)]
+        J = np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+        try:
+            step = np.linalg.solve(J, f)
+        except np.linalg.LinAlgError:
+            return None
+        k = len(I_)
+        vm, va = np.abs(V[I_]) + step[k:], np.angle(V[I_]) + step[:k]
+        if np.any(vm <= 0) or not np.all(np.isfinite(step)):
+            return None
+        V[I_] = vm * np.exp(1j * va)
+    return None

@@ -95,7 +95,14 @@ class AttackMixin(GridBase):
         return mags, weak
 
     def _lra_for_line(
-        self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = False, floor: float = 0.02
+        self,
+        L: int,
+        Lp: np.ndarray,
+        rel: float,
+        K: int,
+        rand: bool = False,
+        floor: float = 0.02,
+        allowed: Optional[np.ndarray] = None,
     ) -> Optional[Redistribution]:
         # Load Redistribution Attack for target line L: a load-injection delta that is LOAD-CONSERVING (total
         # unchanged -> looks like normal re-dispatch), PER-BUS BOUNDED (|delta_b| <= rel*|Lp_b|), and steers
@@ -107,8 +114,9 @@ class AttackMixin(GridBase):
 
         # Raise load on the positive PTDF side, drop on the negative side, to push flow up on line L.
         # Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
-        pos = self._pick_side(np.where((pl > 0) & self._attackable_mask)[0], score, K, rand)
-        neg = self._pick_side(np.where((pl < 0) & self._attackable_mask)[0], score, K, rand)
+        ok = self._attackable_mask if allowed is None else (self._attackable_mask & allowed)
+        pos = self._pick_side(np.where((pl > 0) & ok)[0], score, K, rand)
+        neg = self._pick_side(np.where((pl < 0) & ok)[0], score, K, rand)
         if len(pos) == 0 or len(neg) == 0:
             return None
         # Both sides scale to a common `budget` (MW moved) so net load change = 0. Always moving the max budget
@@ -156,14 +164,20 @@ class AttackMixin(GridBase):
         self._sgn = {L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._Lcands}
         self._Ltgt = self._Lcands[0]  # default/primary target = most attackable line
 
-    def lra_delta(self, Lp: np.ndarray, rel: float, K: int, floor: float = 0.02) -> Redistribution:
+    def lra_delta(
+        self, Lp: np.ndarray, rel: float, K: int, floor: float = 0.02, hops: int = 2
+    ) -> Redistribution:
+        """A load redistribution steering a random target line, confined to the attacker's
+        subnetwork within `hops` branches of the line [WU26]: only loads inside it move."""
         L = int(self.rng.choice(self._Lcands))  # random target line per attack
-        r = self._lra_for_line(
-            L, Lp, rel, K, rand=True, floor=floor
-        )  # + randomized bus subset -> not memorizable
-        # Apply the base-flow sign so redistribution masks (not relieves) the overload; no feasible delta ->
+        interior = self.local_region(self.ei[:, L], hops)
+        if interior is None:
+            return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0, L, None)
+        allowed = np.isin(self.load_bus, interior)
+        r = self._lra_for_line(L, Lp, rel, K, rand=True, floor=floor, allowed=allowed)
+        # Apply the base-flow sign so redistribution raises the target line's loading; no feasible delta ->
         # zero delta and empty attacked-bus set (record stays effectively benign).
         if r is None:
-            return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0)
+            return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0, L, interior)
         # The flow change carries the same sign so the model describes the redistribution it holds.
-        return Redistribution(r.delta * self._sgn[L], r.buses, r.line_flow_change * self._sgn[L])
+        return Redistribution(r.delta * self._sgn[L], r.buses, r.line_flow_change * self._sgn[L], L, interior)
