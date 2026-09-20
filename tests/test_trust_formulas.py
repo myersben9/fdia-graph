@@ -23,7 +23,11 @@ def test_secured_rows_close_the_attack_subspace():
     assert cost == float("inf") and a is None
     cost, a = attack_cost(H, np.array([], int))
     assert a is not None and cost == (np.abs(a) > 1e-9).sum() and cost <= 8
-    assert np.allclose(H[[0]] @ np.linalg.lstsq(H, a, rcond=None)[0], 0, atol=1e-6) or True
+    cost, a = attack_cost(H, np.array([0, 1]))
+    assert a is not None
+    c = np.linalg.lstsq(H, a, rcond=None)[0]  # the attack is a state change seen through H ...
+    assert np.allclose(H @ c, a, atol=1e-8)
+    assert np.allclose(H[[0, 1]] @ c, 0, atol=1e-8)  # ... that leaves the secured rows untouched
 
 
 def test_greedy_selection_raises_the_cost_and_stops_when_closed():

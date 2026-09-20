@@ -7,8 +7,8 @@ selector maximizes one step at a time; closing the attack subspace ends the epis
 of m. An episode secures `k` meters. The Q-network is a two-layer MLP over the state, trained
 with epsilon-greedy exploration, a replay buffer and a target network; after training the policy
 is rolled out greedily to give the order. The point of the learned policy is that a trained
-network picks a k-set in one rollout of m forward passes, where the greedy selection re-evaluates
-the attack cost on every candidate at every step.
+network picks a k-set in one rollout of k forward passes (one per secured meter), where the
+greedy selection re-evaluates the attack cost on every candidate at every step.
 """
 
 from __future__ import annotations
@@ -50,17 +50,20 @@ class TrustedMetersDQN(TrustSelector):
         self.history: list[float] = []
 
     # ---- the MDP --------------------------------------------------------------------------------
-    def _cost(self, secured: np.ndarray) -> float:
+    def _cost(self, secured: np.ndarray) -> tuple[float, bool]:
+        """The attack cost of a secured set and whether it closes the attack subspace (no stealthy
+        attack left); a closed subspace counts as a cost of m, every meter, for the reward."""
         c = attack_cost(self.H, np.flatnonzero(secured))[0]
-        return float(self.m) if c == float("inf") else c  # a closed subspace is worth every meter
+        closed = c == float("inf")
+        return (float(self.m) if closed else c), closed
 
     def _step(self, state: np.ndarray, action: int) -> tuple[np.ndarray, float, bool]:
         """Secure `action`; the reward is the attack-cost rise, the episode ends when closed."""
-        before = self._cost(state)
+        before, _ = self._cost(state)
         nxt = state.copy()
         nxt[action] = 1
-        after = self._cost(nxt)
-        return nxt, after - before, after >= self.m
+        after, closed = self._cost(nxt)
+        return nxt, after - before, closed
 
     # ---- the network ----------------------------------------------------------------------------
     def _net(self) -> Any:

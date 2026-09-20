@@ -39,8 +39,22 @@ class TrustSelector:
         self.est = est
         self.H = np.asarray(self.est.H, np.float64)  # [m, 2N-1] at the benign mean state
         self.m = self.H.shape[0]
+        self.level = self._alarm_level(ds)
         self._select()
         return self
+
+    def _alarm_level(self, ds: FdiaGraph, n_calib: int = 2000) -> float:
+        """The residual alarm level: the (1 - fa_target) quantile of the largest normalized
+        residual over benign training records, set before any attack is scored (the protocol of
+        `fdia_graph.localization`)."""
+        d = ds.to_numpy(["node_x", "edge_x", "clean", "family"])
+        ben = np.flatnonzero(d["family"] == 0)[:n_calib]
+        if not len(ben):
+            raise ValueError("fit needs benign records; pass the train split unfiltered")
+        est = self.est
+        z = est._z_of(d["node_x"][ben], d["edge_x"][ben])
+        thsl = est._truth_of(d["clean"][ben])["thsl"]
+        return float(np.quantile(self._max_residual(z, thsl), 1.0 - self.fa_target))
 
     def _select(self) -> None:
         raise NotImplementedError
@@ -60,8 +74,8 @@ class TrustSelector:
 
     def score(self, ds: FdiaGraph) -> TrustScores:
         """Residual detection per family with and without the secured meters, on a timeline view
-        (the benign layer is what a secured meter reads). The alarm level is the (1 - fa_target)
-        quantile of the benign records' largest normalized residual."""
+        (the benign layer is what a secured meter reads), at the alarm level `fit` calibrated on
+        benign training records; `false_alarm` is the benign rate of this view at that level."""
         from ..dataset import FAMILIES
 
         if not ds.has_benign:
@@ -77,7 +91,7 @@ class TrustSelector:
         before, after = self._max_residual(z, thsl), self._max_residual(zs, thsl)
         fam = d["family"]
         ben = fam == 0
-        level = float(np.quantile(before[ben], 1.0 - self.fa_target))
+        level = self.level
         det_b: dict[str, float] = {}
         det_a: dict[str, float] = {}
         for fid, name in FAMILIES.items():
