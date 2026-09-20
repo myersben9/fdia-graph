@@ -25,7 +25,17 @@ import requests
 OWNER, REPO = "myersben9", "fdia-graph"
 BASE = f"https://api.github.com/repos/{OWNER}/{REPO}"
 COPILOT = "copilot"
-MIN_CHECKS = 6  # the smoke workflow's jobs; fewer means CI has not started on this head yet
+# The smoke workflow's jobs, every one required green on the head before a merge; a job that has
+# not registered yet counts as not green (so a merge cannot slip in while CI is still starting).
+REQUIRED = (
+    "tests",
+    "typecheck",
+    "format",
+    "readability",
+    "install-and-import (3.9)",
+    "install-and-import (3.12)",
+)
+OK_OTHER = ("success", "neutral", "skipped")  # what any other listed check may end with
 
 
 def token() -> str:
@@ -65,6 +75,17 @@ def api_all(path: str) -> list[Any]:
         page += 1
 
 
+def _latest_runs(checks: list[dict[str, Any]]) -> dict[str, tuple[str, str | None]]:
+    """One (status, conclusion) per check name: the run that started last. A rerun leaves the
+    earlier attempt in the list, so the order GitHub returns must not decide which one counts."""
+    latest: dict[str, dict[str, Any]] = {}
+    for c in checks:
+        prev = latest.get(c["name"])
+        if prev is None or (c.get("started_at") or "") >= (prev.get("started_at") or ""):
+            latest[c["name"]] = c
+    return {name: (c["status"], c["conclusion"]) for name, c in latest.items()}
+
+
 def _head_state(num: int) -> dict[str, Any]:
     pr = api("GET", f"/pulls/{num}")
     sha = pr["head"]["sha"]
@@ -74,15 +95,29 @@ def _head_state(num: int) -> dict[str, Any]:
     return {
         "pr": pr,
         "sha": sha,
-        "checks": {c["name"]: (c["status"], c["conclusion"]) for c in checks},
+        "checks": _latest_runs(checks),
         "copilot_on_head": [(r["state"], r["submitted_at"]) for r in copilot],
         "n_comments": len(api_all(f"/pulls/{num}/comments")),
     }
 
 
-def _green(state: dict[str, Any]) -> bool:
+def _not_green(state: dict[str, Any]) -> list[str]:
+    """Why the head is not green: every required job missing or not a completed success, and every
+    other check that finished with a failure or has not finished; empty when green."""
     checks = state["checks"]
-    return len(checks) >= MIN_CHECKS and all(s == "completed" and c == "success" for s, c in checks.values())
+    out = [
+        f"{name}: {checks[name][1] or checks[name][0]}" if name in checks else f"{name}: not started"
+        for name in REQUIRED
+        if checks.get(name) != ("completed", "success")
+    ]
+    for name, (status, conclusion) in checks.items():
+        if name not in REQUIRED and (status != "completed" or conclusion not in OK_OTHER):
+            out.append(f"{name}: {conclusion or status}")
+    return out
+
+
+def _green(state: dict[str, Any]) -> bool:
+    return not _not_green(state)
 
 
 def create(branch: str, title: str, body_file: str) -> None:
@@ -128,7 +163,9 @@ def wait(num: int, minutes: float = 25) -> None:
     t0 = time.time()
     while True:
         s = _head_state(num)
-        done = len(s["checks"]) >= MIN_CHECKS and all(st == "completed" for st, _ in s["checks"].values())
+        done = all(s["checks"].get(name, ("", ""))[0] == "completed" for name in REQUIRED) and all(
+            st == "completed" for st, _ in s["checks"].values()
+        )
         elapsed = (time.time() - t0) / 60
         if (done and s["copilot_on_head"]) or elapsed > minutes:
             print(
@@ -150,8 +187,9 @@ def wait(num: int, minutes: float = 25) -> None:
 
 def merge(num: int) -> None:
     s = _head_state(num)
-    if not _green(s):
-        raise SystemExit(f"not green on {s['sha'][:8]}: {s['checks']}")
+    why = _not_green(s)
+    if why:
+        raise SystemExit(f"not green on {s['sha'][:8]}: " + "; ".join(why))
     if not s["copilot_on_head"]:
         raise SystemExit(f"no Copilot review on {s['sha'][:8]} yet; run `wait {num}` first")
     pr = s["pr"]

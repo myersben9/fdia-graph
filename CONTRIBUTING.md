@@ -45,6 +45,10 @@ python tools/pr.py reply 80 <comment-id> "what changed"
 python tools/pr.py merge 80                                    # refuses unless green with a review on the head
 ```
 
+Green means: every job of the smoke workflow (`tests`, `typecheck`, `format`, `readability`, the two
+installs) is a completed success on the head, a job that has not started yet counts as not green,
+every other listed check has finished without failure, and Copilot's review is on that exact head.
+
 Copilot reviews every push. Its comments are suggestions: apply the ones that are right (about one
 in two has been), answer every one with what you changed or why not. The tool uses the token the
 Git Credential Manager already holds for `git push`; there is no gh CLI on the lab machines. Commit
