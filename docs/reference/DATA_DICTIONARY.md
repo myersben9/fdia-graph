@@ -138,8 +138,7 @@ Leading time axis `T`, three aligned layers each for node and edge:
 ```mermaid
 flowchart LR
     clean["clean / edge_clean<br/>noiseless true state"] -- "+ meter noise" --> benign["benign / edge_benign"]
-    benign -- "Ad As Ar: + the corruption<br/>(observed − benign = attack, exact)" --> obs["node_x / edge_x<br/>observed, the model input"]
-    clean -- "Aq At Al: re-solved state<br/>+ its own noise draw" --> obs
+    benign -- "Ad As Ar: + the corruption<br/>Aq At Al Am: + the attack vector of the local false state<br/>(observed − benign = attack, exact)" --> obs["node_x / edge_x<br/>observed, the model input"]
 ```
 
 | layer | meaning |
@@ -149,8 +148,9 @@ flowchart LR
 | `clean` / `edge_clean` | noiseless true state. The SE target. |
 
 - `benign − clean` = noise.
-- `observed − benign` = the attack. Exact for Ad/As/Ar. For Aq/At/Al it also carries a noise term, so
-  use `clean` as the SE target there.
+- `observed − benign` = the attack, exactly, for every family: the observed scan is the benign
+  draw plus the attack. For Aq/At/Al/Am that is the attack vector of the local false state on the
+  meters it moves (the tamper masks); the rest read `benign` exactly. `clean` is the SE target.
 
 <!-- models:begin -->
 ## Models

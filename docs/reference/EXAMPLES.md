@@ -34,11 +34,14 @@ On the metered channels:
 
 | difference | is | exact for |
 |---|---|---|
-| `observed − benign` | the attack | `Ad`/`As`/`Ar` (they share the benign meter draw) |
+| `observed − benign` | the attack | every family (the observed scan is the benign draw plus the attack) |
 | `benign − clean` | meter noise | all families |
 
-For `Aq`/`At`/`Al` the whole operating point moves, so `benign` is a separate noise draw and
-`observed − benign` carries the state change plus noise. `clean` is always the exact SE target.
+Every frame draws its meter noise once, for the true scan; that scan is `benign`, and the observed
+scan is `benign` plus the attack on the meters the attack moves (`attack/node_tamper`,
+`attack/edge_tamper`). For `Aq`/`At`/`Al`/`Am` the attack is the local false state's change of the
+noiseless readings, so `observed − benign` is that change exactly and zero elsewhere. `clean` is
+always the exact SE target.
 
 ### Recipe: a temporal state estimator (attacked window → clean V/θ)
 

@@ -203,8 +203,9 @@ def test_am_direction_sign_follows_the_engine_convention():
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
-    """Every stealthy frame is an exact local AC state: a WLS residual test at the benign alarm
-    level flags them at the benign rate, and flags the in-place corruption of Ad."""
+    """Every stealthy frame is an exact local AC state plus the true scan's own meter noise: a WLS
+    residual test at the 1% benign alarm level flags them at about the benign rate, and flags the
+    in-place corruption of Ad."""
     pytest.importorskip("torch")
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se import WLS
@@ -219,10 +220,43 @@ def test_stealthy_families_pass_the_residual_test(timeline):
     for fid in (1, 5, 6, 7):
         rows = d["family"] == fid
         if rows.sum() >= 10:
-            assert (r[rows] > level).mean() <= 0.15, fid
+            assert (r[rows] > level).mean() <= 0.05, fid
     ad = d["family"] == 2
     if ad.sum() >= 5:
         assert (r[ad] > level).mean() >= 0.8
+
+
+def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
+    """observed - benign on an Aq frame equals h(x_false) - h(x_true) of the false state rebuilt
+    from the frame's own labels (targets, magnitudes, the clean state), on every tampered channel,
+    and is zero elsewhere: no second noise draw enters."""
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.records import _attack_vector
+
+    a, attrs = _read(timeline)
+    red = {k: float(attrs[k]) for k in ("vbus_frac", "pmu_frac", "flow_frac")}  # the file's meter plan
+    g = FdiaGenerator(int(attrs["system"]), seed=int(attrs["seed"]), **red)
+    pos = {int(b): i for i, b in enumerate(g.load_bus)}
+    ptr, mag, mag_bus = a["attack/mag_ptr"], a["attack/mag"], a["attack/mag_bus"]
+    frames = np.flatnonzero(a["data/family"] == 1)[:20]
+    assert len(frames) >= 5
+    for t in frames:
+        Xt = a["clean/node_clean"][t].astype(np.float64)  # the pool state the frame was emitted from
+        targets = np.array([pos[int(b)] for b in mag_bus[ptr[t] : ptr[t + 1]]])
+        mult = 1.0 + mag[ptr[t] : ptr[t + 1]].astype(np.float64)
+        Lp = Xt[g.load_bus, 1] + g.load_genP
+        Lp[targets] *= mult
+        Xa = g.solve_local(Xt, g.local_region(g.load_bus[targets], int(attrs["hops"])), Lp, Xt[g.load_bus, 2])
+        assert Xa is not None
+        a_node, a_edge = _attack_vector(g, Xa, Xt)
+        nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
+        dn = a["data/node_x"][t].astype(np.float64) - a["benign/node_benign"][t]
+        de = a["data/edge_x"][t].astype(np.float64) - a["benign/edge_benign"][t]
+        # the clean layer is the pool state in float32, so the rebuilt vector agrees to ~1e-4 MW; a
+        # second noise draw would differ by about 1% of the reading, MW
+        assert np.allclose(dn[nt], a_node[nt], rtol=1e-3, atol=1e-2) and np.abs(a_node[nt]).max() > 1e-2
+        assert np.allclose(de[et], a_edge[et], rtol=1e-3, atol=1e-2)
+        assert not dn[~nt].any() and not de[~et].any()
 
 
 def test_local_region_keeps_a_boundary_and_the_slack_fixed():

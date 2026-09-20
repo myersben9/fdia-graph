@@ -138,7 +138,7 @@ def generate(
     """Walk one attacked timeline over the operating-point pool of `system`, write it as one HDF5
     file and register it as `name`; returns the path. `frames` caps the pool timesteps walked;
     every other knob is `timeline.generate_timeline`'s (families, attacked_frac, attack_intensity,
-    ramp_rate, ramp_len, am_len, am_rate, am_sigma, am_direction, corrupt_len, replay_tau,
+    ramp_rate, ramp_len, am_len, am_rate, am_direction, hops, corrupt_len, replay_tau,
     redundancy, split)."""
     from .timeline import generate_timeline
 
