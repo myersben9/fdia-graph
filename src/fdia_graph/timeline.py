@@ -68,7 +68,7 @@ DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 # Per-family episode-length band (frames): Aq, Ad, As, Ar, Al (the upper end excluded).
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
 _AM_DRAWS = 10  # redistribution draws an Am episode gets at its onset before its frames stay benign
-_ONSET_DRAWS = 10  # designs an Aq or At episode tries at onset for one with a stealthy state there
+_ONSET_DRAWS = 40  # designs an Aq or At episode tries for one with a stealthy state on its frames
 
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
@@ -287,11 +287,15 @@ def _probe_frames(ctx: _FrameContext, t: int, length: int) -> list[int]:
 def _draw_single_shot(
     ctx: _FrameContext, rng: np.random.Generator, t: int, fid: int, length: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The targets and load multipliers of an episode (two draws); an Aq design with no stealthy
-    state on the episode's first, middle or last frame is redrawn, up to _ONSET_DRAWS."""
+    """The targets and load multipliers of an episode: the targets, the direction (a load rise or
+    a load drop, one draw, like the ramp's) and the per-target scale in the band; an Aq design with
+    no stealthy state on the episode's first, middle or last frame is redrawn, up to _ONSET_DRAWS
+    (a case that runs below its voltage limits refuses most rises near the low buses, a drop there
+    is the attack that fits)."""
     for _ in range(_ONSET_DRAWS):
         a = _pick_targets(rng, ctx.g.attackable_pos, fid)
-        mult = 1 + rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
+        direction = 1.0 if fid != 1 or rng.random() < 0.5 else -1.0
+        mult = 1 + direction * rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
         if fid != 1 or all(
             is_feasible(ctx.g, ctx.X[u], a, mult, ctx.knobs) for u in _probe_frames(ctx, t, length)
         ):
