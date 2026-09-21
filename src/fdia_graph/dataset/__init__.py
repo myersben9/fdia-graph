@@ -191,7 +191,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         overhead (the real .loader() bottleneck). About 350 MB for an ieee118 split. One contiguous
         slice plus a numpy subset beats h5py point reads (splits are near-contiguous)."""
         with h5py.File(path, "r") as f:
-            dg = f["data"]
+            dg = f[schema.Group.DATA]
             keys = (
                 ["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
                 + (["temporal_delta"] if self.has_temporal else [])

@@ -193,6 +193,30 @@ def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Any]:
     return attrs
 
 
+def _static_physics(g: FdiaGenerator) -> dict[str, np.ndarray]:
+    """The graph/ datasets the writer fills, keyed by their names in `schema.STATIC_PHYSICS`; a
+    name the schema does not list is refused, so the file never carries what the reader cannot."""
+    br = g.branch
+    values = {
+        "edge_r": br.r,
+        "edge_x": br.x,
+        "edge_b": br.b,
+        "edge_g": br.g,
+        "edge_gs": g.edge_gs,
+        "edge_bs": g.edge_bs,
+        "edge_tap": br.tap,
+        "edge_shift": br.shift_deg,
+        "edge_status": br.status,
+        "edge_is_trafo": g.edge_is_trafo,
+        "bus_shunt_g": g.bus_shunt_g,
+        "bus_shunt_b": g.bus_shunt_b,
+    }
+    unknown = set(values) - set(schema.STATIC_PHYSICS)
+    if unknown:
+        raise RuntimeError(f"static graph datasets not in schema.STATIC_PHYSICS: {sorted(unknown)}")
+    return values
+
+
 def _write_graph(f: Any, g: FdiaGenerator) -> None:
     """graph/ group: the static topology shared by all frames, including the full per-unit branch
     physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
@@ -201,22 +225,10 @@ def _write_graph(f: Any, g: FdiaGenerator) -> None:
     gg.create_dataset(schema.EDGE_INDEX.split("/")[1], data=g.ei)
     # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for trafos). Kept for v0.4.x readers.
     gg.create_dataset(schema.EDGE_REACTANCE.split("/")[1], data=g.x_react)
-    br = g.branch
-    for name, data in (
-        ("edge_r", br.r),
-        ("edge_x", br.x),
-        ("edge_b", br.b),
-        ("edge_g", br.g),
-        ("edge_gs", g.edge_gs),
-        ("edge_bs", g.edge_bs),
-        ("edge_tap", br.tap),
-        ("edge_shift", br.shift_deg),
-        ("edge_status", br.status),
-        ("edge_is_trafo", g.edge_is_trafo),
-        ("bus_shunt_g", g.bus_shunt_g),
-        ("bus_shunt_b", g.bus_shunt_b),
-    ):
-        gg.create_dataset(name, data=data)
+    values = _static_physics(g)
+    for name in schema.STATIC_PHYSICS:  # the reader's table, in its order; what this writer has of it
+        if name in values:
+            gg.create_dataset(name, data=values[name])
     gg.attrs.update(
         dict(
             edge_feat_static="r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",

@@ -20,7 +20,7 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         f.visititems(lambda n, o: names.append(n) if isinstance(o, h5py.Dataset) else None)
         groups = {n for n in f}
         attrs = dict(f.attrs)
-    per_frame = {v for v in schema.FIELD_PATH.values()} | {
+    per_frame = set(schema.FIELD_PATH.values()) | {
         schema.SPLIT,
         schema.NODE_TAMPER,
         schema.EDGE_TAMPER,
@@ -72,12 +72,34 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
     assert np.array_equal(sorted(schema.SPLIT_CODE.values()), [0, 1, 2])
 
 
+SNIPPET = "\n".join(
+    [
+        '"""data/x in a docstring is fine."""',
+        'x = f["data/node_x"]',
+        'y = f"graph/{k}"',
+        'z = "node_x"',
+        'g = f.create_group("attack")',
+        'd = f["data"]',
+        'ok = a["clean"]',
+        'has = "episodes" in f',
+        "",
+    ]
+)
+
+
 def test_no_module_but_schema_spells_a_dataset_path(tmp_path):
     assert readability.protocol_literals_all() == []
     assert set(readability._GROUPS) == {v for k, v in vars(schema.Group).items() if not k.startswith("_")}
     p = tmp_path / "m.py"
-    p.write_text(
-        '"""data/x in a docstring is fine."""\nx = f["data/node_x"]\ny = f"graph/{k}"\nz = "node_x"\n'
-    )
+    p.write_text(SNIPPET)
     found = readability.protocol_literals(str(p))
-    assert [(line, lit) for _, line, lit in found] == [(2, "data/node_x"), (3, "graph/")]
+    assert [(line, lit) for _, line, lit in found] == [
+        (2, "data/node_x"),
+        (3, "graph/"),
+        (5, "attack"),
+        (6, "data"),
+        (8, "episodes"),
+    ]  # a["clean"] is a record field, not a group, and is not flagged
+    schema_copy = tmp_path / "schema.py"
+    schema_copy.write_text('x = f["data/node_x"]\n')
+    assert readability.protocol_literals(str(schema_copy))  # only the package's schema.py is exempt

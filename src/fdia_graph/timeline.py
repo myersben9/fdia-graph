@@ -479,7 +479,7 @@ def _ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:
 def _create_layers(f: h5py.File, T: int, C: int, E: int) -> dict[str, Any]:
     """The per-frame datasets at full length, chunked along the frame axis and gzipped, empty
     until the walk flushes into them."""
-    for group in ("data", "benign", "clean", "attack"):
+    for group in (schema.Group.DATA, schema.Group.BENIGN, schema.Group.CLEAN, schema.Group.ATTACK):
         f.create_group(group)
     sink = {}
     for name, (shape, dtype) in _LAYERS.items():
@@ -557,15 +557,14 @@ def _finish_timeline(
     buf.flush()
     T = buf.T
     _write_masks(f, buf, T)
-    d = f["data"]
     for name, arr in (
-        ("family", buf.family.astype(np.int8)),
-        ("stealthy", np.isin(buf.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8)),
-        ("seq_id", buf.seq_id),
-        ("timestep", np.arange(T, dtype=np.int32)),
-        ("split", _frame_split(T, buf.episodes, split)),
+        (schema.FAMILY, buf.family.astype(np.int8)),
+        (schema.STEALTHY, np.isin(buf.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8)),
+        (schema.SEQ_ID, buf.seq_id),
+        (schema.TIMESTEP, np.arange(T, dtype=np.int32)),
+        (schema.SPLIT, _frame_split(T, buf.episodes, split)),
     ):
-        d.create_dataset(name, data=arr)
+        f.create_dataset(name, data=arr)
     _write_episodes(f, buf)
     f.attrs.update(_timeline_attrs(g, T, seed, buf, knobs))
 

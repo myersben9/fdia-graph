@@ -1,7 +1,7 @@
 """Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1,
-and the file-protocol rule: a path-shaped string literal ("data/...", "graph/...", any group of
-`schema.Group`) may appear only in src/fdia_graph/schema.py; every other module spells the path
-through `schema`.
+and the file-protocol rule: a dataset path ("data/...", "graph/...", any group of `schema.Group`)
+or a group name used as one (`f.create_group("data")`, `f["attack"]`, `"episodes" in f`) may be
+spelled only in src/fdia_graph/schema.py; every other module goes through `schema`.
 
     python tools/readability.py --report                 # every function outside a limit, whole package
     python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass
@@ -30,7 +30,11 @@ ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 
 LIMITS = {"complexity": 10, "nesting": 3, "captures": 0, "params": 7, "positional": 0}
 _GROUPS = ("data", "benign", "clean", "graph", "episodes", "attack")  # schema.Group, kept in step by a test
-_SCHEMA = "schema.py"  # the one module allowed to spell a dataset path
+# a lone group name is a protocol literal when it is created as a group, or when it is subscripted or
+# tested with `in`; "benign" and "clean" are also record fields, so only the four that are never
+# fields are checked that way
+_GROUPS_NEVER_FIELDS = ("data", "graph", "episodes", "attack")
+_SCHEMA = os.path.join(ROOT, "schema.py")  # the one module allowed to spell a dataset path
 
 # "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
 EXCEPTIONS: dict[str, str] = {}
@@ -169,7 +173,7 @@ def protocol_literals(path: str) -> list[tuple[str, int, str]]:
     """Path-shaped string literals ("<group>/..." or a lone group name used as a path prefix in an
     f-string) outside the schema module: (file, line, literal). Docstrings are not literals."""
     rel = os.path.relpath(path, ROOT)
-    if os.path.basename(path) == _SCHEMA:
+    if os.path.normcase(os.path.normpath(path)) == os.path.normcase(os.path.normpath(_SCHEMA)):
         return []
     tree = ast.parse(open(path, encoding="utf8").read())
     docs = {
@@ -186,7 +190,28 @@ def protocol_literals(path: str) -> list[tuple[str, int, str]]:
             head = n.value.split("/", 1)[0]
             if "/" in n.value and head in _GROUPS:
                 out.append((rel, n.lineno, n.value))
-    return out
+        lit = _group_used_as_group(n)
+        if lit is not None:
+            out.append((rel, n.lineno, lit))
+    return sorted(out, key=lambda t: t[1])  # ast.walk is breadth-first; report in line order
+
+
+def _group_used_as_group(n: ast.AST) -> Optional[str]:
+    """The group name when `n` creates, subscripts or tests membership of a group by literal."""
+    if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "create_group":
+        if n.args and isinstance(n.args[0], ast.Constant) and n.args[0].value in _GROUPS:
+            return str(n.args[0].value)
+    if isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant):
+        if n.slice.value in _GROUPS_NEVER_FIELDS:
+            return str(n.slice.value)
+    if (
+        isinstance(n, ast.Compare)
+        and isinstance(n.left, ast.Constant)
+        and n.left.value in _GROUPS_NEVER_FIELDS
+    ):
+        if any(isinstance(op, (ast.In, ast.NotIn)) for op in n.ops):
+            return str(n.left.value)
+    return None
 
 
 def protocol_literals_all() -> list[tuple[str, int, str]]:
@@ -224,7 +249,7 @@ def report(ms: list[Measure]) -> int:
         mark = "  [excepted: " + EXCEPTIONS[m.key] + "]" if m.key in EXCEPTIONS else ""
         print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()) + mark)
     lits = protocol_literals_all()
-    print(f"{len(lits)} dataset-path literals outside {_SCHEMA}")
+    print(f"{len(lits)} dataset-path literals outside {os.path.relpath(_SCHEMA, ROOT)}")
     for rel, line, lit in lits:
         print(f"  {rel}:{line} {lit!r}")
     return 0
