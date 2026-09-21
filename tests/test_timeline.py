@@ -259,6 +259,86 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
         assert not dn[~nt].any() and not de[~et].any()
 
 
+def test_area_equivalent_loads_are_never_targets():
+    """IEEE-145 lumps regions into gigawatt loads; the cap keeps them out of the target set and
+    leaves every other ladder system's set as it was."""
+    from fdia_graph.engine import FdiaGenerator
+
+    g = FdiaGenerator(145, seed=1)
+    p = np.abs(g.base.load.p_mw.values)
+    assert (p > 2000).sum() >= 10 and p[g.attackable_pos].max() <= 2000
+    assert set(g.attackable_pos) == set(np.flatnonzero((p > 0) & (p <= 2000)))
+    g14 = FdiaGenerator(14, seed=1)
+    assert set(g14.attackable_pos) == set(FdiaGenerator(14, seed=1, max_load_mw=None).attackable_pos)
+    with pytest.raises(ValueError):
+        FdiaGenerator(14, seed=1, max_load_mw=0)
+
+
+def test_a_step_without_a_local_solution_is_halved(monkeypatch):
+    """The frame is built at the largest halving of the step that solves; an Aq step stops at the
+    noise floor, a ramp frame does not."""
+    from fdia_graph.engine import FdiaGenerator, records
+    from fdia_graph.models.frames import FrameKnobs
+
+    g = FdiaGenerator(14, seed=1)
+    steps: list[float] = []
+
+    def fake(g_, Xt, targets, mult, interior, k):
+        steps.append(float(np.max(np.abs(np.asarray(mult) - 1.0))))
+        return "frame" if steps[-1] <= 0.01 else None
+
+    monkeypatch.setattr(records, "_stealthy_frame", fake)
+    k = FrameKnobs(0.2, 0.02, 6, None, False, True, hops=2)
+    Xt = np.zeros((g.C, 4))
+    two = g.attackable_pos[:2]
+    assert records._resolve_frame(g, Xt, 1, two, np.array([1.2, 1.1]), k) is None
+    assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025])  # three halvings above the floor, none solved
+    steps.clear()
+    assert records._resolve_frame(g, Xt, 1, two, np.array([1.05, 1.05]), k) is None
+    assert np.allclose(steps, [0.05, 0.025])  # the next halving would fall under the floor
+    steps.clear()
+    assert records._resolve_frame(g, Xt, 5, two, 1.2, k) == "frame"
+    assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])  # the ramp halves past the floor
+
+
+def test_operating_limits_are_the_case_limits_widened_to_the_pool():
+    """Bus limits come from the case and widen only where the pool runs outside them; the
+    generator output behind a pool state is recovered exactly, and a false state that pushes a
+    generator past its cap or a bus past its limit is refused."""
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.formulas.attacks import generator_output, within_limits
+
+    g = FdiaGenerator(14, seed=1)
+    net = g.base
+    X0 = net.res_bus.reindex(sorted(net.bus.index))[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy()
+    for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
+        X0[int(b), 1:3] -= (ps, qs)  # the pool stores injections without the shunt draw
+    X = np.stack([X0, X0 * [[1.0, 1.1, 1.1, 1.0]]])  # a heavier state, generation up in step
+    lim = g.operating_limits(X)
+    assert (lim.v_lo <= g.v_case[:, 0]).all() and (lim.v_hi >= g.v_case[:, 1]).all()
+    assert lim.v_hi.max() > g.v_case[:, 1].max()  # the base case runs above 1.06 pu at some bus
+    gen = generator_output(X0, g.load_base, g.gen_base)
+    on = np.flatnonzero(g.gen_base[:, 0] > 0)
+    assert np.allclose(gen[on, 0], g.gen_base[on, 0])  # the base state: base generation exactly
+    none = np.zeros(g.C)
+    assert within_limits(X0, X0, gen, none, lim)
+    bad = X0.copy()
+    bad[5, 0] = 0.8
+    assert not within_limits(bad, X0, gen, none, lim)
+    bad = X0.copy()
+    bad[on[0], 1] -= 1e4  # a 10 GW injection change at a generator bus: past any cap ...
+    assert not within_limits(bad, X0, gen, none, lim)
+    pretended = none.copy()
+    pretended[on[0]] = -1e4  # ... unless it is the load change the attacker pretends there
+    assert within_limits(bad, X0, gen, pretended, lim)
+
+
+def test_the_fixture_has_no_fallback_frame(timeline):
+    _, attrs = _read(timeline)
+    assert attrs["fallback_benign"] == 0 and attrs["max_load_mw"] == 2000.0
+    assert attrs["v_lo"] <= 0.94 and attrs["v_hi"] >= 1.06
+
+
 def test_local_region_keeps_a_boundary_and_the_slack_fixed():
     from fdia_graph.engine import FdiaGenerator
     from fdia_graph.formulas.network import subnetwork

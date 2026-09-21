@@ -146,6 +146,9 @@ class Attr:
     AM_RATE = "am_rate"
     AM_DIRECTION = "am_direction"
     HOPS = "hops"
+    MAX_LOAD_MW = "max_load_mw"
+    V_LO = "v_lo"  # the widest bus voltage limits of the case, what a false state must stay in
+    V_HI = "v_hi"
     CORRUPT_LEN = "corrupt_len"
     REPLAY_TAU = "replay_tau"
     NOISE_FLOOR = "noise_floor"

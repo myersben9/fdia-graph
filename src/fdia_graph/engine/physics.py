@@ -6,8 +6,12 @@ from typing import Any, Optional
 
 import numpy as np
 
+from ..formulas.attacks import operating_limits
 from ..formulas.network import bus_injections, complex_voltages, local_ac_solve, subnetwork
-from ..models.frames import ResolvedPool  # noqa: F401  re-exported: defined here before the models package
+from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
+    OperatingLimits,
+    ResolvedPool,
+)
 from ..models.grid import NODE
 from .base import GridBase
 
@@ -102,6 +106,11 @@ class PhysicsMixin(GridBase):
                 break
             interior, boundary = subnetwork(self.ei, np.union1d(interior, grow), 0, self.C)
         return interior, boundary
+
+    def operating_limits(self, X: np.ndarray) -> OperatingLimits:
+        """The constraints every false state of this system must satisfy [WU26, eqs. 21-23], the
+        case's voltage and generator limits widened to the pool X (formulas.attacks.operating_limits)."""
+        return operating_limits(X, self.v_case, self.p_lim, self.q_lim, (self.load_base, self.gen_base))
 
     def solve_local(
         self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray

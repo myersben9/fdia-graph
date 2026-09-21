@@ -176,9 +176,15 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         pmu_frac: float = 0.2,
         flow_frac: float = 0.90,
         outage: Optional[Union[int, str]] = None,
+        max_load_mw: Optional[float] = 2000.0,
     ) -> None:
         """Load the IEEE case, apply the optional N-1 contingency, solve the base power flow, and
         draw the meter plan and the per-meter biases from `seed`.
+
+        `max_load_mw` keeps a load above it out of the attack targets: such a load is an area
+        equivalent (IEEE-145 lumps whole regions into single loads of 4 to 58 GW), not a substation
+        an attacker could shift by 5% to 20% with any power-flow solution nearby; None disables the
+        cap. No load of the other seven ladder systems exceeds 1.1 GW.
 
         The random draws happen in a fixed order, the meter plan (voltage buses, PMU buses, flow
         meters) and then the six per-meter bias vectors, so a shard's meter plan and biases are
@@ -190,6 +196,9 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
 
         self.pp = pp
         self.C = system_id(system)  # "ieee118" and 118 both accepted, like every public entry point
+        if max_load_mw is not None and not max_load_mw > 0:
+            raise ValueError(f"max_load_mw is a load cap in MW (or None), got {max_load_mw!r}")
+        self.max_load_mw = max_load_mw
         self.rng = np.random.default_rng(seed)
         # Measurement noise stds (accuracy-class model [ASP14]). |V|/angle are the class-0.2/sqrt(3) IT
         # figures; P/Q use a larger ~1.7% power-measurement std. Relative for flows/injections, absolute
@@ -261,16 +270,20 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
 
         load_bus is the bus of EVERY load element, aligned 1:1 with net.load so the re-solve and the
         PTDF-over-load arrays stay the same length. ATTACKABLE = load_bus positions with real ACTIVE
-        load (|p_mw| > 0): reactive-only loads (e.g. IEEE-300 buses 141, 183) stay in the physics
-        table but are excluded from target selection and the LRA candidate set, since attacking one
-        leaves no P footprint yet would still get a y = 1 label. Zero-injection buses are pure
-        junctions with net injection exactly 0 (a strong constraint); a near-zero injection
-        measurement is still emitted there.
+        load (|p_mw| > 0) and at most `max_load_mw`: reactive-only loads (e.g. IEEE-300 buses 141,
+        183) and area-equivalent loads stay in the physics table but are excluded from target
+        selection and the LRA candidate set, since attacking a reactive-only load leaves no P
+        footprint yet would still get a y = 1 label, and a gigawatt step has no local solution.
+        Zero-injection buses are pure junctions with net injection exactly 0 (a strong
+        constraint); a near-zero injection measurement is still emitted there.
         """
         C = self.C
         _lb = base.load
         self.load_bus = _lb["bus"].values
-        self._attackable_mask = _lb["p_mw"].abs().values > 0.0
+        p_load = _lb["p_mw"].abs().values
+        self._attackable_mask = p_load > 0.0
+        if self.max_load_mw is not None:
+            self._attackable_mask &= p_load <= self.max_load_mw
         self.attackable_pos = np.where(self._attackable_mask)[0]
         self.slack_bus = int(
             base.ext_grid.bus.values[0]
@@ -287,6 +300,27 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         for r in base.gen.itertuples():
             genP[int(r.bus)] = genP.get(int(r.bus), 0.0) + r.p_mw
         self.load_genP = np.array([genP.get(int(b), 0.0) for b in self.load_bus])
+        self._case_limits(base)
+
+    def _case_limits(self, base: Any) -> None:
+        """Per-bus base load and generation [N, 2] (P, Q) and the case's limits [WU26, eqs. 21-23]:
+        bus voltage limits [N, 2] and generator P and Q limits [N, 2] summed over co-located
+        generators, unbounded (±inf) where a bus has none; the slack (ext_grid) is unbounded, its
+        output is the balance of every state and its limits are the pool's own."""
+        C = self.C
+        self.load_base = np.zeros((C, 2))
+        self.gen_base = np.zeros((C, 2))
+        self.p_lim = np.tile([-np.inf, np.inf], (C, 1))
+        self.q_lim = np.tile([-np.inf, np.inf], (C, 1))
+        for r in base.load.itertuples():
+            self.load_base[int(r.bus)] += (r.p_mw, r.q_mvar)
+        gens = base.gen
+        for b in np.unique(gens.bus.values):
+            rows = gens[gens.bus == b]
+            self.gen_base[int(b), 0] = rows.p_mw.sum()
+            self.p_lim[int(b)] = (rows.min_p_mw.sum(), rows.max_p_mw.sum())
+            self.q_lim[int(b)] = (rows.min_q_mvar.sum(), rows.max_q_mvar.sum())
+        self.v_case = np.stack([base.bus.min_vm_pu.values, base.bus.max_vm_pu.values], axis=1).astype(float)
 
     def _meter_plan(self, base: Any, vbus_frac: float, pmu_frac: float, flow_frac: float) -> None:
         """The sparse metering plan, sampled once (self.meters, a MeterPlan): vbus = voltage-magnitude

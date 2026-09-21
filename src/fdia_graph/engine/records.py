@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
+from ..formulas.attacks import generator_output, within_limits
 from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
     Frame,
     FrameKnobs,
@@ -42,6 +43,8 @@ AM_FAMILY = 7
 CORRUPT_KIND = {2: "Ad", 3: "As", 4: "Ar"}  # corrupt-in-place families and their AttackMixin.corrupt code
 BENIGN_BUFFER = 300  # recent benign scans kept for the replay families (FIFO)
 LRA_DRAWS = 10  # target lines an Al frame tries before giving up (a region may hold too few loads)
+AQ_HALVINGS = 3  # times an Aq load step with no local power-flow solution is halved before giving up
+STEP_HALVINGS = 6  # the same for one frame of a ramp (At, Am), whose step is under the floor anyway
 REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans back
 
 
@@ -106,15 +109,9 @@ def _stealthy_frame(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[F
     whose true reading is structurally zero (a condenser's P, a zero-injection bus) gives away.
     Needs `with_benign`: the true scan is the benign twin."""
     assert k.with_benign, "a stealthy frame needs the benign twin (with_benign=True)"
-    Lp = (
-        Xt[g.load_bus, NODE.p_inj] + g.load_genP
-    )  # base active load = stored P at load buses + generator P there
-    Lq = Xt[g.load_bus, NODE.q_inj].copy()
-    Lp = Lp.copy()
-    Lp[targets] *= mult
-    Xa = g.solve_local(Xt, interior, Lp, Lq)
+    Xa = stealthy_state(g, Xt, targets, mult, interior, k)
     if Xa is None:
-        return None  # the local power flow did not converge, expected occasionally
+        return None  # no local solution, or one outside the operating limits: the caller halves
     scan = g.emit_from_state(Xt)  # the true scan: the benign twin, and the draw every meter keeps
     bnx, bex = scan.node_x, scan.edge_x
     a_node, a_edge = _attack_vector(g, Xa, Xt)
@@ -141,6 +138,40 @@ def _stealthy_frame(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[F
     )
 
 
+def stealthy_state(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[np.ndarray]:
+    """The local false state of `targets` scaled by `mult` on the interior, or None when the local
+    power flow has no solution or the state breaks the operating limits [WU26, eqs. 21-23]. Spends
+    no random draw, so an episode can test its design at onset and redraw."""
+    Lp = (
+        Xt[g.load_bus, NODE.p_inj] + g.load_genP
+    )  # base active load = stored P at load buses + generator P there
+    Lq = Xt[g.load_bus, NODE.q_inj].copy()
+    Lp_true, Lp = Lp, Lp.copy()
+    Lp[targets] *= mult
+    Xa = g.solve_local(Xt, interior, Lp, Lq)
+    if Xa is None:
+        return None
+    if k.limits is not None and not _within_limits(g, Xa, Xt, Lp - Lp_true, k.limits):
+        return None
+    return Xa
+
+
+def is_feasible(g, Xt, targets, mult, k: FrameKnobs, interior=None) -> bool:
+    """Whether the design (targets, mult) has a stealthy state on `Xt`, on `interior` or the
+    region around the targets; the onset test of an episode (no random draw)."""
+    if interior is None:
+        interior = g.local_region(g.load_bus[targets], k.hops)
+    return interior is not None and stealthy_state(g, Xt, targets, mult, interior, k) is not None
+
+
+def _within_limits(g, Xa, Xt, load_delta_pos, limits) -> bool:
+    """[WU26, eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
+    load-table position (MW), summed per bus for buses carrying several loads."""
+    dload = np.zeros(g.C)
+    np.add.at(dload, g.load_bus, load_delta_pos)
+    return within_limits(Xa, Xt, generator_output(Xt, g.load_base, g.gen_base), dload, limits)
+
+
 def _attack_vector(g, Xa, Xt) -> tuple[np.ndarray, np.ndarray]:
     """The attack vector a = h(x_false) - h(x_true) [WU26] per node channel [N, 4] and per flow
     channel [E, 2], in the scan's physical units: the noiseless reading of the false state minus
@@ -159,33 +190,57 @@ def _changed_meters(
     return node, edge
 
 
+def _solvable_step(
+    g, Xt, targets, mult, interior, k: FrameKnobs, limit: tuple[int, Optional[float]]
+) -> Optional[Frame]:
+    """The stealthy frame at `mult`, or at the largest halving of its step that has a local
+    power-flow solution: `limit` = (halvings tried, the floor a halved step may not fall under, or
+    None). A step the region cannot absorb (a large load inside a fixed boundary) keeps the frame
+    attacked at the largest step that solves; the frame's magnitudes record the step used."""
+    halvings, floor = limit
+    frame = _stealthy_frame(g, Xt, targets, mult, interior, k)
+    for _ in range(halvings):
+        if frame is not None:
+            break
+        mult = 1.0 + (np.asarray(mult, float) - 1.0) / 2
+        if floor is not None and np.max(np.abs(mult - 1.0)) < floor:
+            break
+        frame = _stealthy_frame(g, Xt, targets, mult, interior, k)
+    return frame
+
+
 def _resolve_frame(g, Xt, family, targets, mult, k: FrameKnobs) -> Optional[Frame]:
-    """Aq and At: the targeted loads scaled, the subnetwork within `hops` of them re-solved locally."""
+    """Aq and At: the targeted loads scaled, the subnetwork within `hops` of them re-solved locally.
+    A step without a local solution is halved: an Aq step at most AQ_HALVINGS times and never under
+    the noise floor, a ramp frame at most STEP_HALVINGS times (its design step is sub-floor)."""
     dev = np.abs(np.asarray(mult) - 1.0)  # per-bus designed load-shift fraction
     if k.reject_below_floor and family == 1 and np.max(dev) < k.floor:
         return None  # a within-noise no-op; the ramp is exempt so its per-scan step may stay sub-floor
     interior = g.local_region(g.load_bus[targets], k.hops)
     if interior is None:
         return None
-    return _stealthy_frame(g, Xt, targets, mult, interior, k)
+    limit = (AQ_HALVINGS, k.floor) if family == 1 else (STEP_HALVINGS, None)
+    return _solvable_step(g, Xt, targets, mult, interior, k, limit)
 
 
 def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
     """Al: a load-conserving redistribution over up to lra_k buses of the subnetwork around a
-    target line, steering that line, re-solved locally [DAT26, WU26]."""
+    target line, steering that line, re-solved locally [DAT26, WU26]; a line whose redistribution
+    has no stealthy state at any halving above the floor is redrawn."""
     Lp = Xt[g.load_bus, NODE.p_inj] + g.load_genP
-    for _ in range(LRA_DRAWS):  # a line whose region holds too few loads to redistribute is redrawn
+    for _ in range(LRA_DRAWS):  # a line with no feasible or no solvable redistribution is redrawn
         red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
         a = red.buses
-        if len(a):
-            break
-    else:
-        return None  # no feasible redistribution on any drawn line
-    dev = np.abs(red.delta[a]) / (np.abs(Lp[a]) + 1e-6)  # designed redistribution fraction per bus
-    if k.reject_below_floor and np.min(dev) < k.floor:
-        return None  # a bus inside the noise floor
-    mult = 1.0 + red.delta[a] / np.where(np.abs(Lp[a]) > 1e-9, Lp[a], 1e-9)
-    return _stealthy_frame(g, Xt, a, mult, red.interior, k)
+        if len(a) == 0:
+            continue
+        dev = np.abs(red.delta[a]) / (np.abs(Lp[a]) + 1e-6)  # designed redistribution fraction per bus
+        if k.reject_below_floor and np.min(dev) < k.floor:
+            return None  # a bus inside the noise floor
+        mult = 1.0 + red.delta[a] / np.where(np.abs(Lp[a]) > 1e-9, Lp[a], 1e-9)
+        frame = _solvable_step(g, Xt, a, mult, red.interior, k, (AQ_HALVINGS, k.floor))
+        if frame is not None:
+            return frame
+    return None  # no drawn line gave a redistribution with a stealthy state at any halving
 
 
 def _am_frame(g, Xt, targets, mult, k: FrameKnobs, interior=None) -> Optional[Frame]:
@@ -196,7 +251,7 @@ def _am_frame(g, Xt, targets, mult, k: FrameKnobs, interior=None) -> Optional[Fr
         interior = g.local_region(g.load_bus[targets], k.hops)
     if interior is None:
         return None
-    return _stealthy_frame(g, Xt, targets, mult, interior, k)
+    return _solvable_step(g, Xt, targets, mult, interior, k, (STEP_HALVINGS, None))
 
 
 def _benign_frame(g, Xt) -> Frame:

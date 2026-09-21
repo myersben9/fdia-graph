@@ -46,6 +46,12 @@ class GridBase:
     load_genP: np.ndarray
     attackable_pos: np.ndarray
     _attackable_mask: np.ndarray
+    max_load_mw: Optional[float]
+    load_base: np.ndarray  # [N, 2] base-case load P, Q per bus
+    gen_base: np.ndarray  # [N, 2] base-case generation P per bus (Q column zero)
+    p_lim: np.ndarray  # [N, 2] generator active limits per bus, ±inf without one
+    q_lim: np.ndarray  # [N, 2] generator reactive limits per bus
+    v_case: np.ndarray  # [N, 2] the case's bus voltage limits
     # topology + admittance
     ei: np.ndarray
     branch: BranchModel

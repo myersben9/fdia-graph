@@ -30,7 +30,7 @@ from .fields import (
     StreamLayers,
     TemporalFields,
 )
-from .frames import Frame, FrameKnobs, Redistribution, ResolvedPool, Scan
+from .frames import Frame, FrameKnobs, OperatingLimits, Redistribution, ResolvedPool, Scan
 from .grid import (
     BRANCH,
     EDGE,
@@ -98,6 +98,7 @@ __all__ = [
     "Scan",
     "Frame",
     "FrameKnobs",
+    "OperatingLimits",
     "Redistribution",
     "ResolvedPool",
     "RecordBundle",

@@ -38,7 +38,15 @@ import numpy as np
 from . import schema
 from .dataset.base import FAMILIES, STEALTHY_FAMILIES
 from .engine import FAM_ID, FdiaGenerator
-from .engine.records import AM_FAMILY, CORRUPT_KIND, RAMP_FAMILY, Frame, FrameKnobs, attack_frame
+from .engine.records import (
+    AM_FAMILY,
+    CORRUPT_KIND,
+    RAMP_FAMILY,
+    Frame,
+    FrameKnobs,
+    attack_frame,
+    is_feasible,
+)
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import swing_zscore, temporal_delta
 from .generation import (
@@ -60,6 +68,7 @@ DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 # Per-family episode-length band (frames): Aq, Ad, As, Ar, Al (the upper end excluded).
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
 _AM_DRAWS = 10  # redistribution draws an Am episode gets at its onset before its frames stay benign
+_ONSET_DRAWS = 10  # designs an Aq or At episode tries at onset for one with a stealthy state there
 
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
@@ -239,11 +248,10 @@ def _ramp_episode(
 ) -> int:
     """One slow-ramp episode on a fixed bus set (rise, hold, return); returns the next free timestep."""
     T = len(ctx.X)
-    apos = ctx.g.attackable_pos
-    a = rng.choice(apos, min(5, len(apos)), replace=False)  # fixed bus set for the ramp
-    direction = 1.0 if rng.random() < 0.5 else -1.0
-    rise = max(1, int(rng.uniform(0.2, 0.45) * ramp_len))
-    hold = int(rng.uniform(0.0, 0.25) * ramp_len)
+    for _ in range(_ONSET_DRAWS):  # a design whose peak has no stealthy state at onset is redrawn
+        a, direction, rise, hold = _draw_ramp(ctx, rng, ramp_len)
+        if is_feasible(ctx.g, ctx.X[t], a, 1 + direction * ramp_rate * rise, ctx.knobs):
+            break
     ep = _episode(ctx, buf, RAMP_FAMILY, t)
     for i in range(ramp_len):
         if t >= T:
@@ -252,6 +260,31 @@ def _ramp_episode(
         ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, a, 1 + direction * dev, ctx.knobs))
         t += 1
     return ep.close(buf, t)
+
+
+def _draw_ramp(
+    ctx: _FrameContext, rng: np.random.Generator, ramp_len: int
+) -> tuple[np.ndarray, float, int, int]:
+    """One ramp design: a fixed bus set, a direction, the rise and hold lengths (four draws)."""
+    apos = ctx.g.attackable_pos
+    a = rng.choice(apos, min(5, len(apos)), replace=False)
+    direction = 1.0 if rng.random() < 0.5 else -1.0
+    rise = max(1, int(rng.uniform(0.2, 0.45) * ramp_len))
+    hold = int(rng.uniform(0.0, 0.25) * ramp_len)
+    return a, direction, rise, hold
+
+
+def _draw_single_shot(
+    ctx: _FrameContext, rng: np.random.Generator, t: int, fid: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """The targets and load multipliers of an episode (two draws); an Aq design with no stealthy
+    state on the onset frame is redrawn, up to _ONSET_DRAWS."""
+    for _ in range(_ONSET_DRAWS):
+        a = _pick_targets(rng, ctx.g.attackable_pos, fid)
+        mult = 1 + rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
+        if fid != 1 or is_feasible(ctx.g, ctx.X[t], a, mult, ctx.knobs):
+            break
+    return a, mult
 
 
 def _single_shot_episode(
@@ -264,8 +297,7 @@ def _single_shot_episode(
 ) -> int:
     """One episode of a single-shot family held for `length` frames; returns the next free timestep."""
     T = len(ctx.X)
-    a = _pick_targets(rng, ctx.g.attackable_pos, fid)
-    mult = 1 + rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
+    a, mult = _draw_single_shot(ctx, rng, t, fid)
     ep = _episode(ctx, buf, fid, t)
     for _ in range(length):
         if t >= T:
@@ -303,6 +335,12 @@ def _am_multipliers(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray
     return 1.0 + delta / np.where(np.abs(Lp) > 1e-9, Lp, 1e-9)
 
 
+def _am_peak_solves(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray, interior) -> bool:
+    """Whether the held redistribution at its peak (`delta`, MW per target) has a stealthy state
+    (a local solution inside the operating limits) on the onset state; no random draw is spent."""
+    return is_feasible(ctx.g, ctx.X[t], a, _am_multipliers(ctx, t, a, delta), ctx.knobs, interior)
+
+
 def _am_sign(direction: str, rng: np.random.Generator) -> float:
     """The sign applied to the engine's redistribution. `lra_delta` orients its delta to raise the
     target line's loading in the false state, so "induce" (a safe line reads as overloaded, the
@@ -324,16 +362,18 @@ def _am_episode(
     T, k = len(ctx.X), ctx.knobs
     length, am_rate, direction = shape
     Lp0 = ctx.X[t][ctx.g.load_bus, NODE.p_inj] + ctx.g.load_genP
-    for _ in range(_AM_DRAWS):  # a redistribution the target-line pool cannot give is redrawn
-        red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
-        a = red.buses
-        if len(a):
+    for _ in range(_AM_DRAWS):  # redrawn when the target-line pool gives no redistribution, or one
+        red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)  # without a
+        a = red.buses  # local power-flow solution at its peak (a held redistribution must reach it)
+        if len(a) == 0:
+            continue
+        delta = red.delta[a] * _am_sign(direction, rng)
+        rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
+        sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
+        if _am_peak_solves(ctx, t, a, sh.at(sh.rise) * delta, red.interior):
             break
-    if len(a) == 0:  # no feasible redistribution at this operating point: the placed frames stay benign
+    else:  # no solvable redistribution at this operating point: the placed frames stay benign
         return _benign_run(ctx, buf, t, min(t + length, T))
-    delta = red.delta[a] * _am_sign(direction, rng)
-    rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
-    sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
     ep = _episode(ctx, buf, AM_FAMILY, t)
     for i in range(length):
         if t >= T:
@@ -603,6 +643,7 @@ def generate_timeline(
     am_rate: float = 0.9,
     am_direction: str = "both",
     hops: int = 2,
+    max_load_mw: Optional[float] = 2000.0,
     corrupt_len: Optional[int] = 1,
     replay_tau: Optional[int] = None,
     redundancy: Optional[dict] = None,
@@ -616,8 +657,9 @@ def generate_timeline(
     attacked_frac    fraction of frames under an attack episode (0.5 = balanced): the episodes drawn
                      sum to exactly round(attacked_frac * T) frames and every one is placed, at an
                      onset uniform among those where it fits, so adjacency and gaps are properties
-                     of the draw; a frame whose power flow does not converge stays benign and is
-                     counted in the file's `fallback_benign` attribute
+                     of the draw; a frame whose local power flow has no solution at any halving
+                     of its step stays benign and is counted in the file's `fallback_benign`
+                     attribute (zero on every released file)
     families         the families in rotation; each gets about the same share of attacked frames
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
@@ -626,6 +668,12 @@ def generate_timeline(
     hops             the attacker's subnetwork for the stealthy families: buses within this many
                      branches of the attacked loads (Aq, At) or of the target line (Al, Am); the
                      boundary voltages are held true and only the subnetwork's meters are written
+    max_load_mw      a load above this (MW) is never a target: an area equivalent, not a substation
+                     (IEEE-145 lumps regions into 4 to 58 GW loads); None disables the cap
+                     Every false state also satisfies the case's operating limits (each bus
+                     voltage within its limits widened to the benign pool's own range at that bus,
+                     every generator's implied output within its P and Q limits); a state outside
+                     them is halved; v_lo and v_hi record the widest bus limits
     am_direction     "induce" (the target line reads more loaded than it is, the engine's Al sign),
                      "mask" (it reads lighter, a real overload hidden) or "both" (drawn per episode)
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
@@ -641,12 +689,13 @@ def generate_timeline(
         dict(ramp_len=ramp_len, am_len=am_len, corrupt_len=corrupt_len),
     )
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
-    g = FdiaGenerator(system, seed=seed, **red)
+    g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     T, C = len(X), g.C
-    knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops=hops)
+    limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
+    knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)
     ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
     am = (am_len, am_rate, am_direction)
     plan = _Schedule.build([FAM_ID[f] for f in families], ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
@@ -660,6 +709,9 @@ def generate_timeline(
         Attr.AM_RATE: am_rate,
         Attr.AM_DIRECTION: am_direction,
         Attr.HOPS: hops,
+        Attr.MAX_LOAD_MW: max_load_mw,
+        Attr.V_LO: float(limits.v_lo.min()),
+        Attr.V_HI: float(limits.v_hi.max()),
         Attr.CORRUPT_LEN: corrupt_len,
         Attr.REPLAY_TAU: replay_tau,
         Attr.NOISE_FLOOR: NOISE_FLOOR,
