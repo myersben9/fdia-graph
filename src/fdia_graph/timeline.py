@@ -40,6 +40,7 @@ from .dataset.base import FAMILIES, STEALTHY_FAMILIES
 from .engine import FAM_ID, FdiaGenerator
 from .engine.records import (
     AM_FAMILY,
+    AQ_HALVINGS,
     CORRUPT_KIND,
     RAMP_FAMILY,
     Frame,
@@ -351,6 +352,26 @@ def _am_multipliers(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray
     return 1.0 + delta / np.where(np.abs(Lp) > 1e-9, Lp, 1e-9)
 
 
+def _am_held_delta(
+    ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray, interior, shape: tuple[int, float]
+) -> Optional[np.ndarray]:
+    """The held redistribution, at its drawn size or the largest halving above the noise floor whose
+    peak has a stealthy state on every frame of the plateau; None when none has."""
+    T, k = len(ctx.X), ctx.knobs
+    length, am_rate = shape
+    Lp0 = ctx.X[t][ctx.g.load_bus[a], NODE.p_inj] + ctx.g.load_genP[a]
+    for _ in range(AQ_HALVINGS + 1):
+        dev = np.abs(delta) / (np.abs(Lp0) + 1e-6)
+        if np.min(dev) < k.floor:
+            return None  # a bus inside the noise floor: not an attack by the band's own rule
+        sh = _AmShape.under_floor(float(np.max(dev)), length, am_rate, k.floor)
+        plateau = range(min(t + sh.rise, T - 1), min(t + sh.rise + sh.hold, T - 1) + 1)
+        if all(_am_peak_solves(ctx, u, a, sh.at(sh.rise) * delta, interior) for u in plateau):
+            return delta
+        delta = delta / 2
+    return None
+
+
 def _am_peak_solves(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray, interior) -> bool:
     """Whether the held redistribution at its peak (`delta`, MW per target) has a stealthy state
     (a local solution inside the operating limits) on the onset state; no random draw is spent."""
@@ -380,17 +401,17 @@ def _am_episode(
     Lp0 = ctx.X[t][ctx.g.load_bus, NODE.p_inj] + ctx.g.load_genP
     for _ in range(_AM_DRAWS):  # redrawn when the target-line pool gives no redistribution, or one
         red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)  # without a
-        a = red.buses  # local power-flow solution at its peak (a held redistribution must reach it)
+        a = red.buses  # stealthy state on its peak plateau at any halving above the floor
         if len(a) == 0:
             continue
         delta = red.delta[a] * _am_sign(direction, rng)
-        rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
-        sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
-        plateau = range(min(t + sh.rise, T - 1), min(t + sh.rise + sh.hold, T - 1) + 1)
-        if all(_am_peak_solves(ctx, u, a, sh.at(sh.rise) * delta, red.interior) for u in plateau):
+        delta = _am_held_delta(ctx, t, a, delta, red.interior, (length, am_rate))
+        if delta is not None:
             break
     else:  # no solvable redistribution at this operating point: the placed frames stay benign
         return _benign_run(ctx, buf, t, min(t + length, T))
+    rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
+    sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
     ep = _episode(ctx, buf, AM_FAMILY, t)
     for i in range(length):
         if t >= T:
@@ -602,7 +623,7 @@ def _timeline_attrs(
             Attr.FAMILIES: ",".join(f"{k}{v}" for k, v in FAMILIES.items()),
             Attr.ATTACKED_FRAC: float(buf.attacked / max(1, T)),
             Attr.N_EPISODES: len(buf.episodes),
-            Attr.FALLBACK_BENIGN: int(sum(e["length"] for e in buf.episodes) - int((buf.seq_id >= 0).sum())),
+            Attr.FALLBACK_BENIGN: int(round(knobs[Attr.TARGET_ATTACKED_FRAC] * T)) - int((buf.seq_id >= 0).sum()),
         }
     )
     attrs.update({k: (-1 if v is None else v) for k, v in knobs.items()})

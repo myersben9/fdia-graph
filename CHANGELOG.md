@@ -38,7 +38,10 @@ the public API, the generated files and the numbers are the same as the previous
   and an Aq, At or Am episode tests its design (the full step, the ramp's peak, the held
   redistribution's peak) on every frame it will occupy (an Aq episode's whole span, the ramp's
   and Am's peak plateau) and redraws it, up to forty times, when no stealthy state exists on any
-  of them, so an accepted design cannot fall back. An Aq episode now draws its direction like the ramp, a load rise or a load
+  of them, so an accepted design cannot fall back; an Am redistribution is also tried at halved
+  sizes above the floor before it is redrawn. `fallback_benign` now counts every frame the draw
+  meant to attack that is benign, whether or not an episode record exists for it (an Am episode
+  with no admissible redistribution left no record and was not counted). An Aq episode now draws its direction like the ramp, a load rise or a load
   drop with the same 5% to 20% scale: on a case that runs below its voltage limits (IEEE-57) a
   rise near the low buses has no admissible state and a drop is the attack that fits. Loads above `max_load_mw` (new knob, default 2000 MW) are never targets: the
   IEEE-145 case lumps whole areas into loads of 4 to 58 GW, and a 5% step on one has no local
