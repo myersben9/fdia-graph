@@ -248,11 +248,11 @@ def _ramp_episode(
 ) -> int:
     """One slow-ramp episode on a fixed bus set (rise, hold, return); returns the next free timestep."""
     T = len(ctx.X)
-    for _ in range(_ONSET_DRAWS):  # a design whose peak has no stealthy state on its peak frames is redrawn
+    for _ in range(_ONSET_DRAWS):  # a design whose peak has no stealthy state on a plateau frame is redrawn
         a, direction, rise, hold = _draw_ramp(ctx, rng, ramp_len)
         peak = 1 + direction * ramp_rate * rise
-        frames = [min(u, T - 1) for u in (t + rise, t + rise + hold)]  # the peak's first and last frame
-        if all(is_feasible(ctx.g, ctx.X[u], a, peak, ctx.knobs) for u in frames):
+        plateau = range(min(t + rise, T - 1), min(t + rise + hold, T - 1) + 1)  # every frame at the peak
+        if all(is_feasible(ctx.g, ctx.X[u], a, peak, ctx.knobs) for u in plateau):
             break
     ep = _episode(ctx, buf, RAMP_FAMILY, t)
     for i in range(ramp_len):
@@ -276,12 +276,12 @@ def _draw_ramp(
     return a, direction, rise, hold
 
 
-def _probe_frames(ctx: _FrameContext, t: int, length: int) -> list[int]:
-    """The frames an episode's design is tested on before it is accepted: its first, middle and
-    last, since the operating point drifts along the episode and a design feasible at onset can
-    lose its stealthy state later (the pool is known ahead, so the walker can look)."""
-    last = min(t + length, len(ctx.X)) - 1
-    return sorted({t, (t + last) // 2, last})
+def _probe_frames(ctx: _FrameContext, t: int, length: int) -> range:
+    """The frames an episode's design is tested on before it is accepted: every frame it will
+    occupy, since the operating point drifts along the episode and a design feasible at onset can
+    lose its stealthy state later (the pool is known ahead, so the walker can look). A design that
+    passes cannot fall back to a benign frame."""
+    return range(t, min(t + length, len(ctx.X)))
 
 
 def _draw_single_shot(
@@ -289,7 +289,7 @@ def _draw_single_shot(
 ) -> tuple[np.ndarray, np.ndarray]:
     """The targets and load multipliers of an episode: the targets, the direction (a load rise or
     a load drop, one draw, like the ramp's) and the per-target scale in the band; an Aq design with
-    no stealthy state on the episode's first, middle or last frame is redrawn, up to _ONSET_DRAWS
+    no stealthy state on any frame of the episode is redrawn, up to _ONSET_DRAWS
     (a case that runs below its voltage limits refuses most rises near the low buses, a drop there
     is the attack that fits)."""
     for _ in range(_ONSET_DRAWS):
@@ -386,7 +386,8 @@ def _am_episode(
         delta = red.delta[a] * _am_sign(direction, rng)
         rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
         sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
-        if _am_peak_solves(ctx, min(t + sh.rise, T - 1), a, sh.at(sh.rise) * delta, red.interior):
+        plateau = range(min(t + sh.rise, T - 1), min(t + sh.rise + sh.hold, T - 1) + 1)
+        if all(_am_peak_solves(ctx, u, a, sh.at(sh.rise) * delta, red.interior) for u in plateau):
             break
     else:  # no solvable redistribution at this operating point: the placed frames stay benign
         return _benign_run(ctx, buf, t, min(t + length, T))
