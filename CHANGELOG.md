@@ -36,9 +36,9 @@ the public API, the generated files and the numbers are the same as the previous
   the noise floor, a ramp or Am frame at most six times) so the frame stays attacked at the
   largest step with a solution, an Al frame halves its redistribution and then redraws its line (up to forty),
   and an Aq, At or Am episode tests its design (the full step, the ramp's peak, the held
-  redistribution's peak) on every frame it will occupy (an Aq episode's whole span, the ramp's
-  and Am's peak plateau) and redraws it, up to forty times, when no stealthy state exists on any
-  of them, so an accepted design cannot fall back, and a span with no admissible design stays
+  redistribution's peak) on every frame it will occupy, each with the step that frame will carry
+  (an Aq episode's whole span, every frame of the ramp and of the Am rise, plateau and return),
+  and redraws it, up to forty times, when no stealthy state exists on any of them, so an accepted design cannot fall back, and a span with no admissible design stays
   benign and is counted; an Am redistribution is also tried at halved sizes above the floor
   before it is redrawn. A ramp or Am frame never carries a zero step (the profile's first frame
   and return leg floor at one rate), so every frame labelled attacked carries an attack. `fallback_benign` now counts every frame the draw

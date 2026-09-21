@@ -251,9 +251,13 @@ def _ramp_episode(
     T = len(ctx.X)
     for _ in range(_ONSET_DRAWS):  # a design whose peak has no stealthy state on a plateau frame is redrawn
         a, direction, rise, hold = _draw_ramp(ctx, rng, ramp_len)
-        peak = 1 + direction * ramp_rate * rise
-        plateau = range(min(t + rise, T - 1), min(t + rise + hold, T - 1) + 1)  # every frame at the peak
-        if all(is_feasible(ctx.g, ctx.X[u], a, peak, ctx.knobs) for u in plateau):
+        steps = [
+            (u, 1 + direction * _ramp_dev(i, rise, hold, ramp_rate))
+            for i, u in enumerate(range(t, min(t + ramp_len, T)))
+        ]
+        if all(
+            is_feasible(ctx.g, ctx.X[u], a, mult, ctx.knobs) for u, mult in steps
+        ):  # every frame's own step
             break
     else:  # no admissible ramp at this operating point: the placed frames stay benign, counted
         return _benign_run(ctx, buf, t, min(t + ramp_len, T))
@@ -261,12 +265,16 @@ def _ramp_episode(
     for i in range(ramp_len):
         if t >= T:
             break
-        # never a zero step: the profile's first frame and its return leg floor at one rate, so
-        # every frame labelled At carries an attack
-        dev = max(ramp_rate, ramp_profile(i, rise, hold, ramp_rate, ramp_rate))
+        dev = _ramp_dev(i, rise, hold, ramp_rate)
         ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, a, 1 + direction * dev, ctx.knobs))
         t += 1
     return ep.close(buf, t)
+
+
+def _ramp_dev(i: int, rise: int, hold: int, rate: float) -> float:
+    """The ramp's deviation at step i, never zero: the profile's first frame and its return leg
+    floor at one rate, so every frame labelled At carries an attack."""
+    return max(rate, ramp_profile(i, rise, hold, rate, rate))
 
 
 def _draw_ramp(
@@ -352,6 +360,11 @@ class _AmShape:
     def at(self, i: int) -> float:
         return min(1.0, ramp_profile(i, self.rise, self.hold, self.rate, self.rate))
 
+    def step(self, i: int) -> float:
+        """The fraction applied at frame i, never zero: the first frame and the return leg floor at
+        one rate, so every frame labelled Am carries an attack."""
+        return max(self.rate, self.at(i))
+
 
 def _am_multipliers(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray) -> np.ndarray:
     """The load multipliers that add `delta` (MW, per target) to this frame's true load."""
@@ -372,8 +385,8 @@ def _am_held_delta(
         if np.min(dev) < k.floor:
             return None  # a bus inside the noise floor: not an attack by the band's own rule
         sh = _AmShape.under_floor(float(np.max(dev)), length, am_rate, k.floor)
-        plateau = range(min(t + sh.rise, T - 1), min(t + sh.rise + sh.hold, T - 1) + 1)
-        if all(_am_peak_solves(ctx, u, a, sh.at(sh.rise) * delta, interior) for u in plateau):
+        frames = range(t, min(t + length, T))  # every frame's own fraction of the redistribution
+        if all(_am_peak_solves(ctx, u, a, sh.step(u - t) * delta, interior) for u in frames):
             return delta
         delta = delta / 2
     return None
@@ -423,7 +436,7 @@ def _am_episode(
     for i in range(length):
         if t >= T:
             break
-        mult = _am_multipliers(ctx, t, a, max(sh.rate, sh.at(i)) * delta)  # never a zero step
+        mult = _am_multipliers(ctx, t, a, sh.step(i) * delta)
         ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, a, mult, k, red.interior))
         t += 1
     return ep.close(buf, t)
