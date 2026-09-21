@@ -29,7 +29,7 @@ from .engine.records import FrameKnobs
 from .formulas.temporal import recent_change_scale
 from .models.grid import NODE
 from .registry import CACHE_DIR, register_local
-from .schema import KIND_TIMELINE, Group
+from .schema import KIND_TIMELINE, Attr, Group, Static
 
 # Swing-feature lookback (scans). Tuned: rate-of-change catch-rate plateaus ~60 scans; ramp At stays near
 # the benign floor at every window, so At remains the ML-only family.
@@ -170,51 +170,46 @@ def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Any]:
     "n1_line" = one line out for every record, with the contingency's size (outage_base_flow_mw) so
     a file is self-describing.
     """
-    attrs = dict(
-        system=g.C,
-        N=g.C,
-        E=g.E,
-        n_records=n_records,
-        node_feat="V,P_inj,Q_inj,theta",
-        edge_feat="P_from,Q_from",
-        node_units="V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
-        edge_units="P_from:MW,Q_from:MVAr",
-        baseMVA=float(g.base.sn_mva),
-        lra_target_line=g._Ltgt,
-        seed=seed,
-        topology=("base" if g.contingency.line is None else "n1_line"),
-        outage_line=(-1 if g.contingency.line is None else int(g.contingency.line)),
-        outage_branch_pos=int(g.contingency.pos),
-        outage_line_name=g.contingency.name,
-        outage_from_bus=int(g.contingency.from_bus),
-        outage_to_bus=int(g.contingency.to_bus),
-        outage_base_flow_mw=float(g.contingency.base_flow_mw),
-    )
-    return attrs
-
-
-def _static_physics(g: FdiaGenerator) -> dict[str, np.ndarray]:
-    """The graph/ datasets the writer fills, keyed by their names in `schema.STATIC_PHYSICS`; a
-    name the schema does not list is refused, so the file never carries what the reader cannot."""
-    br = g.branch
-    values = {
-        "edge_r": br.r,
-        "edge_x": br.x,
-        "edge_b": br.b,
-        "edge_g": br.g,
-        "edge_gs": g.edge_gs,
-        "edge_bs": g.edge_bs,
-        "edge_tap": br.tap,
-        "edge_shift": br.shift_deg,
-        "edge_status": br.status,
-        "edge_is_trafo": g.edge_is_trafo,
-        "bus_shunt_g": g.bus_shunt_g,
-        "bus_shunt_b": g.bus_shunt_b,
+    return {
+        Attr.SYSTEM: g.C,
+        Attr.N: g.C,
+        Attr.E: g.E,
+        Attr.N_RECORDS: n_records,
+        Attr.NODE_FEAT: "V,P_inj,Q_inj,theta",
+        Attr.EDGE_FEAT: "P_from,Q_from",
+        Attr.NODE_UNITS: "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
+        Attr.EDGE_UNITS: "P_from:MW,Q_from:MVAr",
+        Attr.BASEMVA: float(g.base.sn_mva),
+        Attr.LRA_TARGET_LINE: g._Ltgt,
+        Attr.SEED: seed,
+        Attr.TOPOLOGY: ("base" if g.contingency.line is None else "n1_line"),
+        Attr.OUTAGE_LINE: (-1 if g.contingency.line is None else int(g.contingency.line)),
+        Attr.OUTAGE_BRANCH_POS: int(g.contingency.pos),
+        Attr.OUTAGE_LINE_NAME: g.contingency.name,
+        Attr.OUTAGE_FROM_BUS: int(g.contingency.from_bus),
+        Attr.OUTAGE_TO_BUS: int(g.contingency.to_bus),
+        Attr.OUTAGE_BASE_FLOW_MW: float(g.contingency.base_flow_mw),
     }
-    unknown = set(values) - set(schema.STATIC_PHYSICS)
-    if unknown:
-        raise RuntimeError(f"static graph datasets not in schema.STATIC_PHYSICS: {sorted(unknown)}")
-    return values
+
+
+def _static_physics(g: FdiaGenerator) -> dict[str, Any]:
+    """The graph/ datasets this writer fills, keyed by the schema's names (`Static`), so a file
+    never carries what the reader's table (`STATIC_PHYSICS`) does not name."""
+    br = g.branch
+    return {
+        Static.EDGE_R: br.r,
+        Static.EDGE_X: br.x,
+        Static.EDGE_B: br.b,
+        Static.EDGE_G: br.g,
+        Static.EDGE_GS: g.edge_gs,
+        Static.EDGE_BS: g.edge_bs,
+        Static.EDGE_TAP: br.tap,
+        Static.EDGE_SHIFT: br.shift_deg,
+        Static.EDGE_STATUS: br.status,
+        Static.EDGE_IS_TRAFO: g.edge_is_trafo,
+        Static.BUS_SHUNT_G: g.bus_shunt_g,
+        Static.BUS_SHUNT_B: g.bus_shunt_b,
+    }
 
 
 def _write_graph(f: Any, g: FdiaGenerator) -> None:
@@ -230,10 +225,10 @@ def _write_graph(f: Any, g: FdiaGenerator) -> None:
         if name in values:
             gg.create_dataset(name, data=values[name])
     gg.attrs.update(
-        dict(
-            edge_feat_static="r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
-            bus_feat_static="shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
-            edge_reactance_deprecated="mixes ohms (lines) with vk_percent (trafos); use edge_x",
-            ybus_reconstructible="yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
-        )
+        {
+            Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
+            Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
+            Attr.EDGE_REACTANCE_DEPRECATED: "mixes ohms (lines) with vk_percent (trafos); use edge_x",
+            Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
+        }
     )

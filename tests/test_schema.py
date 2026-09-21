@@ -69,6 +69,10 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         schema.Attr.FALLBACK_BENIGN,
     ):
         assert key in attrs, key
+    assert set(attrs) <= schema.ATTR_KEYS, sorted(set(attrs) - schema.ATTR_KEYS)  # every key is named
+    with h5py.File(fg.load(timeline).path, "r") as f:
+        assert set(f[schema.Group.GRAPH].attrs) <= schema.ATTR_KEYS
+        assert set(f[schema.Group.ATTACK].attrs) <= schema.ATTR_KEYS
     assert np.array_equal(sorted(schema.SPLIT_CODE.values()), [0, 1, 2])
 
 
@@ -82,6 +86,7 @@ SNIPPET = "\n".join(
         'd = f["data"]',
         'ok = a["clean"]',
         'has = "episodes" in f',
+        'g2 = f.create_group(name="graph")',
         "",
     ]
 )
@@ -99,6 +104,7 @@ def test_no_module_but_schema_spells_a_dataset_path(tmp_path):
         (5, "attack"),
         (6, "data"),
         (8, "episodes"),
+        (9, "graph"),
     ]  # a["clean"] is a record field, not a group, and is not flagged
     schema_copy = tmp_path / "schema.py"
     schema_copy.write_text('x = f["data/node_x"]\n')

@@ -199,8 +199,10 @@ def protocol_literals(path: str) -> list[tuple[str, int, str]]:
 def _group_used_as_group(n: ast.AST) -> Optional[str]:
     """The group name when `n` creates, subscripts or tests membership of a group by literal."""
     if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "create_group":
-        if n.args and isinstance(n.args[0], ast.Constant) and n.args[0].value in _GROUPS:
-            return str(n.args[0].value)
+        args = list(n.args[:1]) + [kw.value for kw in n.keywords if kw.arg == "name"]
+        for arg in args:  # positional or `name=`
+            if isinstance(arg, ast.Constant) and arg.value in _GROUPS:
+                return str(arg.value)
     if isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant):
         if n.slice.value in _GROUPS_NEVER_FIELDS:
             return str(n.slice.value)

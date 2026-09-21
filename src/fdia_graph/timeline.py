@@ -52,6 +52,7 @@ from .generation import (
 )
 from .models.grid import NODE
 from .registry import CACHE_DIR, system_id
+from .schema import Attr
 
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
 DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
@@ -538,12 +539,14 @@ def _timeline_attrs(
     """The attributes every file carries (dims, units, provenance) plus what makes this one a timeline."""
     attrs = _base_attrs(g, T, seed)
     attrs.update(
-        kind=KIND,
-        T=T,
-        families=",".join(f"{k}{v}" for k, v in FAMILIES.items()),
-        attacked_frac=float(buf.attacked / max(1, T)),
-        n_episodes=len(buf.episodes),
-        fallback_benign=int(sum(e["length"] for e in buf.episodes) - int((buf.seq_id >= 0).sum())),
+        {
+            Attr.KIND: KIND,
+            Attr.T: T,
+            Attr.FAMILIES: ",".join(f"{k}{v}" for k, v in FAMILIES.items()),
+            Attr.ATTACKED_FRAC: float(buf.attacked / max(1, T)),
+            Attr.N_EPISODES: len(buf.episodes),
+            Attr.FALLBACK_BENIGN: int(sum(e["length"] for e in buf.episodes) - int((buf.seq_id >= 0).sum())),
+        }
     )
     attrs.update({k: (-1 if v is None else v) for k, v in knobs.items()})
     return attrs
@@ -648,22 +651,22 @@ def generate_timeline(
     am = (am_len, am_rate, am_direction)
     plan = _Schedule.build([FAM_ID[f] for f in families], ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
-    recorded = dict(
-        target_attacked_frac=attacked_frac,
-        attack_intensity=attack_intensity,
-        ramp_rate=ramp_rate,
-        ramp_len=ramp_len,
-        am_len=am[0],
-        am_rate=am_rate,
-        am_direction=am_direction,
-        hops=hops,
-        corrupt_len=corrupt_len,
-        replay_tau=replay_tau,
-        noise_floor=NOISE_FLOOR,
-        vbus_frac=red["vbus_frac"],
-        pmu_frac=red["pmu_frac"],
-        flow_frac=red["flow_frac"],
-    )
+    recorded = {
+        Attr.TARGET_ATTACKED_FRAC: attacked_frac,
+        Attr.ATTACK_INTENSITY: attack_intensity,
+        Attr.RAMP_RATE: ramp_rate,
+        Attr.RAMP_LEN: ramp_len,
+        Attr.AM_LEN: am[0],
+        Attr.AM_RATE: am_rate,
+        Attr.AM_DIRECTION: am_direction,
+        Attr.HOPS: hops,
+        Attr.CORRUPT_LEN: corrupt_len,
+        Attr.REPLAY_TAU: replay_tau,
+        Attr.NOISE_FLOOR: NOISE_FLOOR,
+        Attr.VBUS_FRAC: red["vbus_frac"],
+        Attr.PMU_FRAC: red["pmu_frac"],
+        Attr.FLOW_FRAC: red["flow_frac"],
+    }
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)

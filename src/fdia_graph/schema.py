@@ -52,29 +52,36 @@ MAG = path(Group.ATTACK, "mag")
 # graph/
 EDGE_INDEX = path(Group.GRAPH, "edge_index")
 EDGE_REACTANCE = path(Group.GRAPH, "edge_reactance")  # the pre-0.5 branch feature, kept for old callers
-STATIC_PHYSICS = (  # the per-unit branch physics and per-bus attributes of graph/ (v0.5.0+), optional each
-    "edge_r",
-    "edge_x",
-    "edge_b",
-    "edge_g",
-    "edge_gs",
-    "edge_bs",
-    "edge_tap",
-    "edge_shift",
-    "edge_status",
-    "edge_is_trafo",
-    "bus_shunt_g",
-    "bus_shunt_b",
-    "bus_type",
-    "bus_vmin",
-    "bus_vmax",
-    "bus_base_kv",
-    "bus_is_zero_inj",
-    "bus_has_gen",
-    "bus_base_pd",
-    "bus_base_qd",
-    "bus_attackable",
-)
+
+
+class Static:
+    """The per-unit branch physics and per-bus attributes of graph/ (v0.5.0+), each optional in a
+    file; `STATIC_PHYSICS` is the reader's table of them in order."""
+
+    EDGE_R = "edge_r"
+    EDGE_X = "edge_x"  # the series reactance (`ds.branch_x`), not the flow layer data/edge_x
+    EDGE_B = "edge_b"
+    EDGE_G = "edge_g"
+    EDGE_GS = "edge_gs"
+    EDGE_BS = "edge_bs"
+    EDGE_TAP = "edge_tap"
+    EDGE_SHIFT = "edge_shift"
+    EDGE_STATUS = "edge_status"
+    EDGE_IS_TRAFO = "edge_is_trafo"
+    BUS_SHUNT_G = "bus_shunt_g"
+    BUS_SHUNT_B = "bus_shunt_b"
+    BUS_TYPE = "bus_type"
+    BUS_VMIN = "bus_vmin"
+    BUS_VMAX = "bus_vmax"
+    BUS_BASE_KV = "bus_base_kv"
+    BUS_IS_ZERO_INJ = "bus_is_zero_inj"
+    BUS_HAS_GEN = "bus_has_gen"
+    BUS_BASE_PD = "bus_base_pd"
+    BUS_BASE_QD = "bus_base_qd"
+    BUS_ATTACKABLE = "bus_attackable"
+
+
+STATIC_PHYSICS = tuple(v for k, v in vars(Static).items() if not k.startswith("_"))
 # episodes/: one row per episode
 EPISODE_ONSET, EPISODE_LENGTH, EPISODE_FAMILY = "onset", "length", "family"
 EPISODE_BUS_PTR, EPISODE_BUS_IDX = "bus_ptr", "bus_idx"
@@ -100,21 +107,60 @@ FIELD_PATH = {
 
 
 class Attr:
-    """File attribute keys (the header) and the values the readers test against."""
+    """Every attribute key a writer emits: the header the readers test, the provenance and unit
+    legends, the timeline's own counts, the generation knobs, and the graph/ group's legends."""
 
+    # the header
     KIND = "kind"  # "timeline" marks a timeline; absent on a v0.7.2 shard
     SYSTEM = "system"
     N = "N"
     E = "E"
     T = "T"
+    N_RECORDS = "n_records"
     BASEMVA = "baseMVA"
     SEED = "seed"
+    # legends and provenance
+    NODE_FEAT = "node_feat"
+    EDGE_FEAT = "edge_feat"
+    NODE_UNITS = "node_units"
+    EDGE_UNITS = "edge_units"
+    LRA_TARGET_LINE = "lra_target_line"
+    TOPOLOGY = "topology"
+    OUTAGE_LINE = "outage_line"
+    OUTAGE_BRANCH_POS = "outage_branch_pos"
+    OUTAGE_LINE_NAME = "outage_line_name"
+    OUTAGE_FROM_BUS = "outage_from_bus"
+    OUTAGE_TO_BUS = "outage_to_bus"
+    OUTAGE_BASE_FLOW_MW = "outage_base_flow_mw"
+    # the timeline's own counts
     FAMILIES = "families"
     ATTACKED_FRAC = "attacked_frac"
     N_EPISODES = "n_episodes"
     FALLBACK_BENIGN = "fallback_benign"
+    # the generation knobs a timeline records
+    TARGET_ATTACKED_FRAC = "target_attacked_frac"
+    ATTACK_INTENSITY = "attack_intensity"
+    RAMP_RATE = "ramp_rate"
+    RAMP_LEN = "ramp_len"
+    AM_LEN = "am_len"
+    AM_RATE = "am_rate"
+    AM_DIRECTION = "am_direction"
+    HOPS = "hops"
+    CORRUPT_LEN = "corrupt_len"
+    REPLAY_TAU = "replay_tau"
+    NOISE_FLOOR = "noise_floor"
+    VBUS_FRAC = "vbus_frac"
+    PMU_FRAC = "pmu_frac"
+    FLOW_FRAC = "flow_frac"
+    # on graph/ and attack/
+    EDGE_FEAT_STATIC = "edge_feat_static"
+    BUS_FEAT_STATIC = "bus_feat_static"
+    EDGE_REACTANCE_DEPRECATED = "edge_reactance_deprecated"
+    YBUS_RECONSTRUCTIBLE = "ybus_reconstructible"
     TAMPER = "tamper"  # on attack/: what a 1 in the tamper masks means
 
+
+ATTR_KEYS = frozenset(v for k, v in vars(Attr).items() if not k.startswith("_"))
 
 KIND_TIMELINE = "timeline"
 
