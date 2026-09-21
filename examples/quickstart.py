@@ -3,6 +3,7 @@
 
 Run: python quickstart.py   (downloads the IEEE-14 shard on first use, then caches it)
 """
+
 from __future__ import annotations
 
 import fdia_graph as fg
@@ -10,7 +11,7 @@ import fdia_graph as fg
 # 1) LOAD — auto-downloads the newest release, caches under ~/.cache/fdia_graph.
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test")
-print("what's in it:", train.summary())          # system, N, E, record count, per-family counts
+print("what's in it:", train.summary())  # system, N, E, record count, per-family counts
 
 # 2) TRAIN-READY — a PyTorch DataLoader yielding the measurement graph + per-bus labels.
 loader = train.loader(batch_size=32)
@@ -18,15 +19,15 @@ batch = next(iter(loader))
 print("batch tensors:", {k: tuple(v.shape) for k, v in batch.items() if hasattr(v, "shape")})
 
 # 3) SLICE THE BENCHMARK — family subsets and the unseen-attack generalization protocol.
-stealthy = fg.load("ieee14", split="test", families=["Ao", "ramp", "LRA"])   # the hard, ML-only attacks
+stealthy = fg.load("ieee14", split="test", families=["Ao", "ramp", "LRA"])  # the hard, ML-only attacks
 print("stealthy-only test set:", len(stealthy), "records")
-heldout = fg.load("ieee14", split="train", heldout=True)                     # As/Ar held out of training
+heldout = fg.load("ieee14", split="train", heldout=True)  # As/Ar held out of training
 print("held-out train set:", len(heldout), "records")
 
 # 4) ANY FRAMEWORK — whole split as numpy / torch / pandas (tensorflow via .to_tf()).
-arrays = test.to_numpy()
+arrays = test.export()
 print("numpy node_x:", arrays["node_x"].shape)
-df = test.to_pandas(flatten_features=False)       # one row per record + metadata
+df = test.export(format="pandas", flatten_features=False)  # one row per record + metadata
 print("pandas head:\n", df.head())
 
 # 5) VERSION CONTROL — pin an exact dataset release for reproducibility.

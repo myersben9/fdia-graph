@@ -36,7 +36,7 @@ def test_record_batch_and_export_carry_the_benign_layer(timeline):
     assert list(rec)[-2:] == ["benign", "edge_benign"]
     batch = ds.collate([ds[i] for i in range(3)])
     assert tuple(batch["benign"].shape) == (3, 14, 4) and tuple(batch["edge_benign"].shape) == (3, 20, 2)
-    a = ds.to_numpy()
+    a = ds.export()
     assert a["benign"].shape == (1000, 14, 4) and a["edge_benign"].shape == (1000, 20, 2)
     assert "benign" in ds._default_fields() and torch.equal(rec["benign"], torch.as_tensor(a["benign"][0]))
     # observed == benign on benign frames; the attack is the difference elsewhere
@@ -61,10 +61,10 @@ def test_random_order_is_the_same_frames_permuted_by_the_seed(timeline):
     t0 = [int(r0[i]["timestep"]) for i in range(20)]
     assert t0 == [int(r0b[i]["timestep"]) for i in range(20)] and t0 != list(range(20))
     assert t0 != [int(r1[i]["timestep"]) for i in range(20)]
-    assert sorted(r0.to_numpy(["timestep"])["timestep"].tolist()) == list(range(1000))
+    assert sorted(r0.export(["timestep"])["timestep"].tolist()) == list(range(1000))
     for i in (0, 7, 999):
         assert torch.equal(r0[i]["node_x"], time[int(r0[i]["timestep"])]["node_x"])
-    a = r0.to_numpy(["node_x", "timestep", "clean", "benign"])
+    a = r0.export(["node_x", "timestep", "clean", "benign"])
     assert a["timestep"][:20].tolist() == t0
     for i in (0, 5):
         assert torch.equal(r0[i]["node_x"], torch.as_tensor(a["node_x"][i]))
@@ -81,7 +81,7 @@ def test_windows_on_the_time_ordered_view(timeline):
     Xw, yw = ds.windows(8, stride=4)
     n = (T - 8) // 4 + 1
     assert Xw.shape == (n, 8, 14, 4) and yw.shape == (n, 14)
-    a = ds.to_numpy(["node_x", "y", "benign"])
+    a = ds.export(["node_x", "y", "benign"])
     assert np.array_equal(Xw[1], a["node_x"][4:12]) and np.array_equal(yw[1], a["y"][4:12].max(0))
     Xb, yf = ds.windows(8, stride=4, label="frame", layer="benign")
     assert np.array_equal(Xb[0], a["benign"][:8]) and yf.shape == (n, 8, 14)
@@ -107,8 +107,8 @@ def test_the_v072_record_shard_still_loads():
     assert not ds.is_timeline and not ds.has_benign and ds.has_clean and len(ds) > 0
     assert len(FdiaGraph(SHARD_V072, include_gaps=True)) >= len(ds)
     rec = ds[0]
-    assert "benign" not in rec and "benign" not in ds.to_numpy() and tuple(rec["clean"].shape) == (14, 4)
-    assert set(np.unique(ds.to_numpy(["family"])["family"]).tolist()) <= set(range(7))
+    assert "benign" not in rec and "benign" not in ds.export() and tuple(rec["clean"].shape) == (14, 4)
+    assert set(np.unique(ds.export(["family"])["family"]).tolist()) <= set(range(7))
     train, test = FdiaGraph(SHARD_V072, split="train"), FdiaGraph(SHARD_V072, split="test")
     assert len(train) > len(test) > 0
     with pytest.raises(ValueError, match="timeline file"):
@@ -128,7 +128,7 @@ def test_episodes_table_follows_the_view(timeline):
     ep = ds.episodes
     assert isinstance(ep, EpisodeTable) and len(ep) > 10
     assert len(ep.buses) == len(ep) and all(b.ndim == 1 for b in ep.buses)
-    a = ds.to_numpy(["family", "seq_id", "y"])
+    a = ds.export(["family", "seq_id", "y"])
     for k in range(len(ep)):
         rows = slice(ep.onset[k], ep.onset[k] + ep.length[k])
         assert set(np.unique(a["family"][rows]).tolist()) <= {0, int(ep.family[k])}
@@ -164,21 +164,29 @@ def test_torch_helpers_take_a_dataset(timeline):
     import torch
 
     ds = fg.load(timeline, split="test")
-    (Xtr, ytr), (Xte, yte) = fg.torch_windows(dataset=ds, W=8, stride=4, train_frac=0.5)
+    with pytest.warns(DeprecationWarning, match="torch_windows is deprecated"):
+        (Xtr, ytr), (Xte, yte) = fg.torch_windows(dataset=ds, W=8, stride=4, train_frac=0.5)
     T = len(ds)
     assert Xtr.shape[1:] == (8, 4) and Xtr.shape[0] % 14 == 0 and ytr.shape == (Xtr.shape[0],)
     assert Xtr.shape[0] // 14 + Xte.shape[0] // 14 <= (T - 8) // 4 + 1
-    a = ds.to_numpy(["node_x"])
+    a = ds.export(["node_x"])
     assert torch.equal(Xtr[0], torch.as_tensor(a["node_x"][:8, 0], dtype=torch.float32))
     torch_geometric = pytest.importorskip("torch_geometric")
-    tr, te = fg.pyg_stream(dataset=ds, train_frac=0.5, layer="benign")
+    with pytest.warns(DeprecationWarning, match="pyg_stream is deprecated"):
+        tr, te = fg.pyg_stream(dataset=ds, train_frac=0.5, layer="benign")
     assert len(tr) + len(te) == T and isinstance(tr[0], torch_geometric.data.Data)
     assert tuple(tr[0].edge_phys.shape) == (20, 8) and tuple(tr[0].node_mask.shape) == (14, 4)
     assert torch.equal(tr[0].x, ds[0]["benign"])
-    with pytest.raises(ValueError, match="order='time'"):
+    with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="order='time'"):
         fg.torch_windows(dataset=fg.load(timeline, order="random"), W=8)
-    with pytest.raises(ValueError, match="dataset="):
+    with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="dataset="):
         fg.torch_windows(W=8)
+    # the replacement: per-bus sequences from the view itself, the file's split as the split
+    Xb, yb = ds.windows(8, stride=4, label="last", per_bus=True)
+    assert Xb.shape[1:] == (8, 4) and Xb.shape[0] == ((T - 8) // 4 + 1) * 14 and yb.shape == (Xb.shape[0],)
+    assert np.array_equal(Xb[0], ds.export(["node_x"])["node_x"][:8, 0])
+    Xf, yf = ds.windows(8, stride=4, label="frame", per_bus=True)
+    assert yf.shape == (Xf.shape[0], 8)
 
 
 def test_the_stream_entry_points_warn(timeline):
@@ -196,7 +204,7 @@ def test_estimator_and_localizer_score_a_timeline_with_am(timeline):
     from fdia_graph.se import WLS
 
     train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
-    assert 7 in set(test.to_numpy(["family"])["family"].tolist())
+    assert 7 in set(test.export(["family"])["family"].tolist())
     se = WLS().fit(train).score(test)
     assert se.Am is not None and se["Am"].angle_mae_deg > 0 and list(se)[-1] == "geo"
     loc = SwingThreshold(fa_target=0.01).fit(train).score(test)

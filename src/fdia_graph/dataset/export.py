@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -23,6 +24,9 @@ from .base import (
     _torch,
 )
 
+_FORMATS = ("numpy", "torch", "tf", "pandas")
+_INT_KEYS = frozenset({"family", "stealthy", "seq_id", "timestep", "edge_index"})  # int64 tensors
+
 
 class ExportMixin(DatasetBase):
     def summary(self) -> Summary:
@@ -38,8 +42,8 @@ class ExportMixin(DatasetBase):
         )
 
     # ------------------------------------------------------------------ #
-    #  Whole-split exporters: unlike __getitem__/.loader() (stream one record), these pull the ENTIRE
-    #  filtered split into memory. All share to_numpy() as the single HDF5 read, so views are identical.
+    #  The whole-split export: unlike __getitem__/.loader() (stream one record), it pulls the ENTIRE
+    #  filtered split into memory. Every format shares `_arrays` as the single HDF5 read.
     # ------------------------------------------------------------------ #
     def _checked_fields(self, fields: Optional[Sequence[str]]) -> list[str]:
         """The requested fields, or every field the file carries; an unknown name is an error."""
@@ -52,7 +56,7 @@ class ExportMixin(DatasetBase):
         return list(fields)
 
     def _default_fields(self) -> list[str]:
-        """Every per-record array the file carries, in the order to_numpy returns them."""
+        """Every per-record array the file carries, in the order `export` returns them."""
         return (
             ["node_x", "node_m", "edge_x", "edge_m", "y"]
             + (["temporal_delta"] if self.has_temporal else [])
@@ -77,13 +81,36 @@ class ExportMixin(DatasetBase):
                 out["edge_clean_full"] = ecf[ts]
         return out
 
-    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
-        """Return the whole selected split as a dict of numpy arrays (batched over records).
+    def export(
+        self,
+        fields: Optional[Sequence[str]] = None,
+        format: str = "numpy",
+        device: Optional[Union[str, torch.device]] = None,
+        flatten_features: bool = True,
+    ) -> Union[ArraysBundle, pd.DataFrame]:
+        """The whole selected split in one HDF5 read, as `format` asks: "numpy" (the default) and
+        "torch" return an `ArraysBundle` of arrays or tensors (floats float32, ids int64, tensors on
+        `device` when given), "tf" the same as TensorFlow tensors, "pandas" one row per record
+        (`flatten_features` spreads the per-bus and per-branch readings into columns).
 
-        Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/timestep [n],
-        plus the static graph: edge_index [2,E], edge_reactance [E]. `fields` optionally limits the per-record
-        arrays read (the graph arrays are always included since they're tiny and needed to interpret edges).
+        Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
+        timestep [n], plus the static graph edge_index [2,E] and edge_reactance [E], always included.
+        `fields` limits the per-record arrays read; a pandas frame always carries every field.
         """
+        if format not in _FORMATS:
+            raise ValueError(f"format must be one of {_FORMATS}, got {format!r}")
+        if format == "pandas":
+            return self._as_pandas(self._arrays(None), flatten_features)
+        arrays = self._arrays(fields)
+        if format == "torch":
+            return self._as_torch(arrays, device)
+        if format == "tf":
+            return self._as_tf(arrays)
+        return arrays
+
+    def _arrays(self, fields: Optional[Sequence[str]]) -> ArraysBundle:
+        """The numpy export every format is built from: one bulk read, in the view's order and
+        units, the caller's field order kept."""
         want = self._checked_fields(fields)
         # Static graph arrays always included (tiny, and needed to interpret edges).
         out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
@@ -113,50 +140,33 @@ class ExportMixin(DatasetBase):
                     out[k] = self._to_units(out[k], kind)
         return out
 
-    def to_torch(
-        self, fields: Optional[Sequence[str]] = None, device: Optional[Union[str, torch.device]] = None
-    ) -> ArraysBundle:
-        """Same data as to_numpy(), but as torch tensors (floats stay float32, label ids stay int64).
-        Handy when you want the full split resident as tensors rather than streamed via a DataLoader."""
+    def _as_torch(self, arrays: ArraysBundle, device: Optional[Union[str, torch.device]]) -> ArraysBundle:
+        """The arrays as torch tensors: ids int64, measurements float32, moved to `device` if given."""
         torch = _torch()
-        np_ = self.to_numpy(fields)  # single source-of-truth HDF5 read
-        int_keys = {
-            "family",
-            "stealthy",
-            "seq_id",
-            "timestep",
-            "edge_index",
-        }  # -> int64; measurements -> float32
         out = {}
-        for k, v in np_.items():
+        for k, v in arrays.items():
             t = torch.as_tensor(v)
-            t = t.long() if k in int_keys else t.float()
-            out[k] = t.to(device) if device else t  # optionally move onto the target device
+            t = t.long() if k in _INT_KEYS else t.float()
+            out[k] = t.to(device) if device else t
         return ArraysBundle.ordered(out)
 
-    def to_tf(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
-        """Same data as to_numpy(), but as TensorFlow tensors (requires tensorflow installed).
-        Returns a dict of tf.Tensors; wrap in tf.data.Dataset.from_tensor_slices(...) if you want a pipeline."""
+    def _as_tf(self, arrays: ArraysBundle) -> ArraysBundle:
+        """The arrays as TensorFlow tensors (tensorflow installed); wrap in
+        tf.data.Dataset.from_tensor_slices(...) for a pipeline."""
         try:
             import tensorflow as tf
         except ImportError as e:
-            raise ImportError("TensorFlow is required for to_tf(): pip install tensorflow") from e
-        # Same single to_numpy() read, wrapped as tf.Tensors.
-        return ArraysBundle.ordered({k: tf.convert_to_tensor(v) for k, v in self.to_numpy(fields).items()})
+            raise ImportError("TensorFlow is required for format='tf': pip install tensorflow") from e
+        return ArraysBundle.ordered({k: tf.convert_to_tensor(v) for k, v in arrays.items()})
 
-    def to_pandas(self, flatten_features: bool = True) -> pd.DataFrame:
-        """Return a pandas DataFrame — one row per record — for tabular analysis / filtering.
-
-        Always includes the metadata columns (family name, stealthy flag, seq_id, timestep, and n_attacked
-        buses). Because the measurement graph is 3-D (records × buses × channels), `flatten_features=True`
-        additionally spreads the per-bus/branch measurements into flat columns (V_b{n}, Pinj_b{n}, Pflow_e{n},
-        …) so the whole split is a plain table; set it False for just the metadata (much narrower)."""
+    def _as_pandas(self, a: ArraysBundle, flatten_features: bool) -> pd.DataFrame:
+        """One row per record: the metadata columns (family name, stealthy flag, seq_id, timestep,
+        n_attacked_buses) and, with `flatten_features`, the per-bus and per-branch readings as
+        columns (V_b{n}, Pinj_b{n}, Pflow_e{n}, ...) and the per-bus labels attacked_b{n}."""
         try:
             import pandas as pd
         except ImportError as e:
-            raise ImportError("pandas is required for to_pandas(): pip install pandas") from e
-        a = self.to_numpy()  # same single HDF5 read backing every exporter
-        # Metadata frame, one row per record; n_attacked_buses = row-sum of the [n,N] label matrix.
+            raise ImportError("pandas is required for format='pandas': pip install pandas") from e
         df = pd.DataFrame(
             {
                 "family": [FAMILIES[int(k)] for k in a["family"]],  # readable family name
@@ -167,17 +177,43 @@ class ExportMixin(DatasetBase):
                 "n_attacked_buses": a["y"].sum(axis=1).astype(int),
             }
         )
-        if flatten_features:
-            N, E = self.N, self.E
-            # node_x[:, :, ci] is [n, N] for channel ci -> N columns V_b0.., Pinj_b0.., etc.
-            for ci, nm in enumerate(["V", "Pinj", "Qinj", "theta"]):
-                cols = pd.DataFrame(a["node_x"][:, :, ci], columns=[f"{nm}_b{b}" for b in range(N)])
-                df = pd.concat([df, cols], axis=1)
-            # edge_x[:, :, ci] is [n, E] for channel ci -> E columns Pflow_e0.., Qflow_e0..
-            for ci, nm in enumerate(["Pflow", "Qflow"]):
-                cols = pd.DataFrame(a["edge_x"][:, :, ci], columns=[f"{nm}_e{e}" for e in range(E)])
-                df = pd.concat([df, cols], axis=1)
-            # per-bus binary attack labels -> N columns attacked_b0..attacked_b{N-1}
-            label_cols = pd.DataFrame(a["y"].astype(int), columns=[f"attacked_b{b}" for b in range(N)])
-            df = pd.concat([df, label_cols], axis=1)
-        return df
+        if not flatten_features:
+            return df
+        N, E = self.N, self.E
+        for ci, nm in enumerate(["V", "Pinj", "Qinj", "theta"]):  # node_x[:, :, ci] is [n, N]
+            df = pd.concat(
+                [df, pd.DataFrame(a["node_x"][:, :, ci], columns=[f"{nm}_b{b}" for b in range(N)])], axis=1
+            )
+        for ci, nm in enumerate(["Pflow", "Qflow"]):  # edge_x[:, :, ci] is [n, E]
+            df = pd.concat(
+                [df, pd.DataFrame(a["edge_x"][:, :, ci], columns=[f"{nm}_e{e}" for e in range(E)])], axis=1
+            )
+        labels = pd.DataFrame(a["y"].astype(int), columns=[f"attacked_b{b}" for b in range(N)])
+        return pd.concat([df, labels], axis=1)
+
+    # The four exporters of 0.17 and earlier, one `export(format=...)` since 0.18; retire in 0.19.
+    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
+        _retiring("to_numpy", "export(fields)")
+        return self._arrays(fields)
+
+    def to_torch(
+        self, fields: Optional[Sequence[str]] = None, device: Optional[Union[str, torch.device]] = None
+    ) -> ArraysBundle:
+        _retiring("to_torch", "export(fields, format='torch', device=device)")
+        return self._as_torch(self._arrays(fields), device)
+
+    def to_tf(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
+        _retiring("to_tf", "export(fields, format='tf')")
+        return self._as_tf(self._arrays(fields))
+
+    def to_pandas(self, flatten_features: bool = True) -> pd.DataFrame:
+        _retiring("to_pandas", "export(format='pandas', flatten_features=...)")
+        return self._as_pandas(self._arrays(None), flatten_features)
+
+
+def _retiring(name: str, replacement: str) -> None:
+    warnings.warn(
+        f"{name} is deprecated and retires in 0.19: use ds.{replacement}, the one export of a split",
+        DeprecationWarning,
+        stacklevel=3,
+    )

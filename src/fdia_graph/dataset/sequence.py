@@ -43,23 +43,26 @@ class SequenceMixin(DatasetBase):
             raise ValueError(f"{what} needs consecutive frames; a families= or heldout= view is not")
 
     def windows(
-        self, W: int, stride: int = 1, label: str = "any", layer: str = "node_x"
+        self, W: int, stride: int = 1, label: str = "any", layer: str = "node_x", per_bus: bool = False
     ) -> tuple[np.ndarray, np.ndarray]:
         """Slide a length-W window over this view's frames. Returns (Xw [n, W, N, 4], yw) in self.units.
 
         label: "frame" -> per-frame per-bus labels yw [n, W, N]; "any" -> window-level per-bus label
         yw [n, N] (bus attacked at ANY frame in the window); "last" -> the label at the final frame.
         layer: the measurement layer windowed, "node_x" (observed), "benign" or "clean".
+        per_bus: one sequence per bus instead, Xw [n*N, W, 4] and yw [n*N] (or [n*N, W] per frame),
+        what a per-bus recurrent model consumes; wrap in torch.as_tensor for PyTorch.
         """
         self._check_timeline("windows")
         if layer not in ("node_x", "benign", "clean"):
             raise ValueError(f"layer must be 'node_x', 'benign' or 'clean', got {layer!r}")
         T = len(self.idx)
         check_window_args(T, W, stride, label)
-        a = self.to_numpy([layer, "y"])
+        a = self.export([layer, "y"])
         nx, y = a[layer], a["y"]
         starts = range(0, T - W + 1, stride)
-        return np.stack([nx[s : s + W] for s in starts]), window_labels(y, starts, W, label)
+        Xw, yw = np.stack([nx[s : s + W] for s in starts]), window_labels(y, starts, W, label)
+        return per_bus_sequences(Xw, yw, label) if per_bus else (Xw, yw)
 
     @property
     def episodes(self) -> EpisodeTable:
@@ -75,6 +78,15 @@ class SequenceMixin(DatasetBase):
             family=e.family[keep],
             buses=[b for b, k in zip(e.buses, keep) if k],
         )
+
+
+def per_bus_sequences(Xw: np.ndarray, yw: np.ndarray, label: str) -> tuple[np.ndarray, np.ndarray]:
+    """Whole-grid windows [n, W, N, C] as one sequence per bus [n*N, W, C]; per-frame labels keep
+    the window axis ([n*N, W]), window labels flatten to [n*N]."""
+    n, W, N, C = Xw.shape
+    X = Xw.transpose(0, 2, 1, 3).reshape(n * N, W, C)
+    y = yw.transpose(0, 2, 1).reshape(n * N, W) if label == "frame" else yw.reshape(n * N)
+    return X, y
 
 
 def read_episodes(f, has_group: bool) -> Optional[EpisodeTable]:

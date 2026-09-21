@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- One export of a split: `ds.export(fields, format="numpy" | "torch" | "tf" | "pandas", device,
+  flatten_features)` replaces `to_numpy`, `to_torch`, `to_tf` and `to_pandas`, which still answer
+  with a deprecation notice until 0.19. `ds.windows(..., per_bus=True)` returns one sequence per
+  bus (`[n*N, W, 4]`), what `torch_windows` built, and `fg.load(name, split, order="time",
+  format="pyg")` gives the graphs `pyg_stream` built with the file's chronological split, so both
+  torch helpers are deprecated (retire in 0.19). Eight ways to read a view become three: `export`,
+  `ds[i]` and `ds.windows`. No number changes.
 - A stealthy frame (Aq, At, Al, Am) is the true scan plus the attack vector a = h(x_false) - h(x_true)
   of its local false state: every meter keeps its own noise draw and the tampered meters are
   shifted by exactly what the false state moves them, so `observed - benign` is the attack for

@@ -249,7 +249,10 @@ research target, not a given.
 import torch, torch.nn as nn, torch.nn.functional as F
 import fdia_graph as fg
 
-(Xtr, ytr), (Xva, yva), (Xte, yte) = fg.torch_windows("ieee118", W=16, stride=8, val_frac=0.1)
+def seqs(split):  # one sequence per bus from the file's chronological split, as tensors
+    X, y = fg.load("ieee118", split=split, order="time").windows(W=16, stride=8, label="last", per_bus=True)
+    return torch.as_tensor(X), torch.as_tensor(y, dtype=torch.float32)
+(Xtr, ytr), (Xva, yva), (Xte, yte) = seqs("train"), seqs("val"), seqs("test")
 mu = Xtr.mean((0, 1)); sd = Xtr.std((0, 1)) + 1e-9
 def feats(X):     # measurements (train-normalized) + per-window z-score (the temporal spike feature)
     return torch.cat([(X - mu) / sd, (X - X.mean(1, keepdim=True)) / (X.std(1, keepdim=True) + 1e-6)], -1)

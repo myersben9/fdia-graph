@@ -196,12 +196,12 @@ class JacobianWeighting(SEBase):
         from .jacobian import JacobianFeatures
 
         jf = JacobianFeatures(estimator=self).fit(ds)
-        d = ds.to_numpy(["node_x", "edge_x", "timestep"])
+        d = ds.export(["node_x", "edge_x", "timestep"])
         u = np.abs(jf.transform(d)["r_perp"]) * np.sqrt(self.Wk)[None, :]
         return self.Wk[None, :] * huber_weights(u, self.c)
 
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
-        d = ds.to_numpy(["node_x", "edge_x", "clean"])
+        d = ds.export(["node_x", "edge_x", "clean"])
         tr = self._truth_of(d["clean"])
         z = self._z_of(d["node_x"], d["edge_x"])
         w = self.weights(ds)
@@ -244,13 +244,13 @@ class GatedPrior(SubspacePrior):
         if isinstance(self.gate, str):
             if self.gate != "oracle":
                 raise ValueError(f"gate must be a fitted localizer or 'oracle', got {self.gate!r}")
-            flags = ds.to_numpy(["y"])["y"].astype(bool)  # the ceiling: true labels
+            flags = ds.export(["y"])["y"].astype(bool)  # the ceiling: true labels
         else:
             flags = np.asarray(self.gate.localize(ds), bool)
         return gate_weights(self.Wk, flags, bus_incidence(self, ds.edge_index_np), self.gate_factor)
 
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
-        d = ds.to_numpy(["node_x", "edge_x", "clean"])
+        d = ds.export(["node_x", "edge_x", "clean"])
         tr = self._truth_of(d["clean"])
         z = self._z_of(d["node_x"], d["edge_x"])
         w = self.gated_weights(ds)

@@ -260,7 +260,7 @@ def test_loader_columns_agree_with_the_definition(splits):
     from fdia_graph.models import NodeColumns
 
     ds = splits["test"]
-    cols = NodeColumns.of(ds.to_numpy(["clean"]).clean)
+    cols = NodeColumns.of(ds.export(["clean"]).clean)
     assert 0.8 < cols.v.mean() < 1.2
     assert np.allclose(
         cols.theta[:, ds.slack], 0.0, atol=1e-6

@@ -84,7 +84,7 @@ def test_estimator_measurement_function_is_the_kernel(splits):
     from fdia_graph.se import WLS
 
     est = WLS().fit(splits["train"])
-    d = splits["test"].to_numpy(["clean"])
+    d = splits["test"].export(["clean"])
     tr = est._truth_of(d["clean"][:8])
     h_np = est._h(tr["x"], tr["thsl"])  # [n, m] masked measurements in pu and rad
     with torch.no_grad():
@@ -117,7 +117,7 @@ def test_closed_form_jacobian_matches_autograd(splits):
 
     est = WLS().fit(splits["train"])
     x0 = torch.tensor(est.xmean, dtype=torch.float64)[None]
-    thsl = est._truth_of(splits["train"].to_numpy(["clean"])["clean"][:1])["thsl"]
+    thsl = est._truth_of(splits["train"].export(["clean"])["clean"][:1])["thsl"]
     t0 = torch.tensor([float(thsl[0])], dtype=torch.float64)
 
     def h1(xi, ti):
