@@ -37,6 +37,21 @@ class Frame(NamedTuple):
     tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
 
 
+class OperatingLimits(NamedTuple):
+    """The security and operational constraints a false state must satisfy [WU26, eqs. 21-23]:
+    every bus voltage magnitude within the case's limits (a bus the true state already holds
+    outside a limit may not be made worse) and every generator's implied output within its P and
+    Q limits widened to the range the benign pool ran it over (the slack, whose output is the
+    balance, and buses without a generator are unbounded)."""
+
+    v_lo: np.ndarray  # [N] lowest voltage magnitude a false state may show at each bus, pu
+    v_hi: np.ndarray  # [N] highest, pu
+    p_lo: np.ndarray  # [N] lowest generator active output per bus, MW (-inf without a generator)
+    p_hi: np.ndarray  # [N] highest, MW (+inf without a generator)
+    q_lo: np.ndarray  # [N] lowest generator reactive output per bus, MVAr
+    q_hi: np.ndarray  # [N] highest, MVAr
+
+
 class FrameKnobs(NamedTuple):
     """The attack settings of one generation run, fixed for every scan."""
 
@@ -49,6 +64,7 @@ class FrameKnobs(NamedTuple):
     # the stealthy families are local false states [WU26]: the attacker solves the subnetwork within
     # `hops` branches of the attacked buses (or the target line) with the boundary voltages held true
     hops: int = 2
+    limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected (then halved)
 
 
 class Redistribution(NamedTuple):

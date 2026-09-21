@@ -226,47 +226,87 @@ def subnetwork(
     return np.array(sorted(interior), int), np.array(sorted(boundary), int)
 
 
+def _local_mismatch(
+    Yb: np.ndarray, V: np.ndarray, I_: np.ndarray, S_target: np.ndarray
+) -> tuple[np.ndarray, float]:
+    """The interior injection mismatch [Re; Im] of S_target - S(V) and its largest entry."""
+    mis = S_target - (V * np.conj(Yb @ V))[I_]
+    f = np.concatenate([np.real(mis), np.imag(mis)])
+    return f, float(np.max(np.abs(f)))
+
+
+def _backtrack(
+    Yb: np.ndarray, V: np.ndarray, I_: np.ndarray, S_target: np.ndarray, step: np.ndarray, norm: float
+) -> Optional[np.ndarray]:
+    """The Newton step, halved until it lowers the mismatch and keeps every magnitude positive;
+    the full step is tried first, so an iteration the plain method accepts is unchanged. None when
+    no fraction of the step helps (the target has no solution near this state)."""
+    k = len(I_)
+    vm0, va0 = np.abs(V[I_]), np.angle(V[I_])
+    for _ in range(_BACKTRACK_HALVINGS):
+        vm, va = vm0 + step[k:], va0 + step[:k]
+        if np.all(vm > 0):
+            Vtry = V.copy()
+            Vtry[I_] = vm * np.exp(1j * va)
+            if _local_mismatch(Yb, Vtry, I_, S_target)[1] < norm:
+                return Vtry
+        step = step / 2
+    return None
+
+
+_BACKTRACK_HALVINGS = 8  # step fractions tried per Newton iteration: 1, 1/2, ... 1/128
+
+
+def _interior_jacobian(Yb: np.ndarray, V: np.ndarray, I_: np.ndarray) -> np.ndarray:
+    """The [2k, 2k] Jacobian of the interior injections in [θ_I, |V|_I]: the entries of the full
+    ac_jacobian derivatives at (i, j) in the interior depend only on Y_ij, V_i, V_j and the current
+    into i, so the block is built from Y_II directly instead of the n x n matrices sliced."""
+    Y_II = Yb[np.ix_(I_, I_)]
+    V_I = V[I_]
+    I_I = (Yb @ V)[I_]
+    Vn_I = V_I / np.abs(V_I)
+    A = 1j * (V_I[:, None] * np.conj(np.diag(I_I) - Y_II * V_I[None, :]))
+    B = V_I[:, None] * np.conj(Y_II * Vn_I[None, :]) + np.conj(I_I)[:, None] * np.diag(Vn_I)
+    return np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+
+
 def local_ac_solve(
-    Ybus: Any, V: np.ndarray, interior: np.ndarray, S_target: np.ndarray, iters: int = 30, tol: float = 1e-9
+    Ybus: Any, V: np.ndarray, interior: np.ndarray, S_target: np.ndarray, iters: int = 50, tol: float = 1e-9
 ) -> Optional[np.ndarray]:
     """The false state of a local attacker [WU26]: the interior bus voltages that give the target
     injections there, with every other bus voltage held at its true value.
 
         S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i   for i in the interior, V_j fixed elsewhere
 
-    solved by Newton on [θ_I, |V|_I] with the closed-form injection derivatives of `ac_jacobian`.
-    Meters that depend only on the fixed voltages keep their true value, so the attack touches
-    exactly the interior's and the boundary's meters and is consistent with a full AC state.
+    solved by Newton on [θ_I, |V|_I] with the closed-form injection derivatives of `ac_jacobian`,
+    each step backtracked (halved) until the mismatch drops [AE04, ch. 2], since a load step of
+    gigawatts inside a fixed-boundary region (IEEE-145) throws the plain step past a solution the
+    damped one still reaches. Meters that depend only on the fixed voltages keep their true value,
+    so the attack touches exactly the interior's and the boundary's meters and is consistent with
+    a full AC state.
 
     Ybus     : [n, n] nodal admittance (dense or scipy sparse), per unit
     V        : [n] true complex bus voltages
     interior : the buses whose voltages may change
     S_target : [len(interior)] target complex injections at those buses, per unit, generation positive
-    returns  : [n] the false voltages, or None when Newton does not converge in `iters` steps
+    returns  : [n] the false voltages, or None when no step lowers the mismatch or `iters` run out
     """
     Yb = np.asarray(Ybus.todense() if hasattr(Ybus, "todense") else Ybus)
     V = np.array(V, np.complex128, copy=True)
     I_ = np.asarray(interior, int)
     for _ in range(iters):
-        Icur = Yb @ V
-        S = V * np.conj(Icur)
-        mis = S_target - S[I_]
-        f = np.concatenate([np.real(mis), np.imag(mis)])
-        if np.max(np.abs(f)) < tol:
+        f, norm = _local_mismatch(Yb, V, I_, S_target)
+        if norm < tol:
             return V
-        Vnorm = V / np.abs(V)
-        dS_dVa = 1j * (V[:, None] * np.conj(np.diag(Icur) - Yb * V[None, :]))
-        dS_dVm = V[:, None] * np.conj(Yb * Vnorm[None, :]) + np.conj(Icur)[:, None] * np.diag(Vnorm)
-        A = dS_dVa[np.ix_(I_, I_)]
-        B = dS_dVm[np.ix_(I_, I_)]
-        J = np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+        J = _interior_jacobian(Yb, V, I_)
         try:
             step = np.linalg.solve(J, f)
         except np.linalg.LinAlgError:
             return None
-        k = len(I_)
-        vm, va = np.abs(V[I_]) + step[k:], np.angle(V[I_]) + step[:k]
-        if np.any(vm <= 0) or not np.all(np.isfinite(step)):
+        if not np.all(np.isfinite(step)):
             return None
-        V[I_] = vm * np.exp(1j * va)
+        Vnext = _backtrack(Yb, V, I_, S_target, step, norm)
+        if Vnext is None:
+            return None
+        V = Vnext
     return None

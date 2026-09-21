@@ -23,6 +23,43 @@ the public API, the generated files and the numbers are the same as the previous
   format="pyg")` gives the graphs `pyg_stream` built with the file's chronological split, so both
   torch helpers are deprecated (retire in 0.19). Eight ways to read a view become three: `export`,
   `ds[i]` and `ds.windows`. No number changes.
+- Four findings of a full-branch review: a load on the slack bus is never a target (the slack
+  never enters a region, so IEEE-57 frames that scaled its 55 MW load were labelled attacked with
+  no attack in the state); the tamper masks are the meters whose stored float32 reading changed
+  (the attack vector's 1e-7 tolerance marked 1.8% of entries that the reading could not show); a
+  branch out of service is not a hop of the attacker's region on N-1 generators; and the local
+  solve builds its interior Jacobian block directly instead of slicing the n x n derivatives,
+  about half the cost of a stealthy frame on IEEE-300, with identical states.
+- The local power flow of a stealthy frame is a damped Newton: each step is halved until the
+  mismatch drops, the full step first, so every frame the plain method solved is bit-identical. A
+  step the region still cannot absorb is halved (an Aq step at most three times and never under
+  the noise floor, a ramp or Am frame at most six times) so the frame stays attacked at the
+  largest step with a solution, an Al frame halves its redistribution and then redraws its line (up to forty),
+  and an Aq, At or Am episode tests its design (the full step, the ramp's peak, the held
+  redistribution's peak) on every frame it will occupy, each with the step that frame will carry
+  (an Aq episode's whole span, every frame of the ramp and of the Am rise, plateau and return),
+  and redraws it, up to forty times, when no stealthy state exists on any of them, so an accepted design cannot fall back, and a span with no admissible design stays
+  benign and is counted; an Am redistribution is also tried at halved sizes above the floor
+  before it is redrawn. A ramp or Am frame never carries a zero step (the profile's first frame
+  and return leg floor at one rate), so every frame labelled attacked carries an attack. `fallback_benign` now counts every frame the draw
+  meant to attack that is benign, whether or not an episode record exists for it (an Am episode
+  with no admissible redistribution left no record and was not counted). An Aq episode now draws its direction like the ramp, a load rise or a load
+  drop with the same 5% to 20% scale: on a case that runs below its voltage limits (IEEE-57) a
+  rise near the low buses has no admissible state and a drop is the attack that fits. Loads above `max_load_mw` (new knob, default 2000 MW) are never targets: the
+  IEEE-145 case lumps whole areas into loads of 4 to 58 GW, and a 5% step on one has no local
+  solution, which left 30% of that system's attack frames benign; no other ladder system has a
+  load above 1.1 GW, so their files do not change. `fallback_benign` is zero on every released file but IEEE-145, where two episodes of the
+  gigawatt-scale case have no admissible design at any of forty draws and 121 of its 36,000 attack
+  frames stay benign, counted in the file. Every false state also satisfies the security and operational constraints of Wu et al.
+  2026 (`OperatingLimits`, their equations 21 to 23): each bus voltage within the case's own
+  limits (a bus the true state already holds outside a limit may not be made worse, IEEE-57 runs
+  below its own minimum) and, for the generators of the attacked subnetwork as in the paper (a
+  boundary bus is outside it, its voltage held true and its injection whatever balances the
+  region), the implied output within its P and Q limits widened per bus to the range the benign
+  pool ran it over (the pools scale generation with load and never enforced nameplate), the true
+  output recovered exactly from the pool's common load and generation scale, and the pretended
+  load change at a target bus not counted against its generator; a false state outside them is rejected and its step halved
+  like an unsolvable one. The file records the widest bus limits as `v_lo` and `v_hi`.
 - A stealthy frame (Aq, At, Al, Am) is the true scan plus the attack vector a = h(x_false) - h(x_true)
   of its local false state: every meter keeps its own noise draw and the tampered meters are
   shifted by exactly what the false state moves them, so `observed - benign` is the attack for
