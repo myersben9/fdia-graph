@@ -213,9 +213,7 @@ def test_stealthy_families_pass_the_residual_test(timeline):
 
     train, test = FdiaGraph(timeline, split="train"), FdiaGraph(timeline, split="test", order="time")
     est = WLS().fit(train)
-    d = test.export(["node_x", "edge_x", "clean", "family"])
-    z = est._z_of(d["node_x"], d["edge_x"])
-    d = test.to_numpy(["node_x", "edge_x", "clean", "family", "benign", "edge_benign"])
+    d = test.export(["node_x", "edge_x", "clean", "family", "benign", "edge_benign"])
     thsl = est._truth_of(d["clean"])["thsl"]
 
     def alarm(nx, ex):
