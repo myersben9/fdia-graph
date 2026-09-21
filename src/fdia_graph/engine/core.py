@@ -15,6 +15,7 @@ FdiaGenerator is split by concern across three mixins: state setup lives here (_
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -220,6 +221,12 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self._meter_bias()
         # Buffer of recent benign records: replay attacks (Ar) copy an earlier clean snapshot from here.
         self.benign_buf = []
+
+    @property
+    def nl(self) -> int:
+        """The line count under its 0.17 name; retires in 0.19, use `n_lines`."""
+        warnings.warn("nl is deprecated and retires in 0.19: use n_lines", DeprecationWarning, stacklevel=2)
+        return self.n_lines
 
     def _open_case(self, outage: Optional[Union[int, str]]) -> Any:
         """The pandapower case with the contingency applied and its base power flow solved; sets
