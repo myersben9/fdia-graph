@@ -48,8 +48,9 @@ the public API, the generated files and the numbers are the same as the previous
   rise near the low buses has no admissible state and a drop is the attack that fits. Loads above `max_load_mw` (new knob, default 2000 MW) are never targets: the
   IEEE-145 case lumps whole areas into loads of 4 to 58 GW, and a 5% step on one has no local
   solution, which left 30% of that system's attack frames benign; no other ladder system has a
-  load above 1.1 GW, so their files do not change. `fallback_benign` is zero on every released
-  file. Every false state also satisfies the security and operational constraints of Wu et al.
+  load above 1.1 GW, so their files do not change. `fallback_benign` is zero on every released file but IEEE-145, where two episodes of the
+  gigawatt-scale case have no admissible design at any of forty draws and 121 of its 36,000 attack
+  frames stay benign, counted in the file. Every false state also satisfies the security and operational constraints of Wu et al.
   2026 (`OperatingLimits`, their equations 21 to 23): each bus voltage within the case's own
   limits (a bus the true state already holds outside a limit may not be made worse, IEEE-57 runs
   below its own minimum) and, for the generators of the attacked subnetwork as in the paper (a
