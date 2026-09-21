@@ -35,6 +35,7 @@ from typing import Any, Optional, Union
 import h5py
 import numpy as np
 
+from . import schema
 from .dataset.base import FAMILIES, STEALTHY_FAMILIES
 from .engine import FAM_ID, FdiaGenerator
 from .engine.records import AM_FAMILY, CORRUPT_KIND, RAMP_FAMILY, Frame, FrameKnobs, attack_frame
@@ -52,7 +53,7 @@ from .generation import (
 from .models.grid import NODE
 from .registry import CACHE_DIR, system_id
 
-KIND = "timeline"  # the file attribute that tells a timeline from a shard
+KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
 DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 
 # Per-family episode-length band (frames): Aq, Ad, As, Ar, Al (the upper end excluded).
@@ -62,17 +63,17 @@ _AM_DRAWS = 10  # redistribution draws an Am episode gets at its onset before it
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
 _LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
-    "data/node_x": (lambda C, E: (C, 4), np.float32),
-    "data/edge_x": (lambda C, E: (E, 2), np.float32),
-    "data/y": (lambda C, E: (C,), np.uint8),
-    "data/temporal_delta": (lambda C, E: (C, 2), np.float32),
-    "data/swing": (lambda C, E: (C, 2), np.float32),
-    "benign/node_benign": (lambda C, E: (C, 4), np.float32),
-    "benign/edge_benign": (lambda C, E: (E, 2), np.float32),
-    "clean/node_clean": (lambda C, E: (C, 4), np.float32),
-    "clean/edge_clean": (lambda C, E: (E, 2), np.float32),
-    "attack/node_tamper": (lambda C, E: (C, 4), np.uint8),
-    "attack/edge_tamper": (lambda C, E: (E, 2), np.uint8),
+    schema.NODE_X: (lambda C, E: (C, 4), np.float32),
+    schema.EDGE_X: (lambda C, E: (E, 2), np.float32),
+    schema.Y: (lambda C, E: (C,), np.uint8),
+    schema.TEMPORAL_DELTA: (lambda C, E: (C, 2), np.float32),
+    schema.SWING: (lambda C, E: (C, 2), np.float32),
+    schema.NODE_BENIGN: (lambda C, E: (C, 4), np.float32),
+    schema.EDGE_BENIGN: (lambda C, E: (E, 2), np.float32),
+    schema.NODE_CLEAN: (lambda C, E: (C, 4), np.float32),
+    schema.EDGE_CLEAN: (lambda C, E: (E, 2), np.float32),
+    schema.NODE_TAMPER: (lambda C, E: (C, 4), np.uint8),
+    schema.EDGE_TAMPER: (lambda C, E: (E, 2), np.uint8),
 }
 CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
 
@@ -129,12 +130,12 @@ class _TimelineBuffers:
         L = self._layers
         bnx = frame.node_x if frame.benign_node_x is None else frame.benign_node_x
         bex = frame.edge_x if frame.benign_edge_x is None else frame.benign_edge_x
-        L["data/node_x"][r] = frame.node_x
-        L["benign/node_benign"][r] = bnx
-        L["data/y"][r] = frame.y
-        L["data/edge_x"][r] = frame.edge_x
-        L["benign/edge_benign"][r] = bex
-        L["clean/node_clean"][r], L["clean/edge_clean"][r] = self._clean_batch[0][r], self._clean_batch[1][r]
+        L[schema.NODE_X][r] = frame.node_x
+        L[schema.NODE_BENIGN][r] = bnx
+        L[schema.Y][r] = frame.y
+        L[schema.EDGE_X][r] = frame.edge_x
+        L[schema.EDGE_BENIGN][r] = bex
+        L[schema.NODE_CLEAN][r], L[schema.EDGE_CLEAN][r] = self._clean_batch[0][r], self._clean_batch[1][r]
         self.family[t] = fid
         self.seq_id[t] = sid if fid else -1
         self.attacked += int(frame.y.any())
@@ -145,8 +146,8 @@ class _TimelineBuffers:
         # shard uses; computed at every bus (an unmetered bus reads 0 - 0).
         nx = frame.node_x
         prev = self._prev_nx if self._prev_nx is not None else nx
-        L["data/temporal_delta"][r] = temporal_delta(nx, prev, self._all_buses)
-        L["data/swing"][r] = swing_zscore(nx, prev, self._scale[t], self._all_buses)
+        L[schema.TEMPORAL_DELTA][r] = temporal_delta(nx, prev, self._all_buses)
+        L[schema.SWING][r] = swing_zscore(nx, prev, self._scale[t], self._all_buses)
         self._prev_nx = nx
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
@@ -154,8 +155,8 @@ class _TimelineBuffers:
         (zeroed on a benign frame: the staged batch rows are reused between flushes)."""
         r = t - self._base
         if fid == 0:
-            self._layers["attack/node_tamper"][r] = 0
-            self._layers["attack/edge_tamper"][r] = 0
+            self._layers[schema.NODE_TAMPER][r] = 0
+            self._layers[schema.EDGE_TAMPER][r] = 0
             return
         self.mag_bus[t] = np.asarray(frame.mag_bus, np.int32)
         self.mag[t] = np.asarray(frame.mag, np.float32)
@@ -163,8 +164,8 @@ class _TimelineBuffers:
             node, edge = frame.tamper
         else:  # in-place corruption: exactly the meters that changed
             node, edge = frame.node_x != bnx, frame.edge_x != bex
-        self._layers["attack/node_tamper"][r] = node
-        self._layers["attack/edge_tamper"][r] = edge
+        self._layers[schema.NODE_TAMPER][r] = node
+        self._layers[schema.EDGE_TAMPER][r] = edge
 
     def flush(self) -> None:
         """Write the staged frames to the sink and stage the next batch."""
@@ -498,7 +499,7 @@ def _write_masks(f: h5py.File, buf: _TimelineBuffers, T: int) -> None:
     """data/node_m and data/edge_m per frame (the static plan repeated, written in bounded slabs
     so a future N-1 series can switch topology mid-file without a layout change)."""
     assert buf.node_m is not None and buf.edge_m is not None
-    for name, m in (("data/node_m", buf.node_m), ("data/edge_m", buf.edge_m)):
+    for name, m in ((schema.NODE_M, buf.node_m), (schema.EDGE_M, buf.edge_m)):
         ds = f.create_dataset(
             name,
             shape=(T, *m.shape),
@@ -512,21 +513,20 @@ def _write_masks(f: h5py.File, buf: _TimelineBuffers, T: int) -> None:
 
 def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     """episodes/ (one row per episode, buses ragged) and the ragged magnitudes of attack/."""
-    eg = f.create_group("episodes")
+    eg = f.create_group(schema.Group.EPISODES)
     ep = buf.episodes
-    eg.create_dataset("onset", data=np.array([e["onset"] for e in ep], np.int32))
-    eg.create_dataset("length", data=np.array([e["length"] for e in ep], np.int32))
-    eg.create_dataset("family", data=np.array([e["family"] for e in ep], np.int8))
+    eg.create_dataset(schema.EPISODE_ONSET, data=np.array([e["onset"] for e in ep], np.int32))
+    eg.create_dataset(schema.EPISODE_LENGTH, data=np.array([e["length"] for e in ep], np.int32))
+    eg.create_dataset(schema.EPISODE_FAMILY, data=np.array([e["family"] for e in ep], np.int8))
     ptr, idx = _ragged([np.asarray(e["buses"]) for e in ep], np.int32)
-    eg.create_dataset("bus_ptr", data=ptr)
-    eg.create_dataset("bus_idx", data=idx)
-    ag = f["attack"]
+    eg.create_dataset(schema.EPISODE_BUS_PTR, data=ptr)
+    eg.create_dataset(schema.EPISODE_BUS_IDX, data=idx)
     ptr, bus = _ragged(buf.mag_bus, np.int32)
     _, mag = _ragged(buf.mag, np.float32)
-    ag.create_dataset("mag_ptr", data=ptr)
-    ag.create_dataset("mag_bus", data=bus)
-    ag.create_dataset("mag", data=mag)
-    ag.attrs["tamper"] = (
+    f.create_dataset(schema.MAG_PTR, data=ptr)
+    f.create_dataset(schema.MAG_BUS, data=bus)
+    f.create_dataset(schema.MAG, data=mag)
+    f[schema.Group.ATTACK].attrs[schema.Attr.TAMPER] = (
         "1 where the attacker wrote the meter: the meters the local false state moves for the "
         "stealthy families, the changed channels for Ad/As/Ar"
     )

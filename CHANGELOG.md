@@ -10,6 +10,12 @@ the public API, the generated files and the numbers are the same as the previous
   merge; `.coderabbit.yaml` carries the repository's review instructions (the physics conventions,
   the readability limits, the prose rules); CONTRIBUTING lists the three reviewers and their order,
   with the Claude Code `/code-review ultra` pass first. No package change.
+- `fdia_graph.schema` is the file protocol: every group, dataset and attribute name of an HDF5
+  file, the record-field to path map, the family table and the split codes, defined once; the
+  writer, the readers and the tools spell paths through it, and `tools/readability.py` (the CI
+  gate) refuses a path-shaped literal ("data/...", "graph/...") in any other module.
+  `dataset.base.FAMILIES`, `STEALTHY_FAMILIES` and `timeline.KIND` stay importable. No file or
+  number changes.
 - One export of a split: `ds.export(fields, format="numpy" | "torch" | "tf" | "pandas", device,
   flatten_features)` replaces `to_numpy`, `to_torch`, `to_tf` and `to_pandas`, which still answer
   with a deprecation notice until 0.19. `ds.windows(..., per_bus=True)` returns one sequence per

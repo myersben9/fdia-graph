@@ -1,4 +1,7 @@
-"""Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1.
+"""Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1,
+and the file-protocol rule: a path-shaped string literal ("data/...", "graph/...", any group of
+`schema.Group`) may appear only in src/fdia_graph/schema.py; every other module spells the path
+through `schema`.
 
     python tools/readability.py --report                 # every function outside a limit, whole package
     python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass
@@ -26,6 +29,8 @@ from typing import Optional
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "fdia_graph")
 
 LIMITS = {"complexity": 10, "nesting": 3, "captures": 0, "params": 7, "positional": 0}
+_GROUPS = ("data", "benign", "clean", "graph", "episodes", "attack")  # schema.Group, kept in step by a test
+_SCHEMA = "schema.py"  # the one module allowed to spell a dataset path
 
 # "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
 EXCEPTIONS: dict[str, str] = {}
@@ -160,6 +165,39 @@ def _measure_function(rel: str, qualname: str, node: ast.AST, cc: dict[tuple[str
     )
 
 
+def protocol_literals(path: str) -> list[tuple[str, int, str]]:
+    """Path-shaped string literals ("<group>/..." or a lone group name used as a path prefix in an
+    f-string) outside the schema module: (file, line, literal). Docstrings are not literals."""
+    rel = os.path.relpath(path, ROOT)
+    if os.path.basename(path) == _SCHEMA:
+        return []
+    tree = ast.parse(open(path, encoding="utf8").read())
+    docs = {
+        id(n.body[0].value)
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.Module, ast.ClassDef, *_FUNC))
+        and n.body
+        and isinstance(n.body[0], ast.Expr)
+        and isinstance(n.body[0].value, ast.Constant)
+    }
+    out = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
+            head = n.value.split("/", 1)[0]
+            if "/" in n.value and head in _GROUPS:
+                out.append((rel, n.lineno, n.value))
+    return out
+
+
+def protocol_literals_all() -> list[tuple[str, int, str]]:
+    out: list[tuple[str, int, str]] = []
+    for dp, _, fs in os.walk(ROOT):
+        for f in sorted(fs):
+            if f.endswith(".py"):
+                out += protocol_literals(os.path.join(dp, f))
+    return out
+
+
 def measure_file(path: str) -> list[Measure]:
     rel = os.path.relpath(path, ROOT)
     tree = ast.parse(open(path, encoding="utf8").read())
@@ -185,6 +223,10 @@ def report(ms: list[Measure]) -> int:
     for m in sorted(bad, key=lambda m: (m.file, m.line)):
         mark = "  [excepted: " + EXCEPTIONS[m.key] + "]" if m.key in EXCEPTIONS else ""
         print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()) + mark)
+    lits = protocol_literals_all()
+    print(f"{len(lits)} dataset-path literals outside {_SCHEMA}")
+    for rel, line, lit in lits:
+        print(f"  {rel}:{line} {lit!r}")
     return 0
 
 
@@ -230,6 +272,18 @@ def check(base: str) -> int:
         for m in failing:
             print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()))
         print("split the function, or add it to EXCEPTIONS in tools/readability.py with a reason.")
+        return 1
+    lits = [
+        (rel, line, lit)
+        for path, lines in changed.items()
+        if path.endswith(".py") and os.path.exists(path)
+        for rel, line, lit in protocol_literals(path)
+        if line in lines
+    ]
+    if lits:
+        print("dataset-path literals added by this change (spell the path through fdia_graph.schema):")
+        for rel, line, lit in lits:
+            print(f"  {rel}:{line} {lit!r}")
         return 1
     n_lines = sum(len(v) for v in changed.values())
     print(f"readability gate: {n_lines} changed lines in {len(changed)} file(s), all touched functions pass")

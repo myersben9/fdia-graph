@@ -23,11 +23,13 @@ from typing import Any, Optional, Union
 import h5py
 import numpy as np
 
+from . import schema
 from .engine import FdiaGenerator
 from .engine.records import FrameKnobs
 from .formulas.temporal import recent_change_scale
 from .models.grid import NODE
 from .registry import CACHE_DIR, register_local
+from .schema import KIND_TIMELINE, Group
 
 # Swing-feature lookback (scans). Tuned: rate-of-change catch-rate plateaus ~60 scans; ramp At stays near
 # the benign floor at every window, so At remains the ML-only family.
@@ -151,7 +153,9 @@ def generate(
         X = X[:frames]
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
     path = generate_timeline(system, states=X, seed=seed, out=out, **knobs)
-    register_local(name, path, meta=dict(system=system, kind="timeline", frames=len(X), seed=seed, **knobs))
+    register_local(
+        name, path, meta=dict(system=system, kind=KIND_TIMELINE, frames=len(X), seed=seed, **knobs)
+    )
     return path
 
 
@@ -193,10 +197,10 @@ def _write_graph(f: Any, g: FdiaGenerator) -> None:
     """graph/ group: the static topology shared by all frames, including the full per-unit branch
     physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
     and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics."""
-    gg = f.create_group("graph")
-    gg.create_dataset("edge_index", data=g.ei)
+    gg = f.create_group(Group.GRAPH)
+    gg.create_dataset(schema.EDGE_INDEX.split("/")[1], data=g.ei)
     # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for trafos). Kept for v0.4.x readers.
-    gg.create_dataset("edge_reactance", data=g.x_react)
+    gg.create_dataset(schema.EDGE_REACTANCE.split("/")[1], data=g.x_react)
     br = g.branch
     for name, data in (
         ("edge_r", br.r),
