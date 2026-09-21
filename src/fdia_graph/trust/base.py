@@ -47,7 +47,7 @@ class TrustSelector:
         """The residual alarm level: the (1 - fa_target) quantile of the largest normalized
         residual over benign training records, set before any attack is scored (the protocol of
         `fdia_graph.localization`)."""
-        d = ds.to_numpy(["node_x", "edge_x", "clean", "family"])
+        d = ds.export(["node_x", "edge_x", "clean", "family"])
         ben = np.flatnonzero(d["family"] == 0)[:n_calib]
         if not len(ben):
             raise ValueError("fit needs benign records; pass the train split unfiltered")
@@ -80,7 +80,7 @@ class TrustSelector:
 
         if not ds.has_benign:
             raise ValueError("score needs a timeline view with the benign layer")
-        d = ds.to_numpy(["node_x", "edge_x", "benign", "edge_benign", "clean", "family"])
+        d = ds.export(["node_x", "edge_x", "benign", "edge_benign", "clean", "family"])
         est = self.est
         z = est._z_of(d["node_x"], d["edge_x"])
         zb = est._z_of(d["benign"], d["edge_benign"])

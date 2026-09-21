@@ -103,7 +103,7 @@ def stream_of(ds: Any) -> Stream:
     static graph and masks, and the episode list. A random order or a family subset is refused,
     since the frames of a stream are consecutive."""
     ds._check_timeline("stream_of")
-    a = ds.to_numpy(_STREAM_FIELDS)  # only what the dict carries; edge_clean_full would cost a Yf pass
+    a = ds.export(_STREAM_FIELDS)  # only what the dict carries; edge_clean_full would cost a Yf pass
     ep = ds.episodes
     return Stream(
         node_x=a.node_x,

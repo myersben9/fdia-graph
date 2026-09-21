@@ -92,7 +92,7 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 |---|---|---|---|
 | dict record `ds[i]` or a `ds.loader()` batch | `["edge_x"]` | `["edge_m"]` | `["edge_attr"]` |
 | PyG `Data` or `DataBatch` (`format="pyg"`, `fg.pyg_stream`) | `.edge_attr` or `.edge_x` | `.edge_mask` | `.edge_phys` |
-| `ds.to_numpy()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` | `ds.edge_attr` |
+| `ds.export()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` | `ds.edge_attr` |
 | stream dict `fg.load_stream()` | `["edge_x"]` `[T,E,2]` | `["edge_m"]` | `["edge_attr"]` |
 
 The `[E,8]` physics keep the name `edge_attr` on dicts and the dataset, and become `edge_phys` on PyG
@@ -216,7 +216,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 
 ### `ArraysBundle` (`fdia_graph.models.data`)
 
-A whole split of n records as `to_numpy` (arrays), `to_torch` (tensors) or `to_tf` return it, leading axis n: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.
+A whole split of n records as `export` returns it (arrays, or tensors with format="torch" or "tf"), leading axis n: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.
 
 Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 

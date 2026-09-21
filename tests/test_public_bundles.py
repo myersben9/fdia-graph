@@ -46,18 +46,31 @@ def test_record_batch_and_arrays(splits):
     default_batch = next(iter(DataLoader(ds, batch_size=3)))  # PyTorch's own collate sees a dict
     assert torch.equal(default_batch["node_x"], batch.node_x)
 
-    arrays = ds.to_numpy()
+    arrays = ds.export()
     assert isinstance(arrays, ArraysBundle)
     _agree(arrays)
     assert list(arrays)[:3] == ["edge_index", "edge_reactance", "node_x"]
     assert arrays.node_x.shape == (len(ds), ds.N, 4) and "swing" in arrays
-    sub = ds.to_numpy(fields=["node_x", "y"])
+    sub = ds.export(fields=["node_x", "y"])
     assert list(sub) == ["edge_index", "edge_reactance", "node_x", "y"] and sub.swing is None
-    rev = ds.to_numpy(fields=["y", "node_x"])  # the caller's order is the dict order, as before
+    rev = ds.export(fields=["y", "node_x"])  # the caller's order is the dict order, as before
     assert list(rev) == ["edge_index", "edge_reactance", "y", "node_x"]
-    assert list(ds.to_torch(fields=["y", "node_x"])) == list(rev)
-    tens = ds.to_torch(fields=["node_x"])
+    assert list(ds.export(fields=["y", "node_x"], format="torch")) == list(rev)
+    tens = ds.export(fields=["node_x"], format="torch")
     assert isinstance(tens, ArraysBundle) and torch.equal(tens.node_x, torch.as_tensor(sub.node_x))
+    df = ds.export(format="pandas", flatten_features=False)
+    assert len(df) == len(ds) and list(df.columns)[:2] == ["family", "family_id"]
+    with pytest.raises(ValueError, match="format"):
+        ds.export(format="polars")
+    with pytest.raises(ValueError, match="every field"):
+        ds.export(fields=["nope"], format="pandas")
+    # the four exporters of 0.17 still answer, with the retirement notice
+    with pytest.warns(DeprecationWarning, match="to_numpy is deprecated"):
+        assert list(ds.to_numpy(["y"])) == list(ds.export(["y"]))
+    with pytest.warns(DeprecationWarning, match="to_torch is deprecated"):
+        assert torch.equal(ds.to_torch(["node_x"]).node_x, tens.node_x)
+    with pytest.warns(DeprecationWarning, match="to_pandas is deprecated"):
+        assert len(ds.to_pandas(flatten_features=False)) == len(df)
 
     summ = ds.summary()
     assert isinstance(summ, Summary) and summ.n == len(ds) == summ["n"]
@@ -94,7 +107,7 @@ def test_jacobian_outputs(timeline):
     from fdia_graph.se.jacobian import JacobianFeatures, JacobianOutputs
 
     train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
-    out = JacobianFeatures().fit(train).transform(test.to_numpy())
+    out = JacobianFeatures().fit(train).transform(test.export())
     assert isinstance(out, JacobianOutputs)
     _agree(out)
     assert list(out) == ["bus", "global", "dx_hat", "r_perp"]

@@ -70,7 +70,7 @@ class LocalizerBase:
             flag = _FIELD_FLAG.get(k)
             if flag is not None and not getattr(ds, flag):
                 raise ValueError(f"dataset has no '{k}' field; this method needs a newer shard")
-        return ds.to_numpy(want)
+        return ds.export(want)
 
     # ---- fitting ----------------------------------------------------------------------------
     def fit(self, ds: FdiaGraph) -> LocalizerBase:
@@ -108,7 +108,7 @@ class LocalizerBase:
         """
         from ..dataset import FAMILIES
 
-        d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.to_numpy(["family", "y"])
+        d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d) if scores is None else np.asarray(scores, np.float64)
         if s.shape != (len(ds), ds.N):
             raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")

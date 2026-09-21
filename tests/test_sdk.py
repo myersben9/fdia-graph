@@ -27,7 +27,7 @@ def test_family_codes_are_the_documented_ones():
 
 
 def test_node_x_is_voltage_first_and_clean_matches(splits):
-    d = splits["test"].to_numpy(["node_x", "node_m", "clean", "family"])
+    d = splits["test"].export(["node_x", "node_m", "clean", "family"])
     nx, nm, cl = d["node_x"], d["node_m"], d["clean"]
     metered_v = nm[:, :, 0] > 0
     # Column 0 is |V| in per-unit near 1.0; column 3 is an angle in degrees.
@@ -51,7 +51,7 @@ def test_slack_is_the_pinned_bus(timeline):
 
 
 def test_labels_y_and_family_agree(splits):
-    d = splits["test"].to_numpy(["y", "family"])
+    d = splits["test"].export(["y", "family"])
     y, fam = d["y"].astype(bool), d["family"]
     assert not y[fam == 0].any()  # benign records flag no bus
     assert y[fam > 0].any(axis=1).all()  # every attacked record flags at least one bus
@@ -60,9 +60,9 @@ def test_labels_y_and_family_agree(splits):
 
 def test_family_filter_and_pu_units(timeline):
     sub = fg.load(timeline, families=["Aq", "At"])
-    assert set(np.unique(sub.to_numpy(["family"])["family"])) <= {1, 5}
-    phys = fg.load(timeline, split="test").to_numpy(["node_x"])["node_x"]
-    pu = fg.load(timeline, split="test", units="pu").to_numpy(["node_x"])["node_x"]
+    assert set(np.unique(sub.export(["family"])["family"])) <= {1, 5}
+    phys = fg.load(timeline, split="test").export(["node_x"])["node_x"]
+    pu = fg.load(timeline, split="test", units="pu").export(["node_x"])["node_x"]
     base = fg.load(timeline).baseMVA
     assert np.allclose(pu[:, :, 1], phys[:, :, 1] / base)
     assert np.allclose(pu[:, :, 3], np.deg2rad(phys[:, :, 3]))
@@ -98,7 +98,7 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     f = ds.edge_index_np[0]
     Sf = V[:, f] * np.conj(V @ ds.yf_np.T) * ds.baseMVA  # [T, E]
     ec = ds._eclean_np[:64].astype(float)
-    metered = ds.to_numpy(["edge_m"])["edge_m"][0, :, 0] > 0
+    metered = ds.export(["edge_m"])["edge_m"][0, :, 0] > 0
     assert np.allclose(Sf.real[:, metered], ec[:, metered, 0], atol=1e-2)
     assert np.allclose(Sf.imag[:, metered], ec[:, metered, 1], atol=1e-2)
     assert tuple(ds.yf.shape) == (ds.E, ds.N) and tuple(ds.yt.shape) == (ds.E, ds.N)
@@ -114,7 +114,7 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     t = rec["timestep"]
     assert tuple(rec["edge_clean_full"].shape) == (ds.E, 2)
     assert np.allclose(rec["edge_clean_full"].numpy(), ds._clean_flows_full()[t])
-    npy = ds.to_numpy(["edge_clean_full", "timestep"])
+    npy = ds.export(["edge_clean_full", "timestep"])
     assert np.allclose(npy["edge_clean_full"][0], ds._clean_flows_full()[npy["timestep"][0]])
     pu = fg.load(timeline, units="pu")
     assert np.allclose(pu[0]["edge_clean_full"].numpy(), rec["edge_clean_full"].numpy() / ds.baseMVA)
@@ -176,14 +176,16 @@ def test_pyg_stream_matches_dataset_pyg_contract(timeline):
     X = _load_states(14, None)[:60]  # a short pool slice keeps the stream build to seconds
     with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
         s = fg.generate_stream(14, states=X, seed=1)
-    tr, te = fg.pyg_stream(stream=s, train_frac=0.5)
+    with pytest.warns(DeprecationWarning, match="pyg_stream is deprecated"):
+        tr, te = fg.pyg_stream(stream=s, train_frac=0.5)
     d = tr[0]
     assert tuple(d.x.shape) == (14, 4) and tuple(d.edge_attr.shape) == (20, 2)
     assert torch.equal(d.edge_attr, d.edge_x)
     assert tuple(d.edge_phys.shape) == (20, 8)
     assert tuple(d.node_mask.shape) == (14, 4) and tuple(d.edge_mask.shape) == (20, 2)
     assert torch.equal(d.edge_x, torch.as_tensor(s["edge_x"][0], dtype=torch.float32))
-    (trc, tec) = fg.pyg_stream(stream=s, train_frac=0.5, layer="clean")
+    with pytest.warns(DeprecationWarning):
+        (trc, tec) = fg.pyg_stream(stream=s, train_frac=0.5, layer="clean")
     assert torch.equal(trc[0].edge_x, torch.as_tensor(s["edge_clean"][0], dtype=torch.float32))
 
 
@@ -229,7 +231,7 @@ def test_dict_loader_batches_every_documented_key(splits):
 def test_kcl_residual_matches_the_papers_builder(splits):
     from fdia_graph.localization.learned import full14, kcl_residual
 
-    d = splits["test"].to_numpy(["node_x", "node_m", "edge_x", "temporal_delta", "swing"])
+    d = splits["test"].export(["node_x", "node_m", "edge_x", "temporal_delta", "swing"])
     nx, ex, ei = d["node_x"].astype(float), d["edge_x"].astype(float), d["edge_index"]
     n, N = nx.shape[:2]
     inP, inQ = np.zeros((n, N)), np.zeros((n, N))
@@ -313,7 +315,7 @@ def test_jacobian_features_split_stealthy_from_corruption(timeline, splits):
     from fdia_graph.se.jacobian import JacobianFeatures
 
     jf = JacobianFeatures().fit(splits["train"])
-    d = fg.load(timeline).to_numpy(["node_x", "edge_x", "timestep", "family", "y"])
+    d = fg.load(timeline).export(["node_x", "edge_x", "timestep", "family", "y"])
     F = jf.transform(d)
     n, N = d["node_x"].shape[:2]
     assert F["bus"].shape == (n, N, 8) and F["global"].shape == (n, 4)
@@ -361,7 +363,7 @@ def test_gated_prior_uses_the_gate(splits):
 
     est = GatedPrior(gate="oracle", rank_frac=0.5, reweight="huber", c=1.5).fit(splits["train"])
     w = est.gated_weights(splits["test"])
-    y = splits["test"].to_numpy(["y"])["y"].astype(bool)
+    y = splits["test"].export(["y"])["y"].astype(bool)
     assert w.shape == (len(splits["test"]), est.m)
     assert np.all(w[~y.any(axis=1)] == est.Wk[None, :])  # benign records keep the full weights
     assert (w[y.any(axis=1)] < est.Wk[None, :]).any(axis=1).all()  # attacked ones lose some

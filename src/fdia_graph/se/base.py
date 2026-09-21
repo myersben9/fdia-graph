@@ -124,7 +124,7 @@ class SEBase:
         # estimated like any other, matching production practice and pandapower's estimator.
         self.SD = len(self.keep) + self.N
         # measurement mask, constant across records: [V(N), P(N), Q(N), theta(N), Pf(E), Qf(E)]
-        masks = ds.to_numpy(["node_m", "edge_m"])  # numpy, so the estimator does not need torch
+        masks = ds.export(["node_m", "edge_m"])  # numpy, so the estimator does not need torch
         nm = masks["node_m"][0].astype(bool)
         em = masks["edge_m"][0].astype(bool)
         self.mask = np.concatenate([*NodeColumns.of(nm), *EdgeColumns.of(em)])
@@ -202,7 +202,7 @@ class SEBase:
     # ---- fitting ----------------------------------------------------------------------------
     def fit(self, ds: FdiaGraph, n_calib: int = 600) -> SEBase:
         self._build_network(ds)
-        d = ds.to_numpy(["node_x", "edge_x", "family", "clean"])
+        d = ds.export(["node_x", "edge_x", "family", "clean"])
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
             raise ValueError("fit needs benign records; pass the train split unfiltered")
@@ -323,7 +323,7 @@ class SEBase:
     # ---- public API -------------------------------------------------------------------------
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
         """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order."""
-        d = ds.to_numpy(["node_x", "edge_x", "clean"])
+        d = ds.export(["node_x", "edge_x", "clean"])
         tr = self._truth_of(d["clean"])  # slack angle reference only; the true state is never read here
         z = self._z_of(d["node_x"], d["edge_x"])
         out = np.empty((z.shape[0], self.SD))
@@ -341,7 +341,7 @@ class SEBase:
         est = self.estimate(ds, chunk=chunk) if xhat is None else np.asarray(xhat, np.float64)
         if est.shape != (len(ds), self.SD):
             raise ValueError(f"xhat must be [{len(ds)}, {self.SD}], got {est.shape}")
-        d = ds.to_numpy(["family", "clean"])
+        d = ds.export(["family", "clean"])
         tr = self._truth_of(d["clean"])
         ns = len(self.keep)  # angle block; voltage block covers ALL N buses (2N-1 state)
         err = est - tr["x"]

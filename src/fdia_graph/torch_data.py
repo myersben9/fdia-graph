@@ -1,4 +1,7 @@
-"""PyTorch-ready views of a continuous timeline — no conversion glue in user code.
+"""The torch helpers of 0.17, deprecated: retire in 0.19. `fg.load(name, split, order="time",
+format="pyg")` gives the PyG graphs `pyg_stream` built, and `ds.windows(W, stride, label, layer,
+per_bus=True)` on the train, val and test views gives the sequences `torch_windows` built, with the
+file's chronological split instead of `train_frac`.
 
 ``pyg_stream()`` hands back ``torch_geometric.data.Data`` objects (one graph per scan, connectivity
 and branch physics attached), ``torch_windows()`` hands back per-bus sequence tensors for an
@@ -10,6 +13,7 @@ or, until the streams retire, a stream dict (``stream=``) or a system name (``lo
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
@@ -58,7 +62,7 @@ def _dataset_stream(ds: FdiaGraph) -> dict[str, Any]:
     """A time-ordered timeline view as the stream dict the helpers consume: the per-frame layers
     plus the static graph and masks (the same for every frame)."""
     ds._check_timeline("torch_windows / pyg_stream")
-    s: dict[str, Any] = dict(ds.to_numpy())
+    s: dict[str, Any] = dict(ds.export())
     s["edge_attr"] = ds.edge_attr_np
     s["node_m"], s["edge_m"] = s["node_m"][0], s["edge_m"][0]
     return s
@@ -104,6 +108,7 @@ def pyg_stream(
     """
     import torch
 
+    _retiring("pyg_stream", "fg.load(name, split=..., order='time', format='pyg') and ds[i]")
     _check_frac(train_frac)
     if max_test is not None and max_test < 0:
         raise ValueError(f"max_test must be >= 0, got {max_test}")
@@ -169,6 +174,7 @@ def torch_windows(
     """
     from .dataset.sequence import check_window_args, window_labels
 
+    _retiring("torch_windows", "ds.windows(W, stride, label, layer, per_bus=True) on each split view")
     _check_frac(train_frac)
     if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
         raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
@@ -199,9 +205,14 @@ def _sequences(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Windows as tensors: one sequence per bus ([n*N, W, C], what nn.LSTM consumes) or whole-grid
     windows ([n, W, N, C]); per-frame labels keep the window axis."""
-    if not per_bus:
-        return _f32(Xp), _f32(yp)
-    n, Wn, N, C = Xp.shape
-    X = _f32(Xp.transpose(0, 2, 1, 3).reshape(n * N, Wn, C))
-    y = _f32(yp.transpose(0, 2, 1).reshape(n * N, Wn)) if label == "frame" else _f32(yp.reshape(n * N))
-    return X, y
+    from .dataset.sequence import per_bus_sequences
+
+    if per_bus:
+        Xp, yp = per_bus_sequences(Xp, yp, label)
+    return _f32(Xp), _f32(yp)
+
+
+def _retiring(name: str, replacement: str) -> None:
+    warnings.warn(
+        f"{name} is deprecated and retires in 0.19: use {replacement}", DeprecationWarning, stacklevel=3
+    )

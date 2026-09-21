@@ -68,9 +68,9 @@ def test_family_filter_aliases_and_heldout_protocol(timeline):
     by_code = fg.load(timeline, families=[1])
     assert len(by_alias) == len(by_code) > 0 and np.array_equal(by_alias.idx, by_code.idx)
     for split in ("train", "val"):
-        fams = set(fg.load(timeline, split=split, heldout=True).to_numpy(["family"])["family"].tolist())
+        fams = set(fg.load(timeline, split=split, heldout=True).export(["family"])["family"].tolist())
         assert not fams & {3, 4}, f"As/Ar must be held out of {split}"
-    test_fams = set(fg.load(timeline, split="test", heldout=True).to_numpy(["family"])["family"].tolist())
+    test_fams = set(fg.load(timeline, split="test", heldout=True).export(["family"])["family"].tolist())
     assert test_fams & {3, 4}, "the test split keeps As/Ar"
     assert len(fg.load(timeline, include_gaps=True)) >= len(fg.load(timeline))
 
@@ -78,12 +78,12 @@ def test_family_filter_aliases_and_heldout_protocol(timeline):
 # ---- exports ----------------------------------------------------------------------------------------
 
 
-def test_to_numpy_rejects_unknown_fields_and_empty_means_default(splits):
+def test_export_rejects_unknown_fields_and_empty_means_default(splits):
     ds = splits["test"]
     with pytest.raises(ValueError, match="unknown field"):
-        ds.to_numpy(["node_x", "nope"])
-    assert list(ds.to_numpy([])) == list(ds.to_numpy())
-    assert list(ds.to_numpy(["y"])) == ["edge_index", "edge_reactance", "y"]
+        ds.export(["node_x", "nope"])
+    assert list(ds.export([])) == list(ds.export())
+    assert list(ds.export(["y"])) == ["edge_index", "edge_reactance", "y"]
 
 
 def test_default_fields_follow_the_layers_present(splits):
@@ -93,7 +93,7 @@ def test_default_fields_follow_the_layers_present(splits):
     fields = ds._default_fields()
     assert ("clean" in fields) == (ds._clean_np is not None)
     assert ("edge_clean" in fields) == (ds._eclean_np is not None)
-    assert set(ds.to_numpy(fields)) == set(fields) | {"edge_index", "edge_reactance"}
+    assert set(ds.export(fields)) == set(fields) | {"edge_index", "edge_reactance"}
 
 
 def test_summary_counts_add_up(splits):
