@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Reviews: `tools/pr.py` waits for and requires every installed review bot (Copilot always;
+  CodeRabbit and Gemini Code Assist once they have reviewed a pull request) on the head before a
+  merge; `.coderabbit.yaml` carries the repository's review instructions (the physics conventions,
+  the readability limits, the prose rules); CONTRIBUTING lists the three reviewers and their order,
+  with the Claude Code `/code-review ultra` pass first. No package change.
 - One export of a split: `ds.export(fields, format="numpy" | "torch" | "tf" | "pandas", device,
   flatten_features)` replaces `to_numpy`, `to_torch`, `to_tf` and `to_pandas`, which still answer
   with a deprecation notice until 0.19. `ds.windows(..., per_bus=True)` returns one sequence per
