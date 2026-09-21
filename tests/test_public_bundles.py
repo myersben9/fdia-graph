@@ -156,7 +156,7 @@ def test_load_stream_fills_the_summary_fields(tmp_path, monkeypatch, raw_stream)
     monkeypatch.setattr(download, "ensure_local", lambda spec: str(path))
 
     with pytest.warns(DeprecationWarning, match="load_stream is deprecated"):
-        s = fg.load_stream("ieee14")
+        s = fg.load_stream("ieee14", release="v0.7.2")  # the stream-file path, whatever the default release
     assert s.system == 14 and s["system"] == 14
     assert s.attacked_frac == float((arrays["y"].sum(axis=1) > 0).mean()) and 0 < s.attacked_frac < 1
     assert s.node_x.shape == arrays["node_x"].shape and len(s.episodes) == len(episodes)

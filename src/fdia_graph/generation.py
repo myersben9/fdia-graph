@@ -98,18 +98,12 @@ def _read_states(
     if src and src.endswith((".h5", ".hdf5")):
         with h5py.File(src, "r") as f:  # the pool as HDF5, dataset "X" [T, N, 4]
             return np.asarray(f["X"], np.float64)
-    # fall back to the downloadable operating-point pool for this system
+    # fall back to the downloadable operating-point pool for this system, at the pinned data release
+    # (which carries all eight ladder pools; a hardcoded old tag here once 404'd newer systems)
     from .download import ensure_local
-    from .registry import _RELEASE, AssetSpec, system_id
+    from .registry import pool_spec
 
-    # Built-in release asset spec (pool_ieee{C}.npz); follows the pinned shard release, which carries
-    # all 8 ladder pools (a hardcoded old tag here 404'd generate() on systems added after that tag).
-    C = system_id(system)
-    spec = AssetSpec(
-        "builtin", f"pool{C}", file=f"pool_ieee{C}.npz", release=_RELEASE, repo="myersben9/fdia-graph"
-    )
-    # ensure_local downloads/caches and returns the local path.
-    return np.load(ensure_local(spec))["X"].astype(np.float64)
+    return _read_states(system, ensure_local(pool_spec(system)), pool_cap)
 
 
 def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:

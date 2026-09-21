@@ -10,7 +10,7 @@ flowchart TB
         init["__init__.py<br/>fg.* public API"]
         ds["dataset/<br/>FdiaGraph"]
         reg["registry.py · download.py<br/>versions, cache"]
-        st["streams.py · torch_data.py<br/>continuous timelines"]
+        st["timeline.py · torch_data.py<br/>the timeline writer, sequence forms"]
         se["se/<br/>state estimation"]
         loc["localization/<br/>per-bus localization"]
         models["models/<br/>every returned record"]
@@ -28,24 +28,21 @@ flowchart TB
     ds & st & se & loc & eng --> models
 ```
 
-## The three paths
+## The two paths
 
 ```mermaid
 flowchart LR
     subgraph generate["fg.generate(system, name)"]
         p1[profiles.py<br/>ISO load series] --> p2["engine: AC solve<br/>operating-state pool"]
-        p2 --> p3[engine.records.attack_frame<br/>one scan per record]
-        p3 --> p4[generation.py<br/>write + register shard]
+        p2 --> p3["timeline.py: the walk<br/>benign gaps, attack episodes"]
+        p3 --> p4[engine.records.attack_frame<br/>one scan per frame]
+        p4 --> p5[("one HDF5 file<br/>data · benign · clean · episodes · attack")]
     end
-    subgraph load["fg.load(name)"]
-        l1[registry.resolve<br/>name, release] --> l2[download.ensure_local<br/>cache, sha256]
-        l2 --> l3[FdiaGraph<br/>records, batches, exports]
+    subgraph load["fg.load(name, order)"]
+        l1[registry.resolve<br/>name, release, layout] --> l2[download.ensure_local<br/>cache, sha256]
+        l2 --> l3["FdiaGraph<br/>random: records, batches, exports<br/>time: windows, episodes"]
     end
-    subgraph stream["fg.generate_stream / load_stream"]
-        s1["engine: attack_frame<br/>per frame"] --> s2[streams.py<br/>episodes, three layers]
-        s2 --> s3[windows · pyg_stream<br/>torch_windows]
-    end
-    p4 -.shard.-> l1
+    p5 -.register.-> l1
 ```
 
 ## Files
@@ -53,15 +50,15 @@ flowchart LR
 | file | what it is |
 |---|---|
 | `__init__.py` | public API; the heavy helpers resolve lazily so `load()` never imports torch or pandapower |
-| `dataset/` | `FdiaGraph` from `graph` (static graph), `physics` (admittances, clean flows), `records` (items, collate, DataLoader), `export` (whole-split arrays) over `base` (shared state) |
-| `registry.py`, `download.py` | `(name, release)` to a download spec; fetch to `~/.cache/fdia_graph`, sha256-verified |
-| `streams.py`, `torch_data.py` | continuous attacked series, windowing, PyG and per-bus sequence forms |
-| `generation.py`, `profiles.py` | shard writer; ISO load profiles to AC operating-state pools |
+| `dataset/` | `FdiaGraph` from `graph` (static graph), `physics` (admittances, clean flows), `records` (items, collate, DataLoader), `export` (whole-split arrays), `sequence` (windows, episodes) over `base` (shared state) |
+| `registry.py`, `download.py` | `(name, release)` to a download spec with that release's file layout; fetch to `~/.cache/fdia_graph`, sha256-verified |
+| `timeline.py`, `generation.py`, `profiles.py` | the timeline walker and writer; the pool, frame context and file attributes; ISO load profiles to AC operating-state pools |
+| `torch_data.py`, `streams.py` | PyG and per-bus sequence forms of a time-ordered dataset; the deprecated stream entry points |
 | `se/` | `SEBase` (measurement model, chord-Newton, calibration) plus one class per estimator |
 | `localization/` | `LocalizerBase` (false-alarm calibration, metrics) plus threshold and learned classes |
 | `models/` | every value bundle a function returns, grouped `grid`, `frames`, `data`, `scores`, `assets` |
 | `formulas/` | the mathematics as pure functions with source keys; catalogue in `reference/FORMULAS.md` |
-| `engine/` | `FdiaGenerator` = `MeasurementMixin` (meters, noise) + `PhysicsMixin` (AC solves) + `AttackMixin` (the six families) over `GridBase`; `records.py` builds one scan of any family |
+| `engine/` | `FdiaGenerator` = `MeasurementMixin` (meters, noise) + `PhysicsMixin` (AC solves) + `AttackMixin` (the attack constructions) over `GridBase`; `records.py` builds one scan of any of the seven families |
 
 ## Docs
 
@@ -77,9 +74,9 @@ flowchart LR
 
 | | |
 |---|---|
-| `pytest tests` | builds a tiny IEEE-14 shard in a throwaway cache (about a minute) and checks the documented contracts |
+| `pytest tests` | builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts |
 | `FDIA_FROZEN_STRICT=1 pytest tests` | bit-identical comparison against `tests/frozen/`; run before every push |
-| `FDIA_SLOW=1 pytest tests` | adds a sanity test on the published IEEE-118 shard |
+| `FDIA_SLOW=1 pytest tests` | adds a sanity test on the published IEEE-118 file |
 | CI | tests, pyright, ruff format and check, the readability gate, install on 3.9 and 3.12 |
 | release | bump PR, then `python tools/release.py vX.Y.Z notes.md` (tag, GitHub release, PyPI); see `CONTRIBUTING.md` |
 

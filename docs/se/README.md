@@ -59,32 +59,33 @@ flowchart LR
 | removal threshold | 4.0 (14), 5.0 (118); not run on 300 (hours per record, and no threshold helped in the paper) |
 | cell | geometric mean of the MAE over the seven record classes; full metrics in `results/se_ieee{14,118,300}.json` |
 
+The IEEE 14 and 118 columns are the v0.8.0 timelines; the IEEE 300 column is the previous data release until its run lands.
+
 **Estimator comparison**
 
 | Estimator | IEEE 14 | IEEE 118 | IEEE 300 |
 |---|---:|---:|---:|
 | *Angle MAE (deg)* | | | |
-| WLS baseline | 0.108 | 0.054 | 0.097 |
-| Residual removal | 0.070 | 0.037 | not run |
-| Adaptive weighting | 0.068 | 0.036 | 0.068 |
-| **Prior + Huber (proposed)** | **0.059** | **0.030** | **0.058** |
-| Jacobian weighting | 0.087 | 0.040 | 0.074 |
-| **Prior + Huber + CNN gate** | **0.041** | **0.028** | **0.055** |
-| Prior + Huber + oracle gate (ceiling) | 0.039 | 0.027 | 0.054 |
-| WLS error reduction (proposed) | 45% | 45% | 40% |
-| WLS error reduction (gated) | 62% | 48% | 43% |
+| WLS baseline | 0.097 | 0.023 | 0.097 |
+| Residual removal | 0.066 | 0.016 |  |
+| Adaptive weighting | 0.061 | 0.016 | 0.068 |
+| **Prior + Huber (proposed)** | **0.050** | **0.012** | **0.058** |
+| Jacobian weighting | 0.083 | 0.018 | 0.074 |
+| **Prior + Huber + CNN gate** | **0.060** | **0.014** | **0.055** |
+| Prior + Huber + oracle gate (ceiling) | 0.050 | 0.012 | 0.054 |
+| WLS error reduction | 48% | 48% | 40% |
 
 | Estimator | IEEE 14 | IEEE 118 | IEEE 300 |
 |---|---:|---:|---:|
 | *Voltage MAE (10^-3 pu)* | | | |
-| WLS baseline | 0.606 | 0.165 | 0.321 |
-| Residual removal | 0.427 | 0.113 | not run |
-| Adaptive weighting | 0.380 | 0.111 | 0.250 |
-| **Prior + Huber (proposed)** | **0.147** | **0.028** | **0.114** |
-| Jacobian weighting | 0.494 | 0.125 | 0.261 |
-| **Prior + Huber + CNN gate** | **0.161** | **0.029** | **0.106** |
-| Prior + Huber + oracle gate (ceiling) | 0.158 | 0.027 | 0.105 |
-| WLS error reduction (proposed) | 76% | 83% | 64% |
+| WLS baseline | 0.871 | 0.198 | 0.321 |
+| Residual removal | 0.630 | 0.141 |  |
+| Adaptive weighting | 0.551 | 0.137 | 0.250 |
+| **Prior + Huber (proposed)** | **0.154** | **0.029** | **0.114** |
+| Jacobian weighting | 0.711 | 0.154 | 0.261 |
+| **Prior + Huber + CNN gate** | **0.272** | **0.040** | **0.106** |
+| Prior + Huber + oracle gate (ceiling) | 0.212 | 0.034 | 0.105 |
+| WLS error reduction | 82% | 86% | 64% |
 
 | paper (v0.4.1 data) | 14 | 118 | 300 |
 |---|---:|---:|---:|
@@ -99,13 +100,14 @@ the proposed estimator's percent reduction over that baseline.
 
 | Family | Base angle (deg) 14 | Base angle (deg) 118 | Base angle (deg) 300 | Base volt (10^-3) 14 | Base volt (10^-3) 118 | Base volt (10^-3) 300 | Angle red. (%) 14 | Angle red. (%) 118 | Angle red. (%) 300 | Volt red. (%) 14 | Volt red. (%) 118 | Volt red. (%) 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Benign | 0.008 | 0.009 | 0.015 | 0.15 | 0.09 | 0.15 | -45 | 25 | 23 | 58 | 80 | 68 |
-| Bias (Ad) | 0.136 | 0.028 | 0.025 | 3.90 | 0.55 | 0.33 | 80 | 66 | 41 | 97 | 95 | 81 |
-| Scaling (As) | 0.246 | 0.031 | 0.025 | 1.17 | 0.33 | 0.26 | 67 | 66 | 39 | 85 | 91 | 73 |
-| Replay (Ar) | 0.137 | 0.043 | 0.132 | 1.12 | 0.17 | 0.45 | 82 | 82 | 89 | 93 | 88 | 86 |
-| Stealthy re-solve (Aq) | 0.382 | 0.168 | 0.392 | 0.62 | 0.10 | 0.34 | -5 | 0 | 0 | 30 | 63 | 23 |
-| Slow ramp (At) | 0.065 | 0.034 | 0.070 | 0.19 | 0.09 | 0.17 | 1 | 4 | 2 | 48 | 79 | 56 |
-| Load redistribution (Al) | 0.180 | 0.766 | 2.277 | 0.34 | 0.14 | 1.01 | 15 | 0 | 0 | 4 | 39 | 6 |
+| Benign | 0.008 | 0.009 | 0.015 | 0.14 | 0.09 | 0.15 | -61 | 25 | 23 | 56 | 80 | 68 |
+| Bias (Ad) | 0.127 | 0.028 | 0.025 | 3.70 | 0.53 | 0.33 | 79 | 66 | 41 | 97 | 95 | 81 |
+| Scaling (As) | 0.235 | 0.031 | 0.025 | 1.18 | 0.34 | 0.26 | 67 | 67 | 39 | 85 | 92 | 73 |
+| Replay (Ar) | 0.234 | 0.049 | 0.132 | 1.18 | 0.21 | 0.45 | 87 | 84 | 89 | 93 | 91 | 86 |
+| Stealthy re-solve (Aq) | 0.290 | 0.033 | 0.392 | 2.35 | 0.23 | 0.34 | 25 | 18 | 0 | 80 | 82 | 23 |
+| Slow ramp (At) | 0.117 | 0.014 | 0.070 | 1.06 | 0.11 | 0.17 | 34 | 21 | 2 | 82 | 81 | 56 |
+| Load redistribution (Al) | 0.069 | 0.030 | 2.277 | 0.45 | 0.23 | 1.01 | 17 | 19 | 0 | 56 | 76 | 6 |
+| Multi-snapshot (Am) | 0.056 | 0.017 | n/a | 0.40 | 0.12 | n/a | 14 | 18 | n/a | 56 | 70 | n/a |
 
 Angle MAE per estimator and family (degrees, lower is better, `geo` is the summary column):
 

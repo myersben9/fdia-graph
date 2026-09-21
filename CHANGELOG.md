@@ -3,7 +3,7 @@
 Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.
 
-## Unreleased
+## 0.18.0
 
 - Reviews: `tools/pr.py` waits for and requires every installed review bot (Copilot always;
   CodeRabbit and Gemini Code Assist once they have reviewed a pull request) on the head before a
@@ -55,9 +55,7 @@ the public API, the generated files and the numbers are the same as the previous
   rise near the low buses has no admissible state and a drop is the attack that fits. Loads above `max_load_mw` (new knob, default 2000 MW) are never targets: the
   IEEE-145 case lumps whole areas into loads of 4 to 58 GW, and a 5% step on one has no local
   solution, which left 30% of that system's attack frames benign; no other ladder system has a
-  load above 1.1 GW, so their files do not change. `fallback_benign` is zero on every released file but IEEE-145, where two episodes of the
-  gigawatt-scale case have no admissible design at any of forty draws and 121 of its 36,000 attack
-  frames stay benign, counted in the file. Every false state also satisfies the security and operational constraints of Wu et al.
+  load above 1.1 GW, so their files do not change. `fallback_benign` is zero on every released file. Every false state also satisfies the security and operational constraints of Wu et al.
   2026 (`OperatingLimits`, their equations 21 to 23): each bus voltage within the case's own
   limits (a bus the true state already holds outside a limit may not be made worse, IEEE-57 runs
   below its own minimum) and, for the generators of the attacked subnetwork as in the paper (a
@@ -99,6 +97,31 @@ the public API, the generated files and the numbers are the same as the previous
   its redistribution at onset rather than leaving frames benign, and only a non-converging power
   flow falls back to a benign frame (counted in `fallback_benign`). The frozen references are
   re-frozen on the tiny timeline (seed 4).
+- Data releases have their own tag namespace: the assets of `v0.8.0` and later live under the
+  GitHub tag `data-v0.8.0` (package versions own the bare `v0.x.y` tags, PyPI 0.8.0 is `v0.8.0`),
+  while `v0.7.1` and `v0.7.2` keep their bare tags; `registry.release_tag` maps the short name
+  users write (`fg.load(name, release="v0.8.0")`, `FDIA_GRAPH_RELEASE`) to the tag, the newest
+  data release is picked from the tag list, and `tools/upload_assets.py` refuses a package tag.
+- The localization scores in `docs/localization` are re-run on the v0.8.0 timelines and are not
+  comparable with the v0.7.2 shard tables: the shard's temporal features compared an attacked
+  snapshot with the benign scan before it, so every attacked record spiked, while the timeline's
+  compare each frame with the frame emitted one minute earlier, so a sustained episode spikes at
+  its onset and the one-frame families also spike on the benign frame after them. The per-record
+  numbers are lower for the same detectors and the same data, and the tables say which reference
+  they use.
+- `fg.load(name)` reads the v0.8.0 timelines by default (`_RELEASE` is `v0.8.0`, the checksums of
+  the final files pinned). The test suite's tiny fixture now walks the v0.8.0 pool (72,000 one-minute
+  states where the v0.7.2 pool held 36,000), so the frozen references are re-frozen on it.
+- The data release `v0.8.0`, step 4 of `docs/plans/ONE_DATASET_PLAN.md`: one timeline file per
+  system of the ladder (`timeline_ieee{N}.h5`, 72,000 frames, the seven families, seed 123,
+  `attacked_frac` 0.5) and the operating-point pools as HDF5 (`pool_ieee{N}.h5`), built by
+  `examples/_build_timelines_v080.py` from the v0.7.1 NYISO pools. `fg.load(name)` reads them by
+  default; `fg.load(name, release="v0.7.2")` (or `FDIA_GRAPH_RELEASE=v0.7.2`) still reads the
+  record shards, since the registry now maps a release tag to the file layout it shipped
+  (`registry.dataset_file`, `pool_spec`, `is_timeline_release`) and knows the sha256 of each pinned
+  release. `generate(states=None)` fetches the pool through the same registry. `load_stream`
+  (deprecated) returns the timeline through the loader at a timeline release and the v0.7.2
+  stream file before it. `tools/upload_assets.py` publishes release assets idempotently.
 - One generator path, step 3 of `docs/plans/ONE_DATASET_PLAN.md`: the record-shard writer
   (`generation.generate_shard` and its draw loop), the stream walker and its `.npz` output, the
   magnitude sidecar (`<out>.mag.npz`) and the graph sidecar read of `load_stream` are deleted, with

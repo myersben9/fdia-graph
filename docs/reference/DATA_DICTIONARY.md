@@ -1,6 +1,7 @@
 # Data dictionary
 
-What every array from `fg.load()` / `fg.load_stream()` holds.
+What every array from `fg.load()` holds, as a record (`order="random"`) or as a frame of the
+timeline (`order="time"`).
 
 **N** = number of buses (nodes), **E** = number of branches (edges). A shape is "values per item":
 `[N,4]` = 4 numbers per bus, `[E,8]` = an 8-dim vector per branch, `[2,E]` = 2 rows × E branches.
@@ -16,9 +17,11 @@ What every array from `fg.load()` / `fg.load_stream()` holds.
 | `edge_index` | `[2,E]` | row 0 `from_bus`, row 1 `to_bus` | connectivity |
 | `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static branch electrical properties |
 | `y` | `[N]` | | 1 attacked, 0 clean. Which buses |
-| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al. Which attack |
-| `temporal_delta` | `[N,2]` | `ΔP`, `ΔQ` | scan-to-scan injection change |
+| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am. Which attack |
+| `temporal_delta` | `[N,2]` | `ΔP`, `ΔQ` | injection change against the previous frame |
 | `swing` | `[N,2]` | `ΔP`, `ΔQ` | `temporal_delta` as a z-score of recent volatility |
+| `benign` | `[N,4]` | same as `node_x` | the same scan with the attack removed, noise kept (timelines) |
+| `edge_benign` | `[E,2]` | same as `edge_x` | the same flows with the attack removed, noise kept (timelines) |
 | `clean` | `[N,4]` | same as `node_x` | noiseless truth, all buses. The SE target (v0.7.2+) |
 | `edge_clean` | `[E,2]` | same as `edge_x` | noiseless true flows, unmetered branches zeroed |
 | `edge_clean_full` | `[E,2]` | same as `edge_x` | noiseless true flows on every branch, metered or not (computed from `clean` through `yf` on load; equals `edge_clean` where a flow meter exists) |
@@ -26,10 +29,9 @@ What every array from `fg.load()` / `fg.load_stream()` holds.
 ## Labels: `y` says which buses, `family` says which attack
 
 Two fields, two questions. `y` `[N]` is binary per bus because a bus is either tampered with or not.
-`family` is one code per record because the generator injects one attack family per record, on one
-or more buses at once; it never mixes families within a record, and stream episodes never overlap,
-so each frame has one active family too. That is a property of how these shards were built, not of
-the schema: concurrent attacks of different families would need a separate per-bus family map, say
+`family` is one code per record because the generator runs one attack episode at a time, on one
+or more buses at once; episodes never overlap, so each frame has one active family. That is a
+property of how these files were built, not of the schema: concurrent attacks of different families would need a separate per-bus family map, say
 `bus_family` `[N]` with 0 on clean buses (so `y = bus_family > 0`), added next to the scalar `family`
 in a new data release.
 
@@ -135,9 +137,9 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 - On benign records `node_x − clean` is the meter error.
 - This is the state-estimation target.
 
-## Streams (`fg.load_stream`)
+## The three layers of a frame
 
-Leading time axis `T`, three aligned layers each for node and edge:
+Every frame of a timeline carries three aligned layers, for node and for edge measurements:
 
 ```mermaid
 flowchart LR
@@ -155,6 +157,22 @@ flowchart LR
 - `observed − benign` = the attack, exactly, for every family: the observed scan is the benign
   draw plus the attack. For Aq/At/Al/Am that is the attack vector of the local false state on the
   meters it moves (the tamper masks); the rest read `benign` exactly. `clean` is the SE target.
+
+## The timeline file
+
+| group | datasets | note |
+|---|---|---|
+| attrs | `system, N, E, baseMVA, seed, T, families, kind="timeline"`, the knobs, `attacked_frac` | `ds.summary()` and the registry read these |
+| `data/` | `node_x, node_m, edge_x, edge_m, y, family, stealthy, seq_id, timestep, split, temporal_delta, swing` | one row per frame, time order |
+| `benign/` | `node_benign, edge_benign` | the attack removed |
+| `clean/` | `node_clean, edge_clean` | the noiseless truth per frame |
+| `graph/` | `edge_index` and the static branch physics and bus shunts | the same for every frame |
+| `episodes/` | `onset, length, family, bus_ptr, bus_idx` | `ds.episodes` |
+| `attack/` | `mag_ptr, mag_bus, mag, node_tamper, edge_tamper` | designed magnitude per attacked bus; the meters the attacker wrote |
+
+Chunked along the frame axis so a window of W frames is one read. The v0.7.2 record shards (the
+same `data/`, `clean/` once per pool timestep, a `gap` column, no `benign/`) still load through
+`fg.load(..., release="v0.7.2")`.
 
 <!-- models:begin -->
 ## Models

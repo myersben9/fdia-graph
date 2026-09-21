@@ -1,122 +1,122 @@
 {
  "huber": {
   "Ad": {
-   "angle_mae_deg": 0.05708544733325789,
-   "voltage_mae_pu": 0.0005980061223898705
+   "angle_mae_deg": 0.05733275463982658,
+   "voltage_mae_pu": 0.0006055519533490298
   },
   "Am": {
-   "angle_mae_deg": 0.030961854749502783,
-   "voltage_mae_pu": 0.00021261492192184984
+   "angle_mae_deg": 0.03188980302590526,
+   "voltage_mae_pu": 0.00022133907050937823
   },
   "Aq": {
-   "angle_mae_deg": 0.7055656283446264,
-   "voltage_mae_pu": 0.006449187864552275
+   "angle_mae_deg": 0.7501371324055451,
+   "voltage_mae_pu": 0.006966337998099225
   },
   "Ar": {
-   "angle_mae_deg": 0.08510153248991349,
-   "voltage_mae_pu": 0.00021605774574096688
+   "angle_mae_deg": 0.08683923571142906,
+   "voltage_mae_pu": 0.00022236694975465087
   },
   "As": {
-   "angle_mae_deg": 0.07613923905503428,
-   "voltage_mae_pu": 0.0005433796759568585
+   "angle_mae_deg": 0.07971479551947994,
+   "voltage_mae_pu": 0.0005304439614045625
   },
   "benign": {
-   "angle_mae_deg": 0.011491486556326626,
-   "voltage_mae_pu": 0.00013150347626241426
+   "angle_mae_deg": 0.012508239811117589,
+   "voltage_mae_pu": 0.0001288243848876709
   },
   "geo": {
-   "angle_mae_deg": 0.0672928083622195,
-   "voltage_mae_pu": 0.00048276503785729197
+   "angle_mae_deg": 0.0701091022851162,
+   "voltage_mae_pu": 0.0004920247808209591
   }
  },
  "jacobian": {
   "Ad": {
-   "angle_mae_deg": 0.08485375816739181,
-   "voltage_mae_pu": 0.002045713218838374
+   "angle_mae_deg": 0.08844869947352181,
+   "voltage_mae_pu": 0.0020906908894621867
   },
   "Am": {
-   "angle_mae_deg": 0.03064583953023149,
-   "voltage_mae_pu": 0.00021785541135994386
+   "angle_mae_deg": 0.031859345284538675,
+   "voltage_mae_pu": 0.00024092732693257652
   },
   "Aq": {
-   "angle_mae_deg": 0.7062687380849505,
-   "voltage_mae_pu": 0.006439800916604964
+   "angle_mae_deg": 0.7541406736566724,
+   "voltage_mae_pu": 0.006952715095595927
   },
   "Ar": {
-   "angle_mae_deg": 0.20175957933859728,
-   "voltage_mae_pu": 0.00032617089297218163
+   "angle_mae_deg": 0.21060541273934513,
+   "voltage_mae_pu": 0.0003775656019103702
   },
   "As": {
-   "angle_mae_deg": 0.11714110950207726,
-   "voltage_mae_pu": 0.0006400059280586429
+   "angle_mae_deg": 0.12273771181881465,
+   "voltage_mae_pu": 0.0006094212843401654
   },
   "benign": {
-   "angle_mae_deg": 0.01132365046345238,
-   "voltage_mae_pu": 0.00012438270174634525
+   "angle_mae_deg": 0.014622218071131215,
+   "voltage_mae_pu": 0.00012075592449051672
   },
   "geo": {
-   "angle_mae_deg": 0.0888362920972651,
-   "voltage_mae_pu": 0.0006487028237340791
+   "angle_mae_deg": 0.09641403196177378,
+   "voltage_mae_pu": 0.0006782005455449449
   }
  },
  "prior+huber": {
   "Ad": {
-   "angle_mae_deg": 0.03795155381900837,
-   "voltage_mae_pu": 0.00013925695273672633
+   "angle_mae_deg": 0.04527522305622031,
+   "voltage_mae_pu": 0.0001433951843741103
   },
   "Am": {
-   "angle_mae_deg": 0.05047400020604588,
-   "voltage_mae_pu": 0.00010663486636420247
+   "angle_mae_deg": 0.050591760560445606,
+   "voltage_mae_pu": 0.00011145340420773023
   },
   "Aq": {
-   "angle_mae_deg": 0.14521238284367632,
-   "voltage_mae_pu": 0.00039311658744706375
+   "angle_mae_deg": 0.14933558051693985,
+   "voltage_mae_pu": 0.00042306642388646547
   },
   "Ar": {
-   "angle_mae_deg": 0.038971298985698184,
-   "voltage_mae_pu": 9.406715467065913e-05
+   "angle_mae_deg": 0.04215364585357546,
+   "voltage_mae_pu": 9.830399019158104e-05
   },
   "As": {
-   "angle_mae_deg": 0.06960145796500883,
-   "voltage_mae_pu": 0.00019404704594334316
+   "angle_mae_deg": 0.09025123494179568,
+   "voltage_mae_pu": 0.00022318330136219494
   },
   "benign": {
-   "angle_mae_deg": 0.020810187288822123,
-   "voltage_mae_pu": 8.490610827393964e-05
+   "angle_mae_deg": 0.023488767400700303,
+   "voltage_mae_pu": 8.915398760625435e-05
   },
   "geo": {
-   "angle_mae_deg": 0.05004069786742987,
-   "voltage_mae_pu": 0.00014435114865080683
+   "angle_mae_deg": 0.05591676461219043,
+   "voltage_mae_pu": 0.0001537806457051771
   }
  },
  "wls": {
   "Ad": {
-   "angle_mae_deg": 0.10482715832763254,
-   "voltage_mae_pu": 0.004024774294038267
+   "angle_mae_deg": 0.10585908879821902,
+   "voltage_mae_pu": 0.004064659685995752
   },
   "Am": {
-   "angle_mae_deg": 0.03064625220721174,
-   "voltage_mae_pu": 0.00021789786216711254
+   "angle_mae_deg": 0.03186055639160084,
+   "voltage_mae_pu": 0.00024111461659052802
   },
   "Aq": {
-   "angle_mae_deg": 0.7062895285655999,
-   "voltage_mae_pu": 0.006439967304475852
+   "angle_mae_deg": 0.7541043750587915,
+   "voltage_mae_pu": 0.006952828214786537
   },
   "Ar": {
-   "angle_mae_deg": 0.2886237737005727,
-   "voltage_mae_pu": 0.0004821163571060922
+   "angle_mae_deg": 0.2914835788084644,
+   "voltage_mae_pu": 0.0005353953791135609
   },
   "As": {
-   "angle_mae_deg": 0.13321050462962844,
-   "voltage_mae_pu": 0.0008181903864418927
+   "angle_mae_deg": 0.14007798971209423,
+   "voltage_mae_pu": 0.0007946150524852587
   },
   "benign": {
-   "angle_mae_deg": 0.011343992078989937,
-   "voltage_mae_pu": 0.0001244104343596647
+   "angle_mae_deg": 0.014681669862042807,
+   "voltage_mae_pu": 0.0001208005993812452
   },
   "geo": {
-   "angle_mae_deg": 0.09982632272905337,
-   "voltage_mae_pu": 0.0008074646799708776
+   "angle_mae_deg": 0.1072824630876213,
+   "voltage_mae_pu": 0.000839559771261958
   }
  }
 }

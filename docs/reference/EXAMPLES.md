@@ -3,31 +3,26 @@
 Runnable model examples, the temporal state-estimation recipe, and per-system statistics.
 Quickstart is in `../../README.md`, field definitions in `DATA_DICTIONARY.md`.
 
-## Continuous streams (LSTM / TGN)
+## The timeline as sequences (LSTM / TGN)
 
-The `load`/`generate` shard is a shuffled table of independent labeled snapshots. Its rows are not
-consecutive in time. For temporal models and state estimation, each system also ships a
-**continuous attacked stream**:
-
-- one running timeline of **72,000 distinct operating states** on the real NYISO load trajectory
-- ~50% under attack, as timed episodes, with per-timestep per-bus labels
-- **three aligned measurement layers** for both node and branch-flow measurements
+Every system is one continuous timeline of 72,000 frames on the real NYISO load trajectory, about
+half of them under attack as timed episodes. `fg.load(name, order="time")` keeps the frames in
+order, and the view then slides windows and lists episodes; `order="random"` is the same frames as
+a record table. Three aligned measurement layers come with every frame, for buses and for branches:
 
 ```python
-s = fg.load_stream("ieee118")          # download the published stream (or fg.generate_stream(...) to build one)
+ts = fg.load("ieee118", split="train", order="time")
 
-# node measurements [T, N, 4] = [|V|, Pinj, Qinj, angle]
-s["node_x"]   # OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
-s["benign"]   # the same meters with the ATTACK REMOVED (noise kept)
-s["clean"]    # NOISELESS, attack-free TRUE state (the SE target)
-# branch-flow measurements [T, E, 2] = [P_from, Q_from], same three layers
-s["edge_x"], s["edge_benign"], s["edge_clean"]
+a = ts.to_numpy()
+a["node_x"]   # [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
+a["benign"]   # the same meters with the ATTACK REMOVED (noise kept)
+a["clean"]    # NOISELESS, attack-free TRUE state (the SE target)
+a["edge_x"], a["edge_benign"], a["edge_clean"]   # [T, E, 2] the same three layers for branch flows
+a["y"], a["family"], a["seq_id"]                  # per-frame labels, family, episode index (-1 benign)
+ts.edge_index, ts.edge_attr                        # static graph; ts.to_numpy()["node_m"][0] the meter plan
 
-s["y"]          # [T, N] per-bus attack label   s["family"]  # [T] active family (0 = benign)
-s["edge_index"] # [2, E] PyG connectivity        s["edge_attr"]  # [E, 8] line features (r,x,b,g,gs,bs,tap,shift)
-s["node_m"], s["edge_m"]   # static meter masks. Metering is SPARSE, so unmetered channels are zero-filled
-
-Xw, yw = fg.windows(s, W=24, stride=12)  # slice [n, 24, N, 4] LSTM windows + labels
+Xw, yw = ts.windows(W=24, stride=12)               # [n, 24, N, 4] windows + per-window labels
+ep = ts.episodes                                   # onset, length, family, buses of every episode in the view
 ```
 
 On the metered channels:
@@ -51,26 +46,25 @@ Feed an LSTM/TGN windows of the **attacked** measurements and train it to recove
 import fdia_graph as fg
 import numpy as np
 
-s = fg.load_stream("ieee118")               # one continuous timeline (attacks as timed episodes)
+ts = fg.load("ieee118", split="train", order="time")
 
 W, stride = 24, 12
-Xw, yw = fg.windows(s, W, stride)           # Xw [n,W,N,4] attacked measurements, yw [n,N] attack label
-starts = range(0, len(s["node_x"]) - W + 1, stride)
-clean_w = np.stack([s["clean"][t:t+W] for t in starts])   # [n,W,N,4] clean state, windowed the same way
+Xw, yw = ts.windows(W, stride)                   # Xw [n,W,N,4] attacked measurements, yw [n,N] attack label
+Cw, _ = ts.windows(W, stride, layer="clean")     # [n,W,N,4] the clean state, windowed the same way
 
 # column order is [|V|, Pinj, Qinj, angle]; the SE target is clean |V| and angle:
-target = clean_w[..., [0, 3]]               # [n,W,N,2] clean V and theta
+target = Cw[..., [0, 3]]                         # [n,W,N,2] clean V and theta
 
 # training loop (sketch):
-#   pred = model(Xw)                        # your LSTM/TGN: [n,W,N,2] estimated V, theta
-#   loss = mse(pred, target)                # estimated state vs clean V/theta
+#   pred = model(Xw)                             # your LSTM/TGN: [n,W,N,2] estimated V, theta
+#   loss = mse(pred, target)                     # estimated state vs clean V/theta
 ```
 
 - `Xw` is the attacked, noisy input. `target` is the clean V/θ it should reconstruct.
-- For a full SE measurement set, window `s["edge_x"]` the same way and feed node + edge together.
-  That is exactly what a WLS/robust estimator consumes.
-- Line physics (`[E,8]` admittance) comes from the matching shard: `fg.load("ieee118").edge_attr`.
-- Custom stream: `fg.generate_stream(system, attacked_frac=0.5, families=[...], seed=...)`.
+- For a full SE measurement set, window `edge_x` the same way (`ts.to_numpy(["edge_x"])`) and feed
+  node + edge together. That is exactly what a WLS/robust estimator consumes.
+- Line physics: `ts.edge_attr` (`[E,8]`), `ts.ybus`, `ts.yf`.
+- Custom timeline: `fg.generate(system, name, attacked_frac=0.5, families=[...], seed=...)`.
 - Temporal features compare each frame to the previous **emitted** frame, so a stealthy ramp stays a
   small per-step change while a spike reads as an abrupt jump.
 
@@ -236,13 +230,12 @@ with both reading the identical 14-dim input. Message passing smooths exactly th
 signal `swing` carries. Beating the lightweight baseline with graph or physics information is a
 research target, not a given.
 
-### 3. Temporal model: a plain LSTM on the continuous stream
+### 3. Temporal model: a plain LSTM on the timeline
 
-- The stream ships raw measurements only, so the example builds its features in place:
-  train-normalized channels plus a per-window z-score.
-- Numbers are lower than on the shard for a structural reason. Inside a sustained attack episode the
-  rolling window is already contaminated, so the anomaly fades after onset. The shard's `swing`
-  avoids this because it was computed against clean history at generation time.
+- The example builds its features in place from the raw measurements: train-normalized channels
+  plus a per-window z-score.
+- Inside a sustained attack episode the rolling window is already contaminated, so the anomaly
+  fades after onset; the file's `swing` is computed against the previous frame at generation time.
 - Needs `pip install "fdia-graph[torch]"`.
 
 ```python
@@ -279,42 +272,44 @@ report(lote > tau, yte > 0)
 ```
 
 These are minutes-of-CPU baselines with deliberate headroom, not the dataset's ceiling.
-`layer="benign"`/`"clean"` on the stream helpers swaps the model input layer (the label stays the
-attack target).
+`layer="benign"`/`"clean"` on `windows`, `torch_windows` and `pyg_stream` swaps the model input
+layer (the label stays the attack target).
 
 ## Dataset statistics
 
-**Per-system size.** The classification shard (`fg.load`) is 72,000 records per system
-(36k benign + 6k × 6 attack families), split chronologically 60/20/20:
+**Per-system size.** One timeline of 72,000 frames per system, about half under attack, split
+chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):
 
-| system | N buses | E branches | records | train | val | test |
-|--------|--------:|-----------:|--------:|------:|----:|-----:|
-| ieee14  | 14  | 20  | 72,000 | 43,200 | 14,400 | 14,400 |
-| ieee30  | 30  | 41  | 72,000 | 43,200 | 14,400 | 14,400 |
-| ieee57  | 57  | 80  | 72,000 | 43,200 | 14,400 | 14,400 |
-| ieee89  | 89  | 210 | 72,000 | 43,200 | 14,400 | 14,400 |
-| ieee118 | 118 | 186 | 72,000 | 43,200 | 14,400 | 14,400 |
-| ieee145 | 145 | 453 | 70,039 | 42,030 | 14,002 | 14,007 |
-| ieee200 | 200 | 245 | 72,000 | 43,200 | 14,400 | 14,400 |
-| ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 |
+| system | N buses | E branches | frames | train | val | test | episodes |
+|--------|--------:|-----------:|-------:|------:|----:|-----:|---------:|
+| ieee14  | 14  | 20  | 72,000 | 43,200 | 14,400 | 14,400 | 15,997 |
+| ieee30  | 30  | 41  | 72,000 | 43,200 | 14,400 | 14,400 | 15,974 |
+| ieee57  | 57  | 80  | 72,000 | 43,218 | 14,382 | 14,400 | 15,948 |
+| ieee89  | 89  | 210 | 72,000 | 43,200 | 14,400 | 14,400 | 16,028 |
+| ieee118 | 118 | 186 | 72,000 | 43,200 | 14,400 | 14,400 | 16,080 |
+| ieee145 | 145 | 453 | 72,000 | 43,200 | 14,400 | 14,400 | 16,192 |
+| ieee200 | 200 | 245 | 72,000 | 43,226 | 14,374 | 14,400 | 16,163 |
+| ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 | 16,333 |
 
-ieee145 is slightly short because ~2.7% of its operating points don't converge.
+Every system converges at every frame; a split boundary moves to the end of the episode it would cut.
 
-**Attacks per split** (ieee118 shown; every system uses the same recipe). Families are drawn from
-random timesteps, so each is split ~60/20/20 with none concentrated in a partition:
+**Attacks per split** (ieee118 shown; every system uses the same recipe). Families are scheduled
+by inverse episode length so each gets about the same share of attacked frames; episodes land
+where the scheduler puts them, so a partition can hold a few more of one family:
 
 | family | train | val | test | total |
 |--------|------:|----:|-----:|------:|
-| benign (0) | 21,646 | 7,239 | 7,115 | 36,000 |
-| `Aq` stealthy load-scale | 3,616 | 1,228 | 1,156 | 6,000 |
-| `Ad` meter corruption    | 3,620 | 1,178 | 1,202 | 6,000 |
-| `As` meter scaling       | 3,587 | 1,233 | 1,180 | 6,000 |
-| `Ar` replay              | 3,666 | 1,121 | 1,213 | 6,000 |
-| `At` temporal ramp       | 3,480 | 1,200 | 1,320 | 6,000 |
-| `Al` load redistribution | 3,585 | 1,201 | 1,214 | 6,000 |
+| benign (0) | 21,405 | 7,516 | 7,079 | 36,000 |
+| `Aq` stealthy load-scale | 3,189 | 871 | 1,014 | 5,074 |
+| `Ad` meter corruption    | 3,136 | 1,069 | 1,026 | 5,231 |
+| `As` meter scaling       | 3,120 | 1,092 | 1,029 | 5,241 |
+| `Ar` replay              | 2,955 | 1,051 | 1,020 | 5,026 |
+| `At` temporal ramp       | 3,300 | 1,200 | 1,140 | 5,640 |
+| `Al` load redistribution | 2,675 | 821 | 952 | 4,448 |
+| `Am` multi-snapshot      | 3,420 | 780 | 1,140 | 5,340 |
 
-The **continuous stream** (`fg.load_stream`, v0.7.1) is a separate 72,000-timestep timeline per
-system, ~50% attacked as timed episodes. `At` episodes are longest, so they carry the most attacked frames.
+The v0.7.2 release shipped a record shard and a separate stream per system; from v0.8.0 the
+timeline is the one file, and `fg.load(..., release="v0.7.2")` still reads the shards.
 
 **Operating-state distributions** (from the 72k pool per system):
 
@@ -325,9 +320,9 @@ system, ~50% attacked as timed episodes. `At` episodes are longest, so they carr
 | ieee57  | 0.689 / 0.880 / 1.040 | −34 / −13 / 0 |
 | ieee89  | 0.961 / 1.034 / 1.084 | −17 / −3 / 33 |
 | ieee118 | 0.943 / 0.984 / 1.050 | −1 / 20 / 46 |
-| ieee145 | 0.920 / 1.064 / 1.155 | −180 / 2 / 180 |
+| ieee145 | 0.920 / 1.064 / 1.155 | −180 / 1 / 180 |
 | ieee200 | 0.980 / 1.018 / 1.040 | −46 / −37 / −22 |
-| ieee300 | 0.869 / 0.992 / 1.065 | −91 / −15 / 64 |
+| ieee300 | 0.870 / 0.992 / 1.065 | −108 / −15 / 71 |
 
 ![Operating-state distributions](../figures/fig_dataset_stats.png)
 
