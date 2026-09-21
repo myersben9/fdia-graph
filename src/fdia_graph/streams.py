@@ -129,31 +129,34 @@ def stream_of(ds: Any) -> Stream:
     )
 
 
-def _asset_spec(name: str, file: str, release: Optional[str]) -> AssetSpec:
-    from .registry import _REPO, STREAM_RELEASE
+def _asset_spec(name: str, file: str, release: str) -> AssetSpec:
+    from .registry import _REPO
 
-    return AssetSpec("builtin", name, file=file, release=release or STREAM_RELEASE, repo=_REPO)
+    return AssetSpec("builtin", name, file=file, release=release, repo=_REPO)
 
 
 def load_stream(system: Union[int, str], release: Optional[str] = None) -> Stream:
-    """Download (and cache) the published continuous stream for a system and return it as a dict.
-
-    Same dict shape as generate_stream (node_x, benign, clean, edge_x/edge_benign/edge_clean, y, family, ...).
-    Built-in systems only (14/30/57/89/118/145/200/300). release: None -> newest published streams; a tag pins
-    a version. Streams ship in the same complete release as the shards (STREAM_RELEASE follows _RELEASE), so this
-    tracks the latest continuous-dataset release without disturbing which shard release fg.load() uses.
-    """
+    """Deprecated: `fg.load(system, order="time")` is the timeline. Returns the published continuous
+    data of a built-in system as the stream dict: at a timeline release (v0.8.0 and later, the
+    default) the timeline file read through `stream_of`; at an earlier release the stream file of
+    that release. `release`: None -> the pinned data release; a tag pins a version."""
     from .download import ensure_local
-    from .registry import system_id
+    from .registry import STREAM_RELEASE, is_timeline_release, release_name, release_tag, system_id
 
     warnings.warn(
-        "load_stream is deprecated and retires in 0.19: it reads the v0.7.2 stream files; the next "
-        "data release is one timeline per system, read by fg.load(system, order='time')",
+        "load_stream is deprecated and retires in 0.19: use fg.load(system, order='time'), the same "
+        "frames with ds.windows and ds.episodes, without holding the whole file in memory",
         DeprecationWarning,
         stacklevel=2,
     )
+    rel = release_name(release or STREAM_RELEASE)  # "0.7.2", "v0.7.2" and "data-v0.7.2" all spell one release
+    if is_timeline_release(rel):
+        from . import load
+
+        return stream_of(load(f"ieee{system_id(system)}", order="time", release=rel))
     C = system_id(system)
-    z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", release)), allow_pickle=True)
+    tag = release_tag(rel)  # the GitHub tag that carries the stream file
+    z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", tag)), allow_pickle=True)
     out = {k: z[k] for k in z.files}
     out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)  # torch.long
     out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)

@@ -57,16 +57,16 @@ selection, the attack-cost curve, and the detection table. Read the detection ta
 attack cost is the sparsest row of an echelon basis of the open subspace, an upper bound on the
 true sparsest attack, so it is not monotone in the secured set (on IEEE-14 the greedy cost
 plateaus at 54 after two meters, the DQN's walks 3, 49, 46, 31, 43, 7 and back to 3, while the
-DQN's detection of Aq, Al and Am rises from 0.02, 0.00, 0.00 to 0.86, 0.80, 0.84).
+DQN's detection of Aq, Al and Am rises from 0.02, 0.00, 0.00 to 0.88, 0.79, 0.79).
 
 WLS residual detection rate per family at a 1% benign alarm level, before and after securing 20
 meters (v0.8.0 timelines, test split):
 
 | system | selector | Aq | At | Al | Am | Ad / As / Ar |
 |---|---|---|---|---|---|---|
-| ieee14 | greedy | 0.02 → 0.86 | 0.02 → 0.29 | 0.00 → 0.85 | 0.00 → 0.77 | 1.00 / 1.00 / 0.95 → 1.00 / 1.00 / 0.93 |
-| ieee14 | DQN | 0.02 → 0.86 | 0.02 → 0.49 | 0.00 → 0.80 | 0.00 → 0.84 | 1.00 / 1.00 / 0.95 → 1.00 / 1.00 / 0.93 |
-| ieee118 | greedy | 0.01 → 0.08 | 0.02 → 0.02 | 0.01 → 0.04 | 0.03 → 0.03 | 1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98 |
-| ieee118 | DQN | 0.01 → 0.34 | 0.02 → 0.02 | 0.01 → 0.49 | 0.03 → 0.38 | 1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98 |
+| ieee14 | greedy | 0.02 → 0.76 | 0.01 → 0.25 | 0.00 → 0.82 | 0.00 → 0.69 | 1.00 / 1.00 / 0.95 → 1.00 / 1.00 / 0.92 |
+| ieee14 | DQN | 0.02 → 0.88 | 0.01 → 0.49 | 0.00 → 0.79 | 0.00 → 0.79 | 1.00 / 1.00 / 0.95 → 1.00 / 1.00 / 0.91 |
+| ieee118 | greedy | 0.00 → 0.00 | 0.01 → 0.01 | 0.00 → 0.02 | 0.01 → 0.01 | 1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98 |
+| ieee118 | DQN | 0.00 → 0.32 | 0.01 → 0.02 | 0.00 → 0.45 | 0.01 → 0.27 | 1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98 |
 
 Source: the multi-snapshot attack and the trusted-PMU defence of [WU26] (`docs/reference/REFERENCES.md`).

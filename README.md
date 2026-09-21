@@ -1,7 +1,8 @@
 # fdia-graph
 
 Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line. Eight IEEE systems
-(14 / 30 / 57 / 89 / 118 / 145 / 200 / 300 buses), 72,000 records each.
+(14 / 30 / 57 / 89 / 118 / 145 / 200 / 300 buses), one continuous timeline of 72,000 frames each:
+a record table when shuffled, a time series when not.
 
 ```python
 import fdia_graph as fg
@@ -9,20 +10,21 @@ import fdia_graph as fg
 ds = fg.load("ieee118", split="train")     # auto-downloads + caches
 for batch in ds.loader(batch_size=64):
     batch["node_x"], batch["edge_x"], batch["edge_index"], batch["y"], batch["family"]
+
+ts = fg.load("ieee118", split="test", order="time")   # the same frames in time order
+Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows for an LSTM / TGN
 ```
 
 ```mermaid
 flowchart LR
-    P[ISO load profiles] --> G[fg.generate / generate_stream]
-    G --> S[(shard .h5)]
-    G --> T[(stream .npz)]
-    S --> L[fg.load]
-    T --> LS[fg.load_stream]
-    L --> D[FdiaGraph<br/>records, batches, PyG]
-    LS --> W[ds.windows]
+    P[ISO load profiles] --> G[fg.generate]
+    G --> F[("one timeline file per system<br/>observed · benign · clean layers")]
+    F --> L[fg.load]
+    L --> D["FdiaGraph<br/>records, batches, PyG<br/>(order=random)"]
+    L --> T["FdiaGraph<br/>windows, episodes<br/>(order=time)"]
     D --> SE[fdia_graph.se<br/>state estimation]
     D --> LOC[fdia_graph.localization<br/>which buses]
-    W --> M[your temporal model]
+    T --> M[your temporal model]
 ```
 
 | Read | To learn |
@@ -30,7 +32,7 @@ flowchart LR
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what, and how the paths connect |
 | [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) | what every array means |
 | [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
-| [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, streams, dataset stats |
+| [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
 | [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) | the two analysis modules, with results |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |
 
@@ -40,27 +42,32 @@ flowchart LR
 |---|---|
 | `pip install fdia-graph` | the loader (numpy, h5py) |
 | `pip install "fdia-graph[torch]"` | + PyTorch DataLoader, learned localizers |
-| `pip install "fdia-graph[pyg]"` | + torch_geometric records and streams |
+| `pip install "fdia-graph[pyg]"` | + torch_geometric records and timelines |
 | `pip install "fdia-graph[se]"` | + state estimation, residual localization (pandapower, scipy; add `[torch]` for speed) |
 | `pip install "fdia-graph[generate]"` | + pandapower, to generate custom data |
 
 Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.7.2")`
-pins a data version; `pip install --upgrade fdia-graph` moves it forward.
+pins a data version (the v0.7.2 record shards still load); `pip install --upgrade fdia-graph` moves it forward.
 
 ## Load
 
+One file per system, one loader. `order` decides what the file is to you:
+
 ```python
-fg.load("ieee300", split="train")                              # 60/20/20 chronological split
+fg.load("ieee300", split="train")                              # 60/20/20 chronological split, episodes never cut
 fg.load("ieee118", split="test", families=["Aq", "At", "Al"])  # family subset
 fg.load("ieee118", units="pu")                                 # per-unit + radians (default: physical)
+fg.load("ieee118", order="random", seed=0)                     # the record table: a fixed permutation
+fg.load("ieee118", split="test", order="time")                 # the time series: windows, episodes
 ```
 
 | you want | call |
 |---|---|
 | a whole split at once | `ds.export()` (arrays), `ds.export(format="torch")`, `ds.export(format="pandas")` |
-| custom data | `fg.generate(system, name, attacked_frac=..., attack_intensity=...)`, then `fg.load(name)` |
-| a continuous timeline for LSTM / TGN | `ds = fg.load(name, order="time")`, then `ds.windows(W=24)` (a generated timeline; the published v0.7.2 streams still load through `fg.load_stream`) |
-| a fixed random record order | `fg.load(name, order="random", seed=0)` |
+| windows for an LSTM / TGN | `ds.windows(W, stride, label, layer, per_bus=True)` on a time-ordered view (one sequence per bus) |
+| the attack episodes | `ds.episodes` (onset, length, family, buses) |
+| the attack removed | every record carries `benign` and `edge_benign` next to `node_x` and `clean` |
+| custom data | `fg.generate(system, name, attacked_frac=..., families=..., frames=...)`, then `fg.load(name)` |
 
 ## State estimation
 
@@ -104,9 +111,11 @@ A shape reads "values per item": `[N,4]` is 4 numbers per bus.
 | `edge_index` | `[2,E]` | `from_bus`; `to_bus` | connectivity |
 | `edge_attr` | `[E,8]` | `r`, `x`, `b`, `g`, `gs`, `bs`, `tap`, `shift` | static line physics (`Data.edge_phys` in PyG) |
 | `y` | `[N]` | | 1 attacked, 0 clean |
-| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al (`fg.FAMILIES`) |
-| `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | scan-to-scan change, and as a z-score of recent change |
+| `family` | scalar | | 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (`fg.FAMILIES`) |
+| `temporal_delta`, `swing` | `[N,2]` | `ΔP`, `ΔQ` | change against the previous frame, and as a z-score of recent change |
+| `benign`, `edge_benign` | `[N,4]`, `[E,2]` | as above | the same scan with the attack removed, noise kept |
 | `clean`, `edge_clean`, `edge_clean_full` | `[N,4]`, `[E,2]`, `[E,2]` | as above | noiseless truth: buses, metered branches, every branch |
+| `seq_id`, `timestep`, `split` | scalars | | episode index (-1 benign), frame index, partition |
 | `slack`, `ybus`, `yf`, `yt` | dataset attributes | | reference bus, admittance matrices |
 
 Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md).
@@ -115,10 +124,17 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 
 | family | attack | classical BDD | plausibility |
 |---|---|---|---|
-| `Aq` | load rescale, AC re-solve | evades | every per-bus change within a 2% to 20% band |
-| `At` | slow load ramp, AC re-solve | evades | same band, spread over 60 scans |
-| `Al` | load redistribution that hides an overload | evades | same band, load conserved |
+| `Aq` | load rescale, the subnetwork around the buses re-solved locally | evades | every per-bus change within a 2% to 20% band |
+| `At` | slow load ramp, re-solved locally every frame | evades | same band, spread over 60 scans |
+| `Al` | load redistribution that raises a line's apparent loading, re-solved locally | evades | same band, load conserved |
+| `Am` | the redistribution reached in per-frame steps under the noise floor | evades | same band, spread over 60 scans |
+
 | `Ad` / `As` / `Ar` | meter bias / scaling / replay | caught | same band |
+
+Every stealthy family is a local false state (Wu et al. 2026): the attacker solves the power flow of a
+subnetwork around the attack with the boundary voltages held true, writes only that subnetwork's
+meters, and the measurement vector stays consistent with an AC state, so the residual test sees noise.
+The meters written are the tamper masks in the file's `attack/` group.
 
 ![BDD statistic per family: the three stealthy families sit below the alarm line with benign, the three tampering families sit far above it](docs/figures/fig_bdd.png)
 

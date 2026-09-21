@@ -40,6 +40,7 @@ FAMS = [
     ("Aq", "Stealthy re-solve (Aq)"),
     ("At", "Slow ramp (At)"),
     ("Al", "Load redistribution (Al)"),
+    ("Am", "Multi-snapshot (Am)"),
 ]
 
 res = {}
@@ -88,6 +89,9 @@ for fam, lab in FAMS:
     cells = []
     for _, key, scale, fmt in blocks:
         for s in systems:
+            if fam not in res[s]["wls"]:  # a system whose run predates a family (Am on IEEE-300)
+                cells.append("n/a")
+                continue
             cells.append(fmt.format(res[s]["wls"][fam][key] * scale if scale else red(s, fam, key)))
     print("| " + " | ".join([lab] + cells) + " |")
 print()
