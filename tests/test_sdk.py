@@ -78,7 +78,9 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     ds = fg.load(timeline)
     Y = ds.ybus_np
     g = FdiaGenerator(14, seed=1)
-    lut = np.asarray(g._lut)  # timeline bus i -> ppc row lut[i]
+    with pytest.warns(DeprecationWarning, match="nl is deprecated"):
+        assert g.nl == g.n_lines  # the 0.17 name still answers
+    lut = np.asarray(g._ppc_row)  # timeline bus i -> ppc row lut[i]
     ref = g._Ybus.toarray()[np.ix_(lut, lut)]
     assert Y.shape == (ds.N, ds.N) and np.allclose(Y, ref, atol=1e-9)
     # S = V conj(Y V) is the net injection (generation positive); the clean layer stores P/Q with

@@ -180,7 +180,7 @@ def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Any]:
         Attr.NODE_UNITS: "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
         Attr.EDGE_UNITS: "P_from:MW,Q_from:MVAr",
         Attr.BASEMVA: float(g.base.sn_mva),
-        Attr.LRA_TARGET_LINE: g._Ltgt,
+        Attr.LRA_TARGET_LINE: g._primary_target_line,
         Attr.SEED: seed,
         Attr.TOPOLOGY: ("base" if g.contingency.line is None else "n1_line"),
         Attr.OUTAGE_LINE: (-1 if g.contingency.line is None else int(g.contingency.line)),

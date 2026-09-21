@@ -95,6 +95,10 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 | `ds.export()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` | `ds.edge_attr` |
 | stream dict `fg.load_stream()` | `["edge_x"]` `[T,E,2]` | `["edge_m"]` | `["edge_attr"]` |
 
+One name to watch: the static table's `graph/edge_x` is the per-unit series reactance of each branch
+(`ds.branch_x`), unrelated to the per-record flow layer `edge_x` above; the on-disk name changes at
+the next data release, the reader already spells the two apart.
+
 The `[E,8]` physics keep the name `edge_attr` on dicts and the dataset, and become `edge_phys` on PyG
 objects because PyG's `edge_attr` slot is its conventional home for per-edge model input, which
 here are the flows.

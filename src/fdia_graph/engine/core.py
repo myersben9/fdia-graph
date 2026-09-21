@@ -15,6 +15,7 @@ FdiaGenerator is split by concern across three mixins: state setup lives here (_
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -204,7 +205,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         # figures; P/Q use a larger ~1.7% power-measurement std. Relative for flows/injections, absolute
         # for V/angle. Split into a per-scan jitter and a per-meter bias (see formulas.noise).
         self.SD = dict(pf=0.017, qf=0.017, v=0.0012, pi=0.017, qi=0.017, va=0.00168)
-        self.SDj, self._sd_bias = bias_jitter_split(self.SD, jitter_frac=0.25)
+        self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=0.25)
         self.NET = getattr(pn, _CASE[self.C])
         self.base = self._open_case(outage)
         self._load_tables(self.base)
@@ -214,12 +215,18 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self._admittances(self.base._ppc)
         # Reusable net for re-solving under attacked loads. Apply the contingency here too, else attacked
         # records solve on the INTACT network while benign came from the post-contingency one.
-        self._solvenet = self.NET()
+        self._solve_net = self.NET()
         if self.contingency.line is not None:
-            self._solvenet.line.at[self.contingency.line, "in_service"] = False
+            self._solve_net.line.at[self.contingency.line, "in_service"] = False
         self._meter_bias()
         # Buffer of recent benign records: replay attacks (Ar) copy an earlier clean snapshot from here.
         self.benign_buf = []
+
+    @property
+    def nl(self) -> int:
+        """The line count under its 0.17 name; retires in 0.19, use `n_lines`."""
+        warnings.warn("nl is deprecated and retires in 0.19: use n_lines", DeprecationWarning, stacklevel=2)
+        return self.n_lines
 
     def _open_case(self, outage: Optional[Union[int, str]]) -> Any:
         """The pandapower case with the contingency applied and its base power flow solved; sets
@@ -295,7 +302,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             np.r_[base.gen.bus.values, base.load.bus.values, base.ext_grid.bus.values, base.shunt.bus.values]
         )
         self.zero_inj = [b for b in range(C) if b not in set(inj)]
-        self._inj_buses = sorted(set(inj.tolist()))
+        self._injection_buses = sorted(set(inj.tolist()))
         # Total generator MW per bus (summing co-located gens), aligned to load-bus ordering, so attacks
         # can reason about net (load - gen) per bus.
         genP: dict[int, float] = {}
@@ -333,7 +340,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         vbus = set(self.rng.choice(C, int(vbus_frac * C), replace=False).tolist())
         pmu = set(self.rng.choice(C, max(1, int(pmu_frac * C)), replace=False).tolist())
         flow = self.rng.random(len(base.line) + len(base.trafo)) < flow_frac
-        self.meters = MeterPlan(vbus, pmu, self._inj_buses, flow)
+        self.meters = MeterPlan(vbus, pmu, self._injection_buses, flow)
 
     def _edge_index(self, base: Any) -> None:
         """Edge index (2 x E): row 0 = from-bus, row 1 = to-bus; lines use from/to, transformers hv/lv,
@@ -346,7 +353,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             ]
         ).astype(np.int32)
         self.E = self.ei.shape[1]
-        self.nl = len(base_line)  # nl = number of lines (first nl cols of ei)
+        self.n_lines = len(base_line)  # lines come first in ei, transformers after
         # DEPRECATED (v0.5.0), retained for loading. Mixes UNITS: line reactance in ohms vs trafo vk_percent,
         # putting trafo entries ~3 orders of magnitude above lines on IEEE-300. Use the per-unit edge_* arrays.
         self.x_react = np.r_[
@@ -381,7 +388,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         _ys = series_admittance(self.branch.r, self.branch.x)
         self.edge_gs = np.real(_ys).astype(np.float64)  # series conductance, p.u.
         self.edge_bs = np.imag(_ys).astype(np.float64)  # series susceptance, p.u. (negative for inductive)
-        self.edge_is_trafo = np.r_[np.zeros(self.nl), np.ones(self.E - self.nl)].astype(np.float64)
+        self.edge_is_trafo = np.r_[np.zeros(self.n_lines), np.ones(self.E - self.n_lines)].astype(np.float64)
         self.bus_shunt_g = ppc["bus"][:, 4].real.astype(np.float64)
         self.bus_shunt_b = ppc["bus"][:, 5].real.astype(np.float64)
 
@@ -389,29 +396,29 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         """Ybus and the from/to branch-admittance matrices (from-end flow Sf = V_from * conj(Yf @ V)),
         the ppc bus lookup, and the DC PTDF that steers the load-redistribution attack.
 
-        _lut maps pandapower bus index -> ppc row index (the orderings differ, a classic footgun);
-        _fb is the from-bus (ppc index) per branch; Vc is built in ppc ordering.
+        _ppc_row maps pandapower bus index -> ppc row index (the orderings differ, a classic footgun);
+        _from_bus_ppc is the from-bus (ppc index) per branch; Vc is built in ppc ordering.
         """
         from pandapower.pypower.makePTDF import makePTDF
         from pandapower.pypower.makeYbus import makeYbus
 
         C = self.C
         self._Ybus, self._Yf, self._Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
-        self._bMVA = ppc["baseMVA"]
-        self._lut = self.base._pd2ppc_lookups["bus"]
-        self._fb = ppc["branch"][:, 0].real.astype(int)
-        self._nppc = ppc["bus"].shape[0]
+        self._base_mva = ppc["baseMVA"]
+        self._ppc_row = self.base._pd2ppc_lookups["bus"]
+        self._from_bus_ppc = ppc["branch"][:, 0].real.astype(int)
+        self._n_ppc_buses = ppc["bus"].shape[0]
         # PTDF (branches x buses): DC sensitivity of each branch's MW flow to a bus injection; sliced to
-        # (branches x load-buses) by reindexing ppc -> pandapower via _lut and keeping the load-bus columns.
-        self._ptdf = makePTDF(self._bMVA, ppc["bus"], ppc["branch"])
-        self._ptdf_lb = self._ptdf[:, [self._lut[b] for b in range(C)]][:, self.load_bus]
+        # (branches x load-buses) by reindexing ppc -> pandapower via _ppc_row and keeping the load-bus columns.
+        self._ptdf = makePTDF(self._base_mva, ppc["bus"], ppc["branch"])
+        self._ptdf_load_buses = self._ptdf[:, [self._ppc_row[b] for b in range(C)]][:, self.load_bus]
 
     def _meter_bias(self) -> None:
         """The per-meter SYSTEMATIC bias, drawn ONCE (self.bias, a MeterBias): constant across scans,
         relative for P/Q and flows, absolute for V and angle, the slow part of the accuracy-class error.
         The per-scan jitter (self.SDj) is added fresh at emit. Six draws from the seeded RNG, after the
         meter plan, in this order."""
-        sb, C, E = self._sd_bias, self.C, self.E
+        sb, C, E = self._bias_sd, self.C, self.E
         self.bias = MeterBias(
             pi=self.rng.normal(0, sb["pi"], C),
             qi=self.rng.normal(0, sb["qi"], C),
@@ -430,9 +437,9 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         cached per strength.
         """
         key = round(float(strength), 4)
-        cache = getattr(self, "_cent_cache", None)
+        cache = getattr(self, "_centrality_cache", None)
         if cache is None:
-            cache = self._cent_cache = {}
+            cache = self._centrality_cache = {}
         if key in cache:
             return cache[key]
         import networkx as nx
