@@ -27,7 +27,7 @@ the public API, the generated files and the numbers are the same as the previous
   mismatch drops, the full step first, so every frame the plain method solved is bit-identical. A
   step the region still cannot absorb is halved (an Aq step at most three times and never under
   the noise floor, a ramp or Am frame at most six times) so the frame stays attacked at the
-  largest step with a solution, an Al frame halves its redistribution and then redraws its line,
+  largest step with a solution, an Al frame halves its redistribution and then redraws its line (up to forty),
   and an Aq, At or Am episode tests its design (the full step, the ramp's peak, the held
   redistribution's peak) on the onset frame and redraws it, up to ten times, when no stealthy
   state exists there; the tests spend no random draw, so a file whose designs all pass is

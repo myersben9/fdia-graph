@@ -42,7 +42,8 @@ LRA_FAMILY = 6
 AM_FAMILY = 7
 CORRUPT_KIND = {2: "Ad", 3: "As", 4: "Ar"}  # corrupt-in-place families and their AttackMixin.corrupt code
 BENIGN_BUFFER = 300  # recent benign scans kept for the replay families (FIFO)
-LRA_DRAWS = 10  # target lines an Al frame tries before giving up (a region may hold too few loads)
+LRA_DRAWS = 40  # target lines an Al frame tries before giving up: a region may hold too few loads, or
+# every redistribution at this operating point may push a boundary generator past its limits
 AQ_HALVINGS = 3  # times an Aq load step with no local power-flow solution is halved before giving up
 STEP_HALVINGS = 6  # the same for one frame of a ramp (At, Am), whose step is under the floor anyway
 REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans back
