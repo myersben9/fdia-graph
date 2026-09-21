@@ -25,6 +25,10 @@ import requests
 OWNER, REPO = "myersben9", "fdia-graph"
 BASE = f"https://api.github.com/repos/{OWNER}/{REPO}"
 COPILOT = "copilot"
+# The review bots, by login fragment. Copilot is always required on the head; another bot becomes
+# required for a pull request as soon as it has reviewed that request once (it is installed), so an
+# uninstalled bot never blocks and an installed one is never skipped.
+REVIEW_BOTS = (COPILOT, "coderabbitai", "gemini-code-assist")
 # The smoke workflow's jobs, every one required green on the head before a merge; a job that has
 # not registered yet counts as not green (so a merge cannot slip in while CI is still starting).
 REQUIRED = (
@@ -91,14 +95,35 @@ def _head_state(num: int) -> dict[str, Any]:
     sha = pr["head"]["sha"]
     checks = api_all(f"/commits/{sha}/check-runs")
     reviews = api_all(f"/pulls/{num}/reviews")
-    copilot = [r for r in reviews if COPILOT in r["user"]["login"].lower() and r["commit_id"] == sha]
+    on_head = {
+        bot: [(r["state"], r["submitted_at"]) for r in reviews if _bot_of(r) == bot and r["commit_id"] == sha]
+        for bot in REVIEW_BOTS
+    }
+    seen = {b for r in reviews if (b := _bot_of(r)) is not None}
     return {
         "pr": pr,
         "sha": sha,
         "checks": _latest_runs(checks),
-        "copilot_on_head": [(r["state"], r["submitted_at"]) for r in copilot],
+        "copilot_on_head": on_head[COPILOT],
+        "reviews_on_head": on_head,
+        "required_bots": [b for b in REVIEW_BOTS if b == COPILOT or b in seen],
         "n_comments": len(api_all(f"/pulls/{num}/comments")),
     }
+
+
+def _bot_of(review: dict[str, Any]) -> str | None:
+    """Which review bot wrote `review`, or None for a person."""
+    login = review["user"]["login"].lower()
+    return next((b for b in REVIEW_BOTS if b in login), None)
+
+
+def _reviewed(state: dict[str, Any]) -> bool:
+    """Every required bot has a review on the head."""
+    return all(state["reviews_on_head"][b] for b in state["required_bots"])
+
+
+def _missing_reviews(state: dict[str, Any]) -> list[str]:
+    return [b for b in state["required_bots"] if not state["reviews_on_head"][b]]
 
 
 def _not_green(state: dict[str, Any]) -> list[str]:
@@ -136,7 +161,8 @@ def status(num: int) -> None:
                 "merged": s["pr"].get("merged"),
                 "green": _green(s),
                 "checks": s["checks"],
-                "copilot_on_head": s["copilot_on_head"],
+                "reviews_on_head": s["reviews_on_head"],
+                "required_bots": s["required_bots"],
                 "n_comments": s["n_comments"],
             },
             indent=1,
@@ -167,7 +193,7 @@ def wait(num: int, minutes: float = 25) -> None:
             st == "completed" for st, _ in s["checks"].values()
         )
         elapsed = (time.time() - t0) / 60
-        if (done and s["copilot_on_head"]) or elapsed > minutes:
+        if (done and _reviewed(s)) or elapsed > minutes:
             print(
                 json.dumps(
                     {
@@ -175,7 +201,8 @@ def wait(num: int, minutes: float = 25) -> None:
                         "head": s["sha"][:8],
                         "green": _green(s),
                         "checks": {k: v[1] for k, v in s["checks"].items()},
-                        "copilot_on_head": s["copilot_on_head"],
+                        "reviews_on_head": s["reviews_on_head"],
+                        "required_bots": s["required_bots"],
                         "n_comments": s["n_comments"],
                     },
                     indent=1,
@@ -190,8 +217,10 @@ def merge(num: int) -> None:
     why = _not_green(s)
     if why:
         raise SystemExit(f"not green on {s['sha'][:8]}: " + "; ".join(why))
-    if not s["copilot_on_head"]:
-        raise SystemExit(f"no Copilot review on {s['sha'][:8]} yet; run `wait {num}` first")
+    if not _reviewed(s):
+        raise SystemExit(
+            f"no review on {s['sha'][:8]} yet from {_missing_reviews(s)}; run `wait {num}` first"
+        )
     pr = s["pr"]
     # `sha` binds the merge to the head that was checked: GitHub refuses if a push moved it meanwhile.
     r = api(

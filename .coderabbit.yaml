@@ -1,0 +1,38 @@
+# CodeRabbit review settings for this repository (https://docs.coderabbit.ai/reference/configuration).
+# CodeRabbit reviews every push to a pull request against main; tools/pr.py requires its review on
+# the head once it has reviewed a pull request, like Copilot's.
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    base_branches:
+      - main
+  path_instructions:
+    - path: "src/fdia_graph/**"
+      instructions: |
+        A typed, pyright-gated scientific package. Judge the physics and numerics first: injections
+        are load-positive, node columns are [|V| pu, P_inj MW, Q_inj MVAr, theta deg], branch flows
+        are from-end [P MW, Q MVAr], every released file must reproduce bit for bit from its seed
+        (a change to the order of random draws changes every file and must say so in the changelog).
+        Then the readability limits the CI gate enforces: cyclomatic complexity at most 10, nesting
+        at most 3, at most 7 parameters, no positional record indexing, every formula a named
+        function in formulas/ with a literature key, and no HDF5 dataset path spelled outside
+        src/fdia_graph/schema.py. Do not suggest type-ignore comments, broad excepts, or
+        defensive checks for cases the types already exclude.
+    - path: "tests/**"
+      instructions: |
+        The frozen references under tests/frozen may move only when the change is a data or method
+        release that states the deltas in the changelog. Prefer invariants to exact floats.
+    - path: "docs/**"
+      instructions: |
+        Prose rules: no em-dashes, no semicolons and no colons in running text, no author names in
+        prose (cite by key), percentages rather than ratios, and never a detection rate without
+        the false-alarm rate at the same threshold. Numbers come from results JSON and generated
+        tables, never typed by hand.
+chat:
+  auto_reply: true

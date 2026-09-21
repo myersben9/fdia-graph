@@ -47,10 +47,21 @@ python tools/pr.py merge 80                                    # refuses unless 
 
 Green means: every job of the smoke workflow (`tests`, `typecheck`, `format`, `readability`, the two
 installs) is a completed success on the head, a job that has not started yet counts as not green,
-every other listed check has finished without failure, and Copilot's review is on that exact head.
+every other listed check has finished without failure, and every required review bot has reviewed
+that exact head.
 
-Copilot reviews every push. Its comments are suggestions: apply the ones that are right (about one
-in two has been), answer every one with what you changed or why not. The tool uses the token the
+Three reviewers read a pull request, in this order:
+
+1. `/code-review ultra <number>` in Claude Code, before the bots: a multi-agent review of the whole
+   branch with the repository as context. Fold what it finds into the branch first.
+2. Copilot, on every push, always required on the head.
+3. CodeRabbit (`.coderabbit.yaml` carries our review instructions) and Gemini Code Assist, both
+   GitHub apps installed on the repository; `tools/pr.py` requires a bot's review on the head as
+   soon as that bot has reviewed the pull request once, so a bot that is not installed never
+   blocks a merge and an installed one is never skipped.
+
+Bot comments are suggestions: apply the ones that are right (about one in two has been), answer
+every one with what you changed or why not. The tool uses the token the
 Git Credential Manager already holds for `git push`; there is no gh CLI on the lab machines. Commit
 as yourself, with a message that says what the change does. If CI does not start on a push, check the
 account's Actions and Copilot credits before anything else.
