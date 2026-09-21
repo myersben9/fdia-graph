@@ -53,12 +53,12 @@ the public API, the generated files and the numbers are the same as the previous
   file. Every false state also satisfies the security and operational constraints of Wu et al.
   2026 (`OperatingLimits`, their equations 21 to 23): each bus voltage within the case's own
   limits (a bus the true state already holds outside a limit may not be made worse, IEEE-57 runs
-  below its own minimum) and every generator's implied output within its P and Q limits widened
-  per bus to the range the benign pool ran it over (the pools scale generation with load and
-  never enforced nameplate, so the nameplate alone refuses the states the pool already holds and
-  left 12% of IEEE-118's attack frames benign), the true output recovered exactly from the pool's
-  common load and generation scale, and the pretended load change at a target bus not counted
-  against its generator; a false state outside them is rejected and its step halved
+  below its own minimum) and, for the generators of the attacked subnetwork as in the paper (a
+  boundary bus is outside it, its voltage held true and its injection whatever balances the
+  region), the implied output within its P and Q limits widened per bus to the range the benign
+  pool ran it over (the pools scale generation with load and never enforced nameplate), the true
+  output recovered exactly from the pool's common load and generation scale, and the pretended
+  load change at a target bus not counted against its generator; a false state outside them is rejected and its step halved
   like an unsolvable one. The file records the widest bus limits as `v_lo` and `v_hi`.
 - A stealthy frame (Aq, At, Al, Am) is the true scan plus the attack vector a = h(x_false) - h(x_true)
   of its local false state: every meter keeps its own noise draw and the tampered meters are

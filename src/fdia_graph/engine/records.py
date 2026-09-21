@@ -153,7 +153,7 @@ def stealthy_state(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[np
     Xa = g.solve_local(Xt, interior, Lp, Lq)
     if Xa is None:
         return None
-    if k.limits is not None and not _within_limits(g, Xa, Xt, Lp - Lp_true, k.limits):
+    if k.limits is not None and not _within_limits(g, Xa, Xt, Lp - Lp_true, k.limits, interior):
         return None
     return Xa
 
@@ -166,12 +166,13 @@ def is_feasible(g, Xt, targets, mult, k: FrameKnobs, interior=None) -> bool:
     return interior is not None and stealthy_state(g, Xt, targets, mult, interior, k) is not None
 
 
-def _within_limits(g, Xa, Xt, load_delta_pos, limits) -> bool:
+def _within_limits(g, Xa, Xt, load_delta_pos, limits, interior) -> bool:
     """[WU26, eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
-    load-table position (MW), summed per bus for buses carrying several loads."""
+    load-table position (MW), summed per bus for buses carrying several loads; the generator
+    limits apply to the generators of `interior`, the attacked subnetwork."""
     dload = np.zeros(g.C)
     np.add.at(dload, g.load_bus, load_delta_pos)
-    return within_limits(Xa, Xt, generator_output(Xt, g.load_base, g.gen_base), dload, limits)
+    return within_limits(Xa, Xt, generator_output(Xt, g.load_base, g.gen_base), dload, limits, interior)
 
 
 def _attack_vector(g, Xa, Xt) -> tuple[np.ndarray, np.ndarray]:

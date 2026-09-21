@@ -356,19 +356,22 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     on = np.flatnonzero(g.gen_base[:, 0] > 0)
     assert np.allclose(gen[on, 0], g.gen_base[on, 0])  # the base state: base generation exactly
     none = np.zeros(g.C)
-    assert within_limits(X0, X0, gen, none, lim)  # ... and is acceptable as its own bound
+    everywhere = np.arange(g.C)  # every bus inside the attacked subnetwork
+    assert within_limits(X0, X0, gen, none, lim, everywhere)  # ... and is acceptable as its own bound
     worse = X0.copy()
     worse[int(np.argmax(X0[:, 0])), 0] += 0.01  # further above the limit than the true state
-    assert not within_limits(worse, X0, gen, none, lim)
+    assert not within_limits(worse, X0, gen, none, lim, everywhere)
     bad = X0.copy()
     bad[5, 0] = 0.8
-    assert not within_limits(bad, X0, gen, none, lim)
+    assert not within_limits(bad, X0, gen, none, lim, everywhere)
     bad = X0.copy()
-    bad[on[0], 1] -= 1e4  # a 10 GW injection change at a generator bus: past any cap ...
-    assert not within_limits(bad, X0, gen, none, lim)
+    bad[on[0], 1] -= 1e4  # a 10 GW injection change at a generator bus inside the region: past any cap ...
+    assert not within_limits(bad, X0, gen, none, lim, everywhere)
     pretended = none.copy()
     pretended[on[0]] = -1e4  # ... unless it is the load change the attacker pretends there
-    assert within_limits(bad, X0, gen, pretended, lim)
+    assert within_limits(bad, X0, gen, pretended, lim, everywhere)
+    outside = np.array([b for b in range(g.C) if b != on[0]])  # the generator on the boundary: unconstrained
+    assert within_limits(bad, X0, gen, none, lim, outside)
 
 
 def test_the_fixture_has_no_fallback_frame(timeline):

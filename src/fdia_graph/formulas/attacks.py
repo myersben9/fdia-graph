@@ -56,14 +56,21 @@ def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray)
 
 
 def within_limits(
-    Xa: np.ndarray, Xt: np.ndarray, gen_true: np.ndarray, load_delta: np.ndarray, limits: OperatingLimits
+    Xa: np.ndarray,
+    Xt: np.ndarray,
+    gen_true: np.ndarray,
+    load_delta: np.ndarray,
+    limits: OperatingLimits,
+    interior: np.ndarray,
 ) -> bool:
     """Whether the false state Xa [N, 4] satisfies [WU26, eqs. 21-23] given the true state Xt, the
-    true generator output [N, 2] and the load change the attacker pretends per bus `load_delta`
-    [N] (MW): every |V| inside its bus limits, where a bus the true state already holds outside a
-    limit may not be made worse (the bound there is the true value), and every generator's
-    implied output, the injection change not explained by that load change, P_gen - (ΔP_inj -
-    ΔP_load) and Q_gen - ΔQ_inj, inside its limits (already widened to the benign pool's range).
+    true generator output [N, 2], the load change the attacker pretends per bus `load_delta` [N]
+    (MW) and the attacker's `interior`: every |V| inside its bus limits, where a bus the true state
+    already holds outside a limit may not be made worse (the bound there is the true value), and,
+    for the generators of the attacked subnetwork (the paper's constraint ranges over the
+    generators of the attack area; a boundary bus is outside it, its voltage held true and its
+    injection whatever balances the region), the implied output P_gen - (ΔP_inj - ΔP_load) and
+    Q_gen - ΔQ_inj inside its limits.
 
         v_lo_i = min(V_i^min, |V_i^true|),  v_hi_i = max(V_i^max, |V_i^true|)
     """
@@ -72,13 +79,14 @@ def within_limits(
         V > np.maximum(limits.v_hi, Vt) + LIMIT_TOL_V
     ):
         return False
-    p = gen_true[:, 0] - (Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj] - load_delta)
-    q = gen_true[:, 1] - (Xa[:, NODE.q_inj] - Xt[:, NODE.q_inj])
+    I_ = np.asarray(interior, int)
+    p = gen_true[I_, 0] - (Xa[I_, NODE.p_inj] - Xt[I_, NODE.p_inj] - load_delta[I_])
+    q = gen_true[I_, 1] - (Xa[I_, NODE.q_inj] - Xt[I_, NODE.q_inj])
     return bool(
-        np.all(p >= limits.p_lo - LIMIT_TOL_PQ)
-        and np.all(p <= limits.p_hi + LIMIT_TOL_PQ)
-        and np.all(q >= limits.q_lo - LIMIT_TOL_PQ)
-        and np.all(q <= limits.q_hi + LIMIT_TOL_PQ)
+        np.all(p >= limits.p_lo[I_] - LIMIT_TOL_PQ)
+        and np.all(p <= limits.p_hi[I_] + LIMIT_TOL_PQ)
+        and np.all(q >= limits.q_lo[I_] - LIMIT_TOL_PQ)
+        and np.all(q <= limits.q_hi[I_] + LIMIT_TOL_PQ)
     )
 
 
