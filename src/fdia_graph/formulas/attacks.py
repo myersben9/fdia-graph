@@ -7,38 +7,18 @@ import numpy as np
 from ..models.frames import OperatingLimits
 from ..models.grid import NODE
 
-# Slack under a limit, below what a meter resolves (0.0012 pu on |V|, 1e-3 MW on P and Q): a pool
-# state sits exactly on the limits widened to it (a regulated bus at its setpoint), and a false
-# state that moves it by less than the meter floor violates nothing an operator could see.
+# Slack under a limit, below what a meter resolves (0.0012 pu on |V|, 1e-3 MW on P and Q): a true
+# state outside a limit is itself the bound (a regulated bus at its setpoint), and a false state
+# that moves it by less than the meter floor violates nothing an operator could see.
 LIMIT_TOL_V = 1e-3  # pu
 LIMIT_TOL_PQ = 1e-3  # MW, MVAr
 
 
-def operating_limits(
-    X: np.ndarray,
-    v_case: np.ndarray,
-    p_lim: np.ndarray,
-    q_lim: np.ndarray,
-    base: tuple[np.ndarray, np.ndarray],
-) -> OperatingLimits:
-    """The constraints of [WU26, eqs. 21-23] for one system: the case's per-bus voltage limits
-    `v_case` [N, 2] and generator limits `p_lim`, `q_lim` [N, 2], each widened to the range the
-    benign pool X [T, N, 4] spans at that bus (a case that runs outside its own limits by
-    construction, IEEE-57 at 0.69 pu, or a pool whose generators are scaled past their nameplate,
-    keeps its operating points plausible). `base` = (load_base, gen_base) for `generator_output`.
-
-        v_lo_i = min(V_i^min, min_t |V_i,t|),   v_hi_i = max(V_i^max, max_t |V_i,t|),   likewise P_gen, Q_gen
-    """
-    V = X[:, :, NODE.v]
-    gen = generator_output(X, *base)  # [T, N, 2]
-    return OperatingLimits(
-        np.minimum(v_case[:, 0], V.min(axis=0)),
-        np.maximum(v_case[:, 1], V.max(axis=0)),
-        np.minimum(p_lim[:, 0], gen[:, :, 0].min(axis=0)),
-        np.maximum(p_lim[:, 1], gen[:, :, 0].max(axis=0)),
-        np.minimum(q_lim[:, 0], gen[:, :, 1].min(axis=0)),
-        np.maximum(q_lim[:, 1], gen[:, :, 1].max(axis=0)),
-    )
+def operating_limits(v_case: np.ndarray, p_lim: np.ndarray, q_lim: np.ndarray) -> OperatingLimits:
+    """The constraints of [WU26, eqs. 21-23] for one system, verbatim from the case data: the
+    per-bus voltage limits `v_case` [N, 2] and the per-bus generator limits `p_lim`, `q_lim`
+    [N, 2] (±inf without a generator)."""
+    return OperatingLimits(v_case[:, 0], v_case[:, 1], p_lim[:, 0], p_lim[:, 1], q_lim[:, 0], q_lim[:, 1])
 
 
 def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.ndarray:
@@ -62,17 +42,24 @@ def within_limits(
     true generator output [N, 2] and the load change the attacker pretends per bus `load_delta`
     [N] (MW): every |V| inside its bus limits, and every generator's implied output, the injection
     change not explained by that load change, P_gen - (ΔP_inj - ΔP_load) and Q_gen - ΔQ_inj,
-    inside its limits."""
-    V = Xa[:, NODE.v]
-    if np.any(V < limits.v_lo - LIMIT_TOL_V) or np.any(V > limits.v_hi + LIMIT_TOL_V):
+    inside its limits. Where the true state itself is outside a limit (a case that runs below its
+    own minimum, a pool whose generators exceed nameplate) the false state may not make it worse:
+    the bound at that bus is the true value.
+
+        v_lo_i = min(V_i^min, |V_i^true|),  v_hi_i = max(V_i^max, |V_i^true|),  likewise P_gen, Q_gen
+    """
+    V, Vt = Xa[:, NODE.v], Xt[:, NODE.v]
+    if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V) or np.any(
+        V > np.maximum(limits.v_hi, Vt) + LIMIT_TOL_V
+    ):
         return False
     p = gen_true[:, 0] - (Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj] - load_delta)
     q = gen_true[:, 1] - (Xa[:, NODE.q_inj] - Xt[:, NODE.q_inj])
     return bool(
-        np.all(p >= limits.p_lo - LIMIT_TOL_PQ)
-        and np.all(p <= limits.p_hi + LIMIT_TOL_PQ)
-        and np.all(q >= limits.q_lo - LIMIT_TOL_PQ)
-        and np.all(q <= limits.q_hi + LIMIT_TOL_PQ)
+        np.all(p >= np.minimum(limits.p_lo, gen_true[:, 0]) - LIMIT_TOL_PQ)
+        and np.all(p <= np.maximum(limits.p_hi, gen_true[:, 0]) + LIMIT_TOL_PQ)
+        and np.all(q >= np.minimum(limits.q_lo, gen_true[:, 1]) - LIMIT_TOL_PQ)
+        and np.all(q <= np.maximum(limits.q_hi, gen_true[:, 1]) + LIMIT_TOL_PQ)
     )
 
 

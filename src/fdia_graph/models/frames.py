@@ -38,10 +38,10 @@ class Frame(NamedTuple):
 
 
 class OperatingLimits(NamedTuple):
-    """The security and operational constraints a false state must satisfy [WU26, eqs. 21-23]: every
-    bus voltage magnitude within the case's own limits, widened per bus to the range the benign
-    pool spans, and every generator's implied output within its P and Q limits (the slack, whose
-    output is the balance, and buses without a generator are unbounded)."""
+    """The security and operational constraints a false state must satisfy [WU26, eqs. 21-23], the
+    case's own: every bus voltage magnitude within its limits and every generator's implied output
+    within its P and Q limits (the slack, whose output is the balance, and buses without a
+    generator are unbounded); a true state already outside a limit may not be made worse."""
 
     v_lo: np.ndarray  # [N] lowest voltage magnitude a false state may show at each bus, pu
     v_hi: np.ndarray  # [N] highest, pu

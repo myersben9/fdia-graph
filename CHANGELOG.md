@@ -37,10 +37,11 @@ the public API, the generated files and the numbers are the same as the previous
   load above 1.1 GW, so their files do not change. `fallback_benign` is zero on every released
   file. Every false state also satisfies the security and operational constraints of Wu et al.
   2026 (`OperatingLimits`, their equations 21 to 23): each bus voltage within the case's own
-  limits and every generator's implied output within its P and Q limits, each widened per bus to
-  the range the system's benign pool spans, the true output recovered exactly from the pool's
-  common load and generation scale and the pretended load change at a target bus not counted
-  against its generator; a false state outside them is rejected and its step halved
+  limits and every generator's implied output within its P and Q limits, the true output
+  recovered exactly from the pool's common load and generation scale, the pretended load change
+  at a target bus not counted against its generator, and a true value already outside a limit
+  (IEEE-57 runs below its own minimum, pools scale generators past nameplate) its own bound, so
+  the attack may not make it worse; a false state outside them is rejected and its step halved
   like an unsolvable one. The file records the widest bus limits as `v_lo` and `v_hi`.
 - A stealthy frame (Aq, At, Al, Am) is the true scan plus the attack vector a = h(x_false) - h(x_true)
   of its local false state: every meter keeps its own noise draw and the tampered meters are

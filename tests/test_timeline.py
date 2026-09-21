@@ -302,9 +302,9 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
 
 
 def test_operating_limits_are_the_case_limits_widened_to_the_pool():
-    """Bus limits come from the case and widen only where the pool runs outside them; the
-    generator output behind a pool state is recovered exactly, and a false state that pushes a
-    generator past its cap or a bus past its limit is refused."""
+    """Bus and generator limits are the case's; a true state already outside one is its own bound
+    and may not be made worse; the generator output behind a pool state is recovered exactly, and
+    a false state that pushes a generator past its cap or a bus past its limit is refused."""
     from fdia_graph.engine import FdiaGenerator
     from fdia_graph.formulas.attacks import generator_output, within_limits
 
@@ -313,15 +313,17 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     X0 = net.res_bus.reindex(sorted(net.bus.index))[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy()
     for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
         X0[int(b), 1:3] -= (ps, qs)  # the pool stores injections without the shunt draw
-    X = np.stack([X0, X0 * [[1.0, 1.1, 1.1, 1.0]]])  # a heavier state, generation up in step
-    lim = g.operating_limits(X)
-    assert (lim.v_lo <= g.v_case[:, 0]).all() and (lim.v_hi >= g.v_case[:, 1]).all()
-    assert lim.v_hi.max() > g.v_case[:, 1].max()  # the base case runs above 1.06 pu at some bus
+    lim = g.operating_limits()
+    assert (lim.v_lo == g.v_case[:, 0]).all() and (lim.v_hi == g.v_case[:, 1]).all()
+    assert X0[:, 0].max() > lim.v_hi.max()  # the base case runs above 1.06 pu at some bus ...
     gen = generator_output(X0, g.load_base, g.gen_base)
     on = np.flatnonzero(g.gen_base[:, 0] > 0)
     assert np.allclose(gen[on, 0], g.gen_base[on, 0])  # the base state: base generation exactly
     none = np.zeros(g.C)
-    assert within_limits(X0, X0, gen, none, lim)
+    assert within_limits(X0, X0, gen, none, lim)  # ... and is acceptable as its own bound
+    worse = X0.copy()
+    worse[int(np.argmax(X0[:, 0])), 0] += 0.01  # further above the limit than the true state
+    assert not within_limits(worse, X0, gen, none, lim)
     bad = X0.copy()
     bad[5, 0] = 0.8
     assert not within_limits(bad, X0, gen, none, lim)

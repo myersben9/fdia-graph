@@ -107,10 +107,10 @@ class PhysicsMixin(GridBase):
             interior, boundary = subnetwork(self.ei, np.union1d(interior, grow), 0, self.C)
         return interior, boundary
 
-    def operating_limits(self, X: np.ndarray) -> OperatingLimits:
-        """The constraints every false state of this system must satisfy [WU26, eqs. 21-23], the
-        case's voltage and generator limits widened to the pool X (formulas.attacks.operating_limits)."""
-        return operating_limits(X, self.v_case, self.p_lim, self.q_lim, (self.load_base, self.gen_base))
+    def operating_limits(self) -> OperatingLimits:
+        """The constraints every false state of this system must satisfy [WU26, eqs. 21-23]: the
+        case's own bus voltage and generator limits (formulas.attacks.operating_limits)."""
+        return operating_limits(self.v_case, self.p_lim, self.q_lim)
 
     def solve_local(
         self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray
