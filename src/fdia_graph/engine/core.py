@@ -280,14 +280,16 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         C = self.C
         _lb = base.load
         self.load_bus = _lb["bus"].values
-        p_load = _lb["p_mw"].abs().values
-        self._attackable_mask = p_load > 0.0
-        if self.max_load_mw is not None:
-            self._attackable_mask &= p_load <= self.max_load_mw
-        self.attackable_pos = np.where(self._attackable_mask)[0]
         self.slack_bus = int(
             base.ext_grid.bus.values[0]
         )  # the angle reference; a local attack never moves it
+        p_load = _lb["p_mw"].abs().values
+        # ... so a load on the slack bus is never a target either: it can never enter a region, and
+        # a frame that scaled it would be labelled attacked with no attack in the false state
+        self._attackable_mask = (p_load > 0.0) & (self.load_bus != self.slack_bus)
+        if self.max_load_mw is not None:
+            self._attackable_mask &= p_load <= self.max_load_mw
+        self.attackable_pos = np.where(self._attackable_mask)[0]
         # Every bus with some injection element (gen, load, ext_grid, shunt).
         inj = np.unique(
             np.r_[base.gen.bus.values, base.load.bus.values, base.ext_grid.bus.values, base.shunt.bus.values]

@@ -116,10 +116,11 @@ def _stealthy_frame(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[F
     scan = g.emit_from_state(Xt)  # the true scan: the benign twin, and the draw every meter keeps
     bnx, bex = scan.node_x, scan.edge_x
     a_node, a_edge = _attack_vector(g, Xa, Xt)
-    tamper = _changed_meters(a_node, a_edge, scan)
+    moved = _changed_meters(a_node, a_edge, scan)
     nx, ex = bnx.copy(), bex.copy()
-    nx[tamper[0]] += a_node[tamper[0]]
-    ex[tamper[1]] += a_edge[tamper[1]]
+    nx[moved[0]] += a_node[moved[0]]
+    ex[moved[1]] += a_edge[moved[1]]
+    tamper = (nx != bnx, ex != bex)  # the meters whose stored float32 reading changed, no fewer, no more
     buses = g.load_bus[targets]
     y = np.zeros(g.C, np.uint8)
     y[buses] = 1

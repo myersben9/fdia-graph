@@ -23,13 +23,21 @@ the public API, the generated files and the numbers are the same as the previous
   format="pyg")` gives the graphs `pyg_stream` built with the file's chronological split, so both
   torch helpers are deprecated (retire in 0.19). Eight ways to read a view become three: `export`,
   `ds[i]` and `ds.windows`. No number changes.
+- Four findings of a full-branch review: a load on the slack bus is never a target (the slack
+  never enters a region, so IEEE-57 frames that scaled its 55 MW load were labelled attacked with
+  no attack in the state); the tamper masks are the meters whose stored float32 reading changed
+  (the attack vector's 1e-7 tolerance marked 1.8% of entries that the reading could not show); a
+  branch out of service is not a hop of the attacker's region on N-1 generators; and the local
+  solve builds its interior Jacobian block directly instead of slicing the n x n derivatives,
+  about half the cost of a stealthy frame on IEEE-300, with identical states.
 - The local power flow of a stealthy frame is a damped Newton: each step is halved until the
   mismatch drops, the full step first, so every frame the plain method solved is bit-identical. A
   step the region still cannot absorb is halved (an Aq step at most three times and never under
   the noise floor, a ramp or Am frame at most six times) so the frame stays attacked at the
   largest step with a solution, an Al frame halves its redistribution and then redraws its line (up to forty),
   and an Aq, At or Am episode tests its design (the full step, the ramp's peak, the held
-  redistribution's peak) on the onset frame and redraws it, up to ten times, when no stealthy
+  redistribution's peak) on the frames it will land on (an Aq episode's first, middle and last
+  frame, the ramp's and Am's peak frames) and redraws it, up to ten times, when no stealthy
   state exists there; the tests spend no random draw, so a file whose designs all pass is
   unchanged. Loads above `max_load_mw` (new knob, default 2000 MW) are never targets: the
   IEEE-145 case lumps whole areas into loads of 4 to 58 GW, and a 5% step on one has no local

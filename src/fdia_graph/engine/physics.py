@@ -88,23 +88,31 @@ class PhysicsMixin(GridBase):
         any zero-injection bus on the boundary (a boundary bus absorbs the changed power, and a bus
         known to inject nothing cannot), and shrunk in reach until a boundary of fixed-voltage buses
         exists at all. None when even the seeds alone leave no boundary."""
+        live = self._live_edges()
         for h in range(hops, -1, -1):
-            interior, _ = subnetwork(self.ei, seeds, h, self.C)
+            interior, _ = subnetwork(live, seeds, h, self.C)
             interior, boundary = self._grow_over_zero_injection(interior[interior != self.slack_bus])
             if len(interior) and len(boundary):
                 return interior
         return None
 
+    def _live_edges(self) -> np.ndarray:
+        """The edge index without the branches out of service: an opened line (an N-1 contingency)
+        is not a hop and its far bus is not a boundary."""
+        status = self.branch.status
+        return self.ei if status is None else self.ei[:, status > 0]
+
     def _grow_over_zero_injection(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """The interior with every zero-injection bus of its boundary taken in (repeated until the
         boundary holds none), and that boundary; the slack stays out."""
         zero = {int(b) for b in self.zero_inj} - {self.slack_bus}
-        interior, boundary = subnetwork(self.ei, interior, 0, self.C)
+        live = self._live_edges()
+        interior, boundary = subnetwork(live, interior, 0, self.C)
         while len(boundary):
             grow = [int(b) for b in boundary if int(b) in zero]
             if not grow:
                 break
-            interior, boundary = subnetwork(self.ei, np.union1d(interior, grow), 0, self.C)
+            interior, boundary = subnetwork(live, np.union1d(interior, grow), 0, self.C)
         return interior, boundary
 
     def operating_limits(self) -> OperatingLimits:
@@ -137,7 +145,7 @@ class PhysicsMixin(GridBase):
             return None
         Xa[interior, NODE.v] = np.abs(Vf[lut[interior]])
         Xa[interior, NODE.theta] = np.degrees(np.angle(Vf[lut[interior]]))
-        touched = np.union1d(interior, subnetwork(self.ei, interior, 0, C)[1])  # interior and its boundary
+        touched = np.union1d(interior, subnetwork(self._live_edges(), interior, 0, C)[1])  # and its boundary
         S = bus_injections(Vf, self._Ybus, self._bMVA)[lut[touched]]
         Xa[touched, NODE.p_inj] = -S.real
         Xa[touched, NODE.q_inj] = -S.imag

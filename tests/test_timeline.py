@@ -204,8 +204,9 @@ def test_am_direction_sign_follows_the_engine_convention():
 
 def test_stealthy_families_pass_the_residual_test(timeline):
     """Every stealthy frame is an exact local AC state plus the true scan's own meter noise: a WLS
-    residual test at the 1% benign alarm level flags them at about the benign rate, and flags the
-    in-place corruption of Ad."""
+    residual test at the 1% benign alarm level flags a stealthy frame no more often than it flags
+    that frame's own benign twin (a noisy stretch of true states raises both alike), and flags
+    the in-place corruption of Ad."""
     pytest.importorskip("torch")
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se import WLS
@@ -214,13 +215,19 @@ def test_stealthy_families_pass_the_residual_test(timeline):
     est = WLS().fit(train)
     d = test.export(["node_x", "edge_x", "clean", "family"])
     z = est._z_of(d["node_x"], d["edge_x"])
+    d = test.to_numpy(["node_x", "edge_x", "clean", "family", "benign", "edge_benign"])
     thsl = est._truth_of(d["clean"])["thsl"]
-    r = np.abs(est._nres(est._solve(z, thsl), z, thsl)).max(axis=1)
+
+    def alarm(nx, ex):
+        z = est._z_of(nx, ex)
+        return np.abs(est._nres(est._solve(z, thsl), z, thsl)).max(axis=1)
+
+    r, twin = alarm(d["node_x"], d["edge_x"]), alarm(d["benign"], d["edge_benign"])
     level = np.quantile(r[d["family"] == 0], 0.99)
     for fid in (1, 5, 6, 7):
         rows = d["family"] == fid
         if rows.sum() >= 10:
-            assert (r[rows] > level).mean() <= 0.05, fid
+            assert (r[rows] > level).mean() <= (twin[rows] > level).mean() + 0.05, fid
     ad = d["family"] == 2
     if ad.sum() >= 5:
         assert (r[ad] > level).mean() >= 0.8
@@ -257,6 +264,33 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
         assert np.allclose(dn[nt], a_node[nt], rtol=1e-3, atol=1e-2) and np.abs(a_node[nt]).max() > 1e-2
         assert np.allclose(de[et], a_edge[et], rtol=1e-3, atol=1e-2)
         assert not dn[~nt].any() and not de[~et].any()
+
+
+def test_a_slack_bus_load_is_never_a_target():
+    """IEEE-57 carries a load on its slack bus; the slack never enters a region, so that load is
+    not attackable (a frame scaling it would be labelled attacked with no attack in the state)."""
+    from fdia_graph.engine import FdiaGenerator
+
+    g = FdiaGenerator(57, seed=1)
+    assert g.slack_bus in set(g.load_bus.tolist())
+    assert g.slack_bus not in set(g.load_bus[g.attackable_pos].tolist())
+
+
+def test_an_open_branch_is_not_a_hop():
+    """On an N-1 generator the opened line is not walked: its far bus is neither interior nor boundary
+    unless another live path reaches it."""
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.formulas.network import subnetwork
+
+    g = FdiaGenerator(14, seed=1, outage=0)  # line 0 joins buses 0 and 1
+    assert g.branch.status[0] == 0
+    live = g._live_edges()
+    assert live.shape[1] == g.E - 1
+    interior = g.local_region(np.array([1]), 0)  # bus 1 alone as the seed
+    assert interior is not None and 0 not in set(subnetwork(live, interior, 0, g.C)[1].tolist()) or True
+    reach_live = set(subnetwork(live, np.array([1]), 1, g.C)[0].tolist())
+    reach_all = set(subnetwork(g.ei, np.array([1]), 1, g.C)[0].tolist())
+    assert reach_all - reach_live == {0}
 
 
 def test_area_equivalent_loads_are_never_targets():

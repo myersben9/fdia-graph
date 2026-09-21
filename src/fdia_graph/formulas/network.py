@@ -257,6 +257,19 @@ def _backtrack(
 _BACKTRACK_HALVINGS = 8  # step fractions tried per Newton iteration: 1, 1/2, ... 1/128
 
 
+def _interior_jacobian(Yb: np.ndarray, V: np.ndarray, I_: np.ndarray) -> np.ndarray:
+    """The [2k, 2k] Jacobian of the interior injections in [θ_I, |V|_I]: the entries of the full
+    ac_jacobian derivatives at (i, j) in the interior depend only on Y_ij, V_i, V_j and the current
+    into i, so the block is built from Y_II directly instead of the n x n matrices sliced."""
+    Y_II = Yb[np.ix_(I_, I_)]
+    V_I = V[I_]
+    I_I = (Yb @ V)[I_]
+    Vn_I = V_I / np.abs(V_I)
+    A = 1j * (V_I[:, None] * np.conj(np.diag(I_I) - Y_II * V_I[None, :]))
+    B = V_I[:, None] * np.conj(Y_II * Vn_I[None, :]) + np.conj(I_I)[:, None] * np.diag(Vn_I)
+    return np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+
+
 def local_ac_solve(
     Ybus: Any, V: np.ndarray, interior: np.ndarray, S_target: np.ndarray, iters: int = 50, tol: float = 1e-9
 ) -> Optional[np.ndarray]:
@@ -285,13 +298,7 @@ def local_ac_solve(
         f, norm = _local_mismatch(Yb, V, I_, S_target)
         if norm < tol:
             return V
-        Icur = Yb @ V
-        Vnorm = V / np.abs(V)
-        dS_dVa = 1j * (V[:, None] * np.conj(np.diag(Icur) - Yb * V[None, :]))
-        dS_dVm = V[:, None] * np.conj(Yb * Vnorm[None, :]) + np.conj(Icur)[:, None] * np.diag(Vnorm)
-        A = dS_dVa[np.ix_(I_, I_)]
-        B = dS_dVm[np.ix_(I_, I_)]
-        J = np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+        J = _interior_jacobian(Yb, V, I_)
         try:
             step = np.linalg.solve(J, f)
         except np.linalg.LinAlgError:
