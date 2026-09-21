@@ -30,7 +30,7 @@ pytest tests                                  # about a minute; one 13 MB pool d
 flowchart LR
     A[branch off main] --> B[strict suite<br/>pyright · ruff · gate]
     B --> C["tools/pr.py create"]
-    C --> D[CI + Copilot review]
+    C --> D[CI + the review bots]
     D --> E{comments?}
     E -- yes --> F[apply what is right,<br/>reply to every one]
     F --> D
@@ -39,10 +39,10 @@ flowchart LR
 
 ```bash
 python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked
-python tools/pr.py wait 80                                     # CI plus the Copilot review
+python tools/pr.py wait 80                                     # CI plus every required review bot
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
-python tools/pr.py merge 80                                    # refuses unless green with a review on the head
+python tools/pr.py merge 80                                    # refuses unless green with every required bot's review on the head
 ```
 
 Green means: every job of the smoke workflow (`tests`, `typecheck`, `format`, `readability`, the two

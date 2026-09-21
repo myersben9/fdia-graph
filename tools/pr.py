@@ -4,12 +4,13 @@
     python tools/pr.py status <num>                          # checks on the head, reviews, comment count
     python tools/pr.py comments <num>                        # every review comment (path, line, body)
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
-    python tools/pr.py wait <num> [minutes]                  # block until CI has finished and Copilot reviewed
+    python tools/pr.py wait <num> [minutes]                  # block until CI has finished and every required bot reviewed
     python tools/pr.py merge <num>                           # squash-merge on green, delete the branch
 
 The token comes from the Git Credential Manager (`git credential fill`), the same one `git push`
 uses, so nothing is stored in the repo. `merge` refuses while a check is failing or still running
-and while the head has no Copilot review, which is the repo's merge rule.
+and while any required review bot (Copilot, and every installed app that has reviewed the pull
+request) has no review on the head, which is the repo's merge rule.
 """
 
 from __future__ import annotations
@@ -104,7 +105,6 @@ def _head_state(num: int) -> dict[str, Any]:
         "pr": pr,
         "sha": sha,
         "checks": _latest_runs(checks),
-        "copilot_on_head": on_head[COPILOT],
         "reviews_on_head": on_head,
         "required_bots": [b for b in REVIEW_BOTS if b == COPILOT or b in seen],
         "n_comments": len(api_all(f"/pulls/{num}/comments")),
@@ -112,8 +112,12 @@ def _head_state(num: int) -> dict[str, Any]:
 
 
 def _bot_of(review: dict[str, Any]) -> str | None:
-    """Which review bot wrote `review`, or None for a person."""
-    login = review["user"]["login"].lower()
+    """Which review bot wrote `review`, or None for a person: only a GitHub account of type Bot
+    counts, so a person whose login contains a bot's name cannot satisfy the gate."""
+    user = review.get("user") or {}
+    if user.get("type") != "Bot":
+        return None
+    login = str(user.get("login", "")).lower()
     return next((b for b in REVIEW_BOTS if b in login), None)
 
 
@@ -218,9 +222,8 @@ def merge(num: int) -> None:
     if why:
         raise SystemExit(f"not green on {s['sha'][:8]}: " + "; ".join(why))
     if not _reviewed(s):
-        raise SystemExit(
-            f"no review on {s['sha'][:8]} yet from {_missing_reviews(s)}; run `wait {num}` first"
-        )
+        missing = ", ".join(_missing_reviews(s))
+        raise SystemExit(f"no review on {s['sha'][:8]} yet from {missing}; run `wait {num}` first")
     pr = s["pr"]
     # `sha` binds the merge to the head that was checked: GitHub refuses if a push moved it meanwhile.
     r = api(
