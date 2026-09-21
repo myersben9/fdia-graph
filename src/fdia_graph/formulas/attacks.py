@@ -14,11 +14,31 @@ LIMIT_TOL_V = 1e-3  # pu
 LIMIT_TOL_PQ = 1e-3  # MW, MVAr
 
 
-def operating_limits(v_case: np.ndarray, p_lim: np.ndarray, q_lim: np.ndarray) -> OperatingLimits:
-    """The constraints of [WU26, eqs. 21-23] for one system, verbatim from the case data: the
-    per-bus voltage limits `v_case` [N, 2] and the per-bus generator limits `p_lim`, `q_lim`
-    [N, 2] (±inf without a generator)."""
-    return OperatingLimits(v_case[:, 0], v_case[:, 1], p_lim[:, 0], p_lim[:, 1], q_lim[:, 0], q_lim[:, 1])
+def operating_limits(
+    v_case: np.ndarray,
+    p_lim: np.ndarray,
+    q_lim: np.ndarray,
+    X: np.ndarray,
+    base: tuple[np.ndarray, np.ndarray],
+) -> OperatingLimits:
+    """The constraints of [WU26, eqs. 21-23] for one system: the case's per-bus voltage limits
+    `v_case` [N, 2] verbatim, and the generator limits `p_lim`, `q_lim` [N, 2] widened per bus to
+    the range the benign pool X [T, N, 4] spans. The pools were built with generation scaled by the
+    load factor and nameplate never enforced, so a generator's benign output is the range the grid
+    actually ran it over, and the nameplate alone would refuse the state the pool already holds.
+    `base` = (load_base, gen_base) for `generator_output`.
+
+        p_lo_i = min(P_i^min, min_t P_gen,i,t),   p_hi_i = max(P_i^max, max_t P_gen,i,t),   likewise Q
+    """
+    gen = generator_output(X, *base)  # [T, N, 2]
+    return OperatingLimits(
+        v_case[:, 0],
+        v_case[:, 1],
+        np.minimum(p_lim[:, 0], gen[:, :, 0].min(axis=0)),
+        np.maximum(p_lim[:, 1], gen[:, :, 0].max(axis=0)),
+        np.minimum(q_lim[:, 0], gen[:, :, 1].min(axis=0)),
+        np.maximum(q_lim[:, 1], gen[:, :, 1].max(axis=0)),
+    )
 
 
 def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.ndarray:
@@ -40,13 +60,12 @@ def within_limits(
 ) -> bool:
     """Whether the false state Xa [N, 4] satisfies [WU26, eqs. 21-23] given the true state Xt, the
     true generator output [N, 2] and the load change the attacker pretends per bus `load_delta`
-    [N] (MW): every |V| inside its bus limits, and every generator's implied output, the injection
-    change not explained by that load change, P_gen - (ΔP_inj - ΔP_load) and Q_gen - ΔQ_inj,
-    inside its limits. Where the true state itself is outside a limit (a case that runs below its
-    own minimum, a pool whose generators exceed nameplate) the false state may not make it worse:
-    the bound at that bus is the true value.
+    [N] (MW): every |V| inside its bus limits, where a bus the true state already holds outside a
+    limit may not be made worse (the bound there is the true value), and every generator's
+    implied output, the injection change not explained by that load change, P_gen - (ΔP_inj -
+    ΔP_load) and Q_gen - ΔQ_inj, inside its limits (already widened to the benign pool's range).
 
-        v_lo_i = min(V_i^min, |V_i^true|),  v_hi_i = max(V_i^max, |V_i^true|),  likewise P_gen, Q_gen
+        v_lo_i = min(V_i^min, |V_i^true|),  v_hi_i = max(V_i^max, |V_i^true|)
     """
     V, Vt = Xa[:, NODE.v], Xt[:, NODE.v]
     if np.any(V < np.minimum(limits.v_lo, Vt) - LIMIT_TOL_V) or np.any(
@@ -56,10 +75,10 @@ def within_limits(
     p = gen_true[:, 0] - (Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj] - load_delta)
     q = gen_true[:, 1] - (Xa[:, NODE.q_inj] - Xt[:, NODE.q_inj])
     return bool(
-        np.all(p >= np.minimum(limits.p_lo, gen_true[:, 0]) - LIMIT_TOL_PQ)
-        and np.all(p <= np.maximum(limits.p_hi, gen_true[:, 0]) + LIMIT_TOL_PQ)
-        and np.all(q >= np.minimum(limits.q_lo, gen_true[:, 1]) - LIMIT_TOL_PQ)
-        and np.all(q <= np.maximum(limits.q_hi, gen_true[:, 1]) + LIMIT_TOL_PQ)
+        np.all(p >= limits.p_lo - LIMIT_TOL_PQ)
+        and np.all(p <= limits.p_hi + LIMIT_TOL_PQ)
+        and np.all(q >= limits.q_lo - LIMIT_TOL_PQ)
+        and np.all(q <= limits.q_hi + LIMIT_TOL_PQ)
     )
 
 

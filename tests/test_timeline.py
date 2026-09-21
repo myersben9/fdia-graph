@@ -347,8 +347,10 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     X0 = net.res_bus.reindex(sorted(net.bus.index))[["vm_pu", "p_mw", "q_mvar", "va_degree"]].to_numpy()
     for b, ps, qs in zip(net.shunt.bus, net.res_shunt.p_mw, net.res_shunt.q_mvar):
         X0[int(b), 1:3] -= (ps, qs)  # the pool stores injections without the shunt draw
-    lim = g.operating_limits()
-    assert (lim.v_lo == g.v_case[:, 0]).all() and (lim.v_hi == g.v_case[:, 1]).all()
+    X = np.stack([X0, X0 * [[1.0, 1.3, 1.3, 1.0]]])  # the pool scales load and generation together
+    lim = g.operating_limits(X)
+    assert (lim.v_lo == g.v_case[:, 0]).all() and (lim.v_hi == g.v_case[:, 1]).all()  # voltages verbatim
+    assert (lim.p_lo <= g.p_lim[:, 0]).all() and (lim.p_hi >= g.p_lim[:, 1]).all()  # generators widened
     assert X0[:, 0].max() > lim.v_hi.max()  # the base case runs above 1.06 pu at some bus ...
     gen = generator_output(X0, g.load_base, g.gen_base)
     on = np.flatnonzero(g.gen_base[:, 0] > 0)

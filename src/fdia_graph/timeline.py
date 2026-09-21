@@ -708,11 +708,11 @@ def generate_timeline(
                      boundary voltages are held true and only the subnetwork's meters are written
     max_load_mw      a load above this (MW) is never a target: an area equivalent, not a substation
                      (IEEE-145 lumps regions into 4 to 58 GW loads); None disables the cap
-                     Every false state also satisfies the case's operating limits (each bus
-                     voltage within its limits, every generator's implied output within its P and
-                     Q limits, and where the true state is already outside a limit the false state
-                     may not make it worse); a state outside them is halved; v_lo and v_hi record
-                     the widest bus limits of the case
+                     Every false state also satisfies the operating limits: each bus voltage
+                     within the case's limits (a bus the true state already holds outside a limit
+                     may not be made worse) and every generator's implied output within its P and
+                     Q limits widened to the range the pool ran it over; a state outside them is
+                     halved; v_lo and v_hi record the widest bus limits of the case
     am_direction     "induce" (the target line reads more loaded than it is, the engine's Al sign),
                      "mask" (it reads lighter, a real overload hidden) or "both" (drawn per episode)
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
@@ -733,7 +733,7 @@ def generate_timeline(
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     T, C = len(X), g.C
-    limits = g.operating_limits()  # the constraints every false state must satisfy [WU26]
+    limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)
     ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
     am = (am_len, am_rate, am_direction)
