@@ -285,7 +285,8 @@ def test_an_open_branch_is_not_a_hop():
     live = g._live_edges()
     assert live.shape[1] == g.E - 1
     interior = g.local_region(np.array([1]), 0)  # bus 1 alone as the seed
-    assert interior is not None and 0 not in set(subnetwork(live, interior, 0, g.C)[1].tolist()) or True
+    assert interior is not None
+    assert 0 not in set(subnetwork(live, interior, 0, g.C)[1].tolist())  # the far bus is not a boundary
     reach_live = set(subnetwork(live, np.array([1]), 1, g.C)[0].tolist())
     reach_all = set(subnetwork(g.ei, np.array([1]), 1, g.C)[0].tolist())
     assert reach_all - reach_live == {0}

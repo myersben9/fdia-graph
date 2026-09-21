@@ -68,8 +68,8 @@ DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 
 # Per-family episode-length band (frames): Aq, Ad, As, Ar, Al (the upper end excluded).
 _EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
-_AM_DRAWS = 10  # redistribution draws an Am episode gets at its onset before its frames stay benign
-_ONSET_DRAWS = 40  # designs an Aq or At episode tries for one with a stealthy state on its frames
+_ONSET_DRAWS = 40  # designs an episode (Aq, At, Am) tries for one with a stealthy state on its frames
+_AM_DRAWS = _ONSET_DRAWS  # the Am redistribution draws, the same budget
 
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
@@ -255,11 +255,15 @@ def _ramp_episode(
         plateau = range(min(t + rise, T - 1), min(t + rise + hold, T - 1) + 1)  # every frame at the peak
         if all(is_feasible(ctx.g, ctx.X[u], a, peak, ctx.knobs) for u in plateau):
             break
+    else:  # no admissible ramp at this operating point: the placed frames stay benign, counted
+        return _benign_run(ctx, buf, t, min(t + ramp_len, T))
     ep = _episode(ctx, buf, RAMP_FAMILY, t)
     for i in range(ramp_len):
         if t >= T:
             break
-        dev = ramp_profile(i, rise, hold, ramp_rate, ramp_rate)
+        # never a zero step: the profile's first frame and its return leg floor at one rate, so
+        # every frame labelled At carries an attack
+        dev = max(ramp_rate, ramp_profile(i, rise, hold, ramp_rate, ramp_rate))
         ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, a, 1 + direction * dev, ctx.knobs))
         t += 1
     return ep.close(buf, t)
@@ -287,12 +291,12 @@ def _probe_frames(ctx: _FrameContext, t: int, length: int) -> range:
 
 def _draw_single_shot(
     ctx: _FrameContext, rng: np.random.Generator, t: int, fid: int, length: int
-) -> tuple[np.ndarray, np.ndarray]:
+) -> Optional[tuple[np.ndarray, np.ndarray]]:
     """The targets and load multipliers of an episode: the targets, the direction (a load rise or
     a load drop, one draw, like the ramp's) and the per-target scale in the band; an Aq design with
-    no stealthy state on any frame of the episode is redrawn, up to _ONSET_DRAWS
-    (a case that runs below its voltage limits refuses most rises near the low buses, a drop there
-    is the attack that fits)."""
+    no stealthy state on any frame of the episode is redrawn, up to _ONSET_DRAWS (a case that runs
+    below its voltage limits refuses most rises near the low buses, a drop there is the attack
+    that fits). None when no draw has one: the span then stays benign and is counted."""
     for _ in range(_ONSET_DRAWS):
         a = _pick_targets(rng, ctx.g.attackable_pos, fid)
         direction = 1.0 if fid != 1 or rng.random() < 0.5 else -1.0
@@ -300,8 +304,8 @@ def _draw_single_shot(
         if fid != 1 or all(
             is_feasible(ctx.g, ctx.X[u], a, mult, ctx.knobs) for u in _probe_frames(ctx, t, length)
         ):
-            break
-    return a, mult
+            return a, mult
+    return None
 
 
 def _single_shot_episode(
@@ -314,7 +318,10 @@ def _single_shot_episode(
 ) -> int:
     """One episode of a single-shot family held for `length` frames; returns the next free timestep."""
     T = len(ctx.X)
-    a, mult = _draw_single_shot(ctx, rng, t, fid, length)
+    design = _draw_single_shot(ctx, rng, t, fid, length)
+    if design is None:  # no admissible design at this operating point: the placed frames stay benign
+        return _benign_run(ctx, buf, t, min(t + length, T))
+    a, mult = design
     ep = _episode(ctx, buf, fid, t)
     for _ in range(length):
         if t >= T:
@@ -416,7 +423,7 @@ def _am_episode(
     for i in range(length):
         if t >= T:
             break
-        mult = _am_multipliers(ctx, t, a, sh.at(i) * delta)
+        mult = _am_multipliers(ctx, t, a, max(sh.rate, sh.at(i)) * delta)  # never a zero step
         ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, a, mult, k, red.interior))
         t += 1
     return ep.close(buf, t)
@@ -681,13 +688,13 @@ def generate_timeline(
     am_rate: float = 0.9,
     am_direction: str = "both",
     hops: int = 2,
-    max_load_mw: Optional[float] = 2000.0,
     corrupt_len: Optional[int] = 1,
     replay_tau: Optional[int] = None,
     redundancy: Optional[dict] = None,
     split: Sequence[float] = (0.6, 0.2, 0.2),
     seed: int = 123,
     out: Optional[str] = None,
+    max_load_mw: Optional[float] = 2000.0,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
