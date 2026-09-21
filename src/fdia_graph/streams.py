@@ -141,7 +141,7 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     default) the timeline file read through `stream_of`; at an earlier release the stream file of
     that release. `release`: None -> the pinned data release; a tag pins a version."""
     from .download import ensure_local
-    from .registry import STREAM_RELEASE, is_timeline_release, system_id
+    from .registry import STREAM_RELEASE, is_timeline_release, release_name, release_tag, system_id
 
     warnings.warn(
         "load_stream is deprecated and retires in 0.19: use fg.load(system, order='time'), the same "
@@ -149,13 +149,14 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
         DeprecationWarning,
         stacklevel=2,
     )
-    rel = release or STREAM_RELEASE
+    rel = release_name(release or STREAM_RELEASE)  # "0.7.2", "v0.7.2" and "data-v0.7.2" all spell one release
     if is_timeline_release(rel):
         from . import load
 
         return stream_of(load(f"ieee{system_id(system)}", order="time", release=rel))
     C = system_id(system)
-    z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", rel)), allow_pickle=True)
+    tag = release_tag(rel)  # the GitHub tag that carries the stream file
+    z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", tag)), allow_pickle=True)
     out = {k: z[k] for k in z.files}
     out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)  # torch.long
     out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)

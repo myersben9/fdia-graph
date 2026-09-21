@@ -40,10 +40,13 @@ def release_for(name: str, notes_file: str) -> dict:
             raise SystemExit(f"{tag} is a package release; data releases are tagged data-v<x.y.z>")
         print(f"release {tag} exists, reusing")
         return r.json()
+    if r.status_code != 404:  # only "no such release" means create; auth or server errors stop here
+        r.raise_for_status()
     sha = subprocess.run(
         ["git", "rev-parse", "origin/main"], capture_output=True, text=True, check=True
     ).stdout.strip()
-    body = open(notes_file, encoding="utf8").read()
+    with open(notes_file, encoding="utf8") as fh:
+        body = fh.read()
     print(f"creating release {tag} at {sha[:9]}")
     return api("POST", "/releases", json=dict(tag_name=tag, target_commitish=sha, name=tag, body=body))
 
