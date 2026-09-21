@@ -29,18 +29,18 @@ class GridBase:
     base: Any
     C: int
     E: int
-    nl: int
+    n_lines: int
     rng: np.random.Generator
     # noise model
     SD: dict[str, float]
     SDj: dict[str, float]
-    _sd_bias: dict[str, float]
+    _bias_sd: dict[str, float]
     bias: MeterBias
     # metering plan
     meters: MeterPlan
     zero_inj: list[int]
     slack_bus: int
-    _inj_buses: list[int]
+    _injection_buses: list[int]
     # buses / loads / attackability
     load_bus: np.ndarray
     load_genP: np.ndarray
@@ -64,24 +64,24 @@ class GridBase:
     _Ybus: Any
     _Yf: Any
     _Yt: Any
-    _bMVA: float
-    _lut: Any
-    _fb: np.ndarray
-    _nppc: int
+    _base_mva: float
+    _ppc_row: Any
+    _from_bus_ppc: np.ndarray
+    _n_ppc_buses: int
     _ptdf: np.ndarray
-    _ptdf_lb: np.ndarray
-    _solvenet: Any
+    _ptdf_load_buses: np.ndarray
+    _solve_net: Any
     # contingency
     contingency: Outage
     # LRA target pool (set in _pick_lra_target)
-    _Lcands: list[int]
-    _sgn: dict[int, float]
-    _Ltgt: int
+    _target_lines: list[int]
+    _line_flow_sign: dict[int, float]
+    _primary_target_line: int
     # replay buffer
     benign_buf: list[np.ndarray]
 
     # cross-mixin methods (defined in the concern mixins)
-    def _n(self, s: float) -> float: ...
+    def _draw_noise(self, s: float) -> float: ...
     def emit_from_state(self, X: np.ndarray) -> Scan: ...
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray: ...
     def local_region(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]: ...

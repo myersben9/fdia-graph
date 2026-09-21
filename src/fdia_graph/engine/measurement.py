@@ -16,7 +16,7 @@ class MeasurementMixin(GridBase):
     """Emit measurement graphs from a state or a solved net. Mixed into FdiaGenerator."""
 
     # Draw one zero-mean Gaussian noise sample with std `s` (the meter-noise primitive).
-    def _n(self, s: float) -> float:
+    def _draw_noise(self, s: float) -> float:
         return self.rng.normal(0, s)
 
     def emit_from_state(self, X: np.ndarray) -> Scan:
@@ -26,9 +26,9 @@ class MeasurementMixin(GridBase):
         V, Pi, Qi, TH = NodeColumns.of(X)
         # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
         # one physics primitive (formulas.network) shared with the loader and the estimator.
-        Vc = np.zeros(self._nppc, complex)
-        Vc[self._lut[np.arange(C)]] = complex_voltages(V, TH)
-        Sf = branch_flows(Vc, self._Yf, self._fb, self._bMVA)
+        Vc = np.zeros(self._n_ppc_buses, complex)
+        Vc[self._ppc_row[np.arange(C)]] = complex_voltages(V, TH)
+        Sf = branch_flows(Vc, self._Yf, self._from_bus_ppc, self._base_mva)
         # Node buffers: cols [|V|, P_inj, Q_inj, angle]; mask=1 where metered.
         nx = np.zeros((C, 4), np.float32)
         nm = np.zeros((C, 4), np.uint8)
@@ -37,25 +37,29 @@ class MeasurementMixin(GridBase):
         SDj = self.SDj
         for b in range(C):
             if b in plan.vbus or b in plan.pmu:  # |V| and angle observed at the same buses
-                nx[b, NODE.v] = V[b] + bias.v[b] + self._n(SDj["v"])
+                nx[b, NODE.v] = V[b] + bias.v[b] + self._draw_noise(SDj["v"])
                 nm[b, NODE.v] = 1
-                nx[b, NODE.theta] = TH[b] + np.degrees(bias.va[b]) + self._n(np.degrees(SDj["va"]))
+                nx[b, NODE.theta] = TH[b] + np.degrees(bias.va[b]) + self._draw_noise(np.degrees(SDj["va"]))
                 nm[b, NODE.theta] = 1
             # Injection/zero-injection buses emit P/Q: relative bias + jitter (+small floor so ~0 injection
             # still gets a nonzero std).
             if b in plan.inj or b in self.zero_inj:
-                nx[b, NODE.p_inj] = Pi[b] * (1.0 + bias.pi[b]) + self._n(abs(Pi[b]) * SDj["pi"] + 1e-3)
-                nx[b, NODE.q_inj] = Qi[b] * (1.0 + bias.qi[b]) + self._n(abs(Qi[b]) * SDj["qi"] + 1e-3)
+                nx[b, NODE.p_inj] = Pi[b] * (1.0 + bias.pi[b]) + self._draw_noise(
+                    abs(Pi[b]) * SDj["pi"] + 1e-3
+                )
+                nx[b, NODE.q_inj] = Qi[b] * (1.0 + bias.qi[b]) + self._draw_noise(
+                    abs(Qi[b]) * SDj["qi"] + 1e-3
+                )
                 nm[b, NODE.p_inj : NODE.q_inj + 1] = 1
         # Edge buffers: cols [P_from, Q_from]; mask=1 where a flow meter exists.
         ex = np.zeros((self.E, 2), np.float32)
         em = np.zeros((self.E, 2), np.uint8)
         for e in range(self.E):
             if plan.flow[e]:  # metered branch flow: relative bias + jitter on P and Q
-                ex[e, EDGE.p_from] = Sf.real[e] * (1.0 + bias.pf[e]) + self._n(
+                ex[e, EDGE.p_from] = Sf.real[e] * (1.0 + bias.pf[e]) + self._draw_noise(
                     abs(Sf.real[e]) * SDj["pf"] + 1e-3
                 )
-                ex[e, EDGE.q_from] = Sf.imag[e] * (1.0 + bias.qf[e]) + self._n(
+                ex[e, EDGE.q_from] = Sf.imag[e] * (1.0 + bias.qf[e]) + self._draw_noise(
                     abs(Sf.imag[e]) * SDj["qf"] + 1e-3
                 )
                 em[e] = 1
@@ -70,9 +74,9 @@ class MeasurementMixin(GridBase):
         # Returns [T, E, 2] = [P_from MW, Q_from MVAr], unmetered branches zeroed to match emit()'s flow mask.
         X = np.asarray(X, float)
         C = X.shape[1]
-        Vc = np.zeros((len(X), self._nppc), complex)
-        Vc[:, self._lut[np.arange(C)]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
-        Sf = branch_flows(Vc, self._Yf, self._fb, self._bMVA)
+        Vc = np.zeros((len(X), self._n_ppc_buses), complex)
+        Vc[:, self._ppc_row[np.arange(C)]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
+        Sf = branch_flows(Vc, self._Yf, self._from_bus_ppc, self._base_mva)
         ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         ec[:, ~np.asarray(self.meters.flow, bool), :] = 0.0
         return ec

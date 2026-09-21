@@ -137,17 +137,17 @@ class PhysicsMixin(GridBase):
         ):  # the pool's injection is load-positive: load minus generation
             Pinj[b] = Lp[pos] - self.load_genP[pos]
             Qinj[b] = Lq[pos]
-        lut = self._lut[np.arange(C)]
-        Vc = np.zeros(self._nppc, complex)
+        lut = self._ppc_row[np.arange(C)]
+        Vc = np.zeros(self._n_ppc_buses, complex)
         Vc[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])
-        target = -(Pinj[interior] + 1j * Qinj[interior]) / self._bMVA  # generation-positive, per unit
+        target = -(Pinj[interior] + 1j * Qinj[interior]) / self._base_mva  # generation-positive, per unit
         Vf = local_ac_solve(self._Ybus, Vc, lut[interior], target)
         if Vf is None:
             return None
         Xa[interior, NODE.v] = np.abs(Vf[lut[interior]])
         Xa[interior, NODE.theta] = np.degrees(np.angle(Vf[lut[interior]]))
         touched = np.union1d(interior, subnetwork(self._live_edges(), interior, 0, C)[1])  # and its boundary
-        S = bus_injections(Vf, self._Ybus, self._bMVA)[lut[touched]]
+        S = bus_injections(Vf, self._Ybus, self._base_mva)[lut[touched]]
         Xa[touched, NODE.p_inj] = -S.real
         Xa[touched, NODE.q_inj] = -S.imag
         return Xa
@@ -161,7 +161,7 @@ class PhysicsMixin(GridBase):
     ) -> Optional[Any]:
         # Set new load P/Q on the reusable net and re-run AC power flow. Returns the solved net, or None on
         # non-convergence (attacks can push loads into non-convergent regions — caller skips those).
-        net = self._solvenet
+        net = self._solve_net
         net.load["p_mw"] = Lp
         net.load["q_mvar"] = Lq
         # Pin generation to the TRUE dispatch. Otherwise the re-solve leaves gens at base setpoints and dumps

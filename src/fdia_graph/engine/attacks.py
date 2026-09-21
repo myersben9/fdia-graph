@@ -108,7 +108,7 @@ class AttackMixin(GridBase):
         # unchanged -> looks like normal re-dispatch), PER-BUS BOUNDED (|delta_b| <= rel*|Lp_b|), and steers
         # line-L flow via PTDF. rand=True picks buses from the top-2K high-PTDF candidates (varies per record,
         # not memorizable); rand=False is deterministic ranking.
-        pl = self._ptdf_lb[L]
+        pl = self._ptdf_load_buses[L]
         cap = rel * np.abs(Lp)
         score = np.abs(pl) * cap  # pl = line-L PTDF row over load buses
 
@@ -154,22 +154,26 @@ class AttackMixin(GridBase):
         # memorizable. Evaluate on base-case loads once, up front.
         bl = self.base.load.p_mw.values
         # Skip the outaged line explicitly: its PTDF row is zero (ranks last anyway) but its base-case flow is
-        # NaN, and a NaN reaching self._sgn would poison every LRA delta on that line.
-        pot = [(L, self._lra_for_line(L, bl, rel, K)) for L in range(self.nl) if L != self.contingency.pos]
+        # NaN, and a NaN reaching self._line_flow_sign would poison every LRA delta on that line.
+        pot = [
+            (L, self._lra_for_line(L, bl, rel, K)) for L in range(self.n_lines) if L != self.contingency.pos
+        ]
         pot = [(L, r) for L, r in pot if r is not None]
         pot.sort(key=lambda x: -abs(x[1].line_flow_change))  # most attackable lines first
-        self._Lcands = [L for L, _ in pot[: min(n_targets, len(pot))]]
+        self._target_lines = [L for L, _ in pot[: min(n_targets, len(pot))]]
         # Sign of each candidate's base flow (fallback +1) so the attack WORSENS existing loading (masks a real
         # overload rather than relieving it).
-        self._sgn = {L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._Lcands}
-        self._Ltgt = self._Lcands[0]  # default/primary target = most attackable line
+        self._line_flow_sign = {
+            L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._target_lines
+        }
+        self._primary_target_line = self._target_lines[0]  # default/primary target = most attackable line
 
     def lra_delta(
         self, Lp: np.ndarray, rel: float, K: int, floor: float = 0.02, hops: int = 2
     ) -> Redistribution:
         """A load redistribution steering a random target line, confined to the attacker's
         subnetwork within `hops` branches of the line [WU26]: only loads inside it move."""
-        L = int(self.rng.choice(self._Lcands))  # random target line per attack
+        L = int(self.rng.choice(self._target_lines))  # random target line per attack
         interior = self.local_region(self.ei[:, L], hops)
         if interior is None:
             return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0, L, None)
@@ -180,4 +184,10 @@ class AttackMixin(GridBase):
         if r is None:
             return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0, L, interior)
         # The flow change carries the same sign so the model describes the redistribution it holds.
-        return Redistribution(r.delta * self._sgn[L], r.buses, r.line_flow_change * self._sgn[L], L, interior)
+        return Redistribution(
+            r.delta * self._line_flow_sign[L],
+            r.buses,
+            r.line_flow_change * self._line_flow_sign[L],
+            L,
+            interior,
+        )
