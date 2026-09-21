@@ -643,7 +643,8 @@ def _timeline_attrs(
             Attr.FAMILIES: ",".join(f"{k}{v}" for k, v in FAMILIES.items()),
             Attr.ATTACKED_FRAC: float(buf.attacked / max(1, T)),
             Attr.N_EPISODES: len(buf.episodes),
-            Attr.FALLBACK_BENIGN: int(round(knobs[Attr.TARGET_ATTACKED_FRAC] * T)) - int((buf.seq_id >= 0).sum()),
+            Attr.FALLBACK_BENIGN: int(round(knobs[Attr.TARGET_ATTACKED_FRAC] * T))
+            - int((buf.seq_id >= 0).sum()),
         }
     )
     attrs.update({k: (-1 if v is None else v) for k, v in knobs.items()})
