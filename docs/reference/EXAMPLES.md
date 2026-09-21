@@ -137,9 +137,9 @@ import fdia_graph as fg
 
 torch.manual_seed(0)
 FIELDS = ["node_x", "node_m", "edge_x", "temporal_delta", "swing", "y", "family"]
-splits = {"train": fg.load("ieee118", split="train", families=[0, 1, 2]).to_numpy(FIELDS),
-          "val":   fg.load("ieee118", split="val",   families=[0, 1, 2]).to_numpy(FIELDS),
-          "test":  fg.load("ieee118", split="test",  families=[0, 1, 2, 3, 4]).to_numpy(FIELDS)}
+splits = {"train": fg.load("ieee118", split="train", families=[0, 1, 2]).export(FIELDS),
+          "val":   fg.load("ieee118", split="val",   families=[0, 1, 2]).export(FIELDS),
+          "test":  fg.load("ieee118", split="test",  families=[0, 1, 2, 3, 4]).export(FIELDS)}
 ei = fg.load("ieee118", split="train").edge_index_np
 N = splits["train"]["node_x"].shape[1]
 
@@ -207,7 +207,7 @@ from torch_geometric.nn import ARMAConv
 import fdia_graph as fg
 
 ds = {s: fg.load("ieee118", split=s, format="pyg", preload=True) for s in ("train", "val", "test")}
-stats = fg.load("ieee118", split="train").to_numpy(["node_x"])["node_x"]
+stats = fg.load("ieee118", split="train").export(["node_x"])["node_x"]
 MU = torch.tensor(stats.mean((0, 1))); SD = torch.tensor(stats.std((0, 1)) + 1e-9)
 
 class GNN(torch.nn.Module):

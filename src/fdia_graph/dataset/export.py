@@ -95,11 +95,14 @@ class ExportMixin(DatasetBase):
 
         Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
         timestep [n], plus the static graph edge_index [2,E] and edge_reactance [E], always included.
-        `fields` limits the per-record arrays read; a pandas frame always carries every field.
+        `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
+        `fields`, so a typo cannot pass unnoticed.
         """
         if format not in _FORMATS:
             raise ValueError(f"format must be one of {_FORMATS}, got {format!r}")
         if format == "pandas":
+            if fields:
+                raise ValueError("a pandas frame carries every field; pass fields with an array format")
             return self._as_pandas(self._arrays(None), flatten_features)
         arrays = self._arrays(fields)
         if format == "torch":

@@ -24,7 +24,7 @@ print("stealthy-only test set:", len(stealthy), "records")
 heldout = fg.load("ieee14", split="train", heldout=True)  # As/Ar held out of training
 print("held-out train set:", len(heldout), "records")
 
-# 4) ANY FRAMEWORK — whole split as numpy / torch / pandas (tensorflow via .to_tf()).
+# 4) ANY FRAMEWORK — one export of the whole split: numpy (default), format="torch", "tf" or "pandas".
 arrays = test.export()
 print("numpy node_x:", arrays["node_x"].shape)
 df = test.export(format="pandas", flatten_features=False)  # one row per record + metadata

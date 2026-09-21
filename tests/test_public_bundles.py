@@ -62,6 +62,8 @@ def test_record_batch_and_arrays(splits):
     assert len(df) == len(ds) and list(df.columns)[:2] == ["family", "family_id"]
     with pytest.raises(ValueError, match="format"):
         ds.export(format="polars")
+    with pytest.raises(ValueError, match="every field"):
+        ds.export(fields=["nope"], format="pandas")
     # the four exporters of 0.17 still answer, with the retirement notice
     with pytest.warns(DeprecationWarning, match="to_numpy is deprecated"):
         assert list(ds.to_numpy(["y"])) == list(ds.export(["y"]))
