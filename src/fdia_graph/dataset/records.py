@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 import numpy as np
 
+from .. import schema
 from ..models.data import BatchBundle, RecordBundle
 from ..models.grid import NODE
 from .base import (
@@ -56,7 +57,7 @@ class RecordsMixin(DatasetBase):
         idx) or the file's data group at the real file row self.idx[pos]."""
         if self._mem is not None:
             return self._mem, pos
-        return self._h()["data"], int(self.idx[pos])
+        return self._h()[schema.Group.DATA], int(self.idx[pos])
 
     def _add_benign(self, item: dict[str, Any], pos: int) -> None:
         """The attack-removed layer of a timeline record (noise kept), in self.units."""

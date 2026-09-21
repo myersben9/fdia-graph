@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 import h5py
 import numpy as np
 
+from .. import schema
 from ..models.data import ArraysBundle, Summary
 from .base import (
     _BENIGN_LAYERS,
@@ -32,7 +33,7 @@ class ExportMixin(DatasetBase):
     def summary(self) -> Summary:
         # Cheap overview: read only the family column for this view's rows, tally per family.
         with h5py.File(self.path, "r") as f:
-            fam = f["data/family"][:][self.idx]  # family codes for just the kept rows
+            fam = f[schema.FAMILY][:][self.idx]  # family codes for just the kept rows
         return Summary(
             system=self.system,
             N=self.N,
@@ -128,10 +129,10 @@ class ExportMixin(DatasetBase):
         clean_want = [k for k in want if k in _CLEAN_LAYERS]
         # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
         with h5py.File(self.path, "r") as f:
-            paths = {k: _BENIGN_LAYERS.get(k, f"data/{k}") for k in want if k not in _CLEAN_LAYERS}
+            paths = {k: schema.FIELD_PATH[k] for k in want if k not in _CLEAN_LAYERS}
             out = {k: f[path][self.idx] for k, path in paths.items()}  # -> [n, ...] numpy arrays
             if clean_want:
-                out.update(self._clean_layers(clean_want, f["data/timestep"][self.idx]))
+                out.update(self._clean_layers(clean_want, f[schema.TIMESTEP][self.idx]))
         return out
 
     def _in_units(self, out: dict[str, np.ndarray]) -> dict[str, np.ndarray]:

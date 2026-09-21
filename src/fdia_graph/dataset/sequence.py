@@ -7,6 +7,7 @@ from typing import Optional
 
 import numpy as np
 
+from .. import schema
 from ..models.data import EpisodeTable
 from .base import DatasetBase
 
@@ -93,11 +94,11 @@ def read_episodes(f, has_group: bool) -> Optional[EpisodeTable]:
     """The episodes/ group as a table, or None when the file has none."""
     if not has_group:
         return None
-    g = f["episodes"]
-    ptr, idx = g["bus_ptr"][:], g["bus_idx"][:]
+    g = f[schema.Group.EPISODES]
+    ptr, idx = g[schema.EPISODE_BUS_PTR][:], g[schema.EPISODE_BUS_IDX][:]
     return EpisodeTable(
-        onset=g["onset"][:].astype(np.int64),
-        length=g["length"][:].astype(np.int64),
-        family=g["family"][:].astype(np.int64),
+        onset=g[schema.EPISODE_ONSET][:].astype(np.int64),
+        length=g[schema.EPISODE_LENGTH][:].astype(np.int64),
+        family=g[schema.EPISODE_FAMILY][:].astype(np.int64),
         buses=[idx[ptr[k] : ptr[k + 1]].astype(np.int64) for k in range(len(ptr) - 1)],
     )

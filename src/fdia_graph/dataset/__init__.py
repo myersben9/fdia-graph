@@ -21,6 +21,7 @@ import h5py
 # numpy + h5py are the import-time deps (both required); torch/pandas are lazy (optional extras, see base._torch).
 import numpy as np
 
+from .. import schema
 from ..models.data import (  # noqa: F401  re-exported: defined here before the models package
     ArraysBundle,
     BatchBundle,
@@ -28,6 +29,7 @@ from ..models.data import (  # noqa: F401  re-exported: defined here before the 
     Summary,
 )
 from ..models.grid import NODE
+from ..schema import Attr
 from .base import (  # noqa: F401  re-exported: defined here before the split
     _BENIGN_LAYERS,
     _FAMILY_ALIAS,
@@ -114,11 +116,11 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
             self._read_static_graph(f)
             self._read_layers(f)
             self.slack = self._reference_bus()
-            fam = f["data/family"][:]
+            fam = f[schema.FAMILY][:]
             # per-record metadata copied to RAM for filtering; a timeline has no gap rows
-            gap = f["data/gap"][:] if "data/gap" in f else np.zeros(len(fam), np.uint8)
-            sp = f["data/split"][:] if "data/split" in f else None  # split code, or None on unsplit files
-            self._episodes = read_episodes(f, "episodes" in f)
+            gap = f[schema.GAP][:] if schema.GAP in f else np.zeros(len(fam), np.uint8)
+            sp = f[schema.SPLIT][:] if schema.SPLIT in f else None  # split code, or None on unsplit files
+            self._episodes = read_episodes(f, schema.Group.EPISODES in f)
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
         self.idx = _record_mask(fam, gap, sp, _RecordFilter(split, families, include_gaps, heldout), path)
         # order="random": the same rows in a permutation fixed by the seed, applied as a view index.
@@ -129,36 +131,38 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
 
     def _read_header(self, f: h5py.File) -> None:
         """Dims and the power base. IEEE case (14/118/300) falls back to N, then 0, for older files."""
-        self.system = int(f.attrs.get("system", f.attrs.get("N", 0)))
-        self.N = int(f.attrs["N"])
-        self.E = int(f.attrs["E"])  # fixed graph size: bus count N, branch count E
-        self.baseMVA = float(f.attrs.get("baseMVA", 100.0))  # p.u. base; v0.4.1+, default 100 MVA
-        self.is_timeline = str(f.attrs.get("kind", "")) == "timeline"
+        a = f.attrs
+        self.system = int(a.get(Attr.SYSTEM, a.get(Attr.N, 0)))
+        self.N = int(a[Attr.N])
+        self.E = int(a[Attr.E])  # fixed graph size: bus count N, branch count E
+        self.baseMVA = float(a.get(Attr.BASEMVA, 100.0))  # p.u. base; v0.4.1+, default 100 MVA
+        self.is_timeline = str(a.get(Attr.KIND, "")) == schema.KIND_TIMELINE
 
     def _read_static_graph(self, f: h5py.File) -> None:
         """The static graph, read ONCE and cached as numpy (same for every record): edge index, the
         deprecated reactance, and the v0.5.0+ per-unit branch physics, bus shunts and per-bus
         attributes, each None when the file predates the schema."""
-        self.edge_index_np = f["graph/edge_index"][:].astype(np.int64)
-        self.edge_reactance_np = f["graph/edge_reactance"][:].astype(np.float32)
+        self.edge_index_np = f[schema.EDGE_INDEX][:].astype(np.int64)
+        self.edge_reactance_np = f[schema.EDGE_REACTANCE][:].astype(np.float32)
         self._phys = {}
         for _k in _STATIC_PHYSICS:
-            self._phys[_k] = f[f"graph/{_k}"][:].astype(np.float64) if f"graph/{_k}" in f else None
+            p = schema.path(schema.Group.GRAPH, _k)
+            self._phys[_k] = f[p][:].astype(np.float64) if p in f else None
         self.has_physics = self._phys["edge_x"] is not None
         # Forward-compat: v0.6.0 PER-RECORD data/edge_status will override static graph/edge_status;
         # None on v0.5.0 shards, so v0.5.0 loaders already read v0.6.0 shards correctly.
-        self.edge_status_per_record = f["data/edge_status"][:] if "data/edge_status" in f else None
+        self.edge_status_per_record = f[schema.EDGE_STATUS][:] if schema.EDGE_STATUS in f else None
 
     def _read_layers(self, f: h5py.File) -> None:
         """Which optional layers the file carries: the temporal features (v0.3+, v0.4.1+) and the
         noiseless attack-free truth (v0.7.2+), stored ONCE per pool timestep and resolved per record
         via data/timestep. The clean layer is small ([Tpool,N,4] / [Tpool,E,2]) so it lives in RAM."""
-        self.has_temporal = "temporal_delta" in f["data"]
-        self.has_swing = "swing" in f["data"]
-        self._clean_np = f["clean/node_clean"][:] if "clean/node_clean" in f else None
-        self._eclean_np = f["clean/edge_clean"][:] if "clean/edge_clean" in f else None
+        self.has_temporal = schema.TEMPORAL_DELTA in f
+        self.has_swing = schema.SWING in f
+        self._clean_np = f[schema.NODE_CLEAN][:] if schema.NODE_CLEAN in f else None
+        self._eclean_np = f[schema.EDGE_CLEAN][:] if schema.EDGE_CLEAN in f else None
         self.has_clean = self._clean_np is not None
-        self.has_benign = "benign/node_benign" in f  # timeline files: the attack-removed layer per frame
+        self.has_benign = schema.NODE_BENIGN in f  # timeline files: the attack-removed layer per frame
         # edge_clean_full ([Tpool,E,2], the same flows on EVERY branch) is derived from the clean
         # state through Yf on first use, so it needs the clean layer and the branch physics.
         self._eclean_full_np: Optional[np.ndarray] = None
@@ -187,7 +191,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         overhead (the real .loader() bottleneck). About 350 MB for an ieee118 split. One contiguous
         slice plus a numpy subset beats h5py point reads (splits are near-contiguous)."""
         with h5py.File(path, "r") as f:
-            dg = f["data"]
+            dg = f[schema.Group.DATA]
             keys = (
                 ["node_x", "node_m", "edge_x", "edge_m", "y", "family", "stealthy", "seq_id", "timestep"]
                 + (["temporal_delta"] if self.has_temporal else [])

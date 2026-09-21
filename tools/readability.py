@@ -1,4 +1,7 @@
-"""Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1.
+"""Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1,
+and the file-protocol rule: a dataset path ("data/...", "graph/...", any group of `schema.Group`)
+or a group name used as one (`f.create_group("data")`, `f["attack"]`, `"episodes" in f`) may be
+spelled only in src/fdia_graph/schema.py; every other module goes through `schema`.
 
     python tools/readability.py --report                 # every function outside a limit, whole package
     python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass
@@ -26,6 +29,12 @@ from typing import Optional
 ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "fdia_graph")
 
 LIMITS = {"complexity": 10, "nesting": 3, "captures": 0, "params": 7, "positional": 0}
+_GROUPS = ("data", "benign", "clean", "graph", "episodes", "attack")  # schema.Group, kept in step by a test
+# a lone group name is a protocol literal when it is created as a group, or when it is subscripted or
+# tested with `in`; "benign" and "clean" are also record fields, so only the four that are never
+# fields are checked that way
+_GROUPS_NEVER_FIELDS = ("data", "graph", "episodes", "attack")
+_SCHEMA = os.path.join(ROOT, "schema.py")  # the one module allowed to spell a dataset path
 
 # "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
 EXCEPTIONS: dict[str, str] = {}
@@ -160,6 +169,62 @@ def _measure_function(rel: str, qualname: str, node: ast.AST, cc: dict[tuple[str
     )
 
 
+def protocol_literals(path: str) -> list[tuple[str, int, str]]:
+    """Path-shaped string literals ("<group>/..." or a lone group name used as a path prefix in an
+    f-string) outside the schema module: (file, line, literal). Docstrings are not literals."""
+    rel = os.path.relpath(path, ROOT)
+    if os.path.normcase(os.path.normpath(path)) == os.path.normcase(os.path.normpath(_SCHEMA)):
+        return []
+    tree = ast.parse(open(path, encoding="utf8").read())
+    docs = {
+        id(n.body[0].value)
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.Module, ast.ClassDef, *_FUNC))
+        and n.body
+        and isinstance(n.body[0], ast.Expr)
+        and isinstance(n.body[0].value, ast.Constant)
+    }
+    out = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
+            head = n.value.split("/", 1)[0]
+            if "/" in n.value and head in _GROUPS:
+                out.append((rel, n.lineno, n.value))
+        lit = _group_used_as_group(n)
+        if lit is not None:
+            out.append((rel, n.lineno, lit))
+    return sorted(out, key=lambda t: t[1])  # ast.walk is breadth-first; report in line order
+
+
+def _group_used_as_group(n: ast.AST) -> Optional[str]:
+    """The group name when `n` creates, subscripts or tests membership of a group by literal."""
+    if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "create_group":
+        args = list(n.args[:1]) + [kw.value for kw in n.keywords if kw.arg == "name"]
+        for arg in args:  # positional or `name=`
+            if isinstance(arg, ast.Constant) and arg.value in _GROUPS:
+                return str(arg.value)
+    if isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant):
+        if n.slice.value in _GROUPS_NEVER_FIELDS:
+            return str(n.slice.value)
+    if (
+        isinstance(n, ast.Compare)
+        and isinstance(n.left, ast.Constant)
+        and n.left.value in _GROUPS_NEVER_FIELDS
+    ):
+        if any(isinstance(op, (ast.In, ast.NotIn)) for op in n.ops):
+            return str(n.left.value)
+    return None
+
+
+def protocol_literals_all() -> list[tuple[str, int, str]]:
+    out: list[tuple[str, int, str]] = []
+    for dp, _, fs in os.walk(ROOT):
+        for f in sorted(fs):
+            if f.endswith(".py"):
+                out += protocol_literals(os.path.join(dp, f))
+    return out
+
+
 def measure_file(path: str) -> list[Measure]:
     rel = os.path.relpath(path, ROOT)
     tree = ast.parse(open(path, encoding="utf8").read())
@@ -185,6 +250,10 @@ def report(ms: list[Measure]) -> int:
     for m in sorted(bad, key=lambda m: (m.file, m.line)):
         mark = "  [excepted: " + EXCEPTIONS[m.key] + "]" if m.key in EXCEPTIONS else ""
         print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()) + mark)
+    lits = protocol_literals_all()
+    print(f"{len(lits)} dataset-path literals outside {os.path.relpath(_SCHEMA, ROOT)}")
+    for rel, line, lit in lits:
+        print(f"  {rel}:{line} {lit!r}")
     return 0
 
 
@@ -230,6 +299,18 @@ def check(base: str) -> int:
         for m in failing:
             print(f"  {m.file}:{m.line} {m.name}: " + "; ".join(m.failures()))
         print("split the function, or add it to EXCEPTIONS in tools/readability.py with a reason.")
+        return 1
+    lits = [
+        (rel, line, lit)
+        for path, lines in changed.items()
+        if path.endswith(".py") and os.path.exists(path)
+        for rel, line, lit in protocol_literals(path)
+        if line in lines
+    ]
+    if lits:
+        print("dataset-path literals added by this change (spell the path through fdia_graph.schema):")
+        for rel, line, lit in lits:
+            print(f"  {rel}:{line} {lit!r}")
         return 1
     n_lines = sum(len(v) for v in changed.values())
     print(f"readability gate: {n_lines} changed lines in {len(changed)} file(s), all touched functions pass")

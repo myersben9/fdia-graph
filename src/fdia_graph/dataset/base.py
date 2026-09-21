@@ -27,11 +27,22 @@ if TYPE_CHECKING:
 import h5py
 import numpy as np
 
+from .. import schema
+
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
-FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
-STEALTHY_FAMILIES = {1, 5, 6, 7}  # Aq, At, Al, Am — re-solved states that evade classical bad-data detection
-_FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
-_SPLIT = {"train": 0, "val": 1, "test": 2}  # on-disk `data/split` codes (precomputed)
+from ..schema import (  # noqa: F401  re-exported: the loader's callers import them from here
+    FAMILIES,
+    STEALTHY_FAMILIES,
+)
+from ..schema import (
+    FAMILY_ALIAS as _FAMILY_ALIAS,
+)
+from ..schema import (
+    SPLIT_CODE as _SPLIT,
+)
+from ..schema import (
+    STATIC_PHYSICS as _STATIC_PHYSICS,  # noqa: F401
+)
 
 
 def check_split(split):
@@ -88,29 +99,6 @@ def _torch() -> ModuleType:
 
 
 # v0.5.0+ static per-branch physics, bus shunts and per-bus attributes stored under graph/.
-_STATIC_PHYSICS = (
-    "edge_r",
-    "edge_x",
-    "edge_b",
-    "edge_g",
-    "edge_gs",
-    "edge_bs",
-    "edge_tap",
-    "edge_shift",
-    "edge_status",
-    "edge_is_trafo",
-    "bus_shunt_g",
-    "bus_shunt_b",
-    "bus_type",
-    "bus_vmin",
-    "bus_vmax",
-    "bus_base_kv",
-    "bus_is_zero_inj",
-    "bus_has_gen",
-    "bus_base_pd",
-    "bus_base_qd",
-    "bus_attackable",
-)
 # Per-record tensors collate() stacks into a batch (those the record carries), and the scalars it gathers.
 
 
@@ -134,7 +122,7 @@ _BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 
 _CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
 # The attack-removed layer of a timeline file: record field -> dataset path, one row per frame.
-_BENIGN_LAYERS = {"benign": "benign/node_benign", "edge_benign": "benign/edge_benign"}
+_BENIGN_LAYERS = {k: schema.FIELD_PATH[k] for k in ("benign", "edge_benign")}
 # Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
 _UNIT_KIND = {
     "node_x": "node",
