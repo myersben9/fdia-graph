@@ -10,9 +10,10 @@ the public API, the generated files and the numbers are the same as the previous
   merge; `.coderabbit.yaml` carries the repository's review instructions (the physics conventions,
   the readability limits, the prose rules); CONTRIBUTING lists the three reviewers and their order,
   with the Claude Code `/code-review ultra` pass first. No package change.
-- Names, no behavior: the generator's private attributes are words (`_ppc_row`, `_n_ppc_buses`,
+- Names, no behavior: the generator's attributes are words (`_ppc_row`, `_n_ppc_buses`,
   `_from_bus_ppc`, `_base_mva`, `_target_lines`, `_primary_target_line`, `_line_flow_sign`,
-  `_ptdf_load_buses`, `_solve_net`, `_injection_buses`, `_bias_sd`, `_draw_noise`, `n_lines`),
+  `_ptdf_load_buses`, `_solve_net`, `_injection_buses`, `_bias_sd`, `_draw_noise` and the public
+  `n_lines`),
   the dataset package's docstring maps each mixin to the questions it answers, and the data
   dictionary and the schema name the static `graph/edge_x` (the series reactance) apart from the
   flow layer of the same name.
