@@ -41,10 +41,7 @@ the public API, the generated files and the numbers are the same as the previous
   of them, so an accepted design cannot fall back; an Am redistribution is also tried at halved
   sizes above the floor before it is redrawn. `fallback_benign` now counts every frame the draw
   meant to attack that is benign, whether or not an episode record exists for it (an Am episode
-  with no admissible redistribution left no record and was not counted). On IEEE-57, which runs
-  below its own voltage limits at 40 buses, two Am episodes have no admissible redistribution at
-  any size, so 120 of its 36,000 attack frames stay benign and the file says so; every other
-  system is exact. An Aq episode now draws its direction like the ramp, a load rise or a load
+  with no admissible redistribution left no record and was not counted). An Aq episode now draws its direction like the ramp, a load rise or a load
   drop with the same 5% to 20% scale: on a case that runs below its voltage limits (IEEE-57) a
   rise near the low buses has no admissible state and a drop is the attack that fits. Loads above `max_load_mw` (new knob, default 2000 MW) are never targets: the
   IEEE-145 case lumps whole areas into loads of 4 to 58 GW, and a 5% step on one has no local
