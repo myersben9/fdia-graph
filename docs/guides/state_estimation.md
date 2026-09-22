@@ -13,10 +13,10 @@ flowchart LR
     end
     subgraph estimate["est.estimate(test)"]
         e1[z, slack angle] --> e2["chord-Newton loop<br/>hook: _solve"]
-        e2 --> e3["x̂ [n, 2N-1]"]
+        e2 --> e3["the estimate, [n, 2N-1]"]
     end
     subgraph score["est.score(test)"]
-        s1["|x̂ − clean| per family"] --> s2[angle deg, voltage pu,<br/>geometric mean]
+        s1["estimate minus clean,<br/>per family"] --> s2[angle deg, voltage pu,<br/>geometric mean]
     end
     fit --> estimate --> score
 ```

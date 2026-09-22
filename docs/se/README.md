@@ -16,20 +16,15 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 ```
 
 ```mermaid
-flowchart LR
-    subgraph shared["SEBase (shared)"]
-        h["h(x): formulas.network.ac_measurement"]
-        H["chord Jacobian: ac_jacobian"]
-        w["meter weights from benign residuals"]
-        it["chord-Newton loop, divergence guard"]
+flowchart TB
+    subgraph shared["SEBase, shared by every estimator"]
+        h["h(x): formulas.network.ac_measurement"] ~~~ w["meter weights from benign residuals"]
+        H["chord Jacobian: ac_jacobian"] ~~~ it["chord-Newton loop, divergence guard"]
     end
     subgraph one["each estimator changes one thing"]
-        WLS["WLS: nothing"]
-        AW["AdaptiveWeighting: Huber weights"]
-        RR["ResidualRemoval: drop large residuals"]
-        SP["SubspacePrior: low-rank basis"]
-        JW["JacobianWeighting: weights from r⊥"]
-        GP["GatedPrior: localizer gates the weights"]
+        WLS["WLS: nothing"] ~~~ SP["SubspacePrior: low-rank basis"]
+        AW["AdaptiveWeighting: Huber weights"] ~~~ JW["JacobianWeighting: weights from r⊥"]
+        RR["ResidualRemoval: drop large residuals"] ~~~ GP["GatedPrior: localizer gates the weights"]
     end
     shared --> one
 ```

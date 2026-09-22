@@ -3,6 +3,12 @@
 Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.
 
+## Unreleased
+
+- Docs: the six diagrams that GitHub laid out badly are redrawn (the module map as layers, the
+  generate and load pipelines as two rows, the estimator overview as columns, the trust guide with
+  fit feeding score, the concepts page on the attack-vector construction with Am); no package change.
+
 ## 0.18.0
 
 - Reviews: `tools/pr.py` waits for and requires every installed review bot (Copilot always;
