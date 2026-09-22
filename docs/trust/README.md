@@ -101,7 +101,32 @@ The DQN's 20 meters take the proposed estimator from 0.050 to 0.033 degrees with
 0.020 with the exempting gate, the stealthy families losing 58 to 83 percent of their error (Aq 0.219
 to 0.036, At 0.077 to 0.020, Al 0.057 to 0.023, Am 0.048 to 0.020) with the benign error unchanged;
 the residual gate, which needs no learned model, matches the CNN gate there because the secured
-meters made the residual see those families. Twenty meters are 24 percent of IEEE-14's; the same
-script on IEEE-118, where they are 4 percent, follows with its own table.
+meters made the residual see those families.
+
+IEEE-118, the same 20 meters (4 percent of its meters where they were 24 percent of IEEE-14's):
+
+| localizer | copy | Aq | At | Al | Am | macro-F1 / benign FA |
+|---|---|---|---|---|---|---|
+| residual | plain | 0.01 (0.40) | 0.01 (0.41) | 0.01 (0.41) | 0.02 (0.45) | 0.198 / 0.0063 |
+| residual | greedy | 0.01 (0.42) | 0.01 (0.41) | 0.03 (0.52) | 0.03 (0.49) | 0.202 / 0.0063 |
+| residual | DQN | 0.11 (0.70) | 0.03 (0.48) | 0.17 (0.80) | 0.09 (0.75) | 0.214 / 0.0063 |
+| 1D CNN + Jacobian | plain | 0.35 (1.00) | 0.15 (0.84) | 0.80 (1.00) | 0.64 (1.00) | 0.467 / 0.0097 |
+| 1D CNN + Jacobian | greedy | 0.37 (1.00) | 0.15 (0.84) | 0.78 (1.00) | 0.65 (1.00) | 0.474 / 0.0095 |
+| 1D CNN + Jacobian | DQN | 0.39 (1.00) | 0.16 (0.84) | 0.82 (1.00) | 0.70 (0.99) | 0.505 / 0.0100 |
+
+| estimator | plain | greedy | DQN |
+|---|---|---|---|
+| prior + Huber | 0.0122 | 0.0121 | 0.0120 |
+| prior + Huber + CNN gate | 0.0135 | 0.0136 | 0.0131 |
+| prior + Huber + CNN gate, secured meters exempt | | 0.0133 | 0.0129 |
+| prior + Huber + residual gate, secured meters exempt | | 0.0214 | 0.0211 |
+| prior + Huber + oracle gate | 0.0124 | 0.0123 | 0.0123 |
+| prior + Huber + oracle gate, secured meters exempt | | 0.0120 | 0.0121 |
+
+The greedy set moves nothing on IEEE-118 while the DQN set opens the residual test on the stealthy
+families (Aq from 0.40 to 0.70 detected, Al 0.41 to 0.80, Am 0.45 to 0.75) and lifts the learned
+localizer four points, but the residual localizer still points poorly on a grid this size and the
+estimator gains within a percent. Twenty meters were a quarter of IEEE-14's and are a twentieth of
+IEEE-118's; the budget has to scale with the system for the estimation gain to follow.
 
 Source: the multi-snapshot attack and the trusted-PMU defence of [WU26] (`docs/reference/REFERENCES.md`).
