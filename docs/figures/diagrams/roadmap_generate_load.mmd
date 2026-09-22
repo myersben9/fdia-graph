@@ -3,7 +3,7 @@ flowchart TB
         direction LR
         p1[profiles.py<br/>ISO load series] --> p2["engine: AC solve<br/>operating-state pool"]
         p2 --> p3["timeline.py: the walk<br/>attack episodes, benign frames"]
-        p3 --> p4[engine.records.attack_frame<br/>one scan per frame]
+        p3 --> p4["attack_frame<br/>in engine.records,<br/>one scan per frame"]
         p4 --> p5[("one HDF5 file, registered<br/>data · benign · clean · episodes · attack")]
     end
     subgraph load["fg.load(name, order), the registered file"]

@@ -1,13 +1,14 @@
-"""Render a Mermaid source file to a standalone SVG (and a PNG next to it), for the diagrams that
-have to show where Mermaid is not rendered: the README on PyPI and in the GitHub mobile app.
+"""Render a Mermaid source file to a standalone SVG and a PNG next to it. Every diagram in the docs
+is such a rendered image, because the README is also the PyPI page and the docs are read in the
+GitHub mobile app, and neither renders a Mermaid block.
 
-    python tools/render_mermaid.py docs/figures/pipeline.mmd [more.mmd ...]
+    python tools/render_mermaid.py docs/figures/diagrams/<name>.mmd [more.mmd ...]
 
 Labels are plain SVG text (no HTML labels), so the file displays as an image everywhere. Needs
 Playwright with its Chromium (`pip install playwright && playwright install chromium`) and network
 access to fetch the pinned mermaid.min.js from jsDelivr once per run; bump the version in MERMAID
-deliberately, since a new Mermaid can change the layout of every checked-in render. The other diagrams in docs/ stay as
-Mermaid blocks, which github.com renders in place.
+deliberately, since a new Mermaid can change the layout of every checked-in render. Commit the
+.mmd, the .png and the .svg together.
 """
 
 from __future__ import annotations

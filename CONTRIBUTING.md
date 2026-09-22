@@ -16,9 +16,9 @@ pytest tests                                  # about a minute; one 13 MB pool d
 
 Every diagram is a rendered image, never a Mermaid block: the README is also the PyPI page, and the
 docs are read in the GitHub mobile app, and neither renders Mermaid. Each diagram's source is a
-`docs/figures/diagrams/<name>.mmd` next to its `<name>.png`; edit the source and re-render with
-`python tools/render_mermaid.py docs/figures/diagrams/<name>.mmd` (Playwright with Chromium), then
-commit both. README images use the raw.githubusercontent.com URL so PyPI shows them; docs pages use
+`docs/figures/diagrams/<name>.mmd` next to its `<name>.png` and `<name>.svg`; edit the source and
+re-render with `python tools/render_mermaid.py docs/figures/diagrams/<name>.mmd` (Playwright with
+Chromium), which writes both images, then commit all three. README images use the raw.githubusercontent.com URL so PyPI shows them; docs pages use
 relative paths.
 
 ## The rules
