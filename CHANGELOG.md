@@ -5,6 +5,9 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The trust guide's secured-copy tables for IEEE-118 (`results/secured_ieee118.json`): the DQN set
+  opens the residual test on the stealthy families and lifts the learned localizer four points, the
+  estimator gains within a percent at 20 meters. No package change.
 - The docs site's staging step drops nav entries for pages a checkout lacks, so a backfilled older
   version on the versioned site has no link into a 404. No package change.
 - Versioned docs: `.github/workflows/docs.yml` deploys the MkDocs site per package version to GitHub
