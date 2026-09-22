@@ -46,7 +46,9 @@ def render(src: str) -> tuple[str, str]:
         page.locator(".mermaid svg").screenshot(path=png_path)
         browser.close()
     if "<foreignObject" in svg:  # an HTML label slipped through: the file would show boxes without text
-        raise SystemExit(f"{src}: the SVG still carries HTML labels (foreignObject); check the Mermaid config")
+        raise SystemExit(
+            f"{src}: the SVG still carries HTML labels (foreignObject); check the Mermaid config"
+        )
     if 'xmlns="http://www.w3.org/2000/svg"' not in svg:
         svg = svg.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" ', 1)
     with open(svg_path, "w", encoding="utf8", newline="\n") as fh:
