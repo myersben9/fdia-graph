@@ -141,11 +141,7 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 
 Every frame of a timeline carries three aligned layers, for node and for edge measurements:
 
-```mermaid
-flowchart LR
-    clean["clean / edge_clean<br/>noiseless true state"] -- "+ meter noise" --> benign["benign / edge_benign"]
-    benign -- "Ad As Ar: + the corruption<br/>Aq At Al Am: + the attack vector of the local false state<br/>(observed − benign = attack, exact)" --> obs["node_x / edge_x<br/>observed, the model input"]
-```
+![clean plus meter noise gives benign; benign plus the corruption (Ad, As, Ar) or the attack vector of the local false state (Aq, At, Al, Am) gives the observed node_x and edge_x, so observed minus benign is the attack exactly](../figures/diagrams/data_dictionary_layers.png)
 
 | layer | meaning |
 |-------|---------|

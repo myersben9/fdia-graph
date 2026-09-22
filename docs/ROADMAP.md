@@ -4,52 +4,11 @@ Two halves. The **SDK** loads and serves data and runs on the base install; the 
 theory (power flow, meters, attacks) and needs `[generate]`. Users touch `fg.*`, `fdia_graph.se`
 and `fdia_graph.localization`.
 
-```mermaid
-flowchart TB
-    subgraph SDK["src/fdia_graph, the base install"]
-        init["__init__.py<br/>fg.* public API"]
-        ds["dataset/<br/>FdiaGraph"]
-        st["timeline.py · torch_data.py<br/>the timeline writer, sequence forms"]
-        reg["registry.py · download.py<br/>versions, cache"]
-        se["se/<br/>state estimation"]
-        loc["localization/<br/>per-bus localization"]
-        trust["trust/<br/>trusted meters"]
-        init --> ds
-        init --> st
-        ds --> reg
-        se --> ds
-        loc --> ds
-        trust --> ds
-    end
-    subgraph GEN["the generate extra"]
-        gen["generation.py · profiles.py<br/>drivers"]
-        eng["engine/<br/>FdiaGenerator"]
-        gen --> eng
-    end
-    base["models/ and formulas/<br/>every returned record, the equations cited<br/>read by every package above"]
-    init --> gen
-    SDK --> base
-    GEN --> base
-```
+![the package map: the public API over dataset, timeline, registry, se, localization and trust in the base install, generation and engine behind the generate extra, models and formulas read by every package](figures/diagrams/roadmap_modules.png)
 
 ## The two paths
 
-```mermaid
-flowchart TB
-    subgraph generate["fg.generate(system, name)"]
-        direction LR
-        p1[profiles.py<br/>ISO load series] --> p2["engine: AC solve<br/>operating-state pool"]
-        p2 --> p3["timeline.py: the walk<br/>attack episodes, benign frames"]
-        p3 --> p4[engine.records.attack_frame<br/>one scan per frame]
-        p4 --> p5[("one HDF5 file, registered<br/>data · benign · clean · episodes · attack")]
-    end
-    subgraph load["fg.load(name, order), the registered file"]
-        direction LR
-        l1[registry.resolve<br/>name, release, layout] --> l2[download.ensure_local<br/>cache, sha256]
-        l2 --> l3["FdiaGraph<br/>random: records, batches, exports<br/>time: windows, episodes"]
-    end
-    generate ~~~ load
-```
+![fg.generate from ISO load series through the AC pool, the timeline walk and one scan per frame to one registered HDF5 file, and fg.load from registry.resolve through the cached download to FdiaGraph in random or time order](figures/diagrams/roadmap_generate_load.png)
 
 ## Files
 

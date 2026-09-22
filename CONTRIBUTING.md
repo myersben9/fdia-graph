@@ -14,11 +14,12 @@ pytest tests                                  # about a minute; one 13 MB pool d
 
 `docs/ROADMAP.md` is the map and the reading order.
 
-The README's diagram is a pre-rendered image, not a Mermaid block: the README is also the PyPI page
-and the GitHub mobile view, and neither renders Mermaid. Its source is `docs/figures/pipeline.mmd`;
-`python tools/render_mermaid.py docs/figures/pipeline.mmd` writes the PNG and SVG next to it
-(needs Playwright with Chromium). Every other diagram stays a Mermaid block, rendered by github.com,
-and README images use the raw.githubusercontent.com URL so PyPI shows them.
+Every diagram is a rendered image, never a Mermaid block: the README is also the PyPI page, and the
+docs are read in the GitHub mobile app, and neither renders Mermaid. Each diagram's source is a
+`docs/figures/diagrams/<name>.mmd` next to its `<name>.png`; edit the source and re-render with
+`python tools/render_mermaid.py docs/figures/diagrams/<name>.mmd` (Playwright with Chromium), then
+commit both. README images use the raw.githubusercontent.com URL so PyPI shows them; docs pages use
+relative paths.
 
 ## The rules
 
@@ -32,16 +33,7 @@ and README images use the raw.githubusercontent.com URL so PyPI shows them.
 
 ## The pull request
 
-```mermaid
-flowchart LR
-    A[branch off main] --> B[strict suite<br/>pyright · ruff · gate]
-    B --> C["tools/pr.py create"]
-    C --> D[CI + the review bots]
-    D --> E{comments?}
-    E -- yes --> F[apply what is right,<br/>reply to every one]
-    F --> D
-    E -- no --> G["tools/pr.py merge<br/>(green + review on head)"]
-```
+![the pull request flow: branch, strict suite, create, CI and the review bots, answer every comment, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
 
 ```bash
 python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked
@@ -74,13 +66,7 @@ account's Actions and Copilot credits before anything else.
 
 ## Releasing
 
-```mermaid
-flowchart LR
-    A["bump PR:<br/>pyproject, __init__, changelog heading"] --> B[merge on green]
-    B --> C["tools/release.py vX.Y.Z notes.md"]
-    C --> D[tag on main · GitHub release]
-    D --> E[publish.yml → PyPI]
-```
+![the release flow: bump PR, merge on green, tag on main, GitHub release, publish.yml to PyPI](docs/figures/diagrams/contributing_release_flow.png)
 
 A released version is never re-cut; fix forward. Data releases (timelines, pools) have their own
 tags, `data-v<x.y.z>` from v0.8.0 (the bare `v0.x.y` tags belong to package versions; the two

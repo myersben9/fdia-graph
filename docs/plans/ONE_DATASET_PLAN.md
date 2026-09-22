@@ -11,15 +11,7 @@ The continuous timeline is the dataset. A record table is the same frames used i
 which the DataLoader's shuffle already provides. So there is one generator that writes one
 timeline per system, one HDF5 file that carries everything, and one loader with no branches.
 
-```mermaid
-flowchart LR
-    P[ISO load profile] --> S[engine: operating-state pool]
-    S --> G["generate(): one timeline<br/>episodes of every family, benign gaps"]
-    G --> F[("one HDF5 file per system<br/>data/ graph/ benign/ clean/ episodes/ attrs")]
-    F --> L["fg.load(name, split=...)"]
-    L --> R["records: ds[i], loader(shuffle)"]
-    L --> W["sequences: ds.windows(W)"]
-```
+![ISO load profile to the operating-state pool, generate() to one timeline of episodes, one HDF5 file per system, fg.load as records or as sequences](../figures/diagrams/plan_one_dataset.png)
 
 ## 2. What goes away
 

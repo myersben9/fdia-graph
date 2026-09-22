@@ -1,0 +1,8 @@
+flowchart LR
+    A[branch off main] --> B[strict suite<br/>pyright · ruff · gate]
+    B --> C["tools/pr.py create"]
+    C --> D[CI + the review bots]
+    D --> E{comments?}
+    E -- yes --> F[apply what is right,<br/>reply to every one]
+    F --> D
+    E -- no --> G["tools/pr.py merge<br/>(green + review on head)"]

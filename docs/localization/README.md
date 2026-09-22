@@ -14,22 +14,7 @@ flag = loc.localize(test)                          # [n, N] bool: which buses ar
 rep  = loc.score(test)                             # per-family metrics + benign false alarms
 ```
 
-```mermaid
-flowchart LR
-    subgraph fit["loc.fit(train, val=None)"]
-        b[threshold arms: benign records only] --> s1["per-bus score<br/>hook: each method"]
-        s1 --> t["threshold per bus at the<br/>(1 − fa_target) benign quantile"]
-        l[learned arms: every record given,<br/>attacks included] --> tr[train the CNN / MLP]
-        tr --> t2["val given: one global<br/>validation-best threshold<br/>else: the benign quantile"]
-    end
-    subgraph localize["loc.localize(test)"]
-        s2[per-bus score] --> f["flag = score > threshold<br/>[n, N] bool"]
-    end
-    subgraph score["loc.score(test)"]
-        f2[flags vs y] --> m["per family: strict accuracy, node P/R/F1,<br/>macro-F1, DR next to the benign FA"]
-    end
-    fit --> localize --> score
-```
+![loc.fit calibrates threshold arms on benign records and trains the learned arms on every record; loc.localize flags buses above the per-bus threshold; loc.score reports per-family metrics](../figures/diagrams/localization_flow.png)
 
 | | |
 |---|---|

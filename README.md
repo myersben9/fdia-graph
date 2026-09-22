@@ -15,7 +15,7 @@ ts = fg.load("ieee118", split="test", order="time")   # the same frames in time 
 Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows for an LSTM / TGN
 ```
 
-![The pipeline: ISO load profiles feed fg.generate, which writes one timeline file per system with observed, benign and clean layers; fg.load reads it as a record table for fdia_graph.se and fdia_graph.localization, or as a time series of windows and episodes for a temporal model](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/pipeline.png)
+![The pipeline: ISO load profiles feed fg.generate, which writes one timeline file per system with observed, benign and clean layers; fg.load reads it as a record table for fdia_graph.se and fdia_graph.localization, or as a time series of windows and episodes for a temporal model](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/diagrams/pipeline.png)
 
 | Read | To learn |
 |---|---|

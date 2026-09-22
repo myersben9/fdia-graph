@@ -15,19 +15,7 @@ xhat = est.estimate(test)   # [n, 2N-1] = [theta rad (non-slack) | V pu (all bus
 rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 ```
 
-```mermaid
-flowchart TB
-    subgraph shared["SEBase, shared by every estimator"]
-        h["h(x): formulas.network.ac_measurement"] ~~~ w["meter weights from benign residuals"]
-        H["chord Jacobian: ac_jacobian"] ~~~ it["chord-Newton loop, divergence guard"]
-    end
-    subgraph one["each estimator changes one thing"]
-        WLS["WLS: nothing"] ~~~ SP["SubspacePrior: low-rank basis"]
-        AW["AdaptiveWeighting: Huber weights"] ~~~ JW["JacobianWeighting: weights from r⊥"]
-        RR["ResidualRemoval: drop large residuals"] ~~~ GP["GatedPrior: localizer gates the weights"]
-    end
-    shared --> one
-```
+![SEBase shared by every estimator: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop; each estimator changes one thing: WLS nothing, AdaptiveWeighting Huber weights, ResidualRemoval dropping large residuals, SubspacePrior a low-rank basis, JacobianWeighting weights from the unexplained residual, GatedPrior a localizer gating the weights](../figures/diagrams/se_estimators.png)
 
 | needs | `pip install "fdia-graph[se]"`, a v0.7.2+ shard |
 |---|---|
@@ -119,13 +107,7 @@ Angle MAE per estimator and family (degrees, lower is better, `geo` is the summa
 
 ## Jacobian-informed weighting
 
-```mermaid
-flowchart LR
-    z["z_t"] --> dz["Δz = z_t − h(x_{t−1} clean)"]
-    dz --> split["r∥ = P_H Δz · r⊥ = (I − P_H) Δz"]
-    split --> w["Huber weights from r⊥ / σ"]
-    w --> solve["one weighted solve"]
-```
+![the scan-to-scan change is split into the part a state change explains and the unexplained rest; Huber weights come from the unexplained part; one weighted solve](../figures/diagrams/se_jacobian_weighting.png)
 
 | result | 14 | 118 | 300 |
 |---|---:|---:|---:|
@@ -140,11 +122,7 @@ residual, so this route cannot move the proposed estimator. The route that can i
 
 ## Localization-gated estimation
 
-```mermaid
-flowchart LR
-    loc["localizer flags buses<br/>(CNN, or the oracle labels)"] --> gate["weights × 1e-3 on every meter<br/>of a flagged bus and its branches"]
-    gate --> est["prior + Huber solve:<br/>the benign prior fills the gap"]
-```
+![a localizer flags buses; the weights of every meter of a flagged bus and its branches are scaled by a thousandth; the prior plus Huber solve fills the gap from the benign prior](../figures/diagrams/se_gated_prior.png)
 
 | | IEEE 14 | | | IEEE 118 | | | IEEE 300 | | |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
