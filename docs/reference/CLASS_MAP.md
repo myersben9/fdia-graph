@@ -24,8 +24,9 @@ same reason. `streams.py` and `torch_data.py` retire in 0.19.
 
 `FdiaGraph` is the file. Five mixins over `DatasetBase` give it its faces: the static graph physics
 (`GraphMixin`), the admittance matrices (`AdmittanceMixin`), records and batches (`RecordsMixin`), the
-exports (`ExportMixin`) and the time-ordered windows and episodes (`SequenceMixin`). Every method returns
-a `models` bundle.
+exports (`ExportMixin`) and the time-ordered windows and episodes (`SequenceMixin`). The methods that
+produce records return `models` bundles (a record, a batch, an exported split, the episode table, the
+summary); the graph properties are tensors or arrays, `loader()` is a DataLoader and `windows()` a tuple.
 
 ![Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel](../figures/diagrams/classes_dataset.png)
 
