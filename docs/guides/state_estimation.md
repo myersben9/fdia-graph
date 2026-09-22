@@ -3,23 +3,7 @@
 Measurements in, state out, better than weighted least squares on the public test cases. Runs off
 a shard download; `pip install "fdia-graph[se]"`.
 
-```mermaid
-flowchart LR
-    subgraph fit["est.fit(train)"]
-        f1[benign records] --> f2[meter sigma from<br/>residuals at the clean truth]
-        f1 --> f3[chord Jacobian H<br/>at the benign mean]
-        f3 --> f4["G = HᵀWH, its inverse,<br/>residual covariance"]
-        f1 --> f5["hook: _fit_states<br/>SubspacePrior learns its basis"]
-    end
-    subgraph estimate["est.estimate(test)"]
-        e1[z, slack angle] --> e2["chord-Newton loop<br/>hook: _solve"]
-        e2 --> e3["the estimate, [n, 2N-1]"]
-    end
-    subgraph score["est.score(test)"]
-        s1["estimate minus clean,<br/>per family"] --> s2[angle deg, voltage pu,<br/>geometric mean]
-    end
-    fit --> estimate --> score
-```
+![est.fit on benign records sets meter sigma, the chord Jacobian and the prior basis; est.estimate runs the chord-Newton loop; est.score compares the estimate with the clean state per family](../figures/diagrams/guide_state_estimation.png)
 
 ## Baseline first
 

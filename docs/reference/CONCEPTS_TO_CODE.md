@@ -5,17 +5,7 @@ Paths are under `src/fdia_graph/`.
 
 ## One record, start to finish
 
-```mermaid
-flowchart LR
-    X["operating state x<br/>(pool, from an ISO profile)"] --> cl["clean layer<br/>h(x), no noise"]
-    X --> h2["h(x) + noise<br/>the benign scan, every meter's own draw"]
-    X -- "Aq At Al Am: change the load in a<br/>local region, re-solve it" --> X2["local false state x'"]
-    X2 -- "attack vector a = h(x') − h(x)<br/>added to the benign scan" --> c1["stealthy scan"]
-    h2 -- "Ad As Ar: corrupt the<br/>readings in place" --> c2["tampered scan"]
-    h2 --> rec["record: node_x, edge_x, masks,<br/>y, family, temporal features"]
-    c1 --> rec
-    c2 --> rec
-```
+![one record: the operating state gives the clean layer and the benign scan; Aq, At, Al and Am re-solve a local false state whose attack vector is added to the benign scan; Ad, As and Ar corrupt readings in place; every path ends in the record](../figures/diagrams/concepts_one_record.png)
 
 Re-solve families are attacked before measurement (`engine.physics.solve`), in-place families
 after it (`engine.attacks.corrupt`); `engine.records.attack_frame` routes both.

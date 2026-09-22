@@ -5,13 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Every diagram in the docs is a rendered image (`docs/figures/diagrams/<name>.png`, source `<name>.mmd`
+  beside it, `tools/render_mermaid.py`), since the GitHub mobile app and PyPI show a Mermaid block
+  as code; no Mermaid block remains. No package change.
 - `docs/se` and `docs/localization` IEEE-300 columns re-run on the v0.8.0 timeline (tables, figures
   and CSV sidecars); the live result tables of both guides now read the v0.8.0 release, while the
   paper-comparison table (v0.4.1) and the narrative sections (v0.7.2) stay labeled as such. No
   package change.
-- The README's pipeline diagram is a pre-rendered image (`docs/figures/pipeline.png`, source
-  `pipeline.mmd`, `tools/render_mermaid.py`), since PyPI and the GitHub mobile app show a Mermaid
-  block as code; README images use absolute URLs so the PyPI page shows them. No package change.
+- The README's pipeline diagram is a pre-rendered image (`docs/figures/diagrams/pipeline.png`, source
+  `pipeline.mmd` beside it, `tools/render_mermaid.py`), since PyPI and the GitHub mobile app show a
+  Mermaid block as code; README images use absolute URLs so the PyPI page shows them. No package change.
 - Docs: the six diagrams that GitHub laid out badly are redrawn (the module map as layers, the
   generate and load pipelines as two rows, the estimator overview as columns, the trust guide with
   fit feeding score, the concepts page on the attack-vector construction with Am); no package change.
