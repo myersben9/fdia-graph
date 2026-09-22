@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import numpy as np
 
+SWING_WINDOW = 60  # scans of history the swing scale summarizes (the writer's window)
+
 
 def recent_change_scale(X: np.ndarray, window: int, n_bus: int) -> np.ndarray:
     """Per-timestep typical recent change of every bus's injections [FED26].

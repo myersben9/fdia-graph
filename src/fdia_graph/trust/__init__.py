@@ -20,5 +20,6 @@ now shows. Needs the [se] extra; the DQN the [torch] extra.
 
 from .base import TrustedMeters, TrustSelector
 from .dqn import TrustedMetersDQN
+from .secured import secured_copy
 
-__all__ = ["TrustSelector", "TrustedMeters", "TrustedMetersDQN"]
+__all__ = ["TrustSelector", "TrustedMeters", "TrustedMetersDQN", "secured_copy"]

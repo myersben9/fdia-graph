@@ -112,6 +112,17 @@ class TrustSelector:
         s = self.select() if secured is None else np.asarray(secured, int)
         return attack_cost(self.H, s)[0]
 
+    def secured_copy(
+        self, ds: FdiaGraph, out: str, name: Optional[str] = None, k: Optional[int] = None
+    ) -> str:
+        """A copy of the timeline behind `ds` with the first `k` selected meters (default: all)
+        reading their benign value on every frame, the attacker locked out of them, written to
+        `out` and registered under `name` when given; the estimators and localizers read it like
+        any timeline (`trust.secured_copy`)."""
+        from .secured import secured_copy
+
+        return secured_copy(ds, self.est.E, self.est.mask, self.select(k), out, name)
+
 
 class TrustedMeters(TrustSelector):
     """The greedy row-reduction selection [WU26]: secure, one at a time, the meter on the cheapest

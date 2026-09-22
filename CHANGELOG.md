@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Trusted meters reach the estimators and the localizers: `TrustSelector.secured_copy(ds, out, name)`
+  (`trust.secured_copy`) writes a copy of a timeline in which the selected meters read their benign
+  value on every frame, the attacker locked out of them, with the tamper masks and the stored
+  temporal features following, so every estimator and localizer can be scored with a trusted set;
+  `GatedPrior(secured=...)` never down-weights a secured meter (on a secured copy every gate was
+  worse than no gate until this exemption, and with it the DQN's 20 meters take the proposed
+  estimator from 0.050 to 0.020 degrees on IEEE-14); `formulas.projection.meter_positions` maps
+  masked measurement indices to the file's layers; `docs/trust/run_secured.py` and the trust guide
+  carry the tables. `formulas.temporal.SWING_WINDOW` is the writer's window, imported by
+  `generation`.
 - The narrative sections of the SE and localization guides (the Jacobian-informed weighting, the
   localization-gated estimation, the digest's ablation, the three readings) are re-derived on the
   v0.8.0 timelines from the results JSONs; their v0.7.2 markers are gone. On the timelines the

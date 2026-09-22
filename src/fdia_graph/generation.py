@@ -26,14 +26,14 @@ import numpy as np
 from . import schema
 from .engine import FdiaGenerator
 from .engine.records import FrameKnobs
-from .formulas.temporal import recent_change_scale
+from .formulas.temporal import SWING_WINDOW, recent_change_scale
 from .models.grid import NODE
 from .registry import CACHE_DIR, register_local
 from .schema import KIND_TIMELINE, Attr, Group, Static
 
 # Swing-feature lookback (scans). Tuned: rate-of-change catch-rate plateaus ~60 scans; ramp At stays near
 # the benign floor at every window, so At remains the ML-only family.
-SWING_W = 60
+SWING_W = SWING_WINDOW
 
 # Lower edge of the plausibility band: a realized change below this fraction of the meter reading sits inside
 # the noise floor (accuracy-class sigma ~1.7%) and resolves to noise, so we reject such draws for spike/meter

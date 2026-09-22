@@ -3,6 +3,7 @@ between two arms is a difference between estimators rather than between implemen
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
@@ -226,9 +227,16 @@ class GatedPrior(SubspacePrior):
     of the tampered measurements. This is the route by which temporal or Jacobian-informed
     detection (which sees the stealthy re-solve families the residual cannot) can reach the
     estimate. `gate="oracle"` uses the true per-bus labels and gives the ceiling for any gate.
+    `secured` names meters (indices into the masked measurement vector, the layout of
+    `trust.TrustSelector.order`) the gate never down-weights: a secured meter reads its true
+    value whatever bus the gate flags, and pulling it out with the rest of the bus's meters throws
+    away exactly what securing it bought (on a `trust.secured_copy` every gate was worse than no
+    gate until this exemption).
     """
 
-    def __init__(self, gate: Any = None, gate_factor: float = 1e-3, **kw: Any) -> None:
+    def __init__(
+        self, gate: Any = None, gate_factor: float = 1e-3, secured: Optional[Sequence[int]] = None, **kw: Any
+    ) -> None:
         super().__init__(**kw)
         if gate is None:
             raise ValueError("pass gate=<fitted localizer> or gate='oracle'")
@@ -236,9 +244,11 @@ class GatedPrior(SubspacePrior):
             raise ValueError(f"gate_factor must be in (0, 1], got {gate_factor}")
         self.gate = gate
         self.gate_factor = gate_factor
+        self.secured = np.asarray([] if secured is None else secured, int)
 
     def gated_weights(self, ds: FdiaGraph) -> np.ndarray:
-        """Per-record meter weights [n, m]: Wk, times gate_factor on meters incident to flagged buses."""
+        """Per-record meter weights [n, m]: Wk, times gate_factor on meters incident to flagged
+        buses, the secured meters kept at Wk."""
         from .jacobian import bus_incidence
 
         if isinstance(self.gate, str):
@@ -247,7 +257,10 @@ class GatedPrior(SubspacePrior):
             flags = ds.export(["y"])["y"].astype(bool)  # the ceiling: true labels
         else:
             flags = np.asarray(self.gate.localize(ds), bool)
-        return gate_weights(self.Wk, flags, bus_incidence(self, ds.edge_index_np), self.gate_factor)
+        w = gate_weights(self.Wk, flags, bus_incidence(self, ds.edge_index_np), self.gate_factor)
+        if len(self.secured):
+            w[:, self.secured] = self.Wk[self.secured]
+        return w
 
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
         d = ds.export(["node_x", "edge_x", "clean"])
