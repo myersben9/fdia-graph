@@ -26,7 +26,11 @@ def prune_nav() -> None:
     """Drop nav entries whose page does not exist in this checkout. The versioned deploy builds an
     older tag with the current mkdocs.yml, whose nav names pages that came later; without this a
     reader of that version would click into a 404."""
-    import yaml
+    try:
+        import yaml  # mkdocs depends on it, so the deploys have it; a bare interpreter may not
+    except ImportError:
+        print("nav: PyYAML not available, nav left as is")
+        return
 
     path = root / "mkdocs.yml"
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -48,7 +52,8 @@ def prune_nav() -> None:
         return present
 
     config["nav"] = [item for item in config.get("nav", []) if keep(item)]
-    path.write_text(yaml.safe_dump(config, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    if dropped:  # only then is the file rewritten (its comments go): a full checkout keeps it as tracked
+        path.write_text(yaml.safe_dump(config, sort_keys=False, allow_unicode=True), encoding="utf-8")
     print("nav: pages this checkout lacks, dropped: " + (", ".join(dropped) or "none"))
 
 
