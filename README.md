@@ -15,17 +15,7 @@ ts = fg.load("ieee118", split="test", order="time")   # the same frames in time 
 Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows for an LSTM / TGN
 ```
 
-```mermaid
-flowchart LR
-    P[ISO load profiles] --> G[fg.generate]
-    G --> F[("one timeline file per system<br/>observed · benign · clean layers")]
-    F --> L[fg.load]
-    L --> D["FdiaGraph<br/>records, batches, PyG<br/>(order=random)"]
-    L --> T["FdiaGraph<br/>windows, episodes<br/>(order=time)"]
-    D --> SE[fdia_graph.se<br/>state estimation]
-    D --> LOC[fdia_graph.localization<br/>which buses]
-    T --> M[your temporal model]
-```
+![The pipeline: ISO load profiles feed fg.generate, which writes one timeline file per system with observed, benign and clean layers; fg.load reads it as a record table for fdia_graph.se and fdia_graph.localization, or as a time series of windows and episodes for a temporal model](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/pipeline.png)
 
 | Read | To learn |
 |---|---|
@@ -136,7 +126,7 @@ subnetwork around the attack with the boundary voltages held true, writes only t
 meters, and the measurement vector stays consistent with an AC state, so the residual test sees noise.
 The meters written are the tamper masks in the file's `attack/` group.
 
-![BDD statistic per family: the three stealthy families sit below the alarm line with benign, the three tampering families sit far above it](docs/figures/fig_bdd.png)
+![BDD statistic per family: the three stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
 
 *Bad-data statistic relative to the alarm threshold, per family. Green families are indistinguishable
 from benign; red ones trip the alarm.* Meter error follows an accuracy-class model (per-meter bias
