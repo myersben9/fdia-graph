@@ -120,3 +120,27 @@ def meters_to_buses(values: np.ndarray, incidence: list[np.ndarray], reduce: str
         if len(ix):
             out[:, b] = values[:, ix].sum(axis=1) if reduce == "sum" else values[:, ix].max(axis=1)
     return out
+
+
+def meter_positions(
+    n_bus: int, n_branch: int, mask: np.ndarray, meters: np.ndarray
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+    """Where masked measurements sit in the file's layers: for each index into the masked
+    measurement vector, the (bus, column) of `node_x` or the (branch, column) of `edge_x`.
+
+    n_bus, n_branch : N, E
+    mask            : [4N + 2E] bool, which slots exist, in the order V, P, Q, θ, Pf, Qf
+    meters          : indices into the masked vector (a trusted-meter selection)
+    returns         : (node positions, edge positions); node columns follow NODE, edge columns EDGE
+    """
+    N, E = n_bus, n_branch
+    slots = np.flatnonzero(np.asarray(mask, bool))
+    nodes, edges = [], []
+    for j in np.asarray(meters, int):
+        c = int(slots[j])
+        if c < 4 * N:
+            nodes.append((c % N, c // N))
+        else:
+            c -= 4 * N
+            edges.append((c % E, c // E))
+    return nodes, edges
