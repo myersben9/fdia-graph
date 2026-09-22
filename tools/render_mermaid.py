@@ -20,7 +20,7 @@ MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
 
 PAGE = """<!doctype html><meta charset="utf-8"><script src="{lib}"></script>
 <body style="margin:0;background:#fff"><pre class="mermaid">{code}</pre>
-<script>mermaid.initialize({{startOnLoad: true, securityLevel: "loose", htmlLabels: false, flowchart: {{htmlLabels: false}}}});</script></body>"""
+<script>mermaid.initialize({{startOnLoad: true, securityLevel: "loose", htmlLabels: false, flowchart: {{htmlLabels: false}}, deterministicIds: true, deterministicIDSeed: "fdia-graph"}});</script></body>"""
 
 
 def render(src: str) -> tuple[str, str]:
