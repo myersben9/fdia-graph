@@ -3,13 +3,16 @@ residual test: the estimators and localizers of the other two guides scored on t
 and on secured copies of it (`TrustSelector.secured_copy`, the selected meters reading their benign
 value on every frame). Writes results/secured_<system>.json.
 
-Set FG_SYSTEM (default ieee14) and FG_K (the budget, default 20). The selections come from
+Set FG_SYSTEM (default ieee14) and FG_K (the budget, default 20); the copies and the score caches
+are keyed by the secured meters and the source file, so a new selection or budget never reuses a
+stale entry. The selections come from
 results/trust_<system>.json when `run_trust.py` has written it (its greedy and DQN orders), else the
 greedy selector is fitted here. Needs the [se] and [torch] extras; the copies and the per-arm caches go
 under results/cache/. The gated estimators run twice on a secured copy: as they are, and with the
 secured meters exempt from the gate (`GatedPrior(secured=...)`), which is the arm that wins.
 """
 
+import hashlib
 import json
 import os
 import time
@@ -43,9 +46,18 @@ def selections(train):
     return {"greedy": [int(i) for i in tm.select()]}, tm
 
 
-def cached(tag, name, fit_score):
-    """Run an arm once; later runs read its scores from the cache."""
-    f = os.path.join(CACHE, f"secured_{SYSTEM}_{tag}_{name}.json")
+def fingerprint(meters, source):
+    """What a cached copy or score depends on: the secured meters in order and the source file's
+    size and modification time, so a new selection or a regenerated timeline never reuses a stale
+    cache entry."""
+    st = os.stat(source)
+    key = f"{list(map(int, meters))}|{st.st_size}|{int(st.st_mtime)}"
+    return hashlib.sha1(key.encode()).hexdigest()[:10]
+
+
+def cached(tag, fp, name, fit_score):
+    """Run an arm once; later runs with the same fingerprint read its scores from the cache."""
+    f = os.path.join(CACHE, f"secured_{SYSTEM}_{tag}_{fp}_{name}.json")
     if os.path.exists(f):
         return json.load(open(f))
     t0 = time.time()
@@ -93,26 +105,28 @@ def estimation(train, test, secured):
 
 
 plain_train, plain_test = fg.load(SYSTEM, split="train"), fg.load(SYSTEM, split="test")
+source = fg.load(SYSTEM, order="time")
 orders, tm = selections(plain_train)
-arms = {"plain": (SYSTEM, [])}
+arms = {"plain": (SYSTEM, [], fingerprint([], source.path))}
 for sel, meters in orders.items():
-    name = f"{SYSTEM}_{sel}{K}"
+    fp = fingerprint(meters, source.path)
+    name = f"{SYSTEM}_{sel}{K}_{fp}"
     path = os.path.join(CACHE, f"timeline_{name}.h5")
     if not os.path.exists(path):
         tm.order = list(meters)  # the stored selection, through the same estimator layout
-        tm.secured_copy(fg.load(SYSTEM, order="time"), path, name=name)
+        tm.secured_copy(source, path, name=name)
     else:
         register_local(name, path)
-    arms[sel] = (name, list(meters))
+    arms[sel] = (name, list(meters), fp)
 
 report = {"k": K, "orders": {k: v for k, v in orders.items()}}
-for tag, (name, meters) in arms.items():
+for tag, (name, meters, fp) in arms.items():
     train, test = fg.load(name, split="train"), fg.load(name, split="test")
-    report[tag] = {"localization": {}, "estimation": {}}
+    report[tag] = {"localization": {}, "estimation": {}, "fingerprint": fp}
     for arm, fn in localization(train, test).items():
-        report[tag]["localization"][arm] = cached(tag, "loc_" + arm, fn)
+        report[tag]["localization"][arm] = cached(tag, fp, "loc_" + arm, fn)
     for arm, fn in estimation(train, test, np.asarray(meters, int)).items():
-        report[tag]["estimation"][arm] = cached(tag, "se_" + arm, fn)
+        report[tag]["estimation"][arm] = cached(tag, fp, "se_" + arm, fn)
 
 with open(os.path.join(OUT, f"secured_{SYSTEM}.json"), "w") as fh:
     json.dump(report, fh, indent=1)
