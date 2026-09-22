@@ -121,7 +121,7 @@ class TrustSelector:
         any timeline (`trust.secured_copy`)."""
         from .secured import secured_copy
 
-        return secured_copy(ds, self.est.E, self.est.mask, self.select(k), out, name)
+        return secured_copy(self, ds, out, name, k)
 
 
 class TrustedMeters(TrustSelector):

@@ -6,7 +6,7 @@ the public API, the generated files and the numbers are the same as the previous
 ## Unreleased
 
 - Trusted meters reach the estimators and the localizers: `TrustSelector.secured_copy(ds, out, name)`
-  (`trust.secured_copy`) writes a copy of a timeline in which the selected meters read their benign
+  (`trust.secured_copy(selector, ds, out, name)`) writes a copy of a timeline in which the selected meters read their benign
   value on every frame, the attacker locked out of them, with the tamper masks and the stored
   temporal features following, so every estimator and localizer can be scored with a trusted set;
   `GatedPrior(secured=...)` never down-weights a secured meter (on a secured copy every gate was
