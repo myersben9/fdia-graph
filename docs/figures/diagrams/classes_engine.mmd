@@ -28,7 +28,19 @@ classDiagram
         +nl
         +centrality_probs()
     }
+    class BranchModel {
+        <<models>>
+    }
+    class MeterBias {
+        <<models>>
+    }
+    class MeterPlan {
+        <<models>>
+    }
     class OperatingLimits {
+        <<models>>
+    }
+    class Outage {
         <<models>>
     }
     class Redistribution {
@@ -47,6 +59,14 @@ classDiagram
     MeasurementMixin <|-- FdiaGenerator
     PhysicsMixin <|-- FdiaGenerator
     AttackMixin ..> Redistribution : uses
+    FdiaGenerator ..> BranchModel : uses
+    FdiaGenerator ..> MeterBias : uses
+    FdiaGenerator ..> MeterPlan : uses
+    FdiaGenerator ..> Outage : uses
+    GridBase ..> BranchModel : uses
+    GridBase ..> MeterBias : uses
+    GridBase ..> MeterPlan : uses
+    GridBase ..> Outage : uses
     GridBase ..> Redistribution : uses
     GridBase ..> Scan : uses
     MeasurementMixin ..> Scan : uses

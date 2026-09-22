@@ -62,10 +62,8 @@ COLLAPSE = {
     ),
 }
 MAX_METHODS = 8  # methods listed per class before "... and n more"
-NOISE = {
-    "models/grid",
-    "dataset/__init__",
-}  # column-index tuples and the dataset itself: every class reads them
+NOISE_MODULES = {"dataset/__init__"}  # FdiaGraph itself: every class takes one, the edge says nothing
+NOISE_CLASSES = {"NodeColumns", "EdgeColumns", "BranchColumns"}  # the column-index tuples, likewise
 # collaborators a class takes by duck typing, so no import names them: (other class, edge label)
 EXTRA = {
     "GatedPrior": [("LocalizerBase", "gate")],
@@ -165,7 +163,8 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
                     and local in idx
                     and local != n.name
                     and not local.startswith("_")
-                    and idx[local] not in NOISE
+                    and idx[local] not in NOISE_MODULES
+                    and local not in NOISE_CLASSES
                     and local not in collapsed
                 ):
                     uses.append((n.name, local))

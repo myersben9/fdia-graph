@@ -36,7 +36,7 @@ provide: `MeasurementMixin` emits scans, `PhysicsMixin` solves states (the whole
 local region), `AttackMixin` builds the in-place corruptions and the load redistribution. The frame
 builders in `engine/records.py` are functions over a generator, and `timeline.py` walks them.
 
-![Class diagram of the engine package: GridBase with MeasurementMixin, PhysicsMixin and AttackMixin under it and FdiaGenerator inheriting all three; the mixins use Scan, Redistribution, OperatingLimits and ResolvedPool](../figures/diagrams/classes_engine.png)
+![Class diagram of the engine package: GridBase with MeasurementMixin, PhysicsMixin and AttackMixin under it and FdiaGenerator inheriting all three; the mixins use Scan, Redistribution, OperatingLimits and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias and an Outage](../figures/diagrams/classes_engine.png)
 
 ## State estimation
 

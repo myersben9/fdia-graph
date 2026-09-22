@@ -41,6 +41,9 @@ classDiagram
     }
     class FdiaGraph {
     }
+    class Admittances {
+        <<models>>
+    }
     class ArraysBundle {
         <<models>>
     }
@@ -48,6 +51,9 @@ classDiagram
         <<schema>>
     }
     class BatchBundle {
+        <<models>>
+    }
+    class BranchModel {
         <<models>>
     }
     class EpisodeTable {
@@ -69,6 +75,8 @@ classDiagram
     GraphMixin <|-- FdiaGraph
     RecordsMixin <|-- FdiaGraph
     SequenceMixin <|-- FdiaGraph
+    AdmittanceMixin ..> Admittances : uses
+    AdmittanceMixin ..> BranchModel : uses
     ExportMixin ..> ArraysBundle : uses
     ExportMixin ..> Summary : uses
     FdiaGraph ..> Attr : uses
