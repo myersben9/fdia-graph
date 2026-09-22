@@ -117,10 +117,17 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # a missing gh-pages branch is the first deploy; any other fetch failure stops here, so
           # mike never starts a fresh history over versions it could not see
-          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+          set +e
+          git ls-remote --exit-code --heads origin gh-pages >/dev/null
+          status=$?
+          set -e
+          if [[ "$status" -eq 0 ]]; then
             git fetch origin gh-pages --depth=1
-          else
+          elif [[ "$status" -eq 2 ]]; then
             echo "::notice::no gh-pages branch yet: the first deploy creates it"
+          else
+            echo "::error::could not read the remote's branches (git ls-remote exit $status), not deploying"
+            exit 1
           fi
           if [[ -n "$ALIAS" ]]; then
             mike deploy --push --update-aliases "$VERSION" "$ALIAS"
