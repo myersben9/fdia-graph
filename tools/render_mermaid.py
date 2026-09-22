@@ -5,7 +5,8 @@ have to show where Mermaid is not rendered: the README on PyPI and in the GitHub
 
 Labels are plain SVG text (no HTML labels), so the file displays as an image everywhere. Needs
 Playwright with its Chromium (`pip install playwright && playwright install chromium`) and network
-access to fetch mermaid.min.js from jsDelivr once per run. The other diagrams in docs/ stay as
+access to fetch the pinned mermaid.min.js from jsDelivr once per run; bump the version in MERMAID
+deliberately, since a new Mermaid can change the layout of every checked-in render. The other diagrams in docs/ stay as
 Mermaid blocks, which github.com renders in place.
 """
 
@@ -16,7 +17,7 @@ import os
 import sys
 import tempfile
 
-MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"
 
 PAGE = """<!doctype html><meta charset="utf-8"><script src="{lib}"></script>
 <body style="margin:0;background:#fff"><pre class="mermaid">{code}</pre>
