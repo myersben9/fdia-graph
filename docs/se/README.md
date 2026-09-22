@@ -110,8 +110,8 @@ Angle MAE per estimator and family (degrees, lower is better, `geo` is the summa
 
 | families | what happens | angle reduction | why |
 |---|---|---|---|
-| `Ad` `As` `Ar` (in place) | robustness cleans up what it can see | 66 to 82% on 14 and 118, 39 to 89% on 300; voltage 73 to 97% everywhere | corrupted meters leave large residuals for removal, Huber and the prior to reject |
-| `Aq` `At` `Al` (stealthy) | barely move, for every method | -5 to 15% on 14, 0 to 4% on 118, 0 to 2% on 300 | the physics is re-solved, so no residual exists; recovery needs temporal information ([`../localization/README.md`](../localization/README.md)) |
+| `Ad` `As` `Ar` (in place) | robustness cleans up what it can see | 67 to 87% on 14, 66 to 84% on 118, 41 to 90% on 300; voltage 75 to 97% everywhere | corrupted meters leave large residuals for removal, Huber and the prior to reject |
+| `Aq` `At` `Al` `Am` (stealthy) | move part of the way, through the prior alone | 14 to 34% on 14, 18 to 21% on 118, 12 to 19% on 300; voltage 56 to 82% | the local false state is a consistent AC state, so no residual exists and Huber sees nothing; it also sits off the benign operating subspace, so the prior pulls the estimate back part of the way; the rest needs temporal information ([`../localization/README.md`](../localization/README.md)) |
 
 > The sections below (the Jacobian-informed weighting and the localization-gated estimation, with their
 > numbers) were derived on the v0.7.2 record shards and stay as written until they are re-derived on
@@ -177,5 +177,5 @@ python docs/se/make_report.py                  # tables (markdown) + figures + C
 | | |
 |---|---|
 | skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
-| wall time, CPU, IEEE-300 | WLS 1 min, Huber 2.1 h, prior + Huber 47 min, Jacobian weighting 5 min, each gated arm 48 min |
+| wall time, CPU, IEEE-300 (v0.8.0 run) | WLS about a minute, residual removal 3.2 h, Huber 2.8 h, prior + Huber 56 min, Jacobian weighting 4 min, each gated arm 56 min |
 | re-runs | score from `results/cache/` in about a minute per arm |
