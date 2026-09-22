@@ -54,7 +54,6 @@ classDiagram
     TrustSelector <|-- TrustedMetersDQN
     LearnedLocalizer ..> JacobianFeatures : uses
     LocalizerBase ..> LocalizerScores : uses
-    ResidualLocalizer ..> SEBase : uses
     ResidualLocalizer ..> SEBase : estimator
     ResidualLocalizer ..> WLS : uses
     TrustSelector ..> TrustScores : uses

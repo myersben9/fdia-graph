@@ -175,10 +175,17 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
         lines.append(f"    class {name} {{\n        <<{idx.get(name, '?').split('/')[0]}>>\n    }}")
     for b, c in sorted(set(inherit)):
         lines.append(f"    {b} <|-- {c}")
-    for edge in sorted(set(uses), key=lambda e: (e[0], e[1])):
-        c, u = edge[0], edge[1]
+    # one edge per pair of endpoints, a labeled (EXTRA) edge winning over the plain "uses" the import
+    # scan may also have found, and a full sort so the source is the same on every run
+    labeled: dict[tuple[str, str], str] = {}
+    for edge in uses:
+        key = (edge[0], edge[1])
+        label = edge[2] if len(edge) > 2 else "uses"
+        if key not in labeled or label != "uses":
+            labeled[key] = label
+    for (c, u), label in sorted(labeled.items()):
         if (u, c) not in set(inherit) and u != c:
-            lines.append(f"    {c} ..> {u} : {edge[2] if len(edge) > 2 else 'uses'}")
+            lines.append(f"    {c} ..> {u} : {label}")
     return "\n".join(lines) + "\n"
 
 
