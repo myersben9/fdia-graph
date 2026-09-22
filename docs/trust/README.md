@@ -103,7 +103,8 @@ to 0.036, At 0.077 to 0.020, Al 0.057 to 0.023, Am 0.048 to 0.020) with the beni
 the residual gate, which needs no learned model, matches the CNN gate there because the secured
 meters made the residual see those families.
 
-IEEE-118, the same 20 meters (4 percent of its meters where they were 24 percent of IEEE-14's):
+IEEE-118, the same 20 meters (20 of its 720 metered channels, under 3 percent, where they were 20 of
+IEEE-14's 82, 24 percent):
 
 | localizer | copy | Aq | At | Al | Am | macro-F1 / benign FA |
 |---|---|---|---|---|---|---|
@@ -123,10 +124,10 @@ IEEE-118, the same 20 meters (4 percent of its meters where they were 24 percent
 | prior + Huber + oracle gate | 0.0124 | 0.0123 | 0.0123 |
 | prior + Huber + oracle gate, secured meters exempt | | 0.0120 | 0.0121 |
 
-The greedy set moves nothing on IEEE-118 while the DQN set opens the residual test on the stealthy
-families (Aq from 0.40 to 0.70 detected, Al 0.41 to 0.80, Am 0.45 to 0.75) and lifts the learned
+The greedy set barely moves the residual test on IEEE-118 (Al from 0.41 to 0.52 detected, Am 0.45 to
+0.49, macro-F1 0.198 to 0.202) while the DQN set opens it on the stealthy families (Aq from 0.40 to 0.70 detected, Al 0.41 to 0.80, Am 0.45 to 0.75) and lifts the learned
 localizer four points, but the residual localizer still points poorly on a grid this size and the
-estimator gains within a percent. Twenty meters were a quarter of IEEE-14's and are a twentieth of
-IEEE-118's; the budget has to scale with the system for the estimation gain to follow.
+estimator gains within a percent. Twenty meters were a quarter of IEEE-14's channels and are under 3
+percent of IEEE-118's; the budget has to scale with the system for the estimation gain to follow.
 
 Source: the multi-snapshot attack and the trusted-PMU defence of [WU26] (`docs/reference/REFERENCES.md`).
