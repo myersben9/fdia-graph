@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Versioned docs: `.github/workflows/docs.yml` deploys the MkDocs site per package version to GitHub
+  Pages with mike (tags as `latest`, main as `dev`) with a version picker on every page; the nav lists
+  every page (the trust guide, the class map, the formulas, references, benchmarks and plans,
+  contributing and the changelog), and `scripts/site_index.py` stages the three root pages. No
+  package change.
 - Trusted meters reach the estimators and the localizers: `TrustSelector.secured_copy(ds, out, name)`
   (`trust.secured_copy(selector, ds, out, name)`) writes a copy of a timeline in which the selected meters read their benign
   value on every frame, the attacker locked out of them, with the tamper masks and the stored

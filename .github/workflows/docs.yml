@@ -1,0 +1,137 @@
+# The versioned docs site on GitHub Pages: one build of the MkDocs site per package version, kept
+# side by side on the gh-pages branch by mike, with a version picker on every page.
+#
+#   tag push vX.Y.Z   -> deploys that version and moves the "latest" alias to it, when the tag is
+#                        the package version in pyproject.toml (a data tag or a stale tag is skipped,
+#                        the same check as publish.yml)
+#   push to main      -> deploys "dev", the docs of the unreleased code
+#   workflow_dispatch -> deploys an existing tag (or main as "dev") on request, for backfilling; an
+#                        older tag keeps its number only, "latest" moves only when asked
+#
+# The Vercel build (vercel.json) keeps serving the main branch's docs at the custom domain; this
+# workflow is the one that keeps every release's docs readable after the next release. The site
+# sources are the same: scripts/site_index.py stages README, CONTRIBUTING and CHANGELOG into
+# docs/, mkdocs.yml is the site.
+name: docs
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "tag to deploy (vX.Y.Z), or main for dev"
+        required: true
+        default: main
+      latest:
+        description: "also move the latest alias to this tag (the current release only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # the dispatch inputs are untrusted: they reach the shell only through these variables
+      REF: ${{ github.event.inputs.ref || github.ref_name }}
+      EVENT: ${{ github.event_name }}
+      WANT_LATEST: ${{ github.event.inputs.latest || 'false' }}
+    steps:
+      # before any repository code runs: a dispatch ref must be main or a tag that exists, checked
+      # against the remote, so a branch cannot bring its own scripts to a job that can write
+      - name: Admit only main or an existing version tag
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          if [[ "$REF" == "main" ]]; then
+            exit 0
+          fi
+          if [[ "$REF" == v* ]] && git ls-remote --exit-code --tags "https://github.com/$REPO" "refs/tags/$REF" >/dev/null; then
+            exit 0
+          fi
+          echo "::error::ref must be main or an existing vX.Y.Z tag, got $REF"
+          exit 1
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 0  # mike commits to gh-pages, which needs the full history
+      # the site tooling (mkdocs.yml, the staging script) always comes from main, so a backfilled
+      # older tag gets the current nav, version picker and root pages over its own page content
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .tooling
+      - name: Take the site tooling from main
+        run: |
+          cp .tooling/mkdocs.yml mkdocs.yml
+          cp .tooling/scripts/site_index.py scripts/site_index.py
+          rm -rf .tooling
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the site tooling
+        run: pip install mkdocs==1.6.1 mkdocs-material==9.7.7 mike==2.2.0
+      - name: Stage the root pages into docs/
+        run: python scripts/site_index.py
+      - name: Name the version
+        id: version
+        run: |
+          if [[ "$REF" == v* ]]; then
+            PYVER="$(python -c "import re;print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
+            TAG="${REF#v}"
+            if [[ "$PYVER" != "$TAG" ]]; then
+              echo "::notice::tag v$TAG is not package version $PYVER: a data or stale tag, no docs deploy"
+              echo "deploy=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "name=$TAG" >> "$GITHUB_OUTPUT"
+            # a pushed release tag is the current release; a backfilled one moves latest only on request
+            if [[ "$EVENT" == "push" || "$WANT_LATEST" == "true" ]]; then
+              echo "alias=latest" >> "$GITHUB_OUTPUT"
+            else
+              echo "alias=" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$REF" == "main" ]]; then
+            echo "name=dev" >> "$GITHUB_OUTPUT"
+            echo "alias=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::ref must be main or a vX.Y.Z tag, got $REF"
+            exit 1
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+      - name: Deploy with mike
+        if: steps.version.outputs.deploy == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.name }}
+          ALIAS: ${{ steps.version.outputs.alias }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # a missing gh-pages branch is the first deploy; any other fetch failure stops here, so
+          # mike never starts a fresh history over versions it could not see
+          set +e
+          git ls-remote --exit-code --heads origin gh-pages >/dev/null
+          status=$?
+          set -e
+          if [[ "$status" -eq 0 ]]; then
+            git fetch origin gh-pages --depth=1
+          elif [[ "$status" -eq 2 ]]; then
+            echo "::notice::no gh-pages branch yet: the first deploy creates it"
+          else
+            echo "::error::could not read the remote's branches (git ls-remote exit $status), not deploying"
+            exit 1
+          fi
+          if [[ -n "$ALIAS" ]]; then
+            mike deploy --push --update-aliases "$VERSION" "$ALIAS"
+            mike set-default --push latest
+          else
+            mike deploy --push "$VERSION"
+          fi

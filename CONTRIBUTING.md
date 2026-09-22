@@ -23,6 +23,13 @@ Chromium), which writes both images, then commit all three. The class and module
 the code (CI fails when they are stale), then render them the same way. README images use the raw.githubusercontent.com URL so PyPI shows them; docs pages use
 relative paths.
 
+The docs site is built from `docs/` plus the three root pages by `mkdocs.yml`: the Vercel build serves
+the main branch at the custom domain, and `.github/workflows/docs.yml` deploys one copy per package
+version to GitHub Pages with mike (a tag push deploys that version as `latest`, a push to main
+deploys `dev`), so every release's docs stay readable after the next release; the version picker on
+each page switches between them. `python scripts/site_index.py && python -m mkdocs build --strict`
+checks a docs change locally.
+
 ## The rules
 
 | rule | means | command |
