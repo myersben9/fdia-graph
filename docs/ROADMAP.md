@@ -6,43 +6,49 @@ and `fdia_graph.localization`.
 
 ```mermaid
 flowchart TB
-    subgraph SDK["src/fdia_graph (base install)"]
+    subgraph SDK["src/fdia_graph, the base install"]
         init["__init__.py<br/>fg.* public API"]
         ds["dataset/<br/>FdiaGraph"]
-        reg["registry.py · download.py<br/>versions, cache"]
         st["timeline.py · torch_data.py<br/>the timeline writer, sequence forms"]
+        reg["registry.py · download.py<br/>versions, cache"]
         se["se/<br/>state estimation"]
         loc["localization/<br/>per-bus localization"]
-        models["models/<br/>every returned record"]
-        formulas["formulas/<br/>the equations, cited"]
+        trust["trust/<br/>trusted meters"]
+        init --> ds
+        init --> st
+        ds --> reg
+        se --> ds
+        loc --> ds
+        trust --> ds
     end
-    subgraph GEN["needs [generate]"]
+    subgraph GEN["the generate extra"]
         gen["generation.py · profiles.py<br/>drivers"]
         eng["engine/<br/>FdiaGenerator"]
+        gen --> eng
     end
-    init --> ds & st & gen
-    ds --> reg
-    se & loc --> ds
-    gen --> eng
-    eng & ds & se & loc --> formulas
-    ds & st & se & loc & eng --> models
+    base["models/ and formulas/<br/>every returned record, the equations cited<br/>read by every package above"]
+    init --> gen
+    SDK --> base
+    GEN --> base
 ```
 
 ## The two paths
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph generate["fg.generate(system, name)"]
+        direction LR
         p1[profiles.py<br/>ISO load series] --> p2["engine: AC solve<br/>operating-state pool"]
-        p2 --> p3["timeline.py: the walk<br/>benign gaps, attack episodes"]
+        p2 --> p3["timeline.py: the walk<br/>attack episodes, benign frames"]
         p3 --> p4[engine.records.attack_frame<br/>one scan per frame]
-        p4 --> p5[("one HDF5 file<br/>data · benign · clean · episodes · attack")]
+        p4 --> p5[("one HDF5 file, registered<br/>data · benign · clean · episodes · attack")]
     end
-    subgraph load["fg.load(name, order)"]
+    subgraph load["fg.load(name, order), the registered file"]
+        direction LR
         l1[registry.resolve<br/>name, release, layout] --> l2[download.ensure_local<br/>cache, sha256]
         l2 --> l3["FdiaGraph<br/>random: records, batches, exports<br/>time: windows, episodes"]
     end
-    p5 -.register.-> l1
+    generate ~~~ load
 ```
 
 ## Files

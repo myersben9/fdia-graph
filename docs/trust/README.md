@@ -28,6 +28,7 @@ flowchart LR
         p["secured meters read their<br/>un-attacked value (benign layer)"] --> r["WLS residual test<br/>at the benign alarm level"]
         r --> d["detection per family,<br/>before and after"]
     end
+    fit --> score
 ```
 
 ## The idea

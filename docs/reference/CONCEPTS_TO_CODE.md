@@ -8,13 +8,13 @@ Paths are under `src/fdia_graph/`.
 ```mermaid
 flowchart LR
     X["operating state x<br/>(pool, from an ISO profile)"] --> cl["clean layer<br/>h(x), no noise"]
-    X -- "Aq At Al: change the load,<br/>re-solve the power flow" --> X2["attacked state x'"]
-    X2 --> h1["h(x') + noise"]
-    X -- "benign, Ad As Ar" --> h2["h(x) + noise"]
-    h2 -- "Ad As Ar: corrupt the<br/>readings in place" --> c["tampered scan"]
-    h1 --> rec["record: node_x, edge_x, masks,<br/>y, family, temporal features"]
-    h2 --> rec
-    c --> rec
+    X --> h2["h(x) + noise<br/>the benign scan, every meter's own draw"]
+    X -- "Aq At Al Am: change the load in a<br/>local region, re-solve it" --> X2["local false state x'"]
+    X2 -- "attack vector a = h(x') − h(x)<br/>added to the benign scan" --> c1["stealthy scan"]
+    h2 -- "Ad As Ar: corrupt the<br/>readings in place" --> c2["tampered scan"]
+    h2 --> rec["record: node_x, edge_x, masks,<br/>y, family, temporal features"]
+    c1 --> rec
+    c2 --> rec
 ```
 
 Re-solve families are attacked before measurement (`engine.physics.solve`), in-place families
@@ -53,7 +53,7 @@ and converts them on load.
 |---|---|
 | WLS `x̂ = argmin (z−h(x))ᵀW(z−h(x))` | `se/base.py` `SEBase._w_solve` (chord-Newton); `h(x)` is `engine/measurement.emit_from_state` |
 | Robust reweighting (Huber), residual removal, subspace prior | `se/methods.py`: one class per arm, each overrides one hook |
-| Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` from the engine `FdiaGenerator.SD`; residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`) |
+| Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` from the engine `FdiaGenerator.SD`; residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`/`Am`, `schema.STEALTHY_FAMILIES`) |
 | Noise model | `FdiaGenerator.SD` (accuracy class): reading = true + per-meter bias + per-scan jitter |
 
 Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
@@ -62,17 +62,21 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 
 | family | paper | build | code |
 |--------|-------|-------|------|
-| Aq | `A_o` | scale load, re-solve | `generation.make` + `engine/physics.solve` |
-| At | `A_t` | slow ramp, re-solve | `generation` ramp loop |
-| Al | `A_l` | load-conserving redistribution | `engine/attacks.lra_delta` |
+| Aq | `A_o` | scale 1 to 6 loads by 5 to 20 percent, one local false state per frame | `timeline._single_shot_episode` + `engine/records.stealthy_state` |
+| At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `timeline._ramp_episode` |
+| Al | `A_l` | load-conserving redistribution around a target line | `engine/attacks.lra_delta` + `engine/records._lra_frame` |
+| Am | `A_m` | multi-snapshot: a held redistribution reached in steps under the noise floor [WU26] | `timeline._am_episode` + `engine/records._am_frame` |
 | Ad | `A_d` | `z ← z(1±u)` | `engine/attacks.corrupt` |
 | As | `A_s` | `z ← βz` | `engine/attacks.corrupt` |
 | Ar | `A_r` | replay `z(t−k)` | `engine/attacks.corrupt` |
 
-- Aq/At/Al re-solve the power flow, so readings stay a consistent AC state. Invisible to the residual
-  test by construction.
-- Ad/As/Ar tamper readings directly. Detectable.
-- All changes sit in a 2–20% plausibility band (`generation.NOISE_FLOOR`, `attack_intensity`).
+- Aq/At/Al/Am are local false states [WU26]: the buses within two hops of the attacked loads are
+  re-solved with the boundary voltages held true, inside the case's voltage limits and the region's
+  generator limits, and the attack vector `h(x') − h(x)` is added to the benign scan. The residual
+  test flags them at the benign rate by construction.
+- Ad/As/Ar tamper readings in place. Detectable.
+- Every designed change sits above the noise floor and inside the 5 to 20 percent band
+  (`attack_intensity`); the ramp's per-frame step is the exception, sub-floor by design.
 
 ## Temporal feature
 
