@@ -5,7 +5,8 @@
 #                        the package version in pyproject.toml (a data tag or a stale tag is skipped,
 #                        the same check as publish.yml)
 #   push to main      -> deploys "dev", the docs of the unreleased code
-#   workflow_dispatch -> deploys any existing tag (or main as "dev") on request, for backfilling
+#   workflow_dispatch -> deploys an existing tag (or main as "dev") on request, for backfilling; an
+#                        older tag keeps its number only, "latest" moves only when asked
 #
 # The Vercel build (vercel.json) keeps serving the main branch's docs at the custom domain; this
 # workflow is the one that keeps every release's docs readable after the next release. The site
@@ -23,6 +24,10 @@ on:
         description: "tag to deploy (vX.Y.Z), or main for dev"
         required: true
         default: main
+      latest:
+        description: "also move the latest alias to this tag (the current release only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -35,8 +40,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      # the ref is untrusted input on a dispatch: it reaches the shell only through this variable
+      # the dispatch inputs are untrusted: they reach the shell only through these variables
       REF: ${{ github.event.inputs.ref || github.ref_name }}
+      EVENT: ${{ github.event_name }}
+      WANT_LATEST: ${{ github.event.inputs.latest || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,7 +56,7 @@ jobs:
         run: pip install mkdocs==1.6.1 mkdocs-material==9.7.7 mike==2.2.0
       - name: Stage the root pages into docs/
         run: python scripts/site_index.py
-      - name: Name the version, a tag only when it is the package version
+      - name: Name the version
         id: version
         run: |
           if [[ "$REF" == v* ]]; then
@@ -61,10 +68,18 @@ jobs:
               exit 0
             fi
             echo "name=$TAG" >> "$GITHUB_OUTPUT"
-            echo "alias=latest" >> "$GITHUB_OUTPUT"
-          else
+            # a pushed release tag is the current release; a backfilled one moves latest only on request
+            if [[ "$EVENT" == "push" || "$WANT_LATEST" == "true" ]]; then
+              echo "alias=latest" >> "$GITHUB_OUTPUT"
+            else
+              echo "alias=" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$REF" == "main" ]]; then
             echo "name=dev" >> "$GITHUB_OUTPUT"
             echo "alias=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::ref must be main or a vX.Y.Z tag, got $REF"
+            exit 1
           fi
           echo "deploy=true" >> "$GITHUB_OUTPUT"
       - name: Deploy with mike
