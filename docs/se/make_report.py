@@ -3,7 +3,7 @@
 Table 1: estimator x system, an angle-MAE block and a voltage-MAE block (10^-3 pu), each closed by
 the proposed estimator's error reduction over WLS. Table 2: family x system for the proposed
 estimator, baseline error and percent reduction. Summary cells are the geometric mean over the
-seven record classes ("geo"), as the paper aggregates them.
+eight record classes, benign and the seven families ("geo"), as the paper aggregates them.
 
 Figures: one angle-MAE heatmap per system (estimators x families) plus a CSV sidecar. Nothing here
 re-runs an estimator.

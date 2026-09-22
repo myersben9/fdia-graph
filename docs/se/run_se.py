@@ -55,9 +55,9 @@ methods = {
 gate = BusCNN().fit(train)
 methods["prior+huber+gate"] = GatedPrior(gate=gate, rank_frac=rank, reweight="huber", c=c)
 methods["prior+huber+oracle"] = GatedPrior(gate="oracle", rank_frac=rank, reweight="huber", c=c)
-# FG_SKIP=removal,... leaves arms out of the run. Residual removal is left out of the IEEE-300 column:
-# its per-record observability guard makes it many hours at that size, and the estimation paper reports
-# that no removal threshold helped on IEEE-300.
+# FG_SKIP=removal,... leaves arms out of a run. Residual removal is the slow arm on IEEE-300 (about
+# three hours, its per-record observability guard) and does not beat WLS there; the published column
+# ran it anyway so every column carries every arm.
 for name in [a.strip() for a in os.environ.get("FG_SKIP", "").split(",") if a.strip()]:
     methods.pop(name, None)
 report = {}
