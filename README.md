@@ -22,6 +22,7 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what, and how the paths connect |
 | [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) | what every array means |
 | [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
+| [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | the class and module diagrams, drawn from the code |
 | [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
 | [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) | the two analysis modules, with results |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |

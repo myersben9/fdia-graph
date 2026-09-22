@@ -1,0 +1,54 @@
+classDiagram
+    class GridBase {
+        +emit_from_state()
+        +clean_flows_from_states()
+        +local_region()
+        +solve_local()
+        +state_from_net()
+        +solve()
+    }
+    class MeasurementMixin {
+        +emit_from_state()
+        +clean_flows_from_states()
+        +state_from_net()
+        +emit()
+    }
+    class PhysicsMixin {
+        +resolve_states()
+        +local_region()
+        +operating_limits()
+        +solve_local()
+        +solve()
+    }
+    class AttackMixin {
+        +corrupt()
+        +lra_delta()
+    }
+    class FdiaGenerator {
+        +nl
+        +centrality_probs()
+    }
+    class OperatingLimits {
+        <<models>>
+    }
+    class Redistribution {
+        <<models>>
+    }
+    class ResolvedPool {
+        <<models>>
+    }
+    class Scan {
+        <<models>>
+    }
+    AttackMixin <|-- FdiaGenerator
+    GridBase <|-- AttackMixin
+    GridBase <|-- MeasurementMixin
+    GridBase <|-- PhysicsMixin
+    MeasurementMixin <|-- FdiaGenerator
+    PhysicsMixin <|-- FdiaGenerator
+    AttackMixin ..> Redistribution : uses
+    GridBase ..> Redistribution : uses
+    GridBase ..> Scan : uses
+    MeasurementMixin ..> Scan : uses
+    PhysicsMixin ..> OperatingLimits : uses
+    PhysicsMixin ..> ResolvedPool : uses

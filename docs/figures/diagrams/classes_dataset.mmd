@@ -1,0 +1,77 @@
+classDiagram
+    class DatasetBase {
+        +edge_index
+        +edge_attr
+        +export()
+    }
+    class GraphMixin {
+        +edge_index
+        +edge_reactance
+        +branch_r
+        +branch_x
+        +branch_b
+        +branch_g
+        +edge_r
+        +edge_x
+        ... and 25 more
+    }
+    class AdmittanceMixin {
+        +ybus_np
+        +yf_np
+        +yt_np
+        +ybus
+        +yf
+        +yt
+    }
+    class RecordsMixin {
+        +collate()
+        +loader()
+    }
+    class ExportMixin {
+        +summary()
+        +export()
+        +to_numpy()
+        +to_torch()
+        +to_tf()
+        +to_pandas()
+    }
+    class SequenceMixin {
+        +windows()
+        +episodes
+    }
+    class FdiaGraph {
+    }
+    class ArraysBundle {
+        <<models>>
+    }
+    class Attr {
+        <<schema>>
+    }
+    class BatchBundle {
+        <<models>>
+    }
+    class EpisodeTable {
+        <<models>>
+    }
+    class RecordBundle {
+        <<models>>
+    }
+    class Summary {
+        <<models>>
+    }
+    AdmittanceMixin <|-- FdiaGraph
+    DatasetBase <|-- AdmittanceMixin
+    DatasetBase <|-- ExportMixin
+    DatasetBase <|-- GraphMixin
+    DatasetBase <|-- RecordsMixin
+    DatasetBase <|-- SequenceMixin
+    ExportMixin <|-- FdiaGraph
+    GraphMixin <|-- FdiaGraph
+    RecordsMixin <|-- FdiaGraph
+    SequenceMixin <|-- FdiaGraph
+    ExportMixin ..> ArraysBundle : uses
+    ExportMixin ..> Summary : uses
+    FdiaGraph ..> Attr : uses
+    RecordsMixin ..> BatchBundle : uses
+    RecordsMixin ..> RecordBundle : uses
+    SequenceMixin ..> EpisodeTable : uses

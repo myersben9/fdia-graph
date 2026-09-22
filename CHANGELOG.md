@@ -5,6 +5,9 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `docs/reference/CLASS_MAP.md`: one module diagram and six class diagrams of the package, drawn
+  from the source by `tools/class_diagrams.py` (inheritance, the classes each class uses, the imports
+  between modules) and checked in CI against the code. No package change.
 - Every diagram in the docs is a rendered image (`docs/figures/diagrams/<name>.png`, source `<name>.mmd`
   beside it, `tools/render_mermaid.py`), since the GitHub mobile app and PyPI show a Mermaid block
   as code; no Mermaid block remains. No package change.

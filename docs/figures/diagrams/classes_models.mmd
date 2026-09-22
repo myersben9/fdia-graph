@@ -1,0 +1,46 @@
+classDiagram
+    class FieldGroups {
+        <<7 mixins>>
+        StreamLayers
+        GraphFields
+        CleanFields
+        TemporalFields
+        RecordIds
+        LabelFields
+        ScanFields
+    }
+    class Bundle {
+        +key_of()
+        +to_dict()
+        +ordered()
+        +update()
+        +setdefault()
+        +pop()
+        +popitem()
+        +clear()
+    }
+    class RecordBundle {
+    }
+    class BatchBundle {
+    }
+    class ArraysBundle {
+    }
+    class EpisodeTable {
+    }
+    class Stream {
+    }
+    class Summary {
+    }
+    class TrueState {
+    }
+    Bundle <|-- ArraysBundle
+    Bundle <|-- BatchBundle
+    Bundle <|-- EpisodeTable
+    Bundle <|-- RecordBundle
+    Bundle <|-- Stream
+    Bundle <|-- Summary
+    Bundle <|-- TrueState
+    FieldGroups <|-- ArraysBundle
+    FieldGroups <|-- BatchBundle
+    FieldGroups <|-- RecordBundle
+    FieldGroups <|-- Stream

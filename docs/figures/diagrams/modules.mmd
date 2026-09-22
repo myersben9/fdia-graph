@@ -1,0 +1,36 @@
+flowchart TB
+    dataset["dataset/"]
+    download["download.py"]
+    engine["engine/"]
+    generation["generation.py"]
+    localization["localization/"]
+    profiles["profiles.py"]
+    registry["registry.py"]
+    se["se/"]
+    streams["streams.py<br/>(deprecated)"]
+    timeline["timeline.py"]
+    torch_data["torch_data.py<br/>(deprecated)"]
+    trust["trust/"]
+    download --> registry
+    engine --> registry
+    generation --> download
+    generation --> engine
+    generation --> registry
+    generation --> timeline
+    localization --> dataset
+    localization --> se
+    profiles --> engine
+    profiles --> registry
+    se --> dataset
+    streams --> dataset
+    streams --> download
+    streams --> registry
+    streams --> timeline
+    timeline --> dataset
+    timeline --> engine
+    timeline --> generation
+    timeline --> registry
+    torch_data --> dataset
+    torch_data --> streams
+    trust --> dataset
+    trust --> se

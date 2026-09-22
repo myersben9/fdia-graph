@@ -18,7 +18,9 @@ Every diagram is a rendered image, never a Mermaid block: the README is also the
 docs are read in the GitHub mobile app, and neither renders Mermaid. Each diagram's source is a
 `docs/figures/diagrams/<name>.mmd` next to its `<name>.png` and `<name>.svg`; edit the source and
 re-render with `python tools/render_mermaid.py docs/figures/diagrams/<name>.mmd` (Playwright with
-Chromium), which writes both images, then commit all three. README images use the raw.githubusercontent.com URL so PyPI shows them; docs pages use
+Chromium), which writes both images, then commit all three. The class and module diagrams of
+`docs/reference/CLASS_MAP.md` are generated: `python tools/class_diagrams.py` rewrites their sources from
+the code (CI fails when they are stale), then render them the same way. README images use the raw.githubusercontent.com URL so PyPI shows them; docs pages use
 relative paths.
 
 ## The rules
