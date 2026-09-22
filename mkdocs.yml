@@ -50,14 +50,33 @@ nav:
   - Modules:
       - State estimation: se/README.md
       - Localization: localization/README.md
+      - Trusted meters: trust/README.md
   - Guides:
       - State estimation: guides/state_estimation.md
   - Reference:
       - Data dictionary: reference/DATA_DICTIONARY.md
       - Concepts to code: reference/CONCEPTS_TO_CODE.md
+      - Class map: reference/CLASS_MAP.md
       - Examples: reference/EXAMPLES.md
+      - Formulas: reference/FORMULAS.md
+      - Benchmarks: reference/BENCHMARKS.md
+      - References: reference/REFERENCES.md
+  - Plans:
+      - Overview: plans/README.md
+      - One dataset: plans/ONE_DATASET_PLAN.md
+      - Data models: plans/DATA_MODELS_PLAN.md
+      - Field groups: plans/FIELD_GROUPS_PLAN.md
+      - Readability: plans/READABILITY_PLAN.md
+      - Restructure: plans/RESTRUCTURE_PLAN.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
 
 extra:
+  # the version picker reads versions.json at the site root, which mike writes on the
+  # versioned deploy (GitHub Pages); on a build without it the picker stays hidden
+  version:
+    provider: mike
+    default: latest
   social:
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/fdia-graph/

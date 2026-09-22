@@ -1,0 +1,68 @@
+# The versioned docs site on GitHub Pages: one build of the MkDocs site per package version, kept
+# side by side on the gh-pages branch by mike, with a version picker on every page.
+#
+#   tag push vX.Y.Z   -> deploys that version and moves the "latest" alias to it
+#   push to main      -> deploys "dev", the docs of the unreleased code
+#   workflow_dispatch -> deploys any existing tag (or main as "dev") on request, for backfilling
+#
+# The Vercel build (vercel.json) keeps serving the main branch's docs at the custom domain; this
+# workflow is the one that keeps every release's docs readable after the next release. The site
+# sources are the same: scripts/site_index.py stages README, CONTRIBUTING and CHANGELOG into
+# docs/, mkdocs.yml is the site.
+name: docs
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "tag to deploy (vX.Y.Z), or main for dev"
+        required: true
+        default: main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+          fetch-depth: 0  # mike commits to gh-pages, which needs the full history
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the site tooling
+        run: pip install mkdocs==1.6.1 mkdocs-material==9.7.7 mike==2.2.0
+      - name: Stage the root pages into docs/
+        run: python scripts/site_index.py
+      - name: Name the version
+        id: version
+        run: |
+          ref="${{ github.event.inputs.ref || github.ref_name }}"
+          if [[ "$ref" == v* ]]; then
+            echo "name=${ref#v}" >> "$GITHUB_OUTPUT"
+            echo "alias=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=dev" >> "$GITHUB_OUTPUT"
+            echo "alias=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy with mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1 || true
+          if [[ -n "${{ steps.version.outputs.alias }}" ]]; then
+            mike deploy --push --update-aliases "${{ steps.version.outputs.name }}" "${{ steps.version.outputs.alias }}"
+            mike set-default --push latest
+          else
+            mike deploy --push "${{ steps.version.outputs.name }}"
+          fi
