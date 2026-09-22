@@ -101,7 +101,7 @@ The DQN's 20 meters take the proposed estimator from 0.050 to 0.033 degrees with
 0.020 with the exempting gate, the stealthy families losing 58 to 83 percent of their error (Aq 0.219
 to 0.036, At 0.077 to 0.020, Al 0.057 to 0.023, Am 0.048 to 0.020) with the benign error unchanged;
 the residual gate, which needs no learned model, matches the CNN gate there because the secured
-meters made the residual see those families. On IEEE-118 the same 20 meters are 4 percent of the
-meters instead of 24, and the gain is within a percent; the budget has to scale with the system.
+meters made the residual see those families. Twenty meters are 24 percent of IEEE-14's; the same
+script on IEEE-118, where they are 4 percent, follows with its own table.
 
 Source: the multi-snapshot attack and the trusted-PMU defence of [WU26] (`docs/reference/REFERENCES.md`).

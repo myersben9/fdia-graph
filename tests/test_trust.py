@@ -90,6 +90,7 @@ def test_secured_copy_pins_the_selection_and_keeps_the_temporal_kernels(selector
         assert np.array_equal(nx2[:, ~pinned], nx[:, ~pinned])
         for branch, col in edges:
             assert np.array_equal(b[schema.EDGE_X][:, branch, col], a[schema.EDGE_BENIGN][:, branch, col])
+            assert not b[schema.EDGE_TAMPER][:, branch, col].any()
     sec = fg.load("tiny_ieee14_secured", split="test", order="time")
     assert len(sec) == len(fg.load(timeline, split="test")) and sec.has_benign
 
