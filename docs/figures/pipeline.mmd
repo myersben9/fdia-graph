@@ -1,0 +1,9 @@
+flowchart LR
+    P[ISO load profiles] --> G[fg.generate]
+    G --> F[("one timeline file per system<br/>observed · benign · clean layers")]
+    F --> L[fg.load]
+    L --> D["FdiaGraph<br/>records, batches, PyG<br/>(order=random)"]
+    L --> T["FdiaGraph<br/>windows, episodes<br/>(order=time)"]
+    D --> SE[fdia_graph.se<br/>state estimation]
+    D --> LOC[fdia_graph.localization<br/>which buses]
+    T --> M[your temporal model]

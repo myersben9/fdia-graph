@@ -14,6 +14,12 @@ pytest tests                                  # about a minute; one 13 MB pool d
 
 `docs/ROADMAP.md` is the map and the reading order.
 
+The README's diagram is a pre-rendered image, not a Mermaid block: the README is also the PyPI page
+and the GitHub mobile view, and neither renders Mermaid. Its source is `docs/figures/pipeline.mmd`;
+`python tools/render_mermaid.py docs/figures/pipeline.mmd` writes the PNG and SVG next to it
+(needs Playwright with Chromium). Every other diagram stays a Mermaid block, rendered by github.com,
+and README images use the raw.githubusercontent.com URL so PyPI shows them.
+
 ## The rules
 
 | rule | means | command |
