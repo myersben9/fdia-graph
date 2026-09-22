@@ -51,8 +51,8 @@ flowchart TB
 |---|---|
 | partition | test split, hyperparameters validation-selected in the estimation paper |
 | Huber `c` / rank fraction | 1.5 / 0.20 (14), 2.5 / 0.50 (118), 6.0 / 0.50 (300) |
-| removal threshold | 4.0 (14), 5.0 (118); not run on 300 (hours per record, and no threshold helped in the paper) |
-| cell | geometric mean of the MAE over the seven record classes; full metrics in `results/se_ieee{14,118,300}.json` |
+| removal threshold | 4.0 (14), 5.0 (118), 5.0 (300); the 300 column ran it on the v0.8.0 timeline (3.2 hours, the per-record observability guard), where it does not beat WLS |
+| cell | geometric mean of the MAE over the eight record classes (benign and the seven families); full metrics in `results/se_ieee{14,118,300}.json` |
 
 **Estimator comparison**
 
@@ -176,6 +176,6 @@ python docs/se/make_report.py                  # tables (markdown) + figures + C
 
 | | |
 |---|---|
-| skip arms | `FG_SKIP=removal,...` (the IEEE-300 column used `FG_SKIP=removal`) |
+| skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
 | wall time, CPU, IEEE-300 | WLS 1 min, Huber 2.1 h, prior + Huber 47 min, Jacobian weighting 5 min, each gated arm 48 min |
 | re-runs | score from `results/cache/` in about a minute per arm |
