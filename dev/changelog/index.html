@@ -1466,6 +1466,8 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li>The docs site's staging step drops nav entries for pages a checkout lacks, so a backfilled older
+  version on the versioned site has no link into a 404. No package change.</li>
 <li>Versioned docs: <code>.github/workflows/docs.yml</code> deploys the MkDocs site per package version to GitHub
   Pages with mike (tags as <code>latest</code>, main as <code>dev</code>) with a version picker on every page; the nav lists
   every page (the trust guide, the class map, the formulas, references, benchmarks and plans,
