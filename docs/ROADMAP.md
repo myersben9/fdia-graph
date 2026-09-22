@@ -54,6 +54,7 @@ and `fdia_graph.localization`.
 | 2 | `reference/DATA_DICTIONARY.md` | every array and shape |
 | 3 | this page | which file does what |
 | 4 | `reference/CONCEPTS_TO_CODE.md` | paper formulas to code |
-| 5 | `reference/EXAMPLES.md` | training examples to copy from |
-| 6 | `se/README.md`, `guides/state_estimation.md` | measurements in, better-than-WLS state out |
-| 7 | `localization/README.md` | which buses are under attack, and why the slow ramp is open |
+| 5 | `reference/CLASS_MAP.md` | the class and module diagrams, drawn from the code by `tools/class_diagrams.py` |
+| 6 | `reference/EXAMPLES.md` | training examples to copy from |
+| 7 | `se/README.md`, `guides/state_estimation.md` | measurements in, better-than-WLS state out |
+| 8 | `localization/README.md` | which buses are under attack, and why the slow ramp is open |
