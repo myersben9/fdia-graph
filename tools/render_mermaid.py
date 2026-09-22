@@ -27,12 +27,15 @@ PAGE = """<!doctype html><meta charset="utf-8"><script src="{lib}"></script>
 def render(src: str) -> tuple[str, str]:
     from playwright.sync_api import sync_playwright
 
-    code = open(src, encoding="utf8").read()
-    page_path = os.path.join(tempfile.gettempdir(), "render_mermaid.html")
-    with open(page_path, "w", encoding="utf8") as fh:
-        fh.write(PAGE.format(lib=MERMAID, code=html.escape(code)))
+    with open(src, encoding="utf8") as fh:
+        code = fh.read()
     svg_path, png_path = os.path.splitext(src)[0] + ".svg", os.path.splitext(src)[0] + ".png"
-    with sync_playwright() as p:
+    # a private directory per invocation: concurrent renders never share the page file, and nothing
+    # pre-existing in the system temp directory can be followed or clobbered
+    with tempfile.TemporaryDirectory(prefix="render_mermaid_") as tmp, sync_playwright() as p:
+        page_path = os.path.join(tmp, "page.html")
+        with open(page_path, "w", encoding="utf8") as fh:
+            fh.write(PAGE.format(lib=MERMAID, code=html.escape(code)))
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 1400, "height": 900}, device_scale_factor=2)
         page.goto("file:///" + page_path.replace("\\", "/"))
