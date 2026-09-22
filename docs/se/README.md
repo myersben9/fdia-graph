@@ -101,47 +101,48 @@ Angle MAE per estimator and family (degrees, lower is better, `geo` is the summa
 | `Ad` `As` `Ar` (in place) | robustness cleans up what it can see | 67 to 87% on 14, 66 to 84% on 118, 41 to 90% on 300; voltage 75 to 97% everywhere | corrupted meters leave large residuals for removal, Huber and the prior to reject |
 | `Aq` `At` `Al` `Am` (stealthy) | move part of the way, through the prior alone | 14 to 34% on 14, 18 to 21% on 118, 12 to 19% on 300; voltage 56 to 82% | the local false state is a consistent AC state, so no residual exists and Huber sees nothing; it also sits off the benign operating subspace, so the prior pulls the estimate back part of the way; the rest needs temporal information ([`../localization/README.md`](../localization/README.md)) |
 
-> The sections below (the Jacobian-informed weighting and the localization-gated estimation, with their
-> numbers) were derived on the v0.7.2 record shards and stay as written until they are re-derived on
-> the v0.8.0 timelines; the tables above are v0.8.0.
-
 ## Jacobian-informed weighting
 
 ![the scan-to-scan change is split into the part a state change explains and the unexplained rest; Huber weights come from the unexplained part; one weighted solve](../figures/diagrams/se_jacobian_weighting.png)
 
 | result | 14 | 118 | 300 |
 |---|---:|---:|---:|
-| WLS angle error reduction | 19% | 26% | 23% |
-| where it comes from | `Ad` 0.136 → 0.087, `As` 0.246 → 0.177, `Ar` 0.137 → 0.066 | in-place families only | `Ar` 0.132 → 0.032 |
-| stealthy families | untouched, as `(I − P_H)a = 0` predicts | same | same |
-| against iterated Huber | 0.087 vs 0.068 | | 0.074 vs 0.068 |
-| composed with Huber passes | 0.067, Huber's number | | |
+| WLS angle error reduction | 14% | 23% | 22% |
+| where it comes from | `Ad` 0.127 → 0.082, `As` 0.235 → 0.168, `Ar` 0.234 → 0.143 | in-place families only | `Ar` 0.131 → 0.029 |
+| stealthy families | untouched, as `(I − P_H)a = 0` predicts: `Aq` 0.290, `At` 0.117, `Al` 0.069, `Am` 0.056 on both | same | same |
+| against iterated Huber | 0.083 vs 0.061 | 0.018 vs 0.016 | 0.021 vs 0.020 |
 
 The temporal unexplained residual carries what Huber already recovers from the estimate's own
-residual, so this route cannot move the proposed estimator. The route that can is a localizer gate.
+residual, so this route cannot move the proposed estimator. The routes that can are a localizer gate
+and, ahead of it, a trusted set of meters.
 
 ## Localization-gated estimation
 
 ![a localizer flags buses; the weights of every meter of a flagged bus and its branches are scaled by a thousandth; the prior plus Huber solve fills the gap from the benign prior](../figures/diagrams/se_gated_prior.png)
 
+Angle mean absolute error in degrees on the v0.8.0 timelines, the proposed estimator alone, with the
+CNN localizer as the gate, and with the true labels as the gate (the ceiling for any gate):
+
 | | IEEE 14 | | | IEEE 118 | | | IEEE 300 | | |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | angle MAE (deg) | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle |
-| Aq stealthy re-solve | 0.402 | 0.256 | 0.227 | 0.168 | 0.168 | 0.168 | 0.391 | 0.391 | 0.391 |
-| Ad / As / Ar in-place | 0.027 / 0.080 / 0.025 | 0.020 / 0.021 / 0.020 | 0.020 / 0.021 / 0.019 | 0.009 / 0.011 / 0.008 | 0.008 / 0.008 / 0.008 | 0.008 / 0.007 / 0.007 | 0.015 / 0.015 / 0.014 | 0.013 / 0.012 / 0.013 | 0.012 / 0.012 / 0.012 |
-| At slow ramp | 0.064 | 0.044 | 0.040 | 0.032 | 0.033 | 0.033 | 0.068 | 0.068 | 0.068 |
-| Al redistribution | 0.154 | 0.153 | 0.152 | 0.764 | 0.766 | 0.765 | 2.276 | 2.277 | 2.277 |
-| geometric mean | 0.059 | **0.041** | 0.039 | 0.030 | **0.028** | 0.027 | 0.058 | **0.055** | 0.054 |
+| Aq stealthy load scale | 0.219 | 0.284 | 0.219 | 0.027 | 0.033 | 0.026 | 0.021 | 0.023 | 0.021 |
+| Ad / As / Ar in place | 0.027 / 0.077 / 0.030 | 0.022 / 0.023 / 0.024 | 0.020 / 0.021 / 0.020 | 0.009 / 0.010 / 0.008 | 0.008 / 0.008 / 0.008 | 0.007 / 0.007 / 0.007 | 0.014 / 0.015 / 0.014 | 0.012 / 0.012 / 0.012 | 0.012 / 0.012 / 0.012 |
+| At slow ramp | 0.077 | 0.151 | 0.081 | 0.011 | 0.014 | 0.012 | 0.016 | 0.020 | 0.016 |
+| Al redistribution | 0.057 | 0.162 | 0.142 | 0.024 | 0.037 | 0.033 | 0.023 | 0.025 | 0.023 |
+| Am multi-snapshot | 0.048 | 0.139 | 0.131 | 0.014 | 0.021 | 0.020 | 0.017 | 0.017 | 0.016 |
+| geometric mean | **0.050** | 0.060 | 0.050 | **0.012** | 0.014 | 0.012 | 0.016 | 0.016 | **0.015** |
 
-| system | gain over the proposed estimator | on which families | why |
-|---|---|---|---|
-| IEEE 14 | 31%, within 4% of the oracle | the first thing that moves stealthy `Aq` | removing a few buses' meters removes most evidence of the re-solved state, the prior pulls back to typical operation |
-| IEEE 118, 300 | 5% | in-place families only; `Aq` `At` `Al` unchanged even with the oracle | the attack's footprint spreads over many unflagged branches, the rest still describes the attacked physics |
+| families | what the gate does | why |
+|---|---|---|
+| `Ad` `As` `Ar` (in place) | finishes the job at every size: 0.020 on 14, 0.007 on 118, 0.012 on 300 | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
+| `Aq` `At` `Al` `Am` (stealthy) | makes them worse, with the true labels too: `Al` 0.057 → 0.162 on 14, 0.024 → 0.037 on 118 | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
 
-Gating helps the in-place families at any size and the stealthy families only on a small grid.
-Recovering the pre-attack state under a stealthy re-solve needs the previous state (the streams).
-A CNN gate on the Jacobian features gives the same numbers; voltage error rises slightly under
-gating since voltage meters are among those removed.
+On the v0.8.0 timelines gating alone does not lower the geometric mean on any system; the in-place
+gain and the stealthy loss cancel. The gate pays when it has something true to leave in: with 20
+meters secured by the DQN selector of [`../trust/README.md`](../trust/README.md) and exempt from the
+gate, the same CNN gate takes IEEE-14 from 0.050 to 0.020 degrees. Recovering a stealthy false state
+from one scan otherwise needs the previous scan, the temporal direction.
 
 ## Regenerate
 
