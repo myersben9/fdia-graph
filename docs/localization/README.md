@@ -74,10 +74,6 @@ Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.
 |---|---|---|
 | ![](results/fig_loc_ieee14.png) | ![](results/fig_loc_ieee118.png) | ![](results/fig_loc_ieee300.png) |
 
-> The sections below (the digest's ablation and the three readings, with their numbers) were derived on
-> the v0.7.2 record shards and stay as written until they are re-derived on the v0.8.0 timelines; the
-> tables above are v0.8.0, where per-record scores are lower for the protocol reason given there.
-
 ## Jacobian-informed features: the digest's ablation
 
 `fdia_graph.se.JacobianFeatures` transforms the measurement change through the estimator's Jacobian
@@ -91,29 +87,32 @@ weak-direction energy) and aggregates it to buses; `BusCNN` / `BusMLP` take `fea
 | C | B + the 8 Jacobian features |
 | D | the Jacobian features alone |
 
-| Model (1D CNN, zero-shot) | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 |
-|---|---:|---:|---:|---:|---:|---:|
-| A: measurements only | 0.6916 | 0.6461 | 0.0003 | 0.2833 | 0.2190 | 0.0006 |
-| B: measurements + temporal (the papers' 14) | **0.9625** | 0.9438 | 0.0000 | **0.9618** | 0.9304 | 0.0000 |
-| C: B + Jacobian features | 0.9412 | 0.9056 | 0.0000 | 0.9544 | 0.9156 | 0.0000 |
-| D: Jacobian features only | 0.8408 | 0.7855 | 0.0000 | 0.8275 | 0.7629 | 0.0000 |
+Zero-shot protocol on the v0.8.0 timelines (benign, `Aq` and `Ad` seen; `As` and `Ar` unseen):
 
-In the common protocol (every family in-distribution) C and B are within noise of each other
-(0.911 vs 0.917 on 14, 0.740 vs 0.734 on 118).
+| Model (1D CNN, zero-shot) | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| A: measurements only | 0.606 | 0.641 | 0.0001 | 0.000 | 0.000 | 0.0000 | 0.005 | 0.003 | 0.0001 |
+| B: measurements + temporal (the papers' 14) | 0.745 | 0.644 | 0.0001 | 0.547 | 0.437 | 0.0010 | 0.532 | 0.496 | 0.0024 |
+| C: B + Jacobian features | **0.865** | 0.812 | 0.0000 | **0.859** | 0.790 | 0.0000 | **0.848** | 0.781 | 0.0000 |
+| D: Jacobian features only | 0.795 | 0.737 | 0.0000 | 0.779 | 0.711 | 0.0000 | 0.750 | 0.703 | 0.0000 |
+
+In the common protocol (every family in distribution) C wins on 14 (0.870 vs 0.804) and loses on 118
+(0.467 vs 0.498) and 300 (0.287 vs 0.403) at the same benign alarm rate: it detects far more frames
+(0.91 against 0.63 and 0.71) and pays in precision on the buses around a local false state.
 
 | finding | evidence |
 |---|---|
-| the features carry the digest's signal | on stealthy re-solves the explained energy and implied state move are 10× to 24× benign at the attacked buses; D alone reaches 0.93 node-F1 on `Aq` |
-| they add nothing to the papers' vector | B already encodes that spike per bus; C costs one to nine zero-shot points on replay |
-| where they could still pay | as the localizer that gates the estimator, [`../se/README.md`](../se/README.md) |
+| the features carry the digest's signal | on `Aq` the zero-shot node-F1 is 0.65, 0.04 and 0.06 for B on 14, 118 and 300 and 0.86, 0.77 and 0.50 for D alone: the per-frame physics sees the local false state where the history does not |
+| on a timeline they are what makes the vector work | B to C is +12, +31 and +32 zero-shot points; the papers' vector was built for the v0.7.2 shards, whose temporal features compared an attacked snapshot with the benign scan before it, and on a timeline a sustained episode spikes at its onset only |
+| where they pay again | as the localizer that gates the estimator once meters are secured, [`../trust/README.md`](../trust/README.md) |
 
 ## Three readings
 
 | reading | evidence | open case |
 |---|---|---|
-| the temporal spike catches almost everything | any edit above the noise floor spikes the bus the moment it starts, BDD-stealthy `Aq` / `Al` included | the slow ramp `At` stays inside typical per-scan change by construction |
-| the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption but smears it over neighbours; on `Aq` / `At` / `Al` its F1 sits near zero, there is no residual | |
-| learning buys precision and holds with size | zero-shot CNN F1 above 0.94 from 14 to 300 buses at FR 1e-4 or below; the swing threshold alone falls 0.88 to 0.51 as a fixed per-bus budget gets costlier | the in-distribution `At` rows are where the headroom is |
+| the temporal spike is an onset signal | the swing threshold alone reads 0.08, 0.40 and 0.43 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier | the slow ramp `At` and the held redistribution `Am` inside an episode |
+| the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption and smears it over neighbours; on `Aq` / `At` / `Al` / `Am` its node-F1 is 0.01 or less, there is no residual | it opens with a trusted set of meters, [`../trust/README.md`](../trust/README.md) |
+| learning plus physics holds with size | zero-shot CNN with the Jacobian block 0.865, 0.859 and 0.848 from 14 to 300 buses at FR 1e-4 or below | the common protocol, with `At`, `Al` and `Am` in distribution, falls 0.870, 0.467, 0.287 with size: the per-frame localization of a sustained local false state is the frontier |
 
 ## Regenerate
 

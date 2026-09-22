@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The narrative sections of the SE and localization guides (the Jacobian-informed weighting, the
+  localization-gated estimation, the digest's ablation, the three readings) are re-derived on the
+  v0.8.0 timelines from the results JSONs; their v0.7.2 markers are gone. On the timelines the
+  Jacobian block is what makes the localizer's vector work (zero-shot 0.55 to 0.86 on IEEE-118)
+  and a gate alone no longer lowers the estimator's error on any system. No package change.
 - `docs/reference/CLASS_MAP.md`: one module diagram and six class diagrams of the package, drawn
   from the source by `tools/class_diagrams.py` (inheritance, the classes each class uses, the imports
   between modules) and checked in CI against the code. No package change.
