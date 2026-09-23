@@ -1,6 +1,7 @@
 classDiagram
     class SEBase {
         +fit()
+        +is_fitted
         +estimate()
         +score()
     }
@@ -13,12 +14,11 @@ classDiagram
     class SubspacePrior {
     }
     class JacobianWeighting {
+        +fit()
         +weights()
-        +estimate()
     }
     class GatedPrior {
         +gated_weights()
-        +estimate()
     }
     class JacobianFeatures {
         +fit()

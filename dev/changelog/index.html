@@ -1466,9 +1466,34 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The trust guide's secured-copy tables for IEEE-118 (<code>results/secured_ieee118.json</code>): the DQN set
+<li>Estimators, numbers change. <code>ResidualRemoval</code> is classical largest-normalized-residual removal:
+  one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
+  a removal the observability guard refuses keeps that meter. It used to remove every meter above
+  the threshold at once, taking out the honest neighbours a single gross error smears onto. Meter
+  sigma (and the trust selectors' alarm level) is calibrated on benign records spread evenly over
+  the train split instead of the first ones, which on a timeline are one early load regime. The
+  guarded weighted solve also considers its final Newton step. Measured on the IEEE-14 v0.8.0
+  timeline (geometric-mean angle error, test split): removal 0.0665 to 0.0552 degrees (replay
+  0.0645 to 0.0224), WLS 0.0966 to 0.0961, Huber 0.0613 to 0.0605, prior + Huber 0.0499 to 0.0503,
+  Jacobian weighting 0.0826 to 0.0800, gated arms within 0.2 percent. The frozen SE reference moved
+  by at most 1.6e-7 relative (its train split has fewer than 600 benign frames).</li>
+<li>
+<p>Estimators, fixes. Every public path that solves a dataset (<code>estimate</code>, <code>score</code>,
+  <code>ResidualLocalizer</code>, <code>TrustSelector.score</code>, <code>JacobianFeatures.fit</code>, <code>JacobianWeighting</code>) refuses a
+  <code>units="pu"</code> view with a ValueError; <code>fit</code> did before, but estimating or scoring a per-unit view
+  converted twice and returned errors about ten times too large. <code>GatedPrior</code> and
+  <code>JacobianWeighting</code> supply their per-record weights through one hook (<code>_record_weights</code>) instead
+  of overriding <code>estimate</code>, so <code>ResidualLocalizer(estimator=GatedPrior(...))</code> scores the gated
+  estimator rather than its ungated parent; the Huber passes live once in <code>SEBase</code> and
+  <code>JacobianWeighting</code> gains <code>tol</code> (it ran all 40 passes) and builds its Jacobian features once in
+  <code>fit</code>. <code>ResidualLocalizer</code> no longer refits an estimator that is already fitted
+  (<code>SEBase.is_fitted</code>). The localizer hook is <code>_score(d, ds)</code>.</p>
+</li>
+<li>
+<p>The trust guide's secured-copy tables for IEEE-118 (<code>results/secured_ieee118.json</code>): the DQN set
   opens the residual test on the stealthy families and lifts the learned localizer four points, the
-  estimator gains within a percent at 20 meters. No package change.</li>
+  estimator gains within a percent at 20 meters. No package change.</p>
+</li>
 <li>The docs site's staging step drops nav entries for pages a checkout lacks, so a backfilled older
   version on the versioned site has no link into a 404. No package change.</li>
 <li>Versioned docs: <code>.github/workflows/docs.yml</code> deploys the MkDocs site per package version to GitHub
