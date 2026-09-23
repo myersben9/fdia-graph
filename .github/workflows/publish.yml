@@ -7,7 +7,7 @@
 # token is stored in GitHub or anywhere else.
 #
 # DATA-release tags (e.g. a v0.7.2 dataset release cut via the API) also match "v*" but are not
-# package releases: the version check makes the run SKIP quietly instead of failing red.
+# package releases: the version job makes the tests and publish jobs SKIP quietly for them.
 #
 # ONE-TIME SETUP on PyPI (repo owner): pypi.org -> project fdia-graph -> Settings -> Publishing ->
 # "Add a new publisher" -> GitHub: owner=myersben9, repo=fdia-graph, workflow=publish.yml.
@@ -18,8 +18,31 @@ on:
     tags: ["v*"]
 
 jobs:
-  # The suite on the tagged commit: a tag on a commit whose tests fail never publishes.
+  # Package tag or data tag: only a tag equal to the pyproject version is a package release.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.ver.outputs.publish }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Check tag against pyproject version
+        id: ver
+        run: |
+          PYVER="$(python3 -c "import re;print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "pyproject=$PYVER tag=$TAG"
+          if [ "$PYVER" = "$TAG" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::tag v$TAG is not package version $PYVER — data release, skipping PyPI publish"
+          fi
+
+  # The suite on the tagged commit: a package tag on a commit whose tests fail never publishes.
   tests:
+    needs: version
+    if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
@@ -34,7 +57,8 @@ jobs:
         run: pytest -q tests
 
   publish:
-    needs: tests
+    needs: [version, tests]
+    if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write        # required for PyPI Trusted Publishing (OIDC)
@@ -46,26 +70,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check tag against pyproject version
-        id: ver
-        run: |
-          PYVER="$(python -c "import re;print(re.search(r'^version = \"([^\"]+)\"', open('pyproject.toml').read(), re.M).group(1))")"
-          TAG="${GITHUB_REF_NAME#v}"
-          echo "pyproject=$PYVER tag=$TAG"
-          if [ "$PYVER" = "$TAG" ]; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::tag v$TAG is not package version $PYVER — data release, skipping PyPI publish"
-          fi
-
       - name: Build sdist + wheel
-        if: steps.ver.outputs.publish == 'true'
         run: |
           python -m pip install --upgrade build twine
           python -m build
           python -m twine check dist/*
 
       - name: Publish to PyPI (Trusted Publishing)
-        if: steps.ver.outputs.publish == 'true'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1

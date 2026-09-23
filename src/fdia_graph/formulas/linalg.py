@@ -8,6 +8,8 @@ expression the estimator used before it existed (docs/plans/READABILITY_PLAN.md,
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 
@@ -38,12 +40,23 @@ def guarded_inverse(A: np.ndarray) -> np.ndarray:
     S = 0.5 * (A + A.T)
     try:
         L = np.linalg.cholesky(S)
-        rcond, _ = lapack.dtrcon(L, norm="1", uplo="L", diag="N")
+        rcond = _triangular_rcond(L, lapack)
         if rcond**2 > 100 * eps:  # cond(A) ~ cond(L)^2; the same 1e-14 relative floor as before
             return np.linalg.inv(S)
     except np.linalg.LinAlgError:
         pass
     return np.linalg.pinv(S, rcond=100 * eps)
+
+
+def _triangular_rcond(L: np.ndarray, lapack: Any) -> float:
+    """Reciprocal 1-norm condition number of a lower-triangular factor: LAPACK's estimate (dtrcon)
+    where SciPy exposes it, else the exact 1 / (‖L‖₁ ‖L⁻¹‖₁), since dtrcon is missing from the
+    SciPy releases that still install on Python 3.9."""
+    dtrcon = getattr(lapack, "dtrcon", None)
+    if dtrcon is not None:
+        return float(dtrcon(L, norm="1", uplo="L", diag="N")[0])
+    Li = np.linalg.solve(L, np.eye(L.shape[0]))
+    return float(1.0 / (np.abs(L).sum(axis=0).max() * np.abs(Li).sum(axis=0).max()))
 
 
 def condition_number(A: np.ndarray, its: int = 40) -> float:

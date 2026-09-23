@@ -169,10 +169,19 @@ def _measure_function(rel: str, qualname: str, node: ast.AST, cc: dict[tuple[str
     )
 
 
+def _rel(path: str) -> str:
+    """The path relative to the repository, or as given when it lies on another drive (Windows
+    cannot express that relatively, and a CI runner's temp dir sits on D:)."""
+    try:
+        return os.path.relpath(path, ROOT)
+    except ValueError:
+        return path
+
+
 def protocol_literals(path: str) -> list[tuple[str, int, str]]:
     """Path-shaped string literals ("<group>/..." or a lone group name used as a path prefix in an
     f-string) outside the schema module: (file, line, literal). Docstrings are not literals."""
-    rel = os.path.relpath(path, ROOT)
+    rel = _rel(path)
     if os.path.normcase(os.path.normpath(path)) == os.path.normcase(os.path.normpath(_SCHEMA)):
         return []
     tree = ast.parse(open(path, encoding="utf8").read())
@@ -226,7 +235,7 @@ def protocol_literals_all() -> list[tuple[str, int, str]]:
 
 
 def measure_file(path: str) -> list[Measure]:
-    rel = os.path.relpath(path, ROOT)
+    rel = _rel(path)
     tree = ast.parse(open(path, encoding="utf8").read())
     cc = _complexities(path)
     return [_measure_function(rel, qualname, node, cc) for qualname, node in _functions_with_qualnames(tree)]

@@ -39,6 +39,10 @@ the public API, the generated files and the numbers are the same as the previous
   coverage. `ruff format --check` covers `tests` and `tools`. Every action is pinned to a commit
   SHA, kept current by Dependabot; `slow.yml` runs the `FDIA_SLOW` IEEE-118 check weekly and on
   demand.
+- Fixes the new CI jobs found. The estimators failed on Python 3.9: its SciPy has no
+  `lapack.dtrcon`, which `guarded_inverse` called for its condition estimate; it now falls back to
+  the exact 1-norm value when SciPy lacks it (`[se]` still asks only scipy>=1.8). `tools/readability.py`
+  no longer fails on a file on another drive than the repository (Windows CI's temp dir).
 - Estimators, numbers change. `ResidualRemoval` is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above
