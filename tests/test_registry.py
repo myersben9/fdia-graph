@@ -134,10 +134,19 @@ def test_the_default_release_is_v081_with_pinned_timelines():
         assert spec["release"] == "data-v0.8.1" and spec["file"] == f"timeline_ieee{C}.h5"
         assert len(spec["sha256"]) == 64
     assert registry.resolve("ieee118", release="v0.8.0")["sha256"] != registry.resolve("ieee118")["sha256"]
-    # the published digests: IEEE-14 as uploaded, IEEE-200 byte-identical to v0.8.0 (no load shares a
-    # bus with a generator there, so the fixes leave it unchanged)
-    assert (
-        registry.resolve("ieee14")["sha256"]
-        == "6ed9df442a1faee8271267034485c065c15c6b6b099db476e8fad8633cd22198"
-    )
-    assert registry.resolve("ieee200")["sha256"] == registry.resolve("ieee200", release="v0.8.0")["sha256"]
+    # the digests of the assets as published under data-v0.8.1; IEEE-200 is byte-identical to v0.8.0 (no
+    # load shares a bus with a generator there, so the fixes leave it unchanged)
+    published = {
+        "ieee14": "6ed9df442a1faee8271267034485c065c15c6b6b099db476e8fad8633cd22198",
+        "ieee30": "fcc50149715f9b8965d503422f7bd6f8308a3487f28e2b8c03fedf3c956c6887",
+        "ieee57": "de52d152fcf207f197755044485b4c6209617e2ec5ff03f6c3551f03c15a06bd",
+        "ieee89": "74b8512b1274123a11db6b312d4bc197f23c2f5c44770f0f20b6f7abd856e7e0",
+        "ieee118": "cfa713d785b3db34f2edba6ec6d78927c97e14cafd3ce2106a1cc5e1cc89d4f7",
+        "ieee145": "2471510912ae82cb27743ded25f2bf9c562e6f58f6a0de0ad3afa0e060e9008c",
+        "ieee200": "be4ad6a6d598aac9b4fe31c05048c50f50086822140c2001ce0ecdad77edb697",
+        "ieee300": "67b5d727ed498bba270dcc5eb230afec287c4f1fd55b74178a453985edbcd75f",
+    }
+    assert {
+        f"ieee{C}": registry.resolve(f"ieee{C}")["sha256"] for C in (14, 30, 57, 89, 118, 145, 200, 300)
+    } == published
+    assert published["ieee200"] == registry.resolve("ieee200", release="v0.8.0")["sha256"]

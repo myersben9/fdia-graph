@@ -48,7 +48,8 @@ def pool_h5(C: int) -> str:
     """The v0.8.0 pool, copied unchanged (the fix is in the generator, not the operating points)."""
     out = os.path.join(OUT, f"pool_ieee{C}.h5")
     if not os.path.exists(out):
-        shutil.copyfile(os.path.join(POOLS, f"pool_ieee{C}.h5"), out)
+        shutil.copyfile(os.path.join(POOLS, f"pool_ieee{C}.h5"), out + ".part")  # an interrupted copy
+        os.replace(out + ".part", out)  # never leaves a partial pool a rerun would trust
         print(f"[ieee{C}] pool copied from v0.8.0", flush=True)
     return out
 
