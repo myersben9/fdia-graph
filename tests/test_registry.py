@@ -51,6 +51,7 @@ def test_a_local_registration_shadows_a_builtin_name(timeline, tmp_path):
         assert fg.list_datasets()["ieee14"] == "local"
         spec = registry.resolve("ieee14")
         assert spec.kind == "local" and spec.path == path
+        assert registry.resolve("IEEE14").kind == "local"  # one name in either case, so it is shadowed alike
         assert fg.load("ieee14").is_timeline
     finally:
         local = registry._load_local()
@@ -84,3 +85,38 @@ def test_load_stream_reads_a_timeline_release_through_the_loader(timeline, monke
     assert s.system == 14 and s.node_x.shape == (len(ds), 14, 4) and s.node_m.shape == (14, 4)
     assert np.array_equal(s.y, ds.export(["y"])["y"]) and len(s.episodes) == len(ds.episodes)
     assert s.attacked_frac == pytest.approx(float((s.y.sum(axis=1) > 0).mean()))
+
+
+def test_builtin_names_are_case_insensitive():
+    assert registry.resolve("IEEE118")["system"] == 118
+    assert registry.resolve(" ieee14 ")["system"] == 14
+
+
+def test_newest_data_release_skips_a_malformed_tag():
+    rel = [{"tag_name": t} for t in ("data-v0.8.0", "data-v0.9.0-rc1", "v0.18.0", "v0.7.2", "data-v0.8.1")]
+    assert registry._newest_data_release(rel) == "v0.8.1"
+    assert registry._newest_data_release([{"tag_name": "data-vX"}]) is None
+
+
+def test_a_download_race_keeps_the_installed_file(tmp_path, monkeypatch):
+    from fdia_graph import download
+
+    dest, tmp = tmp_path / "a.h5", tmp_path / "a.part"
+    dest.write_bytes(b"theirs")
+    tmp.write_bytes(b"ours")
+
+    def locked(src, dst):
+        raise PermissionError("in use")  # Windows: the winner holds dest open
+
+    monkeypatch.setattr(download.os, "replace", locked)
+    download._install(str(tmp), str(dest))  # no error: the installed copy is kept
+    assert dest.read_bytes() == b"theirs"
+    import hashlib
+
+    good = hashlib.sha256(b"theirs").hexdigest()
+    download._install(str(tmp), str(dest), good)  # theirs matches the checksum: kept
+    with pytest.raises(PermissionError):
+        download._install(str(tmp), str(dest), hashlib.sha256(b"other").hexdigest())  # a stale file: not kept
+    dest.unlink()
+    with pytest.raises(PermissionError):
+        download._install(str(tmp), str(dest))  # nothing installed: a real failure surfaces

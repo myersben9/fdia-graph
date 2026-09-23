@@ -124,11 +124,10 @@ _LOCAL_JSON = os.path.join(CACHE_DIR, "local_datasets.json")
 
 
 def latest_release(repo: str = _REPO) -> str:
-    """Return the newest published release tag on the GitHub repo (for version-controlled datasets).
-
-    Default (release=None in load()) pulls the NEWEST release so collaborators get current data; an explicit
-    release= pins a version for reproducibility. Falls back to the built-in default tag when the API is
-    unreachable (offline / rate-limited).
+    """The newest published data release on the GitHub repo, e.g. to check whether a newer one than
+    the pinned default exists. `load(release=None)` does not call it: it reads the pinned default
+    (`_RELEASE`), so a published release never changes what existing code loads. Falls back to the
+    pinned default when the API is unreachable (offline, rate-limited) or lists no data release.
     """
     import requests  # lazy so merely importing the SDK doesn't require requests
 
@@ -151,8 +150,17 @@ def _newest_data_release(releases: list[dict]) -> Optional[str]:
     """The short name of the newest published data release among GitHub release records, or None:
     package releases share the repository, so only data tags count."""
     tags = [x["tag_name"] for x in releases if not x.get("draft") and not x.get("prerelease")]
-    data = [t for t in tags if t.startswith(_DATA_TAG_PREFIX) or t in _BARE_DATA_TAGS]
+    data = [t for t in tags if (t.startswith(_DATA_TAG_PREFIX) or t in _BARE_DATA_TAGS) and _is_release(t)]
     return release_name(max(data, key=release_tuple)) if data else None
+
+
+def _is_release(tag: str) -> bool:
+    """Whether a tag parses as a data release; one odd tag (a "-rc1") must not hide the valid ones."""
+    try:
+        release_tuple(tag)
+        return True
+    except ValueError:
+        return False
 
 
 def _load_local() -> dict[str, dict]:
@@ -191,7 +199,8 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
     """Map a name/alias to its AssetSpec (kind "builtin" or "local").
 
     A local registration wins over a built-in of the same name (`fg.generate(system, "ieee14")`
-    then serves as "ieee14"), as `list_datasets` reports. For built-ins, `release`: None -> the
+    then serves as "ieee14"), as `list_datasets` reports. A built-in name is one name in any case,
+    so "IEEE14" is shadowed exactly like "ieee14"; other local names are matched exactly. For built-ins, `release`: None -> the
     pinned _RELEASE; an explicit name ("v0.8.0", or its tag "data-v0.8.0") -> that exact release
     (reproducible pin), with the file name that release used (see `dataset_file`), its sha256 when
     the registry knows it, and the GitHub tag the assets live under (`release_tag`) in `release`.
@@ -199,6 +208,8 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
     """
     name = _ALIASES.get(name, name)  # "118"/118 -> "ieee118"; canonical unchanged
     local = _load_local()
+    if isinstance(name, str) and name not in local and name.strip().lower() in BUILTIN:
+        name = name.strip().lower()  # "IEEE118" like system_id; a local name stays case-sensitive
     if name in local:  # a local registration shadows a built-in name, as list_datasets says
         return AssetSpec("local", name, path=local[name]["path"], meta=local[name].get("meta"))
     if name in BUILTIN:

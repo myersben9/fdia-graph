@@ -19,7 +19,7 @@ def swing_zscore(delta: np.ndarray, scale: np.ndarray) -> np.ndarray:
         swing[b, c] = delta[b, c] / scale[b, c]
 
     delta : [N, 2]  current minus previous scan, active and reactive injection (MW, MVAr)
-    scale : [N, 2]  std of the one-step change over the last SWING_W scans, floored at 1e-3
+    scale : [N, 2]  std of the one-step change over the last SWING_W scans, plus 1e-3
     returns [N, 2], dimensionless; large on a single-scan spike, near 1 on a slow ramp
     """
     return delta / scale
@@ -35,7 +35,7 @@ objects); one test checks it on a case small enough to verify by hand.
 | formula | function | equation | source | used by |
 |---|---|---|---|---|
 | swing z-score and temporal delta | `formulas.temporal.temporal_delta`, `formulas.temporal.swing_zscore` (shards, via `generation._record_features`); the stream computes the same two lines against the previous emitted frame in `streams._StreamBuffers.store` | delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t | [FED26] | the swing and temporal_delta features, `SwingThreshold`, `DeltaThreshold` |
-| recent-change scale | `formulas.temporal.recent_change_scale` (shards and streams, through `generation._swing_scale`) | scale_t = std over [t − W, t) of the one-step change, floor 1e-3 | [FED26] | the swing feature |
+| recent-change scale | `formulas.temporal.recent_change_scale` (shards and streams, through `generation._swing_scale`) | scale_t = std over [t − W, t) of the one-step change, plus 1e-3 | [FED26] | the swing feature |
 | replay policy | `engine.records.replay_frame` | fixed lag tau, else a random lag of at least 20 scans, else the oldest scan | [DAT26] | the Ar and As families |
 | bus voltage phasors | `formulas.network.complex_voltages` | V = \|V\| e^{jθ} | [AE04, eq. 2.1] | every AC evaluation |
 | bus injections | `formulas.network.bus_injections` (numpy); `se.base.SEBase._h_t` is its torch twin, kept for callers that differentiate through it and pinned by `tests/test_formulas.py` | S = V ∘ conj(Y V) | [AE04, eq. 2.6] | the estimator's h(x) |

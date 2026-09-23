@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Loading and fitting, no number changes. `fg.load("IEEE118")` works like `"ieee118"` (a locally
+  registered name stays case-sensitive). `latest_release` skips a tag it cannot parse instead of
+  falling back to the pinned default, and its docstring no longer claims `load(release=None)` calls
+  it. Two jobs downloading the same asset at once write separate temp files; the second keeps the
+  first's installed copy instead of corrupting it. `fit` refuses a dataset whose slack disagrees
+  with the case's. The solve's reduced normal-matrix inverse is built once in `fit` rather than on
+  every chunk. The recent-change scale's docstring says "plus 1e-3", what the code does.
+
 - Estimators, numbers change. `ResidualRemoval` is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above

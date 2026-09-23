@@ -107,3 +107,12 @@ def test_meter_sigma_is_calibrated_across_the_benign_set(splits):
     tr = est._truth_of(d["clean"][c])
     r = est._z_of(d["node_x"][c], d["edge_x"][c]) - est._h(tr["x"], tr["thsl"])
     assert np.allclose(est.sig, np.maximum(np.sqrt((r**2).mean(axis=0)), 1e-9))
+
+
+def test_fit_refuses_a_dataset_whose_slack_disagrees(timeline):
+    from fdia_graph.se import WLS
+
+    ds = fg.load(timeline, split="train")
+    ds.slack = 3
+    with pytest.raises(ValueError, match="slack"):
+        WLS().fit(ds)
