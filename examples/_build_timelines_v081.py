@@ -6,10 +6,11 @@ generation although the pools scale generation with load, so the stealthy famili
 wrong load (fdia-graph 0.19). The operating-point pools are unchanged: v0.8.0's `pool_ieee{C}.h5` is
 copied, and `fg.generate` walks it into `timeline_ieee{C}.h5` with the same default knobs
 (attacked_frac 0.5, every family incl. Am, 60-frame ramps, one-frame Ad/As/Ar draws, seed 123).
-Resumable: a finished file is skipped. Writes `manifest.json` with sha256 and size for the
-registry and the upload.
+Resumable: a finished file is skipped. Each system writes its own manifest fragment (sha256 and
+size); a final MERGE=1 run combines them into `manifest.json` for the registry and the upload.
 
     LADDER=14,30 python examples/_build_timelines_v081.py
+    MERGE=1 python examples/_build_timelines_v081.py   # once every worker is done: manifest.json
 """
 
 import hashlib
@@ -84,13 +85,12 @@ def main() -> None:
         with open(part + ".tmp", "w") as fh:  # atomic: a merging worker never reads half a fragment
             json.dump(entry, fh, indent=2)
         os.replace(part + ".tmp", part)
-    manifest = merge_manifest()
-    print("[all] done:", json.dumps(manifest, indent=2), flush=True)
+    print("[all] done; run once more with MERGE=1 after every worker has finished", flush=True)
 
 
 def merge_manifest() -> dict:
-    """manifest.json from every finished system's fragment, rewritten whole each run (so a worker
-    that finishes last still lists the systems the others built)."""
+    """manifest.json from every finished system's fragment, written by a single MERGE=1 run after
+    the parallel workers are done, so no worker ever writes a file another one reads."""
     manifest: dict = {}
     for f in sorted(os.listdir(OUT)):
         if f.startswith("manifest_ieee") and f.endswith(".json"):
@@ -105,4 +105,7 @@ def merge_manifest() -> dict:
 
 
 if __name__ == "__main__":
-    main()
+    if os.environ.get("MERGE"):
+        print(json.dumps(merge_manifest(), indent=2))
+    else:
+        main()
