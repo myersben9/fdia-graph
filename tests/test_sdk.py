@@ -381,7 +381,15 @@ def test_local_trainer_runs_persist_and_honour_owned_and_clip():
     torch = pytest.importorskip("torch")
     from fdia_graph.localization.learned import LocalTrainer, OptimConfig, _mlp_net
 
+    was = torch.are_deterministic_algorithms_enabled()
     torch.use_deterministic_algorithms(True)
+    try:
+        _trainer_contract(torch, LocalTrainer, OptimConfig, _mlp_net)
+    finally:
+        torch.use_deterministic_algorithms(was)  # a process-wide switch: leave it as found
+
+
+def _trainer_contract(torch, LocalTrainer, OptimConfig, _mlp_net):
     rng = np.random.default_rng(0)
     Xs = rng.normal(size=(64, 5, 14)).astype(np.float32)
     Y = (rng.random((64, 5)) < 0.3).astype(np.float32)
@@ -406,3 +414,14 @@ def test_local_trainer_runs_persist_and_honour_owned_and_clip():
     assert not same(train(Y, [2]), train(Y_other, [2]))
     assert same(train(Y, [2], clip=1e9), train(Y, [2]))  # a clip that never binds changes nothing
     assert not same(train(Y, [2], clip=1e-4), train(Y, [2]))
+
+
+def test_predict_runs_in_eval_mode_after_training():
+    pytest.importorskip("torch")
+    from fdia_graph.localization.learned import _mlp_net, predict
+
+    net = _mlp_net(14, 16, 2, 0.5)
+    net.train()  # as a training run leaves it
+    Xs = np.random.default_rng(0).normal(size=(8, 5, 14)).astype(np.float32)
+    assert np.array_equal(predict(net, Xs, "cpu"), predict(net, Xs, "cpu"))  # dropout off: repeatable
+    assert not net.training

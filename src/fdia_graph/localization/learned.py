@@ -211,6 +211,7 @@ def predict(net: Any, Xs: np.ndarray, dev: str, chunk: int = 4096) -> np.ndarray
     """Per-bus attack probabilities [n, N] of standardized features [n, N, F], in chunks so the
     big systems stay inside a bounded device footprint."""
     torch = _torch()
+    net.eval()  # inference: dropout off even straight after a training run
     out = np.empty(Xs.shape[:2], np.float64)
     with torch.no_grad():
         for i in range(0, len(Xs), chunk):
