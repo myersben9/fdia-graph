@@ -51,6 +51,7 @@ def test_a_local_registration_shadows_a_builtin_name(timeline, tmp_path):
         assert fg.list_datasets()["ieee14"] == "local"
         spec = registry.resolve("ieee14")
         assert spec.kind == "local" and spec.path == path
+        assert registry.resolve("IEEE14").kind == "local"  # one name in either case, so it is shadowed alike
         assert fg.load("ieee14").is_timeline
     finally:
         local = registry._load_local()

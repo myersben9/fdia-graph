@@ -199,7 +199,8 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
     """Map a name/alias to its AssetSpec (kind "builtin" or "local").
 
     A local registration wins over a built-in of the same name (`fg.generate(system, "ieee14")`
-    then serves as "ieee14"), as `list_datasets` reports. For built-ins, `release`: None -> the
+    then serves as "ieee14"), as `list_datasets` reports. A built-in name is one name in any case,
+    so "IEEE14" is shadowed exactly like "ieee14"; other local names are matched exactly. For built-ins, `release`: None -> the
     pinned _RELEASE; an explicit name ("v0.8.0", or its tag "data-v0.8.0") -> that exact release
     (reproducible pin), with the file name that release used (see `dataset_file`), its sha256 when
     the registry knows it, and the GitHub tag the assets live under (`release_tag`) in `release`.
