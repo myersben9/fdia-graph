@@ -91,6 +91,9 @@ def main() -> None:
 def merge_manifest() -> dict:
     """manifest.json from every finished system's fragment, written by a single MERGE=1 run after
     the parallel workers are done, so no worker ever writes a file another one reads."""
+    missing = [C for C in LADDER if not os.path.exists(os.path.join(OUT, f"manifest_ieee{C}.json"))]
+    if missing:  # a partial manifest would publish a release without these systems
+        raise SystemExit(f"no finished fragment for ieee{missing}; build them before merging")
     manifest: dict = {}
     for f in sorted(os.listdir(OUT)):
         if f.startswith("manifest_ieee") and f.endswith(".json"):

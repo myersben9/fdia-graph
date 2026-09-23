@@ -134,3 +134,10 @@ def test_the_default_release_is_v081_with_pinned_timelines():
         assert spec["release"] == "data-v0.8.1" and spec["file"] == f"timeline_ieee{C}.h5"
         assert len(spec["sha256"]) == 64
     assert registry.resolve("ieee118", release="v0.8.0")["sha256"] != registry.resolve("ieee118")["sha256"]
+    # the published digests: IEEE-14 as uploaded, IEEE-200 byte-identical to v0.8.0 (no load shares a
+    # bus with a generator there, so the fixes leave it unchanged)
+    assert (
+        registry.resolve("ieee14")["sha256"]
+        == "6ed9df442a1faee8271267034485c065c15c6b6b099db476e8fad8633cd22198"
+    )
+    assert registry.resolve("ieee200")["sha256"] == registry.resolve("ieee200", release="v0.8.0")["sha256"]
