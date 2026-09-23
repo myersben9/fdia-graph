@@ -110,18 +110,20 @@ def ensure_local(spec: AssetSpec) -> str:
         # Integrity gate: verify a pinned sha256 before trusting; on mismatch fail loudly.
         if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
             raise OSError(f"checksum mismatch for {spec['file']} — download corrupted, please retry")
-        _install(tmp, dest)
+        _install(tmp, dest, spec.get("sha256"))
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
     return dest
 
 
-def _install(tmp: str, dest: str) -> None:
+def _install(tmp: str, dest: str, sha256: Optional[str] = None) -> None:
     """Atomic rename of a complete, verified download, so `dest` only ever exists whole. When another
-    process installed it first and holds it open (Windows refuses the rename), keep theirs."""
+    process installed it first and holds it open (Windows refuses the rename), keep theirs, but only
+    if it is valid: it must match `sha256` when the asset has one (a locked stale or corrupt file,
+    the reason for this download, is never kept)."""
     try:
         os.replace(tmp, dest)
     except PermissionError:
-        if not os.path.exists(dest):
+        if not os.path.exists(dest) or (sha256 is not None and _sha256(dest) != sha256):
             raise

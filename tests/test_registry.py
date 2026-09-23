@@ -110,6 +110,12 @@ def test_a_download_race_keeps_the_installed_file(tmp_path, monkeypatch):
     monkeypatch.setattr(download.os, "replace", locked)
     download._install(str(tmp), str(dest))  # no error: the installed copy is kept
     assert dest.read_bytes() == b"theirs"
+    import hashlib
+
+    good = hashlib.sha256(b"theirs").hexdigest()
+    download._install(str(tmp), str(dest), good)  # theirs matches the checksum: kept
+    with pytest.raises(PermissionError):
+        download._install(str(tmp), str(dest), hashlib.sha256(b"other").hexdigest())  # a stale file: not kept
     dest.unlink()
     with pytest.raises(PermissionError):
         download._install(str(tmp), str(dest))  # nothing installed: a real failure surfaces
