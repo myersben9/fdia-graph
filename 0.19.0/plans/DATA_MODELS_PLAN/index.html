@@ -1,0 +1,2178 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/0.19.0/plans/DATA_MODELS_PLAN/">
+      
+      
+        <link rel="prev" href="../ONE_DATASET_PLAN/">
+      
+      
+        <link rel="next" href="../FIELD_GROUPS_PLAN/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Data models - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#plan-structured-data-models-for-what-functions-return-and-objects-hold" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Data models
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/state_estimation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Class map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/FORMULAS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ONE_DATASET_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    One dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data models
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-already-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What already exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-inventory-what-is-still-a-bare-tuple-or-dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Inventory: what is still a bare tuple or dict
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Inventory: what is still a bare tuple or dict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-internal-no-compatibility-constraint-change-freely" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2a. Internal, no compatibility constraint (change freely)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-public-api-returning-dicts-compatibility-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b. Public API returning dicts (compatibility-bound)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-design-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Design rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-sequencing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Sequencing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4a-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4a. Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-decisions-for-ben" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Decisions for Ben
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-step-5-one-models-package-planned-2026-09-16-bens-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Step 5: one models/ package (planned 2026-09-16, Ben's request)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Step 5: one models/ package (planned 2026-09-16, Ben&#39;s request)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-sequence-one-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Sequence (one PR)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-decisions-taken-2026-09-16-ben-delegated-the-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Decisions (taken 2026-09-16, Ben delegated the call)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FIELD_GROUPS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../READABILITY_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Readability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RESTRUCTURE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Restructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-already-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What already exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-inventory-what-is-still-a-bare-tuple-or-dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Inventory: what is still a bare tuple or dict
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Inventory: what is still a bare tuple or dict">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-internal-no-compatibility-constraint-change-freely" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2a. Internal, no compatibility constraint (change freely)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-public-api-returning-dicts-compatibility-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b. Public API returning dicts (compatibility-bound)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-design-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Design rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-sequencing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Sequencing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4a-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4a. Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-decisions-for-ben" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Decisions for Ben
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-step-5-one-models-package-planned-2026-09-16-bens-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Step 5: one models/ package (planned 2026-09-16, Ben's request)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Step 5: one models/ package (planned 2026-09-16, Ben&#39;s request)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-sequence-one-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Sequence (one PR)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-decisions-taken-2026-09-16-ben-delegated-the-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Decisions (taken 2026-09-16, Ben delegated the call)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="plan-structured-data-models-for-what-functions-return-and-objects-hold">Plan: structured data models for what functions return and objects hold<a class="headerlink" href="#plan-structured-data-models-for-what-functions-return-and-objects-hold" title="Permanent link">&para;</a></h1>
+<p>Goal (Ben, 2026-09-16): where a function returns a bundle of things, or an object holds a bundle
+of related arrays, the bundle is a named, typed model rather than a tuple indexed by position or
+a dict indexed by string. A reader then sees the fields in one place, pyright checks them, and a
+caller that receives the model can hand it on to the next function unchanged.</p>
+<p>This is the plan only. It follows the readability series (<code>READABILITY_PLAN.md</code>) and keeps its
+compatibility promise: nothing a user of the package can see changes.</p>
+<h2 id="1-what-already-exists">1. What already exists<a class="headerlink" href="#1-what-already-exists" title="Permanent link">&para;</a></h2>
+<p>The readability series introduced eight models where the old code passed tuples or closures:</p>
+<table>
+<thead>
+<tr>
+<th>model</th>
+<th>kind</th>
+<th>holds</th>
+<th>used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine.records.Frame</code></td>
+<td>NamedTuple</td>
+<td>one emitted scan: measurements, masks, label, stealthy flag, designed magnitudes, benign twin</td>
+<td>both generators</td>
+</tr>
+<tr>
+<td><code>engine.records.FrameKnobs</code></td>
+<td>NamedTuple</td>
+<td>the attack settings of a run</td>
+<td>both generators</td>
+</tr>
+<tr>
+<td><code>generation.Record</code></td>
+<td>NamedTuple</td>
+<td>one finished shard record: the scan, ids, the two temporal features</td>
+<td>the writer</td>
+</tr>
+<tr>
+<td><code>formulas.network.BranchModel</code></td>
+<td>NamedTuple</td>
+<td>the per-branch pi model (r, x, b, g, tap, shift, status)</td>
+<td><code>branch_admittances</code>, the loader</td>
+</tr>
+<tr>
+<td><code>generation._FrameContext</code></td>
+<td>dataclass</td>
+<td>what every record of a run shares (generator, pool, scale, knobs, magnitude log)</td>
+<td>the record functions</td>
+</tr>
+<tr>
+<td><code>streams._StreamBuffers</code></td>
+<td>class</td>
+<td>the per-frame layers of one stream and the previous emitted frame</td>
+<td>the timeline walk</td>
+</tr>
+<tr>
+<td><code>streams._StreamPlan</code></td>
+<td>dataclass</td>
+<td>which families rotate, the ramp shape, the attacked fraction</td>
+<td>the timeline walk</td>
+</tr>
+<tr>
+<td><code>dataset._RecordFilter</code></td>
+<td>NamedTuple</td>
+<td>which records a view keeps</td>
+<td><code>_record_mask</code></td>
+</tr>
+</tbody>
+</table>
+<p>So the pattern is in place; what is left is to apply it to the rest of the package, with one
+extra rule for the public dicts.</p>
+<h2 id="2-inventory-what-is-still-a-bare-tuple-or-dict">2. Inventory: what is still a bare tuple or dict<a class="headerlink" href="#2-inventory-what-is-still-a-bare-tuple-or-dict" title="Permanent link">&para;</a></h2>
+<p>Surveyed 2026-09-16 on the step 6 branch (every function whose return annotation is a Dict or
+Tuple, plus the generator's attribute groups).</p>
+<h3 id="2a-internal-no-compatibility-constraint-change-freely">2a. Internal, no compatibility constraint (change freely)<a class="headerlink" href="#2a-internal-no-compatibility-constraint-change-freely" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>today</th>
+<th>shape</th>
+<th>proposed model</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MeasurementMixin.emit_from_state</code>, <code>emit</code></td>
+<td>4-tuple <code>(nx, nm, ex, em)</code></td>
+<td><code>Scan(node_x, node_m, edge_x, edge_m)</code></td>
+<td>called at seven sites, always unpacked positionally; <code>Frame</code> already holds the same four fields, so <code>Frame</code> can be built from a <code>Scan</code></td>
+</tr>
+<tr>
+<td><code>SEBase._truth_of</code></td>
+<td>dict <code>{"x", "thsl"}</code></td>
+<td><code>TrueState(x, slack_angle)</code></td>
+<td>eleven call sites read <code>tr["x"]</code>, <code>tr["thsl"]</code></td>
+</tr>
+<tr>
+<td><code>AttackMixin.lra_delta</code>, <code>_lra_for_line</code></td>
+<td>tuples <code>(delta, buses)</code>, <code>(delta, buses, flow_change)</code></td>
+<td><code>Redistribution(delta, buses, line_flow_change)</code></td>
+<td>the plausibility band check reads the pieces</td>
+</tr>
+<tr>
+<td><code>PhysicsMixin.resolve_states</code></td>
+<td>tuple <code>(X, kept)</code></td>
+<td><code>ResolvedPool(states, converged)</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>FdiaGraph._admittances</code></td>
+<td>dict <code>{"ybus", "yf", "yt"}</code></td>
+<td><code>Admittances(ybus, yf, yt)</code></td>
+<td>the three properties <code>ybus_np</code>, <code>yf_np</code>, <code>yt_np</code> read it; <code>branch_admittances</code> returns the same three, so the kernel returns the model too</td>
+</tr>
+<tr>
+<td><code>generation._stack_records</code></td>
+<td>dict of arrays</td>
+<td><code>ShardArrays</code> (dataclass with one field per dataset)</td>
+<td>the writer reads it by key</td>
+</tr>
+<tr>
+<td><code>registry</code> specs (<code>resolve</code>, <code>_asset_spec</code>, <code>download.ensure_local(spec)</code>)</td>
+<td>dict <code>{"kind", "name", "file", "release", "repo", "sha256", "path"}</code></td>
+<td><code>AssetSpec</code> (frozen dataclass)</td>
+<td>four producers, one consumer; <code>ensure_local</code> branches on <code>kind</code></td>
+</tr>
+<tr>
+<td><code>download._asset_url</code></td>
+<td>tuple <code>(url, headers)</code></td>
+<td><code>DownloadTarget(url, headers)</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>FdiaGenerator</code> attribute groups</td>
+<td><code>edge_r … bus_shunt_b</code> (12 arrays), <code>M</code> dict + <code>flow_meter</code>, six <code>bias_*</code> vectors, six <code>outage_*</code> fields</td>
+<td><code>g.branch: BranchModel</code> (the model already exists), <code>g.meters: MeterPlan(vbus, pmu, inj, flow)</code>, <code>g.bias: MeterBias(pi, qi, v, va, pf, qf)</code>, <code>g.contingency: Outage(line, pos, name, from_bus, to_bus, base_flow_mw)</code> (<code>INTACT</code> when no line is opened)</td>
+<td>the old attribute names stay as read-only properties for one minor version (the writer, the docs scripts and the temporal harness read them)</td>
+</tr>
+<tr>
+<td><code>localization.LocalizerBase._pull</code></td>
+<td>dict of arrays</td>
+<td><code>LocalizerInputs</code></td>
+<td>internal</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2b-public-api-returning-dicts-compatibility-bound">2b. Public API returning dicts (compatibility-bound)<a class="headerlink" href="#2b-public-api-returning-dicts-compatibility-bound" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>today</th>
+<th>who depends on it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FdiaGraph.__getitem__</code> dict record, <code>collate</code> batch dict</td>
+<td>every training loop on the package, <code>torch.utils.data</code> default collate, our examples</td>
+</tr>
+<tr>
+<td><code>FdiaGraph.to_numpy</code>, <code>to_torch</code>, <code>to_tf</code></td>
+<td>our SE and localization modules, the temporal harness, users</td>
+</tr>
+<tr>
+<td><code>generate_stream</code> / <code>load_stream</code> stream dict</td>
+<td><code>windows</code>, <code>pyg_stream</code>, <code>torch_windows</code>, the deck scripts, users</td>
+</tr>
+<tr>
+<td><code>SEBase.score</code>, <code>LocalizerBase.score</code> nested dicts</td>
+<td><code>docs/*/make_report.py</code>, the frozen tests, users' tables</td>
+</tr>
+<tr>
+<td><code>JacobianFeatures.transform</code> dict <code>{"bus", "global", "dx_hat", "r_perp"}</code></td>
+<td>the learned localizers, <code>JacobianWeighting</code>, the deck scripts</td>
+</tr>
+<tr>
+<td><code>FdiaGraph.summary</code>, <code>registry.list_datasets</code></td>
+<td>users</td>
+</tr>
+<tr>
+<td><code>line_outage_candidates</code> lists of dicts</td>
+<td>users, <code>docs</code></td>
+</tr>
+</tbody>
+</table>
+<p>These cannot become plain dataclasses without breaking <code>out["node_x"]</code>, <code>**out</code>, <code>for k in out</code>,
+JSON dumping, and the default collate. The rule for them is section 3.</p>
+<h2 id="3-design-rules">3. Design rules<a class="headerlink" href="#3-design-rules" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Value bundles that get unpacked are NamedTuples</strong> (<code>Scan</code>, <code>TrueState</code>, <code>Redistribution</code>,
+   <code>Admittances</code>, <code>DownloadTarget</code>): immutable, cheap, <code>a, b = f()</code> still works, fields have names
+   and types.</li>
+<li><strong>Larger models with behaviour are frozen dataclasses</strong> (<code>AssetSpec</code>, <code>MeterPlan</code>, <code>MeterBias</code>,
+   <code>Outage</code>, <code>ShardArrays</code>): named fields, a <code>__post_init__</code> for validation where useful, methods
+   where they belong (<code>AssetSpec.cache_name()</code>).</li>
+<li><strong>Public dict returns become dual-access models.</strong> <code>fdia_graph.models.Bundle</code> is a frozen
+   dataclass that is also a real <code>dict</code> subclass: <code>__post_init__</code> fills the dict with the non-None
+   fields, the dict side refuses writes, and pickling goes through the fields.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">TrueState</span><span class="p">(</span><span class="n">Bundle</span><span class="p">):</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>      <span class="c1"># the 2N-1 state per record</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">thsl</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>   <span class="c1"># the slack angle reference per record</span>
+</code></pre></div>
+<p>A bundle keeps every existing use working (<code>isinstance(out, dict)</code>, <code>out["node_x"]</code>, <code>**out</code>,
+   <code>for k in out</code>, <code>json.dump</code> of a score table, PyTorch's default collate, which batches a dict
+   key by key) and adds <code>out.node_x</code>, pyright-checked field names, and one docstring naming every
+   field. Optional layers are <code>Optional[...]</code> fields; absent ones are not in the dict, so
+   <code>"swing" in out</code> keeps its meaning. A dict key that is not a valid attribute name (<code>"global"</code>)
+   is declared with a trailing underscore and mapped through <code>_keys</code>; a required field the old
+   dict listed last (<code>geo</code>) is named in <code>_tail</code> so the key order does not change. A <code>dict</code>
+   subclass rather than a <code>Mapping</code> because users test <code>isinstance(x, dict)</code> and <code>json.dump</code>
+   score tables directly.
+4. <strong>Serialization is explicit.</strong> Every model has <code>to_dict()</code>; a bundle is already the dict
+   <code>savez</code> and <code>json.dump</code> see, so files do not change.
+5. <strong>Models live next to their producers</strong> (superseded by step 5, section 6: they live in the
+   <code>models/</code> package and are re-exported from their producers), not in one giant module: <code>engine.records.Scan</code>,
+   <code>se.base.TrueState</code>, <code>dataset.RecordBundle</code>, and so on. <code>fdia_graph.models</code> holds only the
+   <code>Bundle</code> base (re-exporting the producers' models from it would import the whole package);
+   the data dictionary lists them (step 4).
+6. <strong>A public bundle keeps the shape of the dict it replaces</strong>, whatever its size: the stream
+   dict has eighteen keys and <code>Stream</code> has eighteen fields, because splitting it into a pair would
+   change what <code>s["node_x"]</code> and <code>**s</code> mean for every caller. The readability measures apply to
+   functions, not to the field count of a record; a long field list with one comment per field is
+   the documentation the old dict never had.</p>
+<h2 id="4-sequencing">4. Sequencing<a class="headerlink" href="#4-sequencing" title="Permanent link">&para;</a></h2>
+<ol>
+<li><code>fdia_graph.models.Bundle</code> with its tests (dict behaviour, JSON, default collate, <code>**</code>).</li>
+<li>The internal models of 2a, one PR: <code>Scan</code>, <code>TrueState</code>, <code>Redistribution</code>, <code>ResolvedPool</code>,
+   <code>Admittances</code>, <code>ShardArrays</code>, <code>AssetSpec</code>, <code>DownloadTarget</code>. Pure renames of plumbing; the
+   strict frozen tests are the proof.</li>
+<li>The generator's attribute groups (<code>g.branch</code>, <code>g.meters</code>, <code>g.bias</code>, <code>g.outage</code>) with the old
+   attribute names as properties for one minor version; the writer and the docs scripts move to
+   the models in the same PR.</li>
+<li>The public dual-access models, one PR: <code>EstimatorScores</code> and <code>LocalizerScores</code> with their
+   row models, <code>JacobianOutputs</code>, <code>Stream</code>, <code>LineCandidate</code>, <code>Summary</code>, then <code>RecordBundle</code>,
+   <code>BatchBundle</code> and <code>ArraysBundle</code> (the loader). One PR rather than four because the base class
+   change (<code>Mapping</code> to <code>dict</code> subclass) touches them all and each is a few lines at its producer.</li>
+<li>Docs: <code>docs/reference/DATA_DICTIONARY.md</code> gains a "models" section listing every public
+   model and its fields, generated from the dataclasses so it cannot drift.</li>
+</ol>
+<p>Verification is the same net as the readability series: the strict frozen tests, pyright, and
+the readability gate; plus, for every public bundle, a test that the dict view equals the
+previous dict exactly.</p>
+<h2 id="4a-status">4a. Status<a class="headerlink" href="#4a-status" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th>pull request</th>
+<th>state</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 <code>Bundle</code> and the internal models</td>
+<td>#69</td>
+<td>merged</td>
+</tr>
+<tr>
+<td>2 the generator's attribute groups</td>
+<td>#69</td>
+<td>merged</td>
+</tr>
+<tr>
+<td>3 public dual-access bundles</td>
+<td>#70</td>
+<td>merged</td>
+</tr>
+<tr>
+<td>4 the data dictionary's models section</td>
+<td>#71</td>
+<td>merged</td>
+</tr>
+<tr>
+<td>5 one <code>models/</code> package</td>
+<td>#72</td>
+<td>open</td>
+</tr>
+</tbody>
+</table>
+<p>Decisions taken 2026-09-16: dual-access bundles for the public dicts; the DataLoader test came
+first (<code>tests/test_models.py</code>); the base class is named <code>Bundle</code>; the generator's old attribute
+names are properties that warn for one minor version (removed after 0.16.0, #75).</p>
+<h2 id="5-decisions-for-ben">5. Decisions for Ben<a class="headerlink" href="#5-decisions-for-ben" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Dual-access models for the public dicts (proposed), or a hard switch to dataclasses in a
+   major version. Dual access costs one small base class and keeps every user's code working.</li>
+<li>Whether <code>__getitem__</code> records become a <code>RecordBundle</code> now or only after PyG and the default
+   collate are exercised in a test on a real DataLoader (proposed: the test first, in step 1).</li>
+<li>The name <code>Bundle</code> for the base class, or <code>Model</code>, or <code>Struct</code>.</li>
+<li>Whether the generator's old attribute names (<code>g.edge_r</code>, <code>g.M</code>, <code>g.bias_pi</code>, ...) are removed
+   after one minor version or kept for good as properties (they are private in spirit but
+   undocumented code reads them).</li>
+</ol>
+<h2 id="6-step-5-one-models-package-planned-2026-09-16-bens-request">6. Step 5: one <code>models/</code> package (planned 2026-09-16, Ben's request)<a class="headerlink" href="#6-step-5-one-models-package-planned-2026-09-16-bens-request" title="Permanent link">&para;</a></h2>
+<p>Steps 1 to 4 left thirty model classes in thirteen files, each next to its producer (rule 5).
+That avoided one giant module and import cycles, but a reader has no single place to look, which
+is what Ben asked to fix. Step 5 moves every model into a <code>fdia_graph/models/</code> package grouped
+by what the data is, and keeps every old import path working.</p>
+<h3 id="61-layout">6.1 Layout<a class="headerlink" href="#61-layout" title="Permanent link">&para;</a></h3>
+<p><code>models.py</code> becomes a package. Each file holds one kind of data, in the order a reader meets it:</p>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>holds</th>
+<th>moved from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>models/base.py</code></td>
+<td><code>Bundle</code> (unchanged)</td>
+<td><code>models.py</code></td>
+</tr>
+<tr>
+<td><code>models/grid.py</code></td>
+<td>the static description of a system: <code>BranchModel</code>, <code>Admittances</code>, <code>MeterPlan</code>, <code>MeterBias</code>, <code>Outage</code>, <code>INTACT</code></td>
+<td><code>formulas/network.py</code>, <code>engine/base.py</code></td>
+</tr>
+<tr>
+<td><code>models/frames.py</code></td>
+<td>what the generators pass around per scan: <code>Scan</code>, <code>Frame</code>, <code>FrameKnobs</code>, <code>Record</code>, <code>Redistribution</code>, <code>ResolvedPool</code></td>
+<td><code>engine/records.py</code>, <code>generation.py</code>, <code>engine/attacks.py</code>, <code>engine/physics.py</code></td>
+</tr>
+<tr>
+<td><code>models/data.py</code></td>
+<td>what users get back: <code>RecordBundle</code>, <code>BatchBundle</code>, <code>ArraysBundle</code>, <code>Summary</code>, <code>ShardArrays</code>, <code>Stream</code>, <code>TrueState</code></td>
+<td><code>dataset.py</code>, <code>generation.py</code>, <code>streams.py</code>, <code>se/base.py</code></td>
+</tr>
+<tr>
+<td><code>models/scores.py</code></td>
+<td>the result tables: <code>ErrorPair</code>, <code>EstimatorScores</code>, <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code>, <code>LocalizerScores</code>, <code>JacobianOutputs</code></td>
+<td><code>se/base.py</code>, <code>localization/base.py</code>, <code>se/jacobian.py</code></td>
+</tr>
+<tr>
+<td><code>models/assets.py</code></td>
+<td>how files are found: <code>AssetSpec</code>, <code>DownloadTarget</code>, <code>LineCandidate</code></td>
+<td><code>registry.py</code>, <code>download.py</code>, <code>engine/core.py</code></td>
+</tr>
+<tr>
+<td><code>models/__init__.py</code></td>
+<td>re-exports all of the above with an <code>__all__</code>, so <code>fdia_graph.models</code> is the one namespace to browse</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Every class above is pure data: none has a method of its own or reads a module constant, so
+each moves as written (with its docstring and field comments). Constants that describe families
+(<code>RESOLVE_FAMILIES</code>, <code>CORRUPT_KIND</code>, <code>SINGLE_SHOT_ORDER</code>, <code>RAMP_FAMILY</code>, <code>LRA_FAMILY</code>) stay in
+<code>engine/records.py</code>, since they belong to the attack logic, not to the record shape.</p>
+<p>Four private workflow objects do <strong>not</strong> move: <code>generation._FrameContext</code>, <code>streams._StreamBuffers</code>,
+<code>streams._StreamPlan</code>, <code>dataset._RecordFilter</code>. They are the state of one algorithm, read only
+by the loop next to them, so they stay beside it.</p>
+<h3 id="62-rules">6.2 Rules<a class="headerlink" href="#62-rules" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Models import only numpy and typing</strong> (<code>models/data.py</code> may import <code>Bundle</code> from <code>base</code>,
+   <code>models/scores.py</code> may import <code>ErrorPair</code> and the metric rows from itself). Producers import
+   from <code>models</code>; nothing under <code>models/</code> imports a producer. Import cycles are therefore
+   impossible. (The parent package still imports the loader, h5py included, on any import.)</li>
+<li><strong>Every old import path keeps working.</strong> Each producer module re-exports the names it used to
+   define (<code>from .models.data import Stream</code> at the top of <code>streams.py</code>, and so on), so
+   <code>from fdia_graph.streams import Stream</code>, <code>from fdia_graph.se.base import TrueState</code>,
+   <code>from fdia_graph.engine.records import Frame</code> are unchanged. The re-exports of public names
+   stay for good; those of private names for one minor version, per the compatibility promise.</li>
+<li><strong>A test keeps it from scattering again.</strong> <code>tests/test_models_package.py</code> walks every module of
+   the package and fails if a <code>Bundle</code> subclass or a <code>NamedTuple</code> with a public name is defined
+   outside <code>models/</code>. It also checks that <code>fdia_graph.models.__all__</code> names every one of them, and
+   that no module under <code>models/</code> imports anything but numpy, typing and dataclasses.</li>
+<li><strong>The data dictionary follows the package.</strong> <code>fdia_graph.models.PUBLIC</code> names the bundles a
+   user receives (<code>__all__</code> also holds the internal models and <code>Bundle</code>); <code>tools/models_doc.py</code>
+   iterates <code>PUBLIC</code> instead of its hand-kept list.</li>
+<li><strong>No behaviour change.</strong> The strict frozen tests, pyright and the readability gate are the
+   proof, as in every step before.</li>
+</ol>
+<h3 id="63-sequence-one-pr">6.3 Sequence (one PR)<a class="headerlink" href="#63-sequence-one-pr" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Create the package: move <code>models.py</code> to <code>models/base.py</code>, add the five domain files with the
+   classes moved verbatim, and <code>__init__.py</code> with <code>__all__</code> in the table's order.</li>
+<li>In each former home, replace the class with a re-export line and switch the module's own uses
+   to the import. Producers that built models keep building them the same way.</li>
+<li>Add <code>tests/test_models_package.py</code>; point <code>tools/models_doc.py</code> at <code>__all__</code> and regenerate
+   the data dictionary section (it should render byte-identical apart from the module column).</li>
+<li>Run the strict frozen suite, pyright, the readability gate and the deprecation-as-error run.</li>
+<li><code>CHANGELOG.md</code>: "models live in <code>fdia_graph.models</code>; old import paths unchanged".
+   <code>docs/reference/FORMULAS.md</code> and <code>docs/ROADMAP.md</code> rows that name <code>engine/records.py</code> or
+   <code>formulas/network.py</code> for a model get the new path.</li>
+</ol>
+<h3 id="64-decisions-taken-2026-09-16-ben-delegated-the-call">6.4 Decisions (taken 2026-09-16, Ben delegated the call)<a class="headerlink" href="#64-decisions-taken-2026-09-16-ben-delegated-the-call" title="Permanent link">&para;</a></h3>
+<ol>
+<li>File names by kind of data: <code>grid</code>, <code>frames</code>, <code>data</code>, <code>scores</code>, <code>assets</code>. Grouping by producer
+   would only reproduce today's scatter inside one folder.</li>
+<li>The internal NamedTuples move too. One place to look is the point; a reader of <code>Frame</code> should
+   not have to know it is internal to find it.</li>
+<li><code>TrueState</code> lives in <code>data.py</code>: it is per-record truth a user can ask for, not a score.</li>
+<li>Re-exports of public names stay for good. They cost one line each and keep every published
+   example and every user's import working; there is nothing to gain from removing them.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../ONE_DATASET_PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: One dataset">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                One dataset
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../FIELD_GROUPS_PLAN/" class="md-footer__link md-footer__link--next" aria-label="Next: Field groups">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Field groups
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

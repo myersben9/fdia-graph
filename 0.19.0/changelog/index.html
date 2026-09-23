@@ -1,0 +1,2096 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/0.19.0/changelog/">
+      
+      
+        <link rel="prev" href="../contributing/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Changelog - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#changelog" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Changelog
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/state_estimation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../plans/" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Class map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/FORMULAS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    One dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/DATA_MODELS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/READABILITY_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Readability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Restructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0190" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.19.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0180" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.18.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0170" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.17.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0160" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.16.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0150" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.15.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0141" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.14.1
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0190" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.19.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0180" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.18.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0170" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.17.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0160" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.16.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0150" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.15.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#0141" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.14.1
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<p>Every release lists what a user of the package can see change. "No user-visible change" means
+the public API, the generated files and the numbers are the same as the previous release.</p>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="0190">0.19.0<a class="headerlink" href="#0190" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Data release v0.8.1 is the default (<code>fg.load("ieee118")</code>; v0.8.0 stays readable with
+  <code>release="v0.8.0"</code>): the eight timelines regenerated with this release's generator, the same pools
+  (byte-identical), seed and knobs, built by <code>examples/_build_timelines_v081.py</code>. The stealthy
+  families change on every system but IEEE-200, whose file is byte-identical to v0.8.0 (no bus there
+  holds both a load and a generator, and its static generators produce nothing). Every file keeps
+  72,000 frames, exactly half attacked, no frame falling back to benign, every family present, and
+  no stealthy frame labelling a generator bus.</li>
+<li>
+<p>Generator, the stealthy families change. Aq, At, Al and Am no longer target a load on a generator
+  bus (zero-MW condensers included), the local attacker's rule in [BOY22]: a generator bus is too
+  risky to falsify. <code>FdiaGenerator.stealthy_pos</code> is their target set; Ad, As and Ar keep
+  <code>attackable_pos</code>. Attackable loads left to the stealthy families: IEEE-14 8 of 11, 30 18 of 20,
+  57 35 of 41, 89 29 of 29, 118 54 of 99, 145 11 of 36, 200 108 of 108, 300 156 of 191. The frozen
+  timeline is re-frozen. The data dictionary states that <code>attack/mag</code> is unsigned (a load rise and
+  a drop of the same size record the same value).</p>
+</li>
+<li>
+<p>Loading and fitting, no number changes. <code>fg.load("IEEE118")</code> works like <code>"ieee118"</code> (a locally
+  registered name stays case-sensitive). <code>latest_release</code> skips a tag it cannot parse instead of
+  falling back to the pinned default, and its docstring no longer claims <code>load(release=None)</code> calls
+  it. Two jobs downloading the same asset at once write separate temp files; the second keeps the
+  first's installed copy instead of corrupting it. <code>fit</code> refuses a dataset whose slack disagrees
+  with the case's. The solve's reduced normal-matrix inverse is built once in <code>fit</code> rather than on
+  every chunk. The recent-change scale's docstring says "plus 1e-3", what the code does.</p>
+</li>
+<li>Tests, no package change. <code>tests/test_public_coverage.py</code> tests directly what the suite reached only
+  through whole pipelines: the replay policy and its buffer, <code>batched_normal_matrices</code>,
+  <code>local_ac_solve</code> on a two-bus grid, <code>sparse_basis</code>, <code>per_bus_sequences</code>, <code>read_episodes</code>,
+  <code>latest_release</code> online and offline, the <code>TrustSelector</code> base, the removal guard, and
+  <code>tune_threshold</code>.</li>
+<li>Generator, the stealthy families change. The engine recovered a scan's load at a bus holding
+  both a load and a generator as the stored injection plus the BASE generation, but the pools scale
+  a bus's load and generation by one factor, so the load came out as s L + (1 - s) G instead of
+  s L: at s = 0.75 the median load was 1.6x the true one on IEEE-118 (10 of its 99 attackable
+  loads) and 2.0x on IEEE-300 (23 of 191), at times negative, so an Aq step there moved the wrong
+  amount and a "raise" could lower the load. Every load-recovery site now uses
+  <code>formulas.attacks.bus_load</code> (the <code>generator_output</code> construction the limit check already used),
+  through <code>FdiaGenerator.true_load</code> and <code>scan_generation</code>. Static generators that produce anything
+  count as injection buses (IEEE-89 buses 1, 65, 69, 79 and eight on IEEE-300 were treated as
+  zero-injection junctions and pulled into attack regions). The attack-redistribution sign: the
+  engine's redistribution LOWERS the target line's |flow| in the false state (checked on 77 of 77
+  draws), so <code>am_direction="mask"</code> now keeps its sign and <code>"induce"</code> flips it (they were swapped);
+  <code>"both"</code>, the default, maps a given draw to the same sign as before. The frozen
+  timeline is re-frozen (341 of its 1000 frames change: the corrected stealthy draws spend the
+  random stream differently, so later noise shifts too). The released v0.8.0 timelines were
+  generated before this fix; regenerating them is a data release.</li>
+<li>CI, no package change. <code>publish.yml</code> runs the test suite on the tagged commit and publishes only
+  when it passes. The suite also runs on Python 3.9 (the lowest supported) and on Windows, both
+  required by <code>tools/pr.py merge</code>; the Ubuntu job installs the <code>[se]</code> extra by name and reports
+  coverage. <code>ruff format --check</code> covers <code>tests</code> and <code>tools</code>. Every action is pinned to a commit
+  SHA, kept current by Dependabot; <code>slow.yml</code> runs the <code>FDIA_SLOW</code> IEEE-118 check weekly and on
+  demand.</li>
+<li>Fixes the new CI jobs found. The estimators failed on Python 3.9: its SciPy has no
+  <code>lapack.dtrcon</code>, which <code>guarded_inverse</code> called for its condition estimate; it now falls back to
+  Hager's 1-norm estimate (the same value LAPACK returns, a few O(k²) solves) when SciPy lacks it (<code>[se]</code> still asks only scipy&gt;=1.8). <code>tools/readability.py</code>
+  no longer fails on a file on another drive than the repository (Windows CI's temp dir).</li>
+<li>Repository, no package change. <code>_publish_pypi.sh</code> is gone: publishing goes through a version tag and
+  <code>publish.yml</code> only (no manual upload path). Four figures in <code>docs/</code> that nothing referenced
+  (the README uses the copies in <code>docs/figures/</code>) are gone. <code>.gitignore</code> loses a duplicated block,
+  ignores the pytest and ruff caches, and names <code>examples/_build_timelines_v080.py</code>, the v0.8.0
+  build script, as tracked on purpose.</li>
+<li>Estimators, numbers change. <code>ResidualRemoval</code> is classical largest-normalized-residual removal:
+  one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
+  a removal the observability guard refuses keeps that meter. It used to remove every meter above
+  the threshold at once, taking out the honest neighbours a single gross error smears onto. Meter
+  sigma (and the trust selectors' alarm level) is calibrated on benign records spread evenly over
+  the train split instead of the first ones, which on a timeline are one early load regime. The
+  guarded weighted solve also considers its final Newton step. Measured on the IEEE-14 v0.8.0
+  timeline (geometric-mean angle error, test split): removal 0.0665 to 0.0552 degrees (replay
+  0.0645 to 0.0224), WLS 0.0966 to 0.0961, Huber 0.0613 to 0.0605, prior + Huber 0.0499 to 0.0503,
+  Jacobian weighting 0.0826 to 0.0800, gated arms within 0.2 percent. The frozen SE reference moved
+  by at most 1.6e-7 relative (its train split has fewer than 600 benign frames).</li>
+<li>Estimators, fixes. Every public path that solves a dataset (<code>estimate</code>, <code>score</code>,
+  <code>ResidualLocalizer</code>, <code>TrustSelector.score</code>, <code>JacobianFeatures.fit</code>, <code>JacobianWeighting</code>) refuses a
+  <code>units="pu"</code> view with a ValueError; <code>fit</code> did before, but estimating or scoring a per-unit view
+  converted twice and returned errors about ten times too large. <code>GatedPrior</code> and
+  <code>JacobianWeighting</code> supply their per-record weights through one hook (<code>_record_weights</code>) instead
+  of overriding <code>estimate</code>, so <code>ResidualLocalizer(estimator=GatedPrior(...))</code> scores the gated
+  estimator rather than its ungated parent; the Huber passes live once in <code>SEBase</code> and
+  <code>JacobianWeighting</code> gains <code>tol</code> (it ran all 40 passes) and builds its Jacobian features once in
+  <code>fit</code>. <code>ResidualLocalizer</code> no longer refits an estimator that is already fitted
+  (<code>SEBase.is_fitted</code>). The localizer hook is <code>_score(d, ds)</code>.</li>
+<li><code>ds.windows(..., copy=False)</code> returns the windows as a read-only strided view of the frames, no
+  memory per window (a 72k-frame IEEE-118 timeline at W=60 was about 8 GB as a copy); the default
+  still returns a writable copy, now built from that view. <code>TrustedMetersDQN</code> evaluates the attack
+  cost once per step instead of twice, keeps its replay buffer in a ring, and defaults to <code>seed=123</code>
+  like the localizers (pass <code>seed=0</code> for the previous default; the trust guide pins it). Windows and
+  the seed-0 DQN selection are bit-identical to 0.18.0.</li>
+<li>The trust guide's secured-copy tables for IEEE-118 (<code>results/secured_ieee118.json</code>): the DQN set
+  opens the residual test on the stealthy families and lifts the learned localizer four points, the
+  estimator gains within a percent at 20 meters. No package change.</li>
+<li>The docs site's staging step drops nav entries for pages a checkout lacks, so a backfilled older
+  version on the versioned site has no link into a 404. No package change.</li>
+<li>Versioned docs: <code>.github/workflows/docs.yml</code> deploys the MkDocs site per package version to GitHub
+  Pages with mike (tags as <code>latest</code>, main as <code>dev</code>) with a version picker on every page; the nav lists
+  every page (the trust guide, the class map, the formulas, references, benchmarks and plans,
+  contributing and the changelog), and <code>scripts/site_index.py</code> stages the three root pages. No
+  package change.</li>
+<li>Trusted meters reach the estimators and the localizers: <code>TrustSelector.secured_copy(ds, out, name)</code>
+  (<code>trust.secured_copy(selector, ds, out, name)</code>) writes a copy of a timeline in which the selected meters read their benign
+  value on every frame, the attacker locked out of them, with the tamper masks and the stored
+  temporal features following, so every estimator and localizer can be scored with a trusted set;
+  <code>GatedPrior(secured=...)</code> never down-weights a secured meter (on a secured copy every gate was
+  worse than no gate until this exemption, and with it the DQN's 20 meters take the proposed
+  estimator from 0.050 to 0.020 degrees on IEEE-14); <code>formulas.projection.meter_positions</code> maps
+  masked measurement indices to the file's layers; <code>docs/trust/run_secured.py</code> and the trust guide
+  carry the tables. <code>formulas.temporal.SWING_WINDOW</code> is the writer's window, imported by
+  <code>generation</code>.</li>
+<li>The narrative sections of the SE and localization guides (the Jacobian-informed weighting, the
+  localization-gated estimation, the digest's ablation, the three readings) are re-derived on the
+  v0.8.0 timelines from the results JSONs; their v0.7.2 markers are gone. On the timelines the
+  Jacobian block is what makes the localizer's vector work (zero-shot 0.55 to 0.86 on IEEE-118)
+  and a gate alone no longer lowers the estimator's error on any system. No package change.</li>
+<li><code>docs/reference/CLASS_MAP.md</code>: one module diagram and six class diagrams of the package, drawn
+  from the source by <code>tools/class_diagrams.py</code> (inheritance, the classes each class uses, the imports
+  between modules) and checked in CI against the code. No package change.</li>
+<li>Every diagram in the docs is a rendered image (<code>docs/figures/diagrams/&lt;name&gt;.png</code>, source <code>&lt;name&gt;.mmd</code>
+  beside it, <code>tools/render_mermaid.py</code>), since the GitHub mobile app and PyPI show a Mermaid block
+  as code; no Mermaid block remains. No package change.</li>
+<li><code>docs/se</code> and <code>docs/localization</code> IEEE-300 columns re-run on the v0.8.0 timeline (tables, figures
+  and CSV sidecars); the live result tables of both guides now read the v0.8.0 release, while the
+  paper-comparison table (v0.4.1) and the narrative sections (v0.7.2) stay labeled as such. No
+  package change.</li>
+<li>The README's pipeline diagram is a pre-rendered image (<code>docs/figures/diagrams/pipeline.png</code>, source
+  <code>pipeline.mmd</code> beside it, <code>tools/render_mermaid.py</code>), since PyPI and the GitHub mobile app show a
+  Mermaid block as code; README images use absolute URLs so the PyPI page shows them. No package change.</li>
+<li>Docs: the six diagrams that GitHub laid out badly are redrawn (the module map as layers, the
+  generate and load pipelines as two rows, the estimator overview as columns, the trust guide with
+  fit feeding score, the concepts page on the attack-vector construction with Am); no package change.</li>
+</ul>
+<h2 id="0180">0.18.0<a class="headerlink" href="#0180" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Reviews: <code>tools/pr.py</code> waits for and requires every installed review bot (Copilot always;
+  CodeRabbit and Gemini Code Assist once they have reviewed a pull request) on the head before a
+  merge; <code>.coderabbit.yaml</code> carries the repository's review instructions (the physics conventions,
+  the readability limits, the prose rules); CONTRIBUTING lists the three reviewers and their order,
+  with the Claude Code <code>/code-review ultra</code> pass first. No package change.</li>
+<li>Names, no behavior: the generator's attributes are words (<code>_ppc_row</code>, <code>_n_ppc_buses</code>,
+  <code>_from_bus_ppc</code>, <code>_base_mva</code>, <code>_target_lines</code>, <code>_primary_target_line</code>, <code>_line_flow_sign</code>,
+  <code>_ptdf_load_buses</code>, <code>_solve_net</code>, <code>_injection_buses</code>, <code>_bias_sd</code>, <code>_draw_noise</code> and the public
+  <code>n_lines</code>, whose old name <code>nl</code> still answers with a <code>DeprecationWarning</code> until 0.19),
+  the dataset package's docstring maps each mixin to the questions it answers, and the data
+  dictionary and the schema name the static <code>graph/edge_x</code> (the series reactance) apart from the
+  flow layer of the same name.</li>
+<li><code>fdia_graph.schema</code> is the file protocol: every group, dataset and attribute name of an HDF5
+  file, the record-field to path map, the family table and the split codes, defined once; the
+  writer, the readers and the tools spell paths through it, and <code>tools/readability.py</code> (the CI
+  gate) refuses a path-shaped literal ("data/...", "graph/...") in any other module.
+  <code>dataset.base.FAMILIES</code>, <code>STEALTHY_FAMILIES</code> and <code>timeline.KIND</code> stay importable. No file or
+  number changes.</li>
+<li>One export of a split: <code>ds.export(fields, format="numpy" | "torch" | "tf" | "pandas", device,
+  flatten_features)</code> replaces <code>to_numpy</code>, <code>to_torch</code>, <code>to_tf</code> and <code>to_pandas</code>, which still answer
+  with a deprecation notice until 0.19. <code>ds.windows(..., per_bus=True)</code> returns one sequence per
+  bus (<code>[n*N, W, 4]</code>), what <code>torch_windows</code> built, and <code>fg.load(name, split, order="time",
+  format="pyg")</code> gives the graphs <code>pyg_stream</code> built with the file's chronological split, so both
+  torch helpers are deprecated (retire in 0.19). Eight ways to read a view become three: <code>export</code>,
+  <code>ds[i]</code> and <code>ds.windows</code>. No number changes.</li>
+<li>Four findings of a full-branch review: a load on the slack bus is never a target (the slack
+  never enters a region, so IEEE-57 frames that scaled its 55 MW load were labelled attacked with
+  no attack in the state); the tamper masks are the meters whose stored float32 reading changed
+  (the attack vector's 1e-7 tolerance marked 1.8% of entries that the reading could not show); a
+  branch out of service is not a hop of the attacker's region on N-1 generators; and the local
+  solve builds its interior Jacobian block directly instead of slicing the n x n derivatives,
+  about half the cost of a stealthy frame on IEEE-300, with identical states.</li>
+<li>The local power flow of a stealthy frame is a damped Newton: each step is halved until the
+  mismatch drops, the full step first, so every frame the plain method solved is bit-identical. A
+  step the region still cannot absorb is halved (an Aq step at most three times and never under
+  the noise floor, a ramp or Am frame at most six times) so the frame stays attacked at the
+  largest step with a solution, an Al frame halves its redistribution and then redraws its line (up to forty),
+  and an Aq, At or Am episode tests its design (the full step, the ramp's peak, the held
+  redistribution's peak) on every frame it will occupy, each with the step that frame will carry
+  (an Aq episode's whole span, every frame of the ramp and of the Am rise, plateau and return),
+  and redraws it, up to forty times, when no stealthy state exists on any of them, so an accepted design cannot fall back, and a span with no admissible design stays
+  benign and is counted; an Am redistribution is also tried at halved sizes above the floor
+  before it is redrawn. A ramp or Am frame never carries a zero step (the profile's first frame
+  and return leg floor at one rate), so every frame labelled attacked carries an attack. <code>fallback_benign</code> now counts every frame the draw
+  meant to attack that is benign, whether or not an episode record exists for it (an Am episode
+  with no admissible redistribution left no record and was not counted). An Aq episode now draws its direction like the ramp, a load rise or a load
+  drop with the same 5% to 20% scale: on a case that runs below its voltage limits (IEEE-57) a
+  rise near the low buses has no admissible state and a drop is the attack that fits. Loads above <code>max_load_mw</code> (new knob, default 2000 MW) are never targets: the
+  IEEE-145 case lumps whole areas into loads of 4 to 58 GW, and a 5% step on one has no local
+  solution, which left 30% of that system's attack frames benign; no other ladder system has a
+  load above 1.1 GW, so their files do not change. <code>fallback_benign</code> is zero on every released file. Every false state also satisfies the security and operational constraints of Wu et al.
+  2026 (<code>OperatingLimits</code>, their equations 21 to 23): each bus voltage within the case's own
+  limits (a bus the true state already holds outside a limit may not be made worse, IEEE-57 runs
+  below its own minimum) and, for the generators of the attacked subnetwork as in the paper (a
+  boundary bus is outside it, its voltage held true and its injection whatever balances the
+  region), the implied output within its P and Q limits widened per bus to the range the benign
+  pool ran it over (the pools scale generation with load and never enforced nameplate), the true
+  output recovered exactly from the pool's common load and generation scale, and the pretended
+  load change at a target bus not counted against its generator; a false state outside them is rejected and its step halved
+  like an unsolvable one. The file records the widest bus limits as <code>v_lo</code> and <code>v_hi</code>.</li>
+<li>A stealthy frame (Aq, At, Al, Am) is the true scan plus the attack vector a = h(x_false) - h(x_true)
+  of its local false state: every meter keeps its own noise draw and the tampered meters are
+  shifted by exactly what the false state moves them, so <code>observed - benign</code> is the attack for
+  every family and a WLS residual test flags the stealthy families at the benign rate. Until now
+  the tampered meters were re-emitted from the false state, which drew their noise from the false
+  reading; where a boundary bus has a structurally zero injection (the IEEE-14 synchronous
+  condenser's P, a zero-injection bus) that noise is several times what the estimator calibrates
+  for the meter, and the residual test flagged about a third of the Aq, Al and Am frames on the
+  full IEEE-14 timeline. An Al frame whose drawn target line has no feasible redistribution in
+  its region redraws the line (up to ten) instead of falling back to a benign frame. Both change
+  every generated file; the frozen references are re-frozen.</li>
+<li><code>tools/pr.py merge</code> requires every smoke job green by name on the head (a job that has not
+  registered yet is not green), every other check finished without failure, and Copilot's review on
+  that head; <code>wait</code> waits for the same set. A merge can no longer slip in while CI is still starting.</li>
+<li><code>fdia_graph.trust</code>: which meters to secure so that stealthy attacks stop being stealthy, after
+  the trusted-PMU defence of Wu et al. 2026. <code>TrustedMeters(k)</code> is the greedy row-reduction
+  selection on the WLS Jacobian (secure, on the cheapest open attack, the meter whose protection
+  raises the attack cost most), <code>TrustedMetersDQN(k, episodes)</code> the same selection learned as a
+  Markov decision process with a deep Q-network (state the secured set, reward the attack-cost
+  rise; needs torch). Both expose the order and the attack cost after each meter, and <code>score(test)</code>
+  on a time-ordered timeline pins the secured meters to their benign reading and reports the WLS
+  residual detection per family before and after (<code>TrustScores</code>). The kernel is
+  <code>formulas.trust</code> (<code>attack_subspace</code>, <code>sparse_basis</code>, <code>attack_cost</code>, <code>greedy_trusted_meters</code>);
+  <code>docs/trust/</code> has the guide and <code>run_trust.py</code>.</li>
+<li>The timeline writer draws its attack episodes so their frames sum to exactly
+  <code>round(attacked_frac * T)</code>, places every one of them (longest first, each at an onset drawn
+  uniformly among the onsets where it fits), and emits benign frames everywhere else. The
+  benign-gap band and the rule that started the next episode with no gap are gone, so whether two
+  episodes touch or a quiet stretch separates them is a property of the draw; an Am episode redraws
+  its redistribution at onset rather than leaving frames benign, and only a non-converging power
+  flow falls back to a benign frame (counted in <code>fallback_benign</code>). The frozen references are
+  re-frozen on the tiny timeline (seed 4).</li>
+<li>Data releases have their own tag namespace: the assets of <code>v0.8.0</code> and later live under the
+  GitHub tag <code>data-v0.8.0</code> (package versions own the bare <code>v0.x.y</code> tags, PyPI 0.8.0 is <code>v0.8.0</code>),
+  while <code>v0.7.1</code> and <code>v0.7.2</code> keep their bare tags; <code>registry.release_tag</code> maps the short name
+  users write (<code>fg.load(name, release="v0.8.0")</code>, <code>FDIA_GRAPH_RELEASE</code>) to the tag, the newest
+  data release is picked from the tag list, and <code>tools/upload_assets.py</code> refuses a package tag.</li>
+<li>The localization scores in <code>docs/localization</code> are re-run on the v0.8.0 timelines and are not
+  comparable with the v0.7.2 shard tables: the shard's temporal features compared an attacked
+  snapshot with the benign scan before it, so every attacked record spiked, while the timeline's
+  compare each frame with the frame emitted one minute earlier, so a sustained episode spikes at
+  its onset and the one-frame families also spike on the benign frame after them. The per-record
+  numbers are lower for the same detectors and the same data, and the tables say which reference
+  they use.</li>
+<li><code>fg.load(name)</code> reads the v0.8.0 timelines by default (<code>_RELEASE</code> is <code>v0.8.0</code>, the checksums of
+  the final files pinned). The test suite's tiny fixture now walks the v0.8.0 pool (72,000 one-minute
+  states where the v0.7.2 pool held 36,000), so the frozen references are re-frozen on it.</li>
+<li>The data release <code>v0.8.0</code>, step 4 of <code>docs/plans/ONE_DATASET_PLAN.md</code>: one timeline file per
+  system of the ladder (<code>timeline_ieee{N}.h5</code>, 72,000 frames, the seven families, seed 123,
+  <code>attacked_frac</code> 0.5) and the operating-point pools as HDF5 (<code>pool_ieee{N}.h5</code>), built by
+  <code>examples/_build_timelines_v080.py</code> from the v0.7.1 NYISO pools. <code>fg.load(name)</code> reads them by
+  default; <code>fg.load(name, release="v0.7.2")</code> (or <code>FDIA_GRAPH_RELEASE=v0.7.2</code>) still reads the
+  record shards, since the registry now maps a release tag to the file layout it shipped
+  (<code>registry.dataset_file</code>, <code>pool_spec</code>, <code>is_timeline_release</code>) and knows the sha256 of each pinned
+  release. <code>generate(states=None)</code> fetches the pool through the same registry. <code>load_stream</code>
+  (deprecated) returns the timeline through the loader at a timeline release and the v0.7.2
+  stream file before it. <code>tools/upload_assets.py</code> publishes release assets idempotently.</li>
+<li>One generator path, step 3 of <code>docs/plans/ONE_DATASET_PLAN.md</code>: the record-shard writer
+  (<code>generation.generate_shard</code> and its draw loop), the stream walker and its <code>.npz</code> output, the
+  magnitude sidecar (<code>&lt;out&gt;.mag.npz</code>) and the graph sidecar read of <code>load_stream</code> are deleted, with
+  the <code>ShardArrays</code> and <code>Record</code> models and <code>SINGLE_SHOT_ORDER</code>. <code>generate_stream</code> is now the
+  timeline writer followed by a read of the file it wrote (<code>streams.stream_of</code> turns a time-ordered
+  dataset into the stream dict), so its output is the timeline's and its <code>out</code> is the HDF5 path;
+  <code>load_stream</code> still reads the v0.7.2 stream files (which embed their graph) until the v0.8.0 data
+  release. The loader keeps reading the v0.7.2 record shards; <code>tests/data/tiny_shard_v072.h5</code> is a
+  checked-in file in that layout that the suite loads.</li>
+<li>The frozen references are re-frozen on the tiny timeline the suite builds (<code>frozen_spec.TIMELINE_KW</code>,
+  1000 IEEE-14 frames, every family): the file's arrays and attributes, and the estimator and
+  localizer scores on its test split. The shard and stream references are gone with their writers.</li>
+<li>One loader for both kinds of file, step 2 of <code>docs/plans/ONE_DATASET_PLAN.md</code>. <code>fg.load(name)</code>
+  reads a timeline file (<code>kind="timeline"</code>) as well as a v0.7.2 record shard. New arguments:
+  <code>order="time"</code> (default) keeps the file order, chronological on a timeline; <code>order="random"</code> is
+  the same records in a permutation fixed by <code>seed</code> (default 0), a view index, nothing copied, so
+  two people asking for the same seed get the same record table. On a timeline every record,
+  batch and export carries <code>benign</code> and <code>edge_benign</code> (the attack removed, the noise kept, in the
+  requested units), <code>ds.windows(W, stride, label, layer)</code> slides windows over a time-ordered
+  contiguous view (a split or the whole file; it refuses a random order, a family subset and a
+  shard), <code>ds.episodes</code> is the episode table (<code>EpisodeTable</code>: onset, length, family, buses) of the
+  view, and <code>torch_windows(dataset=ds)</code> / <code>pyg_stream(dataset=ds)</code> take the loaded timeline.
+  <code>ds.is_timeline</code> and <code>ds.has_benign</code> say which kind a file is.</li>
+<li><code>fg.generate(system, name, frames=None, **knobs)</code> now writes a timeline (the knobs of
+  <code>timeline.generate_timeline</code>, plus <code>frames</code> to cap the pool timesteps walked) and registers it, so
+  <code>fg.load(name)</code> and <code>fg.load(name, order="random")</code> read it back. The record-shard writer is
+  gone (the entry above): the loader still reads the v0.7.2 shards, nothing writes them.</li>
+<li><code>generate_stream</code>, <code>load_stream</code> and <code>windows(stream, ...)</code> warn with <code>DeprecationWarning</code> and
+  retire in 0.19: the timeline file replaces the stream, <code>fg.load(name, order="time")</code> reads it, and
+  <code>ds.windows</code> replaces <code>windows</code>. They keep working unchanged until then (<code>load_stream</code> reads the
+  v0.7.2 stream files).</li>
+<li>The timeline writer, step 1 of <code>docs/plans/ONE_DATASET_PLAN.md</code>: <code>fdia_graph.timeline.generate_timeline</code>
+  walks one attacked timeline over a system's operating-point pool and writes one HDF5 file
+  (<code>kind="timeline"</code>) carrying every layer the streams and shards had between them: the observed,
+  benign and clean scans per frame, the full static graph, per-frame <code>stealthy</code>, <code>seq_id</code> (the
+  episode index) and a chronological <code>split</code> that never cuts an episode, an <code>episodes/</code> table, and
+  an <code>attack/</code> group with the designed magnitude per attacked bus and the tamper masks (the meters
+  the attacker wrote). Families are scheduled by inverse expected episode length so each gets about
+  the same share of attacked frames; <code>corrupt_len=1</code> makes every Ad/As/Ar frame an independent draw.
+  The loader for these files is step 2; <code>generate</code> and <code>load</code> are unchanged in this release.</li>
+<li>A seventh family, <code>Am</code> (code 7, stealthy), the multi-snapshot attack of Wu et al. 2026: the Al
+  load redistribution drawn once at episode onset and applied along a ramp whose per-bus per-frame
+  step stays under <code>am_rate</code> of the noise floor. <code>fg.FAMILIES[7] == "Am"</code>, <code>fg.STEALTHY_FAMILIES</code>
+  now <code>{1, 5, 6, 7}</code>; the published shards and streams carry no <code>Am</code> frames.</li>
+<li>Every stealthy family (Aq, At, Al, Am) is now a local false state, the attacker model of Wu et al.
+  2026: the attacker solves the power flow of the subnetwork within <code>hops</code> branches of the attacked
+  loads (or the target line) with every other bus voltage held true (<code>FdiaGenerator.solve_local</code>,
+  <code>formulas.network.local_ac_solve</code>), never the whole grid and never the slack, and writes only the
+  meters that false state moves (the tamper masks). The measurement vector is exactly consistent
+  with an AC state, so a WLS residual test flags these frames at the benign rate; the global
+  re-solve with pinned generation is gone from the writer. <code>hops</code> (default 2) replaces <code>am_sigma</code>.</li>
+<li><code>generate_stream</code> builds its frames through the timeline module's episode primitives; its
+  scheduler and RNG order are unchanged and the streams are bit-identical. <code>generate(states=...)</code>
+  also accepts a pool stored as HDF5 (dataset <code>X</code>).</li>
+<li>One definition of the measurement column orders: <code>fdia_graph.models.NodeColumns</code> (<code>v</code>, <code>p_inj</code>,
+  <code>q_inj</code>, <code>theta</code>), <code>EdgeColumns</code> (<code>p_from</code>, <code>q_from</code>) and <code>BranchColumns</code> (the eight <code>edge_attr</code>
+  columns), with <code>.of(array)</code> giving named views of any such array and <code>NODE</code>, <code>EDGE</code>, <code>BRANCH</code>
+  the indices. Every record, batch, split and stream has <code>.node()</code> and <code>.edge()</code>; the generator,
+  loader and estimator index columns through the definition instead of literals. No behaviour change.</li>
+<li>The shard-shaped bundles (<code>RecordBundle</code>, <code>BatchBundle</code>, <code>ArraysBundle</code>, <code>Stream</code>)
+  are built from field groups (<code>fdia_graph.models.fields</code>: scan, labels, record ids, temporal,
+  clean, graph, stream layers), so each shared field is declared once; <code>Bundle</code> gains <code>_order</code>
+  (the dict-key order, unchanged from before) and <code>_required</code> (a missing required field raises
+  <code>TypeError</code> at construction, as a missing argument did). These four bundles are keyword-only
+  (a positional call raises <code>TypeError</code> instead of binding to the inherited field order); they
+  are return types, and no caller in the package or its examples built them positionally.</li>
+<li><code>fg.load_stream</code> now fills <code>system</code> and <code>attacked_frac</code> (they were None: the stream files carry
+  the arrays only and the generator attached the two values after writing). Both are derived from
+  the arrays on load, the same way <code>generate_stream</code> computes them; <code>fdia_graph.streams.stream_summary</code>
+  is the shared helper.</li>
+<li><code>ruff check</code> configured in <code>pyproject.toml</code> with pyflakes, import order and modern-syntax rules,
+  and the package clean under them (<code>list[int]</code>-style generics and <code>collections.abc</code> imports;
+  <code>Optional</code>/<code>Union</code> stay, since <code>typing.get_type_hints</code> on 3.9 cannot evaluate <code>X | None</code>). The
+  CI <code>format</code> job runs it on every pull request. No behaviour change.</li>
+<li>
+<p><code>tools/bench.py</code> and <code>docs/reference/BENCHMARKS.md</code>: per-record timings of shard generation and
+  the WLS, Huber and prior+Huber estimators on the tiny shard, appended per run with the machine
+  and torch state; <code>--check</code> fails when a timing is more than 3x slower than the last row.</p>
+</li>
+<li>
+<p><code>CONTRIBUTING.md</code> (the rules, the pull-request flow, releasing), <code>tools/pr.py</code> (create, wait,
+  comments, reply, merge, with the merge rule enforced) and <code>tools/release.py</code> (tag, GitHub
+  release, PyPI wait) so a second maintainer can ship; the plan documents move to <code>docs/plans/</code>.</p>
+</li>
+<li>Clear errors at the public edges instead of silent or opaque failures: an unknown family name
+  or code in <code>load(families=...)</code>, an unknown <code>split</code>, an unknown field in <code>to_numpy</code> and its
+  siblings, and an invalid <code>label</code>, window length or stride in <code>windows</code> raise <code>ValueError</code>
+  naming what is allowed (an unknown family used to select nothing; an invalid window label used
+  to behave as "any"). <code>tests/test_edges.py</code> covers these and the estimators' and localizers'
+  argument checks; <code>FDIA_SLOW=1</code> additionally runs the IEEE-118 estimator sanity test.</li>
+</ul>
+<h2 id="0170">0.17.0<a class="headerlink" href="#0170" title="Permanent link">&para;</a></h2>
+<p>State estimation without torch, the formula kernel complete, the loader as concerns, and the
+scheduled removals (PRs #74 to #78). What a user sees: <code>pip install "fdia-graph[se]"</code> no longer
+pulls torch (add <code>[torch]</code> for faster per-record inverses); the pre-0.16 generator attribute
+names are gone; every helper on the package namespace is the real function. Shards, streams and
+the localizer scores are bit-identical to 0.16.0; estimator scores moved by at most 2.7e-6
+relative (the closed-form Jacobian, see the entry below). No import path changes.</p>
+<ul>
+<li>State estimation no longer needs torch: <code>formulas.network.ac_measurement</code> is the estimator's
+  h(x) and <code>ac_jacobian</code> its closed-form Jacobian (equal to the automatic-differentiation Jacobian
+  to 1e-14), so <code>fit</code> takes no gradient; torch, when installed, only speeds up the per-record
+  inverses, and the <code>[se]</code> extra no longer installs it. The frozen estimator scores moved by at most 2.7e-6 relative (six of 56 cells above
+  1e-9, all in the Huber arm, whose passes amplify last-bit differences in h); shards, streams
+  and every other score are bit-identical. The torch twin <code>SEBase._h_t</code> stays for callers that
+  differentiate through it.</li>
+<li><code>formulas.estimation</code> (the WLS step, gain matrix, residual covariance, normalized residual,
+  Huber weight, the operating-point prior basis, the localization gate), <code>formulas.linalg</code> (the
+  guarded inverse, condition number, per-record normal matrices) and <code>formulas.projection</code> (the
+  weighted pseudo-inverse, explained/unexplained split, leverage, weak directions, meter-to-bus
+  aggregation): the estimators and the Jacobian features now call these named functions, each
+  with its equation and source key. Identical numbers (bit-identical frozen scores); the
+  estimator's private helpers keep their names and delegate.</li>
+<li>Removed, as scheduled one minor version after 0.16: the generator's pre-0.16 attribute names
+  (<code>edge_r</code> ... <code>edge_status</code>, <code>M</code>, <code>flow_meter</code>, <code>bias_pi</code> ... <code>bias_qf</code>, <code>outage</code>,
+  <code>outage_pos</code> ... <code>outage_base_flow_mw</code>; read <code>g.branch</code>, <code>g.meters</code>, <code>g.bias</code>, <code>g.contingency</code>)
+  and <code>fdia_graph.streams._swing_scale</code> (use <code>fdia_graph.generation._swing_scale</code>).</li>
+<li><code>fdia_graph.generate</code>, <code>generate_stream</code>, <code>load_stream</code>, <code>windows</code>, <code>pyg_stream</code>, <code>torch_windows</code>,
+  <code>load_profile</code>, <code>fetch_profile</code>, <code>generate_states</code> and <code>line_outage_candidates</code> are the real
+  functions, resolved on first use (PEP 562) instead of wrappers that restated their docstrings.
+  Same names, same calls, same lazy imports; <code>help(fg.generate)</code> now shows the one docstring.</li>
+<li>The loader is the <code>fdia_graph.dataset</code> package: <code>FdiaGraph</code> is assembled from <code>graph</code>,
+  <code>physics</code>, <code>records</code> and <code>export</code> mixins over a <code>base</code> that declares the shared state, the same
+  pattern as the generator. Same import path, same names, same behaviour (docs/plans/READABILITY_PLAN.md,
+  step 9).</li>
+</ul>
+<h2 id="0160">0.16.0<a class="headerlink" href="#0160" title="Permanent link">&para;</a></h2>
+<p>The readability and data-models series (PRs #64 to #72). What a user sees: every dict the package
+returns is now a typed bundle with attributes and a docstring, still the same dict with the same
+keys; every model lives in <code>fdia_graph.models</code>; the generator's old attribute names warn. Shards,
+streams and every score are bit-identical to 0.15.0 (the strict frozen tests are the proof), no
+data release moves, and no import path changes. The entries below are in the order the steps
+merged, newest first within each series.</p>
+<p>Data models, steps 1 and 2 (docs/plans/DATA_MODELS_PLAN.md). No user-visible change; one deprecation.</p>
+<ul>
+<li><code>fdia_graph.models.Bundle</code>: the base of typed records, a frozen dataclass that is also a read-only
+  mapping, so a bundle works wherever a dict did.</li>
+<li>Internal tuples and dicts are models: <code>Scan</code>, <code>TrueState</code>, <code>Redistribution</code>, <code>ResolvedPool</code>,
+  <code>Admittances</code> (also returned by <code>formulas.network.branch_admittances</code>), <code>AssetSpec</code> (returned by
+  <code>registry.resolve</code>, indexable as before), <code>DownloadTarget</code>, <code>ShardArrays</code>.</li>
+<li><code>FdiaGenerator</code> holds <code>branch</code>, <code>meters</code>, <code>bias</code> and <code>contingency</code> models. Deprecated: the previous
+  attribute names (<code>edge_r</code> ... <code>edge_status</code>, <code>M</code>, <code>flow_meter</code>, <code>bias_pi</code> ... <code>bias_qf</code>, <code>outage</code>,
+  <code>outage_pos</code> ... <code>outage_base_flow_mw</code>) still work as read-only properties and warn; they are
+  removed one minor version later.</li>
+</ul>
+<p>Data models, step 3: the public dicts are typed bundles. No user-visible change: every one is
+still the dict it was (a <code>dict</code> subclass with the same keys in the same order), so indexing,
+<code>**</code>, iteration, JSON dumping of score tables and PyTorch's default collate keep working; each
+also has attributes and a docstring naming its fields.</p>
+<ul>
+<li><code>dataset.RecordBundle</code> (<code>FdiaGraph[i]</code>), <code>BatchBundle</code> (<code>collate</code>), <code>ArraysBundle</code> (<code>to_numpy</code>,
+  <code>to_torch</code>, <code>to_tf</code>), <code>Summary</code> (<code>summary</code>).</li>
+<li><code>se.base.EstimatorScores</code> of <code>ErrorPair</code> rows (<code>SEBase.score</code>); <code>localization.base.LocalizerScores</code>
+  of <code>OverallMetrics</code>, <code>BenignMetrics</code> and <code>FamilyMetrics</code> (<code>LocalizerBase.score</code>).</li>
+<li><code>se.jacobian.JacobianOutputs</code> (<code>JacobianFeatures.transform</code>; the <code>"global"</code> key is the
+  <code>global_</code> attribute).</li>
+<li><code>streams.Stream</code> (<code>generate_stream</code>, <code>load_stream</code>) and <code>engine.core.LineCandidate</code>
+  (<code>line_outage_candidates</code>).</li>
+<li><code>Bundle</code> is now a <code>dict</code> subclass rather than a <code>Mapping</code>, so <code>isinstance(out, dict)</code> and
+  <code>json.dump(out)</code> hold as well; it is read-only on both sides.</li>
+</ul>
+<p>Data models, step 5: every data model lives in the <code>fdia_graph.models</code> package, grouped by what
+the data is (<code>grid</code>, <code>frames</code>, <code>data</code>, <code>scores</code>, <code>assets</code>), with <code>fdia_graph.models.PUBLIC</code> naming
+the bundles a user receives. Every previous import path still works (each producer module
+re-exports what it used to define), so no user code changes.</p>
+<p>Data models, step 4: <code>docs/reference/DATA_DICTIONARY.md</code> gains a "Models" section listing every
+public bundle and its fields, generated by <code>tools/models_doc.py</code> from the dataclasses and kept
+current by a test.</p>
+<p>Readability series, steps 6 and 7 (docs/plans/READABILITY_PLAN.md): the temporal and ramp formulas in
+the kernel, and the rest of the backlog. No user-visible change (bit-identical shards and
+streams, identical estimator and localizer scores).</p>
+<ul>
+<li><code>formulas.temporal</code> (<code>recent_change_scale</code>, <code>temporal_delta</code>, <code>swing_zscore</code>) and
+  <code>formulas.attacks.ramp_profile</code>, each with its equation and source key, used by both generators.</li>
+<li><code>AttackMixin.corrupt</code> decides the family once and runs one short loop per family;
+  <code>PhysicsMixin.solve</code> pins the generation in <code>_pin_generation</code>; <code>line_outage_candidates</code> screens a
+  line with guard clauses; the loader's <code>__getitem__</code> and <code>collate</code>, the localizer's <code>score</code>, the
+  learned model builders, the stream loader and the download are split the same way; the Huber
+  passes of the estimators are one method.</li>
+</ul>
+<p>Readability series, step 5 (docs/plans/READABILITY_PLAN.md): the generator constructor, the loader
+constructor and <code>to_numpy</code> split into named steps. No user-visible change (bit-identical shards
+and streams, same loader outputs).</p>
+<ul>
+<li><code>FdiaGenerator.__init__</code> reads as a list of what it builds: the case with its contingency, the
+  load tables, the meter plan, the edge index, the branch physics, the admittances, the meter
+  biases; the accuracy-class split of the meter error is <code>formulas.noise.bias_jitter_split</code> and the
+  series admittance comes from <code>formulas.network</code>.</li>
+<li><code>FdiaGraph.__init__</code> delegates to <code>_read_header</code>, <code>_read_static_graph</code>, <code>_read_layers</code>,
+  <code>_reference_bus</code>, <code>_record_mask</code> and <code>_preload</code>; <code>family_ids</code> translates family names or codes in
+  one place; <code>to_numpy</code> gathers the clean layers and converts units through small helpers.</li>
+</ul>
+<p>Readability series, step 4 (docs/plans/READABILITY_PLAN.md): one AC measurement function. No
+user-visible change (bit-identical shards and streams; <code>ybus</code>, <code>yf</code>, <code>yt</code> and <code>edge_clean_full</code>
+unchanged).</p>
+<ul>
+<li><code>fdia_graph.formulas</code> (new, public, provisional until 1.0): <code>formulas.network</code> holds the AC
+  network model as pure functions, <code>complex_voltages</code>, <code>series_admittance</code>, <code>branch_admittances</code>
+  (the pi model behind <code>ybus</code>/<code>yf</code>/<code>yt</code>), <code>bus_injections</code> and <code>branch_flows</code>, each with its
+  equation and source key. The generator's measurement emission and the loader's admittance
+  and clean-flow computations call them; the estimator's torch measurement function is pinned to
+  them by a test, so the package has one AC model.</li>
+</ul>
+<p>Readability series, steps 2 and 3 (docs/plans/READABILITY_PLAN.md): one attack frame for shards and
+streams, both generators split into named steps. No user-visible change: a seeded shard and a
+seeded stream are bit-identical to the previous release (<code>tests/test_frozen.py</code>, strict mode).</p>
+<ul>
+<li><code>fdia_graph.engine.records</code>: <code>attack_frame</code> builds one scan of any family from a stored
+  operating point, for <code>generate</code> and <code>generate_stream</code> alike; <code>FrameKnobs</code> carries the two
+  switches that differ between them; <code>replay_frame</code> and <code>remember_benign</code> name the replay policy.</li>
+<li><code>generate</code> and <code>generate_stream</code> are sequences of named draws and episodes; the swing scale,
+  the temporal features and the ramp profile are functions with their source keys, shared by both.</li>
+<li>Shard records are a named <code>Record</code> tuple and the writer reads them by field name; the writer is
+  split into the attributes, graph, data and clean groups.</li>
+<li>No public name changed. The private stream helper <code>_swing_scale</code> now lives in <code>generation</code>;
+  <code>streams._swing_scale</code> stays as a deprecated alias that warns, removed one minor version later.</li>
+</ul>
+<p>Readability series, step 1 (docs/plans/READABILITY_PLAN.md): the safety net. No user-visible change.</p>
+<ul>
+<li><code>tests/test_frozen.py</code>: a generated shard, a generated stream, and the estimator and localizer
+  scores on the test shard are compared with frozen references (<code>tests/frozen/</code>): exactly in
+  strict mode; otherwise arrays to 1e-7 relative and estimator and localizer scores to 1e-4
+  relative, the cross-platform tolerances the test module documents. <code>tools/freeze_reference.py</code>
+  rewrites the references when a change to the generator or an estimator is intended.</li>
+<li><code>tools/readability.py</code>: the readability measures (complexity, nesting, closures, parameters,
+  positional indexing) as a report over the package and as a gate on the functions a change
+  touched; runs in CI.</li>
+<li><code>docs/reference/FORMULAS.md</code> and <code>REFERENCES.md</code>: the catalogue of formulas and their sources,
+  with the docstring template every formula function follows.</li>
+<li><code>docs/plans/READABILITY_PLAN.md</code>, <code>docs/plans/RESTRUCTURE_PLAN.md</code>: the plans for the series.</li>
+</ul>
+<h2 id="0150">0.15.0<a class="headerlink" href="#0150" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>edge_clean_full</code>: the exact clean power flow on every branch, computed on load from the clean
+  state through the branch admittance matrix; in the record dict, PyG data, <code>collate</code>, <code>to_numpy</code>
+  and the per-unit view.</li>
+</ul>
+<h2 id="0141">0.14.1<a class="headerlink" href="#0141" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Per-record normal matrices are built by chunked matrix products instead of one einsum; the
+  IEEE-300 estimators run in minutes instead of days. Same numbers.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../contributing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Contributing">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Contributing
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

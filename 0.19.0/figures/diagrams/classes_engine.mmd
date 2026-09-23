@@ -1,0 +1,78 @@
+classDiagram
+    class GridBase {
+        +emit_from_state()
+        +clean_flows_from_states()
+        +local_region()
+        +solve_local()
+        +state_from_net()
+        +solve()
+    }
+    class MeasurementMixin {
+        +emit_from_state()
+        +clean_flows_from_states()
+        +state_from_net()
+        +emit()
+    }
+    class PhysicsMixin {
+        +resolve_states()
+        +true_load()
+        +true_reactive_load()
+        +scan_reactive_generation()
+        +scan_generation()
+        +local_region()
+        +operating_limits()
+        +solve_local()
+        ... and 1 more
+    }
+    class AttackMixin {
+        +corrupt()
+        +lra_delta()
+    }
+    class FdiaGenerator {
+        +nl
+        +centrality_probs()
+    }
+    class BranchModel {
+        <<models>>
+    }
+    class MeterBias {
+        <<models>>
+    }
+    class MeterPlan {
+        <<models>>
+    }
+    class OperatingLimits {
+        <<models>>
+    }
+    class Outage {
+        <<models>>
+    }
+    class Redistribution {
+        <<models>>
+    }
+    class ResolvedPool {
+        <<models>>
+    }
+    class Scan {
+        <<models>>
+    }
+    AttackMixin <|-- FdiaGenerator
+    GridBase <|-- AttackMixin
+    GridBase <|-- MeasurementMixin
+    GridBase <|-- PhysicsMixin
+    MeasurementMixin <|-- FdiaGenerator
+    PhysicsMixin <|-- FdiaGenerator
+    AttackMixin ..> Redistribution : uses
+    FdiaGenerator ..> BranchModel : uses
+    FdiaGenerator ..> MeterBias : uses
+    FdiaGenerator ..> MeterPlan : uses
+    FdiaGenerator ..> Outage : uses
+    GridBase ..> BranchModel : uses
+    GridBase ..> MeterBias : uses
+    GridBase ..> MeterPlan : uses
+    GridBase ..> Outage : uses
+    GridBase ..> Redistribution : uses
+    GridBase ..> Scan : uses
+    MeasurementMixin ..> Scan : uses
+    PhysicsMixin ..> OperatingLimits : uses
+    PhysicsMixin ..> ResolvedPool : uses

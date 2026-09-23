@@ -1,0 +1,61 @@
+classDiagram
+    class LocalizerBase {
+        +fit()
+        +scores()
+        +localize()
+        +score()
+    }
+    class SwingThreshold {
+    }
+    class DeltaThreshold {
+    }
+    class ResidualLocalizer {
+    }
+    class LearnedLocalizer {
+        +fit()
+        +tune_threshold()
+    }
+    class BusCNN {
+    }
+    class BusMLP {
+    }
+    class TrustSelector {
+        +fit()
+        +select()
+        +score()
+        +attack_cost()
+        +secured_copy()
+    }
+    class TrustedMeters {
+    }
+    class TrustedMetersDQN {
+    }
+    class JacobianFeatures {
+        <<se>>
+    }
+    class LocalizerScores {
+        <<models>>
+    }
+    class SEBase {
+        <<se>>
+    }
+    class TrustScores {
+        <<models>>
+    }
+    class WLS {
+        <<se>>
+    }
+    LearnedLocalizer <|-- BusCNN
+    LearnedLocalizer <|-- BusMLP
+    LocalizerBase <|-- DeltaThreshold
+    LocalizerBase <|-- LearnedLocalizer
+    LocalizerBase <|-- ResidualLocalizer
+    LocalizerBase <|-- SwingThreshold
+    TrustSelector <|-- TrustedMeters
+    TrustSelector <|-- TrustedMetersDQN
+    LearnedLocalizer ..> JacobianFeatures : uses
+    LocalizerBase ..> LocalizerScores : uses
+    ResidualLocalizer ..> SEBase : estimator
+    ResidualLocalizer ..> WLS : uses
+    TrustSelector ..> TrustScores : uses
+    TrustSelector ..> WLS : uses

@@ -1,0 +1,1810 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/0.19.0/reference/FORMULAS/">
+      
+      
+        <link rel="prev" href="../EXAMPLES/">
+      
+      
+        <link rel="next" href="../BENCHMARKS/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Formulas - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#formulas-from-the-equation-in-the-source-to-the-function-in-the-code" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Formulas
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/state_estimation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../plans/" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Class map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-a-formula-function-is-written" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a formula function is written
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#catalogue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catalogue
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    One dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Readability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Restructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-a-formula-function-is-written" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a formula function is written
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#catalogue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catalogue
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="formulas-from-the-equation-in-the-source-to-the-function-in-the-code">Formulas: from the equation in the source to the function in the code<a class="headerlink" href="#formulas-from-the-equation-in-the-source-to-the-function-in-the-code" title="Permanent link">&para;</a></h1>
+<p>Every operation in the package that appears in a paper or a textbook gets one named function,
+even when it is called once, so a reader can go from an equation to the code and back. This
+catalogue is the index: one row per formula, the function that implements it, the equation in
+plain text, the source with a key from <a href="../REFERENCES/"><code>REFERENCES.md</code></a>, and where it is used.</p>
+<p>The plan behind it is <a href="../../plans/READABILITY_PLAN/"><code>../READABILITY_PLAN.md</code></a> (rule 3) and
+<a href="../../plans/RESTRUCTURE_PLAN/"><code>../RESTRUCTURE_PLAN.md</code></a> (the <code>formulas/</code> kernel). Rows are added as
+the functions land; a row whose function column says <em>today:</em> names where the operation lives
+until its function exists.</p>
+<h2 id="how-a-formula-function-is-written">How a formula function is written<a class="headerlink" href="#how-a-formula-function-is-written" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">swing_zscore</span><span class="p">(</span><span class="n">delta</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="sd">"""One-step injection change as a z-score of the bus's typical recent change [FED26, eq. 3].</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="sd">        swing[b, c] = delta[b, c] / scale[b, c]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">    delta : [N, 2]  current minus previous scan, active and reactive injection (MW, MVAr)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">    scale : [N, 2]  std of the one-step change over the last SWING_W scans, plus 1e-3</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="sd">    returns [N, 2], dimensionless; large on a single-scan spike, near 1 on a slow ramp</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="sd">    """</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">return</span> <span class="n">delta</span> <span class="o">/</span> <span class="n">scale</span>
+</code></pre></div>
+<p>The rules: the name is the operation, not the caller; the first line of the docstring names the
+quantity and cites the key with its equation number; the equation follows in plain text; every
+argument has its shape and unit; the function is pure (numpy in, numpy out, no I/O, no dataset
+objects); one test checks it on a case small enough to verify by hand.</p>
+<h2 id="catalogue">Catalogue<a class="headerlink" href="#catalogue" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>formula</th>
+<th>function</th>
+<th>equation</th>
+<th>source</th>
+<th>used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>swing z-score and temporal delta</td>
+<td><code>formulas.temporal.temporal_delta</code>, <code>formulas.temporal.swing_zscore</code> (shards, via <code>generation._record_features</code>); the stream computes the same two lines against the previous emitted frame in <code>streams._StreamBuffers.store</code></td>
+<td>delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t</td>
+<td>[FED26]</td>
+<td>the swing and temporal_delta features, <code>SwingThreshold</code>, <code>DeltaThreshold</code></td>
+</tr>
+<tr>
+<td>recent-change scale</td>
+<td><code>formulas.temporal.recent_change_scale</code> (shards and streams, through <code>generation._swing_scale</code>)</td>
+<td>scale_t = std over [t − W, t) of the one-step change, plus 1e-3</td>
+<td>[FED26]</td>
+<td>the swing feature</td>
+</tr>
+<tr>
+<td>replay policy</td>
+<td><code>engine.records.replay_frame</code></td>
+<td>fixed lag tau, else a random lag of at least 20 scans, else the oldest scan</td>
+<td>[DAT26]</td>
+<td>the Ar and As families</td>
+</tr>
+<tr>
+<td>bus voltage phasors</td>
+<td><code>formulas.network.complex_voltages</code></td>
+<td>V = |V| e^{jθ}</td>
+<td>[AE04, eq. 2.1]</td>
+<td>every AC evaluation</td>
+</tr>
+<tr>
+<td>bus injections</td>
+<td><code>formulas.network.bus_injections</code> (numpy); <code>se.base.SEBase._h_t</code> is its torch twin, kept for callers that differentiate through it and pinned by <code>tests/test_formulas.py</code></td>
+<td>S = V ∘ conj(Y V)</td>
+<td>[AE04, eq. 2.6]</td>
+<td>the estimator's h(x)</td>
+</tr>
+<tr>
+<td>AC measurement function</td>
+<td><code>formulas.network.ac_measurement</code>, called by <code>SEBase._h</code></td>
+<td>h = [|V|, −Re S, −Im S, θ, Re S_f, Im S_f]</td>
+<td>[AE04, eqs. 2.6, 2.8]</td>
+<td>every estimator, <code>JacobianFeatures.delta_z</code></td>
+</tr>
+<tr>
+<td>AC measurement Jacobian</td>
+<td><code>formulas.network.ac_jacobian</code>, called by <code>SEBase._jacobian</code> (the chord Jacobian in <code>fit</code>), pinned to the autograd Jacobian by <code>tests/test_formulas.py</code></td>
+<td>∂S/∂θ = j diag(V) conj(diag(I) − Y diag(V)); ∂S/∂|V| = diag(V) conj(Y diag(V/|V|)) + conj(diag(I)) diag(V/|V|); the same for S_f with C_f and Y_f</td>
+<td>[AE04, ch. 2], [MP19, dSbus_dV, dSbr_dV]</td>
+<td>every estimator</td>
+</tr>
+<tr>
+<td>branch flows</td>
+<td><code>formulas.network.branch_flows</code>; called by <code>engine.measurement.emit_from_state</code>, <code>clean_flows_from_states</code> and <code>dataset._clean_flows_full</code></td>
+<td>S_f = V_from ∘ conj(Y_f V)</td>
+<td>[AE04, eq. 2.8]</td>
+<td>every emitted flow meter, the clean flow layers, the estimator's h(x)</td>
+</tr>
+<tr>
+<td>branch admittances</td>
+<td><code>formulas.network.branch_admittances</code>; called by <code>dataset._admittances</code> (<code>ybus</code>, <code>yf</code>, <code>yt</code>)</td>
+<td>y_tt = y_s + (g + jb)/2, y_ff = y_tt / (t conj t), y_ft = −y_s / conj t, y_tf = −y_s / t; shunts on the diagonal</td>
+<td>[MP19, makeYbus]</td>
+<td>the loader's admittance matrices</td>
+</tr>
+<tr>
+<td>series admittance</td>
+<td><code>formulas.network.series_admittance</code>, called by <code>FdiaGenerator._branch_physics</code> and <code>branch_admittances</code></td>
+<td>y_s = 1 / (r + jx), zero when the branch has no impedance</td>
+<td>[MP19, branch model]</td>
+<td>the static edge physics</td>
+</tr>
+<tr>
+<td>accuracy-class error split</td>
+<td><code>formulas.noise.bias_jitter_split</code>, called by <code>FdiaGenerator.__init__</code></td>
+<td>bias² + jitter² = SD², jitter = 0.25 SD</td>
+<td>[ASP14], our split</td>
+<td>every emitted measurement</td>
+</tr>
+<tr>
+<td>ramp profile</td>
+<td><code>formulas.attacks.ramp_profile</code> (shards and streams)</td>
+<td>dev(i) = rate_up·i for i &lt; rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after</td>
+<td>[DAT26]</td>
+<td>the At family</td>
+</tr>
+<tr>
+<td>attacker's subnetwork</td>
+<td><code>formulas.network.subnetwork</code>, <code>FdiaGenerator.local_region</code></td>
+<td>the buses within <code>hops</code> branches of the seeds (never the slack, grown over zero-injection boundary buses) and their boundary</td>
+<td>[WU26]</td>
+<td>every stealthy family</td>
+</tr>
+<tr>
+<td>local false state</td>
+<td><code>formulas.network.local_ac_solve</code>, <code>FdiaGenerator.solve_local</code></td>
+<td>S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i on the interior, every other V held true; Newton on [θ_I, |V|_I], each step halved until the mismatch drops (the full step first, so a plain-Newton iteration is unchanged)</td>
+<td>[WU26], [AE04, ch. 2]</td>
+<td>Aq, At, Al, Am</td>
+</tr>
+<tr>
+<td>Am schedule</td>
+<td><code>timeline._AmShape.under_floor</code>, the ramp of one Am episode</td>
+<td>rate = am_rate · floor / max_b |δ_b| / |L_b|, rise = ⌈1 / rate⌉, the ramp profile above clipped at 1, so no bus's load moves by more than am_rate of the noise floor in one frame</td>
+<td>[WU26], our closed form</td>
+<td>the Am family</td>
+</tr>
+<tr>
+<td>a scan's load at a generator bus</td>
+<td><code>formulas.attacks.bus_load</code>, through <code>engine.physics.PhysicsMixin.true_load</code> and <code>scan_generation</code></td>
+<td>P_load = P_inj + s P_gen,base = s P_load,base with s = P_inj / (P_load,base − P_gen,base), the pools scaling a bus's load and generation by one factor</td>
+<td>[DAT26]</td>
+<td>Aq, At, Al, Am, contingency re-solves</td>
+</tr>
+<tr>
+<td>a bus's scan load over its load elements</td>
+<td><code>formulas.attacks.element_loads</code>, through <code>true_load</code></td>
+<td>P_e = P_bus(e) · P0_e / Σ P0 over the bus's elements, the pools scaling every load at a bus by one factor</td>
+<td>[DAT26]</td>
+<td>Aq, At, Al, Am, contingency re-solves</td>
+</tr>
+<tr>
+<td>operating limits of a false state</td>
+<td><code>formulas.attacks.operating_limits</code>, <code>generator_output</code>, <code>within_limits</code>, checked by <code>_stealthy_frame</code></td>
+<td>per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected and its step halved</td>
+<td>[WU26, eqs. 21-23]</td>
+<td>Aq, At, Al, Am</td>
+</tr>
+<tr>
+<td>attack vector</td>
+<td><code>engine.records._attack_vector</code>, called by <code>_stealthy_frame</code></td>
+<td>a = h(x_false) - h(x_true), the noiseless reading of the local false state minus that of the true state, added to the true scan so every meter keeps its own noise draw</td>
+<td>[WU26]</td>
+<td>Aq, At, Al, Am</td>
+</tr>
+<tr>
+<td>open attack subspace</td>
+<td><code>formulas.trust.attack_subspace</code>, <code>sparse_basis</code></td>
+<td>{H c : H_S c = 0} = H · null(H_S), its basis in reduced row echelon form</td>
+<td>[WU26], [AE04, ch. 5]</td>
+<td>the trusted-meter selectors</td>
+</tr>
+<tr>
+<td>attack cost</td>
+<td><code>formulas.trust.attack_cost</code></td>
+<td>the fewest meters the cheapest open attack touches: the sparsest row of the echelon basis (an upper bound on the sparsest vector of the subspace, NP-hard)</td>
+<td>[WU26]</td>
+<td><code>TrustedMeters</code>, the DQN reward</td>
+</tr>
+<tr>
+<td>greedy trusted meters</td>
+<td><code>formulas.trust.greedy_trusted_meters</code>, called by <code>trust.TrustedMeters</code></td>
+<td>secure, on the cheapest open attack, the meter whose protection leaves the costliest cheapest attack; ties to the meter the most basis attacks pass through</td>
+<td>[WU26], the row-reduction selection</td>
+<td><code>TrustedMeters</code></td>
+</tr>
+<tr>
+<td>tamper set of a stealthy frame</td>
+<td><code>engine.records._changed_meters</code>, called by <code>_stealthy_frame</code></td>
+<td>the metered channels the attack vector moves: the interior's and boundary's injections and voltages, the flows on branches touching the interior</td>
+<td>[WU26]</td>
+<td>Aq, At, Al, Am</td>
+</tr>
+<tr>
+<td>WLS step</td>
+<td><code>formulas.estimation.wls_step</code> (shared weights) and <code>wls_step_batched</code> (per-record weights), called by <code>SEBase._solve_plain</code> and <code>_w_solve</code></td>
+<td>Δc = (BᵀWB)⁻¹BᵀW (z − h(x))</td>
+<td>[SCH70, part II]</td>
+<td>every estimator</td>
+</tr>
+<tr>
+<td>gain matrix</td>
+<td><code>formulas.estimation.normal_matrix</code>; per record <code>formulas.linalg.batched_normal_matrices</code></td>
+<td>G = HᵀWH</td>
+<td>[SCH70, part II]</td>
+<td>every estimator, the observability guard</td>
+</tr>
+<tr>
+<td>weighted objective</td>
+<td><code>formulas.estimation.weighted_objective</code>, the divergence guard of <code>SEBase._w_solve</code></td>
+<td>J = Σ w_i (z_i − h_i(x))²</td>
+<td>[SCH70]</td>
+<td>the robust arms</td>
+</tr>
+<tr>
+<td>residual covariance</td>
+<td><code>formulas.estimation.residual_covariance_diag</code>, <code>critical_measurements</code>, <code>floored_covariance</code>, called by <code>SEBase.fit</code></td>
+<td>Ω = R − H G⁻¹ Hᵀ; critical when Ω_ii &lt; 1e-6 R_ii</td>
+<td>[HAN75]</td>
+<td>normalized residuals, <code>ResidualRemoval</code></td>
+</tr>
+<tr>
+<td>normalized residual</td>
+<td><code>formulas.estimation.normalized_residual</code>, called by <code>SEBase._nres</code></td>
+<td>r_N,i = |z_i − h_i(x̂)| / √Ω_ii</td>
+<td>[HAN75]</td>
+<td>Huber, residual removal, <code>ResidualLocalizer</code></td>
+</tr>
+<tr>
+<td>Huber weight</td>
+<td><code>formulas.estimation.huber_weights</code>, called by <code>AdaptiveWeighting</code>, <code>SubspacePrior._huber_passes</code>, <code>JacobianWeighting</code></td>
+<td>a_i = min(1, c / |r_N,i|)</td>
+<td>[HUB64]</td>
+<td><code>AdaptiveWeighting</code>, <code>SubspacePrior</code>, <code>JacobianWeighting</code></td>
+</tr>
+<tr>
+<td>operating-point prior</td>
+<td><code>formulas.estimation.whitened_svd_basis</code>, called by <code>SubspacePrior._fit_states</code></td>
+<td>whiten X per coordinate, SVD, keep the leading rank_frac directions, un-whiten, QR</td>
+<td>[EST26]</td>
+<td><code>SubspacePrior</code>, <code>GatedPrior</code></td>
+</tr>
+<tr>
+<td>localization gate</td>
+<td><code>formulas.estimation.gate_weights</code>, called by <code>GatedPrior.gated_weights</code></td>
+<td>w_i ← factor · w_i for every meter incident to a flagged bus</td>
+<td>[EST26]</td>
+<td><code>GatedPrior</code></td>
+</tr>
+<tr>
+<td>guarded inverse, condition number</td>
+<td><code>formulas.linalg.guarded_inverse</code>, <code>condition_number</code> (Cholesky, power and inverse iteration)</td>
+<td>inverse when PD and cond &lt; 1/(100 eps), else pseudo-inverse; cond = λ_max / λ_min</td>
+<td>numerical guards, no source</td>
+<td>every estimator, the observability guard</td>
+</tr>
+<tr>
+<td>weighted pseudo-inverse</td>
+<td><code>formulas.projection.weighted_pseudoinverse</code></td>
+<td>H_W⁺ = G⁻¹HᵀW</td>
+<td>[SCH70, part II]</td>
+<td>Jacobian features</td>
+</tr>
+<tr>
+<td>explained / unexplained split</td>
+<td><code>formulas.projection.explained_unexplained</code>, called by <code>JacobianFeatures.transform</code></td>
+<td>dx̂ = H_W⁺ Δz, r∥ = H dx̂, r⊥ = Δz − r∥</td>
+<td>[JAC26]</td>
+<td>Jacobian features, <code>JacobianWeighting</code></td>
+</tr>
+<tr>
+<td>leverage</td>
+<td><code>formulas.projection.leverage</code></td>
+<td>diag of P = Hw G⁻¹ Hwᵀ, Hw = W^{1/2} H</td>
+<td>[HAN75]</td>
+<td>the leverage-weighted change feature</td>
+</tr>
+<tr>
+<td>weak directions</td>
+<td><code>formulas.projection.weak_directions</code>, <code>direction_coefficients</code>, <code>weak_move</code></td>
+<td>SVD of Hw; α = Uᵀ W^{1/2} Δz; V_weak V_weakᵀ dx̂</td>
+<td>[JAC26]</td>
+<td>the α_weak and weak-move features</td>
+</tr>
+<tr>
+<td>meter-to-bus aggregation</td>
+<td><code>formulas.projection.bus_incidence</code>, <code>meters_to_buses</code></td>
+<td>a bus's own V, P, Q, θ channels plus the flows of its incident branches; sum for energies, max for changes</td>
+<td>[JAC26]</td>
+<td>the per-bus features, <code>GatedPrior</code>, <code>ResidualLocalizer</code></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../EXAMPLES/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Examples">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Examples
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../BENCHMARKS/" class="md-footer__link md-footer__link--next" aria-label="Next: Benchmarks">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Benchmarks
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
