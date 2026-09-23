@@ -1466,17 +1466,19 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li>
-<p>Loading and fitting, no number changes. <code>fg.load("IEEE118")</code> works like <code>"ieee118"</code> (a locally
+<li>Loading and fitting, no number changes. <code>fg.load("IEEE118")</code> works like <code>"ieee118"</code> (a locally
   registered name stays case-sensitive). <code>latest_release</code> skips a tag it cannot parse instead of
   falling back to the pinned default, and its docstring no longer claims <code>load(release=None)</code> calls
   it. Two jobs downloading the same asset at once write separate temp files; the second keeps the
   first's installed copy instead of corrupting it. <code>fit</code> refuses a dataset whose slack disagrees
   with the case's. The solve's reduced normal-matrix inverse is built once in <code>fit</code> rather than on
-  every chunk. The recent-change scale's docstring says "plus 1e-3", what the code does.</p>
-</li>
-<li>
-<p>Estimators, numbers change. <code>ResidualRemoval</code> is classical largest-normalized-residual removal:
+  every chunk. The recent-change scale's docstring says "plus 1e-3", what the code does.</li>
+<li>Tests, no package change. <code>tests/test_public_coverage.py</code> tests directly what the suite reached only
+  through whole pipelines: the replay policy and its buffer, <code>batched_normal_matrices</code>,
+  <code>local_ac_solve</code> on a two-bus grid, <code>sparse_basis</code>, <code>per_bus_sequences</code>, <code>read_episodes</code>,
+  <code>latest_release</code> online and offline, the <code>TrustSelector</code> base, the removal guard, and
+  <code>tune_threshold</code>.</li>
+<li>Estimators, numbers change. <code>ResidualRemoval</code> is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above
   the threshold at once, taking out the honest neighbours a single gross error smears onto. Meter
@@ -1486,8 +1488,7 @@ the public API, the generated files and the numbers are the same as the previous
   timeline (geometric-mean angle error, test split): removal 0.0665 to 0.0552 degrees (replay
   0.0645 to 0.0224), WLS 0.0966 to 0.0961, Huber 0.0613 to 0.0605, prior + Huber 0.0499 to 0.0503,
   Jacobian weighting 0.0826 to 0.0800, gated arms within 0.2 percent. The frozen SE reference moved
-  by at most 1.6e-7 relative (its train split has fewer than 600 benign frames).</p>
-</li>
+  by at most 1.6e-7 relative (its train split has fewer than 600 benign frames).</li>
 <li>Estimators, fixes. Every public path that solves a dataset (<code>estimate</code>, <code>score</code>,
   <code>ResidualLocalizer</code>, <code>TrustSelector.score</code>, <code>JacobianFeatures.fit</code>, <code>JacobianWeighting</code>) refuses a
   <code>units="pu"</code> view with a ValueError; <code>fit</code> did before, but estimating or scoring a per-unit view
