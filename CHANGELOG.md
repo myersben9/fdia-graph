@@ -12,7 +12,11 @@ the public API, the generated files and the numbers are the same as the previous
   first's installed copy instead of corrupting it. `fit` refuses a dataset whose slack disagrees
   with the case's. The solve's reduced normal-matrix inverse is built once in `fit` rather than on
   every chunk. The recent-change scale's docstring says "plus 1e-3", what the code does.
-
+- Tests, no package change. `tests/test_public_coverage.py` tests directly what the suite reached only
+  through whole pipelines: the replay policy and its buffer, `batched_normal_matrices`,
+  `local_ac_solve` on a two-bus grid, `sparse_basis`, `per_bus_sequences`, `read_episodes`,
+  `latest_release` online and offline, the `TrustSelector` base, the removal guard, and
+  `tune_threshold`.
 - Estimators, numbers change. `ResidualRemoval` is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above
