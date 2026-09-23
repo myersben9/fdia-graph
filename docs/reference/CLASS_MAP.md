@@ -56,6 +56,14 @@ by a deep Q-network (`TrustedMetersDQN`), and scores the residual test with them
 
 ![Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores and TrustScores](../figures/diagrams/classes_localization_trust.png)
 
+## Federated training
+
+`FederatedLocalizer` is a `LearnedLocalizer` whose fit runs FedAvg over a `Partition` of the buses:
+each client trains its own copy with the shared `LocalTrainer` on its own buses, and `FedBusMLP` and
+`FedBusCNN` take their encoder from `BusMLP` and `BusCNN`. `RoundLog` records every round.
+
+![Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition and RoundLog](../figures/diagrams/classes_federated.png)
+
 ## The records
 
 Everything a call returns is a `Bundle`, a dict with attribute access and a fixed key order. The record
