@@ -58,8 +58,11 @@ def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray
             f"need one weight per client tensor, got {len(arrays)} tensors and {len(weights)} weights"
         )
     w = np.asarray(weights, np.float64)
-    if (w <= 0).any():
-        raise ValueError("client weights must be positive")
+    if not (np.isfinite(w) & (w > 0)).all():
+        raise ValueError("client weights must be finite and positive")
+    shape = np.shape(arrays[0])
+    if any(np.shape(a) != shape for a in arrays):
+        raise ValueError(f"every client tensor must have the shape {shape}")
     w = w / w.sum()
     acc = np.zeros(np.shape(arrays[0]), np.float64)
     for wk, a in zip(w, arrays):

@@ -75,6 +75,11 @@ def test_fedavg_is_exact_for_one_client_and_weights_by_count():
         fedavg([], [])
     with pytest.raises(ValueError, match="positive"):
         fedavg([a, b], [1, 0])
+    for bad in (np.nan, np.inf):
+        with pytest.raises(ValueError, match="finite and positive"):
+            fedavg([a, b], [1, bad])
+    with pytest.raises(ValueError, match="shape"):
+        fedavg([np.ones((1, 3)), np.ones(3)], [1, 1])  # broadcastable is not the same parameter
 
 
 def test_attackable_affinity_raises_edges_at_attackable_buses():
