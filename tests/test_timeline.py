@@ -254,7 +254,9 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
         mult = 1.0 + mag[ptr[t] : ptr[t + 1]].astype(np.float64)
         Lp = g.true_load(Xt)
         Lp[targets] *= mult
-        Xa = g.solve_local(Xt, g.local_region(g.load_bus[targets], int(attrs["hops"])), Lp, Xt[g.load_bus, 2])
+        Xa = g.solve_local(
+            Xt, g.local_region(g.load_bus[targets], int(attrs["hops"])), Lp, g.true_reactive_load(Xt)
+        )
         assert Xa is not None
         a_node, a_edge = _attack_vector(g, Xa, Xt)
         nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
@@ -465,7 +467,7 @@ def test_redistribution_lightens_the_target_line_and_am_names_follow():
         Vc[g._ppc_row[np.arange(g.C)]] = complex_voltages(Xs[:, 0], Xs[:, 3])
         return branch_flows(Vc, g._Yf, g._from_bus_ppc, g._base_mva).real[line]
 
-    Lp, Lq = g.true_load(X), X[g.load_bus, 2].copy()
+    Lp, Lq = g.true_load(X), g.true_reactive_load(X)
     moved = 0
     for _ in range(10):
         red = g.lra_delta(Lp, 0.2, 3, floor=0.02, hops=2)

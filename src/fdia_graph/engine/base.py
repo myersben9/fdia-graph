@@ -45,6 +45,7 @@ class GridBase:
     load_bus: np.ndarray
     load_genP: np.ndarray
     load_p0: np.ndarray  # [n_loads] base active load per element (MW)
+    load_q0: np.ndarray  # [n_loads] base reactive load per element (MVAr)
     attackable_pos: np.ndarray
     _attackable_mask: np.ndarray
     max_load_mw: Optional[float]

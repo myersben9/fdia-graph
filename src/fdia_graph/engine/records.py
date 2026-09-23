@@ -29,7 +29,6 @@ from ..models.frames import (  # noqa: F401  re-exported: defined here before th
     FrameKnobs,
     Scan,
 )
-from ..models.grid import NODE
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
@@ -145,7 +144,7 @@ def stealthy_state(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[np
     power flow has no solution or the state breaks the operating limits [WU26, eqs. 21-23]. Spends
     no random draw, so an episode can test its design at onset and redraw."""
     Lp = g.true_load(Xt)  # this scan's active load per load element
-    Lq = Xt[g.load_bus, NODE.q_inj].copy()
+    Lq = g.true_reactive_load(Xt)
     Lp_true, Lp = Lp, Lp.copy()
     Lp[targets] *= mult
     Xa = g.solve_local(Xt, interior, Lp, Lq)

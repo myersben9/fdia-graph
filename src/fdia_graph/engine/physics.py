@@ -37,7 +37,7 @@ class PhysicsMixin(GridBase):
         for t in range(len(X)):
             Xt = X[t]  # [N,4] = [|V|, Pinj, Qinj, theta]
             Lp = self.true_load(Xt)  # this scan's active load per load element
-            Lq = Xt[self.load_bus, 2].copy()
+            Lq = self.true_reactive_load(Xt)
             # Lp_true==Lp: alpha=1 no-op re-solve. Reproduces the stored state on the intact topology (the
             # pinning check); yields the post-contingency state on a contingency topology.
             net = self.solve(Lp, Lq, Xt=Xt, Lp_true=Lp)
@@ -55,6 +55,12 @@ class PhysicsMixin(GridBase):
         stored injection plus the co-located generation at this scan's scale, not the base case's.
         Not the load at the slack bus (see `bus_load`), which no attack targets."""
         return element_loads(bus_load(Xt, self.load_base, self.gen_base), self.load_bus, self.load_p0)
+
+    def true_reactive_load(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's reactive injection at each load's bus split over the bus's load elements by
+        their base reactive shares [n_loads] (MVAr), `formulas.attacks.element_loads`; a bus with one
+        load gives it the bus's whole reactive injection, as before."""
+        return element_loads(Xt[:, NODE.q_inj], self.load_bus, self.load_q0)
 
     def scan_generation(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's active generation per bus [N] (MW), `formulas.attacks.generator_output`;
@@ -144,12 +150,12 @@ class PhysicsMixin(GridBase):
         Pinj, Qinj = Xa[:, NODE.p_inj].copy(), Xa[:, NODE.q_inj].copy()
         # the pool's injection is load-positive: every load element at a bus minus that bus's
         # generation, held at this scan's dispatch (the attacker moves loads only)
-        load = np.zeros(C)
+        load, qload = np.zeros(C), np.zeros(C)
         np.add.at(load, self.load_bus, Lp)
+        np.add.at(qload, self.load_bus, Lq)
         buses = np.unique(self.load_bus)
         Pinj[buses] = load[buses] - self.scan_generation(Xt)[buses]
-        for pos, b in enumerate(self.load_bus):
-            Qinj[b] = Lq[pos]  # the bus's reactive injection, the same on every element of a bus
+        Qinj[buses] = qload[buses]
         lut = self._ppc_row[np.arange(C)]
         Vc = np.zeros(self._n_ppc_buses, complex)
         Vc[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])
