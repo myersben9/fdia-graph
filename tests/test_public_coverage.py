@@ -83,8 +83,11 @@ def test_per_bus_sequences_regroup_by_bus():
     X, y = per_bus_sequences(Xw, yf, "frame")
     assert X.shape == (8, 3, 1) and y.shape == (8, 3)
     assert np.array_equal(X[5, :, 0], Xw[1, :, 1, 0])  # record 1, bus 1
-    X, y = per_bus_sequences(Xw, yf.any(axis=1), "any")
-    assert y.shape == (8,)
+    assert np.array_equal(y[5], yf[1, :, 1])  # its per-frame labels follow it
+    assert np.array_equal(y, yf.transpose(0, 2, 1).reshape(8, 3))
+    ya = yf.any(axis=1)  # [n, N] window labels
+    X, y = per_bus_sequences(Xw, ya, "any")
+    assert y.shape == (8,) and np.array_equal(y, ya.reshape(8)) and y[5] == ya[1, 1]
 
 
 def test_read_episodes_reads_the_group(tmp_path):
