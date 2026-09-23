@@ -19,7 +19,15 @@ from .estimation import (
     wls_step,
     wls_step_batched,
 )
-from .federated import channel_moments, pool_moments
+from .federated import (
+    attackable_affinity,
+    channel_moments,
+    cut_edge_count,
+    fedavg,
+    halo_nodes,
+    interior_boundary,
+    pool_moments,
+)
 from .linalg import batched_normal_matrices, condition_number, guarded_inverse
 from .metrics import perbus_counts, perbus_f1_from_counts, tau_from_counts
 from .network import (
@@ -56,6 +64,7 @@ __all__ = [
     "ac_measurement",
     "attack_cost",
     "attack_subspace",
+    "attackable_affinity",
     "batched_normal_matrices",
     "bias_jitter_split",
     "branch_admittances",
@@ -66,13 +75,17 @@ __all__ = [
     "complex_voltages",
     "condition_number",
     "critical_measurements",
+    "cut_edge_count",
     "direction_coefficients",
     "explained_unexplained",
+    "fedavg",
     "floored_covariance",
     "gate_weights",
     "greedy_trusted_meters",
     "guarded_inverse",
+    "halo_nodes",
     "huber_weights",
+    "interior_boundary",
     "leverage",
     "local_ac_solve",
     "meters_to_buses",

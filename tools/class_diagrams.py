@@ -229,6 +229,7 @@ def module_diagram(mods: dict[str, ast.Module]) -> str:
         "engine": "engine/",
         "se": "se/",
         "localization": "localization/",
+        "federated": "federated/",
         "trust": "trust/",
         "models": "models/",
         "formulas": "formulas/",

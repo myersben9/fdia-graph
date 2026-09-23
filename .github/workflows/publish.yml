@@ -52,7 +52,7 @@ jobs:
       - name: Install package with the generate, se, torch and test extras
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -e ".[generate,se,test]" torch_geometric matplotlib
+          pip install -e ".[generate,se,federated,test]" torch_geometric matplotlib
       - name: Run the test suite
         run: pytest -q tests
 
