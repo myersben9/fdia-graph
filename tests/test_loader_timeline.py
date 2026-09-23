@@ -209,3 +209,15 @@ def test_estimator_and_localizer_score_a_timeline_with_am(timeline):
     assert se.Am is not None and se["Am"].angle_mae_deg > 0 and list(se)[-1] == "geo"
     loc = SwingThreshold(fa_target=0.01).fit(train).score(test)
     assert loc.Am is not None and 0 <= loc["Am"].detection_rate <= 1
+
+
+def test_windows_view_equals_the_copy(timeline):
+    ds = fg.load(timeline, order="time")
+    Xc, yc = ds.windows(10, stride=4, label="last")
+    Xv, yv = ds.windows(10, stride=4, label="last", copy=False)
+    assert np.array_equal(Xc, Xv) and np.array_equal(yc, yv)
+    assert Xc.flags.writeable and not Xv.flags.writeable
+    assert Xc.flags.owndata and not Xv.flags.owndata  # the view borrows the frames' memory
+    for stride in (1, 3):  # per-bus sequences own their memory whatever the stride
+        Xb, _ = ds.windows(10, stride=stride, per_bus=True, copy=False)
+        assert Xb.flags.writeable and Xb.flags.owndata

@@ -26,7 +26,12 @@ the public API, the generated files and the numbers are the same as the previous
   `JacobianWeighting` gains `tol` (it ran all 40 passes) and builds its Jacobian features once in
   `fit`. `ResidualLocalizer` no longer refits an estimator that is already fitted
   (`SEBase.is_fitted`). The localizer hook is `_score(d, ds)`.
-
+- `ds.windows(..., copy=False)` returns the windows as a read-only strided view of the frames, no
+  memory per window (a 72k-frame IEEE-118 timeline at W=60 was about 8 GB as a copy); the default
+  still returns a writable copy, now built from that view. `TrustedMetersDQN` evaluates the attack
+  cost once per step instead of twice, keeps its replay buffer in a ring, and defaults to `seed=123`
+  like the localizers (pass `seed=0` for the previous default; the trust guide pins it). Windows and
+  the seed-0 DQN selection are bit-identical to 0.18.0.
 - The trust guide's secured-copy tables for IEEE-118 (`results/secured_ieee118.json`): the DQN set
   opens the residual test on the stealthy families and lifts the learned localizer four points, the
   estimator gains within a percent at 20 meters. No package change.

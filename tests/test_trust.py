@@ -110,3 +110,16 @@ def test_gated_prior_keeps_secured_meters_at_full_weight(selector, timeline):
     assert (w0 < np.broadcast_to(plain.Wk, w0.shape)).any()  # the gate does fire somewhere
     others = np.setdiff1d(np.arange(w0.shape[1]), secured)
     assert np.array_equal(w0[:, others], w1[:, others])
+
+
+def test_dqn_replay_ring_draws_what_the_sliced_list_drew():
+    from fdia_graph.trust.dqn import _Replay
+
+    rng = np.random.default_rng(1)
+    ring, flat = _Replay(5), []
+    for t in range(23):  # four wraps
+        ring.append((t,))
+        flat = (flat + [(t,)])[-5:]
+        idx = rng.integers(len(flat), size=7)
+        assert len(ring) == len(flat)
+        assert ring.sample(idx) == [flat[i] for i in idx]
