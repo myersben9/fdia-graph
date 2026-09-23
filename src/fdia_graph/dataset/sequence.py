@@ -73,8 +73,9 @@ class SequenceMixin(DatasetBase):
         # [T-W+1, N, C, W] view -> window axis second -> every stride-th start
         Xw = np.moveaxis(np.lib.stride_tricks.sliding_window_view(nx, W, axis=0), -1, 1)[::stride]
         yw = window_labels(y, starts, W, label)
-        if per_bus:
-            return per_bus_sequences(Xw, yw, label)
+        if per_bus:  # the reshape can itself be a view of the windows (stride 1), so own the memory
+            Xb, yb = per_bus_sequences(Xw, yw, label)
+            return np.require(Xb, requirements=["O", "W"]), yb
         return (np.array(Xw) if copy else Xw), yw
 
     @property
