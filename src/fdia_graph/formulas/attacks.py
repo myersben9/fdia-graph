@@ -55,6 +55,19 @@ def generator_output(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray)
     return np.stack([s * gen_base[:, 0], s * load_base[:, 1] - X[..., NODE.q_inj]], axis=-1)
 
 
+def bus_load(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.ndarray:
+    """The active load [..., N] (MW) behind pool states X [..., N, 4], exact for the pool construction
+    [DAT26]: the stored load-positive injection plus the bus's generation at the same scale factor,
+
+        P_load = P_inj + s P_gen_base = s P_load_base
+
+    Adding the BASE generation instead (P_inj + P_gen_base) is exact only where a bus has no
+    generator; where it has one it gives s P_load_base + (1 - s) P_gen_base, wrong in size and at
+    times in sign. Static generators are not scaled by the pool builder and no case places one on a
+    load bus, so they are not part of the construction."""
+    return X[..., NODE.p_inj] + generator_output(X, load_base, gen_base)[..., 0]
+
+
 def within_limits(
     Xa: np.ndarray,
     Xt: np.ndarray,

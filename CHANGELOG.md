@@ -17,6 +17,22 @@ the public API, the generated files and the numbers are the same as the previous
   `local_ac_solve` on a two-bus grid, `sparse_basis`, `per_bus_sequences`, `read_episodes`,
   `latest_release` online and offline, the `TrustSelector` base, the removal guard, and
   `tune_threshold`.
+- Generator, the stealthy families change. The engine recovered a scan's load at a bus holding
+  both a load and a generator as the stored injection plus the BASE generation, but the pools scale
+  a bus's load and generation by one factor, so the load came out as s L + (1 - s) G instead of
+  s L: at s = 0.75 the median load was 1.6x the true one on IEEE-118 (10 of its 99 attackable
+  loads) and 2.0x on IEEE-300 (23 of 191), at times negative, so an Aq step there moved the wrong
+  amount and a "raise" could lower the load. Every load-recovery site now uses
+  `formulas.attacks.bus_load` (the `generator_output` construction the limit check already used),
+  through `FdiaGenerator.true_load` and `scan_generation`. Static generators that produce anything
+  count as injection buses (IEEE-89 buses 1, 65, 69, 79 and eight on IEEE-300 were treated as
+  zero-injection junctions and pulled into attack regions). The attack-redistribution sign: the
+  engine's redistribution LOWERS the target line's |flow| in the false state (checked on 77 of 77
+  draws), so `am_direction="mask"` now keeps its sign and `"induce"` flips it (they were swapped);
+  `"both"`, the default, maps its draw so default files keep the same sign sequence. The frozen
+  timeline is re-frozen (341 of its 1000 frames change: the corrected stealthy draws spend the
+  random stream differently, so later noise shifts too). The released v0.8.0 timelines were
+  generated before this fix; regenerating them is a data release.
 - Estimators, numbers change. `ResidualRemoval` is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above

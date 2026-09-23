@@ -320,3 +320,17 @@ def test_guarded_inverse_and_condition_number():
     S = np.array([[1.0, 1.0], [1.0, 1.0]])  # singular: pseudo-inverse, infinite condition
     assert np.allclose(guarded_inverse(S), np.linalg.pinv(S))
     assert condition_number(S) == float("inf")
+
+
+def test_bus_load_undoes_the_pools_common_scale():
+    from fdia_graph.formulas.attacks import bus_load
+
+    # bus 0: load 30, gen 50, both at scale 1.2 -> injection 1.2 * (30 - 50) = -24, load 36
+    # bus 1: load only, 10 at scale 0.8 -> injection 8, load 8; bus 2: gen only, 40 at 1.1 -> load 0
+    load_base = np.array([[30.0, 5.0], [10.0, 2.0], [0.0, 0.0]])
+    gen_base = np.array([[50.0, 0.0], [0.0, 0.0], [40.0, 0.0]])
+    X = np.zeros((3, 4))
+    X[:, 1] = [-24.0, 8.0, -44.0]
+    assert np.allclose(bus_load(X, load_base, gen_base), [36.0, 8.0, 0.0])
+    # the base-generation shortcut the engine used is wrong where a generator sits
+    assert not np.isclose(X[0, 1] + gen_base[0, 0], 36.0)

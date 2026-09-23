@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from ..formulas.attacks import operating_limits
+from ..formulas.attacks import bus_load, generator_output, operating_limits
 from ..formulas.network import bus_injections, complex_voltages, local_ac_solve, subnetwork
 from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
     OperatingLimits,
@@ -36,8 +36,7 @@ class PhysicsMixin(GridBase):
         ok = np.zeros(len(X), bool)
         for t in range(len(X)):
             Xt = X[t]  # [N,4] = [|V|, Pinj, Qinj, theta]
-            # Base active load per element = stored injection + generation folded onto that bus.
-            Lp = Xt[self.load_bus, 1] + self.load_genP
+            Lp = self.true_load(Xt)  # this scan's active load per load element
             Lq = Xt[self.load_bus, 2].copy()
             # Lp_true==Lp: alpha=1 no-op re-solve. Reproduces the stored state on the intact topology (the
             # pinning check); yields the post-contingency state on a contingency topology.
@@ -50,6 +49,16 @@ class PhysicsMixin(GridBase):
             out[t] = s
             ok[t] = True
         return ResolvedPool(out, ok)
+
+    def true_load(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's active load per load element [n_loads] (MW), `formulas.attacks.bus_load`: the
+        stored injection plus the co-located generation at this scan's scale, not the base case's."""
+        return bus_load(Xt, self.load_base, self.gen_base)[self.load_bus]
+
+    def scan_generation(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's active generation at each load element's bus [n_loads] (MW),
+        `formulas.attacks.generator_output`; zero where the bus has no generator."""
+        return generator_output(Xt, self.load_base, self.gen_base)[self.load_bus, 0]
 
     def _pin_generation(self, net: Any, Lp: np.ndarray, base_load: np.ndarray, Xt: np.ndarray) -> None:
         """Hold every generator at the TRUE dispatch of the unattacked state and spread the attack's net
@@ -132,10 +141,11 @@ class PhysicsMixin(GridBase):
         C = self.C
         Xa = np.array(Xt, np.float64, copy=True)
         Pinj, Qinj = Xa[:, NODE.p_inj].copy(), Xa[:, NODE.q_inj].copy()
+        gen = self.scan_generation(Xt)  # held at this scan's dispatch, the attacker moves loads only
         for pos, b in enumerate(
             self.load_bus
         ):  # the pool's injection is load-positive: load minus generation
-            Pinj[b] = Lp[pos] - self.load_genP[pos]
+            Pinj[b] = Lp[pos] - gen[pos]
             Qinj[b] = Lq[pos]
         lut = self._ppc_row[np.arange(C)]
         Vc = np.zeros(self._n_ppc_buses, complex)

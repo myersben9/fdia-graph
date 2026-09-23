@@ -194,12 +194,15 @@ def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
 
 
 def test_am_direction_sign_follows_the_engine_convention():
-    """`lra_delta` raises the target line's loading in the false state, so induce keeps its sign."""
+    """`lra_delta` lowers the target line's |flow| in the false state, so mask keeps its sign, and
+    "both" draws the same sign sequence as before the fix (+1 below 0.5), so default files are unchanged."""
     from fdia_graph.timeline import _am_sign
 
     rng = np.random.default_rng(0)
-    assert _am_sign("induce", rng) == 1.0 and _am_sign("mask", rng) == -1.0
-    assert {_am_sign("both", rng) for _ in range(50)} == {1.0, -1.0}
+    assert _am_sign("mask", rng) == 1.0 and _am_sign("induce", rng) == -1.0
+    draws = np.random.default_rng(7).random(50)
+    rng = np.random.default_rng(7)
+    assert [_am_sign("both", rng) for _ in range(50)] == [1.0 if r < 0.5 else -1.0 for r in draws]
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
@@ -249,7 +252,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
         Xt = a["clean/node_clean"][t].astype(np.float64)  # the pool state the frame was emitted from
         targets = np.array([pos[int(b)] for b in mag_bus[ptr[t] : ptr[t + 1]]])
         mult = 1.0 + mag[ptr[t] : ptr[t + 1]].astype(np.float64)
-        Lp = Xt[g.load_bus, 1] + g.load_genP
+        Lp = g.true_load(Xt)
         Lp[targets] *= mult
         Xa = g.solve_local(Xt, g.local_region(g.load_bus[targets], int(attrs["hops"])), Lp, Xt[g.load_bus, 2])
         assert Xa is not None
@@ -443,3 +446,34 @@ def test_score_bundles_accept_the_seventh_family():
     fam = FamilyMetrics(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
     loc = LocalizerScores(all=OverallMetrics(1.0, 1.0, 0.0, 1.0), Am=fam)
     assert list(loc) == ["all", "Am"] and loc.Am is fam
+
+
+def test_redistribution_lightens_the_target_line_and_am_names_follow():
+    """The engine's redistribution lowers the target line's |flow| in the false state (Al masks an
+    overload), so Am's "mask" keeps its sign and "induce" flips it."""
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.formulas.network import branch_flows, complex_voltages
+    from fdia_graph.profiles import _case_buses, _solve_states_chunk
+    from fdia_graph.timeline import _am_sign
+
+    g = FdiaGenerator(14, seed=5)
+    g._pick_lra_target(0.2, 3)  # the target-line pool generation builds before any Al frame
+    X = _solve_states_chunk(14, np.ones((1, len(_case_buses(14)))))[0]
+
+    def flow(Xs, line):
+        Vc = np.zeros(g._n_ppc_buses, complex)
+        Vc[g._ppc_row[np.arange(g.C)]] = complex_voltages(Xs[:, 0], Xs[:, 3])
+        return branch_flows(Vc, g._Yf, g._from_bus_ppc, g._base_mva).real[line]
+
+    Lp, Lq = g.true_load(X), X[g.load_bus, 2].copy()
+    moved = 0
+    for _ in range(10):
+        red = g.lra_delta(Lp, 0.2, 3, floor=0.02, hops=2)
+        if len(red.buses) == 0:
+            continue
+        for sign, lighter in ((_am_sign("mask", None), True), (_am_sign("induce", None), False)):
+            Xa = g.solve_local(X, red.interior, Lp + sign * red.delta, Lq)
+            if Xa is not None:
+                assert (abs(flow(Xa, red.line)) < abs(flow(X, red.line))) == lighter
+                moved += 1
+    assert moved >= 4

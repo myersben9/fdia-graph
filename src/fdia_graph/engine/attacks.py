@@ -112,8 +112,9 @@ class AttackMixin(GridBase):
         cap = rel * np.abs(Lp)
         score = np.abs(pl) * cap  # pl = line-L PTDF row over load buses
 
-        # Raise load on the positive PTDF side, drop on the negative side, to push flow up on line L.
-        # Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
+        # Raise load on the positive PTDF side, drop it on the negative side: the line-L flow change
+        # -sum(PTDF * delta) is negative, so the line reads lighter in the false state (lra_delta then
+        # orients it against the base flow). Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
         ok = self._attackable_mask if allowed is None else (self._attackable_mask & allowed)
         pos = self._pick_side(np.where((pl > 0) & ok)[0], score, K, rand)
         neg = self._pick_side(np.where((pl < 0) & ok)[0], score, K, rand)
@@ -161,8 +162,8 @@ class AttackMixin(GridBase):
         pot = [(L, r) for L, r in pot if r is not None]
         pot.sort(key=lambda x: -abs(x[1].line_flow_change))  # most attackable lines first
         self._target_lines = [L for L, _ in pot[: min(n_targets, len(pot))]]
-        # Sign of each candidate's base flow (fallback +1) so the attack WORSENS existing loading (masks a real
-        # overload rather than relieving it).
+        # Sign of each candidate's base flow (fallback +1): lra_delta orients the redistribution against
+        # it, so the target line's |flow| drops in the false state and a real overload reads lighter.
         self._line_flow_sign = {
             L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._target_lines
         }
@@ -179,8 +180,9 @@ class AttackMixin(GridBase):
             return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0, L, None)
         allowed = np.isin(self.load_bus, interior)
         r = self._lra_for_line(L, Lp, rel, K, rand=True, floor=floor, allowed=allowed)
-        # Apply the base-flow sign so redistribution raises the target line's loading; no feasible delta ->
-        # zero delta and empty attacked-bus set (record stays effectively benign).
+        # Apply the base-flow sign so the redistribution LOWERS the target line's |flow| in the false state
+        # (a real overload reads lighter, the Al attack); no feasible delta -> zero delta and an empty
+        # attacked-bus set (the record stays effectively benign).
         if r is None:
             return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0, L, interior)
         # The flow change carries the same sign so the model describes the redistribution it holds.

@@ -297,14 +297,23 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         if self.max_load_mw is not None:
             self._attackable_mask &= p_load <= self.max_load_mw
         self.attackable_pos = np.where(self._attackable_mask)[0]
-        # Every bus with some injection element (gen, load, ext_grid, shunt).
+        # Every bus with some injection element (gen, load, ext_grid, shunt, a static generator that
+        # produces anything: IEEE-89 and 300 feed buses from sgen alone; IEEE-200's are all 0 MW).
+        sgen = base.sgen[(base.sgen.p_mw.abs() > 0) | (base.sgen.q_mvar.abs() > 0)]
         inj = np.unique(
-            np.r_[base.gen.bus.values, base.load.bus.values, base.ext_grid.bus.values, base.shunt.bus.values]
+            np.r_[
+                base.gen.bus.values,
+                base.load.bus.values,
+                base.ext_grid.bus.values,
+                base.shunt.bus.values,
+                sgen.bus.values,
+            ]
         )
         self.zero_inj = [b for b in range(C) if b not in set(inj)]
         self._injection_buses = sorted(set(inj.tolist()))
-        # Total generator MW per bus (summing co-located gens), aligned to load-bus ordering, so attacks
-        # can reason about net (load - gen) per bus.
+        # Base-case generator MW per bus (summing co-located gens), aligned to load-bus ordering. The
+        # pools scale generation with load, so a scan's load and dispatch come from `true_load` and
+        # `scan_generation`, not from this constant.
         genP: dict[int, float] = {}
         for r in base.gen.itertuples():
             genP[int(r.bus)] = genP.get(int(r.bus), 0.0) + r.p_mw
