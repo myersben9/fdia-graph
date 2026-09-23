@@ -164,7 +164,7 @@ Every frame of a timeline carries three aligned layers, for node and for edge me
 | `clean/` | `node_clean, edge_clean` | the noiseless truth per frame |
 | `graph/` | `edge_index` and the static branch physics and bus shunts | the same for every frame |
 | `episodes/` | `onset, length, family, bus_ptr, bus_idx` | `ds.episodes` |
-| `attack/` | `mag_ptr, mag_bus, mag, node_tamper, edge_tamper` | designed magnitude per attacked bus; the meters the attacker wrote |
+| `attack/` | `mag_ptr, mag_bus, mag, node_tamper, edge_tamper` | designed magnitude per attacked bus, unsigned (a load rise and a drop of the same size record the same value); the meters the attacker wrote |
 
 Chunked along the frame axis so a window of W frames is one read. The v0.7.2 record shards (the
 same `data/`, `clean/` once per pool timestep, a `gap` column, no `benign/`) still load through

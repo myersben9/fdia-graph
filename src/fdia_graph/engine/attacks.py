@@ -115,7 +115,7 @@ class AttackMixin(GridBase):
         # Raise load on the positive PTDF side, drop it on the negative side: the line-L flow change
         # -sum(PTDF * delta) is negative, so the line reads lighter in the false state (lra_delta then
         # orients it against the base flow). Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
-        ok = self._attackable_mask if allowed is None else (self._attackable_mask & allowed)
+        ok = self._stealthy_mask if allowed is None else (self._stealthy_mask & allowed)  # Al/Am are stealthy
         pos = self._pick_side(np.where((pl > 0) & ok)[0], score, K, rand)
         neg = self._pick_side(np.where((pl < 0) & ok)[0], score, K, rand)
         if len(pos) == 0 or len(neg) == 0:

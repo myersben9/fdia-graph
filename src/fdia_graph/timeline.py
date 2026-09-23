@@ -280,7 +280,7 @@ def _draw_ramp(
     ctx: _FrameContext, rng: np.random.Generator, ramp_len: int
 ) -> tuple[np.ndarray, float, int, int]:
     """One ramp design: a fixed bus set, a direction, the rise and hold lengths (four draws)."""
-    apos = ctx.g.attackable_pos
+    apos = ctx.g.stealthy_pos  # At is stealthy: no load on a generator bus
     a = rng.choice(apos, min(5, len(apos)), replace=False)
     direction = 1.0 if rng.random() < 0.5 else -1.0
     rise = max(1, int(rng.uniform(0.2, 0.45) * ramp_len))
@@ -305,7 +305,7 @@ def _draw_single_shot(
     below its voltage limits refuses most rises near the low buses, a drop there is the attack
     that fits). None when no draw has one: the span then stays benign and is counted."""
     for _ in range(_ONSET_DRAWS):
-        a = _pick_targets(rng, ctx.g.attackable_pos, fid)
+        a = _pick_targets(rng, ctx.g.stealthy_pos if fid in STEALTHY_FAMILIES else ctx.g.attackable_pos, fid)
         direction = 1.0 if fid != 1 or rng.random() < 0.5 else -1.0
         mult = 1 + direction * rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
         if fid != 1 or all(

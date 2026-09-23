@@ -299,6 +299,12 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         if self.max_load_mw is not None:
             self._attackable_mask &= p_load <= self.max_load_mw
         self.attackable_pos = np.where(self._attackable_mask)[0]
+        # The stealthy families (Aq, At, Al, Am) also skip every load on a generator bus, zero-MW
+        # condensers included: a generator bus is too risky to falsify, the attacker's rule in the
+        # protocol this dataset follows [BOY22]. The in-place families keep the full set.
+        gen_buses = np.r_[base.gen.bus.values, base.sgen.bus.values[(base.sgen.p_mw.abs() > 0).values]]
+        self._stealthy_mask = self._attackable_mask & ~np.isin(self.load_bus, gen_buses)
+        self.stealthy_pos = np.where(self._stealthy_mask)[0]
         # Every bus with some injection element (gen, load, ext_grid, shunt, a static generator that
         # produces anything: IEEE-89 and 300 feed buses from sgen alone; IEEE-200's are all 0 MW).
         sgen = base.sgen[(base.sgen.p_mw.abs() > 0) | (base.sgen.q_mvar.abs() > 0)]
