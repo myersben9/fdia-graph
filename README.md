@@ -24,7 +24,7 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
 | [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | the class and module diagrams, drawn from the code |
 | [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
-| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) | the two analysis modules, with results |
+| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) · [`docs/trust/`](docs/trust/README.md) | the analysis modules, with results |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |
 
 ## Install
@@ -117,17 +117,16 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 |---|---|---|---|
 | `Aq` | load rescale, the subnetwork around the buses re-solved locally | evades | every per-bus change within a 2% to 20% band |
 | `At` | slow load ramp, re-solved locally every frame | evades | same band, spread over 60 scans |
-| `Al` | load redistribution that raises a line's apparent loading, re-solved locally | evades | same band, load conserved |
+| `Al` | load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally | evades | same band, load conserved |
 | `Am` | the redistribution reached in per-frame steps under the noise floor | evades | same band, spread over 60 scans |
-
 | `Ad` / `As` / `Ar` | meter bias / scaling / replay | caught | same band |
 
-Every stealthy family is a local false state (Wu et al. 2026): the attacker solves the power flow of a
+Every stealthy family is a local false state [WU26]: the attacker solves the power flow of a
 subnetwork around the attack with the boundary voltages held true, writes only that subnetwork's
 meters, and the measurement vector stays consistent with an AC state, so the residual test sees noise.
 The meters written are the tamper masks in the file's `attack/` group.
 
-![BDD statistic per family: the three stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
+![BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
 
 *Bad-data statistic relative to the alarm threshold, per family. Green families are indistinguishable
 from benign; red ones trip the alarm.* Meter error follows an accuracy-class model (per-meter bias
@@ -142,6 +141,7 @@ plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, n
 | Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025 | measurement model |
 | Asprou, Kyriakides & Albu, *Variable Weights in a WLS State Estimator*, IEEE T-IM 63, 2014 | meter noise |
 | Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE T-SG, 2022 | protocol |
+| Wu, Wang, Hu, Ye & Tang, *Dynamic PMU configuration for stealthy multi-snapshot FDIA mitigation*, IEEE T-SG 17(1), 2026 | local false states, Am, trusted meters |
 
 ## License
 

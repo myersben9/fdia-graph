@@ -1,7 +1,7 @@
 # State estimation with `fdia_graph.se`
 
 Given a scan of noisy, possibly attacked measurements, estimate the true bus voltages and angles.
-Every shard ships a noiseless `clean` layer, so the estimate is scored against exact ground truth.
+Every timeline ships a noiseless `clean` layer, so the estimate is scored against exact ground truth.
 
 ```python
 import fdia_graph as fg
@@ -17,21 +17,21 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 
 ![SEBase shared by every estimator: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop; each estimator changes one thing: WLS nothing, AdaptiveWeighting Huber weights, ResidualRemoval dropping large residuals, SubspacePrior a low-rank basis, JacobianWeighting weights from the unexplained residual, GatedPrior a localizer gating the weights](../figures/diagrams/se_estimators.png)
 
-| needs | `pip install "fdia-graph[se]"`, a v0.7.2+ shard |
+| needs | `pip install "fdia-graph[se]"`, a timeline (v0.8.0) or a v0.7.2 record shard, `units="physical"` |
 |---|---|
 | walkthrough | [`../guides/state_estimation.md`](../guides/state_estimation.md) |
-| state | 2N-1: every voltage magnitude, every non-slack angle; slack angle pinned per record (`ds.slack`) |
+| state | 2N-1: every voltage magnitude, every non-slack angle; slack angle pinned per frame (`ds.slack`) |
 
 ## The method classes
 
 | Class | What it changes | Knobs |
 |---|---|---|
 | `WLS` | Nothing. The audited baseline: least squares weighted by accuracy-class meter error | |
-| `ResidualRemoval` | Largest-normalized-residual removal with an observability guard | `threshold` |
+| `ResidualRemoval` | Classical largest-normalized-residual removal: the one largest residual above the threshold per pass, re-solved, with an observability guard | `threshold` |
 | `AdaptiveWeighting` | Iteratively reweighted least squares (the Huber M-estimator) | `c` |
 | `SubspacePrior` | Restricts the solve to a low-rank benign operating subspace, optionally composed with Huber | `rank_frac`, `reweight` |
 | `JacobianWeighting` | Huber weights from the physically unexplained part of the scan-to-scan measurement change (the Jacobian-informed digest), one solve; `reweight="huber"` adds the classical passes on top | `c`, `reweight`, `huber_c` |
-| `GatedPrior` | The proposed estimator with a localizer gating the weights: meters on flagged buses and their incident flows are down-weighted so the prior fills in the state there | `gate`, `gate_factor` |
+| `GatedPrior` | The proposed estimator with a localizer gated the weights: meters on flagged buses and their incident flows are down-weighted so the prior fills in the state there; `secured` meters are never down-weighted | `gate`, `gate_factor`, `secured` |
 
 ## Results
 
@@ -73,8 +73,8 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | angle, WLS → proposed | 0.164 → 0.068 | 0.075 → 0.033 | 0.129 → 0.068 |
 | voltage reduction | 57% | 85% | 68% |
 
-The v0.7.2 shards carry the accuracy-class meter model, so absolute errors are lower; the ordering
-and the reductions hold.
+The v0.8.0 timelines carry the accuracy-class meter model (since v0.7.2), so absolute errors are
+lower than the paper's; the ordering and the reductions hold.
 
 **Per-family results of the proposed estimator.** Baseline cells are the WLS error, reduction is
 the proposed estimator's percent reduction over that baseline.

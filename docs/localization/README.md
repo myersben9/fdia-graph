@@ -26,7 +26,7 @@ rep  = loc.score(test)                             # per-family metrics + benign
 
 | Class | Score | Needs |
 |---|---|---|
-| `SwingThreshold` | The shard's windowed swing feature: each scan's injection change as a z-score of the bus's typical recent change | numpy only |
+| `SwingThreshold` | The dataset's windowed swing feature: each scan's injection change as a z-score of the bus's typical recent change | numpy only |
 | `DeltaThreshold` | The raw one-scan change scaled by the bus's benign RMS. Same signal without the windowing, so the gap shows what windowing buys | numpy only |
 | `ResidualLocalizer` | Largest normalized residual from a state-estimation solve (any `fdia_graph.se` estimator, default `WLS`), aggregated to each bus's own meters and incident flows. Textbook bad-data identification | `[se]` extra |
 | `BusMLP` | The papers' lightweight arm: one 4x128 MLP applied to every bus's own 14-dim vector (readings, meter mask, partial KCL residual, delta, swing). 52k parameters | `[torch]` extra |
@@ -55,7 +55,7 @@ every test record, FR the per-bus false-positive rate on benign records); full m
 | Swing threshold | 0.1245 | 0.0698 | 0.0069 | 0.5372 | 0.6093 | 0.0098 | 0.5153 | 0.7934 | 0.0091 |
 
 The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 / 0.9327 for the MLP on
-v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards. The v0.8.0 timeline columns are lower for the same detectors because their temporal features compare each frame with the frame emitted one minute earlier rather than with the benign scan before an attacked snapshot, so a sustained episode spikes at its onset and a one-frame family also spikes on the benign frame after it.
+v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards. The v0.8.0 timeline columns are lower for the same detectors because their temporal features compare each frame with the frame emitted one minute earlier rather than with the benign scan before an attacked snapshot, so a sustained episode spikes at its onset and a one-frame family also spikes on the benign frame after it. Those post-attack benign frames stay in the benign calibration set on purpose: an operator's detector sees them too, so leaving them out would set lower thresholds and let the realized false-alarm rate exceed `fa_target`.
 
 **Common protocol**
 

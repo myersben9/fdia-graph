@@ -1,6 +1,6 @@
-"""Per-bus FDIA localization on fdia-graph shards — the shared machinery behind every method class.
+"""Per-bus FDIA localization on fdia-graph datasets — the shared machinery behind every method class.
 
-LocalizerBase owns what all localizers have in common: pulling the per-record arrays from a shard,
+LocalizerBase owns what all localizers have in common: pulling the per-record arrays from a dataset,
 calibrating per-bus alarm thresholds on BENIGN training records at a chosen false-alarm budget, and
 the scoring protocol (per-family node precision/recall/F1, strict localization accuracy, per-sample
 macro-F1, and record-level detection rate — with the benign false-alarm rate always reported next to

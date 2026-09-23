@@ -1,4 +1,4 @@
-"""State estimation on fdia-graph shards, sklearn style.
+"""State estimation on fdia-graph datasets, sklearn style.
 
     from fdia_graph.se import WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior
 
@@ -10,7 +10,7 @@
 
 Every class shares one chord-Newton iteration, Jacobian and starting point and differs only in the
 state space and the weights, so results compare estimators rather than implementations. Needs the
-se extra (pandapower + scipy; torch optional, it only speeds up the per-record inverses) and v0.7.2+ shards.
+se extra (pandapower + scipy; torch optional, it only speeds up the per-record inverses) and a timeline (or a v0.7.2 record shard) loaded with units="physical".
 """
 
 from .base import SEBase
