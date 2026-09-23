@@ -194,6 +194,24 @@ def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
     return frame
 
 
+def check_targets(g: Any, families: Sequence[str]) -> None:
+    """Refuse, before any frame is walked, a requested family that has nothing to attack on this
+    case: the stealthy families need a load off every generator bus, Al and Am a line whose
+    subnetwork admits a redistribution, Ad/As/Ar an attackable load."""
+    need = {
+        "Aq": len(g.stealthy_pos),
+        "At": len(g.stealthy_pos),
+        "Al": len(g._target_lines),
+        "Am": len(g._target_lines),
+        "Ad": len(g.attackable_pos),
+        "As": len(g.attackable_pos),
+        "Ar": len(g.attackable_pos),
+    }
+    empty = [f for f in families if f in need and need[f] == 0]
+    if empty:
+        raise ValueError(f"no admissible target on this case for {', '.join(empty)}; drop them from families")
+
+
 def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
     """Attacked load-table positions for an episode: 1 to 6 buses for Aq, up to 4 otherwise."""
     nab = len(apos)
@@ -753,6 +771,7 @@ def generate_timeline(
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
+    check_targets(g, families)
     X = _load_states(system, states)
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]

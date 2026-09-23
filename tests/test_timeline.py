@@ -543,3 +543,19 @@ def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
         banned = set(g.base.gen.bus) | set(sg.bus)
         assert not banned & set(g.load_bus[g.stealthy_pos].tolist())
         assert set(g.stealthy_pos) <= set(g.attackable_pos)
+
+
+def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_no_op():
+    from types import SimpleNamespace
+
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.timeline import check_targets
+
+    g = SimpleNamespace(stealthy_pos=np.array([], int), _target_lines=[], attackable_pos=np.arange(3))
+    check_targets(g, ["Ad", "As", "Ar"])  # the in-place families still have targets
+    with pytest.raises(ValueError, match="Aq, Al"):
+        check_targets(g, ["Aq", "Ad", "Al"])
+    eng = FdiaGenerator(14, seed=1)
+    eng._target_lines = []
+    red = eng.lra_delta(np.ones(len(eng.load_bus)), 0.2, 3)
+    assert len(red.buses) == 0 and red.line == -1
