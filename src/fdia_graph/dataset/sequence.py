@@ -44,7 +44,13 @@ class SequenceMixin(DatasetBase):
             raise ValueError(f"{what} needs consecutive frames; a families= or heldout= view is not")
 
     def windows(
-        self, W: int, stride: int = 1, label: str = "any", layer: str = "node_x", per_bus: bool = False
+        self,
+        W: int,
+        stride: int = 1,
+        label: str = "any",
+        layer: str = "node_x",
+        per_bus: bool = False,
+        copy: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Slide a length-W window over this view's frames. Returns (Xw [n, W, N, 4], yw) in self.units.
 
@@ -53,6 +59,8 @@ class SequenceMixin(DatasetBase):
         layer: the measurement layer windowed, "node_x" (observed), "benign" or "clean".
         per_bus: one sequence per bus instead, Xw [n*N, W, 4] and yw [n*N] (or [n*N, W] per frame),
         what a per-bus recurrent model consumes; wrap in torch.as_tensor for PyTorch.
+        copy: False returns Xw as a read-only strided view of the frames, no memory per window (a
+        72k-frame IEEE-118 timeline at W=60 is about 8 GB as a copy); per_bus always copies.
         """
         self._check_timeline("windows")
         if layer not in ("node_x", "benign", "clean"):
@@ -62,8 +70,12 @@ class SequenceMixin(DatasetBase):
         a = self.export([layer, "y"])
         nx, y = a[layer], a["y"]
         starts = range(0, T - W + 1, stride)
-        Xw, yw = np.stack([nx[s : s + W] for s in starts]), window_labels(y, starts, W, label)
-        return per_bus_sequences(Xw, yw, label) if per_bus else (Xw, yw)
+        # [T-W+1, N, C, W] view -> window axis second -> every stride-th start
+        Xw = np.moveaxis(np.lib.stride_tricks.sliding_window_view(nx, W, axis=0), -1, 1)[::stride]
+        yw = window_labels(y, starts, W, label)
+        if per_bus:
+            return per_bus_sequences(Xw, yw, label)
+        return (np.array(Xw) if copy else Xw), yw
 
     @property
     def episodes(self) -> EpisodeTable:

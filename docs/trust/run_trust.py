@@ -23,7 +23,9 @@ test = fg.load(SYSTEM, split="test", order="time")
 report = {}
 arms = {"greedy": TrustedMeters(k=K)}
 if EPISODES > 0:
-    arms["dqn"] = TrustedMetersDQN(k=K, episodes=EPISODES)
+    arms["dqn"] = TrustedMetersDQN(
+        k=K, episodes=EPISODES, seed=0
+    )  # the published tables were made with seed 0
 for name, tm in arms.items():
     t0 = time.time()
     tm.fit(train)

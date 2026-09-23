@@ -42,7 +42,7 @@ class TrustedMetersDQN(TrustSelector):
         gamma: float = 0.95,
         lr: float = 1e-3,
         hidden: int = 128,
-        seed: int = 0,
+        seed: int = 123,
         fa_target: float = 0.01,
     ) -> None:
         super().__init__(k, fa_target)
@@ -57,13 +57,14 @@ class TrustedMetersDQN(TrustSelector):
         closed = c == float("inf")
         return (float(self.m) if closed else c), closed
 
-    def _step(self, state: np.ndarray, action: int) -> tuple[np.ndarray, float, bool]:
-        """Secure `action`; the reward is the attack-cost rise, the episode ends when closed."""
-        before, _ = self._cost(state)
+    def _step(self, state: np.ndarray, action: int, before: float) -> tuple[np.ndarray, float, bool]:
+        """Secure `action` given the current state's cost `before`; returns the next state, its cost
+        and whether it closes the subspace (the reward is the cost rise). The caller carries the
+        cost forward, so each step evaluates the attack cost once."""
         nxt = state.copy()
         nxt[action] = 1
         after, closed = self._cost(nxt)
-        return nxt, after - before, closed
+        return nxt, after, closed
 
     # ---- the network ----------------------------------------------------------------------------
     def _net(self) -> Any:
@@ -111,19 +112,19 @@ class TrustedMetersDQN(TrustSelector):
         net, target = self._net(), self._net()
         target.load_state_dict(net.state_dict())
         opt = torch.optim.Adam(net.parameters(), lr=self.lr)
-        replay: list[tuple] = []
+        replay = _Replay(5000)
+        empty = self._cost(np.zeros(self.m, np.float32))[0]
         for ep in range(self.episodes):
             eps = max(0.05, 1.0 - ep / max(1, 0.6 * self.episodes))  # explore first, exploit late
-            state, total = np.zeros(self.m, np.float32), 0.0
+            state, total, before = np.zeros(self.m, np.float32), 0.0, empty
             for _ in range(self.k):
                 action = self._act(net, state, eps, rng)
-                nxt, reward, done = self._step(state, action)
-                replay.append((state, action, reward, nxt, done))
-                replay = replay[-5000:]
-                total += reward
-                state = nxt
+                nxt, after, done = self._step(state, action, before)
+                replay.append((state, action, after - before, nxt, done))
+                total += after - before
+                state, before = nxt, after
                 if len(replay) >= 64:
-                    self._learn(net, target, opt, [replay[i] for i in rng.integers(len(replay), size=64)])
+                    self._learn(net, target, opt, replay.sample(rng.integers(len(replay), size=64)))
                 if done:
                     break
             self.history.append(total)
@@ -135,12 +136,37 @@ class TrustedMetersDQN(TrustSelector):
     def _rollout(self, net: Any) -> tuple[list[int], list[float]]:
         """The greedy policy from the empty set: the selection and the attack cost after each meter."""
         state, order, cost = np.zeros(self.m, np.float32), [], []
+        before = self._cost(state)[0]
         for _ in range(self.k):
             action = self._act(net, state, 0.0, np.random.default_rng(0))
-            state, _, done = self._step(state, action)
+            state, before, done = self._step(state, action, before)
             order.append(action)
-            c = attack_cost(self.H, np.flatnonzero(state))[0]
-            cost.append(c)
+            cost.append(float("inf") if done else before)  # the raw attack cost: inf once closed
             if done:
                 break
         return order, cost
+
+
+class _Replay:
+    """A bounded replay buffer in arrival order, oldest first: the last `cap` transitions, kept in
+    a ring so an append is O(1) instead of re-slicing a list every step. Index i is the i-th oldest,
+    so sampling by index draws exactly what the sliced list drew."""
+
+    def __init__(self, cap: int) -> None:
+        self.cap = cap
+        self._buf: list[tuple] = []
+        self._head = 0  # physical index of the oldest item once the ring is full
+
+    def __len__(self) -> int:
+        return len(self._buf)
+
+    def append(self, item: tuple) -> None:
+        if len(self._buf) < self.cap:
+            self._buf.append(item)
+        else:
+            self._buf[self._head] = item
+            self._head = (self._head + 1) % self.cap
+
+    def sample(self, idx: np.ndarray) -> list[tuple]:
+        n = len(self._buf)
+        return [self._buf[(self._head + int(i)) % n] for i in idx]
