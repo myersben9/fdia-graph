@@ -287,6 +287,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         C = self.C
         _lb = base.load
         self.load_bus = _lb["bus"].values
+        self.load_p0 = _lb["p_mw"].to_numpy(dtype=float)  # base active load per element, signed
+        self.load_q0 = _lb["q_mvar"].to_numpy(dtype=float)  # base reactive load per element, signed
         self.slack_bus = int(
             base.ext_grid.bus.values[0]
         )  # the angle reference; a local attack never moves it
@@ -297,14 +299,23 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         if self.max_load_mw is not None:
             self._attackable_mask &= p_load <= self.max_load_mw
         self.attackable_pos = np.where(self._attackable_mask)[0]
-        # Every bus with some injection element (gen, load, ext_grid, shunt).
+        # Every bus with some injection element (gen, load, ext_grid, shunt, a static generator that
+        # produces anything: IEEE-89 and 300 feed buses from sgen alone; IEEE-200's are all 0 MW).
+        sgen = base.sgen[(base.sgen.p_mw.abs() > 0) | (base.sgen.q_mvar.abs() > 0)]
         inj = np.unique(
-            np.r_[base.gen.bus.values, base.load.bus.values, base.ext_grid.bus.values, base.shunt.bus.values]
+            np.r_[
+                base.gen.bus.values,
+                base.load.bus.values,
+                base.ext_grid.bus.values,
+                base.shunt.bus.values,
+                sgen.bus.values,
+            ]
         )
         self.zero_inj = [b for b in range(C) if b not in set(inj)]
         self._injection_buses = sorted(set(inj.tolist()))
-        # Total generator MW per bus (summing co-located gens), aligned to load-bus ordering, so attacks
-        # can reason about net (load - gen) per bus.
+        # Base-case generator MW per bus (summing co-located gens), aligned to load-bus ordering. The
+        # pools scale generation with load, so a scan's load and dispatch come from `true_load` and
+        # `scan_generation`, not from this constant.
         genP: dict[int, float] = {}
         for r in base.gen.itertuples():
             genP[int(r.bus)] = genP.get(int(r.bus), 0.0) + r.p_mw
@@ -324,6 +335,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         for r in base.load.itertuples():
             self.load_base[int(r.bus)] += (r.p_mw, r.q_mvar)
         gens = base.gen
+        self.has_gen = np.zeros(C, bool)  # a generator on the bus, zero-MW condensers included
+        self.has_gen[np.unique(gens.bus.values).astype(int)] = True
         for b in np.unique(gens.bus.values):
             rows = gens[gens.bus == b]
             self.gen_base[int(b), 0] = rows.p_mw.sum()

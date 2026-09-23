@@ -29,7 +29,6 @@ from ..models.frames import (  # noqa: F401  re-exported: defined here before th
     FrameKnobs,
     Scan,
 )
-from ..models.grid import NODE
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
@@ -144,10 +143,8 @@ def stealthy_state(g, Xt, targets, mult, interior, k: FrameKnobs) -> Optional[np
     """The local false state of `targets` scaled by `mult` on the interior, or None when the local
     power flow has no solution or the state breaks the operating limits [WU26, eqs. 21-23]. Spends
     no random draw, so an episode can test its design at onset and redraw."""
-    Lp = (
-        Xt[g.load_bus, NODE.p_inj] + g.load_genP
-    )  # base active load = stored P at load buses + generator P there
-    Lq = Xt[g.load_bus, NODE.q_inj].copy()
+    Lp = g.true_load(Xt)  # this scan's active load per load element
+    Lq = g.true_reactive_load(Xt)
     Lp_true, Lp = Lp, Lp.copy()
     Lp[targets] *= mult
     Xa = g.solve_local(Xt, interior, Lp, Lq)
@@ -230,7 +227,7 @@ def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
     """Al: a load-conserving redistribution over up to lra_k buses of the subnetwork around a
     target line, steering that line, re-solved locally [DAT26, WU26]; a line whose redistribution
     has no stealthy state at any halving above the floor is redrawn."""
-    Lp = Xt[g.load_bus, NODE.p_inj] + g.load_genP
+    Lp = g.true_load(Xt)
     for _ in range(LRA_DRAWS):  # a line with no feasible or no solvable redistribution is redrawn
         red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
         a = red.buses

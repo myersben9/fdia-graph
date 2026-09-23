@@ -59,7 +59,6 @@ from .generation import (
     _swing_scale,
     _write_graph,
 )
-from .models.grid import NODE
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
 
@@ -368,7 +367,7 @@ class _AmShape:
 
 def _am_multipliers(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray) -> np.ndarray:
     """The load multipliers that add `delta` (MW, per target) to this frame's true load."""
-    Lp = ctx.X[t][ctx.g.load_bus[a], NODE.p_inj] + ctx.g.load_genP[a]
+    Lp = ctx.g.true_load(ctx.X[t])[a]
     return 1.0 + delta / np.where(np.abs(Lp) > 1e-9, Lp, 1e-9)
 
 
@@ -379,7 +378,7 @@ def _am_held_delta(
     peak has a stealthy state on every frame of the plateau; None when none has."""
     T, k = len(ctx.X), ctx.knobs
     length, am_rate = shape
-    Lp0 = ctx.X[t][ctx.g.load_bus[a], NODE.p_inj] + ctx.g.load_genP[a]
+    Lp0 = ctx.g.true_load(ctx.X[t])[a]
     for _ in range(AQ_HALVINGS + 1):
         dev = np.abs(delta) / (np.abs(Lp0) + 1e-6)
         if np.min(dev) < k.floor:
@@ -399,13 +398,14 @@ def _am_peak_solves(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray
 
 
 def _am_sign(direction: str, rng: np.random.Generator) -> float:
-    """The sign applied to the engine's redistribution. `lra_delta` orients its delta to raise the
-    target line's loading in the false state, so "induce" (a safe line reads as overloaded, the
-    [WU26] objective) keeps it (+1) and "mask" (a real overload reads lighter) flips it (-1);
-    "both" draws one of the two per episode (one RNG draw)."""
+    """The sign applied to the engine's redistribution. `lra_delta` orients its delta to LOWER the
+    target line's |flow| in the false state, so "mask" (a real overload reads lighter) keeps it (+1)
+    and "induce" (a safe line reads as overloaded, the [WU26] objective) flips it (-1); "both" draws
+    one of the two per episode (one RNG draw; a given draw maps to the same sign as before the
+    direction fix, though files still change where the stealthy load recovery did)."""
     if direction == "both":
-        direction = "induce" if rng.random() < 0.5 else "mask"
-    return 1.0 if direction == "induce" else -1.0
+        direction = "mask" if rng.random() < 0.5 else "induce"
+    return 1.0 if direction == "mask" else -1.0
 
 
 def _am_episode(
@@ -418,7 +418,7 @@ def _am_episode(
     resolved by `_am_sign`. Returns the next free timestep."""
     T, k = len(ctx.X), ctx.knobs
     length, am_rate, direction = shape
-    Lp0 = ctx.X[t][ctx.g.load_bus, NODE.p_inj] + ctx.g.load_genP
+    Lp0 = ctx.g.true_load(ctx.X[t])
     for _ in range(_AM_DRAWS):  # redrawn when the target-line pool gives no redistribution, or one
         red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)  # without a
         a = red.buses  # stealthy state on its peak plateau at any halving above the floor
@@ -734,8 +734,9 @@ def generate_timeline(
                      may not be made worse) and every generator's implied output within its P and
                      Q limits widened to the range the pool ran it over; a state outside them is
                      halved; v_lo and v_hi record the widest bus limits of the case
-    am_direction     "induce" (the target line reads more loaded than it is, the engine's Al sign),
-                     "mask" (it reads lighter, a real overload hidden) or "both" (drawn per episode)
+    am_direction     "induce" (the target line reads more loaded than it is), "mask" (it reads
+                     lighter, a real overload hidden, the engine's Al sign) or "both" (drawn per
+                     episode)
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
                      draw as in the papers, None draws the stream's 5 to 25 frame band
     replay_tau       Ar/As replay depth in frames, None = random lag of at least 20

@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from ..formulas.attacks import operating_limits
+from ..formulas.attacks import bus_load, element_loads, generator_output, operating_limits
 from ..formulas.network import bus_injections, complex_voltages, local_ac_solve, subnetwork
 from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
     OperatingLimits,
@@ -36,9 +36,8 @@ class PhysicsMixin(GridBase):
         ok = np.zeros(len(X), bool)
         for t in range(len(X)):
             Xt = X[t]  # [N,4] = [|V|, Pinj, Qinj, theta]
-            # Base active load per element = stored injection + generation folded onto that bus.
-            Lp = Xt[self.load_bus, 1] + self.load_genP
-            Lq = Xt[self.load_bus, 2].copy()
+            Lp = self.true_load(Xt)  # this scan's active load per load element
+            Lq = self.true_reactive_load(Xt)
             # Lp_true==Lp: alpha=1 no-op re-solve. Reproduces the stored state on the intact topology (the
             # pinning check); yields the post-contingency state on a contingency topology.
             net = self.solve(Lp, Lq, Xt=Xt, Lp_true=Lp)
@@ -50,6 +49,31 @@ class PhysicsMixin(GridBase):
             out[t] = s
             ok[t] = True
         return ResolvedPool(out, ok)
+
+    def true_load(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's active load per load element [n_loads] (MW), `formulas.attacks.bus_load`: the
+        stored injection plus the co-located generation at this scan's scale, not the base case's.
+        Not the load at the slack bus (see `bus_load`), which no attack targets."""
+        return element_loads(bus_load(Xt, self.load_base, self.gen_base), self.load_bus, self.load_p0)
+
+    def true_reactive_load(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's reactive load per load element [n_loads] (MVAr): the bus's stored reactive
+        injection plus its generators' reactive output (`scan_reactive_generation`), split over the
+        bus's load elements by base reactive share (`formulas.attacks.element_loads`)."""
+        return element_loads(
+            Xt[:, NODE.q_inj] + self.scan_reactive_generation(Xt), self.load_bus, self.load_q0
+        )
+
+    def scan_reactive_generation(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's generator reactive output per bus [N] (MVAr), `formulas.attacks.generator_output`,
+        zero at a bus with no generator (a zero-MW condenser counts as one)."""
+        q = generator_output(Xt, self.load_base, self.gen_base)[:, 1]
+        return np.where(self.has_gen, q, 0.0)
+
+    def scan_generation(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's active generation per bus [N] (MW), `formulas.attacks.generator_output`;
+        zero where the bus has no generator."""
+        return generator_output(Xt, self.load_base, self.gen_base)[:, 0]
 
     def _pin_generation(self, net: Any, Lp: np.ndarray, base_load: np.ndarray, Xt: np.ndarray) -> None:
         """Hold every generator at the TRUE dispatch of the unattacked state and spread the attack's net
@@ -132,11 +156,14 @@ class PhysicsMixin(GridBase):
         C = self.C
         Xa = np.array(Xt, np.float64, copy=True)
         Pinj, Qinj = Xa[:, NODE.p_inj].copy(), Xa[:, NODE.q_inj].copy()
-        for pos, b in enumerate(
-            self.load_bus
-        ):  # the pool's injection is load-positive: load minus generation
-            Pinj[b] = Lp[pos] - self.load_genP[pos]
-            Qinj[b] = Lq[pos]
+        # the pool's injection is load-positive: every load element at a bus minus that bus's
+        # generation, held at this scan's dispatch (the attacker moves loads only)
+        load, qload = np.zeros(C), np.zeros(C)
+        np.add.at(load, self.load_bus, Lp)
+        np.add.at(qload, self.load_bus, Lq)
+        buses = np.unique(self.load_bus)
+        Pinj[buses] = load[buses] - self.scan_generation(Xt)[buses]
+        Qinj[buses] = qload[buses] - self.scan_reactive_generation(Xt)[buses]
         lut = self._ppc_row[np.arange(C)]
         Vc = np.zeros(self._n_ppc_buses, complex)
         Vc[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])

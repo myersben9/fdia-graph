@@ -194,12 +194,15 @@ def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
 
 
 def test_am_direction_sign_follows_the_engine_convention():
-    """`lra_delta` raises the target line's loading in the false state, so induce keeps its sign."""
+    """`lra_delta` lowers the target line's |flow| in the false state, so mask keeps its sign, and
+    a given "both" draw maps to the same sign as before the fix (+1 below 0.5)."""
     from fdia_graph.timeline import _am_sign
 
     rng = np.random.default_rng(0)
-    assert _am_sign("induce", rng) == 1.0 and _am_sign("mask", rng) == -1.0
-    assert {_am_sign("both", rng) for _ in range(50)} == {1.0, -1.0}
+    assert _am_sign("mask", rng) == 1.0 and _am_sign("induce", rng) == -1.0
+    draws = np.random.default_rng(7).random(50)
+    rng = np.random.default_rng(7)
+    assert [_am_sign("both", rng) for _ in range(50)] == [1.0 if r < 0.5 else -1.0 for r in draws]
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
@@ -249,9 +252,11 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
         Xt = a["clean/node_clean"][t].astype(np.float64)  # the pool state the frame was emitted from
         targets = np.array([pos[int(b)] for b in mag_bus[ptr[t] : ptr[t + 1]]])
         mult = 1.0 + mag[ptr[t] : ptr[t + 1]].astype(np.float64)
-        Lp = Xt[g.load_bus, 1] + g.load_genP
+        Lp = g.true_load(Xt)
         Lp[targets] *= mult
-        Xa = g.solve_local(Xt, g.local_region(g.load_bus[targets], int(attrs["hops"])), Lp, Xt[g.load_bus, 2])
+        Xa = g.solve_local(
+            Xt, g.local_region(g.load_bus[targets], int(attrs["hops"])), Lp, g.true_reactive_load(Xt)
+        )
         assert Xa is not None
         a_node, a_edge = _attack_vector(g, Xa, Xt)
         nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
@@ -443,3 +448,67 @@ def test_score_bundles_accept_the_seventh_family():
     fam = FamilyMetrics(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
     loc = LocalizerScores(all=OverallMetrics(1.0, 1.0, 0.0, 1.0), Am=fam)
     assert list(loc) == ["all", "Am"] and loc.Am is fam
+
+
+def test_redistribution_lightens_the_target_line_and_am_names_follow():
+    """The engine's redistribution lowers the target line's |flow| in the false state (Al masks an
+    overload), so Am's "mask" keeps its sign and "induce" flips it."""
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.formulas.network import branch_flows, complex_voltages
+    from fdia_graph.profiles import _case_buses, _solve_states_chunk
+    from fdia_graph.timeline import _am_sign
+
+    g = FdiaGenerator(14, seed=5)
+    g._pick_lra_target(0.2, 3)  # the target-line pool generation builds before any Al frame
+    X = _solve_states_chunk(14, np.ones((1, len(_case_buses(14)))))[0]
+
+    def flow(Xs, line):
+        Vc = np.zeros(g._n_ppc_buses, complex)
+        Vc[g._ppc_row[np.arange(g.C)]] = complex_voltages(Xs[:, 0], Xs[:, 3])
+        return branch_flows(Vc, g._Yf, g._from_bus_ppc, g._base_mva).real[line]
+
+    Lp, Lq = g.true_load(X), g.true_reactive_load(X)
+    moved = 0
+    for _ in range(10):
+        red = g.lra_delta(Lp, 0.2, 3, floor=0.02, hops=2)
+        if len(red.buses) == 0:
+            continue
+        for sign, lighter in ((_am_sign("mask", None), True), (_am_sign("induce", None), False)):
+            Xa = g.solve_local(X, red.interior, Lp + sign * red.delta, Lq)
+            if Xa is not None:
+                assert (abs(flow(Xa, red.line)) < abs(flow(X, red.line))) == lighter
+                moved += 1
+    assert moved >= 4
+
+
+def test_a_producing_static_generator_bus_injects():
+    """IEEE-89 buses 1, 65, 69, 79 are fed by a static generator alone: injection buses, metered
+    as such, never zero-injection junctions; IEEE-200's static generators all produce 0 MW, so their
+    buses stay zero-injection unless another element sits there."""
+    from fdia_graph.engine import FdiaGenerator
+
+    g = FdiaGenerator(89, seed=1)
+    for b in (1, 65, 69, 79):
+        assert b not in g.zero_inj and b in g.meters.inj
+    g = FdiaGenerator(200, seed=1)
+    base = g.base
+    others = set(base.gen.bus) | set(base.load.bus) | set(base.ext_grid.bus) | set(base.shunt.bus)
+    idle = [int(b) for b in base.sgen.bus if int(b) not in others]
+    assert idle and all(b in g.zero_inj for b in idle)
+
+
+def test_reactive_load_adds_back_the_generators_output():
+    """At a load bus with a generator the stored Q injection is load minus generator output, so the
+    reactive load adds it back; the local solve with unchanged loads reproduces the scan."""
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.profiles import _case_buses, _solve_states_chunk
+
+    g = FdiaGenerator(14, seed=5)
+    X = _solve_states_chunk(14, np.full((1, len(_case_buses(14))), 1.1))[0]
+    Lq = g.true_reactive_load(X)
+    for pos, b in enumerate(g.load_bus):
+        want = 1.1 * g.load_base[b, 1] if g.has_gen[b] else X[b, 2]
+        assert Lq[pos] == pytest.approx(want, abs=1e-6)
+    interior = g.local_region(g.load_bus[[2]], 1)
+    Xa = g.solve_local(X, interior, g.true_load(X), Lq)
+    assert np.allclose(Xa, X, atol=1e-5)
