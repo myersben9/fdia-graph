@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `fdia_graph.federated`: the federated localization paper's localizers trained by FedAvg [MCM17].
+  `FedBusMLP` and `FedBusCNN` are `LocalizerBase` methods (`fit(train, val)`, `localize`, `scores`,
+  `score` as for `BusMLP`/`BusCNN`) over a K-way partition: each client reads only its own buses,
+  builds its power-balance channel from its own flow meters by default (`kcl="local"`; `"global"`
+  is the paper's central feature, which reads a neighbour's tie-line meters), trains on its own
+  buses (optionally with a read-only halo) and scores them; only pooled moments, model weights and
+  per-bus confusion counts cross a client boundary. `history` logs every round's loss and bytes.
+  With K = 1 and no clip the fit equals the centralized one weight for weight (tested for both
+  encoders). The Jacobian feature sets are refused (they need the whole system's estimator).
 - `fdia_graph.federated`, first part: the split of a system's buses into K clients.
   `spectral_partition(edge_index, N, K)` is the federated localization paper's partition (spectral
   clustering of the bus adjacency, random_state 42 [VLX07]) and matched its cached partitions

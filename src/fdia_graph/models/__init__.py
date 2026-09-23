@@ -21,7 +21,7 @@ from .data import (
     Summary,
     TrueState,
 )
-from .federated import Partition
+from .federated import Partition, RoundLog
 from .fields import (
     CleanFields,
     GraphFields,
@@ -102,6 +102,7 @@ __all__ = [
     "FrameKnobs",
     "OptimConfig",
     "Partition",
+    "RoundLog",
     "OperatingLimits",
     "Redistribution",
     "ResolvedPool",

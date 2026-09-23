@@ -21,3 +21,14 @@ class Partition(NamedTuple):
     def owned(self, k: int) -> np.ndarray:
         """Client k's buses in increasing order."""
         return np.flatnonzero(self.assignment == k)
+
+
+class RoundLog(NamedTuple):
+    """One federated round: the clients' mean local training loss, each client's, and the bytes
+    the round moved (every client's weights up to the server and the average back down)."""
+
+    round: int
+    loss_mean: float
+    loss_per_client: list[float]
+    bytes_up: int
+    bytes_down: int
