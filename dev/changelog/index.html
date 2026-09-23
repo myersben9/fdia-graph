@@ -1504,6 +1504,11 @@ the public API, the generated files and the numbers are the same as the previous
   <code>lapack.dtrcon</code>, which <code>guarded_inverse</code> called for its condition estimate; it now falls back to
   Hager's 1-norm estimate (the same value LAPACK returns, a few O(k²) solves) when SciPy lacks it (<code>[se]</code> still asks only scipy&gt;=1.8). <code>tools/readability.py</code>
   no longer fails on a file on another drive than the repository (Windows CI's temp dir).</li>
+<li>Repository, no package change. <code>_publish_pypi.sh</code> is gone: publishing goes through a version tag and
+  <code>publish.yml</code> only (no manual upload path). Four figures in <code>docs/</code> that nothing referenced
+  (the README uses the copies in <code>docs/figures/</code>) are gone. <code>.gitignore</code> loses a duplicated block,
+  ignores the pytest and ruff caches, and names <code>examples/_build_timelines_v080.py</code>, the v0.8.0
+  build script, as tracked on purpose.</li>
 <li>Estimators, numbers change. <code>ResidualRemoval</code> is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above
