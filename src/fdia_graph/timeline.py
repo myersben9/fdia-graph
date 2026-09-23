@@ -196,20 +196,13 @@ def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
 
 def check_targets(g: Any, families: Sequence[str]) -> None:
     """Refuse, before any frame is walked, a requested family that has nothing to attack on this
-    case: the stealthy families need a load off every generator bus, Al and Am a line whose
-    subnetwork admits a redistribution, Ad/As/Ar an attackable load."""
-    need = {
-        "Aq": len(g.stealthy_pos),
-        "At": len(g.stealthy_pos),
-        "Al": len(g._target_lines),
-        "Am": len(g._target_lines),
-        "Ad": len(g.attackable_pos),
-        "As": len(g.attackable_pos),
-        "Ar": len(g.attackable_pos),
-    }
-    empty = [f for f in families if f in need and need[f] == 0]
+    case: the stealthy Aq and At need a load off every generator bus, Al and Am a line whose
+    subnetwork admits a redistribution, Ad/As/Ar an attackable load. Legacy aliases resolve first."""
+    need = {1: len(g.stealthy_pos), 5: len(g.stealthy_pos), 6: len(g._target_lines), 7: len(g._target_lines)}
+    empty = sorted({FAM_ID[f] for f in families if need.get(FAM_ID[f], len(g.attackable_pos)) == 0})
     if empty:
-        raise ValueError(f"no admissible target on this case for {', '.join(empty)}; drop them from families")
+        names = ", ".join(FAMILIES[i] for i in empty)
+        raise ValueError(f"no admissible target on this case for {names}; drop them from families")
 
 
 def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
@@ -771,7 +764,8 @@ def generate_timeline(
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
-    check_targets(g, families)
+    if attacked_frac > 0:  # an all-benign timeline needs no target
+        check_targets(g, families)
     X = _load_states(system, states)
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]

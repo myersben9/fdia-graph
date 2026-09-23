@@ -555,6 +555,8 @@ def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_
     check_targets(g, ["Ad", "As", "Ar"])  # the in-place families still have targets
     with pytest.raises(ValueError, match="Aq, Al"):
         check_targets(g, ["Aq", "Ad", "Al"])
+    with pytest.raises(ValueError, match="Aq, At, Al"):
+        check_targets(g, ["Ao", "ramp", "LRA"])  # legacy aliases resolve first
     eng = FdiaGenerator(14, seed=1)
     eng._target_lines = []
     red = eng.lra_delta(np.ones(len(eng.load_bus)), 0.2, 3)
