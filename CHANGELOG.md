@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+## 0.19.0
+
+- Data release v0.8.1 is the default (`fg.load("ieee118")`; v0.8.0 stays readable with
+  `release="v0.8.0"`): the eight timelines regenerated with this release's generator, the same pools
+  (byte-identical), seed and knobs, built by `examples/_build_timelines_v081.py`. The stealthy
+  families change on every system but IEEE-200, whose file is byte-identical to v0.8.0 (no bus there
+  holds both a load and a generator, and its static generators produce nothing). Every file keeps
+  72,000 frames, exactly half attacked, no frame falling back to benign, every family present, and
+  no stealthy frame labelling a generator bus.
 - Generator, the stealthy families change. Aq, At, Al and Am no longer target a load on a generator
   bus (zero-MW condensers included), the local attacker's rule in [BOY22]: a generator bus is too
   risky to falsify. `FdiaGenerator.stealthy_pos` is their target set; Ad, As and Ar keep
