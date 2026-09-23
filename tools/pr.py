@@ -34,6 +34,8 @@ REVIEW_BOTS = (COPILOT, "coderabbitai", "gemini-code-assist")
 # not registered yet counts as not green (so a merge cannot slip in while CI is still starting).
 REQUIRED = (
     "tests",
+    "tests (3.9)",
+    "tests (windows)",
     "typecheck",
     "format",
     "readability",

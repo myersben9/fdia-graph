@@ -59,13 +59,13 @@ jobs:
           fi
           echo "::error::ref must be main or an existing vX.Y.Z tag, got $REF"
           exit 1
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
           fetch-depth: 0  # mike commits to gh-pages, which needs the full history
       # the site tooling (mkdocs.yml, the staging script) always comes from main, so a backfilled
       # older tag gets the current nav, version picker and root pages over its own page content
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           ref: main
           path: .tooling
@@ -74,7 +74,7 @@ jobs:
           cp .tooling/mkdocs.yml mkdocs.yml
           cp .tooling/scripts/site_index.py scripts/site_index.py
           rm -rf .tooling
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
       - name: Install the site tooling

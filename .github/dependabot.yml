@@ -1,0 +1,10 @@
+# Keeps the SHA-pinned actions current: one grouped pull request a month with the new SHAs.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
