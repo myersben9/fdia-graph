@@ -345,3 +345,18 @@ def test_element_loads_split_a_bus_by_base_shares():
     p0 = np.array([10.0, 10.0, 30.0])
     assert np.allclose(element_loads(bus_p, load_bus, p0), [8.0, 15.0, 45.0])
     assert element_loads(np.array([5.0]), np.array([0]), np.array([0.0]))[0] == 0.0  # no base P: no share
+
+
+def test_triangular_rcond_falls_back_without_dtrcon():
+    """SciPy on Python 3.9 has no lapack.dtrcon: Hager's estimate stands in, bounded by the exact value."""
+    import scipy.linalg as sl
+
+    from fdia_graph.formulas.linalg import _triangular_rcond
+
+    A = np.random.default_rng(3).normal(size=(30, 30))
+    L = np.linalg.cholesky(A @ A.T + np.eye(30))
+    exact = 1.0 / (np.linalg.norm(L, 1) * np.linalg.norm(np.linalg.inv(L), 1))
+    fallback = _triangular_rcond(L, object())  # an estimate of the inverse's norm from below
+    assert exact <= fallback <= 3 * exact
+    if hasattr(sl.lapack, "dtrcon"):  # LAPACK's estimate bounds it from above, within a small factor
+        assert exact <= _triangular_rcond(L, sl.lapack) <= 3 * exact

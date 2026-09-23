@@ -52,8 +52,8 @@ python tools/pr.py reply 80 <comment-id> "what changed"
 python tools/pr.py merge 80                                    # refuses unless green with every required bot's review on the head
 ```
 
-Green means: every job of the smoke workflow (`tests`, `typecheck`, `format`, `readability`, the two
-installs) is a completed success on the head, a job that has not started yet counts as not green,
+Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (windows)`, `typecheck`,
+`format`, `readability`, the two installs) is a completed success on the head, a job that has not started yet counts as not green,
 every other listed check has finished without failure, and every required review bot has reviewed
 that exact head.
 
