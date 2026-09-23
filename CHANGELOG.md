@@ -43,8 +43,6 @@ the public API, the generated files and the numbers are the same as the previous
   `lapack.dtrcon`, which `guarded_inverse` called for its condition estimate; it now falls back to
   Hager's 1-norm estimate (the same value LAPACK returns, a few O(k²) solves) when SciPy lacks it (`[se]` still asks only scipy>=1.8). `tools/readability.py`
   no longer fails on a file on another drive than the repository (Windows CI's temp dir).
-- Repository, no package change. `_publish_pypi.sh` is gone: publishing goes through the tag and
-  `publish.yml` only, which runs the tests first. Four figures in `docs/` that nothing referenced
 - Repository, no package change. `_publish_pypi.sh` is gone: publishing goes through a version tag and
   `publish.yml` only (no manual upload path). Four figures in `docs/` that nothing referenced
   (the README uses the copies in `docs/figures/`) are gone. `.gitignore` loses a duplicated block,
