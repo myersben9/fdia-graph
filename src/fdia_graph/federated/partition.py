@@ -70,9 +70,12 @@ def partition_from_assignment(
         raise ValueError(f"clients must be numbered 0..{K - 1} with none empty")
     A = bus_adjacency(edge_index, len(assignment))
     interior, boundary = interior_boundary(assignment, A, K)
-    on_boundary = (
-        None if attackable is None else int((boundary.any(axis=0) & np.asarray(attackable, bool)).sum())
-    )
+    on_boundary = None
+    if attackable is not None:
+        mask = np.asarray(attackable, bool)
+        if mask.shape != assignment.shape:
+            raise ValueError(f"the attackable mask must be one flag per bus, shape {assignment.shape}")
+        on_boundary = int((boundary.any(axis=0) & mask).sum())
     return Partition(K, assignment, interior, boundary, cut_edge_count(assignment, A), on_boundary)
 
 

@@ -106,3 +106,7 @@ def test_partition_and_affinity_inputs_are_checked(edges):
         partition_from_assignment(np.r_[np.zeros(N - 1, int), 2], ei)  # client 1 has no bus
     with pytest.raises(ValueError, match="attackable mask"):
         attackable_affinity(np.eye(3), np.array([True, False]))
+    for bad in (np.ones((N, 1), bool), np.ones(1, bool)):  # neither broadcasts silently
+        with pytest.raises(ValueError, match="one flag per bus"):
+            spectral_partition(ei, N, 1, attackable=bad)
+    assert spectral_partition(ei, N, 1, attackable=np.ones(N, bool)).attackable_boundary == 0
