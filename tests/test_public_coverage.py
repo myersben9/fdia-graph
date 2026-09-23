@@ -159,9 +159,16 @@ def test_removal_keeps_every_meter_the_guard_refuses(splits):
     d = splits["test"].export(["node_x", "edge_x", "clean"])
     z = est._z_of(d["node_x"], d["edge_x"])[:20]
     thsl = est._truth_of(d["clean"])["thsl"][:20]
-    est._observable = lambda w: False  # every removal would break observability
+    asked = []
+
+    def refuse(w):  # every removal would break observability
+        asked.append(1)
+        return False
+
+    est._observable = refuse
     full = est._w_solve(z, np.broadcast_to(est.Wk, z.shape), thsl)
     assert np.allclose(est._solve(z, thsl), full)  # nothing removed, and the loop still ends
+    assert len(asked) >= 20  # the guard was consulted, at least once per record
 
 
 def test_tune_threshold_picks_one_global_tau(splits, timeline):
