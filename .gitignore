@@ -3,6 +3,8 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+.pytest_cache/
+.ruff_cache/
 .cache/
 # large .npz operating-point pools ship as GitHub release assets, not committed to the repo
 release_assets/
@@ -22,15 +24,6 @@ examples/**/*.out
 examples/**/_tmp_*
 examples/_tmp_*
 
-# Development-only: experiment scripts, results, and report artifacts (kept locally, not shipped)
-examples/_*
-examples/results/
-examples/hpo_arma.py
-examples/dataset_report.py
-examples/reproduce_report.ipynb
-examples/add_bus_attrs_v050.py
-examples/upgrade_to_v050.py
-
 # Development-only: experiment scripts, results, report/migration utilities (kept locally, not shipped)
 examples/_*
 examples/results/
@@ -41,6 +34,8 @@ examples/reproduce_report.ipynb
 examples/add_bus_attrs_v050.py
 examples/upgrade_to_v050.py
 examples/*.txt
+# ...except the script that built the v0.8.0 timelines, the release's provenance
+!examples/_build_timelines_v080.py
 # never track dataset binaries (they live in GitHub releases)
 *.h5
 *.npz
@@ -54,6 +49,6 @@ site/
 # per-method estimate/score caches written by the docs example scripts
 docs/*/results/cache/
 
-# the one checked-in v0.7.2 record shard the loader tests read (156 KB)
+# the binaries the tests read: the v0.7.2 record shard (156 KB) and the frozen reference timeline
 !tests/data/tiny_shard_v072.h5
 !tests/frozen/tiny_ieee14_timeline.npz
