@@ -10,7 +10,7 @@ import numpy as np
 
 from ..formulas.estimation import gate_weights, huber_weights, normal_matrix, whitened_svd_basis
 from ..formulas.linalg import condition_number
-from .base import SEBase
+from .base import SEBase, require_physical
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -35,26 +35,22 @@ class AdaptiveWeighting(SEBase):
         self.c = c
         self.tol = tol  # stop the reweighting passes once no weight moves by more than this
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        x = self._solve_plain(z, thsl)
-        prev = None
-        for _ in range(self.npass):
-            a = huber_weights(self._nres(x, z, thsl), self.c)
-            if prev is not None and np.abs(a - prev).max() < self.tol:
-                break  # weights settled: further passes reproduce the same estimate
-            x = self._w_solve(z, self.Wk * a, thsl)
-            prev = a
-        return x
+    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        x = super()._solve(z, thsl, w)
+        return self._huber_passes(x, z, self.Wk if w is None else w, thsl, self.c, self.tol)
 
 
 class ResidualRemoval(SEBase):
-    """Largest-normalized-residual removal with a real observability guard.
+    """Largest-normalized-residual removal [HAN75] with an observability guard.
 
-    Measurements whose normalized residual exceeds the threshold are removed and the record
-    re-solved. Critical measurements (residual structurally zero) are never removed, and a removal
-    set that would degrade conditioning beyond cond_mult times the full system's is walked back,
-    restoring the lowest-residual removals first. Paper thresholds: 4.0 (14) and 5.0 (118); on
-    IEEE 300 no threshold on the grid helped.
+    Each pass removes, per record, the ONE measurement with the largest normalized residual when
+    it exceeds the threshold, then re-solves; it stops when no residual exceeds the threshold or
+    after npass removals. One at a time matters: a single gross error smears large residuals onto
+    its honest neighbours, which fall back below the threshold once the bad meter is out.
+    Critical measurements (residual structurally zero) are never removed, and a removal that would
+    degrade conditioning beyond cond_mult times the full system's is refused (that meter is kept
+    and the next largest is considered on the next pass). Paper thresholds: 4.0 (14) and 5.0
+    (118); on IEEE 300 no threshold on the grid helped.
     """
 
     def __init__(
@@ -70,38 +66,36 @@ class ResidualRemoval(SEBase):
         self._cond_full = condition_number(normal_matrix(self.H, self.Wk))
 
     def _observable(self, w: np.ndarray) -> bool:
-        # The guard runs once per bad record per trial, so it uses the Cholesky/power-iteration
-        # condition estimate rather than a full eigen-decomposition (formulas.linalg.condition_number).
+        # Runs once per removal candidate, so it uses the Cholesky/power-iteration condition
+        # estimate rather than a full eigen-decomposition (formulas.linalg.condition_number).
         return condition_number(normal_matrix(self.H, w)) <= self.cond_mult * self._cond_full
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        base = np.broadcast_to(self.Wk if w is None else w, z.shape)
         keep = np.ones_like(z)
-        x = self._w_solve(z, self.Wk * keep, thsl)
+        held = np.zeros(z.shape, bool)  # removal refused by the guard: never proposed again
+        rows = np.arange(z.shape[0])
+        x = self._w_solve(z, base * keep, thsl)
         for _ in range(self.npass):
-            rN = self._nres(x, z, thsl)
-            bad = (rN > self.threshold) & (keep > 0) & (~self.critical)[None, :]
+            open_ = (keep > 0) & ~held & ~self.critical[None, :]
+            rN = np.where(open_, self._nres(x, z, thsl), -np.inf)
+            j = rN.argmax(axis=1)
+            bad = rN[rows, j] > self.threshold
             if not bad.any():
                 break
-            prop = keep * (~bad)
-            for i in np.where(bad.any(axis=1))[0]:
-                prop[i] = self._restore_until_observable(keep[i], prop[i].copy(), rN[i])
-            keep = prop
-            x = self._w_solve(z, self.Wk * keep, thsl)
+            for i in np.flatnonzero(bad):
+                self._remove_one(i, j[i], keep, held, base)
+            x = self._w_solve(z, base * keep, thsl)
         return x
 
-    def _restore_until_observable(self, kept: np.ndarray, trial: np.ndarray, rN: np.ndarray) -> np.ndarray:
-        """Walk a removal set back until the system is observable again: restore the lowest-residual
-        half of the removed meters, at most six times."""
-        for _ in range(6):
-            if self._observable(self.Wk * trial):
-                break
-            back = np.where((kept > 0) & (trial == 0))[0]
-            if len(back) == 0:
-                break
-            order = back[np.argsort(rN[back])]  # smallest residual restored first
-            half = order[: max(1, len(order) // 2)]
-            trial[half] = kept[half]
-        return trial
+    def _remove_one(self, i: int, j: int, keep: np.ndarray, held: np.ndarray, base: np.ndarray) -> None:
+        """Remove meter j of record i when the system stays observable without it, else hold it."""
+        trial = keep[i].copy()
+        trial[j] = 0.0
+        if self._observable(base[i] * trial):
+            keep[i] = trial
+        else:
+            held[i, j] = True
 
 
 class SubspacePrior(SEBase):
@@ -141,23 +135,11 @@ class SubspacePrior(SEBase):
     def _basis(self) -> np.ndarray:
         return self.VK
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        x = self._solve_plain(z, thsl)
+    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        x = super()._solve(z, thsl, w)
         if self.reweight is None:
             return x
-        return self._huber_passes(x, z, self.Wk[None, :] * np.ones((z.shape[0], 1)), thsl)
-
-    def _huber_passes(self, x: np.ndarray, z: np.ndarray, w: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        """Huber reweighting on the estimate's own residual [HUB64]: a_i = min(1, c / |r_N,i|), re-solve
-        with w * a, until no weight moves by more than tol or npass passes are done."""
-        prev = None
-        for _ in range(self.npass):
-            a = huber_weights(self._nres(x, z, thsl), self.c)
-            if prev is not None and np.abs(a - prev).max() < self.tol:
-                break  # weights settled: further passes reproduce the same estimate
-            x = self._w_solve(z, w * a, thsl)
-            prev = a
-        return x
+        return self._huber_passes(x, z, self.Wk if w is None else w, thsl, self.c, self.tol)
 
 
 class JacobianWeighting(SEBase):
@@ -180,6 +162,7 @@ class JacobianWeighting(SEBase):
         huber_c: float = 1.5,
         npass: int = 40,
         iters: int = 8,
+        tol: float = 1e-4,
     ) -> None:
         super().__init__(npass=npass, iters=iters)
         if c <= 0 or huber_c <= 0:
@@ -187,35 +170,33 @@ class JacobianWeighting(SEBase):
         if reweight not in (None, "huber"):
             raise ValueError("reweight must be None or 'huber'")
         self.c = c
-        self.reweight = (
-            reweight  # "huber": Huber passes on the estimate's residual, starting from the Jacobian weights
-        )
+        self.reweight = reweight  # "huber": Huber passes on the estimate's residual, from these weights
         self.huber_c = huber_c
+        self.tol = tol  # stop the Huber passes once no weight moves by more than this
+
+    def fit(self, ds: FdiaGraph, n_calib: int = 600) -> JacobianWeighting:
+        from .jacobian import JacobianFeatures
+
+        super().fit(ds, n_calib)
+        self._jf = JacobianFeatures(estimator=self).fit(ds)  # built once: SVD, leverage, pseudo-inverse
+        return self
 
     def weights(self, ds: FdiaGraph) -> np.ndarray:
         """Per-record meter weights [n, m] from the unexplained temporal residual."""
-        from .jacobian import JacobianFeatures
-
-        jf = JacobianFeatures(estimator=self).fit(ds)
+        require_physical(ds)
         d = ds.export(["node_x", "edge_x", "timestep"])
-        u = np.abs(jf.transform(d)["r_perp"]) * np.sqrt(self.Wk)[None, :]
+        u = np.abs(self._jf.transform(d)["r_perp"]) * np.sqrt(self.Wk)[None, :]
         return self.Wk[None, :] * huber_weights(u, self.c)
 
-    def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
-        d = ds.export(["node_x", "edge_x", "clean"])
-        tr = self._truth_of(d["clean"])
-        z = self._z_of(d["node_x"], d["edge_x"])
-        w = self.weights(ds)
-        out = np.empty((z.shape[0], self.SD))
-        for s in range(0, z.shape[0], chunk):
-            e = slice(s, s + chunk)
-            x = self._w_solve(z[e], w[e], tr["thsl"][e])
-            if self.reweight == "huber":  # temporal weights first, then the classical passes on top
-                for _ in range(self.npass):
-                    a = huber_weights(self._nres(x, z[e], tr["thsl"][e]), self.huber_c)
-                    x = self._w_solve(z[e], w[e] * a, tr["thsl"][e])
-            out[e] = x
-        return out
+    def _record_weights(self, ds: FdiaGraph) -> np.ndarray:
+        return self.weights(ds)
+
+    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        x = super()._solve(z, thsl, w)
+        if self.reweight != "huber":
+            return x
+        # the temporal weights first, then the classical passes on top
+        return self._huber_passes(x, z, self.Wk if w is None else w, thsl, self.huber_c, self.tol)
 
 
 class GatedPrior(SubspacePrior):
@@ -262,16 +243,5 @@ class GatedPrior(SubspacePrior):
             w[:, self.secured] = self.Wk[self.secured]
         return w
 
-    def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
-        d = ds.export(["node_x", "edge_x", "clean"])
-        tr = self._truth_of(d["clean"])
-        z = self._z_of(d["node_x"], d["edge_x"])
-        w = self.gated_weights(ds)
-        out = np.empty((z.shape[0], self.SD))
-        for s in range(0, z.shape[0], chunk):
-            e = slice(s, s + chunk)
-            x = self._w_solve(z[e], w[e], tr["thsl"][e])
-            if self.reweight == "huber":
-                x = self._huber_passes(x, z[e], w[e], tr["thsl"][e])
-            out[e] = x
-        return out
+    def _record_weights(self, ds: FdiaGraph) -> np.ndarray:
+        return self.gated_weights(ds)

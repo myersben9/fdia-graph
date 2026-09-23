@@ -170,7 +170,11 @@ class LearnedLocalizer(LocalizerBase):
                 opt.step()
         self.net.eval()
 
-    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
+        if "jac" in self.features:  # the Jacobian block converts physical units itself
+            from ..se.base import require_physical
+
+            require_physical(ds)
         torch = _torch()
         Xs = ((self._features(d) - self.mu) / self.sd).astype(np.float32)
         out = np.empty(Xs.shape[:2], np.float64)
@@ -197,7 +201,7 @@ class LearnedLocalizer(LocalizerBase):
         """The papers' rule: one global tau on a 0.05..0.95 grid maximizing mean per-bus F1 on val,
         the mean taken over buses that carry an attack label in val."""
         d = self._pull(val, extra=["y"])
-        p, t = self._score(d), d["y"].astype(bool)
+        p, t = self._score(d, val), d["y"].astype(bool)
         active = t.any(axis=0)
         if not active.any():
             raise ValueError("tune_threshold needs attacked records in val")

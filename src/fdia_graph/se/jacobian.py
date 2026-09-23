@@ -43,6 +43,7 @@ from ..formulas.projection import (
     weighted_pseudoinverse,
 )
 from ..models.scores import JacobianOutputs  # noqa: F401  re-exported: defined here before the models package
+from .base import require_physical
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -83,8 +84,9 @@ class JacobianFeatures:
         from .base import SEBase  # noqa: F401  (typing aid)
         from .methods import WLS
 
+        require_physical(ds)
         self.est = self.estimator if self.estimator is not None else WLS()
-        if not hasattr(self.est, "H"):
+        if not self.est.is_fitted:
             self.est.fit(ds)
         est = self.est
         if ds._clean_np is None:

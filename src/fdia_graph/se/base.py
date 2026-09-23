@@ -21,6 +21,7 @@ import numpy as np
 from ..formulas.estimation import (
     critical_measurements,
     floored_covariance,
+    huber_weights,
     normal_matrix,
     normalized_residual,
     residual_covariance_diag,
@@ -61,6 +62,13 @@ def _torch():
         raise ImportError("the differentiable twin _h_t needs torch: pip install 'fdia-graph[torch]'") from e
 
 
+def require_physical(ds: FdiaGraph) -> None:
+    """Refuse a units="pu" view: the estimators convert the stored physical units themselves, so a
+    per-unit view would be converted twice and every estimate silently off by baseMVA."""
+    if ds.units != "physical":
+        raise ValueError("state estimation expects units='physical' datasets (the default)")
+
+
 def _torch_or_none():
     try:
         import torch
@@ -97,8 +105,7 @@ class SEBase:
             from pandapower.pypower.makeYbus import makeYbus
         except ImportError as e:
             raise ImportError("state estimation needs pandapower: pip install 'fdia-graph[se]'") from e
-        if ds.units != "physical":
-            raise ValueError("fit/estimate expect units='physical' datasets (the default)")
+        require_physical(ds)
         if not ds.has_clean:
             raise ValueError("dataset has no clean layer; upgrade to a v0.7.2+ shard")
         net = getattr(pn, _CASE_FN[int(ds.system)])()
@@ -211,8 +218,10 @@ class SEBase:
         self.xmean = tr["x"].mean(axis=0)
         # meter sigma = rms of benign residual AT THE TRUE STATE. The shard's meter error is a
         # constant bias plus jitter; a std across records cancels the bias and mis-weights, so the
-        # total error about zero (the accuracy class) is the correct scale.
-        c = ben[:n_calib]
+        # total error about zero (the accuracy class) is the correct scale. The calibration records
+        # are spread evenly over the benign set: on a timeline the first ones are one early stretch
+        # of the year, a single load regime, and the meter error scales with the reading.
+        c = ben[np.linspace(0, len(ben) - 1, min(n_calib, len(ben))).round().astype(int)]
         zc = self._z_of(d["node_x"][c], d["edge_x"][c])
         tc = self._truth_of(d["clean"][c])
         hz = self._h(tc["x"], tc["thsl"])
@@ -233,6 +242,11 @@ class SEBase:
 
     def _post_fit(self) -> None:
         pass  # hook for anything needing H/Wk (SubspacePrior builds its reduced system here)
+
+    @property
+    def is_fitted(self) -> bool:
+        """True once fit() has run (the chord Jacobian exists)."""
+        return hasattr(self, "H")
 
     @staticmethod
     def _inv(A: np.ndarray) -> np.ndarray:
@@ -311,26 +325,59 @@ class SEBase:
             best_c[ok] = c[ok]
             c = c + wls_step_batched(z - hz, w, B_, Ai)
             c = np.where(np.isfinite(c), c, best_c)
+        # the last step is a candidate too, so a weighted solve takes as many steps as the plain one
+        J = weighted_objective(z - self._h(self.xmean + (c @ VK.T if VK is not None else c), thsl), w)
+        ok = np.isfinite(J) & (J < best_J)
+        best_c[ok] = c[ok]
         return self.xmean + (best_c @ VK.T if VK is not None else best_c)
 
     def _nres(self, x: np.ndarray, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         """Residuals normalized by the residual covariance diagonal [HAN75]."""
         return normalized_residual(z - self._h(x, thsl), self._om)
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
-        return self._solve_plain(z, thsl)  # WLS; robust subclasses override
+    def _huber_passes(
+        self, x: np.ndarray, z: np.ndarray, w: np.ndarray, thsl: np.ndarray, c: float, tol: float
+    ) -> np.ndarray:
+        """Huber reweighting on the estimate's own residual [HUB64]: a_i = min(1, c / |r_N,i|), re-solve
+        with w * a, until no weight moves by more than tol or npass passes are done."""
+        prev = None
+        for _ in range(self.npass):
+            a = huber_weights(self._nres(x, z, thsl), c)
+            if prev is not None and np.abs(a - prev).max() < tol:
+                break  # weights settled: further passes reproduce the same estimate
+            x = self._w_solve(z, w * a, thsl)
+            prev = a
+        return x
+
+    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        """One chunk of records. w: per-record weights [n, m] from `_record_weights`, None for Wk."""
+        return self._solve_plain(z, thsl) if w is None else self._w_solve(z, w, thsl)
+
+    def _record_weights(self, ds: FdiaGraph) -> Optional[np.ndarray]:
+        """Per-record meter weights [n, m] the method derives from the dataset itself (a gate, a
+        temporal residual), or None for the shared Wk. Every path that solves a dataset goes
+        through here, so a composed estimator (a localizer's, a trust selector's) is the same
+        estimator `estimate` runs."""
+        return None
+
+    def _estimate_arrays(
+        self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray], chunk: int = 1000
+    ) -> np.ndarray:
+        """Solve converted measurements [n, m] in chunks, with optional per-record weights."""
+        out = np.empty((z.shape[0], self.SD))
+        for s in range(0, z.shape[0], chunk):
+            e = slice(s, s + chunk)
+            out[e] = self._solve(z[e], thsl[e], None if w is None else w[e])
+        return out
 
     # ---- public API -------------------------------------------------------------------------
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
         """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order."""
+        require_physical(ds)
         d = ds.export(["node_x", "edge_x", "clean"])
         tr = self._truth_of(d["clean"])  # slack angle reference only; the true state is never read here
         z = self._z_of(d["node_x"], d["edge_x"])
-        out = np.empty((z.shape[0], self.SD))
-        for s in range(0, z.shape[0], chunk):
-            e = slice(s, s + chunk)
-            out[e] = self._solve(z[e], tr["thsl"][e])
-        return out
+        return self._estimate_arrays(z, tr["thsl"], self._record_weights(ds), chunk)
 
     def score(self, ds: FdiaGraph, chunk: int = 1000, xhat: Optional[np.ndarray] = None) -> EstimatorScores:
         """Per-family angle (deg) and voltage (pu) MAE vs the clean truth, plus the geometric
@@ -338,6 +385,7 @@ class SEBase:
         to score without re-solving, e.g. from a cache; it must be in record order of `ds`."""
         from ..dataset import FAMILIES
 
+        require_physical(ds)
         est = self.estimate(ds, chunk=chunk) if xhat is None else np.asarray(xhat, np.float64)
         if est.shape != (len(ds), self.SD):
             raise ValueError(f"xhat must be [{len(ds)}, {self.SD}], got {est.shape}")
