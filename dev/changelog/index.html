@@ -1466,13 +1466,24 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Loading and fitting, no number changes. <code>fg.load("IEEE118")</code> works like <code>"ieee118"</code> (a locally
+<li>
+<p>Generator, the stealthy families change. Aq, At, Al and Am no longer target a load on a generator
+  bus (zero-MW condensers included), the local attacker's rule in [BOY22]: a generator bus is too
+  risky to falsify. <code>FdiaGenerator.stealthy_pos</code> is their target set; Ad, As and Ar keep
+  <code>attackable_pos</code>. Attackable loads left to the stealthy families: IEEE-14 8 of 11, 30 18 of 20,
+  57 35 of 41, 89 29 of 29, 118 54 of 99, 145 11 of 36, 200 108 of 108, 300 156 of 191. The frozen
+  timeline is re-frozen. The data dictionary states that <code>attack/mag</code> is unsigned (a load rise and
+  a drop of the same size record the same value).</p>
+</li>
+<li>
+<p>Loading and fitting, no number changes. <code>fg.load("IEEE118")</code> works like <code>"ieee118"</code> (a locally
   registered name stays case-sensitive). <code>latest_release</code> skips a tag it cannot parse instead of
   falling back to the pinned default, and its docstring no longer claims <code>load(release=None)</code> calls
   it. Two jobs downloading the same asset at once write separate temp files; the second keeps the
   first's installed copy instead of corrupting it. <code>fit</code> refuses a dataset whose slack disagrees
   with the case's. The solve's reduced normal-matrix inverse is built once in <code>fit</code> rather than on
-  every chunk. The recent-change scale's docstring says "plus 1e-3", what the code does.</li>
+  every chunk. The recent-change scale's docstring says "plus 1e-3", what the code does.</p>
+</li>
 <li>Tests, no package change. <code>tests/test_public_coverage.py</code> tests directly what the suite reached only
   through whole pipelines: the replay policy and its buffer, <code>batched_normal_matrices</code>,
   <code>local_ac_solve</code> on a two-bus grid, <code>sparse_basis</code>, <code>per_bus_sequences</code>, <code>read_episodes</code>,
