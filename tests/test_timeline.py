@@ -530,3 +530,16 @@ def test_stealthy_families_never_target_a_generator_bus(timeline):
     stealthy = np.isin(fam, sorted(STEALTHY_FAMILIES))
     assert stealthy.any() and not (y[stealthy] & gen).any()
     assert (y[np.isin(fam, [2, 3, 4])] & gen).any()  # Ad/As/Ar keep the full target set
+
+
+def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
+    """On the two systems with static generators, no stealthy target sits on a bus holding a
+    generator or a static generator that produces P or Q; the in-place set is not narrowed by it."""
+    from fdia_graph.engine import FdiaGenerator
+
+    for C in (89, 300):
+        g = FdiaGenerator(C, seed=1)
+        sg = g.base.sgen[(g.base.sgen.p_mw.abs() > 0) | (g.base.sgen.q_mvar.abs() > 0)]
+        banned = set(g.base.gen.bus) | set(sg.bus)
+        assert not banned & set(g.load_bus[g.stealthy_pos].tolist())
+        assert set(g.stealthy_pos) <= set(g.attackable_pos)

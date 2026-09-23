@@ -302,7 +302,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         # The stealthy families (Aq, At, Al, Am) also skip every load on a generator bus, zero-MW
         # condensers included: a generator bus is too risky to falsify, the attacker's rule in the
         # protocol this dataset follows [BOY22]. The in-place families keep the full set.
-        gen_buses = np.r_[base.gen.bus.values, base.sgen.bus.values[(base.sgen.p_mw.abs() > 0).values]]
+        live_sgen = (base.sgen.p_mw.abs() > 0) | (base.sgen.q_mvar.abs() > 0)  # as for injection buses
+        gen_buses = np.r_[base.gen.bus.values, base.sgen.bus.values[live_sgen.values]]
         self._stealthy_mask = self._attackable_mask & ~np.isin(self.load_bus, gen_buses)
         self.stealthy_pos = np.where(self._stealthy_mask)[0]
         # Every bus with some injection element (gen, load, ext_grid, shunt, a static generator that
