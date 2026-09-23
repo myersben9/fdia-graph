@@ -53,17 +53,18 @@ def pool_h5(C: int) -> str:
 
 def main() -> None:
     os.makedirs(OUT, exist_ok=True)
-    manifest_path = os.path.join(OUT, "manifest.json")
-    manifest = json.load(open(manifest_path)) if os.path.exists(manifest_path) else {}
     for C in LADDER:
         t0 = time.time()
         pool = pool_h5(C)
         out = os.path.join(OUT, f"timeline_ieee{C}.h5")
-        if os.path.exists(out) and f"timeline_ieee{C}" in manifest:
+        part = os.path.join(
+            OUT, f"manifest_ieee{C}.json"
+        )  # one fragment per system: parallel workers never share a file
+        if os.path.exists(out) and os.path.exists(part):
             print(f"[ieee{C}] timeline exists, skip", flush=True)
             continue
         print(f"[ieee{C}] walking {FRAMES} frames ...", flush=True)
-        fg.generate(C, f"ieee{C}_v081", states=pool, seed=SEED, out=out)
+        fg.generate(C, f"ieee{C}_v081", states=pool, seed=SEED, out=out, frames=FRAMES)
         with h5py.File(out, "r") as f:
             T, frac, n_ep = int(f.attrs["T"]), float(f.attrs["attacked_frac"]), int(f.attrs["n_episodes"])
         print(
@@ -71,17 +72,28 @@ def main() -> None:
             f"{os.path.getsize(out) / 1e6:.0f} MB in {(time.time() - t0) / 60:.1f} min",
             flush=True,
         )
-        # re-read before updating: several systems may build in parallel processes sharing the manifest
-        manifest = json.load(open(manifest_path)) if os.path.exists(manifest_path) else {}
+        entry = {}
         for name in (f"pool_ieee{C}", f"timeline_ieee{C}"):
             p = os.path.join(OUT, f"{name}.h5")
-            manifest[name] = {
+            entry[name] = {
                 "file": f"{name}.h5",
                 "sha256": sha256(p),
                 "mb": round(os.path.getsize(p) / 1e6, 1),
             }
-        json.dump(manifest, open(manifest_path, "w"), indent=2)
-    print("\n[all] done:\n" + json.dumps(manifest, indent=2), flush=True)
+        json.dump(entry, open(part, "w"), indent=2)
+    manifest = merge_manifest()
+    print("[all] done:", json.dumps(manifest, indent=2), flush=True)
+
+
+def merge_manifest() -> dict:
+    """manifest.json from every finished system's fragment, rewritten whole each run (so a worker
+    that finishes last still lists the systems the others built)."""
+    manifest: dict = {}
+    for f in sorted(os.listdir(OUT)):
+        if f.startswith("manifest_ieee") and f.endswith(".json"):
+            manifest.update(json.load(open(os.path.join(OUT, f))))
+    json.dump(manifest, open(os.path.join(OUT, "manifest.json"), "w"), indent=2)
+    return manifest
 
 
 if __name__ == "__main__":
