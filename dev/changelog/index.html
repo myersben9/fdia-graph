@@ -1494,6 +1494,16 @@ the public API, the generated files and the numbers are the same as the previous
   timeline is re-frozen (341 of its 1000 frames change: the corrected stealthy draws spend the
   random stream differently, so later noise shifts too). The released v0.8.0 timelines were
   generated before this fix; regenerating them is a data release.</li>
+<li>CI, no package change. <code>publish.yml</code> runs the test suite on the tagged commit and publishes only
+  when it passes. The suite also runs on Python 3.9 (the lowest supported) and on Windows, both
+  required by <code>tools/pr.py merge</code>; the Ubuntu job installs the <code>[se]</code> extra by name and reports
+  coverage. <code>ruff format --check</code> covers <code>tests</code> and <code>tools</code>. Every action is pinned to a commit
+  SHA, kept current by Dependabot; <code>slow.yml</code> runs the <code>FDIA_SLOW</code> IEEE-118 check weekly and on
+  demand.</li>
+<li>Fixes the new CI jobs found. The estimators failed on Python 3.9: its SciPy has no
+  <code>lapack.dtrcon</code>, which <code>guarded_inverse</code> called for its condition estimate; it now falls back to
+  Hager's 1-norm estimate (the same value LAPACK returns, a few O(k²) solves) when SciPy lacks it (<code>[se]</code> still asks only scipy&gt;=1.8). <code>tools/readability.py</code>
+  no longer fails on a file on another drive than the repository (Windows CI's temp dir).</li>
 <li>Estimators, numbers change. <code>ResidualRemoval</code> is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above

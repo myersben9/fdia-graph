@@ -1510,8 +1510,8 @@ checks a docs change locally.</p>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>reply<span class="w"> </span><span class="m">80</span><span class="w"> </span>&lt;comment-id&gt;<span class="w"> </span><span class="s2">"what changed"</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>merge<span class="w"> </span><span class="m">80</span><span class="w">                                    </span><span class="c1"># refuses unless green with every required bot's review on the head</span>
 </code></pre></div>
-<p>Green means: every job of the smoke workflow (<code>tests</code>, <code>typecheck</code>, <code>format</code>, <code>readability</code>, the two
-installs) is a completed success on the head, a job that has not started yet counts as not green,
+<p>Green means: every job of the smoke workflow (<code>tests</code>, <code>tests (3.9)</code>, <code>tests (windows)</code>, <code>typecheck</code>,
+<code>format</code>, <code>readability</code>, the two installs) is a completed success on the head, a job that has not started yet counts as not green,
 every other listed check has finished without failure, and every required review bot has reviewed
 that exact head.</p>
 <p>Three reviewers read a pull request, in this order:</p>
