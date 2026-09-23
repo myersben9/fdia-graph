@@ -48,6 +48,8 @@ class GridBase:
     load_q0: np.ndarray  # [n_loads] base reactive load per element (MVAr)
     attackable_pos: np.ndarray
     _attackable_mask: np.ndarray
+    stealthy_pos: np.ndarray  # attackable loads off generator buses, the stealthy families' targets
+    _stealthy_mask: np.ndarray
     max_load_mw: Optional[float]
     load_base: np.ndarray  # [N, 2] base-case load P, Q per bus
     gen_base: np.ndarray  # [N, 2] base-case generation P per bus (Q column zero)

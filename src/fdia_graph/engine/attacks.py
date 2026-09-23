@@ -114,8 +114,9 @@ class AttackMixin(GridBase):
 
         # Raise load on the positive PTDF side, drop it on the negative side: the line-L flow change
         # -sum(PTDF * delta) is negative, so the line reads lighter in the false state (lra_delta then
-        # orients it against the base flow). Restrict to ATTACKABLE (active-load) buses so a reactive-only bus is never redistributed onto / labelled.
-        ok = self._attackable_mask if allowed is None else (self._attackable_mask & allowed)
+        # orients it against the base flow). Al and Am are stealthy families, so only their target set
+        # moves: active loads, never the slack, never a load on a generator bus [BOY22].
+        ok = self._stealthy_mask if allowed is None else (self._stealthy_mask & allowed)
         pos = self._pick_side(np.where((pl > 0) & ok)[0], score, K, rand)
         neg = self._pick_side(np.where((pl < 0) & ok)[0], score, K, rand)
         if len(pos) == 0 or len(neg) == 0:
@@ -167,13 +168,16 @@ class AttackMixin(GridBase):
         self._line_flow_sign = {
             L: (float(np.sign(self.base.res_line.p_from_mw.values[L])) or 1.0) for L in self._target_lines
         }
-        self._primary_target_line = self._target_lines[0]  # default/primary target = most attackable line
+        # default/primary target = most attackable line; -1 when no line admits a redistribution
+        self._primary_target_line = self._target_lines[0] if self._target_lines else -1
 
     def lra_delta(
         self, Lp: np.ndarray, rel: float, K: int, floor: float = 0.02, hops: int = 2
     ) -> Redistribution:
         """A load redistribution steering a random target line, confined to the attacker's
         subnetwork within `hops` branches of the line [WU26]: only loads inside it move."""
+        if not self._target_lines:  # no line admits a redistribution: nothing to attack
+            return Redistribution(np.zeros_like(Lp), np.array([], int), 0.0, -1, None)
         L = int(self.rng.choice(self._target_lines))  # random target line per attack
         interior = self.local_region(self.ei[:, L], hops)
         if interior is None:

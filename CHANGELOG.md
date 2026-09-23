@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Generator, the stealthy families change. Aq, At, Al and Am no longer target a load on a generator
+  bus (zero-MW condensers included), the local attacker's rule in [BOY22]: a generator bus is too
+  risky to falsify. `FdiaGenerator.stealthy_pos` is their target set; Ad, As and Ar keep
+  `attackable_pos`. Attackable loads left to the stealthy families: IEEE-14 8 of 11, 30 18 of 20,
+  57 35 of 41, 89 29 of 29, 118 54 of 99, 145 11 of 36, 200 108 of 108, 300 156 of 191. The frozen
+  timeline is re-frozen. The data dictionary states that `attack/mag` is unsigned (a load rise and
+  a drop of the same size record the same value).
+
 - Loading and fitting, no number changes. `fg.load("IEEE118")` works like `"ieee118"` (a locally
   registered name stays case-sensitive). `latest_release` skips a tag it cannot parse instead of
   falling back to the pinned default, and its docstring no longer claims `load(release=None)` calls

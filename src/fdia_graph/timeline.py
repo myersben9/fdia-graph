@@ -194,6 +194,18 @@ def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
     return frame
 
 
+def check_targets(g: Any, families: Sequence[str]) -> None:
+    """Refuse, before any frame is walked, a requested family that has nothing to attack on this
+    case: the stealthy Aq and At need a load off every generator bus, Al and Am a line whose
+    subnetwork admits a redistribution, Ad/As/Ar an attackable load. Legacy aliases resolve first."""
+    need = {1: len(g.stealthy_pos), 5: len(g.stealthy_pos), 6: len(g._target_lines), 7: len(g._target_lines)}
+    fids = {FAM_ID[f] for f in families} - {0}  # benign needs no target
+    empty = sorted(i for i in fids if need.get(i, len(g.attackable_pos)) == 0)
+    if empty:
+        names = ", ".join(FAMILIES[i] for i in empty)
+        raise ValueError(f"no admissible target on this case for {names}; drop them from families")
+
+
 def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
     """Attacked load-table positions for an episode: 1 to 6 buses for Aq, up to 4 otherwise."""
     nab = len(apos)
@@ -280,7 +292,7 @@ def _draw_ramp(
     ctx: _FrameContext, rng: np.random.Generator, ramp_len: int
 ) -> tuple[np.ndarray, float, int, int]:
     """One ramp design: a fixed bus set, a direction, the rise and hold lengths (four draws)."""
-    apos = ctx.g.attackable_pos
+    apos = ctx.g.stealthy_pos  # At is stealthy: no load on a generator bus
     a = rng.choice(apos, min(5, len(apos)), replace=False)
     direction = 1.0 if rng.random() < 0.5 else -1.0
     rise = max(1, int(rng.uniform(0.2, 0.45) * ramp_len))
@@ -305,7 +317,7 @@ def _draw_single_shot(
     below its voltage limits refuses most rises near the low buses, a drop there is the attack
     that fits). None when no draw has one: the span then stays benign and is counted."""
     for _ in range(_ONSET_DRAWS):
-        a = _pick_targets(rng, ctx.g.attackable_pos, fid)
+        a = _pick_targets(rng, ctx.g.stealthy_pos if fid in STEALTHY_FAMILIES else ctx.g.attackable_pos, fid)
         direction = 1.0 if fid != 1 or rng.random() < 0.5 else -1.0
         mult = 1 + direction * rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
         if fid != 1 or all(
@@ -754,6 +766,8 @@ def generate_timeline(
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
+    if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
+        check_targets(g, families)
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)

@@ -251,20 +251,24 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
     for t in frames:
         Xt = a["clean/node_clean"][t].astype(np.float64)  # the pool state the frame was emitted from
         targets = np.array([pos[int(b)] for b in mag_bus[ptr[t] : ptr[t + 1]]])
-        mult = 1.0 + mag[ptr[t] : ptr[t + 1]].astype(np.float64)
-        Lp = g.true_load(Xt)
-        Lp[targets] *= mult
-        Xa = g.solve_local(
-            Xt, g.local_region(g.load_bus[targets], int(attrs["hops"])), Lp, g.true_reactive_load(Xt)
-        )
-        assert Xa is not None
-        a_node, a_edge = _attack_vector(g, Xa, Xt)
+        dev = mag[ptr[t] : ptr[t + 1]].astype(np.float64)  # unsigned: a rise or a drop of that size
         nt, et = a["attack/node_tamper"][t] > 0, a["attack/edge_tamper"][t] > 0
         dn = a["data/node_x"][t].astype(np.float64) - a["benign/node_benign"][t]
         de = a["data/edge_x"][t].astype(np.float64) - a["benign/edge_benign"][t]
-        # the clean layer is the pool state in float32, so the rebuilt vector agrees to ~1e-4 MW; a
-        # second noise draw would differ by about 1% of the reading, MW
-        assert np.allclose(dn[nt], a_node[nt], rtol=1e-3, atol=1e-2) and np.abs(a_node[nt]).max() > 1e-2
+        region = g.local_region(g.load_bus[targets], int(attrs["hops"]))
+        rebuilt = []
+        for sign in (1.0, -1.0):
+            Lp = g.true_load(Xt)
+            Lp[targets] *= 1.0 + sign * dev
+            Xa = g.solve_local(Xt, region, Lp, g.true_reactive_load(Xt))
+            if Xa is not None:
+                rebuilt.append(_attack_vector(g, Xa, Xt))
+        # exactly one direction reproduces the frame; the clean layer is the pool state in float32, so
+        # the rebuilt vector agrees to ~1e-4 MW, where a second noise draw would differ by about 1%
+        match = [(n, e) for n, e in rebuilt if np.allclose(dn[nt], n[nt], rtol=1e-3, atol=1e-2)]
+        assert len(match) == 1
+        a_node, a_edge = match[0]
+        assert np.abs(a_node[nt]).max() > 1e-2
         assert np.allclose(de[et], a_edge[et], rtol=1e-3, atol=1e-2)
         assert not dn[~nt].any() and not de[~et].any()
 
@@ -512,3 +516,49 @@ def test_reactive_load_adds_back_the_generators_output():
     interior = g.local_region(g.load_bus[[2]], 1)
     Xa = g.solve_local(X, interior, g.true_load(X), Lq)
     assert np.allclose(Xa, X, atol=1e-5)
+
+
+def test_stealthy_families_never_target_a_generator_bus(timeline):
+    """The stealthy families skip every load on a generator bus, zero-MW condensers included
+    [BOY22]; the in-place families may still tamper there."""
+    import pandapower.networks as pn
+
+    a, _ = _read(timeline)
+    gen = np.zeros(a["data/y"].shape[1], bool)
+    gen[pn.case14().gen.bus.values] = True
+    fam, y = a["data/family"], a["data/y"].astype(bool)
+    stealthy = np.isin(fam, sorted(STEALTHY_FAMILIES))
+    assert stealthy.any() and not (y[stealthy] & gen).any()
+    assert (y[np.isin(fam, [2, 3, 4])] & gen).any()  # Ad/As/Ar keep the full target set
+
+
+def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
+    """On the two systems with static generators, no stealthy target sits on a bus holding a
+    generator or a static generator that produces P or Q; the in-place set is not narrowed by it."""
+    from fdia_graph.engine import FdiaGenerator
+
+    for C in (89, 300):
+        g = FdiaGenerator(C, seed=1)
+        sg = g.base.sgen[(g.base.sgen.p_mw.abs() > 0) | (g.base.sgen.q_mvar.abs() > 0)]
+        banned = set(g.base.gen.bus) | set(sg.bus)
+        assert not banned & set(g.load_bus[g.stealthy_pos].tolist())
+        assert set(g.stealthy_pos) <= set(g.attackable_pos)
+
+
+def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_no_op():
+    from types import SimpleNamespace
+
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.timeline import check_targets
+
+    g = SimpleNamespace(stealthy_pos=np.array([], int), _target_lines=[], attackable_pos=np.arange(3))
+    check_targets(g, ["Ad", "As", "Ar"])  # the in-place families still have targets
+    check_targets(SimpleNamespace(stealthy_pos=[], _target_lines=[], attackable_pos=[]), ["benign"])
+    with pytest.raises(ValueError, match="Aq, Al"):
+        check_targets(g, ["Aq", "Ad", "Al"])
+    with pytest.raises(ValueError, match="Aq, At, Al"):
+        check_targets(g, ["Ao", "ramp", "LRA"])  # legacy aliases resolve first
+    eng = FdiaGenerator(14, seed=1)
+    eng._target_lines = []
+    red = eng.lra_delta(np.ones(len(eng.load_bus)), 0.2, 3)
+    assert len(red.buses) == 0 and red.line == -1
