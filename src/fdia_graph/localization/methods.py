@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
+from ..formulas.projection import bus_incidence, meters_to_buses
 from .base import LocalizerBase
 
 if TYPE_CHECKING:
@@ -27,7 +28,7 @@ class SwingThreshold(LocalizerBase):
     def _fields(self) -> list[str]:
         return ["swing"]
 
-    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
         return np.abs(d["swing"]).max(axis=2)  # worst channel (dP or dQ) per bus
 
 
@@ -46,7 +47,7 @@ class DeltaThreshold(LocalizerBase):
         td = d["temporal_delta"][ben]
         self.sd = np.maximum(np.sqrt((td**2).mean(axis=0)), 1e-9)  # [N, 2] benign RMS per channel
 
-    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
+    def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
         return np.abs(d["temporal_delta"] / self.sd[None]).max(axis=2)
 
 
@@ -64,7 +65,7 @@ class ResidualLocalizer(LocalizerBase):
 
     def __init__(self, estimator: Optional[SEBase] = None, fa_target: float = 0.01) -> None:
         super().__init__(fa_target=fa_target)
-        self.estimator = estimator  # None -> a fresh WLS is fitted in fit()
+        self.estimator = estimator  # None -> a fresh WLS; an unfitted one is fitted on the train split
 
     def _fields(self) -> list[str]:
         return ["node_x", "edge_x", "clean"]
@@ -73,35 +74,26 @@ class ResidualLocalizer(LocalizerBase):
         from ..se import WLS
 
         self.est = self.estimator if self.estimator is not None else WLS()
-        self.est.fit(ds)
-        # Bus <- measurement incidence in the estimator's masked layout. Unmasked slot order is
-        # [V(N), P(N), Q(N), theta(N), Pf(E), Qf(E)]; node channels touch their own bus, a flow
-        # meter touches BOTH endpoints of its line (an injection edit perturbs every incident flow).
-        N, E = self.est.N, self.est.E
-        ei = d["edge_index"]
-        inc = np.zeros((N, 4 * N + 2 * E), bool)
-        for c in range(4):
-            inc[np.arange(N), c * N + np.arange(N)] = True
-        for c in range(2):
-            cols = 4 * N + c * E + np.arange(E)
-            inc[ei[0], cols] = True
-            inc[ei[1], cols] = True
-        incm = inc[:, self.est.mask]  # restrict to measurements that actually exist
-        self._inc = [np.where(incm[b])[0] for b in range(N)]
+        if not self.est.is_fitted:  # an estimator fitted elsewhere (another split, a gate) is kept as is
+            self.est.fit(ds)
+        # bus <- measurement incidence in the estimator's masked layout: a node channel touches its
+        # own bus, a flow meter BOTH endpoints of its line (an injection edit perturbs every incident flow)
+        self._inc = bus_incidence(self.est.N, self.est.E, ds.edge_index_np, self.est.mask)
 
-    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
-        # Same-package composition: the estimator's conversion/solve/residual internals are the
-        # protocol being scored, so they are used directly rather than re-implemented here.
-        chunk = 1000  # solve in blocks; matches SEBase.estimate's chunking
-        est = self.est
+    def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
+        # Same-package composition: the estimator's conversion, solve and residual internals are the
+        # protocol being scored, so they are used directly rather than re-implemented here. The
+        # per-record weights come from the estimator's own hook, so a gated or Jacobian-weighted
+        # estimator is scored as the estimator it is, not as its ungated parent.
+        from ..se.base import require_physical
+
+        require_physical(ds)
+        est, chunk = self.est, 1000
         z = est._z_of(d["node_x"], d["edge_x"])
         thsl = est._truth_of(d["clean"])["thsl"]  # slack angle reference only; truth never read
-        s = np.zeros((z.shape[0], est.N))
+        x = est._estimate_arrays(z, thsl, est._record_weights(ds), chunk)
+        s = np.empty((z.shape[0], est.N))
         for a in range(0, z.shape[0], chunk):
             e = slice(a, a + chunk)
-            x = est._solve(z[e], thsl[e])
-            rN = est._nres(x, z[e], thsl[e])
-            for b, ix in enumerate(self._inc):
-                if len(ix):
-                    s[e, b] = rN[:, ix].max(axis=1)
+            s[e] = meters_to_buses(est._nres(x[e], z[e], thsl[e]), self._inc, "max")
         return s

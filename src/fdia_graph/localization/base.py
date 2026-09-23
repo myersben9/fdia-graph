@@ -59,8 +59,10 @@ class LocalizerBase:
     def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         """Learn anything the score needs from the benign training records (default: nothing)."""
 
-    def _score(self, d: dict[str, np.ndarray]) -> np.ndarray:
-        """Per-bus attack score [n, N]; higher means more suspicious. The one thing methods change."""
+    def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
+        """Per-bus attack score [n, N]; higher means more suspicious. The one thing methods change.
+        d holds the pulled arrays; ds is the dataset they came from, for methods that need more
+        than its arrays (a composed estimator's per-record weights, the unit system)."""
         raise NotImplementedError
 
     # ---- data -------------------------------------------------------------------------------
@@ -79,7 +81,7 @@ class LocalizerBase:
         if not len(ben):
             raise ValueError("fit needs benign records; pass the train split unfiltered")
         self._fit_stats(d, ben, ds)
-        s = self._score(d)[ben]
+        s = self._score(d, ds)[ben]
         # Per-bus threshold at the (1 - fa_target) benign quantile: each bus alarms on ~fa_target
         # of benign scans by construction, so the operating point is set before any attack is seen.
         self.thr = np.quantile(s, 1.0 - self.fa_target, axis=0)
@@ -88,7 +90,7 @@ class LocalizerBase:
     # ---- public API -------------------------------------------------------------------------
     def scores(self, ds: FdiaGraph) -> np.ndarray:
         """Continuous per-bus attack scores [n, N] in record order."""
-        return self._score(self._pull(ds))
+        return self._score(self._pull(ds), ds)
 
     def localize(self, ds: FdiaGraph) -> np.ndarray:
         """Boolean per-bus attack calls [n, N]: score above the bus's calibrated threshold."""
@@ -109,7 +111,7 @@ class LocalizerBase:
         from ..dataset import FAMILIES
 
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
-        s = self._score(d) if scores is None else np.asarray(scores, np.float64)
+        s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
         if s.shape != (len(ds), ds.N):
             raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
         pred = s > self.thr[None, :]

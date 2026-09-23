@@ -5,6 +5,28 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Estimators, numbers change. `ResidualRemoval` is classical largest-normalized-residual removal:
+  one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
+  a removal the observability guard refuses keeps that meter. It used to remove every meter above
+  the threshold at once, taking out the honest neighbours a single gross error smears onto. Meter
+  sigma (and the trust selectors' alarm level) is calibrated on benign records spread evenly over
+  the train split instead of the first ones, which on a timeline are one early load regime. The
+  guarded weighted solve also considers its final Newton step. Measured on the IEEE-14 v0.8.0
+  timeline (geometric-mean angle error, test split): removal 0.0665 to 0.0552 degrees (replay
+  0.0645 to 0.0224), WLS 0.0966 to 0.0961, Huber 0.0613 to 0.0605, prior + Huber 0.0499 to 0.0503,
+  Jacobian weighting 0.0826 to 0.0800, gated arms within 0.2 percent. The frozen SE reference moved
+  by at most 1.6e-7 relative (its train split has fewer than 600 benign frames).
+- Estimators, fixes. Every public path that solves a dataset (`estimate`, `score`,
+  `ResidualLocalizer`, `TrustSelector.score`, `JacobianFeatures.fit`, `JacobianWeighting`) refuses a
+  `units="pu"` view with a ValueError; `fit` did before, but estimating or scoring a per-unit view
+  converted twice and returned errors about ten times too large. `GatedPrior` and
+  `JacobianWeighting` supply their per-record weights through one hook (`_record_weights`) instead
+  of overriding `estimate`, so `ResidualLocalizer(estimator=GatedPrior(...))` scores the gated
+  estimator rather than its ungated parent; the Huber passes live once in `SEBase` and
+  `JacobianWeighting` gains `tol` (it ran all 40 passes) and builds its Jacobian features once in
+  `fit`. `ResidualLocalizer` no longer refits an estimator that is already fitted
+  (`SEBase.is_fitted`). The localizer hook is `_score(d, ds)`.
+
 - The trust guide's secured-copy tables for IEEE-118 (`results/secured_ieee118.json`): the DQN set
   opens the residual test on the stealthy families and lifts the learned localizer four points, the
   estimator gains within a percent at 20 meters. No package change.

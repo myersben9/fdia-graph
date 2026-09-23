@@ -48,9 +48,11 @@ class TrustSelector:
         residual over benign training records, set before any attack is scored (the protocol of
         `fdia_graph.localization`)."""
         d = ds.export(["node_x", "edge_x", "clean", "family"])
-        ben = np.flatnonzero(d["family"] == 0)[:n_calib]
+        ben = np.flatnonzero(d["family"] == 0)
         if not len(ben):
             raise ValueError("fit needs benign records; pass the train split unfiltered")
+        # spread over the whole benign set, not the first records (one early load regime on a timeline)
+        ben = ben[np.linspace(0, len(ben) - 1, min(n_calib, len(ben))).round().astype(int)]
         est = self.est
         z = est._z_of(d["node_x"][ben], d["edge_x"][ben])
         thsl = est._truth_of(d["clean"][ben])["thsl"]
@@ -67,9 +69,10 @@ class TrustSelector:
     def _max_residual(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         """The largest normalized residual of every record after a WLS solve [HAN75]."""
         est, out = self.est, []
+        x = est._estimate_arrays(z, thsl, None)
         for a in range(0, len(z), 1000):
-            zc, tc = z[a : a + 1000], thsl[a : a + 1000]
-            out.append(np.abs(est._nres(est._solve(zc, tc), zc, tc)).max(axis=1))
+            e = slice(a, a + 1000)
+            out.append(est._nres(x[e], z[e], thsl[e]).max(axis=1))  # already non-negative
         return np.concatenate(out)
 
     def score(self, ds: FdiaGraph) -> TrustScores:
@@ -77,7 +80,9 @@ class TrustSelector:
         (the benign layer is what a secured meter reads), at the alarm level `fit` calibrated on
         benign training records; `false_alarm` is the benign rate of this view at that level."""
         from ..dataset import FAMILIES
+        from ..se.base import require_physical
 
+        require_physical(ds)
         if not ds.has_benign:
             raise ValueError("score needs a timeline view with the benign layer")
         d = ds.export(["node_x", "edge_x", "benign", "edge_benign", "clean", "family"])
