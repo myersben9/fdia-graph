@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..formulas.metrics import perbus_counts, perbus_f1_from_counts
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     BenignMetrics,
     FamilyMetrics,
@@ -167,12 +168,9 @@ def _family_metrics(p: np.ndarray, t: np.ndarray) -> FamilyMetrics:
 
 
 def _perbus_f1(pred: np.ndarray, truth: np.ndarray) -> np.ndarray:
-    """F1 per bus [N] over the record axis. Its mean over attackable buses is the papers'
-    localization macro-F1."""
-    tp = (pred & truth).sum(axis=0).astype(np.float64)
-    fp = (pred & ~truth).sum(axis=0).astype(np.float64)
-    fn = (~pred & truth).sum(axis=0).astype(np.float64)
-    return 2 * tp / (2 * tp + fp + fn + 1e-9)
+    """F1 per bus [N] over the record axis (`formulas.metrics`). Its mean over attackable buses is
+    the papers' localization macro-F1."""
+    return perbus_f1_from_counts(*perbus_counts(pred, truth))
 
 
 def _micro_f1(pred: np.ndarray, truth: np.ndarray) -> float:

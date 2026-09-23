@@ -19,7 +19,9 @@ from .estimation import (
     wls_step,
     wls_step_batched,
 )
+from .federated import channel_moments, pool_moments
 from .linalg import batched_normal_matrices, condition_number, guarded_inverse
+from .metrics import perbus_counts, perbus_f1_from_counts, tau_from_counts
 from .network import (
     Admittances,
     BranchModel,
@@ -60,6 +62,7 @@ __all__ = [
     "branch_flows",
     "bus_incidence",
     "bus_injections",
+    "channel_moments",
     "complex_voltages",
     "condition_number",
     "critical_measurements",
@@ -75,6 +78,9 @@ __all__ = [
     "meters_to_buses",
     "normal_matrix",
     "normalized_residual",
+    "perbus_counts",
+    "perbus_f1_from_counts",
+    "pool_moments",
     "ramp_profile",
     "recent_change_scale",
     "residual_covariance_diag",
@@ -83,6 +89,7 @@ __all__ = [
     "sparse_basis",
     "subnetwork",
     "swing_zscore",
+    "tau_from_counts",
     "temporal_delta",
     "weak_directions",
     "weak_move",

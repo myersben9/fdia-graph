@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Learned localizers, no number changes (the first step of `fdia_graph.federated`): the training
+  loop is `localization.learned.LocalTrainer` (optimizer and batch order persist across `run`
+  calls, optional owned-bus loss and gradient clipping for a federated client), prediction is
+  `predict`, standardization pools channel moments (`formulas.federated.channel_moments`,
+  `pool_moments` [CGL79]) and the validation threshold picks from per-bus confusion counts
+  (`formulas.metrics.perbus_counts`, `tau_from_counts` [KEC25]), so a federated fit can sum them
+  across clients. `models.training.OptimConfig` carries the training knobs. BusMLP and BusCNN
+  weights, scores, thresholds and standardization are bit-identical to 0.19.0.
 ## 0.19.0
 
 - Data release v0.8.1 is the default (`fg.load("ieee118")`; v0.8.0 stays readable with
