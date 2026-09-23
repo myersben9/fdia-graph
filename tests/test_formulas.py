@@ -334,3 +334,14 @@ def test_bus_load_undoes_the_pools_common_scale():
     assert np.allclose(bus_load(X, load_base, gen_base), [36.0, 8.0, 0.0])
     # the base-generation shortcut the engine used is wrong where a generator sits
     assert not np.isclose(X[0, 1] + gen_base[0, 0], 36.0)
+
+
+def test_element_loads_split_a_bus_by_base_shares():
+    from fdia_graph.formulas.attacks import element_loads
+
+    # bus 2 holds two loads, 10 and 30 MW base, and scans at 60 MW: they read 15 and 45, not 60 each
+    bus_p = np.array([0.0, 8.0, 60.0])
+    load_bus = np.array([1, 2, 2])
+    p0 = np.array([10.0, 10.0, 30.0])
+    assert np.allclose(element_loads(bus_p, load_bus, p0), [8.0, 15.0, 45.0])
+    assert element_loads(np.array([5.0]), np.array([0]), np.array([0.0]))[0] == 0.0  # no base P: no share

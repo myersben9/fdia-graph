@@ -287,6 +287,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         C = self.C
         _lb = base.load
         self.load_bus = _lb["bus"].values
+        self.load_p0 = _lb["p_mw"].to_numpy(dtype=float)  # base active load per element, signed
         self.slack_bus = int(
             base.ext_grid.bus.values[0]
         )  # the angle reference; a local attack never moves it

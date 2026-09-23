@@ -71,6 +71,22 @@ def bus_load(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.n
     return X[..., NODE.p_inj] + generator_output(X, load_base, gen_base)[..., 0]
 
 
+def element_loads(bus_p: np.ndarray, load_bus: np.ndarray, p0: np.ndarray) -> np.ndarray:
+    """A bus's scan load split over its load elements by their base shares [DAT26]: the pools scale
+    every load at a bus by the bus's one factor, so each element keeps its base share.
+
+        P_e = P_bus(e) · P0_e / Σ_{e' at bus(e)} P0_e'
+
+    bus_p    : [N] the scan's active load per bus (MW), from `bus_load`
+    load_bus : [n_loads] the bus of every load element
+    p0       : [n_loads] base active load per element (MW)
+    returns  : [n_loads]; an element on a bus whose base loads sum to zero gets zero"""
+    tot = np.zeros(len(bus_p))
+    np.add.at(tot, load_bus, p0)
+    t = tot[load_bus]
+    return bus_p[load_bus] * np.where(t != 0, p0 / np.where(t != 0, t, 1.0), 0.0)
+
+
 def within_limits(
     Xa: np.ndarray,
     Xt: np.ndarray,
