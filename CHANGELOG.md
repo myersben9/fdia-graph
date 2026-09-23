@@ -29,7 +29,7 @@ the public API, the generated files and the numbers are the same as the previous
   zero-injection junctions and pulled into attack regions). The attack-redistribution sign: the
   engine's redistribution LOWERS the target line's |flow| in the false state (checked on 77 of 77
   draws), so `am_direction="mask"` now keeps its sign and `"induce"` flips it (they were swapped);
-  `"both"`, the default, maps its draw so default files keep the same sign sequence. The frozen
+  `"both"`, the default, maps a given draw to the same sign as before. The frozen
   timeline is re-frozen (341 of its 1000 frames change: the corrected stealthy draws spend the
   random stream differently, so later noise shifts too). The released v0.8.0 timelines were
   generated before this fix; regenerating them is a data release.

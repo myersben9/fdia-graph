@@ -52,7 +52,8 @@ class PhysicsMixin(GridBase):
 
     def true_load(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's active load per load element [n_loads] (MW), `formulas.attacks.bus_load`: the
-        stored injection plus the co-located generation at this scan's scale, not the base case's."""
+        stored injection plus the co-located generation at this scan's scale, not the base case's.
+        Not the load at the slack bus (see `bus_load`), which no attack targets."""
         return bus_load(Xt, self.load_base, self.gen_base)[self.load_bus]
 
     def scan_generation(self, Xt: np.ndarray) -> np.ndarray:

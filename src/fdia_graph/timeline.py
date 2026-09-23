@@ -401,7 +401,8 @@ def _am_sign(direction: str, rng: np.random.Generator) -> float:
     """The sign applied to the engine's redistribution. `lra_delta` orients its delta to LOWER the
     target line's |flow| in the false state, so "mask" (a real overload reads lighter) keeps it (+1)
     and "induce" (a safe line reads as overloaded, the [WU26] objective) flips it (-1); "both" draws
-    one of the two per episode (one RNG draw, mapped as before 0.19 so default files are unchanged)."""
+    one of the two per episode (one RNG draw; a given draw maps to the same sign as before the
+    direction fix, though files still change where the stealthy load recovery did)."""
     if direction == "both":
         direction = "mask" if rng.random() < 0.5 else "induce"
     return 1.0 if direction == "mask" else -1.0

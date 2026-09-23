@@ -477,3 +477,19 @@ def test_redistribution_lightens_the_target_line_and_am_names_follow():
                 assert (abs(flow(Xa, red.line)) < abs(flow(X, red.line))) == lighter
                 moved += 1
     assert moved >= 4
+
+
+def test_a_producing_static_generator_bus_injects():
+    """IEEE-89 buses 1, 65, 69, 79 are fed by a static generator alone: injection buses, metered
+    as such, never zero-injection junctions; IEEE-200's static generators all produce 0 MW, so their
+    buses stay zero-injection unless another element sits there."""
+    from fdia_graph.engine import FdiaGenerator
+
+    g = FdiaGenerator(89, seed=1)
+    for b in (1, 65, 69, 79):
+        assert b not in g.zero_inj and b in g.meters.inj
+    g = FdiaGenerator(200, seed=1)
+    base = g.base
+    others = set(base.gen.bus) | set(base.load.bus) | set(base.ext_grid.bus) | set(base.shunt.bus)
+    idle = [int(b) for b in base.sgen.bus if int(b) not in others]
+    assert idle and all(b in g.zero_inj for b in idle)

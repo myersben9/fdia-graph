@@ -64,7 +64,10 @@ def bus_load(X: np.ndarray, load_base: np.ndarray, gen_base: np.ndarray) -> np.n
     Adding the BASE generation instead (P_inj + P_gen_base) is exact only where a bus has no
     generator; where it has one it gives s P_load_base + (1 - s) P_gen_base, wrong in size and at
     times in sign. Static generators are not scaled by the pool builder and no case places one on a
-    load bus, so they are not part of the construction."""
+    load bus, so they are not part of the construction. At the slack bus the stored injection also
+    nets out the external grid's balancing output, which the pool does not keep, so the value there
+    is not the load; the slack load is never attacked, and a full re-solve lets the external grid
+    absorb it, which leaves the bus's net injection (all that is metered) exact."""
     return X[..., NODE.p_inj] + generator_output(X, load_base, gen_base)[..., 0]
 
 
