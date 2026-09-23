@@ -41,7 +41,7 @@ the public API, the generated files and the numbers are the same as the previous
   demand.
 - Fixes the new CI jobs found. The estimators failed on Python 3.9: its SciPy has no
   `lapack.dtrcon`, which `guarded_inverse` called for its condition estimate; it now falls back to
-  the exact 1-norm value when SciPy lacks it (`[se]` still asks only scipy>=1.8). `tools/readability.py`
+  Hager's 1-norm estimate (the same value LAPACK returns, a few O(k²) solves) when SciPy lacks it (`[se]` still asks only scipy>=1.8). `tools/readability.py`
   no longer fails on a file on another drive than the repository (Windows CI's temp dir).
 - Estimators, numbers change. `ResidualRemoval` is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;

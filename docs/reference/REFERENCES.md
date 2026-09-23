@@ -10,6 +10,7 @@ Keys cited by docstrings in the code and by [`FORMULAS.md`](FORMULAS.md), in the
 | [DAT26] | The fdia-graph dataset description: this repository's README and `docs/reference/DATA_DICTIONARY.md` (attack families, plausibility band, ramp profile). |
 | [EST26] | Our state-estimation work (the subspace prior, its Huber composition and the localization gate); see `docs/se/README.md`. |
 | [FED26] | Our federated per-bus FDIA localization work (the swing and temporal-delta features); see `docs/localization/README.md`. |
+| [HAG84] | W. W. Hager, "Condition estimates," SIAM J. Sci. Stat. Comput., vol. 5, no. 2, pp. 311–316, 1984. The 1-norm estimate of an inverse from a few solves, the fallback when SciPy lacks LAPACK's dtrcon. |
 | [HAN75] | E. Handschin, F. C. Schweppe, J. Kohlas and A. Fiechter, "Bad data analysis for power system state estimation," IEEE Trans. Power App. Syst., vol. PAS-94, no. 2, 1975. Normalized residuals and the residual covariance. |
 | [HUB64] | P. J. Huber, "Robust estimation of a location parameter," Ann. Math. Statist., vol. 35, no. 1, 1964. The Huber weight function. |
 | [JAC26] | R. Abdulin and R. Narimani, Jacobian-informed features for FDIA localization (working digest, 2026); see `docs/localization/README.md`, section "Jacobian-informed features". |

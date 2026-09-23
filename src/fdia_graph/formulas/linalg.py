@@ -50,13 +50,32 @@ def guarded_inverse(A: np.ndarray) -> np.ndarray:
 
 def _triangular_rcond(L: np.ndarray, lapack: Any) -> float:
     """Reciprocal 1-norm condition number of a lower-triangular factor: LAPACK's estimate (dtrcon)
-    where SciPy exposes it, else the exact 1 / (‖L‖₁ ‖L⁻¹‖₁), since dtrcon is missing from the
-    SciPy releases that still install on Python 3.9."""
+    where SciPy exposes it, else the same kind of estimate computed here, since dtrcon is missing
+    from the SciPy releases that still install on Python 3.9. Both are O(k²) after the factor."""
     dtrcon = getattr(lapack, "dtrcon", None)
     if dtrcon is not None:
         return float(dtrcon(L, norm="1", uplo="L", diag="N")[0])
-    Li = np.linalg.solve(L, np.eye(L.shape[0]))
-    return float(1.0 / (np.abs(L).sum(axis=0).max() * np.abs(Li).sum(axis=0).max()))
+    return float(1.0 / (np.abs(L).sum(axis=0).max() * _inverse_norm1_estimate(L)))
+
+
+def _inverse_norm1_estimate(L: np.ndarray, its: int = 5) -> float:
+    """‖L⁻¹‖₁ for a lower-triangular L by Hager's estimator [HAG84]: a few pairs of triangular
+    solves, O(k²) each, never forming the inverse. A lower bound, exact on most matrices."""
+    from scipy.linalg import solve_triangular
+
+    k = L.shape[0]
+    x = np.full(k, 1.0 / k)
+    est = 0.0
+    for _ in range(its):
+        y = solve_triangular(L, x, lower=True, check_finite=False)
+        est = float(np.abs(y).sum())
+        z = solve_triangular(L, np.sign(y) + (y == 0), lower=True, trans="T", check_finite=False)
+        j = int(np.argmax(np.abs(z)))
+        if np.abs(z[j]) <= z @ x:
+            break
+        x = np.zeros(k)
+        x[j] = 1.0
+    return est
 
 
 def condition_number(A: np.ndarray, its: int = 40) -> float:
