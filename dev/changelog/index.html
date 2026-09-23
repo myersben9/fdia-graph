@@ -1478,6 +1478,22 @@ the public API, the generated files and the numbers are the same as the previous
   <code>local_ac_solve</code> on a two-bus grid, <code>sparse_basis</code>, <code>per_bus_sequences</code>, <code>read_episodes</code>,
   <code>latest_release</code> online and offline, the <code>TrustSelector</code> base, the removal guard, and
   <code>tune_threshold</code>.</li>
+<li>Generator, the stealthy families change. The engine recovered a scan's load at a bus holding
+  both a load and a generator as the stored injection plus the BASE generation, but the pools scale
+  a bus's load and generation by one factor, so the load came out as s L + (1 - s) G instead of
+  s L: at s = 0.75 the median load was 1.6x the true one on IEEE-118 (10 of its 99 attackable
+  loads) and 2.0x on IEEE-300 (23 of 191), at times negative, so an Aq step there moved the wrong
+  amount and a "raise" could lower the load. Every load-recovery site now uses
+  <code>formulas.attacks.bus_load</code> (the <code>generator_output</code> construction the limit check already used),
+  through <code>FdiaGenerator.true_load</code> and <code>scan_generation</code>. Static generators that produce anything
+  count as injection buses (IEEE-89 buses 1, 65, 69, 79 and eight on IEEE-300 were treated as
+  zero-injection junctions and pulled into attack regions). The attack-redistribution sign: the
+  engine's redistribution LOWERS the target line's |flow| in the false state (checked on 77 of 77
+  draws), so <code>am_direction="mask"</code> now keeps its sign and <code>"induce"</code> flips it (they were swapped);
+  <code>"both"</code>, the default, maps a given draw to the same sign as before. The frozen
+  timeline is re-frozen (341 of its 1000 frames change: the corrected stealthy draws spend the
+  random stream differently, so later noise shifts too). The released v0.8.0 timelines were
+  generated before this fix; regenerating them is a data release.</li>
 <li>Estimators, numbers change. <code>ResidualRemoval</code> is classical largest-normalized-residual removal:
   one meter per record per pass (the largest above the threshold), re-solved, until none exceeds it;
   a removal the observability guard refuses keeps that meter. It used to remove every meter above

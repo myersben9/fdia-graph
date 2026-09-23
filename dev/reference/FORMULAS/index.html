@@ -1523,6 +1523,20 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>the Am family</td>
 </tr>
 <tr>
+<td>a scan's load at a generator bus</td>
+<td><code>formulas.attacks.bus_load</code>, through <code>engine.physics.PhysicsMixin.true_load</code> and <code>scan_generation</code></td>
+<td>P_load = P_inj + s P_gen,base = s P_load,base with s = P_inj / (P_load,base − P_gen,base), the pools scaling a bus's load and generation by one factor</td>
+<td>[DAT26]</td>
+<td>Aq, At, Al, Am, contingency re-solves</td>
+</tr>
+<tr>
+<td>a bus's scan load over its load elements</td>
+<td><code>formulas.attacks.element_loads</code>, through <code>true_load</code></td>
+<td>P_e = P_bus(e) · P0_e / Σ P0 over the bus's elements, the pools scaling every load at a bus by one factor</td>
+<td>[DAT26]</td>
+<td>Aq, At, Al, Am, contingency re-solves</td>
+</tr>
+<tr>
 <td>operating limits of a false state</td>
 <td><code>formulas.attacks.operating_limits</code>, <code>generator_output</code>, <code>within_limits</code>, checked by <code>_stealthy_frame</code></td>
 <td>per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected and its step halved</td>
