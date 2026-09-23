@@ -80,7 +80,9 @@ def main() -> None:
                 "sha256": sha256(p),
                 "mb": round(os.path.getsize(p) / 1e6, 1),
             }
-        json.dump(entry, open(part, "w"), indent=2)
+        with open(part + ".tmp", "w") as fh:  # atomic: a merging worker never reads half a fragment
+            json.dump(entry, fh, indent=2)
+        os.replace(part + ".tmp", part)
     manifest = merge_manifest()
     print("[all] done:", json.dumps(manifest, indent=2), flush=True)
 

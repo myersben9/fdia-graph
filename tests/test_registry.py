@@ -120,3 +120,20 @@ def test_a_download_race_keeps_the_installed_file(tmp_path, monkeypatch):
     dest.unlink()
     with pytest.raises(PermissionError):
         download._install(str(tmp), str(dest))  # nothing installed: a real failure surfaces
+
+
+def test_the_default_release_is_v081_with_pinned_timelines(monkeypatch):
+    """0.19.0 reads data release v0.8.1 by default, every system pinned by sha256, under data-v0.8.1."""
+    import importlib
+
+    monkeypatch.delenv("FDIA_GRAPH_RELEASE", raising=False)
+    reg = importlib.reload(registry)
+    try:
+        assert reg._RELEASE == "v0.8.1"
+        for C in (14, 30, 57, 89, 118, 145, 200, 300):
+            spec = reg.resolve(f"ieee{C}")
+            assert spec["release"] == "data-v0.8.1" and spec["file"] == f"timeline_ieee{C}.h5"
+            assert len(spec["sha256"]) == 64
+        assert reg.resolve("ieee118", release="v0.8.0")["sha256"] != reg.resolve("ieee118")["sha256"]
+    finally:
+        importlib.reload(registry)
