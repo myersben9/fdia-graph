@@ -1287,6 +1287,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#0190" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.19.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0180" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1387,6 +1398,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#0190" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.19.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0180" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1465,7 +1487,15 @@
 <p>Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="0190">0.19.0<a class="headerlink" href="#0190" title="Permanent link">&para;</a></h2>
 <ul>
+<li>Data release v0.8.1 is the default (<code>fg.load("ieee118")</code>; v0.8.0 stays readable with
+  <code>release="v0.8.0"</code>): the eight timelines regenerated with this release's generator, the same pools
+  (byte-identical), seed and knobs, built by <code>examples/_build_timelines_v081.py</code>. The stealthy
+  families change on every system but IEEE-200, whose file is byte-identical to v0.8.0 (no bus there
+  holds both a load and a generator, and its static generators produce nothing). Every file keeps
+  72,000 frames, exactly half attacked, no frame falling back to benign, every family present, and
+  no stealthy frame labelling a generator bus.</li>
 <li>
 <p>Generator, the stealthy families change. Aq, At, Al and Am no longer target a load on a generator
   bus (zero-MW condensers included), the local attacker's rule in [BOY22]: a generator bus is too
