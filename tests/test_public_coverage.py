@@ -22,7 +22,7 @@ def test_replay_frame_follows_its_policy():
     assert replay_frame(buf, 3, rng)[0] == 47  # a fixed lag: exactly that far back
     assert replay_frame(buf, 500, rng)[0] == 0  # clamped to the oldest the buffer holds
     lags = {50 - int(replay_frame(buf, None, rng)[0]) for _ in range(200)}
-    assert min(lags) > REPLAY_MIN_LAG  # a random lag reaches at least the minimum back
+    assert min(lags) >= REPLAY_MIN_LAG  # a random lag reaches at least the minimum back
     assert replay_frame(buf[:REPLAY_MIN_LAG], None, rng)[0] == 0  # too shallow: the oldest
 
 
