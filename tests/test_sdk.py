@@ -373,3 +373,36 @@ def test_gated_prior_uses_the_gate(splits):
     assert x.shape == (len(splits["test"]), 2 * splits["test"].N - 1)
     with pytest.raises(ValueError):
         GatedPrior(gate=None)
+
+
+def test_local_trainer_runs_persist_and_honour_owned_and_clip():
+    """Two one-epoch runs equal one two-epoch run (optimizer and batch order persist); with `owned`
+    the labels of the other buses cannot matter; a clip changes training only when it binds."""
+    torch = pytest.importorskip("torch")
+    from fdia_graph.localization.learned import LocalTrainer, OptimConfig, _mlp_net
+
+    torch.use_deterministic_algorithms(True)
+    rng = np.random.default_rng(0)
+    Xs = rng.normal(size=(64, 5, 14)).astype(np.float32)
+    Y = (rng.random((64, 5)) < 0.3).astype(np.float32)
+    cfg = OptimConfig(1e-2, 0.01, 16, 1.0)
+
+    def train(Y, runs, owned=None, clip=None):
+        torch.manual_seed(7)
+        net = _mlp_net(14, 16, 2, 0.0)
+        tr = LocalTrainer(net, cfg, "cpu", seed=3, clip=clip)
+        Xt, Yt = tr.stage(Xs, Y)
+        for e in runs:
+            tr.run(Xt, Yt, e, owned=owned)
+        return [v.clone() for v in net.state_dict().values()]
+
+    def same(a, b):
+        return all(torch.equal(x, y) for x, y in zip(a, b))
+
+    assert same(train(Y, [2]), train(Y, [1, 1]))
+    Y_other = Y.copy()
+    Y_other[:, 3:] = 1 - Y_other[:, 3:]  # flip every label outside the first three buses
+    assert same(train(Y, [2], owned=3), train(Y_other, [2], owned=3))
+    assert not same(train(Y, [2]), train(Y_other, [2]))
+    assert same(train(Y, [2], clip=1e9), train(Y, [2]))  # a clip that never binds changes nothing
+    assert not same(train(Y, [2], clip=1e-4), train(Y, [2]))
