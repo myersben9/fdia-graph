@@ -53,7 +53,13 @@ def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray
     weights : n_k per client (record counts), any positive scale
     returns : the averaged tensor in the dtype of arrays[0]
     """
+    if not len(arrays) or len(arrays) != len(weights):
+        raise ValueError(
+            f"need one weight per client tensor, got {len(arrays)} tensors and {len(weights)} weights"
+        )
     w = np.asarray(weights, np.float64)
+    if (w <= 0).any():
+        raise ValueError("client weights must be positive")
     w = w / w.sum()
     acc = np.zeros(np.shape(arrays[0]), np.float64)
     for wk, a in zip(w, arrays):

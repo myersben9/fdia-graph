@@ -69,6 +69,12 @@ def test_fedavg_is_exact_for_one_client_and_weights_by_count():
     assert np.array_equal(fedavg([w], [7]), w) and fedavg([w], [7]).dtype == np.float32
     a, b = np.ones(3, np.float32), np.full(3, 4.0, np.float32)
     assert np.allclose(fedavg([a, b], [1, 3]), 3.25)
+    with pytest.raises(ValueError, match="one weight per client"):
+        fedavg([a], [1, 1])
+    with pytest.raises(ValueError, match="one weight per client"):
+        fedavg([], [])
+    with pytest.raises(ValueError, match="positive"):
+        fedavg([a, b], [1, 0])
 
 
 def test_attackable_affinity_raises_edges_at_attackable_buses():
