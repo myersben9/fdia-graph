@@ -1,7 +1,7 @@
 """Every data model of the package in one place (docs/plans/DATA_MODELS_PLAN.md, step 5).
 
 Grouped by what the data is: `fields` (the field groups the data bundles share), `grid` (the static system), `frames` (what the generators pass
-around per scan), `data` (what a user gets back), `scores` (result tables), `assets` (how files
+around per scan), `training` (what a learned localizer's fitting pieces share), `data` (what a user gets back), `scores` (result tables), `assets` (how files
 are found). The package's own modules import only numpy, typing and dataclasses, so no model
 depends on a producer and no import cycle is possible (importing it still runs the parent
 package, loader and h5py included). Every model is also importable from the module that
@@ -55,6 +55,7 @@ from .scores import (
     OverallMetrics,
     TrustScores,
 )
+from .training import OptimConfig
 
 PUBLIC = (
     "RecordBundle",
@@ -98,6 +99,7 @@ __all__ = [
     "Scan",
     "Frame",
     "FrameKnobs",
+    "OptimConfig",
     "OperatingLimits",
     "Redistribution",
     "ResolvedPool",

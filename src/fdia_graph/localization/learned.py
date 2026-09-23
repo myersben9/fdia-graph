@@ -20,7 +20,10 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from .base import LocalizerBase, _perbus_f1
+from ..formulas.federated import Moments, channel_moments, pool_moments
+from ..formulas.metrics import perbus_counts, tau_from_counts
+from ..models.training import OptimConfig  # noqa: F401  re-exported beside its user
+from .base import LocalizerBase
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -139,9 +142,9 @@ class LearnedLocalizer(LocalizerBase):
             self._jac = JacobianFeatures().fit(ds)
         X = self._features(d)
         # Standardize every channel on the training records, mask and swing included, exactly as
-        # the paper's cache builder does; sd is floored so a constant channel cannot blow up.
-        self.mu = X.mean(axis=(0, 1))
-        self.sd = np.clip(X.std(axis=(0, 1)), 1e-3, None)
+        # the paper's cache builder does; sd is floored so a constant channel cannot blow up. The
+        # moments pool across parts, which is how a federated fit shares them.
+        self.mu, self.sd = standardization([channel_moments(X)])
         Xs = ((X - self.mu) / self.sd).astype(np.float32)
         Y = d["y"].astype(np.float32)
         self.N = Xs.shape[1]
@@ -150,38 +153,21 @@ class LearnedLocalizer(LocalizerBase):
         torch.manual_seed(self.seed)
         self.dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.net = self._build(self.N).to(self.dev)
-        # The full split stays on the CPU (pinned when a GPU is used) and only each batch crosses to
-        # the device, so the big systems train inside a bounded device footprint like scoring does.
-        Xt, Yt = torch.from_numpy(Xs), torch.from_numpy(Y)
-        if self.dev != "cpu":
-            Xt, Yt = Xt.pin_memory(), Yt.pin_memory()
-        opt = torch.optim.AdamW(self.net.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(self.pos_weight, device=self.dev))
-        gen = torch.Generator().manual_seed(self.seed)
-        self.net.train()
-        for _ in range(self.epochs):
-            perm = torch.randperm(len(Xt), generator=gen)
-            for i in range(0, len(Xt), self.batch_size):
-                j = perm[i : i + self.batch_size]
-                xb = Xt[j].to(self.dev, non_blocking=True)
-                yb = Yt[j].to(self.dev, non_blocking=True)
-                opt.zero_grad()
-                loss_fn(self.net(xb), yb).backward()
-                opt.step()
+        trainer = LocalTrainer(self.net, self._optim(), self.dev, self.seed)
+        trainer.run(*trainer.stage(Xs, Y), self.epochs)
         self.net.eval()
+
+    def _optim(self) -> OptimConfig:
+        """The training knobs a LocalTrainer needs, from this localizer's settings."""
+        return OptimConfig(self.lr, self.weight_decay, self.batch_size, self.pos_weight)
 
     def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
         if "jac" in self.features:  # the Jacobian block converts physical units itself
             from ..se.base import require_physical
 
             require_physical(ds)
-        torch = _torch()
         Xs = ((self._features(d) - self.mu) / self.sd).astype(np.float32)
-        out = np.empty(Xs.shape[:2], np.float64)
-        with torch.no_grad():
-            for i in range(0, len(Xs), 4096):  # bounded device memory on the big systems
-                xb = torch.from_numpy(Xs[i : i + 4096]).to(self.dev)
-                out[i : i + 4096] = torch.sigmoid(self.net(xb)).cpu().numpy()
+        out = predict(self.net, Xs, self.dev)
         if self.attackable_only:
             out[:, ~self._attackable] = 0.0  # probability 0 can never cross a threshold in (0, 1]
         return out
@@ -206,12 +192,85 @@ class LearnedLocalizer(LocalizerBase):
         if not active.any():
             raise ValueError("tune_threshold needs attacked records in val")
         taus = np.linspace(0.05, 0.95, 19)
-        f1 = [_perbus_f1(p > tau, t)[active].mean() for tau in taus]
-        self.tau = float(taus[int(np.argmax(f1))])
+        tp, fp, fn = (np.stack(c) for c in zip(*(perbus_counts(p > tau, t) for tau in taus)))
+        self.tau = tau_from_counts(tp, fp, fn, np.asarray(active), taus)
         self.thr = np.full(p.shape[1], self.tau)
         if self.attackable_only:
             self.thr[~self._attackable] = np.inf
         return self
+
+
+def standardization(parts: list[Moments]) -> tuple[np.ndarray, np.ndarray]:
+    """Per-channel mean and sd from pooled moments (`formulas.federated.pool_moments`), the sd
+    floored at 1e-3 so a constant channel cannot blow up."""
+    _, mu, var = pool_moments(parts)
+    return mu, np.clip(np.sqrt(var), 1e-3, None)
+
+
+def predict(net: Any, Xs: np.ndarray, dev: str, chunk: int = 4096) -> np.ndarray:
+    """Per-bus attack probabilities [n, N] of standardized features [n, N, F], in chunks so the
+    big systems stay inside a bounded device footprint."""
+    torch = _torch()
+    out = np.empty(Xs.shape[:2], np.float64)
+    with torch.no_grad():
+        for i in range(0, len(Xs), chunk):
+            xb = torch.from_numpy(Xs[i : i + chunk]).to(dev)
+            out[i : i + chunk] = torch.sigmoid(net(xb)).cpu().numpy()
+    return out
+
+
+class LocalTrainer:
+    """The training loop of a learned localizer, kept apart so a federated client runs the same
+    code: AdamW, BCE with logits, and a seeded batch order that persists across calls to `run`
+    (the optimizer too), so several short runs equal one long one.
+
+    `owned`, when given, restricts the loss to the first `owned` buses of every sample (a client's
+    own buses, its halo after them); `clip` bounds the gradient norm. Neither is used centrally.
+    """
+
+    def __init__(self, net: Any, cfg: OptimConfig, dev: str, seed: int, clip: Optional[float] = None) -> None:
+        torch = _torch()
+        self.net, self.cfg, self.dev, self.clip = net, cfg, dev, clip
+        self.opt = torch.optim.AdamW(net.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+        self.loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(cfg.pos_weight, device=dev))
+        self.gen = torch.Generator().manual_seed(seed)
+
+    def stage(self, Xs: np.ndarray, Y: np.ndarray) -> tuple[Any, Any]:
+        """The split as CPU tensors, pinned when training on a GPU: only each batch crosses to the
+        device, so the big systems train inside a bounded device footprint."""
+        torch = _torch()
+        Xt, Yt = torch.from_numpy(Xs), torch.from_numpy(Y)
+        if self.dev != "cpu":
+            Xt, Yt = Xt.pin_memory(), Yt.pin_memory()
+        return Xt, Yt
+
+    def run(self, Xt: Any, Yt: Any, epochs: int, owned: Optional[int] = None) -> float:
+        """Train `epochs` passes over the staged split; returns the mean batch loss of the last."""
+        torch = _torch()
+        self.net.train()
+        losses: list[float] = []
+        for _ in range(epochs):
+            losses = []
+            perm = torch.randperm(len(Xt), generator=self.gen)
+            for i in range(0, len(Xt), self.cfg.batch_size):
+                losses.append(self._step(Xt, Yt, perm[i : i + self.cfg.batch_size], owned))
+        return float(np.mean(losses)) if losses else 0.0
+
+    def _step(self, Xt: Any, Yt: Any, j: Any, owned: Optional[int]) -> float:
+        """One optimizer step on the batch rows `j`."""
+        torch = _torch()
+        xb = Xt[j].to(self.dev, non_blocking=True)
+        yb = Yt[j].to(self.dev, non_blocking=True)
+        self.opt.zero_grad()
+        logits = self.net(xb)
+        if owned is not None:  # a client learns only its own buses
+            logits, yb = logits[:, :owned], yb[:, :owned]
+        loss = self.loss_fn(logits, yb)
+        loss.backward()
+        if self.clip is not None:
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), self.clip)
+        self.opt.step()
+        return float(loss.detach())
 
 
 class BusCNN(LearnedLocalizer):

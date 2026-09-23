@@ -15,6 +15,10 @@ classDiagram
         +fit()
         +tune_threshold()
     }
+    class LocalTrainer {
+        +stage()
+        +run()
+    }
     class BusCNN {
     }
     class BusMLP {
@@ -36,6 +40,9 @@ classDiagram
     class LocalizerScores {
         <<models>>
     }
+    class OptimConfig {
+        <<models>>
+    }
     class SEBase {
         <<se>>
     }
@@ -54,6 +61,8 @@ classDiagram
     TrustSelector <|-- TrustedMeters
     TrustSelector <|-- TrustedMetersDQN
     LearnedLocalizer ..> JacobianFeatures : uses
+    LearnedLocalizer ..> OptimConfig : uses
+    LocalTrainer ..> OptimConfig : uses
     LocalizerBase ..> LocalizerScores : uses
     ResidualLocalizer ..> SEBase : estimator
     ResidualLocalizer ..> WLS : uses

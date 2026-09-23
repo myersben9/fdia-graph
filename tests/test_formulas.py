@@ -360,3 +360,36 @@ def test_triangular_rcond_falls_back_without_dtrcon():
     assert exact <= fallback <= 3 * exact
     if hasattr(sl.lapack, "dtrcon"):  # LAPACK's estimate bounds it from above, within a small factor
         assert exact <= _triangular_rcond(L, sl.lapack) <= 3 * exact
+
+
+def test_pool_moments_equals_the_union_and_leaves_one_part_unchanged():
+    from fdia_graph.formulas.federated import channel_moments, pool_moments
+
+    rng = np.random.default_rng(0)
+    parts = [rng.normal(size=(n, 5, 3)) for n in (7, 2, 11)]
+    n, mu, var = pool_moments([channel_moments(X) for X in parts])
+    allX = np.concatenate([X.reshape(-1, 3) for X in parts])
+    assert (
+        n == len(allX)
+        and np.allclose(mu, allX.mean(0), atol=1e-12)
+        and np.allclose(var, allX.var(0), atol=1e-12)
+    )
+    one = channel_moments(parts[0])
+    n1, mu1, var1 = pool_moments([one])
+    assert n1 == one[0] and mu1 is one[1] and var1 is one[2]  # bit for bit: no arithmetic on one part
+
+
+def test_tau_from_counts_matches_the_direct_f1_rule():
+    from fdia_graph.formulas.metrics import perbus_counts, tau_from_counts
+
+    rng = np.random.default_rng(1)
+    p, t = rng.random((200, 6)), rng.random((200, 6)) < 0.3
+    taus = np.linspace(0.05, 0.95, 19)
+    active = t.any(axis=0)
+    direct = []
+    for tau in taus:
+        pr = p > tau
+        tp, fp, fn = ((pr & t).sum(0), (pr & ~t).sum(0), (~pr & t).sum(0))
+        direct.append((2 * tp / (2 * tp + fp + fn + 1e-9))[active].mean())
+    tp, fp, fn = (np.stack(c) for c in zip(*(perbus_counts(p > tau, t) for tau in taus)))
+    assert tau_from_counts(tp, fp, fn, active, taus) == float(taus[int(np.argmax(direct))])

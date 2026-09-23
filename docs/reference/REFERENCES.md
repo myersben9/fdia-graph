@@ -7,6 +7,8 @@ Keys cited by docstrings in the code and by [`FORMULAS.md`](FORMULAS.md), in the
 |---|---|
 | [AE04] | A. Abur and A. Gómez Expósito, *Power System State Estimation: Theory and Implementation*, Marcel Dekker, 2004. |
 | [ASP14] | M. Asprou, E. Kyriakides and M. Albu, "The effect of variable weights in a WLS state estimator considering instrument transformer uncertainties," IEEE Trans. Instrum. Meas., vol. 63, no. 6, pp. 1484–1495, 2014, and the companion "The effect of instrument transformer accuracy class on the WLS state estimator accuracy," IEEE PES General Meeting, 2013. The accuracy-class meter error model (maximum error divided by √3). |
+| [CGL79] | T. F. Chan, G. H. Golub and R. J. LeVeque, "Updating formulae and a pairwise algorithm for computing sample variances," Stanford University, Tech. Rep. STAN-CS-79-773, 1979. Pooling means and variances of disjoint parts. |
+| [KEC25] | C. Keçeci, K. R. Davis and E. Serpedin, "Federated learning-based distributed localization of false data injection attacks on smart grids," IEEE Systems Journal, vol. 19, no. 3, pp. 719–729, 2025. Per-bus localization metrics. |
 | [DAT26] | The fdia-graph dataset description: this repository's README and `docs/reference/DATA_DICTIONARY.md` (attack families, plausibility band, ramp profile). |
 | [EST26] | Our state-estimation work (the subspace prior, its Huber composition and the localization gate); see `docs/se/README.md`. |
 | [FED26] | Our federated per-bus FDIA localization work (the swing and temporal-delta features); see `docs/localization/README.md`. |
