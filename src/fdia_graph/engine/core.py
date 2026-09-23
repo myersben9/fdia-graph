@@ -335,6 +335,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         for r in base.load.itertuples():
             self.load_base[int(r.bus)] += (r.p_mw, r.q_mvar)
         gens = base.gen
+        self.has_gen = np.zeros(C, bool)  # a generator on the bus, zero-MW condensers included
+        self.has_gen[np.unique(gens.bus.values).astype(int)] = True
         for b in np.unique(gens.bus.values):
             rows = gens[gens.bus == b]
             self.gen_base[int(b), 0] = rows.p_mw.sum()

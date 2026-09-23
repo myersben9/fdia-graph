@@ -57,10 +57,18 @@ class PhysicsMixin(GridBase):
         return element_loads(bus_load(Xt, self.load_base, self.gen_base), self.load_bus, self.load_p0)
 
     def true_reactive_load(self, Xt: np.ndarray) -> np.ndarray:
-        """This scan's reactive injection at each load's bus split over the bus's load elements by
-        their base reactive shares [n_loads] (MVAr), `formulas.attacks.element_loads`; a bus with one
-        load gives it the bus's whole reactive injection, as before."""
-        return element_loads(Xt[:, NODE.q_inj], self.load_bus, self.load_q0)
+        """This scan's reactive load per load element [n_loads] (MVAr): the bus's stored reactive
+        injection plus its generators' reactive output (`scan_reactive_generation`), split over the
+        bus's load elements by base reactive share (`formulas.attacks.element_loads`)."""
+        return element_loads(
+            Xt[:, NODE.q_inj] + self.scan_reactive_generation(Xt), self.load_bus, self.load_q0
+        )
+
+    def scan_reactive_generation(self, Xt: np.ndarray) -> np.ndarray:
+        """This scan's generator reactive output per bus [N] (MVAr), `formulas.attacks.generator_output`,
+        zero at a bus with no generator (a zero-MW condenser counts as one)."""
+        q = generator_output(Xt, self.load_base, self.gen_base)[:, 1]
+        return np.where(self.has_gen, q, 0.0)
 
     def scan_generation(self, Xt: np.ndarray) -> np.ndarray:
         """This scan's active generation per bus [N] (MW), `formulas.attacks.generator_output`;
@@ -155,7 +163,7 @@ class PhysicsMixin(GridBase):
         np.add.at(qload, self.load_bus, Lq)
         buses = np.unique(self.load_bus)
         Pinj[buses] = load[buses] - self.scan_generation(Xt)[buses]
-        Qinj[buses] = qload[buses]
+        Qinj[buses] = qload[buses] - self.scan_reactive_generation(Xt)[buses]
         lut = self._ppc_row[np.arange(C)]
         Vc = np.zeros(self._n_ppc_buses, complex)
         Vc[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])

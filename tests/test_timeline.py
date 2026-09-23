@@ -495,3 +495,20 @@ def test_a_producing_static_generator_bus_injects():
     others = set(base.gen.bus) | set(base.load.bus) | set(base.ext_grid.bus) | set(base.shunt.bus)
     idle = [int(b) for b in base.sgen.bus if int(b) not in others]
     assert idle and all(b in g.zero_inj for b in idle)
+
+
+def test_reactive_load_adds_back_the_generators_output():
+    """At a load bus with a generator the stored Q injection is load minus generator output, so the
+    reactive load adds it back; the local solve with unchanged loads reproduces the scan."""
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.profiles import _case_buses, _solve_states_chunk
+
+    g = FdiaGenerator(14, seed=5)
+    X = _solve_states_chunk(14, np.full((1, len(_case_buses(14))), 1.1))[0]
+    Lq = g.true_reactive_load(X)
+    for pos, b in enumerate(g.load_bus):
+        want = 1.1 * g.load_base[b, 1] if g.has_gen[b] else X[b, 2]
+        assert Lq[pos] == pytest.approx(want, abs=1e-6)
+    interior = g.local_region(g.load_bus[[2]], 1)
+    Xa = g.solve_local(X, interior, g.true_load(X), Lq)
+    assert np.allclose(Xa, X, atol=1e-5)

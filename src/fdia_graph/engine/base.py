@@ -53,6 +53,7 @@ class GridBase:
     gen_base: np.ndarray  # [N, 2] base-case generation P per bus (Q column zero)
     p_lim: np.ndarray  # [N, 2] generator active limits per bus, ±inf without one
     q_lim: np.ndarray  # [N, 2] generator reactive limits per bus
+    has_gen: np.ndarray  # [N] bool, a generator on the bus
     v_case: np.ndarray  # [N, 2] the case's bus voltage limits
     # topology + admittance
     ei: np.ndarray
