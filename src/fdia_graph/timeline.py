@@ -199,7 +199,8 @@ def check_targets(g: Any, families: Sequence[str]) -> None:
     case: the stealthy Aq and At need a load off every generator bus, Al and Am a line whose
     subnetwork admits a redistribution, Ad/As/Ar an attackable load. Legacy aliases resolve first."""
     need = {1: len(g.stealthy_pos), 5: len(g.stealthy_pos), 6: len(g._target_lines), 7: len(g._target_lines)}
-    empty = sorted({FAM_ID[f] for f in families if need.get(FAM_ID[f], len(g.attackable_pos)) == 0})
+    fids = {FAM_ID[f] for f in families} - {0}  # benign needs no target
+    empty = sorted(i for i in fids if need.get(i, len(g.attackable_pos)) == 0)
     if empty:
         names = ", ".join(FAMILIES[i] for i in empty)
         raise ValueError(f"no admissible target on this case for {names}; drop them from families")
@@ -764,9 +765,9 @@ def generate_timeline(
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
-    if attacked_frac > 0:  # an all-benign timeline needs no target
-        check_targets(g, families)
     X = _load_states(system, states)
+    if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
+        check_targets(g, families)
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)

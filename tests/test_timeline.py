@@ -553,6 +553,7 @@ def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_
 
     g = SimpleNamespace(stealthy_pos=np.array([], int), _target_lines=[], attackable_pos=np.arange(3))
     check_targets(g, ["Ad", "As", "Ar"])  # the in-place families still have targets
+    check_targets(SimpleNamespace(stealthy_pos=[], _target_lines=[], attackable_pos=[]), ["benign"])
     with pytest.raises(ValueError, match="Aq, Al"):
         check_targets(g, ["Aq", "Ad", "Al"])
     with pytest.raises(ValueError, match="Aq, At, Al"):
