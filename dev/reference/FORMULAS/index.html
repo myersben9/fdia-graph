@@ -1396,7 +1396,7 @@ until its function exists.</p>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="sd">        swing[b, c] = delta[b, c] / scale[b, c]</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">    delta : [N, 2]  current minus previous scan, active and reactive injection (MW, MVAr)</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">    scale : [N, 2]  std of the one-step change over the last SWING_W scans, floored at 1e-3</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">    scale : [N, 2]  std of the one-step change over the last SWING_W scans, plus 1e-3</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="sd">    returns [N, 2], dimensionless; large on a single-scan spike, near 1 on a slow ramp</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="sd">    """</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">return</span> <span class="n">delta</span> <span class="o">/</span> <span class="n">scale</span>
@@ -1427,7 +1427,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>recent-change scale</td>
 <td><code>formulas.temporal.recent_change_scale</code> (shards and streams, through <code>generation._swing_scale</code>)</td>
-<td>scale_t = std over [t − W, t) of the one-step change, floor 1e-3</td>
+<td>scale_t = std over [t − W, t) of the one-step change, plus 1e-3</td>
 <td>[FED26]</td>
 <td>the swing feature</td>
 </tr>
