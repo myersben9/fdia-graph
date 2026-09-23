@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import time
 import warnings
 
@@ -94,7 +95,12 @@ def merge_manifest() -> dict:
     for f in sorted(os.listdir(OUT)):
         if f.startswith("manifest_ieee") and f.endswith(".json"):
             manifest.update(json.load(open(os.path.join(OUT, f))))
-    json.dump(manifest, open(os.path.join(OUT, "manifest.json"), "w"), indent=2)
+    fd, tmp = tempfile.mkstemp(
+        dir=OUT, suffix=".json"
+    )  # atomic: two workers finishing together never interleave
+    with os.fdopen(fd, "w") as fh:
+        json.dump(manifest, fh, indent=2)
+    os.replace(tmp, os.path.join(OUT, "manifest.json"))
     return manifest
 
 
