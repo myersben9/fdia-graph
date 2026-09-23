@@ -195,7 +195,7 @@ def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
 
 def test_am_direction_sign_follows_the_engine_convention():
     """`lra_delta` lowers the target line's |flow| in the false state, so mask keeps its sign, and
-    "both" draws the same sign sequence as before the fix (+1 below 0.5), so default files are unchanged."""
+    a given "both" draw maps to the same sign as before the fix (+1 below 0.5)."""
     from fdia_graph.timeline import _am_sign
 
     rng = np.random.default_rng(0)
