@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import tempfile
 from typing import TYPE_CHECKING, Any, Optional
 
 import requests
@@ -97,16 +98,30 @@ def ensure_local(spec: AssetSpec) -> str:
     if os.path.exists(dest) and (spec.get("sha256") is None or _sha256(dest) == spec["sha256"]):
         return dest
 
-    # Download to a ".part" sidecar so a crash never leaves a truncated file that a later run trusts as complete.
-    tmp = dest + ".part"
-    with requests.Session() as session:
-        # authenticated API asset endpoint for private repos, plain URL for public; keep the download in the session.
-        target = _asset_url(spec, session)
-        _stream_to_file(session, target.url, target.headers, tmp, spec["file"])
-    # Integrity gate: verify a pinned sha256 before trusting; on mismatch delete the .part and fail loudly.
-    if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
-        os.remove(tmp)
-        raise OSError(f"checksum mismatch for {spec['file']} — download corrupted, please retry")
-    # Atomic rename only after a full, verified download, so `dest` only ever exists as a valid shard.
-    os.replace(tmp, dest)
+    # Download to a ".part" file unique to this process: a crash never leaves a truncated file a later run
+    # trusts, and two jobs fetching the same asset at once never write into one file.
+    fd, tmp = tempfile.mkstemp(dir=CACHE_DIR, prefix=f"{spec['release']}_{spec['file']}.", suffix=".part")
+    os.close(fd)
+    try:
+        with requests.Session() as session:
+            # authenticated API asset endpoint for private repos, plain URL for public; keep the download in the session.
+            target = _asset_url(spec, session)
+            _stream_to_file(session, target.url, target.headers, tmp, spec["file"])
+        # Integrity gate: verify a pinned sha256 before trusting; on mismatch fail loudly.
+        if spec.get("sha256") and _sha256(tmp) != spec["sha256"]:
+            raise OSError(f"checksum mismatch for {spec['file']} — download corrupted, please retry")
+        _install(tmp, dest)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
     return dest
+
+
+def _install(tmp: str, dest: str) -> None:
+    """Atomic rename of a complete, verified download, so `dest` only ever exists whole. When another
+    process installed it first and holds it open (Windows refuses the rename), keep theirs."""
+    try:
+        os.replace(tmp, dest)
+    except PermissionError:
+        if not os.path.exists(dest):
+            raise

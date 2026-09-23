@@ -125,6 +125,8 @@ class SEBase:
             self._Ybus = torch.tensor(self._Ybus_np, dtype=torch.complex128)
             self._Yft = torch.tensor(self._Yf_np, dtype=torch.complex128)
         self.slack = int(net.ext_grid.bus.values[0])
+        if ds.slack is not None and int(ds.slack) != self.slack:  # both index buses 0..N-1 on every case
+            raise ValueError(f"the case's slack is bus {self.slack}, the dataset's is {int(ds.slack)}")
         self.keep = np.array([i for i in range(self.N) if i != self.slack])  # angle buses
         # Classical 2N-1 state: angles at every non-slack bus, voltage magnitude at EVERY bus.
         # Only the slack angle is fixed (the reference the math requires); the slack voltage is
@@ -234,6 +236,12 @@ class SEBase:
         om, R = residual_covariance_diag(self.H, self.Wk, self._Ai)
         self.critical = critical_measurements(om, R)
         self._om = floored_covariance(om, R)
+        VK = self._basis()  # the solve's Jacobian and inverse normal matrix, in the state or its subspace
+        self._B, self._Bi = (
+            (self.H, self._Ai)
+            if VK is None
+            else (self.H @ VK, guarded_inverse(normal_matrix(self.H @ VK, self.Wk)))
+        )
         self._post_fit()
         return self
 
@@ -291,11 +299,7 @@ class SEBase:
     def _solve_plain(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         """Batched chord-Newton with the shared weights (the WLS solve)."""
         VK = self._basis()
-        B_, Ai = (
-            (self.H, self._Ai)
-            if VK is None
-            else (self.H @ VK, guarded_inverse(normal_matrix(self.H @ VK, self.Wk)))
-        )
+        B_, Ai = self._B, self._Bi  # built once in fit
         c = np.zeros((z.shape[0], B_.shape[1]))
         for _ in range(self.iters):
             x = self.xmean + (c @ VK.T if VK is not None else c)
@@ -311,7 +315,7 @@ class SEBase:
         iterate kept; non-finite iterates never propagate.
         """
         VK = self._basis()
-        B_ = self.H if VK is None else self.H @ VK
+        B_ = self._B
         n, kd = z.shape[0], B_.shape[1]
         Ai = self._inv_batch(batched_normal_matrices(w, B_))
         c = np.zeros((n, kd))

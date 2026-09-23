@@ -12,7 +12,7 @@ def recent_change_scale(X: np.ndarray, window: int, n_bus: int) -> np.ndarray:
     """Per-timestep typical recent change of every bus's injections [FED26].
 
         scale[t] = std over the last `window` scans before t of the scan-to-scan |change| in [P_inj, Q_inj],
-                   floored at 1e-3 (and 1e-3 alone where fewer than three changes are available)
+                   plus 1e-3 (and 1e-3 alone where fewer than three changes are available)
 
     X       : [T, N, 4] operating-point pool in [|V|, P_inj, Q_inj, theta] order
     returns : [T, N, 2] float32; scale[t] uses the changes strictly before t (prefix sums, one pass)
