@@ -1487,6 +1487,16 @@
 <p>Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Learned localizers, no number changes (the first step of <code>fdia_graph.federated</code>): the training
+  loop is <code>localization.learned.LocalTrainer</code> (optimizer and batch order persist across <code>run</code>
+  calls, optional owned-bus loss and gradient clipping for a federated client), prediction is
+  <code>predict</code>, standardization pools channel moments (<code>formulas.federated.channel_moments</code>,
+  <code>pool_moments</code> [CGL79]) and the validation threshold picks from per-bus confusion counts
+  (<code>formulas.metrics.perbus_counts</code>, <code>tau_from_counts</code> [KEC25]), so a federated fit can sum them
+  across clients. <code>models.training.OptimConfig</code> carries the training knobs. BusMLP and BusCNN
+  weights, scores, thresholds and standardization are bit-identical to 0.19.0.</li>
+</ul>
 <h2 id="0190">0.19.0<a class="headerlink" href="#0190" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Data release v0.8.1 is the default (<code>fg.load("ieee118")</code>; v0.8.0 stays readable with

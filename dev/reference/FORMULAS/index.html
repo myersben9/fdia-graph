@@ -1418,6 +1418,20 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </thead>
 <tbody>
 <tr>
+<td>pooled channel moments</td>
+<td><code>formulas.federated.channel_moments</code>, <code>pool_moments</code>, through <code>localization.learned.standardization</code></td>
+<td>mean = mean_a + (mean_b − mean_a) n_b / n, M2 = M2_a + M2_b + (mean_b − mean_a)² n_a n_b / n; one part returns unchanged</td>
+<td>[CGL79]</td>
+<td>the learned localizers' standardization, pooled across federated clients</td>
+</tr>
+<tr>
+<td>per-bus confusion counts and the papers' threshold</td>
+<td><code>formulas.metrics.perbus_counts</code>, <code>perbus_f1_from_counts</code>, <code>tau_from_counts</code>, through <code>LearnedLocalizer.tune_threshold</code></td>
+<td>F1 = 2TP / (2TP + FP + FN); tau = argmax over the grid of the mean per-bus F1 on the active buses</td>
+<td>[KEC25], [FED26]</td>
+<td>the learned localizers' validation threshold, summable across clients</td>
+</tr>
+<tr>
 <td>swing z-score and temporal delta</td>
 <td><code>formulas.temporal.temporal_delta</code>, <code>formulas.temporal.swing_zscore</code> (shards, via <code>generation._record_features</code>); the stream computes the same two lines against the previous emitted frame in <code>streams._StreamBuffers.store</code></td>
 <td>delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t</td>
