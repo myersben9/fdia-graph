@@ -60,8 +60,14 @@ def partition_from_assignment(
     assignment: np.ndarray, edge_index: np.ndarray, attackable: Optional[np.ndarray] = None
 ) -> Partition:
     """A Partition from a given client-of-every-bus array (e.g. one saved with a paper's runs)."""
-    assignment = np.asarray(assignment, np.int64)
+    assignment = np.asarray(assignment)
+    N = int(edge_index.max()) + 1 if edge_index.size else len(assignment)
+    if assignment.ndim != 1 or len(assignment) < N or not np.issubdtype(assignment.dtype, np.integer):
+        raise ValueError(f"assignment must be one integer client per bus ({N} buses)")
+    assignment = assignment.astype(np.int64)
     K = int(assignment.max()) + 1
+    if assignment.min() < 0 or len(np.unique(assignment)) != K:
+        raise ValueError(f"clients must be numbered 0..{K - 1} with none empty")
     A = bus_adjacency(edge_index, len(assignment))
     interior, boundary = interior_boundary(assignment, A, K)
     on_boundary = (

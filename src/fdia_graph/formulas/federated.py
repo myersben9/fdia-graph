@@ -63,6 +63,7 @@ def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray
     shape = np.shape(arrays[0])
     if any(np.shape(a) != shape for a in arrays):
         raise ValueError(f"every client tensor must have the shape {shape}")
+    w = w / w.max()  # scale first: finite weights near the float limit cannot overflow the sum
     w = w / w.sum()
     acc = np.zeros(np.shape(arrays[0]), np.float64)
     for wk, a in zip(w, arrays):
@@ -78,7 +79,10 @@ def attackable_affinity(A: np.ndarray, attackable: np.ndarray, heavy: float = 8.
     attackable : [N] bool
     returns    : [N, N] float32 affinity
     """
-    m = np.where(np.asarray(attackable, bool), heavy, 1.0)
+    attackable = np.asarray(attackable, bool)
+    if attackable.shape != (A.shape[0],) or not heavy > 0:
+        raise ValueError(f"need a [{A.shape[0]}] attackable mask and heavy > 0")
+    m = np.where(attackable, heavy, 1.0)
     return (A * np.sqrt(np.outer(m, m))).astype(np.float32)
 
 

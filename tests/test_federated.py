@@ -75,6 +75,8 @@ def test_fedavg_is_exact_for_one_client_and_weights_by_count():
         fedavg([], [])
     with pytest.raises(ValueError, match="positive"):
         fedavg([a, b], [1, 0])
+    big = fedavg([a, b], [1e308, 1e308])  # finite weights near the float limit still average
+    assert np.allclose(big, 2.5)
     for bad in (np.nan, np.inf):
         with pytest.raises(ValueError, match="finite and positive"):
             fedavg([a, b], [1, bad])
@@ -86,3 +88,21 @@ def test_attackable_affinity_raises_edges_at_attackable_buses():
     A = np.ones((3, 3)) - np.eye(3)
     W = attackable_affinity(A, np.array([True, False, False]), heavy=4.0)
     assert W[0, 1] == pytest.approx(2.0) and W[1, 2] == pytest.approx(1.0) and W[0, 0] == 0
+
+
+def test_halo_reaches_past_the_clients_own_buses():
+    """Every own bus starts the search, so owned -> owned -> foreign is one hop from the client."""
+    A = np.zeros((3, 3))
+    A[0, 1] = A[1, 0] = A[1, 2] = A[2, 1] = 1
+    assert halo_nodes(np.array([0, 0, 1]), A, 0, 1)[0].tolist() == [0, 1, 2]
+    assert halo_nodes(np.array([0, 0, 1]), A, 0, 2)[0].tolist() == [0, 1, 2]
+
+
+def test_partition_and_affinity_inputs_are_checked(edges):
+    ei, N = edges
+    with pytest.raises(ValueError, match="one integer client per bus"):
+        partition_from_assignment(np.zeros(N - 1, int), ei)
+    with pytest.raises(ValueError, match="none empty"):
+        partition_from_assignment(np.r_[np.zeros(N - 1, int), 2], ei)  # client 1 has no bus
+    with pytest.raises(ValueError, match="attackable mask"):
+        attackable_affinity(np.eye(3), np.array([True, False]))
