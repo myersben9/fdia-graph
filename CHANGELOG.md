@@ -45,6 +45,8 @@ the public API, the generated files and the numbers are the same as the previous
   no longer fails on a file on another drive than the repository (Windows CI's temp dir).
 - Repository, no package change. `_publish_pypi.sh` is gone: publishing goes through the tag and
   `publish.yml` only, which runs the tests first. Four figures in `docs/` that nothing referenced
+- Repository, no package change. `_publish_pypi.sh` is gone: publishing goes through a version tag and
+  `publish.yml` only (no manual upload path). Four figures in `docs/` that nothing referenced
   (the README uses the copies in `docs/figures/`) are gone. `.gitignore` loses a duplicated block,
   ignores the pytest and ruff caches, and names `examples/_build_timelines_v080.py`, the v0.8.0
   build script, as tracked on purpose.
