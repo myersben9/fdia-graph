@@ -32,7 +32,6 @@ the public API, the generated files and the numbers are the same as the previous
   cost once per step instead of twice, keeps its replay buffer in a ring, and defaults to `seed=123`
   like the localizers (pass `seed=0` for the previous default; the trust guide pins it). Windows and
   the seed-0 DQN selection are bit-identical to 0.18.0.
-
 - The trust guide's secured-copy tables for IEEE-118 (`results/secured_ieee118.json`): the DQN set
   opens the residual test on the stealthy families and lifts the learned localizer four points, the
   estimator gains within a percent at 20 meters. No package change.

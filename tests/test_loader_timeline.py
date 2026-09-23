@@ -217,6 +217,7 @@ def test_windows_view_equals_the_copy(timeline):
     Xv, yv = ds.windows(10, stride=4, label="last", copy=False)
     assert np.array_equal(Xc, Xv) and np.array_equal(yc, yv)
     assert Xc.flags.writeable and not Xv.flags.writeable
+    assert Xc.flags.owndata and not Xv.flags.owndata  # the view borrows the frames' memory
     for stride in (1, 3):  # per-bus sequences own their memory whatever the stride
         Xb, _ = ds.windows(10, stride=stride, per_bus=True, copy=False)
         assert Xb.flags.writeable and Xb.flags.owndata
