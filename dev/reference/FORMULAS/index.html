@@ -1418,9 +1418,23 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </thead>
 <tbody>
 <tr>
+<td>federated average</td>
+<td><code>formulas.federated.fedavg</code></td>
+<td>θ = Σ_k (n_k / n) θ_k, in float64, cast back; one client returns its own tensor</td>
+<td>[MCM17]</td>
+<td>the federated localizers</td>
+</tr>
+<tr>
+<td>the buses of each client</td>
+<td><code>formulas.federated.interior_boundary</code>, <code>cut_edge_count</code>, <code>attackable_affinity</code>, <code>hop_distance</code>, <code>halo_nodes</code>, through <code>federated.spectral_partition</code> and <code>compute_nodes</code></td>
+<td>interior: every neighbour in the same client; cut edges: ends in different clients; W = A ⊙ √(m mᵀ), m = heavy at attackable buses; halo: other clients' buses within h hops, own buses first</td>
+<td>[VLX07], [FED26]</td>
+<td>the federated partition</td>
+</tr>
+<tr>
 <td>pooled channel moments</td>
 <td><code>formulas.federated.channel_moments</code>, <code>pool_moments</code>, through <code>localization.learned.standardization</code></td>
-<td>mean = mean_a + (mean_b − mean_a) n_b / n, M2 = M2_a + M2_b + (mean_b − mean_a)² n_a n_b / n; one part returns unchanged</td>
+<td>f_a = n_a / n, f_b = n_b / n, mean = mean_a + (mean_b − mean_a) f_b, var = f_a var_a + f_b var_b + (mean_b − mean_a)² f_a f_b; one part returns unchanged</td>
 <td>[CGL79]</td>
 <td>the learned localizers' standardization, pooled across federated clients</td>
 </tr>
