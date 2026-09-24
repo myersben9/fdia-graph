@@ -1,6 +1,6 @@
 # Federated localization with `fdia_graph.federated`
 
-The federated localization papers' protocol, run by the SDK on the current release's timelines with
+The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines (pinned in the run script) with
 the 14-dim per-bus vector plus the Jacobian block.
 
 ```python
@@ -95,5 +95,5 @@ FG_SYSTEM=ieee300 python docs/federated/run_federated.py
 python docs/federated/make_report.py                        # tables (markdown) + figures + CSV from the JSON
 ```
 
-About ten minutes a run on one GPU, three hours a system; saved runs are skipped, so a re-run only
-aggregates.
+Five to twelve minutes a run on one GPU, about three hours a system with the three systems sharing
+the GPU; saved runs are skipped, so a re-run only aggregates.

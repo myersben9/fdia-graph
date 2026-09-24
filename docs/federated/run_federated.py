@@ -1,6 +1,6 @@
 """Run the federated localization papers' protocol on one system and write results/fed_<system>.json.
 
-The protocol behind the federated papers' headline table, on the current release's timelines:
+The protocol behind the federated papers' headline table, on the v0.8.1 timelines (pinned):
 
 - zero-shot split: train and val hold benign + Aq + Ad only, test adds As and Ar;
 - FedBusCNN and FedBusMLP (fdia_graph.federated), FedAvg with uniform weights, 60 rounds of
@@ -31,6 +31,7 @@ import fdia_graph as fg
 from fdia_graph.federated import FedBusCNN, FedBusMLP
 
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
+RELEASE = "v0.8.1"  # pinned: the committed runs are this release's, whatever FDIA_GRAPH_RELEASE says
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
 RUNS = os.path.join(OUT, "runs")
@@ -52,10 +53,10 @@ _splits = {}
 def splits():
     """The zero-shot train / val / test splits, loaded on the first run that needs fitting."""
     if not _splits:
-        zs = dict(families=[0, 1, 2])
+        zs = dict(families=[0, 1, 2], release=RELEASE)
         _splits["train"] = fg.load(SYSTEM, split="train", **zs)
         _splits["val"] = fg.load(SYSTEM, split="val", **zs)
-        _splits["test"] = fg.load(SYSTEM, split="test", families=[0, 1, 2, 3, 4])
+        _splits["test"] = fg.load(SYSTEM, split="test", families=[0, 1, 2, 3, 4], release=RELEASE)
         print(f"{SYSTEM}: " + "  ".join(f"{k} {len(v)}" for k, v in _splits.items()))
     return _splits["train"], _splits["val"], _splits["test"]
 
@@ -73,8 +74,9 @@ def run_one(name, K, seed):
     for fr in ("all", "benign"):
         ps = m.score_perbus(test, buses="attackable", fr_over=fr)
         res[fr] = {f: block(getattr(ps, f)) for f in FAMILIES if getattr(ps, f) is not None}
-    with open(path, "w") as fh:
+    with open(path + ".tmp", "w") as fh:  # write then rename, so an interrupted run leaves no file to skip
         json.dump(res, fh, indent=1)
+    os.replace(path + ".tmp", path)
     a = res["all"]["all"]
     print(
         f"  {name} K{K} s{seed}  tau {m.tau:.2f}  F1 {a['macro_f1']:.4f}  FR {a['macro_fr']:.5f}  {res['fit_s']:.0f}s"
