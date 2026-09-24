@@ -21,6 +21,7 @@ from .data import (
     Summary,
     TrueState,
 )
+from .federated import Partition
 from .fields import (
     CleanFields,
     GraphFields,
@@ -100,6 +101,7 @@ __all__ = [
     "Frame",
     "FrameKnobs",
     "OptimConfig",
+    "Partition",
     "OperatingLimits",
     "Redistribution",
     "ResolvedPool",

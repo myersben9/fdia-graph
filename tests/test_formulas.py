@@ -393,3 +393,29 @@ def test_tau_from_counts_matches_the_direct_f1_rule():
         direct.append((2 * tp / (2 * tp + fp + fn + 1e-9))[active].mean())
     tp, fp, fn = (np.stack(c) for c in zip(*(perbus_counts(p > tau, t) for tau in taus)))
     assert tau_from_counts(tp, fp, fn, active, taus) == float(taus[int(np.argmax(direct))])
+
+
+def test_count_and_moment_formulas_refuse_mismatched_shapes():
+    from fdia_graph.formulas.federated import pool_moments
+    from fdia_graph.formulas.metrics import perbus_counts, tau_from_counts
+
+    with pytest.raises(ValueError, match="moments of shape"):
+        pool_moments([(4.0, np.zeros(3), np.ones(3)), (2.0, np.zeros(2), np.ones(2))])
+    for bad in (0.0, np.inf, np.nan):
+        with pytest.raises(ValueError, match="finite positive count"):
+            pool_moments([(bad, np.zeros(3), np.ones(3))])
+    n, mu, var = pool_moments([(1e300, np.zeros(2), np.ones(2)), (1e300, np.full(2, 2.0), np.ones(2))])
+    assert n == 2e300 and np.allclose(mu, 1.0) and np.allclose(var, 2.0)  # huge counts pool without overflow
+    with pytest.raises(ValueError, match="overflows"):
+        pool_moments([(1e308, np.zeros(3), np.ones(3)), (1e308, np.zeros(3), np.ones(3))])
+    with pytest.raises(ValueError, match="one shape"):
+        perbus_counts(np.zeros((3, 2), bool), np.zeros((3, 4), bool))
+    z = np.zeros((2, 3))
+    with pytest.raises(ValueError, match="n_taus, N"):
+        tau_from_counts(z, z, z, np.ones(4, bool), np.array([0.1, 0.2]))
+    with pytest.raises(ValueError, match="one-dimensional"):
+        tau_from_counts(z, z, z, np.ones((1, 3), bool), np.array([0.1, 0.2]))
+    with pytest.raises(ValueError, match="one-dimensional"):
+        tau_from_counts(z, z, z, np.ones(3, bool), np.array([[0.1, 0.2]]))
+    with pytest.raises(ValueError, match="active bus"):
+        tau_from_counts(z, z, z, np.zeros(3, bool), np.array([0.1, 0.2]))

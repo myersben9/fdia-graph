@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `fdia_graph.federated`, first part: the split of a system's buses into K clients.
+  `spectral_partition(edge_index, N, K)` is the federated localization paper's partition (spectral
+  clustering of the bus adjacency, random_state 42 [VLX07]) and matched its cached partitions
+  exactly on IEEE 14, 118 and 300 at K = 2 and 3 (the tests pin IEEE 14); `attackable=` biases the cut away from attackable buses. It
+  returns a `models.federated.Partition` (client of every bus, interior and boundary buses, cut
+  edges); `compute_nodes` gives a client's buses plus an optional halo of other clients' buses.
+  `formulas.federated.fedavg` [MCM17], `interior_boundary`, `cut_edge_count`,
+  `attackable_affinity` and `halo_nodes` carry the arithmetic. A `federated` extra (torch,
+  scikit-learn) and CI installs it.
 - Learned localizers, no number changes (the first step of `fdia_graph.federated`): the training
   loop is `localization.learned.LocalTrainer` (optimizer and batch order persist across `run`
   calls, optional owned-bus loss and gradient clipping for a federated client), prediction is
