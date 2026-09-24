@@ -21,7 +21,7 @@ meters and incident branch flows:
     5 leverage-weighted change           max over incident meters of l_k |dz_k| / sigma_k
     6 sensitivity-normalised change      max over incident meters of |dz_k| / s_k
     7 weak-direction move                implied move projected on the n_weak weakest directions
-Needs the [se] extra (pandapower + scipy) and a v0.7.2+ shard (the clean layer).
+Needs the [se] extra (pandapower + scipy) and the clean layer (a timeline, or a v0.7.2 record shard).
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ class JacobianFeatures:
             self.est.fit(ds)
         est = self.est
         if ds._clean_np is None:
-            raise ValueError("Jacobian features need the clean layer (a v0.7.2+ shard)")
+            raise ValueError("Jacobian features need the clean layer (a timeline, or a v0.7.2 record shard)")
         self._pool: np.ndarray = ds._clean_np  # clean state per pool timestep, shared by every split
         self._inc = bus_incidence(est, ds.edge_index_np)
         sw = np.sqrt(est.Wk)  # W^1/2 as a vector

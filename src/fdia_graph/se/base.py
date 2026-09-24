@@ -107,7 +107,7 @@ class SEBase:
             raise ImportError("state estimation needs pandapower: pip install 'fdia-graph[se]'") from e
         require_physical(ds)
         if not ds.has_clean:
-            raise ValueError("dataset has no clean layer; upgrade to a v0.7.2+ shard")
+            raise ValueError("dataset has no clean layer; load a timeline or a v0.7.2 record shard")
         net = getattr(pn, _CASE_FN[int(ds.system)])()
         pp.runpp(net)
         ppc = net._ppc
