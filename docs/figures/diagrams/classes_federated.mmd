@@ -1,0 +1,34 @@
+classDiagram
+    class FederatedLocalizer {
+        +tune_threshold()
+    }
+    class FedBusMLP {
+    }
+    class FedBusCNN {
+    }
+    class BusCNN {
+        <<localization>>
+    }
+    class BusMLP {
+        <<localization>>
+    }
+    class LearnedLocalizer {
+        <<localization>>
+    }
+    class LocalTrainer {
+        <<localization>>
+    }
+    class Partition {
+        <<models>>
+    }
+    class RoundLog {
+        <<models>>
+    }
+    BusCNN <|-- FedBusCNN
+    BusMLP <|-- FedBusMLP
+    FederatedLocalizer <|-- FedBusCNN
+    FederatedLocalizer <|-- FedBusMLP
+    LearnedLocalizer <|-- FederatedLocalizer
+    FederatedLocalizer ..> LocalTrainer : uses
+    FederatedLocalizer ..> Partition : uses
+    FederatedLocalizer ..> RoundLog : uses

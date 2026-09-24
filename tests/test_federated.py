@@ -167,3 +167,151 @@ def test_hop_distance_and_the_halo_agree_with_a_hand_count():
     assert halo_nodes(a, A, 0, 2)[0].tolist() == [0, 1, 2, 4, 3]
     B = np.zeros((3, 3))
     assert hop_distance(B, np.array([0])).tolist() == [0, -1, -1]  # no path
+
+
+# ---- the federated localizers ----------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def zs(timeline):
+    import fdia_graph as fg
+
+    z = dict(families=[0, 1, 2])
+    return (
+        fg.load(timeline, split="train", **z),
+        fg.load(timeline, split="val", **z),
+        fg.load(timeline, split="test", families=[0, 1, 2, 3, 4]),
+    )
+
+
+@pytest.mark.parametrize("name", ["mlp", "cnn"])
+def test_one_client_is_the_centralized_fit_weight_for_weight(zs, name):
+    torch = pytest.importorskip("torch")
+    from fdia_graph.federated.localizer import FedBusCNN, FedBusMLP
+    from fdia_graph.localization import BusCNN, BusMLP
+
+    was = torch.are_deterministic_algorithms_enabled()
+    torch.use_deterministic_algorithms(True)
+    try:
+        tr, va, te = zs
+        central, fed = (BusMLP, FedBusMLP) if name == "mlp" else (BusCNN, FedBusCNN)
+        c = central(epochs=4, device="cpu").fit(tr, val=va)
+        f = fed(K=1, rounds=2, local_epochs=2, grad_clip=None, device="cpu").fit(tr, val=va)
+        cs, fs = c.net.state_dict(), f.net.state_dict()
+        assert cs.keys() == fs.keys() and all(torch.equal(cs[k], fs[k]) for k in cs)
+        assert np.array_equal(c.scores(te), f.scores(te)) and c.tau == f.tau
+    finally:
+        torch.use_deterministic_algorithms(was)
+
+
+def test_two_clients_train_score_and_log_their_rounds(zs):
+    pytest.importorskip("torch")
+    pytest.importorskip("sklearn")
+    from fdia_graph.federated.aggregate import state_bytes
+    from fdia_graph.federated.localizer import FedBusCNN
+
+    tr, va, te = zs
+    loc = FedBusCNN(K=2, rounds=3, local_epochs=1, device="cpu").fit(tr, val=va)
+    assert len(loc.history) == 3 and len(loc.history[0].loss_per_client) == 2
+    assert loc.history[0].bytes_up == 2 * state_bytes(loc.net.state_dict())
+    import torch
+
+    final = loc.net.state_dict()  # every client holds the broadcast average after the last round
+    assert all(all(torch.equal(v, c.net.state_dict()[k]) for k, v in final.items()) for c in loc._clients)
+    s = loc.scores(te)
+    assert s.shape == (len(te), te.N) and np.all((s >= 0) & (s <= 1))
+    rep = loc.score(te)
+    assert "As" in rep and "Ar" in rep and loc.tau is not None
+
+
+def test_local_power_balance_changes_only_buses_on_foreign_metered_branches(zs):
+    pytest.importorskip("torch")
+    from fdia_graph.federated import partition_from_assignment
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    tr, _, _ = zs
+    ei = tr.edge_index_np
+    part = partition_from_assignment(PAPER_14[2][0], ei)
+    loc = FedBusMLP(K=2, partition=part)
+    loc._part = part
+    d = tr.export(loc._fields())
+    glob, local = loc._features(d), loc._client_features(d, 0)
+    changed = np.flatnonzero(np.abs(glob - local).max(axis=(0, 2)) > 0)
+    foreign = part.assignment[ei[0]] != 0  # branches metered at the other client's end
+    touched = set(ei[0][foreign].tolist()) | set(ei[1][foreign].tolist())
+    assert len(changed) and set(changed.tolist()) <= touched
+    assert np.array_equal(
+        np.delete(glob, list(touched), axis=1)[..., :8], np.delete(local, list(touched), axis=1)[..., :8]
+    )
+
+
+def test_federated_constructor_checks():
+    pytest.importorskip("torch")
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    with pytest.raises(ValueError, match="rounds x local_epochs"):
+        FedBusMLP(epochs=5)
+    with pytest.raises(ValueError, match="kcl"):
+        FedBusMLP(kcl="bogus")
+    with pytest.raises(ValueError, match="Jacobian"):
+        FedBusMLP(features="full14+jac")
+    for bad in (dict(K=2.5), dict(rounds=True), dict(halo=1.0)):
+        with pytest.raises(ValueError, match="must be integers"):
+            FedBusMLP(**bad)
+    for bad in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="grad_clip"):
+            FedBusMLP(grad_clip=bad)
+    three = partition_from_assignment(np.array([0, 1, 2]), np.array([[0, 1], [1, 2]]))
+    with pytest.raises(ValueError, match="3 clients but K=2"):
+        FedBusMLP(K=2, partition=three)
+
+
+def test_a_partition_of_another_grid_is_refused(zs):
+    pytest.importorskip("torch")
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    tr, va, _ = zs
+    small = partition_from_assignment(np.array([0, 0, 1]), np.array([[0, 1], [1, 2]]))
+    from fdia_graph.models.federated import Partition
+
+    N = tr.N
+    odd = Partition(2, np.r_[np.zeros(N - 1, int), 5], np.zeros((2, N), bool), np.zeros((2, N), bool), 0)
+    with pytest.raises(ValueError, match="number its clients 0..1"):
+        FedBusMLP(K=2, partition=odd, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+    with pytest.raises(ValueError, match="covers 3 buses"):
+        FedBusMLP(K=2, partition=small, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+
+
+def test_a_two_client_fit_is_reproducible_and_leaves_no_client_stream_shared(zs):
+    """Each client trains on its own dropout stream, so the same seed gives the same weights, and
+    clients do not draw from one shared stream (a dropout-free model gives the same answer)."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("sklearn")
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    was = torch.are_deterministic_algorithms_enabled()
+    torch.use_deterministic_algorithms(True)
+    try:
+        tr, va, _ = zs
+        kw = dict(K=2, rounds=2, local_epochs=1, device="cpu")
+        a, b = FedBusMLP(**kw).fit(tr, val=va), FedBusMLP(**kw).fit(tr, val=va)
+        assert all(
+            torch.equal(x, y) for x, y in zip(a.net.state_dict().values(), b.net.state_dict().values())
+        )
+        c0, c1 = a._clients
+        assert not torch.equal(c0.rng[0], c1.rng[0])  # two streams, not one
+    finally:
+        torch.use_deterministic_algorithms(was)
+
+
+def test_a_halo_client_gets_context_features_but_only_its_own_labels(zs):
+    pytest.importorskip("torch")
+    from fdia_graph.federated import partition_from_assignment
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    tr, va, _ = zs
+    part = partition_from_assignment(PAPER_14[2][0], tr.edge_index_np)
+    loc = FedBusMLP(K=2, partition=part, halo=1, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+    for c in loc._clients:
+        assert len(c.nodes) > c.owned  # the halo is there as features
+        assert tuple(c.Xt.shape[1:2]) == (len(c.nodes),) and tuple(c.Yt.shape[1:]) == (c.owned,)

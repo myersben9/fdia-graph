@@ -230,6 +230,8 @@ class LocalTrainer:
     """
 
     def __init__(self, net: Any, cfg: OptimConfig, dev: str, seed: int, clip: Optional[float] = None) -> None:
+        if clip is not None and not (np.isfinite(clip) and clip > 0):
+            raise ValueError(f"clip must be None or a finite positive norm, got {clip}")
         torch = _torch()
         self.net, self.cfg, self.dev, self.clip = net, cfg, dev, clip
         self.opt = torch.optim.AdamW(net.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)

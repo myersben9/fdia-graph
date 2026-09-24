@@ -18,7 +18,7 @@ real dependencies show: `models/` (every returned record), `formulas/` (the equa
 (the file protocol). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
 same reason. `streams.py` and `torch_data.py` retire in 0.19.
 
-![Module diagram: torch_data and streams over dataset; trust and localization over se, which reads dataset; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
+![Module diagram: torch_data and streams over dataset; federated over localization and dataset; trust and localization over se, which reads dataset; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
 
 ## The dataset
 
@@ -55,6 +55,14 @@ feature, `ResidualLocalizer` runs an estimator, the learned arms train a per-bus
 by a deep Q-network (`TrustedMetersDQN`), and scores the residual test with them secured.
 
 ![Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores and TrustScores](../figures/diagrams/classes_localization_trust.png)
+
+## Federated training
+
+`FederatedLocalizer` is a `LearnedLocalizer` whose fit runs FedAvg over a `Partition` of the buses:
+each client trains its own copy with the shared `LocalTrainer` on its own buses, and `FedBusMLP` and
+`FedBusCNN` take their encoder from `BusMLP` and `BusCNN`. `RoundLog` records every round.
+
+![Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition and RoundLog](../figures/diagrams/classes_federated.png)
 
 ## The records
 
