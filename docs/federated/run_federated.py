@@ -53,6 +53,11 @@ _splits = {}
 def splits():
     """The zero-shot train / val / test splits, loaded on the first run that needs fitting."""
     if not _splits:
+        # a locally registered dataset of the same name would load instead of the pinned release
+        if fg.list_datasets().get(SYSTEM) != "builtin":
+            raise SystemExit(
+                f"{SYSTEM} is not the built-in {RELEASE} system here (a local dataset shadows it)"
+            )
         zs = dict(families=[0, 1, 2], release=RELEASE)
         _splits["train"] = fg.load(SYSTEM, split="train", **zs)
         _splits["val"] = fg.load(SYSTEM, split="val", **zs)
