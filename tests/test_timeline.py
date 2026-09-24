@@ -564,3 +564,15 @@ def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_
     eng._target_lines = []
     red = eng.lra_delta(np.ones(len(eng.load_bus)), 0.2, 3)
     assert len(red.buses) == 0 and red.line == -1
+
+
+def test_aq_is_one_frame_whatever_the_other_length_knobs(tmp_path, pool):
+    """Aq has no length knob: with corrupt_len=None (Ad/As/Ar drawn from their band) every Aq
+    episode is still one frame."""
+    out = generate_timeline(
+        14, states=pool, seed=SEED, ramp_len=20, corrupt_len=None, out=str(tmp_path / "band.h5")
+    )
+    a, _ = _read(out)
+    length, efam = a["episodes/length"], a["episodes/family"]
+    assert (efam == 1).any() and (length[efam == 1] == 1).all()
+    assert (length[efam == 2] > 1).any()  # the corrupt families did draw their band
