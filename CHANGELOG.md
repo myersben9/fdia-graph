@@ -5,6 +5,19 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Features read measurements only. The swing feature's scale is now the recent change of the
+  observed frames, not of the noiseless pool: `timeline.write_temporal_layers` writes
+  `temporal_delta` and `swing` after the walk from the observed injections alone, and
+  `trust.secured_copy` recomputes them the same way. Every estimate takes its angle reference from
+  the case's slack angle (`SEBase.theta_ref`, a network parameter, identical to the value the clean
+  layer carried), so estimation, the Jacobian block, the residual localizer and the trust scoring
+  read no clean layer. Takes effect in the data with the next release; scores on existing files are
+  unchanged.
+- Al is a single-snapshot attack: every Al episode of a generated timeline is one frame, as Aq.
+- N-1 timelines are disabled: no generator takes an outage; `line_outage_candidates` remains a
+  screening aid only.
+- The tiny test timeline moves to seed 1, the first seed that puts every family in both its train
+  and test split under the new episode lengths; the frozen references are rewritten from it.
 - Localization: `features="full14+prev"` (16 channels) and `"full14+prev+jac"` (24) append the
   previous frame's swing to the papers' 14, for `BusCNN`, `BusMLP` and the federated localizers
   (each bus's own reading, so client-local). A timeline export offers it as `prev_swing` (file

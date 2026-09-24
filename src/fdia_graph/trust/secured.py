@@ -1,6 +1,6 @@
 """A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every
 frame their observed reading is the benign one, and the stored temporal features recomputed from
-the pinned scan. The estimators and the localizers then read the copy like any timeline, which is
+the pinned observed frames (`timeline.write_temporal_layers`). The estimators and the localizers then read the copy like any timeline, which is
 how a trusted-meter selection is measured on state estimation and localization rather than on the
 residual test alone (`TrustSelector.score`). The copy is rewritten in blocks of frames, so a
 72,000-frame timeline of any ladder system fits in bounded memory."""
@@ -15,7 +15,7 @@ import numpy as np
 
 from .. import schema
 from ..formulas.projection import meter_positions
-from ..formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
+from ..timeline import write_temporal_layers
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -46,7 +46,7 @@ def _secured_copy(
     shutil.copyfile(ds.path, out)
     with h5py.File(out, "r+") as f:
         _pin(f, nodes, edges)
-        _retemporal(f)
+        write_temporal_layers(f, BLOCK)
     if name is not None:
         from ..registry import register_local
 
@@ -74,32 +74,3 @@ def _pin(f: h5py.File, nodes: list[tuple[int, int]], edges: list[tuple[int, int]
                 x[:, i, col] = bx[:, i, col]
                 tm[:, i, col] = False
             observed[a:b], tamper[a:b] = x, tm
-
-
-def _retemporal(f: h5py.File) -> None:
-    """`temporal_delta` and `swing` from the pinned scan, through the writer's own kernels: against
-    the previous emitted frame, the swing scale over the true states (the clean layer is the pool
-    the timeline walked, frame for frame). The stored layers are float32 where the writer had
-    float64 scans, so an unpinned channel's feature agrees with the stored one to about six digits.
-    Runs in blocks of frames; only the scale, which the kernel builds from the whole series of
-    true injections, is held for every frame."""
-    clean = f[schema.NODE_CLEAN]
-    T, N = clean.shape[0], clean.shape[1]
-    pq = np.zeros((T, N, 4), np.float64)  # the kernel reads columns 1:3; the others stay zero
-    for a in range(0, T, BLOCK):
-        pq[a : a + BLOCK, :, 1:3] = clean[a : a + BLOCK, :, 1:3]
-    scale = recent_change_scale(pq, SWING_WINDOW, N)
-    del pq
-    every = np.ones(N, bool)
-    nx, delta, swing = f[schema.NODE_X], f[schema.TEMPORAL_DELTA], f[schema.SWING]
-    prev = None
-    for a in range(0, T, BLOCK):
-        block = np.asarray(nx[a : a + BLOCK], np.float32)
-        d = np.zeros(block.shape[:2] + (2,), np.float32)
-        s = np.zeros_like(d)
-        for j in range(len(block)):
-            before = block[j] if prev is None else prev
-            d[j] = temporal_delta(block[j], before, every)
-            s[j] = swing_zscore(block[j], before, scale[a + j], every)
-            prev = block[j]
-        delta[a : a + len(block)], swing[a : a + len(block)] = d, s

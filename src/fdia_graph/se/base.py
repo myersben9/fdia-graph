@@ -125,6 +125,9 @@ class SEBase:
             self._Ybus = torch.tensor(self._Ybus_np, dtype=torch.complex128)
             self._Yft = torch.tensor(self._Yf_np, dtype=torch.complex128)
         self.slack = int(net.ext_grid.bus.values[0])
+        # the case's reference angle (rad): a network parameter, the same on every scan, so no record's
+        # true state is read to fix the angle frame of an estimate
+        self.theta_ref = float(np.deg2rad(net.ext_grid.va_degree.values[0]))
         if ds.slack is not None and int(ds.slack) != self.slack:  # both index buses 0..N-1 on every case
             raise ValueError(f"the case's slack is bus {self.slack}, the dataset's is {int(ds.slack)}")
         self.keep = np.array([i for i in range(self.N) if i != self.slack])  # angle buses
@@ -378,10 +381,13 @@ class SEBase:
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
         """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order."""
         require_physical(ds)
-        d = ds.export(["node_x", "edge_x", "clean"])
-        tr = self._truth_of(d["clean"])  # slack angle reference only; the true state is never read here
+        d = ds.export(["node_x", "edge_x"])
         z = self._z_of(d["node_x"], d["edge_x"])
-        return self._estimate_arrays(z, tr["thsl"], self._record_weights(ds), chunk)
+        return self._estimate_arrays(z, self.ref_angles(len(z)), self._record_weights(ds), chunk)
+
+    def ref_angles(self, n: int) -> np.ndarray:
+        """The slack angle every estimate is referenced to, for n records: the case's reference angle."""
+        return np.full(n, self.theta_ref)
 
     def score(self, ds: FdiaGraph, chunk: int = 1000, xhat: Optional[np.ndarray] = None) -> EstimatorScores:
         """Per-family angle (deg) and voltage (pu) MAE vs the clean truth, plus the geometric

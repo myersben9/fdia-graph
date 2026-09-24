@@ -47,7 +47,7 @@ class TrustSelector:
         """The residual alarm level: the (1 - fa_target) quantile of the largest normalized
         residual over benign training records, set before any attack is scored (the protocol of
         `fdia_graph.localization`)."""
-        d = ds.export(["node_x", "edge_x", "clean", "family"])
+        d = ds.export(["node_x", "edge_x", "family"])
         ben = np.flatnonzero(d["family"] == 0)
         if not len(ben):
             raise ValueError("fit needs benign records; pass the train split unfiltered")
@@ -55,7 +55,7 @@ class TrustSelector:
         ben = ben[np.linspace(0, len(ben) - 1, min(n_calib, len(ben))).round().astype(int)]
         est = self.est
         z = est._z_of(d["node_x"][ben], d["edge_x"][ben])
-        thsl = est._truth_of(d["clean"][ben])["thsl"]
+        thsl = est.ref_angles(len(z))
         return float(np.quantile(self._max_residual(z, thsl), 1.0 - self.fa_target))
 
     def _select(self) -> None:
@@ -85,11 +85,11 @@ class TrustSelector:
         require_physical(ds)
         if not ds.has_benign:
             raise ValueError("score needs a timeline view with the benign layer")
-        d = ds.export(["node_x", "edge_x", "benign", "edge_benign", "clean", "family"])
+        d = ds.export(["node_x", "edge_x", "benign", "edge_benign", "family"])
         est = self.est
         z = est._z_of(d["node_x"], d["edge_x"])
         zb = est._z_of(d["benign"], d["edge_benign"])
-        thsl = est._truth_of(d["clean"])["thsl"]  # the slack reference only; the truth is not read
+        thsl = est.ref_angles(len(z))
         secured = self.select()
         zs = z.copy()
         zs[:, secured] = zb[:, secured]  # the attacker cannot write a secured meter

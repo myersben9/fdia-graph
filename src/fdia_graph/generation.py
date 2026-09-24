@@ -26,14 +26,9 @@ import numpy as np
 from . import schema
 from .engine import FdiaGenerator
 from .engine.records import FrameKnobs
-from .formulas.temporal import SWING_WINDOW, recent_change_scale
 from .models.grid import NODE
 from .registry import CACHE_DIR, register_local
 from .schema import KIND_TIMELINE, Attr, Group, Static
-
-# Swing-feature lookback (scans). Tuned: rate-of-change catch-rate plateaus ~60 scans; ramp At stays near
-# the benign floor at every window, so At remains the ML-only family.
-SWING_W = SWING_WINDOW
 
 # Lower edge of the plausibility band: a realized change below this fraction of the meter reading sits inside
 # the noise floor (accuracy-class sigma ~1.7%) and resolves to noise, so we reject such draws for spike/meter
@@ -106,18 +101,12 @@ def _read_states(
     return _read_states(system, ensure_local(pool_spec(system)), pool_cap)
 
 
-def _swing_scale(X: np.ndarray, C: int) -> np.ndarray:
-    """The swing feature's scale for a pool: formulas.temporal.recent_change_scale over SWING_W scans."""
-    return recent_change_scale(X, SWING_W, C)
-
-
 @dataclass
 class _FrameContext:
     """What every record of one generation run shares, passed explicitly to the record functions."""
 
     g: FdiaGenerator
     X: np.ndarray  # operating-point pool [T, N, 4] in [|V|, Pinj, Qinj, theta] order
-    scale: np.ndarray  # swing scale per timestep [T, N, 2], from _swing_scale
     knobs: FrameKnobs  # the attack settings every scan shares
     mag_log: list[tuple[int, np.ndarray, np.ndarray]]  # (family, designed magnitude, swing) per attacked bus
 

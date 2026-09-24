@@ -106,8 +106,9 @@ def test_episodes_index_the_frames(timeline):
     assert sorted(np.unique(seq[seq >= 0]).tolist()) == list(range(len(onset)))
     # corrupt-in-place families are independent one-frame draws by default (corrupt_len=1)
     assert (length[np.isin(efam, list(CORRUPT_KIND))] == 1).all()
-    # Aq is a single-snapshot attack: every Aq episode is one frame
+    # Aq and Al are single-snapshot attacks: every Aq and Al episode is one frame
     assert (efam == 1).any() and (length[efam == 1] == 1).all()
+    assert (efam == 6).any() and (length[efam == 6] == 1).all()
 
 
 def test_episodes_are_placed_at_random_without_overlap(timeline):
@@ -576,3 +577,25 @@ def test_aq_is_one_frame_whatever_the_other_length_knobs(tmp_path, pool):
     length, efam = a["episodes/length"], a["episodes/family"]
     assert (efam == 1).any() and (length[efam == 1] == 1).all()
     assert (length[efam == 2] > 1).any()  # the corrupt families did draw their band
+
+
+def test_temporal_features_read_only_the_observed_frames(timeline, tmp_path):
+    """delta and swing are functions of the observed node_x alone: rewriting the clean and benign
+    layers and recomputing leaves both unchanged, and the stored layers equal a recomputation."""
+    import shutil
+
+    import h5py
+
+    from fdia_graph import schema
+    from fdia_graph.timeline import write_temporal_layers
+
+    copy = str(tmp_path / "copy.h5")
+    shutil.copyfile(timeline, copy)
+    with h5py.File(copy, "r+") as f:
+        stored = f[schema.SWING][:], f[schema.TEMPORAL_DELTA][:]
+        for name in (schema.NODE_CLEAN, schema.NODE_BENIGN):
+            f[name][...] = f[name][:] * 1.5 + 0.1
+        write_temporal_layers(f)
+        assert np.array_equal(f[schema.SWING][:], stored[0]) and np.array_equal(
+            f[schema.TEMPORAL_DELTA][:], stored[1]
+        )
