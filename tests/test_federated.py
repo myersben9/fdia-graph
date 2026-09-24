@@ -36,8 +36,9 @@ def test_one_client_holds_every_bus_without_clustering(edges):
     ei, N = edges
     p = spectral_partition(ei, N, 1)
     assert p.K == 1 and not p.assignment.any() and p.cut_edges == 0 and p.interior.all()
-    with pytest.raises(ValueError, match="K must be"):
-        spectral_partition(ei, N, 0)
+    for bad in (0, N + 1):
+        with pytest.raises(ValueError, match="K must be between"):
+            spectral_partition(ei, N, bad)
 
 
 def test_halo_adds_other_clients_rings_after_the_own_buses(edges):
@@ -110,3 +111,25 @@ def test_partition_and_affinity_inputs_are_checked(edges):
         with pytest.raises(ValueError, match="one flag per bus"):
             spectral_partition(ei, N, 1, attackable=bad)
     assert spectral_partition(ei, N, 1, attackable=np.ones(N, bool)).attackable_boundary == 0
+
+
+def test_every_formula_refuses_malformed_input():
+    from fdia_graph.formulas.federated import channel_moments, cut_edge_count, interior_boundary, pool_moments
+
+    A = np.zeros((3, 3))
+    A[0, 1] = A[1, 0] = 1
+    a = np.array([0, 0, 1])
+    for bad in (np.inf, np.nan, 0.0, 1e300):
+        with pytest.raises(ValueError, match="heavy"):
+            attackable_affinity(A, np.ones(3, bool), heavy=bad)
+    with pytest.raises(ValueError, match="owns no bus"):
+        halo_nodes(a, A, 5, 1)  # a client id that is not in the assignment
+    with pytest.raises(ValueError, match="depth"):
+        halo_nodes(a, A, 0, -1)
+    for f in (lambda: interior_boundary(a[:2], A, 2), lambda: cut_edge_count(a, A[:2])):
+        with pytest.raises(ValueError, match="adjacency"):
+            f()
+    with pytest.raises(ValueError, match="non-empty"):
+        channel_moments(np.zeros((0, 3, 2)))
+    with pytest.raises(ValueError, match="at least one part"):
+        pool_moments([])

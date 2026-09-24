@@ -36,8 +36,8 @@ def spectral_partition(
     """K clients by spectral clustering of the bus adjacency [VLX07], as in the federated paper;
     `attackable` (a [N] bool mask) biases the cut away from attackable buses (`heavy` its weight).
     K = 1 puts every bus in one client without clustering."""
-    if K < 1:
-        raise ValueError(f"K must be at least 1, got {K}")
+    if not 1 <= K <= N:
+        raise ValueError(f"K must be between 1 and the {N} buses, got {K}")
     A = bus_adjacency(edge_index, N)
     if K == 1:
         assignment = np.zeros(N, np.int64)

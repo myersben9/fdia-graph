@@ -13,12 +13,22 @@ import numpy as np
 Moments = tuple[float, np.ndarray, np.ndarray]  # (count, mean [C], variance [C])
 
 
+def _check_graph(assignment: np.ndarray, A: np.ndarray) -> None:
+    """One client per bus against a square adjacency of the same size."""
+    if np.ndim(assignment) != 1 or np.shape(A) != (len(assignment), len(assignment)):
+        raise ValueError(
+            f"need an [N] assignment and an [N, N] adjacency, got {np.shape(assignment)} and {np.shape(A)}"
+        )
+
+
 def channel_moments(X: np.ndarray) -> Moments:
     """Count, mean and population variance of every channel over records and buses [FED26].
 
     X       : [n, N, C]
     returns : (n * N, mean [C], var [C])
     """
+    if np.ndim(X) != 3 or X.shape[0] * X.shape[1] == 0:
+        raise ValueError(f"need a non-empty [n, N, C] block, got shape {np.shape(X)}")
     return float(X.shape[0] * X.shape[1]), X.mean(axis=(0, 1)), X.var(axis=(0, 1))
 
 
@@ -33,6 +43,8 @@ def pool_moments(parts: Sequence[Moments]) -> Moments:
     parts   : (count, mean [C], var [C]) per part
     returns : (count, mean [C], var [C]) of the union
     """
+    if not len(parts):
+        raise ValueError("pool_moments needs at least one part")
     n, mean, var = parts[0]
     m2 = var * n
     for nb, mb, vb in parts[1:]:
@@ -80,8 +92,10 @@ def attackable_affinity(A: np.ndarray, attackable: np.ndarray, heavy: float = 8.
     returns    : [N, N] float32 affinity
     """
     attackable = np.asarray(attackable, bool)
-    if attackable.shape != (A.shape[0],) or not heavy > 0:
-        raise ValueError(f"need a [{A.shape[0]}] attackable mask and heavy > 0")
+    if attackable.shape != (A.shape[0],):
+        raise ValueError(f"need a [{A.shape[0]}] attackable mask")
+    if not (np.isfinite(heavy) and 0 < heavy <= np.finfo(np.float32).max):
+        raise ValueError(f"heavy must be a finite positive float32 weight, got {heavy}")
     m = np.where(attackable, heavy, 1.0)
     return (A * np.sqrt(np.outer(m, m))).astype(np.float32)
 
@@ -94,6 +108,7 @@ def interior_boundary(assignment: np.ndarray, A: np.ndarray, K: int) -> tuple[np
     A          : [N, N] 0/1 adjacency
     returns    : (interior [K, N] bool, boundary [K, N] bool)
     """
+    _check_graph(assignment, A)
     N = len(assignment)
     foreign = (A > 0) & (assignment[None, :] != assignment[:, None])  # [N, N] edges to another client
     inner = ~foreign.any(axis=1)
@@ -107,6 +122,7 @@ def cut_edge_count(assignment: np.ndarray, A: np.ndarray) -> int:
     assignment : [N]
     A          : [N, N] 0/1 symmetric adjacency
     """
+    _check_graph(assignment, A)
     u, v = np.nonzero(np.triu(A, 1))
     return int((assignment[u] != assignment[v]).sum())
 
@@ -119,11 +135,16 @@ def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tup
     A          : [N, N] 0/1 adjacency
     returns    : (bus indices, own buses first; the number of own buses)
     """
+    _check_graph(assignment, A)
+    if depth < 0:
+        raise ValueError(f"depth must be >= 0, got {depth}")
     owned = np.flatnonzero(assignment == k)
+    if not len(owned):
+        raise ValueError(f"client {k} owns no bus")
     seen = np.zeros(len(assignment), bool)
     seen[owned] = True
     frontier, halo = owned, []
-    for _ in range(max(depth, 0)):
+    for _ in range(depth):
         ring = np.flatnonzero(A[frontier].any(axis=0) & ~seen & (assignment != k))
         if not len(ring):
             break
