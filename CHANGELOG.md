@@ -5,6 +5,12 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Aq is a single-snapshot attack: every Aq episode of a generated timeline is one frame, as
+  `corrupt_len=1` already made Ad, As and Ar. Through v0.8.1 Aq ran as 15 to 44 frame episodes, so
+  a change-based feature saw only an episode's first frame (on IEEE-118 the zero-shot CNN recalled
+  0.39 of the attacked buses on that frame and 0.00 on the rest). The tiny test timeline moves to
+  seed 23, the first seed that puts every family in both its train and its test split, and the
+  frozen references are rewritten from it. Takes effect with the next data release.
 - The Jacobian features never read the true state. `JacobianFeatures` took each frame's change
   against the previous pool timestep's clean state, truth an operator does not hold; it now takes it
   against the previous frame's estimate, dz = z_t - h(x_hat_{t-1}), the fitted estimator's plain

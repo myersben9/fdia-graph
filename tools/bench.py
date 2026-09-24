@@ -6,7 +6,7 @@ can compare them with the last run (docs/reference/BENCHMARKS.md).
 
 Timings are per record for the estimators (fit excluded) and per frame for timeline generation,
 in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, every family,
-20-frame ramps, seed 4). They are for spotting a regression on one machine, not for comparing
+20-frame ramps, the settings of tests/frozen_spec.TIMELINE_KW). They are for spotting a regression on one machine, not for comparing
 machines: the table carries the CPU and the torch state with every row for that reason.
 """
 
@@ -32,7 +32,9 @@ import fdia_graph as fg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "BENCHMARKS.md")
-TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=4)  # the test suite's tiny timeline
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tests"))
+from frozen_spec import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
+
 SLOW_FACTOR = 3.0
 
 

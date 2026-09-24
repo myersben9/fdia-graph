@@ -101,7 +101,7 @@ Steps 1 to 3 are code and ship as 0.18; step 4 is the release that makes it real
 0. Family letter and code: `Am`, 7 (proposed), and whether `Am` counts as stealthy for the
    `stealthy` flag (proposed: yes, it is re-solved every frame).
 
-1. Keep single-shot families as length-1 episodes (a knob, default on) so `Ad`/`As`/`Ar` records stay independent draws as in the papers, or let every family run as episodes. Implemented as `corrupt_len=1`: the corrupt-in-place families `Ad`/`As`/`Ar` are one-frame draws; `Aq` and `Al` keep their episode bands (their onset is the temporal signal the SE work reads), `At` and `Am` are ramps.
+1. Keep single-shot families as length-1 episodes (a knob, default on) so `Ad`/`As`/`Ar` records stay independent draws as in the papers, or let every family run as episodes. Implemented as `corrupt_len=1`: the corrupt-in-place families `Ad`/`As`/`Ar` are one-frame draws; `Aq` and `Al` keep their episode bands (their onset is the temporal signal the SE work reads), `At` and `Am` are ramps. Revised in 0.20: `Aq` is a single-snapshot attack, so every `Aq` episode is one frame (no knob); `Al` keeps its band, `At` and `Am` stay the multi-snapshot families.
 2. Frame count per system: 72,000 as today (one pool pass), or more.
 3. Compression: gzip 4 (smaller files, slower first read) or none (the 300-bus file grows to about 4 GB).
 4. Drop the old-layout reader after one minor version, or keep it for good for the v0.7.2 citations.
