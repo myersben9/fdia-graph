@@ -365,6 +365,9 @@ def test_block_diagonal_basis_checks_its_blocks():
         block_diagonal_basis([(np.array([0, 5]), np.eye(2))], 3)
     with pytest.raises(ValueError, match="one row per state column"):
         block_diagonal_basis([(np.array([0, 1]), np.eye(3))], 3)
+    for flat in (np.ones(2), np.float64(1.0)):  # not a [rows, K] basis
+        with pytest.raises(ValueError, match="one row per state column"):
+            block_diagonal_basis([(np.array([0, 1]), flat)], 3)
 
 
 def test_a_regional_prior_refuses_a_partition_with_gaps(splits):

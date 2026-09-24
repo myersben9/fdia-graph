@@ -187,7 +187,7 @@ def _check_blocks(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> No
     inside = not len(cols) or (cols.min() >= 0 and cols.max() < d)
     if not len(blocks) or len(np.unique(cols)) != len(cols) or not inside:
         raise ValueError(f"need at least one block, with disjoint state columns inside 0..{d - 1}")
-    if any(np.shape(V) != (len(c), np.shape(V)[1]) for c, V in blocks):
+    if any(np.ndim(V) != 2 or np.shape(V)[0] != len(c) for c, V in blocks):
         raise ValueError("each basis needs one row per state column of its block")
 
 
