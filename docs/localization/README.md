@@ -44,7 +44,7 @@ The learned arms train on the records they are given, so the protocol is the loa
 
 F1, DR and FR are the paper's per-bus macro scores over the attackable buses (F1 and recall over
 every test record, FR the per-bus false-positive rate on benign records); full metrics in
-`results/loc_ieee{14,118,300}.json`.
+`results/loc_ieee{14,118,300}.json`. Bold marks the papers' headline localizer, not the best cell.
 
 **Zero-shot protocol**
 
@@ -96,9 +96,10 @@ Zero-shot protocol on the v0.8.1 timelines (benign, `Aq` and `Ad` seen; `As` and
 | C: B + Jacobian features | **0.873** | 0.805 | 0.0000 | **0.896** | 0.842 | 0.0000 | **0.840** | 0.759 | 0.0000 |
 | D: Jacobian features only | 0.827 | 0.771 | 0.0000 | 0.811 | 0.741 | 0.0000 | 0.759 | 0.734 | 0.0000 |
 
-In the common protocol (every family in distribution) C wins on 14 (0.886 vs 0.826) and loses on 118
-(0.421 vs 0.560) and 300 (0.324 vs 0.457) at the same benign alarm rate: it detects far more frames
-(0.93 against 0.72 on 118, 0.90 against 0.69 on 300) and pays in precision on the buses around a
+In the common protocol (every family in distribution) C wins on 14 (0.886 vs 0.825) and loses on 118
+(0.421 vs 0.560) and 300 (0.323 vs 0.457) at the same false-alarm target (`fa_target=0.01`, and C's
+measured FR is in fact the lower): it has a far higher per-bus detection rate (0.93 against 0.72 on
+118, 0.90 against 0.69 on 300) and pays in precision on the buses around a
 local false state.
 
 | finding | evidence |
@@ -111,9 +112,9 @@ local false state.
 
 | reading | evidence | open case |
 |---|---|---|
-| the temporal spike is an onset signal | the swing threshold alone reads 0.10, 0.47 and 0.44 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier | the slow ramp `At` and the held redistribution `Am` inside an episode |
+| the temporal spike is an onset signal | the swing threshold alone reads 0.10, 0.47 and 0.44 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier | `Aq`, the slow ramp `At` and the held redistribution `Am` inside an episode |
 | the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption and smears it over neighbours; on `Aq` / `At` / `Al` / `Am` its node-F1 is 0.015 or less, there is no residual | it opens with a trusted set of meters, [`../trust/README.md`](../trust/README.md) |
-| learning plus physics holds with size | zero-shot CNN with the Jacobian block 0.873, 0.896 and 0.840 from 14 to 300 buses at FR 1e-4 or below | the common protocol, with `At`, `Al` and `Am` in distribution, falls 0.886, 0.421, 0.324 with size: the per-frame localization of a sustained local false state is the frontier |
+| learning plus physics holds with size | zero-shot CNN with the Jacobian block 0.873, 0.896 and 0.840 from 14 to 300 buses at FR 1e-4 or below | the common protocol, with `At`, `Al` and `Am` in distribution, falls 0.886, 0.421, 0.323 with size: the per-frame localization of a sustained local false state is the frontier |
 
 ## Regenerate
 

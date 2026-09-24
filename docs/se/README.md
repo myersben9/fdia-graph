@@ -42,7 +42,7 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | removal threshold | 4.0 (14), 5.0 (118), 5.0 (300); the 300 column ran it on the v0.8.1 timeline (2.6 hours, the per-record observability guard), where it cuts the WLS angle error 28% |
 | cell | geometric mean of the MAE over the eight record classes (benign and the seven families); full metrics in `results/se_ieee{14,118,300}.json` |
 
-**Estimator comparison**
+**Estimator comparison** (bold marks the proposed rows, not the best cell)
 
 | Estimator | IEEE 14 | IEEE 118 | IEEE 300 |
 |---|---:|---:|---:|
@@ -74,7 +74,8 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | voltage reduction | 57% | 85% | 68% |
 
 The v0.8.1 timelines carry the accuracy-class meter model (since v0.7.2), so absolute errors are
-lower than the paper's; the ordering and the reductions hold.
+lower than the paper's; the ordering holds and the reductions stay of the same size (angle 46, 51
+and 40% here against 59, 56 and 47%).
 
 **Per-family results of the proposed estimator.** Baseline cells are the WLS error, reduction is
 the proposed estimator's percent reduction over that baseline.
@@ -126,7 +127,7 @@ CNN localizer as the gate, and with the true labels as the gate (the ceiling for
 | | IEEE 14 | | | IEEE 118 | | | IEEE 300 | | |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | angle MAE (deg) | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle |
-| Aq stealthy load scale | 0.248 | 0.203 | 0.231 | 0.015 | 0.015 | 0.014 | 0.024 | 0.026 | 0.024 |
+| Aq stealthy re-solve | 0.248 | 0.203 | 0.231 | 0.015 | 0.015 | 0.014 | 0.024 | 0.026 | 0.024 |
 | Ad / As / Ar in place | 0.025 / 0.070 / 0.031 | 0.023 / 0.023 / 0.026 | 0.020 / 0.019 / 0.020 | 0.009 / 0.010 / 0.008 | 0.008 / 0.008 / 0.008 | 0.007 / 0.007 / 0.007 | 0.015 / 0.015 / 0.014 | 0.012 / 0.012 / 0.013 | 0.012 / 0.012 / 0.012 |
 | At slow ramp | 0.077 | 0.075 | 0.071 | 0.008 | 0.009 | 0.008 | 0.017 | 0.018 | 0.017 |
 | Al redistribution | 0.047 | 0.071 | 0.069 | 0.015 | 0.020 | 0.019 | 0.020 | 0.019 | 0.018 |
@@ -136,11 +137,11 @@ CNN localizer as the gate, and with the true labels as the gate (the ceiling for
 | families | what the gate does | why |
 |---|---|---|
 | `Ad` `As` `Ar` (in place) | finishes the job at every size: the CNN gate takes them to 0.023 to 0.026 on 14, 0.008 on 118 and 0.012 to 0.013 on 300, next to the oracle's 0.019 to 0.020, 0.007 and 0.012 | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
-| `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse, with the true labels too: `Al` 0.047 → 0.071 on 14, 0.015 → 0.020 on 118; `Aq` on 14 improves (0.248 → 0.203) | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
+| `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse on 14 and 118, with the true labels too: `Al` 0.047 → 0.071 on 14, 0.015 → 0.020 on 118; on 300 the gate is neutral to slightly better on them, and `Aq` on 14 improves (0.248 → 0.203) | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
 
 On the v0.8.1 timelines the CNN gate lowers the geometric mean 10% on IEEE-14 (0.049 to 0.044) and
 4% on 300 (0.0162 to 0.0155) and costs 1.5% on 118 (0.0106 to 0.0108): the in-place families (and
-`Aq` on 14) gain, and the `Al` / `Am` loss offsets that gain on 118. The gate pays most when it has
+`Aq` on 14) gain, and the stealthy-family losses (`Al` and `Am` most) offset that gain on 118. The gate pays most when it has
 something true to leave in: with 20 meters secured by the DQN selector of
 [`../trust/README.md`](../trust/README.md) and exempt from the gate, IEEE-14 goes from 0.049 degrees
 to 0.033 with the secured meters alone and to 0.022 with the same CNN gate added. Recovering a

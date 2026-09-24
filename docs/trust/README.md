@@ -44,9 +44,9 @@ with every meter writable, `detected_after` with the trust in place.
 selection, the attack-cost curve, and the detection table. Read the detection table first: the
 attack cost is the sparsest row of an echelon basis of the open subspace, an upper bound on the
 true sparsest attack, so it is not monotone in the secured set (on IEEE-14 the greedy cost
-plateaus at 54 from the second meter to the twentieth, while the DQN selection's cost after each
-of its twenty meters is 34, 54, 54, 46, 46, 46, 43, 43, 46, 11, 11, 3, 9, 8, 8, 9, 9, 22, 22 and 33,
-while the DQN's detection of Aq, Al and Am rises from 0.00, 0.00, 0.00 to 0.93, 0.93, 0.90).
+plateaus at 54 from the second meter to the twentieth, and the DQN selection's cost after each of
+its twenty meters is 34, 54, 54, 46, 46, 46, 43, 43, 46, 11, 11, 3, 9, 8, 8, 9, 9, 22, 22 and 33,
+yet the DQN's detection of Aq, Al and Am rises from 0.00, 0.00, 0.00 to 0.93, 0.93, 0.90).
 
 WLS residual detection rate per family at a 1% benign alarm level, before and after securing 20
 meters (v0.8.1 timelines, test split):
@@ -71,7 +71,7 @@ One rule came out of it: a localization gate must never down-weight a secured me
 `GatedPrior` scales every meter of a flagged bus by a thousandth. On a secured copy those meters
 include the secured ones, the only true readings inside the attacked region, so the CNN and
 residual gates were worse than no gate on both secured copies. `GatedPrior(secured=tm.select())`
-keeps the secured meters at full weight, and that arm wins.
+keeps the secured meters at full weight, and that arm wins on IEEE-14.
 
 IEEE-14, 20 secured meters, test split, node-F1 with the detection rate in parentheses:
 
@@ -101,11 +101,11 @@ Angle mean absolute error in degrees, geometric mean over the eight record class
 
 The DQN's 20 meters take the proposed estimator from 0.049 to 0.033 degrees with no gate and to
 0.022 with the exempting gate, the stealthy families losing 53 to 82 percent of their error (Aq 0.248
-to 0.045, At 0.077 to 0.030, Al 0.047 to 0.022, Am 0.049 to 0.022) with the benign error unchanged;
+to 0.045, At 0.077 to 0.030, Al 0.047 to 0.022, Am 0.049 to 0.022) with the benign error essentially unchanged (0.0127 to 0.0129);
 the residual gate, which needs no learned model, comes close to the CNN gate there (0.025) because
 the secured meters made the residual see those families.
 
-IEEE-118, the same 20 meters (20 of its 720 metered channels, under 3 percent, where they were 20 of
+IEEE-118, the same budget of 20 meters (20 of its 720 metered channels, under 3 percent, where they were 20 of
 IEEE-14's 82, 24 percent):
 
 | localizer | copy | Aq | At | Al | Am | macro-F1 / benign FA |
@@ -126,7 +126,7 @@ IEEE-14's 82, 24 percent):
 | prior + Huber + oracle gate | 0.0103 | 0.0103 | 0.0103 |
 | prior + Huber + oracle gate, secured meters exempt | | 0.0101 | 0.0097 |
 
-The greedy set barely moves the residual test on IEEE-118 (Al from 0.50 to 0.56 detected, Am 0.50 to
+The greedy set barely moves the residual localizer on IEEE-118 (Al from 0.50 to 0.56 detected, Am 0.50 to
 0.57, macro-F1 0.198 to 0.202) while the DQN set opens it on the stealthy families (Aq from 0.46 to
 0.74 detected, Al 0.50 to 0.83, Am 0.50 to 0.91), but the residual localizer still points poorly on
 a grid this size, the learned localizer does not move (0.421 to 0.414), and the estimator gains 2
