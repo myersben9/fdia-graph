@@ -9,6 +9,11 @@ the public API, the generated files and the numbers are the same as the previous
   number regenerated from the new JSON. Directions that changed: the CNN gate now lowers the
   estimator's error on IEEE-14 (0.049 to 0.044) and 300, residual removal beats WLS on 300, and the
   zero-shot CNN with the Jacobian block reads 0.873, 0.896 and 0.840.
+- Docs: `docs/federated/`, the federated localization papers' protocol on the v0.8.1 timelines.
+  `FedBusCNN` and `FedBusMLP` with `full14+jac`, zero-shot, K = 1 to 3, seeds 123 to 125, in the
+  paper's Table IV layout with per-family F1 and FR over every record and over benign records. The
+  run script saves each run and skips saved ones; `make_report.py` builds the tables, figures and
+  CSV sidecars from the JSON.
 - `FedBusCNN` and `FedBusMLP` accept the Jacobian feature sets (`features="full14+jac"`, `"jac"`):
   the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
   is the whole system's estimator applied to every meter's change, computed once centrally per pass

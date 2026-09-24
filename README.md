@@ -24,7 +24,7 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
 | [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | the class and module diagrams, drawn from the code |
 | [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
-| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) · [`docs/trust/`](docs/trust/README.md) | the analysis modules, with results |
+| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) · [`docs/trust/`](docs/trust/README.md) · [`docs/federated/`](docs/federated/README.md) | the analysis modules, with results |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |
 
 ## Install
