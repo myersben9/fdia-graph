@@ -139,11 +139,12 @@ CNN localizer as the gate, and with the true labels as the gate (the ceiling for
 | `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse, with the true labels too: `Al` 0.047 → 0.071 on 14, 0.015 → 0.020 on 118; `Aq` on 14 improves (0.248 → 0.203) | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
 
 On the v0.8.1 timelines the CNN gate lowers the geometric mean 10% on IEEE-14 (0.049 to 0.044) and
-4% on 300 (0.0162 to 0.0155) and costs 2% on 118 (0.0106 to 0.0108): the in-place gain and the `Al`
-/ `Am` loss nearly cancel. The gate pays when it has something true to leave in: with 20
-meters secured by the DQN selector of [`../trust/README.md`](../trust/README.md) and exempt from the
-gate, the same CNN gate takes IEEE-14 from 0.049 to 0.022 degrees. Recovering a stealthy false state
-from one scan otherwise needs the previous scan, the temporal direction.
+4% on 300 (0.0162 to 0.0155) and costs 1.5% on 118 (0.0106 to 0.0108): the in-place families (and
+`Aq` on 14) gain, and the `Al` / `Am` loss offsets that gain on 118. The gate pays most when it has
+something true to leave in: with 20 meters secured by the DQN selector of
+[`../trust/README.md`](../trust/README.md) and exempt from the gate, IEEE-14 goes from 0.049 degrees
+to 0.033 with the secured meters alone and to 0.022 with the same CNN gate added. Recovering a
+stealthy false state from one scan otherwise needs the previous scan, the temporal direction.
 
 ## Regenerate
 

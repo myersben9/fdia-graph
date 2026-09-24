@@ -44,8 +44,8 @@ with every meter writable, `detected_after` with the trust in place.
 selection, the attack-cost curve, and the detection table. Read the detection table first: the
 attack cost is the sparsest row of an echelon basis of the open subspace, an upper bound on the
 true sparsest attack, so it is not monotone in the secured set (on IEEE-14 the greedy cost
-plateaus at 54 from the second meter to the twentieth, while over the same twenty meters the DQN's
-takes the values 34, 54, 46, 43, 46, 11, 3, 9, 8, 9, 22 and 33 in that order,
+plateaus at 54 from the second meter to the twentieth, while the DQN selection's cost after each
+of its twenty meters is 34, 54, 54, 46, 46, 46, 43, 43, 46, 11, 11, 3, 9, 8, 8, 9, 9, 22, 22 and 33,
 while the DQN's detection of Aq, Al and Am rises from 0.00, 0.00, 0.00 to 0.93, 0.93, 0.90).
 
 WLS residual detection rate per family at a 1% benign alarm level, before and after securing 20
