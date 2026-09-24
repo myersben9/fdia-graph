@@ -5,10 +5,13 @@ Each client (a utility) holds every training record but reads only its own buses
 built from its own meters (`kcl="local"`, the default, recomputes the power-balance channel from the
 flow meters the client owns, the from-bus end of each branch; the other channels are each bus's own
 readings and their scan-to-scan change), its loss covers only its own buses, and a CNN convolves
-over its own buses in bus order. `halo > 0` is the one opt-in exception: a client then also reads
-the halo buses' own meters as read-only context, placed after its own buses. What crosses a client boundary: the per-channel moments once (for one
-standardization), the model weights every round (one average), and the per-bus confusion counts
-once (for the paper's validation threshold). All three are the formulas of `formulas.federated` and
+over its own buses in bus order. Two opt-in exceptions read beyond a client's own meters:
+`halo > 0` adds the halo buses' own meters as read-only context, placed after its own buses, and
+the Jacobian feature sets (`features="full14+jac"` or `"jac"`) append the 8-channel Jacobian block,
+the whole system's estimator applied to every meter's change, computed once centrally per pass and
+shared with every client. What crosses a client boundary: the per-channel moments once (for one
+standardization), the model weights every round (one average), the per-bus confusion counts once
+(for the paper's validation threshold), and with a Jacobian feature set the central block. All three are the formulas of `formulas.federated` and
 `formulas.metrics`.
 
 With K = 1 and no gradient clip the fit is the centralized one, weight for weight.
@@ -128,6 +131,8 @@ class FederatedLocalizer(LearnedLocalizer):
         (`_central`) and handed in as `jac`; computed here when not given."""
         if self.features == "meas":
             return self._features(d)
+        if self.features == "jac":  # no client-local channel to build
+            return self._jac.transform(d)["bus"] if jac is None else jac
         local = d
         if self.kcl == "local":
             own_edge = self._part.assignment[d["edge_index"][0]] == k
@@ -137,7 +142,7 @@ class FederatedLocalizer(LearnedLocalizer):
             return self._features(local)
         # a single client's call builds the central block here; a pass over the clients hands it in
         block: np.ndarray = self._jac.transform(d)["bus"] if jac is None else jac
-        return block if self.features == "jac" else np.concatenate([full14(local), block], -1)
+        return np.concatenate([full14(local), block], -1)
 
     def _check_units(self, ds: FdiaGraph) -> None:
         """The Jacobian block converts physical units itself, so a per-unit view is refused."""
