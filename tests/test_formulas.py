@@ -404,6 +404,8 @@ def test_count_and_moment_formulas_refuse_mismatched_shapes():
     for bad in (0.0, np.inf, np.nan):
         with pytest.raises(ValueError, match="finite positive count"):
             pool_moments([(bad, np.zeros(3), np.ones(3))])
+    with pytest.raises(ValueError, match="overflows"):
+        pool_moments([(1e308, np.zeros(3), np.ones(3)), (1e308, np.zeros(3), np.ones(3))])
     with pytest.raises(ValueError, match="one shape"):
         perbus_counts(np.zeros((3, 2), bool), np.zeros((3, 4), bool))
     z = np.zeros((2, 3))

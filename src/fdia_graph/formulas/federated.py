@@ -54,6 +54,8 @@ def pool_moments(parts: Sequence[Moments]) -> Moments:
     m2 = var * n
     for nb, mb, vb in parts[1:]:
         tot = n + nb
+        if not np.isfinite(tot):
+            raise ValueError("the pooled record count overflows")
         d = mb - mean
         mean = mean + d * (nb / tot)
         m2 = m2 + vb * nb + d * d * (n * nb / tot)

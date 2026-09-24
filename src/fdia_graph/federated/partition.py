@@ -1,8 +1,8 @@
 """The split of a system's buses into K clients (utilities) for federated training [FED26].
 
 The paper's partition is spectral clustering of the bus adjacency (scikit-learn, random_state 42),
-which reproduces the cached partitions of the federated localization paper exactly on IEEE 14, 118
-and 300. Needs scikit-learn for K >= 2: pip install "fdia-graph[federated]".
+which matched the cached partitions of the federated localization paper exactly on IEEE 14, 118
+and 300 at K = 2 and 3 when checked by hand; the test suite pins IEEE 14. Needs scikit-learn for K >= 2: pip install "fdia-graph[federated]".
 """
 
 from __future__ import annotations
