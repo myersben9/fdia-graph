@@ -32,7 +32,9 @@ import fdia_graph as fg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "BENCHMARKS.md")
-TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=4)  # the test suite's tiny timeline
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tests"))
+from frozen_spec import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
+
 SLOW_FACTOR = 3.0
 
 
