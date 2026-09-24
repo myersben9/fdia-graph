@@ -116,6 +116,9 @@ local false state.
 | the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption and smears it over neighbours; on `Aq` / `At` / `Al` / `Am` its node-F1 is 0.015 or less, there is no residual | it opens with a trusted set of meters, [`../trust/README.md`](../trust/README.md) |
 | learning plus physics holds with size | zero-shot CNN with the Jacobian block 0.873, 0.896 and 0.840 from 14 to 300 buses at FR 1e-4 or below | the common protocol, with `At`, `Al` and `Am` in distribution, falls 0.886, 0.421, 0.323 with size: the per-frame localization of a sustained local false state is the frontier |
 
+The same papers' protocol trained federated across K utilities, with the Jacobian block, is in
+[`../federated/README.md`](../federated/README.md).
+
 ## Regenerate
 
 ```bash
