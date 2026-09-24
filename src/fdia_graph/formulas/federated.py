@@ -70,6 +70,8 @@ def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray
             f"need one weight per client tensor, got {len(arrays)} tensors and {len(weights)} weights"
         )
     w = np.asarray(weights, np.float64)
+    if w.shape != (len(arrays),):
+        raise ValueError(f"need one scalar weight per client, shape ({len(arrays)},), got {w.shape}")
     if not (np.isfinite(w) & (w > 0)).all():
         raise ValueError("client weights must be finite and positive")
     shape = np.shape(arrays[0])
@@ -91,6 +93,9 @@ def attackable_affinity(A: np.ndarray, attackable: np.ndarray, heavy: float = 8.
     attackable : [N] bool
     returns    : [N, N] float32 affinity
     """
+    A = np.asarray(A)
+    if A.ndim != 2 or A.shape[0] != A.shape[1]:
+        raise ValueError(f"need a square [N, N] adjacency, got shape {A.shape}")
     attackable = np.asarray(attackable, bool)
     if attackable.shape != (A.shape[0],):
         raise ValueError(f"need a [{A.shape[0]}] attackable mask")

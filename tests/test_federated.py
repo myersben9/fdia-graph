@@ -122,6 +122,10 @@ def test_every_formula_refuses_malformed_input():
     for bad in (np.inf, np.nan, 0.0, 1e300):
         with pytest.raises(ValueError, match="heavy"):
             attackable_affinity(A, np.ones(3, bool), heavy=bad)
+    with pytest.raises(ValueError, match="square"):
+        attackable_affinity(np.ones(3), np.ones(3, bool))
+    with pytest.raises(ValueError, match="one scalar weight"):
+        fedavg([np.ones(2), np.ones(2)], [[1, 2], [3, 4]])
     with pytest.raises(ValueError, match="owns no bus"):
         halo_nodes(a, A, 5, 1)  # a client id that is not in the assignment
     with pytest.raises(ValueError, match="depth"):
