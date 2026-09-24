@@ -44,6 +44,17 @@ class _Client:
     trainer: LocalTrainer
     Xt: Any = None
     Yt: Any = None
+    rng: Any = None  # the client's own torch RNG state (dropout), carried from run to run
+
+
+def _check_settings(K: int, rounds: int, local_epochs: int, halo: int, grad_clip: Optional[float]) -> None:
+    """The federated knobs a fit cannot recover from."""
+    if K < 1 or rounds < 1 or local_epochs < 1 or halo < 0:
+        raise ValueError(
+            f"need K, rounds, local_epochs >= 1 and halo >= 0, got {K}, {rounds}, {local_epochs}, {halo}"
+        )
+    if grad_clip is not None and not (np.isfinite(grad_clip) and grad_clip > 0):
+        raise ValueError(f"grad_clip must be None or a finite positive norm, got {grad_clip}")
 
 
 class FederatedLocalizer(LearnedLocalizer):
@@ -74,12 +85,7 @@ class FederatedLocalizer(LearnedLocalizer):
         if "epochs" in kw:
             raise ValueError("a federated fit trains rounds x local_epochs; pass those, not epochs")
         super().__init__(**kw)
-        if K < 1 or rounds < 1 or local_epochs < 1 or halo < 0:
-            raise ValueError(
-                f"need K, rounds, local_epochs >= 1 and halo >= 0, got {K}, {rounds}, {local_epochs}, {halo}"
-            )
-        if grad_clip is not None and not (np.isfinite(grad_clip) and grad_clip > 0):
-            raise ValueError(f"grad_clip must be None or a finite positive norm, got {grad_clip}")
+        _check_settings(K, rounds, local_epochs, halo, grad_clip)
         if partition is not None and partition.K != K:
             raise ValueError(f"the partition has {partition.K} clients but K={K}")
         if kcl not in ("local", "global"):
@@ -111,16 +117,20 @@ class FederatedLocalizer(LearnedLocalizer):
             raise ValueError(
                 f"the partition covers {len(self._part.assignment)} buses, the dataset has {ds.N}"
             )
-        blocks = [self._client_features(d, k) for k in range(self.K)]
+        views = [compute_nodes(self._part, ei, k, self.halo) for k in range(self.K)]
+        blocks, moments = [], []
+        for k, (nodes, owned) in enumerate(views):  # one client's grid-wide block at a time
+            X = self._client_features(d, k)
+            moments.append(channel_moments(X[:, nodes[:owned]]))
+            blocks.append(X[:, nodes])  # keep only the buses the client computes on
+            del X
         # one standardization for everyone: each client's moments over its own buses, pooled
-        self.mu, self.sd = standardization(
-            [channel_moments(X[:, self._part.owned(k)]) for k, X in enumerate(blocks)]
-        )
+        self.mu, self.sd = standardization(moments)
         Y = d["y"].astype(np.float32)
         self.N = Y.shape[1]
         self._attackable = d["y"].any(axis=0)  # each client knows its own buses' labels
         self.dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self._clients = self._make_clients(blocks, Y, ei)
+        self._clients = self._make_clients(blocks, views, Y)
         self.net = self._run_rounds()
         self.net.eval()
 
@@ -130,20 +140,55 @@ class FederatedLocalizer(LearnedLocalizer):
         torch.manual_seed(self.seed)
         return torch
 
-    def _make_clients(self, blocks: list[np.ndarray], Y: np.ndarray, ei: np.ndarray) -> list[_Client]:
-        """One client per partition part, all starting from one initialization."""
+    def _make_clients(
+        self, blocks: list[np.ndarray], views: list[tuple[np.ndarray, int]], Y: np.ndarray
+    ) -> list[_Client]:
+        """One client per partition part, all starting from one initialization, each with its own
+        dropout RNG: client 0 continues the stream the initialization drew from (so K = 1 is the
+        centralized fit), client k > 0 starts from seed + k."""
         init = self._build(self.N).to(self.dev)
         clients = []
-        for k, X in enumerate(blocks):
-            nodes, owned = compute_nodes(self._part, ei, k, self.halo)
+        for k, (X, (nodes, owned)) in enumerate(zip(blocks, views)):
             net = init if k == 0 else copy.deepcopy(init)
             c = _Client(
                 nodes, owned, net, LocalTrainer(net, self._optim(), self.dev, self.seed + k, self.grad_clip)
             )
-            Xs = ((X[:, nodes] - self.mu) / self.sd).astype(np.float32)
+            c.rng = self._rng_state() if k == 0 else self._seeded_rng_state(self.seed + k)
+            Xs = ((X - self.mu) / self.sd).astype(np.float32)
             c.Xt, c.Yt = c.trainer.stage(Xs, np.ascontiguousarray(Y[:, nodes]))
             clients.append(c)
         return clients
+
+    # ---- per-client RNG streams -----------------------------------------------------------
+    def _cuda(self) -> bool:
+        return str(self.dev).startswith("cuda")
+
+    def _rng_state(self) -> tuple[Any, Any]:
+        """The process RNG state now (CPU, and the device's when training on a GPU)."""
+        import torch
+
+        return torch.get_rng_state(), (torch.cuda.get_rng_state(self.dev) if self._cuda() else None)
+
+    def _seeded_rng_state(self, seed: int) -> tuple[Any, Any]:
+        """The RNG state a fresh `manual_seed(seed)` gives, without disturbing the current one."""
+        import torch
+
+        with torch.random.fork_rng(devices=[torch.device(self.dev)] if self._cuda() else []):
+            torch.manual_seed(seed)
+            return self._rng_state()
+
+    def _train_client(self, c: _Client) -> float:
+        """One client's local epochs on its own RNG stream, which it keeps for the next round; the
+        process stream is left as it was."""
+        import torch
+
+        with torch.random.fork_rng(devices=[torch.device(self.dev)] if self._cuda() else []):
+            torch.set_rng_state(c.rng[0])
+            if c.rng[1] is not None:
+                torch.cuda.set_rng_state(c.rng[1], self.dev)
+            loss = c.trainer.run(c.Xt, c.Yt, self.local_epochs, owned=c.owned)
+            c.rng = self._rng_state()
+        return loss
 
     def _run_rounds(self) -> Any:
         """The FedAvg loop: every client trains its local copy from the global weights on its own
@@ -155,7 +200,7 @@ class FederatedLocalizer(LearnedLocalizer):
             states, losses = [], []
             for c in self._clients:
                 c.net.load_state_dict(glob)
-                losses.append(c.trainer.run(c.Xt, c.Yt, self.local_epochs, owned=c.owned))
+                losses.append(self._train_client(c))
                 states.append(c.net.state_dict())
             glob = fedavg_state(states, [1.0] * len(self._clients))
             n = len(self._clients)

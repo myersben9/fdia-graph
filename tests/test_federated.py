@@ -267,3 +267,25 @@ def test_a_partition_of_another_grid_is_refused(zs):
     small = partition_from_assignment(np.array([0, 0, 1]), np.array([[0, 1], [1, 2]]))
     with pytest.raises(ValueError, match="covers 3 buses"):
         FedBusMLP(K=2, partition=small, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+
+
+def test_a_two_client_fit_is_reproducible_and_leaves_no_client_stream_shared(zs):
+    """Each client trains on its own dropout stream, so the same seed gives the same weights, and
+    clients do not draw from one shared stream (a dropout-free model gives the same answer)."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("sklearn")
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    was = torch.are_deterministic_algorithms_enabled()
+    torch.use_deterministic_algorithms(True)
+    try:
+        tr, va, _ = zs
+        kw = dict(K=2, rounds=2, local_epochs=1, device="cpu")
+        a, b = FedBusMLP(**kw).fit(tr, val=va), FedBusMLP(**kw).fit(tr, val=va)
+        assert all(
+            torch.equal(x, y) for x, y in zip(a.net.state_dict().values(), b.net.state_dict().values())
+        )
+        c0, c1 = a._clients
+        assert not torch.equal(c0.rng[0], c1.rng[0])  # two streams, not one
+    finally:
+        torch.use_deterministic_algorithms(was)
