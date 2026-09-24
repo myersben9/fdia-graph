@@ -214,6 +214,10 @@ def test_two_clients_train_score_and_log_their_rounds(zs):
     loc = FedBusCNN(K=2, rounds=3, local_epochs=1, device="cpu").fit(tr, val=va)
     assert len(loc.history) == 3 and len(loc.history[0].loss_per_client) == 2
     assert loc.history[0].bytes_up == 2 * state_bytes(loc.net.state_dict())
+    import torch
+
+    final = loc.net.state_dict()  # every client holds the broadcast average after the last round
+    assert all(all(torch.equal(v, c.net.state_dict()[k]) for k, v in final.items()) for c in loc._clients)
     s = loc.scores(te)
     assert s.shape == (len(te), te.N) and np.all((s >= 0) & (s <= 1))
     rep = loc.score(te)

@@ -227,9 +227,9 @@ class FederatedLocalizer(LearnedLocalizer):
             glob = fedavg_state(states, [1.0] * len(self._clients))
             n = len(self._clients)
             self.history.append(RoundLog(r, float(np.mean(losses)), losses, n * size, n * size))
-        net = self._clients[0].net
-        net.load_state_dict(glob)
-        return net
+        for c in self._clients:  # the final broadcast: every client deploys the averaged model
+            c.net.load_state_dict(glob)
+        return self._clients[0].net
 
     def _client_scores(self, d: dict[str, np.ndarray], k: int) -> np.ndarray:
         """Client k's attack probabilities on its own buses [n, owned], from its own features and its
