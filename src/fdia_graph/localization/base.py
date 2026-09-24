@@ -140,8 +140,9 @@ class LocalizerBase:
 
         buses   : "active" (buses attacked somewhere in ds) or "attackable" (buses labelled in the
                   training records, the paper's set; learned localizers only)
-        fr_over : "all" (the paper's Table IV FR: false alarms over every non-attacked cell) or
-                  "benign" (benign records only, what `score()["all"].macro_fr` reports)
+        fr_over : "all" (the paper's Table IV FR: false alarms over every non-attacked cell, attacked
+                  records included) or "benign" (benign records only); with buses="active" and
+                  fr_over="benign" the `all` block's means equal `score()["all"]`'s macro F1, DR and FR
         """
         from ..dataset import FAMILIES
 
@@ -149,6 +150,8 @@ class LocalizerBase:
             raise ValueError(f"fr_over must be 'all' or 'benign', got {fr_over!r}")
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
+        if s.shape != (len(ds), ds.N):
+            raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
         y, fam = d["y"].astype(bool), d["family"]
         cols = self._report_buses(y, buses)
         out: dict[str, Any] = {
