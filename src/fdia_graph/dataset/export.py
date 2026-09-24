@@ -54,7 +54,9 @@ class ExportMixin(DatasetBase):
         known = self._default_fields()
         if not fields:
             return known
-        offered = known + (list(_PREV_FIELDS) if self.is_timeline else [])  # on request only
+        # on request only, a timeline's previous frame; its swing only when the file carries swing
+        prev = [k for k in _PREV_FIELDS if self.is_timeline and (k != "prev_swing" or self.has_swing)]
+        offered = known + prev
         unknown = [k for k in fields if k not in offered]
         if unknown:
             raise ValueError(f"unknown field(s) {unknown}; this shard carries {known}")
@@ -100,9 +102,10 @@ class ExportMixin(DatasetBase):
 
         Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
         timestep [n], plus the static graph edge_index [2,E] and edge_reactance [E], always included.
-        On a timeline, `fields` may also ask for prev_node_x [n,N,4], prev_edge_x [n,E,2] and
-        prev_timestep [n]: the readings of the frame emitted just before each record (file row - 1,
-        whatever split or family it belongs to); they are never part of the default set.
+        On a timeline, `fields` may also ask for prev_node_x [n,N,4], prev_edge_x [n,E,2],
+        prev_timestep [n] and prev_swing [n,N,2] (when the file carries swing): the readings of the
+        frame emitted just before each record (file row - 1, whatever split or family it belongs to);
+        they are never part of the default set.
         `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
         `fields`, so a typo cannot pass unnoticed.
         """

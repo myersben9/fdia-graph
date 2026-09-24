@@ -35,7 +35,6 @@ from ..localization.learned import (
     BusMLP,
     LearnedLocalizer,
     LocalTrainer,
-    full14,
     predict,
     standardization,
 )
@@ -131,20 +130,16 @@ class FederatedLocalizer(LearnedLocalizer):
         estimator applied to every meter's change, computed once centrally per pass (`_central`)
         and handed in as `jac`, or computed here when not given. "full14+jac" appends it after the
         14 client-local channels; "jac" returns it as the whole input."""
-        if self.features == "meas":
-            return self._features(d)
-        if self.features == "jac":  # no client-local channel to build
-            return self._jac.transform(d)["bus"] if jac is None else jac
+        if self.features in ("meas", "jac"):  # no power-balance channel to localize
+            return self._features(d, jac)
         local = d
         if self.kcl == "local":
             own_edge = self._part.assignment[d["edge_index"][0]] == k
             local = dict(d)
             local["edge_x"] = d["edge_x"] * own_edge[None, :, None]
-        if "jac" not in self.features:
-            return self._features(local)
-        # a single client's call builds the central block here; a pass over the clients hands it in
-        block: np.ndarray = self._jac.transform(d)["bus"] if jac is None else jac
-        return np.concatenate([full14(local), block], -1)
+        # the central block comes from the full readings, never the client-masked ones; a single
+        # client's call builds it here, a pass over the clients hands it in
+        return self._features(local, self._central(d) if jac is None else jac)
 
     def _check_units(self, ds: FdiaGraph) -> None:
         """The Jacobian block converts physical units itself, so a per-unit view is refused."""

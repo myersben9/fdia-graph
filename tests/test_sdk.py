@@ -521,3 +521,24 @@ def test_jacobian_features_never_read_the_true_state(timeline, splits):
         from fdia_graph import FdiaGraph
 
         JacobianFeatures().fit(FdiaGraph(SHARD_V072))
+
+
+def test_previous_swing_feature_set(timeline, splits):
+    """prev_swing is the swing of file row - 1, and "full14+prev" appends it after the papers' 14
+    channels; the frame after a one-frame attack reads the attack's swing there, sign reversed."""
+    pytest.importorskip("torch")
+    from fdia_graph.localization import BusCNN
+    from fdia_graph.localization.learned import full14
+
+    full = fg.load(timeline).export(["swing", "family"])
+    ds = splits["test"]
+    d = ds.export(["prev_swing"])
+    assert np.array_equal(d["prev_swing"], full["swing"][np.maximum(ds.idx - 1, 0)])
+    loc = BusCNN(epochs=1, device="cpu", features="full14+prev").fit(splits["train"])
+    x = loc._pull(ds)
+    F = loc._features(x)
+    assert (
+        F.shape[-1] == 16
+        and np.array_equal(F[..., :14], full14(x))
+        and np.array_equal(F[..., 14:], x["prev_swing"])
+    )

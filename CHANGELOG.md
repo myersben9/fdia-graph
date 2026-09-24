@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Localization: `features="full14+prev"` (16 channels) and `"full14+prev+jac"` (24) append the
+  previous frame's swing to the papers' 14, for `BusCNN`, `BusMLP` and the federated localizers
+  (each bus's own reading, so client-local). A timeline export offers it as `prev_swing` (file
+  row - 1). On a timeline the frame after a one-frame attack carries the same jump back with the
+  opposite sign, labelled benign (31% of IEEE-118's benign training frames); a one-frame model
+  cannot tell the two apart and stops trusting the swing. With the previous swing, the zero-shot
+  BusCNN on v0.8.1 goes 0.78 -> 0.84, 0.55 -> 0.83 and 0.49 -> 0.81 macro-F1 on IEEE-14, 118 and 300
+  (seeds 123 to 125), As 0.56 -> 0.95 and Ar 0.32 -> 0.83 on 118, at a lower false-alarm rate.
 - Aq is a single-snapshot attack: every Aq episode of a generated timeline is one frame, as
   `corrupt_len=1` already made Ad, As and Ar. Through v0.8.1 Aq ran as 15 to 44 frame episodes, so
   a change-based feature saw only an episode's first frame (on IEEE-118 the zero-shot CNN recalled

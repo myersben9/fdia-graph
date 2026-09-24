@@ -433,3 +433,25 @@ def test_the_jacobian_only_set_federates_and_refuses_per_unit(zs, timeline):
     assert np.array_equal(m._client_features(d, 0, m._central(d)), a)  # handed in = computed in place
     with pytest.raises(ValueError, match="physical"):
         m.score(fg.load(timeline, split="test", units="pu"))
+
+
+def test_the_previous_swing_set_federates_client_locally(zs):
+    """full14+prev: the previous frame's swing is each bus's own reading, so every client builds it;
+    one client is the centralized fit, two clients fit and score the unseen families."""
+    torch = pytest.importorskip("torch")
+    from fdia_graph.federated.localizer import FedBusCNN
+    from fdia_graph.localization import BusCNN
+
+    was = torch.are_deterministic_algorithms_enabled()
+    torch.use_deterministic_algorithms(True)
+    try:
+        tr, va, te = zs
+        c = BusCNN(features="full14+prev", epochs=2, device="cpu").fit(tr, val=va)
+        f = FedBusCNN(
+            K=1, rounds=2, local_epochs=1, grad_clip=None, features="full14+prev", device="cpu"
+        ).fit(tr, val=va)
+        assert np.array_equal(c.scores(te), f.scores(te))
+        two = FedBusCNN(K=2, rounds=1, local_epochs=1, features="full14+prev", device="cpu").fit(tr, val=va)
+        assert two._client_features(two._pull(te), 0).shape[-1] == 16 and "As" in two.score(te)
+    finally:
+        torch.use_deterministic_algorithms(was)

@@ -40,6 +40,7 @@ _FIELD_FLAG = {
     "prev_node_x": "is_timeline",
     "prev_edge_x": "is_timeline",
     "prev_timestep": "is_timeline",
+    "prev_swing": "is_timeline",
 }
 
 
