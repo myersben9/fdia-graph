@@ -46,8 +46,10 @@ def pool_moments(parts: Sequence[Moments]) -> Moments:
     if not len(parts):
         raise ValueError("pool_moments needs at least one part")
     shape = np.shape(parts[0][1])
-    if any(np.shape(m) != shape or np.shape(v) != shape or not c > 0 for c, m, v in parts):
-        raise ValueError(f"every part needs a positive count and moments of shape {shape}")
+    if any(
+        np.shape(m) != shape or np.shape(v) != shape or not (np.isfinite(c) and c > 0) for c, m, v in parts
+    ):
+        raise ValueError(f"every part needs a finite positive count and moments of shape {shape}")
     n, mean, var = parts[0]
     m2 = var * n
     for nb, mb, vb in parts[1:]:

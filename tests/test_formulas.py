@@ -401,12 +401,17 @@ def test_count_and_moment_formulas_refuse_mismatched_shapes():
 
     with pytest.raises(ValueError, match="moments of shape"):
         pool_moments([(4.0, np.zeros(3), np.ones(3)), (2.0, np.zeros(2), np.ones(2))])
-    with pytest.raises(ValueError, match="positive count"):
-        pool_moments([(0.0, np.zeros(3), np.ones(3))])
+    for bad in (0.0, np.inf, np.nan):
+        with pytest.raises(ValueError, match="finite positive count"):
+            pool_moments([(bad, np.zeros(3), np.ones(3))])
     with pytest.raises(ValueError, match="one shape"):
         perbus_counts(np.zeros((3, 2), bool), np.zeros((3, 4), bool))
     z = np.zeros((2, 3))
     with pytest.raises(ValueError, match="n_taus, N"):
         tau_from_counts(z, z, z, np.ones(4, bool), np.array([0.1, 0.2]))
+    with pytest.raises(ValueError, match="one-dimensional"):
+        tau_from_counts(z, z, z, np.ones((1, 3), bool), np.array([0.1, 0.2]))
+    with pytest.raises(ValueError, match="one-dimensional"):
+        tau_from_counts(z, z, z, np.ones(3, bool), np.array([[0.1, 0.2]]))
     with pytest.raises(ValueError, match="active bus"):
         tau_from_counts(z, z, z, np.zeros(3, bool), np.array([0.1, 0.2]))

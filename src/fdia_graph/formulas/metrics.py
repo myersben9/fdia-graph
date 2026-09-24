@@ -43,6 +43,10 @@ def tau_from_counts(
     returns    : the chosen tau
     """
     taus, active = np.asarray(taus), np.asarray(active, bool)
+    if taus.ndim != 1 or active.ndim != 1:
+        raise ValueError(
+            f"taus and active must be one-dimensional, got shapes {taus.shape} and {active.shape}"
+        )
     shape = (len(taus), len(active))
     if not len(taus) or not active.any() or any(np.shape(c) != shape for c in (tp, fp, fn)):
         raise ValueError(f"need [n_taus, N] counts of shape {shape}, a non-empty tau grid and an active bus")
