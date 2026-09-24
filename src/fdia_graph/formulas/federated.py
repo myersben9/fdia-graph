@@ -181,12 +181,22 @@ def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tup
     return np.concatenate([owned, halo]), len(owned)
 
 
+def _index_array(c: np.ndarray, d: int) -> bool:
+    """A one-dimensional integer array of state columns inside 0..d-1."""
+    c = np.asarray(c)
+    if c.ndim != 1 or not np.issubdtype(c.dtype, np.integer):
+        return False
+    return not len(c) or (c.min() >= 0 and c.max() < d)
+
+
 def _check_blocks(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> None:
-    """At least one block, disjoint state columns inside 0..d-1, one basis row per column."""
-    cols = np.concatenate([np.asarray(c) for c, _ in blocks]) if blocks else np.zeros(0, int)
-    inside = not len(cols) or (cols.min() >= 0 and cols.max() < d)
-    if not len(blocks) or len(np.unique(cols)) != len(cols) or not inside:
-        raise ValueError(f"need at least one block, with disjoint state columns inside 0..{d - 1}")
+    """At least one block; each block's columns a 1-D integer array inside 0..d-1, the blocks
+    disjoint; one basis row per column."""
+    if not len(blocks) or not all(_index_array(c, d) for c, _ in blocks):
+        raise ValueError(f"need at least one block of integer state columns inside 0..{d - 1}")
+    cols = np.concatenate([np.asarray(c) for c, _ in blocks])
+    if len(np.unique(cols)) != len(cols):
+        raise ValueError("the blocks' state columns must be disjoint")
     if any(np.ndim(V) != 2 or np.shape(V)[0] != len(c) for c, V in blocks):
         raise ValueError("each basis needs one row per state column of its block")
 

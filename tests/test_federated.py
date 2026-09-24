@@ -361,8 +361,9 @@ def test_block_diagonal_basis_checks_its_blocks():
     assert V.shape == (3, 3) and V[1, 2] == 1 and V[0, 0] == 1 and V[2, 1] == 1
     with pytest.raises(ValueError, match="disjoint"):
         block_diagonal_basis([(np.array([0, 1]), np.eye(2)), (np.array([1]), np.ones((1, 1)))], 3)
-    with pytest.raises(ValueError, match="disjoint"):
-        block_diagonal_basis([(np.array([0, 5]), np.eye(2))], 3)
+    for cols in (np.array([0, 5]), np.array([0.0, 1.0]), np.array([[0, 1]])):
+        with pytest.raises(ValueError, match="integer state columns"):
+            block_diagonal_basis([(cols, np.eye(2))], 3)
     with pytest.raises(ValueError, match="one row per state column"):
         block_diagonal_basis([(np.array([0, 1]), np.eye(3))], 3)
     for flat in (np.ones(2), np.float64(1.0)):  # not a [rows, K] basis
@@ -379,3 +380,14 @@ def test_a_regional_prior_refuses_a_partition_with_gaps(splits):
     gap = Partition(2, np.r_[0, np.full(N - 1, 2)], np.zeros((2, N), bool), np.zeros((2, N), bool), 0)
     with pytest.raises(ValueError, match="number its clients 0..1"):
         RegionalPrior(gap).fit(splits["train"])
+
+
+def test_check_partition_wants_integer_labels(splits):
+    from fdia_graph.federated import check_partition
+    from fdia_graph.models.federated import Partition
+
+    N = splits["train"].N
+    z = np.zeros((2, N), bool)
+    for a in (np.r_[np.zeros(N - 1), 1.0], np.zeros((1, N), int)):
+        with pytest.raises(ValueError, match="1-D integer array"):
+            check_partition(Partition(2, a, z, z, 0), N)

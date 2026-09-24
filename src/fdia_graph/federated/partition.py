@@ -100,6 +100,9 @@ def compute_nodes(p: Partition, edge_index: np.ndarray, k: int, halo: int = 0) -
 def check_partition(p: Partition, N: int) -> None:
     """A Partition fit for a system of N buses: one client per bus, the clients numbered 0..K-1 with
     none empty (a hand-built Partition is not checked by its constructor)."""
+    a = np.asarray(p.assignment)
+    if a.ndim != 1 or not np.issubdtype(a.dtype, np.integer):
+        raise ValueError(f"the partition's assignment must be a 1-D integer array, got {a.dtype} {a.shape}")
     if len(p.assignment) != N:
         raise ValueError(f"the partition covers {len(p.assignment)} buses, the system has {N}")
     labels = np.unique(p.assignment)
