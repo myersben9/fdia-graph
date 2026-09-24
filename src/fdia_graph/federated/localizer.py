@@ -177,7 +177,7 @@ class FederatedLocalizer(LearnedLocalizer):
             )
             c.rng = self._rng_state() if k == 0 else self._seeded_rng_state(self.seed + k)
             Xs = ((X - self.mu) / self.sd).astype(np.float32)
-            c.Xt, c.Yt = c.trainer.stage(Xs, np.ascontiguousarray(Y[:, nodes]))
+            c.Xt, c.Yt = c.trainer.stage(Xs, np.ascontiguousarray(Y[:, nodes[:owned]]))  # own labels only
             clients.append(c)
         return clients
 

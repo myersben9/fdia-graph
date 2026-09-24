@@ -298,3 +298,16 @@ def test_a_two_client_fit_is_reproducible_and_leaves_no_client_stream_shared(zs)
         assert not torch.equal(c0.rng[0], c1.rng[0])  # two streams, not one
     finally:
         torch.use_deterministic_algorithms(was)
+
+
+def test_a_halo_client_gets_context_features_but_only_its_own_labels(zs):
+    pytest.importorskip("torch")
+    from fdia_graph.federated import partition_from_assignment
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    tr, va, _ = zs
+    part = partition_from_assignment(PAPER_14[2][0], tr.edge_index_np)
+    loc = FedBusMLP(K=2, partition=part, halo=1, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+    for c in loc._clients:
+        assert len(c.nodes) > c.owned  # the halo is there as features
+        assert tuple(c.Xt.shape[1:2]) == (len(c.nodes),) and tuple(c.Yt.shape[1:]) == (c.owned,)
