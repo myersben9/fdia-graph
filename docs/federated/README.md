@@ -31,6 +31,10 @@ and the run script refuses to fit otherwise.
 
 ## Results
 
+These runs used the earlier Jacobian block, whose change was taken against the previous frame's true
+state; the block now reads only observed data (the previous frame's estimate), and these tables are
+pending a rerun on it.
+
 Zero-shot: train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in
 training. F1, DR and FR are the paper's per-bus macro scores over the attackable buses, mean and
 standard deviation over seeds 123, 124 and 125. Every run is in `results/runs/`, the aggregates in

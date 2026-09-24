@@ -15,7 +15,10 @@ the public API, the generated files and the numbers are the same as the previous
   `JacobianWeighting` follow; a record shard is refused (its rows are not consecutive frames). On
   the tiny timeline `JacobianWeighting` moves in the fourth significant digit; the stealthy re-solve
   now raises the explained energy at an episode's first frame, as the temporal features do. A test
-  rewrites the clean layer and checks the features do not change.
+  rewrites the clean layer and checks the features do not change. The guides' Jacobian rows are
+  rerun on it: the zero-shot CNN with the Jacobian block reads 0.820, 0.809 and 0.812 on IEEE-14, 118
+  and 300 (0.873, 0.896 and 0.840 with the truth reference), its gain now on the unseen `As` and `Ar`
+  rather than on `Aq`; the federated guide's tables are marked pending a rerun.
 - Docs: the SE, localization and trust guides rerun on the v0.8.1 timelines, every table and quoted
   number regenerated from the new JSON. Directions that changed: the CNN gate now lowers the
   estimator's error on IEEE-14 (0.049 to 0.044) and 300, residual removal beats WLS on 300, and the
