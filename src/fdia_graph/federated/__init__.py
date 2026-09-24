@@ -14,7 +14,13 @@ from __future__ import annotations
 
 from ..models.federated import Partition, RoundLog
 from .localizer import FedBusCNN, FedBusMLP, FederatedLocalizer
-from .partition import bus_adjacency, compute_nodes, partition_from_assignment, spectral_partition
+from .partition import (
+    bus_adjacency,
+    check_partition,
+    compute_nodes,
+    partition_from_assignment,
+    spectral_partition,
+)
 from .se import RegionalPrior
 
 __all__ = [
@@ -25,6 +31,7 @@ __all__ = [
     "RegionalPrior",
     "RoundLog",
     "bus_adjacency",
+    "check_partition",
     "compute_nodes",
     "partition_from_assignment",
     "spectral_partition",

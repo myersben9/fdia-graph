@@ -22,6 +22,7 @@ from ..formulas.estimation import whitened_svd_basis
 from ..formulas.federated import block_diagonal_basis
 from ..models.federated import Partition
 from ..se.methods import SubspacePrior
+from .partition import check_partition
 
 
 class RegionalPrior(SubspacePrior):
@@ -43,10 +44,7 @@ class RegionalPrior(SubspacePrior):
         return np.concatenate([angles, len(self.keep) + own])
 
     def _fit_states(self, x_benign: np.ndarray) -> None:
-        if len(self.partition.assignment) != self.N:
-            raise ValueError(
-                f"the partition covers {len(self.partition.assignment)} buses, the system has {self.N}"
-            )
+        check_partition(self.partition, self.N)
         blocks = []
         for k in range(self.partition.K):
             cols = self.state_columns(k)

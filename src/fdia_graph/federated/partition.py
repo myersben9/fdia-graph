@@ -95,3 +95,13 @@ def compute_nodes(p: Partition, edge_index: np.ndarray, k: int, halo: int = 0) -
     """Client k's compute buses, its own first and then a `halo`-hop ring of other clients' buses
     as read-only context, and the number of its own buses (`formulas.federated.halo_nodes`)."""
     return halo_nodes(p.assignment, bus_adjacency(edge_index, len(p.assignment)), k, halo)
+
+
+def check_partition(p: Partition, N: int) -> None:
+    """A Partition fit for a system of N buses: one client per bus, the clients numbered 0..K-1 with
+    none empty (a hand-built Partition is not checked by its constructor)."""
+    if len(p.assignment) != N:
+        raise ValueError(f"the partition covers {len(p.assignment)} buses, the system has {N}")
+    labels = np.unique(p.assignment)
+    if not np.array_equal(labels, np.arange(p.K)):
+        raise ValueError(f"the partition must number its clients 0..{p.K - 1}, got {labels.tolist()}")

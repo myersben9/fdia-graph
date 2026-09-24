@@ -29,7 +29,7 @@ from ..formulas.metrics import perbus_counts, tau_from_counts
 from ..localization.learned import BusCNN, BusMLP, LearnedLocalizer, LocalTrainer, predict, standardization
 from ..models.federated import Partition, RoundLog
 from .aggregate import fedavg_state, state_bytes
-from .partition import compute_nodes, spectral_partition
+from .partition import check_partition, compute_nodes, spectral_partition
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -127,13 +127,7 @@ class FederatedLocalizer(LearnedLocalizer):
         torch = self._torch_seeded()
         ei = ds.edge_index_np
         self._part = self.partition or spectral_partition(ei, int(ds.N), self.K)
-        labels = np.unique(self._part.assignment)
-        if not np.array_equal(labels, np.arange(self.K)):
-            raise ValueError(f"the partition must number its clients 0..{self.K - 1}, got {labels.tolist()}")
-        if len(self._part.assignment) != int(ds.N):
-            raise ValueError(
-                f"the partition covers {len(self._part.assignment)} buses, the dataset has {ds.N}"
-            )
+        check_partition(self._part, int(ds.N))
         views = [compute_nodes(self._part, ei, k, self.halo) for k in range(self.K)]
         blocks, moments = [], []
         for k, (nodes, owned) in enumerate(views):  # one client's grid-wide block at a time

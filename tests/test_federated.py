@@ -365,3 +365,14 @@ def test_block_diagonal_basis_checks_its_blocks():
         block_diagonal_basis([(np.array([0, 5]), np.eye(2))], 3)
     with pytest.raises(ValueError, match="one row per state column"):
         block_diagonal_basis([(np.array([0, 1]), np.eye(3))], 3)
+
+
+def test_a_regional_prior_refuses_a_partition_with_gaps(splits):
+    pytest.importorskip("pandapower")
+    from fdia_graph.federated import RegionalPrior
+    from fdia_graph.models.federated import Partition
+
+    N = splits["train"].N
+    gap = Partition(2, np.r_[0, np.full(N - 1, 2)], np.zeros((2, N), bool), np.zeros((2, N), bool), 0)
+    with pytest.raises(ValueError, match="number its clients 0..1"):
+        RegionalPrior(gap).fit(splits["train"])
