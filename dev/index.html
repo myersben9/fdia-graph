@@ -1548,8 +1548,8 @@ a record table when shuffled, a time series when not.</p>
 <td>runnable baselines, the timeline as sequences, dataset stats</td>
 </tr>
 <tr>
-<td><a href="se/"><code>docs/se/</code></a> · <a href="localization/"><code>docs/localization/</code></a></td>
-<td>the two analysis modules, with results</td>
+<td><a href="se/"><code>docs/se/</code></a> · <a href="localization/"><code>docs/localization/</code></a> · <a href="trust/"><code>docs/trust/</code></a></td>
+<td>the analysis modules, with results</td>
 </tr>
 <tr>
 <td><a href="contributing/"><code>CONTRIBUTING.md</code></a></td>
@@ -1757,7 +1757,7 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 </tr>
 <tr>
 <td><code>Al</code></td>
-<td>load redistribution that raises a line's apparent loading, re-solved locally</td>
+<td>load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally</td>
 <td>evades</td>
 <td>same band, load conserved</td>
 </tr>
@@ -1767,14 +1767,19 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 <td>evades</td>
 <td>same band, spread over 60 scans</td>
 </tr>
+<tr>
+<td><code>Ad</code> / <code>As</code> / <code>Ar</code></td>
+<td>meter bias / scaling / replay</td>
+<td>caught</td>
+<td>same band</td>
+</tr>
 </tbody>
 </table>
-<p>| <code>Ad</code> / <code>As</code> / <code>Ar</code> | meter bias / scaling / replay | caught | same band |</p>
-<p>Every stealthy family is a local false state (Wu et al. 2026): the attacker solves the power flow of a
+<p>Every stealthy family is a local false state [WU26]: the attacker solves the power flow of a
 subnetwork around the attack with the boundary voltages held true, writes only that subnetwork's
 meters, and the measurement vector stays consistent with an AC state, so the residual test sees noise.
 The meters written are the tamper masks in the file's <code>attack/</code> group.</p>
-<p><img alt="BDD statistic per family: the three stealthy families sit below the alarm line with benign, the three tampering families sit far above it" src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png" /></p>
+<p><img alt="BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it" src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png" /></p>
 <p><em>Bad-data statistic relative to the alarm threshold, per family. Green families are indistinguishable
 from benign; red ones trip the alarm.</em> Meter error follows an accuracy-class model (per-meter bias
 plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, never accuracy.</p>
@@ -1806,6 +1811,10 @@ plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, n
 <tr>
 <td>Boyaci et al., <em>Joint Detection and Localization of Stealth FDIA</em>, IEEE T-SG, 2022</td>
 <td>protocol</td>
+</tr>
+<tr>
+<td>Wu, Wang, Hu, Ye &amp; Tang, <em>Dynamic PMU configuration for stealthy multi-snapshot FDIA mitigation</em>, IEEE T-SG 17(1), 2026</td>
+<td>local false states, Am, trusted meters</td>
 </tr>
 </tbody>
 </table>
