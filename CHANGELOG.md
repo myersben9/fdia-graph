@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Docs: the SE, localization and trust guides rerun on the v0.8.1 timelines, every table and quoted
+  number regenerated from the new JSON. Directions that changed: the CNN gate now lowers the
+  estimator's error on IEEE-14 (0.049 to 0.044) and 300, residual removal beats WLS on 300, and the
+  zero-shot CNN with the Jacobian block reads 0.873, 0.896 and 0.840.
 - `FedBusCNN` and `FedBusMLP` accept the Jacobian feature sets (`features="full14+jac"`, `"jac"`):
   the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
   is the whole system's estimator applied to every meter's change, computed once centrally per pass
