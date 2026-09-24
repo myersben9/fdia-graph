@@ -51,9 +51,12 @@ from .scores import (
     ErrorPair,
     EstimatorScores,
     FamilyMetrics,
+    GridScores,
     JacobianOutputs,
     LocalizerScores,
     OverallMetrics,
+    PerBusMetrics,
+    PerBusScores,
     TrustScores,
 )
 from .training import OptimConfig
@@ -73,6 +76,9 @@ PUBLIC = (
     "BenignMetrics",
     "FamilyMetrics",
     "JacobianOutputs",
+    "PerBusScores",
+    "PerBusMetrics",
+    "GridScores",
     "LineCandidate",
 )
 
@@ -118,6 +124,9 @@ __all__ = [
     "OverallMetrics",
     "BenignMetrics",
     "FamilyMetrics",
+    "GridScores",
+    "PerBusMetrics",
+    "PerBusScores",
     "LocalizerScores",
     "TrustScores",
     "JacobianOutputs",

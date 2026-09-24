@@ -22,6 +22,7 @@ import numpy as np
 
 from ..formulas.federated import Moments, channel_moments, pool_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
+from ..models.scores import GridScores
 from ..models.training import OptimConfig  # noqa: F401  re-exported beside its user
 from .base import LocalizerBase
 
@@ -198,6 +199,40 @@ class LearnedLocalizer(LocalizerBase):
         if self.attackable_only:
             self.thr[~self._attackable] = np.inf
         return self
+
+    def _grid_score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
+        """A record's grid score: its highest probability over the attackable buses."""
+        p = self._score(d, ds)
+        return p[:, self._attackable].max(axis=1) if self._attackable.any() else np.zeros(len(p))
+
+    def tune_grid_threshold(self, val: FdiaGraph) -> LearnedLocalizer:
+        """The federated paper's grid rule: one tau on the 0.05..0.95 grid maximizing record-level
+        F1 (attacked vs benign) on val, applied to the grid score."""
+        d = self._pull(val, extra=["y"])
+        g, attacked = self._grid_score(d, val), np.asarray(d["y"].any(axis=1))
+        taus = np.linspace(0.05, 0.95, 19)
+        tp, fp, fn = (
+            np.stack(c) for c in zip(*(perbus_counts((g > t)[:, None], attacked[:, None]) for t in taus))
+        )
+        self.grid_tau = tau_from_counts(tp, fp, fn, np.ones(1, bool), taus)
+        return self
+
+    def score_grid(self, ds: FdiaGraph) -> GridScores:
+        """Record-level detection at `grid_tau` (from `tune_grid_threshold`): the benign false-alarm
+        rate and the detection rate, over every attacked record and per family."""
+        from ..dataset import FAMILIES
+
+        if getattr(self, "grid_tau", None) is None:
+            raise ValueError("call tune_grid_threshold(val) first")
+        d = self._pull(ds, extra=["family", "y"])
+        flag, fam = self._grid_score(d, ds) > self.grid_tau, d["family"]
+        by = {n: float(flag[fam == f].mean()) for f, n in FAMILIES.items() if f and (fam == f).any()}
+        return GridScores(
+            tau=float(self.grid_tau),
+            false_alarm=float(flag[fam == 0].mean()) if (fam == 0).any() else 0.0,
+            detection_rate=float(flag[fam != 0].mean()) if (fam != 0).any() else 0.0,
+            by_family=by,
+        )
 
 
 def standardization(parts: list[Moments]) -> tuple[np.ndarray, np.ndarray]:

@@ -52,3 +52,37 @@ def tau_from_counts(
         raise ValueError(f"need [n_taus, N] counts of shape {shape}, a non-empty tau grid and an active bus")
     f1 = perbus_f1_from_counts(tp, fp, fn)[:, active].mean(axis=1)
     return float(taus[int(np.argmax(f1))])
+
+
+def perbus_rates(pred: np.ndarray, truth: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """F1, detection rate and false-alarm rate of every bus over the record axis [KEC25]:
+
+        F1 = 2 TP / (2 TP + FP + FN),   DR = TP / (TP + FN),   FR = FP / (FP + TN)
+
+    with DR and FR taken as 0 where their denominator is 0 (a bus never attacked, or always).
+
+    pred, truth : [n, N] bool
+    returns     : (f1 [N], dr [N], fr [N])
+    """
+    tp, fp, fn = perbus_counts(pred, truth)
+    tn = (~np.asarray(pred, bool) & ~np.asarray(truth, bool)).sum(axis=0).astype(np.float64)
+    return perbus_f1_from_counts(tp, fp, fn), tp / np.maximum(tp + fn, 1.0), fp / np.maximum(fp + tn, 1.0)
+
+
+def average_precision(score: np.ndarray, truth: np.ndarray) -> float:
+    """Area under the precision-recall curve as a step sum over the distinct score thresholds,
+    highest first [DG06]:  AP = sum_n (R_n - R_{n-1}) P_n  (scikit-learn's average_precision_score).
+
+    score : [n] float
+    truth : [n] bool, at least one positive
+    """
+    score, truth = np.asarray(score, np.float64), np.asarray(truth, bool)
+    if score.ndim != 1 or score.shape != truth.shape or not truth.any():
+        raise ValueError("average_precision needs matching 1-D scores and labels with a positive")
+    order = np.argsort(-score, kind="mergesort")
+    s, t = score[order], truth[order]
+    last = np.r_[np.flatnonzero(np.diff(s)), len(s) - 1]  # the last record at each distinct threshold
+    tps = np.cumsum(t)[last].astype(np.float64)
+    precision = tps / (last + 1)
+    recall = tps / tps[-1]
+    return float(np.sum(np.diff(np.r_[0.0, recall]) * precision))

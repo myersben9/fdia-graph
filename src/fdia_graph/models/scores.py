@@ -86,6 +86,50 @@ class LocalizerScores(Bundle):
 
 
 @dataclass(frozen=True, eq=False)
+class PerBusMetrics(Bundle):
+    """One block of per-bus localization metrics at the localizer's thresholds, the federated
+    paper's node-wise table: arrays aligned to `bus_index`, and their means over those buses."""
+
+    bus_index: np.ndarray  # [B] the buses reported
+    threshold: np.ndarray  # [B] each bus's decision threshold
+    f1: np.ndarray  # [B] per-bus F1
+    dr: np.ndarray  # [B] per-bus detection rate
+    fr: np.ndarray  # [B] per-bus false-alarm rate over the negatives counted (see fr_over)
+    auprc: np.ndarray  # [B] per-bus average precision of the score, NaN where never attacked
+    n_pos: np.ndarray  # [B] attacked records per bus
+    macro_f1: float  # mean of f1
+    macro_dr: float  # mean of dr
+    macro_fr: float  # mean of fr
+    macro_auprc: float  # mean of auprc over the buses where it exists (NaN if none)
+
+
+@dataclass(frozen=True, eq=False)
+class PerBusScores(Bundle):
+    """`LocalizerBase.score_perbus`: `all` over every record, and per attacked family the block
+    over that family's records plus the benign ones (the paper's per-type convention)."""
+
+    all: PerBusMetrics  # every record
+    Aq: Optional[PerBusMetrics] = None  # stealthy re-solve attack (+ benign)
+    Ad: Optional[PerBusMetrics] = None  # additive bias (+ benign)
+    As: Optional[PerBusMetrics] = None  # scaling (+ benign)
+    Ar: Optional[PerBusMetrics] = None  # replay (+ benign)
+    At: Optional[PerBusMetrics] = None  # slow ramp (+ benign)
+    Al: Optional[PerBusMetrics] = None  # load redistribution (+ benign)
+    Am: Optional[PerBusMetrics] = None  # multi-snapshot (+ benign)
+
+
+@dataclass(frozen=True, eq=False)
+class GridScores(Bundle):
+    """`LearnedLocalizer.score_grid`: record-level detection, a record flagged when its highest
+    attackable-bus probability exceeds `tau` (tuned on validation for grid F1)."""
+
+    tau: float  # the grid threshold
+    false_alarm: float  # benign records flagged
+    detection_rate: float  # attacked records flagged (every family)
+    by_family: dict  # detection rate per attacked family present
+
+
+@dataclass(frozen=True, eq=False)
 class TrustScores(Bundle):
     """`TrustedMeters.score`: what securing the selected meters does. `cost` is the attack cost
     after each secured meter (the meters the cheapest stealthy attack still has to touch, inf once

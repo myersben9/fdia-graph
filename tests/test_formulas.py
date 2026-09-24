@@ -419,3 +419,28 @@ def test_count_and_moment_formulas_refuse_mismatched_shapes():
         tau_from_counts(z, z, z, np.ones(3, bool), np.array([[0.1, 0.2]]))
     with pytest.raises(ValueError, match="active bus"):
         tau_from_counts(z, z, z, np.zeros(3, bool), np.array([0.1, 0.2]))
+
+
+def test_average_precision_matches_scikit_learn_with_ties():
+    sk = pytest.importorskip("sklearn.metrics")
+    from fdia_graph.formulas.metrics import average_precision
+
+    rng = np.random.default_rng(3)
+    for _ in range(5):
+        score = np.round(rng.random(200), 1)  # many ties
+        truth = rng.random(200) < 0.3
+        assert average_precision(score, truth) == pytest.approx(
+            sk.average_precision_score(truth, score), abs=1e-12
+        )
+    with pytest.raises(ValueError, match="positive"):
+        average_precision(np.ones(3), np.zeros(3, bool))
+
+
+def test_perbus_rates_by_hand():
+    from fdia_graph.formulas.metrics import perbus_rates
+
+    pred = np.array([[1, 0], [1, 0], [0, 0], [1, 1]], bool)
+    truth = np.array([[1, 0], [0, 0], [1, 0], [1, 0]], bool)
+    f1, dr, fr = perbus_rates(pred, truth)
+    # bus 0: TP 2, FP 1, FN 1, TN 0; bus 1: TP 0, FP 1, FN 0, TN 3
+    assert np.allclose(f1, [4 / 6, 0]) and np.allclose(dr, [2 / 3, 0]) and np.allclose(fr, [1.0, 0.25])

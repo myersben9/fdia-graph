@@ -31,7 +31,7 @@ from .federated import (
     pool_moments,
 )
 from .linalg import batched_normal_matrices, condition_number, guarded_inverse
-from .metrics import perbus_counts, perbus_f1_from_counts, tau_from_counts
+from .metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates, tau_from_counts
 from .network import (
     Admittances,
     BranchModel,
@@ -67,6 +67,7 @@ __all__ = [
     "attack_cost",
     "attack_subspace",
     "attackable_affinity",
+    "average_precision",
     "batched_normal_matrices",
     "bias_jitter_split",
     "block_diagonal_basis",
@@ -97,6 +98,7 @@ __all__ = [
     "normalized_residual",
     "perbus_counts",
     "perbus_f1_from_counts",
+    "perbus_rates",
     "pool_moments",
     "ramp_profile",
     "recent_change_scale",
