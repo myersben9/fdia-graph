@@ -146,8 +146,9 @@ class JacobianWeighting(SEBase):
     """Jacobian-informed reweighting: down-weight meters whose scan-to-scan change is physically
     unexplained (Abdulin & Narimani's r_perp), then solve once with those weights.
 
-    r_perp = (I - P_H) dz is the part of the measurement change since the previous clean state that
-    no state change can produce. An in-place corruption leaves a large r_perp on the tampered
+    r_perp = (I - P_H) dz is the part of the measurement change since the previous frame's estimate
+    (dz = z_t - h(x_hat_{t-1}), `se.jacobian.JacobianFeatures`, so a timeline is required) that no
+    state change can produce. An in-place corruption leaves a large r_perp on the tampered
     meters; a stealthy re-solve leaves none, so this arm expects to help on Ad/As/Ar and to match
     WLS on Aq/At/Al. The weight is Huber's, min(1, c / |r_perp_i / sigma_i|), computed from the
     temporal residual rather than from the estimate's own residual, so it needs no reweighting

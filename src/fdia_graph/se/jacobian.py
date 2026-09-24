@@ -25,7 +25,8 @@ meters and incident branch flows:
     5 leverage-weighted change           max over incident meters of l_k |dz_k| / sigma_k
     6 sensitivity-normalised change      max over incident meters of |dz_k| / s_k
     7 weak-direction move                implied move projected on the n_weak weakest directions
-Needs the [se] extra (pandapower + scipy) and the clean layer (a timeline, or a v0.7.2 record shard).
+Needs the [se] extra (pandapower + scipy) and a timeline: the previous frame's readings, and its
+clean layer for the slack angle reference alone. A v0.7.2 record shard is refused.
 """
 
 from __future__ import annotations
@@ -74,8 +75,9 @@ def bus_incidence(est: SEBase, edge_index: np.ndarray) -> list[np.ndarray]:
 
 class JacobianFeatures:
     """Fit on the train split (any fdia_graph.se estimator supplies the physics), then transform
-    any split of the same dataset (a timeline or a v0.7.2 record shard) into per-bus and global
-    Jacobian-informed features.
+    any split of the same timeline into per-bus and global Jacobian-informed features, each frame's
+    change taken against the previous frame's estimate (a v0.7.2 record shard is refused: its rows
+    are not consecutive frames).
 
     n_weak: how many of the weakest observable state directions define the "weak" subspace
     (default: 10 percent of the state dimension, at least 2).
@@ -125,7 +127,9 @@ class JacobianFeatures:
         the slack angle it is referenced to [n]."""
         est = self.est
         zp = est._z_of(d["prev_node_x"], d["prev_edge_x"])
-        thsl = est._truth_of(self._pool[d["prev_timestep"].astype(int)])["thsl"]  # angle reference only
+        # the one truth read: the slack angle, the reference frame every fdia_graph.se estimate is
+        # expressed in (the scored estimators pin it the same way); no other part of the state
+        thsl = est._truth_of(self._pool[d["prev_timestep"].astype(int)])["thsl"]
         x = np.concatenate(
             [est._solve_plain(zp[i : i + chunk], thsl[i : i + chunk]) for i in range(0, len(zp), chunk)]
         )
