@@ -251,6 +251,9 @@ def test_federated_constructor_checks():
         FedBusMLP(kcl="bogus")
     with pytest.raises(ValueError, match="Jacobian"):
         FedBusMLP(features="full14+jac")
+    for bad in (dict(K=2.5), dict(rounds=True), dict(halo=1.0)):
+        with pytest.raises(ValueError, match="must be integers"):
+            FedBusMLP(**bad)
     for bad in (0.0, -1.0, float("nan"), float("inf")):
         with pytest.raises(ValueError, match="grad_clip"):
             FedBusMLP(grad_clip=bad)

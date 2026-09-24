@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import numpy as np
 
 from ..formulas.federated import channel_moments
+from ..formulas.metrics import perbus_counts, tau_from_counts
 from ..localization.learned import BusCNN, BusMLP, LearnedLocalizer, LocalTrainer, predict, standardization
 from ..models.federated import Partition, RoundLog
 from .aggregate import fedavg_state, state_bytes
@@ -46,10 +47,22 @@ class _Client:
     Xt: Any = None
     Yt: Any = None
     rng: Any = None  # the client's own torch RNG state (dropout), carried from run to run
+    attackable: Any = None  # [owned] bool: which of its own buses carry an attack label in its train records
+
+    @property
+    def own(self) -> np.ndarray:
+        """The client's own buses (the first `owned` compute buses)."""
+        return self.nodes[: self.owned]
 
 
 def _check_settings(K: int, rounds: int, local_epochs: int, halo: int, grad_clip: Optional[float]) -> None:
     """The federated knobs a fit cannot recover from."""
+    if not all(
+        isinstance(v, (int, np.integer)) and not isinstance(v, bool) for v in (K, rounds, local_epochs, halo)
+    ):
+        raise ValueError(
+            f"K, rounds, local_epochs and halo must be integers, got {K!r}, {rounds!r}, {local_epochs!r}, {halo!r}"
+        )
     if K < 1 or rounds < 1 or local_epochs < 1 or halo < 0:
         raise ValueError(
             f"need K, rounds, local_epochs >= 1 and halo >= 0, got {K}, {rounds}, {local_epochs}, {halo}"
@@ -132,9 +145,14 @@ class FederatedLocalizer(LearnedLocalizer):
         self.mu, self.sd = standardization(moments)
         Y = d["y"].astype(np.float32)
         self.N = Y.shape[1]
-        self._attackable = d["y"].any(axis=0)  # each client knows its own buses' labels
         self.dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
         self._clients = self._make_clients(blocks, views, Y)
+        # each client finds its own attackable buses in its own labels; the per-bus thresholds that
+        # LearnedLocalizer.fit sets from this mask are each bus's own, so it is assembled, not pooled
+        self._attackable = np.zeros(self.N, bool)
+        for c in self._clients:
+            c.attackable = d["y"][:, c.own].any(axis=0)
+            self._attackable[c.own] = c.attackable
         self.net = self._run_rounds()
         self.net.eval()
 
@@ -213,16 +231,43 @@ class FederatedLocalizer(LearnedLocalizer):
         net.load_state_dict(glob)
         return net
 
+    def _client_scores(self, d: dict[str, np.ndarray], k: int) -> np.ndarray:
+        """Client k's attack probabilities on its own buses [n, owned], from its own features and its
+        own attackable mask."""
+        c = self._clients[k]
+        Xs = ((self._client_features(d, k)[:, c.nodes] - self.mu) / self.sd).astype(np.float32)
+        p = predict(self.net, Xs, self.dev)[:, : c.owned]
+        if self.attackable_only:
+            p[:, ~c.attackable] = 0.0
+        return p
+
     def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
-        """Each client scores its own buses with the global model on its own features; the columns
-        are stitched into one [n, N] matrix."""
+        """Each client scores its own buses; the columns are stitched into one [n, N] matrix."""
         out = np.zeros((len(d["y"]), self.N), np.float64)
         for k, c in enumerate(self._clients):
-            Xs = ((self._client_features(d, k)[:, c.nodes] - self.mu) / self.sd).astype(np.float32)
-            out[:, c.nodes[: c.owned]] = predict(self.net, Xs, self.dev)[:, : c.owned]
-        if self.attackable_only:
-            out[:, ~self._attackable] = 0.0
+            out[:, c.own] = self._client_scores(d, k)
         return out
+
+    def tune_threshold(self, val: FdiaGraph) -> FederatedLocalizer:
+        """The papers' validation tau with labels kept local: each client counts true positives,
+        false positives and false negatives on its own buses at every candidate tau, and only those
+        per-bus counts meet (`formulas.metrics.tau_from_counts`), the same tau as a pooled count."""
+        d = self._pull(val, extra=["y"])
+        taus = np.linspace(0.05, 0.95, 19)
+        tp, fp, fn = (np.zeros((len(taus), self.N)) for _ in range(3))
+        active = np.zeros(self.N, bool)
+        for k, c in enumerate(self._clients):
+            p, t = self._client_scores(d, k), d["y"][:, c.own].astype(bool)
+            for i, tau in enumerate(taus):
+                tp[i, c.own], fp[i, c.own], fn[i, c.own] = perbus_counts(p > tau, t)
+            active[c.own] = t.any(axis=0)
+        if not active.any():
+            raise ValueError("tune_threshold needs attacked records in val")
+        self.tau = tau_from_counts(tp, fp, fn, active, taus)
+        self.thr = np.full(self.N, self.tau)
+        if self.attackable_only:
+            self.thr[~self._attackable] = np.inf
+        return self
 
 
 class FedBusMLP(FederatedLocalizer, BusMLP):
