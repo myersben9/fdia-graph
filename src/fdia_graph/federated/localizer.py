@@ -78,6 +78,10 @@ class FederatedLocalizer(LearnedLocalizer):
             raise ValueError(
                 f"need K, rounds, local_epochs >= 1 and halo >= 0, got {K}, {rounds}, {local_epochs}, {halo}"
             )
+        if grad_clip is not None and not (np.isfinite(grad_clip) and grad_clip > 0):
+            raise ValueError(f"grad_clip must be None or a finite positive norm, got {grad_clip}")
+        if partition is not None and partition.K != K:
+            raise ValueError(f"the partition has {partition.K} clients but K={K}")
         if kcl not in ("local", "global"):
             raise ValueError(f"kcl must be 'local' or 'global', got {kcl!r}")
         if "jac" in self.features:
@@ -103,6 +107,10 @@ class FederatedLocalizer(LearnedLocalizer):
         torch = self._torch_seeded()
         ei = ds.edge_index_np
         self._part = self.partition or spectral_partition(ei, int(ds.N), self.K)
+        if len(self._part.assignment) != int(ds.N):
+            raise ValueError(
+                f"the partition covers {len(self._part.assignment)} buses, the dataset has {ds.N}"
+            )
         blocks = [self._client_features(d, k) for k in range(self.K)]
         # one standardization for everyone: each client's moments over its own buses, pooled
         self.mu, self.sd = standardization(

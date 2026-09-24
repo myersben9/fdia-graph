@@ -251,3 +251,19 @@ def test_federated_constructor_checks():
         FedBusMLP(kcl="bogus")
     with pytest.raises(ValueError, match="Jacobian"):
         FedBusMLP(features="full14+jac")
+    for bad in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="grad_clip"):
+            FedBusMLP(grad_clip=bad)
+    three = partition_from_assignment(np.array([0, 1, 2]), np.array([[0, 1], [1, 2]]))
+    with pytest.raises(ValueError, match="3 clients but K=2"):
+        FedBusMLP(K=2, partition=three)
+
+
+def test_a_partition_of_another_grid_is_refused(zs):
+    pytest.importorskip("torch")
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    tr, va, _ = zs
+    small = partition_from_assignment(np.array([0, 0, 1]), np.array([[0, 1], [1, 2]]))
+    with pytest.raises(ValueError, match="covers 3 buses"):
+        FedBusMLP(K=2, partition=small, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)

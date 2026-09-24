@@ -24,11 +24,10 @@ class Partition(NamedTuple):
 
 
 class RoundLog(NamedTuple):
-    """One federated round: the clients' mean local training loss, each client's, and the bytes
-    the round moved (every client's weights up to the server and the average back down)."""
+    """One federated round of FedAvg."""
 
-    round: int
-    loss_mean: float
-    loss_per_client: list[float]
-    bytes_up: int
-    bytes_down: int
+    round: int  # 0-based round index
+    loss_mean: float  # mean over clients of each client's mean batch loss in its last local epoch
+    loss_per_client: list[float]  # that loss per client, in client order
+    bytes_up: int  # every client's weights sent to the server: K x the model's state-dict bytes
+    bytes_down: int  # the averaged weights sent back to every client: K x the same
