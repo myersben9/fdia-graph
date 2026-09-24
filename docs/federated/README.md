@@ -7,10 +7,11 @@ the 14-dim per-bus vector plus the Jacobian block.
 import fdia_graph as fg
 from fdia_graph.federated import FedBusCNN
 
-zs = dict(families=[0, 1, 2])  # benign + Aq + Ad
+rel = dict(release="v0.8.1")  # the release these results are on
+zs = dict(families=[0, 1, 2], **rel)  # benign + Aq + Ad
 train = fg.load("ieee118", split="train", **zs)
 val = fg.load("ieee118", split="val", **zs)
-test = fg.load("ieee118", split="test", families=[0, 1, 2, 3, 4])  # adds As and Ar
+test = fg.load("ieee118", split="test", families=[0, 1, 2, 3, 4], **rel)  # adds As and Ar
 
 loc = FedBusCNN(K=3, rounds=60, local_epochs=3, features="full14+jac").fit(train, val=val)
 tab = loc.score_perbus(test, buses="attackable", fr_over="all")  # the paper's Table IV block
@@ -74,9 +75,9 @@ Per-bus F1 by attack family, row labels carrying each row's FR over every record
 
 | reading | evidence | open case |
 |---|---|---|
-| federating costs little | from one client to three the CNN moves 0.878 to 0.850 on IEEE-14 and holds 0.899 to 0.904 on 118 and 0.847 to 0.861 on 300 | the MLP loses 2 to 3 points on 118 and 300 as K grows |
-| the CNN is the arm to deploy | it leads the per-bus MLP at every K on every system, most on `Aq` and `As`, at FR below 0.001 on 118 and 300 | the MLP is a third of the parameters (52k against 154k) for 1 to 4 points of F1 |
-| the stealthy re-solve falls with size | `Aq` node F1 is about 0.65, 0.39 and 0.20 on 14, 118 and 300 while `Ad`, `As` and `Ar` stay at or above 0.55 | a sustained local false state inside an episode, the same frontier as in [`../localization/README.md`](../localization/README.md) |
+| federating costs little | from one client to three the CNN moves 0.878 to 0.850 on IEEE-14 and holds 0.899 to 0.904 on 118 and 0.847 to 0.861 on 300 | the MLP loses 1 to 3 points on 118 and 300 as K grows |
+| the CNN is the arm to deploy | its macro F1 leads the per-bus MLP's at every K on every system, at FR below 0.001 on 118 and 300 | the MLP is a third of the parameters (52k against 154k) for 1 to 5 points of F1, and matches the CNN on `Aq` at K = 1 on 300 |
+| the stealthy re-solve falls with size | `Aq` node F1 is about 0.65, 0.39 and 0.20 on 14, 118 and 300 while `Ad`, `As` and `Ar` stay at or above 0.53 | a sustained local false state inside an episode, the same frontier as in [`../localization/README.md`](../localization/README.md) |
 
 The papers report CNN macro F1 of 0.963, 0.963 and 0.952 on the v0.4.1 record shards, and the SDK
 reproduces them within half a point on the v0.7.2 shards. On a timeline the 14-dim vector alone
