@@ -108,7 +108,7 @@ class LocalizerBase:
         buses that family attacks, per-sample macro-F1, and the record-level detection rate (any
         bus flagged). For benign: the record-level false-alarm rate and the mean per-bus alarm rate
         (which fit calibrated to fa_target). The "all" entry is always present and pools every
-        record, benign included; its macro_f1 (per-bus F1 averaged over attackable buses) is the
+        record, benign included; its macro_f1 (per-bus F1 averaged over the active buses) is the
         papers' headline number, and reads 0.0 when the dataset holds no attacked bus at all.
         """
         from ..dataset import FAMILIES
@@ -216,8 +216,8 @@ def perbus_block(
 
 def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> OverallMetrics:
     """Pooled over every record, benign included: the papers' per-bus macro scores over the
-    attackable set (F1 and recall accumulate over every record, the false-positive rate over
-    benign records only) and the micro node F1. macro_f1 reads 0.0 when no bus is ever attacked."""
+    active set, the buses attacked somewhere in these records (F1 and recall accumulate over every
+    record, the false-positive rate over benign records only) and the micro node F1. macro_f1 reads 0.0 when no bus is ever attacked."""
     act = y.any(axis=0)
     tp = (pred & y).sum(axis=0).astype(np.float64)
     fn = (~pred & y).sum(axis=0).astype(np.float64)

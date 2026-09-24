@@ -19,8 +19,8 @@ rep  = loc.score(test)                             # per-family metrics + benign
 | | |
 |---|---|
 | shared | metrics and the benign-quantile calibration in `LocalizerBase`; a threshold arm changes only the per-bus score, a learned arm also overrides `fit` to train on every record and, given `val`, the threshold |
-| budget | every method runs at the same false-alarm rate, set on benign records; the one exception is a learned arm given `val`, which picks one global validation-best threshold from labelled records (the papers' zero-shot protocol) |
-| `"all"` entry | pools every record; the papers' per-bus macro F1, DR and FR over the attackable buses |
+| budget | every method is calibrated to the same false-alarm target (`fa_target`), set per bus on benign training records, and the measured test FR differs by method; the one exception is a learned arm given `val`, which picks one global validation-best threshold from labelled records (the papers' zero-shot protocol) |
+| `"all"` entry | pools every record; the papers' per-bus macro F1, DR and FR over the buses attacked somewhere in the scored split |
 
 ## The methods
 
@@ -42,8 +42,8 @@ The learned arms train on the records they are given, so the protocol is the loa
 | zero-shot (the paper's) | benign + `Aq` + `Ad` | adds `As` and `Ar`, never seen in training | learned arms validation-best; swing keeps its benign calibration |
 | common | every family, unfiltered | the full split | benign quantile at `fa_target=0.01` for every method |
 
-F1, DR and FR are the paper's per-bus macro scores over the attackable buses (F1 and recall over
-every test record, FR the per-bus false-positive rate on benign records); full metrics in
+F1, DR and FR are the paper's per-bus macro scores, averaged over the buses attacked somewhere in the
+test split (F1 and recall over every test record, FR the per-bus alarm rate on benign records); full metrics in
 `results/loc_ieee{14,118,300}.json`. Bold marks the papers' headline localizer, not the best cell.
 
 **Zero-shot protocol**
