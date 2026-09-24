@@ -73,7 +73,8 @@ def bus_incidence(est: SEBase, edge_index: np.ndarray) -> list[np.ndarray]:
 
 class JacobianFeatures:
     """Fit on the train split (any fdia_graph.se estimator supplies the physics), then transform
-    any split of the same shard into per-bus and global Jacobian-informed features.
+    any split of the same dataset (a timeline or a v0.7.2 record shard) into per-bus and global
+    Jacobian-informed features.
 
     n_weak: how many of the weakest observable state directions define the "weak" subspace
     (default: 10 percent of the state dimension, at least 2).

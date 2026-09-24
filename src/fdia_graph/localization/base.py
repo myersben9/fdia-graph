@@ -31,7 +31,7 @@ from ..models.scores import (  # noqa: F401  re-exported: defined here before th
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
 
-# Per-record fields that only exist on newer shards, and the FdiaGraph flag that says so — checked
+# Per-record fields that only exist on newer datasets, and the FdiaGraph flag that says so — checked
 # up front so a missing field is a clear message instead of an h5py KeyError mid-read.
 _FIELD_FLAG = {"swing": "has_swing", "temporal_delta": "has_temporal", "clean": "has_clean"}
 
@@ -74,7 +74,7 @@ class LocalizerBase:
         for k in want:
             flag = _FIELD_FLAG.get(k)
             if flag is not None and not getattr(ds, flag):
-                raise ValueError(f"dataset has no '{k}' field; this method needs a newer shard")
+                raise ValueError(f"dataset has no '{k}' field; this method needs a newer dataset")
         return ds.export(want)
 
     # ---- fitting ----------------------------------------------------------------------------

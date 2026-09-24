@@ -185,7 +185,7 @@ class SEBase:
         LUT = torch.tensor(self._lut)
         return torch.cat([V, -Sb.real[:, LUT], -Sb.imag[:, LUT], th, Sf.real, Sf.imag], dim=1)
 
-    # ---- data conversion (physical shard units -> internal pu/rad) --------------------------
+    # ---- data conversion (physical dataset units -> internal pu/rad) --------------------------
     def _z_of(self, node_x: np.ndarray, edge_x: np.ndarray) -> np.ndarray:
         b = self.baseMVA
         z = np.concatenate(
@@ -218,7 +218,7 @@ class SEBase:
         tr = self._truth_of(d["clean"][ben])
         self._fit_states(tr["x"])  # hook: subclasses learn their prior here
         self.xmean = tr["x"].mean(axis=0)
-        # meter sigma = rms of benign residual AT THE TRUE STATE. The shard's meter error is a
+        # meter sigma = rms of benign residual AT THE TRUE STATE. The dataset's meter error is a
         # constant bias plus jitter; a std across records cancels the bias and mis-weights, so the
         # total error about zero (the accuracy class) is the correct scale. The calibration records
         # are spread evenly over the benign set: on a timeline the first ones are one early stretch

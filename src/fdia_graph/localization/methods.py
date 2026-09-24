@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class SwingThreshold(LocalizerBase):
     """The temporal-spike detector: score = the bus's windowed relative-swing magnitude.
 
-    The shard's swing feature is each scan's injection change as a z-score of the bus's typical
+    The dataset's swing feature is each scan's injection change as a z-score of the bus's typical
     recent change, so any attack edit that exceeds the noise floor appears as a spike the moment it
     starts — including the BDD-stealthy re-solve families. The one family built to defeat it is the
     slow ramp At, which stays inside typical per-scan change by construction.

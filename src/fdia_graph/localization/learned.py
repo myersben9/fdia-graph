@@ -118,7 +118,7 @@ class LearnedLocalizer(LocalizerBase):
     # ---- LocalizerBase hooks --------------------------------------------------------------
     def _fields(self) -> list[str]:
         # Only what the chosen feature set reads: measurement-only and Jacobian-only models run on
-        # shards without the temporal fields; the Jacobian block needs the record timestep.
+        # datasets without the temporal fields; the Jacobian block needs the record timestep.
         f = ["node_x", "node_m", "edge_x", "y"]
         if "full14" in self.features:
             f += ["temporal_delta", "swing"]
