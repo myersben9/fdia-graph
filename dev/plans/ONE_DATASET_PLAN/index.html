@@ -1760,7 +1760,7 @@ PR as the writer (step 1) so the eight systems are generated once.</p>
    <code>stealthy</code> flag (proposed: yes, it is re-solved every frame).</p>
 </li>
 <li>
-<p>Keep single-shot families as length-1 episodes (a knob, default on) so <code>Ad</code>/<code>As</code>/<code>Ar</code> records stay independent draws as in the papers, or let every family run as episodes. Implemented as <code>corrupt_len=1</code>: the corrupt-in-place families <code>Ad</code>/<code>As</code>/<code>Ar</code> are one-frame draws; <code>Aq</code> and <code>Al</code> keep their episode bands (their onset is the temporal signal the SE work reads), <code>At</code> and <code>Am</code> are ramps.</p>
+<p>Keep single-shot families as length-1 episodes (a knob, default on) so <code>Ad</code>/<code>As</code>/<code>Ar</code> records stay independent draws as in the papers, or let every family run as episodes. Implemented as <code>corrupt_len=1</code>: the corrupt-in-place families <code>Ad</code>/<code>As</code>/<code>Ar</code> are one-frame draws; <code>Aq</code> and <code>Al</code> keep their episode bands (their onset is the temporal signal the SE work reads), <code>At</code> and <code>Am</code> are ramps. Revised in 0.20: <code>Aq</code> is a single-snapshot attack, so every <code>Aq</code> episode is one frame (no knob); <code>Al</code> keeps its band, <code>At</code> and <code>Am</code> stay the multi-snapshot families.</p>
 </li>
 <li>Frame count per system: 72,000 as today (one pool pass), or more.</li>
 <li>Compression: gzip 4 (smaller files, slower first read) or none (the 300-bus file grows to about 4 GB).</li>
