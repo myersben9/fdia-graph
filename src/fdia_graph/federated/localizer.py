@@ -3,9 +3,10 @@
 
 Each client (a utility) holds every training record but reads only its own buses: its features are
 built from its own meters (`kcl="local"`, the default, recomputes the power-balance channel from the
-flow meters the client owns, the from-bus end of each branch), its loss covers only its own buses,
-and a CNN convolves over its own buses in bus order (plus an optional read-only halo of other
-clients' buses after them). What crosses a client boundary: the per-channel moments once (for one
+flow meters the client owns, the from-bus end of each branch; the other channels are each bus's own
+readings and their scan-to-scan change), its loss covers only its own buses, and a CNN convolves
+over its own buses in bus order. `halo > 0` is the one opt-in exception: a client then also reads
+the halo buses' own meters as read-only context, placed after its own buses. What crosses a client boundary: the per-channel moments once (for one
 standardization), the model weights every round (one average), and the per-bus confusion counts
 once (for the paper's validation threshold). All three are the formulas of `formulas.federated` and
 `formulas.metrics`.
@@ -113,6 +114,9 @@ class FederatedLocalizer(LearnedLocalizer):
         torch = self._torch_seeded()
         ei = ds.edge_index_np
         self._part = self.partition or spectral_partition(ei, int(ds.N), self.K)
+        labels = np.unique(self._part.assignment)
+        if not np.array_equal(labels, np.arange(self.K)):
+            raise ValueError(f"the partition must number its clients 0..{self.K - 1}, got {labels.tolist()}")
         if len(self._part.assignment) != int(ds.N):
             raise ValueError(
                 f"the partition covers {len(self._part.assignment)} buses, the dataset has {ds.N}"

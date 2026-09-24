@@ -265,6 +265,12 @@ def test_a_partition_of_another_grid_is_refused(zs):
 
     tr, va, _ = zs
     small = partition_from_assignment(np.array([0, 0, 1]), np.array([[0, 1], [1, 2]]))
+    from fdia_graph.models.federated import Partition
+
+    N = tr.N
+    odd = Partition(2, np.r_[np.zeros(N - 1, int), 5], np.zeros((2, N), bool), np.zeros((2, N), bool), 0)
+    with pytest.raises(ValueError, match="number its clients 0..1"):
+        FedBusMLP(K=2, partition=odd, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
     with pytest.raises(ValueError, match="covers 3 buses"):
         FedBusMLP(K=2, partition=small, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
 
