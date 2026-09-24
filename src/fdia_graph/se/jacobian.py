@@ -2,8 +2,11 @@
 of the scan-to-scan measurement change, not as raw model input.
 
 For a record with measurements z_t, the change dz = z_t - h(x_{t-1}) is taken against the exact
-measurement prediction of the previous clean state (the shard stores the clean pool per timestep;
-this is the same construction as the shard's temporal_delta). The chord Jacobian H at the benign
+measurement prediction of the previous pool timestep's clean state, read from the dataset's clean
+layer. On a v0.7.2 record shard that is the construction of the shard's temporal_delta. On a
+timeline it is not the localizers' temporal features, which compare each frame with the previously
+emitted (noisy, possibly attacked) frame: here the reference is the noiseless, attack-free truth,
+which an operator does not have (a deployed version would use the previous estimate). The chord Jacobian H at the benign
 mean state, the meter weights W and the measurement mask all come from a fitted fdia_graph.se
 estimator, so the physics here is the estimator's physics.
 
