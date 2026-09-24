@@ -65,8 +65,10 @@ from .schema import Attr
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
 DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 
-# Per-family episode-length band (frames): Aq, Ad, As, Ar, Al (the upper end excluded).
-_EP_LEN = {1: (15, 45), 2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
+# Per-family episode-length band (frames): Ad, As, Ar, Al (the upper end excluded). Aq is a
+# single-snapshot attack: every Aq episode is one frame.
+_EP_LEN = {2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
+_AQ = 1  # the stealthy re-solve's family id, always a one-frame episode
 _ONSET_DRAWS = 40  # designs an episode (Aq, At, Am) tries for one with a stealthy state on its frames
 _AM_DRAWS = _ONSET_DRAWS  # the Am redistribution draws, the same budget
 
@@ -473,7 +475,7 @@ class _Schedule:
         cls, fams: list[int], ramp_len: int, ramp_rate: float, am, corrupt_len, attacked_frac
     ) -> _Schedule:
         expected = {f: float(np.mean(_EP_LEN.get(f, (1, 1)))) for f in fams}
-        expected.update({RAMP_FAMILY: float(ramp_len), AM_FAMILY: float(am[0])})
+        expected.update({RAMP_FAMILY: float(ramp_len), AM_FAMILY: float(am[0]), _AQ: 1.0})
         for f in CORRUPT_KIND:
             if corrupt_len is not None:
                 expected[f] = float(corrupt_len)
@@ -481,8 +483,10 @@ class _Schedule:
         return cls(fams, w / w.sum() if len(w) else w, ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
 
     def length_of(self, fid: int, rng: np.random.Generator) -> int:
-        """The frames an episode of `fid` takes: the ramp lengths for At and Am, `corrupt_len` for
-        Ad/As/Ar when set, else a draw from the family's band."""
+        """The frames an episode of `fid` takes: one for Aq, the ramp lengths for At and Am,
+        `corrupt_len` for Ad/As/Ar when set, else a draw from the family's band."""
+        if fid == _AQ:
+            return 1
         if fid == RAMP_FAMILY:
             return self.ramp_len
         if fid == AM_FAMILY:

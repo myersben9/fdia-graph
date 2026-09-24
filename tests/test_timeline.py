@@ -106,6 +106,8 @@ def test_episodes_index_the_frames(timeline):
     assert sorted(np.unique(seq[seq >= 0]).tolist()) == list(range(len(onset)))
     # corrupt-in-place families are independent one-frame draws by default (corrupt_len=1)
     assert (length[np.isin(efam, list(CORRUPT_KIND))] == 1).all()
+    # Aq is a single-snapshot attack: every Aq episode is one frame
+    assert (efam == 1).any() and (length[efam == 1] == 1).all()
 
 
 def test_episodes_are_placed_at_random_without_overlap(timeline):
