@@ -26,7 +26,15 @@ import numpy as np
 
 from ..formulas.federated import channel_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
-from ..localization.learned import BusCNN, BusMLP, LearnedLocalizer, LocalTrainer, predict, standardization
+from ..localization.learned import (
+    BusCNN,
+    BusMLP,
+    LearnedLocalizer,
+    LocalTrainer,
+    full14,
+    predict,
+    standardization,
+)
 from ..models.federated import Partition, RoundLog
 from .aggregate import fedavg_state, state_bytes
 from .partition import check_partition, compute_nodes, spectral_partition
@@ -104,8 +112,6 @@ class FederatedLocalizer(LearnedLocalizer):
             raise ValueError(f"the partition has {partition.K} clients but K={K}")
         if kcl not in ("local", "global"):
             raise ValueError(f"kcl must be 'local' or 'global', got {kcl!r}")
-        if "jac" in self.features:
-            raise ValueError("the Jacobian features need the whole system's estimator, which no client has")
         self.K, self.rounds, self.local_epochs = K, rounds, local_epochs
         self.partition, self.halo, self.grad_clip, self.kcl = partition, halo, grad_clip, kcl
         self.epochs = rounds * local_epochs  # the local passes over the data each client makes
@@ -114,18 +120,43 @@ class FederatedLocalizer(LearnedLocalizer):
     # ---- features per client --------------------------------------------------------------
     def _client_features(self, d: dict[str, np.ndarray], k: int) -> np.ndarray:
         """Client k's raw feature block [n, N, F]: with kcl="local" the power balance counts only
-        the flows metered at buses the client owns (the from-bus end of each branch)."""
-        if self.kcl == "global" or self.features == "meas":
+        the flows metered at buses the client owns (the from-bus end of each branch). The Jacobian
+        block of the "jac" feature sets is the one exception to client-local features: it is the
+        whole system's estimator applied to every meter's change, computed once centrally."""
+        if self.features == "meas":
             return self._features(d)
-        own_edge = self._part.assignment[d["edge_index"][0]] == k
-        local = dict(d)
-        local["edge_x"] = d["edge_x"] * own_edge[None, :, None]
-        return self._features(local)
+        local = d
+        if self.kcl == "local":
+            own_edge = self._part.assignment[d["edge_index"][0]] == k
+            local = dict(d)
+            local["edge_x"] = d["edge_x"] * own_edge[None, :, None]
+        if "jac" not in self.features:
+            return self._features(local)
+        jac = self._jac_block(d)
+        return jac if self.features == "jac" else np.concatenate([full14(local), jac], -1)
+
+    def _check_units(self, ds: FdiaGraph) -> None:
+        """The Jacobian block converts physical units itself, so a per-unit view is refused."""
+        if "jac" in self.features:
+            from ..se.base import require_physical
+
+            require_physical(ds)
+
+    def _jac_block(self, d: dict[str, np.ndarray]) -> np.ndarray:
+        """The per-bus Jacobian block [n, N, 8] of these records, computed once for every client."""
+        key = (id(d), len(d["y"]))
+        if getattr(self, "_jac_cache", (None,))[0] != key:
+            self._jac_cache = (key, self._jac.transform(d)["bus"])
+        return self._jac_cache[1]
 
     # ---- LocalizerBase hooks --------------------------------------------------------------
     def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         torch = self._torch_seeded()
         ei = ds.edge_index_np
+        if "jac" in self.features:  # the central estimator's physics, fitted on this split
+            from ..se.jacobian import JacobianFeatures
+
+            self._jac = JacobianFeatures().fit(ds)
         self._part = self.partition or spectral_partition(ei, int(ds.N), self.K)
         check_partition(self._part, int(ds.N))
         views = [compute_nodes(self._part, ei, k, self.halo) for k in range(self.K)]
@@ -237,6 +268,7 @@ class FederatedLocalizer(LearnedLocalizer):
 
     def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
         """Each client scores its own buses; the columns are stitched into one [n, N] matrix."""
+        self._check_units(ds)
         out = np.zeros((len(d["y"]), self.N), np.float64)
         for k, c in enumerate(self._clients):
             out[:, c.own] = self._client_scores(d, k)
@@ -246,6 +278,7 @@ class FederatedLocalizer(LearnedLocalizer):
         """The papers' validation tau with labels kept local: each client counts true positives,
         false positives and false negatives on its own buses at every candidate tau, and only those
         per-bus counts meet (`formulas.metrics.tau_from_counts`), the same tau as a pooled count."""
+        self._check_units(val)
         d = self._pull(val, extra=["y"])
         taus = np.linspace(0.05, 0.95, 19)
         tp, fp, fn = (np.zeros((len(taus), self.N)) for _ in range(3))

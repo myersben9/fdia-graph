@@ -253,8 +253,6 @@ def test_federated_constructor_checks():
         FedBusMLP(epochs=5)
     with pytest.raises(ValueError, match="kcl"):
         FedBusMLP(kcl="bogus")
-    with pytest.raises(ValueError, match="Jacobian"):
-        FedBusMLP(features="full14+jac")
     for bad in (dict(K=2.5), dict(rounds=True), dict(halo=1.0)):
         with pytest.raises(ValueError, match="must be integers"):
             FedBusMLP(**bad)
@@ -391,3 +389,29 @@ def test_check_partition_wants_integer_labels(splits):
     for a in (np.r_[np.zeros(N - 1), 1.0], np.zeros((1, N), int)):
         with pytest.raises(ValueError, match="1-D integer array"):
             check_partition(Partition(2, a, z, z, 0), N)
+
+
+def test_the_jacobian_feature_set_federates_with_one_central_block(zs):
+    """full14+jac: the 14 channels stay per client (local KCL), the Jacobian block is the central
+    estimator's, identical for every client; one client equals the centralized CNN."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("pandapower")
+    from fdia_graph.federated.localizer import FedBusCNN
+    from fdia_graph.localization import BusCNN
+
+    was = torch.are_deterministic_algorithms_enabled()
+    torch.use_deterministic_algorithms(True)
+    try:
+        tr, va, te = zs
+        c = BusCNN(features="full14+jac", epochs=2, device="cpu").fit(tr, val=va)
+        f = FedBusCNN(K=1, rounds=2, local_epochs=1, grad_clip=None, features="full14+jac", device="cpu").fit(
+            tr, val=va
+        )
+        assert np.array_equal(c.scores(te), f.scores(te))
+        two = FedBusCNN(K=2, rounds=1, local_epochs=1, features="full14+jac", device="cpu").fit(tr, val=va)
+        d = te.export(two._fields())
+        a, b = two._client_features(d, 0), two._client_features(d, 1)
+        assert a.shape[-1] == 22 and np.array_equal(a[..., 14:], b[..., 14:])  # one Jacobian block
+        assert "As" in two.score(te)
+    finally:
+        torch.use_deterministic_algorithms(was)

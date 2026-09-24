@@ -15,6 +15,9 @@ classDiagram
     class BusMLP {
         <<localization>>
     }
+    class JacobianFeatures {
+        <<se>>
+    }
     class LearnedLocalizer {
         <<localization>>
     }
@@ -36,6 +39,7 @@ classDiagram
     FederatedLocalizer <|-- FedBusMLP
     LearnedLocalizer <|-- FederatedLocalizer
     SubspacePrior <|-- RegionalPrior
+    FederatedLocalizer ..> JacobianFeatures : uses
     FederatedLocalizer ..> LocalTrainer : uses
     FederatedLocalizer ..> Partition : uses
     FederatedLocalizer ..> RoundLog : uses

@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `FedBusCNN` and `FedBusMLP` accept the Jacobian feature sets (`features="full14+jac"`, `"jac"`):
+  the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
+  is the whole system's estimator applied to every meter's change, computed once centrally and
+  appended to every client's features; that block is the one feature a client does not build from
+  its own meters. One client equals the centralized `BusCNN(features="full14+jac")`.
 - Localization, the federated paper's tables: `LocalizerBase.score_perbus(ds, buses=, fr_over=)`
   returns per-bus F1, detection rate, false-alarm rate and AUPRC (`models.scores.PerBusScores`,
   `PerBusMetrics`) over every record and per family (that family plus benign), on the active buses
@@ -26,7 +31,7 @@ the public API, the generated files and the numbers are the same as the previous
   buses (optionally with a read-only halo) and scores them; only pooled moments, model weights and
   per-bus confusion counts cross a client boundary. `history` logs every round's loss and bytes.
   With K = 1 and no clip the fit equals the centralized one weight for weight (tested for both
-  encoders). The Jacobian feature sets are refused (they need the whole system's estimator).
+  encoders). The Jacobian feature sets are supported with one central block (see below).
 - `fdia_graph.federated`, first part: the split of a system's buses into K clients.
   `spectral_partition(edge_index, N, K)` is the federated localization paper's partition (spectral
   clustering of the bus adjacency, random_state 42 [VLX07]) and matched its cached partitions
