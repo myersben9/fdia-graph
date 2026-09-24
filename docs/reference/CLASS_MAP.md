@@ -63,7 +63,7 @@ each client trains its own copy with the shared `LocalTrainer` on its own buses,
 `FedBusCNN` take their encoder from `BusMLP` and `BusCNN`. `RoundLog` records every round.
 `RegionalPrior` is a `SubspacePrior` whose basis is fitted per client of a `Partition`.
 
-![Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition and RoundLog; RegionalPrior under SubspacePrior uses Partition](../figures/diagrams/classes_federated.png)
+![Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition](../figures/diagrams/classes_federated.png)
 
 ## The records
 

@@ -5,11 +5,15 @@ Each client (a utility) holds every training record but reads only its own buses
 built from its own meters (`kcl="local"`, the default, recomputes the power-balance channel from the
 flow meters the client owns, the from-bus end of each branch; the other channels are each bus's own
 readings and their scan-to-scan change), its loss covers only its own buses, and a CNN convolves
-over its own buses in bus order. `halo > 0` is the one opt-in exception: a client then also reads
-the halo buses' own meters as read-only context, placed after its own buses. What crosses a client boundary: the per-channel moments once (for one
-standardization), the model weights every round (one average), and the per-bus confusion counts
-once (for the paper's validation threshold). All three are the formulas of `formulas.federated` and
-`formulas.metrics`.
+over its own buses in bus order. Two opt-in exceptions read beyond a client's own meters:
+`halo > 0` adds the halo buses' own meters as read-only context, placed after its own buses, and
+the Jacobian feature sets use the 8-channel Jacobian block, the whole system's estimator applied
+to every meter's change, computed once centrally per pass and shared with every client
+(`features="full14+jac"` appends it after the 14 client-local channels, `features="jac"` makes it
+the whole input). What crosses a client boundary: the per-channel moments once (for one
+standardization), the model weights every round (one average), the per-bus confusion counts once
+(for the paper's validation threshold), and with a Jacobian feature set the central block. The
+first three are the formulas of `formulas.federated` and `formulas.metrics`.
 
 With K = 1 and no gradient clip the fit is the centralized one, weight for weight.
 
@@ -26,7 +30,15 @@ import numpy as np
 
 from ..formulas.federated import channel_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
-from ..localization.learned import BusCNN, BusMLP, LearnedLocalizer, LocalTrainer, predict, standardization
+from ..localization.learned import (
+    BusCNN,
+    BusMLP,
+    LearnedLocalizer,
+    LocalTrainer,
+    full14,
+    predict,
+    standardization,
+)
 from ..models.federated import Partition, RoundLog
 from .aggregate import fedavg_state, state_bytes
 from .partition import check_partition, compute_nodes, spectral_partition
@@ -104,34 +116,62 @@ class FederatedLocalizer(LearnedLocalizer):
             raise ValueError(f"the partition has {partition.K} clients but K={K}")
         if kcl not in ("local", "global"):
             raise ValueError(f"kcl must be 'local' or 'global', got {kcl!r}")
-        if "jac" in self.features:
-            raise ValueError("the Jacobian features need the whole system's estimator, which no client has")
         self.K, self.rounds, self.local_epochs = K, rounds, local_epochs
         self.partition, self.halo, self.grad_clip, self.kcl = partition, halo, grad_clip, kcl
         self.epochs = rounds * local_epochs  # the local passes over the data each client makes
         self.history: list[RoundLog] = []
 
     # ---- features per client --------------------------------------------------------------
-    def _client_features(self, d: dict[str, np.ndarray], k: int) -> np.ndarray:
+    def _client_features(
+        self, d: dict[str, np.ndarray], k: int, jac: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """Client k's raw feature block [n, N, F]: with kcl="local" the power balance counts only
-        the flows metered at buses the client owns (the from-bus end of each branch)."""
-        if self.kcl == "global" or self.features == "meas":
+        the flows metered at buses the client owns (the from-bus end of each branch). The Jacobian
+        block is the one feature not built from the client's own meters: the whole system's
+        estimator applied to every meter's change, computed once centrally per pass (`_central`)
+        and handed in as `jac`, or computed here when not given. "full14+jac" appends it after the
+        14 client-local channels; "jac" returns it as the whole input."""
+        if self.features == "meas":
             return self._features(d)
-        own_edge = self._part.assignment[d["edge_index"][0]] == k
-        local = dict(d)
-        local["edge_x"] = d["edge_x"] * own_edge[None, :, None]
-        return self._features(local)
+        if self.features == "jac":  # no client-local channel to build
+            return self._jac.transform(d)["bus"] if jac is None else jac
+        local = d
+        if self.kcl == "local":
+            own_edge = self._part.assignment[d["edge_index"][0]] == k
+            local = dict(d)
+            local["edge_x"] = d["edge_x"] * own_edge[None, :, None]
+        if "jac" not in self.features:
+            return self._features(local)
+        # a single client's call builds the central block here; a pass over the clients hands it in
+        block: np.ndarray = self._jac.transform(d)["bus"] if jac is None else jac
+        return np.concatenate([full14(local), block], -1)
+
+    def _check_units(self, ds: FdiaGraph) -> None:
+        """The Jacobian block converts physical units itself, so a per-unit view is refused."""
+        if "jac" in self.features:
+            from ..se.base import require_physical
+
+            require_physical(ds)
+
+    def _central(self, d: dict[str, np.ndarray]) -> Optional[np.ndarray]:
+        """The per-bus Jacobian block [n, N, 8] of these records, or None without a "jac" feature
+        set. A pass over the clients computes it once and hands it to each; nothing is kept after."""
+        return self._jac.transform(d)["bus"] if "jac" in self.features else None
 
     # ---- LocalizerBase hooks --------------------------------------------------------------
     def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         torch = self._torch_seeded()
         ei = ds.edge_index_np
+        if "jac" in self.features:  # the central estimator's physics, fitted on this split
+            from ..se.jacobian import JacobianFeatures
+
+            self._jac = JacobianFeatures().fit(ds)
         self._part = self.partition or spectral_partition(ei, int(ds.N), self.K)
         check_partition(self._part, int(ds.N))
         views = [compute_nodes(self._part, ei, k, self.halo) for k in range(self.K)]
-        blocks, moments = [], []
+        blocks, moments, jac = [], [], self._central(d)
         for k, (nodes, owned) in enumerate(views):  # one client's grid-wide block at a time
-            X = self._client_features(d, k)
+            X = self._client_features(d, k, jac)
             moments.append(channel_moments(X[:, nodes[:owned]]))
             blocks.append(X[:, nodes])  # keep only the buses the client computes on
             del X
@@ -225,11 +265,13 @@ class FederatedLocalizer(LearnedLocalizer):
             c.net.load_state_dict(glob)
         return self._clients[0].net
 
-    def _client_scores(self, d: dict[str, np.ndarray], k: int) -> np.ndarray:
+    def _client_scores(
+        self, d: dict[str, np.ndarray], k: int, jac: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """Client k's attack probabilities on its own buses [n, owned], from its own features and its
         own attackable mask."""
         c = self._clients[k]
-        Xs = ((self._client_features(d, k)[:, c.nodes] - self.mu) / self.sd).astype(np.float32)
+        Xs = ((self._client_features(d, k, jac)[:, c.nodes] - self.mu) / self.sd).astype(np.float32)
         p = predict(self.net, Xs, self.dev)[:, : c.owned]
         if self.attackable_only:
             p[:, ~c.attackable] = 0.0
@@ -237,21 +279,23 @@ class FederatedLocalizer(LearnedLocalizer):
 
     def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
         """Each client scores its own buses; the columns are stitched into one [n, N] matrix."""
-        out = np.zeros((len(d["y"]), self.N), np.float64)
+        self._check_units(ds)
+        out, jac = np.zeros((len(d["y"]), self.N), np.float64), self._central(d)
         for k, c in enumerate(self._clients):
-            out[:, c.own] = self._client_scores(d, k)
+            out[:, c.own] = self._client_scores(d, k, jac)
         return out
 
     def tune_threshold(self, val: FdiaGraph) -> FederatedLocalizer:
         """The papers' validation tau with labels kept local: each client counts true positives,
         false positives and false negatives on its own buses at every candidate tau, and only those
         per-bus counts meet (`formulas.metrics.tau_from_counts`), the same tau as a pooled count."""
+        self._check_units(val)
         d = self._pull(val, extra=["y"])
         taus = np.linspace(0.05, 0.95, 19)
         tp, fp, fn = (np.zeros((len(taus), self.N)) for _ in range(3))
-        active = np.zeros(self.N, bool)
+        active, jac = np.zeros(self.N, bool), self._central(d)
         for k, c in enumerate(self._clients):
-            p, t = self._client_scores(d, k), d["y"][:, c.own].astype(bool)
+            p, t = self._client_scores(d, k, jac), d["y"][:, c.own].astype(bool)
             for i, tau in enumerate(taus):
                 tp[i, c.own], fp[i, c.own], fn[i, c.own] = perbus_counts(p > tau, t)
             active[c.own] = t.any(axis=0)
