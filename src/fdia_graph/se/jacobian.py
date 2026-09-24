@@ -130,10 +130,8 @@ class JacobianFeatures:
         # the one truth read: the slack angle, the reference frame every fdia_graph.se estimate is
         # expressed in (the scored estimators pin it the same way); no other part of the state
         thsl = est._truth_of(self._pool[d["prev_timestep"].astype(int)])["thsl"]
-        x = np.concatenate(
-            [est._solve_plain(zp[i : i + chunk], thsl[i : i + chunk]) for i in range(0, len(zp), chunk)]
-        )
-        return x, thsl
+        parts = [est._solve_plain(zp[i : i + chunk], thsl[i : i + chunk]) for i in range(0, len(zp), chunk)]
+        return (np.concatenate(parts) if parts else np.zeros((0, est.SD))), thsl
 
     def delta_z(self, d: dict[str, np.ndarray]) -> np.ndarray:
         """dz = z_t - h(x_hat_{t-1}), the reading change the previous estimate does not predict."""

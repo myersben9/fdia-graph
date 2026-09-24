@@ -513,6 +513,8 @@ def test_jacobian_features_never_read_the_true_state(timeline, splits):
     jf._pool = pool * 1.5 + 0.1
     jf._pool[:, jf.est.slack, 3] = keep
     assert np.array_equal(jf.transform(d)["bus"], before)
+    empty = {k: v[:0] for k, v in d.items()}  # an empty view transforms to empty features
+    assert jf.transform(empty)["bus"].shape == (0, before.shape[1], 8)
     with pytest.raises(ValueError, match="timeline"):
         from conftest import SHARD_V072
 

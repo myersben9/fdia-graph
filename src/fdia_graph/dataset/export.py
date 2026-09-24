@@ -100,6 +100,9 @@ class ExportMixin(DatasetBase):
 
         Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
         timestep [n], plus the static graph edge_index [2,E] and edge_reactance [E], always included.
+        On a timeline, `fields` may also ask for prev_node_x [n,N,4], prev_edge_x [n,E,2] and
+        prev_timestep [n]: the readings of the frame emitted just before each record (file row - 1,
+        whatever split or family it belongs to); they are never part of the default set.
         `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
         `fields`, so a typo cannot pass unnoticed.
         """
