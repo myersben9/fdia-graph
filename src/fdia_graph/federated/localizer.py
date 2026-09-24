@@ -143,10 +143,12 @@ class FederatedLocalizer(LearnedLocalizer):
             require_physical(ds)
 
     def _jac_block(self, d: dict[str, np.ndarray]) -> np.ndarray:
-        """The per-bus Jacobian block [n, N, 8] of these records, computed once for every client."""
-        key = (id(d), len(d["y"]))
-        if getattr(self, "_jac_cache", (None,))[0] != key:
-            self._jac_cache = (key, self._jac.transform(d)["bus"])
+        """The per-bus Jacobian block [n, N, 8] of these records, computed once for every client.
+        The cache holds the export itself and matches it by identity, so a later export can never
+        be served another one's block (an id alone can be reused once the old dict is freed)."""
+        held = getattr(self, "_jac_cache", None)
+        if held is None or held[0] is not d:
+            self._jac_cache = (d, self._jac.transform(d)["bus"])
         return self._jac_cache[1]
 
     # ---- LocalizerBase hooks --------------------------------------------------------------

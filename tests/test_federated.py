@@ -415,3 +415,22 @@ def test_the_jacobian_feature_set_federates_with_one_central_block(zs):
         assert "As" in two.score(te)
     finally:
         torch.use_deterministic_algorithms(was)
+
+
+def test_the_jacobian_only_set_federates_and_refuses_per_unit(zs, timeline):
+    """features="jac": every client sees only the central 8-channel block; a per-unit view is refused."""
+    pytest.importorskip("torch")
+    pytest.importorskip("pandapower")
+    import fdia_graph as fg
+    from fdia_graph.federated.localizer import FedBusMLP
+
+    tr, va, te = zs
+    m = FedBusMLP(K=2, rounds=1, local_epochs=1, features="jac", device="cpu").fit(tr, val=va)
+    d = te.export(m._fields())
+    a, b = m._client_features(d, 0), m._client_features(d, 1)
+    assert a.shape[-1] == 8 and np.array_equal(a, b)
+    assert "As" in m.score(te)
+    other = te.export(m._fields())  # a fresh export is transformed afresh, not served from the cache
+    assert m._jac_block(other) is not m._jac_block(d)
+    with pytest.raises(ValueError, match="physical"):
+        m.score(fg.load(timeline, split="test", units="pu"))
