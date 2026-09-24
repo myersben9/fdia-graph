@@ -135,7 +135,7 @@ CNN localizer as the gate, and with the true labels as the gate (the ceiling for
 
 | families | what the gate does | why |
 |---|---|---|
-| `Ad` `As` `Ar` (in place) | finishes the job at every size: 0.023 on 14, 0.008 on 118, 0.012 on 300 | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
+| `Ad` `As` `Ar` (in place) | finishes the job at every size: the CNN gate takes them to 0.023 to 0.026 on 14, 0.008 on 118 and 0.012 to 0.013 on 300, next to the oracle's 0.019 to 0.020, 0.007 and 0.012 | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
 | `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse, with the true labels too: `Al` 0.047 → 0.071 on 14, 0.015 → 0.020 on 118; `Aq` on 14 improves (0.248 → 0.203) | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
 
 On the v0.8.1 timelines the CNN gate lowers the geometric mean 10% on IEEE-14 (0.049 to 0.044) and

@@ -44,7 +44,8 @@ with every meter writable, `detected_after` with the trust in place.
 selection, the attack-cost curve, and the detection table. Read the detection table first: the
 attack cost is the sparsest row of an echelon basis of the open subspace, an upper bound on the
 true sparsest attack, so it is not monotone in the secured set (on IEEE-14 the greedy cost
-plateaus at 54 after two meters, the DQN's walks 34, 54, 46, 43, 46, 11, 3, 9, 8, 9, 22 and 33,
+plateaus at 54 from the second meter to the twentieth, while over the same twenty meters the DQN's
+takes the values 34, 54, 46, 43, 46, 11, 3, 9, 8, 9, 22 and 33 in that order,
 while the DQN's detection of Aq, Al and Am rises from 0.00, 0.00, 0.00 to 0.93, 0.93, 0.90).
 
 WLS residual detection rate per family at a 1% benign alarm level, before and after securing 20
@@ -67,9 +68,10 @@ estimator and localizer of the other two guides can be scored with the set secur
 selections of `run_trust.py` and writes `results/secured_<system>.json`.
 
 One rule came out of it: a localization gate must never down-weight a secured meter.
-`GatedPrior` scales every meter of a flagged bus by a thousandth, and on a secured copy that
-included the secured meters, the only true readings inside the attacked region, so the CNN and
-residual gates were worse than no gate on both secured copies. `GatedPrior(secured=tm.select())` keeps them at full weight, and that arm wins.
+`GatedPrior` scales every meter of a flagged bus by a thousandth. On a secured copy those meters
+include the secured ones, the only true readings inside the attacked region, so the CNN and
+residual gates were worse than no gate on both secured copies. `GatedPrior(secured=tm.select())`
+keeps the secured meters at full weight, and that arm wins.
 
 IEEE-14, 20 secured meters, test split, node-F1 with the detection rate in parentheses:
 
