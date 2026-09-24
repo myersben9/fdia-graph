@@ -34,6 +34,7 @@ objects); one test checks it on a case small enough to verify by hand.
 
 | formula | function | equation | source | used by |
 |---|---|---|---|---|
+| regional subspace prior | `formulas.federated.block_diagonal_basis`, through `federated.RegionalPrior` | V[cols_k, block k] = V_k from each client's own `whitened_svd_basis`, zero elsewhere; orthonormal for disjoint column sets | [EST26], [FED26] | the federated fit of the estimator's prior |
 | federated average | `formulas.federated.fedavg` | θ = Σ_k (n_k / n) θ_k, in float64, cast back; one client returns its own tensor | [MCM17] | the federated localizers |
 | the buses of each client | `formulas.federated.interior_boundary`, `cut_edge_count`, `attackable_affinity`, `hop_distance`, `halo_nodes`, through `federated.spectral_partition` and `compute_nodes` | interior: every neighbour in the same client; cut edges: ends in different clients; W = A ⊙ √(m mᵀ), m = heavy at attackable buses; halo: other clients' buses within h hops, own buses first | [VLX07], [FED26] | the federated partition |
 | pooled channel moments | `formulas.federated.channel_moments`, `pool_moments`, through `localization.learned.standardization` | f_a = n_a / n, f_b = n_b / n, mean = mean_a + (mean_b − mean_a) f_b, var = f_a var_a + f_b var_b + (mean_b − mean_a)² f_a f_b; one part returns unchanged | [CGL79] | the learned localizers' standardization, pooled across federated clients |

@@ -21,6 +21,7 @@ from .estimation import (
 )
 from .federated import (
     attackable_affinity,
+    block_diagonal_basis,
     channel_moments,
     cut_edge_count,
     fedavg,
@@ -68,6 +69,7 @@ __all__ = [
     "attackable_affinity",
     "batched_normal_matrices",
     "bias_jitter_split",
+    "block_diagonal_basis",
     "branch_admittances",
     "branch_flows",
     "bus_incidence",

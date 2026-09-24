@@ -179,3 +179,33 @@ def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tup
     halo = np.flatnonzero((dist >= 1) & (dist <= depth) & (assignment != k))
     halo = halo[np.argsort(dist[halo], kind="stable")]  # nearest first, bus order within a hop
     return np.concatenate([owned, halo]), len(owned)
+
+
+def _check_blocks(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> None:
+    """At least one block, disjoint state columns inside 0..d-1, one basis row per column."""
+    cols = np.concatenate([np.asarray(c) for c, _ in blocks]) if blocks else np.zeros(0, int)
+    inside = not len(cols) or (cols.min() >= 0 and cols.max() < d)
+    if not len(blocks) or len(np.unique(cols)) != len(cols) or not inside:
+        raise ValueError(f"need at least one block, with disjoint state columns inside 0..{d - 1}")
+    if any(np.shape(V) != (len(c), np.shape(V)[1]) for c, V in blocks):
+        raise ValueError("each basis needs one row per state column of its block")
+
+
+def block_diagonal_basis(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> np.ndarray:
+    """Per-client subspace bases placed on their own state coordinates [EST26], [FED26]:
+
+        V[cols_k, K_0 + ... + K_{k-1} : ... + K_k] = V_k,   zero elsewhere
+
+    so V is orthonormal whenever every V_k is and the column sets are disjoint.
+
+    blocks  : (cols_k, V_k [len(cols_k), K_k]) per client
+    d       : the full state dimension
+    returns : [d, sum K_k]
+    """
+    _check_blocks(blocks, d)
+    out = np.zeros((d, sum(np.shape(V)[1] for _, V in blocks)))
+    j = 0
+    for c, V in blocks:
+        out[np.asarray(c), j : j + V.shape[1]] = V
+        j += V.shape[1]
+    return out

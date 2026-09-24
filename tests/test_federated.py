@@ -315,3 +315,53 @@ def test_a_halo_client_gets_context_features_but_only_its_own_labels(zs):
     for c in loc._clients:
         assert len(c.nodes) > c.owned  # the halo is there as features
         assert tuple(c.Xt.shape[1:2]) == (len(c.nodes),) and tuple(c.Yt.shape[1:]) == (c.owned,)
+
+
+# ---- federated state estimation -----------------------------------------------------------------------
+
+
+def test_one_region_is_the_subspace_prior_and_two_are_block_diagonal(splits, edges):
+    pytest.importorskip("pandapower")
+    from fdia_graph.federated import RegionalPrior
+    from fdia_graph.se import SubspacePrior
+
+    ei, N = edges
+    tr, te = splits["train"], splits["test"]
+    one = partition_from_assignment(np.zeros(N, int), ei)
+    base = SubspacePrior(rank_frac=0.5).fit(tr)
+    reg = RegionalPrior(one, rank_frac=0.5).fit(tr)
+    assert np.array_equal(base.VK, reg.VK) and np.array_equal(base.estimate(te), reg.estimate(te))
+
+    two = RegionalPrior(partition_from_assignment(PAPER_14[2][0], ei), rank_frac=0.5).fit(tr)
+    V = two.VK
+    assert np.allclose(V.T @ V, np.eye(V.shape[1]), atol=1e-10)
+    c0, c1 = two.state_columns(0), two.state_columns(1)
+    assert len(np.intersect1d(c0, c1)) == 0 and len(c0) + len(c1) == V.shape[0]
+    k0 = int(np.linalg.matrix_rank(V[c0]))
+    assert not V[np.ix_(c0, np.arange(k0, V.shape[1]))].any() and not V[np.ix_(c1, np.arange(k0))].any()
+    assert np.isfinite(two.score(te)["geo"]["angle_mae_deg"])
+
+
+def test_a_federated_localizer_gates_the_estimator(zs, splits):
+    pytest.importorskip("pandapower")
+    pytest.importorskip("torch")
+    from fdia_graph.federated.localizer import FedBusMLP
+    from fdia_graph.se import GatedPrior
+
+    tr, va, _ = zs
+    gate = FedBusMLP(K=2, rounds=2, local_epochs=1, device="cpu").fit(tr, val=va)
+    est = GatedPrior(gate=gate, rank_frac=0.5, reweight="huber").fit(splits["train"])
+    assert np.isfinite(est.score(splits["test"])["geo"]["angle_mae_deg"])
+
+
+def test_block_diagonal_basis_checks_its_blocks():
+    from fdia_graph.formulas.federated import block_diagonal_basis
+
+    V = block_diagonal_basis([(np.array([0, 2]), np.eye(2)), (np.array([1]), np.ones((1, 1)))], 3)
+    assert V.shape == (3, 3) and V[1, 2] == 1 and V[0, 0] == 1 and V[2, 1] == 1
+    with pytest.raises(ValueError, match="disjoint"):
+        block_diagonal_basis([(np.array([0, 1]), np.eye(2)), (np.array([1]), np.ones((1, 1)))], 3)
+    with pytest.raises(ValueError, match="disjoint"):
+        block_diagonal_basis([(np.array([0, 5]), np.eye(2))], 3)
+    with pytest.raises(ValueError, match="one row per state column"):
+        block_diagonal_basis([(np.array([0, 1]), np.eye(3))], 3)

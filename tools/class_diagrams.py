@@ -42,7 +42,7 @@ GROUPS = {
         "trust/base",
         "trust/dqn",
     ],
-    "federated": ["federated/partition", "federated/aggregate", "federated/localizer"],
+    "federated": ["federated/partition", "federated/aggregate", "federated/localizer", "federated/se"],
     "models": ["models/base", "models/fields", "models/data"],
     "scores": ["models/base", "models/scores"],
 }

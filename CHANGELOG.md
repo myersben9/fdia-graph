@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `fdia_graph.federated.RegionalPrior`: the proposed estimator's subspace prior fitted per client
+  of a `Partition` (each client's basis from its own non-slack angles and voltages, placed on a block
+  diagonal by `formulas.federated.block_diagonal_basis`), so no client's states leave it; one client
+  is `SubspacePrior` exactly. With `GatedPrior(gate=FedBusCNN(...))` the federated localizer gates the
+  estimator. The meter sigmas and the benign mean were already local; the solve stays central.
 - `fdia_graph.federated`: the federated localization paper's localizers trained by FedAvg [MCM17].
   `FedBusMLP` and `FedBusCNN` are `LocalizerBase` methods (`fit(train, val)`, `localize`, `scores`,
   `score` as for `BusMLP`/`BusCNN`) over a K-way partition: each client reads only its own buses,
