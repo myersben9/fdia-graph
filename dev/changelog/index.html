@@ -1488,6 +1488,11 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>FedBusCNN</code> and <code>FedBusMLP</code> accept the Jacobian feature sets (<code>features="full14+jac"</code>, <code>"jac"</code>):
+  the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
+  is the whole system's estimator applied to every meter's change, computed once centrally per pass
+  and shared with every client (appended after the 14 channels for <code>full14+jac</code>, the whole input for
+  <code>jac</code>); that block is the one feature a client does not build from its own meters. One client equals the centralized <code>BusCNN(features="full14+jac")</code>.</li>
 <li>Localization, the federated paper's tables: <code>LocalizerBase.score_perbus(ds, buses=, fr_over=)</code>
   returns per-bus F1, detection rate, false-alarm rate and AUPRC (<code>models.scores.PerBusScores</code>,
   <code>PerBusMetrics</code>) over every record and per family (that family plus benign), on the active buses
@@ -1509,7 +1514,7 @@ the public API, the generated files and the numbers are the same as the previous
   buses (optionally with a read-only halo) and scores them; only pooled moments, model weights and
   per-bus confusion counts cross a client boundary. <code>history</code> logs every round's loss and bytes.
   With K = 1 and no clip the fit equals the centralized one weight for weight (tested for both
-  encoders). The Jacobian feature sets are refused (they need the whole system's estimator).</li>
+  encoders). The Jacobian feature sets are supported with one central block (the entry above).</li>
 <li><code>fdia_graph.federated</code>, first part: the split of a system's buses into K clients.
   <code>spectral_partition(edge_index, N, K)</code> is the federated localization paper's partition (spectral
   clustering of the bus adjacency, random_state 42 [VLX07]) and matched its cached partitions

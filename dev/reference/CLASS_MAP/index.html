@@ -1557,7 +1557,7 @@ by a deep Q-network (<code>TrustedMetersDQN</code>), and scores the residual tes
 each client trains its own copy with the shared <code>LocalTrainer</code> on its own buses, and <code>FedBusMLP</code> and
 <code>FedBusCNN</code> take their encoder from <code>BusMLP</code> and <code>BusCNN</code>. <code>RoundLog</code> records every round.
 <code>RegionalPrior</code> is a <code>SubspacePrior</code> whose basis is fitted per client of a <code>Partition</code>.</p>
-<p><img alt="Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition and RoundLog; RegionalPrior under SubspacePrior uses Partition" src="../../figures/diagrams/classes_federated.png" /></p>
+<p><img alt="Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition" src="../../figures/diagrams/classes_federated.png" /></p>
 <h2 id="the-records">The records<a class="headerlink" href="#the-records" title="Permanent link">&para;</a></h2>
 <p>Everything a call returns is a <code>Bundle</code>, a dict with attribute access and a fixed key order. The record
 forms share seven field-group mixins, one per group of keys, so a record, a batch, an exported split and
