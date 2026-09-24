@@ -179,3 +179,43 @@ def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tup
     halo = np.flatnonzero((dist >= 1) & (dist <= depth) & (assignment != k))
     halo = halo[np.argsort(dist[halo], kind="stable")]  # nearest first, bus order within a hop
     return np.concatenate([owned, halo]), len(owned)
+
+
+def _index_array(c: np.ndarray, d: int) -> bool:
+    """A one-dimensional integer array of state columns inside 0..d-1."""
+    c = np.asarray(c)
+    if c.ndim != 1 or not np.issubdtype(c.dtype, np.integer):
+        return False
+    return not len(c) or (c.min() >= 0 and c.max() < d)
+
+
+def _check_blocks(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> None:
+    """At least one block; each block's columns a 1-D integer array inside 0..d-1, the blocks
+    disjoint; one basis row per column."""
+    if not len(blocks) or not all(_index_array(c, d) for c, _ in blocks):
+        raise ValueError(f"need at least one block of integer state columns inside 0..{d - 1}")
+    cols = np.concatenate([np.asarray(c) for c, _ in blocks])
+    if len(np.unique(cols)) != len(cols):
+        raise ValueError("the blocks' state columns must be disjoint")
+    if any(np.ndim(V) != 2 or np.shape(V)[0] != len(c) for c, V in blocks):
+        raise ValueError("each basis needs one row per state column of its block")
+
+
+def block_diagonal_basis(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> np.ndarray:
+    """Per-client subspace bases placed on their own state coordinates [EST26], [FED26]:
+
+        V[cols_k, K_0 + ... + K_{k-1} : ... + K_k] = V_k,   zero elsewhere
+
+    so V is orthonormal whenever every V_k is and the column sets are disjoint.
+
+    blocks  : (cols_k, V_k [len(cols_k), K_k]) per client
+    d       : the full state dimension
+    returns : [d, sum K_k]
+    """
+    _check_blocks(blocks, d)
+    out = np.zeros((d, sum(np.shape(V)[1] for _, V in blocks)))
+    j = 0
+    for c, V in blocks:
+        out[np.asarray(c), j : j + V.shape[1]] = V
+        j += V.shape[1]
+    return out
