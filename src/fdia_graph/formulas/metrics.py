@@ -12,6 +12,9 @@ def perbus_counts(pred: np.ndarray, truth: np.ndarray) -> tuple[np.ndarray, np.n
     pred, truth : [n, N] bool
     returns     : (tp [N], fp [N], fn [N]) as float64
     """
+    pred, truth = np.asarray(pred, bool), np.asarray(truth, bool)
+    if pred.shape != truth.shape or pred.ndim != 2:
+        raise ValueError(f"need two [n, N] boolean arrays of one shape, got {pred.shape} and {truth.shape}")
     tp = (pred & truth).sum(axis=0).astype(np.float64)
     fp = (pred & ~truth).sum(axis=0).astype(np.float64)
     fn = (~pred & truth).sum(axis=0).astype(np.float64)
@@ -39,5 +42,9 @@ def tau_from_counts(
     taus       : [n_taus]
     returns    : the chosen tau
     """
+    taus, active = np.asarray(taus), np.asarray(active, bool)
+    shape = (len(taus), len(active))
+    if not len(taus) or not active.any() or any(np.shape(c) != shape for c in (tp, fp, fn)):
+        raise ValueError(f"need [n_taus, N] counts of shape {shape}, a non-empty tau grid and an active bus")
     f1 = perbus_f1_from_counts(tp, fp, fn)[:, active].mean(axis=1)
     return float(taus[int(np.argmax(f1))])

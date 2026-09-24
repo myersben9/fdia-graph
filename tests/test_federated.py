@@ -141,3 +141,14 @@ def test_every_formula_refuses_malformed_input():
         channel_moments(np.zeros((0, 3, 2)))
     with pytest.raises(ValueError, match="at least one part"):
         pool_moments([])
+
+
+def test_topology_is_checked_and_one_bus_per_client_needs_no_clustering(edges):
+    from fdia_graph.federated import bus_adjacency
+
+    ei, N = edges
+    for bad in (np.array([[0, -1]]).T, np.array([[0, N]]).T, np.zeros((3, 2), int), np.zeros((2, 2))):
+        with pytest.raises(ValueError, match="edge_index"):
+            bus_adjacency(bad, N)
+    p = spectral_partition(ei, N, N)
+    assert p.assignment.tolist() == list(range(N)) and p.interior.sum() + p.boundary.sum() == N

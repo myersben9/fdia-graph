@@ -18,9 +18,14 @@ from ..models.federated import Partition
 def bus_adjacency(edge_index: np.ndarray, N: int) -> np.ndarray:
     """The 0/1 undirected bus adjacency [N, N] of a branch list [2, E], without self-loops
     (parallel branches collapse to one edge)."""
+    ei = np.asarray(edge_index)
+    if ei.ndim != 2 or ei.shape[0] != 2 or not np.issubdtype(ei.dtype, np.integer):
+        raise ValueError(f"edge_index must be an integer [2, E] array, got shape {ei.shape}")
+    if ei.size and (ei.min() < 0 or ei.max() >= N):
+        raise ValueError(f"edge_index names a bus outside 0..{N - 1}")
     A = np.zeros((N, N), np.float64)
-    A[edge_index[0], edge_index[1]] = 1.0
-    A[edge_index[1], edge_index[0]] = 1.0
+    A[ei[0], ei[1]] = 1.0
+    A[ei[1], ei[0]] = 1.0
     np.fill_diagonal(A, 0.0)
     return A
 
@@ -41,6 +46,8 @@ def spectral_partition(
     A = bus_adjacency(edge_index, N)
     if K == 1:
         assignment = np.zeros(N, np.int64)
+    elif K == N:  # one bus per client: nothing to cluster
+        assignment = np.arange(N, dtype=np.int64)
     else:
         try:
             from sklearn.cluster import SpectralClustering
