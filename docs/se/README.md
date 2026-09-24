@@ -31,7 +31,7 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | `AdaptiveWeighting` | Iteratively reweighted least squares (the Huber M-estimator) | `c` |
 | `SubspacePrior` | Restricts the solve to a low-rank benign operating subspace, optionally composed with Huber | `rank_frac`, `reweight` |
 | `JacobianWeighting` | Huber weights from the physically unexplained part of the scan-to-scan measurement change (the Jacobian-informed digest), one solve; `reweight="huber"` adds the classical passes on top | `c`, `reweight`, `huber_c` |
-| `GatedPrior` | The proposed estimator with a localizer gated the weights: meters on flagged buses and their incident flows are down-weighted so the prior fills in the state there; `secured` meters are never down-weighted | `gate`, `gate_factor`, `secured` |
+| `GatedPrior` | The proposed estimator with a localizer gating the weights: meters on flagged buses and their incident flows are down-weighted so the prior fills in the state there; `secured` meters are never down-weighted | `gate`, `gate_factor`, `secured` |
 
 ## Results
 

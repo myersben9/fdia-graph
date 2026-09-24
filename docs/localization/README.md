@@ -103,7 +103,7 @@ local false state.
 
 | finding | evidence |
 |---|---|
-| the features carry the digest's signal | on `Aq` the zero-shot node-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.94, 0.82 and 0.58 for D alone: the per-frame physics sees the local false state where the history does not |
+| the features carry the digest's signal | on `Aq` the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.94, 0.82 and 0.58 for D alone: the per-frame physics sees the local false state where the history does not |
 | on a timeline they are what makes the vector work | B to C is +9, +36 and +35 zero-shot points; the papers' vector was built for the v0.7.2 shards, whose temporal features compared an attacked snapshot with the benign scan before it, and on a timeline a sustained episode spikes at its onset only |
 | where they pay again | as the localizer that gates the estimator once meters are secured, [`../trust/README.md`](../trust/README.md) |
 
