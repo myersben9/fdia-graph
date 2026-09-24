@@ -135,9 +135,8 @@ class FederatedLocalizer(LearnedLocalizer):
             local["edge_x"] = d["edge_x"] * own_edge[None, :, None]
         if "jac" not in self.features:
             return self._features(local)
-        if jac is None:
-            jac = self._central(d)
-        assert jac is not None
+        if jac is None:  # a single client's call: build the central block here
+            jac = self._jac.transform(d)["bus"]
         return jac if self.features == "jac" else np.concatenate([full14(local), jac], -1)
 
     def _check_units(self, ds: FdiaGraph) -> None:
