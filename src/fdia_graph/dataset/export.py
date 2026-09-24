@@ -19,6 +19,7 @@ from ..models.data import ArraysBundle, Summary
 from .base import (
     _BENIGN_LAYERS,
     _CLEAN_LAYERS,
+    _PREV_FIELDS,
     _UNIT_KIND,
     FAMILIES,
     DatasetBase,
@@ -26,7 +27,9 @@ from .base import (
 )
 
 _FORMATS = ("numpy", "torch", "tf", "pandas")
-_INT_KEYS = frozenset({"family", "stealthy", "seq_id", "timestep", "edge_index"})  # int64 tensors
+_INT_KEYS = frozenset(
+    {"family", "stealthy", "seq_id", "timestep", "prev_timestep", "edge_index"}
+)  # int64 tensors
 
 
 class ExportMixin(DatasetBase):
@@ -51,7 +54,8 @@ class ExportMixin(DatasetBase):
         known = self._default_fields()
         if not fields:
             return known
-        unknown = [k for k in fields if k not in known]
+        offered = known + (list(_PREV_FIELDS) if self.is_timeline else [])  # on request only
+        unknown = [k for k in fields if k not in offered]
         if unknown:
             raise ValueError(f"unknown field(s) {unknown}; this shard carries {known}")
         return list(fields)
@@ -96,6 +100,9 @@ class ExportMixin(DatasetBase):
 
         Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
         timestep [n], plus the static graph edge_index [2,E] and edge_reactance [E], always included.
+        On a timeline, `fields` may also ask for prev_node_x [n,N,4], prev_edge_x [n,E,2] and
+        prev_timestep [n]: the readings of the frame emitted just before each record (file row - 1,
+        whatever split or family it belongs to); they are never part of the default set.
         `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
         `fields`, so a typo cannot pass unnoticed.
         """
@@ -126,14 +133,30 @@ class ExportMixin(DatasetBase):
     def _gather(self, want: Sequence[str]) -> dict[str, np.ndarray]:
         """The requested per-record arrays for the kept rows, in file order: one bulk gather per
         field from data/, the benign layers from benign/, the clean layers through the timestep."""
-        clean_want = [k for k in want if k in _CLEAN_LAYERS]
+        derived = set(_CLEAN_LAYERS) | set(_PREV_FIELDS)
         # self.idx is sorted-unique by construction, as h5py fancy-indexing requires
         with h5py.File(self.path, "r") as f:
-            paths = {k: schema.FIELD_PATH[k] for k in want if k not in _CLEAN_LAYERS}
-            out = {k: f[path][self.idx] for k, path in paths.items()}  # -> [n, ...] numpy arrays
-            if clean_want:
-                out.update(self._clean_layers(clean_want, f[schema.TIMESTEP][self.idx]))
+            out = {k: f[schema.FIELD_PATH[k]][self.idx] for k in want if k not in derived}  # [n, ...] arrays
+            out.update(self._derived_layers(f, want))
         return out
+
+    def _derived_layers(self, f: h5py.File, want: Sequence[str]) -> dict[str, np.ndarray]:
+        """The layers not stored per kept row: the clean layers through the pool timestep, the
+        previous frame's readings through file row - 1."""
+        out: dict[str, np.ndarray] = {}
+        clean_want = [k for k in want if k in _CLEAN_LAYERS]
+        if clean_want:
+            out.update(self._clean_layers(clean_want, f[schema.TIMESTEP][self.idx]))
+        prev_want = [k for k in want if k in _PREV_FIELDS]
+        if prev_want:
+            out.update(self._previous_frame(f, prev_want))
+        return out
+
+    def _previous_frame(self, f: h5py.File, want: Sequence[str]) -> dict[str, np.ndarray]:
+        """The readings of the frame emitted just before each kept record (file row - 1, read
+        whatever split or family that row belongs to; the first frame stands in for its own)."""
+        rows, back = np.unique(np.maximum(self.idx - 1, 0), return_inverse=True)  # h5py needs sorted-unique
+        return {k: f[schema.FIELD_PATH[_PREV_FIELDS[k]]][rows][back] for k in want}
 
     def _in_units(self, out: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """The returned arrays in self.units: power and angle arrays converted to per unit when asked,

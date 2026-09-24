@@ -1,12 +1,13 @@
 """Jacobian-informed features (Abdulin & Narimani): the measurement Jacobian as a physics transform
 of the scan-to-scan measurement change, not as raw model input.
 
-For a record with measurements z_t, the change dz = z_t - h(x_{t-1}) is taken against the exact
-measurement prediction of the previous pool timestep's clean state, read from the dataset's clean
-layer. On a v0.7.2 record shard that is the construction of the shard's temporal_delta. On a
-timeline it is not the localizers' temporal features, which compare each frame with the previously
-emitted (noisy, possibly attacked) frame: here the reference is the noiseless, attack-free truth,
-which an operator does not have (a deployed version would use the previous estimate). The chord Jacobian H at the benign
+For a record with measurements z_t, the change dz = z_t - h(x_hat_{t-1}) is taken against the
+measurement prediction of the previous frame's state estimate: the fitted estimator's plain solve
+of the frame emitted just before (the dataset's prev_node_x / prev_edge_x, read whatever split or
+family that frame belongs to, attacked or not). Only what an operator holds enters the feature;
+the true state is never read, apart from the slack angle that fixes the angle reference of every
+estimate in fdia_graph.se. A timeline is required (a record shard's rows are not consecutive
+frames). The chord Jacobian H at the benign
 mean state, the meter weights W and the measurement mask all come from a fitted fdia_graph.se
 estimator, so the physics here is the estimator's physics.
 
@@ -24,7 +25,8 @@ meters and incident branch flows:
     5 leverage-weighted change           max over incident meters of l_k |dz_k| / sigma_k
     6 sensitivity-normalised change      max over incident meters of |dz_k| / s_k
     7 weak-direction move                implied move projected on the n_weak weakest directions
-Needs the [se] extra (pandapower + scipy) and the clean layer (a timeline, or a v0.7.2 record shard).
+Needs the [se] extra (pandapower + scipy) and a timeline: the previous frame's readings, and its
+clean layer for the slack angle reference alone. A v0.7.2 record shard is refused.
 """
 
 from __future__ import annotations
@@ -73,8 +75,9 @@ def bus_incidence(est: SEBase, edge_index: np.ndarray) -> list[np.ndarray]:
 
 class JacobianFeatures:
     """Fit on the train split (any fdia_graph.se estimator supplies the physics), then transform
-    any split of the same dataset (a timeline or a v0.7.2 record shard) into per-bus and global
-    Jacobian-informed features.
+    any split of the same timeline into per-bus and global Jacobian-informed features, each frame's
+    change taken against the previous frame's estimate (a v0.7.2 record shard is refused: its rows
+    are not consecutive frames).
 
     n_weak: how many of the weakest observable state directions define the "weak" subspace
     (default: 10 percent of the state dimension, at least 2).
@@ -93,9 +96,11 @@ class JacobianFeatures:
         if not self.est.is_fitted:
             self.est.fit(ds)
         est = self.est
-        if ds._clean_np is None:
-            raise ValueError("Jacobian features need the clean layer (a timeline, or a v0.7.2 record shard)")
-        self._pool: np.ndarray = ds._clean_np  # clean state per pool timestep, shared by every split
+        if not ds.is_timeline or ds._clean_np is None:
+            raise ValueError(
+                "Jacobian features need a timeline: the previous frame's readings and its angle reference"
+            )
+        self._pool: np.ndarray = ds._clean_np  # read for the slack angle reference only
         self._inc = bus_incidence(est, ds.edge_index_np)
         sw = np.sqrt(est.Wk)  # W^1/2 as a vector
         Hw = sw[:, None] * est.H  # [m, SD], the whitened Jacobian
@@ -116,19 +121,28 @@ class JacobianFeatures:
         self.N, self.ns = est.N, len(est.keep)
         return self
 
-    # ---- the measurement change against the previous clean state --------------------------
-    def delta_z(self, d: dict[str, np.ndarray]) -> np.ndarray:
+    # ---- the measurement change against the previous frame's estimate ---------------------
+    def previous_estimate(self, d: dict[str, np.ndarray], chunk: int = 1000) -> tuple[np.ndarray, np.ndarray]:
+        """The estimator's plain solve of the previous frame's readings, x_hat_{t-1} [n, SD], and
+        the slack angle it is referenced to [n]."""
         est = self.est
-        z = est._z_of(d["node_x"], d["edge_x"])
-        t = d["timestep"].astype(int)
-        prev = self._pool[np.maximum(t - 1, 0)]  # first pool step: dz is the noise alone
-        tr = est._truth_of(prev)
-        return z - est._h(tr["x"], tr["thsl"])
+        zp = est._z_of(d["prev_node_x"], d["prev_edge_x"])
+        # the one truth read: the slack angle, the reference frame every fdia_graph.se estimate is
+        # expressed in (the scored estimators pin it the same way); no other part of the state
+        thsl = est._truth_of(self._pool[d["prev_timestep"].astype(int)])["thsl"]
+        parts = [est._solve_plain(zp[i : i + chunk], thsl[i : i + chunk]) for i in range(0, len(zp), chunk)]
+        return (np.concatenate(parts) if parts else np.zeros((0, est.SD))), thsl
+
+    def delta_z(self, d: dict[str, np.ndarray]) -> np.ndarray:
+        """dz = z_t - h(x_hat_{t-1}), the reading change the previous estimate does not predict."""
+        z = self.est._z_of(d["node_x"], d["edge_x"])
+        x, thsl = self.previous_estimate(d)
+        return z - self.est._h(x, thsl)
 
     # ---- features ------------------------------------------------------------------------
     def transform(self, d: dict[str, np.ndarray]) -> JacobianOutputs:
-        """d must carry node_x, edge_x, timestep (as fdia_graph's to_numpy returns them, physical
-        units). Returns {"bus": [n, N, 8], "global": [n, 4], "dx_hat": [n, SD], "r_perp": [n, m]}."""
+        """d must carry node_x, edge_x, prev_node_x, prev_edge_x and prev_timestep (as a timeline's
+        export returns them, physical units). Returns {"bus": [n, N, 8], "global": [n, 4], "dx_hat": [n, SD], "r_perp": [n, m]}."""
         est = self.est
         dz = self.delta_z(d)  # [n, m]
         dx, r_par, r_perp = explained_unexplained(

@@ -69,9 +69,10 @@ each client trains its own copy with the shared `LocalTrainer` on its own buses,
 
 Everything a call returns is a `Bundle`, a dict with attribute access and a fixed key order. The record
 forms share seven field-group mixins, one per group of keys, so a record, a batch, an exported split and
-a stream carry the same names.
+a stream carry the same names. An exported split adds an eighth, export-only group,
+`PreviousFrameFields` (the previous frame's readings on a timeline).
 
-![Class diagram of the record bundles: Bundle, the seven field-group mixins as one node, and RecordBundle, BatchBundle, ArraysBundle and Stream inheriting both; EpisodeTable, Summary and TrueState under Bundle](../figures/diagrams/classes_models.png)
+![Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle, ArraysBundle and Stream inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle](../figures/diagrams/classes_models.png)
 
 ## The scores
 
