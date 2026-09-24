@@ -55,18 +55,18 @@ class _Client:
         return self.nodes[: self.owned]
 
 
+def _is_int(v: Any) -> bool:
+    """A true integer (numpy's included), not a bool or a float that happens to be whole."""
+    return isinstance(v, (int, np.integer)) and not isinstance(v, bool)
+
+
 def _check_settings(K: int, rounds: int, local_epochs: int, halo: int, grad_clip: Optional[float]) -> None:
     """The federated knobs a fit cannot recover from."""
-    if not all(
-        isinstance(v, (int, np.integer)) and not isinstance(v, bool) for v in (K, rounds, local_epochs, halo)
-    ):
-        raise ValueError(
-            f"K, rounds, local_epochs and halo must be integers, got {K!r}, {rounds!r}, {local_epochs!r}, {halo!r}"
-        )
-    if K < 1 or rounds < 1 or local_epochs < 1 or halo < 0:
-        raise ValueError(
-            f"need K, rounds, local_epochs >= 1 and halo >= 0, got {K}, {rounds}, {local_epochs}, {halo}"
-        )
+    counts = (K, rounds, local_epochs, halo)
+    if not all(_is_int(v) for v in counts):
+        raise ValueError(f"K, rounds, local_epochs and halo must be integers, got {counts}")
+    if min(K, rounds, local_epochs) < 1 or halo < 0:
+        raise ValueError(f"need K, rounds, local_epochs >= 1 and halo >= 0, got {counts}")
     if grad_clip is not None and not (np.isfinite(grad_clip) and grad_clip > 0):
         raise ValueError(f"grad_clip must be None or a finite positive norm, got {grad_clip}")
 
