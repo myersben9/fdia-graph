@@ -1,4 +1,4 @@
-"""Per-bus FDIA localization on fdia-graph shards, sklearn style.
+"""Per-bus FDIA localization on fdia-graph datasets, sklearn style.
 
     from fdia_graph.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN
 

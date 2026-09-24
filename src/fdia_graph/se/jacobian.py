@@ -2,8 +2,11 @@
 of the scan-to-scan measurement change, not as raw model input.
 
 For a record with measurements z_t, the change dz = z_t - h(x_{t-1}) is taken against the exact
-measurement prediction of the previous clean state (the shard stores the clean pool per timestep;
-this is the same construction as the shard's temporal_delta). The chord Jacobian H at the benign
+measurement prediction of the previous pool timestep's clean state, read from the dataset's clean
+layer. On a v0.7.2 record shard that is the construction of the shard's temporal_delta. On a
+timeline it is not the localizers' temporal features, which compare each frame with the previously
+emitted (noisy, possibly attacked) frame: here the reference is the noiseless, attack-free truth,
+which an operator does not have (a deployed version would use the previous estimate). The chord Jacobian H at the benign
 mean state, the meter weights W and the measurement mask all come from a fitted fdia_graph.se
 estimator, so the physics here is the estimator's physics.
 
@@ -21,7 +24,7 @@ meters and incident branch flows:
     5 leverage-weighted change           max over incident meters of l_k |dz_k| / sigma_k
     6 sensitivity-normalised change      max over incident meters of |dz_k| / s_k
     7 weak-direction move                implied move projected on the n_weak weakest directions
-Needs the [se] extra (pandapower + scipy) and a v0.7.2+ shard (the clean layer).
+Needs the [se] extra (pandapower + scipy) and the clean layer (a timeline, or a v0.7.2 record shard).
 """
 
 from __future__ import annotations
@@ -70,7 +73,8 @@ def bus_incidence(est: SEBase, edge_index: np.ndarray) -> list[np.ndarray]:
 
 class JacobianFeatures:
     """Fit on the train split (any fdia_graph.se estimator supplies the physics), then transform
-    any split of the same shard into per-bus and global Jacobian-informed features.
+    any split of the same dataset (a timeline or a v0.7.2 record shard) into per-bus and global
+    Jacobian-informed features.
 
     n_weak: how many of the weakest observable state directions define the "weak" subspace
     (default: 10 percent of the state dimension, at least 2).
@@ -90,7 +94,7 @@ class JacobianFeatures:
             self.est.fit(ds)
         est = self.est
         if ds._clean_np is None:
-            raise ValueError("Jacobian features need the clean layer (a v0.7.2+ shard)")
+            raise ValueError("Jacobian features need the clean layer (a timeline, or a v0.7.2 record shard)")
         self._pool: np.ndarray = ds._clean_np  # clean state per pool timestep, shared by every split
         self._inc = bus_incidence(est, ds.edge_index_np)
         sw = np.sqrt(est.Wk)  # W^1/2 as a vector

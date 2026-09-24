@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Docs: the SE, localization and trust guides rerun on the v0.8.1 timelines, every table and quoted
+  number regenerated from the new JSON. Directions that changed: the CNN gate now lowers the
+  estimator's error on IEEE-14 (0.049 to 0.044) and 300, residual removal beats WLS on 300, and the
+  zero-shot CNN with the Jacobian block reads 0.873, 0.896 and 0.840.
 - `FedBusCNN` and `FedBusMLP` accept the Jacobian feature sets (`features="full14+jac"`, `"jac"`):
   the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
   is the whole system's estimator applied to every meter's change, computed once centrally per pass
@@ -168,9 +172,8 @@ the public API, the generated files and the numbers are the same as the previous
   beside it, `tools/render_mermaid.py`), since the GitHub mobile app and PyPI show a Mermaid block
   as code; no Mermaid block remains. No package change.
 - `docs/se` and `docs/localization` IEEE-300 columns re-run on the v0.8.0 timeline (tables, figures
-  and CSV sidecars); the live result tables of both guides now read the v0.8.0 release, while the
-  paper-comparison table (v0.4.1) and the narrative sections (v0.7.2) stay labeled as such. No
-  package change.
+  and CSV sidecars); the live result tables of both guides now read the v0.8.0 release, and the
+  paper-comparison table stays labeled v0.4.1. No package change.
 - The README's pipeline diagram is a pre-rendered image (`docs/figures/diagrams/pipeline.png`, source
   `pipeline.mmd` beside it, `tools/render_mermaid.py`), since PyPI and the GitHub mobile app show a
   Mermaid block as code; README images use absolute URLs so the PyPI page shows them. No package change.

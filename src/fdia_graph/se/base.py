@@ -1,4 +1,4 @@
-"""State estimation on fdia-graph shards — the shared machinery behind every method class.
+"""State estimation on fdia-graph datasets — the shared machinery behind every method class.
 
 SEBase owns what all estimators have in common: the AC measurement model h(x) built from the
 pandapower case, the chord-Newton iteration with its divergence guard, the meter weights calibrated
@@ -8,8 +8,8 @@ voltage magnitude including the slack is estimated, matching production practice
 
 Needs pandapower and scipy: pip install "fdia-graph[se]". The measurement function and its Jacobian
 are the closed-form numpy kernel (`formulas.network.ac_measurement`, `ac_jacobian`); torch, when
-installed, only speeds up the per-record inverses. Datasets must be v0.7.2+ shards (the clean layer
-supplies the truth) loaded with units="physical" (the default).
+installed, only speeds up the per-record inverses. Datasets must carry the clean layer (a timeline,
+or a v0.7.2 record shard; it supplies the truth) loaded with units="physical" (the default).
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ class SEBase:
             raise ImportError("state estimation needs pandapower: pip install 'fdia-graph[se]'") from e
         require_physical(ds)
         if not ds.has_clean:
-            raise ValueError("dataset has no clean layer; upgrade to a v0.7.2+ shard")
+            raise ValueError("dataset has no clean layer; load a timeline or a v0.7.2 record shard")
         net = getattr(pn, _CASE_FN[int(ds.system)])()
         pp.runpp(net)
         ppc = net._ppc
@@ -185,7 +185,7 @@ class SEBase:
         LUT = torch.tensor(self._lut)
         return torch.cat([V, -Sb.real[:, LUT], -Sb.imag[:, LUT], th, Sf.real, Sf.imag], dim=1)
 
-    # ---- data conversion (physical shard units -> internal pu/rad) --------------------------
+    # ---- data conversion (physical dataset units -> internal pu/rad) --------------------------
     def _z_of(self, node_x: np.ndarray, edge_x: np.ndarray) -> np.ndarray:
         b = self.baseMVA
         z = np.concatenate(
@@ -218,7 +218,7 @@ class SEBase:
         tr = self._truth_of(d["clean"][ben])
         self._fit_states(tr["x"])  # hook: subclasses learn their prior here
         self.xmean = tr["x"].mean(axis=0)
-        # meter sigma = rms of benign residual AT THE TRUE STATE. The shard's meter error is a
+        # meter sigma = rms of benign residual AT THE TRUE STATE. The dataset's meter error is a
         # constant bias plus jitter; a std across records cancels the bias and mis-weights, so the
         # total error about zero (the accuracy class) is the correct scale. The calibration records
         # are spread evenly over the benign set: on a timeline the first ones are one early stretch
