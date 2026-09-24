@@ -33,7 +33,10 @@ N_FEAT = 14  # the papers' per-bus vector: 4 readings + 4 mask + 2 KCL + 2 delta
 # Feature sets, named after the Jacobian-informed digest's ablation: A measurements only, B the
 # papers' 14-dim vector (measurements + temporal change), C = B + the Jacobian block, D = the
 # Jacobian block alone. The Jacobian block is fdia_graph.se.jacobian's 8 per-bus features.
-FEATURE_SETS = {"meas": 8, "full14": 14, "full14+jac": 22, "jac": 8}
+# "+prev" appends the previous frame's swing (2 channels, a timeline's prev_swing): on a timeline the
+# frame after a one-frame attack carries the same jump back with the opposite sign, and only the
+# frame before tells the attack's jump from that return.
+FEATURE_SETS = {"meas": 8, "full14": 14, "full14+prev": 16, "full14+jac": 22, "full14+prev+jac": 24, "jac": 8}
 
 
 def _torch() -> Any:
@@ -122,18 +125,33 @@ class LearnedLocalizer(LocalizerBase):
         f = ["node_x", "node_m", "edge_x", "y"]
         if "full14" in self.features:
             f += ["temporal_delta", "swing"]
+        if "prev" in self.features:
+            f += ["prev_swing"]
         if "jac" in self.features:
             f += ["prev_node_x", "prev_edge_x", "prev_timestep"]
         return f
 
-    def _features(self, d: dict[str, np.ndarray]) -> np.ndarray:
-        """The per-bus vector for the chosen feature set, [n, N, n_feat], raw (standardized later)."""
+    def _features(self, d: dict[str, np.ndarray], jac: Optional[np.ndarray] = None) -> np.ndarray:
+        """The per-bus vector for the chosen feature set, [n, N, n_feat], raw (standardized later):
+        each bus's own channels, then the Jacobian block when the set has one (`jac` when handed
+        in, else built from d)."""
+        block: Optional[np.ndarray] = None
+        if "jac" in self.features:
+            block = self._jac.transform(d)["bus"] if jac is None else jac  # [n, N, 8], fdia_graph.se.jacobian
+            if self.features == "jac":
+                return block
+        own = self._own_channels(d)
+        return own if block is None else np.concatenate([own, block], -1)
+
+    def _own_channels(self, d: dict[str, np.ndarray]) -> np.ndarray:
+        """The channels each bus builds from its own readings: the measurements and mask, or the
+        papers' 14, followed by the previous frame's swing for a "+prev" set."""
         if self.features == "meas":
             return np.concatenate([d["node_x"].astype(np.float64), d["node_m"].astype(np.float64)], -1)
-        if self.features == "full14":
-            return full14(d)
-        jac = self._jac.transform(d)["bus"]  # [n, N, 8] from fdia_graph.se.jacobian
-        return jac if self.features == "jac" else np.concatenate([full14(d), jac], -1)
+        own = full14(d)
+        return (
+            np.concatenate([own, d["prev_swing"].astype(np.float64)], -1) if "prev" in self.features else own
+        )
 
     def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         torch = _torch()

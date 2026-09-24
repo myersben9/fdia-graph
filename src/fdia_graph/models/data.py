@@ -30,7 +30,7 @@ _TEMPORAL = ("temporal_delta", "swing")
 _CLEAN = ("clean", "edge_clean", "edge_clean_full")
 _IDS = ("family", "stealthy", "seq_id", "timestep")
 _BENIGN = ("benign", "edge_benign")
-_PREV = ("prev_node_x", "prev_edge_x", "prev_timestep")
+_PREV = ("prev_node_x", "prev_edge_x", "prev_timestep", "prev_swing")
 
 
 @dataclass(frozen=True, eq=False)

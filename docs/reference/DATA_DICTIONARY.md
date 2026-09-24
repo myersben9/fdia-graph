@@ -261,6 +261,7 @@ Field groups: `PreviousFrameFields`, `StreamLayers`, `GraphFields`, `CleanFields
 | `prev_node_x` | `prev_node_x` | Array |  | [..., N, 4] the previous frame's node readings (PreviousFrameFields) |
 | `prev_edge_x` | `prev_edge_x` | Array |  | [..., E, 2] the previous frame's branch-flow readings (PreviousFrameFields) |
 | `prev_timestep` | `prev_timestep` | Array |  | [...] the previous frame's pool timestep (PreviousFrameFields) |
+| `prev_swing` | `prev_swing` | Array |  | [..., N, 2] the previous frame's swing (dimensionless) (PreviousFrameFields) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
 
 ### `Summary` (`fdia_graph.models.data`)
