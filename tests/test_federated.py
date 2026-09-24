@@ -103,6 +103,8 @@ def test_partition_and_affinity_inputs_are_checked(edges):
     ei, N = edges
     with pytest.raises(ValueError, match="one integer client per bus"):
         partition_from_assignment(np.zeros(N - 1, int), ei)
+    with pytest.raises(ValueError, match="one integer client per bus"):
+        partition_from_assignment(np.zeros(0, int), np.zeros((2, 0), int))
     with pytest.raises(ValueError, match="none empty"):
         partition_from_assignment(np.r_[np.zeros(N - 1, int), 2], ei)  # client 1 has no bus
     with pytest.raises(ValueError, match="attackable mask"):
@@ -133,6 +135,8 @@ def test_every_formula_refuses_malformed_input():
     for f in (lambda: interior_boundary(a[:2], A, 2), lambda: cut_edge_count(a, A[:2])):
         with pytest.raises(ValueError, match="adjacency"):
             f()
+    with pytest.raises(ValueError, match="exactly the clients"):
+        interior_boundary(np.array([0, 1]), np.zeros((2, 2)), 1)  # K drops client 1
     with pytest.raises(ValueError, match="non-empty"):
         channel_moments(np.zeros((0, 3, 2)))
     with pytest.raises(ValueError, match="at least one part"):

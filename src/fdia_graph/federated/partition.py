@@ -62,7 +62,12 @@ def partition_from_assignment(
     """A Partition from a given client-of-every-bus array (e.g. one saved with a paper's runs)."""
     assignment = np.asarray(assignment)
     N = int(edge_index.max()) + 1 if edge_index.size else len(assignment)
-    if assignment.ndim != 1 or len(assignment) < N or not np.issubdtype(assignment.dtype, np.integer):
+    if (
+        assignment.ndim != 1
+        or not len(assignment)
+        or len(assignment) < N
+        or not np.issubdtype(assignment.dtype, np.integer)
+    ):
         raise ValueError(f"assignment must be one integer client per bus ({N} buses)")
     assignment = assignment.astype(np.int64)
     K = int(assignment.max()) + 1

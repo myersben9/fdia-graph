@@ -114,6 +114,8 @@ def interior_boundary(assignment: np.ndarray, A: np.ndarray, K: int) -> tuple[np
     returns    : (interior [K, N] bool, boundary [K, N] bool)
     """
     _check_graph(assignment, A)
+    if K < 1 or set(np.unique(assignment).tolist()) != set(range(K)):
+        raise ValueError(f"the assignment must use exactly the clients 0..{K - 1}")
     N = len(assignment)
     foreign = (A > 0) & (assignment[None, :] != assignment[:, None])  # [N, N] edges to another client
     inner = ~foreign.any(axis=1)
