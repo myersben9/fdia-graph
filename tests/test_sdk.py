@@ -310,14 +310,18 @@ def test_wls_estimates_the_classical_state(splits):
 
 def test_jacobian_features_split_stealthy_from_corruption(timeline, splits):
     """Unexplained energy fires on in-place corruption (Ad) and not on the stealthy re-solve (Aq);
-    the explained energy and the implied state move fire on both. The digest's central claims.
+    the explained energy fires on an Aq episode's first frame, where the previous frame's estimate
+    is still benign (later frames of the episode are measured against an estimate the false state
+    already moved). The digest's central claims, with only observed data in the feature.
     Transformed over the whole timeline so every family has frames (the test split of the tiny
     timeline can miss a long-episode family)."""
     pytest.importorskip("torch")
     from fdia_graph.se.jacobian import JacobianFeatures
 
     jf = JacobianFeatures().fit(splits["train"])
-    d = fg.load(timeline).export(["node_x", "edge_x", "timestep", "family", "y"])
+    d = fg.load(timeline).export(
+        ["node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep", "family", "y"]
+    )
     F = jf.transform(d)
     n, N = d["node_x"].shape[:2]
     assert F["bus"].shape == (n, N, 8) and F["global"].shape == (n, 4)
@@ -325,10 +329,12 @@ def test_jacobian_features_split_stealthy_from_corruption(timeline, splits):
     assert jf.kappa > 1.0 and len(jf.singular_values) == jf.est.SD
     fam = d["family"]
     ben, aq, ad = fam == 0, fam == 1, fam == 2
+    onset = aq & (np.r_[0, fam[:-1]] != 1)  # an Aq frame whose previous frame was not Aq
     q_perp, q_par = F["global"][:, 0], F["global"][:, 1]
+    assert onset.any()
     assert np.median(q_perp[ad]) > 2 * np.median(q_perp[ben])  # corruption leaves an unexplained part
     assert np.median(q_perp[aq]) < 2 * np.median(q_perp[ben])  # a stealthy re-solve does not
-    assert np.median(q_par[aq]) > 2 * np.median(q_par[ben])  # but it moves the explained part
+    assert np.median(q_par[onset]) > 2 * np.median(q_par[ben])  # but its onset moves the explained part
 
 
 def test_learned_localizer_feature_sets(splits):
@@ -472,3 +478,44 @@ def test_learned_localizer_grid_detection_and_attackable_table(splits, timeline)
     loc.fit(splits["train"])  # a refit forgets the previous fit's grid threshold
     with pytest.raises(ValueError, match="tune_grid_threshold"):
         loc.score_grid(splits["test"])
+
+
+def test_previous_frame_fields_are_the_row_emitted_before(timeline):
+    """prev_* hold the readings of file row - 1 for every kept record, whatever split or family that
+    row belongs to (an operator sees every frame); a record shard offers none."""
+    from conftest import SHARD_V072
+
+    from fdia_graph import FdiaGraph
+
+    full = fg.load(timeline).export(["node_x", "edge_x", "timestep"])
+    ds = fg.load(timeline, split="test", families=[0, 1, 2])
+    d = ds.export(["prev_node_x", "prev_edge_x", "prev_timestep"])
+    prev = np.maximum(ds.idx - 1, 0)
+    assert not np.isin(prev, ds.idx).all()  # some previous frames sit outside the filtered view
+    assert np.array_equal(d["prev_node_x"], full["node_x"][prev])
+    assert np.array_equal(d["prev_edge_x"], full["edge_x"][prev])
+    assert np.array_equal(d["prev_timestep"], full["timestep"][prev])
+    with pytest.raises(ValueError, match="unknown field"):
+        FdiaGraph(SHARD_V072).export(["prev_node_x"])
+
+
+def test_jacobian_features_never_read_the_true_state(timeline, splits):
+    """The change is taken against the previous frame's estimate: rewriting the clean layer (all
+    but the slack angle, the angle reference every estimate shares) leaves the features unchanged."""
+    pytest.importorskip("pandapower")
+    from fdia_graph.se.jacobian import JacobianFeatures
+
+    jf = JacobianFeatures().fit(splits["train"])
+    d = splits["test"].export(["node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep"])
+    before = jf.transform(d)["bus"]
+    pool = jf._pool.copy()
+    keep = pool[:, jf.est.slack, 3].copy()
+    jf._pool = pool * 1.5 + 0.1
+    jf._pool[:, jf.est.slack, 3] = keep
+    assert np.array_equal(jf.transform(d)["bus"], before)
+    with pytest.raises(ValueError, match="timeline"):
+        from conftest import SHARD_V072
+
+        from fdia_graph import FdiaGraph
+
+        JacobianFeatures().fit(FdiaGraph(SHARD_V072))

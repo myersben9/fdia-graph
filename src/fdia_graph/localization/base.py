@@ -33,7 +33,14 @@ if TYPE_CHECKING:
 
 # Per-record fields that only exist on newer datasets, and the FdiaGraph flag that says so — checked
 # up front so a missing field is a clear message instead of an h5py KeyError mid-read.
-_FIELD_FLAG = {"swing": "has_swing", "temporal_delta": "has_temporal", "clean": "has_clean"}
+_FIELD_FLAG = {
+    "swing": "has_swing",
+    "temporal_delta": "has_temporal",
+    "clean": "has_clean",
+    "prev_node_x": "is_timeline",
+    "prev_edge_x": "is_timeline",
+    "prev_timestep": "is_timeline",
+}
 
 
 class LocalizerBase:

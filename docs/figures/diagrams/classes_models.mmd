@@ -19,6 +19,8 @@ classDiagram
         +popitem()
         +clear()
     }
+    class PreviousFrameFields {
+    }
     class RecordBundle {
     }
     class BatchBundle {
@@ -44,3 +46,4 @@ classDiagram
     FieldGroups <|-- BatchBundle
     FieldGroups <|-- RecordBundle
     FieldGroups <|-- Stream
+    PreviousFrameFields <|-- ArraysBundle

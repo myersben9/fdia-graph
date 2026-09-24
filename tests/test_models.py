@@ -91,6 +91,7 @@ def test_pickle_restores_fields_and_key_order():
 _SCAN = ["node_x", "node_m", "edge_x", "edge_m"]
 _IDS = ["family", "stealthy", "seq_id", "timestep"]
 _BENIGN = ["benign", "edge_benign"]
+_PREV = ["prev_node_x", "prev_edge_x", "prev_timestep"]
 _TEMPORAL = ["temporal_delta", "swing"]
 _CLEAN = ["clean", "edge_clean", "edge_clean_full"]
 EXPECTED = {
@@ -105,7 +106,18 @@ EXPECTED = {
     ),
     # edge_attr is new on ArraysBundle (it comes with GraphFields), last and never filled by the exports
     "ArraysBundle": (
-        ["edge_index", "edge_reactance", *_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, *_IDS, "edge_attr"],
+        [
+            "edge_index",
+            "edge_reactance",
+            *_SCAN,
+            "y",
+            *_TEMPORAL,
+            *_CLEAN,
+            *_BENIGN,
+            *_IDS,
+            *_PREV,
+            "edge_attr",
+        ],
         [],
     ),
     "Stream": (

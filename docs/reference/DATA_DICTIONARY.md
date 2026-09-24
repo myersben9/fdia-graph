@@ -236,7 +236,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 
 A whole split of n records as `export` returns it (arrays, or tensors with format="torch" or "tf"), leading axis n: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.
 
-Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `PreviousFrameFields`, `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -258,6 +258,9 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
 | `timestep` | `timestep` | Scalars |  | [...] position in the source load profile (RecordIds) |
+| `prev_node_x` | `prev_node_x` | Array |  | [..., N, 4] the previous frame's node readings (PreviousFrameFields) |
+| `prev_edge_x` | `prev_edge_x` | Array |  | [..., E, 2] the previous frame's branch-flow readings (PreviousFrameFields) |
+| `prev_timestep` | `prev_timestep` | Array |  | [...] the previous frame's pool timestep (PreviousFrameFields) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
 
 ### `Summary` (`fdia_graph.models.data`)

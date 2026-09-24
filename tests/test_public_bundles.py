@@ -107,7 +107,11 @@ def test_jacobian_outputs(timeline):
     from fdia_graph.se.jacobian import JacobianFeatures, JacobianOutputs
 
     train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
-    out = JacobianFeatures().fit(train).transform(test.export())
+    out = (
+        JacobianFeatures()
+        .fit(train)
+        .transform(test.export(["node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep"]))
+    )
     assert isinstance(out, JacobianOutputs)
     _agree(out)
     assert list(out) == ["bus", "global", "dx_hat", "r_perp"]

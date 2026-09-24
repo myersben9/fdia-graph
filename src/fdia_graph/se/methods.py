@@ -184,7 +184,7 @@ class JacobianWeighting(SEBase):
     def weights(self, ds: FdiaGraph) -> np.ndarray:
         """Per-record meter weights [n, m] from the unexplained temporal residual."""
         require_physical(ds)
-        d = ds.export(["node_x", "edge_x", "timestep"])
+        d = ds.export(["node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep"])
         u = np.abs(self._jf.transform(d)["r_perp"]) * np.sqrt(self.Wk)[None, :]
         return self.Wk[None, :] * huber_weights(u, self.c)
 

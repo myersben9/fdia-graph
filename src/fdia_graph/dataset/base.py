@@ -123,12 +123,17 @@ _BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 _CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
 # The attack-removed layer of a timeline file: record field -> dataset path, one row per frame.
 _BENIGN_LAYERS = {k: schema.FIELD_PATH[k] for k in ("benign", "edge_benign")}
+# The previous frame's readings on a timeline (the row emitted just before each record, whatever
+# split or family it belongs to): observed data an operator holds, offered on request only.
+_PREV_FIELDS = {"prev_node_x": "node_x", "prev_edge_x": "edge_x", "prev_timestep": "timestep"}
 # Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
 _UNIT_KIND = {
     "node_x": "node",
+    "prev_node_x": "node",
     "clean": "node",
     "benign": "node",
     "edge_x": "edge",
+    "prev_edge_x": "edge",
     "edge_clean": "edge",
     "edge_clean_full": "edge",
     "edge_benign": "edge",

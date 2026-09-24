@@ -75,6 +75,15 @@ class TemporalFields:
 
 
 @dataclass(frozen=True, eq=False)
+class PreviousFrameFields:
+    """The readings of the frame emitted just before each record on a timeline (export only)."""
+
+    prev_node_x: Optional[Array] = None  # [..., N, 4] the previous frame's node readings
+    prev_edge_x: Optional[Array] = None  # [..., E, 2] the previous frame's branch-flow readings
+    prev_timestep: Optional[Array] = None  # [...] the previous frame's pool timestep
+
+
+@dataclass(frozen=True, eq=False)
 class CleanFields:
     """The noiseless attack-free truth (v0.7.2+)."""
 

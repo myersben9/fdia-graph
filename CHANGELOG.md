@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The Jacobian features never read the true state. `JacobianFeatures` took each frame's change
+  against the previous pool timestep's clean state, truth an operator does not hold; it now takes it
+  against the previous frame's estimate, dz = z_t - h(x_hat_{t-1}), the fitted estimator's plain
+  solve of the frame emitted just before (the slack angle stays the shared angle reference). A
+  timeline export offers that frame's readings on request as `prev_node_x`, `prev_edge_x` and
+  `prev_timestep` (`models.PreviousFrameFields`), read from file row - 1 whatever split or family it
+  belongs to. `BusCNN` / `BusMLP` / the federated localizers with a Jacobian feature set and
+  `JacobianWeighting` follow; a record shard is refused (its rows are not consecutive frames). On
+  the tiny timeline `JacobianWeighting` moves in the fourth significant digit; the stealthy re-solve
+  now raises the explained energy at an episode's first frame, as the temporal features do. A test
+  rewrites the clean layer and checks the features do not change.
 - Docs: the SE, localization and trust guides rerun on the v0.8.1 timelines, every table and quoted
   number regenerated from the new JSON. Directions that changed: the CNN gate now lowers the
   estimator's error on IEEE-14 (0.049 to 0.044) and 300, residual removal beats WLS on 300, and the

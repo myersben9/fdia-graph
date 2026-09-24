@@ -14,13 +14,23 @@ from typing import Any, Optional
 import numpy as np
 
 from .base import Bundle
-from .fields import CleanFields, GraphFields, LabelFields, RecordIds, ScanFields, StreamLayers, TemporalFields
+from .fields import (
+    CleanFields,
+    GraphFields,
+    LabelFields,
+    PreviousFrameFields,
+    RecordIds,
+    ScanFields,
+    StreamLayers,
+    TemporalFields,
+)
 
 _SCAN = ("node_x", "node_m", "edge_x", "edge_m")
 _TEMPORAL = ("temporal_delta", "swing")
 _CLEAN = ("clean", "edge_clean", "edge_clean_full")
 _IDS = ("family", "stealthy", "seq_id", "timestep")
 _BENIGN = ("benign", "edge_benign")
+_PREV = ("prev_node_x", "prev_edge_x", "prev_timestep")
 
 
 @dataclass(frozen=True, eq=False)
@@ -50,7 +60,15 @@ class BatchBundle(
 
 @dataclass(frozen=True, eq=False)
 class ArraysBundle(
-    StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
+    PreviousFrameFields,
+    StreamLayers,
+    GraphFields,
+    CleanFields,
+    TemporalFields,
+    RecordIds,
+    LabelFields,
+    ScanFields,
+    Bundle,
 ):
     """A whole split of n records as `export` returns it (arrays, or tensors with format="torch"
     or "tf"), leading axis n: every per-record field that was requested and the file carries, plus
@@ -59,7 +77,18 @@ class ArraysBundle(
     edge_reactance: Optional[np.ndarray] = None  # [E], deprecated units, kept for old callers
 
     # edge_attr comes with GraphFields; the exports never fill it, so it is None and absent from the dict
-    _order = ("edge_index", "edge_reactance", *_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, *_IDS, "edge_attr")
+    _order = (
+        "edge_index",
+        "edge_reactance",
+        *_SCAN,
+        "y",
+        *_TEMPORAL,
+        *_CLEAN,
+        *_BENIGN,
+        *_IDS,
+        *_PREV,
+        "edge_attr",
+    )
 
 
 @dataclass(frozen=True, eq=False)
