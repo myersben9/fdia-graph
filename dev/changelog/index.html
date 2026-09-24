@@ -1488,6 +1488,14 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li>Localization, the federated paper's tables: <code>LocalizerBase.score_perbus(ds, buses=, fr_over=)</code>
+  returns per-bus F1, detection rate, false-alarm rate and AUPRC (<code>models.scores.PerBusScores</code>,
+  <code>PerBusMetrics</code>) over every record and per family (that family plus benign), on the active buses
+  or, for a learned localizer, the training-attackable ones; <code>fr_over="all"</code> is the paper's Table IV
+  false-alarm rate, <code>"benign"</code> equals <code>score()["all"].macro_fr</code>. <code>LearnedLocalizer.tune_grid_threshold</code>
+  and <code>score_grid</code> give record-level detection at a validation-tuned grid threshold
+  (<code>models.scores.GridScores</code>). New formulas <code>perbus_rates</code> and <code>average_precision</code> [DG06] (equal
+  to scikit-learn's). Existing outputs are unchanged.</li>
 <li><code>fdia_graph.federated.RegionalPrior</code>: the proposed estimator's subspace prior fitted per client
   of a <code>Partition</code> (each client's basis from its own non-slack angles and voltages, placed on a block
   diagonal by <code>formulas.federated.block_diagonal_basis</code>), so no client's states leave it; one client

@@ -1551,7 +1551,7 @@ chord-Newton loop. Each estimator overrides one hook. <code>GatedPrior</code> ta
 feature, <code>ResidualLocalizer</code> runs an estimator, the learned arms train a per-bus network.
 <code>TrustSelector</code> chooses the meters to secure on the WLS Jacobian, by row reduction (<code>TrustedMeters</code>) or
 by a deep Q-network (<code>TrustedMetersDQN</code>), and scores the residual test with them secured.</p>
-<p><img alt="Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores and TrustScores" src="../../figures/diagrams/classes_localization_trust.png" /></p>
+<p><img alt="Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores, PerBusScores, GridScores and TrustScores" src="../../figures/diagrams/classes_localization_trust.png" /></p>
 <h2 id="federated-training">Federated training<a class="headerlink" href="#federated-training" title="Permanent link">&para;</a></h2>
 <p><code>FederatedLocalizer</code> is a <code>LearnedLocalizer</code> whose fit runs FedAvg over a <code>Partition</code> of the buses:
 each client trains its own copy with the shared <code>LocalTrainer</code> on its own buses, and <code>FedBusMLP</code> and
@@ -1567,7 +1567,7 @@ a stream carry the same names.</p>
 <p>The result of every <code>score()</code> is a <code>Bundle</code> too: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,
 <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code> and <code>LocalizerScores</code> for the localizers, <code>TrustScores</code>
 for the trusted meters, <code>JacobianOutputs</code> for the feature block.</p>
-<p><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, TrustScores and JacobianOutputs all under Bundle" src="../../figures/diagrams/classes_scores.png" /></p>
+<p><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores and JacobianOutputs all under Bundle" src="../../figures/diagrams/classes_scores.png" /></p>
 <p>The named tuples of <code>models/frames.py</code> (<code>Scan</code>, <code>Frame</code>, <code>OperatingLimits</code>, <code>FrameKnobs</code>,
 <code>Redistribution</code>, <code>ResolvedPool</code>), <code>models/grid.py</code> (the column indices, <code>BranchModel</code>, <code>Admittances</code>,
 <code>MeterPlan</code>, <code>MeterBias</code>, <code>Outage</code>) and <code>models/assets.py</code> (<code>AssetSpec</code>, <code>LineCandidate</code>) are plain

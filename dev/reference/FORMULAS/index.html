@@ -1446,6 +1446,13 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>the learned localizers' standardization, pooled across federated clients</td>
 </tr>
 <tr>
+<td>per-bus rates and average precision</td>
+<td><code>formulas.metrics.perbus_rates</code>, <code>average_precision</code>, through <code>LocalizerBase.score_perbus</code> and <code>LearnedLocalizer.score_grid</code></td>
+<td>F1 = 2TP / (2TP + FP + FN), DR = TP / (TP + FN), FR = FP / (FP + TN); AP = Σ (R_n − R_{n−1}) P_n over distinct thresholds, highest first</td>
+<td>[KEC25], [DG06]</td>
+<td>the federated paper's node-wise table and grid detection</td>
+</tr>
+<tr>
 <td>per-bus confusion counts and the papers' threshold</td>
 <td><code>formulas.metrics.perbus_counts</code>, <code>perbus_f1_from_counts</code>, <code>tau_from_counts</code>, through <code>LearnedLocalizer.tune_threshold</code></td>
 <td>F1 = 2TP / (2TP + FP + FN); tau = argmax over the grid of the mean per-bus F1 on the active buses</td>
