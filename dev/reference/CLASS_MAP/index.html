@@ -1561,8 +1561,9 @@ each client trains its own copy with the shared <code>LocalTrainer</code> on its
 <h2 id="the-records">The records<a class="headerlink" href="#the-records" title="Permanent link">&para;</a></h2>
 <p>Everything a call returns is a <code>Bundle</code>, a dict with attribute access and a fixed key order. The record
 forms share seven field-group mixins, one per group of keys, so a record, a batch, an exported split and
-a stream carry the same names.</p>
-<p><img alt="Class diagram of the record bundles: Bundle, the seven field-group mixins as one node, and RecordBundle, BatchBundle, ArraysBundle and Stream inheriting both; EpisodeTable, Summary and TrueState under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
+a stream carry the same names. An exported split adds an eighth, export-only group,
+<code>PreviousFrameFields</code> (the previous frame's readings on a timeline).</p>
+<p><img alt="Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle, ArraysBundle and Stream inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
 <h2 id="the-scores">The scores<a class="headerlink" href="#the-scores" title="Permanent link">&para;</a></h2>
 <p>The result of every <code>score()</code> is a <code>Bundle</code> too: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,
 <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code> and <code>LocalizerScores</code> for the localizers, <code>TrustScores</code>

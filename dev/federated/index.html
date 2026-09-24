@@ -1360,6 +1360,9 @@ and the run script refuses to fit otherwise.</p>
 </tbody>
 </table>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
+<p>These runs used the earlier Jacobian block, whose change was taken against the previous frame's true
+state; the block now reads only observed data (the previous frame's estimate), and these tables are
+pending a rerun on it.</p>
 <p>Zero-shot: train and val hold benign, <code>Aq</code> and <code>Ad</code>; test adds <code>As</code> and <code>Ar</code>, never seen in
 training. F1, DR and FR are the paper's per-bus macro scores over the attackable buses, mean and
 standard deviation over seeds 123, 124 and 125. Every run is in <code>results/runs/</code>, the aggregates in

@@ -1684,15 +1684,15 @@ v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards. The
 </tr>
 <tr>
 <td>1D CNN + Jacobian (C)</td>
-<td style="text-align: right;">0.8856</td>
-<td style="text-align: right;">0.9634</td>
-<td style="text-align: right;">0.0158</td>
-<td style="text-align: right;">0.4206</td>
-<td style="text-align: right;">0.9326</td>
-<td style="text-align: right;">0.0107</td>
-<td style="text-align: right;">0.3235</td>
-<td style="text-align: right;">0.9033</td>
-<td style="text-align: right;">0.0090</td>
+<td style="text-align: right;">0.8296</td>
+<td style="text-align: right;">0.8695</td>
+<td style="text-align: right;">0.0162</td>
+<td style="text-align: right;">0.4074</td>
+<td style="text-align: right;">0.7415</td>
+<td style="text-align: right;">0.0128</td>
+<td style="text-align: right;">0.4024</td>
+<td style="text-align: right;">0.7162</td>
+<td style="text-align: right;">0.0108</td>
 </tr>
 </tbody>
 </table>
@@ -1743,7 +1743,10 @@ weak-direction energy) and aggregates it to buses; <code>BusCNN</code> / <code>B
 </tr>
 </tbody>
 </table>
-<p>Zero-shot protocol on the v0.8.1 timelines (benign, <code>Aq</code> and <code>Ad</code> seen; <code>As</code> and <code>Ar</code> unseen):</p>
+<p>Zero-shot protocol on the v0.8.1 timelines (benign, <code>Aq</code> and <code>Ad</code> seen; <code>As</code> and <code>Ar</code> unseen). The
+Jacobian block takes each frame's change against the previous frame's estimate, only observed data;
+with the earlier reference, the previous frame's true state, C read 0.873, 0.896 and 0.840, and it
+reads 0.820, 0.809 and 0.812 now, D falling further:</p>
 <table>
 <thead>
 <tr>
@@ -1786,35 +1789,35 @@ weak-direction energy) and aggregates it to buses; <code>BusCNN</code> / <code>B
 </tr>
 <tr>
 <td>C: B + Jacobian features</td>
-<td style="text-align: right;"><strong>0.873</strong></td>
-<td style="text-align: right;">0.805</td>
-<td style="text-align: right;">0.0000</td>
-<td style="text-align: right;"><strong>0.896</strong></td>
-<td style="text-align: right;">0.842</td>
-<td style="text-align: right;">0.0000</td>
-<td style="text-align: right;"><strong>0.840</strong></td>
-<td style="text-align: right;">0.759</td>
+<td style="text-align: right;"><strong>0.820</strong></td>
+<td style="text-align: right;">0.770</td>
+<td style="text-align: right;">0.0019</td>
+<td style="text-align: right;"><strong>0.809</strong></td>
+<td style="text-align: right;">0.714</td>
+<td style="text-align: right;">0.0001</td>
+<td style="text-align: right;"><strong>0.812</strong></td>
+<td style="text-align: right;">0.719</td>
 <td style="text-align: right;">0.0000</td>
 </tr>
 <tr>
 <td>D: Jacobian features only</td>
-<td style="text-align: right;">0.827</td>
-<td style="text-align: right;">0.771</td>
+<td style="text-align: right;">0.689</td>
+<td style="text-align: right;">0.597</td>
+<td style="text-align: right;">0.0008</td>
+<td style="text-align: right;">0.712</td>
+<td style="text-align: right;">0.619</td>
 <td style="text-align: right;">0.0000</td>
-<td style="text-align: right;">0.811</td>
-<td style="text-align: right;">0.741</td>
-<td style="text-align: right;">0.0000</td>
-<td style="text-align: right;">0.759</td>
-<td style="text-align: right;">0.734</td>
+<td style="text-align: right;">0.709</td>
+<td style="text-align: right;">0.659</td>
 <td style="text-align: right;">0.0000</td>
 </tr>
 </tbody>
 </table>
-<p>In the common protocol (every family in distribution) C wins on 14 (0.886 vs 0.825) and loses on 118
-(0.421 vs 0.560) and 300 (0.323 vs 0.457) at the same false-alarm target (<code>fa_target=0.01</code>, and C's
-measured FR is in fact the lower): it has a far higher per-bus detection rate (0.93 against 0.72 on
-118, 0.90 against 0.69 on 300) and pays in precision on the buses around a
-local false state.</p>
+<p>In the common protocol (every family in distribution) C edges the CNN on 14 (0.830 vs 0.825) and
+loses on 118 (0.407 vs 0.560) and 300 (0.402 vs 0.457) at the same false-alarm target
+(<code>fa_target=0.01</code>; C's measured FR is lower on 14 and 300 and higher on 118): its per-bus detection
+rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.69) and lower on 14
+(0.87 against 0.90), and it pays in precision on the buses around a local false state.</p>
 <table>
 <thead>
 <tr>
@@ -1824,12 +1827,12 @@ local false state.</p>
 </thead>
 <tbody>
 <tr>
-<td>the features carry the digest's signal</td>
-<td>on <code>Aq</code> the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.94, 0.82 and 0.58 for D alone: the per-frame physics sees the local false state where the history does not</td>
+<td>the features carry the in-place signal, not the stealthy one</td>
+<td>on <code>Aq</code> the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.07, 0.01 and 0.01 for D alone: against the previous frame's estimate a held stealthy episode shows only at its first frame, as the history does; the gain is on the unseen families, <code>As</code> 0.50 to 0.91 and <code>Ar</code> 0.30 to 0.78 from B to C on 118, 0.55 to 0.93 and 0.34 to 0.74 on 300</td>
 </tr>
 <tr>
 <td>on a timeline they are what makes the vector work</td>
-<td>B to C is +9, +36 and +35 zero-shot points; the papers' vector was built for the v0.7.2 shards, whose temporal features compared an attacked snapshot with the benign scan before it, and on a timeline a sustained episode spikes at its onset only</td>
+<td>B to C is +4, +27 and +32 zero-shot points; the papers' vector was built for the v0.7.2 shards, whose temporal features compared an attacked snapshot with the benign scan before it, and on a timeline a sustained episode spikes at its onset only</td>
 </tr>
 <tr>
 <td>where they pay again</td>
@@ -1859,8 +1862,8 @@ local false state.</p>
 </tr>
 <tr>
 <td>learning plus physics holds with size</td>
-<td>zero-shot CNN with the Jacobian block 0.873, 0.896 and 0.840 from 14 to 300 buses at FR 1e-4 or below</td>
-<td>the common protocol, with <code>At</code>, <code>Al</code> and <code>Am</code> in distribution, falls 0.886, 0.421, 0.323 with size: the per-frame localization of a sustained local false state is the frontier</td>
+<td>zero-shot CNN with the Jacobian block 0.820, 0.809 and 0.812 from 14 to 300 buses at FR 0.002 or below</td>
+<td>the common protocol, with <code>At</code>, <code>Al</code> and <code>Am</code> in distribution, falls 0.830, 0.407, 0.402 with size: the per-frame localization of a sustained local false state is the frontier</td>
 </tr>
 </tbody>
 </table>

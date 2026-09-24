@@ -1567,35 +1567,35 @@ keeps the secured meters at full weight, and that arm wins on IEEE-14.</p>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>plain</td>
-<td>0.86 (1.00)</td>
-<td>0.81 (0.88)</td>
-<td>1.00 (1.00)</td>
+<td>0.59 (0.76)</td>
+<td>0.59 (0.61)</td>
 <td>0.99 (0.99)</td>
-<td>0.886 / 0.0158</td>
+<td>0.89 (0.83)</td>
+<td>0.830 / 0.0162</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>greedy</td>
-<td>0.79 (1.00)</td>
-<td>0.78 (0.85)</td>
+<td>0.71 (0.96)</td>
+<td>0.65 (0.65)</td>
 <td>1.00 (1.00)</td>
-<td>0.99 (0.99)</td>
-<td>0.859 / 0.0165</td>
+<td>0.98 (0.98)</td>
+<td>0.843 / 0.0127</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>DQN</td>
-<td>0.77 (1.00)</td>
-<td>0.77 (0.86)</td>
+<td>0.63 (0.96)</td>
+<td>0.65 (0.66)</td>
 <td>1.00 (1.00)</td>
-<td>0.99 (0.99)</td>
-<td>0.880 / 0.0169</td>
+<td>0.97 (0.97)</td>
+<td>0.846 / 0.0143</td>
 </tr>
 </tbody>
 </table>
 <p>The trusted set opens the residual localizer on the stealthy families, the DQN's set more than the
-greedy's on <code>At</code>, <code>Al</code> and <code>Am</code>, and does not help the learned localizer, which already finds those
-families from their onset: its <code>Aq</code> node-F1 drops from 0.86 to 0.79 and 0.77 on the secured copies.</p>
+greedy's on <code>At</code>, <code>Al</code> and <code>Am</code>, and helps the learned localizer too: its <code>Aq</code> node-F1 rises from
+0.59 to 0.71 and 0.63 and its macro-F1 from 0.830 to 0.843 and 0.846 on the secured copies.</p>
 <p>Angle mean absolute error in degrees, geometric mean over the eight record classes:</p>
 <table>
 <thead>
@@ -1695,29 +1695,29 @@ IEEE-14's 82, 24 percent):</p>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>plain</td>
-<td>0.57 (1.00)</td>
-<td>0.20 (0.83)</td>
-<td>0.84 (1.00)</td>
-<td>0.80 (1.00)</td>
-<td>0.421 / 0.0107</td>
+<td>0.09 (0.44)</td>
+<td>0.11 (0.49)</td>
+<td>0.79 (0.99)</td>
+<td>0.34 (0.53)</td>
+<td>0.407 / 0.0128</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>greedy</td>
-<td>0.55 (1.00)</td>
-<td>0.20 (0.85)</td>
-<td>0.83 (1.00)</td>
-<td>0.80 (1.00)</td>
-<td>0.395 / 0.0111</td>
+<td>0.10 (0.41)</td>
+<td>0.11 (0.46)</td>
+<td>0.75 (0.99)</td>
+<td>0.43 (0.59)</td>
+<td>0.365 / 0.0138</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>DQN</td>
-<td>0.55 (1.00)</td>
-<td>0.20 (0.85)</td>
-<td>0.83 (1.00)</td>
-<td>0.78 (1.00)</td>
-<td>0.414 / 0.0103</td>
+<td>0.13 (0.68)</td>
+<td>0.14 (0.56)</td>
+<td>0.79 (1.00)</td>
+<td>0.52 (0.91)</td>
+<td>0.367 / 0.0104</td>
 </tr>
 </tbody>
 </table>
@@ -1772,7 +1772,8 @@ IEEE-14's 82, 24 percent):</p>
 <p>The greedy set barely moves the residual localizer on IEEE-118 (Al from 0.50 to 0.56 detected, Am 0.50 to
 0.57, macro-F1 0.198 to 0.202) while the DQN set opens it on the stealthy families (Aq from 0.46 to
 0.74 detected, Al 0.50 to 0.83, Am 0.50 to 0.91), but the residual localizer still points poorly on
-a grid this size, the learned localizer does not move (0.421 to 0.414), and the estimator gains 2
+a grid this size, the learned localizer's <code>Aq</code> and <code>Am</code> node-F1 rise with the DQN set (0.09 to 0.13, 0.34 to 0.52) while
+its macro-F1 falls (0.407 to 0.367), and the estimator gains 2
 percent with no gate (0.0106 to 0.0104). Twenty meters were a quarter of IEEE-14's channels and are under 3
 percent of IEEE-118's; the budget has to scale with the system for the estimation gain to follow.</p>
 <p>Source: the multi-snapshot attack and the trusted-PMU defence of [WU26] (<code>docs/reference/REFERENCES.md</code>).</p>

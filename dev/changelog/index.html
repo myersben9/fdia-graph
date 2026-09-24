@@ -1488,6 +1488,20 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li>The Jacobian features never read the true state. <code>JacobianFeatures</code> took each frame's change
+  against the previous pool timestep's clean state, truth an operator does not hold; it now takes it
+  against the previous frame's estimate, dz = z_t - h(x_hat_{t-1}), the fitted estimator's plain
+  solve of the frame emitted just before (the slack angle stays the shared angle reference). A
+  timeline export offers that frame's readings on request as <code>prev_node_x</code>, <code>prev_edge_x</code> and
+  <code>prev_timestep</code> (<code>models.PreviousFrameFields</code>), read from file row - 1 whatever split or family it
+  belongs to. <code>BusCNN</code> / <code>BusMLP</code> / the federated localizers with a Jacobian feature set and
+  <code>JacobianWeighting</code> follow; a record shard is refused (its rows are not consecutive frames). On
+  the tiny timeline <code>JacobianWeighting</code> moves in the fourth significant digit; the stealthy re-solve
+  now raises the explained energy at an episode's first frame, as the temporal features do. A test
+  rewrites the clean layer and checks the features do not change. The guides' Jacobian rows are
+  rerun on it: the zero-shot CNN with the Jacobian block reads 0.820, 0.809 and 0.812 on IEEE-14, 118
+  and 300 (0.873, 0.896 and 0.840 with the truth reference), its gain now on the unseen <code>As</code> and <code>Ar</code>
+  rather than on <code>Aq</code>; the federated guide's tables are marked pending a rerun.</li>
 <li>Docs: the SE, localization and trust guides rerun on the v0.8.1 timelines, every table and quoted
   number regenerated from the new JSON. Directions that changed: the CNN gate now lowers the
   estimator's error on IEEE-14 (0.049 to 0.044) and 300, residual removal beats WLS on 300, and the

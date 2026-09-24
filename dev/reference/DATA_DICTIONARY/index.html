@@ -2722,7 +2722,7 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 </table>
 <h3 id="arraysbundle-fdia_graphmodelsdata"><code>ArraysBundle</code> (<code>fdia_graph.models.data</code>)<a class="headerlink" href="#arraysbundle-fdia_graphmodelsdata" title="Permanent link">&para;</a></h3>
 <p>A whole split of n records as <code>export</code> returns it (arrays, or tensors with format="torch" or "tf"), leading axis n: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.</p>
-<p>Field groups: <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
+<p>Field groups: <code>PreviousFrameFields</code>, <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2859,6 +2859,27 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td>Scalars</td>
 <td></td>
 <td>[...] position in the source load profile (RecordIds)</td>
+</tr>
+<tr>
+<td><code>prev_node_x</code></td>
+<td><code>prev_node_x</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., N, 4] the previous frame's node readings (PreviousFrameFields)</td>
+</tr>
+<tr>
+<td><code>prev_edge_x</code></td>
+<td><code>prev_edge_x</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 2] the previous frame's branch-flow readings (PreviousFrameFields)</td>
+</tr>
+<tr>
+<td><code>prev_timestep</code></td>
+<td><code>prev_timestep</code></td>
+<td>Array</td>
+<td></td>
+<td>[...] the previous frame's pool timestep (PreviousFrameFields)</td>
 </tr>
 <tr>
 <td><code>edge_attr</code></td>
