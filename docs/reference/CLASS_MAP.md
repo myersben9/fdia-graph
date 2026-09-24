@@ -54,7 +54,7 @@ feature, `ResidualLocalizer` runs an estimator, the learned arms train a per-bus
 `TrustSelector` chooses the meters to secure on the WLS Jacobian, by row reduction (`TrustedMeters`) or
 by a deep Q-network (`TrustedMetersDQN`), and scores the residual test with them secured.
 
-![Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores and TrustScores](../figures/diagrams/classes_localization_trust.png)
+![Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores, PerBusScores, GridScores and TrustScores](../figures/diagrams/classes_localization_trust.png)
 
 ## Federated training
 
@@ -79,7 +79,7 @@ The result of every `score()` is a `Bundle` too: `ErrorPair` and `EstimatorScore
 `OverallMetrics`, `BenignMetrics`, `FamilyMetrics` and `LocalizerScores` for the localizers, `TrustScores`
 for the trusted meters, `JacobianOutputs` for the feature block.
 
-![Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, TrustScores and JacobianOutputs all under Bundle](../figures/diagrams/classes_scores.png)
+![Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores and JacobianOutputs all under Bundle](../figures/diagrams/classes_scores.png)
 
 The named tuples of `models/frames.py` (`Scan`, `Frame`, `OperatingLimits`, `FrameKnobs`,
 `Redistribution`, `ResolvedPool`), `models/grid.py` (the column indices, `BranchModel`, `Admittances`,

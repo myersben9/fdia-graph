@@ -4,6 +4,7 @@ classDiagram
         +scores()
         +localize()
         +score()
+        +score_perbus()
     }
     class SwingThreshold {
     }
@@ -14,6 +15,8 @@ classDiagram
     class LearnedLocalizer {
         +fit()
         +tune_threshold()
+        +tune_grid_threshold()
+        +score_grid()
     }
     class LocalTrainer {
         +stage()
@@ -34,6 +37,9 @@ classDiagram
     }
     class TrustedMetersDQN {
     }
+    class GridScores {
+        <<models>>
+    }
     class JacobianFeatures {
         <<se>>
     }
@@ -41,6 +47,12 @@ classDiagram
         <<models>>
     }
     class OptimConfig {
+        <<models>>
+    }
+    class PerBusMetrics {
+        <<models>>
+    }
+    class PerBusScores {
         <<models>>
     }
     class SEBase {
@@ -60,10 +72,13 @@ classDiagram
     LocalizerBase <|-- SwingThreshold
     TrustSelector <|-- TrustedMeters
     TrustSelector <|-- TrustedMetersDQN
+    LearnedLocalizer ..> GridScores : uses
     LearnedLocalizer ..> JacobianFeatures : uses
     LearnedLocalizer ..> OptimConfig : uses
     LocalTrainer ..> OptimConfig : uses
     LocalizerBase ..> LocalizerScores : uses
+    LocalizerBase ..> PerBusMetrics : uses
+    LocalizerBase ..> PerBusScores : uses
     ResidualLocalizer ..> SEBase : estimator
     ResidualLocalizer ..> WLS : uses
     TrustSelector ..> TrustScores : uses

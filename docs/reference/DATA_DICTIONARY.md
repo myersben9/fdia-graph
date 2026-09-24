@@ -411,6 +411,50 @@ On one attacked family: strict localization accuracy, micro node precision/recal
 | `dx_hat` | `dx_hat` | array | yes | [n, 2N-1] implied state change (H^T W H)^-1 H^T W dz |
 | `r_perp` | `r_perp` | array | yes | [n, m] residual the Jacobian cannot explain, (I - P) dz |
 
+### `PerBusScores` (`fdia_graph.models.scores`)
+
+`LocalizerBase.score_perbus`: `all` over every record, and per attacked family the block over that family's records plus the benign ones (the paper's per-type convention).
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `all` | `all` | PerBusMetrics | yes | every record |
+| `Aq` | `Aq` | PerBusMetrics |  | stealthy re-solve attack (+ benign) |
+| `Ad` | `Ad` | PerBusMetrics |  | additive bias (+ benign) |
+| `As` | `As` | PerBusMetrics |  | scaling (+ benign) |
+| `Ar` | `Ar` | PerBusMetrics |  | replay (+ benign) |
+| `At` | `At` | PerBusMetrics |  | slow ramp (+ benign) |
+| `Al` | `Al` | PerBusMetrics |  | load redistribution (+ benign) |
+| `Am` | `Am` | PerBusMetrics |  | multi-snapshot (+ benign) |
+
+### `PerBusMetrics` (`fdia_graph.models.scores`)
+
+One block of per-bus localization metrics at the localizer's thresholds, the federated paper's node-wise table: arrays aligned to `bus_index`, and their means over those buses.
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `bus_index` | `bus_index` | array | yes | [B] the buses reported |
+| `threshold` | `threshold` | array | yes | [B] each bus's decision threshold |
+| `f1` | `f1` | array | yes | [B] per-bus F1 |
+| `dr` | `dr` | array | yes | [B] per-bus detection rate |
+| `fr` | `fr` | array | yes | [B] per-bus false-alarm rate over the negatives counted (see fr_over) |
+| `auprc` | `auprc` | array | yes | [B] per-bus average precision of the score, NaN where never attacked |
+| `n_pos` | `n_pos` | array | yes | [B] attacked records per bus |
+| `macro_f1` | `macro_f1` | float | yes | mean of f1 |
+| `macro_dr` | `macro_dr` | float | yes | mean of dr |
+| `macro_fr` | `macro_fr` | float | yes | mean of fr |
+| `macro_auprc` | `macro_auprc` | float | yes | mean of auprc over the buses where it exists (NaN if none) |
+
+### `GridScores` (`fdia_graph.models.scores`)
+
+`LearnedLocalizer.score_grid`: record-level detection, a record flagged when its highest attackable-bus probability exceeds `tau` (tuned on validation for grid F1).
+
+| field | dict key | type | required | meaning |
+|---|---|---|---|---|
+| `tau` | `tau` | float | yes | the grid threshold |
+| `false_alarm` | `false_alarm` | float | yes | benign records flagged |
+| `detection_rate` | `detection_rate` | float | yes | attacked records flagged (every family) |
+| `by_family` | `by_family` | dict | yes | detection rate per attacked family present |
+
 ### `LineCandidate` (`fdia_graph.models.assets`)
 
 One line of `line_outage_candidates`: its pandapower index and branch position, terminals, name, intact-case active flow, and, when rejected, the reason.

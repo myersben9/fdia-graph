@@ -425,3 +425,50 @@ def test_predict_runs_in_eval_mode_after_training():
     Xs = np.random.default_rng(0).normal(size=(8, 5, 14)).astype(np.float32)
     assert np.array_equal(predict(net, Xs, "cpu"), predict(net, Xs, "cpu"))  # dropout off: repeatable
     assert not net.training
+
+
+def test_score_perbus_agrees_with_score_and_reports_the_paper_columns(splits):
+    from fdia_graph.localization import SwingThreshold
+
+    loc = SwingThreshold().fit(splits["train"])
+    te = splits["test"]
+    s = loc.scores(te)
+    ref = loc.score(te, scores=s)["all"]
+    pb = loc.score_perbus(te, scores=s, fr_over="benign")["all"]
+    assert pb["macro_f1"] == pytest.approx(ref["macro_f1"]) and pb["macro_dr"] == pytest.approx(
+        ref["macro_dr"]
+    )
+    assert pb["macro_fr"] == pytest.approx(ref["macro_fr"])
+    everyone = loc.score_perbus(te, scores=s, fr_over="all")
+    y = te.export(["y"])["y"].astype(bool)
+    cols = everyone["all"]["bus_index"]
+    pred = s[:, cols] > loc.thr[None, cols]
+    fp, tn = (pred & ~y[:, cols]).sum(0), (~pred & ~y[:, cols]).sum(0)  # every non-attacked cell
+    assert np.allclose(everyone["all"]["fr"], fp / np.maximum(fp + tn, 1))
+    with pytest.raises(ValueError, match="scores must be"):
+        loc.score_perbus(te, scores=s[:, :-1])
+    fams = [k for k in ("Aq", "Ad", "As", "Ar", "At", "Al", "Am") if k in everyone]
+    assert fams and all(len(everyone[k]["f1"]) == len(everyone["all"]["bus_index"]) for k in fams)
+    with pytest.raises(ValueError, match="attackable"):
+        loc.score_perbus(te, scores=s, buses="attackable")
+
+
+def test_learned_localizer_grid_detection_and_attackable_table(splits, timeline):
+    pytest.importorskip("torch")
+    from fdia_graph.localization import BusMLP
+
+    loc = BusMLP(epochs=2, device="cpu").fit(splits["train"], val=splits["val"])
+    with pytest.raises(ValueError, match="tune_grid_threshold"):
+        loc.score_grid(splits["test"])
+    import fdia_graph as fg
+
+    with pytest.raises(ValueError, match="both attacked and benign"):
+        loc.tune_grid_threshold(fg.load(timeline, split="val", families=["benign"]))
+    g = loc.tune_grid_threshold(splits["val"]).score_grid(splits["test"])
+    assert 0.05 <= g["tau"] <= 0.95 and 0 <= g["false_alarm"] <= 1 and 0 <= g["detection_rate"] <= 1
+    assert g["by_family"] and all(0 <= v <= 1 for v in g["by_family"].values())
+    pb = loc.score_perbus(splits["test"], buses="attackable")["all"]
+    assert pb["bus_index"].tolist() == np.flatnonzero(loc._attackable).tolist()
+    loc.fit(splits["train"])  # a refit forgets the previous fit's grid threshold
+    with pytest.raises(ValueError, match="tune_grid_threshold"):
+        loc.score_grid(splits["test"])

@@ -18,12 +18,14 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from ..formulas.metrics import perbus_counts, perbus_f1_from_counts
+from ..formulas.metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     BenignMetrics,
     FamilyMetrics,
     LocalizerScores,
     OverallMetrics,
+    PerBusMetrics,
+    PerBusScores,
 )
 
 if TYPE_CHECKING:
@@ -123,6 +125,93 @@ class LocalizerBase:
             if m.any():
                 out[name] = _benign_metrics(pred[m]) if fid == 0 else _family_metrics(pred[m], y[m])
         return LocalizerScores(**out)
+
+    def score_perbus(
+        self,
+        ds: FdiaGraph,
+        scores: Optional[np.ndarray] = None,
+        buses: str = "active",
+        fr_over: str = "all",
+        auprc: bool = True,
+    ) -> PerBusScores:
+        """The federated paper's node-wise table at this localizer's thresholds: per-bus F1, DR,
+        FR and AUPRC, over every record (`all`) and per attacked family over that family's records
+        plus the benign ones.
+
+        buses   : "active" (buses attacked somewhere in ds) or "attackable" (buses labelled in the
+                  training records, the paper's set; learned localizers only)
+        fr_over : "all" (the paper's Table IV FR: false alarms over every non-attacked cell, attacked
+                  records included) or "benign" (benign records only); with buses="active" and
+                  fr_over="benign" the `all` block's means equal `score()["all"]`'s macro F1, DR and FR
+        """
+        from ..dataset import FAMILIES
+
+        if fr_over not in ("all", "benign"):
+            raise ValueError(f"fr_over must be 'all' or 'benign', got {fr_over!r}")
+        d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
+        s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
+        if s.shape != (len(ds), ds.N):
+            raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        y, fam = d["y"].astype(bool), d["family"]
+        cols = self._report_buses(y, buses)
+        out: dict[str, Any] = {
+            "all": self._perbus_rows(s, y, cols, fam, np.ones(len(fam), bool), fr_over, auprc)
+        }
+        for fid, name in FAMILIES.items():
+            rows = (fam == fid) | (fam == 0)
+            if fid and (fam == fid).any():
+                out[name] = self._perbus_rows(s[rows], y[rows], cols, fam[rows], rows[rows], fr_over, auprc)
+        return PerBusScores(**out)
+
+    def _report_buses(self, y: np.ndarray, buses: str) -> np.ndarray:
+        """The bus set a per-bus table reports."""
+        if buses == "active":
+            return np.flatnonzero(y.any(axis=0))
+        if buses == "attackable" and hasattr(self, "_attackable"):
+            return np.flatnonzero(getattr(self, "_attackable"))
+        raise ValueError(f"buses must be 'active' or, for a learned localizer, 'attackable'; got {buses!r}")
+
+    def _perbus_rows(
+        self,
+        s: np.ndarray,
+        y: np.ndarray,
+        cols: np.ndarray,
+        fam: np.ndarray,
+        rows: np.ndarray,
+        fr_over: str,
+        auprc: bool,
+    ) -> PerBusMetrics:
+        """One block: the negatives for FR are every record, or the benign ones."""
+        negatives = rows if fr_over == "all" else fam == 0
+        return perbus_block(s, y, np.asarray(self.thr, np.float64), cols, negatives, auprc)
+
+
+def perbus_block(
+    s: np.ndarray, y: np.ndarray, thr: np.ndarray, buses: np.ndarray, negatives: np.ndarray, auprc: bool
+) -> PerBusMetrics:
+    """The per-bus metrics of the chosen buses over the chosen records (`formulas.metrics`); the
+    false-alarm rate counts only the rows in `negatives` (all records, or the benign ones)."""
+    pred = s[:, buses] > thr[None, buses]
+    t = y[:, buses]
+    f1, dr, _ = perbus_rates(pred, t)
+    _, _, fr = perbus_rates(pred[negatives], t[negatives])
+    ap = np.full(len(buses), np.nan)
+    if auprc:
+        for j in np.flatnonzero(t.any(axis=0)):
+            ap[j] = average_precision(s[:, buses[j]], t[:, j])
+    return PerBusMetrics(
+        bus_index=buses,
+        threshold=thr[buses],
+        f1=f1,
+        dr=dr,
+        fr=fr,
+        auprc=ap,
+        n_pos=t.sum(axis=0),
+        macro_f1=float(f1.mean()) if len(buses) else 0.0,
+        macro_dr=float(dr.mean()) if len(buses) else 0.0,
+        macro_fr=float(fr.mean()) if len(buses) else 0.0,
+        macro_auprc=float(np.nanmean(ap)) if np.isfinite(ap).any() else float("nan"),
+    )
 
 
 def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> OverallMetrics:

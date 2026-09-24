@@ -11,6 +11,7 @@ Keys cited by docstrings in the code and by [`FORMULAS.md`](FORMULAS.md), in the
 | [KEC25] | C. Keçeci, K. R. Davis and E. Serpedin, "Federated learning-based distributed localization of false data injection attacks on smart grids," IEEE Systems Journal, vol. 19, no. 3, pp. 719–729, 2025. Per-bus localization metrics. |
 | [MCM17] | B. McMahan, E. Moore, D. Ramage, S. Hampson and B. Agüera y Arcas, "Communication-efficient learning of deep networks from decentralized data," Proc. 20th Int. Conf. Artificial Intelligence and Statistics (AISTATS), pp. 1273–1282, 2017. Federated averaging. |
 | [VLX07] | U. von Luxburg, "A tutorial on spectral clustering," Statistics and Computing, vol. 17, no. 4, pp. 395–416, 2007. The spectral partition of the buses into clients. |
+| [DG06] | J. Davis and M. Goadrich, "The relationship between precision-recall and ROC curves," Proc. 23rd Int. Conf. Machine Learning (ICML), pp. 233–240, 2006. Average precision as the step area under the precision-recall curve. |
 | [DAT26] | The fdia-graph dataset description: this repository's README and `docs/reference/DATA_DICTIONARY.md` (attack families, plausibility band, ramp profile). |
 | [EST26] | Our state-estimation work (the subspace prior, its Huber composition and the localization gate); see `docs/se/README.md`. |
 | [FED26] | Our federated per-bus FDIA localization work (the swing and temporal-delta features); see `docs/localization/README.md`. |

@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Localization, the federated paper's tables: `LocalizerBase.score_perbus(ds, buses=, fr_over=)`
+  returns per-bus F1, detection rate, false-alarm rate and AUPRC (`models.scores.PerBusScores`,
+  `PerBusMetrics`) over every record and per family (that family plus benign), on the active buses
+  or, for a learned localizer, the training-attackable ones; `fr_over="all"` is the paper's Table IV
+  false-alarm rate, `"benign"` equals `score()["all"].macro_fr`. `LearnedLocalizer.tune_grid_threshold`
+  and `score_grid` give record-level detection at a validation-tuned grid threshold
+  (`models.scores.GridScores`). New formulas `perbus_rates` and `average_precision` [DG06] (equal
+  to scikit-learn's). Existing outputs are unchanged.
 - `fdia_graph.federated.RegionalPrior`: the proposed estimator's subspace prior fitted per client
   of a `Partition` (each client's basis from its own non-slack angles and voltages, placed on a block
   diagonal by `formulas.federated.block_diagonal_basis`), so no client's states leave it; one client
