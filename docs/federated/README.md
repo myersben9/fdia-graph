@@ -17,6 +17,10 @@ loc = FedBusCNN(K=3, rounds=60, local_epochs=3, features="full14+jac").fit(train
 tab = loc.score_perbus(test, buses="attackable", fr_over="all")  # the paper's Table IV block
 ```
 
+`release=` pins the built-in data only: a dataset registered locally under the same name loads in
+its place. `fg.list_datasets()["ieee118"]` reads `"builtin"` when these are the release's records,
+and the run script refuses to fit otherwise.
+
 | | |
 |---|---|
 | clients | K utilities from the spectral partition of the bus graph (random_state 42); each client reads only its own buses and its own flow meters for the power balance |
