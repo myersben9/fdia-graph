@@ -8,8 +8,8 @@ the public API, the generated files and the numbers are the same as the previous
 - `FedBusCNN` and `FedBusMLP` accept the Jacobian feature sets (`features="full14+jac"`, `"jac"`):
   the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
   is the whole system's estimator applied to every meter's change, computed once centrally per pass
-  appended to every client's features; that block is the one feature a client does not build from
-  its own meters. One client equals the centralized `BusCNN(features="full14+jac")`.
+  and shared with every client (appended after the 14 channels for `full14+jac`, the whole input for
+  `jac`); that block is the one feature a client does not build from its own meters. One client equals the centralized `BusCNN(features="full14+jac")`.
 - Localization, the federated paper's tables: `LocalizerBase.score_perbus(ds, buses=, fr_over=)`
   returns per-bus F1, detection rate, false-alarm rate and AUPRC (`models.scores.PerBusScores`,
   `PerBusMetrics`) over every record and per family (that family plus benign), on the active buses

@@ -7,12 +7,13 @@ flow meters the client owns, the from-bus end of each branch; the other channels
 readings and their scan-to-scan change), its loss covers only its own buses, and a CNN convolves
 over its own buses in bus order. Two opt-in exceptions read beyond a client's own meters:
 `halo > 0` adds the halo buses' own meters as read-only context, placed after its own buses, and
-the Jacobian feature sets (`features="full14+jac"` or `"jac"`) append the 8-channel Jacobian block,
-the whole system's estimator applied to every meter's change, computed once centrally per pass and
-shared with every client. What crosses a client boundary: the per-channel moments once (for one
+the Jacobian feature sets use the 8-channel Jacobian block, the whole system's estimator applied
+to every meter's change, computed once centrally per pass and shared with every client
+(`features="full14+jac"` appends it after the 14 client-local channels, `features="jac"` makes it
+the whole input). What crosses a client boundary: the per-channel moments once (for one
 standardization), the model weights every round (one average), the per-bus confusion counts once
-(for the paper's validation threshold), and with a Jacobian feature set the central block. All three are the formulas of `formulas.federated` and
-`formulas.metrics`.
+(for the paper's validation threshold), and with a Jacobian feature set the central block. The
+first three are the formulas of `formulas.federated` and `formulas.metrics`.
 
 With K = 1 and no gradient clip the fit is the centralized one, weight for weight.
 
@@ -126,9 +127,10 @@ class FederatedLocalizer(LearnedLocalizer):
     ) -> np.ndarray:
         """Client k's raw feature block [n, N, F]: with kcl="local" the power balance counts only
         the flows metered at buses the client owns (the from-bus end of each branch). The Jacobian
-        block of the "jac" feature sets is the one exception to client-local features: it is the
-        whole system's estimator applied to every meter's change, computed once centrally per pass
-        (`_central`) and handed in as `jac`; computed here when not given."""
+        block is the one feature not built from the client's own meters: the whole system's
+        estimator applied to every meter's change, computed once centrally per pass (`_central`)
+        and handed in as `jac`, or computed here when not given. "full14+jac" appends it after the
+        14 client-local channels; "jac" returns it as the whole input."""
         if self.features == "meas":
             return self._features(d)
         if self.features == "jac":  # no client-local channel to build
