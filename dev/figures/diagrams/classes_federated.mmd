@@ -6,6 +6,9 @@ classDiagram
     }
     class FedBusCNN {
     }
+    class RegionalPrior {
+        +state_columns()
+    }
     class BusCNN {
         <<localization>>
     }
@@ -24,11 +27,16 @@ classDiagram
     class RoundLog {
         <<models>>
     }
+    class SubspacePrior {
+        <<se>>
+    }
     BusCNN <|-- FedBusCNN
     BusMLP <|-- FedBusMLP
     FederatedLocalizer <|-- FedBusCNN
     FederatedLocalizer <|-- FedBusMLP
     LearnedLocalizer <|-- FederatedLocalizer
+    SubspacePrior <|-- RegionalPrior
     FederatedLocalizer ..> LocalTrainer : uses
     FederatedLocalizer ..> Partition : uses
     FederatedLocalizer ..> RoundLog : uses
+    RegionalPrior ..> Partition : uses

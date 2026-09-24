@@ -1418,6 +1418,13 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </thead>
 <tbody>
 <tr>
+<td>regional subspace prior</td>
+<td><code>formulas.federated.block_diagonal_basis</code>, through <code>federated.RegionalPrior</code></td>
+<td>V[cols_k, block k] = V_k from each client's own <code>whitened_svd_basis</code>, zero elsewhere; orthonormal for disjoint column sets</td>
+<td>[EST26], [FED26]</td>
+<td>the federated fit of the estimator's prior</td>
+</tr>
+<tr>
 <td>federated average</td>
 <td><code>formulas.federated.fedavg</code></td>
 <td>θ = Σ_k (n_k / n) θ_k, in float64, cast back; one client returns its own tensor</td>
