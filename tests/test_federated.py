@@ -430,7 +430,6 @@ def test_the_jacobian_only_set_federates_and_refuses_per_unit(zs, timeline):
     a, b = m._client_features(d, 0), m._client_features(d, 1)
     assert a.shape[-1] == 8 and np.array_equal(a, b)
     assert "As" in m.score(te)
-    other = te.export(m._fields())  # a fresh export is transformed afresh, not served from the cache
-    assert m._jac_block(other) is not m._jac_block(d)
+    assert np.array_equal(m._client_features(d, 0, m._central(d)), a)  # handed in = computed in place
     with pytest.raises(ValueError, match="physical"):
         m.score(fg.load(timeline, split="test", units="pu"))

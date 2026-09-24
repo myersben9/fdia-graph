@@ -118,11 +118,14 @@ class FederatedLocalizer(LearnedLocalizer):
         self.history: list[RoundLog] = []
 
     # ---- features per client --------------------------------------------------------------
-    def _client_features(self, d: dict[str, np.ndarray], k: int) -> np.ndarray:
+    def _client_features(
+        self, d: dict[str, np.ndarray], k: int, jac: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """Client k's raw feature block [n, N, F]: with kcl="local" the power balance counts only
         the flows metered at buses the client owns (the from-bus end of each branch). The Jacobian
         block of the "jac" feature sets is the one exception to client-local features: it is the
-        whole system's estimator applied to every meter's change, computed once centrally."""
+        whole system's estimator applied to every meter's change, computed once centrally per pass
+        (`_central`) and handed in as `jac`; computed here when not given."""
         if self.features == "meas":
             return self._features(d)
         local = d
@@ -132,7 +135,9 @@ class FederatedLocalizer(LearnedLocalizer):
             local["edge_x"] = d["edge_x"] * own_edge[None, :, None]
         if "jac" not in self.features:
             return self._features(local)
-        jac = self._jac_block(d)
+        if jac is None:
+            jac = self._central(d)
+        assert jac is not None
         return jac if self.features == "jac" else np.concatenate([full14(local), jac], -1)
 
     def _check_units(self, ds: FdiaGraph) -> None:
@@ -142,14 +147,10 @@ class FederatedLocalizer(LearnedLocalizer):
 
             require_physical(ds)
 
-    def _jac_block(self, d: dict[str, np.ndarray]) -> np.ndarray:
-        """The per-bus Jacobian block [n, N, 8] of these records, computed once for every client.
-        The cache holds the export itself and matches it by identity, so a later export can never
-        be served another one's block (an id alone can be reused once the old dict is freed)."""
-        held = getattr(self, "_jac_cache", None)
-        if held is None or held[0] is not d:
-            self._jac_cache = (d, self._jac.transform(d)["bus"])
-        return self._jac_cache[1]
+    def _central(self, d: dict[str, np.ndarray]) -> Optional[np.ndarray]:
+        """The per-bus Jacobian block [n, N, 8] of these records, or None without a "jac" feature
+        set. A pass over the clients computes it once and hands it to each; nothing is kept after."""
+        return self._jac.transform(d)["bus"] if "jac" in self.features else None
 
     # ---- LocalizerBase hooks --------------------------------------------------------------
     def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
@@ -162,9 +163,9 @@ class FederatedLocalizer(LearnedLocalizer):
         self._part = self.partition or spectral_partition(ei, int(ds.N), self.K)
         check_partition(self._part, int(ds.N))
         views = [compute_nodes(self._part, ei, k, self.halo) for k in range(self.K)]
-        blocks, moments = [], []
+        blocks, moments, jac = [], [], self._central(d)
         for k, (nodes, owned) in enumerate(views):  # one client's grid-wide block at a time
-            X = self._client_features(d, k)
+            X = self._client_features(d, k, jac)
             moments.append(channel_moments(X[:, nodes[:owned]]))
             blocks.append(X[:, nodes])  # keep only the buses the client computes on
             del X
@@ -258,11 +259,13 @@ class FederatedLocalizer(LearnedLocalizer):
             c.net.load_state_dict(glob)
         return self._clients[0].net
 
-    def _client_scores(self, d: dict[str, np.ndarray], k: int) -> np.ndarray:
+    def _client_scores(
+        self, d: dict[str, np.ndarray], k: int, jac: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """Client k's attack probabilities on its own buses [n, owned], from its own features and its
         own attackable mask."""
         c = self._clients[k]
-        Xs = ((self._client_features(d, k)[:, c.nodes] - self.mu) / self.sd).astype(np.float32)
+        Xs = ((self._client_features(d, k, jac)[:, c.nodes] - self.mu) / self.sd).astype(np.float32)
         p = predict(self.net, Xs, self.dev)[:, : c.owned]
         if self.attackable_only:
             p[:, ~c.attackable] = 0.0
@@ -271,9 +274,9 @@ class FederatedLocalizer(LearnedLocalizer):
     def _score(self, d: dict[str, np.ndarray], ds: FdiaGraph) -> np.ndarray:
         """Each client scores its own buses; the columns are stitched into one [n, N] matrix."""
         self._check_units(ds)
-        out = np.zeros((len(d["y"]), self.N), np.float64)
+        out, jac = np.zeros((len(d["y"]), self.N), np.float64), self._central(d)
         for k, c in enumerate(self._clients):
-            out[:, c.own] = self._client_scores(d, k)
+            out[:, c.own] = self._client_scores(d, k, jac)
         return out
 
     def tune_threshold(self, val: FdiaGraph) -> FederatedLocalizer:
@@ -284,9 +287,9 @@ class FederatedLocalizer(LearnedLocalizer):
         d = self._pull(val, extra=["y"])
         taus = np.linspace(0.05, 0.95, 19)
         tp, fp, fn = (np.zeros((len(taus), self.N)) for _ in range(3))
-        active = np.zeros(self.N, bool)
+        active, jac = np.zeros(self.N, bool), self._central(d)
         for k, c in enumerate(self._clients):
-            p, t = self._client_scores(d, k), d["y"][:, c.own].astype(bool)
+            p, t = self._client_scores(d, k, jac), d["y"][:, c.own].astype(bool)
             for i, tau in enumerate(taus):
                 tp[i, c.own], fp[i, c.own], fn[i, c.own] = perbus_counts(p > tau, t)
             active[c.own] = t.any(axis=0)
