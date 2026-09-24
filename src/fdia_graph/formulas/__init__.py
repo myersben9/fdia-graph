@@ -25,6 +25,7 @@ from .federated import (
     cut_edge_count,
     fedavg,
     halo_nodes,
+    hop_distance,
     interior_boundary,
     pool_moments,
 )
@@ -84,6 +85,7 @@ __all__ = [
     "greedy_trusted_meters",
     "guarded_inverse",
     "halo_nodes",
+    "hop_distance",
     "huber_weights",
     "interior_boundary",
     "leverage",

@@ -404,6 +404,8 @@ def test_count_and_moment_formulas_refuse_mismatched_shapes():
     for bad in (0.0, np.inf, np.nan):
         with pytest.raises(ValueError, match="finite positive count"):
             pool_moments([(bad, np.zeros(3), np.ones(3))])
+    n, mu, var = pool_moments([(1e300, np.zeros(2), np.ones(2)), (1e300, np.full(2, 2.0), np.ones(2))])
+    assert n == 2e300 and np.allclose(mu, 1.0) and np.allclose(var, 2.0)  # huge counts pool without overflow
     with pytest.raises(ValueError, match="overflows"):
         pool_moments([(1e308, np.zeros(3), np.ones(3)), (1e308, np.zeros(3), np.ones(3))])
     with pytest.raises(ValueError, match="one shape"):

@@ -33,10 +33,11 @@ def channel_moments(X: np.ndarray) -> Moments:
 
 
 def pool_moments(parts: Sequence[Moments]) -> Moments:
-    """The moments of the union of several parts from each part's moments alone [CGL79]:
+    """The moments of the union of several parts from each part's moments alone [CGL79], written
+    with the parts' shares of the pooled count so no intermediate product can overflow:
 
-        n = n_a + n_b,   mean = mean_a + (mean_b - mean_a) n_b / n,
-        M2 = M2_a + M2_b + (mean_b - mean_a)^2 n_a n_b / n,   var = M2 / n
+        n = n_a + n_b,   f_a = n_a / n,   f_b = n_b / n,   mean = mean_a + (mean_b - mean_a) f_b,
+        var = f_a var_a + f_b var_b + (mean_b - mean_a)^2 f_a f_b
 
     folded left from the first part, so one part comes back unchanged (bit for bit).
 
@@ -51,16 +52,16 @@ def pool_moments(parts: Sequence[Moments]) -> Moments:
     ):
         raise ValueError(f"every part needs a finite positive count and moments of shape {shape}")
     n, mean, var = parts[0]
-    m2 = var * n
     for nb, mb, vb in parts[1:]:
         tot = n + nb
         if not np.isfinite(tot):
             raise ValueError("the pooled record count overflows")
+        fa, fb = n / tot, nb / tot
         d = mb - mean
-        mean = mean + d * (nb / tot)
-        m2 = m2 + vb * nb + d * d * (n * nb / tot)
+        mean = mean + d * fb
+        var = fa * var + fb * vb + d * d * (fa * fb)
         n = tot
-    return n, mean, (m2 / n if len(parts) > 1 else var)
+    return n, mean, var
 
 
 def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray:
@@ -141,9 +142,28 @@ def cut_edge_count(assignment: np.ndarray, A: np.ndarray) -> int:
     return int((assignment[u] != assignment[v]).sum())
 
 
+def hop_distance(A: np.ndarray, sources: np.ndarray) -> np.ndarray:
+    """Hops from the nearest source bus to every bus by breadth-first search [VLX07]; -1 where no
+    path exists.
+
+    A       : [N, N] 0/1 adjacency
+    sources : bus indices at distance 0
+    returns : [N] int
+    """
+    dist = np.full(len(A), -1, np.int64)
+    dist[sources] = 0
+    frontier, hop = np.asarray(sources), 0
+    while len(frontier):
+        hop += 1
+        frontier = np.flatnonzero((A[frontier] > 0).any(axis=0) & (dist < 0))
+        dist[frontier] = hop
+    return dist
+
+
 def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tuple[np.ndarray, int]:
-    """Client k's compute buses: its own buses, then the other clients' buses within `depth` hops,
-    ring by ring in increasing bus order, held as read-only context [FED26].
+    """Client k's compute buses: its own buses, then every other client's bus within `depth` hops
+    of them (by `hop_distance` over the whole grid), nearest first and in bus order within a hop,
+    held as read-only context [FED26].
 
     assignment : [N]
     A          : [N, N] 0/1 adjacency
@@ -155,14 +175,7 @@ def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tup
     owned = np.flatnonzero(assignment == k)
     if not len(owned):
         raise ValueError(f"client {k} owns no bus")
-    seen = np.zeros(len(assignment), bool)
-    seen[owned] = True
-    frontier, halo = owned, []
-    for _ in range(depth):
-        ring = np.flatnonzero(A[frontier].any(axis=0) & ~seen & (assignment != k))
-        if not len(ring):
-            break
-        seen[ring] = True
-        halo.append(ring)
-        frontier = ring
-    return (np.concatenate([owned, *halo]) if halo else owned), len(owned)
+    dist = hop_distance(A, owned)
+    halo = np.flatnonzero((dist >= 1) & (dist <= depth) & (assignment != k))
+    halo = halo[np.argsort(dist[halo], kind="stable")]  # nearest first, bus order within a hop
+    return np.concatenate([owned, halo]), len(owned)

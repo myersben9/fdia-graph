@@ -152,3 +152,18 @@ def test_topology_is_checked_and_one_bus_per_client_needs_no_clustering(edges):
             bus_adjacency(bad, N)
     p = spectral_partition(ei, N, N)
     assert p.assignment.tolist() == list(range(N)) and p.interior.sum() + p.boundary.sum() == N
+
+
+def test_hop_distance_and_the_halo_agree_with_a_hand_count():
+    from fdia_graph.formulas.federated import hop_distance
+
+    # 0-1-2-3 and 1-4, client 0 = {0, 1}: bus 2 and bus 4 are one hop away, bus 3 two
+    A = np.zeros((5, 5))
+    for u, v in ((0, 1), (1, 2), (2, 3), (1, 4)):
+        A[u, v] = A[v, u] = 1
+    a = np.array([0, 0, 1, 1, 2])
+    assert hop_distance(A, np.array([0, 1])).tolist() == [0, 0, 1, 2, 1]
+    assert halo_nodes(a, A, 0, 1)[0].tolist() == [0, 1, 2, 4]
+    assert halo_nodes(a, A, 0, 2)[0].tolist() == [0, 1, 2, 4, 3]
+    B = np.zeros((3, 3))
+    assert hop_distance(B, np.array([0])).tolist() == [0, -1, -1]  # no path
