@@ -20,7 +20,7 @@ print(wls.score(test).geo)             # angle_mae_deg 0.090, voltage_mae_pu 8.4
 | `fit()` learns | `estimate()` returns |
 |---|---|
 | per-meter error scales: RMS of benign residuals at the dataset's `clean` truth | the classical 2N-1 state, every voltage magnitude and every non-slack angle |
-| the chord Jacobian at the benign mean state | already in the truth's angle frame: the slack angle is pinned per record to `clean[slack]` (`ds.slack`) |
+| the chord Jacobian at the benign mean state | in the case's angle frame: the slack angle is fixed to the case's reference angle (`theta_ref`), the truth's slack angle on every frame |
 
 ## The better estimator
 
@@ -64,7 +64,7 @@ estimator.
 |---|---|
 | `_fit_states(x_benign)` | learn anything from the benign training states |
 | `_basis()` | a `[2N-1, K]` basis that restricts the state space, or `None` for the full state |
-| `_solve(z, thsl)` | the per-batch solve; `thsl` is the per-record slack angle reference |
+| `_solve(z, thsl)` | the per-batch solve; `thsl` is the slack angle reference per record (`ref_angles(n)`) |
 
 Inside `_solve`: `self._w_solve(z, w, thsl)` is the divergence-guarded weighted iteration,
 `self._nres(x, z, thsl)` the normalized residuals, and `formulas.estimation` holds every equation

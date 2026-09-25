@@ -3,8 +3,11 @@
 SEBase owns what all estimators have in common: the AC measurement model h(x) built from the
 pandapower case, the chord-Newton iteration with its divergence guard, the meter weights calibrated
 from benign residuals, and the reference handling (the classical 2N-1 state: only the slack ANGLE
-is fixed, pinned per record to the clean layer so estimates and truth share one frame; every
-voltage magnitude including the slack is estimated, matching production practice). Subclasses change only the state space and the weights, mirroring the paper's protocol.
+is fixed, to the case's reference angle `theta_ref`, a network parameter equal to the truth's slack
+angle on every frame; every voltage magnitude including the slack is estimated, matching
+production practice). Estimating reads measurements only; fitting calibrates on the training
+split's clean layer, and `score` compares with it. Subclasses change only the state space and the
+weights, mirroring the paper's protocol.
 
 Needs pandapower and scipy: pip install "fdia-graph[se]". The measurement function and its Jacobian
 are the closed-form numpy kernel (`formulas.network.ac_measurement`, `ac_jacobian`); torch, when

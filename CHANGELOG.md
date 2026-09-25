@@ -10,8 +10,10 @@ the public API, the generated files and the numbers are the same as the previous
   `temporal_delta` and `swing` after the walk from the observed injections alone, and
   `trust.secured_copy` recomputes them the same way. Every estimate takes its angle reference from
   the case's slack angle (`SEBase.theta_ref`, a network parameter, identical to the value the clean
-  layer carried), so estimating, transforming and scoring read no clean layer. Fitting an estimator
-  still calibrates the meter weights and the benign mean state on the training split's clean layer.
+  layer carried), so estimating, the Jacobian transform, the residual localizer's scores and the
+  trust scoring read no clean layer. Two uses of the truth remain, by design: fitting an estimator
+  calibrates the meter weights and the benign mean state on the training split's clean layer, and
+  `SEBase.score` compares estimates with the truth to report the error.
   `write_temporal_layers` runs in blocks with bounded memory. Takes effect in the data with the next
   release; scores on existing files are unchanged.
 - Al is a single-snapshot attack: every Al episode of a generated timeline is one frame, as Aq.
