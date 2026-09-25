@@ -43,6 +43,7 @@ from .engine.records import (
     AQ_HALVINGS,
     CORRUPT_KIND,
     RAMP_FAMILY,
+    AttackDesign,
     Frame,
     FrameKnobs,
     attack_frame,
@@ -178,7 +179,7 @@ class _TimelineBuffers:
 
 def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
     """The benign scan of timestep t (also remembered for the replay families)."""
-    frame = attack_frame(ctx.g, ctx.X[t], 0, None, None, ctx.knobs)
+    frame = attack_frame(ctx.g, ctx.X[t], 0, None, ctx.knobs)
     assert frame is not None  # a benign emission cannot fail
     return frame
 
@@ -256,7 +257,7 @@ def _ramp_episode(
             for i, u in enumerate(range(t, min(t + ramp_len, T)))
         ]
         if all(
-            is_feasible(ctx.g, ctx.X[u], a, mult, ctx.knobs) for u, mult in steps
+            is_feasible(ctx.g, ctx.X[u], AttackDesign(a, mult), ctx.knobs) for u, mult in steps
         ):  # every frame's own step
             break
     else:  # no admissible ramp at this operating point: the placed frames stay benign, counted
@@ -266,7 +267,8 @@ def _ramp_episode(
         if t >= T:
             break
         dev = _ramp_dev(i, rise, hold, ramp_rate)
-        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, a, 1 + direction * dev, ctx.knobs))
+        design = AttackDesign(a, 1 + direction * dev)
+        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, design, ctx.knobs))
         t += 1
     return ep.close(buf, t)
 
@@ -310,7 +312,8 @@ def _draw_single_shot(
         direction = 1.0 if fid != 1 or rng.random() < 0.5 else -1.0
         mult = 1 + direction * rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
         if fid != 1 or all(
-            is_feasible(ctx.g, ctx.X[u], a, mult, ctx.knobs) for u in _probe_frames(ctx, t, length)
+            is_feasible(ctx.g, ctx.X[u], AttackDesign(a, mult), ctx.knobs)
+            for u in _probe_frames(ctx, t, length)
         ):
             return a, mult
     return None
@@ -334,7 +337,7 @@ def _single_shot_episode(
     for _ in range(length):
         if t >= T:
             break
-        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], fid, a, mult, ctx.knobs))
+        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], fid, AttackDesign(a, mult), ctx.knobs))
         t += 1
     return ep.close(buf, t)
 
@@ -395,7 +398,9 @@ def _am_held_delta(
 def _am_peak_solves(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray, interior) -> bool:
     """Whether the held redistribution at its peak (`delta`, MW per target) has a stealthy state
     (a local solution inside the operating limits) on the onset state; no random draw is spent."""
-    return is_feasible(ctx.g, ctx.X[t], a, _am_multipliers(ctx, t, a, delta), ctx.knobs, interior)
+    return is_feasible(
+        ctx.g, ctx.X[t], AttackDesign(a, _am_multipliers(ctx, t, a, delta), interior), ctx.knobs
+    )
 
 
 def _am_sign(direction: str, rng: np.random.Generator) -> float:
@@ -438,7 +443,9 @@ def _am_episode(
         if t >= T:
             break
         mult = _am_multipliers(ctx, t, a, sh.step(i) * delta)
-        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, a, mult, k, red.interior))
+        ep.store(
+            ctx, buf, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, AttackDesign(a, mult, red.interior), k)
+        )
         t += 1
     return ep.close(buf, t)
 

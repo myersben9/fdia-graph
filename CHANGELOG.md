@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Engine: parameter groups that travelled through every attack function are data models
+  (`models.frames`): `Band(floor, cap)`, the plausibility band of an in-place tamper
+  (`FrameKnobs.band`); `TamperTarget(buses, branches)`, where an in-place attack writes; and
+  `AttackDesign(targets, mult, interior)`, a stealthy attack's design on one scan.
+  `FdiaGenerator.corrupt(scan, buses, kind, replay, band)` tampers a `Scan` in place and returns
+  `(weak, mags)`; `attack_frame`, `is_feasible` and `stealthy_state` take an `AttackDesign`, and
+  `with_region` fills in a design's interior. The random-draw order is unchanged: every frozen
+  reference matches bit for bit.
 - Features are computed from measurements only. The swing feature's scale is now the recent change
   of the observed frames, not of the noiseless pool: `timeline.write_temporal_layers` writes
   `temporal_delta` and `swing` after the walk from the observed injections alone, and

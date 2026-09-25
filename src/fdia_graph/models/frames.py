@@ -1,10 +1,10 @@
 """What the generator passes around per scan: a measurement scan, the emitted frame with its labels,
-the run's attack knobs, and the two intermediate results of the physics (a load redistribution, a
-re-solved pool)."""
+the run's attack knobs, the design and target of one attack, and the two intermediate results of the
+physics (a load redistribution, a re-solved pool)."""
 
 from __future__ import annotations
 
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Union
 
 import numpy as np
 
@@ -16,6 +16,32 @@ class Scan(NamedTuple):
     node_m: np.ndarray  # [N, 4] meter mask
     edge_x: np.ndarray  # [E, 2] P_from, Q_from
     edge_m: np.ndarray  # [E, 2] meter mask
+
+
+class Band(NamedTuple):
+    """The plausibility band of an in-place tamper: each realized |change| / |reading| lies in
+    [floor, cap], above the meter noise floor (a smaller change resolves to noise) and below the
+    largest change the literature treats as credible."""
+
+    floor: float  # lower edge, the noise floor (generation.NOISE_FLOOR)
+    cap: float  # upper edge, the attack intensity
+
+
+class TamperTarget(NamedTuple):
+    """Where an in-place attack (Ad, As, Ar) writes: the attacked buses and every branch incident to
+    one of them, whose flows the attacker corrupts to match."""
+
+    buses: np.ndarray  # attacked bus indices
+    branches: list[int]  # branch positions with an attacked bus at either end
+
+
+class AttackDesign(NamedTuple):
+    """A stealthy attack's design on one scan: the loads it moves, by how much, and over which
+    subnetwork. The local false state is solved from it (engine.records.stealthy_state)."""
+
+    targets: np.ndarray  # positions in the generator's load table (not bus numbers)
+    mult: Union[float, np.ndarray]  # load multiplier: a scalar for the ramp, one per target otherwise
+    interior: Optional[np.ndarray] = None  # the attacker's subnetwork; None: the region around targets
 
 
 class Frame(NamedTuple):
@@ -65,6 +91,11 @@ class FrameKnobs(NamedTuple):
     # `hops` branches of the attacked buses (or the target line) with the boundary voltages held true
     hops: int = 2
     limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected (then halved)
+
+    @property
+    def band(self) -> Band:
+        """The plausibility band of the in-place families: [floor, intensity]."""
+        return Band(self.floor, self.intensity)
 
 
 class Redistribution(NamedTuple):
