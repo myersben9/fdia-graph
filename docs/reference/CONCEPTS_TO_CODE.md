@@ -69,8 +69,9 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 - Ad/As/Ar tamper readings in place. Detectable.
 - Every designed change sits above the noise floor and below `attack_intensity` (20 percent by
   default). Aq draws its per-bus load change from 5 to 20 percent; Ad, As and Al use the 2 to 20
-  percent band, whose lower edge is the noise floor (`generation.NOISE_FLOOR`). The ramp's per-frame
-  step is the exception, sub-floor by design.
+  percent band, whose lower edge is the noise floor (`generation.NOISE_FLOOR`). The multi-snapshot
+  families are the exception, by design: the At ramp and the Am redistribution move in per-frame
+  steps under the noise floor.
 
 ## Temporal feature
 

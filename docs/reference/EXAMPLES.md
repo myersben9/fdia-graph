@@ -287,7 +287,7 @@ layer (the label stays the attack target).
 
 The tables in this section describe the v0.8.0 release. The v0.8.1 timelines keep the pools, the
 knobs and the seed, and their episode counts differ slightly (ieee14 16,045, ieee145 16,177, ieee300
-16,317; see `examples/release_v0.8.1/NOTES.md`).
+16,317; the release notes of `data-v0.8.1` on GitHub list every system).
 
 **Per-system size.** One timeline of 72,000 frames per system, about half under attack, split
 chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):
