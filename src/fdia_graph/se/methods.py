@@ -175,10 +175,10 @@ class JacobianWeighting(SEBase):
         self.huber_c = huber_c
         self.tol = tol  # stop the Huber passes once no weight moves by more than this
 
-    def fit(self, ds: FdiaGraph, n_calib: int = 600) -> JacobianWeighting:
+    def fit(self, ds: FdiaGraph, n_calib: int = 600, calibrate: str = "truth") -> JacobianWeighting:
         from .jacobian import JacobianFeatures
 
-        super().fit(ds, n_calib)
+        super().fit(ds, n_calib, calibrate)
         self._jf = JacobianFeatures(estimator=self).fit(ds)  # built once: SVD, leverage, pseudo-inverse
         return self
 

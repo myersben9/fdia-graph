@@ -137,3 +137,29 @@ def test_the_angle_reference_is_one_constant_from_the_fit(timeline):
     assert np.allclose(np.deg2rad(clean[:, est.slack, 3]), est.theta_ref)
     with pytest.raises(ValueError, match="varies"):
         est._fit_reference(np.array([0.0, 0.1]))
+
+
+def test_measured_calibration_reads_no_clean_layer(timeline, tmp_path):
+    """calibrate="measured" fits from equipment data and measurements: rewriting the clean layer of the
+    training file leaves the fitted model unchanged, and the sigma is the accuracy class."""
+    import shutil
+
+    import h5py
+
+    from fdia_graph import schema
+    from fdia_graph.engine.core import ACCURACY_CLASS
+    from fdia_graph.se import WLS
+
+    a = WLS().fit(fg.load(timeline, split="train"), calibrate="measured")
+    copy = str(tmp_path / "scrambled.h5")
+    shutil.copyfile(fg.load(timeline).path, copy)
+    with h5py.File(copy, "r+") as f:
+        f[schema.NODE_CLEAN][...] = f[schema.NODE_CLEAN][:] * 1.5 + 0.1
+    from fdia_graph import FdiaGraph
+
+    b = WLS().fit(FdiaGraph(copy, split="train"), calibrate="measured")
+    assert np.array_equal(a.sig, b.sig) and np.array_equal(a.xmean, b.xmean) and a.theta_ref == b.theta_ref
+    v = a.mask[: a.N].sum()  # the metered |V| slots come first
+    assert np.allclose(a.sig[:v], ACCURACY_CLASS["v"])
+    with pytest.raises(ValueError, match="calibrate"):
+        WLS().fit(fg.load(timeline, split="train"), calibrate="oracle")

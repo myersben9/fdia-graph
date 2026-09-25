@@ -145,3 +145,24 @@ def gate_weights(w: np.ndarray, flags: np.ndarray, incidence: list[np.ndarray], 
             hit = flags[:, b]
             out[np.ix_(hit, ix)] *= factor
     return out
+
+
+def accuracy_class_sigma(
+    mean_abs: np.ndarray, cls: np.ndarray, relative: np.ndarray, floor: float
+) -> np.ndarray:
+    """Each meter's error std from its accuracy class [ASP14]: a relative class scales the meter's
+    mean absolute reading, an absolute class is the std itself,
+
+        sigma_i = c_i |z_i| + floor   (relative: power injections and flows)
+        sigma_i = c_i                 (absolute: voltage magnitude and angle)
+
+    Equipment data and measurements only; no state enters.
+
+    mean_abs : [m] mean |z_i| over the calibration scans
+    cls      : [m] accuracy class per meter
+    relative : [m] bool, True where the class is relative
+    floor    : absolute floor of a relative meter's std (its reading's units)
+    returns  : [m]
+    """
+    mean_abs, cls = np.asarray(mean_abs, np.float64), np.asarray(cls, np.float64)
+    return np.where(np.asarray(relative, bool), cls * mean_abs + floor, cls)

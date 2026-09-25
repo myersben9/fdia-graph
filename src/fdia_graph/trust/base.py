@@ -35,7 +35,7 @@ class TrustSelector:
         from ..se import WLS
 
         est = WLS()
-        est.fit(ds)
+        est.fit(ds, calibrate="measured")  # the residual test is a detector: measurements only
         self.est = est
         self.H = np.asarray(self.est.H, np.float64)  # [m, 2N-1] at the benign mean state
         self.m = self.H.shape[0]

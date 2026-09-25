@@ -59,6 +59,13 @@ _CASE = {
     300: "case300",
 }
 
+# Meter accuracy classes [ASP14]: the error std of every meter type. |V| and angle are the
+# class-0.2/sqrt(3) instrument-transformer figures, absolute (pu, rad); injections and flows a ~1.7%
+# power-measurement std, relative to the reading, with POWER_NOISE_FLOOR_MW as an absolute floor.
+# The generator's noise model and a measurement-only estimator calibration both read these.
+ACCURACY_CLASS = {"pf": 0.017, "qf": 0.017, "v": 0.0012, "pi": 0.017, "qi": 0.017, "va": 0.00168}
+POWER_NOISE_FLOOR_MW = 1e-3
+
 
 # N-1 LINE OUTAGE SUPPORT. The branch must be taken out BEFORE anything derived (Ybus, PTDF, base
 # operating point, measurements) is computed — a post-hoc mask on an intact-network dataset won't do.
@@ -202,10 +209,9 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             raise ValueError(f"max_load_mw is a load cap in MW (or None), got {max_load_mw!r}")
         self.max_load_mw = max_load_mw
         self.rng = np.random.default_rng(seed)
-        # Measurement noise stds (accuracy-class model [ASP14]). |V|/angle are the class-0.2/sqrt(3) IT
-        # figures; P/Q use a larger ~1.7% power-measurement std. Relative for flows/injections, absolute
-        # for V/angle. Split into a per-scan jitter and a per-meter bias (see formulas.noise).
-        self.SD = dict(pf=0.017, qf=0.017, v=0.0012, pi=0.017, qi=0.017, va=0.00168)
+        # Measurement noise stds, the accuracy classes (ACCURACY_CLASS), split into a per-scan jitter
+        # and a per-meter bias (see formulas.noise).
+        self.SD = dict(ACCURACY_CLASS)
         self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=0.25)
         self.NET = getattr(pn, _CASE[self.C])
         self.base = self._open_case(outage)

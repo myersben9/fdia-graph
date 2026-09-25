@@ -18,7 +18,7 @@ real dependencies show: `models/` (every returned record), `formulas/` (the equa
 (the file protocol). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
 same reason. `streams.py` and `torch_data.py` are deprecated and will be removed in a future release.
 
-![Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset, and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
+![Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
 
 ## The dataset
 
