@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+## 0.20.0
+
+- Data release v0.8.3 is the default (`fg.load("ieee118")`; v0.8.1 stays readable with
+  `release="v0.8.1"`). The eight timelines are regenerated from the unchanged pools (byte-identical)
+  with seed 123 and the v0.8.1 knobs, built by `examples/_build_timelines_v083.py`: Aq and Al
+  episodes are one frame, and the stored `temporal_delta` and `swing` are functions of the observed
+  frames alone. Each file holds about 24,600 episodes instead of about 16,100, keeps 72,000 frames,
+  exactly half attacked, no frame falling back to benign, and every family present.
+  `data-v0.8.2`, an intermediate build with one-frame Aq only, is superseded.
 - Engine: parameter groups that travelled through every attack function are data models
   (`models.frames`): `Band(floor, cap)`, the plausibility band of an in-place tamper
   (`FrameKnobs.band`); `TamperTarget(buses, branches)`, where an in-place attack writes; and

@@ -122,31 +122,35 @@ def test_a_download_race_keeps_the_installed_file(tmp_path, monkeypatch):
         download._install(str(tmp), str(dest))  # nothing installed: a real failure surfaces
 
 
-def test_the_default_release_is_v081_with_pinned_timelines():
-    """0.19.0 reads data release v0.8.1 by default, every system pinned by sha256, under data-v0.8.1."""
+def test_the_default_release_is_v083_with_pinned_timelines():
+    """0.20.0 reads data release v0.8.3 by default, every system pinned by sha256, under data-v0.8.3."""
     import os
 
     if os.environ.get("FDIA_GRAPH_RELEASE"):
         pytest.skip("FDIA_GRAPH_RELEASE overrides the default in this environment")
-    assert registry._RELEASE == "v0.8.1"
+    assert registry._RELEASE == "v0.8.3"
     for C in (14, 30, 57, 89, 118, 145, 200, 300):
         spec = registry.resolve(f"ieee{C}")
-        assert spec["release"] == "data-v0.8.1" and spec["file"] == f"timeline_ieee{C}.h5"
+        assert spec["release"] == "data-v0.8.3" and spec["file"] == f"timeline_ieee{C}.h5"
         assert len(spec["sha256"]) == 64
-    assert registry.resolve("ieee118", release="v0.8.0")["sha256"] != registry.resolve("ieee118")["sha256"]
-    # the digests of the assets as published under data-v0.8.1; IEEE-200 is byte-identical to v0.8.0 (no
-    # load shares a bus with a generator there, so the fixes leave it unchanged)
+        # every system changes from v0.8.1: one-frame Aq and Al, observed-only temporal features
+        assert registry.resolve(f"ieee{C}", release="v0.8.1")["sha256"] != spec["sha256"]
+    # the digests of the assets as published under data-v0.8.3
     published = {
-        "ieee14": "6ed9df442a1faee8271267034485c065c15c6b6b099db476e8fad8633cd22198",
-        "ieee30": "fcc50149715f9b8965d503422f7bd6f8308a3487f28e2b8c03fedf3c956c6887",
-        "ieee57": "de52d152fcf207f197755044485b4c6209617e2ec5ff03f6c3551f03c15a06bd",
-        "ieee89": "74b8512b1274123a11db6b312d4bc197f23c2f5c44770f0f20b6f7abd856e7e0",
-        "ieee118": "cfa713d785b3db34f2edba6ec6d78927c97e14cafd3ce2106a1cc5e1cc89d4f7",
-        "ieee145": "2471510912ae82cb27743ded25f2bf9c562e6f58f6a0de0ad3afa0e060e9008c",
-        "ieee200": "be4ad6a6d598aac9b4fe31c05048c50f50086822140c2001ce0ecdad77edb697",
-        "ieee300": "67b5d727ed498bba270dcc5eb230afec287c4f1fd55b74178a453985edbcd75f",
+        "ieee14": "11460614f78eb0770dc47adcf53bca20f8692b348e2d7cc048e6f714bd40a7b3",
+        "ieee30": "87312be35a74ea341cacd4f4cf306af04e875f90f50ac472eccc715213de31b3",
+        "ieee57": "05522321703ab0fba3755b9d8582a7a420abe0c5ad24b535667201cd4c5666f6",
+        "ieee89": "206adfed97c37d6bf38990d8abfac44154f4fa461be3ddeea74b9f1e4c09fd8d",
+        "ieee118": "dfc47298b77daca47e2e581d2a60163b094d6a77411604605d8f1d4b618f71ae",
+        "ieee145": "5d3d0b6febf4545c3f73f749a56368ade9b64101113252e302448b7d00fd24b3",
+        "ieee200": "9afe6f20dc327fb700303420e8f5da04b998bf2f74956d6982fb8ab845545f47",
+        "ieee300": "a6948a4f0649cf3823bbea806d3084539f8088c207746c782fce58577dc59c14",
     }
     assert {
         f"ieee{C}": registry.resolve(f"ieee{C}")["sha256"] for C in (14, 30, 57, 89, 118, 145, 200, 300)
     } == published
-    assert published["ieee200"] == registry.resolve("ieee200", release="v0.8.0")["sha256"]
+    # v0.8.1's IEEE-200 is byte-identical to v0.8.0 (no load shares a bus with a generator there)
+    assert (
+        registry.resolve("ieee200", release="v0.8.1")["sha256"]
+        == registry.resolve("ieee200", release="v0.8.0")["sha256"]
+    )
