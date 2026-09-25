@@ -1516,6 +1516,14 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li>Engine: parameter groups that travelled through every attack function are data models
+  (<code>models.frames</code>): <code>Band(floor, cap)</code>, the plausibility band of an in-place tamper
+  (<code>FrameKnobs.band</code>); <code>TamperTarget(buses, branches)</code>, where an in-place attack writes; and
+  <code>AttackDesign(targets, mult, interior)</code>, a stealthy attack's design on one scan.
+  <code>FdiaGenerator.corrupt(scan, buses, kind, replay, band)</code> tampers a <code>Scan</code> in place and returns
+  <code>(weak, mags)</code>; <code>attack_frame</code>, <code>is_feasible</code> and <code>stealthy_state</code> take an <code>AttackDesign</code>, and
+  <code>with_region</code> fills in a design's interior. The random-draw order is unchanged: every frozen
+  reference matches bit for bit.</li>
 <li>Features are computed from measurements only. The swing feature's scale is now the recent change
   of the observed frames, not of the noiseless pool: <code>timeline.write_temporal_layers</code> writes
   <code>temporal_delta</code> and <code>swing</code> after the walk from the observed injections alone, and

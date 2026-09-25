@@ -1568,7 +1568,7 @@ summary); the graph properties are tensors or arrays, <code>loader()</code> is a
 provide: <code>MeasurementMixin</code> emits scans, <code>PhysicsMixin</code> solves states (the whole grid, or the attacker's
 local region), <code>AttackMixin</code> builds the in-place corruptions and the load redistribution. The frame
 builders in <code>engine/records.py</code> are functions over a generator, and <code>timeline.py</code> walks them.</p>
-<p><img alt="Class diagram of the engine package: GridBase with MeasurementMixin, PhysicsMixin and AttackMixin under it and FdiaGenerator inheriting all three; the mixins use Scan, Redistribution, OperatingLimits and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias and an Outage" src="../../figures/diagrams/classes_engine.png" /></p>
+<p><img alt="Class diagram of the engine package: GridBase with MeasurementMixin, PhysicsMixin and AttackMixin under it and FdiaGenerator inheriting all three; the mixins use Scan, Band, TamperTarget, Redistribution, OperatingLimits and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias and an Outage" src="../../figures/diagrams/classes_engine.png" /></p>
 <h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
 <p><code>SEBase</code> holds the shared solve: the measurement function, the chord Jacobian, the meter weights and the
 chord-Newton loop. Each estimator overrides one hook. <code>GatedPrior</code> takes a fitted localizer as its gate;

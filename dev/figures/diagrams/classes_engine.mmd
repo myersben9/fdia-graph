@@ -26,11 +26,15 @@ classDiagram
     }
     class AttackMixin {
         +corrupt()
+        +incident_branches()
         +lra_delta()
     }
     class FdiaGenerator {
         +nl
         +centrality_probs()
+    }
+    class Band {
+        <<models>>
     }
     class BranchModel {
         <<models>>
@@ -56,13 +60,19 @@ classDiagram
     class Scan {
         <<models>>
     }
+    class TamperTarget {
+        <<models>>
+    }
     AttackMixin <|-- FdiaGenerator
     GridBase <|-- AttackMixin
     GridBase <|-- MeasurementMixin
     GridBase <|-- PhysicsMixin
     MeasurementMixin <|-- FdiaGenerator
     PhysicsMixin <|-- FdiaGenerator
+    AttackMixin ..> Band : uses
     AttackMixin ..> Redistribution : uses
+    AttackMixin ..> Scan : uses
+    AttackMixin ..> TamperTarget : uses
     FdiaGenerator ..> BranchModel : uses
     FdiaGenerator ..> MeterBias : uses
     FdiaGenerator ..> MeterPlan : uses
