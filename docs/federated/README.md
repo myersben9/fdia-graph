@@ -1,5 +1,7 @@
 # Federated localization with `fdia_graph.federated`
 
+> **Status.** The results on this page are on data release v0.8.1, pinned in the run script, and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame `Aq` and `Al`. They are not yet rerun on v0.8.3; the centralized numbers in [`../localization/README.md`](../localization/README.md) are current.
+
 The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines (pinned in the run script) with
 the 14-dim per-bus vector plus the Jacobian block.
 

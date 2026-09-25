@@ -285,41 +285,43 @@ layer (the label stays the attack target).
 
 ## Dataset statistics
 
-The tables in this section describe the v0.8.0 release. The v0.8.1 timelines keep the pools, the
-knobs and the seed, and their episode counts differ slightly (ieee14 16,045, ieee145 16,177, ieee300
-16,317; the release notes of `data-v0.8.1` on GitHub list every system).
+The tables in this section describe data release v0.8.3. Its `Aq` and `Al` episodes are one frame
+each, so a timeline holds about 24,500 episodes, against about 16,000 in v0.8.0 and v0.8.1 whose
+`Aq` and `Al` were held over several frames; the pools, the other knobs and the seed are unchanged.
 
 **Per-system size.** One timeline of 72,000 frames per system, about half under attack, split
 chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):
 
 | system | N buses | E branches | frames | train | val | test | episodes |
 |--------|--------:|-----------:|-------:|------:|----:|-----:|---------:|
-| ieee14  | 14  | 20  | 72,000 | 43,200 | 14,400 | 14,400 | 15,997 |
-| ieee30  | 30  | 41  | 72,000 | 43,200 | 14,400 | 14,400 | 15,974 |
-| ieee57  | 57  | 80  | 72,000 | 43,218 | 14,382 | 14,400 | 15,948 |
-| ieee89  | 89  | 210 | 72,000 | 43,200 | 14,400 | 14,400 | 16,028 |
-| ieee118 | 118 | 186 | 72,000 | 43,200 | 14,400 | 14,400 | 16,080 |
-| ieee145 | 145 | 453 | 72,000 | 43,200 | 14,400 | 14,400 | 16,192 |
-| ieee200 | 200 | 245 | 72,000 | 43,226 | 14,374 | 14,400 | 16,163 |
-| ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 | 16,333 |
+| ieee14  | 14 | 20 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
+| ieee30  | 30 | 41 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
+| ieee57  | 57 | 80 | 72,000 | 43,200 | 14,400 | 14,400 | 24,679 |
+| ieee89  | 89 | 210 | 72,000 | 43,220 | 14,380 | 14,400 | 24,495 |
+| ieee118 | 118 | 186 | 72,000 | 43,200 | 14,408 | 14,392 | 24,469 |
+| ieee145 | 145 | 453 | 72,000 | 43,200 | 14,400 | 14,400 | 24,485 |
+| ieee200 | 200 | 245 | 72,000 | 43,200 | 14,400 | 14,400 | 24,436 |
+| ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 | 24,672 |
 
 Every system converges at every frame; a split boundary moves to the end of the episode it would cut.
 
 **Attacks per split** (ieee118 shown; every system uses the same recipe). Families are drawn with
 weights inversely proportional to their episode length, so each gets about the same share of
 attacked frames. Each episode is placed at a uniform random onset where it fits, so a partition can
-hold a few more of one family:
+hold a few more of one family. The one-frame families (`Aq`, `Al`, `Ad`, `As`, `Ar`) are thousands of
+episodes and land near their share; `At` and `Am` are about 100 sixty-frame episodes each, so one
+episode more or less moves 60 frames and their split counts vary most:
 
 | family | train | val | test | total |
 |--------|------:|----:|-----:|------:|
-| benign (0) | 21,405 | 7,516 | 7,079 | 36,000 |
-| `Aq` stealthy load-scale | 3,189 | 871 | 1,014 | 5,074 |
-| `Ad` meter corruption    | 3,136 | 1,069 | 1,026 | 5,231 |
-| `As` meter scaling       | 3,120 | 1,092 | 1,029 | 5,241 |
-| `Ar` replay              | 2,955 | 1,051 | 1,020 | 5,026 |
-| `At` temporal ramp       | 3,300 | 1,200 | 1,140 | 5,640 |
-| `Al` load redistribution | 2,675 | 821 | 952 | 4,448 |
-| `Am` multi-snapshot      | 3,420 | 780 | 1,140 | 5,340 |
+| benign (0) | 21,813 | 7,160 | 7,027 | 36,000 |
+| `Aq` stealthy load-scale | 2,961 | 991 | 948 | 4,900 |
+| `Ad` meter corruption | 2,948 | 941 | 945 | 4,834 |
+| `As` meter scaling | 3,009 | 1,023 | 955 | 4,987 |
+| `Ar` replay | 2,916 | 959 | 955 | 4,830 |
+| `At` temporal ramp | 3,120 | 1,440 | 1,440 | 6,000 |
+| `Al` load redistribution | 2,806 | 934 | 982 | 4,722 |
+| `Am` multi-snapshot | 3,627 | 960 | 1,140 | 5,727 |
 
 The v0.7.2 release shipped a record shard and a separate stream per system; from v0.8.0 the
 timeline is the one file, and `fg.load(..., release="v0.7.2")` still reads the shards.
