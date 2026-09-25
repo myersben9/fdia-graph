@@ -1371,6 +1371,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#0200" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0190" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1482,6 +1493,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#0200" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.20.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#0190" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1571,7 +1593,15 @@
 <p>Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="0200">0.20.0<a class="headerlink" href="#0200" title="Permanent link">&para;</a></h2>
 <ul>
+<li>Data release v0.8.3 is the default (<code>fg.load("ieee118")</code>; v0.8.1 stays readable with
+  <code>release="v0.8.1"</code>). The eight timelines are regenerated from the unchanged pools (byte-identical)
+  with seed 123 and the v0.8.1 knobs, built by <code>examples/_build_timelines_v083.py</code>: Aq and Al
+  episodes are one frame, and the stored <code>temporal_delta</code> and <code>swing</code> are functions of the observed
+  frames alone. Each file holds about 24,600 episodes instead of about 16,100, keeps 72,000 frames,
+  exactly half attacked, no frame falling back to benign, and every family present.
+  <code>data-v0.8.2</code>, an intermediate build with one-frame Aq only, is superseded.</li>
 <li>Engine: parameter groups that travelled through every attack function are data models
   (<code>models.frames</code>): <code>Band(floor, cap)</code>, the plausibility band of an in-place tamper
   (<code>FrameKnobs.band</code>); <code>TamperTarget(buses, branches)</code>, where an in-place attack writes; and

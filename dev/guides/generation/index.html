@@ -1615,10 +1615,9 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 </tbody>
 </table>
 <p><img alt="The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; episodes are placed at uniform random onsets with an equal share of attacked frames per family; the walk emits one noisy scan per state and, inside an episode, either solves a local false state (Aq, At, Al, Am) or tampers the readings in place (Ad, As, Ar); after the walk the temporal features are written from the observed frames and the frames are split chronologically into one HDF5 file with observed, benign and clean layers" src="../../figures/diagrams/generation_flow.png" /></p>
-<p>The published default release is v0.8.1 (<code>registry._RELEASE</code>). It was built before three changes
-in this code: <code>Aq</code> and <code>Al</code> episodes are now one frame (v0.8.1 holds <code>Aq</code> for 15 to 44 frames), and
-the swing scale now comes from the observed frames instead of the noiseless pool. Those changes
-reach the data with the next release (<code>CHANGELOG.md</code>, Unreleased).</p>
+<p>The published default release is v0.8.3 (<code>registry._RELEASE</code>), built by this code. Releases up to
+v0.8.1 differ in two ways: they hold <code>Aq</code> for 15 to 44 frames and <code>Al</code> for 10 to 29, and they
+compute the swing scale from the noiseless pool instead of the observed frames.</p>
 <h2 id="1-operating-point-pools">1. Operating-point pools<a class="headerlink" href="#1-operating-point-pools" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1906,7 +1905,7 @@ the case's bus voltage limits and the generator P and Q limits widened to the ra
 </table>
 <p>Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
 the longest episodes first keeps a 60-frame episode from being squeezed out by one-frame ones. The
-default <code>attacked_frac = 0.5</code> gives a balanced file. The v0.8.1 files report <code>fallback_benign = 0</code>
+default <code>attacked_frac = 0.5</code> gives a balanced file. The v0.8.1 and v0.8.3 files report <code>fallback_benign = 0</code>
 on every system (<code>generate_timeline</code> docstring).</p>
 <h2 id="5-the-per-frame-layers">5. The per-frame layers<a class="headerlink" href="#5-the-per-frame-layers" title="Permanent link">&para;</a></h2>
 <table>
