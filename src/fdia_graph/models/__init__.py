@@ -32,7 +32,17 @@ from .fields import (
     StreamLayers,
     TemporalFields,
 )
-from .frames import Frame, FrameKnobs, OperatingLimits, Redistribution, ResolvedPool, Scan
+from .frames import (
+    AttackDesign,
+    Band,
+    Frame,
+    FrameKnobs,
+    OperatingLimits,
+    Redistribution,
+    ResolvedPool,
+    Scan,
+    TamperTarget,
+)
 from .grid import (
     BRANCH,
     EDGE,
@@ -108,6 +118,9 @@ __all__ = [
     "Scan",
     "Frame",
     "FrameKnobs",
+    "Band",
+    "TamperTarget",
+    "AttackDesign",
     "OptimConfig",
     "Partition",
     "RoundLog",
