@@ -4,7 +4,7 @@ Two protocols, one results file:
 
 1. Common protocol: every method fits on the unfiltered train split and is calibrated on benign
    records at the same false-alarm budget, then scores the full test split. The learned arms train
-   on all six families here, so the slow ramp At is in-distribution.
+   on all seven families here, so the slow ramp At is in-distribution.
 2. Papers' zero-shot protocol: train and val hold benign + Aq + Ad only, test adds As and Ar, the
    threshold is the validation-best global tau. This is the protocol behind the federated
    localization paper's headline numbers.

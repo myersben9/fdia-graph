@@ -19,8 +19,8 @@ print(wls.score(test).geo)             # angle_mae_deg 0.090, voltage_mae_pu 8.4
 
 | `fit()` learns | `estimate()` returns |
 |---|---|
-| per-meter error scales: RMS of benign residuals at the dataset's `clean` truth | the classical 2N-1 state, every voltage magnitude and every non-slack angle |
-| the chord Jacobian at the benign mean state | in the case's angle frame: the slack angle is fixed to the case's reference angle (`theta_ref`), the truth's slack angle on every frame |
+| per-meter error scales: RMS of benign residuals at the dataset's `clean` truth; the reference angle `theta_ref` | the classical 2N-1 state, every voltage magnitude and every non-slack angle |
+| the chord Jacobian at the benign mean state | in one angle frame: the slack angle is fixed to `theta_ref`, taken from the training truth at fit time (the case's reference angle on the released pools) |
 
 ## The better estimator
 
@@ -50,7 +50,7 @@ Validation-selected hyperparameters from the estimation paper:
 | records | behaviour | why |
 |---|---|---|
 | `Ad` bias, `As` scaling, `Ar` replay | improve a lot | meters corrupted in place, which robust weighting exists to reject |
-| `Aq`, `At`, `Al` (stealthy) | near parity for every estimator | a physically valid state inside the learned subspace; no single-scan method can reject it |
+| `Aq`, `At`, `Al`, `Am` (stealthy) | robust weighting sees nothing; the prior moves them part of the way | a consistent AC state leaves no residual, and it sits off the benign operating subspace, so the prior pulls the estimate part of the way back |
 | benign | improves on the larger systems, can lose slightly on ieee14 | the baseline is already at the noise floor there |
 
 Full per-family table and figures: [`../se/README.md`](../se/README.md).

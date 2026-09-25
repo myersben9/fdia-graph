@@ -32,8 +32,27 @@ rep  = loc.score(test)                             # per-family metrics + benign
 | `BusMLP` | The papers' lightweight arm: one 4x128 MLP applied to every bus's own 14-dim vector (readings, meter mask, partial KCL residual, delta, swing). 52k parameters | `[torch]` extra |
 | `BusCNN` | The papers' best localizer: a 1-D convolution across the bus axis over the same 14-dim vector, 4 layers of 128 channels, kernel 3. No graph read. 154k parameters | `[torch]` extra |
 
-The learned arms train on the records they are given, so the protocol is the load call;
+The learned arms train on the records they are given, so the protocol is the load call.
 `fit(train, val=val)` picks the papers' validation-best threshold instead of the false-alarm one.
+
+## Feature sets
+
+`BusMLP`, `BusCNN` and the federated arms take `features=`, the per-bus vector the encoder reads
+(`localization.learned.FEATURE_SETS`):
+
+| `features=` | channels | per bus | needs |
+|---|---:|---|---|
+| `"meas"` | 8 | the readings and the meter mask | any dataset |
+| `"full14"` (default) | 14 | the papers' vector: readings, mask, partial KCL residual, `temporal_delta`, `swing` | any dataset |
+| `"full14+prev"` | 16 | `full14` and the previous frame's swing (`prev_swing`) | a timeline |
+| `"full14+jac"` | 22 | `full14` and the 8 Jacobian features | a timeline, `[se]` |
+| `"full14+prev+jac"` | 24 | `full14`, `prev_swing` and the 8 Jacobian features | a timeline, `[se]` |
+| `"jac"` | 8 | the Jacobian features alone | a timeline, `[se]` |
+
+The previous frame's swing separates a one-frame attack from the frame after it, which carries
+the same jump back with the opposite sign. The Jacobian block takes each frame's measurement change
+against the previous frame's estimate, so both read the previous frame and need a timeline
+(`ds.export` serves `prev_node_x`, `prev_edge_x`, `prev_timestep` and `prev_swing` on request).
 
 ## Results
 
@@ -80,17 +99,18 @@ Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.
 (implied state move `H⁺Δz`, explained and unexplained parts and their ratio, sensitivity, leverage,
 weak-direction energy) and aggregates it to buses; `BusCNN` / `BusMLP` take `features=`:
 
-| set | input |
-|---|---|
-| A | measurements only |
-| B | the papers' 14-dim vector (the rows above) |
-| C | B + the 8 Jacobian features |
-| D | the Jacobian features alone |
+| set | `features=` | input |
+|---|---|---|
+| A | `"meas"` | measurements only |
+| B | `"full14"` | the papers' 14-dim vector (the rows above) |
+| C | `"full14+jac"` | B + the 8 Jacobian features |
+| D | `"jac"` | the Jacobian features alone |
 
 Zero-shot protocol on the v0.8.1 timelines (benign, `Aq` and `Ad` seen; `As` and `Ar` unseen). The
-Jacobian block takes each frame's change against the previous frame's estimate, only observed data;
-with the earlier reference, the previous frame's true state, C read 0.873, 0.896 and 0.840, and it
-reads 0.820, 0.809 and 0.812 now, D falling further:
+Jacobian block takes each frame's change against the previous frame's estimate, so it reads
+observed data only. C reads 0.820, 0.809 and 0.812 on 14, 118 and 300. Against the previous frame's
+true state, a reference an operator does not have, C read 0.873, 0.896 and 0.840. The observed
+reference costs D more than it costs C:
 
 | Model (1D CNN, zero-shot) | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -107,7 +127,7 @@ rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.6
 
 | finding | evidence |
 |---|---|
-| the features carry the in-place signal, not the stealthy one | on `Aq` the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.07, 0.01 and 0.01 for D alone: against the previous frame's estimate a held stealthy episode shows only at its first frame, as the history does; the gain is on the unseen families, `As` 0.50 to 0.91 and `Ar` 0.30 to 0.78 from B to C on 118, 0.55 to 0.93 and 0.34 to 0.74 on 300 |
+| the features carry the in-place signal, not the stealthy one | on `Aq` the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.07, 0.01 and 0.01 for D alone: the v0.8.1 timelines hold an `Aq` state over a multi-frame episode, and against the previous frame's estimate a held episode shows only at its first frame, as the history does; the gain is on the unseen families, `As` 0.50 to 0.91 and `Ar` 0.30 to 0.78 from B to C on 118, 0.55 to 0.93 and 0.34 to 0.74 on 300 |
 | on a timeline they are what makes the vector work | B to C is +4, +27 and +32 zero-shot points; the papers' vector was built for the v0.7.2 shards, whose temporal features compared an attacked snapshot with the benign scan before it, and on a timeline a sustained episode spikes at its onset only |
 | where they pay again | as the localizer that gates the estimator once meters are secured, [`../trust/README.md`](../trust/README.md) |
 
@@ -115,7 +135,7 @@ rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.6
 
 | reading | evidence | open case |
 |---|---|---|
-| the temporal spike is an onset signal | the swing threshold alone reads 0.10, 0.47 and 0.44 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier | `Aq`, the slow ramp `At` and the held redistribution `Am` inside an episode |
+| the temporal spike is an onset signal | the swing threshold alone reads 0.10, 0.47 and 0.44 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier | the slow ramp `At` and the held redistribution `Am` inside an episode, and `Aq` inside an episode on the v0.8.1 timelines (the generator in this package makes every `Aq` episode one frame) |
 | the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption and smears it over neighbours; on `Aq` / `At` / `Al` / `Am` its node-F1 is 0.015 or less, there is no residual | it opens with a trusted set of meters, [`../trust/README.md`](../trust/README.md) |
 | learning plus physics holds with size | zero-shot CNN with the Jacobian block 0.820, 0.809 and 0.812 from 14 to 300 buses at FR 0.002 or below | the common protocol, with `At`, `Al` and `Am` in distribution, falls 0.830, 0.407, 0.402 with size: the per-frame localization of a sustained local false state is the frontier |
 

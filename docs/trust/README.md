@@ -67,7 +67,7 @@ estimator and localizer of the other two guides can be scored with the set secur
 `python docs/trust/run_secured.py` (set `FG_SYSTEM`, `FG_K`) does that for the greedy and the DQN
 selections of `run_trust.py` and writes `results/secured_<system>.json`.
 
-One rule came out of it: a localization gate must never down-weight a secured meter.
+Rule: a localization gate never down-weights a secured meter.
 `GatedPrior` scales every meter of a flagged bus by a thousandth. On a secured copy those meters
 include the secured ones, the only true readings inside the attacked region, so the CNN and
 residual gates were worse than no gate on both secured copies. `GatedPrior(secured=tm.select())`

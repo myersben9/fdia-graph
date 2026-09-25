@@ -1,8 +1,9 @@
 # Repo roadmap
 
 Two halves. The **SDK** loads and serves data and runs on the base install; the **engine** is the
-theory (power flow, meters, attacks) and needs `[generate]`. Users touch `fg.*`, `fdia_graph.se`
-and `fdia_graph.localization`.
+theory (power flow, meters, attacks) and needs `[generate]`. The public surface is `fg.*` and the
+analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust` and
+`fdia_graph.federated`; everything else serves them.
 
 ![the package map: the public API over dataset, timeline, registry, se, localization and trust in the base install, generation and engine behind the generate extra, models and formulas read by every package](figures/diagrams/roadmap_modules.png)
 
@@ -21,6 +22,9 @@ and `fdia_graph.localization`.
 | `torch_data.py`, `streams.py` | PyG and per-bus sequence forms of a time-ordered dataset; the deprecated stream entry points |
 | `se/` | `SEBase` (measurement model, chord-Newton, calibration) plus one class per estimator |
 | `localization/` | `LocalizerBase` (false-alarm calibration, metrics) plus threshold and learned classes |
+| `trust/` | `TrustSelector` plus the greedy row-reduction (`TrustedMeters`) and deep Q-network (`TrustedMetersDQN`) meter selections, and `secured_copy` of a timeline with the chosen meters pinned |
+| `federated/` | the client partition (`spectral_partition`), the FedAvg localizers (`FedBusMLP`, `FedBusCNN`) and the per-client subspace prior (`RegionalPrior`); needs `[federated]` |
+| `schema.py` | the file protocol: every HDF5 group, dataset and attribute name, defined once |
 | `models/` | every value bundle a function returns, grouped `grid`, `frames`, `data`, `scores`, `assets` |
 | `formulas/` | the mathematics as pure functions with source keys; catalogue in `reference/FORMULAS.md` |
 | `engine/` | `FdiaGenerator` = `MeasurementMixin` (meters, noise) + `PhysicsMixin` (AC solves) + `AttackMixin` (the attack constructions) over `GridBase`; `records.py` builds one scan of any of the seven families |
@@ -31,7 +35,7 @@ and `fdia_graph.localization`.
 |---|---|
 | `reference/` | data dictionary, concepts to code, formulas, examples, benchmarks |
 | `guides/` | task walkthroughs |
-| `se/`, `localization/` | `run_*.py` fits one system and writes `results/*.json`; `make_report.py` renders the README tables and figures |
+| `se/`, `localization/`, `trust/`, `federated/` | `run_*.py` fits one system and writes `results/*.json`; `make_report.py` (where present) renders the README tables and figures |
 | `figures/` | shared images with their data sidecars |
 | `plans/` | the design documents behind the 0.16 and 0.17 refactors (history, not instructions) |
 
@@ -42,7 +46,7 @@ and `fdia_graph.localization`.
 | `pytest tests` | builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts |
 | `FDIA_FROZEN_STRICT=1 pytest tests` | bit-identical comparison against `tests/frozen/`; run before every push |
 | `FDIA_SLOW=1 pytest tests` | adds a sanity test on the published IEEE-118 file |
-| CI | tests, pyright, ruff format and check, the readability gate, install on 3.9 and 3.12 |
+| CI | tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the class-diagram check, install on 3.9 and 3.12 |
 | release | bump PR, then `python tools/release.py vX.Y.Z notes.md` (tag, GitHub release, PyPI); see `CONTRIBUTING.md` |
 
 ## Reading order
@@ -58,3 +62,5 @@ and `fdia_graph.localization`.
 | 6 | `reference/EXAMPLES.md` | training examples to copy from |
 | 7 | `se/README.md`, `guides/state_estimation.md` | measurements in, better-than-WLS state out |
 | 8 | `localization/README.md` | which buses are under attack, and why the slow ramp is open |
+| 9 | `trust/README.md` | which meters to secure so a stealthy attack stops being stealthy |
+| 10 | `federated/README.md` | the localizers and the prior trained across clients that never pool their records |

@@ -73,9 +73,14 @@ target = Cw[..., [0, 3]]                         # [n,W,N,2] clean V and theta
 All three report **DR / FA / F1**, never raw accuracy. About 98% of bus-scans are clean, so an
 all-negative model scores 0.98 accuracy while detecting nothing.
 
+The printed outputs and the tables in this section were recorded on the v0.7.1 ieee118 record
+shards, before the timeline replaced them in v0.8.0. The code runs unchanged on the default
+release, and its numbers there differ. Current localization results are in
+[`../localization/README.md`](../localization/README.md).
+
 - Thresholds are picked on the **val** split (best F1). Test is evaluated once at that threshold.
 - Baseline 1 follows the papers' protocol: train on benign + `Aq` + `Ad`, hold out `As`/`Ar`
-  zero-shot, exclude the slow ramp, score **macro-F1 over attackable buses**.
+  zero-shot, exclude `At`, `Al` and `Am`, score **macro-F1 over the active buses**.
 - Baselines 2 and 3 train on every family so the hard ones stay visible.
 - Each trains in a few CPU minutes.
 
@@ -99,7 +104,7 @@ def report(p, t):
     print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2*prec*dr/(prec+dr):.3f}")
 
 def macro_f1(p, t):
-    """Per-bus F1 averaged over the attackable buses (the localization metric our papers report)."""
+    """Per-bus F1 averaged over the buses attacked in t (the papers' localization metric)."""
     f1s = []
     for b in range(t.shape[1]):
         if not t[:, b].any(): continue
@@ -121,8 +126,9 @@ Each bus is described by 14 numbers:
 | `temporal_delta` | 2 | scan-to-scan change |
 | `swing` | 2 | windowed z-score of that change |
 
-A 28k-parameter MLP under the published protocol localizes at **0.915 macro-F1** in about five CPU
-minutes. Our tuned paper models reach 0.93–0.95 on the same protocol. Needs `pip install "fdia-graph[torch]"`.
+On the v0.7.1 shards, a 28k-parameter MLP under the published protocol localized at **0.915
+macro-F1** in about five CPU minutes, and the tuned paper models reached 0.93–0.95 on the same
+protocol. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import numpy as np
@@ -177,15 +183,16 @@ report(torch.tensor(p.ravel()), torch.tensor(t.ravel()))
 # DR 0.859  FA 0.0002  F1 0.916          (~5 min CPU)
 ```
 
-Per-family test DR at that operating point (benign-bus FA 0.01%):
+Per-family test DR at that operating point on the v0.7.1 shards (benign-bus FA 0.01%):
 
 | `Ad` | `Aq` | `As` (zero-shot) | `Ar` (zero-shot) |
 |---|---|---|---|
 | 0.94 | 0.90 | 0.87 | 0.73 |
 
-Adding the excluded families back drops the pooled all-family F1 to ~0.83, almost entirely because
-the slow ramp `At` (DR ~0.10) evades the temporal feature by construction. That gap is the open
-problem this dataset poses. The next two baselines keep it visible by training on every family.
+On the same shards, adding the excluded families back dropped the pooled all-family F1 to ~0.83,
+almost entirely because the slow ramp `At` (DR ~0.10) evades the temporal feature by construction.
+That gap is the open problem this dataset poses. The next two baselines keep it visible by
+training on every family.
 
 ### 2. Graph model: ARMAConv (PyTorch-Geometric), all families
 
@@ -225,9 +232,9 @@ report(lo["test"] > tau, yy["test"])
 # DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1, saturated)
 ```
 
-The honest reading: the graph model saturates **below** the per-bus MLP, and our papers see the same
-with both reading the identical 14-dim input. Message passing smooths exactly the localized per-bus
-signal `swing` carries. Beating the lightweight baseline with graph or physics information is a
+The graph model saturates **below** the per-bus MLP, and the papers report the same with both
+models reading the identical 14-dim input. Message passing smooths the localized per-bus signal
+that `swing` carries. Beating the lightweight baseline with graph or physics information is a
 research target, not a given.
 
 ### 3. Temporal model: a plain LSTM on the timeline
@@ -235,7 +242,8 @@ research target, not a given.
 - The example builds its features in place from the raw measurements: train-normalized channels
   plus a per-window z-score.
 - Inside a sustained attack episode the rolling window is already contaminated, so the anomaly
-  fades after onset; the file's `swing` is computed against the previous frame at generation time.
+  fades after onset. The file's `swing` avoids this: it compares each observed frame with the
+  previous one (`timeline.write_temporal_layers`).
 - Needs `pip install "fdia-graph[torch]"`.
 
 ```python
@@ -277,6 +285,10 @@ layer (the label stays the attack target).
 
 ## Dataset statistics
 
+The tables in this section describe the v0.8.0 release. The v0.8.1 timelines keep the pools, the
+knobs and the seed, and their episode counts differ slightly (ieee14 16,045, ieee145 16,177, ieee300
+16,317; the release notes of `data-v0.8.1` on GitHub list every system).
+
 **Per-system size.** One timeline of 72,000 frames per system, about half under attack, split
 chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):
 
@@ -293,9 +305,10 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 
 Every system converges at every frame; a split boundary moves to the end of the episode it would cut.
 
-**Attacks per split** (ieee118 shown; every system uses the same recipe). Families are scheduled
-by inverse episode length so each gets about the same share of attacked frames; episodes land
-where the scheduler puts them, so a partition can hold a few more of one family:
+**Attacks per split** (ieee118 shown; every system uses the same recipe). Families are drawn with
+weights inversely proportional to their episode length, so each gets about the same share of
+attacked frames. Each episode is placed at a uniform random onset where it fits, so a partition can
+hold a few more of one family:
 
 | family | train | val | test | total |
 |--------|------:|----:|-----:|------:|
@@ -328,5 +341,5 @@ timeline is the one file, and `fg.load(..., release="v0.7.2")` still reads the s
 
 *Per-bus |V|, θ, and P/Q injection distributions across the ladder (box = IQR, red = median; data in
 `../figures/fig_dataset_stats.csv`).* Two systems are outliers by construction of the MATPOWER base
-case, not our generation: `case57` runs chronically low-voltage (33 of 57 buses below 0.9 pu even
+case, not the generation: `case57` runs chronically low-voltage (33 of 57 buses below 0.9 pu even
 unscaled) and `case145` has a very wide angle spread. Both are valid converged operating points.

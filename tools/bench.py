@@ -111,7 +111,7 @@ def main(check: bool) -> int:
     cols = ["date", *t.keys(), "version", "machine"]
     if not text:
         text = (
-            "# Benchmarks\n\nPer-record timings on the tiny IEEE-14 shard, appended by `python tools/bench.py`; "
+            "# Benchmarks\n\nPer-record timings on the tiny IEEE-14 timeline, appended by `python tools/bench.py`; "
             "`--check` fails when a timing is more than 3x slower than the last row. One machine's rows are "
             "comparable with each other, not with another machine's.\n\n"
             "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols) + "\n"

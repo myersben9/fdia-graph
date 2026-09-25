@@ -1,8 +1,9 @@
 """Build the README tables and figures from results/loc_*.json, in the localization paper's layout.
 
 Tables: rows are methods, columns are F1 / DR / FR per system, all three per-bus macro scores over
-the attackable buses (F1 and DR accumulate over every test record, FR is the per-bus false-positive
-rate on benign records). One table per protocol, printed as markdown.
+the active buses, those attacked somewhere in the test split (F1 and DR accumulate over every test
+record, FR is the per-bus false-positive rate on benign records). One table per protocol, printed
+as markdown.
 
 Figures: one per-family per-bus F1 heatmap per system (the paper shows per-family F1 as a figure),
 row labels carrying each method's FR, plus a CSV sidecar. Nothing here re-runs a model.

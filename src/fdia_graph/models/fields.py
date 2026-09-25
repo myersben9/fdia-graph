@@ -62,7 +62,7 @@ class RecordIds:
     """Where a shard record came from."""
 
     stealthy: Optional[Scalars] = None  # [...] 1 for the re-solve families Aq, At, Al, Am
-    seq_id: Optional[Scalars] = None  # [...] ramp sequence id, -1 otherwise
+    seq_id: Optional[Scalars] = None  # [...] episode index of the frame's attack (every family), -1 benign
     timestep: Optional[Scalars] = None  # [...] position in the source load profile
 
 

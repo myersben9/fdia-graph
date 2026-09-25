@@ -31,9 +31,9 @@ and the run script refuses to fit otherwise.
 
 ## Results
 
-These runs used the earlier Jacobian block, whose change was taken against the previous frame's true
-state; the block now reads only observed data (the previous frame's estimate), and these tables are
-pending a rerun on it.
+These runs used the earlier Jacobian block, which took the change against the previous frame's true
+state. The block now reads observed data only (the previous frame's estimate), and these tables
+await a rerun on it.
 
 Zero-shot: train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in
 training. F1, DR and FR are the paper's per-bus macro scores over the attackable buses, mean and
@@ -85,7 +85,7 @@ Per-bus F1 by attack family, row labels carrying each row's FR over every record
 |---|---|---|
 | federating costs little | from one client to three the CNN moves 0.878 to 0.850 on IEEE-14 and holds 0.899 to 0.904 on 118 and 0.847 to 0.861 on 300 | the MLP loses 1 to 3 points on 118 and 300 as K grows |
 | the CNN is the arm to deploy | its macro F1 leads the per-bus MLP's at every K on every system, at FR below 0.001 on 118 and 300 | the MLP is a third of the parameters (52k against 154k) for 1 to 5 points of F1, and matches the CNN on `Aq` at K = 1 on 300 |
-| the stealthy re-solve falls with size | `Aq` node F1 is about 0.65, 0.39 and 0.20 on 14, 118 and 300 while `Ad`, `As` and `Ar` stay at or above 0.53 | a sustained local false state inside an episode, the same frontier as in [`../localization/README.md`](../localization/README.md) |
+| the stealthy re-solve falls with size | `Aq` node F1 is about 0.65, 0.39 and 0.20 on 14, 118 and 300 while `Ad`, `As` and `Ar` stay at or above 0.53 | a sustained local false state inside an episode, the same frontier as in [`../localization/README.md`](../localization/README.md); the v0.8.1 timelines hold `Aq` over multi-frame episodes, while the generator in this package makes every `Aq` episode one frame |
 
 The papers report CNN macro F1 of 0.963, 0.963 and 0.952 on the v0.4.1 record shards, and the SDK
 reproduces them within half a point on the v0.7.2 shards. On a timeline the 14-dim vector alone

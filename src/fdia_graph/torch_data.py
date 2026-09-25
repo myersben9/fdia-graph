@@ -1,4 +1,4 @@
-"""The torch helpers of 0.17, deprecated: retire in 0.19. `fg.load(name, split, order="time",
+"""The torch helpers of 0.17, deprecated and to be removed in a future release. `fg.load(name, split, order="time",
 format="pyg")` gives the PyG graphs `pyg_stream` built, and `ds.windows(W, stride, label, layer,
 per_bus=True)` on the train, val and test views gives the sequences `torch_windows` built, with the
 file's chronological split instead of `train_frac`.
@@ -7,7 +7,7 @@ file's chronological split instead of `train_frac`.
 and branch physics attached), ``torch_windows()`` hands back per-bus sequence tensors for an
 LSTM/GRU. Both split chronologically (train first, test last), matching how the timeline would be
 consumed live. The source is a timeline loaded with ``fg.load(name, order="time")`` (``dataset=``),
-or, until the streams retire, a stream dict (``stream=``) or a system name (``load_stream``).
+or, until the streams are removed, a stream dict (``stream=``) or a system name (``load_stream``).
 ``torch`` / ``torch_geometric`` are imported lazily so the base install stays torch-free.
 """
 

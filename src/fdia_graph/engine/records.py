@@ -51,7 +51,8 @@ REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans b
 def replay_frame(
     buffer: list[np.ndarray], tau: Optional[int], rng: np.random.Generator
 ) -> Optional[np.ndarray]:
-    """The benign scan an Ar/As attack replays [DAT26].
+    """The benign scan an Ar attack replays [DAT26]. It is drawn for every in-place family (Ad, As,
+    Ar) so the random stream stays fixed; only Ar uses it.
 
     A fixed lag `tau` takes exactly that many scans back (clamped to what the buffer holds); no
     lag takes a random scan at least REPLAY_MIN_LAG back once the buffer is deep enough, else the

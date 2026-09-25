@@ -51,6 +51,7 @@ nav:
       - State estimation: se/README.md
       - Localization: localization/README.md
       - Trusted meters: trust/README.md
+      - Federated: federated/README.md
   - Guides:
       - State estimation: guides/state_estimation.md
   - Reference:

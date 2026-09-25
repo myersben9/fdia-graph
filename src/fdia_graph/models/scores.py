@@ -39,10 +39,11 @@ class EstimatorScores(Bundle):
 @dataclass(frozen=True, eq=False)
 class OverallMetrics(Bundle):
     """Pooled over every record, benign included: the papers' per-bus macro F1, detection rate
-    and false-positive rate over the attackable buses, and the micro node F1."""
+    and false-positive rate over the active buses (attacked somewhere in the records scored), and the
+    micro node F1."""
 
-    macro_f1: float  # mean per-bus F1 over the attackable buses
-    macro_dr: float  # mean per-bus detection rate over the attackable buses
+    macro_f1: float  # mean per-bus F1 over the active buses
+    macro_dr: float  # mean per-bus detection rate over the active buses
     macro_fr: float  # mean per-bus false-positive rate on benign records
     node_f1: float  # micro F1 over every bus call
 

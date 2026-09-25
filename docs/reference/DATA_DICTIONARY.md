@@ -122,7 +122,8 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 | `slack` | dataset attribute | index of the reference (slack) bus, `ds.slack`. Derived from the clean layer, so v0.7.2+ only. Also `Data.slack` in PyG format |
 | `ybus` | dataset attribute | full nodal admittance matrix `[N,N]`, complex per-unit, in `node_x` bus order: `ds.ybus` (torch complex128) or `ds.ybus_np`. Built from `edge_attr` and the bus shunts with pandapower's branch model, equal to the engine's matrix. Static per shard, so it lives on the dataset, not on each record |
 | `yf`, `yt` | dataset attributes | from-end and to-end branch admittance matrices `[E,N]` (rows follow `edge_index`, columns `node_x` bus order): `ds.yf` / `ds.yt` (torch complex128) or `ds.yf_np` / `ds.yt_np`. For a complex bus voltage vector `V`, `V[from] * conj(Yf @ V)` is the from-end branch flow in per-unit (times `baseMVA` gives `edge_x` / `edge_clean` units). Same construction as makeYbus |
-| `stealthy` | scalar | 1 for the re-solve families `Aq`/`At`/`Al` (BDD-evading by construction), 0 for benign and `Ad`/`As`/`Ar` |
+| `stealthy` | scalar | 1 for the re-solve families `Aq`/`At`/`Al`/`Am` (`fg.STEALTHY_FAMILIES`, BDD-evading by construction), 0 for benign and `Ad`/`As`/`Ar` |
+| `seq_id` | scalar | index of the attack episode the frame belongs to, for every family; -1 on benign frames |
 | `split` | scalar | 0/1/2 = train/val/test |
 | `timestep` | scalar | position in the source load profile |
 
@@ -194,7 +195,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `y` | `y` | Array | yes | [..., N] per-bus attack label, 1 attacked (LabelFields) |
 | `family` | `family` | Scalars | yes | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
 | `stealthy` | `stealthy` | Scalars | yes | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
-| `seq_id` | `seq_id` | Scalars | yes | [...] ramp sequence id, -1 otherwise (RecordIds) |
+| `seq_id` | `seq_id` | Scalars | yes | [...] episode index of the frame's attack (every family), -1 benign (RecordIds) |
 | `timestep` | `timestep` | Scalars | yes | [...] position in the source load profile (RecordIds) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
 | `temporal_delta` | `temporal_delta` | Array |  | [..., N, 2] injection change vs the previous pool scan (v0.3+) (TemporalFields) |
@@ -229,7 +230,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
 | `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
-| `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
+| `seq_id` | `seq_id` | Scalars |  | [...] episode index of the frame's attack (every family), -1 benign (RecordIds) |
 | `timestep` | `timestep` | Scalars |  | [...] position in the source load profile (RecordIds) |
 
 ### `ArraysBundle` (`fdia_graph.models.data`)
@@ -256,7 +257,7 @@ Field groups: `PreviousFrameFields`, `StreamLayers`, `GraphFields`, `CleanFields
 | `edge_benign` | `edge_benign` | Array |  | [..., E, 2] attack removed, noise kept (StreamLayers) |
 | `family` | `family` | Scalars |  | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
-| `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
+| `seq_id` | `seq_id` | Scalars |  | [...] episode index of the frame's attack (every family), -1 benign (RecordIds) |
 | `timestep` | `timestep` | Scalars |  | [...] position in the source load profile (RecordIds) |
 | `prev_node_x` | `prev_node_x` | Array |  | [..., N, 4] the previous frame's node readings (PreviousFrameFields) |
 | `prev_edge_x` | `prev_edge_x` | Array |  | [..., E, 2] the previous frame's branch-flow readings (PreviousFrameFields) |
@@ -314,7 +315,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `system` | `system` | int |  | bus count (generate_stream and load_stream both set it) |
 | `attacked_frac` | `attacked_frac` | float |  | fraction of frames with at least one attacked bus (both set it) |
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
-| `seq_id` | `seq_id` | Scalars |  | [...] ramp sequence id, -1 otherwise (RecordIds) |
+| `seq_id` | `seq_id` | Scalars |  | [...] episode index of the frame's attack (every family), -1 benign (RecordIds) |
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
 
 ### `EstimatorScores` (`fdia_graph.models.scores`)
@@ -372,12 +373,12 @@ Mean absolute error of one record class: angles in degrees, voltage magnitudes p
 
 ### `OverallMetrics` (`fdia_graph.models.scores`)
 
-Pooled over every record, benign included: the papers' per-bus macro F1, detection rate and false-positive rate over the attackable buses, and the micro node F1.
+Pooled over every record, benign included: the papers' per-bus macro F1, detection rate and false-positive rate over the active buses (attacked somewhere in the records scored), and the micro node F1.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
-| `macro_f1` | `macro_f1` | float | yes | mean per-bus F1 over the attackable buses |
-| `macro_dr` | `macro_dr` | float | yes | mean per-bus detection rate over the attackable buses |
+| `macro_f1` | `macro_f1` | float | yes | mean per-bus F1 over the active buses |
+| `macro_dr` | `macro_dr` | float | yes | mean per-bus detection rate over the active buses |
 | `macro_fr` | `macro_fr` | float | yes | mean per-bus false-positive rate on benign records |
 | `node_f1` | `node_f1` | float | yes | micro F1 over every bus call |
 
