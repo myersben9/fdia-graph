@@ -71,7 +71,7 @@ def main() -> None:
         part = os.path.join(
             OUT, f"manifest_ieee{C}.json"
         )  # one fragment per system: parallel workers never share a file
-        if _finished(out, part):
+        if _finished(C, out, part):
             print(f"[ieee{C}] timeline exists with these inputs, skip", flush=True)
             continue
         print(f"[ieee{C}] walking {FRAMES} frames ...", flush=True)
@@ -83,7 +83,7 @@ def main() -> None:
             f"{os.path.getsize(out) / 1e6:.0f} MB in {(time.time() - t0) / 60:.1f} min",
             flush=True,
         )
-        entry: dict = {"inputs": _inputs()}
+        entry: dict = {"inputs": _inputs(C)}
         for name in (f"pool_ieee{C}", f"timeline_ieee{C}"):
             p = os.path.join(OUT, f"{name}.h5")
             entry[name] = {
@@ -97,17 +97,18 @@ def main() -> None:
     print("[all] done; run once more with MERGE=1 after every worker has finished", flush=True)
 
 
-def _inputs() -> dict:
-    """The generation inputs a finished system was built with; a resume skips it only when they match."""
-    return {"frames": FRAMES, "seed": SEED, "pools": os.path.abspath(POOLS)}
+def _inputs(C: int) -> dict:
+    """The generation inputs system C was built with, the source pool by content; a resume skips a
+    system only when they match."""
+    return {"frames": FRAMES, "seed": SEED, "pool_sha256": sha256(os.path.join(POOLS, f"pool_ieee{C}.h5"))}
 
 
-def _finished(out: str, part: str) -> bool:
+def _finished(C: int, out: str, part: str) -> bool:
     """A timeline and its fragment exist and the fragment records the current inputs."""
     if not (os.path.exists(out) and os.path.exists(part)):
         return False
     with open(part) as fh:
-        return json.load(fh).get("inputs") == _inputs()
+        return json.load(fh).get("inputs") == _inputs(C)
 
 
 def merge_manifest() -> dict:
