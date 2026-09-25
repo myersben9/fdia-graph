@@ -785,7 +785,7 @@ def generate_timeline(
                      lighter, a real overload hidden, the engine's Al sign) or "both" (drawn per
                      episode)
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
-                     draw as in the papers, None draws the stream's 5 to 25 frame band
+                     draw as in the papers, None draws a 5 to 24 frame episode
     replay_tau       Ar replay depth in frames, None = random lag of at least 20
     redundancy       meter coverage {vbus_frac, pmu_frac, flow_frac}, default 0.6/0.2/0.9
     split            chronological train/val/test fractions by frame, episodes never cut

@@ -53,11 +53,13 @@ nav:
       - Trusted meters: trust/README.md
       - Federated: federated/README.md
   - Guides:
+      - Timeline generation: guides/generation.md
       - State estimation: guides/state_estimation.md
   - Reference:
       - Data dictionary: reference/DATA_DICTIONARY.md
+      - Glossary: reference/GLOSSARY.md
       - Concepts to code: reference/CONCEPTS_TO_CODE.md
-      - Class map: reference/CLASS_MAP.md
+      - Architecture (UML diagrams): reference/CLASS_MAP.md
       - Examples: reference/EXAMPLES.md
       - Formulas: reference/FORMULAS.md
       - Benchmarks: reference/BENCHMARKS.md

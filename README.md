@@ -20,9 +20,11 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | Read | To learn |
 |---|---|
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what, and how the paths connect |
+| [`docs/guides/generation.md`](docs/guides/generation.md) | how a timeline is generated, and which layers a feature may read |
 | [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) | what every array means |
+| [`docs/reference/GLOSSARY.md`](docs/reference/GLOSSARY.md) | every term, with where it lives in the code |
 | [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
-| [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | the class and module diagrams, drawn from the code |
+| [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | architecture: the UML class and module diagrams, drawn from the code |
 | [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
 | [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) · [`docs/trust/`](docs/trust/README.md) · [`docs/federated/`](docs/federated/README.md) | the analysis modules, with results |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |
@@ -119,10 +121,10 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 | family | attack | classical BDD | plausibility |
 |---|---|---|---|
 | `Aq` | load rescale, the subnetwork around the buses re-solved locally, one frame | evades | every per-bus change within a 5% to 20% band |
-| `At` | slow load ramp, re-solved locally every frame | evades | 2% to 20% band, spread over 60 scans |
+| `At` | slow load ramp, re-solved locally every frame | evades | peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames |
 | `Al` | load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally, one frame | evades | 2% to 20% band, load conserved |
 | `Am` | the redistribution reached in per-frame steps under the noise floor | evades | 2% to 20% band, spread over 60 scans |
-| `Ad` / `As` / `Ar` | meter bias / scaling / replay, one frame | caught | 2% to 20% band |
+| `Ad` / `As` / `Ar` | meter bias / scaling / replay, one frame | caught | Ad and As 2% to 20% band; Ar replays an earlier benign scan and records the realized change |
 
 Every stealthy family is a local false state [WU26]: the attacker solves the power flow of a
 subnetwork around the attack with the boundary voltages held true, writes only that subnetwork's
