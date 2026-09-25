@@ -19,10 +19,8 @@ def wls(splits):
 
 @pytest.fixture(scope="module")
 def test_arrays(splits, wls):
-    d = splits["test"].export(["node_x", "edge_x", "clean", "family"])
-    z = wls._z_of(d["node_x"], d["edge_x"])
-    thsl = wls._truth_of(d["clean"])["thsl"]
-    return z, thsl, d["family"]
+    d = splits["test"].export(["node_x", "edge_x", "family"])
+    return wls._z_of(d["node_x"], d["edge_x"]), d["family"]
 
 
 def test_every_public_path_refuses_a_per_unit_view(timeline, splits, wls):
@@ -60,11 +58,10 @@ def test_a_composed_gated_estimator_is_the_gated_estimator(splits):
     est = GatedPrior(gate="oracle", rank_frac=0.5, reweight="huber").fit(splits["train"])
     loc = ResidualLocalizer(estimator=est).fit(splits["train"])
     test = splits["test"]
-    d = test.export(["node_x", "edge_x", "clean"])
+    d = test.export(["node_x", "edge_x"])
     z = est._z_of(d["node_x"], d["edge_x"])
-    thsl = est._truth_of(d["clean"])["thsl"]
     xhat = est.estimate(test)
-    expected = np.stack([est._nres(xhat, z, thsl)[:, ix].max(axis=1) for ix in loc._inc], axis=1)
+    expected = np.stack([est._nres(xhat, z)[:, ix].max(axis=1) for ix in loc._inc], axis=1)
     assert np.allclose(loc.scores(test), expected)
 
 
@@ -73,10 +70,10 @@ def test_weighted_solve_considers_its_last_step(wls, test_arrays):
 
     # With uniform weights both solves take the same steps; the guarded one keeps the lowest-objective
     # iterate (the chord iteration wobbles at convergence), which must include the plain solve's last.
-    z, thsl, _ = test_arrays
+    z, _ = test_arrays
     w = np.broadcast_to(wls.Wk, z.shape)
-    J_w = weighted_objective(z - wls._h(wls._w_solve(z, w, thsl), thsl), w)
-    J_p = weighted_objective(z - wls._h(wls._solve_plain(z, thsl), thsl), w)
+    J_w = weighted_objective(z - wls._h_ref(wls._w_solve(z, w)), w)
+    J_p = weighted_objective(z - wls._h_ref(wls._solve_plain(z)), w)
     assert (J_w <= J_p + 1e-9).all()
 
 
@@ -84,8 +81,8 @@ def test_removal_takes_out_one_gross_error_and_keeps_its_neighbours(splits, test
     from fdia_graph.se import ResidualRemoval
 
     est = ResidualRemoval(threshold=4.0).fit(splits["train"])
-    z, thsl, fam = test_arrays
-    z, thsl = z[fam == 0].copy(), thsl[fam == 0]
+    z, fam = test_arrays
+    z = z[fam == 0].copy()
 
     def removable(m):  # not critical, and the observability guard lets it go
         w = est.Wk.copy()
@@ -96,12 +93,12 @@ def test_removal_takes_out_one_gross_error_and_keeps_its_neighbours(splits, test
     z[:, j] += 50.0 * est.sig[j]  # one gross error per record
     keep = np.ones_like(z)
     keep[:, j] = 0.0
-    only_j = est._w_solve(z, est.Wk * keep, thsl)  # the answer with exactly that meter removed
+    only_j = est._w_solve(z, est.Wk * keep)  # the answer with exactly that meter removed
     # the frames where nothing else crosses the threshold once it is gone: one removal is the answer
-    rest = np.where(keep > 0, np.abs(est._nres(only_j, z, thsl)), 0.0).max(axis=1) < est.threshold
+    rest = np.where(keep > 0, np.abs(est._nres(only_j, z)), 0.0).max(axis=1) < est.threshold
     assert rest.sum() >= 5
-    z, thsl, only_j = z[rest][:5], thsl[rest][:5], only_j[rest][:5]
-    assert np.abs(est._solve(z, thsl) - only_j).max() < 1e-9
+    z, only_j = z[rest][:5], only_j[rest][:5]
+    assert np.abs(est._solve(z) - only_j).max() < 1e-9
 
 
 def test_meter_sigma_is_calibrated_across_the_benign_set(splits):

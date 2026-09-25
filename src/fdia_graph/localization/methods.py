@@ -90,10 +90,9 @@ class ResidualLocalizer(LocalizerBase):
         require_physical(ds)
         est, chunk = self.est, 1000
         z = est._z_of(d["node_x"], d["edge_x"])
-        thsl = est.ref_angles(len(z))
-        x = est._estimate_arrays(z, thsl, est._record_weights(ds), chunk)
+        x = est._estimate_arrays(z, est._record_weights(ds), chunk)
         s = np.empty((z.shape[0], est.N))
         for a in range(0, z.shape[0], chunk):
             e = slice(a, a + chunk)
-            s[e] = meters_to_buses(est._nres(x[e], z[e], thsl[e]), self._inc, "max")
+            s[e] = meters_to_buses(est._nres(x[e], z[e]), self._inc, "max")
         return s

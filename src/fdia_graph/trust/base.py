@@ -55,8 +55,7 @@ class TrustSelector:
         ben = ben[np.linspace(0, len(ben) - 1, min(n_calib, len(ben))).round().astype(int)]
         est = self.est
         z = est._z_of(d["node_x"][ben], d["edge_x"][ben])
-        thsl = est.ref_angles(len(z))
-        return float(np.quantile(self._max_residual(z, thsl), 1.0 - self.fa_target))
+        return float(np.quantile(self._max_residual(z), 1.0 - self.fa_target))
 
     def _select(self) -> None:
         raise NotImplementedError
@@ -66,13 +65,13 @@ class TrustSelector:
         return np.array(self.order[: self.k if k is None else k], int)
 
     # ---- scoring ------------------------------------------------------------------------------
-    def _max_residual(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _max_residual(self, z: np.ndarray) -> np.ndarray:
         """The largest normalized residual of every record after a WLS solve [HAN75]."""
         est, out = self.est, []
-        x = est._estimate_arrays(z, thsl, None)
+        x = est._estimate_arrays(z, None)
         for a in range(0, len(z), 1000):
             e = slice(a, a + 1000)
-            out.append(est._nres(x[e], z[e], thsl[e]).max(axis=1))  # already non-negative
+            out.append(est._nres(x[e], z[e]).max(axis=1))  # already non-negative
         return np.concatenate(out)
 
     def score(self, ds: FdiaGraph) -> TrustScores:
@@ -89,11 +88,10 @@ class TrustSelector:
         est = self.est
         z = est._z_of(d["node_x"], d["edge_x"])
         zb = est._z_of(d["benign"], d["edge_benign"])
-        thsl = est.ref_angles(len(z))
         secured = self.select()
         zs = z.copy()
         zs[:, secured] = zb[:, secured]  # the attacker cannot write a secured meter
-        before, after = self._max_residual(z, thsl), self._max_residual(zs, thsl)
+        before, after = self._max_residual(z), self._max_residual(zs)
         fam = d["family"]
         ben = fam == 0
         level = self.level
