@@ -33,8 +33,8 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 
 | folder | holds |
 |---|---|
-| `reference/` | data dictionary, concepts to code, formulas, examples, benchmarks |
-| `guides/` | task walkthroughs |
+| `reference/` | data dictionary, glossary, concepts to code, formulas, examples, benchmarks |
+| `guides/` | task walkthroughs: `generation.md` (how a timeline is built), `state_estimation.md` |
 | `se/`, `localization/`, `trust/`, `federated/` | `run_*.py` fits one system and writes `results/*.json`; `make_report.py` (where present) renders the README tables and figures |
 | `figures/` | shared images with their data sidecars |
 | `plans/` | the design documents behind the 0.16 and 0.17 refactors (history, not instructions) |
@@ -55,12 +55,14 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 |---|---|---|
 | 0 | `CONTRIBUTING.md` | the rules and the pull-request flow |
 | 1 | `README.md` | install and quickstart |
-| 2 | `reference/DATA_DICTIONARY.md` | every array and shape |
-| 3 | this page | which file does what |
-| 4 | `reference/CONCEPTS_TO_CODE.md` | paper formulas to code |
-| 5 | `reference/CLASS_MAP.md` | the class and module diagrams, drawn from the code by `tools/class_diagrams.py` |
-| 6 | `reference/EXAMPLES.md` | training examples to copy from |
-| 7 | `se/README.md`, `guides/state_estimation.md` | measurements in, better-than-WLS state out |
-| 8 | `localization/README.md` | which buses are under attack, and why the slow ramp is open |
-| 9 | `trust/README.md` | which meters to secure so a stealthy attack stops being stealthy |
-| 10 | `federated/README.md` | the localizers and the prior trained across clients that never pool their records |
+| 2 | `guides/generation.md` | how a timeline is generated, and which layers a feature may read |
+| 3 | `reference/GLOSSARY.md` | every term, with where it lives in the code |
+| 4 | `reference/DATA_DICTIONARY.md` | every array and shape |
+| 5 | this page | which file does what |
+| 6 | `reference/CONCEPTS_TO_CODE.md` | paper formulas to code |
+| 7 | `reference/CLASS_MAP.md` | the class and module diagrams, drawn from the code by `tools/class_diagrams.py` |
+| 8 | `reference/EXAMPLES.md` | training examples to copy from |
+| 9 | `se/README.md`, `guides/state_estimation.md` | measurements in, better-than-WLS state out |
+| 10 | `localization/README.md` | which buses are under attack, and why the slow ramp is open |
+| 11 | `trust/README.md` | which meters to secure so a stealthy attack stops being stealthy |
+| 12 | `federated/README.md` | the localizers and the prior trained across clients that never pool their records |

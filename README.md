@@ -20,7 +20,9 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | Read | To learn |
 |---|---|
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | which file does what, and how the paths connect |
+| [`docs/guides/generation.md`](docs/guides/generation.md) | how a timeline is generated, and which layers a feature may read |
 | [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIONARY.md) | what every array means |
+| [`docs/reference/GLOSSARY.md`](docs/reference/GLOSSARY.md) | every term, with where it lives in the code |
 | [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
 | [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | the class and module diagrams, drawn from the code |
 | [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
