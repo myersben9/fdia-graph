@@ -118,20 +118,18 @@ class JacobianFeatures:
         return self
 
     # ---- the measurement change against the previous frame's estimate ---------------------
-    def previous_estimate(self, d: dict[str, np.ndarray], chunk: int = 1000) -> tuple[np.ndarray, np.ndarray]:
-        """The estimator's plain solve of the previous frame's readings, x_hat_{t-1} [n, SD], and
-        the slack angle it is referenced to [n]."""
+    def previous_estimate(self, d: dict[str, np.ndarray], chunk: int = 1000) -> np.ndarray:
+        """The estimator's plain solve of the previous frame's readings, x_hat_{t-1} [n, SD], at the
+        case's reference angle."""
         est = self.est
         zp = est._z_of(d["prev_node_x"], d["prev_edge_x"])
-        thsl = est.ref_angles(len(zp))  # the case's reference angle, a network parameter
-        parts = [est._solve_plain(zp[i : i + chunk], thsl[i : i + chunk]) for i in range(0, len(zp), chunk)]
-        return (np.concatenate(parts) if parts else np.zeros((0, est.SD))), thsl
+        parts = [est._solve_plain(zp[i : i + chunk]) for i in range(0, len(zp), chunk)]
+        return np.concatenate(parts) if parts else np.zeros((0, est.SD))
 
     def delta_z(self, d: dict[str, np.ndarray]) -> np.ndarray:
         """dz = z_t - h(x_hat_{t-1}), the reading change the previous estimate does not predict."""
         z = self.est._z_of(d["node_x"], d["edge_x"])
-        x, thsl = self.previous_estimate(d)
-        return z - self.est._h(x, thsl)
+        return z - self.est._h_ref(self.previous_estimate(d))
 
     # ---- features ------------------------------------------------------------------------
     def transform(self, d: dict[str, np.ndarray]) -> JacobianOutputs:

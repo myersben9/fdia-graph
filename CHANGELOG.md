@@ -5,9 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
+  `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
+  `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.
+  `JacobianFeatures.previous_estimate` returns the state alone. The numbers are unchanged.
 - Detectors calibrate from measurements only. `SEBase.fit(ds, calibrate="measured")` sets every
   meter's sigma from its accuracy class (`formulas.estimation.accuracy_class_sigma`, the classes now
-  one definition, `engine.core.ACCURACY_CLASS`, shared with the noise model), takes the angle
+  one definition, `engine.base.ACCURACY_CLASS`, shared with the noise model), takes the angle
   reference from the case and the linearization point from the mean estimate of the benign training
   scans, and reads no clean layer. The Jacobian feature sets, `ResidualLocalizer` and
   `TrustSelector` fit their estimator this way; the state estimators keep `calibrate="truth"` as the

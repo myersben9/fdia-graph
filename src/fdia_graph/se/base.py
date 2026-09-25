@@ -170,6 +170,13 @@ class SEBase:
         )
         return full[:, self.mask]
 
+    def _h_ref(self, x: np.ndarray) -> np.ndarray:
+        """`_h` at the fitted reference angle (`ref_angles`), the prediction every solve and residual
+        uses; `_h` itself takes the slack angle per record for the truth calibration. The reference
+        is passed as a 0-d array, which `_angles` broadcasts, so no per-record array is built on every
+        Newton iteration."""
+        return self._h(x, np.asarray(self.theta_ref))
+
     def _jacobian(self, x: np.ndarray, thsl: float) -> np.ndarray:
         """The masked measurement Jacobian [m, SD] at one state, in closed form
         (`formulas.network.ac_jacobian`); the slack angle column is dropped."""
@@ -270,9 +277,9 @@ class SEBase:
         sig, x = self._class_sigma(np.abs(zc).mean(axis=0)), self._x_case
         for _ in range(passes):
             self._set_model(x, sig, full_state=True)
-            x = self._solve_plain(zc, self.ref_angles(len(zc))).mean(axis=0)
+            x = self._solve_plain(zc).mean(axis=0)
         self._set_model(x, sig, full_state=True)
-        self._fit_states(self._solve_plain(z_ben, self.ref_angles(len(z_ben))))
+        self._fit_states(self._solve_plain(z_ben))
         self._set_model(x, sig)
 
     def _class_sigma(self, mean_abs: np.ndarray) -> np.ndarray:
@@ -369,18 +376,18 @@ class SEBase:
     def _subspace(self) -> Optional[np.ndarray]:
         return None  # full state; SubspacePrior returns its VK
 
-    def _solve_plain(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _solve_plain(self, z: np.ndarray) -> np.ndarray:
         """Batched chord-Newton with the shared weights (the WLS solve)."""
         VK = self._basis()
         B_, Ai = self._B, self._Bi  # built once in fit
         c = np.zeros((z.shape[0], B_.shape[1]))
         for _ in range(self.iters):
             x = self.xmean + (c @ VK.T if VK is not None else c)
-            hz = self._h(x, thsl)
+            hz = self._h_ref(x)
             c = c + wls_step(z - hz, self.Wk, B_, Ai)
         return self.xmean + (c @ VK.T if VK is not None else c)
 
-    def _w_solve(self, z: np.ndarray, w: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _w_solve(self, z: np.ndarray, w: np.ndarray) -> np.ndarray:
         """Chord-Newton with PER-RECORD weights and the divergence guard.
 
         The frozen Jacobian stops being a contraction when many measurements are down-weighted,
@@ -395,7 +402,7 @@ class SEBase:
         best_c, best_J = c.copy(), np.full(n, np.inf)
         for _ in range(self.iters):
             x = self.xmean + (c @ VK.T if VK is not None else c)
-            hz = self._h(x, thsl)
+            hz = self._h_ref(x)
             J = weighted_objective(z - hz, w)
             ok = np.isfinite(J) & (J < best_J)
             best_J = np.where(ok, J, best_J)
@@ -403,32 +410,30 @@ class SEBase:
             c = c + wls_step_batched(z - hz, w, B_, Ai)
             c = np.where(np.isfinite(c), c, best_c)
         # the last step is a candidate too, so a weighted solve takes as many steps as the plain one
-        J = weighted_objective(z - self._h(self.xmean + (c @ VK.T if VK is not None else c), thsl), w)
+        J = weighted_objective(z - self._h_ref(self.xmean + (c @ VK.T if VK is not None else c)), w)
         ok = np.isfinite(J) & (J < best_J)
         best_c[ok] = c[ok]
         return self.xmean + (best_c @ VK.T if VK is not None else best_c)
 
-    def _nres(self, x: np.ndarray, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:
+    def _nres(self, x: np.ndarray, z: np.ndarray) -> np.ndarray:
         """Residuals normalized by the residual covariance diagonal [HAN75]."""
-        return normalized_residual(z - self._h(x, thsl), self._om)
+        return normalized_residual(z - self._h_ref(x), self._om)
 
-    def _huber_passes(
-        self, x: np.ndarray, z: np.ndarray, w: np.ndarray, thsl: np.ndarray, c: float, tol: float
-    ) -> np.ndarray:
+    def _huber_passes(self, x: np.ndarray, z: np.ndarray, w: np.ndarray, c: float, tol: float) -> np.ndarray:
         """Huber reweighting on the estimate's own residual [HUB64]: a_i = min(1, c / |r_N,i|), re-solve
         with w * a, until no weight moves by more than tol or npass passes are done."""
         prev = None
         for _ in range(self.npass):
-            a = huber_weights(self._nres(x, z, thsl), c)
+            a = huber_weights(self._nres(x, z), c)
             if prev is not None and np.abs(a - prev).max() < tol:
                 break  # weights settled: further passes reproduce the same estimate
-            x = self._w_solve(z, w * a, thsl)
+            x = self._w_solve(z, w * a)
             prev = a
         return x
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+    def _solve(self, z: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
         """One chunk of records. w: per-record weights [n, m] from `_record_weights`, None for Wk."""
-        return self._solve_plain(z, thsl) if w is None else self._w_solve(z, w, thsl)
+        return self._solve_plain(z) if w is None else self._w_solve(z, w)
 
     def _record_weights(self, ds: FdiaGraph) -> Optional[np.ndarray]:
         """Per-record meter weights [n, m] the method derives from the dataset itself (a gate, a
@@ -437,14 +442,12 @@ class SEBase:
         estimator `estimate` runs."""
         return None
 
-    def _estimate_arrays(
-        self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray], chunk: int = 1000
-    ) -> np.ndarray:
+    def _estimate_arrays(self, z: np.ndarray, w: Optional[np.ndarray], chunk: int = 1000) -> np.ndarray:
         """Solve converted measurements [n, m] in chunks, with optional per-record weights."""
         out = np.empty((z.shape[0], self.SD))
         for s in range(0, z.shape[0], chunk):
             e = slice(s, s + chunk)
-            out[e] = self._solve(z[e], thsl[e], None if w is None else w[e])
+            out[e] = self._solve(z[e], None if w is None else w[e])
         return out
 
     # ---- public API -------------------------------------------------------------------------
@@ -453,7 +456,7 @@ class SEBase:
         require_physical(ds)
         d = ds.export(["node_x", "edge_x"])
         z = self._z_of(d["node_x"], d["edge_x"])
-        return self._estimate_arrays(z, self.ref_angles(len(z)), self._record_weights(ds), chunk)
+        return self._estimate_arrays(z, self._record_weights(ds), chunk)
 
     def _fit_reference(self, thsl: np.ndarray) -> None:
         """The angle reference from the training truth, part of the fit's calibration: the slack

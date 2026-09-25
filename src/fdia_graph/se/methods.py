@@ -35,9 +35,9 @@ class AdaptiveWeighting(SEBase):
         self.c = c
         self.tol = tol  # stop the reweighting passes once no weight moves by more than this
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
-        x = super()._solve(z, thsl, w)
-        return self._huber_passes(x, z, self.Wk if w is None else w, thsl, self.c, self.tol)
+    def _solve(self, z: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        x = super()._solve(z, w)
+        return self._huber_passes(x, z, self.Wk if w is None else w, self.c, self.tol)
 
 
 class ResidualRemoval(SEBase):
@@ -70,22 +70,22 @@ class ResidualRemoval(SEBase):
         # estimate rather than a full eigen-decomposition (formulas.linalg.condition_number).
         return condition_number(normal_matrix(self.H, w)) <= self.cond_mult * self._cond_full
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+    def _solve(self, z: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
         base = np.broadcast_to(self.Wk if w is None else w, z.shape)
         keep = np.ones_like(z)
         held = np.zeros(z.shape, bool)  # removal refused by the guard: never proposed again
         rows = np.arange(z.shape[0])
-        x = self._w_solve(z, base * keep, thsl)
+        x = self._w_solve(z, base * keep)
         for _ in range(self.npass):
             open_ = (keep > 0) & ~held & ~self.critical[None, :]
-            rN = np.where(open_, self._nres(x, z, thsl), -np.inf)
+            rN = np.where(open_, self._nres(x, z), -np.inf)
             j = rN.argmax(axis=1)
             bad = rN[rows, j] > self.threshold
             if not bad.any():
                 break
             for i in np.flatnonzero(bad):
                 self._remove_one(i, j[i], keep, held, base)
-            x = self._w_solve(z, base * keep, thsl)
+            x = self._w_solve(z, base * keep)
         return x
 
     def _remove_one(self, i: int, j: int, keep: np.ndarray, held: np.ndarray, base: np.ndarray) -> None:
@@ -135,11 +135,11 @@ class SubspacePrior(SEBase):
     def _subspace(self) -> np.ndarray:
         return self.VK
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
-        x = super()._solve(z, thsl, w)
+    def _solve(self, z: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        x = super()._solve(z, w)
         if self.reweight is None:
             return x
-        return self._huber_passes(x, z, self.Wk if w is None else w, thsl, self.c, self.tol)
+        return self._huber_passes(x, z, self.Wk if w is None else w, self.c, self.tol)
 
 
 class JacobianWeighting(SEBase):
@@ -192,12 +192,12 @@ class JacobianWeighting(SEBase):
     def _record_weights(self, ds: FdiaGraph) -> np.ndarray:
         return self.weights(ds)
 
-    def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
-        x = super()._solve(z, thsl, w)
+    def _solve(self, z: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+        x = super()._solve(z, w)
         if self.reweight != "huber":
             return x
         # the temporal weights first, then the classical passes on top
-        return self._huber_passes(x, z, self.Wk if w is None else w, thsl, self.huber_c, self.tol)
+        return self._huber_passes(x, z, self.Wk if w is None else w, self.huber_c, self.tol)
 
 
 class GatedPrior(SubspacePrior):

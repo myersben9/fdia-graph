@@ -156,9 +156,8 @@ def test_removal_keeps_every_meter_the_guard_refuses(splits):
     from fdia_graph.se import ResidualRemoval
 
     est = ResidualRemoval(threshold=0.5).fit(splits["train"])  # nearly every residual is "bad"
-    d = splits["test"].export(["node_x", "edge_x", "clean"])
+    d = splits["test"].export(["node_x", "edge_x"])
     z = est._z_of(d["node_x"], d["edge_x"])[:20]
-    thsl = est._truth_of(d["clean"])["thsl"][:20]
     asked = []
 
     def refuse(w):  # every removal would break observability
@@ -166,8 +165,8 @@ def test_removal_keeps_every_meter_the_guard_refuses(splits):
         return False
 
     est._observable = refuse
-    full = est._w_solve(z, np.broadcast_to(est.Wk, z.shape), thsl)
-    assert np.allclose(est._solve(z, thsl), full)  # nothing removed, and the loop still ends
+    full = est._w_solve(z, np.broadcast_to(est.Wk, z.shape))
+    assert np.allclose(est._solve(z), full)  # nothing removed, and the loop still ends
     assert len(asked) >= 20  # the guard was consulted, at least once per record
 
 

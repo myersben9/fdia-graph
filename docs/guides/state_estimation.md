@@ -64,8 +64,8 @@ estimator.
 |---|---|
 | `_fit_states(x_benign)` | learn anything from the benign training states |
 | `_subspace()` | a `[2N-1, K]` basis that restricts the state space, or `None` for the full state |
-| `_solve(z, thsl)` | the per-batch solve; `thsl` is the slack angle reference per record (`ref_angles(n)`) |
+| `_solve(z, w)` | the per-batch solve; `w` is per-record weights `[n, m]`, or `None` for the shared ones |
 
-Inside `_solve`: `self._w_solve(z, w, thsl)` is the divergence-guarded weighted iteration,
-`self._nres(x, z, thsl)` the normalized residuals, and `formulas.estimation` holds every equation
+Inside `_solve`: `self._w_solve(z, w)` is the divergence-guarded weighted iteration,
+`self._nres(x, z)` the normalized residuals, and `formulas.estimation` holds every equation
 (`huber_weights`, `wls_step`, `normalized_residual`, ...).
