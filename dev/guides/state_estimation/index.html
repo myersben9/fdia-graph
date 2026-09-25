@@ -1650,13 +1650,13 @@ estimator.</p>
 <td>a <code>[2N-1, K]</code> basis that restricts the state space, or <code>None</code> for the full state</td>
 </tr>
 <tr>
-<td><code>_solve(z, thsl)</code></td>
-<td>the per-batch solve; <code>thsl</code> is the slack angle reference per record (<code>ref_angles(n)</code>)</td>
+<td><code>_solve(z, w)</code></td>
+<td>the per-batch solve; <code>w</code> is per-record weights <code>[n, m]</code>, or <code>None</code> for the shared ones</td>
 </tr>
 </tbody>
 </table>
-<p>Inside <code>_solve</code>: <code>self._w_solve(z, w, thsl)</code> is the divergence-guarded weighted iteration,
-<code>self._nres(x, z, thsl)</code> the normalized residuals, and <code>formulas.estimation</code> holds every equation
+<p>Inside <code>_solve</code>: <code>self._w_solve(z, w)</code> is the divergence-guarded weighted iteration,
+<code>self._nres(x, z)</code> the normalized residuals, and <code>formulas.estimation</code> holds every equation
 (<code>huber_weights</code>, <code>wls_step</code>, <code>normalized_residual</code>, ...).</p>
 
 
