@@ -38,7 +38,7 @@ class LineCandidate(Bundle):
     """One line of `line_outage_candidates`: its pandapower index and branch position, terminals,
     name, intact-case active flow, and, when rejected, the reason."""
 
-    line: int  # pandapower line index (N-1 timelines are disabled: no generator takes an outage)
+    line: int  # pandapower line index (N-1 timeline generation is disabled; the engine keeps `outage`)
     pos: int  # branch position in edge_index
     from_bus: int  # from-end bus
     to_bus: int  # to-end bus

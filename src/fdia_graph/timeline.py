@@ -681,27 +681,34 @@ def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:
     before it (formulas.temporal.recent_change_scale over SWING_WINDOW frames). Nothing but the
     measurements enters, so a detector reading these features at test time sees only what an operator
     sees. Called after the walk and by trust.secured_copy after it pins meters. Runs in blocks of
-    frames; only the observed P and Q series and the scale are held for every frame."""
+    frames with bounded memory: each block's scale comes from the kernel over the block and the
+    SWING_WINDOW + 1 frames before it, which covers every window the block's frames use."""
     nx = f[schema.NODE_X]
     T, N = nx.shape[0], nx.shape[1]
-    pq = np.zeros((T, N, 4), np.float64)  # the kernel reads columns 1:3; the others stay zero
-    for a in range(0, T, block):
-        pq[a : a + block, :, 1:3] = nx[a : a + block, :, 1:3]
-    scale = recent_change_scale(pq, SWING_WINDOW, N)
-    del pq
     every = np.ones(N, bool)
     delta, swing = f[schema.TEMPORAL_DELTA], f[schema.SWING]
     prev = None
     for a in range(0, T, block):
-        rows = np.asarray(nx[a : a + block], np.float32)
+        b = min(a + block, T)
+        scale = _block_scale(nx, a, b)
+        rows = np.asarray(nx[a:b], np.float32)
         d = np.zeros(rows.shape[:2] + (2,), np.float32)
         s = np.zeros_like(d)
         for j in range(len(rows)):
             before = rows[j] if prev is None else prev
             d[j] = temporal_delta(rows[j], before, every)
-            s[j] = swing_zscore(rows[j], before, scale[a + j], every)
+            s[j] = swing_zscore(rows[j], before, scale[j], every)
             prev = rows[j]
-        delta[a : a + len(rows)], swing[a : a + len(rows)] = d, s
+        delta[a:b], swing[a:b] = d, s
+
+
+def _block_scale(nx: Any, a: int, b: int) -> np.ndarray:
+    """The swing scale of frames a..b-1 [b - a, N, 2]: the kernel run over the frames from
+    SWING_WINDOW + 1 before a to b-1, so every frame's window lies inside the slice."""
+    g0 = max(0, a - SWING_WINDOW - 1)
+    pq = np.zeros((b - g0, nx.shape[1], 4), np.float64)  # the kernel reads columns 1:3
+    pq[:, :, 1:3] = nx[g0:b, :, 1:3]
+    return recent_change_scale(pq, SWING_WINDOW, nx.shape[1])[a - g0 :]
 
 
 def _check_knobs(

@@ -599,3 +599,23 @@ def test_temporal_features_read_only_the_observed_frames(timeline, tmp_path):
         assert np.array_equal(f[schema.SWING][:], stored[0]) and np.array_equal(
             f[schema.TEMPORAL_DELTA][:], stored[1]
         )
+
+
+def test_block_scale_matches_the_whole_series_kernel(timeline):
+    """The bounded-memory scale equals the kernel over the whole observed series, for blocks shorter
+    than the window and longer than it."""
+    import h5py
+
+    from fdia_graph import schema
+    from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale
+    from fdia_graph.timeline import _block_scale
+
+    with h5py.File(timeline, "r") as f:
+        nx = f[schema.NODE_X]
+        T, N = nx.shape[0], nx.shape[1]
+        pq = np.zeros((T, N, 4))
+        pq[:, :, 1:3] = nx[:, :, 1:3]
+        whole = recent_change_scale(pq, SWING_WINDOW, N)
+        for block in (7, 250):
+            parts = np.concatenate([_block_scale(nx, a, min(a + block, T)) for a in range(0, T, block)])
+            assert np.allclose(parts, whole, rtol=1e-6, atol=1e-9)
