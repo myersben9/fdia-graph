@@ -203,10 +203,28 @@ def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.nd
     return rng.choice(apos, k, replace=False)
 
 
-def _benign_run(ctx: _FrameContext, buf: _TimelineBuffers, t: int, until: int) -> int:
+@dataclass
+class _Walk:
+    """What every step of one timeline walk shares: the run context (generator, pool, knobs) and the
+    buffers the frames are written to. The random stream is the generator's own, so the order of
+    draws is the order the walk makes them."""
+
+    ctx: _FrameContext
+    buf: _TimelineBuffers
+
+    @property
+    def rng(self) -> np.random.Generator:
+        return self.ctx.g.rng
+
+    @property
+    def T(self) -> int:
+        return len(self.ctx.X)
+
+
+def _benign_run(w: _Walk, t: int, until: int) -> int:
     """Benign frames from t up to `until` (excluded); returns `until`."""
     for t in range(t, until):
-        buf.store(t, 0, _emit_benign(ctx, t))
+        w.buf.store(t, 0, _emit_benign(w.ctx, t))
     return until
 
 
@@ -219,16 +237,16 @@ class _Episode:
     onset: int
     ok: np.ndarray  # [N] uint8, the buses any frame of the episode labelled
 
-    def store(self, ctx: _FrameContext, buf: _TimelineBuffers, t: int, frame: Optional[Frame]) -> None:
+    def store(self, w: _Walk, t: int, frame: Optional[Frame]) -> None:
         """Store the attacked frame, or a benign one when the attack could not be built at t."""
         if frame is None:
-            buf.store(t, 0, _emit_benign(ctx, t))
+            w.buf.store(t, 0, _emit_benign(w.ctx, t))
         else:
-            buf.store(t, self.fid, frame, self.sid)
+            w.buf.store(t, self.fid, frame, self.sid)
             self.ok |= frame.y
 
-    def close(self, buf: _TimelineBuffers, t: int) -> int:
-        buf.episodes.append(
+    def close(self, w: _Walk, t: int) -> int:
+        w.buf.episodes.append(
             dict(
                 onset=self.onset, length=t - self.onset, family=self.fid, buses=np.where(self.ok)[0].tolist()
             )
@@ -236,22 +254,15 @@ class _Episode:
         return t
 
 
-def _episode(ctx: _FrameContext, buf: _TimelineBuffers, fid: int, t: int) -> _Episode:
-    return _Episode(len(buf.episodes), fid, t, np.zeros(ctx.g.C, np.uint8))
+def _episode(w: _Walk, fid: int, t: int) -> _Episode:
+    return _Episode(len(w.buf.episodes), fid, t, np.zeros(w.ctx.g.C, np.uint8))
 
 
-def _ramp_episode(
-    ctx: _FrameContext,
-    buf: _TimelineBuffers,
-    rng: np.random.Generator,
-    t: int,
-    ramp_len: int,
-    ramp_rate: float,
-) -> int:
+def _ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> int:
     """One slow-ramp episode on a fixed bus set (rise, hold, return); returns the next free timestep."""
-    T = len(ctx.X)
+    ctx, T = w.ctx, w.T
     for _ in range(_ONSET_DRAWS):  # a design whose peak has no stealthy state on a plateau frame is redrawn
-        a, direction, rise, hold = _draw_ramp(ctx, rng, ramp_len)
+        a, direction, rise, hold = _draw_ramp(ctx, w.rng, ramp_len)
         steps = [
             (u, 1 + direction * _ramp_dev(i, rise, hold, ramp_rate))
             for i, u in enumerate(range(t, min(t + ramp_len, T)))
@@ -261,16 +272,16 @@ def _ramp_episode(
         ):  # every frame's own step
             break
     else:  # no admissible ramp at this operating point: the placed frames stay benign, counted
-        return _benign_run(ctx, buf, t, min(t + ramp_len, T))
-    ep = _episode(ctx, buf, RAMP_FAMILY, t)
+        return _benign_run(w, t, min(t + ramp_len, T))
+    ep = _episode(w, RAMP_FAMILY, t)
     for i in range(ramp_len):
         if t >= T:
             break
         dev = _ramp_dev(i, rise, hold, ramp_rate)
         design = AttackDesign(a, 1 + direction * dev)
-        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, design, ctx.knobs))
+        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, design, ctx.knobs))
         t += 1
-    return ep.close(buf, t)
+    return ep.close(w, t)
 
 
 def _ramp_dev(i: int, rise: int, hold: int, rate: float) -> float:
@@ -319,27 +330,20 @@ def _draw_single_shot(
     return None
 
 
-def _single_shot_episode(
-    ctx: _FrameContext,
-    buf: _TimelineBuffers,
-    rng: np.random.Generator,
-    t: int,
-    fid: int,
-    length: int,
-) -> int:
+def _single_shot_episode(w: _Walk, t: int, fid: int, length: int) -> int:
     """One episode of a single-shot family held for `length` frames; returns the next free timestep."""
-    T = len(ctx.X)
-    design = _draw_single_shot(ctx, rng, t, fid, length)
+    ctx, T = w.ctx, w.T
+    design = _draw_single_shot(ctx, w.rng, t, fid, length)
     if design is None:  # no admissible design at this operating point: the placed frames stay benign
-        return _benign_run(ctx, buf, t, min(t + length, T))
+        return _benign_run(w, t, min(t + length, T))
     a, mult = design
-    ep = _episode(ctx, buf, fid, t)
+    ep = _episode(w, fid, t)
     for _ in range(length):
         if t >= T:
             break
-        ep.store(ctx, buf, t, attack_frame(ctx.g, ctx.X[t], fid, AttackDesign(a, mult), ctx.knobs))
+        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], fid, AttackDesign(a, mult), ctx.knobs))
         t += 1
-    return ep.close(buf, t)
+    return ep.close(w, t)
 
 
 @dataclass
@@ -414,15 +418,13 @@ def _am_sign(direction: str, rng: np.random.Generator) -> float:
     return 1.0 if direction == "mask" else -1.0
 
 
-def _am_episode(
-    ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, t: int, shape: tuple[int, float, str]
-) -> int:
+def _am_episode(w: _Walk, t: int, shape: tuple[int, float, str]) -> int:
     """One multi-snapshot episode [WU26]: a load redistribution drawn once at onset (the Al
     construction, PTDF-ranked buses, load-conserving), then applied frame by frame along a ramp
     whose per-bus per-frame step stays under the noise floor, every frame re-solved and made sparse
     by `engine.records._am_frame`. `shape` = (length, am_rate, am_direction), the direction
     resolved by `_am_sign`. Returns the next free timestep."""
-    T, k = len(ctx.X), ctx.knobs
+    ctx, T, k = w.ctx, w.T, w.ctx.knobs
     length, am_rate, direction = shape
     Lp0 = ctx.g.true_load(ctx.X[t])
     for _ in range(_AM_DRAWS):  # redrawn when the target-line pool gives no redistribution, or one
@@ -430,24 +432,22 @@ def _am_episode(
         a = red.buses  # stealthy state on its peak plateau at any halving above the floor
         if len(a) == 0:
             continue
-        delta = red.delta[a] * _am_sign(direction, rng)
+        delta = red.delta[a] * _am_sign(direction, w.rng)
         delta = _am_held_delta(ctx, t, a, delta, red.interior, (length, am_rate))
         if delta is not None:
             break
     else:  # no solvable redistribution at this operating point: the placed frames stay benign
-        return _benign_run(ctx, buf, t, min(t + length, T))
+        return _benign_run(w, t, min(t + length, T))
     rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
     sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
-    ep = _episode(ctx, buf, AM_FAMILY, t)
+    ep = _episode(w, AM_FAMILY, t)
     for i in range(length):
         if t >= T:
             break
         mult = _am_multipliers(ctx, t, a, sh.step(i) * delta)
-        ep.store(
-            ctx, buf, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, AttackDesign(a, mult, red.interior), k)
-        )
+        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, AttackDesign(a, mult, red.interior), k))
         t += 1
-    return ep.close(buf, t)
+    return ep.close(w, t)
 
 
 @dataclass
@@ -533,31 +533,24 @@ def _place_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[t
     return sorted(placed)
 
 
-def _run_episode(
-    ctx: _FrameContext,
-    buf: _TimelineBuffers,
-    rng: np.random.Generator,
-    at: tuple[int, int, int],
-    plan: _Schedule,
-) -> int:
+def _run_episode(w: _Walk, at: tuple[int, int, int], plan: _Schedule) -> int:
     """Build one placed episode; returns the next free timestep."""
     onset, fid, length = at
     if fid == RAMP_FAMILY:
-        return _ramp_episode(ctx, buf, rng, onset, length, plan.ramp_rate)
+        return _ramp_episode(w, onset, length, plan.ramp_rate)
     if fid == AM_FAMILY:
-        return _am_episode(ctx, buf, rng, onset, (length, plan.am[1], plan.am[2]))
-    return _single_shot_episode(ctx, buf, rng, onset, fid, length)
+        return _am_episode(w, onset, (length, plan.am[1], plan.am[2]))
+    return _single_shot_episode(w, onset, fid, length)
 
 
-def _walk(ctx: _FrameContext, buf: _TimelineBuffers, rng: np.random.Generator, plan: _Schedule) -> None:
+def _walk(w: _Walk, plan: _Schedule) -> None:
     """Place the episodes, then emit every frame in time order: benign runs between them, the
     episodes where they were placed."""
-    T = len(ctx.X)
     t = 0
-    for at in _place_episodes(rng, plan, T):
-        t = _benign_run(ctx, buf, t, at[0])
-        t = _run_episode(ctx, buf, rng, at, plan)
-    _benign_run(ctx, buf, t, T)
+    for at in _place_episodes(w.rng, plan, w.T):
+        t = _benign_run(w, t, at[0])
+        t = _run_episode(w, at, plan)
+    _benign_run(w, t, w.T)
 
 
 def _frame_split(T: int, episodes: list[dict[str, Any]], frac: Sequence[float]) -> np.ndarray:
@@ -834,7 +827,7 @@ def generate_timeline(
         _write_graph(f, g)
         sink = _create_layers(f, T, C, g.E)
         buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink)
-        _walk(ctx, buf, g.rng, plan)
+        _walk(_Walk(ctx, buf), plan)
         _finish_timeline(f, g, buf, split, seed, recorded)
         write_temporal_layers(f)
     return out
