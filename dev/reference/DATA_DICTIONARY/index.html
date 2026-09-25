@@ -614,6 +614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2324,7 +2352,12 @@ a <code>DeprecationWarning</code>; the rename exists because <code>ds.edge_x</co
 <tr>
 <td><code>stealthy</code></td>
 <td>scalar</td>
-<td>1 for the re-solve families <code>Aq</code>/<code>At</code>/<code>Al</code> (BDD-evading by construction), 0 for benign and <code>Ad</code>/<code>As</code>/<code>Ar</code></td>
+<td>1 for the re-solve families <code>Aq</code>/<code>At</code>/<code>Al</code>/<code>Am</code> (<code>fg.STEALTHY_FAMILIES</code>, BDD-evading by construction), 0 for benign and <code>Ad</code>/<code>As</code>/<code>Ar</code></td>
+</tr>
+<tr>
+<td><code>seq_id</code></td>
+<td>scalar</td>
+<td>index of the attack episode the frame belongs to, for every family; -1 on benign frames</td>
 </tr>
 <tr>
 <td><code>split</code></td>
@@ -2511,7 +2544,7 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td><code>seq_id</code></td>
 <td>Scalars</td>
 <td>yes</td>
-<td>[...] ramp sequence id, -1 otherwise (RecordIds)</td>
+<td>[...] episode index of the frame's attack (every family), -1 benign (RecordIds)</td>
 </tr>
 <tr>
 <td><code>timestep</code></td>
@@ -2709,7 +2742,7 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td><code>seq_id</code></td>
 <td>Scalars</td>
 <td></td>
-<td>[...] ramp sequence id, -1 otherwise (RecordIds)</td>
+<td>[...] episode index of the frame's attack (every family), -1 benign (RecordIds)</td>
 </tr>
 <tr>
 <td><code>timestep</code></td>
@@ -2851,7 +2884,7 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td><code>seq_id</code></td>
 <td>Scalars</td>
 <td></td>
-<td>[...] ramp sequence id, -1 otherwise (RecordIds)</td>
+<td>[...] episode index of the frame's attack (every family), -1 benign (RecordIds)</td>
 </tr>
 <tr>
 <td><code>timestep</code></td>
@@ -3142,7 +3175,7 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td><code>seq_id</code></td>
 <td>Scalars</td>
 <td></td>
-<td>[...] ramp sequence id, -1 otherwise (RecordIds)</td>
+<td>[...] episode index of the frame's attack (every family), -1 benign (RecordIds)</td>
 </tr>
 <tr>
 <td><code>edge_clean_full</code></td>
@@ -3389,7 +3422,7 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 </tbody>
 </table>
 <h3 id="overallmetrics-fdia_graphmodelsscores"><code>OverallMetrics</code> (<code>fdia_graph.models.scores</code>)<a class="headerlink" href="#overallmetrics-fdia_graphmodelsscores" title="Permanent link">&para;</a></h3>
-<p>Pooled over every record, benign included: the papers' per-bus macro F1, detection rate and false-positive rate over the attackable buses, and the micro node F1.</p>
+<p>Pooled over every record, benign included: the papers' per-bus macro F1, detection rate and false-positive rate over the active buses (attacked somewhere in the records scored), and the micro node F1.</p>
 <table>
 <thead>
 <tr>
@@ -3406,14 +3439,14 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td><code>macro_f1</code></td>
 <td>float</td>
 <td>yes</td>
-<td>mean per-bus F1 over the attackable buses</td>
+<td>mean per-bus F1 over the active buses</td>
 </tr>
 <tr>
 <td><code>macro_dr</code></td>
 <td><code>macro_dr</code></td>
 <td>float</td>
 <td>yes</td>
-<td>mean per-bus detection rate over the attackable buses</td>
+<td>mean per-bus detection rate over the active buses</td>
 </tr>
 <tr>
 <td><code>macro_fr</code></td>

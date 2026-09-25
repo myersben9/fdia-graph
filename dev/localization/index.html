@@ -641,6 +641,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#feature-sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature sets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -708,6 +719,34 @@
     
   
     Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
   
 
     
@@ -1383,6 +1422,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#feature-sets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature sets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1518,8 +1568,63 @@
 </tr>
 </tbody>
 </table>
-<p>The learned arms train on the records they are given, so the protocol is the load call;
+<p>The learned arms train on the records they are given, so the protocol is the load call.
 <code>fit(train, val=val)</code> picks the papers' validation-best threshold instead of the false-alarm one.</p>
+<h2 id="feature-sets">Feature sets<a class="headerlink" href="#feature-sets" title="Permanent link">&para;</a></h2>
+<p><code>BusMLP</code>, <code>BusCNN</code> and the federated arms take <code>features=</code>, the per-bus vector the encoder reads
+(<code>localization.learned.FEATURE_SETS</code>):</p>
+<table>
+<thead>
+<tr>
+<th><code>features=</code></th>
+<th style="text-align: right;">channels</th>
+<th>per bus</th>
+<th>needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"meas"</code></td>
+<td style="text-align: right;">8</td>
+<td>the readings and the meter mask</td>
+<td>any dataset</td>
+</tr>
+<tr>
+<td><code>"full14"</code> (default)</td>
+<td style="text-align: right;">14</td>
+<td>the papers' vector: readings, mask, partial KCL residual, <code>temporal_delta</code>, <code>swing</code></td>
+<td>any dataset</td>
+</tr>
+<tr>
+<td><code>"full14+prev"</code></td>
+<td style="text-align: right;">16</td>
+<td><code>full14</code> and the previous frame's swing (<code>prev_swing</code>)</td>
+<td>a timeline</td>
+</tr>
+<tr>
+<td><code>"full14+jac"</code></td>
+<td style="text-align: right;">22</td>
+<td><code>full14</code> and the 8 Jacobian features</td>
+<td>a timeline, <code>[se]</code></td>
+</tr>
+<tr>
+<td><code>"full14+prev+jac"</code></td>
+<td style="text-align: right;">24</td>
+<td><code>full14</code>, <code>prev_swing</code> and the 8 Jacobian features</td>
+<td>a timeline, <code>[se]</code></td>
+</tr>
+<tr>
+<td><code>"jac"</code></td>
+<td style="text-align: right;">8</td>
+<td>the Jacobian features alone</td>
+<td>a timeline, <code>[se]</code></td>
+</tr>
+</tbody>
+</table>
+<p>The previous frame's swing separates a one-frame attack from the frame after it, which carries
+the same jump back with the opposite sign. The Jacobian block takes each frame's measurement change
+against the previous frame's estimate, so both read the previous frame and need a timeline
+(<code>ds.export</code> serves <code>prev_node_x</code>, <code>prev_edge_x</code>, <code>prev_timestep</code> and <code>prev_swing</code> on request).</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1721,32 +1826,38 @@ weak-direction energy) and aggregates it to buses; <code>BusCNN</code> / <code>B
 <thead>
 <tr>
 <th>set</th>
+<th><code>features=</code></th>
 <th>input</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>A</td>
+<td><code>"meas"</code></td>
 <td>measurements only</td>
 </tr>
 <tr>
 <td>B</td>
+<td><code>"full14"</code></td>
 <td>the papers' 14-dim vector (the rows above)</td>
 </tr>
 <tr>
 <td>C</td>
+<td><code>"full14+jac"</code></td>
 <td>B + the 8 Jacobian features</td>
 </tr>
 <tr>
 <td>D</td>
+<td><code>"jac"</code></td>
 <td>the Jacobian features alone</td>
 </tr>
 </tbody>
 </table>
 <p>Zero-shot protocol on the v0.8.1 timelines (benign, <code>Aq</code> and <code>Ad</code> seen; <code>As</code> and <code>Ar</code> unseen). The
-Jacobian block takes each frame's change against the previous frame's estimate, only observed data;
-with the earlier reference, the previous frame's true state, C read 0.873, 0.896 and 0.840, and it
-reads 0.820, 0.809 and 0.812 now, D falling further:</p>
+Jacobian block takes each frame's change against the previous frame's estimate, so it reads
+observed data only. C reads 0.820, 0.809 and 0.812 on 14, 118 and 300. Against the previous frame's
+true state, a reference an operator does not have, C read 0.873, 0.896 and 0.840. The observed
+reference costs D more than it costs C:</p>
 <table>
 <thead>
 <tr>
@@ -1828,7 +1939,7 @@ rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.6
 <tbody>
 <tr>
 <td>the features carry the in-place signal, not the stealthy one</td>
-<td>on <code>Aq</code> the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.07, 0.01 and 0.01 for D alone: against the previous frame's estimate a held stealthy episode shows only at its first frame, as the history does; the gain is on the unseen families, <code>As</code> 0.50 to 0.91 and <code>Ar</code> 0.30 to 0.78 from B to C on 118, 0.55 to 0.93 and 0.34 to 0.74 on 300</td>
+<td>on <code>Aq</code> the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.07, 0.01 and 0.01 for D alone: the v0.8.1 timelines hold an <code>Aq</code> state over a multi-frame episode, and against the previous frame's estimate a held episode shows only at its first frame, as the history does; the gain is on the unseen families, <code>As</code> 0.50 to 0.91 and <code>Ar</code> 0.30 to 0.78 from B to C on 118, 0.55 to 0.93 and 0.34 to 0.74 on 300</td>
 </tr>
 <tr>
 <td>on a timeline they are what makes the vector work</td>
@@ -1853,7 +1964,7 @@ rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.6
 <tr>
 <td>the temporal spike is an onset signal</td>
 <td>the swing threshold alone reads 0.10, 0.47 and 0.44 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier</td>
-<td><code>Aq</code>, the slow ramp <code>At</code> and the held redistribution <code>Am</code> inside an episode</td>
+<td>the slow ramp <code>At</code> and the held redistribution <code>Am</code> inside an episode, and <code>Aq</code> inside an episode on the v0.8.1 timelines (the generator in this package makes every <code>Aq</code> episode one frame)</td>
 </tr>
 <tr>
 <td>the classical arm misses every stealthy family</td>

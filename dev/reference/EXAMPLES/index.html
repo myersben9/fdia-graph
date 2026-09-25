@@ -614,6 +614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1592,10 +1620,14 @@ always the exact SE target.</p>
 <h2 id="three-runnable-baselines">Three runnable baselines<a class="headerlink" href="#three-runnable-baselines" title="Permanent link">&para;</a></h2>
 <p>All three report <strong>DR / FA / F1</strong>, never raw accuracy. About 98% of bus-scans are clean, so an
 all-negative model scores 0.98 accuracy while detecting nothing.</p>
+<p>The printed outputs and the tables in this section were recorded on the v0.7.1 ieee118 record
+shards, before the timeline replaced them in v0.8.0. The code runs unchanged on the default
+release, and its numbers there differ. Current localization results are in
+<a href="../../localization/"><code>../localization/README.md</code></a>.</p>
 <ul>
 <li>Thresholds are picked on the <strong>val</strong> split (best F1). Test is evaluated once at that threshold.</li>
 <li>Baseline 1 follows the papers' protocol: train on benign + <code>Aq</code> + <code>Ad</code>, hold out <code>As</code>/<code>Ar</code>
-  zero-shot, exclude the slow ramp, score <strong>macro-F1 over attackable buses</strong>.</li>
+  zero-shot, exclude <code>At</code>, <code>Al</code> and <code>Am</code>, score <strong>macro-F1 over the active buses</strong>.</li>
 <li>Baselines 2 and 3 train on every family so the hard ones stay visible.</li>
 <li>Each trains in a few CPU minutes.</li>
 </ul>
@@ -1618,7 +1650,7 @@ all-negative model scores 0.98 accuracy while detecting nothing.</p>
 <a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"DR </span><span class="si">{</span><span class="n">dr</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">  FA </span><span class="si">{</span><span class="n">fa</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">  F1 </span><span class="si">{</span><span class="mi">2</span><span class="o">*</span><span class="n">prec</span><span class="o">*</span><span class="n">dr</span><span class="o">/</span><span class="p">(</span><span class="n">prec</span><span class="o">+</span><span class="n">dr</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>
 <a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="k">def</span><span class="w"> </span><span class="nf">macro_f1</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="sd">"""Per-bus F1 averaged over the attackable buses (the localization metric our papers report)."""</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="sd">"""Per-bus F1 averaged over the buses attacked in t (the papers' localization metric)."""</span>
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="n">f1s</span> <span class="o">=</span> <span class="p">[]</span>
 <a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
 <a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">t</span><span class="p">[:,</span> <span class="n">b</span><span class="p">]</span><span class="o">.</span><span class="n">any</span><span class="p">():</span> <span class="k">continue</span>
@@ -1665,8 +1697,9 @@ all-negative model scores 0.98 accuracy while detecting nothing.</p>
 </tr>
 </tbody>
 </table>
-<p>A 28k-parameter MLP under the published protocol localizes at <strong>0.915 macro-F1</strong> in about five CPU
-minutes. Our tuned paper models reach 0.93–0.95 on the same protocol. Needs <code>pip install "fdia-graph[torch]"</code>.</p>
+<p>On the v0.7.1 shards, a 28k-parameter MLP under the published protocol localized at <strong>0.915
+macro-F1</strong> in about five CPU minutes, and the tuned paper models reached 0.93–0.95 on the same
+protocol. Needs <code>pip install "fdia-graph[torch]"</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span><span class="o">,</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
@@ -1718,7 +1751,7 @@ minutes. Our tuned paper models reach 0.93–0.95 on the same protocol. Needs <c
 <a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="c1"># localization macro-F1: 0.915</span>
 <a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a><span class="c1"># DR 0.859  FA 0.0002  F1 0.916          (~5 min CPU)</span>
 </code></pre></div>
-<p>Per-family test DR at that operating point (benign-bus FA 0.01%):</p>
+<p>Per-family test DR at that operating point on the v0.7.1 shards (benign-bus FA 0.01%):</p>
 <table>
 <thead>
 <tr>
@@ -1737,9 +1770,10 @@ minutes. Our tuned paper models reach 0.93–0.95 on the same protocol. Needs <c
 </tr>
 </tbody>
 </table>
-<p>Adding the excluded families back drops the pooled all-family F1 to ~0.83, almost entirely because
-the slow ramp <code>At</code> (DR ~0.10) evades the temporal feature by construction. That gap is the open
-problem this dataset poses. The next two baselines keep it visible by training on every family.</p>
+<p>On the same shards, adding the excluded families back dropped the pooled all-family F1 to ~0.83,
+almost entirely because the slow ramp <code>At</code> (DR ~0.10) evades the temporal feature by construction.
+That gap is the open problem this dataset poses. The next two baselines keep it visible by
+training on every family.</p>
 <h3 id="2-graph-model-armaconv-pytorch-geometric-all-families">2. Graph model: ARMAConv (PyTorch-Geometric), all families<a class="headerlink" href="#2-graph-model-armaconv-pytorch-geometric-all-families" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>format="pyg"</code> yields ready <code>Data</code> objects. <code>swing</code> rides along as a node attribute, the branch
@@ -1776,16 +1810,17 @@ problem this dataset poses. The next two baselines keep it visible by training o
 <a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="n">report</span><span class="p">(</span><span class="n">lo</span><span class="p">[</span><span class="s2">"test"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">tau</span><span class="p">,</span> <span class="n">yy</span><span class="p">[</span><span class="s2">"test"</span><span class="p">])</span>
 <a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="c1"># DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1, saturated)</span>
 </code></pre></div>
-<p>The honest reading: the graph model saturates <strong>below</strong> the per-bus MLP, and our papers see the same
-with both reading the identical 14-dim input. Message passing smooths exactly the localized per-bus
-signal <code>swing</code> carries. Beating the lightweight baseline with graph or physics information is a
+<p>The graph model saturates <strong>below</strong> the per-bus MLP, and the papers report the same with both
+models reading the identical 14-dim input. Message passing smooths the localized per-bus signal
+that <code>swing</code> carries. Beating the lightweight baseline with graph or physics information is a
 research target, not a given.</p>
 <h3 id="3-temporal-model-a-plain-lstm-on-the-timeline">3. Temporal model: a plain LSTM on the timeline<a class="headerlink" href="#3-temporal-model-a-plain-lstm-on-the-timeline" title="Permanent link">&para;</a></h3>
 <ul>
 <li>The example builds its features in place from the raw measurements: train-normalized channels
   plus a per-window z-score.</li>
 <li>Inside a sustained attack episode the rolling window is already contaminated, so the anomaly
-  fades after onset; the file's <code>swing</code> is computed against the previous frame at generation time.</li>
+  fades after onset. The file's <code>swing</code> avoids this: it compares each observed frame with the
+  previous one (<code>timeline.write_temporal_layers</code>).</li>
 <li>Needs <code>pip install "fdia-graph[torch]"</code>.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span><span class="o">,</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span><span class="o">,</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
@@ -1823,6 +1858,9 @@ research target, not a given.</p>
 <code>layer="benign"</code>/<code>"clean"</code> on <code>windows</code>, <code>torch_windows</code> and <code>pyg_stream</code> swaps the model input
 layer (the label stays the attack target).</p>
 <h2 id="dataset-statistics">Dataset statistics<a class="headerlink" href="#dataset-statistics" title="Permanent link">&para;</a></h2>
+<p>The tables in this section describe the v0.8.0 release. The v0.8.1 timelines keep the pools, the
+knobs and the seed, and their episode counts differ slightly (ieee14 16,045, ieee145 16,177, ieee300
+16,317; the release notes of <code>data-v0.8.1</code> on GitHub list every system).</p>
 <p><strong>Per-system size.</strong> One timeline of 72,000 frames per system, about half under attack, split
 chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):</p>
 <table>
@@ -1922,9 +1960,10 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 </tbody>
 </table>
 <p>Every system converges at every frame; a split boundary moves to the end of the episode it would cut.</p>
-<p><strong>Attacks per split</strong> (ieee118 shown; every system uses the same recipe). Families are scheduled
-by inverse episode length so each gets about the same share of attacked frames; episodes land
-where the scheduler puts them, so a partition can hold a few more of one family:</p>
+<p><strong>Attacks per split</strong> (ieee118 shown; every system uses the same recipe). Families are drawn with
+weights inversely proportional to their episode length, so each gets about the same share of
+attacked frames. Each episode is placed at a uniform random onset where it fits, so a partition can
+hold a few more of one family:</p>
 <table>
 <thead>
 <tr>
@@ -2051,7 +2090,7 @@ timeline is the one file, and <code>fg.load(..., release="v0.7.2")</code> still 
 <p><img alt="Operating-state distributions" src="../../figures/fig_dataset_stats.png" /></p>
 <p><em>Per-bus |V|, θ, and P/Q injection distributions across the ladder (box = IQR, red = median; data in
 <code>../figures/fig_dataset_stats.csv</code>).</em> Two systems are outliers by construction of the MATPOWER base
-case, not our generation: <code>case57</code> runs chronically low-voltage (33 of 57 buses below 0.9 pu even
+case, not the generation: <code>case57</code> runs chronically low-voltage (33 of 57 buses below 0.9 pu even
 unscaled) and <code>case145</code> has a very wide angle spread. Both are valid converged operating points.</p>
 
 

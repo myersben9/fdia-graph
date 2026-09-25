@@ -614,6 +614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1457,8 +1485,11 @@ docs are read in the GitHub mobile app, and neither renders Mermaid. Each diagra
 re-render with <code>python tools/render_mermaid.py docs/figures/diagrams/&lt;name&gt;.mmd</code> (Playwright with
 Chromium), which writes both images, then commit all three. The class and module diagrams of
 <code>docs/reference/CLASS_MAP.md</code> are generated: <code>python tools/class_diagrams.py</code> rewrites their sources from
-the code (CI fails when they are stale), then render them the same way. README images use the raw.githubusercontent.com URL so PyPI shows them; docs pages use
-relative paths.</p>
+the code (CI fails when they are stale), then render them the same way. README images use the
+raw.githubusercontent.com URL so PyPI shows them; docs pages use relative paths.</p>
+<p>The Models section of <code>docs/reference/DATA_DICTIONARY.md</code> is generated too: <code>python tools/models_doc.py</code>
+rewrites it from the dataclasses in <code>src/fdia_graph/models/</code> and the comment beside each field. Edit
+the comment in the source, never the section, and rerun the tool; the tests fail when it is stale.</p>
 <p>The docs site is built from <code>docs/</code> plus the three root pages by <code>mkdocs.yml</code>: the Vercel build serves
 the main branch at the custom domain, and <code>.github/workflows/docs.yml</code> deploys one copy per package
 version to GitHub Pages with mike (a tag push deploys that version as <code>latest</code>, a push to main
@@ -1477,12 +1508,12 @@ checks a docs change locally.</p>
 <tbody>
 <tr>
 <td>nothing a user sees changes without a changelog entry</td>
-<td>public API, file formats, the numbers a shard, stream or estimator produces; moved private names get a warning alias for one minor version</td>
+<td>public API, file formats, the numbers a timeline, estimator or localizer produces; moved private names get a warning alias for one minor version</td>
 <td><code>CHANGELOG.md</code>, <code>## Unreleased</code></td>
 </tr>
 <tr>
 <td>every change is proven behaviour-free, or its effect is measured</td>
-<td>the strict frozen suite compares a tiny shard, a stream and the scores bit for bit; an intended change re-freezes in the same PR and states the deltas</td>
+<td>the strict frozen suite compares a tiny timeline and its state-estimation and localization scores bit for bit; an intended change re-freezes in the same PR and states the deltas</td>
 <td><code>FDIA_FROZEN_STRICT=1 pytest -W "error::DeprecationWarning:fdia_graph" tests</code>, <code>python tools/freeze_reference.py</code></td>
 </tr>
 <tr>
@@ -1494,6 +1525,11 @@ checks a docs change locally.</p>
 <td>typed, formatted, linted</td>
 <td>pyright at zero, ruff format and check clean</td>
 <td><code>pyright src/fdia_graph</code>, <code>ruff format --check src</code>, <code>ruff check src tests tools</code></td>
+</tr>
+<tr>
+<td>generated docs match the code</td>
+<td>the class and module diagram sources and the data dictionary's Models section</td>
+<td><code>python tools/class_diagrams.py --check</code>, <code>python tools/models_doc.py --check</code></td>
 </tr>
 <tr>
 <td>speed is tracked</td>
@@ -1511,24 +1547,23 @@ checks a docs change locally.</p>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>merge<span class="w"> </span><span class="m">80</span><span class="w">                                    </span><span class="c1"># refuses unless green with every required bot's review on the head</span>
 </code></pre></div>
 <p>Green means: every job of the smoke workflow (<code>tests</code>, <code>tests (3.9)</code>, <code>tests (windows)</code>, <code>typecheck</code>,
-<code>format</code>, <code>readability</code>, the two installs) is a completed success on the head, a job that has not started yet counts as not green,
-every other listed check has finished without failure, and every required review bot has reviewed
+<code>format</code>, <code>readability</code>, the two installs) is a completed success on the head (a job that has not
+started yet counts as not green), every other listed check has finished without failure, and every required review bot has reviewed
 that exact head.</p>
 <p>Three reviewers read a pull request, in this order:</p>
 <ol>
 <li><code>/code-review ultra &lt;number&gt;</code> in Claude Code, before the bots: a multi-agent review of the whole
    branch with the repository as context. Fold what it finds into the branch first.</li>
 <li>Copilot, on every push, always required on the head.</li>
-<li>CodeRabbit (<code>.coderabbit.yaml</code> carries our review instructions) and Gemini Code Assist, both
+<li>CodeRabbit (<code>.coderabbit.yaml</code> carries the repository's review instructions) and Gemini Code Assist, both
    GitHub apps installed on the repository; <code>tools/pr.py</code> requires a bot's review on the head as
    soon as that bot has reviewed the pull request once, so a bot that is not installed never
    blocks a merge and an installed one is never skipped.</li>
 </ol>
-<p>Bot comments are suggestions: apply the ones that are right (about one in two has been), answer
-every one with what you changed or why not. The tool uses the token the
-Git Credential Manager already holds for <code>git push</code>; there is no gh CLI on the lab machines. Commit
-as yourself, with a message that says what the change does. If CI does not start on a push, check the
-account's Actions and Copilot credits before anything else.</p>
+<p>Bot comments are suggestions: apply the ones that are right and answer every one with what changed
+or why not. <code>tools/pr.py</code> uses the token the Git Credential Manager holds for <code>git push</code>, so it
+needs no gh CLI. Commit as yourself, with a message that says what the change does. If CI does not
+start on a push, check the account's Actions and Copilot credits first.</p>
 <h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
 <p><img alt="the release flow: bump PR, merge on green, tag on main, GitHub release, publish.yml to PyPI" src="../figures/diagrams/contributing_release_flow.png" /></p>
 <p>A released version is never re-cut; fix forward. Data releases (timelines, pools) have their own
@@ -1550,11 +1585,11 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
 <td><code>engine/</code>, <code>formulas/attacks.py</code>, <code>formulas/noise.py</code></td>
 </tr>
 <tr>
-<td>what a shard or stream contains</td>
-<td><code>generation.py</code>, <code>streams.py</code>, then <code>docs/reference/DATA_DICTIONARY.md</code></td>
+<td>what a timeline file contains</td>
+<td><code>timeline.py</code> (the walk and the file), <code>generation.py</code> (the pool and <code>generate</code>), then <code>docs/reference/DATA_DICTIONARY.md</code></td>
 </tr>
 <tr>
-<td>how a shard is loaded or exported</td>
+<td>how a timeline is loaded or exported</td>
 <td><code>dataset/</code>, one concern per file</td>
 </tr>
 <tr>
@@ -1564,6 +1599,14 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
 <tr>
 <td>a localizer</td>
 <td><code>localization/methods.py</code> or <code>learned.py</code></td>
+</tr>
+<tr>
+<td>the trusted-meter selectors</td>
+<td><code>trust/</code>, its algebra in <code>formulas/trust.py</code></td>
+</tr>
+<tr>
+<td>the federated localizers and prior</td>
+<td><code>federated/</code>, its algebra in <code>formulas/federated.py</code></td>
 </tr>
 <tr>
 <td>a returned record's fields</td>

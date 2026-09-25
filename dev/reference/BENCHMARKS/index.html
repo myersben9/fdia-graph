@@ -614,6 +614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1292,9 +1320,9 @@
 
 
 <h1 id="benchmarks">Benchmarks<a class="headerlink" href="#benchmarks" title="Permanent link">&para;</a></h1>
-<p>Per-record timings on the tiny IEEE-14 shard, appended by <code>python tools/bench.py</code>; <code>--check</code> fails when a timing is more than 3x slower than the last row. One machine's rows are comparable with each other, not with another machine's.</p>
+<p>Per-record timings on the tiny IEEE-14 timeline, appended by <code>python tools/bench.py</code>; <code>--check</code> fails when a timing is more than 3x slower than the last row. One machine's rows are comparable with each other, not with another machine's.</p>
 <p>From 0.18 the generate column is milliseconds per timeline frame of the test suite's tiny timeline (<code>frozen_spec.TIMELINE_KW</code>, 1000 frames, every family); earlier rows timed the record-shard writer per record and are not comparable to it.</p>
-<p>From 0.20 that timeline is seed 23 with one-frame Aq episodes (the fixture moved from seed 4 when Aq became single-snapshot), so a later row's generate column times a different episode mix from the rows above it; the estimator columns are per record and stay comparable.</p>
+<p>From 0.20 that timeline has one-frame Aq and Al episodes, and its seed moved with them (<code>frozen_spec.TIMELINE_KW</code>), so a later row's generate column times a different episode mix from the rows above it. The estimator columns are per record and stay comparable.</p>
 <table>
 <thead>
 <tr>

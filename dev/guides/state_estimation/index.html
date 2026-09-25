@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://fdia.artecommercellc.com/dev/guides/state_estimation/">
       
       
-        <link rel="prev" href="../../trust/">
+        <link rel="prev" href="../../federated/">
       
       
         <link rel="next" href="../../reference/DATA_DICTIONARY/">
@@ -601,6 +601,34 @@
     
   
     Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
   
 
     
@@ -1446,12 +1474,12 @@ the default v0.8.1 timeline download; <code>pip install "fdia-graph[se]"</code>.
 </thead>
 <tbody>
 <tr>
-<td>per-meter error scales: RMS of benign residuals at the dataset's <code>clean</code> truth</td>
+<td>per-meter error scales: RMS of benign residuals at the dataset's <code>clean</code> truth; the reference angle <code>theta_ref</code></td>
 <td>the classical 2N-1 state, every voltage magnitude and every non-slack angle</td>
 </tr>
 <tr>
 <td>the chord Jacobian at the benign mean state</td>
-<td>in the case's angle frame: the slack angle is fixed to the case's reference angle (<code>theta_ref</code>), the truth's slack angle on every frame</td>
+<td>in one angle frame: the slack angle is fixed to <code>theta_ref</code>, taken from the training truth at fit time (the case's reference angle on the released pools)</td>
 </tr>
 </tbody>
 </table>
@@ -1534,9 +1562,9 @@ the default v0.8.1 timeline download; <code>pip install "fdia-graph[se]"</code>.
 <td>meters corrupted in place, which robust weighting exists to reject</td>
 </tr>
 <tr>
-<td><code>Aq</code>, <code>At</code>, <code>Al</code> (stealthy)</td>
-<td>near parity for every estimator</td>
-<td>a physically valid state inside the learned subspace; no single-scan method can reject it</td>
+<td><code>Aq</code>, <code>At</code>, <code>Al</code>, <code>Am</code> (stealthy)</td>
+<td>robust weighting sees nothing; the prior moves them part of the way</td>
+<td>a consistent AC state leaves no residual, and it sits off the benign operating subspace, so the prior pulls the estimate part of the way back</td>
 </tr>
 <tr>
 <td>benign</td>
@@ -1609,7 +1637,7 @@ estimator.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../trust/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Trusted meters">
+          <a href="../../federated/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Federated">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1619,7 +1647,7 @@ estimator.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Trusted meters
+                Federated
               </div>
             </div>
           </a>

@@ -614,6 +614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1526,7 +1554,7 @@ lives there.</p>
 <p>Which module imports which. Three foundations are read by nearly every module and are left out so the
 real dependencies show: <code>models/</code> (every returned record), <code>formulas/</code> (the equations) and <code>schema.py</code>
 (the file protocol). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
-same reason. <code>streams.py</code> and <code>torch_data.py</code> retire in 0.19.</p>
+same reason. <code>streams.py</code> and <code>torch_data.py</code> are deprecated and will be removed in a future release.</p>
 <p><img alt="Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset, and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry" src="../../figures/diagrams/modules.png" /></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics

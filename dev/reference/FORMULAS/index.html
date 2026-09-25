@@ -614,6 +614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1385,21 +1413,24 @@
 even when it is called once, so a reader can go from an equation to the code and back. This
 catalogue is the index: one row per formula, the function that implements it, the equation in
 plain text, the source with a key from <a href="../REFERENCES/"><code>REFERENCES.md</code></a>, and where it is used.</p>
-<p>The plan behind it is <a href="../../plans/READABILITY_PLAN/"><code>../READABILITY_PLAN.md</code></a> (rule 3) and
-<a href="../../plans/RESTRUCTURE_PLAN/"><code>../RESTRUCTURE_PLAN.md</code></a> (the <code>formulas/</code> kernel). Rows are added as
-the functions land; a row whose function column says <em>today:</em> names where the operation lives
-until its function exists.</p>
+<p>The rules come from <a href="../../plans/READABILITY_PLAN/"><code>READABILITY_PLAN.md</code></a> (rule 3) and
+<a href="../../plans/RESTRUCTURE_PLAN/"><code>RESTRUCTURE_PLAN.md</code></a> (the <code>formulas/</code> kernel). A new formula
+function gets its row here in the same change.</p>
 <h2 id="how-a-formula-function-is-written">How a formula function is written<a class="headerlink" href="#how-a-formula-function-is-written" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">swing_zscore</span><span class="p">(</span><span class="n">delta</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="sd">"""One-step injection change as a z-score of the bus's typical recent change [FED26, eq. 3].</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="sd">        swing[b, c] = delta[b, c] / scale[b, c]</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="sd">    delta : [N, 2]  current minus previous scan, active and reactive injection (MW, MVAr)</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">    scale : [N, 2]  std of the one-step change over the last SWING_W scans, plus 1e-3</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="sd">    returns [N, 2], dimensionless; large on a single-scan spike, near 1 on a slow ramp</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="sd">    """</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="k">return</span> <span class="n">delta</span> <span class="o">/</span> <span class="n">scale</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">swing_zscore</span><span class="p">(</span><span class="n">nx</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">prev</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">scale_t</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">metered</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="sd">"""The one-step injection change as a z-score of the bus's typical recent change [FED26]:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="sd">    spikes (Aq, Al) read large, the slow ramp and benign scans stay near 1.</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="sd">        swing[b] = ([P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)) / scale_t[b]</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="sd">    nx, prev : [N, 4] current and previous scan; scale_t : [N, 2] from recent_change_scale</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="sd">    metered  : [N] bool, buses with an injection meter</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="sd">    returns  : [N, 2] float32, dimensionless</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="sd">    """</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">sw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nx</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">sw</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">nx</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">prev</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">scale_t</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">sw</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">nx</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">prev</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="n">scale_t</span><span class="p">[</span><span class="n">metered</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="k">return</span> <span class="n">sw</span>
 </code></pre></div>
 <p>The rules: the name is the operation, not the caller; the first line of the docstring names the
 quantity and cites the key with its equation number; the equation follows in plain text; every
@@ -1461,7 +1492,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>swing z-score and temporal delta</td>
-<td><code>formulas.temporal.temporal_delta</code>, <code>formulas.temporal.swing_zscore</code> (shards, via <code>generation._record_features</code>); the stream computes the same two lines against the previous emitted frame in <code>streams._StreamBuffers.store</code></td>
+<td><code>formulas.temporal.temporal_delta</code>, <code>formulas.temporal.swing_zscore</code>, through <code>timeline.write_temporal_layers</code> (each observed frame against the previous emitted frame, after the walk)</td>
 <td>delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t</td>
 <td>[FED26]</td>
 <td>the swing and temporal_delta features, <code>SwingThreshold</code>, <code>DeltaThreshold</code></td>
@@ -1478,7 +1509,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td><code>engine.records.replay_frame</code></td>
 <td>fixed lag tau, else a random lag of at least 20 scans, else the oldest scan</td>
 <td>[DAT26]</td>
-<td>the Ar and As families</td>
+<td>the Ar family (the draw is made for every in-place family to keep the random stream fixed; only Ar uses it)</td>
 </tr>
 <tr>
 <td>bus voltage phasors</td>
@@ -1533,15 +1564,15 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>accuracy-class error split</td>
 <td><code>formulas.noise.bias_jitter_split</code>, called by <code>FdiaGenerator.__init__</code></td>
 <td>bias² + jitter² = SD², jitter = 0.25 SD</td>
-<td>[ASP14], our split</td>
+<td>[ASP14], the jitter fraction set in this package</td>
 <td>every emitted measurement</td>
 </tr>
 <tr>
 <td>ramp profile</td>
-<td><code>formulas.attacks.ramp_profile</code> (shards and streams)</td>
+<td><code>formulas.attacks.ramp_profile</code>, through <code>timeline._ramp_dev</code> and <code>timeline._AmShape</code></td>
 <td>dev(i) = rate_up·i for i &lt; rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after</td>
 <td>[DAT26]</td>
-<td>the At family</td>
+<td>the At and Am families</td>
 </tr>
 <tr>
 <td>attacker's subnetwork</td>
@@ -1561,7 +1592,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>Am schedule</td>
 <td><code>timeline._AmShape.under_floor</code>, the ramp of one Am episode</td>
 <td>rate = am_rate · floor / max_b |δ_b| / |L_b|, rise = ⌈1 / rate⌉, the ramp profile above clipped at 1, so no bus's load moves by more than am_rate of the noise floor in one frame</td>
-<td>[WU26], our closed form</td>
+<td>[WU26], closed form derived here</td>
 <td>the Am family</td>
 </tr>
 <tr>

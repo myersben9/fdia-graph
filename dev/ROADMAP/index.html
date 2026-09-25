@@ -716,6 +716,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1443,8 +1471,9 @@
 
 <h1 id="repo-roadmap">Repo roadmap<a class="headerlink" href="#repo-roadmap" title="Permanent link">&para;</a></h1>
 <p>Two halves. The <strong>SDK</strong> loads and serves data and runs on the base install; the <strong>engine</strong> is the
-theory (power flow, meters, attacks) and needs <code>[generate]</code>. Users touch <code>fg.*</code>, <code>fdia_graph.se</code>
-and <code>fdia_graph.localization</code>.</p>
+theory (power flow, meters, attacks) and needs <code>[generate]</code>. The public surface is <code>fg.*</code> and the
+analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</code>, <code>fdia_graph.trust</code> and
+<code>fdia_graph.federated</code>; everything else serves them.</p>
 <p><img alt="the package map: the public API over dataset, timeline, registry, se, localization and trust in the base install, generation and engine behind the generate extra, models and formulas read by every package" src="../figures/diagrams/roadmap_modules.png" /></p>
 <h2 id="the-two-paths">The two paths<a class="headerlink" href="#the-two-paths" title="Permanent link">&para;</a></h2>
 <p><img alt="fg.generate from ISO load series through the AC pool, the timeline walk and one scan per frame to one registered HDF5 file, and fg.load from registry.resolve through the cached download to FdiaGraph in random or time order" src="../figures/diagrams/roadmap_generate_load.png" /></p>
@@ -1486,6 +1515,18 @@ and <code>fdia_graph.localization</code>.</p>
 <td><code>LocalizerBase</code> (false-alarm calibration, metrics) plus threshold and learned classes</td>
 </tr>
 <tr>
+<td><code>trust/</code></td>
+<td><code>TrustSelector</code> plus the greedy row-reduction (<code>TrustedMeters</code>) and deep Q-network (<code>TrustedMetersDQN</code>) meter selections, and <code>secured_copy</code> of a timeline with the chosen meters pinned</td>
+</tr>
+<tr>
+<td><code>federated/</code></td>
+<td>the client partition (<code>spectral_partition</code>), the FedAvg localizers (<code>FedBusMLP</code>, <code>FedBusCNN</code>) and the per-client subspace prior (<code>RegionalPrior</code>); needs <code>[federated]</code></td>
+</tr>
+<tr>
+<td><code>schema.py</code></td>
+<td>the file protocol: every HDF5 group, dataset and attribute name, defined once</td>
+</tr>
+<tr>
 <td><code>models/</code></td>
 <td>every value bundle a function returns, grouped <code>grid</code>, <code>frames</code>, <code>data</code>, <code>scores</code>, <code>assets</code></td>
 </tr>
@@ -1517,8 +1558,8 @@ and <code>fdia_graph.localization</code>.</p>
 <td>task walkthroughs</td>
 </tr>
 <tr>
-<td><code>se/</code>, <code>localization/</code></td>
-<td><code>run_*.py</code> fits one system and writes <code>results/*.json</code>; <code>make_report.py</code> renders the README tables and figures</td>
+<td><code>se/</code>, <code>localization/</code>, <code>trust/</code>, <code>federated/</code></td>
+<td><code>run_*.py</code> fits one system and writes <code>results/*.json</code>; <code>make_report.py</code> (where present) renders the README tables and figures</td>
 </tr>
 <tr>
 <td><code>figures/</code></td>
@@ -1553,7 +1594,7 @@ and <code>fdia_graph.localization</code>.</p>
 </tr>
 <tr>
 <td>CI</td>
-<td>tests, pyright, ruff format and check, the readability gate, install on 3.9 and 3.12</td>
+<td>tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the class-diagram check, install on 3.9 and 3.12</td>
 </tr>
 <tr>
 <td>release</td>
@@ -1615,6 +1656,16 @@ and <code>fdia_graph.localization</code>.</p>
 <td>8</td>
 <td><code>localization/README.md</code></td>
 <td>which buses are under attack, and why the slow ramp is open</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>trust/README.md</code></td>
+<td>which meters to secure so a stealthy attack stops being stealthy</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>federated/README.md</code></td>
+<td>the localizers and the prior trained across clients that never pool their records</td>
 </tr>
 </tbody>
 </table>

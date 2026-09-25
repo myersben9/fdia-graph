@@ -614,6 +614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1498,8 +1526,9 @@ Paths are under <code>src/fdia_graph/</code>.</p>
 <p>Re-solve families are attacked before measurement (<code>engine.physics.solve</code>), in-place families
 after it (<code>engine.attacks.corrupt</code>); <code>engine.records.attack_frame</code> routes both.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
-<p>The paper's math lives in <code>engine/</code>. At the top level, <code>generation.py</code>/<code>profiles.py</code> drive the
-engine; <code>se/</code> and <code>localization/</code> analyze the shards; the rest load and serve data.</p>
+<p>The paper's math lives in <code>engine/</code>. At the top level, <code>generation.py</code>, <code>timeline.py</code> and
+<code>profiles.py</code> drive the engine; <code>se/</code> and <code>localization/</code> analyze the timelines; the rest load and
+serve data.</p>
 <table>
 <thead>
 <tr>
@@ -1514,15 +1543,19 @@ engine; <code>se/</code> and <code>localization/</code> analyze the shards; the 
 </tr>
 <tr>
 <td><code>download.py</code></td>
-<td>fetch + cache a shard</td>
+<td>fetch + cache a data file</td>
 </tr>
 <tr>
 <td><code>generation.py</code></td>
-<td>assemble the classification shard (the recipe)</td>
+<td><code>generate</code>: load the operating-point pool, call <code>timeline.generate_timeline</code>, register the file</td>
+</tr>
+<tr>
+<td><code>timeline.py</code></td>
+<td>walk the attacked timeline, write the file, and write the temporal layers (<code>write_temporal_layers</code>)</td>
 </tr>
 <tr>
 <td><code>streams.py</code></td>
-<td>assemble a continuous timeline</td>
+<td>deprecated stream entry points over the timeline file</td>
 </tr>
 <tr>
 <td><code>dataset/</code></td>
@@ -1590,11 +1623,11 @@ and converts them on load.</p>
 </tr>
 <tr>
 <td>Bad-data test <code>r_i=(z_i−h_i)/σ_i</code>, <code>J=Σr_i²</code></td>
-<td><code>σ_i</code> from the engine <code>FdiaGenerator.SD</code>; residuals in <code>se/base.py</code> <code>SEBase._nres</code>. The <code>stealthy</code> flag marks the families that evade it by construction (<code>Aq</code>/<code>At</code>/<code>Al</code>/<code>Am</code>, <code>schema.STEALTHY_FAMILIES</code>)</td>
+<td><code>σ_i</code> is the RMS of the benign residuals at the training truth (<code>se/base.py</code> <code>SEBase.fit</code>); residuals in <code>se/base.py</code> <code>SEBase._nres</code>. The <code>stealthy</code> flag marks the families that evade it by construction (<code>Aq</code>/<code>At</code>/<code>Al</code>/<code>Am</code>, <code>schema.STEALTHY_FAMILIES</code>)</td>
 </tr>
 <tr>
 <td>Noise model</td>
-<td><code>FdiaGenerator.SD</code> (accuracy class): reading = true + per-meter bias + per-scan jitter</td>
+<td><code>FdiaGenerator.SD</code> (accuracy class): reading = true + per-meter bias + per-scan jitter. The estimator does not read it; it calibrates <code>σ_i</code> from data</td>
 </tr>
 </tbody>
 </table>
@@ -1613,7 +1646,7 @@ and converts them on load.</p>
 <tr>
 <td>Aq</td>
 <td><code>A_o</code></td>
-<td>scale 1 to 6 loads by 5 to 20 percent, one local false state per frame</td>
+<td>scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode</td>
 <td><code>timeline._single_shot_episode</code> + <code>engine/records.stealthy_state</code></td>
 </tr>
 <tr>
@@ -1625,7 +1658,7 @@ and converts them on load.</p>
 <tr>
 <td>Al</td>
 <td><code>A_l</code></td>
-<td>load-conserving redistribution around a target line</td>
+<td>load-conserving redistribution around a target line, one frame per episode</td>
 <td><code>engine/attacks.lra_delta</code> + <code>engine/records._lra_frame</code></td>
 </tr>
 <tr>
@@ -1660,8 +1693,11 @@ and converts them on load.</p>
   generator limits, and the attack vector <code>h(x') − h(x)</code> is added to the benign scan. The residual
   test flags them at the benign rate by construction.</li>
 <li>Ad/As/Ar tamper readings in place. Detectable.</li>
-<li>Every designed change sits above the noise floor and inside the 5 to 20 percent band
-  (<code>attack_intensity</code>); the ramp's per-frame step is the exception, sub-floor by design.</li>
+<li>Every designed change sits above the noise floor and below <code>attack_intensity</code> (20 percent by
+  default). Aq draws its per-bus load change from 5 to 20 percent; Ad, As and Al use the 2 to 20
+  percent band, whose lower edge is the noise floor (<code>generation.NOISE_FLOOR</code>). The multi-snapshot
+  families are the exception, by design: the At ramp and the Am redistribution move in per-frame
+  steps under the noise floor.</li>
 </ul>
 <h2 id="temporal-feature">Temporal feature<a class="headerlink" href="#temporal-feature" title="Permanent link">&para;</a></h2>
 <table>
@@ -1675,16 +1711,18 @@ and converts them on load.</p>
 <tbody>
 <tr>
 <td><code>temporal_delta</code></td>
-<td>scan-to-scan <code>[ΔP, ΔQ]</code></td>
-<td><code>generation._fin</code>, <code>streams._store</code></td>
+<td>scan-to-scan <code>[ΔP, ΔQ]</code> of the observed frames</td>
+<td><code>timeline.write_temporal_layers</code> (<code>formulas.temporal.temporal_delta</code>)</td>
 </tr>
 <tr>
 <td><code>swing</code></td>
-<td><code>temporal_delta</code> as a z-score of recent volatility</td>
-<td>same</td>
+<td><code>temporal_delta</code> as a z-score of the recent observed change</td>
+<td><code>timeline.write_temporal_layers</code> (<code>formulas.temporal.swing_zscore</code>, scale from <code>recent_change_scale</code>)</td>
 </tr>
 </tbody>
 </table>
+<p>Both layers are written after the walk from the observed injections only, so a detector reads
+what an operator sees.</p>
 <p>Any above-noise attack spikes the swing, so localization is per-bus and needs no graph. The slow ramp
 <code>At</code> stays inside the swing, so it is the open case.</p>
 <h2 id="the-papers-per-bus-feature-vector-and-localizers">The papers' per-bus feature vector and localizers<a class="headerlink" href="#the-papers-per-bus-feature-vector-and-localizers" title="Permanent link">&para;</a></h2>
@@ -1750,7 +1788,7 @@ and converts them on load.</p>
 </tr>
 <tr>
 <td>localization macro-F1</td>
-<td>per-bus F1 averaged over attackable buses (the papers' headline)</td>
+<td>per-bus F1 averaged over the active buses, those attacked somewhere in the records scored (the papers' headline)</td>
 <td><code>LocalizerBase.score(...)["all"]["macro_f1"]</code>; also <code>EXAMPLES.md</code> <code>macro_f1</code></td>
 </tr>
 </tbody>

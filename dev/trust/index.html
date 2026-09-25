@@ -16,7 +16,7 @@
         <link rel="prev" href="../localization/">
       
       
-        <link rel="next" href="../guides/state_estimation/">
+        <link rel="next" href="../federated/">
       
       
         
@@ -694,6 +694,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1518,7 +1546,7 @@ locked out of them, the tamper masks and the stored temporal features following)
 estimator and localizer of the other two guides can be scored with the set secured;
 <code>python docs/trust/run_secured.py</code> (set <code>FG_SYSTEM</code>, <code>FG_K</code>) does that for the greedy and the DQN
 selections of <code>run_trust.py</code> and writes <code>results/secured_&lt;system&gt;.json</code>.</p>
-<p>One rule came out of it: a localization gate must never down-weight a secured meter.
+<p>Rule: a localization gate never down-weights a secured meter.
 <code>GatedPrior</code> scales every meter of a flagged bus by a thousandth. On a secured copy those meters
 include the secured ones, the only true readings inside the attacked region, so the CNN and
 residual gates were worse than no gate on both secured copies. <code>GatedPrior(secured=tm.select())</code>
@@ -1829,13 +1857,13 @@ percent of IEEE-118's; the budget has to scale with the system for the estimatio
         
         
           
-          <a href="../guides/state_estimation/" class="md-footer__link md-footer__link--next" aria-label="Next: State estimation">
+          <a href="../federated/" class="md-footer__link md-footer__link--next" aria-label="Next: Federated">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                State estimation
+                Federated
               </div>
             </div>
             <div class="md-footer__button md-icon">

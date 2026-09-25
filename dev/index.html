@@ -747,6 +747,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1586,6 +1614,18 @@ a record table when shuffled, a time series when not.</p>
 <td><code>pip install "fdia-graph[generate]"</code></td>
 <td>+ pandapower, to generate custom data</td>
 </tr>
+<tr>
+<td><code>pip install "fdia-graph[iso]"</code></td>
+<td>+ gridstatus, to download CAISO and ERCOT load profiles (NYISO needs no extra)</td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[federated]"</code></td>
+<td>+ torch and scikit-learn, for <code>fdia_graph.federated</code></td>
+</tr>
+<tr>
+<td><code>pip install "fdia-graph[all]"</code></td>
+<td>every extra above</td>
+</tr>
 </tbody>
 </table>
 <p>Data is pinned per SDK version and cached in <code>~/.cache/fdia_graph</code>. <code>fg.load(..., release="v0.7.2")</code>
@@ -1745,33 +1785,33 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 <tbody>
 <tr>
 <td><code>Aq</code></td>
-<td>load rescale, the subnetwork around the buses re-solved locally</td>
+<td>load rescale, the subnetwork around the buses re-solved locally, one frame</td>
 <td>evades</td>
-<td>every per-bus change within a 2% to 20% band</td>
+<td>every per-bus change within a 5% to 20% band</td>
 </tr>
 <tr>
 <td><code>At</code></td>
 <td>slow load ramp, re-solved locally every frame</td>
 <td>evades</td>
-<td>same band, spread over 60 scans</td>
+<td>2% to 20% band, spread over 60 scans</td>
 </tr>
 <tr>
 <td><code>Al</code></td>
-<td>load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally</td>
+<td>load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally, one frame</td>
 <td>evades</td>
-<td>same band, load conserved</td>
+<td>2% to 20% band, load conserved</td>
 </tr>
 <tr>
 <td><code>Am</code></td>
 <td>the redistribution reached in per-frame steps under the noise floor</td>
 <td>evades</td>
-<td>same band, spread over 60 scans</td>
+<td>2% to 20% band, spread over 60 scans</td>
 </tr>
 <tr>
 <td><code>Ad</code> / <code>As</code> / <code>Ar</code></td>
-<td>meter bias / scaling / replay</td>
+<td>meter bias / scaling / replay, one frame</td>
 <td>caught</td>
-<td>same band</td>
+<td>2% to 20% band</td>
 </tr>
 </tbody>
 </table>
