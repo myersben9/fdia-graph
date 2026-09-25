@@ -277,7 +277,7 @@ class SEBase:
 
     def _class_sigma(self, mean_abs: np.ndarray) -> np.ndarray:
         """The accuracy-class sigma of every metered slot [m], in the estimator's units (pu, rad)."""
-        from ..engine.core import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
+        from ..engine.base import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
 
         N, E = self.N, self.E
         order = [
