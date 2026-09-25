@@ -25,7 +25,14 @@ from ..formulas.noise import bias_jitter_split
 from ..models.assets import LineCandidate  # noqa: F401  re-exported: defined here before the models package
 from ..registry import system_id
 from .attacks import AttackMixin
-from .base import INTACT, MeterBias, MeterPlan, Outage
+from .base import (  # noqa: F401  ACCURACY_CLASS, POWER_NOISE_FLOOR_MW re-exported
+    ACCURACY_CLASS,
+    INTACT,
+    POWER_NOISE_FLOOR_MW,
+    MeterBias,
+    MeterPlan,
+    Outage,
+)
 from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
 
@@ -202,10 +209,9 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             raise ValueError(f"max_load_mw is a load cap in MW (or None), got {max_load_mw!r}")
         self.max_load_mw = max_load_mw
         self.rng = np.random.default_rng(seed)
-        # Measurement noise stds (accuracy-class model [ASP14]). |V|/angle are the class-0.2/sqrt(3) IT
-        # figures; P/Q use a larger ~1.7% power-measurement std. Relative for flows/injections, absolute
-        # for V/angle. Split into a per-scan jitter and a per-meter bias (see formulas.noise).
-        self.SD = dict(pf=0.017, qf=0.017, v=0.0012, pi=0.017, qi=0.017, va=0.00168)
+        # Measurement noise stds, the accuracy classes (ACCURACY_CLASS), split into a per-scan jitter
+        # and a per-meter bias (see formulas.noise).
+        self.SD = dict(ACCURACY_CLASS)
         self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=0.25)
         self.NET = getattr(pn, _CASE[self.C])
         self.base = self._open_case(outage)

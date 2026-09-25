@@ -63,7 +63,7 @@ estimator.
 | hook | does |
 |---|---|
 | `_fit_states(x_benign)` | learn anything from the benign training states |
-| `_basis()` | a `[2N-1, K]` basis that restricts the state space, or `None` for the full state |
+| `_subspace()` | a `[2N-1, K]` basis that restricts the state space, or `None` for the full state |
 | `_solve(z, thsl)` | the per-batch solve; `thsl` is the slack angle reference per record (`ref_angles(n)`) |
 
 Inside `_solve`: `self._w_solve(z, w, thsl)` is the divergence-guarded weighted iteration,

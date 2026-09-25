@@ -75,7 +75,7 @@ class ResidualLocalizer(LocalizerBase):
 
         self.est = self.estimator if self.estimator is not None else WLS()
         if not self.est.is_fitted:  # an estimator fitted elsewhere (another split, a gate) is kept as is
-            self.est.fit(ds)
+            self.est.fit(ds, calibrate="measured")  # a detector: measurements only
         # bus <- measurement incidence in the estimator's masked layout: a node channel touches its
         # own bus, a flow meter BOTH endpoints of its line (an injection edit perturbs every incident flow)
         self._inc = bus_incidence(self.est.N, self.est.E, ds.edge_index_np, self.est.mask)

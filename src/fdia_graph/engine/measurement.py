@@ -8,7 +8,7 @@ import numpy as np
 
 from ..formulas.network import branch_flows, complex_voltages
 from ..models.grid import EDGE, NODE, NodeColumns
-from .base import GridBase
+from .base import POWER_NOISE_FLOOR_MW, GridBase
 from .records import Scan
 
 
@@ -45,10 +45,10 @@ class MeasurementMixin(GridBase):
             # still gets a nonzero std).
             if b in plan.inj or b in self.zero_inj:
                 nx[b, NODE.p_inj] = Pi[b] * (1.0 + bias.pi[b]) + self._draw_noise(
-                    abs(Pi[b]) * SDj["pi"] + 1e-3
+                    abs(Pi[b]) * SDj["pi"] + POWER_NOISE_FLOOR_MW
                 )
                 nx[b, NODE.q_inj] = Qi[b] * (1.0 + bias.qi[b]) + self._draw_noise(
-                    abs(Qi[b]) * SDj["qi"] + 1e-3
+                    abs(Qi[b]) * SDj["qi"] + POWER_NOISE_FLOOR_MW
                 )
                 nm[b, NODE.p_inj : NODE.q_inj + 1] = 1
         # Edge buffers: cols [P_from, Q_from]; mask=1 where a flow meter exists.
@@ -57,10 +57,10 @@ class MeasurementMixin(GridBase):
         for e in range(self.E):
             if plan.flow[e]:  # metered branch flow: relative bias + jitter on P and Q
                 ex[e, EDGE.p_from] = Sf.real[e] * (1.0 + bias.pf[e]) + self._draw_noise(
-                    abs(Sf.real[e]) * SDj["pf"] + 1e-3
+                    abs(Sf.real[e]) * SDj["pf"] + POWER_NOISE_FLOOR_MW
                 )
                 ex[e, EDGE.q_from] = Sf.imag[e] * (1.0 + bias.qf[e]) + self._draw_noise(
-                    abs(Sf.imag[e]) * SDj["qf"] + 1e-3
+                    abs(Sf.imag[e]) * SDj["qf"] + POWER_NOISE_FLOOR_MW
                 )
                 em[e] = 1
         return Scan(nx, nm, ex, em)

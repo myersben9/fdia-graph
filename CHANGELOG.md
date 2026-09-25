@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Detectors calibrate from measurements only. `SEBase.fit(ds, calibrate="measured")` sets every
+  meter's sigma from its accuracy class (`formulas.estimation.accuracy_class_sigma`, the classes now
+  one definition, `engine.core.ACCURACY_CLASS`, shared with the noise model), takes the angle
+  reference from the case and the linearization point from the mean estimate of the benign training
+  scans, and reads no clean layer. The Jacobian feature sets, `ResidualLocalizer` and
+  `TrustSelector` fit their estimator this way; the state estimators keep `calibrate="truth"` as the
+  benchmark default. Residual-based sigmas were tried first and rejected: a meter's constant bias
+  is absorbed into the state, so they shrink on the biased meters and collapse the fit. On the
+  v0.8.3 test splits plain WLS with the class calibration scores 0.086, 0.028 and 0.034 degrees
+  against 0.091, 0.020 and 0.027 truth-calibrated on IEEE-14, 118 and 300. The frozen
+  localization reference moves for the residual arm.
 ## 0.20.0
 
 - Data release v0.8.3 is the default (`fg.load("ieee118")`; v0.8.1 stays readable with

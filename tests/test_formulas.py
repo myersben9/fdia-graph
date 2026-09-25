@@ -444,3 +444,10 @@ def test_perbus_rates_by_hand():
     f1, dr, fr = perbus_rates(pred, truth)
     # bus 0: TP 2, FP 1, FN 1, TN 0; bus 1: TP 0, FP 1, FN 0, TN 3
     assert np.allclose(f1, [4 / 6, 0]) and np.allclose(dr, [2 / 3, 0]) and np.allclose(fr, [1.0, 0.25])
+
+
+def test_accuracy_class_sigma_is_relative_or_absolute():
+    from fdia_graph.formulas.estimation import accuracy_class_sigma
+
+    s = accuracy_class_sigma(np.array([2.0, 2.0]), np.array([0.01, 0.003]), np.array([True, False]), 1e-5)
+    assert np.allclose(s, [0.02 + 1e-5, 0.003])

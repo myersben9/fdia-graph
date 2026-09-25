@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import numpy as np
 
 from ..formulas.estimation import (
+    accuracy_class_sigma,
     critical_measurements,
     floored_covariance,
     huber_weights,
@@ -101,7 +102,7 @@ class SEBase:
         self.iters = iters  # chord-Newton steps inside each solve
 
     # ---- network + measurement model -------------------------------------------------------
-    def _build_network(self, ds: FdiaGraph) -> None:
+    def _build_network(self, ds: FdiaGraph, need_clean: bool = True) -> None:
         try:
             import pandapower as pp
             import pandapower.networks as pn
@@ -109,8 +110,11 @@ class SEBase:
         except ImportError as e:
             raise ImportError("state estimation needs pandapower: pip install 'fdia-graph[se]'") from e
         require_physical(ds)
-        if not ds.has_clean:
-            raise ValueError("dataset has no clean layer; load a timeline or a v0.7.2 record shard")
+        if need_clean and not ds.has_clean:
+            raise ValueError(
+                "dataset has no clean layer; load a timeline or a v0.7.2 record shard, "
+                'or fit with calibrate="measured"'
+            )
         net = getattr(pn, _CASE_FN[int(ds.system)])()
         pp.runpp(net)
         ppc = net._ppc
@@ -134,6 +138,11 @@ class SEBase:
         if ds.slack is not None and int(ds.slack) != self.slack:  # both index buses 0..N-1 on every case
             raise ValueError(f"the case's slack is bus {self.slack}, the dataset's is {int(ds.slack)}")
         self.keep = np.array([i for i in range(self.N) if i != self.slack])  # angle buses
+        # the case's own power-flow solution, the starting point of a measurement-only calibration
+        res = net.res_bus.reindex(sorted(net.bus.index))
+        self._x_case = np.concatenate(
+            [np.deg2rad(res["va_degree"].to_numpy()[self.keep]), res["vm_pu"].to_numpy()]
+        ).astype(np.float64)
         # Classical 2N-1 state: angles at every non-slack bus, voltage magnitude at EVERY bus.
         # Only the slack angle is fixed (the reference the math requires); the slack voltage is
         # estimated like any other, matching production practice and pandapower's estimator.
@@ -215,42 +224,94 @@ class SEBase:
         )
 
     # ---- fitting ----------------------------------------------------------------------------
-    def fit(self, ds: FdiaGraph, n_calib: int = 600) -> SEBase:
-        self._build_network(ds)
-        d = ds.export(["node_x", "edge_x", "family", "clean"])
+    def fit(self, ds: FdiaGraph, n_calib: int = 600, calibrate: str = "truth") -> SEBase:
+        """Calibrate on the benign records of `ds`. calibrate="truth" (the estimation benchmark)
+        takes the meter errors, the benign mean state and the angle reference from the training
+        split's clean layer; calibrate="measured" takes them from equipment data and measurements
+        alone (`_fit_from_measurements`), for any path whose output feeds a detector."""
+        if calibrate not in ("truth", "measured"):
+            raise ValueError(f"calibrate must be 'truth' or 'measured', got {calibrate!r}")
+        self._build_network(ds, need_clean=calibrate == "truth")
+        d = ds.export(["node_x", "edge_x", "family"] + (["clean"] if calibrate == "truth" else []))
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
             raise ValueError("fit needs benign records; pass the train split unfiltered")
-        tr = self._truth_of(d["clean"][ben])
-        self._fit_reference(tr["thsl"])
-        self._fit_states(tr["x"])  # hook: subclasses learn their prior here
-        self.xmean = tr["x"].mean(axis=0)
-        # meter sigma = rms of benign residual AT THE TRUE STATE. The dataset's meter error is a
-        # constant bias plus jitter; a std across records cancels the bias and mis-weights, so the
-        # total error about zero (the accuracy class) is the correct scale. The calibration records
-        # are spread evenly over the benign set: on a timeline the first ones are one early stretch
-        # of the year, a single load regime, and the meter error scales with the reading.
+        # The calibration records are spread evenly over the benign set: on a timeline the first ones
+        # are one early stretch of the year, a single load regime, and the meter error scales with the
+        # reading.
         c = ben[np.linspace(0, len(ben) - 1, min(n_calib, len(ben))).round().astype(int)]
         zc = self._z_of(d["node_x"][c], d["edge_x"][c])
-        tc = self._truth_of(d["clean"][c])
-        hz = self._h(tc["x"], tc["thsl"])
-        self.sig = np.maximum(np.sqrt(((zc - hz) ** 2).mean(axis=0)), 1e-9)
+        if calibrate == "truth":
+            self._fit_from_truth(d["clean"][ben], d["clean"][c], zc)
+        else:
+            self._fit_from_measurements(self._z_of(d["node_x"][ben], d["edge_x"][ben]), zc)
+        self.calibrate = calibrate
+        self._post_fit()
+        return self
+
+    def _fit_from_truth(self, clean_ben: np.ndarray, clean_c: np.ndarray, zc: np.ndarray) -> None:
+        """Meter sigma = rms of the benign residual AT THE TRUE STATE. The dataset's meter error is a
+        constant bias plus jitter; a std across records cancels the bias and mis-weights, so the total
+        error about zero (the accuracy class) is the correct scale."""
+        tr = self._truth_of(clean_ben)
+        self._fit_reference(tr["thsl"])
+        self._fit_states(tr["x"])  # hook: subclasses learn their prior here
+        tc = self._truth_of(clean_c)
+        sig = np.sqrt(((zc - self._h(tc["x"], tc["thsl"])) ** 2).mean(axis=0))
+        self._set_model(tr["x"].mean(axis=0), sig)
+
+    def _fit_from_measurements(self, z_ben: np.ndarray, zc: np.ndarray, passes: int = 2) -> None:
+        """The calibration from equipment data and measurements alone. Every meter's sigma is its
+        accuracy class (`_class_sigma`): a meter's constant bias cannot be told apart from the state by
+        measurements, so residual-based sigmas shrink on the biased meters and collapse the fit. The
+        angle reference is the case's; the linearization point starts at the case's power-flow
+        solution and moves to the mean estimate of the calibration scans each pass. The subclass
+        prior is learned from the estimated benign states."""
+        sig, x = self._class_sigma(np.abs(zc).mean(axis=0)), self._x_case
+        for _ in range(passes):
+            self._set_model(x, sig, full_state=True)
+            x = self._solve_plain(zc, self.ref_angles(len(zc))).mean(axis=0)
+        self._set_model(x, sig, full_state=True)
+        self._fit_states(self._solve_plain(z_ben, self.ref_angles(len(z_ben))))
+        self._set_model(x, sig)
+
+    def _class_sigma(self, mean_abs: np.ndarray) -> np.ndarray:
+        """The accuracy-class sigma of every metered slot [m], in the estimator's units (pu, rad)."""
+        from ..engine.base import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
+
+        N, E = self.N, self.E
+        order = [
+            ("v", N, False),
+            ("pi", N, True),
+            ("qi", N, True),
+            ("va", N, False),
+            ("pf", E, True),
+            ("qf", E, True),
+        ]
+        cls = np.concatenate([np.full(n, ACCURACY_CLASS[k]) for k, n, _ in order])[self.mask]
+        rel = np.concatenate([np.full(n, r) for _, n, r in order])[self.mask]
+        return accuracy_class_sigma(mean_abs, cls, rel, POWER_NOISE_FLOOR_MW / self.baseMVA)
+
+    def _set_model(self, xmean: np.ndarray, sig: np.ndarray, full_state: bool = False) -> None:
+        """The linearized model at `xmean` with meter errors `sig`: the weights, the chord Jacobian, the
+        inverse normal matrix, the residual covariance with the critical meters, and the solve's
+        Jacobian in the state or the subclass subspace (`full_state` forces the full state, for a
+        calibration pass before the subspace is learned)."""
+        self._full_state = full_state
+        self.xmean = xmean
+        self.sig = np.maximum(sig, 1e-9)
         self.Wk = 1.0 / self.sig**2
-        # chord Jacobian at the benign mean, weighted normal matrix, and its inverse
-        self.H = self._jacobian(self.xmean, float(tr["thsl"][0]))
+        self.H = self._jacobian(self.xmean, self.theta_ref)
         self._Ai = guarded_inverse(normal_matrix(self.H, self.Wk))
-        # residual covariance diagonal for normalized residuals; critical measurements excluded
         om, R = residual_covariance_diag(self.H, self.Wk, self._Ai)
         self.critical = critical_measurements(om, R)
         self._om = floored_covariance(om, R)
-        VK = self._basis()  # the solve's Jacobian and inverse normal matrix, in the state or its subspace
+        VK = self._basis()
         self._B, self._Bi = (
             (self.H, self._Ai)
             if VK is None
             else (self.H @ VK, guarded_inverse(normal_matrix(self.H @ VK, self.Wk)))
         )
-        self._post_fit()
-        return self
 
     def _fit_states(self, x_benign: np.ndarray) -> None:
         pass  # WLS learns nothing from the states; SubspacePrior overrides
@@ -301,6 +362,11 @@ class SEBase:
 
     # ---- solving ----------------------------------------------------------------------------
     def _basis(self) -> Optional[np.ndarray]:
+        """The basis the solve runs in: the subclass subspace, or None (the full state) for a model
+        built with full_state=True, a calibration pass before the subspace is learned."""
+        return None if getattr(self, "_full_state", False) else self._subspace()
+
+    def _subspace(self) -> Optional[np.ndarray]:
         return None  # full state; SubspacePrior returns its VK
 
     def _solve_plain(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:

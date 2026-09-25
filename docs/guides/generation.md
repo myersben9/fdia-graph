@@ -171,7 +171,8 @@ At test time a feature may use only measurements and quantities derived from the
 | SDK path | reads | layer role |
 |---|---|---|
 | `SEBase.estimate` | `node_x`, `edge_x` | measurements |
-| `SEBase.fit` | `node_x`, `edge_x`, `family`, `clean` | fitting: meter sigmas, benign mean state, `theta_ref` |
+| `SEBase.fit(calibrate="truth")` | `node_x`, `edge_x`, `family`, `clean` | fitting for the estimation benchmark: meter sigmas, benign mean state, `theta_ref` |
+| `SEBase.fit(calibrate="measured")` | `node_x`, `edge_x`, `family` | fitting from the meters' accuracy classes and the estimated benign states |
 | `SEBase.score` | `node_x`, `edge_x` (through `estimate`), then `family`, `clean` | the estimate from measurements, then evaluation against the truth |
 | `JacobianFeatures`, `JacobianWeighting` | `node_x`, `edge_x`, `prev_node_x`, `prev_edge_x`, `prev_timestep` | measurements |
 | `GatedPrior(gate="oracle")` | `y` | evaluation ceiling only |
@@ -183,9 +184,10 @@ At test time a feature may use only measurements and quantities derived from the
 | `trust.secured_copy` | `benign`, the tamper masks | builds a counterfactual file, then rewrites the temporal features from its observed frames |
 
 Sources: `se/base.py`, `se/jacobian.py`, `se/methods.py`, `localization/methods.py`,
-`localization/learned.py` (`_fields`), `trust/base.py`, `trust/secured.py`. Every path that fits an
-estimator (`ResidualLocalizer`, the Jacobian feature sets, `TrustSelector`) reads `clean` at fit
-time through `SEBase.fit`, and only there.
+`localization/learned.py` (`_fields`), `trust/base.py`, `trust/secured.py`. Every path whose
+output feeds a detector (`ResidualLocalizer`, the Jacobian feature sets, `TrustSelector`) fits its
+estimator with `calibrate="measured"`, so no clean layer is read at fit or test time. The state
+estimators themselves default to `calibrate="truth"`, the estimation benchmark's calibration.
 
 ## 7. Building your own
 

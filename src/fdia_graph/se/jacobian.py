@@ -93,7 +93,7 @@ class JacobianFeatures:
         require_physical(ds)
         self.est = self.estimator if self.estimator is not None else WLS()
         if not self.est.is_fitted:
-            self.est.fit(ds)
+            self.est.fit(ds, calibrate="measured")  # a feature: measurements only
         est = self.est
         if not ds.is_timeline:
             raise ValueError("Jacobian features need a timeline: the previous frame's readings")
