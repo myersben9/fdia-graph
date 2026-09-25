@@ -20,7 +20,7 @@ from .models.assets import AssetSpec  # noqa: F401  re-exported: defined here be
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
 _REPO = "myersben9/fdia-graph"
 # Default pinned release tag, used when GitHub isn't queried for the newest; FDIA_GRAPH_RELEASE overrides.
-_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.8.1")  # pinned data release (env var overrides)
+_RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.8.3")  # pinned data release (env var overrides)
 # One release channel: each tag carries all assets, so streams follow _RELEASE (env var overrides).
 STREAM_RELEASE = os.environ.get("FDIA_GRAPH_STREAM_RELEASE", _RELEASE)
 
@@ -79,6 +79,16 @@ _SHA256: dict[str, dict[str, str]] = {
         "ieee145": "2471510912ae82cb27743ded25f2bf9c562e6f58f6a0de0ad3afa0e060e9008c",
         "ieee200": "be4ad6a6d598aac9b4fe31c05048c50f50086822140c2001ce0ecdad77edb697",
         "ieee300": "67b5d727ed498bba270dcc5eb230afec287c4f1fd55b74178a453985edbcd75f",
+    },
+    "v0.8.3": {
+        "ieee14": "11460614f78eb0770dc47adcf53bca20f8692b348e2d7cc048e6f714bd40a7b3",
+        "ieee30": "87312be35a74ea341cacd4f4cf306af04e875f90f50ac472eccc715213de31b3",
+        "ieee57": "05522321703ab0fba3755b9d8582a7a420abe0c5ad24b535667201cd4c5666f6",
+        "ieee89": "206adfed97c37d6bf38990d8abfac44154f4fa461be3ddeea74b9f1e4c09fd8d",
+        "ieee118": "dfc47298b77daca47e2e581d2a60163b094d6a77411604605d8f1d4b618f71ae",
+        "ieee145": "5d3d0b6febf4545c3f73f749a56368ade9b64101113252e302448b7d00fd24b3",
+        "ieee200": "9afe6f20dc327fb700303420e8f5da04b998bf2f74956d6982fb8ab845545f47",
+        "ieee300": "a6948a4f0649cf3823bbea806d3084539f8088c207746c782fce58577dc59c14",
     },
 }
 

@@ -38,7 +38,7 @@ from .download import ensure_local
 from .registry import list_datasets, resolve
 from .registry import register_local as register_local  # re-exported for `fg.register_local`
 
-__version__ = "0.19.0"
+__version__ = "0.20.0"
 # Public API for `from fdia_graph import *`; register_local/resolve/ensure_local stay out (internal plumbing).
 __all__ = [
     "load",

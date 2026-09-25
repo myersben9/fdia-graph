@@ -37,6 +37,7 @@ examples/*.txt
 # ...except the script that built the v0.8.0 timelines, the release's provenance
 !examples/_build_timelines_v080.py
 !examples/_build_timelines_v081.py
+!examples/_build_timelines_v083.py
 # never track dataset binaries (they live in GitHub releases)
 *.h5
 *.npz
