@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/reference/CLASS_MAP/">
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/guides/generation/">
       
       
-        <link rel="prev" href="../CONCEPTS_TO_CODE/">
+        <link rel="prev" href="../../federated/">
       
       
-        <link rel="next" href="../EXAMPLES/">
+        <link rel="next" href="../state_estimation/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Architecture (UML diagrams) - fdia-graph</title>
+        <title>Timeline generation - fdia-graph</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#class-map" class="md-skip">
+        <a href="#how-a-timeline-is-generated" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Architecture (UML diagrams)
+              Timeline generation
             
           </span>
         </div>
@@ -285,11 +285,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../guides/generation/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
           
   
   
@@ -305,13 +307,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../DATA_DICTIONARY/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../reference/DATA_DICTIONARY/" class="md-tabs__link">
           
   
   
@@ -653,24 +653,29 @@
       
   
   
+    
   
   
+  
     
     
     
     
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -688,7 +693,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -703,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../guides/generation/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeline generation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -722,6 +754,103 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-operating-point-pools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Operating-point pools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-meter-plan-and-noise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Meter plan and noise
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-the-attack-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The attack families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-episode-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Episode placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-per-frame-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The per-frame layers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-the-rule-for-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. The rule for features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-building-your-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Building your own
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -734,7 +863,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/state_estimation/" class="md-nav__link">
+      <a href="../state_estimation/" class="md-nav__link">
         
   
   
@@ -766,29 +895,24 @@
       
   
   
-    
   
   
-  
     
     
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
@@ -806,7 +930,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -824,7 +948,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../DATA_DICTIONARY/" class="md-nav__link">
+      <a href="../../reference/DATA_DICTIONARY/" class="md-nav__link">
         
   
   
@@ -852,7 +976,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../GLOSSARY/" class="md-nav__link">
+      <a href="../../reference/GLOSSARY/" class="md-nav__link">
         
   
   
@@ -880,7 +1004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../CONCEPTS_TO_CODE/" class="md-nav__link">
+      <a href="../../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
   
@@ -905,37 +1029,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture (UML diagrams)
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../reference/CLASS_MAP/" class="md-nav__link">
         
   
   
@@ -951,114 +1048,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#modules" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Modules
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-dataset" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The dataset
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-engine" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The engine
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#state-estimation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        State estimation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#localization-and-trusted-meters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Localization and trusted meters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#federated-training" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Federated training
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-records" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The records
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-scores" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The scores
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1071,7 +1060,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../EXAMPLES/" class="md-nav__link">
+      <a href="../../reference/EXAMPLES/" class="md-nav__link">
         
   
   
@@ -1099,7 +1088,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../FORMULAS/" class="md-nav__link">
+      <a href="../../reference/FORMULAS/" class="md-nav__link">
         
   
   
@@ -1127,7 +1116,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../BENCHMARKS/" class="md-nav__link">
+      <a href="../../reference/BENCHMARKS/" class="md-nav__link">
         
   
   
@@ -1155,7 +1144,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../REFERENCES/" class="md-nav__link">
+      <a href="../../reference/REFERENCES/" class="md-nav__link">
         
   
   
@@ -1489,10 +1478,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#modules" class="md-nav__link">
+  <a href="#1-operating-point-pools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Modules
+        1. Operating-point pools
       
     </span>
   </a>
@@ -1500,10 +1489,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-dataset" class="md-nav__link">
+  <a href="#2-meter-plan-and-noise" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The dataset
+        2. Meter plan and noise
       
     </span>
   </a>
@@ -1511,10 +1500,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-engine" class="md-nav__link">
+  <a href="#3-the-attack-families" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The engine
+        3. The attack families
       
     </span>
   </a>
@@ -1522,10 +1511,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#state-estimation" class="md-nav__link">
+  <a href="#4-episode-placement" class="md-nav__link">
     <span class="md-ellipsis">
       
-        State estimation
+        4. Episode placement
       
     </span>
   </a>
@@ -1533,10 +1522,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#localization-and-trusted-meters" class="md-nav__link">
+  <a href="#5-the-per-frame-layers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Localization and trusted meters
+        5. The per-frame layers
       
     </span>
   </a>
@@ -1544,10 +1533,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#federated-training" class="md-nav__link">
+  <a href="#6-the-rule-for-features" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Federated training
+        6. The rule for features
       
     </span>
   </a>
@@ -1555,21 +1544,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-records" class="md-nav__link">
+  <a href="#7-building-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The records
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-scores" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The scores
+        7. Building your own
       
     </span>
   </a>
@@ -1596,67 +1574,618 @@
   
 
 
-<h1 id="class-map">Class map<a class="headerlink" href="#class-map" title="Permanent link">&para;</a></h1>
-<p>How the pieces of <code>fdia_graph</code> connect: one module diagram and six class diagrams, all drawn from
-the source by <code>tools/class_diagrams.py</code> (the AST gives each class's public methods, its bases and the
-classes of other modules it names), so they cannot drift from the code. CI checks that the committed
-sources match; <code>python tools/class_diagrams.py</code> rewrites them and <code>tools/render_mermaid.py</code> renders.
-Read with <a href="../../ROADMAP/"><code>ROADMAP.md</code></a> (what each file is for) and
-<a href="../CONCEPTS_TO_CODE/"><code>CONCEPTS_TO_CODE.md</code></a> (which function implements which idea).</p>
-<p>An open arrowhead is inheritance, a dashed arrow is a class using another (an argument type, a return
-type or a collaborator it builds), and a box marked with another package's name is a participant that
-lives there.</p>
-<h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
-<p>Which module imports which. Three foundations are read by nearly every module and are left out so the
-real dependencies show: <code>models/</code> (every returned record), <code>formulas/</code> (the equations) and <code>schema.py</code>
-(the file protocol). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
-same reason. <code>streams.py</code> and <code>torch_data.py</code> are deprecated and will be removed in a future release.</p>
-<p><img alt="Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset, and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry" src="../../figures/diagrams/modules.png" /></p>
-<h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
-<p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics
-(<code>GraphMixin</code>), the admittance matrices (<code>AdmittanceMixin</code>), records and batches (<code>RecordsMixin</code>), the
-exports (<code>ExportMixin</code>) and the time-ordered windows and episodes (<code>SequenceMixin</code>). The methods that
-produce records return <code>models</code> bundles (a record, a batch, an exported split, the episode table, the
-summary); the graph properties are tensors or arrays, <code>loader()</code> is a DataLoader and <code>windows()</code> a tuple.</p>
-<p><img alt="Class diagram of the dataset package: DatasetBase with GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin and SequenceMixin under it and FdiaGraph inheriting all five; the mixins use ArraysBundle, Summary, BatchBundle, RecordBundle, EpisodeTable, Admittances and BranchModel" src="../../figures/diagrams/classes_dataset.png" /></p>
-<h2 id="the-engine">The engine<a class="headerlink" href="#the-engine" title="Permanent link">&para;</a></h2>
-<p><code>FdiaGenerator</code> is the AC model of one system with its meter plan. <code>GridBase</code> declares what the mixins
-provide: <code>MeasurementMixin</code> emits scans, <code>PhysicsMixin</code> solves states (the whole grid, or the attacker's
-local region), <code>AttackMixin</code> builds the in-place corruptions and the load redistribution. The frame
-builders in <code>engine/records.py</code> are functions over a generator, and <code>timeline.py</code> walks them.</p>
-<p><img alt="Class diagram of the engine package: GridBase with MeasurementMixin, PhysicsMixin and AttackMixin under it and FdiaGenerator inheriting all three; the mixins use Scan, Band, TamperTarget, Redistribution, OperatingLimits and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias and an Outage" src="../../figures/diagrams/classes_engine.png" /></p>
-<h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
-<p><code>SEBase</code> holds the shared solve: the measurement function, the chord Jacobian, the meter weights and the
-chord-Newton loop. Each estimator overrides one hook. <code>GatedPrior</code> takes a fitted localizer as its gate;
-<code>JacobianFeatures</code> is the per-bus feature block the localizers can consume.</p>
-<p><img alt="Class diagram of the estimation package: SEBase with WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior and JacobianWeighting under it, GatedPrior under SubspacePrior using a LocalizerBase gate, JacobianFeatures beside them; the estimators use ErrorPair, EstimatorScores, TrueState and JacobianOutputs" src="../../figures/diagrams/classes_estimation.png" /></p>
-<h2 id="localization-and-trusted-meters">Localization and trusted meters<a class="headerlink" href="#localization-and-trusted-meters" title="Permanent link">&para;</a></h2>
-<p><code>LocalizerBase</code> calibrates any per-bus score to one false-alarm budget; the threshold arms score a stored
-feature, <code>ResidualLocalizer</code> runs an estimator, the learned arms train a per-bus network.
-<code>TrustSelector</code> chooses the meters to secure on the WLS Jacobian, by row reduction (<code>TrustedMeters</code>) or
-by a deep Q-network (<code>TrustedMetersDQN</code>), and scores the residual test with them secured.</p>
-<p><img alt="Class diagram of localization and trust: LocalizerBase with SwingThreshold, DeltaThreshold, ResidualLocalizer and LearnedLocalizer under it, BusCNN and BusMLP under LearnedLocalizer; ResidualLocalizer uses an SEBase estimator, the learned arms use JacobianFeatures; TrustSelector with TrustedMeters and TrustedMetersDQN under it, using WLS; the scores are LocalizerScores, PerBusScores, GridScores and TrustScores" src="../../figures/diagrams/classes_localization_trust.png" /></p>
-<h2 id="federated-training">Federated training<a class="headerlink" href="#federated-training" title="Permanent link">&para;</a></h2>
-<p><code>FederatedLocalizer</code> is a <code>LearnedLocalizer</code> whose fit runs FedAvg over a <code>Partition</code> of the buses:
-each client trains its own copy with the shared <code>LocalTrainer</code> on its own buses, and <code>FedBusMLP</code> and
-<code>FedBusCNN</code> take their encoder from <code>BusMLP</code> and <code>BusCNN</code>. <code>RoundLog</code> records every round.
-<code>RegionalPrior</code> is a <code>SubspacePrior</code> whose basis is fitted per client of a <code>Partition</code>.</p>
-<p><img alt="Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition" src="../../figures/diagrams/classes_federated.png" /></p>
-<h2 id="the-records">The records<a class="headerlink" href="#the-records" title="Permanent link">&para;</a></h2>
-<p>Everything a call returns is a <code>Bundle</code>, a dict with attribute access and a fixed key order. The record
-forms share seven field-group mixins, one per group of keys, so a record, a batch, an exported split and
-a stream carry the same names. An exported split adds an eighth, export-only group,
-<code>PreviousFrameFields</code> (the previous frame's readings on a timeline).</p>
-<p><img alt="Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle, ArraysBundle and Stream inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
-<h2 id="the-scores">The scores<a class="headerlink" href="#the-scores" title="Permanent link">&para;</a></h2>
-<p>The result of every <code>score()</code> is a <code>Bundle</code> too: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,
-<code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code> and <code>LocalizerScores</code> for the localizers, <code>TrustScores</code>
-for the trusted meters, <code>JacobianOutputs</code> for the feature block.</p>
-<p><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores and JacobianOutputs all under Bundle" src="../../figures/diagrams/classes_scores.png" /></p>
-<p>The named tuples of <code>models/frames.py</code> (<code>Scan</code>, <code>Frame</code>, <code>OperatingLimits</code>, <code>FrameKnobs</code>,
-<code>Redistribution</code>, <code>ResolvedPool</code>), <code>models/grid.py</code> (the column indices, <code>BranchModel</code>, <code>Admittances</code>,
-<code>MeterPlan</code>, <code>MeterBias</code>, <code>Outage</code>) and <code>models/assets.py</code> (<code>AssetSpec</code>, <code>LineCandidate</code>) are plain
-value types with no hierarchy, so they appear only where a class above uses them.</p>
+<h1 id="how-a-timeline-is-generated">How a timeline is generated<a class="headerlink" href="#how-a-timeline-is-generated" title="Permanent link">&para;</a></h1>
+<p>One timeline per system is the dataset. This page follows it from the load profile to the file,
+and states which layers a detector may read. Every value below is the code's default; the source of
+each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/"><code>../reference/GLOSSARY.md</code></a>.</p>
+<table>
+<thead>
+<tr>
+<th>stage</th>
+<th>code</th>
+<th>output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. operating-point pool</td>
+<td><code>profiles.fetch_profile</code>, <code>profiles.generate_states</code>, the v0.7.1 pool build</td>
+<td><code>[T, N, 4]</code> AC states, one per minute</td>
+</tr>
+<tr>
+<td>2. meter plan and noise</td>
+<td><code>engine/core.py</code> (<code>FdiaGenerator.__init__</code>), <code>engine/measurement.py</code></td>
+<td>which channels are metered, one noisy scan per state</td>
+</tr>
+<tr>
+<td>3. attack families</td>
+<td><code>timeline.py</code>, <code>engine/records.py</code>, <code>engine/attacks.py</code></td>
+<td>the attacked scan of each family</td>
+</tr>
+<tr>
+<td>4. episode placement</td>
+<td><code>timeline._place_episodes</code>, <code>timeline._frame_split</code></td>
+<td>onsets, lengths, the split</td>
+</tr>
+<tr>
+<td>5. per-frame layers</td>
+<td><code>timeline._TimelineBuffers</code>, <code>timeline.write_temporal_layers</code></td>
+<td>the HDF5 file</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; episodes are placed at uniform random onsets with an equal share of attacked frames per family; the walk emits one noisy scan per state and, inside an episode, either solves a local false state (Aq, At, Al, Am) or tampers the readings in place (Ad, As, Ar); after the walk the temporal features are written from the observed frames and the frames are split chronologically into one HDF5 file with observed, benign and clean layers" src="../../figures/diagrams/generation_flow.png" /></p>
+<p>The published default release is v0.8.1 (<code>registry._RELEASE</code>). It was built before three changes
+in this code: <code>Aq</code> and <code>Al</code> episodes are now one frame (v0.8.1 holds <code>Aq</code> for 15 to 44 frames), and
+the swing scale now comes from the observed frames instead of the noiseless pool. Those changes
+reach the data with the next release (<code>CHANGELOG.md</code>, Unreleased).</p>
+<h2 id="1-operating-point-pools">1. Operating-point pools<a class="headerlink" href="#1-operating-point-pools" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>item</th>
+<th>value</th>
+<th>source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>load profile</td>
+<td>NYISO system load, 11 zones summed, native 5-minute cadence</td>
+<td><code>profiles._fetch_nyiso</code></td>
+</tr>
+<tr>
+<td>window</td>
+<td>2024-01-01 to 2024-03-16</td>
+<td>the v0.7.1 pool build (a release script kept outside the repository; <code>WINDOW</code>)</td>
+</tr>
+<tr>
+<td>resampling</td>
+<td>time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance</td>
+<td><code>profiles.fetch_profile(resample_min=1)</code></td>
+</tr>
+<tr>
+<td>per-bus scale</td>
+<td><code>clip(1 + k * S_t + j_t, 0.7, 1.3)</code>, <code>k = 0.1</code></td>
+<td><code>profiles._ar1_scale</code>, <code>K_DEFAULT</code>, <code>CLIP_DEFAULT</code></td>
+</tr>
+<tr>
+<td>jitter <code>j_t</code></td>
+<td>per-bus AR(1), <code>j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps</code>, stationary std 0.03</td>
+<td><code>JITTER_RHO</code>, <code>SIGMA_DEFAULT</code></td>
+</tr>
+<tr>
+<td>what is scaled</td>
+<td>every load's P and Q and every generator's P at the bus, by the same factor</td>
+<td><code>profiles._solve_states_chunk</code></td>
+</tr>
+<tr>
+<td>solve</td>
+<td>pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance</td>
+<td><code>profiles._solve_states_chunk</code></td>
+</tr>
+<tr>
+<td>states kept</td>
+<td>82,000 requested, the first 72,000 converged kept per system</td>
+<td>the v0.7.1 pool build (<code>REQUEST</code>, <code>TARGET</code>)</td>
+</tr>
+<tr>
+<td>column order</td>
+<td><code>&#124;V&#124;</code> pu, <code>P_inj</code> MW, <code>Q_inj</code> MVAr, <code>theta</code> deg, voltage first</td>
+<td><code>generation.as_v_first</code>, pool attribute <code>columns</code></td>
+</tr>
+<tr>
+<td>file</td>
+<td><code>pool_ieee{C}.h5</code>, dataset <code>X</code></td>
+<td><code>registry.pool_spec</code></td>
+</tr>
+</tbody>
+</table>
+<p>The AR(1) jitter makes each bus drift smoothly from minute to minute rather than jump. The clip holds
+every bus inside a plausible load band. Shunt draws are subtracted from the stored injections,
+because the estimator models a shunt in the admittance matrix, not as an injection
+(<code>profiles._remove_shunt_injections</code>).</p>
+<p>Consecutive pool timesteps are one minute apart on the profile grid. A timestep whose power flow
+does not converge is skipped, not filled, and the pool stores no timestamps. Frame <code>t</code> of a
+timeline is pool timestep <code>t</code> (<code>data/timestep</code>).</p>
+<h2 id="2-meter-plan-and-noise">2. Meter plan and noise<a class="headerlink" href="#2-meter-plan-and-noise" title="Permanent link">&para;</a></h2>
+<p>The meter plan is drawn once per generator from the seed and is the same on every frame
+(<code>FdiaGenerator._meter_plan</code>, <code>emit_from_state</code>).</p>
+<table>
+<thead>
+<tr>
+<th>channel</th>
+<th>metered at</th>
+<th>default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&#124;V&#124;</code> and <code>theta</code></td>
+<td>the union of the voltage buses and the PMU buses</td>
+<td><code>vbus_frac = 0.6</code> (<code>int(0.6 N)</code> buses), <code>pmu_frac = 0.2</code> (<code>max(1, int(0.2 N))</code> buses)</td>
+</tr>
+<tr>
+<td><code>P_inj</code>, <code>Q_inj</code></td>
+<td>every injection bus and every zero-injection bus</td>
+<td>always</td>
+</tr>
+<tr>
+<td><code>P_from</code>, <code>Q_from</code></td>
+<td>each branch independently with probability <code>flow_frac</code></td>
+<td><code>flow_frac = 0.9</code></td>
+</tr>
+</tbody>
+</table>
+<p>Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
+generator; every other bus is zero-injection (<code>FdiaGenerator._load_tables</code>). The two sets cover every
+bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters <code>|V|</code> and <code>theta</code> at
+9 buses, P and Q at 14 buses, and 18 of 20 branch flows.</p>
+<p>Each reading is the true value plus a constant per-meter bias plus a fresh per-scan jitter
+(<code>emit_from_state</code>). The accuracy-class standard deviations follow [ASP14]
+(<code>FdiaGenerator.__init__</code>, <code>self.SD</code>):</p>
+<table>
+<thead>
+<tr>
+<th>channel</th>
+<th>total std</th>
+<th>kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>P_inj</code>, <code>Q_inj</code>, <code>P_from</code>, <code>Q_from</code></td>
+<td>0.017</td>
+<td>relative to the reading</td>
+</tr>
+<tr>
+<td><code>&#124;V&#124;</code></td>
+<td>0.0012 pu</td>
+<td>absolute</td>
+</tr>
+<tr>
+<td><code>theta</code></td>
+<td>0.00168 rad</td>
+<td>absolute</td>
+</tr>
+</tbody>
+</table>
+<p><code>formulas.noise.bias_jitter_split</code> splits each total into jitter <code>0.25 SD</code> and bias
+<code>sqrt(1 - 0.25^2) SD</code>, so the two add to the class total in quadrature. The bias is drawn once per
+meter (<code>_meter_bias</code>). Power and flow jitter also carry an absolute floor of <code>1e-3</code> MW or MVAr, so a
+near-zero reading still has noise. Treating the whole class error as per-scan noise would
+over-jitter one-minute traces and hide the temporal signal (<code>bias_jitter_split</code> docstring).</p>
+<p><code>NOISE_FLOOR = 0.02</code> (<code>generation.py</code>) is the lower edge of the attack plausibility band: a change
+below 2% of the reading sits inside meter error and resolves to noise.</p>
+<h2 id="3-the-attack-families">3. The attack families<a class="headerlink" href="#3-the-attack-families" title="Permanent link">&para;</a></h2>
+<p><code>attack_intensity = 0.20</code> is the upper edge of the band for Aq, Al, Ad and As, and bounds the redistribution Am draws at onset (<code>generate_timeline</code>, <code>lra_delta</code>). The At ramp is set by <code>ramp_rate</code> and <code>ramp_len</code>, Am's steps by <code>am_rate</code> and <code>am_len</code>, and Ar records the realized change of its replay without bounding it.
+The stealthy families are local false states [WU26]: the attacker changes loads inside a subnetwork
+within <code>hops = 2</code> branches, solves that subnetwork with the boundary voltages held true, and adds
+<code>a = h(x_false) - h(x_true)</code> to the true scan (<code>engine/records._stealthy_frame</code>). Every meter keeps
+its own noise draw, so the residual test sees noise only. Every false state must also stay within
+the case's bus voltage limits and the generator P and Q limits widened to the range the pool used
+(<code>records._within_limits</code>, <code>FdiaGenerator.operating_limits</code>).</p>
+<table>
+<thead>
+<tr>
+<th>family</th>
+<th>code</th>
+<th>construction</th>
+<th>magnitude per bus</th>
+<th>episode length</th>
+<th>stealthy</th>
+<th>target set</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Aq</code></td>
+<td>1</td>
+<td>local false state: each target load scaled by its own factor, rise or drop</td>
+<td>5% to 20% (<code>_draw_single_shot</code>)</td>
+<td>1 frame (<code>_ONE_FRAME</code>)</td>
+<td>yes</td>
+<td>1 to 6 stealthy loads (<code>_pick_targets</code>)</td>
+</tr>
+<tr>
+<td><code>Ad</code></td>
+<td>2</td>
+<td>in-place bias: additive shift on P and Q, a <code>N(0, 0.02)</code> pu shift on <code>&#124;V&#124;</code>, a shift on each incident flow</td>
+<td>2% to 20% per channel, random sign (<code>_corrupt_bias</code>)</td>
+<td><code>corrupt_len = 1</code></td>
+<td>no</td>
+<td>4 attackable loads</td>
+</tr>
+<tr>
+<td><code>As</code></td>
+<td>3</td>
+<td>in-place scaling: one gain on P and Q, one gain per incident flow</td>
+<td>gain 1.02 to 1.20 (<code>_corrupt_scaling</code>)</td>
+<td><code>corrupt_len = 1</code></td>
+<td>no</td>
+<td>4 attackable loads</td>
+</tr>
+<tr>
+<td><code>Ar</code></td>
+<td>4</td>
+<td>in-place replay: the bus's four node channels copied from an earlier benign scan, at least 20 benign scans back once that many are buffered</td>
+<td>not bounded; the realized change is recorded (<code>_corrupt_replay</code>)</td>
+<td><code>corrupt_len = 1</code></td>
+<td>no</td>
+<td>4 attackable loads</td>
+</tr>
+<tr>
+<td><code>At</code></td>
+<td>5</td>
+<td>slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state</td>
+<td>0.2% per frame (<code>ramp_rate</code>), peak 2.4% to 5.2%</td>
+<td>60 frames (<code>ramp_len</code>)</td>
+<td>yes</td>
+<td>5 stealthy loads (<code>_draw_ramp</code>)</td>
+</tr>
+<tr>
+<td><code>Al</code></td>
+<td>6</td>
+<td>redistribution: load-conserving shift across the two PTDF sides of a target line, lowering its apparent flow</td>
+<td>2% to 20% (<code>_lra_for_line</code>)</td>
+<td>1 frame (<code>_ONE_FRAME</code>)</td>
+<td>yes</td>
+<td>up to 6 stealthy loads per PTDF side, inside the line's subnetwork</td>
+</tr>
+<tr>
+<td><code>Am</code></td>
+<td>7</td>
+<td>multi-snapshot [WU26]: an <code>Al</code> redistribution drawn at onset, reached in steps</td>
+<td>per-frame step at most <code>am_rate * NOISE_FLOOR</code> = 1.8%, peak 2% to 20% (<code>_AmShape.under_floor</code>)</td>
+<td>60 frames (<code>am_len</code> defaults to <code>ramp_len</code>)</td>
+<td>yes</td>
+<td>as <code>Al</code></td>
+</tr>
+</tbody>
+</table>
+<p>Notes on the table:</p>
+<ul>
+<li>A stealthy target is an attackable load that is not on a generator bus, zero-MW condensers
+  included [BOY22] (<code>_load_tables</code>, <code>stealthy_pos</code>). An attackable load has nonzero active power,
+  is not on the slack bus and is at most <code>max_load_mw = 2000</code> MW (<code>attackable_pos</code>). <code>Ad</code>, <code>As</code> and
+  <code>Ar</code> draw from the attackable set.</li>
+<li>The <code>At</code> rise lasts 20% to 45% of the episode and the hold 0% to 25% (<code>_draw_ramp</code>). Every frame
+  carries at least one <code>ramp_rate</code> of change, so every frame labelled <code>At</code> is attacked
+  (<code>_ramp_dev</code>).</li>
+<li><code>Al</code> picks its target line at random from the 15 lines with the largest achievable flow change
+  (<code>_pick_lra_target</code>). <code>Am</code> flips the sign per episode with <code>am_direction = "both"</code>: "mask" makes a
+  loaded line read lighter, "induce" makes a safe line read loaded (<code>_am_sign</code>).</li>
+<li>A stealthy step with no local solution is halved: up to 3 times and never below the noise floor
+  for <code>Aq</code> and <code>Al</code> (<code>AQ_HALVINGS</code>), up to 6 times for a ramp frame (<code>STEP_HALVINGS</code>). <code>Aq</code>, <code>At</code>
+  and <code>Am</code> designs are tested on every frame they will occupy before they are accepted, up to 40
+  draws (<code>_ONSET_DRAWS</code>).</li>
+<li><code>Ad</code>, <code>As</code> and <code>Ar</code> do not re-solve the grid, so bad-data detection can see them [DAT26].
+  Unmetered channels stay zero after corruption (<code>_corrupt_frame</code>).</li>
+</ul>
+<h2 id="4-episode-placement">4. Episode placement<a class="headerlink" href="#4-episode-placement" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>step</th>
+<th>rule</th>
+<th>source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>weights</td>
+<td>each family is drawn with weight <code>1 / expected length</code>, so every family gets about the same share of attacked frames</td>
+<td><code>_Schedule.build</code></td>
+</tr>
+<tr>
+<td>draw</td>
+<td>episodes are drawn until their frames sum to exactly <code>round(attacked_frac * T)</code>; the last one is clipped to the remainder</td>
+<td><code>_draw_episodes</code></td>
+</tr>
+<tr>
+<td>place</td>
+<td>longest first, each at an onset drawn uniformly among the positions where it fits, never overlapping</td>
+<td><code>_place_episodes</code>, <code>_uniform_onset</code></td>
+</tr>
+<tr>
+<td>walk</td>
+<td>every frame emitted in time order: benign runs between episodes, each episode where it was placed</td>
+<td><code>_walk</code></td>
+</tr>
+<tr>
+<td>fallback</td>
+<td>a frame whose attack cannot be built is emitted benign; the count is the <code>fallback_benign</code> attribute</td>
+<td><code>_timeline_attrs</code></td>
+</tr>
+<tr>
+<td>split</td>
+<td>chronological <code>split = (0.6, 0.2, 0.2)</code>; each boundary moves to the end of an episode it would cut</td>
+<td><code>_frame_split</code></td>
+</tr>
+</tbody>
+</table>
+<p>Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
+the longest episodes first keeps a 60-frame episode from being squeezed out by one-frame ones. The
+default <code>attacked_frac = 0.5</code> gives a balanced file. The v0.8.1 files report <code>fallback_benign = 0</code>
+on every system (<code>generate_timeline</code> docstring).</p>
+<h2 id="5-the-per-frame-layers">5. The per-frame layers<a class="headerlink" href="#5-the-per-frame-layers" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>group</th>
+<th>datasets</th>
+<th>meaning</th>
+<th>written by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>data/</code></td>
+<td><code>node_x [T, N, 4]</code>, <code>edge_x [T, E, 2]</code></td>
+<td>observed readings: benign plus noise, plus the attack where attacked</td>
+<td><code>_TimelineBuffers.store</code></td>
+</tr>
+<tr>
+<td><code>data/</code></td>
+<td><code>node_m</code>, <code>edge_m</code></td>
+<td>the meter plan per frame</td>
+<td><code>_write_masks</code></td>
+</tr>
+<tr>
+<td><code>data/</code></td>
+<td><code>y [T, N]</code></td>
+<td>1 on each attacked bus</td>
+<td><code>store</code></td>
+</tr>
+<tr>
+<td><code>data/</code></td>
+<td><code>family</code>, <code>stealthy</code>, <code>seq_id</code>, <code>timestep</code>, <code>split [T]</code></td>
+<td>family code, 1 for <code>Aq/At/Al/Am</code>, episode index (-1 benign), pool timestep, 0/1/2</td>
+<td><code>_finish_timeline</code></td>
+</tr>
+<tr>
+<td><code>data/</code></td>
+<td><code>temporal_delta</code>, <code>swing [T, N, 2]</code></td>
+<td>temporal features from the observed frames</td>
+<td><code>write_temporal_layers</code></td>
+</tr>
+<tr>
+<td><code>benign/</code></td>
+<td><code>node_benign</code>, <code>edge_benign</code></td>
+<td>the same scan with the attack removed and the same noise draw</td>
+<td><code>store</code></td>
+</tr>
+<tr>
+<td><code>clean/</code></td>
+<td><code>node_clean</code>, <code>edge_clean</code></td>
+<td>the noiseless pool state and the exact flows on metered branches</td>
+<td><code>_clean_slice</code></td>
+</tr>
+<tr>
+<td><code>attack/</code></td>
+<td><code>node_tamper</code>, <code>edge_tamper</code></td>
+<td>1 where the attacker wrote the meter</td>
+<td><code>_store_attack</code></td>
+</tr>
+<tr>
+<td><code>attack/</code></td>
+<td><code>mag_ptr</code>, <code>mag_bus</code>, <code>mag</code></td>
+<td>designed change per attacked bus, ragged by frame</td>
+<td><code>_write_episodes</code></td>
+</tr>
+<tr>
+<td><code>episodes/</code></td>
+<td><code>onset</code>, <code>length</code>, <code>family</code>, <code>bus_ptr</code>, <code>bus_idx</code></td>
+<td>one row per episode</td>
+<td><code>_write_episodes</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>node_x - node_benign</code> is the attack exactly, for every family. The loader derives
+<code>edge_clean_full</code>, the clean flow on every branch, at read time (<code>dataset/__init__.py</code>).</p>
+<p>The temporal features are written after the walk from <code>data/node_x</code> alone
+(<code>timeline.write_temporal_layers</code>, <code>formulas.temporal</code>):</p>
+<table>
+<thead>
+<tr>
+<th>feature</th>
+<th>definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temporal_delta</code></td>
+<td><code>[P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)</code> of the observed frames; zero on frame 0</td>
+</tr>
+<tr>
+<td><code>swing</code></td>
+<td><code>temporal_delta</code> divided by the bus's recent-change scale</td>
+</tr>
+<tr>
+<td>scale</td>
+<td>std of the observed scan-to-scan absolute change over the last <code>SWING_WINDOW = 60</code> changes before <code>t</code>, plus <code>1e-3</code>; <code>1e-3</code> alone with fewer than three changes (<code>recent_change_scale</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>A spike reads as a large swing at its first frame. The slow ramp <code>At</code> changes by less than the typical
+recent change on every frame, so its swing stays near the benign level (<code>formulas/temporal.py</code>).</p>
+<h2 id="6-the-rule-for-features">6. The rule for features<a class="headerlink" href="#6-the-rule-for-features" title="Permanent link">&para;</a></h2>
+<p>At test time a feature may use only measurements and quantities derived from them. The <code>clean</code> and
+<code>benign</code> layers exist for evaluation and for fitting, never as feature inputs. <code>y</code>, <code>family</code>,
+<code>stealthy</code>, <code>seq_id</code>, the tamper masks and the magnitudes are labels.</p>
+<table>
+<thead>
+<tr>
+<th>SDK path</th>
+<th>reads</th>
+<th>layer role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SEBase.estimate</code></td>
+<td><code>node_x</code>, <code>edge_x</code></td>
+<td>measurements</td>
+</tr>
+<tr>
+<td><code>SEBase.fit</code></td>
+<td><code>node_x</code>, <code>edge_x</code>, <code>family</code>, <code>clean</code></td>
+<td>fitting: meter sigmas, benign mean state, <code>theta_ref</code></td>
+</tr>
+<tr>
+<td><code>SEBase.score</code></td>
+<td><code>node_x</code>, <code>edge_x</code> (through <code>estimate</code>), then <code>family</code>, <code>clean</code></td>
+<td>the estimate from measurements, then evaluation against the truth</td>
+</tr>
+<tr>
+<td><code>JacobianFeatures</code>, <code>JacobianWeighting</code></td>
+<td><code>node_x</code>, <code>edge_x</code>, <code>prev_node_x</code>, <code>prev_edge_x</code>, <code>prev_timestep</code></td>
+<td>measurements</td>
+</tr>
+<tr>
+<td><code>GatedPrior(gate="oracle")</code></td>
+<td><code>y</code></td>
+<td>evaluation ceiling only</td>
+</tr>
+<tr>
+<td><code>SwingThreshold</code>, <code>DeltaThreshold</code></td>
+<td><code>swing</code>, <code>temporal_delta</code></td>
+<td>measurements</td>
+</tr>
+<tr>
+<td><code>ResidualLocalizer</code></td>
+<td><code>node_x</code>, <code>edge_x</code></td>
+<td>measurements</td>
+</tr>
+<tr>
+<td><code>BusCNN</code>, <code>BusMLP</code>, <code>FedBusCNN</code>, <code>FedBusMLP</code></td>
+<td><code>node_x</code>, <code>node_m</code>, <code>edge_x</code>, <code>temporal_delta</code>, <code>swing</code>, <code>prev_swing</code>, <code>prev_*</code>; <code>y</code> as the training label</td>
+<td>measurements</td>
+</tr>
+<tr>
+<td><code>TrustSelector.fit</code></td>
+<td><code>node_x</code>, <code>edge_x</code>, <code>family</code></td>
+<td>measurements</td>
+</tr>
+<tr>
+<td><code>TrustSelector.score</code></td>
+<td><code>benign</code>, <code>edge_benign</code></td>
+<td>evaluation: what a secured meter reads</td>
+</tr>
+<tr>
+<td><code>trust.secured_copy</code></td>
+<td><code>benign</code>, the tamper masks</td>
+<td>builds a counterfactual file, then rewrites the temporal features from its observed frames</td>
+</tr>
+</tbody>
+</table>
+<p>Sources: <code>se/base.py</code>, <code>se/jacobian.py</code>, <code>se/methods.py</code>, <code>localization/methods.py</code>,
+<code>localization/learned.py</code> (<code>_fields</code>), <code>trust/base.py</code>, <code>trust/secured.py</code>. Every path that fits an
+estimator (<code>ResidualLocalizer</code>, the Jacobian feature sets, <code>TrustSelector</code>) reads <code>clean</code> at fit
+time through <code>SEBase.fit</code>, and only there.</p>
+<h2 id="7-building-your-own">7. Building your own<a class="headerlink" href="#7-building-your-own" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span> <span class="n">attacked_frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>   <span class="c1"># needs [generate]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"time"</span><span class="p">)</span>
+</code></pre></div>
+<p><code>generation.generate(system, name, frames=None, states=None, out=None, seed=123, **knobs)</code> loads the
+pool, keeps the first <code>frames</code> timesteps, calls <code>timeline.generate_timeline</code> and registers the file
+under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH_INIT</code> or downloads the system's pool.</p>
+<table>
+<thead>
+<tr>
+<th>knob</th>
+<th>default</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>attacked_frac</code></td>
+<td>0.5</td>
+<td>fraction of frames under an episode</td>
+</tr>
+<tr>
+<td><code>families</code></td>
+<td>all seven</td>
+<td>the families in rotation</td>
+</tr>
+<tr>
+<td><code>attack_intensity</code></td>
+<td>0.20</td>
+<td>upper edge of the band of Aq, Al, Ad and As</td>
+</tr>
+<tr>
+<td><code>ramp_rate</code></td>
+<td>0.002</td>
+<td><code>At</code> growth per frame</td>
+</tr>
+<tr>
+<td><code>ramp_len</code></td>
+<td>60</td>
+<td><code>At</code> episode length</td>
+</tr>
+<tr>
+<td><code>am_len</code></td>
+<td><code>ramp_len</code></td>
+<td><code>Am</code> episode length</td>
+</tr>
+<tr>
+<td><code>am_rate</code></td>
+<td>0.9</td>
+<td><code>Am</code> largest per-frame step as a fraction of the noise floor</td>
+</tr>
+<tr>
+<td><code>am_direction</code></td>
+<td>"both"</td>
+<td>"mask", "induce" or one drawn per episode</td>
+</tr>
+<tr>
+<td><code>hops</code></td>
+<td>2</td>
+<td>the attacker's subnetwork reach in branches</td>
+</tr>
+<tr>
+<td><code>corrupt_len</code></td>
+<td>1</td>
+<td><code>Ad</code>/<code>As</code>/<code>Ar</code> episode length; None draws 5 to 24 frames</td>
+</tr>
+<tr>
+<td><code>replay_tau</code></td>
+<td>None</td>
+<td>fixed <code>Ar</code> lag in frames; None draws a lag of at least 20</td>
+</tr>
+<tr>
+<td><code>redundancy</code></td>
+<td>None</td>
+<td><code>{vbus_frac, pmu_frac, flow_frac}</code>, default 0.6/0.2/0.9</td>
+</tr>
+<tr>
+<td><code>split</code></td>
+<td>(0.6, 0.2, 0.2)</td>
+<td>chronological train/val/test fractions</td>
+</tr>
+<tr>
+<td><code>max_load_mw</code></td>
+<td>2000.0</td>
+<td>a larger load is never a target; None disables</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>123</td>
+<td>the meter plan, the biases and every attack draw</td>
+</tr>
+</tbody>
+</table>
+<p>A data release follows the build script of the latest release (<code>examples/_build_timelines_v0*.py</code>):</p>
+<ol>
+<li>Per system, copy the unchanged pool and run <code>fg.generate(C, ..., states=pool, seed=123, frames=72000)</code>
+   into <code>timeline_ieee{C}.h5</code>; each system writes a manifest fragment with sha256 and size.</li>
+<li>Run once more with <code>MERGE=1</code> to combine the fragments into <code>manifest.json</code>.</li>
+<li>Upload with <code>python tools/upload_assets.py vX.Y.Z notes.md &lt;files&gt;</code>; it creates the <code>data-vX.Y.Z</code>
+   tag and never replaces an asset already on the release.</li>
+<li>Add the release's sha256 values to <code>registry._SHA256</code>, then bump <code>registry._RELEASE</code> last.</li>
+</ol>
 
 
 
@@ -1692,7 +2221,7 @@ value types with no hierarchy, so they appear only where a class above uses them
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../CONCEPTS_TO_CODE/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Concepts to code">
+          <a href="../../federated/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Federated">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1702,20 +2231,20 @@ value types with no hierarchy, so they appear only where a class above uses them
                 Previous
               </span>
               <div class="md-ellipsis">
-                Concepts to code
+                Federated
               </div>
             </div>
           </a>
         
         
           
-          <a href="../EXAMPLES/" class="md-footer__link md-footer__link--next" aria-label="Next: Examples">
+          <a href="../state_estimation/" class="md-footer__link md-footer__link--next" aria-label="Next: State estimation">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Examples
+                State estimation
               </div>
             </div>
             <div class="md-footer__button md-icon">

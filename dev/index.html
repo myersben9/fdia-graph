@@ -289,7 +289,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="guides/state_estimation/" class="md-tabs__link">
+        <a href="guides/generation/" class="md-tabs__link">
           
   
   
@@ -839,6 +839,34 @@
   
   
     <li class="md-nav__item">
+      <a href="guides/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeline generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="guides/state_estimation/" class="md-nav__link">
         
   
@@ -952,6 +980,34 @@
   
   
     <li class="md-nav__item">
+      <a href="reference/GLOSSARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="reference/CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
@@ -987,7 +1043,7 @@
   <span class="md-ellipsis">
     
   
-    Class map
+    Architecture (UML diagrams)
   
 
     
@@ -1560,8 +1616,16 @@ a record table when shuffled, a time series when not.</p>
 <td>which file does what, and how the paths connect</td>
 </tr>
 <tr>
+<td><a href="guides/generation/"><code>docs/guides/generation.md</code></a></td>
+<td>how a timeline is generated, and which layers a feature may read</td>
+</tr>
+<tr>
 <td><a href="reference/DATA_DICTIONARY/"><code>docs/reference/DATA_DICTIONARY.md</code></a></td>
 <td>what every array means</td>
+</tr>
+<tr>
+<td><a href="reference/GLOSSARY/"><code>docs/reference/GLOSSARY.md</code></a></td>
+<td>every term, with where it lives in the code</td>
 </tr>
 <tr>
 <td><a href="reference/CONCEPTS_TO_CODE/"><code>docs/reference/CONCEPTS_TO_CODE.md</code></a></td>
@@ -1569,7 +1633,7 @@ a record table when shuffled, a time series when not.</p>
 </tr>
 <tr>
 <td><a href="reference/CLASS_MAP/"><code>docs/reference/CLASS_MAP.md</code></a></td>
-<td>the class and module diagrams, drawn from the code</td>
+<td>architecture: the UML class and module diagrams, drawn from the code</td>
 </tr>
 <tr>
 <td><a href="reference/EXAMPLES/"><code>docs/reference/EXAMPLES.md</code></a></td>
@@ -1793,7 +1857,7 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 <td><code>At</code></td>
 <td>slow load ramp, re-solved locally every frame</td>
 <td>evades</td>
-<td>2% to 20% band, spread over 60 scans</td>
+<td>peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames</td>
 </tr>
 <tr>
 <td><code>Al</code></td>
@@ -1811,7 +1875,7 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 <td><code>Ad</code> / <code>As</code> / <code>Ar</code></td>
 <td>meter bias / scaling / replay, one frame</td>
 <td>caught</td>
-<td>2% to 20% band</td>
+<td>Ad and As 2% to 20% band; Ar replays an earlier benign scan and records the realized change</td>
 </tr>
 </tbody>
 </table>
