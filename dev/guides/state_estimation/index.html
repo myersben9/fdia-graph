@@ -1451,7 +1451,7 @@ the default v0.8.1 timeline download; <code>pip install "fdia-graph[se]"</code>.
 </tr>
 <tr>
 <td>the chord Jacobian at the benign mean state</td>
-<td>already in the truth's angle frame: the slack angle is pinned per record to <code>clean[slack]</code> (<code>ds.slack</code>)</td>
+<td>in the case's angle frame: the slack angle is fixed to the case's reference angle (<code>theta_ref</code>), the truth's slack angle on every frame</td>
 </tr>
 </tbody>
 </table>
@@ -1567,7 +1567,7 @@ estimator.</p>
 </tr>
 <tr>
 <td><code>_solve(z, thsl)</code></td>
-<td>the per-batch solve; <code>thsl</code> is the per-record slack angle reference</td>
+<td>the per-batch solve; <code>thsl</code> is the slack angle reference per record (<code>ref_angles(n)</code>)</td>
 </tr>
 </tbody>
 </table>
