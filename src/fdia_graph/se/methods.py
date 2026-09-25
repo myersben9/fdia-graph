@@ -132,7 +132,7 @@ class SubspacePrior(SEBase):
     def _fit_states(self, x_benign: np.ndarray) -> None:
         self.K, self.VK = whitened_svd_basis(x_benign, self.rank_frac)
 
-    def _basis(self) -> np.ndarray:
+    def _subspace(self) -> np.ndarray:
         return self.VK
 
     def _solve(self, z: np.ndarray, thsl: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:

@@ -102,7 +102,7 @@ class SEBase:
         self.iters = iters  # chord-Newton steps inside each solve
 
     # ---- network + measurement model -------------------------------------------------------
-    def _build_network(self, ds: FdiaGraph) -> None:
+    def _build_network(self, ds: FdiaGraph, need_clean: bool = True) -> None:
         try:
             import pandapower as pp
             import pandapower.networks as pn
@@ -110,8 +110,11 @@ class SEBase:
         except ImportError as e:
             raise ImportError("state estimation needs pandapower: pip install 'fdia-graph[se]'") from e
         require_physical(ds)
-        if not ds.has_clean:
-            raise ValueError("dataset has no clean layer; load a timeline or a v0.7.2 record shard")
+        if need_clean and not ds.has_clean:
+            raise ValueError(
+                "dataset has no clean layer; load a timeline or a v0.7.2 record shard, "
+                'or fit with calibrate="measured"'
+            )
         net = getattr(pn, _CASE_FN[int(ds.system)])()
         pp.runpp(net)
         ppc = net._ppc
@@ -228,7 +231,7 @@ class SEBase:
         alone (`_fit_from_measurements`), for any path whose output feeds a detector."""
         if calibrate not in ("truth", "measured"):
             raise ValueError(f"calibrate must be 'truth' or 'measured', got {calibrate!r}")
-        self._build_network(ds)
+        self._build_network(ds, need_clean=calibrate == "truth")
         d = ds.export(["node_x", "edge_x", "family"] + (["clean"] if calibrate == "truth" else []))
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
@@ -294,6 +297,7 @@ class SEBase:
         inverse normal matrix, the residual covariance with the critical meters, and the solve's
         Jacobian in the state or the subclass subspace (`full_state` forces the full state, for a
         calibration pass before the subspace is learned)."""
+        self._full_state = full_state
         self.xmean = xmean
         self.sig = np.maximum(sig, 1e-9)
         self.Wk = 1.0 / self.sig**2
@@ -302,7 +306,7 @@ class SEBase:
         om, R = residual_covariance_diag(self.H, self.Wk, self._Ai)
         self.critical = critical_measurements(om, R)
         self._om = floored_covariance(om, R)
-        VK = None if full_state else self._basis()
+        VK = self._basis()
         self._B, self._Bi = (
             (self.H, self._Ai)
             if VK is None
@@ -358,6 +362,11 @@ class SEBase:
 
     # ---- solving ----------------------------------------------------------------------------
     def _basis(self) -> Optional[np.ndarray]:
+        """The basis the solve runs in: the subclass subspace, or None (the full state) for a model
+        built with full_state=True, a calibration pass before the subspace is learned."""
+        return None if getattr(self, "_full_state", False) else self._subspace()
+
+    def _subspace(self) -> Optional[np.ndarray]:
         return None  # full state; SubspacePrior returns its VK
 
     def _solve_plain(self, z: np.ndarray, thsl: np.ndarray) -> np.ndarray:

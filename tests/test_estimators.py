@@ -163,3 +163,28 @@ def test_measured_calibration_reads_no_clean_layer(timeline, tmp_path):
     assert np.allclose(a.sig[:v], ACCURACY_CLASS["v"])
     with pytest.raises(ValueError, match="calibrate"):
         WLS().fit(fg.load(timeline, split="train"), calibrate="oracle")
+
+
+def test_measured_calibration_fits_without_a_clean_layer(timeline, tmp_path):
+    """A file with no clean layer fits with calibrate="measured", the subspace prior included (its
+    calibration passes solve in the full state before the subspace exists), and still refuses the
+    truth calibration."""
+    import shutil
+
+    import h5py
+
+    from fdia_graph import FdiaGraph, schema
+    from fdia_graph.se import WLS, SubspacePrior
+
+    copy = str(tmp_path / "no_clean.h5")
+    shutil.copyfile(fg.load(timeline).path, copy)
+    with h5py.File(copy, "r+") as f:
+        del f[schema.NODE_CLEAN], f[schema.EDGE_CLEAN]
+    ds = FdiaGraph(copy, split="train")
+    assert not ds.has_clean
+    for est in (WLS(), SubspacePrior(reweight="huber")):
+        est.fit(ds, calibrate="measured")
+        assert np.isfinite(est.xmean).all() and not est._full_state
+    assert SubspacePrior().fit(ds, calibrate="measured")._basis().shape[1] < 2 * ds.N - 1
+    with pytest.raises(ValueError, match="clean layer"):
+        WLS().fit(ds)
