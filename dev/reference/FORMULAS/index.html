@@ -1736,6 +1736,13 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>normalized residuals, <code>ResidualRemoval</code></td>
 </tr>
 <tr>
+<td>accuracy-class sigma</td>
+<td><code>formulas.estimation.accuracy_class_sigma</code>, called by <code>SEBase._class_sigma</code> (<code>fit(calibrate="measured")</code>)</td>
+<td>σ_i = c_i |z̄_i| + floor (relative), σ_i = c_i (absolute)</td>
+<td>[ASP14]</td>
+<td>the measurement-only calibration of the detector paths</td>
+</tr>
+<tr>
 <td>normalized residual</td>
 <td><code>formulas.estimation.normalized_residual</code>, called by <code>SEBase._nres</code></td>
 <td>r_N,i = |z_i − h_i(x̂)| / √Ω_ii</td>

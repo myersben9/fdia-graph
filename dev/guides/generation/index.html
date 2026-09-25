@@ -2027,9 +2027,14 @@ recent change on every frame, so its swing stays near the benign level (<code>fo
 <td>measurements</td>
 </tr>
 <tr>
-<td><code>SEBase.fit</code></td>
+<td><code>SEBase.fit(calibrate="truth")</code></td>
 <td><code>node_x</code>, <code>edge_x</code>, <code>family</code>, <code>clean</code></td>
-<td>fitting: meter sigmas, benign mean state, <code>theta_ref</code></td>
+<td>fitting for the estimation benchmark: meter sigmas, benign mean state, <code>theta_ref</code></td>
+</tr>
+<tr>
+<td><code>SEBase.fit(calibrate="measured")</code></td>
+<td><code>node_x</code>, <code>edge_x</code>, <code>family</code></td>
+<td>fitting from the meters' accuracy classes and the estimated benign states</td>
 </tr>
 <tr>
 <td><code>SEBase.score</code></td>
@@ -2079,9 +2084,10 @@ recent change on every frame, so its swing stays near the benign level (<code>fo
 </tbody>
 </table>
 <p>Sources: <code>se/base.py</code>, <code>se/jacobian.py</code>, <code>se/methods.py</code>, <code>localization/methods.py</code>,
-<code>localization/learned.py</code> (<code>_fields</code>), <code>trust/base.py</code>, <code>trust/secured.py</code>. Every path that fits an
-estimator (<code>ResidualLocalizer</code>, the Jacobian feature sets, <code>TrustSelector</code>) reads <code>clean</code> at fit
-time through <code>SEBase.fit</code>, and only there.</p>
+<code>localization/learned.py</code> (<code>_fields</code>), <code>trust/base.py</code>, <code>trust/secured.py</code>. Every path whose
+output feeds a detector (<code>ResidualLocalizer</code>, the Jacobian feature sets, <code>TrustSelector</code>) fits its
+estimator with <code>calibrate="measured"</code>, so no clean layer is read at fit or test time. The state
+estimators themselves default to <code>calibrate="truth"</code>, the estimation benchmark's calibration.</p>
 <h2 id="7-building-your-own">7. Building your own<a class="headerlink" href="#7-building-your-own" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">fg</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_run"</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span> <span class="n">attacked_frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>   <span class="c1"># needs [generate]</span>
