@@ -1,4 +1,4 @@
-"""The deprecated stream entry points (retire in 0.19): `generate_stream` writes a timeline file
+"""The deprecated stream entry points, to be removed in a future release: `generate_stream` writes a timeline file
 through `fdia_graph.timeline` and returns it as the stream dict, `load_stream` reads the v0.7.2
 stream files, and `windows` slides over a stream dict. The timeline file is the dataset now:
 `fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`.

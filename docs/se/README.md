@@ -20,7 +20,7 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | needs | `pip install "fdia-graph[se]"`, a timeline (v0.8.1) or a v0.7.2 record shard, `units="physical"` |
 |---|---|
 | walkthrough | [`../guides/state_estimation.md`](../guides/state_estimation.md) |
-| state | 2N-1: every voltage magnitude, every non-slack angle; slack angle fixed to the case's reference angle (`theta_ref`) |
+| state | 2N-1: every voltage magnitude, every non-slack angle; slack angle fixed to one reference angle, `theta_ref`, taken from the training split at fit time (the case's reference angle on the released pools) |
 
 ## The method classes
 

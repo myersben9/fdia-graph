@@ -265,7 +265,7 @@ def _family_metrics(p: np.ndarray, t: np.ndarray) -> FamilyMetrics:
 
 
 def _perbus_f1(pred: np.ndarray, truth: np.ndarray) -> np.ndarray:
-    """F1 per bus [N] over the record axis (`formulas.metrics`). Its mean over attackable buses is
+    """F1 per bus [N] over the record axis (`formulas.metrics`). Its mean over the active buses is
     the papers' localization macro-F1."""
     return perbus_f1_from_counts(*perbus_counts(pred, truth))
 

@@ -5,7 +5,7 @@ feed those into `generate()` to inject attacks. Profiles are pluggable across IS
 
 Pipeline:  load profile  ->  per-timestep scaled loads  ->  AC power flow (pandapower)  ->  operating states
 The operating states are the [T, N, 4] pool the attack generator injects onto:
-    columns = [ P_inj (MW), Q_inj (MVAr), |V| (p.u.), theta (deg) ]   (pandapower consumer-positive convention)
+    columns = [ |V| (p.u.), P_inj (MW), Q_inj (MVAr), theta (deg) ]   (pandapower consumer-positive convention)
 
     load_profile(source, ...)  ->  a normalized load-scaling vector S [T]
     generate_states(system, S) ->  a pool of operating states [T, N, 4]

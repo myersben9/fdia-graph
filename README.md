@@ -36,6 +36,9 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | `pip install "fdia-graph[pyg]"` | + torch_geometric records and timelines |
 | `pip install "fdia-graph[se]"` | + state estimation, residual localization (pandapower, scipy; add `[torch]` for speed) |
 | `pip install "fdia-graph[generate]"` | + pandapower, to generate custom data |
+| `pip install "fdia-graph[iso]"` | + gridstatus, to download CAISO and ERCOT load profiles (NYISO needs no extra) |
+| `pip install "fdia-graph[federated]"` | + torch and scikit-learn, for `fdia_graph.federated` |
+| `pip install "fdia-graph[all]"` | every extra above |
 
 Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.7.2")`
 pins a data version (the v0.7.2 record shards still load); `pip install --upgrade fdia-graph` moves it forward.
@@ -115,11 +118,11 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 
 | family | attack | classical BDD | plausibility |
 |---|---|---|---|
-| `Aq` | load rescale, the subnetwork around the buses re-solved locally | evades | every per-bus change within a 2% to 20% band |
-| `At` | slow load ramp, re-solved locally every frame | evades | same band, spread over 60 scans |
-| `Al` | load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally | evades | same band, load conserved |
-| `Am` | the redistribution reached in per-frame steps under the noise floor | evades | same band, spread over 60 scans |
-| `Ad` / `As` / `Ar` | meter bias / scaling / replay | caught | same band |
+| `Aq` | load rescale, the subnetwork around the buses re-solved locally, one frame | evades | every per-bus change within a 5% to 20% band |
+| `At` | slow load ramp, re-solved locally every frame | evades | 2% to 20% band, spread over 60 scans |
+| `Al` | load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally, one frame | evades | 2% to 20% band, load conserved |
+| `Am` | the redistribution reached in per-frame steps under the noise floor | evades | 2% to 20% band, spread over 60 scans |
+| `Ad` / `As` / `Ar` | meter bias / scaling / replay, one frame | caught | 2% to 20% band |
 
 Every stealthy family is a local false state [WU26]: the attacker solves the power flow of a
 subnetwork around the attack with the boundary voltages held true, writes only that subnetwork's

@@ -4,8 +4,8 @@ SEBase owns what all estimators have in common: the AC measurement model h(x) bu
 pandapower case, the chord-Newton iteration with its divergence guard, the meter weights calibrated
 from benign residuals, and the reference handling (the classical 2N-1 state: only the slack ANGLE
 is fixed, to one reference angle `theta_ref` taken from the training split at fit time (the
-case's reference angle on the released pools); every voltage magnitude including the slack is estimated, matching
-production practice). Estimating reads measurements only; fitting calibrates on the training
+case's reference angle on the released pools); every voltage magnitude including the slack is
+estimated, matching production practice). Estimating reads measurements only; fitting calibrates on the training
 split's clean layer, and `score` compares with it. Subclasses change only the state space and the
 weights, mirroring the paper's protocol.
 
@@ -400,7 +400,7 @@ class SEBase:
         self.theta_ref = float(thsl[0])
 
     def ref_angles(self, n: int) -> np.ndarray:
-        """The slack angle every estimate is referenced to, for n records: the case's reference angle."""
+        """The slack angle every estimate is referenced to, for n records: `theta_ref`, fixed at fit time."""
         return np.full(n, self.theta_ref)
 
     def score(self, ds: FdiaGraph, chunk: int = 1000, xhat: Optional[np.ndarray] = None) -> EstimatorScores:

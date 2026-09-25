@@ -58,7 +58,7 @@ class FrameKnobs(NamedTuple):
     intensity: float  # attack_intensity: load-shift bound of Aq/Al and the plausibility cap of Ad/As/Ar
     floor: float  # lower edge of the plausibility band (NOISE_FLOOR)
     lra_k: int  # most buses an LRA redistribution may touch
-    replay_tau: Optional[int]  # Ar/As replay depth in scans, None = random lag of at least REPLAY_MIN_LAG
+    replay_tau: Optional[int]  # Ar replay depth in scans, None = random lag of at least REPLAY_MIN_LAG
     reject_below_floor: bool  # shards: reject a within-noise scan so the draw loop redraws
     with_benign: bool  # streams: also emit the un-attacked twin of the scan
     # the stealthy families are local false states [WU26]: the attacker solves the subnetwork within
