@@ -173,7 +173,8 @@ def generate_states(
 ) -> np.ndarray:
     """Turn a load-scaling profile into a pool of AC operating states [T, N, 4].
 
-    For each timestep t: draw a per-bus scale factor clip(1 + k*S_t + N(0, sigma), *clip), apply it to the
+    For each timestep t: draw a per-bus scale factor clip(1 + k*S_t + j_t, *clip), with j_t an AR(1) jitter
+    of stationary std sigma and coefficient JITTER_RHO, apply it to the
     case's base loads and generator setpoints, solve the AC power flow, and record the clean operating state.
     The recorded injection subtracts res_shunt (SE/BDD excludes the shunt), which is why benign states pass
     BDD. Non-converging timesteps are skipped.

@@ -121,10 +121,10 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 | family | attack | classical BDD | plausibility |
 |---|---|---|---|
 | `Aq` | load rescale, the subnetwork around the buses re-solved locally, one frame | evades | every per-bus change within a 5% to 20% band |
-| `At` | slow load ramp, re-solved locally every frame | evades | 2% to 20% band, spread over 60 scans |
+| `At` | slow load ramp, re-solved locally every frame | evades | peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames |
 | `Al` | load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally, one frame | evades | 2% to 20% band, load conserved |
 | `Am` | the redistribution reached in per-frame steps under the noise floor | evades | 2% to 20% band, spread over 60 scans |
-| `Ad` / `As` / `Ar` | meter bias / scaling / replay, one frame | caught | 2% to 20% band |
+| `Ad` / `As` / `Ar` | meter bias / scaling / replay, one frame | caught | Ad and As 2% to 20% band; Ar replays an earlier benign scan and records the realized change |
 
 Every stealthy family is a local false state [WU26]: the attacker solves the power flow of a
 subnetwork around the attack with the boundary voltages held true, writes only that subnetwork's
