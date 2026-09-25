@@ -1,0 +1,19 @@
+flowchart LR
+    subgraph pool["1. operating-point pool"]
+        p1["ISO load, 5-min"] --> p2["resample to 1-min,<br/>per-bus AR(1) jitter, clip"]
+        p2 --> p3["AC power flow per state<br/>72,000 converged states"]
+    end
+    subgraph plan["2. placement"]
+        s1["family weights:<br/>equal share of attacked frames"] --> s2["uniform random onsets,<br/>no overlap, exact fraction"]
+    end
+    subgraph walk["3. walk, one frame per state"]
+        w1["emit the scan:<br/>meter plan, bias + jitter"] --> w2{"frame in<br/>an episode?"}
+        w2 -- "Aq At Al Am" --> w3["local false state<br/>re-solved subnetwork"]
+        w2 -- "Ad As Ar" --> w4["tamper readings<br/>in place"]
+        w2 -- no --> w5[benign scan]
+    end
+    subgraph after["4. after the walk"]
+        a1["temporal_delta, swing<br/>from observed frames only"] --> a2["chronological split<br/>0.6 / 0.2 / 0.2"]
+    end
+    pool --> plan --> walk --> after
+    after --> f[("timeline_ieeeN.h5<br/>observed · benign · clean")]

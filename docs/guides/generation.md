@@ -6,11 +6,13 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 
 | stage | code | output |
 |---|---|---|
-| 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, `examples/_build_pool72_v071.py` | `[T, N, 4]` AC states, one per minute |
+| 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
 | 2. meter plan and noise | `engine/core.py` (`FdiaGenerator.__init__`), `engine/measurement.py` | which channels are metered, one noisy scan per state |
 | 3. attack families | `timeline.py`, `engine/records.py`, `engine/attacks.py` | the attacked scan of each family |
 | 4. episode placement | `timeline._place_episodes`, `timeline._frame_split` | onsets, lengths, the split |
 | 5. per-frame layers | `timeline._TimelineBuffers`, `timeline.write_temporal_layers` | the HDF5 file |
+
+![The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; episodes are placed at uniform random onsets with an equal share of attacked frames per family; the walk emits one noisy scan per state and, inside an episode, either solves a local false state (Aq, At, Al, Am) or tampers the readings in place (Ad, As, Ar); after the walk the temporal features are written from the observed frames and the frames are split chronologically into one HDF5 file with observed, benign and clean layers](../figures/diagrams/generation_flow.png)
 
 The published default release is v0.8.1 (`registry._RELEASE`). It was built before three changes
 in this code: `Aq` and `Al` episodes are now one frame (v0.8.1 holds `Aq` for 15 to 44 frames), and
@@ -22,13 +24,13 @@ reach the data with the next release (`CHANGELOG.md`, Unreleased).
 | item | value | source |
 |---|---|---|
 | load profile | NYISO system load, 11 zones summed, native 5-minute cadence | `profiles._fetch_nyiso` |
-| window | 2024-01-01 to 2024-03-16 | `_build_pool72_v071.py` (`WINDOW`) |
+| window | 2024-01-01 to 2024-03-16 | the v0.7.1 pool build (a release script kept outside the repository; `WINDOW`) |
 | resampling | time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance | `profiles.fetch_profile(resample_min=1)` |
 | per-bus scale | `clip(1 + k * S_t + j_t, 0.7, 1.3)`, `k = 0.1` | `profiles._ar1_scale`, `K_DEFAULT`, `CLIP_DEFAULT` |
 | jitter `j_t` | per-bus AR(1), `j_t = 0.98 j_{t-1} + sqrt(1 - 0.98^2) * 0.03 * eps`, stationary std 0.03 | `JITTER_RHO`, `SIGMA_DEFAULT` |
 | what is scaled | every load's P and Q and every generator's P at the bus, by the same factor | `profiles._solve_states_chunk` |
 | solve | pandapower AC power flow, flat start, 50 iterations, 1e-6 MVA tolerance | `profiles._solve_states_chunk` |
-| states kept | 82,000 requested, the first 72,000 converged kept per system | `_build_pool72_v071.py` (`REQUEST`, `TARGET`) |
+| states kept | 82,000 requested, the first 72,000 converged kept per system | the v0.7.1 pool build (`REQUEST`, `TARGET`) |
 | column order | <code>&#124;V&#124;</code> pu, `P_inj` MW, `Q_inj` MVAr, `theta` deg, voltage first | `generation.as_v_first`, pool attribute `columns` |
 | file | `pool_ieee{C}.h5`, dataset `X` | `registry.pool_spec` |
 
@@ -78,7 +80,7 @@ below 2% of the reading sits inside meter error and resolves to noise.
 
 ## 3. The attack families
 
-`attack_intensity = 0.20` is the upper edge of the band for every family (`generate_timeline`).
+`attack_intensity = 0.20` is the upper edge of the band for Aq, Al, Ad and As (`generate_timeline`). The ramp families At and Am are set by `ramp_rate` and `ramp_len`, and Ar records the realized change of its replay without bounding it.
 The stealthy families are local false states [WU26]: the attacker changes loads inside a subnetwork
 within `hops = 2` branches, solves that subnetwork with the boundary voltages held true, and adds
 `a = h(x_false) - h(x_true)` to the true scan (`engine/records._stealthy_frame`). Every meter keeps
@@ -202,7 +204,7 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 |---|---|---|
 | `attacked_frac` | 0.5 | fraction of frames under an episode |
 | `families` | all seven | the families in rotation |
-| `attack_intensity` | 0.20 | upper edge of every family's band |
+| `attack_intensity` | 0.20 | upper edge of the band of Aq, Al, Ad and As |
 | `ramp_rate` | 0.002 | `At` growth per frame |
 | `ramp_len` | 60 | `At` episode length |
 | `am_len` | `ramp_len` | `Am` episode length |
@@ -216,7 +218,7 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `max_load_mw` | 2000.0 | a larger load is never a target; None disables |
 | `seed` | 123 | the meter plan, the biases and every attack draw |
 
-A data release follows `examples/_build_timelines_v083.py`:
+A data release follows the build script of the latest release (`examples/_build_timelines_v0*.py`):
 
 1. Per system, copy the unchanged pool and run `fg.generate(C, ..., states=pool, seed=123, frames=72000)`
    into `timeline_ieee{C}.h5`; each system writes a manifest fragment with sha256 and size.

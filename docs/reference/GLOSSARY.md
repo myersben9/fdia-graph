@@ -15,7 +15,7 @@ the data terms is in [`../guides/generation.md`](../guides/generation.md); citat
 | episode | A run of consecutive frames under one attack of one family on one design; episodes never overlap. | `timeline._Episode`, `episodes/` group, `data/seq_id` |
 | onset | The first frame of an episode, drawn uniformly among the positions where the episode fits. | `timeline._uniform_onset`, `episodes/onset` |
 | pool | The operating-point pool: `[T, N, 4]` converged AC states in <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` order, one per minute of the load profile. | `profiles.generate_states`, `generation._load_states`, `pool_ieee{C}.h5` |
-| timeline | One HDF5 file per system: every pool timestep scanned in time order, with attack episodes placed on it; the dataset from data release v0.8.0. | `timeline.generate_timeline`, `schema.KIND_TIMELINE` |
+| timeline | One HDF5 file per system: every pool timestep scanned in time order, with attack episodes placed on it; the file format of every data release from v0.8.0. | `timeline.generate_timeline`, `schema.KIND_TIMELINE` |
 | record shard (legacy) | The pre-v0.8.0 file layout, `ml_only_ieee{C}.h5`: independent records with gap rows, no `benign/`, `episodes/` or `attack/` groups; still readable with `release="v0.7.2"`. | `registry.dataset_file`, `schema.GAP` |
 | release | A tagged set of data assets (`data-v<x.y.z>` from v0.8.0), pinned by sha256; `registry._RELEASE` is the default. | `registry.py`, `tools/upload_assets.py` |
 | split | The chronological train, val and test partition (0, 1, 2), boundaries moved so no episode is cut. | `timeline._frame_split`, `data/split`, `schema.SPLIT_CODE` |
