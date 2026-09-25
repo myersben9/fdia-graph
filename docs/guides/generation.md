@@ -80,7 +80,7 @@ below 2% of the reading sits inside meter error and resolves to noise.
 
 ## 3. The attack families
 
-`attack_intensity = 0.20` is the upper edge of the band for Aq, Al, Ad and As (`generate_timeline`). The ramp families At and Am are set by `ramp_rate` and `ramp_len`, and Ar records the realized change of its replay without bounding it.
+`attack_intensity = 0.20` is the upper edge of the band for Aq, Al, Ad and As, and bounds the redistribution Am draws at onset (`generate_timeline`, `lra_delta`). The At ramp is set by `ramp_rate` and `ramp_len`, Am's steps by `am_rate` and `am_len`, and Ar records the realized change of its replay without bounding it.
 The stealthy families are local false states [WU26]: the attacker changes loads inside a subnetwork
 within `hops = 2` branches, solves that subnetwork with the boundary voltages held true, and adds
 `a = h(x_false) - h(x_true)` to the true scan (`engine/records._stealthy_frame`). Every meter keeps
@@ -173,7 +173,7 @@ At test time a feature may use only measurements and quantities derived from the
 |---|---|---|
 | `SEBase.estimate` | `node_x`, `edge_x` | measurements |
 | `SEBase.fit` | `node_x`, `edge_x`, `family`, `clean` | fitting: meter sigmas, benign mean state, `theta_ref` |
-| `SEBase.score` | `family`, `clean` | evaluation |
+| `SEBase.score` | `node_x`, `edge_x` (through `estimate`), then `family`, `clean` | the estimate from measurements, then evaluation against the truth |
 | `JacobianFeatures`, `JacobianWeighting` | `node_x`, `edge_x`, `prev_node_x`, `prev_edge_x`, `prev_timestep` | measurements |
 | `GatedPrior(gate="oracle")` | `y` | evaluation ceiling only |
 | `SwingThreshold`, `DeltaThreshold` | `swing`, `temporal_delta` | measurements |
