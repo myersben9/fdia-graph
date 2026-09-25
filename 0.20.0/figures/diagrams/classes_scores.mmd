@@ -1,0 +1,44 @@
+classDiagram
+    class Bundle {
+        +key_of()
+        +to_dict()
+        +ordered()
+        +update()
+        +setdefault()
+        +pop()
+        +popitem()
+        +clear()
+    }
+    class ErrorPair {
+    }
+    class EstimatorScores {
+    }
+    class OverallMetrics {
+    }
+    class BenignMetrics {
+    }
+    class FamilyMetrics {
+    }
+    class LocalizerScores {
+    }
+    class PerBusMetrics {
+    }
+    class PerBusScores {
+    }
+    class GridScores {
+    }
+    class TrustScores {
+    }
+    class JacobianOutputs {
+    }
+    Bundle <|-- BenignMetrics
+    Bundle <|-- ErrorPair
+    Bundle <|-- EstimatorScores
+    Bundle <|-- FamilyMetrics
+    Bundle <|-- GridScores
+    Bundle <|-- JacobianOutputs
+    Bundle <|-- LocalizerScores
+    Bundle <|-- OverallMetrics
+    Bundle <|-- PerBusMetrics
+    Bundle <|-- PerBusScores
+    Bundle <|-- TrustScores

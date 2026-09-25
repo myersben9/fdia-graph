@@ -1,0 +1,14 @@
+flowchart TB
+    subgraph generate["fg.generate(system, name)"]
+        direction LR
+        p1[profiles.py<br/>ISO load series] --> p2["engine: AC solve<br/>operating-state pool"]
+        p2 --> p3["timeline.py: the walk<br/>attack episodes, benign frames"]
+        p3 --> p4["attack_frame<br/>in engine.records,<br/>one scan per frame"]
+        p4 --> p5[("one HDF5 file, registered<br/>data · benign · clean · episodes · attack")]
+    end
+    subgraph load["fg.load(name, order), the registered file"]
+        direction LR
+        l1[registry.resolve<br/>name, release, layout] --> l2[download.ensure_local<br/>cache, sha256]
+        l2 --> l3["FdiaGraph<br/>random: records, batches, exports<br/>time: windows, episodes"]
+    end
+    generate ~~~ load

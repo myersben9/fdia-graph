@@ -1,0 +1,58 @@
+classDiagram
+    class SEBase {
+        +fit()
+        +is_fitted
+        +estimate()
+        +ref_angles()
+        +score()
+    }
+    class WLS {
+    }
+    class AdaptiveWeighting {
+    }
+    class ResidualRemoval {
+    }
+    class SubspacePrior {
+    }
+    class JacobianWeighting {
+        +fit()
+        +weights()
+    }
+    class GatedPrior {
+        +gated_weights()
+    }
+    class JacobianFeatures {
+        +fit()
+        +previous_estimate()
+        +delta_z()
+        +transform()
+    }
+    class ErrorPair {
+        <<models>>
+    }
+    class EstimatorScores {
+        <<models>>
+    }
+    class JacobianOutputs {
+        <<models>>
+    }
+    class LocalizerBase {
+        <<localization>>
+    }
+    class TrueState {
+        <<models>>
+    }
+    SEBase <|-- AdaptiveWeighting
+    SEBase <|-- JacobianWeighting
+    SEBase <|-- ResidualRemoval
+    SEBase <|-- SubspacePrior
+    SEBase <|-- WLS
+    SubspacePrior <|-- GatedPrior
+    GatedPrior ..> LocalizerBase : gate
+    JacobianFeatures ..> JacobianOutputs : uses
+    JacobianFeatures ..> SEBase : uses
+    JacobianFeatures ..> WLS : uses
+    JacobianWeighting ..> JacobianFeatures : uses
+    SEBase ..> ErrorPair : uses
+    SEBase ..> EstimatorScores : uses
+    SEBase ..> TrueState : uses

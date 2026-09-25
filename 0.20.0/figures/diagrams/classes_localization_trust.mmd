@@ -1,0 +1,85 @@
+classDiagram
+    class LocalizerBase {
+        +fit()
+        +scores()
+        +localize()
+        +score()
+        +score_perbus()
+    }
+    class SwingThreshold {
+    }
+    class DeltaThreshold {
+    }
+    class ResidualLocalizer {
+    }
+    class LearnedLocalizer {
+        +fit()
+        +tune_threshold()
+        +tune_grid_threshold()
+        +score_grid()
+    }
+    class LocalTrainer {
+        +stage()
+        +run()
+    }
+    class BusCNN {
+    }
+    class BusMLP {
+    }
+    class TrustSelector {
+        +fit()
+        +select()
+        +score()
+        +attack_cost()
+        +secured_copy()
+    }
+    class TrustedMeters {
+    }
+    class TrustedMetersDQN {
+    }
+    class GridScores {
+        <<models>>
+    }
+    class JacobianFeatures {
+        <<se>>
+    }
+    class LocalizerScores {
+        <<models>>
+    }
+    class OptimConfig {
+        <<models>>
+    }
+    class PerBusMetrics {
+        <<models>>
+    }
+    class PerBusScores {
+        <<models>>
+    }
+    class SEBase {
+        <<se>>
+    }
+    class TrustScores {
+        <<models>>
+    }
+    class WLS {
+        <<se>>
+    }
+    LearnedLocalizer <|-- BusCNN
+    LearnedLocalizer <|-- BusMLP
+    LocalizerBase <|-- DeltaThreshold
+    LocalizerBase <|-- LearnedLocalizer
+    LocalizerBase <|-- ResidualLocalizer
+    LocalizerBase <|-- SwingThreshold
+    TrustSelector <|-- TrustedMeters
+    TrustSelector <|-- TrustedMetersDQN
+    LearnedLocalizer ..> GridScores : uses
+    LearnedLocalizer ..> JacobianFeatures : uses
+    LearnedLocalizer ..> OptimConfig : uses
+    LocalTrainer ..> OptimConfig : uses
+    LocalizerBase ..> LocalizerScores : uses
+    LocalizerBase ..> PerBusMetrics : uses
+    LocalizerBase ..> PerBusScores : uses
+    ResidualLocalizer ..> SEBase : estimator
+    ResidualLocalizer ..> WLS : uses
+    TrustSelector ..> TrustScores : uses
+    TrustSelector ..> WLS : uses
