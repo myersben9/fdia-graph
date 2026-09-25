@@ -14,10 +14,9 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 
 ![The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; episodes are placed at uniform random onsets with an equal share of attacked frames per family; the walk emits one noisy scan per state and, inside an episode, either solves a local false state (Aq, At, Al, Am) or tampers the readings in place (Ad, As, Ar); after the walk the temporal features are written from the observed frames and the frames are split chronologically into one HDF5 file with observed, benign and clean layers](../figures/diagrams/generation_flow.png)
 
-The published default release is v0.8.1 (`registry._RELEASE`). It was built before three changes
-in this code: `Aq` and `Al` episodes are now one frame (v0.8.1 holds `Aq` for 15 to 44 frames), and
-the swing scale now comes from the observed frames instead of the noiseless pool. Those changes
-reach the data with the next release (`CHANGELOG.md`, Unreleased).
+The published default release is v0.8.3 (`registry._RELEASE`), built by this code. Releases up to
+v0.8.1 differ in two ways: they hold `Aq` for 15 to 44 frames and `Al` for 10 to 29, and they
+compute the swing scale from the noiseless pool instead of the observed frames.
 
 ## 1. Operating-point pools
 
@@ -130,7 +129,7 @@ Notes on the table:
 
 Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
 the longest episodes first keeps a 60-frame episode from being squeezed out by one-frame ones. The
-default `attacked_frac = 0.5` gives a balanced file. The v0.8.1 files report `fallback_benign = 0`
+default `attacked_frac = 0.5` gives a balanced file. The v0.8.1 and v0.8.3 files report `fallback_benign = 0`
 on every system (`generate_timeline` docstring).
 
 ## 5. The per-frame layers
