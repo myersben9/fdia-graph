@@ -69,23 +69,32 @@ test split (F1 and recall over every test record, FR the per-bus alarm rate on b
 
 | Method | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Per-bus MLP | 0.7617 | 0.6785 | 0.0043 | 0.5479 | 0.4533 | 0.0020 | 0.4891 | 0.4568 | 0.0025 |
-| **1D CNN** | 0.7833 | 0.7209 | 0.0013 | 0.5394 | 0.4180 | 0.0005 | 0.4885 | 0.4505 | 0.0024 |
-| Swing threshold | 0.1182 | 0.0658 | 0.0066 | 0.5518 | 0.6474 | 0.0097 | 0.5098 | 0.7876 | 0.0092 |
+| Per-bus MLP | 0.7397 | 0.6352 | 0.0058 | 0.7033 | 0.6020 | 0.0013 | 0.7229 | 0.6211 | 0.0003 |
+| **1D CNN** | 0.8037 | 0.7303 | 0.0010 | 0.8124 | 0.7406 | 0.0002 | 0.8108 | 0.7587 | 0.0000 |
+| 1D CNN + previous swing | 0.8459 | 0.7533 | 0.0001 | 0.9125 | 0.8522 | 0.0000 | 0.8830 | 0.8225 | 0.0000 |
+| Swing threshold | 0.2476 | 0.1548 | 0.0116 | 0.5418 | 0.6855 | 0.0100 | 0.4685 | 0.8074 | 0.0099 |
 
-The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 / 0.9327 for the MLP on
-v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards. The v0.8.1 timeline columns are lower for the same detectors because their temporal features compare each frame with the frame emitted one minute earlier rather than with the benign scan before an attacked snapshot, so a sustained episode spikes at its onset and a one-frame family also spikes on the benign frame after it. Those post-attack benign frames stay in the benign calibration set on purpose: an operator's detector sees them too, so leaving them out would set lower thresholds and let the realized false-alarm rate exceed `fa_target`.
+Data release v0.8.3. The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 /
+0.9327 for the MLP on v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards.
+The timeline columns are lower for the same detectors because a timeline's temporal features compare
+each frame with the frame emitted one minute earlier. A one-frame attack therefore also spikes the
+benign frame after it (the echo), with the jump reversed. Those echo frames stay in the benign
+calibration set on purpose: an operator's detector sees them too, so leaving them out would set
+lower thresholds and let the realized false-alarm rate exceed `fa_target`. The previous frame's
+swing (`full14+prev`) is what tells an echo from an onset, and it recovers most of the gap.
 
 **Common protocol**
 
 | Method | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Swing threshold | 0.1026 | 0.0566 | 0.0066 | 0.4717 | 0.5342 | 0.0097 | 0.4356 | 0.6432 | 0.0092 |
-| Delta threshold | 0.1004 | 0.0551 | 0.0062 | 0.4745 | 0.5507 | 0.0100 | 0.4371 | 0.6443 | 0.0092 |
-| Residual (LNR) | 0.3885 | 0.4706 | 0.0041 | 0.1981 | 0.5953 | 0.0075 | 0.1855 | 0.5925 | 0.0064 |
-| Per-bus MLP | 0.7813 | 0.7178 | 0.0106 | 0.5974 | 0.7187 | 0.0108 | 0.4358 | 0.6562 | 0.0105 |
-| **1D CNN** | 0.8255 | 0.8956 | 0.0209 | 0.5599 | 0.7184 | 0.0113 | 0.4570 | 0.6884 | 0.0119 |
-| 1D CNN + Jacobian (C) | 0.8296 | 0.8695 | 0.0162 | 0.4074 | 0.7415 | 0.0128 | 0.4024 | 0.7162 | 0.0108 |
+| Swing threshold | 0.1559 | 0.0942 | 0.0116 | 0.4255 | 0.5143 | 0.0100 | 0.3882 | 0.5770 | 0.0099 |
+| Delta threshold | 0.0812 | 0.0452 | 0.0074 | 0.4128 | 0.4982 | 0.0095 | 0.4052 | 0.5897 | 0.0095 |
+| Residual (LNR) | 0.3756 | 0.4183 | 0.0017 | 0.2308 | 0.5668 | 0.0072 | 0.2189 | 0.5061 | 0.0049 |
+| Per-bus MLP | 0.7650 | 0.6970 | 0.0118 | 0.5962 | 0.7373 | 0.0102 | 0.4550 | 0.6827 | 0.0104 |
+| **1D CNN** | 0.8342 | 0.8593 | 0.0199 | 0.4962 | 0.7351 | 0.0118 | 0.4100 | 0.7082 | 0.0109 |
+| 1D CNN + Jacobian (C) | 0.8350 | 0.8462 | 0.0167 | 0.3595 | 0.7897 | 0.0116 | 0.3784 | 0.7356 | 0.0121 |
+| 1D CNN + previous swing | 0.8216 | 0.8741 | 0.0248 | 0.4813 | 0.7599 | 0.0123 | 0.4032 | 0.7128 | 0.0114 |
+| 1D CNN + previous swing + Jacobian | 0.8392 | 0.8843 | 0.0256 | 0.3667 | 0.8026 | 0.0124 | 0.3907 | 0.7413 | 0.0116 |
 
 Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.
 
@@ -93,11 +102,17 @@ Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.
 |---|---|---|
 | ![](results/fig_loc_ieee14.png) | ![](results/fig_loc_ieee118.png) | ![](results/fig_loc_ieee300.png) |
 
-## Jacobian-informed features: the digest's ablation
+The pooled score on 118 and 300 is set by the two sustained families. Per family, the CNN reads
+0.64 to 0.94 on `Aq`, `Ad`, `As`, `Ar` and `Al` there, and 0.03 to 0.22 on `At` and `Am`, whose
+episodes are long and so carry many of the scored frames.
+
+## Feature ablation
 
 `fdia_graph.se.JacobianFeatures` transforms the measurement change through the estimator's Jacobian
 (implied state move `H⁺Δz`, explained and unexplained parts and their ratio, sensitivity, leverage,
-weak-direction energy) and aggregates it to buses; `BusCNN` / `BusMLP` take `features=`:
+weak-direction energy) and aggregates it to buses. The change is taken against the previous frame's
+estimate, and the estimator is calibrated from measurements only (`calibrate="measured"`), so every
+set below reads observed data only.
 
 | set | `features=` | input |
 |---|---|---|
@@ -105,39 +120,32 @@ weak-direction energy) and aggregates it to buses; `BusCNN` / `BusMLP` take `fea
 | B | `"full14"` | the papers' 14-dim vector (the rows above) |
 | C | `"full14+jac"` | B + the 8 Jacobian features |
 | D | `"jac"` | the Jacobian features alone |
-
-Zero-shot protocol on the v0.8.1 timelines (benign, `Aq` and `Ad` seen; `As` and `Ar` unseen). The
-Jacobian block takes each frame's change against the previous frame's estimate, so it reads
-observed data only. C reads 0.820, 0.809 and 0.812 on 14, 118 and 300. Against the previous frame's
-true state, a reference an operator does not have, C read 0.873, 0.896 and 0.840. The observed
-reference costs D more than it costs C:
+| E | `"full14+prev"` | B + the previous frame's swing |
+| F | `"full14+prev+jac"` | E + the 8 Jacobian features |
 
 | Model (1D CNN, zero-shot) | F1 14 | DR 14 | FR 14 | F1 118 | DR 118 | FR 118 | F1 300 | DR 300 | FR 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| A: measurements only | 0.609 | 0.657 | 0.0000 | 0.000 | 0.000 | 0.0000 | 0.000 | 0.000 | 0.0000 |
-| B: measurements + temporal (the papers' 14) | 0.783 | 0.721 | 0.0013 | 0.539 | 0.418 | 0.0005 | 0.488 | 0.451 | 0.0024 |
-| C: B + Jacobian features | **0.820** | 0.770 | 0.0019 | **0.809** | 0.714 | 0.0001 | **0.812** | 0.719 | 0.0000 |
-| D: Jacobian features only | 0.689 | 0.597 | 0.0008 | 0.712 | 0.619 | 0.0000 | 0.709 | 0.659 | 0.0000 |
-
-In the common protocol (every family in distribution) C edges the CNN on 14 (0.830 vs 0.825) and
-loses on 118 (0.407 vs 0.560) and 300 (0.402 vs 0.457) at the same false-alarm target
-(`fa_target=0.01`; C's measured FR is lower on 14 and 300 and higher on 118): its per-bus detection
-rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.69) and lower on 14
-(0.87 against 0.90), and it pays in precision on the buses around a local false state.
+| A: measurements only | 0.621 | 0.610 | 0.0000 | 0.000 | 0.000 | 0.0000 | 0.000 | 0.000 | 0.0000 |
+| B: measurements + temporal (the papers' 14) | 0.804 | 0.730 | 0.0010 | 0.812 | 0.741 | 0.0002 | 0.811 | 0.759 | 0.0000 |
+| C: B + Jacobian features | 0.846 | 0.773 | 0.0016 | 0.882 | 0.813 | 0.0001 | 0.909 | 0.870 | 0.0000 |
+| D: Jacobian features only | 0.773 | 0.733 | 0.0043 | 0.770 | 0.762 | 0.0026 | 0.744 | 0.728 | 0.0008 |
+| E: B + the previous frame's swing | 0.846 | 0.753 | 0.0001 | 0.913 | 0.852 | 0.0000 | 0.883 | 0.823 | 0.0000 |
+| F: E + Jacobian features | **0.860** | 0.780 | 0.0002 | **0.920** | 0.865 | 0.0000 | **0.923** | 0.886 | 0.0000 |
 
 | finding | evidence |
 |---|---|
-| the features carry the in-place signal, not the stealthy one | on `Aq` the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.07, 0.01 and 0.01 for D alone: the v0.8.1 timelines hold an `Aq` state over a multi-frame episode, and against the previous frame's estimate a held episode shows only at its first frame, as the history does; the gain is on the unseen families, `As` 0.50 to 0.91 and `Ar` 0.30 to 0.78 from B to C on 118, 0.55 to 0.93 and 0.34 to 0.74 on 300 |
-| on a timeline they are what makes the vector work | B to C is +4, +27 and +32 zero-shot points; the papers' vector was built for the v0.7.2 shards, whose temporal features compared an attacked snapshot with the benign scan before it, and on a timeline a sustained episode spikes at its onset only |
-| where they pay again | as the localizer that gates the estimator once meters are secured, [`../trust/README.md`](../trust/README.md) |
+| the previous swing and the Jacobian block fix different things | E lifts the family the echo hurts most, `Aq`, from 0.84 to 0.95 on 118 and 0.84 to 0.89 on 300. C lifts the unseen in-place families, `Ar` from 0.68 to 0.82 on 300. F keeps both and is the best set on every system |
+| measurements alone do not localize at scale | A reads 0.62 on 14 and collapses to 0 on 118 and 300 at the validation-best threshold; the temporal channels are what make the vector work |
+| the Jacobian block alone is not enough | D trails B on every system, and on 300 its `Aq` F1 is 0.59 against 0.84 |
+| in the common protocol the Jacobian block costs precision | C and F have the highest detection rate on 118 and 300 (0.79 and 0.80 against the CNN's 0.74 on 118) and lose pooled F1 (0.36 and 0.37 against 0.50): they flag the buses around a local false state as well as the labelled ones |
 
 ## Three readings
 
 | reading | evidence | open case |
 |---|---|---|
-| the temporal spike is an onset signal | the swing threshold alone reads 0.10, 0.47 and 0.44 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier | the slow ramp `At` and the held redistribution `Am` inside an episode, and `Aq` inside an episode on the v0.8.1 timelines (the generator in this package makes every `Aq` episode one frame) |
-| the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption and smears it over neighbours; on `Aq` / `At` / `Al` / `Am` its node-F1 is 0.015 or less, there is no residual | it opens with a trusted set of meters, [`../trust/README.md`](../trust/README.md) |
-| learning plus physics holds with size | zero-shot CNN with the Jacobian block 0.820, 0.809 and 0.812 from 14 to 300 buses at FR 0.002 or below | the common protocol, with `At`, `Al` and `Am` in distribution, falls 0.830, 0.407, 0.402 with size: the per-frame localization of a sustained local false state is the frontier |
+| the temporal spike is an onset signal | the swing threshold alone reads 0.16, 0.43 and 0.39 macro-F1 in the common protocol on 14, 118 and 300, and 0.00 on `At` and `Am` everywhere: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame before it | the slow ramp `At` and the held redistribution `Am` inside an episode |
+| the classical arm misses every stealthy family | `ResidualLocalizer` finds in-place corruption and smears it over neighbours; on `Aq`, `At`, `Al` and `Am` its node-F1 is 0.014 or less, there is no residual | it opens with a trusted set of meters, [`../trust/README.md`](../trust/README.md) |
+| learning plus physics holds with size | zero-shot CNN with the previous swing and the Jacobian block reads 0.860, 0.920 and 0.923 from 14 to 300 buses at FR 0.0002 or below | the common protocol, with `At` and `Am` in distribution, falls to 0.37 and 0.39 on 118 and 300: the per-frame localization of a sustained local false state is the frontier |
 
 The same papers' protocol trained federated across K utilities, with the Jacobian block, is in
 [`../federated/README.md`](../federated/README.md).
