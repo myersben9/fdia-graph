@@ -27,6 +27,9 @@ import warnings
 warnings.filterwarnings("ignore")
 import h5py  # noqa: E402
 
+# Each worker registers its outputs in its own cache index: `fg.generate` writes the local-datasets
+# index with a read-modify-write, which parallel workers sharing one cache would interleave.
+os.environ.setdefault("FDIA_GRAPH_CACHE", os.path.join(tempfile.gettempdir(), f"fdia_build_{os.getpid()}"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 import fdia_graph as fg  # noqa: E402
 
@@ -48,10 +51,12 @@ def sha256(p: str) -> str:
 
 
 def pool_h5(C: int) -> str:
-    """The v0.8.1 pool, copied unchanged (the change is in the generator, not the operating points)."""
+    """The v0.8.1 pool, copied unchanged (the change is in the generator, not the operating points).
+    An existing copy is reused only when it is byte-identical to the source."""
     out = os.path.join(OUT, f"pool_ieee{C}.h5")
-    if not os.path.exists(out):
-        shutil.copyfile(os.path.join(POOLS, f"pool_ieee{C}.h5"), out + ".part")  # an interrupted copy
+    src = os.path.join(POOLS, f"pool_ieee{C}.h5")
+    if not os.path.exists(out) or sha256(out) != sha256(src):
+        shutil.copyfile(src, out + ".part")  # an interrupted copy
         os.replace(out + ".part", out)  # never leaves a partial pool a rerun would trust
         print(f"[ieee{C}] pool copied from v0.8.1", flush=True)
     return out
@@ -66,8 +71,8 @@ def main() -> None:
         part = os.path.join(
             OUT, f"manifest_ieee{C}.json"
         )  # one fragment per system: parallel workers never share a file
-        if os.path.exists(out) and os.path.exists(part):
-            print(f"[ieee{C}] timeline exists, skip", flush=True)
+        if _finished(out, part):
+            print(f"[ieee{C}] timeline exists with these inputs, skip", flush=True)
             continue
         print(f"[ieee{C}] walking {FRAMES} frames ...", flush=True)
         fg.generate(C, f"ieee{C}_v083", states=pool, seed=SEED, out=out, frames=FRAMES)
@@ -78,7 +83,7 @@ def main() -> None:
             f"{os.path.getsize(out) / 1e6:.0f} MB in {(time.time() - t0) / 60:.1f} min",
             flush=True,
         )
-        entry = {}
+        entry: dict = {"inputs": _inputs()}
         for name in (f"pool_ieee{C}", f"timeline_ieee{C}"):
             p = os.path.join(OUT, f"{name}.h5")
             entry[name] = {
@@ -92,6 +97,19 @@ def main() -> None:
     print("[all] done; run once more with MERGE=1 after every worker has finished", flush=True)
 
 
+def _inputs() -> dict:
+    """The generation inputs a finished system was built with; a resume skips it only when they match."""
+    return {"frames": FRAMES, "seed": SEED, "pools": os.path.abspath(POOLS)}
+
+
+def _finished(out: str, part: str) -> bool:
+    """A timeline and its fragment exist and the fragment records the current inputs."""
+    if not (os.path.exists(out) and os.path.exists(part)):
+        return False
+    with open(part) as fh:
+        return json.load(fh).get("inputs") == _inputs()
+
+
 def merge_manifest() -> dict:
     """manifest.json from every finished system's fragment, written by a single MERGE=1 run after
     the parallel workers are done, so no worker ever writes a file another one reads."""
@@ -101,7 +119,10 @@ def merge_manifest() -> dict:
     manifest: dict = {}
     for f in sorted(os.listdir(OUT)):
         if f.startswith("manifest_ieee") and f.endswith(".json"):
-            manifest.update(json.load(open(os.path.join(OUT, f))))
+            with open(os.path.join(OUT, f)) as fh:
+                fragment = json.load(fh)
+            fragment.pop("inputs", None)  # build bookkeeping, not an asset
+            manifest.update(fragment)
     fd, tmp = tempfile.mkstemp(
         dir=OUT, suffix=".json"
     )  # atomic: two workers finishing together never interleave
