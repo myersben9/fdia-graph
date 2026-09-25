@@ -68,7 +68,7 @@ class ResidualLocalizer(LocalizerBase):
         self.estimator = estimator  # None -> a fresh WLS; an unfitted one is fitted on the train split
 
     def _fields(self) -> list[str]:
-        return ["node_x", "edge_x", "clean"]
+        return ["node_x", "edge_x"]
 
     def _fit_stats(self, d: dict[str, np.ndarray], ben: np.ndarray, ds: FdiaGraph) -> None:
         from ..se import WLS
@@ -90,7 +90,7 @@ class ResidualLocalizer(LocalizerBase):
         require_physical(ds)
         est, chunk = self.est, 1000
         z = est._z_of(d["node_x"], d["edge_x"])
-        thsl = est._truth_of(d["clean"])["thsl"]  # slack angle reference only; truth never read
+        thsl = est.ref_angles(len(z))
         x = est._estimate_arrays(z, thsl, est._record_weights(ds), chunk)
         s = np.empty((z.shape[0], est.N))
         for a in range(0, z.shape[0], chunk):

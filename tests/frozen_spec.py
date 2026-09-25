@@ -5,9 +5,9 @@ from typing import Any
 
 import numpy as np
 
-# The conftest tiny timeline, exactly. Seed 23 puts every family in both the train and the test
-# split of the 1000 frames (checked over seeds 1 to 23 when Aq became one-frame).
-TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=23)
+# The conftest tiny timeline, exactly. The seed is the first that puts every family in both the train
+# and the test split of the 1000 frames under the current episode lengths (one-frame Aq and Al).
+TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=1)
 
 
 def file_arrays(path: str) -> tuple[dict[str, np.ndarray], dict[str, Any]]:

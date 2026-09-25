@@ -500,19 +500,18 @@ def test_previous_frame_fields_are_the_row_emitted_before(timeline):
 
 
 def test_jacobian_features_never_read_the_true_state(timeline, splits):
-    """The change is taken against the previous frame's estimate: rewriting the clean layer (all
-    but the slack angle, the angle reference every estimate shares) leaves the features unchanged."""
+    """The change is taken against the previous frame's estimate, referenced to the case's slack
+    angle (a network parameter): the transform reads measurements only, and the case's reference is
+    the angle every true state of the timeline carries at the slack."""
     pytest.importorskip("pandapower")
     from fdia_graph.se.jacobian import JacobianFeatures
 
     jf = JacobianFeatures().fit(splits["train"])
     d = splits["test"].export(["node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep"])
-    before = jf.transform(d)["bus"]
-    pool = jf._pool.copy()
-    keep = pool[:, jf.est.slack, 3].copy()
-    jf._pool = pool * 1.5 + 0.1
-    jf._pool[:, jf.est.slack, 3] = keep
-    assert np.array_equal(jf.transform(d)["bus"], before)
+    before = jf.transform(d)["bus"]  # d holds the measurements and their frame index, no truth
+    assert np.isfinite(before).all() and not hasattr(jf, "_pool")
+    clean = splits["test"].export(["clean"])["clean"]
+    assert np.allclose(np.deg2rad(clean[:, jf.est.slack, 3]), jf.est.theta_ref)
     empty = {k: v[:0] for k, v in d.items()}  # an empty view transforms to empty features
     assert jf.transform(empty)["bus"].shape == (0, before.shape[1], 8)
     with pytest.raises(ValueError, match="timeline"):

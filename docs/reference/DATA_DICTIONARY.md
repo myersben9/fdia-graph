@@ -465,7 +465,7 @@ One line of `line_outage_candidates`: its pandapower index and branch position, 
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
-| `line` | `line` | int | yes | pandapower line index, the generate(..., outage=) argument |
+| `line` | `line` | int | yes | pandapower line index (N-1 timeline generation is disabled; the engine keeps `outage`) |
 | `pos` | `pos` | int | yes | branch position in edge_index |
 | `from_bus` | `from_bus` | int | yes | from-end bus |
 | `to_bus` | `to_bus` | int | yes | to-end bus |

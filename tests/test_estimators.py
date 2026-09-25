@@ -85,13 +85,22 @@ def test_removal_takes_out_one_gross_error_and_keeps_its_neighbours(splits, test
 
     est = ResidualRemoval(threshold=4.0).fit(splits["train"])
     z, thsl, fam = test_arrays
-    z = z[fam == 0][:5].copy()
-    thsl = thsl[fam == 0][:5]
-    j = int(np.flatnonzero(~est.critical)[0])
+    z, thsl = z[fam == 0].copy(), thsl[fam == 0]
+
+    def removable(m):  # not critical, and the observability guard lets it go
+        w = est.Wk.copy()
+        w[m] = 0.0
+        return not est.critical[m] and est._observable(w)
+
+    j = next(m for m in range(len(est.Wk)) if removable(m))
     z[:, j] += 50.0 * est.sig[j]  # one gross error per record
     keep = np.ones_like(z)
     keep[:, j] = 0.0
     only_j = est._w_solve(z, est.Wk * keep, thsl)  # the answer with exactly that meter removed
+    # the frames where nothing else crosses the threshold once it is gone: one removal is the answer
+    rest = np.where(keep > 0, np.abs(est._nres(only_j, z, thsl)), 0.0).max(axis=1) < est.threshold
+    assert rest.sum() >= 5
+    z, thsl, only_j = z[rest][:5], thsl[rest][:5], only_j[rest][:5]
     assert np.abs(est._solve(z, thsl) - only_j).max() < 1e-9
 
 
@@ -116,3 +125,15 @@ def test_fit_refuses_a_dataset_whose_slack_disagrees(timeline):
     ds.slack = 3
     with pytest.raises(ValueError, match="slack"):
         WLS().fit(ds)
+
+
+def test_the_angle_reference_is_one_constant_from_the_fit(timeline):
+    """fit takes the reference from the training split and refuses a slack angle that varies."""
+
+    from fdia_graph.se import WLS
+
+    est = WLS().fit(fg.load(timeline, split="train"))
+    clean = fg.load(timeline, split="test").export(["clean"])["clean"]
+    assert np.allclose(np.deg2rad(clean[:, est.slack, 3]), est.theta_ref)
+    with pytest.raises(ValueError, match="varies"):
+        est._fit_reference(np.array([0.0, 0.1]))

@@ -4,10 +4,9 @@ of the scan-to-scan measurement change, not as raw model input.
 For a record with measurements z_t, the change dz = z_t - h(x_hat_{t-1}) is taken against the
 measurement prediction of the previous frame's state estimate: the fitted estimator's plain solve
 of the frame emitted just before (the dataset's prev_node_x / prev_edge_x, read whatever split or
-family that frame belongs to, attacked or not). Only what an operator holds enters the feature;
-the true state is never read, apart from the slack angle that fixes the angle reference of every
-estimate in fdia_graph.se. A timeline is required (a record shard's rows are not consecutive
-frames). The chord Jacobian H at the benign
+family that frame belongs to, attacked or not), referenced to the case's slack angle. Only the
+measurements enter the transform. A timeline is required (a record shard's rows are not
+consecutive frames). The chord Jacobian H at the benign
 mean state, the meter weights W and the measurement mask all come from a fitted fdia_graph.se
 estimator, so the physics here is the estimator's physics.
 
@@ -25,8 +24,8 @@ meters and incident branch flows:
     5 leverage-weighted change           max over incident meters of l_k |dz_k| / sigma_k
     6 sensitivity-normalised change      max over incident meters of |dz_k| / s_k
     7 weak-direction move                implied move projected on the n_weak weakest directions
-Needs the [se] extra (pandapower + scipy) and a timeline: the previous frame's readings, and its
-clean layer for the slack angle reference alone. A v0.7.2 record shard is refused.
+Needs the [se] extra (pandapower + scipy) and a timeline for the previous frame's readings; the
+angle reference is the case's slack angle, a network parameter. A v0.7.2 record shard is refused.
 """
 
 from __future__ import annotations
@@ -96,11 +95,8 @@ class JacobianFeatures:
         if not self.est.is_fitted:
             self.est.fit(ds)
         est = self.est
-        if not ds.is_timeline or ds._clean_np is None:
-            raise ValueError(
-                "Jacobian features need a timeline: the previous frame's readings and its angle reference"
-            )
-        self._pool: np.ndarray = ds._clean_np  # read for the slack angle reference only
+        if not ds.is_timeline:
+            raise ValueError("Jacobian features need a timeline: the previous frame's readings")
         self._inc = bus_incidence(est, ds.edge_index_np)
         sw = np.sqrt(est.Wk)  # W^1/2 as a vector
         Hw = sw[:, None] * est.H  # [m, SD], the whitened Jacobian
@@ -127,9 +123,7 @@ class JacobianFeatures:
         the slack angle it is referenced to [n]."""
         est = self.est
         zp = est._z_of(d["prev_node_x"], d["prev_edge_x"])
-        # the one truth read: the slack angle, the reference frame every fdia_graph.se estimate is
-        # expressed in (the scored estimators pin it the same way); no other part of the state
-        thsl = est._truth_of(self._pool[d["prev_timestep"].astype(int)])["thsl"]
+        thsl = est.ref_angles(len(zp))  # the case's reference angle, a network parameter
         parts = [est._solve_plain(zp[i : i + chunk], thsl[i : i + chunk]) for i in range(0, len(zp), chunk)]
         return (np.concatenate(parts) if parts else np.zeros((0, est.SD))), thsl
 

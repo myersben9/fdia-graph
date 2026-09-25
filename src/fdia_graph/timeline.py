@@ -49,14 +49,13 @@ from .engine.records import (
     is_feasible,
 )
 from .formulas.attacks import ramp_profile
-from .formulas.temporal import swing_zscore, temporal_delta
+from .formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
 from .generation import (
     _CHUNK_ROWS,
     NOISE_FLOOR,
     _base_attrs,
     _FrameContext,
     _load_states,
-    _swing_scale,
     _write_graph,
 )
 from .registry import CACHE_DIR, system_id
@@ -65,10 +64,10 @@ from .schema import Attr
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
 DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 
-# Per-family episode-length band (frames): Ad, As, Ar, Al (the upper end excluded). Aq is a
-# single-snapshot attack: every Aq episode is one frame.
-_EP_LEN = {2: (5, 25), 3: (5, 25), 4: (5, 25), 6: (10, 30)}
-_AQ = 1  # the stealthy re-solve's family id, always a one-frame episode
+# Per-family episode-length band (frames): Ad, As, Ar (the upper end excluded), used when
+# corrupt_len is None. Aq and Al are single-snapshot attacks: every Aq and Al episode is one frame.
+_EP_LEN = {2: (5, 25), 3: (5, 25), 4: (5, 25)}
+_ONE_FRAME = {1, 6}  # the single-snapshot stealthy families, Aq and Al
 _ONSET_DRAWS = 40  # designs an episode (Aq, At, Am) tries for one with a stealthy state on its frames
 _AM_DRAWS = _ONSET_DRAWS  # the Am redistribution draws, the same budget
 
@@ -101,8 +100,8 @@ class _TimelineBuffers:
 
     node_x / edge_x are the OBSERVED measurements (attacked + noisy where attacked, else benign +
     noisy); benign / edge_benign the same scan with the attack removed and the noise kept;
-    edge_clean the noiseless true flows on metered branches. temporal_delta and swing are the two
-    temporal features against the previous EMITTED frame. seq_id is the episode index of an
+    edge_clean the noiseless true flows on metered branches. temporal_delta and swing are written
+    after the walk from the observed frames (`write_temporal_layers`). seq_id is the episode index of an
     attacked frame, the tamper masks the meters the attacker wrote, and the magnitude lists the
     designed change per attacked bus.
 
@@ -110,9 +109,7 @@ class _TimelineBuffers:
     frames, flushed as the walk passes them, so memory is bounded whatever T.
     """
 
-    def __init__(
-        self, dims: tuple[int, int, int], scale: np.ndarray, clean: CleanSlice, sink: dict[str, Any]
-    ) -> None:
+    def __init__(self, dims: tuple[int, int, int], clean: CleanSlice, sink: dict[str, Any]) -> None:
         T, C, E = dims
         n = min(_BATCH, T)
         self.T, self._n, self._base, self._sink = T, n, 0, sink
@@ -127,11 +124,8 @@ class _TimelineBuffers:
         self.edge_m: Optional[np.ndarray] = None
         self.episodes: list[dict[str, Any]] = []
         self.attacked = 0  # frames stored so far with at least one attacked bus
-        self._scale = scale
         self._clean = clean
         self._clean_batch = clean(0, n)
-        self._prev_nx: Optional[np.ndarray] = None
-        self._all_buses = np.ones(C, bool)
 
     def store(self, t: int, fid: int, frame: Frame, sid: int = -1) -> None:
         """Store frame t (frames arrive in order): an attacked frame with its un-attacked twin
@@ -154,13 +148,6 @@ class _TimelineBuffers:
         if self.node_m is None:
             self.node_m, self.edge_m = frame.node_m, frame.edge_m
         self._store_attack(t, fid, frame, bnx, bex)
-        # The two temporal features against the previous EMITTED frame, through the same kernel the
-        # shard uses; computed at every bus (an unmetered bus reads 0 - 0).
-        nx = frame.node_x
-        prev = self._prev_nx if self._prev_nx is not None else nx
-        L[schema.TEMPORAL_DELTA][r] = temporal_delta(nx, prev, self._all_buses)
-        L[schema.SWING][r] = swing_zscore(nx, prev, self._scale[t], self._all_buses)
-        self._prev_nx = nx
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
         """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
@@ -475,7 +462,8 @@ class _Schedule:
         cls, fams: list[int], ramp_len: int, ramp_rate: float, am, corrupt_len, attacked_frac
     ) -> _Schedule:
         expected = {f: float(np.mean(_EP_LEN.get(f, (1, 1)))) for f in fams}
-        expected.update({RAMP_FAMILY: float(ramp_len), AM_FAMILY: float(am[0]), _AQ: 1.0})
+        expected.update({RAMP_FAMILY: float(ramp_len), AM_FAMILY: float(am[0])})
+        expected.update({f: 1.0 for f in _ONE_FRAME})
         for f in CORRUPT_KIND:
             if corrupt_len is not None:
                 expected[f] = float(corrupt_len)
@@ -483,9 +471,9 @@ class _Schedule:
         return cls(fams, w / w.sum() if len(w) else w, ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
 
     def length_of(self, fid: int, rng: np.random.Generator) -> int:
-        """The frames an episode of `fid` takes: one for Aq, the ramp lengths for At and Am,
+        """The frames an episode of `fid` takes: one for Aq and Al, the ramp lengths for At and Am,
         `corrupt_len` for Ad/As/Ar when set, else a draw from the family's band."""
-        if fid == _AQ:
+        if fid in _ONE_FRAME:
             return 1
         if fid == RAMP_FAMILY:
             return self.ramp_len
@@ -687,6 +675,42 @@ def _finish_timeline(
     f.attrs.update(_timeline_attrs(g, T, seed, buf, knobs))
 
 
+def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:
+    """`temporal_delta` and `swing` of every frame, from the observed injections alone: each frame
+    against the previous emitted frame, the swing scale from the observed changes of the frames
+    before it (formulas.temporal.recent_change_scale over SWING_WINDOW frames). Nothing but the
+    measurements enters, so a detector reading these features at test time sees only what an operator
+    sees. Called after the walk and by trust.secured_copy after it pins meters. Runs in blocks of
+    frames with bounded memory: each block's scale comes from the kernel over the block and the
+    SWING_WINDOW + 1 frames before it, which covers every window the block's frames use."""
+    nx = f[schema.NODE_X]
+    T, N = nx.shape[0], nx.shape[1]
+    every = np.ones(N, bool)
+    delta, swing = f[schema.TEMPORAL_DELTA], f[schema.SWING]
+    prev = None
+    for a in range(0, T, block):
+        b = min(a + block, T)
+        scale = _block_scale(nx, a, b)
+        rows = np.asarray(nx[a:b], np.float32)
+        d = np.zeros(rows.shape[:2] + (2,), np.float32)
+        s = np.zeros_like(d)
+        for j in range(len(rows)):
+            before = rows[j] if prev is None else prev
+            d[j] = temporal_delta(rows[j], before, every)
+            s[j] = swing_zscore(rows[j], before, scale[j], every)
+            prev = rows[j]
+        delta[a:b], swing[a:b] = d, s
+
+
+def _block_scale(nx: Any, a: int, b: int) -> np.ndarray:
+    """The swing scale of frames a..b-1 [b - a, N, 2]: the kernel run over the frames from
+    SWING_WINDOW + 1 before a to b-1, so every frame's window lies inside the slice."""
+    g0 = max(0, a - SWING_WINDOW - 1)
+    pq = np.zeros((b - g0, nx.shape[1], 4), np.float64)  # the kernel reads columns 1:3
+    pq[:, :, 1:3] = nx[g0:b, :, 1:3]
+    return recent_change_scale(pq, SWING_WINDOW, nx.shape[1])[a - g0 :]
+
+
 def _check_knobs(
     attacked_frac: float, am: tuple[float, float, str], lengths: dict[str, Optional[int]]
 ) -> None:
@@ -775,7 +799,7 @@ def generate_timeline(
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)
-    ctx = _FrameContext(g, X, _swing_scale(X, C), knobs, [])
+    ctx = _FrameContext(g, X, knobs, [])
     am = (am_len, am_rate, am_direction)
     plan = _Schedule.build([FAM_ID[f] for f in families], ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
@@ -802,7 +826,8 @@ def generate_timeline(
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)
         sink = _create_layers(f, T, C, g.E)
-        buf = _TimelineBuffers((T, C, g.E), ctx.scale, partial(_clean_slice, g, X), sink=sink)
+        buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink)
         _walk(ctx, buf, g.rng, plan)
         _finish_timeline(f, g, buf, split, seed, recorded)
+        write_temporal_layers(f)
     return out

@@ -99,7 +99,8 @@ def line_outage_candidates(
     Returns (accepted, rejected). `accepted` = the `top_n` highest-flow lines whose removal leaves one
     connected, solvable, PTDF-well-posed network (dict: line index, terminal buses, name, signed from-end
     MW flow). `rejected` = higher-flow lines screened out, with reason. Highest-flow ranking is the standard
-    N-1 screening choice (Moshtagh et al.).
+    N-1 screening choice (Moshtagh et al.). A screening aid only: N-1 timeline generation is disabled
+    (`fg.generate` and `generate_timeline` take no outage; `FdiaGenerator(outage=)` stays for engine use).
     """
     import pandapower as pp
     import pandapower.networks as pn

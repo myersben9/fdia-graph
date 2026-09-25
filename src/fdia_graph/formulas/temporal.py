@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import numpy as np
 
-SWING_WINDOW = 60  # scans of history the swing scale summarizes (the writer's window)
+# Scans of history the swing scale summarizes: the catch rate of the rate-of-change feature
+# plateaus near 60 scans, and the slow ramp At stays near the benign floor at every window.
+SWING_WINDOW = 60
 
 
 def recent_change_scale(X: np.ndarray, window: int, n_bus: int) -> np.ndarray:
@@ -14,7 +16,8 @@ def recent_change_scale(X: np.ndarray, window: int, n_bus: int) -> np.ndarray:
         scale[t] = std over the last `window` scans before t of the scan-to-scan |change| in [P_inj, Q_inj],
                    plus 1e-3 (and 1e-3 alone where fewer than three changes are available)
 
-    X       : [T, N, 4] operating-point pool in [|V|, P_inj, Q_inj, theta] order
+    X       : [T, N, 4] a series of scans in [|V|, P_inj, Q_inj, theta] order (a timeline's observed
+              frames: the scale uses measurements only)
     returns : [T, N, 2] float32; scale[t] uses the changes strictly before t (prefix sums, one pass)
     """
     T = len(X)

@@ -5,6 +5,23 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Features are computed from measurements only. The swing feature's scale is now the recent change
+  of the observed frames, not of the noiseless pool: `timeline.write_temporal_layers` writes
+  `temporal_delta` and `swing` after the walk from the observed injections alone, and
+  `trust.secured_copy` recomputes them the same way. Every estimate takes one angle reference,
+  `SEBase.theta_ref`, fixed at fit time from the training split's slack angle (the case's reference
+  angle on the released pools; a slack angle that varies is refused), so estimating, the Jacobian transform, the residual localizer's scores and the
+  trust scoring read no clean layer. Two uses of the truth remain, by design: fitting an estimator
+  calibrates the meter weights, the benign mean state and the angle reference on the training
+  split's clean layer, and
+  `SEBase.score` compares estimates with the truth to report the error.
+  `write_temporal_layers` runs in blocks with bounded memory. Takes effect in the data with the next
+  release; scores on existing files are unchanged.
+- Al is a single-snapshot attack: every Al episode of a generated timeline is one frame, as Aq.
+- N-1 timeline generation is disabled: `fg.generate` and `generate_timeline` take no outage;
+  `line_outage_candidates` remains a screening aid and `FdiaGenerator(outage=)` stays for engine use.
+- The tiny test timeline moves to seed 1, the first seed that puts every family in both its train
+  and test split under the new episode lengths; the frozen references are rewritten from it.
 - Localization: `features="full14+prev"` (16 channels) and `"full14+prev+jac"` (24) append the
   previous frame's swing to the papers' 14, for `BusCNN`, `BusMLP` and the federated localizers
   (each bus's own reading, so client-local). A timeline export offers it as `prev_swing` (file
