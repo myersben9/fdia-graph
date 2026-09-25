@@ -323,26 +323,26 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
     """The frame is built at the largest halving of the step that solves; an Aq step stops at the
     noise floor, a ramp frame does not."""
     from fdia_graph.engine import FdiaGenerator, records
-    from fdia_graph.models.frames import FrameKnobs
+    from fdia_graph.models.frames import AttackDesign, FrameKnobs
 
     g = FdiaGenerator(14, seed=1)
     steps: list[float] = []
 
-    def fake(g_, Xt, targets, mult, interior, k):
-        steps.append(float(np.max(np.abs(np.asarray(mult) - 1.0))))
+    def fake(g_, Xt, design, k):
+        steps.append(float(np.max(np.abs(np.asarray(design.mult) - 1.0))))
         return "frame" if steps[-1] <= 0.01 else None
 
     monkeypatch.setattr(records, "_stealthy_frame", fake)
     k = FrameKnobs(0.2, 0.02, 6, None, False, True, hops=2)
     Xt = np.zeros((g.C, 4))
     two = g.attackable_pos[:2]
-    assert records._resolve_frame(g, Xt, 1, two, np.array([1.2, 1.1]), k) is None
+    assert records._resolve_frame(g, Xt, 1, AttackDesign(two, np.array([1.2, 1.1])), k) is None
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025])  # three halvings above the floor, none solved
     steps.clear()
-    assert records._resolve_frame(g, Xt, 1, two, np.array([1.05, 1.05]), k) is None
+    assert records._resolve_frame(g, Xt, 1, AttackDesign(two, np.array([1.05, 1.05])), k) is None
     assert np.allclose(steps, [0.05, 0.025])  # the next halving would fall under the floor
     steps.clear()
-    assert records._resolve_frame(g, Xt, 5, two, 1.2, k) == "frame"
+    assert records._resolve_frame(g, Xt, 5, AttackDesign(two, 1.2), k) == "frame"
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])  # the ramp halves past the floor
 
 
