@@ -172,8 +172,10 @@ class SEBase:
 
     def _h_ref(self, x: np.ndarray) -> np.ndarray:
         """`_h` at the fitted reference angle (`ref_angles`), the prediction every solve and residual
-        uses; `_h` itself takes the slack angle per record for the truth calibration."""
-        return self._h(x, self.ref_angles(len(x)))
+        uses; `_h` itself takes the slack angle per record for the truth calibration. The reference
+        is passed as a 0-d array, which `_angles` broadcasts, so no per-record array is built on every
+        Newton iteration."""
+        return self._h(x, np.asarray(self.theta_ref))
 
     def _jacobian(self, x: np.ndarray, thsl: float) -> np.ndarray:
         """The masked measurement Jacobian [m, SD] at one state, in closed form
