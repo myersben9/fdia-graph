@@ -8,11 +8,12 @@ the public API, the generated files and the numbers are the same as the previous
 - Features are computed from measurements only. The swing feature's scale is now the recent change
   of the observed frames, not of the noiseless pool: `timeline.write_temporal_layers` writes
   `temporal_delta` and `swing` after the walk from the observed injections alone, and
-  `trust.secured_copy` recomputes them the same way. Every estimate takes its angle reference from
-  the case's slack angle (`SEBase.theta_ref`, a network parameter, identical to the value the clean
-  layer carried), so estimating, the Jacobian transform, the residual localizer's scores and the
+  `trust.secured_copy` recomputes them the same way. Every estimate takes one angle reference,
+  `SEBase.theta_ref`, fixed at fit time from the training split's slack angle (the case's reference
+  angle on the released pools; a slack angle that varies is refused), so estimating, the Jacobian transform, the residual localizer's scores and the
   trust scoring read no clean layer. Two uses of the truth remain, by design: fitting an estimator
-  calibrates the meter weights and the benign mean state on the training split's clean layer, and
+  calibrates the meter weights, the benign mean state and the angle reference on the training
+  split's clean layer, and
   `SEBase.score` compares estimates with the truth to report the error.
   `write_temporal_layers` runs in blocks with bounded memory. Takes effect in the data with the next
   release; scores on existing files are unchanged.

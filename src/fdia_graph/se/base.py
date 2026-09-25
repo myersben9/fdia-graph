@@ -3,8 +3,8 @@
 SEBase owns what all estimators have in common: the AC measurement model h(x) built from the
 pandapower case, the chord-Newton iteration with its divergence guard, the meter weights calibrated
 from benign residuals, and the reference handling (the classical 2N-1 state: only the slack ANGLE
-is fixed, to the case's reference angle `theta_ref`, a network parameter equal to the truth's slack
-angle on every frame; every voltage magnitude including the slack is estimated, matching
+is fixed, to one reference angle `theta_ref` taken from the training split at fit time (the
+case's reference angle on the released pools); every voltage magnitude including the slack is estimated, matching
 production practice). Estimating reads measurements only; fitting calibrates on the training
 split's clean layer, and `score` compares with it. Subclasses change only the state space and the
 weights, mirroring the paper's protocol.
@@ -128,8 +128,8 @@ class SEBase:
             self._Ybus = torch.tensor(self._Ybus_np, dtype=torch.complex128)
             self._Yft = torch.tensor(self._Yf_np, dtype=torch.complex128)
         self.slack = int(net.ext_grid.bus.values[0])
-        # the case's reference angle (rad): a network parameter, the same on every scan, so no record's
-        # true state is read to fix the angle frame of an estimate
+        # the case's reference angle (rad), until fit() takes the training split's (the same on the
+        # released pools); either way one constant, so no record's true state fixes an estimate's frame
         self.theta_ref = float(np.deg2rad(net.ext_grid.va_degree.values[0]))
         if ds.slack is not None and int(ds.slack) != self.slack:  # both index buses 0..N-1 on every case
             raise ValueError(f"the case's slack is bus {self.slack}, the dataset's is {int(ds.slack)}")
@@ -222,6 +222,7 @@ class SEBase:
         if not len(ben):
             raise ValueError("fit needs benign records; pass the train split unfiltered")
         tr = self._truth_of(d["clean"][ben])
+        self._fit_reference(tr["thsl"])
         self._fit_states(tr["x"])  # hook: subclasses learn their prior here
         self.xmean = tr["x"].mean(axis=0)
         # meter sigma = rms of benign residual AT THE TRUE STATE. The dataset's meter error is a
@@ -387,6 +388,16 @@ class SEBase:
         d = ds.export(["node_x", "edge_x"])
         z = self._z_of(d["node_x"], d["edge_x"])
         return self._estimate_arrays(z, self.ref_angles(len(z)), self._record_weights(ds), chunk)
+
+    def _fit_reference(self, thsl: np.ndarray) -> None:
+        """The angle reference from the training truth, part of the fit's calibration: the slack
+        angle must be one constant over the split (the case's `va_degree` for the released pools, a
+        custom pool may use another), and every estimate afterwards uses it without reading truth."""
+        if not np.allclose(thsl, thsl[0], atol=1e-9):
+            raise ValueError(
+                "the slack angle varies across the training frames; estimates need one fixed reference"
+            )
+        self.theta_ref = float(thsl[0])
 
     def ref_angles(self, n: int) -> np.ndarray:
         """The slack angle every estimate is referenced to, for n records: the case's reference angle."""

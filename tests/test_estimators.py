@@ -125,3 +125,15 @@ def test_fit_refuses_a_dataset_whose_slack_disagrees(timeline):
     ds.slack = 3
     with pytest.raises(ValueError, match="slack"):
         WLS().fit(ds)
+
+
+def test_the_angle_reference_is_one_constant_from_the_fit(timeline):
+    """fit takes the reference from the training split and refuses a slack angle that varies."""
+
+    from fdia_graph.se import WLS
+
+    est = WLS().fit(fg.load(timeline, split="train"))
+    clean = fg.load(timeline, split="test").export(["clean"])["clean"]
+    assert np.allclose(np.deg2rad(clean[:, est.slack, 3]), est.theta_ref)
+    with pytest.raises(ValueError, match="varies"):
+        est._fit_reference(np.array([0.0, 0.1]))
