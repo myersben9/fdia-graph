@@ -10,15 +10,17 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from ..models.validation import expect
+
 Moments = tuple[float, np.ndarray, np.ndarray]  # (count, mean [C], variance [C])
 
 
 def _check_graph(assignment: np.ndarray, A: np.ndarray) -> None:
     """One client per bus against a square adjacency of the same size."""
-    if np.ndim(assignment) != 1 or np.shape(A) != (len(assignment), len(assignment)):
-        raise ValueError(
-            f"need an [N] assignment and an [N, N] adjacency, got {np.shape(assignment)} and {np.shape(A)}"
-        )
+    expect(
+        np.ndim(assignment) == 1 and np.shape(A) == (len(assignment), len(assignment)),
+        f"need an [N] assignment and an [N, N] adjacency, got {np.shape(assignment)} and {np.shape(A)}",
+    )
 
 
 def channel_moments(X: np.ndarray) -> Moments:
@@ -27,8 +29,10 @@ def channel_moments(X: np.ndarray) -> Moments:
     X       : [n, N, C]
     returns : (n * N, mean [C], var [C])
     """
-    if np.ndim(X) != 3 or X.shape[0] * X.shape[1] == 0:
-        raise ValueError(f"need a non-empty [n, N, C] block, got shape {np.shape(X)}")
+    expect(
+        np.ndim(X) == 3 and X.shape[0] * X.shape[1] != 0,
+        f"need a non-empty [n, N, C] block, got shape {np.shape(X)}",
+    )
     return float(X.shape[0] * X.shape[1]), X.mean(axis=(0, 1)), X.var(axis=(0, 1))
 
 
@@ -44,18 +48,21 @@ def pool_moments(parts: Sequence[Moments]) -> Moments:
     parts   : (count, mean [C], var [C]) per part
     returns : (count, mean [C], var [C]) of the union
     """
-    if not len(parts):
-        raise ValueError("pool_moments needs at least one part")
+    expect(len(parts), "pool_moments needs at least one part")
     shape = np.shape(parts[0][1])
-    if any(
-        np.shape(m) != shape or np.shape(v) != shape or not (np.isfinite(c) and c > 0) for c, m, v in parts
-    ):
-        raise ValueError(f"every part needs a finite positive count and moments of shape {shape}")
+    expect(
+        not (
+            any(
+                np.shape(m) != shape or np.shape(v) != shape or (not (np.isfinite(c) and c > 0))
+                for (c, m, v) in parts
+            )
+        ),
+        f"every part needs a finite positive count and moments of shape {shape}",
+    )
     n, mean, var = parts[0]
     for nb, mb, vb in parts[1:]:
         tot = n + nb
-        if not np.isfinite(tot):
-            raise ValueError("the pooled record count overflows")
+        expect(np.isfinite(tot), "the pooled record count overflows")
         fa, fb = n / tot, nb / tot
         d = mb - mean
         mean = mean + d * fb
@@ -73,18 +80,19 @@ def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray
     weights : n_k per client (record counts), any positive scale
     returns : the averaged tensor in the dtype of arrays[0]
     """
-    if not len(arrays) or len(arrays) != len(weights):
-        raise ValueError(
-            f"need one weight per client tensor, got {len(arrays)} tensors and {len(weights)} weights"
-        )
+    expect(
+        len(arrays) and len(arrays) == len(weights),
+        f"need one weight per client tensor, got {len(arrays)} tensors and {len(weights)} weights",
+    )
     w = np.asarray(weights, np.float64)
-    if w.shape != (len(arrays),):
-        raise ValueError(f"need one scalar weight per client, shape ({len(arrays)},), got {w.shape}")
-    if not (np.isfinite(w) & (w > 0)).all():
-        raise ValueError("client weights must be finite and positive")
+    expect(
+        w.shape == (len(arrays),), f"need one scalar weight per client, shape ({len(arrays)},), got {w.shape}"
+    )
+    expect((np.isfinite(w) & (w > 0)).all(), "client weights must be finite and positive")
     shape = np.shape(arrays[0])
-    if any(np.shape(a) != shape for a in arrays):
-        raise ValueError(f"every client tensor must have the shape {shape}")
+    expect(
+        not (any(np.shape(a) != shape for a in arrays)), f"every client tensor must have the shape {shape}"
+    )
     w = w / w.max()  # scale first: finite weights near the float limit cannot overflow the sum
     w = w / w.sum()
     acc = np.zeros(np.shape(arrays[0]), np.float64)
@@ -102,13 +110,13 @@ def attackable_affinity(A: np.ndarray, attackable: np.ndarray, heavy: float = 8.
     returns    : [N, N] float32 affinity
     """
     A = np.asarray(A)
-    if A.ndim != 2 or A.shape[0] != A.shape[1]:
-        raise ValueError(f"need a square [N, N] adjacency, got shape {A.shape}")
+    expect(A.ndim == 2 and A.shape[0] == A.shape[1], f"need a square [N, N] adjacency, got shape {A.shape}")
     attackable = np.asarray(attackable, bool)
-    if attackable.shape != (A.shape[0],):
-        raise ValueError(f"need a [{A.shape[0]}] attackable mask")
-    if not (np.isfinite(heavy) and 0 < heavy <= np.finfo(np.float32).max):
-        raise ValueError(f"heavy must be a finite positive float32 weight, got {heavy}")
+    expect(attackable.shape == (A.shape[0],), f"need a [{A.shape[0]}] attackable mask")
+    expect(
+        np.isfinite(heavy) and 0 < heavy <= np.finfo(np.float32).max,
+        f"heavy must be a finite positive float32 weight, got {heavy}",
+    )
     m = np.where(attackable, heavy, 1.0)
     return (A * np.sqrt(np.outer(m, m))).astype(np.float32)
 
@@ -122,8 +130,10 @@ def interior_boundary(assignment: np.ndarray, A: np.ndarray, K: int) -> tuple[np
     returns    : (interior [K, N] bool, boundary [K, N] bool)
     """
     _check_graph(assignment, A)
-    if K < 1 or set(np.unique(assignment).tolist()) != set(range(K)):
-        raise ValueError(f"the assignment must use exactly the clients 0..{K - 1}")
+    expect(
+        K >= 1 and set(np.unique(assignment).tolist()) == set(range(K)),
+        f"the assignment must use exactly the clients 0..{K - 1}",
+    )
     N = len(assignment)
     foreign = (A > 0) & (assignment[None, :] != assignment[:, None])  # [N, N] edges to another client
     inner = ~foreign.any(axis=1)
@@ -170,11 +180,9 @@ def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tup
     returns    : (bus indices, own buses first; the number of own buses)
     """
     _check_graph(assignment, A)
-    if depth < 0:
-        raise ValueError(f"depth must be >= 0, got {depth}")
+    expect(depth >= 0, f"depth must be >= 0, got {depth}")
     owned = np.flatnonzero(assignment == k)
-    if not len(owned):
-        raise ValueError(f"client {k} owns no bus")
+    expect(len(owned), f"client {k} owns no bus")
     dist = hop_distance(A, owned)
     halo = np.flatnonzero((dist >= 1) & (dist <= depth) & (assignment != k))
     halo = halo[np.argsort(dist[halo], kind="stable")]  # nearest first, bus order within a hop
@@ -192,13 +200,16 @@ def _index_array(c: np.ndarray, d: int) -> bool:
 def _check_blocks(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> None:
     """At least one block; each block's columns a 1-D integer array inside 0..d-1, the blocks
     disjoint; one basis row per column."""
-    if not len(blocks) or not all(_index_array(c, d) for c, _ in blocks):
-        raise ValueError(f"need at least one block of integer state columns inside 0..{d - 1}")
+    expect(
+        len(blocks) and all(_index_array(c, d) for (c, _) in blocks),
+        f"need at least one block of integer state columns inside 0..{d - 1}",
+    )
     cols = np.concatenate([np.asarray(c) for c, _ in blocks])
-    if len(np.unique(cols)) != len(cols):
-        raise ValueError("the blocks' state columns must be disjoint")
-    if any(np.ndim(V) != 2 or np.shape(V)[0] != len(c) for c, V in blocks):
-        raise ValueError("each basis needs one row per state column of its block")
+    expect(len(np.unique(cols)) == len(cols), "the blocks' state columns must be disjoint")
+    expect(
+        not (any(np.ndim(V) != 2 or np.shape(V)[0] != len(c) for (c, V) in blocks)),
+        "each basis needs one row per state column of its block",
+    )
 
 
 def block_diagonal_basis(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int) -> np.ndarray:

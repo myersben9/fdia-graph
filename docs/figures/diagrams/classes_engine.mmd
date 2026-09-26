@@ -39,6 +39,12 @@ classDiagram
     class BranchModel {
         <<models>>
     }
+    class GeneratorOptions {
+        <<models>>
+    }
+    class GridIslanded {
+        <<errors>>
+    }
     class MeterBias {
         <<models>>
     }
@@ -74,6 +80,8 @@ classDiagram
     AttackMixin ..> Scan : uses
     AttackMixin ..> TamperTarget : uses
     FdiaGenerator ..> BranchModel : uses
+    FdiaGenerator ..> GeneratorOptions : uses
+    FdiaGenerator ..> GridIslanded : uses
     FdiaGenerator ..> MeterBias : uses
     FdiaGenerator ..> MeterPlan : uses
     FdiaGenerator ..> Outage : uses

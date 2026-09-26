@@ -26,7 +26,10 @@ import numpy as np
 from . import schema
 from .engine import FdiaGenerator
 from .engine.records import FrameKnobs
+from .errors import ConfigError
+from .models.config import ShardRun
 from .models.grid import NODE
+from .models.validation import expect
 from .registry import CACHE_DIR, register_local
 from .schema import KIND_TIMELINE, Attr, Group, Static
 
@@ -47,8 +50,7 @@ def as_v_first(X: np.ndarray) -> np.ndarray:
     than a guess.
     """
     X = np.asarray(X, np.float64)
-    if X.ndim != 3 or X.shape[2] != 4:
-        raise ValueError(f"a state pool is [T, N, 4], got shape {X.shape}")
+    expect(X.ndim == 3 and X.shape[2] == 4, f"a state pool is [T, N, 4], got shape {X.shape}")
 
     def looks_like_v(col: np.ndarray) -> bool:
         return bool(np.all((col > 0.5) & (col < 1.5)))
@@ -58,7 +60,7 @@ def as_v_first(X: np.ndarray) -> np.ndarray:
         return X
     if v2 and not v0:
         return X[:, :, [2, 0, 1, 3]]  # [P, Q, V, th] -> [V, P, Q, th]
-    raise ValueError("cannot tell the pool's column order; expected [|V|, Pinj, Qinj, theta]")
+    raise ConfigError("cannot tell the pool's column order; expected [|V|, Pinj, Qinj, theta]")
 
 
 def _load_states(
@@ -127,10 +129,7 @@ def generate(
     redundancy, split)."""
     from .timeline import generate_timeline
 
-    if frames is not None and (isinstance(frames, bool) or not isinstance(frames, int) or frames < 1):
-        raise ValueError(
-            f"frames caps the pool timesteps walked and must be a positive integer, got {frames!r}"
-        )
+    frames = ShardRun(frames).frames
     X = _load_states(system, states)
     if frames is not None:
         X = X[:frames]

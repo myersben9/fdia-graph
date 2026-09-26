@@ -7,7 +7,9 @@ public vocabulary of a record and stay as words in the code; `FIELD_PATH` maps t
 
 from __future__ import annotations
 
-from .choices import Choice
+from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Split,
+)
 
 
 class Group:
@@ -175,13 +177,5 @@ STEALTHY_FAMILIES = {1, 5, 6, 7}  # Aq, At, Al, Am: local false states that pass
 FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
 
 
-class Split(Choice):
-    """The chronological partitions of a file."""
-
-    TRAIN = "train"
-    VAL = "val"
-    TEST = "test"
-
-
 # The partition codes stored in data/split.
-SPLIT_CODE = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}
+SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}

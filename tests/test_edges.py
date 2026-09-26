@@ -144,7 +144,7 @@ def test_windows_labels_and_bounds():
     with pytest.raises(ValueError, match="stride"):
         check_window_args(12, 4, 0, "any")
     for W, stride in ((4.5, 1), (4, 1.5), (True, 1)):
-        with pytest.raises(ValueError, match="need integers"):
+        with pytest.raises(ValueError, match="WindowSpec.(W|stride) must be an integer"):
             check_window_args(12, W, stride, "any")
 
 
@@ -166,7 +166,7 @@ def test_estimator_constructor_checks():
         SubspacePrior,
     )
 
-    with pytest.raises(ValueError, match="npass and iters"):
+    with pytest.raises(ValueError, match="SolveConfig.npass must be >= 1"):
         WLS(npass=0)
     with pytest.raises(ValueError, match="c must be"):
         AdaptiveWeighting(c=0.0)

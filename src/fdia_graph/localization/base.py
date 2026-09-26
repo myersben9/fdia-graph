@@ -18,8 +18,13 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from ..choices import Choice
+from ..errors import ConfigError, NoBenignRecords
 from ..formulas.metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Buses,
+    FrOver,
+)
+from ..models.config import LocalizerConfig, PerBusReport
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     BenignMetrics,
     FamilyMetrics,
@@ -28,6 +33,7 @@ from ..models.scores import (  # noqa: F401  re-exported: defined here before th
     PerBusMetrics,
     PerBusScores,
 )
+from ..models.validation import expect
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -45,20 +51,6 @@ _FIELD_FLAG = {
 }
 
 
-class FrOver(Choice):
-    """The records a per-bus false-alarm rate counts: every non-attacked cell, or benign records."""
-
-    ALL = "all"
-    BENIGN = "benign"
-
-
-class Buses(Choice):
-    """The bus set a per-bus table reports: attacked somewhere in the view, or labelled in training."""
-
-    ACTIVE = "active"
-    ATTACKABLE = "attackable"
-
-
 class LocalizerBase:
     """Threshold localization at a fixed per-bus false-alarm budget.
 
@@ -73,9 +65,9 @@ class LocalizerBase:
     """
 
     def __init__(self, fa_target: float = 0.01) -> None:
-        if not 0.0 < fa_target < 1.0:
-            raise ValueError(f"fa_target must be in (0, 1), got {fa_target}")
-        self.fa_target = fa_target  # per-bus benign alarm rate the threshold is calibrated to
+        self.fa_target = LocalizerConfig(
+            fa_target
+        ).fa_target  # per-bus benign alarm rate the threshold is calibrated to
 
     # ---- subclass hooks ---------------------------------------------------------------------
     def _fields(self) -> list[str]:
@@ -96,8 +88,10 @@ class LocalizerBase:
         want = list(dict.fromkeys(list(self._fields()) + list(extra)))  # ordered de-dup
         for k in want:
             flag = _FIELD_FLAG.get(k)
-            if flag is not None and not getattr(ds, flag):
-                raise ValueError(f"dataset has no '{k}' field; this method needs a newer dataset")
+            expect(
+                flag is None or getattr(ds, flag),
+                f"dataset has no '{k}' field; this method needs a newer dataset",
+            )
         return ds.export(want)
 
     # ---- fitting ----------------------------------------------------------------------------
@@ -105,7 +99,7 @@ class LocalizerBase:
         d = self._pull(ds, extra=["family"])
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
-            raise ValueError("fit needs benign records; pass the train split unfiltered")
+            raise NoBenignRecords("fit needs benign records; pass the train split unfiltered")
         self._fit_stats(d, ben, ds)
         s = self._score(d, ds)[ben]
         # Per-bus threshold at the (1 - fa_target) benign quantile: each bus alarms on ~fa_target
@@ -138,8 +132,7 @@ class LocalizerBase:
 
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
-        if s.shape != (len(ds), ds.N):
-            raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        expect(s.shape == (len(ds), ds.N), f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
         pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
         out: dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
@@ -169,11 +162,10 @@ class LocalizerBase:
         """
         from ..dataset import FAMILIES
 
-        fr_over = FrOver(fr_over).value
+        fr_over = PerBusReport(buses, fr_over).fr_over
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
-        if s.shape != (len(ds), ds.N):
-            raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        expect(s.shape == (len(ds), ds.N), f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
         y, fam = d["y"].astype(bool), d["family"]
         cols = self._report_buses(y, buses)
         out: dict[str, Any] = {
@@ -187,12 +179,11 @@ class LocalizerBase:
 
     def _report_buses(self, y: np.ndarray, buses: str) -> np.ndarray:
         """The bus set a per-bus table reports."""
-        buses = Buses(buses).value
         if buses == "active":
             return np.flatnonzero(y.any(axis=0))
         if buses == "attackable" and hasattr(self, "_attackable"):
             return np.flatnonzero(getattr(self, "_attackable"))
-        raise ValueError("buses='attackable' needs a learned localizer, which records the attackable set")
+        raise ConfigError("buses='attackable' needs a learned localizer, which records the attackable set")
 
     def _perbus_rows(
         self,

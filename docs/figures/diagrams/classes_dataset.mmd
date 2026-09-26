@@ -1,9 +1,6 @@
 classDiagram
-    class Units {
-    }
-    class Order {
-    }
     class DatasetBase {
+        +require()
         +edge_index
         +edge_attr
         +export()
@@ -31,8 +28,6 @@ classDiagram
         +collate()
         +loader()
     }
-    class Format {
-    }
     class ExportMixin {
         +summary()
         +export()
@@ -40,10 +35,6 @@ classDiagram
         +to_torch()
         +to_tf()
         +to_pandas()
-    }
-    class Label {
-    }
-    class Layer {
     }
     class SequenceMixin {
         +windows()
@@ -66,10 +57,19 @@ classDiagram
     class BranchModel {
         <<models>>
     }
-    class Choice {
-        <<choices>>
+    class Capability {
+        <<models>>
     }
     class EpisodeTable {
+        <<models>>
+    }
+    class ExportRequest {
+        <<models>>
+    }
+    class LoadOptions {
+        <<models>>
+    }
+    class MissingCapability {
         <<models>>
     }
     class RecordBundle {
@@ -78,12 +78,10 @@ classDiagram
     class Summary {
         <<models>>
     }
+    class WindowSpec {
+        <<models>>
+    }
     AdmittanceMixin <|-- FdiaGraph
-    Choice <|-- Format
-    Choice <|-- Label
-    Choice <|-- Layer
-    Choice <|-- Order
-    Choice <|-- Units
     DatasetBase <|-- AdmittanceMixin
     DatasetBase <|-- ExportMixin
     DatasetBase <|-- GraphMixin
@@ -95,11 +93,14 @@ classDiagram
     SequenceMixin <|-- FdiaGraph
     AdmittanceMixin ..> Admittances : uses
     AdmittanceMixin ..> BranchModel : uses
+    DatasetBase ..> Capability : uses
+    DatasetBase ..> MissingCapability : uses
     ExportMixin ..> ArraysBundle : uses
+    ExportMixin ..> ExportRequest : uses
     ExportMixin ..> Summary : uses
     FdiaGraph ..> Attr : uses
-    FdiaGraph ..> Order : uses
-    FdiaGraph ..> Units : uses
+    FdiaGraph ..> LoadOptions : uses
     RecordsMixin ..> BatchBundle : uses
     RecordsMixin ..> RecordBundle : uses
     SequenceMixin ..> EpisodeTable : uses
+    SequenceMixin ..> WindowSpec : uses

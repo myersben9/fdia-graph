@@ -11,14 +11,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..choices import Choice
-
-
-class Reduce(Choice):
-    """How a per-meter quantity aggregates to a bus: summed (energies) or the largest (changes)."""
-
-    SUM = "sum"
-    MAX = "max"
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Reduce,
+)
 
 
 def bus_incidence(n_bus: int, n_branch: int, edge_index: np.ndarray, mask: np.ndarray) -> list[np.ndarray]:

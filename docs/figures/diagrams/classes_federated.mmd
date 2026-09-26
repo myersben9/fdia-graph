@@ -1,6 +1,4 @@
 classDiagram
-    class Kcl {
-    }
     class FederatedLocalizer {
         +tune_threshold()
     }
@@ -17,8 +15,8 @@ classDiagram
     class BusMLP {
         <<localization>>
     }
-    class Choice {
-        <<choices>>
+    class FederatedSettings {
+        <<models>>
     }
     class JacobianFeatures {
         <<se>>
@@ -28,6 +26,9 @@ classDiagram
     }
     class LocalTrainer {
         <<localization>>
+    }
+    class NoAttackedRecords {
+        <<errors>>
     }
     class Partition {
         <<models>>
@@ -40,13 +41,14 @@ classDiagram
     }
     BusCNN <|-- FedBusCNN
     BusMLP <|-- FedBusMLP
-    Choice <|-- Kcl
     FederatedLocalizer <|-- FedBusCNN
     FederatedLocalizer <|-- FedBusMLP
     LearnedLocalizer <|-- FederatedLocalizer
     SubspacePrior <|-- RegionalPrior
+    FederatedLocalizer ..> FederatedSettings : uses
     FederatedLocalizer ..> JacobianFeatures : uses
     FederatedLocalizer ..> LocalTrainer : uses
+    FederatedLocalizer ..> NoAttackedRecords : uses
     FederatedLocalizer ..> Partition : uses
     FederatedLocalizer ..> RoundLog : uses
     RegionalPrior ..> Partition : uses

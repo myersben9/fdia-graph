@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from ..choices import Choice
+from ..errors import NoAttackedRecords
 from ..formulas.federated import channel_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
 from ..localization.learned import (
@@ -39,6 +39,10 @@ from ..localization.learned import (
     predict,
     standardization,
 )
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Kcl,
+)
+from ..models.config import FederatedSettings
 from ..models.federated import Partition, RoundLog
 from .aggregate import fedavg_state, state_bytes
 from .partition import check_partition, compute_nodes, spectral_partition
@@ -67,29 +71,6 @@ class _Client:
         return self.nodes[: self.owned]
 
 
-def _is_int(v: Any) -> bool:
-    """A true integer (numpy's included), not a bool or a float that happens to be whole."""
-    return isinstance(v, (int, np.integer)) and not isinstance(v, bool)
-
-
-class Kcl(Choice):
-    """Where a client's KCL residual comes from: its own buses and branches, or the whole grid."""
-
-    LOCAL = "local"
-    GLOBAL = "global"
-
-
-def _check_settings(K: int, rounds: int, local_epochs: int, halo: int, grad_clip: Optional[float]) -> None:
-    """The federated knobs a fit cannot recover from."""
-    counts = (K, rounds, local_epochs, halo)
-    if not all(_is_int(v) for v in counts):
-        raise ValueError(f"K, rounds, local_epochs and halo must be integers, got {counts}")
-    if min(K, rounds, local_epochs) < 1 or halo < 0:
-        raise ValueError(f"need K, rounds, local_epochs >= 1 and halo >= 0, got {counts}")
-    if grad_clip is not None and not (np.isfinite(grad_clip) and grad_clip > 0):
-        raise ValueError(f"grad_clip must be None or a finite positive norm, got {grad_clip}")
-
-
 class FederatedLocalizer(LearnedLocalizer):
     """FedAvg over a K-way partition of the buses; the encoder comes from the class it is mixed
     with (`FedBusMLP`, `FedBusCNN`).
@@ -115,13 +96,18 @@ class FederatedLocalizer(LearnedLocalizer):
         kcl: str = "local",
         **kw: Any,
     ) -> None:
-        if "epochs" in kw:
-            raise ValueError("a federated fit trains rounds x local_epochs; pass those, not epochs")
+        fed = FederatedSettings(
+            K,
+            rounds,
+            local_epochs,
+            halo,
+            grad_clip,
+            kcl,
+            partition_clients=None if partition is None else partition.K,
+            epochs=kw.pop("epochs", None),
+        )
         super().__init__(**kw)
-        _check_settings(K, rounds, local_epochs, halo, grad_clip)
-        if partition is not None and partition.K != K:
-            raise ValueError(f"the partition has {partition.K} clients but K={K}")
-        kcl = Kcl(kcl).value
+        kcl = fed.kcl
         self.K, self.rounds, self.local_epochs = K, rounds, local_epochs
         self.partition, self.halo, self.grad_clip, self.kcl = partition, halo, grad_clip, kcl
         self.epochs = rounds * local_epochs  # the local passes over the data each client makes
@@ -151,9 +137,7 @@ class FederatedLocalizer(LearnedLocalizer):
     def _check_units(self, ds: FdiaGraph) -> None:
         """The Jacobian block converts physical units itself, so a per-unit view is refused."""
         if "jac" in self.features:
-            from ..se.base import require_physical
-
-            require_physical(ds)
+            ds.require("physical_units", by="the Jacobian block")
 
     def _central(self, d: dict[str, np.ndarray]) -> Optional[np.ndarray]:
         """The per-bus Jacobian block [n, N, 8] of these records, or None without a "jac" feature
@@ -302,7 +286,7 @@ class FederatedLocalizer(LearnedLocalizer):
                 tp[i, c.own], fp[i, c.own], fn[i, c.own] = perbus_counts(p > tau, t)
             active[c.own] = t.any(axis=0)
         if not active.any():
-            raise ValueError("tune_threshold needs attacked records in val")
+            raise NoAttackedRecords("tune_threshold needs attacked records in val")
         self.tau = tau_from_counts(tp, fp, fn, active, taus)
         self.thr = np.full(self.N, self.tau)
         if self.attackable_only:

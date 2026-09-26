@@ -1,6 +1,4 @@
 classDiagram
-    class Calibrate {
-    }
     class SEBase {
         +fit()
         +is_fitted
@@ -20,6 +18,9 @@ classDiagram
         +fit()
         +weights()
     }
+    class OracleGate {
+        +localize()
+    }
     class GatedPrior {
         +gated_weights()
     }
@@ -29,36 +30,72 @@ classDiagram
         +delta_z()
         +transform()
     }
-    class Choice {
-        <<choices>>
-    }
     class ErrorPair {
         <<models>>
     }
     class EstimatorScores {
         <<models>>
     }
+    class FitOptions {
+        <<models>>
+    }
+    class GateConfig {
+        <<models>>
+    }
+    class HuberConfig {
+        <<models>>
+    }
     class JacobianOutputs {
+        <<models>>
+    }
+    class JacobianWeightingConfig {
         <<models>>
     }
     class LocalizerBase {
         <<localization>>
     }
+    class NoBenignRecords {
+        <<errors>>
+    }
+    class PriorConfig {
+        <<models>>
+    }
+    class RemovalConfig {
+        <<models>>
+    }
+    class SlackMismatch {
+        <<errors>>
+    }
+    class SolveConfig {
+        <<models>>
+    }
     class TrueState {
         <<models>>
     }
-    Choice <|-- Calibrate
+    class VaryingReference {
+        <<errors>>
+    }
     SEBase <|-- AdaptiveWeighting
     SEBase <|-- JacobianWeighting
     SEBase <|-- ResidualRemoval
     SEBase <|-- SubspacePrior
     SEBase <|-- WLS
     SubspacePrior <|-- GatedPrior
+    AdaptiveWeighting ..> HuberConfig : uses
+    GatedPrior ..> GateConfig : uses
     GatedPrior ..> LocalizerBase : gate
     JacobianFeatures ..> JacobianOutputs : uses
     JacobianFeatures ..> SEBase : uses
     JacobianFeatures ..> WLS : uses
     JacobianWeighting ..> JacobianFeatures : uses
+    JacobianWeighting ..> JacobianWeightingConfig : uses
+    ResidualRemoval ..> RemovalConfig : uses
     SEBase ..> ErrorPair : uses
     SEBase ..> EstimatorScores : uses
+    SEBase ..> FitOptions : uses
+    SEBase ..> NoBenignRecords : uses
+    SEBase ..> SlackMismatch : uses
+    SEBase ..> SolveConfig : uses
     SEBase ..> TrueState : uses
+    SEBase ..> VaryingReference : uses
+    SubspacePrior ..> PriorConfig : uses

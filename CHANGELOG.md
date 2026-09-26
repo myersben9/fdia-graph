@@ -5,13 +5,19 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
-- Every argument that takes one value from a fixed set is a `Choice` enum (`fdia_graph.choices`),
-  declared once beside its subject: `Split` (`schema`), `Units` and `Order` (`dataset`), `Format`,
-  `Label`, `Layer`, `Calibrate` (`se`), `Features` (`localization.learned`), `FrOver`, `Buses`, `Kcl`,
-  `Reduce`, `AmDirection` and `Iso`. Plain strings are still accepted and compare equal to the members.
-  A wrong value raises one message everywhere, "<argument> must be one of [...], got '<value>'"; the
-  old wording differed per argument. `SPLIT_CODE` and `FEATURE_SETS` are keyed by the members (a
-  string lookup still works). The loader's `check_split`, `check_units` and `check_order` are gone.
+- Every input is checked in one place (`docs/plans/VALIDATION_PLAN.md`). Each consumer's settings
+  are one model in `fdia_graph.models.config` (`LoadOptions`, `WindowSpec`, `HuberConfig`,
+  `PriorConfig`, `LearnedConfig`, `FederatedSettings`, `TimelineKnobs` and the rest), whose fields
+  declare their rules (`Annotated[float, Positive()]`, `OneOf(Units)`); one engine,
+  `models.validation`, checks them when the model is built. The public signatures are unchanged:
+  the keyword arguments build the model. Every fixed set of values is a `Choice` enum in
+  `models.choices`, still importable where it was used. A dataset view is checked through one table,
+  `ds.require(...)` over `dataset.base.CAPABILITIES`. A condition only the data reveals raises a
+  named error from `fdia_graph.errors` (`NoBenignRecords`, `NoAttackedRecords`, `GridIslanded`, ...).
+  Every error is still a `ValueError`; the messages now have one shape, "<Model>.<field> <rule>, got
+  <value>". The loader's record `format` ("torch" or "pyg") is now checked too: a typo such as
+  "pygg" used to fall through to the torch records silently. `check_split`, `check_units` and
+  `check_order` still work for one minor version and raise a `DeprecationWarning`.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

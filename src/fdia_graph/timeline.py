@@ -36,7 +36,6 @@ import h5py
 import numpy as np
 
 from . import schema
-from .choices import Choice
 from .dataset.base import FAMILIES, STEALTHY_FAMILIES
 from .engine import FAM_ID, FdiaGenerator
 from .engine.records import (
@@ -50,6 +49,7 @@ from .engine.records import (
     attack_frame,
     is_feasible,
 )
+from .errors import NoAdmissibleTarget, NoRoomForEpisode
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
 from .generation import (
@@ -60,6 +60,10 @@ from .generation import (
     _load_states,
     _write_graph,
 )
+from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    AmDirection,
+)
+from .models.config import TimelineKnobs
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
 
@@ -194,7 +198,7 @@ def check_targets(g: Any, families: Sequence[str]) -> None:
     empty = sorted(i for i in fids if need.get(i, len(g.attackable_pos)) == 0)
     if empty:
         names = ", ".join(FAMILIES[i] for i in empty)
-        raise ValueError(f"no admissible target on this case for {names}; drop them from families")
+        raise NoAdmissibleTarget(f"no admissible target on this case for {names}; drop them from families")
 
 
 def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
@@ -511,7 +515,9 @@ def _uniform_onset(occupied: np.ndarray, length: int, rng: np.random.Generator) 
     T = len(occupied)
     feasible = np.flatnonzero(free[length : T + 1] - free[: T - length + 1] == length)
     if len(feasible) == 0:
-        raise ValueError(f"no room for a {length}-frame episode: the attacked fraction cannot be placed")
+        raise NoRoomForEpisode(
+            f"no room for a {length}-frame episode: the attacked fraction cannot be placed"
+        )
     return int(feasible[rng.integers(len(feasible))])
 
 
@@ -712,33 +718,6 @@ def _block_scale(nx: Any, a: int, b: int) -> np.ndarray:
     return recent_change_scale(pq, SWING_WINDOW, nx.shape[1])[a - g0 :]
 
 
-class AmDirection(Choice):
-    """What an Am episode does to its target line: reads lighter (a real overload hidden), reads
-    more loaded than it is, or either, drawn per episode."""
-
-    MASK = "mask"
-    INDUCE = "induce"
-    BOTH = "both"
-
-
-def _check_knobs(
-    attacked_frac: float, am: tuple[float, float, str], lengths: dict[str, Optional[int]]
-) -> None:
-    """Refuse the knob values that would hang or mislead the walk, before any physics is built.
-    `am` = (am_rate, hops, am_direction)."""
-    am_rate, hops, am_direction = am
-    AmDirection(am_direction)
-    if not am_rate > 0:
-        raise ValueError(f"am_rate is the per-frame step as a fraction of the noise floor, got {am_rate!r}")
-    if not (isinstance(hops, int) and hops >= 1):
-        raise ValueError(f"hops is the attacker's reach in branches, at least 1, got {hops!r}")
-    if not 0.0 <= attacked_frac <= 1.0:
-        raise ValueError(f"attacked_frac is a fraction of frames, got {attacked_frac!r}")
-    for knob, value in lengths.items():
-        if value is not None and value < 1:  # an empty episode would store no frame and never advance
-            raise ValueError(f"{knob} must be at least 1 frame, got {value!r}")
-
-
 def generate_timeline(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
@@ -793,11 +772,7 @@ def generate_timeline(
     split            chronological train/val/test fractions by frame, episodes never cut
     """
     am_len = ramp_len if am_len is None else am_len
-    _check_knobs(
-        attacked_frac,
-        (am_rate, hops, am_direction),
-        dict(ramp_len=ramp_len, am_len=am_len, corrupt_len=corrupt_len),
-    )
+    TimelineKnobs(attacked_frac, am_rate, hops, am_direction, ramp_len, am_len, corrupt_len)
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))

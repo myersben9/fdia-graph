@@ -94,24 +94,23 @@ def load(
     """
     # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
     # short-circuit to their file).
-    from .dataset.base import Order, Units, split_or_none
+    from .models.config import LoadOptions
 
-    # converted before any download, so a wrong argument never fetches a file
-    units, order, split = Units(units).value, Order(order).value, split_or_none(split)
+    options = LoadOptions(split, units, order, format)  # checked before any download
     if families is not None:
         family_ids(families)
     path = ensure_local(resolve(name, release=release))
     # Thin factory: the Dataset applies split/families/gaps/heldout and the export format lazily.
     return FdiaGraph(
         path,
-        split=split,
+        split=options.split,
         families=families,
         include_gaps=include_gaps,
         heldout=heldout,
-        format=format,
-        units=units,
+        format=options.format,
+        units=options.units,
         preload=preload,
-        order=order,
+        order=options.order,
         seed=seed,
     )
 

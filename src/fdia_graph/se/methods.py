@@ -10,6 +10,7 @@ import numpy as np
 
 from ..formulas.estimation import gate_weights, huber_weights, normal_matrix, whitened_svd_basis
 from ..formulas.linalg import condition_number
+from ..models.config import GateConfig, HuberConfig, JacobianWeightingConfig, PriorConfig, RemovalConfig
 from .base import SEBase, require_physical
 
 if TYPE_CHECKING:
@@ -30,10 +31,9 @@ class AdaptiveWeighting(SEBase):
 
     def __init__(self, c: float = 1.5, npass: int = 40, iters: int = 8, tol: float = 1e-4) -> None:
         super().__init__(npass=npass, iters=iters)
-        if c <= 0:
-            raise ValueError(f"c must be > 0, got {c}")
-        self.c = c
-        self.tol = tol  # stop the reweighting passes once no weight moves by more than this
+        cfg = HuberConfig(c, tol)
+        self.c = cfg.c
+        self.tol = cfg.tol  # stop the reweighting passes once no weight moves by more than this
 
     def _solve(self, z: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
         x = super()._solve(z, w)
@@ -57,10 +57,8 @@ class ResidualRemoval(SEBase):
         self, threshold: float = 4.0, cond_mult: float = 100.0, npass: int = 40, iters: int = 8
     ) -> None:
         super().__init__(npass=npass, iters=iters)
-        if threshold <= 0 or cond_mult < 1:
-            raise ValueError(f"need threshold > 0 and cond_mult >= 1, got {threshold}, {cond_mult}")
-        self.threshold = threshold
-        self.cond_mult = cond_mult
+        cfg = RemovalConfig(threshold, cond_mult)
+        self.threshold, self.cond_mult = cfg.threshold, cfg.cond_mult
 
     def _post_fit(self) -> None:
         self._cond_full = condition_number(normal_matrix(self.H, self.Wk))
@@ -118,16 +116,10 @@ class SubspacePrior(SEBase):
         tol: float = 1e-4,
     ) -> None:
         super().__init__(npass=npass, iters=iters)
-        self.tol = tol  # stop the Huber passes once no weight moves by more than this
-        if reweight not in (None, "huber"):
-            raise ValueError("reweight must be None or 'huber'")
-        if not 0.0 < rank_frac <= 1.0:
-            raise ValueError(f"rank_frac must be in (0, 1], got {rank_frac}")
-        if c <= 0:
-            raise ValueError(f"c must be > 0, got {c}")
-        self.rank_frac = rank_frac
-        self.reweight = reweight
-        self.c = c
+        cfg = PriorConfig(rank_frac, reweight, c, tol)
+        self.tol = cfg.tol  # stop the Huber passes once no weight moves by more than this
+        self.rank_frac, self.c = cfg.rank_frac, cfg.c
+        self.reweight = cfg.reweight
 
     def _fit_states(self, x_benign: np.ndarray) -> None:
         self.K, self.VK = whitened_svd_basis(x_benign, self.rank_frac)
@@ -166,14 +158,11 @@ class JacobianWeighting(SEBase):
         tol: float = 1e-4,
     ) -> None:
         super().__init__(npass=npass, iters=iters)
-        if c <= 0 or huber_c <= 0:
-            raise ValueError(f"c and huber_c must be > 0, got {c}, {huber_c}")
-        if reweight not in (None, "huber"):
-            raise ValueError("reweight must be None or 'huber'")
-        self.c = c
-        self.reweight = reweight  # "huber": Huber passes on the estimate's residual, from these weights
-        self.huber_c = huber_c
-        self.tol = tol  # stop the Huber passes once no weight moves by more than this
+        cfg = JacobianWeightingConfig(c, reweight, huber_c, tol)
+        self.c, self.huber_c = cfg.c, cfg.huber_c
+        # "huber": Huber passes on the estimate's residual, from these weights
+        self.reweight = cfg.reweight
+        self.tol = cfg.tol  # stop the Huber passes once no weight moves by more than this
 
     def fit(self, ds: FdiaGraph, n_calib: int = 600, calibrate: str = "truth") -> JacobianWeighting:
         from .jacobian import JacobianFeatures
@@ -200,6 +189,13 @@ class JacobianWeighting(SEBase):
         return self._huber_passes(x, z, self.Wk if w is None else w, self.huber_c, self.tol)
 
 
+class OracleGate:
+    """The ceiling for any gate: it flags exactly the buses the labels say are attacked."""
+
+    def localize(self, ds: FdiaGraph) -> np.ndarray:
+        return ds.export(["y"])["y"].astype(bool)
+
+
 class GatedPrior(SubspacePrior):
     """The headline estimator (subspace prior + Huber) with localization-gated weights.
 
@@ -220,12 +216,9 @@ class GatedPrior(SubspacePrior):
         self, gate: Any = None, gate_factor: float = 1e-3, secured: Optional[Sequence[int]] = None, **kw: Any
     ) -> None:
         super().__init__(**kw)
-        if gate is None:
-            raise ValueError("pass gate=<fitted localizer> or gate='oracle'")
-        if not 0.0 < gate_factor <= 1.0:
-            raise ValueError(f"gate_factor must be in (0, 1], got {gate_factor}")
-        self.gate = gate
-        self.gate_factor = gate_factor
+        cfg = GateConfig(gate, gate_factor)
+        self.gate = OracleGate() if cfg.gate == "oracle" else cfg.gate
+        self.gate_factor = cfg.gate_factor
         self.secured = np.asarray([] if secured is None else secured, int)
 
     def gated_weights(self, ds: FdiaGraph) -> np.ndarray:
@@ -233,12 +226,7 @@ class GatedPrior(SubspacePrior):
         buses, the secured meters kept at Wk."""
         from .jacobian import bus_incidence
 
-        if isinstance(self.gate, str):
-            if self.gate != "oracle":
-                raise ValueError(f"gate must be a fitted localizer or 'oracle', got {self.gate!r}")
-            flags = ds.export(["y"])["y"].astype(bool)  # the ceiling: true labels
-        else:
-            flags = np.asarray(self.gate.localize(ds), bool)
+        flags = np.asarray(self.gate.localize(ds), bool)
         w = gate_weights(self.Wk, flags, bus_incidence(self, ds.edge_index_np), self.gate_factor)
         if len(self.secured):
             w[:, self.secured] = self.Wk[self.secured]

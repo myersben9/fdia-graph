@@ -95,8 +95,7 @@ class JacobianFeatures:
         if not self.est.is_fitted:
             self.est.fit(ds, calibrate="measured")  # a feature: measurements only
         est = self.est
-        if not ds.is_timeline:
-            raise ValueError("Jacobian features need a timeline: the previous frame's readings")
+        ds.require("timeline", by="Jacobian features (they read the previous frame)")
         self._inc = bus_incidence(est, ds.edge_index_np)
         sw = np.sqrt(est.Wk)  # W^1/2 as a vector
         Hw = sw[:, None] * est.H  # [m, SD], the whitened Jacobian

@@ -23,8 +23,11 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
-from .choices import Choice
 from .engine.core import _CASE  # bus-count -> pandapower builder; single source of supported systems
+from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Iso,
+)
+from .models.validation import expect
 from .registry import system_id
 
 
@@ -82,8 +85,7 @@ def load_profile(
         loads = full[load_col].dropna().to_numpy(dtype=float)
     else:  # generic CSV path + column name
         pd = _pandas()
-        if column is None:
-            raise ValueError("for a generic CSV `source`, pass the load `column` name")
+        expect(column is not None, "for a generic CSV `source`, pass the load `column` name")
         loads = pd.read_csv(source)[column].dropna().to_numpy(dtype=float)
     mu, sd = loads.mean(), loads.std()
     return (loads - mu) / (sd if sd > 0 else 1.0)  # standardized scaling vector S [T]
@@ -189,8 +191,7 @@ def generate_states(
     [P, Q, V, theta]; generate() still accepts such pools and converts them, see generation.as_v_first.)
     """
     key = system_id(system)
-    if key not in _CASE:
-        raise ValueError(f"unknown system {system!r}; supported: {sorted(_CASE)}")
+    expect(key in _CASE, f"unknown system {system!r}; supported: {sorted(_CASE)}")
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]
@@ -216,19 +217,6 @@ def generate_states(
 # Automatic ISO load-profile download. NYISO is a zero-dependency built-in (public monthly archives, no
 # account); CAISO/ERCOT (and optionally NYISO) go through the `gridstatus` package: pip install 'fdia-graph[iso]'.
 # ---------------------------------------------------------------------------------------------------------
-
-
-class Iso(Choice):
-    """The system operators a load profile can be fetched from. Matched without regard to case."""
-
-    CAISO = "caiso"
-    NYISO = "nyiso"
-    ERCOT = "ercot"
-
-    @classmethod
-    def _missing_(cls, value: object) -> Choice:
-        folded = str(value).lower()
-        return cls(folded) if folded in cls.values() else super()._missing_(value)
 
 
 def _as_date(d: Union[str, _dt.date, _dt.datetime]) -> _dt.date:

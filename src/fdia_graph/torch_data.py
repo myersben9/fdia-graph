@@ -18,6 +18,9 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
+from .models.config import SplitFractions
+from .models.validation import present
+
 if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-free
     import torch
     from torch_geometric.data import Data
@@ -34,11 +37,6 @@ def _f32(a: Any) -> torch.Tensor:
     return torch.from_numpy(np.ascontiguousarray(a, dtype=np.float32))
 
 
-def _check_frac(train_frac: float) -> None:
-    if not 0.0 < train_frac < 1.0:
-        raise ValueError(f"train_frac must be in (0, 1), got {train_frac}")
-
-
 def _resolve_stream(
     system: Optional[Union[str, int]],
     release: Optional[str],
@@ -51,11 +49,10 @@ def _resolve_stream(
         return _dataset_stream(dataset)
     if stream is not None:
         return stream
-    if system is None:
-        raise ValueError("pass dataset=<fg.load(..., order='time')>, stream=<dict>, or a system name")
     from .streams import load_stream
 
-    return load_stream(system, release=release)
+    need = "pass dataset=<fg.load(..., order='time')>, stream=<dict>, or a system name"
+    return load_stream(present(system, need), release=release)
 
 
 def _dataset_stream(ds: FdiaGraph) -> dict[str, Any]:
@@ -109,9 +106,7 @@ def pyg_stream(
     import torch
 
     _retiring("pyg_stream", "fg.load(name, split=..., order='time', format='pyg') and ds[i]")
-    _check_frac(train_frac)
-    if max_test is not None and max_test < 0:
-        raise ValueError(f"max_test must be >= 0, got {max_test}")
+    SplitFractions(train_frac, val_frac, max_test)
     s = _resolve_stream(system, release, stream, dataset)
     X = _f32(s[layer])  # [T, N, 4]
     # The branch flows of the same layer: observed edge_x, or the benign / clean edge layer.
@@ -123,8 +118,6 @@ def pyg_stream(
         "node_mask": _f32(s["node_m"]),
         "edge_mask": _f32(s["edge_m"]),
     }
-    if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
-        raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
     T = int(X.shape[0])
     ntr = int(train_frac * T)
     nva = int(val_frac * T)
@@ -175,9 +168,7 @@ def torch_windows(
     from .dataset.sequence import check_window_args, window_labels
 
     _retiring("torch_windows", "ds.windows(W, stride, label, layer, per_bus=True) on each split view")
-    _check_frac(train_frac)
-    if not 0.0 <= val_frac < 1.0 or train_frac + val_frac >= 1.0:
-        raise ValueError(f"need train_frac + val_frac < 1, got {train_frac} + {val_frac}")
+    SplitFractions(train_frac, val_frac)
     s = _resolve_stream(system, release, stream, dataset)
     nx, y = np.asarray(s[layer]), np.asarray(s["y"])
     T = int(nx.shape[0])
