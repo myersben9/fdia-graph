@@ -28,6 +28,7 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..models.choices import FAMILY_ALIAS as _FAMILY_ALIAS  # noqa: F401  kept where it was read before
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
     Capability,
     Order,

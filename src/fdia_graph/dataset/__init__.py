@@ -42,6 +42,7 @@ from ..models.grid import NODE
 from ..schema import Attr
 from .base import (  # noqa: F401  re-exported: defined here before the split
     _BENIGN_LAYERS,
+    _FAMILY_ALIAS,
     _HELDOUT_TRAIN_EXCLUDE,
     _SPLIT,
     _STATIC_PHYSICS,

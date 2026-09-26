@@ -20,7 +20,10 @@ the public API, the generated files and the numbers are the same as the previous
   Every error is still a `ValueError`; the messages now have one shape, "<Model>.<field> <rule>, got
   <value>". The loader's record `format` ("torch" or "pyg") is now checked too: a typo such as
   "pygg" used to fall through to the torch records silently. `check_split`, `check_units` and
-  `check_order` still work for one minor version and raise a `DeprecationWarning`.
+  `check_order` still work for one minor version and raise a `DeprecationWarning`. The private
+  helpers the models replace are gone (`_check_knobs`, `_check_settings`, `_check_frac`,
+  `_check_graph`, `_check_blocks`, `_index_array`, `_is_int`, `_FORMATS`, `_ISOS`, `_FIELD_FLAG`);
+  `dataset._FAMILY_ALIAS` and `profiles.system_id` still resolve.
   Integer settings (`npass`, `iters`, `n_calib`, `layers`, `hidden`, `k`, the episode lengths,
   `max_test`) now refuse a float at construction; before, a value such as `npass=1.5` passed and
   failed later with a raw `TypeError`. A malformed value of any setting (a string where a number

@@ -28,6 +28,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     Iso,
 )
 from .models.inputs import CsvSpec, SupportedSystem
+from .registry import system_id  # noqa: F401  re-exported: callers read it from here before
 
 
 def _pandas():
