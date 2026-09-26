@@ -25,7 +25,7 @@ from ..formulas.network import BranchModel, series_admittance
 from ..formulas.noise import bias_jitter_split
 from ..models.assets import LineCandidate  # noqa: F401  re-exported: defined here before the models package
 from ..models.config import GeneratorOptions
-from ..models.validation import Integer, expect
+from ..models.inputs import OutageRef
 from ..registry import system_id
 from .attacks import AttackMixin
 from .base import (  # noqa: F401  ACCURACY_CLASS, POWER_NOISE_FLOOR_MW re-exported
@@ -74,18 +74,8 @@ _CASE = {
 # operating point, measurements) is computed — a post-hoc mask on an intact-network dataset won't do.
 def _line_id(net: Any, outage: Union[str, int]) -> int:
     """Map a line NAME or index to the pandapower line index, with a clear error if it names nothing."""
-    if isinstance(outage, str):
-        hit = net.line.index[net.line["name"].astype(str) == outage]
-        expect(len(hit) != 0, f"no line named {outage!r} in this case")
-        expect(len(hit) <= 1, f"line name {outage!r} is ambiguous ({len(hit)} matches); pass an index")
-        return int(hit[0])
-    expect(Integer().holds(outage), f"an outage is a line name or an integer line index, got {outage!r}")
-    idx = int(outage)
-    expect(
-        idx in net.line.index,
-        f"line index {idx} is not in this case (lines are {net.line.index.min()}..{net.line.index.max()})",
-    )
-    return idx
+    names = tuple(net.line["name"].astype(str))
+    return OutageRef(outage, names, tuple(int(i) for i in net.line.index)).index
 
 
 def _n_islands(net: Any) -> int:

@@ -219,3 +219,40 @@ class SimpleNamespaceNet:
         import pandas as pd
 
         self.line = pd.DataFrame({"name": ["a", "b", "c", "d"]})
+
+
+def test_parsers_are_models_that_keep_the_input_and_give_the_result():
+    from fdia_graph.models.inputs import FamilySelection, OutageRef, ReleaseName, SystemRef
+
+    assert SystemRef("IEEE118").number == 118 and ReleaseName("data-v0.8.3").numbers == (0, 8, 3)
+    assert FamilySelection(["Ao", 2, "Am"]).codes == (1, 2, 7)
+    with pytest.raises(ConfigError, match="unknown family"):
+        FamilySelection(["Aq", "Zz"])
+    with pytest.raises(ConfigError, match="SystemRef.system must be like 'ieee118' or 118"):
+        SystemRef("big")
+    assert OutageRef("b", ("a", "b"), (4, 7)).index == 7
+    assert OutageRef(np.int64(4), ("a", "b"), (4, 7)).index == 4
+    with pytest.raises(ConfigError, match="is ambiguous"):
+        OutageRef("a", ("a", "a"), (4, 7))
+
+
+def test_a_required_field_refuses_none_with_its_phrase():
+    from fdia_graph.models.inputs import CsvSpec, StreamSystem
+
+    with pytest.raises(ConfigError, match=r"^CsvSpec\.column is required$"):
+        CsvSpec("x.csv", None)
+    with pytest.raises(ConfigError, match="pass dataset=<fg.load"):
+        StreamSystem(None)
+    assert StreamSystem("ieee14").number == 14
+
+
+def test_formulas_build_their_input_models():
+    from fdia_graph.formulas.federated import fedavg, pool_moments
+    from fdia_graph.formulas.metrics import perbus_counts
+
+    with pytest.raises(ConfigError, match="ClientUpdates: client weights must be finite and positive"):
+        fedavg([np.zeros(2), np.zeros(2)], [1.0, -1.0])
+    with pytest.raises(ConfigError, match=r"LabelGrids: need two \[n, N\] boolean arrays"):
+        perbus_counts(np.zeros((2, 3)), np.zeros((3, 2)))
+    with pytest.raises(ConfigError, match="pool_moments needs at least one part"):
+        pool_moments([])

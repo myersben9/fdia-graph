@@ -171,11 +171,8 @@ ATTR_KEYS = frozenset(v for k, v in vars(Attr).items() if not k.startswith("_"))
 
 KIND_TIMELINE = "timeline"
 
-# The attack families, their codes and the names older releases used for them.
-FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
-STEALTHY_FAMILIES = {1, 5, 6, 7}  # Aq, At, Al, Am: local false states that pass the residual test
-FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
-
+# The attack families, their codes and the names older releases used for them (models.choices).
+from .models.choices import FAMILIES, FAMILY_ALIAS, STEALTHY_FAMILIES  # noqa: E402,F401
 
 # The partition codes stored in data/split.
 SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}

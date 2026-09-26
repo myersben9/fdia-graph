@@ -20,7 +20,7 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
 )
 from ..models.config import ExportRequest
 from ..models.data import ArraysBundle, Summary
-from ..models.validation import expect
+from ..models.inputs import FieldRequest
 from .base import (
     _BENIGN_LAYERS,
     _CLEAN_LAYERS,
@@ -61,9 +61,7 @@ class ExportMixin(DatasetBase):
         # on request only, a timeline's previous frame; its swing only when the file carries swing
         prev = [k for k in _PREV_FIELDS if self.is_timeline and (k != "prev_swing" or self.has_swing)]
         offered = known + prev
-        unknown = [k for k in fields if k not in offered]
-        expect(not (unknown), f"unknown field(s) {unknown}; this shard carries {known}")
-        return list(fields)
+        return list(FieldRequest(tuple(fields), tuple(offered), tuple(known)).fields)
 
     def _default_fields(self) -> list[str]:
         """Every per-record array the file carries, in the order `export` returns them."""

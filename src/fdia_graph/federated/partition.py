@@ -13,18 +13,13 @@ import numpy as np
 
 from ..formulas.federated import attackable_affinity, cut_edge_count, halo_nodes, interior_boundary
 from ..models.federated import Partition
-from ..models.validation import expect
+from ..models.inputs import AssignmentSpec, ClientCount, EdgeList, PartitionOnGrid
 
 
 def bus_adjacency(edge_index: np.ndarray, N: int) -> np.ndarray:
     """The 0/1 undirected bus adjacency [N, N] of a branch list [2, E], without self-loops
     (parallel branches collapse to one edge)."""
-    ei = np.asarray(edge_index)
-    expect(
-        ei.ndim == 2 and ei.shape[0] == 2 and np.issubdtype(ei.dtype, np.integer),
-        f"edge_index must be an integer [2, E] array, got shape {ei.shape}",
-    )
-    expect(not (ei.size) or (ei.min() >= 0 and ei.max() < N), f"edge_index names a bus outside 0..{N - 1}")
+    ei = EdgeList(edge_index, N).edge_index
     A = np.zeros((N, N), np.float64)
     A[ei[0], ei[1]] = 1.0
     A[ei[1], ei[0]] = 1.0
@@ -43,7 +38,7 @@ def spectral_partition(
     """K clients by spectral clustering of the bus adjacency [VLX07], as in the federated paper;
     `attackable` (a [N] bool mask) biases the cut away from attackable buses (`heavy` its weight).
     K = 1 puts every bus in one client without clustering."""
-    expect(1 <= K <= N, f"K must be between 1 and the {N} buses, got {K}")
+    ClientCount(N, K)
     A = bus_adjacency(edge_index, N)
     if K == 1:
         assignment = np.zeros(N, np.int64)
@@ -68,31 +63,15 @@ def partition_from_assignment(
     assignment: np.ndarray, edge_index: np.ndarray, attackable: Optional[np.ndarray] = None
 ) -> Partition:
     """A Partition from a given client-of-every-bus array (e.g. one saved with a paper's runs)."""
-    assignment = np.asarray(assignment)
-    N = int(edge_index.max()) + 1 if edge_index.size else len(assignment)
-    expect(
-        assignment.ndim == 1
-        and len(assignment)
-        and len(assignment) >= N
-        and np.issubdtype(assignment.dtype, np.integer),
-        f"assignment must be one integer client per bus ({N} buses)",
-    )
-    assignment = assignment.astype(np.int64)
+    N = int(edge_index.max()) + 1 if edge_index.size else len(np.asarray(assignment))
+    spec = AssignmentSpec(assignment, N, attackable)
+    assignment = spec.assignment.astype(np.int64)
     K = int(assignment.max()) + 1
-    expect(
-        assignment.min() >= 0 and len(np.unique(assignment)) == K,
-        f"clients must be numbered 0..{K - 1} with none empty",
-    )
     A = bus_adjacency(edge_index, len(assignment))
     interior, boundary = interior_boundary(assignment, A, K)
     on_boundary = None
-    if attackable is not None:
-        mask = np.asarray(attackable, bool)
-        expect(
-            mask.shape == assignment.shape,
-            f"the attackable mask must be one flag per bus, shape {assignment.shape}",
-        )
-        on_boundary = int((boundary.any(axis=0) & mask).sum())
+    if spec.attackable is not None:
+        on_boundary = int((boundary.any(axis=0) & spec.attackable).sum())
     return Partition(K, assignment, interior, boundary, cut_edge_count(assignment, A), on_boundary)
 
 
@@ -105,14 +84,4 @@ def compute_nodes(p: Partition, edge_index: np.ndarray, k: int, halo: int = 0) -
 def check_partition(p: Partition, N: int) -> None:
     """A Partition fit for a system of N buses: one client per bus, the clients numbered 0..K-1 with
     none empty (a hand-built Partition is not checked by its constructor)."""
-    a = np.asarray(p.assignment)
-    expect(
-        a.ndim == 1 and np.issubdtype(a.dtype, np.integer),
-        f"the partition's assignment must be a 1-D integer array, got {a.dtype} {a.shape}",
-    )
-    expect(len(p.assignment) == N, f"the partition covers {len(p.assignment)} buses, the system has {N}")
-    labels = np.unique(p.assignment)
-    expect(
-        np.array_equal(labels, np.arange(p.K)),
-        f"the partition must number its clients 0..{p.K - 1}, got {labels.tolist()}",
-    )
+    PartitionOnGrid(p.assignment, p.K, N)

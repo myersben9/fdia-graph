@@ -63,6 +63,9 @@ classDiagram
     class RemovalConfig {
         <<models>>
     }
+    class ShapedArray {
+        <<models>>
+    }
     class SlackMismatch {
         <<errors>>
     }
@@ -94,6 +97,7 @@ classDiagram
     SEBase ..> EstimatorScores : uses
     SEBase ..> FitOptions : uses
     SEBase ..> NoBenignRecords : uses
+    SEBase ..> ShapedArray : uses
     SEBase ..> SlackMismatch : uses
     SEBase ..> SolveConfig : uses
     SEBase ..> TrueState : uses

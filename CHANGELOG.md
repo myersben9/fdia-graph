@@ -14,6 +14,9 @@ the public API, the generated files and the numbers are the same as the previous
   `models.choices`, still importable where it was used. A dataset view is checked through one table,
   `ds.require(...)` over `dataset.base.CAPABILITIES`. A condition only the data reveals raises a
   named error from `fdia_graph.errors` (`NoBenignRecords`, `NoAttackedRecords`, `GridIslanded`, ...).
+  The formulas and the parsers keep their signatures and build their input model
+  (`models.inputs`: `ClientUpdates`, `ClientGraph`, `LabelGrids`, `FamilySelection`, `SystemRef`,
+  `ReleaseName`, `OutageRef`, `StatePool`, ...), so no function body checks its arguments.
   Every error is still a `ValueError`; the messages now have one shape, "<Model>.<field> <rule>, got
   <value>". The loader's record `format` ("torch" or "pyg") is now checked too: a typo such as
   "pygg" used to fall through to the torch records silently. `check_split`, `check_units` and

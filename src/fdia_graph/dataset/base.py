@@ -10,7 +10,6 @@ one mixin calls on another.
 
 from __future__ import annotations
 
-import numbers
 import warnings
 from typing import TYPE_CHECKING
 
@@ -36,16 +35,14 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
     Units,
 )
 from ..models.config import LoadOptions
-from ..models.validation import MissingCapability, present
+from ..models.inputs import FamilySelection
+from ..models.validation import MissingCapability
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 from ..schema import (  # noqa: F401  re-exported: the loader's callers import them from here
     FAMILIES,
     STEALTHY_FAMILIES,
     Split,
-)
-from ..schema import (
-    FAMILY_ALIAS as _FAMILY_ALIAS,
 )
 from ..schema import (
     SPLIT_CODE as _SPLIT,  # noqa: F401  re-exported: the loader reads the codes from here
@@ -88,18 +85,7 @@ _HELDOUT_TRAIN_EXCLUDE = {
 def family_ids(families: Sequence[Union[str, int]]) -> list[int]:
     """Family names (with the legacy aliases) or raw integer codes as integer codes. An unknown
     name or code is an error rather than a silently empty selection."""
-    names = {v: k for k, v in FAMILIES.items()}
-    names.update(_FAMILY_ALIAS)
-    out: list[int] = []
-    for f in families:
-        if isinstance(f, str):
-            code = names.get(f)
-        elif isinstance(f, numbers.Integral) and not isinstance(f, bool) and int(f) in FAMILIES:
-            code = int(f)
-        else:
-            code = None  # a float such as 1.9, a bool, or a code outside the table
-        out.append(present(code, f"unknown family {f!r}; known: {sorted(names)} or codes {sorted(FAMILIES)}"))
-    return out
+    return list(FamilySelection(tuple(families)).codes)
 
 
 def _torch() -> ModuleType:
@@ -180,6 +166,18 @@ def _time_order(ds: DatasetBase) -> bool:
     return ds._perm is None
 
 
+def _has_split(ds: DatasetBase) -> bool:
+    return ds.has_split
+
+
+def _has_swing(ds: DatasetBase) -> bool:
+    return ds.has_swing
+
+
+def _has_temporal(ds: DatasetBase) -> bool:
+    return ds.has_temporal
+
+
 def _consecutive(ds: DatasetBase) -> bool:
     return not len(ds.idx) or bool(np.all(np.diff(ds.idx) == 1))
 
@@ -199,6 +197,9 @@ CAPABILITIES = {
     ),
     Capability.TIME_ORDER: (_time_order, "order='time'; this view is a random permutation"),
     Capability.CONSECUTIVE: (_consecutive, "consecutive frames; a families= or heldout= view is not"),
+    Capability.SPLIT: (_has_split, "a file with the split column"),
+    Capability.SWING: (_has_swing, "a file with the swing layer"),
+    Capability.TEMPORAL: (_has_temporal, "a file with the temporal_delta layer"),
 }
 
 
@@ -222,6 +223,7 @@ class DatasetBase:
     has_clean: bool
     has_clean_full: bool
     has_benign: bool
+    has_split: bool
     is_timeline: bool  # the file attribute kind == "timeline" (one row per frame, in time order)
     edge_status_per_record: Optional[np.ndarray]
     _perm: Optional[np.ndarray]  # order="random": view position -> position in idx

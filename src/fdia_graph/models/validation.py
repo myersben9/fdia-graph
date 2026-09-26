@@ -8,14 +8,16 @@ field when the model is built:
         c: Annotated[float, Positive()] = 1.5
         reweight: Annotated[Optional[str], OneOf(Reweight)] = None
 
-Every rule in a field's `Annotated` metadata is applied in order (`OneOf` also converts the value to
-the choice's canonical string, so "NYISO" is stored as "nyiso"); a None value of an `Optional` field
-skips them. Last, the model's `invariants()` (conditions across fields) must hold. A failure raises `ConfigError`, a `ValueError`, with one message shape:
+Every rule in a field's `Annotated` metadata is applied in order. A converting rule also replaces the
+value: `OneOf` stores the choice's canonical string ("NYISO" becomes "nyiso"), `AsArray` a numpy array,
+`Parses` whatever its parser returns. A None value skips the rules of an `Optional` (or `Any`) field
+and is refused for any other: the annotation says the field is required. Last, the model's
+`invariants()` (conditions across fields) must hold. A failure raises `ConfigError`, a `ValueError`, with one message shape:
 "<Model>.<field> <what the rule says>, got <value>". Functions never check their arguments
 themselves; they build the model.
 
-`expect`, `present`, `expect_ndim` and `expect_same_shape` are the same checks for the formulas, which take
-bare arrays by design: one line declares a formula's contract and the message is built here.
+Arrays are checked the same way: a formula or a parser builds its input model (`models.inputs`)
+from its arguments, so its body only ever sees values the model has accepted.
 """
 
 from __future__ import annotations
@@ -25,13 +27,11 @@ import numbers
 import typing
 from collections.abc import Iterable
 from dataclasses import fields
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, Union
 
 import numpy as np
 
 from .choices import Choice
-
-T = TypeVar("T")
 
 
 class ConfigError(ValueError):
@@ -119,6 +119,81 @@ class InRange(Rule):
         return above and below
 
 
+class Required(Rule):
+    """None is refused even where the type allows it (a caller's Optional that must be given)."""
+
+    def __init__(self, says: str = "is required") -> None:
+        self.says = says
+
+    def holds(self, value: Any) -> bool:
+        return value is not None
+
+
+class AsArray(Rule):
+    """Converts the value to a numpy array (of `dtype` when given)."""
+
+    says = "must be array-like"
+
+    def __init__(self, dtype: Any = None) -> None:
+        self.dtype = dtype
+
+    def apply(self, value: Any, where: str) -> Any:
+        try:
+            return np.asarray(value, self.dtype)
+        except (TypeError, ValueError):
+            raise ConfigError(f"{where} {self.says}, got {value!r}") from None
+
+
+class Dims(Rule):
+    def __init__(self, ndim: int) -> None:
+        self.ndim, self.says = ndim, f"must be {ndim}-dimensional"
+
+    def holds(self, value: Any) -> bool:
+        return np.ndim(value) == self.ndim
+
+
+class IntegerDtype(Rule):
+    says = "must hold integers"
+
+    def holds(self, value: Any) -> bool:
+        return np.issubdtype(np.asarray(value).dtype, np.integer)
+
+
+class NonEmpty(Rule):
+    says = "must not be empty"
+
+    def holds(self, value: Any) -> bool:
+        return np.size(value) > 0 if isinstance(value, np.ndarray) else len(value) > 0
+
+
+class AllFinite(Rule):
+    says = "must be finite everywhere"
+
+    def holds(self, value: Any) -> bool:
+        return bool(np.isfinite(np.asarray(value, np.float64)).all())
+
+
+class AllPositive(Rule):
+    says = "must be positive everywhere"
+
+    def holds(self, value: Any) -> bool:
+        return bool((np.asarray(value, np.float64) > 0).all())
+
+
+class Parses(Rule):
+    """Replaces the value with `parse(value)`; a parser that raises ValueError, TypeError or
+    KeyError means the value is not of the form the field takes."""
+
+    def __init__(self, parse: Any, says: str) -> None:
+        self.parse, self.says = parse, says
+
+    def apply(self, value: Any, where: str) -> Any:
+        try:
+            return self.parse(value)
+        except (ValueError, TypeError, KeyError):
+            raise ConfigError(f"{where} {self.says}, got {value!r}") from None
+
+
 # ---- the engine -------------------------------------------------------------------------------------
 class Validated:
     """Base of every model whose fields are checked on construction (a frozen dataclass)."""
@@ -136,16 +211,34 @@ def validate(model: Any) -> None:
     name = type(model).__name__
     hints = typing.get_type_hints(type(model), include_extras=True)
     for f in fields(model):
-        rules, optional = _unpack(hints[f.name])
-        value = getattr(model, f.name)
-        if value is None and optional:
-            continue
-        for rule in rules:
-            value = rule.apply(value, f"{name}.{f.name}")
-        object.__setattr__(model, f.name, value)
-    for holds, says in model.invariants():
-        if not holds:
-            raise ConfigError(f"{name}: {says}")
+        where = f"{name}.{f.name}"
+        object.__setattr__(model, f.name, _checked(getattr(model, f.name), *_unpack(hints[f.name]), where))
+    _check_invariants(model, name)
+
+
+def _checked(value: Any, rules: tuple[Rule, ...], optional: bool, where: str) -> Any:
+    """One field's value after its rules; None only where the annotation allows it."""
+    if value is None:
+        required = next((r for r in rules if isinstance(r, Required)), None)
+        if optional and required is None:
+            return None
+        raise ConfigError(f"{where} {required.says if required else 'is required'}")
+    for rule in rules:
+        value = rule.apply(value, where)
+    return value
+
+
+def _check_invariants(model: Any, name: str) -> None:
+    """The model's conditions across fields, taken lazily so a later condition never sees input an
+    earlier one refused; one that cannot even be evaluated means the input is malformed."""
+    try:
+        for holds, says in model.invariants():
+            if not holds:
+                raise ConfigError(f"{name}: {says}")
+    except ConfigError:
+        raise
+    except (TypeError, ValueError, IndexError) as e:
+        raise ConfigError(f"{name}: the input is malformed ({e})") from None
 
 
 def _unpack(hint: Any) -> tuple[tuple[Rule, ...], bool]:
@@ -154,29 +247,5 @@ def _unpack(hint: Any) -> tuple[tuple[Rule, ...], bool]:
     if typing.get_origin(hint) is typing.Annotated:
         hint, *meta = typing.get_args(hint)
         rules = tuple(m for m in meta if isinstance(m, Rule))
-    return rules, typing.get_origin(hint) is Union and type(None) in typing.get_args(hint)
-
-
-# ---- array contracts of the formulas -----------------------------------------------------------------
-def expect(condition: object, says: str) -> None:
-    """A stated precondition (tested for truth, as `if` would); `says` is the requirement in words."""
-    if not condition:
-        raise ConfigError(says)
-
-
-def present(value: Optional[T], says: str) -> T:
-    """`value`, which must not be None; the return type carries that to the type checker."""
-    if value is None:
-        raise ConfigError(says)
-    return value
-
-
-def expect_ndim(x: Any, ndim: int, what: str) -> np.ndarray:
-    """`x` as an array with exactly `ndim` dimensions."""
-    a = np.asarray(x)
-    expect(a.ndim == ndim, f"{what} must be {ndim}-dimensional, got shape {a.shape}")
-    return a
-
-
-def expect_same_shape(a: Any, b: Any, what: str) -> None:
-    expect(np.shape(a) == np.shape(b), f"{what} must have one shape, got {np.shape(a)} and {np.shape(b)}")
+    optional = hint is Any or (typing.get_origin(hint) is Union and type(None) in typing.get_args(hint))
+    return rules, optional

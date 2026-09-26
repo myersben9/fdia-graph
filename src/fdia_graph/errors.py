@@ -24,6 +24,8 @@ __all__ = [
     "GridIslanded",
     "SlackMismatch",
     "VaryingReference",
+    "CountOverflow",
+    "UnknownColumnOrder",
 ]
 
 
@@ -61,3 +63,11 @@ class SlackMismatch(DataConditionError):
 
 class VaryingReference(DataConditionError):
     """The slack angle varies across the training frames, so there is no one reference to fix."""
+
+
+class CountOverflow(DataConditionError):
+    """Pooled record counts past the float range."""
+
+
+class UnknownColumnOrder(DataConditionError):
+    """A state pool whose column order cannot be read from its values."""

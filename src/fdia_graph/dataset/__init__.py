@@ -39,11 +39,9 @@ from ..models.data import (  # noqa: F401  re-exported: defined here before the 
     Summary,
 )
 from ..models.grid import NODE
-from ..models.validation import expect
 from ..schema import Attr
 from .base import (  # noqa: F401  re-exported: defined here before the split
     _BENIGN_LAYERS,
-    _FAMILY_ALIAS,
     _HELDOUT_TRAIN_EXCLUDE,
     _SPLIT,
     _STATIC_PHYSICS,
@@ -81,9 +79,8 @@ def _record_mask(
     if not filt.include_gaps:
         keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
     if filt.split is not None:
-        expect(sp is not None, f"{path} has no split; run the split step first")
         code = _SPLIT[filt.split]
-        keep &= sp == code
+        keep &= (sp == code) if sp is not None else False  # a file without the column is refused first
         if filt.heldout and code in (0, 1):  # test keeps As/Ar
             keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
     if filt.families is not None:
@@ -132,6 +129,9 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
             gap = f[schema.GAP][:] if schema.GAP in f else np.zeros(len(fam), np.uint8)
             sp = f[schema.SPLIT][:] if schema.SPLIT in f else None  # split code, or None on unsplit files
             self._episodes = read_episodes(f, schema.Group.EPISODES in f)
+        self.has_split = sp is not None
+        if split is not None:
+            self.require("split", by=f"split={split!r} (run the split step first)")
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
         self.idx = _record_mask(fam, gap, sp, _RecordFilter(split, families, include_gaps, heldout), path)
         # order="random": the same rows in a permutation fixed by the seed, applied as a view index.

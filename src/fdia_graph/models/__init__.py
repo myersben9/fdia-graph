@@ -2,7 +2,7 @@
 
 Grouped by what the data is: `fields` (the field groups the data bundles share), `grid` (the static system), `frames` (what the generators pass
 around per scan), `training` (what a learned localizer's fitting pieces share), `config` (the settings every consumer
-accepts, checked by the one engine in `validation`, with the fixed sets in `choices`), `data` (what a user gets back), `scores` (result tables), `assets` (how files
+accepts, and `inputs`, what the formulas and parsers accept, checked by the one engine in `validation`, with the fixed sets in `choices`), `data` (what a user gets back), `scores` (result tables), `assets` (how files
 are found). The package's own modules import only numpy, typing and dataclasses, so no model
 depends on a producer and no import cycle is possible (importing it still runs the parent
 package, loader and h5py included). Every model is also importable from the module that
@@ -80,6 +80,33 @@ from .grid import (
     NodeColumns,
     Outage,
 )
+from .inputs import (
+    Affinity,
+    AssignmentSpec,
+    ClientCount,
+    ClientGraph,
+    ClientUpdates,
+    CsvSpec,
+    EdgeList,
+    FamilySelection,
+    FeatureBlock,
+    FieldRequest,
+    Halo,
+    LabelGrids,
+    MomentParts,
+    OutageRef,
+    PartitionOnGrid,
+    RankedLabels,
+    ReleaseName,
+    ShapedArray,
+    StateBlocks,
+    StatePool,
+    StreamSystem,
+    SubBatch,
+    SupportedSystem,
+    SystemRef,
+    TauSearch,
+)
 from .scores import (
     BenignMetrics,
     ErrorPair,
@@ -145,6 +172,31 @@ __all__ = [
     "TamperTarget",
     "AttackDesign",
     "OptimConfig",
+    "FamilySelection",
+    "SystemRef",
+    "SupportedSystem",
+    "ReleaseName",
+    "OutageRef",
+    "StatePool",
+    "StreamSystem",
+    "ShapedArray",
+    "FieldRequest",
+    "CsvSpec",
+    "SubBatch",
+    "EdgeList",
+    "ClientCount",
+    "ClientGraph",
+    "Halo",
+    "AssignmentSpec",
+    "PartitionOnGrid",
+    "ClientUpdates",
+    "MomentParts",
+    "FeatureBlock",
+    "Affinity",
+    "StateBlocks",
+    "LabelGrids",
+    "TauSearch",
+    "RankedLabels",
     "LoadOptions",
     "ExportRequest",
     "WindowSpec",

@@ -42,11 +42,11 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
 from ..models.config import FitOptions, SolveConfig
 from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
 from ..models.grid import EDGE, NODE, EdgeColumns, NodeColumns
+from ..models.inputs import ShapedArray
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     ErrorPair,
     EstimatorScores,
 )
-from ..models.validation import expect
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -479,7 +479,7 @@ class SEBase:
 
         require_physical(ds)
         est = self.estimate(ds, chunk=chunk) if xhat is None else np.asarray(xhat, np.float64)
-        expect(est.shape == (len(ds), self.SD), f"xhat must be [{len(ds)}, {self.SD}], got {est.shape}")
+        est = ShapedArray(est, (len(ds), self.SD), "xhat").values
         d = ds.export(["family", "clean"])
         tr = self._truth_of(d["clean"])
         ns = len(self.keep)  # angle block; voltage block covers ALL N buses (2N-1 state)

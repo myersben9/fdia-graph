@@ -33,6 +33,13 @@ class Choice(str, Enum):
         return [m.value for m in cls]
 
 
+# ---- the attack families -------------------------------------------------------------------------
+# Their codes (the file's data/family), the stealthy ones, and the names older releases used.
+FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
+STEALTHY_FAMILIES = {1, 5, 6, 7}  # Aq, At, Al, Am: local false states that pass the residual test
+FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
+
+
 # ---- the dataset ---------------------------------------------------------------------------------
 class Split(Choice):
     """The chronological partitions of a file."""
@@ -97,6 +104,9 @@ class Capability(Choice):
     PHYSICAL_UNITS = "physical_units"
     TIME_ORDER = "time_order"
     CONSECUTIVE = "consecutive"
+    SPLIT = "split"
+    SWING = "swing"
+    TEMPORAL = "temporal"
 
 
 # ---- estimation and localization -----------------------------------------------------------------

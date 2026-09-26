@@ -12,7 +12,7 @@ from typing import Any
 
 import numpy as np
 
-from ..models.validation import expect
+from ..models.inputs import SubBatch
 
 
 def _scipy_linalg():
@@ -125,7 +125,7 @@ def batched_normal_matrices(w: np.ndarray, B: np.ndarray, sub: int = 50) -> np.n
     One einsum over the whole chunk materialized an 8 GB intermediate at IEEE-300 size and took
     260 s per 200 records; this takes 1.4 s.
     """
-    expect(sub >= 1, f"sub must be a positive sub-batch size, got {sub}")
+    sub = SubBatch(sub).sub
     n, k = w.shape[0], B.shape[1]
     out = np.empty((n, k, k), dtype=np.result_type(w, B))
     BT = B.T[None]  # [1, k, m]

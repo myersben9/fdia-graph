@@ -11,12 +11,10 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from typing import Optional, Union
 
-from .errors import ConfigError
 from .models.assets import AssetSpec  # noqa: F401  re-exported: defined here before the models package
-from .models.validation import present
+from .models.inputs import ReleaseName, SystemRef
 
 # Cache dir for downloaded shards + the local-datasets JSON; override via FDIA_GRAPH_CACHE.
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
@@ -33,10 +31,7 @@ def system_id(system: Union[str, int]) -> int:
     Every public entry point accepts both forms, so this is the one place that parses them; the
     engine, generators, streams and profiles all go through it.
     """
-    try:
-        return int(str(system).strip().lower().replace("ieee", ""))
-    except ValueError as e:
-        raise ConfigError(f"system must be like 'ieee118' or 118, got {system!r}") from e
+    return SystemRef(system).number
 
 
 # The ladder: canonical name -> bus count. Every entry is downloadable at every data release.
@@ -101,11 +96,7 @@ _BARE_DATA_TAGS = ("v0.7.1", "v0.7.2")  # the two data releases tagged before th
 
 def release_tuple(release: str) -> tuple[int, ...]:
     """ "v0.8.0", "0.8.0" or "data-v0.8.0" -> (0, 8, 0), for ordering data releases."""
-    m = present(
-        re.fullmatch(r"(?:data-)?v?(\d+)\.(\d+)\.(\d+)", release.strip()),
-        f"a data release is a name like 'v0.8.0', got {release!r}",
-    )
-    return tuple(int(x) for x in m.groups())
+    return ReleaseName(release).numbers
 
 
 def release_name(release: str) -> str:

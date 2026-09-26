@@ -66,6 +66,9 @@ classDiagram
     class ExportRequest {
         <<models>>
     }
+    class FieldRequest {
+        <<models>>
+    }
     class LoadOptions {
         <<models>>
     }
@@ -97,6 +100,7 @@ classDiagram
     DatasetBase ..> MissingCapability : uses
     ExportMixin ..> ArraysBundle : uses
     ExportMixin ..> ExportRequest : uses
+    ExportMixin ..> FieldRequest : uses
     ExportMixin ..> Summary : uses
     FdiaGraph ..> Attr : uses
     FdiaGraph ..> LoadOptions : uses

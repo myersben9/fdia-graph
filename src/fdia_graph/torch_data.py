@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import numpy as np
 
 from .models.config import SplitFractions
-from .models.validation import present
+from .models.inputs import StreamSystem
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-free
     import torch
@@ -51,8 +51,7 @@ def _resolve_stream(
         return stream
     from .streams import load_stream
 
-    need = "pass dataset=<fg.load(..., order='time')>, stream=<dict>, or a system name"
-    return load_stream(present(system, need), release=release)
+    return load_stream(StreamSystem(system).number, release=release)
 
 
 def _dataset_stream(ds: FdiaGraph) -> dict[str, Any]:

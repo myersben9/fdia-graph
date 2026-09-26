@@ -78,21 +78,25 @@ the `has_clean` / `has_benign` checks in `se`, `trust` and `se.jacobian`.
 
 ### 2d. Models that check themselves
 
-The formulas take raw arrays by design, so each keeps a one-line declared contract at the top,
-written with the engine's helpers (`expect(condition, says)`, `present(value, says)` for a value
-that must not be None, `expect_ndim`, `expect_same_shape`); the eighteen hand-written checks in
-`formulas.federated` and the nine in `federated.partition` are declarations now. `Partition`
-validating itself in `__post_init__` (so `check_partition` disappears) is left for a follow-up.
+The formulas keep their array signatures, and each builds its input model from its arguments
+(`models/inputs.py`): `ClientUpdates` for `fedavg`, `ClientGraph` and `Halo` for the partition
+formulas, `MomentParts` and `FeatureBlock` for the moments, `StateBlocks`, `Affinity`, `LabelGrids`,
+`TauSearch`, `RankedLabels`, `EdgeList`, `AssignmentSpec`, `PartitionOnGrid`. The body computes on
+the model's fields, so it only ever sees values the model accepted; the array rules (`AsArray`,
+`Dims`, `IntegerDtype`, `NonEmpty`, `AllFinite`, `AllPositive`) and the model's invariants state
+what an input may be. Scores and estimates handed back by a caller are a `ShapedArray` against the
+view.
 
 ### 2e. Parsing loose input once
 
-`GatedPrior(gate="oracle")` builds an `OracleGate` with the localizer's interface, so the gate is
-always an object with `localize(ds)` and nothing checks its type afterwards. The profile sources
-(`IsoFolder`, `CsvColumn`, `RawSeries`, the per-operator feeds) follow the same rule in the next pull
-request. The parsers of loose input (`family_ids`, `registry.system_id`, `release_tuple`,
-`engine.core._line_id`) are each the one place their input is parsed and declare it with
-`present`/`expect`; turning them into value objects (`Family`, `SystemId`, `Release`, `LineRef`) is
-left for a follow-up.
+Loose input is parsed once, by a model whose field carries a `Parses` rule: `FamilySelection`
+(a family name, alias or code), `SystemRef` ("ieee118" or 118), `ReleaseName` ("v0.8.3"),
+`OutageRef` (a line name or index against the case), `SupportedSystem`, `StatePool`. The field keeps
+the raw input and a typed property gives the parsed value. A field that must be given even where the
+caller's type allows None carries `Required`. `GatedPrior(gate="oracle")` builds an `OracleGate`
+with the localizer's interface, so the gate is always an object with a callable `localize(ds)`. The
+profile sources (`IsoFolder`, `CsvColumn`, `RawSeries`, the per-operator feeds) follow the same rule
+in the next pull request.
 
 ### 2f. Runtime data conditions
 
@@ -114,11 +118,10 @@ with a rule on a config model, never a check in a function body.
 | every fixed set as a `Choice` (`models/choices.py`) | done |
 | 20 config models (`models/config.py`), every constructor and entry point building its model | done |
 | dataset capabilities (`dataset.base.CAPABILITIES`, `ds.require`) | done |
-| formula and partition contracts as `expect` / `present` declarations | done |
+| formula and parser inputs as models (`models/inputs.py`); no check in any function body | done |
 | named errors for data conditions (`errors.py`) | done |
 | readability rule: no `raise ValueError` / `TypeError` outside `models/` | done, with a test that the package has none |
 | profile sources and operator feeds | next pull request |
-| `Partition` self-check; `Family`, `SystemId`, `Release`, `LineRef` value objects | follow-up |
 
 Removed helpers (`check_split`, `check_units`, `check_order`) keep a deprecated alias for one minor
 version; `require_physical` stays as the named requirement of the estimators and delegates to the

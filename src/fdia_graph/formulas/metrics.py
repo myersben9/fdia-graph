@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..models.validation import expect
+from ..models.inputs import LabelGrids, RankedLabels, TauSearch
 
 
 def perbus_counts(pred: np.ndarray, truth: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -14,11 +14,8 @@ def perbus_counts(pred: np.ndarray, truth: np.ndarray) -> tuple[np.ndarray, np.n
     pred, truth : [n, N] bool
     returns     : (tp [N], fp [N], fn [N]) as float64
     """
-    pred, truth = np.asarray(pred, bool), np.asarray(truth, bool)
-    expect(
-        pred.shape == truth.shape and pred.ndim == 2,
-        f"need two [n, N] boolean arrays of one shape, got {pred.shape} and {truth.shape}",
-    )
+    g = LabelGrids(pred, truth)
+    pred, truth = g.pred, g.truth
     tp = (pred & truth).sum(axis=0).astype(np.float64)
     fp = (pred & ~truth).sum(axis=0).astype(np.float64)
     fn = (~pred & truth).sum(axis=0).astype(np.float64)
@@ -46,16 +43,8 @@ def tau_from_counts(
     taus       : [n_taus]
     returns    : the chosen tau
     """
-    taus, active = np.asarray(taus), np.asarray(active, bool)
-    expect(
-        taus.ndim == 1 and active.ndim == 1,
-        f"taus and active must be one-dimensional, got shapes {taus.shape} and {active.shape}",
-    )
-    shape = (len(taus), len(active))
-    expect(
-        len(taus) and active.any() and not (any(np.shape(c) != shape for c in (tp, fp, fn))),
-        f"need [n_taus, N] counts of shape {shape}, a non-empty tau grid and an active bus",
-    )
+    search = TauSearch((tp, fp, fn), active, taus)
+    taus, active = search.taus, search.active
     f1 = perbus_f1_from_counts(tp, fp, fn)[:, active].mean(axis=1)
     return float(taus[int(np.argmax(f1))])
 
@@ -82,11 +71,8 @@ def average_precision(score: np.ndarray, truth: np.ndarray) -> float:
     score : [n] float
     truth : [n] bool, at least one positive
     """
-    score, truth = np.asarray(score, np.float64), np.asarray(truth, bool)
-    expect(
-        score.ndim == 1 and score.shape == truth.shape and truth.any(),
-        "average_precision needs matching 1-D scores and labels with a positive",
-    )
+    ranked = RankedLabels(score, truth)
+    score, truth = ranked.score, ranked.truth
     order = np.argsort(-score, kind="mergesort")
     s, t = score[order], truth[order]
     last = np.r_[np.flatnonzero(np.diff(s)), len(s) - 1]  # the last record at each distinct threshold

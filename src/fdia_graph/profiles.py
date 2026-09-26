@@ -27,8 +27,7 @@ from .engine.core import _CASE  # bus-count -> pandapower builder; single source
 from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
     Iso,
 )
-from .models.validation import expect
-from .registry import system_id
+from .models.inputs import CsvSpec, SupportedSystem
 
 
 def _pandas():
@@ -85,8 +84,8 @@ def load_profile(
         loads = full[load_col].dropna().to_numpy(dtype=float)
     else:  # generic CSV path + column name
         pd = _pandas()
-        expect(column is not None, "for a generic CSV `source`, pass the load `column` name")
-        loads = pd.read_csv(source)[column].dropna().to_numpy(dtype=float)
+        spec = CsvSpec(source, column)
+        loads = pd.read_csv(spec.path)[spec.column].dropna().to_numpy(dtype=float)
     mu, sd = loads.mean(), loads.std()
     return (loads - mu) / (sd if sd > 0 else 1.0)  # standardized scaling vector S [T]
 
@@ -190,8 +189,7 @@ def generate_states(
     `emit_from_state` consume, in the same column order as node_x and clean. (Before 0.12 the pool was
     [P, Q, V, theta]; generate() still accepts such pools and converts them, see generation.as_v_first.)
     """
-    key = system_id(system)
-    expect(key in _CASE, f"unknown system {system!r}; supported: {sorted(_CASE)}")
+    key = SupportedSystem(system, frozenset(_CASE)).number
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]

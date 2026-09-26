@@ -25,6 +25,7 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
     FrOver,
 )
 from ..models.config import LocalizerConfig, PerBusReport
+from ..models.inputs import ShapedArray
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     BenignMetrics,
     FamilyMetrics,
@@ -33,21 +34,20 @@ from ..models.scores import (  # noqa: F401  re-exported: defined here before th
     PerBusMetrics,
     PerBusScores,
 )
-from ..models.validation import expect
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
 
 # Per-record fields that only exist on newer datasets, and the FdiaGraph flag that says so — checked
 # up front so a missing field is a clear message instead of an h5py KeyError mid-read.
-_FIELD_FLAG = {
-    "swing": "has_swing",
-    "temporal_delta": "has_temporal",
-    "clean": "has_clean",
-    "prev_node_x": "is_timeline",
-    "prev_edge_x": "is_timeline",
-    "prev_timestep": "is_timeline",
-    "prev_swing": "is_timeline",
+_FIELD_CAPABILITY = {  # the capability a view needs to carry each optional field
+    "swing": "swing",
+    "temporal_delta": "temporal",
+    "clean": "clean_layer",
+    "prev_node_x": "timeline",
+    "prev_edge_x": "timeline",
+    "prev_timestep": "timeline",
+    "prev_swing": "timeline",
 }
 
 
@@ -87,11 +87,8 @@ class LocalizerBase:
     def _pull(self, ds: FdiaGraph, extra: Sequence[str] = ()) -> dict[str, np.ndarray]:
         want = list(dict.fromkeys(list(self._fields()) + list(extra)))  # ordered de-dup
         for k in want:
-            flag = _FIELD_FLAG.get(k)
-            expect(
-                flag is None or getattr(ds, flag),
-                f"dataset has no '{k}' field; this method needs a newer dataset",
-            )
+            if k in _FIELD_CAPABILITY:
+                ds.require(_FIELD_CAPABILITY[k], by=f"the '{k}' field (this method needs a newer dataset)")
         return ds.export(want)
 
     # ---- fitting ----------------------------------------------------------------------------
@@ -132,7 +129,7 @@ class LocalizerBase:
 
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
-        expect(s.shape == (len(ds), ds.N), f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        s = ShapedArray(s, (len(ds), ds.N), "scores").values
         pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
         out: dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
@@ -165,7 +162,7 @@ class LocalizerBase:
         fr_over = PerBusReport(buses, fr_over).fr_over
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
-        expect(s.shape == (len(ds), ds.N), f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        s = ShapedArray(s, (len(ds), ds.N), "scores").values
         y, fam = d["y"].astype(bool), d["family"]
         cols = self._report_buses(y, buses)
         out: dict[str, Any] = {
