@@ -57,7 +57,7 @@ class Rule:
         malformed argument gets the same message as an out-of-range one."""
         try:
             holds = bool(self.holds(value))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):  # 10**1000 overflows a float conversion
             holds = False
         if not holds:
             raise ConfigError(f"{where} {self.says}, got {value!r}")
@@ -237,7 +237,7 @@ def _check_invariants(model: Any, name: str) -> None:
                 raise ConfigError(f"{name}: {says}")
     except ConfigError:
         raise
-    except (TypeError, ValueError, IndexError) as e:
+    except (TypeError, ValueError, IndexError, OverflowError) as e:
         raise ConfigError(f"{name}: the input is malformed ({e})") from None
 
 

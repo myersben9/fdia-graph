@@ -268,3 +268,12 @@ def test_an_untyped_field_is_still_required_and_whole_numbers_are_integers():
         EdgeList(np.array([[0], [1]]), 3.5)
     with pytest.raises(ConfigError, match=r"StateBlocks\.d must be an integer"):
         block_diagonal_basis([(np.array([0]), np.eye(1))], 3.5)
+
+
+def test_an_overflowing_value_fails_its_rule():
+    from fdia_graph.models.config import FederatedSettings, TrainerConfig
+
+    with pytest.raises(ConfigError, match=r"^TrainerConfig\.clip must be finite"):
+        TrainerConfig(clip=10**1000)
+    with pytest.raises(ConfigError, match=r"^FederatedSettings\.grad_clip must be finite"):
+        FederatedSettings(grad_clip=10**1000)
