@@ -187,3 +187,35 @@ def test_the_gate_exempts_the_models_package_only(tmp_path, monkeypatch):
     monkeypatch.setattr(readability, "_MODELS", str(tmp_path / "models"))
     monkeypatch.setattr(readability, "ROOT", str(tmp_path))
     assert [h[2] for h in readability.hand_checks(str(sibling))] == ["ValueError"]
+
+
+def test_the_gate_must_be_oracle_or_a_callable_localizer():
+    from types import SimpleNamespace
+
+    from fdia_graph.models.config import GateConfig
+
+    assert (
+        GateConfig("oracle").is_oracle and not GateConfig(SimpleNamespace(localize=lambda ds: None)).is_oracle
+    )
+    for bad in (SimpleNamespace(localize=None), np.zeros(3), "orcale"):
+        with pytest.raises(ConfigError, match="pass gate=<fitted localizer> or gate='oracle'"):
+            GateConfig(bad)
+
+
+def test_an_outage_that_is_neither_a_name_nor_an_integer_is_refused():
+    from fdia_graph.engine.core import _line_id
+
+    net = SimpleNamespaceNet()
+    for bad in (1.5, None):
+        with pytest.raises(ConfigError, match="an outage is a line name or an integer line index"):
+            _line_id(net, bad)
+    assert _line_id(net, np.int64(2)) == 2
+
+
+class SimpleNamespaceNet:
+    """The part of a pandapower net `_line_id` reads: lines 0..3."""
+
+    def __init__(self):
+        import pandas as pd
+
+        self.line = pd.DataFrame({"name": ["a", "b", "c", "d"]})

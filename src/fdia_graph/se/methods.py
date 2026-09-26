@@ -217,7 +217,7 @@ class GatedPrior(SubspacePrior):
     ) -> None:
         super().__init__(**kw)
         cfg = GateConfig(gate, gate_factor)
-        self.gate = OracleGate() if cfg.gate == "oracle" else cfg.gate
+        self.gate = OracleGate() if cfg.is_oracle else cfg.gate
         self.gate_factor = cfg.gate_factor
         self.secured = np.asarray([] if secured is None else secured, int)
 

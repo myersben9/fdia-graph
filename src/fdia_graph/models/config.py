@@ -137,9 +137,15 @@ class GateConfig(Validated):
     gate: Any = None
     gate_factor: Share = 1e-3
 
+    @property
+    def is_oracle(self) -> bool:
+        """The string "oracle" (compared only once it is known to be a string, so an array gate
+        never reaches an ambiguous `==`)."""
+        return isinstance(self.gate, str) and self.gate == "oracle"
+
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
-            self.gate == "oracle" or hasattr(self.gate, "localize"),  # the localizer interface
+            self.is_oracle or callable(getattr(self.gate, "localize", None)),  # the localizer interface
             f"pass gate=<fitted localizer> or gate='oracle', got {self.gate!r}",
         )
 
