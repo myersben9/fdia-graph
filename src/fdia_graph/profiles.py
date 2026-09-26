@@ -27,6 +27,7 @@ from .engine.core import _CASE  # bus-count -> pandapower builder; single source
 from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
     Iso,
 )
+from .models.config import ProfileFetch
 from .models.inputs import CsvSpec, SupportedSystem
 from .registry import system_id  # noqa: F401  re-exported: callers read it from here before
 
@@ -296,7 +297,8 @@ def fetch_profile(
     NYISO needs no dependencies or account; CAISO/ERCOT use `gridstatus` (pip install 'fdia-graph[iso]'). The
     returned S feeds generate_states() exactly like load_profile()'s output.
     """
-    iso = Iso(iso).value
+    req = ProfileFetch(iso, resample_min)
+    iso, resample_min = req.iso, req.resample_min
     start, end = _as_date(start), _as_date(end)
     if iso == "nyiso":
         series = _fetch_nyiso(start, end)  # zero-dependency built-in, 5-minute
@@ -314,7 +316,7 @@ def fetch_profile(
         pd = _pandas()
         series = series.sort_index()
         series.index = pd.to_datetime(series.index)
-        series = series.resample(f"{int(resample_min)}min").interpolate(method="time").dropna()
+        series = series.resample(f"{resample_min}min").interpolate(method="time").dropna()
     loads = series.to_numpy(dtype=float)
     if out is not None:
         pd = _pandas()

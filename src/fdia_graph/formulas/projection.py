@@ -11,9 +11,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    Reduce,
-)
+from ..models.choices import Reduce  # noqa: F401  re-exported beside its formula
+from ..models.inputs import Aggregation
 
 
 def bus_incidence(n_bus: int, n_branch: int, edge_index: np.ndarray, mask: np.ndarray) -> list[np.ndarray]:
@@ -117,7 +116,7 @@ def meters_to_buses(values: np.ndarray, incidence: list[np.ndarray], reduce: str
     reduce    : "sum" (energies) or "max" (changes)
     returns   : [n, N], zero for a bus with no incident meter
     """
-    reduce = Reduce(reduce).value
+    reduce = Aggregation(reduce).reduce
     out = np.zeros((values.shape[0], len(incidence)))
     for b, ix in enumerate(incidence):
         if len(ix):

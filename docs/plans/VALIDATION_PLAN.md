@@ -46,8 +46,9 @@ class HuberConfig(Validated):
 | `invariants()` | cross-field rules declared as (condition, phrase) pairs: `train_frac + val_frac < 1`, `W <= T`, `partition.K == K` |
 | `ConfigError(ValueError)` | the one error: "`HuberConfig.c` must be > 0, got -1" (model, field, rule, value); a `ValueError` subclass, so every caller catching `ValueError` keeps working |
 
-Standard library only (`dataclasses`, `typing.Annotated`, `enum`), so Python 3.9 and no new
-dependency. The fixed sets are `Choice` enums, all in `models/choices.py`; a field is typed `str` and
+No new dependency: the engine is the standard library (`dataclasses`, `typing.Annotated`, `enum`)
+plus NumPy, which the package already requires and which the array rules (`AsArray`, `IntegerDtype`,
+`AllFinite`, ...) use; Python 3.9 as before. The fixed sets are `Choice` enums, all in `models/choices.py`; a field is typed `str` and
 declares its set with `OneOf`, so a caller passes a plain string and a consumer reads one.
 
 ### 2b. Configuration models

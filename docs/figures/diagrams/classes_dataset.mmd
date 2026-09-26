@@ -57,9 +57,6 @@ classDiagram
     class BranchModel {
         <<models>>
     }
-    class Capability {
-        <<models>>
-    }
     class EpisodeTable {
         <<models>>
     }
@@ -76,6 +73,9 @@ classDiagram
         <<models>>
     }
     class RecordBundle {
+        <<models>>
+    }
+    class Requirement {
         <<models>>
     }
     class Summary {
@@ -96,8 +96,8 @@ classDiagram
     SequenceMixin <|-- FdiaGraph
     AdmittanceMixin ..> Admittances : uses
     AdmittanceMixin ..> BranchModel : uses
-    DatasetBase ..> Capability : uses
     DatasetBase ..> MissingCapability : uses
+    DatasetBase ..> Requirement : uses
     ExportMixin ..> ArraysBundle : uses
     ExportMixin ..> ExportRequest : uses
     ExportMixin ..> FieldRequest : uses

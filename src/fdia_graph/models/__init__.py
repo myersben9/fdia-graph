@@ -26,6 +26,7 @@ from .config import (
     LocalizerConfig,
     PerBusReport,
     PriorConfig,
+    ProfileFetch,
     RemovalConfig,
     ShardRun,
     SolveConfig,
@@ -82,6 +83,7 @@ from .grid import (
 )
 from .inputs import (
     Affinity,
+    Aggregation,
     AssignmentSpec,
     ClientCount,
     ClientGraph,
@@ -98,6 +100,7 @@ from .inputs import (
     PartitionOnGrid,
     RankedLabels,
     ReleaseName,
+    Requirement,
     ShapedArray,
     StateBlocks,
     StatePool,
@@ -172,6 +175,9 @@ __all__ = [
     "TamperTarget",
     "AttackDesign",
     "OptimConfig",
+    "ProfileFetch",
+    "Aggregation",
+    "Requirement",
     "FamilySelection",
     "SystemRef",
     "SupportedSystem",

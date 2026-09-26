@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import torch
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -36,7 +36,7 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
     Units,
 )
 from ..models.config import LoadOptions
-from ..models.inputs import FamilySelection
+from ..models.inputs import FamilySelection, Requirement
 from ..models.validation import MissingCapability
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
@@ -184,7 +184,7 @@ def _consecutive(ds: DatasetBase) -> bool:
 
 
 # What a view may lack that a consumer needs: the test and what the consumer needs, in words.
-CAPABILITIES = {
+CAPABILITIES: dict[str, tuple[Callable[[DatasetBase], bool], str]] = {
     Capability.TIMELINE: (_is_timeline, "a timeline file, not a record shard"),
     Capability.BENIGN_LAYER: (_has_benign, "a timeline view with the benign layer"),
     Capability.CLEAN_LAYER: (
@@ -239,8 +239,8 @@ class DatasetBase:
     def require(self, *capabilities: str, by: str) -> None:
         """Refuse this view when it lacks a capability `by` (the consumer, in words) needs; the
         tests and the messages are the `CAPABILITIES` table."""
-        for cap in capabilities:
-            test, needs = CAPABILITIES[Capability(cap)]
+        for cap in Requirement(capabilities, by).capabilities:
+            test, needs = CAPABILITIES[cap]
             if not test(self):
                 raise MissingCapability(f"{by} needs {needs}")
 

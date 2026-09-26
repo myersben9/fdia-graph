@@ -131,7 +131,9 @@ def test_the_formula_options_share_the_message():
     from fdia_graph.localization.learned import FEATURE_SETS
     from fdia_graph.models.choices import Features
 
-    with pytest.raises(ValueError, match="reduce must be one of"):
+    with pytest.raises(
+        ConfigError, match=r"^Aggregation\.reduce must be one of \['sum', 'max'\], got 'mean'$"
+    ):
         meters_to_buses(np.zeros((1, 2)), [np.array([0])], "mean")
     assert FEATURE_SETS["full14+prev"] == 16 and set(FEATURE_SETS) == set(Features)
 
@@ -277,3 +279,15 @@ def test_an_overflowing_value_fails_its_rule():
         TrainerConfig(clip=10**1000)
     with pytest.raises(ConfigError, match=r"^FederatedSettings\.grad_clip must be finite"):
         FederatedSettings(grad_clip=10**1000)
+
+
+def test_a_capability_name_and_a_fetch_are_checked_by_their_models(timeline):
+    import fdia_graph as fg
+    from fdia_graph.profiles import fetch_profile
+
+    with pytest.raises(ConfigError, match=r"^Requirement\.capabilities must name capabilities"):
+        fg.load(timeline, split="test").require("timelime", by="a typo")
+    with pytest.raises(ConfigError, match=r"^ProfileFetch\.iso must be one of"):
+        fetch_profile("pjm", "2024-01-01", "2024-01-02")
+    with pytest.raises(ConfigError, match=r"^ProfileFetch\.resample_min must be >= 1"):
+        fetch_profile("nyiso", "2024-01-01", "2024-01-02", resample_min=0)

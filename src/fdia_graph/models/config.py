@@ -18,6 +18,7 @@ from .choices import (
     Features,
     Format,
     FrOver,
+    Iso,
     Kcl,
     Label,
     Layer,
@@ -252,3 +253,11 @@ class SplitFractions(Validated):
             self.train_frac + self.val_frac < 1.0,
             f"need train_frac + val_frac < 1, got {self.train_frac} + {self.val_frac}",
         )
+
+
+@dataclass(frozen=True)
+class ProfileFetch(Validated):
+    """A load-profile download: the operator and the optional resampling cadence (minutes)."""
+
+    iso: Annotated[str, OneOf(Iso)]
+    resample_min: Annotated[Optional[int], Integer(), AtLeast(1)] = None

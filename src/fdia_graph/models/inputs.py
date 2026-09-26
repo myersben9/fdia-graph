@@ -15,8 +15,8 @@ from typing import Annotated, Any, Optional, Union, cast
 
 import numpy as np
 
-from .choices import FAMILIES, FAMILY_ALIAS
-from .validation import AsArray, AtLeast, Dims, Integer, IntegerDtype, Parses, Required, Validated
+from .choices import FAMILIES, FAMILY_ALIAS, Capability, Reduce
+from .validation import AsArray, AtLeast, Dims, Integer, IntegerDtype, OneOf, Parses, Required, Validated
 
 # ---- parsers of loose input -----------------------------------------------------------------------
 _FAMILY_NAMES = {**{v: k for k, v in FAMILIES.items()}, **FAMILY_ALIAS}
@@ -465,3 +465,25 @@ class RankedLabels(Validated):
             self.score.ndim == 1 and self.score.shape == self.truth.shape and bool(self.truth.any()),
             "average_precision needs matching 1-D scores and labels with a positive",
         )
+
+
+@dataclass(frozen=True)
+class Aggregation(Validated):
+    """How a per-meter quantity aggregates to a bus."""
+
+    reduce: Annotated[str, OneOf(Reduce)]
+
+
+def capability_names(capabilities: Sequence[str]) -> tuple[str, ...]:
+    """Capability names, each one of `Capability`."""
+    return tuple(Capability(c).value for c in capabilities)
+
+
+@dataclass(frozen=True)
+class Requirement(Validated):
+    """What a consumer (`by`, in words) needs of a dataset view."""
+
+    capabilities: Annotated[
+        Sequence[str], Parses(capability_names, f"must name capabilities {Capability.values()}")
+    ]
+    by: str
