@@ -38,7 +38,7 @@ os.makedirs(CACHE, exist_ok=True)
 def run(protocol, name, m, train, test, val=None):
     """Fit (or restore thresholds from the cache), then score the test split from cached scores."""
     t0 = time.time()
-    f = os.path.join(CACHE, f"loc_{SYSTEM}_{protocol}_{name}.npz")
+    f = os.path.join(CACHE, f"loc_{STEM}_{protocol}_{name}.npz")
     if os.path.exists(f):
         with np.load(f) as z:
             m.thr, s = z["thr"], z["scores"]
@@ -61,6 +61,9 @@ def run(protocol, name, m, train, test, val=None):
 # ---- 1. common protocol: same train, same FA budget, full test ------------------------------
 train = fg.load(SYSTEM, split="train")
 test = fg.load(SYSTEM, split="test")
+STEM = os.path.splitext(os.path.basename(train.path))[
+    0
+]  # the data file: a new release never reads a stale cache
 methods = {
     "swing": SwingThreshold(),
     "delta": DeltaThreshold(),
@@ -68,6 +71,8 @@ methods = {
     "mlp": BusMLP(),
     "cnn": BusCNN(),
     "cnn+jac": BusCNN(features="full14+jac"),  # the digest's Model C, every family in-distribution
+    "cnn+prev": BusCNN(features="full14+prev"),  # + the previous frame's swing: tells an echo from an onset
+    "cnn+prev+jac": BusCNN(features="full14+prev+jac"),
 }
 report = {name: run("common", name, m, train, test) for name, m in methods.items()}
 
@@ -83,6 +88,8 @@ zs_methods = {
     "cnn_meas": BusCNN(features="meas"),
     "cnn+jac": BusCNN(features="full14+jac"),
     "cnn_jac": BusCNN(features="jac"),
+    "cnn+prev": BusCNN(features="full14+prev"),
+    "cnn+prev+jac": BusCNN(features="full14+prev+jac"),
 }
 zero_shot = {name: run("zero_shot", name, m, ztr, zte, val=zva) for name, m in zs_methods.items()}
 zero_shot["swing"] = run("zero_shot", "swing", SwingThreshold(), ztr, zte)  # the feature alone, FA-calibrated

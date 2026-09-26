@@ -30,14 +30,23 @@ COMMON = [
     ("mlp", "Per-bus MLP"),
     ("cnn", "**1D CNN**"),
     ("cnn+jac", "1D CNN + Jacobian (C)"),
+    ("cnn+prev", "1D CNN + previous swing"),
+    ("cnn+prev+jac", "1D CNN + previous swing + Jacobian"),
 ]
-ZERO_SHOT = [("mlp", "Per-bus MLP"), ("cnn", "**1D CNN**"), ("swing", "Swing threshold")]
+ZERO_SHOT = [
+    ("mlp", "Per-bus MLP"),
+    ("cnn", "**1D CNN**"),
+    ("cnn+prev", "1D CNN + previous swing"),
+    ("swing", "Swing threshold"),
+]
 # The Jacobian-informed digest's ablation, all on the 1D CNN in the zero-shot protocol.
 ABLATION = [
     ("cnn_meas", "A: measurements only"),
     ("cnn", "B: measurements + temporal (the papers' 14)"),
     ("cnn+jac", "C: B + Jacobian features"),
     ("cnn_jac", "D: Jacobian features only"),
+    ("cnn+prev", "E: B + the previous frame's swing"),
+    ("cnn+prev+jac", "F: E + Jacobian features"),
 ]
 
 res = {}

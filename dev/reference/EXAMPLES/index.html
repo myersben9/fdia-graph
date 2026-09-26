@@ -1914,9 +1914,9 @@ research target, not a given.</p>
 <code>layer="benign"</code>/<code>"clean"</code> on <code>windows</code>, <code>torch_windows</code> and <code>pyg_stream</code> swaps the model input
 layer (the label stays the attack target).</p>
 <h2 id="dataset-statistics">Dataset statistics<a class="headerlink" href="#dataset-statistics" title="Permanent link">&para;</a></h2>
-<p>The tables in this section describe the v0.8.0 release. The v0.8.1 timelines keep the pools, the
-knobs and the seed, and their episode counts differ slightly (ieee14 16,045, ieee145 16,177, ieee300
-16,317; the release notes of <code>data-v0.8.1</code> on GitHub list every system).</p>
+<p>The tables in this section describe data release v0.8.3. Its <code>Aq</code> and <code>Al</code> episodes are one frame
+each, so a timeline holds about 24,500 episodes, against about 16,000 in v0.8.0 and v0.8.1 whose
+<code>Aq</code> and <code>Al</code> were held over several frames; the pools, the other knobs and the seed are unchanged.</p>
 <p><strong>Per-system size.</strong> One timeline of 72,000 frames per system, about half under attack, split
 chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):</p>
 <table>
@@ -1941,7 +1941,7 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 <td style="text-align: right;">43,200</td>
 <td style="text-align: right;">14,400</td>
 <td style="text-align: right;">14,400</td>
-<td style="text-align: right;">15,997</td>
+<td style="text-align: right;">24,790</td>
 </tr>
 <tr>
 <td>ieee30</td>
@@ -1951,27 +1951,27 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 <td style="text-align: right;">43,200</td>
 <td style="text-align: right;">14,400</td>
 <td style="text-align: right;">14,400</td>
-<td style="text-align: right;">15,974</td>
+<td style="text-align: right;">24,790</td>
 </tr>
 <tr>
 <td>ieee57</td>
 <td style="text-align: right;">57</td>
 <td style="text-align: right;">80</td>
 <td style="text-align: right;">72,000</td>
-<td style="text-align: right;">43,218</td>
-<td style="text-align: right;">14,382</td>
+<td style="text-align: right;">43,200</td>
 <td style="text-align: right;">14,400</td>
-<td style="text-align: right;">15,948</td>
+<td style="text-align: right;">14,400</td>
+<td style="text-align: right;">24,679</td>
 </tr>
 <tr>
 <td>ieee89</td>
 <td style="text-align: right;">89</td>
 <td style="text-align: right;">210</td>
 <td style="text-align: right;">72,000</td>
-<td style="text-align: right;">43,200</td>
+<td style="text-align: right;">43,220</td>
+<td style="text-align: right;">14,380</td>
 <td style="text-align: right;">14,400</td>
-<td style="text-align: right;">14,400</td>
-<td style="text-align: right;">16,028</td>
+<td style="text-align: right;">24,495</td>
 </tr>
 <tr>
 <td>ieee118</td>
@@ -1979,9 +1979,9 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 <td style="text-align: right;">186</td>
 <td style="text-align: right;">72,000</td>
 <td style="text-align: right;">43,200</td>
-<td style="text-align: right;">14,400</td>
-<td style="text-align: right;">14,400</td>
-<td style="text-align: right;">16,080</td>
+<td style="text-align: right;">14,408</td>
+<td style="text-align: right;">14,392</td>
+<td style="text-align: right;">24,469</td>
 </tr>
 <tr>
 <td>ieee145</td>
@@ -1991,17 +1991,17 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 <td style="text-align: right;">43,200</td>
 <td style="text-align: right;">14,400</td>
 <td style="text-align: right;">14,400</td>
-<td style="text-align: right;">16,192</td>
+<td style="text-align: right;">24,485</td>
 </tr>
 <tr>
 <td>ieee200</td>
 <td style="text-align: right;">200</td>
 <td style="text-align: right;">245</td>
 <td style="text-align: right;">72,000</td>
-<td style="text-align: right;">43,226</td>
-<td style="text-align: right;">14,374</td>
+<td style="text-align: right;">43,200</td>
 <td style="text-align: right;">14,400</td>
-<td style="text-align: right;">16,163</td>
+<td style="text-align: right;">14,400</td>
+<td style="text-align: right;">24,436</td>
 </tr>
 <tr>
 <td>ieee300</td>
@@ -2011,7 +2011,7 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 <td style="text-align: right;">43,200</td>
 <td style="text-align: right;">14,400</td>
 <td style="text-align: right;">14,400</td>
-<td style="text-align: right;">16,333</td>
+<td style="text-align: right;">24,672</td>
 </tr>
 </tbody>
 </table>
@@ -2019,7 +2019,9 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 <p><strong>Attacks per split</strong> (ieee118 shown; every system uses the same recipe). Families are drawn with
 weights inversely proportional to their episode length, so each gets about the same share of
 attacked frames. Each episode is placed at a uniform random onset where it fits, so a partition can
-hold a few more of one family:</p>
+hold a few more of one family. The one-frame families (<code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code>) are thousands of
+episodes and land near their share; <code>At</code> and <code>Am</code> are about 100 sixty-frame episodes each, so one
+episode more or less moves 60 frames and their split counts vary most:</p>
 <table>
 <thead>
 <tr>
@@ -2033,59 +2035,59 @@ hold a few more of one family:</p>
 <tbody>
 <tr>
 <td>benign (0)</td>
-<td style="text-align: right;">21,405</td>
-<td style="text-align: right;">7,516</td>
-<td style="text-align: right;">7,079</td>
+<td style="text-align: right;">21,813</td>
+<td style="text-align: right;">7,160</td>
+<td style="text-align: right;">7,027</td>
 <td style="text-align: right;">36,000</td>
 </tr>
 <tr>
 <td><code>Aq</code> stealthy load-scale</td>
-<td style="text-align: right;">3,189</td>
-<td style="text-align: right;">871</td>
-<td style="text-align: right;">1,014</td>
-<td style="text-align: right;">5,074</td>
+<td style="text-align: right;">2,961</td>
+<td style="text-align: right;">991</td>
+<td style="text-align: right;">948</td>
+<td style="text-align: right;">4,900</td>
 </tr>
 <tr>
 <td><code>Ad</code> meter corruption</td>
-<td style="text-align: right;">3,136</td>
-<td style="text-align: right;">1,069</td>
-<td style="text-align: right;">1,026</td>
-<td style="text-align: right;">5,231</td>
+<td style="text-align: right;">2,948</td>
+<td style="text-align: right;">941</td>
+<td style="text-align: right;">945</td>
+<td style="text-align: right;">4,834</td>
 </tr>
 <tr>
 <td><code>As</code> meter scaling</td>
-<td style="text-align: right;">3,120</td>
-<td style="text-align: right;">1,092</td>
-<td style="text-align: right;">1,029</td>
-<td style="text-align: right;">5,241</td>
+<td style="text-align: right;">3,009</td>
+<td style="text-align: right;">1,023</td>
+<td style="text-align: right;">955</td>
+<td style="text-align: right;">4,987</td>
 </tr>
 <tr>
 <td><code>Ar</code> replay</td>
-<td style="text-align: right;">2,955</td>
-<td style="text-align: right;">1,051</td>
-<td style="text-align: right;">1,020</td>
-<td style="text-align: right;">5,026</td>
+<td style="text-align: right;">2,916</td>
+<td style="text-align: right;">959</td>
+<td style="text-align: right;">955</td>
+<td style="text-align: right;">4,830</td>
 </tr>
 <tr>
 <td><code>At</code> temporal ramp</td>
-<td style="text-align: right;">3,300</td>
-<td style="text-align: right;">1,200</td>
-<td style="text-align: right;">1,140</td>
-<td style="text-align: right;">5,640</td>
+<td style="text-align: right;">3,120</td>
+<td style="text-align: right;">1,440</td>
+<td style="text-align: right;">1,440</td>
+<td style="text-align: right;">6,000</td>
 </tr>
 <tr>
 <td><code>Al</code> load redistribution</td>
-<td style="text-align: right;">2,675</td>
-<td style="text-align: right;">821</td>
-<td style="text-align: right;">952</td>
-<td style="text-align: right;">4,448</td>
+<td style="text-align: right;">2,806</td>
+<td style="text-align: right;">934</td>
+<td style="text-align: right;">982</td>
+<td style="text-align: right;">4,722</td>
 </tr>
 <tr>
 <td><code>Am</code> multi-snapshot</td>
-<td style="text-align: right;">3,420</td>
-<td style="text-align: right;">780</td>
+<td style="text-align: right;">3,627</td>
+<td style="text-align: right;">960</td>
 <td style="text-align: right;">1,140</td>
-<td style="text-align: right;">5,340</td>
+<td style="text-align: right;">5,727</td>
 </tr>
 </tbody>
 </table>

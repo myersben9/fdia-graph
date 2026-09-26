@@ -1548,7 +1548,7 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 <thead>
 <tr>
 <th>needs</th>
-<th><code>pip install "fdia-graph[se]"</code>, a timeline (v0.8.1) or a v0.7.2 record shard, <code>units="physical"</code></th>
+<th><code>pip install "fdia-graph[se]"</code>, a timeline (data release v0.8.3) or a v0.7.2 record shard, <code>units="physical"</code></th>
 </tr>
 </thead>
 <tbody>
@@ -1623,11 +1623,15 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 </tr>
 <tr>
 <td>removal threshold</td>
-<td>4.0 (14), 5.0 (118), 5.0 (300); the 300 column ran it on the v0.8.1 timeline (2.6 hours, the per-record observability guard), where it cuts the WLS angle error 28%</td>
+<td>4.0 (14), 5.0 (118), 5.0 (300); on IEEE-300 it runs 2.4 hours (the per-record observability guard) and cuts the WLS angle error 28%</td>
 </tr>
 <tr>
 <td>cell</td>
 <td>geometric mean of the MAE over the eight record classes (benign and the seven families); full metrics in <code>results/se_ieee{14,118,300}.json</code></td>
+</tr>
+<tr>
+<td>data</td>
+<td>release v0.8.3; the two gated IEEE-300 cells are pending a rerun</td>
 </tr>
 </tbody>
 </table>
@@ -1650,50 +1654,50 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 </tr>
 <tr>
 <td>WLS baseline</td>
-<td style="text-align: right;">0.090</td>
-<td style="text-align: right;">0.022</td>
+<td style="text-align: right;">0.091</td>
+<td style="text-align: right;">0.020</td>
 <td style="text-align: right;">0.027</td>
 </tr>
 <tr>
 <td>Residual removal</td>
-<td style="text-align: right;">0.051</td>
-<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">0.052</td>
+<td style="text-align: right;">0.014</td>
 <td style="text-align: right;">0.019</td>
 </tr>
 <tr>
 <td>Adaptive weighting</td>
-<td style="text-align: right;">0.056</td>
-<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;">0.014</td>
 <td style="text-align: right;">0.020</td>
 </tr>
 <tr>
 <td><strong>Prior + Huber (proposed)</strong></td>
-<td style="text-align: right;"><strong>0.049</strong></td>
-<td style="text-align: right;"><strong>0.011</strong></td>
+<td style="text-align: right;"><strong>0.050</strong></td>
+<td style="text-align: right;"><strong>0.010</strong></td>
 <td style="text-align: right;"><strong>0.016</strong></td>
 </tr>
 <tr>
 <td>Jacobian weighting</td>
-<td style="text-align: right;">0.075</td>
+<td style="text-align: right;">0.076</td>
 <td style="text-align: right;">0.016</td>
 <td style="text-align: right;">0.021</td>
 </tr>
 <tr>
 <td><strong>Prior + Huber + CNN gate</strong></td>
 <td style="text-align: right;"><strong>0.044</strong></td>
-<td style="text-align: right;"><strong>0.011</strong></td>
-<td style="text-align: right;"><strong>0.016</strong></td>
+<td style="text-align: right;"><strong>0.010</strong></td>
+<td style="text-align: right;"></td>
 </tr>
 <tr>
 <td>Prior + Huber + oracle gate (ceiling)</td>
 <td style="text-align: right;">0.041</td>
 <td style="text-align: right;">0.010</td>
-<td style="text-align: right;">0.015</td>
+<td style="text-align: right;"></td>
 </tr>
 <tr>
 <td>WLS error reduction</td>
-<td style="text-align: right;">46%</td>
-<td style="text-align: right;">51%</td>
+<td style="text-align: right;">45%</td>
+<td style="text-align: right;">50%</td>
 <td style="text-align: right;">40%</td>
 </tr>
 </tbody>
@@ -1716,51 +1720,51 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 </tr>
 <tr>
 <td>WLS baseline</td>
-<td style="text-align: right;">0.840</td>
-<td style="text-align: right;">0.188</td>
+<td style="text-align: right;">0.839</td>
+<td style="text-align: right;">0.177</td>
 <td style="text-align: right;">0.219</td>
 </tr>
 <tr>
 <td>Residual removal</td>
-<td style="text-align: right;">0.507</td>
-<td style="text-align: right;">0.127</td>
+<td style="text-align: right;">0.513</td>
+<td style="text-align: right;">0.121</td>
 <td style="text-align: right;">0.171</td>
 </tr>
 <tr>
 <td>Adaptive weighting</td>
-<td style="text-align: right;">0.536</td>
-<td style="text-align: right;">0.129</td>
+<td style="text-align: right;">0.540</td>
+<td style="text-align: right;">0.122</td>
 <td style="text-align: right;">0.177</td>
 </tr>
 <tr>
 <td><strong>Prior + Huber (proposed)</strong></td>
-<td style="text-align: right;"><strong>0.163</strong></td>
-<td style="text-align: right;"><strong>0.031</strong></td>
-<td style="text-align: right;"><strong>0.065</strong></td>
+<td style="text-align: right;"><strong>0.160</strong></td>
+<td style="text-align: right;"><strong>0.029</strong></td>
+<td style="text-align: right;"><strong>0.064</strong></td>
 </tr>
 <tr>
 <td>Jacobian weighting</td>
-<td style="text-align: right;">0.692</td>
-<td style="text-align: right;">0.146</td>
-<td style="text-align: right;">0.184</td>
+<td style="text-align: right;">0.695</td>
+<td style="text-align: right;">0.138</td>
+<td style="text-align: right;">0.183</td>
 </tr>
 <tr>
 <td><strong>Prior + Huber + CNN gate</strong></td>
-<td style="text-align: right;"><strong>0.264</strong></td>
-<td style="text-align: right;"><strong>0.038</strong></td>
-<td style="text-align: right;"><strong>0.063</strong></td>
+<td style="text-align: right;"><strong>0.239</strong></td>
+<td style="text-align: right;"><strong>0.032</strong></td>
+<td style="text-align: right;"></td>
 </tr>
 <tr>
 <td>Prior + Huber + oracle gate (ceiling)</td>
-<td style="text-align: right;">0.214</td>
-<td style="text-align: right;">0.036</td>
-<td style="text-align: right;">0.061</td>
+<td style="text-align: right;">0.212</td>
+<td style="text-align: right;">0.034</td>
+<td style="text-align: right;"></td>
 </tr>
 <tr>
 <td>WLS error reduction</td>
 <td style="text-align: right;">81%</td>
 <td style="text-align: right;">84%</td>
-<td style="text-align: right;">70%</td>
+<td style="text-align: right;">71%</td>
 </tr>
 </tbody>
 </table>
@@ -1788,9 +1792,9 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 </tr>
 </tbody>
 </table>
-<p>The v0.8.1 timelines carry the accuracy-class meter model (since v0.7.2), so absolute errors are
-lower than the paper's; the ordering holds and the reductions stay of the same size (angle 46, 51
-and 40% here against 59, 56 and 47%).</p>
+<p>The timelines carry the accuracy-class meter model (since v0.7.2), so absolute errors are lower
+than the paper's; the ordering holds and the reductions stay of the same size (angle 45, 50 and 40%
+here against 59, 56 and 47%).</p>
 <p><strong>Per-family results of the proposed estimator.</strong> Baseline cells are the WLS error, reduction is
 the proposed estimator's percent reduction over that baseline.</p>
 <table>
@@ -1820,51 +1824,51 @@ the proposed estimator's percent reduction over that baseline.</p>
 <td style="text-align: right;">0.15</td>
 <td style="text-align: right;">0.09</td>
 <td style="text-align: right;">0.15</td>
-<td style="text-align: right;">-55</td>
+<td style="text-align: right;">-56</td>
 <td style="text-align: right;">27</td>
-<td style="text-align: right;">22</td>
-<td style="text-align: right;">60</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">58</td>
 <td style="text-align: right;">81</td>
-<td style="text-align: right;">67</td>
+<td style="text-align: right;">68</td>
 </tr>
 <tr>
 <td>Bias (Ad)</td>
-<td style="text-align: right;">0.126</td>
-<td style="text-align: right;">0.028</td>
-<td style="text-align: right;">0.025</td>
-<td style="text-align: right;">3.60</td>
-<td style="text-align: right;">0.55</td>
+<td style="text-align: right;">0.124</td>
+<td style="text-align: right;">0.027</td>
+<td style="text-align: right;">0.024</td>
+<td style="text-align: right;">3.53</td>
+<td style="text-align: right;">0.53</td>
 <td style="text-align: right;">0.33</td>
-<td style="text-align: right;">80</td>
-<td style="text-align: right;">66</td>
-<td style="text-align: right;">41</td>
+<td style="text-align: right;">79</td>
+<td style="text-align: right;">65</td>
+<td style="text-align: right;">40</td>
 <td style="text-align: right;">97</td>
 <td style="text-align: right;">95</td>
 <td style="text-align: right;">81</td>
 </tr>
 <tr>
 <td>Scaling (As)</td>
-<td style="text-align: right;">0.239</td>
-<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.232</td>
+<td style="text-align: right;">0.029</td>
 <td style="text-align: right;">0.024</td>
-<td style="text-align: right;">1.10</td>
+<td style="text-align: right;">1.07</td>
 <td style="text-align: right;">0.33</td>
 <td style="text-align: right;">0.25</td>
-<td style="text-align: right;">70</td>
-<td style="text-align: right;">66</td>
+<td style="text-align: right;">69</td>
+<td style="text-align: right;">65</td>
 <td style="text-align: right;">37</td>
 <td style="text-align: right;">85</td>
-<td style="text-align: right;">92</td>
+<td style="text-align: right;">91</td>
 <td style="text-align: right;">73</td>
 </tr>
 <tr>
 <td>Replay (Ar)</td>
-<td style="text-align: right;">0.230</td>
+<td style="text-align: right;">0.231</td>
 <td style="text-align: right;">0.052</td>
-<td style="text-align: right;">0.123</td>
-<td style="text-align: right;">1.19</td>
+<td style="text-align: right;">0.128</td>
+<td style="text-align: right;">1.22</td>
 <td style="text-align: right;">0.21</td>
-<td style="text-align: right;">0.42</td>
+<td style="text-align: right;">0.43</td>
 <td style="text-align: right;">86</td>
 <td style="text-align: right;">85</td>
 <td style="text-align: right;">89</td>
@@ -1874,63 +1878,63 @@ the proposed estimator's percent reduction over that baseline.</p>
 </tr>
 <tr>
 <td>Stealthy re-solve (Aq)</td>
-<td style="text-align: right;">0.299</td>
-<td style="text-align: right;">0.020</td>
-<td style="text-align: right;">0.028</td>
-<td style="text-align: right;">2.45</td>
-<td style="text-align: right;">0.15</td>
-<td style="text-align: right;">0.20</td>
-<td style="text-align: right;">17</td>
-<td style="text-align: right;">28</td>
+<td style="text-align: right;">0.413</td>
+<td style="text-align: right;">0.023</td>
+<td style="text-align: right;">0.027</td>
+<td style="text-align: right;">3.41</td>
+<td style="text-align: right;">0.17</td>
+<td style="text-align: right;">0.21</td>
 <td style="text-align: right;">14</td>
-<td style="text-align: right;">73</td>
-<td style="text-align: right;">70</td>
-<td style="text-align: right;">54</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">75</td>
+<td style="text-align: right;">72</td>
+<td style="text-align: right;">56</td>
 </tr>
 <tr>
 <td>Slow ramp (At)</td>
-<td style="text-align: right;">0.103</td>
+<td style="text-align: right;">0.085</td>
 <td style="text-align: right;">0.011</td>
-<td style="text-align: right;">0.020</td>
-<td style="text-align: right;">0.94</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">0.75</td>
 <td style="text-align: right;">0.10</td>
-<td style="text-align: right;">0.17</td>
+<td style="text-align: right;">0.16</td>
+<td style="text-align: right;">23</td>
 <td style="text-align: right;">26</td>
-<td style="text-align: right;">26</td>
-<td style="text-align: right;">17</td>
+<td style="text-align: right;">20</td>
 <td style="text-align: right;">76</td>
-<td style="text-align: right;">78</td>
-<td style="text-align: right;">64</td>
+<td style="text-align: right;">80</td>
+<td style="text-align: right;">66</td>
 </tr>
 <tr>
 <td>Load redistribution (Al)</td>
 <td style="text-align: right;">0.051</td>
-<td style="text-align: right;">0.021</td>
+<td style="text-align: right;">0.020</td>
 <td style="text-align: right;">0.023</td>
-<td style="text-align: right;">0.40</td>
+<td style="text-align: right;">0.41</td>
+<td style="text-align: right;">0.16</td>
 <td style="text-align: right;">0.17</td>
-<td style="text-align: right;">0.18</td>
-<td style="text-align: right;">7</td>
-<td style="text-align: right;">28</td>
-<td style="text-align: right;">13</td>
-<td style="text-align: right;">53</td>
-<td style="text-align: right;">66</td>
-<td style="text-align: right;">59</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">27</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">54</td>
+<td style="text-align: right;">65</td>
+<td style="text-align: right;">60</td>
 </tr>
 <tr>
 <td>Multi-snapshot (Am)</td>
-<td style="text-align: right;">0.047</td>
-<td style="text-align: right;">0.025</td>
-<td style="text-align: right;">0.020</td>
-<td style="text-align: right;">0.38</td>
-<td style="text-align: right;">0.20</td>
+<td style="text-align: right;">0.046</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">0.022</td>
+<td style="text-align: right;">0.35</td>
+<td style="text-align: right;">0.12</td>
 <td style="text-align: right;">0.17</td>
-<td style="text-align: right;">-5</td>
-<td style="text-align: right;">29</td>
-<td style="text-align: right;">15</td>
-<td style="text-align: right;">47</td>
-<td style="text-align: right;">68</td>
-<td style="text-align: right;">62</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">51</td>
+<td style="text-align: right;">65</td>
+<td style="text-align: right;">61</td>
 </tr>
 </tbody>
 </table>
@@ -1964,17 +1968,20 @@ the proposed estimator's percent reduction over that baseline.</p>
 <tr>
 <td><code>Ad</code> <code>As</code> <code>Ar</code> (in place)</td>
 <td>robustness cleans up what it can see</td>
-<td>70 to 86% on 14, 66 to 85% on 118, 37 to 89% on 300; voltage 73 to 97% everywhere</td>
+<td>69 to 86% on 14, 65 to 85% on 118, 37 to 89% on 300; voltage 73 to 97% everywhere</td>
 <td>corrupted meters leave large residuals for removal, Huber and the prior to reject</td>
 </tr>
 <tr>
 <td><code>Aq</code> <code>At</code> <code>Al</code> <code>Am</code> (stealthy)</td>
 <td>move part of the way, through the prior alone</td>
-<td>-5 to 26% on 14 (<code>Am</code> slightly worse), 26 to 29% on 118, 13 to 17% on 300; voltage 47 to 78%</td>
+<td>0 to 23% on 14, 23 to 27% on 118, 12 to 20% on 300; voltage 51 to 80%</td>
 <td>the local false state is a consistent AC state, so no residual exists and Huber sees nothing; it also sits off the benign operating subspace, so the prior pulls the estimate back part of the way; the rest needs temporal information (<a href="../localization/"><code>../localization/README.md</code></a>)</td>
 </tr>
 </tbody>
 </table>
+<p>On IEEE-14 the benign angle error rises (0.008 to 0.013 degrees, the -56% cell): the rank-0.20
+prior is tuned for the attacked records and costs the clean ones a little, while the voltage error
+still falls 58%.</p>
 <h2 id="jacobian-informed-weighting">Jacobian-informed weighting<a class="headerlink" href="#jacobian-informed-weighting" title="Permanent link">&para;</a></h2>
 <p><img alt="the scan-to-scan change is split into the part a state change explains and the unexplained rest; Huber weights come from the unexplained part; one weighted solve" src="../figures/diagrams/se_jacobian_weighting.png" /></p>
 <table>
@@ -1995,20 +2002,20 @@ the proposed estimator's percent reduction over that baseline.</p>
 </tr>
 <tr>
 <td>where it comes from</td>
-<td style="text-align: right;"><code>Ad</code> 0.126 → 0.080, <code>As</code> 0.239 → 0.164, <code>Ar</code> 0.230 → 0.123</td>
+<td style="text-align: right;"><code>Ad</code> 0.124 → 0.078, <code>As</code> 0.232 → 0.161, <code>Ar</code> 0.231 → 0.123</td>
 <td style="text-align: right;">in-place families only</td>
-<td style="text-align: right;"><code>Ar</code> 0.123 → 0.029</td>
+<td style="text-align: right;"><code>Ar</code> 0.128 → 0.031</td>
 </tr>
 <tr>
 <td>stealthy families</td>
-<td style="text-align: right;">untouched, as <code>(I − P_H)a = 0</code> predicts: <code>Aq</code> 0.299, <code>At</code> 0.103, <code>Al</code> 0.051, <code>Am</code> 0.047 on both</td>
+<td style="text-align: right;">untouched, as <code>(I − P_H)a = 0</code> predicts: <code>Aq</code> 0.413, <code>At</code> 0.085, <code>Al</code> 0.051, <code>Am</code> 0.046 on both</td>
 <td style="text-align: right;">same</td>
 <td style="text-align: right;">same</td>
 </tr>
 <tr>
 <td>against iterated Huber</td>
-<td style="text-align: right;">0.075 vs 0.056</td>
-<td style="text-align: right;">0.016 vs 0.015</td>
+<td style="text-align: right;">0.076 vs 0.057</td>
+<td style="text-align: right;">0.016 vs 0.014</td>
 <td style="text-align: right;">0.021 vs 0.020</td>
 </tr>
 </tbody>
@@ -2018,8 +2025,9 @@ residual, so this route cannot move the proposed estimator. The routes that can 
 and, ahead of it, a trusted set of meters.</p>
 <h2 id="localization-gated-estimation">Localization-gated estimation<a class="headerlink" href="#localization-gated-estimation" title="Permanent link">&para;</a></h2>
 <p><img alt="a localizer flags buses; the weights of every meter of a flagged bus and its branches are scaled by a thousandth; the prior plus Huber solve fills the gap from the benign prior" src="../figures/diagrams/se_gated_prior.png" /></p>
-<p>Angle mean absolute error in degrees on the v0.8.1 timelines, the proposed estimator alone, with the
-CNN localizer as the gate, and with the true labels as the gate (the ceiling for any gate):</p>
+<p>Angle mean absolute error in degrees, the proposed estimator alone, with the CNN localizer as the
+gate, and with the true labels as the gate (the ceiling for any gate). IEEE-14 to three decimals,
+118 and 300 to four:</p>
 <table>
 <thead>
 <tr>
@@ -2050,75 +2058,75 @@ CNN localizer as the gate, and with the true labels as the gate (the ceiling for
 </tr>
 <tr>
 <td>Aq stealthy re-solve</td>
-<td style="text-align: right;">0.248</td>
-<td style="text-align: right;">0.203</td>
-<td style="text-align: right;">0.231</td>
-<td style="text-align: right;">0.015</td>
-<td style="text-align: right;">0.015</td>
-<td style="text-align: right;">0.014</td>
-<td style="text-align: right;">0.024</td>
-<td style="text-align: right;">0.026</td>
-<td style="text-align: right;">0.024</td>
+<td style="text-align: right;">0.355</td>
+<td style="text-align: right;">0.300</td>
+<td style="text-align: right;">0.301</td>
+<td style="text-align: right;">0.0181</td>
+<td style="text-align: right;">0.0176</td>
+<td style="text-align: right;">0.0168</td>
+<td style="text-align: right;">0.0241</td>
+<td style="text-align: right;">pending</td>
+<td style="text-align: right;">pending</td>
 </tr>
 <tr>
 <td>Ad / As / Ar in place</td>
-<td style="text-align: right;">0.025 / 0.070 / 0.031</td>
-<td style="text-align: right;">0.023 / 0.023 / 0.026</td>
-<td style="text-align: right;">0.020 / 0.019 / 0.020</td>
-<td style="text-align: right;">0.009 / 0.010 / 0.008</td>
-<td style="text-align: right;">0.008 / 0.008 / 0.008</td>
-<td style="text-align: right;">0.007 / 0.007 / 0.007</td>
-<td style="text-align: right;">0.015 / 0.015 / 0.014</td>
-<td style="text-align: right;">0.012 / 0.012 / 0.013</td>
-<td style="text-align: right;">0.012 / 0.012 / 0.012</td>
+<td style="text-align: right;">0.026 / 0.071 / 0.032</td>
+<td style="text-align: right;">0.022 / 0.021 / 0.022</td>
+<td style="text-align: right;">0.020 / 0.020 / 0.020</td>
+<td style="text-align: right;">0.0094 / 0.0103 / 0.0080</td>
+<td style="text-align: right;">0.0082 / 0.0082 / 0.0083</td>
+<td style="text-align: right;">0.0074 / 0.0075 / 0.0073</td>
+<td style="text-align: right;">0.0146 / 0.0154 / 0.0140</td>
+<td style="text-align: right;">pending</td>
+<td style="text-align: right;">pending</td>
 </tr>
 <tr>
 <td>At slow ramp</td>
-<td style="text-align: right;">0.077</td>
-<td style="text-align: right;">0.075</td>
-<td style="text-align: right;">0.071</td>
-<td style="text-align: right;">0.008</td>
-<td style="text-align: right;">0.009</td>
-<td style="text-align: right;">0.008</td>
-<td style="text-align: right;">0.017</td>
-<td style="text-align: right;">0.018</td>
-<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">0.066</td>
+<td style="text-align: right;">0.070</td>
+<td style="text-align: right;">0.060</td>
+<td style="text-align: right;">0.0084</td>
+<td style="text-align: right;">0.0092</td>
+<td style="text-align: right;">0.0085</td>
+<td style="text-align: right;">0.0136</td>
+<td style="text-align: right;">pending</td>
+<td style="text-align: right;">pending</td>
 </tr>
 <tr>
 <td>Al redistribution</td>
-<td style="text-align: right;">0.047</td>
-<td style="text-align: right;">0.071</td>
-<td style="text-align: right;">0.069</td>
-<td style="text-align: right;">0.015</td>
-<td style="text-align: right;">0.020</td>
-<td style="text-align: right;">0.019</td>
-<td style="text-align: right;">0.020</td>
-<td style="text-align: right;">0.019</td>
-<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.048</td>
+<td style="text-align: right;">0.076</td>
+<td style="text-align: right;">0.075</td>
+<td style="text-align: right;">0.0147</td>
+<td style="text-align: right;">0.0182</td>
+<td style="text-align: right;">0.0178</td>
+<td style="text-align: right;">0.0196</td>
+<td style="text-align: right;">pending</td>
+<td style="text-align: right;">pending</td>
 </tr>
 <tr>
 <td>Am multi-snapshot</td>
-<td style="text-align: right;">0.049</td>
-<td style="text-align: right;">0.067</td>
-<td style="text-align: right;">0.068</td>
-<td style="text-align: right;">0.018</td>
-<td style="text-align: right;">0.021</td>
-<td style="text-align: right;">0.023</td>
-<td style="text-align: right;">0.017</td>
-<td style="text-align: right;">0.017</td>
-<td style="text-align: right;">0.016</td>
+<td style="text-align: right;">0.046</td>
+<td style="text-align: right;">0.062</td>
+<td style="text-align: right;">0.059</td>
+<td style="text-align: right;">0.0106</td>
+<td style="text-align: right;">0.0115</td>
+<td style="text-align: right;">0.0148</td>
+<td style="text-align: right;">0.0194</td>
+<td style="text-align: right;">pending</td>
+<td style="text-align: right;">pending</td>
 </tr>
 <tr>
 <td>geometric mean</td>
-<td style="text-align: right;">0.049</td>
+<td style="text-align: right;">0.050</td>
 <td style="text-align: right;"><strong>0.044</strong></td>
 <td style="text-align: right;">0.041</td>
-<td style="text-align: right;"><strong>0.011</strong></td>
-<td style="text-align: right;">0.011</td>
-<td style="text-align: right;">0.010</td>
-<td style="text-align: right;">0.016</td>
-<td style="text-align: right;"><strong>0.016</strong></td>
-<td style="text-align: right;">0.015</td>
+<td style="text-align: right;"><strong>0.0102</strong></td>
+<td style="text-align: right;">0.0103</td>
+<td style="text-align: right;">0.0100</td>
+<td style="text-align: right;">0.0161</td>
+<td style="text-align: right;">pending</td>
+<td style="text-align: right;">pending</td>
 </tr>
 </tbody>
 </table>
@@ -2133,23 +2141,23 @@ CNN localizer as the gate, and with the true labels as the gate (the ceiling for
 <tbody>
 <tr>
 <td><code>Ad</code> <code>As</code> <code>Ar</code> (in place)</td>
-<td>finishes the job at every size: the CNN gate takes them to 0.023 to 0.026 on 14, 0.008 on 118 and 0.012 to 0.013 on 300, next to the oracle's 0.019 to 0.020, 0.007 and 0.012</td>
+<td>finishes the job: the CNN gate takes them to 0.021 to 0.022 on 14 and 0.0082 to 0.0083 on 118, next to the oracle's 0.020 and 0.0073 to 0.0075</td>
 <td>the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true</td>
 </tr>
 <tr>
 <td><code>Aq</code> <code>At</code> <code>Al</code> <code>Am</code> (stealthy)</td>
-<td>makes <code>Al</code> and <code>Am</code> worse on 14 and 118, with the true labels too: <code>Al</code> 0.047 → 0.071 on 14, 0.015 → 0.020 on 118; on 300 the CNN gate improves <code>Al</code> (0.020 → 0.019), leaves <code>Am</code> at 0.017 and makes <code>Aq</code> (0.024 → 0.026) and <code>At</code> (0.017 → 0.018) slightly worse; on 14 it improves <code>Aq</code> (0.248 → 0.203)</td>
+<td>makes <code>Al</code> and <code>Am</code> worse on 14 and 118, with the true labels too: <code>Al</code> 0.048 → 0.076 on 14, 0.0147 → 0.0182 on 118; it improves <code>Aq</code> on 14 (0.355 → 0.300)</td>
 <td>a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state</td>
 </tr>
 </tbody>
 </table>
-<p>On the v0.8.1 timelines the CNN gate lowers the geometric mean 10% on IEEE-14 (0.049 to 0.044) and
-4% on 300 (0.0162 to 0.0155) and costs 1.5% on 118 (0.0106 to 0.0108): the in-place families (and
-<code>Aq</code> on 14) gain, and the stealthy-family losses (<code>Al</code> and <code>Am</code> most) offset that gain on 118. The gate pays most when it has
-something true to leave in: with 20 meters secured by the DQN selector of
-<a href="../trust/"><code>../trust/README.md</code></a> and exempt from the gate, IEEE-14 goes from 0.049 degrees
-to 0.033 with the secured meters alone and to 0.022 with the same CNN gate added. Recovering a
-stealthy false state from one scan otherwise needs the previous scan, the temporal direction.</p>
+<p>The CNN gate lowers the geometric mean 12% on IEEE-14 (0.050 to 0.044) and costs 1% on 118 (0.0102
+to 0.0103): the in-place families (and <code>Aq</code> on 14) gain, and the stealthy-family losses (<code>Al</code> and
+<code>Am</code> most) offset that gain on 118. The gate pays most when it has something true to leave in: with
+20 meters secured by the DQN selector of <a href="../trust/"><code>../trust/README.md</code></a> and exempt from
+the gate, IEEE-14 goes from 0.050 degrees to 0.031 with the secured meters alone and to 0.017 with
+the same CNN gate added. Recovering a stealthy false state from one scan otherwise needs the
+previous scan, the temporal direction.</p>
 <h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/se/run_se.py<span class="w">      </span><span class="c1"># fits, writes results/se_ieee14.json (estimates cached per arm)</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>docs/se/run_se.py
@@ -2169,8 +2177,8 @@ stealthy false state from one scan otherwise needs the previous scan, the tempor
 <td><code>FG_SKIP=removal,...</code> (every published column ran every arm)</td>
 </tr>
 <tr>
-<td>wall time, CPU, IEEE-300 (v0.8.1 run, sharing the CPU with three other guide jobs)</td>
-<td>WLS 30 s, residual removal 2.6 h, Huber 3.4 h, prior + Huber 2.6 h, Jacobian weighting 5 min, each gated arm 53 min</td>
+<td>wall time, CPU, IEEE-300 (v0.8.3 run, sharing the CPU with two other guide jobs)</td>
+<td>WLS 24 s, residual removal 2.4 h, Huber 2.7 h, prior + Huber 53 min, Jacobian weighting 4 min; the gated arms are being rerun single-threaded after the first run hung inside the OpenMP runtime</td>
 </tr>
 <tr>
 <td>re-runs</td>

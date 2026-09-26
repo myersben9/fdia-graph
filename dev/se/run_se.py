@@ -64,7 +64,7 @@ report = {}
 for name, m in methods.items():
     t0 = time.time()
     m.fit(train)
-    f = os.path.join(CACHE, f"se_{SYSTEM}_{name}.npz")
+    f = os.path.join(CACHE, f"se_{os.path.splitext(os.path.basename(test.path))[0]}_{name}.npz")
     if os.path.exists(f):
         with np.load(f) as z:
             xhat = z["xhat"]

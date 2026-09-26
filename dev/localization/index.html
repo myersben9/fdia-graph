@@ -663,10 +663,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jacobian-informed-features-the-digests-ablation" class="md-nav__link">
+  <a href="#feature-ablation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Jacobian-informed features: the digest's ablation
+        Feature ablation
       
     </span>
   </a>
@@ -1500,10 +1500,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jacobian-informed-features-the-digests-ablation" class="md-nav__link">
+  <a href="#feature-ablation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Jacobian-informed features: the digest's ablation
+        Feature ablation
       
     </span>
   </a>
@@ -1728,44 +1728,62 @@ test split (F1 and recall over every test record, FR the per-bus alarm rate on b
 <tbody>
 <tr>
 <td>Per-bus MLP</td>
-<td style="text-align: right;">0.7617</td>
-<td style="text-align: right;">0.6785</td>
-<td style="text-align: right;">0.0043</td>
-<td style="text-align: right;">0.5479</td>
-<td style="text-align: right;">0.4533</td>
-<td style="text-align: right;">0.0020</td>
-<td style="text-align: right;">0.4891</td>
-<td style="text-align: right;">0.4568</td>
-<td style="text-align: right;">0.0025</td>
+<td style="text-align: right;">0.7397</td>
+<td style="text-align: right;">0.6352</td>
+<td style="text-align: right;">0.0058</td>
+<td style="text-align: right;">0.7033</td>
+<td style="text-align: right;">0.6020</td>
+<td style="text-align: right;">0.0013</td>
+<td style="text-align: right;">0.7229</td>
+<td style="text-align: right;">0.6211</td>
+<td style="text-align: right;">0.0003</td>
 </tr>
 <tr>
 <td><strong>1D CNN</strong></td>
-<td style="text-align: right;">0.7833</td>
-<td style="text-align: right;">0.7209</td>
-<td style="text-align: right;">0.0013</td>
-<td style="text-align: right;">0.5394</td>
-<td style="text-align: right;">0.4180</td>
-<td style="text-align: right;">0.0005</td>
-<td style="text-align: right;">0.4885</td>
-<td style="text-align: right;">0.4505</td>
-<td style="text-align: right;">0.0024</td>
+<td style="text-align: right;">0.8037</td>
+<td style="text-align: right;">0.7303</td>
+<td style="text-align: right;">0.0010</td>
+<td style="text-align: right;">0.8124</td>
+<td style="text-align: right;">0.7406</td>
+<td style="text-align: right;">0.0002</td>
+<td style="text-align: right;">0.8108</td>
+<td style="text-align: right;">0.7587</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr>
+<td>1D CNN + previous swing</td>
+<td style="text-align: right;">0.8459</td>
+<td style="text-align: right;">0.7533</td>
+<td style="text-align: right;">0.0001</td>
+<td style="text-align: right;">0.9125</td>
+<td style="text-align: right;">0.8522</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">0.8830</td>
+<td style="text-align: right;">0.8225</td>
+<td style="text-align: right;">0.0000</td>
 </tr>
 <tr>
 <td>Swing threshold</td>
-<td style="text-align: right;">0.1182</td>
-<td style="text-align: right;">0.0658</td>
-<td style="text-align: right;">0.0066</td>
-<td style="text-align: right;">0.5518</td>
-<td style="text-align: right;">0.6474</td>
-<td style="text-align: right;">0.0097</td>
-<td style="text-align: right;">0.5098</td>
-<td style="text-align: right;">0.7876</td>
-<td style="text-align: right;">0.0092</td>
+<td style="text-align: right;">0.2476</td>
+<td style="text-align: right;">0.1548</td>
+<td style="text-align: right;">0.0116</td>
+<td style="text-align: right;">0.5418</td>
+<td style="text-align: right;">0.6855</td>
+<td style="text-align: right;">0.0100</td>
+<td style="text-align: right;">0.4685</td>
+<td style="text-align: right;">0.8074</td>
+<td style="text-align: right;">0.0099</td>
 </tr>
 </tbody>
 </table>
-<p>The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 / 0.9327 for the MLP on
-v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards. The v0.8.1 timeline columns are lower for the same detectors because their temporal features compare each frame with the frame emitted one minute earlier rather than with the benign scan before an attacked snapshot, so a sustained episode spikes at its onset and a one-frame family also spikes on the benign frame after it. Those post-attack benign frames stay in the benign calibration set on purpose: an operator's detector sees them too, so leaving them out would set lower thresholds and let the realized false-alarm rate exceed <code>fa_target</code>.</p>
+<p>Data release v0.8.3. The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 /
+0.9327 for the MLP on v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards.
+The timeline columns are lower for the same detectors because a timeline's temporal features compare
+each frame with the frame emitted one minute earlier. A one-frame attack therefore also spikes the
+benign frame after it (the echo), with the jump reversed. Those echo frames stay in the benign
+calibration set on purpose: an operator's detector sees them too, so leaving them out would set
+lower thresholds and let the realized false-alarm rate exceed <code>fa_target</code>. The previous frame's
+swing (<code>full14+prev</code>) is what tells an echo from an onset, and it recovers most of the gap.</p>
 <p><strong>Common protocol</strong></p>
 <table>
 <thead>
@@ -1785,75 +1803,99 @@ v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards. The
 <tbody>
 <tr>
 <td>Swing threshold</td>
-<td style="text-align: right;">0.1026</td>
-<td style="text-align: right;">0.0566</td>
-<td style="text-align: right;">0.0066</td>
-<td style="text-align: right;">0.4717</td>
-<td style="text-align: right;">0.5342</td>
-<td style="text-align: right;">0.0097</td>
-<td style="text-align: right;">0.4356</td>
-<td style="text-align: right;">0.6432</td>
-<td style="text-align: right;">0.0092</td>
+<td style="text-align: right;">0.1559</td>
+<td style="text-align: right;">0.0942</td>
+<td style="text-align: right;">0.0116</td>
+<td style="text-align: right;">0.4255</td>
+<td style="text-align: right;">0.5143</td>
+<td style="text-align: right;">0.0100</td>
+<td style="text-align: right;">0.3882</td>
+<td style="text-align: right;">0.5770</td>
+<td style="text-align: right;">0.0099</td>
 </tr>
 <tr>
 <td>Delta threshold</td>
-<td style="text-align: right;">0.1004</td>
-<td style="text-align: right;">0.0551</td>
-<td style="text-align: right;">0.0062</td>
-<td style="text-align: right;">0.4745</td>
-<td style="text-align: right;">0.5507</td>
-<td style="text-align: right;">0.0100</td>
-<td style="text-align: right;">0.4371</td>
-<td style="text-align: right;">0.6443</td>
-<td style="text-align: right;">0.0092</td>
+<td style="text-align: right;">0.0812</td>
+<td style="text-align: right;">0.0452</td>
+<td style="text-align: right;">0.0074</td>
+<td style="text-align: right;">0.4128</td>
+<td style="text-align: right;">0.4982</td>
+<td style="text-align: right;">0.0095</td>
+<td style="text-align: right;">0.4052</td>
+<td style="text-align: right;">0.5897</td>
+<td style="text-align: right;">0.0095</td>
 </tr>
 <tr>
 <td>Residual (LNR)</td>
-<td style="text-align: right;">0.3885</td>
-<td style="text-align: right;">0.4706</td>
-<td style="text-align: right;">0.0041</td>
-<td style="text-align: right;">0.1981</td>
-<td style="text-align: right;">0.5953</td>
-<td style="text-align: right;">0.0075</td>
-<td style="text-align: right;">0.1855</td>
-<td style="text-align: right;">0.5925</td>
-<td style="text-align: right;">0.0064</td>
+<td style="text-align: right;">0.3756</td>
+<td style="text-align: right;">0.4183</td>
+<td style="text-align: right;">0.0017</td>
+<td style="text-align: right;">0.2308</td>
+<td style="text-align: right;">0.5668</td>
+<td style="text-align: right;">0.0072</td>
+<td style="text-align: right;">0.2189</td>
+<td style="text-align: right;">0.5061</td>
+<td style="text-align: right;">0.0049</td>
 </tr>
 <tr>
 <td>Per-bus MLP</td>
-<td style="text-align: right;">0.7813</td>
-<td style="text-align: right;">0.7178</td>
-<td style="text-align: right;">0.0106</td>
-<td style="text-align: right;">0.5974</td>
-<td style="text-align: right;">0.7187</td>
-<td style="text-align: right;">0.0108</td>
-<td style="text-align: right;">0.4358</td>
-<td style="text-align: right;">0.6562</td>
-<td style="text-align: right;">0.0105</td>
+<td style="text-align: right;">0.7650</td>
+<td style="text-align: right;">0.6970</td>
+<td style="text-align: right;">0.0118</td>
+<td style="text-align: right;">0.5962</td>
+<td style="text-align: right;">0.7373</td>
+<td style="text-align: right;">0.0102</td>
+<td style="text-align: right;">0.4550</td>
+<td style="text-align: right;">0.6827</td>
+<td style="text-align: right;">0.0104</td>
 </tr>
 <tr>
 <td><strong>1D CNN</strong></td>
-<td style="text-align: right;">0.8255</td>
-<td style="text-align: right;">0.8956</td>
-<td style="text-align: right;">0.0209</td>
-<td style="text-align: right;">0.5599</td>
-<td style="text-align: right;">0.7184</td>
-<td style="text-align: right;">0.0113</td>
-<td style="text-align: right;">0.4570</td>
-<td style="text-align: right;">0.6884</td>
-<td style="text-align: right;">0.0119</td>
+<td style="text-align: right;">0.8342</td>
+<td style="text-align: right;">0.8593</td>
+<td style="text-align: right;">0.0199</td>
+<td style="text-align: right;">0.4962</td>
+<td style="text-align: right;">0.7351</td>
+<td style="text-align: right;">0.0118</td>
+<td style="text-align: right;">0.4100</td>
+<td style="text-align: right;">0.7082</td>
+<td style="text-align: right;">0.0109</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian (C)</td>
-<td style="text-align: right;">0.8296</td>
-<td style="text-align: right;">0.8695</td>
-<td style="text-align: right;">0.0162</td>
-<td style="text-align: right;">0.4074</td>
-<td style="text-align: right;">0.7415</td>
-<td style="text-align: right;">0.0128</td>
-<td style="text-align: right;">0.4024</td>
-<td style="text-align: right;">0.7162</td>
-<td style="text-align: right;">0.0108</td>
+<td style="text-align: right;">0.8350</td>
+<td style="text-align: right;">0.8462</td>
+<td style="text-align: right;">0.0167</td>
+<td style="text-align: right;">0.3595</td>
+<td style="text-align: right;">0.7897</td>
+<td style="text-align: right;">0.0116</td>
+<td style="text-align: right;">0.3784</td>
+<td style="text-align: right;">0.7356</td>
+<td style="text-align: right;">0.0121</td>
+</tr>
+<tr>
+<td>1D CNN + previous swing</td>
+<td style="text-align: right;">0.8216</td>
+<td style="text-align: right;">0.8741</td>
+<td style="text-align: right;">0.0248</td>
+<td style="text-align: right;">0.4813</td>
+<td style="text-align: right;">0.7599</td>
+<td style="text-align: right;">0.0123</td>
+<td style="text-align: right;">0.4032</td>
+<td style="text-align: right;">0.7128</td>
+<td style="text-align: right;">0.0114</td>
+</tr>
+<tr>
+<td>1D CNN + previous swing + Jacobian</td>
+<td style="text-align: right;">0.8392</td>
+<td style="text-align: right;">0.8843</td>
+<td style="text-align: right;">0.0256</td>
+<td style="text-align: right;">0.3667</td>
+<td style="text-align: right;">0.8026</td>
+<td style="text-align: right;">0.0124</td>
+<td style="text-align: right;">0.3907</td>
+<td style="text-align: right;">0.7413</td>
+<td style="text-align: right;">0.0116</td>
 </tr>
 </tbody>
 </table>
@@ -1874,10 +1916,15 @@ v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards. The
 </tr>
 </tbody>
 </table>
-<h2 id="jacobian-informed-features-the-digests-ablation">Jacobian-informed features: the digest's ablation<a class="headerlink" href="#jacobian-informed-features-the-digests-ablation" title="Permanent link">&para;</a></h2>
+<p>The pooled score on 118 and 300 is set by the two sustained families. Per family, the CNN reads
+0.64 to 0.94 on <code>Aq</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code> and <code>Al</code> there, and 0.03 to 0.22 on <code>At</code> and <code>Am</code>, whose
+episodes are long and so carry many of the scored frames.</p>
+<h2 id="feature-ablation">Feature ablation<a class="headerlink" href="#feature-ablation" title="Permanent link">&para;</a></h2>
 <p><code>fdia_graph.se.JacobianFeatures</code> transforms the measurement change through the estimator's Jacobian
 (implied state move <code>H⁺Δz</code>, explained and unexplained parts and their ratio, sensitivity, leverage,
-weak-direction energy) and aggregates it to buses; <code>BusCNN</code> / <code>BusMLP</code> take <code>features=</code>:</p>
+weak-direction energy) and aggregates it to buses. The change is taken against the previous frame's
+estimate, and the estimator is calibrated from measurements only (<code>calibrate="measured"</code>), so every
+set below reads observed data only.</p>
 <table>
 <thead>
 <tr>
@@ -1907,13 +1954,18 @@ weak-direction energy) and aggregates it to buses; <code>BusCNN</code> / <code>B
 <td><code>"jac"</code></td>
 <td>the Jacobian features alone</td>
 </tr>
+<tr>
+<td>E</td>
+<td><code>"full14+prev"</code></td>
+<td>B + the previous frame's swing</td>
+</tr>
+<tr>
+<td>F</td>
+<td><code>"full14+prev+jac"</code></td>
+<td>E + the 8 Jacobian features</td>
+</tr>
 </tbody>
 </table>
-<p>Zero-shot protocol on the v0.8.1 timelines (benign, <code>Aq</code> and <code>Ad</code> seen; <code>As</code> and <code>Ar</code> unseen). The
-Jacobian block takes each frame's change against the previous frame's estimate, so it reads
-observed data only. C reads 0.820, 0.809 and 0.812 on 14, 118 and 300. Against the previous frame's
-true state, a reference an operator does not have, C read 0.873, 0.896 and 0.840. The observed
-reference costs D more than it costs C:</p>
 <table>
 <thead>
 <tr>
@@ -1932,8 +1984,8 @@ reference costs D more than it costs C:</p>
 <tbody>
 <tr>
 <td>A: measurements only</td>
-<td style="text-align: right;">0.609</td>
-<td style="text-align: right;">0.657</td>
+<td style="text-align: right;">0.621</td>
+<td style="text-align: right;">0.610</td>
 <td style="text-align: right;">0.0000</td>
 <td style="text-align: right;">0.000</td>
 <td style="text-align: right;">0.000</td>
@@ -1944,47 +1996,66 @@ reference costs D more than it costs C:</p>
 </tr>
 <tr>
 <td>B: measurements + temporal (the papers' 14)</td>
-<td style="text-align: right;">0.783</td>
-<td style="text-align: right;">0.721</td>
-<td style="text-align: right;">0.0013</td>
-<td style="text-align: right;">0.539</td>
-<td style="text-align: right;">0.418</td>
-<td style="text-align: right;">0.0005</td>
-<td style="text-align: right;">0.488</td>
-<td style="text-align: right;">0.451</td>
-<td style="text-align: right;">0.0024</td>
+<td style="text-align: right;">0.804</td>
+<td style="text-align: right;">0.730</td>
+<td style="text-align: right;">0.0010</td>
+<td style="text-align: right;">0.812</td>
+<td style="text-align: right;">0.741</td>
+<td style="text-align: right;">0.0002</td>
+<td style="text-align: right;">0.811</td>
+<td style="text-align: right;">0.759</td>
+<td style="text-align: right;">0.0000</td>
 </tr>
 <tr>
 <td>C: B + Jacobian features</td>
-<td style="text-align: right;"><strong>0.820</strong></td>
-<td style="text-align: right;">0.770</td>
-<td style="text-align: right;">0.0019</td>
-<td style="text-align: right;"><strong>0.809</strong></td>
-<td style="text-align: right;">0.714</td>
+<td style="text-align: right;">0.846</td>
+<td style="text-align: right;">0.773</td>
+<td style="text-align: right;">0.0016</td>
+<td style="text-align: right;">0.882</td>
+<td style="text-align: right;">0.813</td>
 <td style="text-align: right;">0.0001</td>
-<td style="text-align: right;"><strong>0.812</strong></td>
-<td style="text-align: right;">0.719</td>
+<td style="text-align: right;">0.909</td>
+<td style="text-align: right;">0.870</td>
 <td style="text-align: right;">0.0000</td>
 </tr>
 <tr>
 <td>D: Jacobian features only</td>
-<td style="text-align: right;">0.689</td>
-<td style="text-align: right;">0.597</td>
+<td style="text-align: right;">0.773</td>
+<td style="text-align: right;">0.733</td>
+<td style="text-align: right;">0.0043</td>
+<td style="text-align: right;">0.770</td>
+<td style="text-align: right;">0.762</td>
+<td style="text-align: right;">0.0026</td>
+<td style="text-align: right;">0.744</td>
+<td style="text-align: right;">0.728</td>
 <td style="text-align: right;">0.0008</td>
-<td style="text-align: right;">0.712</td>
-<td style="text-align: right;">0.619</td>
+</tr>
+<tr>
+<td>E: B + the previous frame's swing</td>
+<td style="text-align: right;">0.846</td>
+<td style="text-align: right;">0.753</td>
+<td style="text-align: right;">0.0001</td>
+<td style="text-align: right;">0.913</td>
+<td style="text-align: right;">0.852</td>
 <td style="text-align: right;">0.0000</td>
-<td style="text-align: right;">0.709</td>
-<td style="text-align: right;">0.659</td>
+<td style="text-align: right;">0.883</td>
+<td style="text-align: right;">0.823</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr>
+<td>F: E + Jacobian features</td>
+<td style="text-align: right;"><strong>0.860</strong></td>
+<td style="text-align: right;">0.780</td>
+<td style="text-align: right;">0.0002</td>
+<td style="text-align: right;"><strong>0.920</strong></td>
+<td style="text-align: right;">0.865</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;"><strong>0.923</strong></td>
+<td style="text-align: right;">0.886</td>
 <td style="text-align: right;">0.0000</td>
 </tr>
 </tbody>
 </table>
-<p>In the common protocol (every family in distribution) C edges the CNN on 14 (0.830 vs 0.825) and
-loses on 118 (0.407 vs 0.560) and 300 (0.402 vs 0.457) at the same false-alarm target
-(<code>fa_target=0.01</code>; C's measured FR is lower on 14 and 300 and higher on 118): its per-bus detection
-rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.69) and lower on 14
-(0.87 against 0.90), and it pays in precision on the buses around a local false state.</p>
 <table>
 <thead>
 <tr>
@@ -1994,16 +2065,20 @@ rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.6
 </thead>
 <tbody>
 <tr>
-<td>the features carry the in-place signal, not the stealthy one</td>
-<td>on <code>Aq</code> the zero-shot macro-F1 is 0.74, 0.03 and 0.06 for B on 14, 118 and 300 and 0.07, 0.01 and 0.01 for D alone: the v0.8.1 timelines hold an <code>Aq</code> state over a multi-frame episode, and against the previous frame's estimate a held episode shows only at its first frame, as the history does; the gain is on the unseen families, <code>As</code> 0.50 to 0.91 and <code>Ar</code> 0.30 to 0.78 from B to C on 118, 0.55 to 0.93 and 0.34 to 0.74 on 300</td>
+<td>the previous swing and the Jacobian block fix different things</td>
+<td>E lifts the family the echo hurts most, <code>Aq</code>, from 0.84 to 0.95 on 118 and 0.84 to 0.89 on 300. C lifts the unseen in-place families, <code>Ar</code> from 0.68 to 0.82 on 300. F keeps both and is the best set on every system</td>
 </tr>
 <tr>
-<td>on a timeline they are what makes the vector work</td>
-<td>B to C is +4, +27 and +32 zero-shot points; the papers' vector was built for the v0.7.2 shards, whose temporal features compared an attacked snapshot with the benign scan before it, and on a timeline a sustained episode spikes at its onset only</td>
+<td>measurements alone do not localize at scale</td>
+<td>A reads 0.62 on 14 and collapses to 0 on 118 and 300 at the validation-best threshold; the temporal channels are what make the vector work</td>
 </tr>
 <tr>
-<td>where they pay again</td>
-<td>as the localizer that gates the estimator once meters are secured, <a href="../trust/"><code>../trust/README.md</code></a></td>
+<td>the Jacobian block alone is not enough</td>
+<td>D trails B on every system, and on 300 its <code>Aq</code> F1 is 0.59 against 0.84</td>
+</tr>
+<tr>
+<td>in the common protocol the Jacobian block costs precision</td>
+<td>C and F have the highest detection rate on 118 and 300 (0.79 and 0.80 against the CNN's 0.74 on 118) and lose pooled F1 (0.36 and 0.37 against 0.50): they flag the buses around a local false state as well as the labelled ones</td>
 </tr>
 </tbody>
 </table>
@@ -2019,18 +2094,18 @@ rate is only slightly higher on 118 and 300 (0.74 against 0.72, 0.72 against 0.6
 <tbody>
 <tr>
 <td>the temporal spike is an onset signal</td>
-<td>the swing threshold alone reads 0.10, 0.47 and 0.44 macro-F1 in the common protocol on 14, 118 and 300: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame emitted a minute earlier</td>
-<td>the slow ramp <code>At</code> and the held redistribution <code>Am</code> inside an episode, and <code>Aq</code> inside an episode on the v0.8.1 timelines (the generator in this package makes every <code>Aq</code> episode one frame)</td>
+<td>the swing threshold alone reads 0.16, 0.43 and 0.39 macro-F1 in the common protocol on 14, 118 and 300, and 0.00 on <code>At</code> and <code>Am</code> everywhere: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame before it</td>
+<td>the slow ramp <code>At</code> and the held redistribution <code>Am</code> inside an episode</td>
 </tr>
 <tr>
 <td>the classical arm misses every stealthy family</td>
-<td><code>ResidualLocalizer</code> finds in-place corruption and smears it over neighbours; on <code>Aq</code> / <code>At</code> / <code>Al</code> / <code>Am</code> its node-F1 is 0.015 or less, there is no residual</td>
+<td><code>ResidualLocalizer</code> finds in-place corruption and smears it over neighbours; on <code>Aq</code>, <code>At</code>, <code>Al</code> and <code>Am</code> its node-F1 is 0.014 or less, there is no residual</td>
 <td>it opens with a trusted set of meters, <a href="../trust/"><code>../trust/README.md</code></a></td>
 </tr>
 <tr>
 <td>learning plus physics holds with size</td>
-<td>zero-shot CNN with the Jacobian block 0.820, 0.809 and 0.812 from 14 to 300 buses at FR 0.002 or below</td>
-<td>the common protocol, with <code>At</code>, <code>Al</code> and <code>Am</code> in distribution, falls 0.830, 0.407, 0.402 with size: the per-frame localization of a sustained local false state is the frontier</td>
+<td>zero-shot CNN with the previous swing and the Jacobian block reads 0.860, 0.920 and 0.923 from 14 to 300 buses at FR 0.0002 or below</td>
+<td>the common protocol, with <code>At</code> and <code>Am</code> in distribution, falls to 0.37 and 0.39 on 118 and 300: the per-frame localization of a sustained local false state is the frontier</td>
 </tr>
 </tbody>
 </table>

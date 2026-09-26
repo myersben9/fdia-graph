@@ -1487,6 +1487,9 @@
 
 
 <h1 id="federated-localization-with-fdia_graphfederated">Federated localization with <code>fdia_graph.federated</code><a class="headerlink" href="#federated-localization-with-fdia_graphfederated" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Status.</strong> The results on this page are on data release v0.8.1, pinned in the run script, and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame <code>Aq</code> and <code>Al</code>. They are not yet rerun on v0.8.3; the centralized numbers in <a href="../localization/"><code>../localization/README.md</code></a> are current.</p>
+</blockquote>
 <p>The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines (pinned in the run script) with
 the 14-dim per-bus vector plus the Jacobian block.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
