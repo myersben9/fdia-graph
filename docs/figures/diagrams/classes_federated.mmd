@@ -1,4 +1,6 @@
 classDiagram
+    class Kcl {
+    }
     class FederatedLocalizer {
         +tune_threshold()
     }
@@ -14,6 +16,9 @@ classDiagram
     }
     class BusMLP {
         <<localization>>
+    }
+    class Choice {
+        <<choices>>
     }
     class JacobianFeatures {
         <<se>>
@@ -35,6 +40,7 @@ classDiagram
     }
     BusCNN <|-- FedBusCNN
     BusMLP <|-- FedBusMLP
+    Choice <|-- Kcl
     FederatedLocalizer <|-- FedBusCNN
     FederatedLocalizer <|-- FedBusMLP
     LearnedLocalizer <|-- FederatedLocalizer

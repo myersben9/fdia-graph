@@ -38,7 +38,7 @@ from ..models.data import (  # noqa: F401  re-exported: defined here before the 
     Summary,
 )
 from ..models.grid import NODE
-from ..schema import Attr
+from ..schema import Attr, Split
 from .base import (  # noqa: F401  re-exported: defined here before the split
     _BENIGN_LAYERS,
     _FAMILY_ALIAS,
@@ -47,11 +47,11 @@ from .base import (  # noqa: F401  re-exported: defined here before the split
     _STATIC_PHYSICS,
     FAMILIES,
     STEALTHY_FAMILIES,
+    Order,
+    Units,
     _torch,
-    check_order,
-    check_split,
-    check_units,
     family_ids,
+    split_or_none,
 )
 from .export import ExportMixin
 from .graph import GraphMixin
@@ -79,11 +79,11 @@ def _record_mask(
     if not filt.include_gaps:
         keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
     if filt.split is not None:
-        check_split(filt.split)
         if sp is None:
             raise ValueError(f"{path} has no split; run the split step first")
-        keep &= sp == _SPLIT[filt.split]
-        if filt.heldout and _SPLIT[filt.split] in (0, 1):  # test keeps As/Ar
+        code = _SPLIT[Split(filt.split)]
+        keep &= sp == code
+        if filt.heldout and code in (0, 1):  # test keeps As/Ar
             keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
     if filt.families is not None:
         keep &= np.isin(fam, family_ids(filt.families))
@@ -113,9 +113,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         # units="pu" converts losslessly on the fly (P/Q + branch flows / baseMVA, theta deg->rad, V already p.u.),
         # so one shard serves both physical and normalized views. temporal_delta scales with power (->p.u.);
         # swing is a dimensionless z-score, never rescaled.
-        check_units(units)  # the argument checks run before the file is opened
-        check_split(split)
-        check_order(order)
+        # the arguments are converted before the file is opened, so a wrong one never reads the file
+        units, order, split = Units(units).value, Order(order).value, split_or_none(split)
         if families is not None:
             family_ids(families)  # an unknown family fails here, not after the read
         self.units = units

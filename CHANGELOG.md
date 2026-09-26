@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Every argument that takes one value from a fixed set is a `Choice` enum (`fdia_graph.choices`),
+  declared once beside its subject: `Split` (`schema`), `Units` and `Order` (`dataset`), `Format`,
+  `Label`, `Layer`, `Calibrate` (`se`), `Features` (`localization.learned`), `FrOver`, `Buses`, `Kcl`,
+  `Reduce`, `AmDirection` and `Iso`. Plain strings are still accepted and compare equal to the members.
+  A wrong value raises one message everywhere, "<argument> must be one of [...], got '<value>'"; the
+  old wording differed per argument. `SPLIT_CODE` and `FEATURE_SETS` are keyed by the members (a
+  string lookup still works). The loader's `check_split`, `check_units` and `check_order` are gone.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

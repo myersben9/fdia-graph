@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..choices import Choice
 from ..formulas.metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     BenignMetrics,
@@ -42,6 +43,20 @@ _FIELD_FLAG = {
     "prev_timestep": "is_timeline",
     "prev_swing": "is_timeline",
 }
+
+
+class FrOver(Choice):
+    """The records a per-bus false-alarm rate counts: every non-attacked cell, or benign records."""
+
+    ALL = "all"
+    BENIGN = "benign"
+
+
+class Buses(Choice):
+    """The bus set a per-bus table reports: attacked somewhere in the view, or labelled in training."""
+
+    ACTIVE = "active"
+    ATTACKABLE = "attackable"
 
 
 class LocalizerBase:
@@ -154,8 +169,7 @@ class LocalizerBase:
         """
         from ..dataset import FAMILIES
 
-        if fr_over not in ("all", "benign"):
-            raise ValueError(f"fr_over must be 'all' or 'benign', got {fr_over!r}")
+        fr_over = FrOver(fr_over).value
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
         if s.shape != (len(ds), ds.N):
@@ -173,11 +187,12 @@ class LocalizerBase:
 
     def _report_buses(self, y: np.ndarray, buses: str) -> np.ndarray:
         """The bus set a per-bus table reports."""
+        buses = Buses(buses).value
         if buses == "active":
             return np.flatnonzero(y.any(axis=0))
         if buses == "attackable" and hasattr(self, "_attackable"):
             return np.flatnonzero(getattr(self, "_attackable"))
-        raise ValueError(f"buses must be 'active' or, for a learned localizer, 'attackable'; got {buses!r}")
+        raise ValueError("buses='attackable' needs a learned localizer, which records the attackable set")
 
     def _perbus_rows(
         self,

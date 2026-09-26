@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
+from .choices import Choice
 from .engine.core import _CASE  # bus-count -> pandapower builder; single source of supported systems
 from .registry import system_id
 
@@ -215,7 +216,19 @@ def generate_states(
 # Automatic ISO load-profile download. NYISO is a zero-dependency built-in (public monthly archives, no
 # account); CAISO/ERCOT (and optionally NYISO) go through the `gridstatus` package: pip install 'fdia-graph[iso]'.
 # ---------------------------------------------------------------------------------------------------------
-_ISOS = ("caiso", "nyiso", "ercot")
+
+
+class Iso(Choice):
+    """The system operators a load profile can be fetched from. Matched without regard to case."""
+
+    CAISO = "caiso"
+    NYISO = "nyiso"
+    ERCOT = "ercot"
+
+    @classmethod
+    def _missing_(cls, value: object) -> Choice:
+        folded = str(value).lower()
+        return cls(folded) if folded in cls.values() else super()._missing_(value)
 
 
 def _as_date(d: Union[str, _dt.date, _dt.datetime]) -> _dt.date:
@@ -296,9 +309,7 @@ def fetch_profile(
     NYISO needs no dependencies or account; CAISO/ERCOT use `gridstatus` (pip install 'fdia-graph[iso]'). The
     returned S feeds generate_states() exactly like load_profile()'s output.
     """
-    iso = str(iso).lower()
-    if iso not in _ISOS:
-        raise ValueError(f"unknown iso {iso!r}; expected one of {_ISOS}")
+    iso = Iso(iso).value
     start, end = _as_date(start), _as_date(end)
     if iso == "nyiso":
         series = _fetch_nyiso(start, end)  # zero-dependency built-in, 5-minute

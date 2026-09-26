@@ -1,4 +1,6 @@
 classDiagram
+    class Calibrate {
+    }
     class SEBase {
         +fit()
         +is_fitted
@@ -27,6 +29,9 @@ classDiagram
         +delta_z()
         +transform()
     }
+    class Choice {
+        <<choices>>
+    }
     class ErrorPair {
         <<models>>
     }
@@ -42,6 +47,7 @@ classDiagram
     class TrueState {
         <<models>>
     }
+    Choice <|-- Calibrate
     SEBase <|-- AdaptiveWeighting
     SEBase <|-- JacobianWeighting
     SEBase <|-- ResidualRemoval

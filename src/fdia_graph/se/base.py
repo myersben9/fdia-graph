@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..choices import Choice
 from ..formulas.estimation import (
     accuracy_class_sigma,
     critical_measurements,
@@ -64,6 +65,14 @@ def _torch():
         return torch
     except ImportError as e:
         raise ImportError("the differentiable twin _h_t needs torch: pip install 'fdia-graph[torch]'") from e
+
+
+class Calibrate(Choice):
+    """Where `fit` takes the meter errors and the reference from: the training truth (the
+    estimation benchmark) or equipment data and measurements alone (any detector path)."""
+
+    TRUTH = "truth"
+    MEASURED = "measured"
 
 
 def require_physical(ds: FdiaGraph) -> None:
@@ -236,8 +245,7 @@ class SEBase:
         takes the meter errors, the benign mean state and the angle reference from the training
         split's clean layer; calibrate="measured" takes them from equipment data and measurements
         alone (`_fit_from_measurements`), for any path whose output feeds a detector."""
-        if calibrate not in ("truth", "measured"):
-            raise ValueError(f"calibrate must be 'truth' or 'measured', got {calibrate!r}")
+        calibrate = Calibrate(calibrate).value
         self._build_network(ds, need_clean=calibrate == "truth")
         d = ds.export(["node_x", "edge_x", "family"] + (["clean"] if calibrate == "truth" else []))
         ben = np.where(d["family"] == 0)[0]

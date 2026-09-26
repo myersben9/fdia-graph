@@ -11,6 +11,15 @@ from __future__ import annotations
 
 import numpy as np
 
+from ..choices import Choice
+
+
+class Reduce(Choice):
+    """How a per-meter quantity aggregates to a bus: summed (energies) or the largest (changes)."""
+
+    SUM = "sum"
+    MAX = "max"
+
 
 def bus_incidence(n_bus: int, n_branch: int, edge_index: np.ndarray, mask: np.ndarray) -> list[np.ndarray]:
     """Masked-measurement indices touching each bus: its own V, P, Q, θ channels plus the flows of
@@ -113,8 +122,7 @@ def meters_to_buses(values: np.ndarray, incidence: list[np.ndarray], reduce: str
     reduce    : "sum" (energies) or "max" (changes)
     returns   : [n, N], zero for a bus with no incident meter
     """
-    if reduce not in ("sum", "max"):
-        raise ValueError(f"reduce must be 'sum' or 'max', got {reduce!r}")
+    reduce = Reduce(reduce).value
     out = np.zeros((values.shape[0], len(incidence)))
     for b, ix in enumerate(incidence):
         if len(ix):

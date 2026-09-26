@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..choices import Choice
 from ..formulas.federated import channel_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
 from ..localization.learned import (
@@ -69,6 +70,13 @@ class _Client:
 def _is_int(v: Any) -> bool:
     """A true integer (numpy's included), not a bool or a float that happens to be whole."""
     return isinstance(v, (int, np.integer)) and not isinstance(v, bool)
+
+
+class Kcl(Choice):
+    """Where a client's KCL residual comes from: its own buses and branches, or the whole grid."""
+
+    LOCAL = "local"
+    GLOBAL = "global"
 
 
 def _check_settings(K: int, rounds: int, local_epochs: int, halo: int, grad_clip: Optional[float]) -> None:
@@ -113,8 +121,7 @@ class FederatedLocalizer(LearnedLocalizer):
         _check_settings(K, rounds, local_epochs, halo, grad_clip)
         if partition is not None and partition.K != K:
             raise ValueError(f"the partition has {partition.K} clients but K={K}")
-        if kcl not in ("local", "global"):
-            raise ValueError(f"kcl must be 'local' or 'global', got {kcl!r}")
+        kcl = Kcl(kcl).value
         self.K, self.rounds, self.local_epochs = K, rounds, local_epochs
         self.partition, self.halo, self.grad_clip, self.kcl = partition, halo, grad_clip, kcl
         self.epochs = rounds * local_epochs  # the local passes over the data each client makes

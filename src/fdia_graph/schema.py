@@ -7,6 +7,8 @@ public vocabulary of a record and stay as words in the code; `FIELD_PATH` maps t
 
 from __future__ import annotations
 
+from .choices import Choice
+
 
 class Group:
     """The six groups of a timeline file (a v0.7.2 shard has no benign/, episodes/ or attack/)."""
@@ -171,5 +173,15 @@ KIND_TIMELINE = "timeline"
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
 STEALTHY_FAMILIES = {1, 5, 6, 7}  # Aq, At, Al, Am: local false states that pass the residual test
 FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
-# The chronological partition codes stored in data/split.
-SPLIT_CODE = {"train": 0, "val": 1, "test": 2}
+
+
+class Split(Choice):
+    """The chronological partitions of a file."""
+
+    TRAIN = "train"
+    VAL = "val"
+    TEST = "test"
+
+
+# The partition codes stored in data/split.
+SPLIT_CODE = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}

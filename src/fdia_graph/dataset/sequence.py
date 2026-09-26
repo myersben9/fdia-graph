@@ -8,14 +8,30 @@ from typing import Optional
 import numpy as np
 
 from .. import schema
+from ..choices import Choice
 from ..models.data import EpisodeTable
 from .base import DatasetBase
 
 
+class Label(Choice):
+    """What a window's label is: per frame, attacked at any frame, or the last frame's."""
+
+    FRAME = "frame"
+    ANY = "any"
+    LAST = "last"
+
+
+class Layer(Choice):
+    """The measurement layer a window reads: observed, attack-removed or noiseless."""
+
+    NODE_X = "node_x"
+    BENIGN = "benign"
+    CLEAN = "clean"
+
+
 def check_window_args(T: int, W: int, stride: int, label: str) -> None:
     """Reject a window request the docstring of `windows` does not allow, before any slicing."""
-    if label not in ("frame", "any", "last"):
-        raise ValueError(f"label must be 'frame', 'any' or 'last', got {label!r}")
+    Label(label)
     integral = all(isinstance(v, numbers.Integral) and not isinstance(v, bool) for v in (W, stride))
     if not integral or not 1 <= W <= T or stride < 1:
         raise ValueError(
@@ -63,8 +79,7 @@ class SequenceMixin(DatasetBase):
         72k-frame IEEE-118 timeline at W=60 is about 8 GB as a copy); per_bus always copies.
         """
         self._check_timeline("windows")
-        if layer not in ("node_x", "benign", "clean"):
-            raise ValueError(f"layer must be 'node_x', 'benign' or 'clean', got {layer!r}")
+        layer = Layer(layer).value
         T = len(self.idx)
         check_window_args(T, W, stride, label)
         a = self.export([layer, "y"])

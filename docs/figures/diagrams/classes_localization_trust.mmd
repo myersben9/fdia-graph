@@ -1,4 +1,8 @@
 classDiagram
+    class FrOver {
+    }
+    class Buses {
+    }
     class LocalizerBase {
         +fit()
         +scores()
@@ -11,6 +15,8 @@ classDiagram
     class DeltaThreshold {
     }
     class ResidualLocalizer {
+    }
+    class Features {
     }
     class LearnedLocalizer {
         +fit()
@@ -36,6 +42,9 @@ classDiagram
     class TrustedMeters {
     }
     class TrustedMetersDQN {
+    }
+    class Choice {
+        <<choices>>
     }
     class GridScores {
         <<models>>
@@ -64,6 +73,9 @@ classDiagram
     class WLS {
         <<se>>
     }
+    Choice <|-- Buses
+    Choice <|-- Features
+    Choice <|-- FrOver
     LearnedLocalizer <|-- BusCNN
     LearnedLocalizer <|-- BusMLP
     LocalizerBase <|-- DeltaThreshold

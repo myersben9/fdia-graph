@@ -94,11 +94,10 @@ def load(
     """
     # resolve() -> download spec, ensure_local() -> on-disk .h5 path (fetching if needed; local datasets
     # short-circuit to their file).
-    from .dataset.base import check_order, check_split, check_units
+    from .dataset.base import Order, Units, split_or_none
 
-    check_units(units)  # a wrong argument fails before any download
-    check_split(split)
-    check_order(order)
+    # converted before any download, so a wrong argument never fetches a file
+    units, order, split = Units(units).value, Order(order).value, split_or_none(split)
     if families is not None:
         family_ids(families)
     path = ensure_local(resolve(name, release=release))

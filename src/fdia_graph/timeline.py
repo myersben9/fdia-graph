@@ -36,6 +36,7 @@ import h5py
 import numpy as np
 
 from . import schema
+from .choices import Choice
 from .dataset.base import FAMILIES, STEALTHY_FAMILIES
 from .engine import FAM_ID, FdiaGenerator
 from .engine.records import (
@@ -711,14 +712,22 @@ def _block_scale(nx: Any, a: int, b: int) -> np.ndarray:
     return recent_change_scale(pq, SWING_WINDOW, nx.shape[1])[a - g0 :]
 
 
+class AmDirection(Choice):
+    """What an Am episode does to its target line: reads lighter (a real overload hidden), reads
+    more loaded than it is, or either, drawn per episode."""
+
+    MASK = "mask"
+    INDUCE = "induce"
+    BOTH = "both"
+
+
 def _check_knobs(
     attacked_frac: float, am: tuple[float, float, str], lengths: dict[str, Optional[int]]
 ) -> None:
     """Refuse the knob values that would hang or mislead the walk, before any physics is built.
     `am` = (am_rate, hops, am_direction)."""
     am_rate, hops, am_direction = am
-    if am_direction not in ("mask", "induce", "both"):
-        raise ValueError(f"am_direction must be 'mask', 'induce' or 'both', got {am_direction!r}")
+    AmDirection(am_direction)
     if not am_rate > 0:
         raise ValueError(f"am_rate is the per-frame step as a fraction of the noise floor, got {am_rate!r}")
     if not (isinstance(hops, int) and hops >= 1):

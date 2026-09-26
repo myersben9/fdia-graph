@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..choices import Choice
 from ..formulas.federated import Moments, channel_moments, pool_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
 from ..models.scores import GridScores
@@ -30,13 +31,34 @@ if TYPE_CHECKING:
     from ..dataset import FdiaGraph
 
 N_FEAT = 14  # the papers' per-bus vector: 4 readings + 4 mask + 2 KCL + 2 delta + 2 swing
+
+
 # Feature sets, named after the Jacobian-informed digest's ablation: A measurements only, B the
 # papers' 14-dim vector (measurements + temporal change), C = B + the Jacobian block, D = the
 # Jacobian block alone. The Jacobian block is fdia_graph.se.jacobian's 8 per-bus features.
 # "+prev" appends the previous frame's swing (2 channels, a timeline's prev_swing): on a timeline the
 # frame after a one-frame attack carries the same jump back with the opposite sign, and only the
 # frame before tells the attack's jump from that return.
-FEATURE_SETS = {"meas": 8, "full14": 14, "full14+prev": 16, "full14+jac": 22, "full14+prev+jac": 24, "jac": 8}
+class Features(Choice):
+    """The per-bus vector a learned localizer reads (channels in FEATURE_SETS)."""
+
+    MEAS = "meas"
+    FULL14 = "full14"
+    FULL14_PREV = "full14+prev"
+    FULL14_JAC = "full14+jac"
+    FULL14_PREV_JAC = "full14+prev+jac"
+    JAC = "jac"
+
+
+# The channels per bus of each feature set.
+FEATURE_SETS = {
+    Features.MEAS: 8,
+    Features.FULL14: 14,
+    Features.FULL14_PREV: 16,
+    Features.FULL14_JAC: 22,
+    Features.FULL14_PREV_JAC: 24,
+    Features.JAC: 8,
+}
 
 
 def _torch() -> Any:
@@ -102,10 +124,9 @@ class LearnedLocalizer(LocalizerBase):
         super().__init__(fa_target=fa_target)
         if layers < 1 or hidden < 8:
             raise ValueError(f"need layers >= 1 and hidden >= 8, got {layers}, {hidden}")
-        if features not in FEATURE_SETS:
-            raise ValueError(f"features must be one of {sorted(FEATURE_SETS)}, got {features!r}")
-        self.features = features  # which per-bus vector the encoder sees (see FEATURE_SETS)
-        self.n_feat = FEATURE_SETS[features]
+        chosen = Features(features)
+        self.features = chosen.value  # which per-bus vector the encoder sees (see FEATURE_SETS)
+        self.n_feat = FEATURE_SETS[chosen]
         self.hidden, self.layers, self.dropout = hidden, layers, dropout
         self.lr, self.weight_decay, self.batch_size = lr, weight_decay, batch_size
         self.epochs, self.pos_weight, self.seed = epochs, pos_weight, seed

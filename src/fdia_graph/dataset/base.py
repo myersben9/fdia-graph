@@ -28,39 +28,42 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..choices import Choice
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 from ..schema import (  # noqa: F401  re-exported: the loader's callers import them from here
     FAMILIES,
     STEALTHY_FAMILIES,
+    Split,
 )
 from ..schema import (
     FAMILY_ALIAS as _FAMILY_ALIAS,
 )
 from ..schema import (
-    SPLIT_CODE as _SPLIT,
+    SPLIT_CODE as _SPLIT,  # noqa: F401  re-exported: the loader reads the codes from here
 )
 from ..schema import (
     STATIC_PHYSICS as _STATIC_PHYSICS,  # noqa: F401
 )
 
 
-def check_split(split):
-    """Reject an unknown partition name before any file is opened or downloaded."""
-    if split is not None and split not in _SPLIT:
-        raise ValueError(f"split must be one of {sorted(_SPLIT)} or None, got {split!r}")
+class Units(Choice):
+    """The unit system of the returned measurements: as stored, or per-unit with angles in radians."""
+
+    PHYSICAL = "physical"
+    PU = "pu"
 
 
-def check_units(units):
-    """Reject an unknown unit system before any file is opened or downloaded."""
-    if units not in ("physical", "pu"):
-        raise ValueError(f"units must be 'physical' or 'pu', got {units!r}")
+class Order(Choice):
+    """The record order of a view: the file's (chronological on a timeline) or a seeded permutation."""
+
+    TIME = "time"
+    RANDOM = "random"
 
 
-def check_order(order):
-    """Reject an unknown record order before any file is opened or downloaded."""
-    if order not in ("time", "random"):
-        raise ValueError(f"order must be 'time' or 'random', got {order!r}")
+def split_or_none(split: Optional[str]) -> Optional[str]:
+    """The partition name, validated, or None for the whole file."""
+    return None if split is None else Split(split).value
 
 
 _HELDOUT_TRAIN_EXCLUDE = {

@@ -1,4 +1,8 @@
 classDiagram
+    class Units {
+    }
+    class Order {
+    }
     class DatasetBase {
         +edge_index
         +edge_attr
@@ -27,6 +31,8 @@ classDiagram
         +collate()
         +loader()
     }
+    class Format {
+    }
     class ExportMixin {
         +summary()
         +export()
@@ -34,6 +40,10 @@ classDiagram
         +to_torch()
         +to_tf()
         +to_pandas()
+    }
+    class Label {
+    }
+    class Layer {
     }
     class SequenceMixin {
         +windows()
@@ -56,6 +66,9 @@ classDiagram
     class BranchModel {
         <<models>>
     }
+    class Choice {
+        <<choices>>
+    }
     class EpisodeTable {
         <<models>>
     }
@@ -66,6 +79,11 @@ classDiagram
         <<models>>
     }
     AdmittanceMixin <|-- FdiaGraph
+    Choice <|-- Format
+    Choice <|-- Label
+    Choice <|-- Layer
+    Choice <|-- Order
+    Choice <|-- Units
     DatasetBase <|-- AdmittanceMixin
     DatasetBase <|-- ExportMixin
     DatasetBase <|-- GraphMixin
@@ -80,6 +98,8 @@ classDiagram
     ExportMixin ..> ArraysBundle : uses
     ExportMixin ..> Summary : uses
     FdiaGraph ..> Attr : uses
+    FdiaGraph ..> Order : uses
+    FdiaGraph ..> Units : uses
     RecordsMixin ..> BatchBundle : uses
     RecordsMixin ..> RecordBundle : uses
     SequenceMixin ..> EpisodeTable : uses

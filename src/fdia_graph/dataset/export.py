@@ -15,6 +15,7 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..choices import Choice
 from ..models.data import ArraysBundle, Summary
 from .base import (
     _BENIGN_LAYERS,
@@ -26,7 +27,16 @@ from .base import (
     _torch,
 )
 
-_FORMATS = ("numpy", "torch", "tf", "pandas")
+
+class Format(Choice):
+    """The array flavour `export` returns."""
+
+    NUMPY = "numpy"
+    TORCH = "torch"
+    TF = "tf"
+    PANDAS = "pandas"
+
+
 _INT_KEYS = frozenset(
     {"family", "stealthy", "seq_id", "timestep", "prev_timestep", "edge_index"}
 )  # int64 tensors
@@ -109,8 +119,7 @@ class ExportMixin(DatasetBase):
         `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
         `fields`, so a typo cannot pass unnoticed.
         """
-        if format not in _FORMATS:
-            raise ValueError(f"format must be one of {_FORMATS}, got {format!r}")
+        format = Format(format).value
         if format == "pandas":
             if fields:
                 raise ValueError("a pandas frame carries every field; pass fields with an array format")
