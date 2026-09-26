@@ -71,7 +71,7 @@ for key, label, scale, fmt in [
     for k, lab in ROWS:
         cells = [fmt.format(res[s][k]["geo"][key] * scale) if k in res[s] else "" for s in systems]
         if k in ("prior+huber", "prior+huber+gate"):
-            cells = [f"**{c}**" for c in cells]
+            cells = [f"**{c}**" if c else c for c in cells]
         print("| " + " | ".join([lab] + cells) + " |")
     print("| WLS error reduction | " + " | ".join(f"{red(s, 'geo', key):.0f}%" for s in systems) + " |")
     print()

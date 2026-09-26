@@ -1,7 +1,7 @@
 # Beating WLS: state estimation with the SDK
 
 Measurements in, state out, better than weighted least squares on the public test cases. Runs off
-the default v0.8.1 timeline download; `pip install "fdia-graph[se]"`.
+the default timeline download (data release v0.8.3); `pip install "fdia-graph[se]"`.
 
 ![est.fit on benign records sets meter sigma, the chord Jacobian and the prior basis; est.estimate runs the chord-Newton loop; est.score compares the estimate with the clean state per family](../figures/diagrams/guide_state_estimation.png)
 
@@ -14,12 +14,12 @@ from fdia_graph.se import WLS
 train, test = fg.load("ieee14", split="train"), fg.load("ieee14", split="test")
 wls = WLS().fit(train)
 xhat = wls.estimate(test)              # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
-print(wls.score(test).geo)             # angle_mae_deg 0.090, voltage_mae_pu 8.40e-4
+print(wls.score(test).geo)             # angle_mae_deg 0.091, voltage_mae_pu 8.39e-4
 ```
 
 | `fit()` learns | `estimate()` returns |
 |---|---|
-| per-meter error scales: RMS of benign residuals at the dataset's `clean` truth; the reference angle `theta_ref` | the classical 2N-1 state, every voltage magnitude and every non-slack angle |
+| per-meter error scales: RMS of benign residuals at the dataset's `clean` truth (the benchmark default, `calibrate="truth"`), or each meter's accuracy class from measurements alone (`calibrate="measured"`, what every detector path uses); the reference angle `theta_ref` | the classical 2N-1 state, every voltage magnitude and every non-slack angle |
 | the chord Jacobian at the benign mean state | in one angle frame: the slack angle is fixed to `theta_ref`, taken from the training truth at fit time (the case's reference angle on the released pools) |
 
 ## The better estimator
@@ -28,14 +28,14 @@ print(wls.score(test).geo)             # angle_mae_deg 0.090, voltage_mae_pu 8.4
 from fdia_graph.se import SubspacePrior
 
 est = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
-print(est.score(test).geo)             # angle_mae_deg 0.049, voltage_mae_pu 1.63e-4
+print(est.score(test).geo)             # angle_mae_deg 0.050, voltage_mae_pu 1.60e-4
 ```
 
 | piece | does | why it helps |
 |---|---|---|
 | prior | restricts the estimate to the low-rank subspace benign operation occupies (SVD of the training states) | learns generator voltage setpoints from history instead of re-estimating them from noisy meters every scan |
 | Huber | down-weights measurements the physics cannot explain | rejects in-place meter corruption |
-| together on IEEE-14 test | 46% lower angle error, 81% lower voltage error than WLS | geometric mean over the eight record classes (benign and seven families), v0.8.1 timeline |
+| together on IEEE-14 test | 45% lower angle error, 81% lower voltage error than WLS | geometric mean over the eight record classes (benign and seven families), v0.8.3 timeline |
 
 Validation-selected hyperparameters from the estimation paper:
 
