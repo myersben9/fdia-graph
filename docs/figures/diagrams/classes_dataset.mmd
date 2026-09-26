@@ -1,5 +1,6 @@
 classDiagram
     class DatasetBase {
+        +require()
         +edge_index
         +edge_attr
         +export()
@@ -56,13 +57,28 @@ classDiagram
     class BranchModel {
         <<models>>
     }
+    class Capability {
+        <<models>>
+    }
     class EpisodeTable {
+        <<models>>
+    }
+    class ExportRequest {
+        <<models>>
+    }
+    class LoadOptions {
+        <<models>>
+    }
+    class MissingCapability {
         <<models>>
     }
     class RecordBundle {
         <<models>>
     }
     class Summary {
+        <<models>>
+    }
+    class WindowSpec {
         <<models>>
     }
     AdmittanceMixin <|-- FdiaGraph
@@ -77,9 +93,14 @@ classDiagram
     SequenceMixin <|-- FdiaGraph
     AdmittanceMixin ..> Admittances : uses
     AdmittanceMixin ..> BranchModel : uses
+    DatasetBase ..> Capability : uses
+    DatasetBase ..> MissingCapability : uses
     ExportMixin ..> ArraysBundle : uses
+    ExportMixin ..> ExportRequest : uses
     ExportMixin ..> Summary : uses
     FdiaGraph ..> Attr : uses
+    FdiaGraph ..> LoadOptions : uses
     RecordsMixin ..> BatchBundle : uses
     RecordsMixin ..> RecordBundle : uses
     SequenceMixin ..> EpisodeTable : uses
+    SequenceMixin ..> WindowSpec : uses

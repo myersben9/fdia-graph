@@ -254,7 +254,7 @@ def test_federated_constructor_checks():
     with pytest.raises(ValueError, match="kcl"):
         FedBusMLP(kcl="bogus")
     for bad in (dict(K=2.5), dict(rounds=True), dict(halo=1.0)):
-        with pytest.raises(ValueError, match="must be integers"):
+        with pytest.raises(ValueError, match="FederatedSettings.(K|rounds|halo) must be an integer"):
             FedBusMLP(**bad)
     for bad in (0.0, -1.0, float("nan"), float("inf")):
         with pytest.raises(ValueError, match="grad_clip"):

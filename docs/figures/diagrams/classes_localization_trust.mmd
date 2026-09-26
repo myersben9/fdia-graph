@@ -37,14 +37,32 @@ classDiagram
     }
     class TrustedMetersDQN {
     }
+    class ConfigError {
+        <<models>>
+    }
     class GridScores {
         <<models>>
     }
     class JacobianFeatures {
         <<se>>
     }
+    class LearnedConfig {
+        <<models>>
+    }
+    class LocalizerConfig {
+        <<models>>
+    }
     class LocalizerScores {
         <<models>>
+    }
+    class NoAttackedRecords {
+        <<errors>>
+    }
+    class NoBenignRecords {
+        <<errors>>
+    }
+    class NotFitted {
+        <<errors>>
     }
     class OptimConfig {
         <<models>>
@@ -52,11 +70,20 @@ classDiagram
     class PerBusMetrics {
         <<models>>
     }
+    class PerBusReport {
+        <<models>>
+    }
     class PerBusScores {
         <<models>>
     }
     class SEBase {
         <<se>>
+    }
+    class TrainerConfig {
+        <<models>>
+    }
+    class TrustConfig {
+        <<models>>
     }
     class TrustScores {
         <<models>>
@@ -74,12 +101,22 @@ classDiagram
     TrustSelector <|-- TrustedMetersDQN
     LearnedLocalizer ..> GridScores : uses
     LearnedLocalizer ..> JacobianFeatures : uses
+    LearnedLocalizer ..> LearnedConfig : uses
+    LearnedLocalizer ..> NoAttackedRecords : uses
+    LearnedLocalizer ..> NotFitted : uses
     LearnedLocalizer ..> OptimConfig : uses
     LocalTrainer ..> OptimConfig : uses
+    LocalTrainer ..> TrainerConfig : uses
+    LocalizerBase ..> ConfigError : uses
+    LocalizerBase ..> LocalizerConfig : uses
     LocalizerBase ..> LocalizerScores : uses
+    LocalizerBase ..> NoBenignRecords : uses
     LocalizerBase ..> PerBusMetrics : uses
+    LocalizerBase ..> PerBusReport : uses
     LocalizerBase ..> PerBusScores : uses
     ResidualLocalizer ..> SEBase : estimator
     ResidualLocalizer ..> WLS : uses
+    TrustSelector ..> NoBenignRecords : uses
+    TrustSelector ..> TrustConfig : uses
     TrustSelector ..> TrustScores : uses
     TrustSelector ..> WLS : uses

@@ -11,6 +11,7 @@ one mixin calls on another.
 from __future__ import annotations
 
 import numbers
+import warnings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -28,39 +29,54 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Capability,
+    Order,
+    RecordFormat,
+    Units,
+)
+from ..models.config import LoadOptions
+from ..models.validation import MissingCapability, present
 
 # On-disk `data/family` codes -> display name; the SDK speaks in codes.
 from ..schema import (  # noqa: F401  re-exported: the loader's callers import them from here
     FAMILIES,
     STEALTHY_FAMILIES,
+    Split,
 )
 from ..schema import (
     FAMILY_ALIAS as _FAMILY_ALIAS,
 )
 from ..schema import (
-    SPLIT_CODE as _SPLIT,
+    SPLIT_CODE as _SPLIT,  # noqa: F401  re-exported: the loader reads the codes from here
 )
 from ..schema import (
     STATIC_PHYSICS as _STATIC_PHYSICS,  # noqa: F401
 )
 
 
-def check_split(split):
-    """Reject an unknown partition name before any file is opened or downloaded."""
-    if split is not None and split not in _SPLIT:
-        raise ValueError(f"split must be one of {sorted(_SPLIT)} or None, got {split!r}")
+def check_split(split: Optional[str]) -> None:
+    """Deprecated: `models.config.LoadOptions` checks the partition."""
+    _deprecated_check("check_split")
+    LoadOptions(split=split)
 
 
-def check_units(units):
-    """Reject an unknown unit system before any file is opened or downloaded."""
-    if units not in ("physical", "pu"):
-        raise ValueError(f"units must be 'physical' or 'pu', got {units!r}")
+def check_units(units: str) -> None:
+    """Deprecated: `models.config.LoadOptions` checks the unit system."""
+    _deprecated_check("check_units")
+    LoadOptions(units=units)
 
 
-def check_order(order):
-    """Reject an unknown record order before any file is opened or downloaded."""
-    if order not in ("time", "random"):
-        raise ValueError(f"order must be 'time' or 'random', got {order!r}")
+def check_order(order: str) -> None:
+    """Deprecated: `models.config.LoadOptions` checks the record order."""
+    _deprecated_check("check_order")
+    LoadOptions(order=order)
+
+
+def _deprecated_check(name: str) -> None:
+    warnings.warn(
+        f"{name} is deprecated; LoadOptions checks the loader's arguments", DeprecationWarning, stacklevel=3
+    )
 
 
 _HELDOUT_TRAIN_EXCLUDE = {
@@ -82,9 +98,7 @@ def family_ids(families: Sequence[Union[str, int]]) -> list[int]:
             code = int(f)
         else:
             code = None  # a float such as 1.9, a bool, or a code outside the table
-        if code is None:
-            raise ValueError(f"unknown family {f!r}; known: {sorted(names)} or codes {sorted(FAMILIES)}")
-        out.append(code)
+        out.append(present(code, f"unknown family {f!r}; known: {sorted(names)} or codes {sorted(FAMILIES)}"))
     return out
 
 
@@ -146,6 +160,48 @@ _UNIT_KIND = {
 }
 
 
+def _is_timeline(ds: DatasetBase) -> bool:
+    return ds.is_timeline
+
+
+def _has_benign(ds: DatasetBase) -> bool:
+    return ds.has_benign
+
+
+def _has_clean(ds: DatasetBase) -> bool:
+    return ds.has_clean
+
+
+def _physical(ds: DatasetBase) -> bool:
+    return ds.units == "physical"
+
+
+def _time_order(ds: DatasetBase) -> bool:
+    return ds._perm is None
+
+
+def _consecutive(ds: DatasetBase) -> bool:
+    return not len(ds.idx) or bool(np.all(np.diff(ds.idx) == 1))
+
+
+# What a view may lack that a consumer needs: the test and what the consumer needs, in words.
+CAPABILITIES = {
+    Capability.TIMELINE: (_is_timeline, "a timeline file, not a record shard"),
+    Capability.BENIGN_LAYER: (_has_benign, "a timeline view with the benign layer"),
+    Capability.CLEAN_LAYER: (
+        _has_clean,
+        'a clean layer (load a timeline or a v0.7.2 record shard, or fit with calibrate="measured")',
+    ),
+    Capability.PHYSICAL_UNITS: (
+        _physical,
+        "units='physical' datasets (the default): it converts the stored units itself, so a per-unit "
+        "view would be converted twice",
+    ),
+    Capability.TIME_ORDER: (_time_order, "order='time'; this view is a random permutation"),
+    Capability.CONSECUTIVE: (_consecutive, "consecutive frames; a families= or heldout= view is not"),
+}
+
+
 class DatasetBase:
     """Attributes set by `FdiaGraph.__init__` and read by the mixins."""
 
@@ -176,6 +232,14 @@ class DatasetBase:
     _eclean_np: Optional[np.ndarray]
     _eclean_full_np: Optional[np.ndarray]
     _mem: Optional[dict[str, np.ndarray]]
+
+    def require(self, *capabilities: str, by: str) -> None:
+        """Refuse this view when it lacks a capability `by` (the consumer, in words) needs; the
+        tests and the messages are the `CAPABILITIES` table."""
+        for cap in capabilities:
+            test, needs = CAPABILITIES[Capability(cap)]
+            if not test(self):
+                raise MissingCapability(f"{by} needs {needs}")
 
     def __len__(self) -> int: ...
 

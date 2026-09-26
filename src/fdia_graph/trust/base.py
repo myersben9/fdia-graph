@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..errors import NoBenignRecords
 from ..formulas.trust import attack_cost, greedy_trusted_meters
+from ..models.config import TrustConfig
 from ..models.scores import TrustScores  # noqa: F401  re-exported: defined here before the models package
 
 if TYPE_CHECKING:
@@ -22,12 +24,8 @@ class TrustSelector:
     `cost` (the attack cost after each)."""
 
     def __init__(self, k: int, fa_target: float = 0.01) -> None:
-        if k < 1:
-            raise ValueError(f"k must be at least 1 meter, got {k}")
-        if not 0.0 < fa_target < 1.0:
-            raise ValueError(f"fa_target must be in (0, 1), got {fa_target}")
-        self.k = k
-        self.fa_target = fa_target
+        cfg = TrustConfig(k, fa_target)
+        self.k, self.fa_target = cfg.k, cfg.fa_target
         self.order: list[int] = []
         self.cost: list[float] = []
 
@@ -50,7 +48,7 @@ class TrustSelector:
         d = ds.export(["node_x", "edge_x", "family"])
         ben = np.flatnonzero(d["family"] == 0)
         if not len(ben):
-            raise ValueError("fit needs benign records; pass the train split unfiltered")
+            raise NoBenignRecords("fit needs benign records; pass the train split unfiltered")
         # spread over the whole benign set, not the first records (one early load regime on a timeline)
         ben = ben[np.linspace(0, len(ben) - 1, min(n_calib, len(ben))).round().astype(int)]
         est = self.est
@@ -79,11 +77,8 @@ class TrustSelector:
         (the benign layer is what a secured meter reads), at the alarm level `fit` calibrated on
         benign training records; `false_alarm` is the benign rate of this view at that level."""
         from ..dataset import FAMILIES
-        from ..se.base import require_physical
 
-        require_physical(ds)
-        if not ds.has_benign:
-            raise ValueError("score needs a timeline view with the benign layer")
+        ds.require("physical_units", "benign_layer", by="the secured-meter score")
         d = ds.export(["node_x", "edge_x", "benign", "edge_benign", "family"])
         est = self.est
         z = est._z_of(d["node_x"], d["edge_x"])

@@ -1,7 +1,10 @@
 """Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1,
 and the file-protocol rule: a dataset path ("data/...", "graph/...", any group of `schema.Group`)
 or a group name used as one (`f.create_group("data")`, `f["attack"]`, `"episodes" in f`) may be
-spelled only in src/fdia_graph/schema.py; every other module goes through `schema`.
+spelled only in src/fdia_graph/schema.py; every other module goes through `schema`. And the
+validation rule (docs/plans/VALIDATION_PLAN.md): `raise ValueError` / `raise TypeError` only inside
+`fdia_graph.models`, where the one engine checks every input; everywhere else an input is checked by
+building its model, and a condition only the data reveals raises a named error from `errors`.
 
     python tools/readability.py --report                 # every function outside a limit, whole package
     python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass
@@ -225,6 +228,37 @@ def _group_used_as_group(n: ast.AST) -> Optional[str]:
     return None
 
 
+_MODELS = os.path.join(ROOT, "models")  # the one package allowed to raise a bare ValueError / TypeError
+_BARE = {"ValueError", "TypeError"}
+
+
+def hand_checks(path: str) -> list[tuple[str, int, str]]:
+    """`raise ValueError(...)` / `raise TypeError(...)` outside `fdia_graph.models`: (file, line, type)."""
+    here, models = os.path.normcase(os.path.abspath(path)), os.path.normcase(os.path.abspath(_MODELS))
+    if os.path.commonpath([here, models]) == models:  # inside the package, not a sibling named models_*
+        return []
+    tree = ast.parse(open(path, encoding="utf8").read())
+    return [
+        (_rel(path), n.lineno, name)
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Raise) and (name := _raised_name(n)) in _BARE
+    ]
+
+
+def _raised_name(n: ast.Raise) -> str:
+    exc = n.exc.func if isinstance(n.exc, ast.Call) else n.exc
+    return exc.id if isinstance(exc, ast.Name) else ""
+
+
+def hand_checks_all() -> list[tuple[str, int, str]]:
+    out: list[tuple[str, int, str]] = []
+    for dp, _, fs in os.walk(ROOT):
+        for f in sorted(fs):
+            if f.endswith(".py"):
+                out += hand_checks(os.path.join(dp, f))
+    return out
+
+
 def protocol_literals_all() -> list[tuple[str, int, str]]:
     out: list[tuple[str, int, str]] = []
     for dp, _, fs in os.walk(ROOT):
@@ -263,6 +297,10 @@ def report(ms: list[Measure]) -> int:
     print(f"{len(lits)} dataset-path literals outside {os.path.relpath(_SCHEMA, ROOT)}")
     for rel, line, lit in lits:
         print(f"  {rel}:{line} {lit!r}")
+    hands = hand_checks_all()
+    print(f"{len(hands)} hand-written ValueError/TypeError raises outside fdia_graph.models")
+    for rel, line, name in hands:
+        print(f"  {rel}:{line} raise {name}")
     return 0
 
 
@@ -320,6 +358,19 @@ def check(base: str) -> int:
         print("dataset-path literals added by this change (spell the path through fdia_graph.schema):")
         for rel, line, lit in lits:
             print(f"  {rel}:{line} {lit!r}")
+        return 1
+    hands = [
+        (rel, line, name)
+        for path, lines in changed.items()
+        if path.endswith(".py") and os.path.exists(path)
+        for rel, line, name in hand_checks(path)
+        if line in lines
+    ]
+    if hands:
+        print("hand-written input checks added by this change (declare the rule on a model in")
+        print("fdia_graph.models.config, or raise a named error from fdia_graph.errors):")
+        for rel, line, name in hands:
+            print(f"  {rel}:{line} raise {name}")
         return 1
     n_lines = sum(len(v) for v in changed.values())
     print(f"readability gate: {n_lines} changed lines in {len(changed)} file(s), all touched functions pass")

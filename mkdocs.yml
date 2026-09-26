@@ -67,6 +67,7 @@ nav:
   - Plans:
       - Overview: plans/README.md
       - One dataset: plans/ONE_DATASET_PLAN.md
+      - Validation: plans/VALIDATION_PLAN.md
       - Data models: plans/DATA_MODELS_PLAN.md
       - Field groups: plans/FIELD_GROUPS_PLAN.md
       - Readability: plans/READABILITY_PLAN.md

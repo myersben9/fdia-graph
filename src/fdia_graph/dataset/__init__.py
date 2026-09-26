@@ -31,6 +31,7 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..models.config import LoadOptions
 from ..models.data import (  # noqa: F401  re-exported: defined here before the models package
     ArraysBundle,
     BatchBundle,
@@ -38,6 +39,7 @@ from ..models.data import (  # noqa: F401  re-exported: defined here before the 
     Summary,
 )
 from ..models.grid import NODE
+from ..models.validation import expect
 from ..schema import Attr
 from .base import (  # noqa: F401  re-exported: defined here before the split
     _BENIGN_LAYERS,
@@ -79,11 +81,10 @@ def _record_mask(
     if not filt.include_gaps:
         keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
     if filt.split is not None:
-        check_split(filt.split)
-        if sp is None:
-            raise ValueError(f"{path} has no split; run the split step first")
-        keep &= sp == _SPLIT[filt.split]
-        if filt.heldout and _SPLIT[filt.split] in (0, 1):  # test keeps As/Ar
+        expect(sp is not None, f"{path} has no split; run the split step first")
+        code = _SPLIT[filt.split]
+        keep &= sp == code
+        if filt.heldout and code in (0, 1):  # test keeps As/Ar
             keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
     if filt.families is not None:
         keep &= np.isin(fam, family_ids(filt.families))
@@ -113,9 +114,10 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         # units="pu" converts losslessly on the fly (P/Q + branch flows / baseMVA, theta deg->rad, V already p.u.),
         # so one shard serves both physical and normalized views. temporal_delta scales with power (->p.u.);
         # swing is a dimensionless z-score, never rescaled.
-        check_units(units)  # the argument checks run before the file is opened
-        check_split(split)
-        check_order(order)
+        # the arguments are converted before the file is opened, so a wrong one never reads the file
+        options = LoadOptions(split, units, order, format)  # checked before the file is opened
+        split, units, order = options.split, options.units, options.order
+        format = options.format
         if families is not None:
             family_ids(families)  # an unknown family fails here, not after the read
         self.units = units

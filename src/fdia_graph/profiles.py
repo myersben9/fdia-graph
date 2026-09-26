@@ -24,6 +24,10 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import numpy as np
 
 from .engine.core import _CASE  # bus-count -> pandapower builder; single source of supported systems
+from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Iso,
+)
+from .models.validation import expect
 from .registry import system_id
 
 
@@ -81,8 +85,7 @@ def load_profile(
         loads = full[load_col].dropna().to_numpy(dtype=float)
     else:  # generic CSV path + column name
         pd = _pandas()
-        if column is None:
-            raise ValueError("for a generic CSV `source`, pass the load `column` name")
+        expect(column is not None, "for a generic CSV `source`, pass the load `column` name")
         loads = pd.read_csv(source)[column].dropna().to_numpy(dtype=float)
     mu, sd = loads.mean(), loads.std()
     return (loads - mu) / (sd if sd > 0 else 1.0)  # standardized scaling vector S [T]
@@ -188,8 +191,7 @@ def generate_states(
     [P, Q, V, theta]; generate() still accepts such pools and converts them, see generation.as_v_first.)
     """
     key = system_id(system)
-    if key not in _CASE:
-        raise ValueError(f"unknown system {system!r}; supported: {sorted(_CASE)}")
+    expect(key in _CASE, f"unknown system {system!r}; supported: {sorted(_CASE)}")
     S = np.asarray(profile, dtype=float).ravel()
     if n is not None:
         S = S[:n]
@@ -215,7 +217,6 @@ def generate_states(
 # Automatic ISO load-profile download. NYISO is a zero-dependency built-in (public monthly archives, no
 # account); CAISO/ERCOT (and optionally NYISO) go through the `gridstatus` package: pip install 'fdia-graph[iso]'.
 # ---------------------------------------------------------------------------------------------------------
-_ISOS = ("caiso", "nyiso", "ercot")
 
 
 def _as_date(d: Union[str, _dt.date, _dt.datetime]) -> _dt.date:
@@ -296,9 +297,7 @@ def fetch_profile(
     NYISO needs no dependencies or account; CAISO/ERCOT use `gridstatus` (pip install 'fdia-graph[iso]'). The
     returned S feeds generate_states() exactly like load_profile()'s output.
     """
-    iso = str(iso).lower()
-    if iso not in _ISOS:
-        raise ValueError(f"unknown iso {iso!r}; expected one of {_ISOS}")
+    iso = Iso(iso).value
     start, end = _as_date(start), _as_date(end)
     if iso == "nyiso":
         series = _fetch_nyiso(start, end)  # zero-dependency built-in, 5-minute

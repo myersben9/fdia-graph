@@ -20,8 +20,13 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..errors import NoAttackedRecords, NotFitted
 from ..formulas.federated import Moments, channel_moments, pool_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Features,
+)
+from ..models.config import LearnedConfig, TrainerConfig
 from ..models.scores import GridScores
 from ..models.training import OptimConfig  # noqa: F401  re-exported beside its user
 from .base import LocalizerBase
@@ -30,13 +35,23 @@ if TYPE_CHECKING:
     from ..dataset import FdiaGraph
 
 N_FEAT = 14  # the papers' per-bus vector: 4 readings + 4 mask + 2 KCL + 2 delta + 2 swing
+
+
 # Feature sets, named after the Jacobian-informed digest's ablation: A measurements only, B the
 # papers' 14-dim vector (measurements + temporal change), C = B + the Jacobian block, D = the
 # Jacobian block alone. The Jacobian block is fdia_graph.se.jacobian's 8 per-bus features.
 # "+prev" appends the previous frame's swing (2 channels, a timeline's prev_swing): on a timeline the
 # frame after a one-frame attack carries the same jump back with the opposite sign, and only the
 # frame before tells the attack's jump from that return.
-FEATURE_SETS = {"meas": 8, "full14": 14, "full14+prev": 16, "full14+jac": 22, "full14+prev+jac": 24, "jac": 8}
+# The channels per bus of each feature set.
+FEATURE_SETS: dict[str, int] = {
+    Features.MEAS: 8,
+    Features.FULL14: 14,
+    Features.FULL14_PREV: 16,
+    Features.FULL14_JAC: 22,
+    Features.FULL14_PREV_JAC: 24,
+    Features.JAC: 8,
+}
 
 
 def _torch() -> Any:
@@ -100,13 +115,10 @@ class LearnedLocalizer(LocalizerBase):
         features: str = "full14",
     ) -> None:
         super().__init__(fa_target=fa_target)
-        if layers < 1 or hidden < 8:
-            raise ValueError(f"need layers >= 1 and hidden >= 8, got {layers}, {hidden}")
-        if features not in FEATURE_SETS:
-            raise ValueError(f"features must be one of {sorted(FEATURE_SETS)}, got {features!r}")
-        self.features = features  # which per-bus vector the encoder sees (see FEATURE_SETS)
-        self.n_feat = FEATURE_SETS[features]
-        self.hidden, self.layers, self.dropout = hidden, layers, dropout
+        cfg = LearnedConfig(layers, hidden, features)
+        self.features = cfg.features  # which per-bus vector the encoder sees (see FEATURE_SETS)
+        self.n_feat = FEATURE_SETS[cfg.features]
+        self.hidden, self.layers, self.dropout = cfg.hidden, cfg.layers, dropout
         self.lr, self.weight_decay, self.batch_size = lr, weight_decay, batch_size
         self.epochs, self.pos_weight, self.seed = epochs, pos_weight, seed
         self.attackable_only = attackable_only
@@ -210,7 +222,7 @@ class LearnedLocalizer(LocalizerBase):
         p, t = self._score(d, val), d["y"].astype(bool)
         active = t.any(axis=0)
         if not active.any():
-            raise ValueError("tune_threshold needs attacked records in val")
+            raise NoAttackedRecords("tune_threshold needs attacked records in val")
         taus = np.linspace(0.05, 0.95, 19)
         tp, fp, fn = (np.stack(c) for c in zip(*(perbus_counts(p > tau, t) for tau in taus)))
         self.tau = tau_from_counts(tp, fp, fn, np.asarray(active), taus)
@@ -230,7 +242,7 @@ class LearnedLocalizer(LocalizerBase):
         d = self._pull(val, extra=["y"])
         g, attacked = self._grid_score(d, val), np.asarray(d["y"].any(axis=1))
         if attacked.all() or not attacked.any():
-            raise ValueError("tune_grid_threshold needs both attacked and benign records in val")
+            raise NoAttackedRecords("tune_grid_threshold needs both attacked and benign records in val")
         taus = np.linspace(0.05, 0.95, 19)
         tp, fp, fn = (
             np.stack(c) for c in zip(*(perbus_counts((g > t)[:, None], attacked[:, None]) for t in taus))
@@ -245,7 +257,7 @@ class LearnedLocalizer(LocalizerBase):
 
         tau = getattr(self, "grid_tau", None)
         if tau is None:
-            raise ValueError("call tune_grid_threshold(val) first")
+            raise NotFitted("call tune_grid_threshold(val) first")
         d = self._pull(ds, extra=["family", "y"])
         flag, fam = self._grid_score(d, ds) > tau, d["family"]
         by = {n: float(flag[fam == f].mean()) for f, n in FAMILIES.items() if f and (fam == f).any()}
@@ -287,8 +299,7 @@ class LocalTrainer:
     """
 
     def __init__(self, net: Any, cfg: OptimConfig, dev: str, seed: int, clip: Optional[float] = None) -> None:
-        if clip is not None and not (np.isfinite(clip) and clip > 0):
-            raise ValueError(f"clip must be None or a finite positive norm, got {clip}")
+        clip = TrainerConfig(clip).clip
         torch = _torch()
         self.net, self.cfg, self.dev, self.clip = net, cfg, dev, clip
         self.opt = torch.optim.AdamW(net.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)

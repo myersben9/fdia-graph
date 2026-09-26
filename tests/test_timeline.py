@@ -436,7 +436,7 @@ def test_attacked_frac_zero_is_all_benign(tmp_path, pool):
 
 def test_empty_episode_lengths_are_refused(tmp_path, pool):
     for bad in (dict(ramp_len=0), dict(am_len=0), dict(corrupt_len=0)):
-        with pytest.raises(ValueError, match="at least 1 frame"):
+        with pytest.raises(ValueError, match="TimelineKnobs.(ramp_len|am_len|corrupt_len) must be >= 1"):
             generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), **bad)
     with pytest.raises(ValueError, match="am_rate"):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_rate=0.0)

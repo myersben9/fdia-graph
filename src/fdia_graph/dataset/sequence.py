@@ -2,25 +2,23 @@
 
 from __future__ import annotations
 
-import numbers
 from typing import Optional
 
 import numpy as np
 
 from .. import schema
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Label,
+    Layer,
+)
+from ..models.config import WindowSpec
 from ..models.data import EpisodeTable
 from .base import DatasetBase
 
 
 def check_window_args(T: int, W: int, stride: int, label: str) -> None:
-    """Reject a window request the docstring of `windows` does not allow, before any slicing."""
-    if label not in ("frame", "any", "last"):
-        raise ValueError(f"label must be 'frame', 'any' or 'last', got {label!r}")
-    integral = all(isinstance(v, numbers.Integral) and not isinstance(v, bool) for v in (W, stride))
-    if not integral or not 1 <= W <= T or stride < 1:
-        raise ValueError(
-            f"need integers 1 <= W <= {T} frames and stride >= 1, got W={W!r}, stride={stride!r}"
-        )
+    """A window request as its model (`models.config.WindowSpec`), which checks it."""
+    WindowSpec(T, W, stride, label)
 
 
 def window_labels(y: np.ndarray, starts: range, W: int, label: str) -> np.ndarray:
@@ -36,12 +34,7 @@ class SequenceMixin(DatasetBase):
     def _check_timeline(self, what: str) -> None:
         """A sequence view needs consecutive frames in time order: a timeline file, `order="time"`,
         and a view that keeps a contiguous span (a split or the whole file, not a family subset)."""
-        if not self.is_timeline:
-            raise ValueError(f"{what} needs a timeline file; {self.path} is a record shard")
-        if self._perm is not None:
-            raise ValueError(f"{what} needs order='time'; this view is a random permutation")
-        if len(self.idx) and not np.all(np.diff(self.idx) == 1):
-            raise ValueError(f"{what} needs consecutive frames; a families= or heldout= view is not")
+        self.require("timeline", "time_order", "consecutive", by=what)
 
     def windows(
         self,
@@ -63,10 +56,8 @@ class SequenceMixin(DatasetBase):
         72k-frame IEEE-118 timeline at W=60 is about 8 GB as a copy); per_bus always copies.
         """
         self._check_timeline("windows")
-        if layer not in ("node_x", "benign", "clean"):
-            raise ValueError(f"layer must be 'node_x', 'benign' or 'clean', got {layer!r}")
         T = len(self.idx)
-        check_window_args(T, W, stride, label)
+        layer = WindowSpec(T, W, stride, label, layer).layer
         a = self.export([layer, "y"])
         nx, y = a[layer], a["y"]
         starts = range(0, T - W + 1, stride)

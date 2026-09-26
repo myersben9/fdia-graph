@@ -15,6 +15,9 @@ classDiagram
     class BusMLP {
         <<localization>>
     }
+    class FederatedSettings {
+        <<models>>
+    }
     class JacobianFeatures {
         <<se>>
     }
@@ -23,6 +26,9 @@ classDiagram
     }
     class LocalTrainer {
         <<localization>>
+    }
+    class NoAttackedRecords {
+        <<errors>>
     }
     class Partition {
         <<models>>
@@ -39,8 +45,10 @@ classDiagram
     FederatedLocalizer <|-- FedBusMLP
     LearnedLocalizer <|-- FederatedLocalizer
     SubspacePrior <|-- RegionalPrior
+    FederatedLocalizer ..> FederatedSettings : uses
     FederatedLocalizer ..> JacobianFeatures : uses
     FederatedLocalizer ..> LocalTrainer : uses
+    FederatedLocalizer ..> NoAttackedRecords : uses
     FederatedLocalizer ..> Partition : uses
     FederatedLocalizer ..> RoundLog : uses
     RegionalPrior ..> Partition : uses

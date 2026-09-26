@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..errors import NoBenignRecords, SlackMismatch, VaryingReference
 from ..formulas.estimation import (
     accuracy_class_sigma,
     critical_measurements,
@@ -35,12 +36,17 @@ from ..formulas.estimation import (
 )
 from ..formulas.linalg import batched_normal_matrices, condition_number, guarded_inverse
 from ..formulas.network import ac_jacobian, ac_measurement
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Calibrate,
+)
+from ..models.config import FitOptions, SolveConfig
 from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
 from ..models.grid import EDGE, NODE, EdgeColumns, NodeColumns
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     ErrorPair,
     EstimatorScores,
 )
+from ..models.validation import expect
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -69,8 +75,7 @@ def _torch():
 def require_physical(ds: FdiaGraph) -> None:
     """Refuse a units="pu" view: the estimators convert the stored physical units themselves, so a
     per-unit view would be converted twice and every estimate silently off by baseMVA."""
-    if ds.units != "physical":
-        raise ValueError("state estimation expects units='physical' datasets (the default)")
+    ds.require("physical_units", by="state estimation")
 
 
 def _torch_or_none():
@@ -96,10 +101,9 @@ class SEBase:
     """
 
     def __init__(self, npass: int = 40, iters: int = 8) -> None:
-        if npass < 1 or iters < 1:
-            raise ValueError(f"npass and iters must be >= 1, got {npass}, {iters}")
-        self.npass = npass  # reweighting passes (run to convergence per the paper protocol)
-        self.iters = iters  # chord-Newton steps inside each solve
+        solve = SolveConfig(npass, iters)
+        self.npass = solve.npass  # reweighting passes (run to convergence per the paper protocol)
+        self.iters = solve.iters  # chord-Newton steps inside each solve
 
     # ---- network + measurement model -------------------------------------------------------
     def _build_network(self, ds: FdiaGraph, need_clean: bool = True) -> None:
@@ -109,12 +113,7 @@ class SEBase:
             from pandapower.pypower.makeYbus import makeYbus
         except ImportError as e:
             raise ImportError("state estimation needs pandapower: pip install 'fdia-graph[se]'") from e
-        require_physical(ds)
-        if need_clean and not ds.has_clean:
-            raise ValueError(
-                "dataset has no clean layer; load a timeline or a v0.7.2 record shard, "
-                'or fit with calibrate="measured"'
-            )
+        ds.require("physical_units", *(("clean_layer",) if need_clean else ()), by="state estimation")
         net = getattr(pn, _CASE_FN[int(ds.system)])()
         pp.runpp(net)
         ppc = net._ppc
@@ -136,7 +135,7 @@ class SEBase:
         # released pools); either way one constant, so no record's true state fixes an estimate's frame
         self.theta_ref = float(np.deg2rad(net.ext_grid.va_degree.values[0]))
         if ds.slack is not None and int(ds.slack) != self.slack:  # both index buses 0..N-1 on every case
-            raise ValueError(f"the case's slack is bus {self.slack}, the dataset's is {int(ds.slack)}")
+            raise SlackMismatch(f"the case's slack is bus {self.slack}, the dataset's is {int(ds.slack)}")
         self.keep = np.array([i for i in range(self.N) if i != self.slack])  # angle buses
         # the case's own power-flow solution, the starting point of a measurement-only calibration
         res = net.res_bus.reindex(sorted(net.bus.index))
@@ -236,13 +235,13 @@ class SEBase:
         takes the meter errors, the benign mean state and the angle reference from the training
         split's clean layer; calibrate="measured" takes them from equipment data and measurements
         alone (`_fit_from_measurements`), for any path whose output feeds a detector."""
-        if calibrate not in ("truth", "measured"):
-            raise ValueError(f"calibrate must be 'truth' or 'measured', got {calibrate!r}")
+        opts = FitOptions(n_calib, calibrate)
+        n_calib, calibrate = opts.n_calib, opts.calibrate
         self._build_network(ds, need_clean=calibrate == "truth")
         d = ds.export(["node_x", "edge_x", "family"] + (["clean"] if calibrate == "truth" else []))
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
-            raise ValueError("fit needs benign records; pass the train split unfiltered")
+            raise NoBenignRecords("fit needs benign records; pass the train split unfiltered")
         # The calibration records are spread evenly over the benign set: on a timeline the first ones
         # are one early stretch of the year, a single load regime, and the meter error scales with the
         # reading.
@@ -463,7 +462,7 @@ class SEBase:
         angle must be one constant over the split (the case's `va_degree` for the released pools, a
         custom pool may use another), and every estimate afterwards uses it without reading truth."""
         if not np.allclose(thsl, thsl[0], atol=1e-9):
-            raise ValueError(
+            raise VaryingReference(
                 "the slack angle varies across the training frames; estimates need one fixed reference"
             )
         self.theta_ref = float(thsl[0])
@@ -480,8 +479,7 @@ class SEBase:
 
         require_physical(ds)
         est = self.estimate(ds, chunk=chunk) if xhat is None else np.asarray(xhat, np.float64)
-        if est.shape != (len(ds), self.SD):
-            raise ValueError(f"xhat must be [{len(ds)}, {self.SD}], got {est.shape}")
+        expect(est.shape == (len(ds), self.SD), f"xhat must be [{len(ds)}, {self.SD}], got {est.shape}")
         d = ds.export(["family", "clean"])
         tr = self._truth_of(d["clean"])
         ns = len(self.keep)  # angle block; voltage block covers ALL N buses (2N-1 state)
