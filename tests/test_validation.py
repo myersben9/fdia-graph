@@ -256,3 +256,15 @@ def test_formulas_build_their_input_models():
         perbus_counts(np.zeros((2, 3)), np.zeros((3, 2)))
     with pytest.raises(ConfigError, match="pool_moments needs at least one part"):
         pool_moments([])
+
+
+def test_an_untyped_field_is_still_required_and_whole_numbers_are_integers():
+    from fdia_graph.formulas.federated import block_diagonal_basis
+    from fdia_graph.models.inputs import EdgeList, StatePool
+
+    with pytest.raises(ConfigError, match=r"^StatePool\.X is required$"):
+        StatePool(None)
+    with pytest.raises(ConfigError, match=r"^EdgeList\.N must be an integer, got 3\.5$"):
+        EdgeList(np.array([[0], [1]]), 3.5)
+    with pytest.raises(ConfigError, match=r"StateBlocks\.d must be an integer"):
+        block_diagonal_basis([(np.array([0]), np.eye(1))], 3.5)

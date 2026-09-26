@@ -123,7 +123,7 @@ class ReleaseName(Validated):
 class OutageRef(Validated):
     """A line taken out, by name or by index, against the case's lines; `index` is the line index."""
 
-    outage: Any
+    outage: Annotated[Any, Required("is required: an outage is a line name or an integer line index")]
     names: tuple[str, ...]
     indices: tuple[int, ...]
 
@@ -210,7 +210,7 @@ class EdgeList(Validated):
     """A branch list [2, E] over buses 0..N-1."""
 
     edge_index: Annotated[Any, AsArray()]
-    N: int
+    N: Annotated[int, Integer()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         ei = self.edge_index
@@ -228,8 +228,8 @@ class EdgeList(Validated):
 class ClientCount(Validated):
     """K clients over N buses."""
 
-    N: int
-    K: int
+    N: Annotated[int, Integer()]
+    K: Annotated[int, Integer()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield 1 <= self.K <= self.N, f"K must be between 1 and the {self.N} buses, got {self.K}"
@@ -242,7 +242,7 @@ class ClientGraph(Validated):
 
     assignment: Annotated[Any, AsArray()]
     adjacency: Annotated[Any, AsArray()]
-    K: Optional[int] = None
+    K: Annotated[Optional[int], Integer()] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         n = len(self.assignment) if self.assignment.ndim == 1 else -1
@@ -262,8 +262,8 @@ class Halo(Validated):
     """Client k's halo of `depth` hops over a client graph."""
 
     graph: ClientGraph
-    k: int
-    depth: int
+    k: Annotated[int, Integer()]
+    depth: Annotated[int, Integer()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield self.depth >= 0, f"depth must be >= 0, got {self.depth}"
@@ -275,8 +275,8 @@ class AssignmentSpec(Validated):
     """A client-of-every-bus array for a grid of at least N buses, with an optional attackable mask."""
 
     assignment: Annotated[Any, AsArray()]
-    N: int
-    attackable: Annotated[Any, AsArray(bool)] = None
+    N: Annotated[int, Integer()]
+    attackable: Annotated[Optional[np.ndarray], AsArray(bool)] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         a = self.assignment
@@ -298,8 +298,8 @@ class PartitionOnGrid(Validated):
     """A partition's assignment fit for a system of N buses."""
 
     assignment: Annotated[Any, AsArray()]
-    K: int
-    N: int
+    K: Annotated[int, Integer()]
+    N: Annotated[int, Integer()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         a = self.assignment
@@ -397,7 +397,7 @@ class StateBlocks(Validated):
     """Per-client (state columns, basis) blocks over a state of dimension d."""
 
     blocks: tuple[Any, ...]
-    d: int
+    d: Annotated[int, Integer()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         ok = len(self.blocks) > 0 and all(_index_array(c, self.d) for c, _ in self.blocks)

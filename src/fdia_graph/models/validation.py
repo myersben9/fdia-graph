@@ -10,8 +10,8 @@ field when the model is built:
 
 Every rule in a field's `Annotated` metadata is applied in order. A converting rule also replaces the
 value: `OneOf` stores the choice's canonical string ("NYISO" becomes "nyiso"), `AsArray` a numpy array,
-`Parses` whatever its parser returns. A None value skips the rules of an `Optional` (or `Any`) field
-and is refused for any other: the annotation says the field is required. Last, the model's
+`Parses` whatever its parser returns. A None value skips the rules of an `Optional` field and is
+refused for any other: the annotation says the field is required. Last, the model's
 `invariants()` (conditions across fields) must hold. A failure raises `ConfigError`, a `ValueError`, with one message shape:
 "<Model>.<field> <what the rule says>, got <value>". Functions never check their arguments
 themselves; they build the model.
@@ -247,5 +247,4 @@ def _unpack(hint: Any) -> tuple[tuple[Rule, ...], bool]:
     if typing.get_origin(hint) is typing.Annotated:
         hint, *meta = typing.get_args(hint)
         rules = tuple(m for m in meta if isinstance(m, Rule))
-    optional = hint is Any or (typing.get_origin(hint) is Union and type(None) in typing.get_args(hint))
-    return rules, optional
+    return rules, typing.get_origin(hint) is Union and type(None) in typing.get_args(hint)
