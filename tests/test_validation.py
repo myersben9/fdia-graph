@@ -160,3 +160,30 @@ def test_data_conditions_raise_named_errors(timeline):
     with pytest.raises(NoBenignRecords, match="fit needs benign records"):
         SwingThreshold().fit(attacked_only)
     assert issubclass(NoBenignRecords, DataConditionError) and issubclass(DataConditionError, ValueError)
+
+
+def test_a_malformed_value_gets_the_engine_message_not_a_raw_type_error():
+    from fdia_graph.models.config import HuberConfig, SolveConfig, TrustConfig
+
+    with pytest.raises(ConfigError, match=r"^HuberConfig\.c must be > 0, got 'bad'$"):
+        HuberConfig(c="bad")
+    for bad in (dict(npass=1.5), dict(iters=2.0)):
+        with pytest.raises(ConfigError, match="must be an integer"):
+            SolveConfig(**bad)
+    with pytest.raises(ConfigError, match="TrustConfig.k must be an integer"):
+        TrustConfig(k=1.5)
+    assert SolveConfig(npass=np.int64(3)).npass == 3  # numpy integers are integers
+
+
+def test_the_gate_exempts_the_models_package_only(tmp_path, monkeypatch):
+    import os
+    import sys
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools"))
+    import readability
+
+    sibling = tmp_path / "models_extra.py"
+    sibling.write_text("def f():\n    raise ValueError('x')\n")
+    monkeypatch.setattr(readability, "_MODELS", str(tmp_path / "models"))
+    monkeypatch.setattr(readability, "ROOT", str(tmp_path))
+    assert [h[2] for h in readability.hand_checks(str(sibling))] == ["ValueError"]

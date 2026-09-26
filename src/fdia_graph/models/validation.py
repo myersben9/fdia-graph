@@ -52,8 +52,14 @@ class Rule:
         raise NotImplementedError
 
     def apply(self, value: Any, where: str) -> Any:
-        """The value, unchanged, or ConfigError naming `where` when the rule does not hold."""
-        if not self.holds(value):
+        """The value, unchanged, or ConfigError naming `where` when the rule does not hold. A value
+        the rule cannot even evaluate (a string where a number belongs) has failed it too, so a
+        malformed argument gets the same message as an out-of-range one."""
+        try:
+            holds = bool(self.holds(value))
+        except (TypeError, ValueError):
+            holds = False
+        if not holds:
             raise ConfigError(f"{where} {self.says}, got {value!r}")
         return value
 

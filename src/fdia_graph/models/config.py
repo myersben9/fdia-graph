@@ -82,15 +82,15 @@ class WindowSpec(Validated):
 class SolveConfig(Validated):
     """The chord-Newton solve every estimator shares."""
 
-    npass: Annotated[int, AtLeast(1)] = 40  # reweighting passes
-    iters: Annotated[int, AtLeast(1)] = 8  # chord-Newton steps inside each solve
+    npass: Annotated[int, Integer(), AtLeast(1)] = 40  # reweighting passes
+    iters: Annotated[int, Integer(), AtLeast(1)] = 8  # chord-Newton steps inside each solve
 
 
 @dataclass(frozen=True)
 class FitOptions(Validated):
     """How an estimator calibrates on the benign training records."""
 
-    n_calib: Annotated[int, AtLeast(1)] = 600
+    n_calib: Annotated[int, Integer(), AtLeast(1)] = 600
     calibrate: Annotated[str, OneOf(Calibrate)] = "truth"
 
 
@@ -156,8 +156,8 @@ class LocalizerConfig(Validated):
 class LearnedConfig(Validated):
     """The encoder a learned localizer builds and the vector it reads."""
 
-    layers: Annotated[int, AtLeast(1)] = 4
-    hidden: Annotated[int, AtLeast(8)] = 128
+    layers: Annotated[int, Integer(), AtLeast(1)] = 4
+    hidden: Annotated[int, Integer(), AtLeast(8)] = 128
     features: Annotated[str, OneOf(Features)] = "full14"
 
 
@@ -180,7 +180,7 @@ class PerBusReport(Validated):
 class TrustConfig(Validated):
     """A trusted-meter budget and the residual test's false-alarm target."""
 
-    k: Annotated[int, AtLeast(1)]
+    k: Annotated[int, Integer(), AtLeast(1)]
     fa_target: Fraction = 0.01
 
 
@@ -214,9 +214,9 @@ class TimelineKnobs(Validated):
     am_rate: Annotated[float, Positive()] = 0.9
     hops: Count = 2
     am_direction: Annotated[str, OneOf(AmDirection)] = "both"
-    ramp_len: Annotated[int, AtLeast(1)] = 60
-    am_len: Annotated[int, AtLeast(1)] = 60
-    corrupt_len: Annotated[Optional[int], AtLeast(1)] = 1
+    ramp_len: Annotated[int, Integer(), AtLeast(1)] = 60
+    am_len: Annotated[int, Integer(), AtLeast(1)] = 60
+    corrupt_len: Annotated[Optional[int], Integer(), AtLeast(1)] = 1
 
 
 @dataclass(frozen=True)
@@ -239,7 +239,7 @@ class SplitFractions(Validated):
 
     train_frac: Fraction = 0.6
     val_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True)] = 0.2
-    max_test: Annotated[Optional[int], AtLeast(0)] = None
+    max_test: Annotated[Optional[int], Integer(), AtLeast(0)] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (

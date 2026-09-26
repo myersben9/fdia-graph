@@ -234,7 +234,8 @@ _BARE = {"ValueError", "TypeError"}
 
 def hand_checks(path: str) -> list[tuple[str, int, str]]:
     """`raise ValueError(...)` / `raise TypeError(...)` outside `fdia_graph.models`: (file, line, type)."""
-    if os.path.normcase(os.path.abspath(path)).startswith(os.path.normcase(os.path.abspath(_MODELS))):
+    here, models = os.path.normcase(os.path.abspath(path)), os.path.normcase(os.path.abspath(_MODELS))
+    if os.path.commonpath([here, models]) == models:  # inside the package, not a sibling named models_*
         return []
     tree = ast.parse(open(path, encoding="utf8").read())
     return [
