@@ -41,7 +41,6 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | Huber `c` / rank fraction | 1.5 / 0.20 (14), 2.5 / 0.50 (118), 6.0 / 0.50 (300) |
 | removal threshold | 4.0 (14), 5.0 (118), 5.0 (300); on IEEE-300 it runs 2.4 hours (the per-record observability guard) and cuts the WLS angle error 28% |
 | cell | geometric mean of the MAE over the eight record classes (benign and the seven families); full metrics in `results/se_ieee{14,118,300}.json` |
-| data | release v0.8.3; the two gated IEEE-300 cells are pending a rerun |
 
 **Estimator comparison** (bold marks the proposed rows, not the best cell)
 
@@ -53,8 +52,8 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | Adaptive weighting | 0.057 | 0.014 | 0.020 |
 | **Prior + Huber (proposed)** | **0.050** | **0.010** | **0.016** |
 | Jacobian weighting | 0.076 | 0.016 | 0.021 |
-| **Prior + Huber + CNN gate** | **0.044** | **0.010** |  |
-| Prior + Huber + oracle gate (ceiling) | 0.041 | 0.010 |  |
+| **Prior + Huber + CNN gate** | **0.044** | **0.010** | **0.015** |
+| Prior + Huber + oracle gate (ceiling) | 0.041 | 0.010 | 0.015 |
 | WLS error reduction | 45% | 50% | 40% |
 
 | Estimator | IEEE 14 | IEEE 118 | IEEE 300 |
@@ -65,8 +64,8 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | Adaptive weighting | 0.540 | 0.122 | 0.177 |
 | **Prior + Huber (proposed)** | **0.160** | **0.029** | **0.064** |
 | Jacobian weighting | 0.695 | 0.138 | 0.183 |
-| **Prior + Huber + CNN gate** | **0.239** | **0.032** |  |
-| Prior + Huber + oracle gate (ceiling) | 0.212 | 0.034 |  |
+| **Prior + Huber + CNN gate** | **0.239** | **0.032** | **0.063** |
+| Prior + Huber + oracle gate (ceiling) | 0.212 | 0.034 | 0.059 |
 | WLS error reduction | 81% | 84% | 71% |
 
 | paper (v0.4.1 data) | 14 | 118 | 300 |
@@ -133,20 +132,20 @@ gate, and with the true labels as the gate (the ceiling for any gate). IEEE-14 t
 | | IEEE 14 | | | IEEE 118 | | | IEEE 300 | | |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | angle MAE (deg) | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle |
-| Aq stealthy re-solve | 0.355 | 0.300 | 0.301 | 0.0181 | 0.0176 | 0.0168 | 0.0241 | pending | pending |
-| Ad / As / Ar in place | 0.026 / 0.071 / 0.032 | 0.022 / 0.021 / 0.022 | 0.020 / 0.020 / 0.020 | 0.0094 / 0.0103 / 0.0080 | 0.0082 / 0.0082 / 0.0083 | 0.0074 / 0.0075 / 0.0073 | 0.0146 / 0.0154 / 0.0140 | pending | pending |
-| At slow ramp | 0.066 | 0.070 | 0.060 | 0.0084 | 0.0092 | 0.0085 | 0.0136 | pending | pending |
-| Al redistribution | 0.048 | 0.076 | 0.075 | 0.0147 | 0.0182 | 0.0178 | 0.0196 | pending | pending |
-| Am multi-snapshot | 0.046 | 0.062 | 0.059 | 0.0106 | 0.0115 | 0.0148 | 0.0194 | pending | pending |
-| geometric mean | 0.050 | **0.044** | 0.041 | **0.0102** | 0.0103 | 0.0100 | 0.0161 | pending | pending |
+| Aq stealthy re-solve | 0.355 | 0.300 | 0.301 | 0.0181 | 0.0176 | 0.0168 | 0.0241 | 0.0239 | 0.0234 |
+| Ad / As / Ar in place | 0.026 / 0.071 / 0.032 | 0.022 / 0.021 / 0.022 | 0.020 / 0.020 / 0.020 | 0.0094 / 0.0103 / 0.0080 | 0.0082 / 0.0082 / 0.0083 | 0.0074 / 0.0075 / 0.0073 | 0.0146 / 0.0154 / 0.0140 | 0.0128 / 0.0128 / 0.0129 | 0.0122 / 0.0122 / 0.0122 |
+| At slow ramp | 0.066 | 0.070 | 0.060 | 0.0084 | 0.0092 | 0.0085 | 0.0136 | 0.0144 | 0.0137 |
+| Al redistribution | 0.048 | 0.076 | 0.075 | 0.0147 | 0.0182 | 0.0178 | 0.0196 | 0.0187 | 0.0185 |
+| Am multi-snapshot | 0.046 | 0.062 | 0.059 | 0.0106 | 0.0115 | 0.0148 | 0.0194 | 0.0205 | 0.0175 |
+| geometric mean | 0.050 | **0.044** | 0.041 | **0.0102** | 0.0103 | 0.0100 | 0.0161 | **0.0155** | 0.0147 |
 
 | families | what the gate does | why |
 |---|---|---|
-| `Ad` `As` `Ar` (in place) | finishes the job: the CNN gate takes them to 0.021 to 0.022 on 14 and 0.0082 to 0.0083 on 118, next to the oracle's 0.020 and 0.0073 to 0.0075 | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
-| `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse on 14 and 118, with the true labels too: `Al` 0.048 → 0.076 on 14, 0.0147 → 0.0182 on 118; it improves `Aq` on 14 (0.355 → 0.300) | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
+| `Ad` `As` `Ar` (in place) | finishes the job at every size: the CNN gate takes them to 0.021 to 0.022 on 14, 0.0082 to 0.0083 on 118 and 0.0128 to 0.0129 on 300, next to the oracle's 0.020, 0.0073 to 0.0075 and 0.0122 | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
+| `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse on 14 and 118, with the true labels too: `Al` 0.048 → 0.076 on 14, 0.0147 → 0.0182 on 118; on 300 it improves `Al` (0.0196 → 0.0187) and makes `At` (0.0136 → 0.0144) and `Am` (0.0194 → 0.0205) slightly worse; it improves `Aq` on 14 (0.355 → 0.300) | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
 
-The CNN gate lowers the geometric mean 12% on IEEE-14 (0.050 to 0.044) and costs 1% on 118 (0.0102
-to 0.0103): the in-place families (and `Aq` on 14) gain, and the stealthy-family losses (`Al` and
+The CNN gate lowers the geometric mean 12% on IEEE-14 (0.050 to 0.044) and 4% on 300 (0.0161 to
+0.0155) and costs 1% on 118 (0.0102 to 0.0103): the in-place families (and `Aq` on 14) gain, and the stealthy-family losses (`Al` and
 `Am` most) offset that gain on 118. The gate pays most when it has something true to leave in: with
 20 meters secured by the DQN selector of [`../trust/README.md`](../trust/README.md) and exempt from
 the gate, IEEE-14 goes from 0.050 degrees to 0.031 with the secured meters alone and to 0.017 with
@@ -165,5 +164,5 @@ python docs/se/make_report.py                  # tables (markdown) + figures + C
 | | |
 |---|---|
 | skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
-| wall time, CPU, IEEE-300 (v0.8.3 run, sharing the CPU with two other guide jobs) | WLS 24 s, residual removal 2.4 h, Huber 2.7 h, prior + Huber 53 min, Jacobian weighting 4 min; the gated arms are being rerun single-threaded after the first run hung inside the OpenMP runtime |
+| wall time, CPU, IEEE-300 (v0.8.3 run, sharing the CPU with two other guide jobs) | WLS 24 s, residual removal 2.4 h, Huber 2.7 h, prior + Huber 53 min, Jacobian weighting 4 min; each gated arm 1.6 h run single-threaded (`OMP_NUM_THREADS=1`), after a multi-threaded run hung inside the OpenMP runtime |
 | re-runs | score from `results/cache/` in about a minute per arm |
