@@ -366,3 +366,29 @@ def test_gated_prior_uses_the_gate(splits):
     assert x.shape == (len(splits["test"]), 2 * splits["test"].N - 1)
     with pytest.raises(ValueError):
         GatedPrior(gate=None)
+
+
+def test_only_load_buses_are_attacked(splits):
+    """Every attacked bus must be a load bus."""
+    import pandapower.networks as pn
+
+    ds = splits["test"]
+
+    d = ds.to_numpy(["y"])
+    attacked = np.asarray(d["y"], dtype=bool)
+
+    # Get the load-bus numbers from the IEEE-14 network.
+    net = pn.case14()
+    load_bus_numbers = net.load["bus"].to_numpy(dtype=int)
+
+    # Create one True/False entry for each of the 14 buses.
+    load_bus = np.zeros(attacked.shape[1], dtype=bool)
+    load_bus[load_bus_numbers] = True
+
+    # True wherever an attack appears on a non-load bus.
+    invalid = attacked & ~load_bus[None, :]
+
+    assert not np.any(invalid), (
+        "An attack was found on a bus that is not a load bus."
+    )
+    
