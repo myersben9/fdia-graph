@@ -1,5 +1,7 @@
 """Behavioral tests for the SDK surface: the contracts the docs promise, checked on a tiny shard."""
 
+from email import generator
+
 import numpy as np
 import pytest
 
@@ -367,28 +369,46 @@ def test_gated_prior_uses_the_gate(splits):
     with pytest.raises(ValueError):
         GatedPrior(gate=None)
 
+#-------------Load bus attack checker--------------------------------------------------------------------------------
 
-def test_only_load_buses_are_attacked(splits):
-    """Every attacked bus must be a load bus."""
-    import pandapower.networks as pn
+@pytest.mark.parametrize(
+    "system",
+    [
+        "ieee14",
+        "ieee30",
+        "ieee57",
+        "ieee89",
+        "ieee118",
+        "ieee145",
+        "ieee200",
+        "ieee300",
+    ],
+)
+def test_only_load_buses_are_attacked(system):
+    """Every attacked bus in the full timeline must be an attackable load bus."""
+    from fdia_graph.engine import FdiaGenerator
 
-    ds = splits["test"]
+    ds = fg.load(system)
 
-    d = ds.to_numpy(["y"])
-    attacked = np.asarray(d["y"], dtype=bool)
+    data = ds.to_numpy(["y"])
+    attacked = np.asarray(data["y"], dtype=bool)
 
-    # Get the load-bus numbers from the IEEE-14 network.
-    net = pn.case14()
-    load_bus_numbers = net.load["bus"].to_numpy(dtype=int)
+    system_size = int(system.removeprefix("ieee"))
+    generator = FdiaGenerator(system_size)
 
-    # Create one True/False entry for each of the 14 buses.
-    load_bus = np.zeros(attacked.shape[1], dtype=bool)
-    load_bus[load_bus_numbers] = True
+    # attackable_pos contains rows from the pandapower load table.
+    net = generator.NET()
+    load_rows = np.asarray(generator.attackable_pos, dtype=int)
+    load_bus_numbers = net.load.iloc[load_rows]["bus"].to_numpy(dtype=int)
 
-    # True wherever an attack appears on a non-load bus.
-    invalid = attacked & ~load_bus[None, :]
+    # Mark those buses as allowed attack targets.
+    allowed = np.zeros(attacked.shape[1], dtype=bool)
+    allowed[load_bus_numbers] = True
+
+    invalid = attacked & ~allowed[None, :]
+    
 
     assert not np.any(invalid), (
-        "An attack was found on a bus that is not a load bus."
+        f"{system}: an attack was found on a bus "
+        "that is not an attackable load bus"
     )
-    
