@@ -8,6 +8,7 @@ checked in a function body.
 
 from __future__ import annotations
 
+import datetime as _dt
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from typing import Annotated, Any, ClassVar, Optional, Union, cast
 
 import numpy as np
 
-from .choices import FAMILIES, FAMILY_ALIAS, Capability, Reduce
+from .choices import FAMILIES, FAMILY_ALIAS, Capability, Iso, Reduce
 from .errors import NoAdmissibleTarget
 from .validation import AsArray, AtLeast, Dims, Integer, IntegerDtype, OneOf, Parses, Required, Validated
 
@@ -49,6 +50,11 @@ def release_numbers(release: str) -> tuple[int, ...]:
     return tuple(int(x) for x in m.groups())
 
 
+def iso_date(d: Any) -> _dt.date:
+    """'YYYY-MM-DD', a date or a datetime, as a date: all three print as the ISO date first."""
+    return _dt.date.fromisoformat(str(d)[:10])
+
+
 FAMILY_WORDS = (
     f"must name families; unknown family in it (known: {sorted(_FAMILY_NAMES)} or codes {sorted(FAMILIES)})"
 )
@@ -63,6 +69,68 @@ class FamilySelection(Validated):
     @property
     def codes(self) -> tuple[int, ...]:
         return tuple(int(c) for c in self.families)
+
+
+@dataclass(frozen=True)
+class DateSpan(Validated):
+    """An inclusive span of days; each end a 'YYYY-MM-DD' string, a date or a datetime."""
+
+    start: Annotated[Any, Parses(iso_date, "must be a date like '2024-01-31'")]
+    end: Annotated[Any, Parses(iso_date, "must be a date like '2024-01-31'")]
+
+
+@dataclass(frozen=True)
+class ProfileSource(Validated):
+    """What `load_profile` was handed: a source that reads itself (it has `loads()`), or the pre-0.21
+    form, an operator name with a directory, a CSV path with its column, or the load values."""
+
+    source: Any
+    path: Optional[str] = None
+    column: Optional[str] = None
+
+    @property
+    def kind(self) -> str:
+        """ "source", "values", "iso" or "csv"."""
+        if hasattr(self.source, "loads"):  # what `LoadSource`'s runtime check tests
+            return "source"
+        if not isinstance(self.source, str):
+            return "values"
+        return "iso" if self.source.lower() in Iso.values() else "csv"
+
+
+@dataclass(frozen=True)
+class StateSource(Validated):
+    """Where an operating-point pool comes from: an array in memory, or a path (a directory of
+    X_*.npy, an .npz or an HDF5 file); neither falls back to $FDIA_GRAPH_INIT, then the download."""
+
+    states: Optional[Any] = None
+
+    @property
+    def array(self) -> Optional[np.ndarray]:
+        """The pool itself when one was passed in memory, as float64."""
+        return self.states.astype(np.float64) if isinstance(self.states, np.ndarray) else None
+
+    @property
+    def path(self) -> Any:
+        """The path passed, or None (an array has no truth value, so it is never read as one)."""
+        return None if isinstance(self.states, np.ndarray) else self.states
+
+
+@dataclass(frozen=True)
+class DatasetName(Validated):
+    """A dataset name as the registry looks it up: a built-in name in any case and with spaces
+    around it, unless a local registration uses that exact spelling; any other name exactly."""
+
+    name: Any
+    local: frozenset[str]
+    builtin: frozenset[str]
+
+    @property
+    def key(self) -> Any:
+        n = self.name
+        if isinstance(n, str) and n not in self.local and n.strip().lower() in self.builtin:
+            return n.strip().lower()  # "IEEE118" like system_id; a local name stays case-sensitive
+        return n
 
 
 @dataclass(frozen=True)

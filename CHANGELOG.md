@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `load_profile` takes a load source that reads itself: `IsoFolder(iso, directory)` (an operator's
+  CSV export; `models.config.IsoExport` checks the operator and refuses one with no known export
+  format, ERCOT, when the folder is described), `CsvColumn(path, column)` or `RawSeries(values)`, or
+  any object with a `loads()` method (`profiles.LoadSource`). The old form, `load_profile(source,
+  path=, column=)` with a string or an array, still works for one minor version and raises a
+  `DeprecationWarning`.
+- `fetch_profile` reads from the operator's feed in `profiles._FEEDS`: `NyisoArchive` (built in, no
+  dependency) for NYISO, `GridstatusFeed` for CAISO and ERCOT, which imports `gridstatus` itself and
+  names the install when it is missing; `models.config.ProfileFetch` checks the operator and
+  `resample_min`. The downloaded data and the returned vector are unchanged.
 - Every input is checked in one place (`docs/plans/VALIDATION_PLAN.md`). Each consumer's settings
   are one model in `fdia_graph.models.config` (`LoadOptions`, `WindowSpec`, `HuberConfig`,
   `PriorConfig`, `LearnedConfig`, `FederatedSettings`, `TimelineKnobs` and the rest), whose fields
@@ -50,6 +60,11 @@ the public API, the generated files and the numbers are the same as the previous
   range, a mapping where a sequence belongs) is a `ConfigError`, never a raw `OverflowError`,
   `KeyError` or `AttributeError`; `tests/test_malformed_inputs.py` sweeps every config and input
   model with values of the wrong kind and the public entry points with one bad argument each.
+  Loose input is read by a parser model, so no function outside `models/` dispatches on a type:
+  `ProfileSource` (what `load_profile` was handed), `DateSpan` (`fetch_profile`'s dates; a date it
+  cannot read is a `ConfigError` before any download), `StateSource` (an in-memory pool or a path)
+  and `DatasetName` (the registry's lookup key). `tools/readability.py` now refuses
+  `isinstance(...)` outside `fdia_graph.models` as it refuses a bare `raise ValueError`.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

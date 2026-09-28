@@ -7,7 +7,8 @@ Pipeline:  load profile  ->  per-timestep scaled loads  ->  AC power flow (panda
 The operating states are the [T, N, 4] pool the attack generator injects onto:
     columns = [ |V| (p.u.), P_inj (MW), Q_inj (MVAr), theta (deg) ]   (pandapower consumer-positive convention)
 
-    load_profile(source, ...)  ->  a normalized load-scaling vector S [T]
+    load_profile(IsoFolder | CsvColumn | RawSeries)  ->  a normalized load-scaling vector S [T]
+    fetch_profile(iso, start, end)                     ->  the same, downloaded from the operator
     generate_states(system, S) ->  a pool of operating states [T, N, 4]
 """
 
@@ -17,9 +18,10 @@ import datetime as _dt
 import glob
 import io
 import os
+import warnings
 import zipfile
 from collections.abc import Iterator, Sequence
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, runtime_checkable
 
 import numpy as np
 
@@ -27,8 +29,8 @@ from .engine.core import _CASE  # bus-count -> pandapower builder; single source
 from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
     Iso,
 )
-from .models.config import ProfileFetch
-from .models.inputs import CsvSpec, SupportedSystem
+from .models.config import EXPORT_COLUMNS, IsoExport, ProfileFetch
+from .models.inputs import CsvSpec, DateSpan, ProfileSource, SupportedSystem
 from .registry import system_id  # noqa: F401  re-exported: callers read it from here before
 
 
@@ -53,43 +55,97 @@ CLIP_DEFAULT = (0.7, 1.3)
 # noise) at the same stationary bus-to-bus spread.
 JITTER_RHO = 0.98
 
-# how each supported ISO CSV names its timestamp and load columns
-_ISO_COLS = {
-    "caiso": ("interval_start_local", "load"),
-    "nyiso": ("Time Stamp", "Load"),
-}
+
+def _standardize(loads: np.ndarray) -> np.ndarray:
+    """The load-scaling vector S [T]: zero mean, unit variance. Standardizing makes the K knob mean the
+    same thing across sources of different absolute magnitude; a flat series stays at zero."""
+    sd = loads.std()
+    return (loads - loads.mean()) / (sd if sd > 0 else 1.0)
+
+
+@runtime_checkable
+class LoadSource(Protocol):
+    """Anything that reads a load series: `IsoFolder`, `CsvColumn`, `RawSeries`, or a source of your
+    own with the same method."""
+
+    def loads(self) -> np.ndarray: ...
+
+
+class RawSeries:
+    """Load values you already have, in any unit."""
+
+    def __init__(self, values: Union[Sequence[float], np.ndarray]) -> None:
+        self.values = np.asarray(values, dtype=float).ravel()
+
+    def loads(self) -> np.ndarray:
+        return self.values
+
+
+class CsvColumn:
+    """One column of one CSV file."""
+
+    def __init__(self, path: str, column: str) -> None:
+        self.path, self.column = path, column
+
+    def loads(self) -> np.ndarray:
+        return _pandas().read_csv(self.path)[self.column].dropna().to_numpy(dtype=float)
+
+
+class IsoFolder:
+    """Every CSV of one operator's load export in a directory, concatenated in time order. The operator
+    fixes the column names (`models.config.EXPORT_COLUMNS`); `IsoExport` refuses an operator without
+    a known export format when the folder is described, not when it is read."""
+
+    def __init__(self, iso: str, directory: str = ".") -> None:
+        self.spec = IsoExport(iso, directory)
+
+    @property
+    def columns(self) -> tuple[str, str]:
+        """(timestamp column, load column) of this operator's export."""
+        return EXPORT_COLUMNS[self.spec.iso]
+
+    def loads(self) -> np.ndarray:
+        pd = _pandas()
+        files = sorted(glob.glob(os.path.join(self.spec.directory, "*.csv")))
+        if not files:  # the file system, not the input: the directory holds no export
+            raise FileNotFoundError(f"no CSV files found under {self.spec.directory!r} for {self.spec.iso}")
+        ts, load = self.columns
+        frames = [pd.read_csv(f, parse_dates=[ts], index_col=ts) for f in files]
+        return pd.concat(frames).sort_index()[load].dropna().to_numpy(dtype=float)
 
 
 def load_profile(
-    source: Union[str, Sequence[float], np.ndarray], path: Optional[str] = None, column: Optional[str] = None
+    source: Union[LoadSource, str, Sequence[float], np.ndarray],
+    path: Optional[str] = None,
+    column: Optional[str] = None,
 ) -> np.ndarray:
-    """Return a normalized load-scaling vector S [T] (zero-mean, unit-variance) from a load time series.
+    """A normalized load-scaling vector S [T] (zero mean, unit variance) from a load time series.
 
-    `source` can be:
-      - "caiso" or "nyiso": read every CSV under `path` (a directory), concatenate in time order, and
-        standardize the ISO's load column.
-      - a path to a single CSV plus `column`: standardize that column.
-      - an array-like of raw load values: standardize it directly.
+    source : where the loads come from, `IsoFolder("nyiso", "data/nyiso")`,
+             `CsvColumn("loads.csv", "load_mw")` or `RawSeries(values)`; each reads itself.
 
-    Standardization makes the K knob mean the same thing across sources of different absolute magnitude.
+    The older form, a string or an array with `path` / `column`, still works for one minor version and
+    warns (`_legacy_source`).
     """
-    if isinstance(source, (list, tuple, np.ndarray)):  # bring-your-own raw load series
-        loads = np.asarray(source, dtype=float).ravel()
-    elif isinstance(source, str) and source.lower() in _ISO_COLS:  # built-in ISO CSV directory
-        pd = _pandas()
-        ts_col, load_col = _ISO_COLS[source.lower()]
-        files = sorted(glob.glob(os.path.join(path or ".", "*.csv")))
-        if not files:
-            raise FileNotFoundError(f"no CSV files found under {path!r} for source {source!r}")
-        frames = [pd.read_csv(f, parse_dates=[ts_col], index_col=ts_col) for f in files]
-        full = __import__("pandas").concat(frames).sort_index()
-        loads = full[load_col].dropna().to_numpy(dtype=float)
-    else:  # generic CSV path + column name
-        pd = _pandas()
-        spec = CsvSpec(source, column)
-        loads = pd.read_csv(spec.path)[spec.column].dropna().to_numpy(dtype=float)
-    mu, sd = loads.mean(), loads.std()
-    return (loads - mu) / (sd if sd > 0 else 1.0)  # standardized scaling vector S [T]
+    spec = ProfileSource(source, path, column)
+    reader: LoadSource = source if spec.kind == "source" else _legacy_source(spec)  # type: ignore[assignment]
+    return _standardize(reader.loads())
+
+
+def _legacy_source(spec: ProfileSource) -> LoadSource:
+    """The pre-0.21 call `load_profile(source, path, column)` as a source: an operator name with a
+    directory, a CSV path with its column (`CsvSpec` requires it), or the values themselves."""
+    warnings.warn(
+        "load_profile(source, path=, column=) is deprecated; pass IsoFolder, CsvColumn or RawSeries",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    if spec.kind == "values":
+        return RawSeries(spec.source)
+    if spec.kind == "iso":
+        return IsoFolder(spec.source, spec.path or ".")
+    csv = CsvSpec(spec.source, spec.column)
+    return CsvColumn(csv.path, str(csv.column))
 
 
 def _case_buses(key: int) -> np.ndarray:
@@ -219,15 +275,6 @@ def generate_states(
 # ---------------------------------------------------------------------------------------------------------
 
 
-def _as_date(d: Union[str, _dt.date, _dt.datetime]) -> _dt.date:
-    """Accept 'YYYY-MM-DD', a date, or a datetime and return a date."""
-    if isinstance(d, _dt.datetime):
-        return d.date()
-    if isinstance(d, _dt.date):
-        return d
-    return _dt.datetime.strptime(str(d)[:10], "%Y-%m-%d").date()
-
-
 def _month_firsts(start: _dt.date, end: _dt.date) -> Iterator[_dt.date]:
     """Yield the first-of-month date for every month spanned by [start, end]."""
     y, m = start.year, start.month
@@ -236,47 +283,75 @@ def _month_firsts(start: _dt.date, end: _dt.date) -> Iterator[_dt.date]:
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
 
 
-def _fetch_nyiso(start: _dt.date, end: _dt.date) -> pd.Series:
-    """NYISO system load (MW) over [start, end] at 5-MINUTE resolution, built-in and account-free.
+class NyisoArchive:
+    """NYISO system load (MW) at 5-MINUTE resolution from the public monthly archives: built in, no
+    account and no extra dependency.
 
-    Uses the 'pal' feed (real-time actual, ~288 samples/day; 'palIntegrated' is only hourly), one CSV per day
-    in a monthly zip. Each row is a control-zone reading; system load sums the 11 zones per timestamp. Returns
-    a pandas Series indexed by timestamp.
-    """
-    import requests
+    Uses the 'pal' feed (real-time actual, ~288 samples/day; 'palIntegrated' is only hourly), one CSV
+    per day in a monthly zip. Each row is a control-zone reading; system load sums the 11 zones per
+    timestamp."""
 
-    pd = _pandas()
-    frames = []
-    for first in _month_firsts(start, end):
-        url = f"https://mis.nyiso.com/public/csv/pal/{first:%Y%m01}pal_csv.zip"
-        r = requests.get(url, timeout=60, headers={"User-Agent": "Mozilla/5.0"})
-        r.raise_for_status()
-        with zipfile.ZipFile(io.BytesIO(r.content)) as z:
-            for nm in z.namelist():
-                df = pd.read_csv(io.BytesIO(z.read(nm)))
-                df["Time Stamp"] = pd.to_datetime(df["Time Stamp"])
-                frames.append(df[["Time Stamp", "Name", "Load"]])
-    full = pd.concat(frames)
-    # Zones have small clock offsets; pivot onto a clean 5-min grid before summing so no timestamp under-counts.
-    piv = full.pivot_table(index="Time Stamp", columns="Name", values="Load", aggfunc="mean")
-    grid = pd.date_range(piv.index.min().floor("5min"), piv.index.max().ceil("5min"), freq="5min")
-    piv = piv.reindex(piv.index.union(grid)).interpolate(limit=3).reindex(grid)
-    system = piv.sum(axis=1, min_count=piv.shape[1]).dropna().sort_index()  # all zones present -> valid sum
-    mask = (system.index.date >= start) & (system.index.date <= end)
-    return system[mask]
+    def fetch(self, start: _dt.date, end: _dt.date) -> pd.Series:
+        import requests
+
+        pd = _pandas()
+        frames = []
+        for first in _month_firsts(start, end):
+            url = f"https://mis.nyiso.com/public/csv/pal/{first:%Y%m01}pal_csv.zip"
+            r = requests.get(url, timeout=60, headers={"User-Agent": "Mozilla/5.0"})
+            r.raise_for_status()
+            with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+                for nm in z.namelist():
+                    df = pd.read_csv(io.BytesIO(z.read(nm)))
+                    df["Time Stamp"] = pd.to_datetime(df["Time Stamp"])
+                    frames.append(df[["Time Stamp", "Name", "Load"]])
+        full = pd.concat(frames)
+        # Zones have small clock offsets; pivot onto a clean 5-min grid before summing so no timestamp
+        # under-counts.
+        piv = full.pivot_table(index="Time Stamp", columns="Name", values="Load", aggfunc="mean")
+        grid = pd.date_range(piv.index.min().floor("5min"), piv.index.max().ceil("5min"), freq="5min")
+        piv = piv.reindex(piv.index.union(grid)).interpolate(limit=3).reindex(grid)
+        system = piv.sum(axis=1, min_count=piv.shape[1]).dropna().sort_index()  # all zones present
+        mask = (system.index.date >= start) & (system.index.date <= end)
+        return system[mask]
 
 
-def _fetch_gridstatus(iso: str, start: _dt.date, end: _dt.date) -> pd.Series:
-    """System load (MW) over [start, end] via the `gridstatus` package — uniform across CAISO/NYISO/ERCOT.
+class GridstatusFeed:
+    """System load (MW) through the `gridstatus` package, which wraps each operator's data service
+    behind one `.get_load(start, end)`. `operator` is the gridstatus class name. The package is an
+    optional dependency (pip install 'fdia-graph[iso]'); the feed imports it when it fetches, so only
+    a caller of this feed needs it."""
 
-    gridstatus wraps each operator's data service behind one `.get_load(start, end)`. Returns a pandas Series.
-    """
-    import gridstatus
+    def __init__(self, operator: str) -> None:
+        self.operator = operator
 
-    cls = {"caiso": gridstatus.CAISO, "nyiso": gridstatus.NYISO, "ercot": gridstatus.Ercot}[iso]
-    df = cls().get_load(start=str(start), end=str(end + _dt.timedelta(days=1)))
-    ts = df["Time"] if "Time" in df.columns else df.index
-    return __import__("pandas").Series(df["Load"].to_numpy(), index=list(ts)).sort_index()
+    def fetch(self, start: _dt.date, end: _dt.date) -> pd.Series:
+        try:
+            import gridstatus
+        except ImportError as e:
+            raise ImportError(
+                f"fetching {self.operator} load needs the gridstatus package: pip install 'fdia-graph[iso]' "
+                "(NYISO works without it)"
+            ) from e
+        df = getattr(gridstatus, self.operator)().get_load(
+            start=str(start), end=str(end + _dt.timedelta(days=1))
+        )
+        ts = df["Time"] if "Time" in df.columns else df.index
+        return _pandas().Series(df["Load"].to_numpy(), index=list(ts)).sort_index()
+
+
+class LoadFeed(Protocol):
+    """An operator's load service: the system load (MW) over [start, end] as a timestamped series."""
+
+    def fetch(self, start: _dt.date, end: _dt.date) -> pd.Series: ...
+
+
+# Where each operator's load comes from.
+_FEEDS: dict[str, LoadFeed] = {
+    Iso.NYISO: NyisoArchive(),
+    Iso.CAISO: GridstatusFeed("CAISO"),
+    Iso.ERCOT: GridstatusFeed("Ercot"),
+}
 
 
 def fetch_profile(
@@ -294,32 +369,20 @@ def fetch_profile(
     resample_min : if set (e.g. 1), time-interpolate onto a uniform grid at that minute cadence before
                    standardizing (upsamples the 5-min feed; intermediate points are interpolated).
 
-    NYISO needs no dependencies or account; CAISO/ERCOT use `gridstatus` (pip install 'fdia-graph[iso]'). The
-    returned S feeds generate_states() exactly like load_profile()'s output.
+    Each operator's feed is in `_FEEDS`: NYISO is the built-in `NyisoArchive` (no dependency or account),
+    CAISO and ERCOT a `GridstatusFeed` (pip install 'fdia-graph[iso]'). The returned S feeds
+    generate_states() exactly like load_profile()'s output.
     """
-    req = ProfileFetch(iso, resample_min)
-    iso, resample_min = req.iso, req.resample_min
-    start, end = _as_date(start), _as_date(end)
-    if iso == "nyiso":
-        series = _fetch_nyiso(start, end)  # zero-dependency built-in, 5-minute
-    else:  # caiso / ercot -> gridstatus (5-min native)
-        try:
-            import gridstatus  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                f"fetching {iso.upper()} load needs the gridstatus package: pip install 'fdia-graph[iso]' "
-                f"(NYISO works without it)."
-            )
-        series = _fetch_gridstatus(iso, start, end)
-    if resample_min is not None:
+    req, span = ProfileFetch(iso, resample_min), DateSpan(start, end)
+    series = _FEEDS[req.iso].fetch(span.start, span.end)
+    if req.resample_min is not None:
         # Time-interpolate onto a uniform resample_min-minute grid (as reference resample("1T").interpolate("time")).
         pd = _pandas()
         series = series.sort_index()
         series.index = pd.to_datetime(series.index)
-        series = series.resample(f"{resample_min}min").interpolate(method="time").dropna()
+        series = series.resample(f"{req.resample_min}min").interpolate(method="time").dropna()
     loads = series.to_numpy(dtype=float)
     if out is not None:
         pd = _pandas()
         pd.DataFrame({"timestamp": series.index, "load_mw": loads}).to_csv(out, index=False)
-    mu, sd = loads.mean(), loads.std()
-    return (loads - mu) / (sd if sd > 0 else 1.0)  # standardized scaling vector S [T]
+    return _standardize(loads)

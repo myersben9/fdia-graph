@@ -273,6 +273,24 @@ class SplitFractions(Validated):
         )
 
 
+# How each operator's downloadable CSV export names its (timestamp, load) columns.
+EXPORT_COLUMNS = {"caiso": ("interval_start_local", "load"), "nyiso": ("Time Stamp", "Load")}
+
+
+@dataclass(frozen=True)
+class IsoExport(Validated):
+    """A directory of one operator's load export; the operator must have a known export format."""
+
+    iso: Annotated[str, OneOf(Iso)]
+    directory: str = "."
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.iso in EXPORT_COLUMNS,
+            f"no CSV export format is known for {self.iso}; one of {sorted(EXPORT_COLUMNS)}",
+        )
+
+
 @dataclass(frozen=True)
 class ProfileFetch(Validated):
     """A load-profile download: the operator and the optional resampling cadence (minutes)."""

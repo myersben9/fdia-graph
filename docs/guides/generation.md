@@ -22,7 +22,7 @@ compute the swing scale from the noiseless pool instead of the observed frames.
 
 | item | value | source |
 |---|---|---|
-| load profile | NYISO system load, 11 zones summed, native 5-minute cadence | `profiles._fetch_nyiso` |
+| load profile | NYISO system load, 11 zones summed, native 5-minute cadence | `profiles.NyisoArchive` (the NYISO entry of `profiles._FEEDS`) |
 | window | 2024-01-01 to 2024-03-16 | the v0.7.1 pool build (a release script kept outside the repository; `WINDOW`) |
 | resampling | time-interpolated to a 1-minute grid, then standardized to zero mean and unit variance | `profiles.fetch_profile(resample_min=1)` |
 | per-bus scale | `clip(1 + k * S_t + j_t, 0.7, 1.3)`, `k = 0.1` | `profiles._ar1_scale`, `K_DEFAULT`, `CLIP_DEFAULT` |
