@@ -85,7 +85,8 @@ class CsvColumn:
     """One column of one CSV file."""
 
     def __init__(self, path: str, column: str) -> None:
-        self.path, self.column = path, column
+        spec = CsvSpec(path, column)
+        self.path, self.column = spec.path, spec.column
 
     def loads(self) -> np.ndarray:
         return _pandas().read_csv(self.path)[self.column].dropna().to_numpy(dtype=float)

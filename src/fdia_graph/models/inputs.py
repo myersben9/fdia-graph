@@ -12,7 +12,7 @@ import datetime as _dt
 import os
 import re
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated, Any, ClassVar, Optional, Union, cast
 
 import numpy as np
@@ -167,10 +167,17 @@ class DatasetName(Validated):
     name: Any
     local: frozenset[str]
     builtin: frozenset[str]
+    aliases: dict[Any, str] = field(default_factory=dict)  # "118" and 118 -> "ieee118"
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            isinstance(self.name, str) or (isinstance(self.name, int) and not isinstance(self.name, bool)),
+            f"name must be a dataset name or a bus count, got {self.name!r}",
+        )
 
     @property
     def key(self) -> Any:
-        n = self.name
+        n = self.aliases.get(self.name, self.name)
         if isinstance(n, str) and n not in self.local and n.strip().lower() in self.builtin:
             return n.strip().lower()  # "IEEE118" like system_id; a local name stays case-sensitive
         return n
@@ -324,6 +331,10 @@ class CsvSpec(Validated):
 
     path: Any
     column: Annotated[Optional[str], Required()]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield isinstance(self.path, (str, os.PathLike)), f"path must be a file path, got {self.path!r}"
+        yield isinstance(self.column, str), f"column must be a column name, got {self.column!r}"
 
 
 @dataclass(frozen=True)

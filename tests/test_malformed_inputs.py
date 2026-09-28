@@ -325,6 +325,10 @@ def test_no_function_outside_the_models_is_a_check():
         lambda: config.ExportRequest("numpy", {"node_x": 1}),  # a mapping, not read for its keys
         lambda: config.ExportRequest("numpy", {"node_x"}),  # a set has no order
         lambda: inputs.LoadValues(3),  # a scalar is not a series
+        lambda: inputs.CsvSpec("x.csv", None),  # a CSV source names its column
+        lambda: inputs.CsvSpec(3, "load_mw"),
+        lambda: inputs.DatasetName(["ieee14"], frozenset(), frozenset({"ieee14"})),  # unhashable
+        lambda: inputs.DatasetName(True, frozenset(), frozenset({"ieee14"})),
         lambda: inputs.LoadValues([]),
         lambda: inputs.LoadValues([[1.0, 2.0], [3.0, 4.0]]),
     ],
@@ -332,6 +336,20 @@ def test_no_function_outside_the_models_is_a_check():
 def test_a_source_or_field_list_of_the_wrong_kind_is_refused(build):
     with pytest.raises(ConfigError):
         build()
+
+
+def test_a_csv_source_and_a_dataset_name_are_checked_when_given():
+    import fdia_graph as fg
+    from fdia_graph.profiles import CsvColumn
+    from fdia_graph.registry import resolve
+
+    with pytest.raises(ConfigError, match="CsvSpec"):
+        CsvColumn("x.csv", None)
+    with pytest.raises(ConfigError, match="DatasetName"):
+        resolve(["ieee14"])
+    assert resolve(118).name == resolve("118").name == resolve(" IEEE118 ").name == "ieee118"
+    with pytest.raises(ConfigError, match="DatasetName"):
+        fg.load(["ieee14"])
 
 
 def test_export_refuses_a_malformed_field_list(timeline):

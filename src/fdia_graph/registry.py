@@ -220,9 +220,8 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
     the registry knows it, and the GitHub tag the assets live under (`release_tag`) in `release`.
     Local datasets live at a fixed path, so `release` is ignored for them.
     """
-    name = _ALIASES.get(name, name)  # "118"/118 -> "ieee118"; canonical unchanged
     local = _load_local()
-    name = DatasetName(name, frozenset(local), frozenset(BUILTIN)).key
+    name = DatasetName(name, frozenset(local), frozenset(BUILTIN), _ALIASES).key  # "118"/118 -> "ieee118"
     if name in local:  # a local registration shadows a built-in name, as list_datasets says
         return AssetSpec("local", name, path=local[name]["path"], meta=local[name].get("meta"))
     if name in BUILTIN:
