@@ -24,6 +24,7 @@ from .choices import (
     Kcl,
     Label,
     Layer,
+    MeterModel,
     Order,
     RecordFormat,
     Reweight,
@@ -99,6 +100,8 @@ class SolveConfig(Validated):
 
     npass: Annotated[int, Integer(), AtLeast(1)] = 40  # reweighting passes
     iters: Annotated[int, Integer(), AtLeast(1)] = 8  # chord-Newton steps inside each solve
+    # [WU26, eq. (3)] pseudo voltage phasors at the far ends of PMU-metered branches (hybrid-meter files)
+    pmu_pseudo: bool = False
 
 
 @dataclass(frozen=True)
@@ -252,18 +255,31 @@ class TimelineKnobs(Validated):
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload, or the v0.8.3 redistribution
     # a multiplier on the stealth bound: Am's unit is [WU26]'s noise (D8), At's the rated accuracy (D7)
     stealth_scale: Scale = 1.0
+    # what the meters measure (D10): "hybrid" (angles at PMUs only, PMU branch currents) or the v0.8.3
+    # plan; None follows min_tamper, so new generation is hybrid and the v0.8.3 recipe stays v0.8.3
+    meter_model: Annotated[Optional[str], OneOf(MeterModel)] = None
 
     @property
     def am_frames(self) -> int:
         """The Am episode length: `am_len`, or `ramp_len` when none is given."""
         return self.ramp_len if self.am_len is None else self.am_len
 
+    @property
+    def meters(self) -> str:
+        """The meter model the walk uses: `meter_model`, or, when none is given, "hybrid" for new
+        generation (the fewest-tamper search on) and "v083" for the v0.8.3 recipe (the search off)."""
+        if self.meter_model is not None:
+            return self.meter_model
+        return MeterModel.HYBRID.value if self.min_tamper else MeterModel.V083.value
+
 
 @dataclass(frozen=True)
 class GeneratorOptions(Validated):
-    """The generator's cap on what counts as a single load (MW); None disables it."""
+    """The generator's cap on what counts as a single load (MW, None disables it) and the meter model
+    its plan follows (the engine's default is the v0.8.3 plan; new generation asks for "hybrid")."""
 
     max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
+    meter_model: Annotated[str, OneOf(MeterModel)] = "v083"
 
 
 @dataclass(frozen=True)

@@ -269,6 +269,7 @@ ANY_ALLOWED: dict[str, str] = {
     "streams.py:load_stream.out": "a stream file's contents: arrays and the pickled episode list, each key its own type",
     "timeline.py:_timeline_attrs:knobs": "the recorded generation knobs, each key its own type, written as file attributes",
     "dataset/records.py:RecordsMixin._add_benign:item": _STAGE,
+    "dataset/records.py:RecordsMixin._add_currents:item": _STAGE,
     "dataset/records.py:RecordsMixin._base_item:return": _STAGE,
     "dataset/records.py:RecordsMixin._add_optional_layers:item": _STAGE,
     "dataset/records.py:RecordsMixin.loader:**kw": _KW,

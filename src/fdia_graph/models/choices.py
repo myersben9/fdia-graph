@@ -118,6 +118,7 @@ class Capability(Choice):
     SPLIT = "split"
     SWING = "swing"
     TEMPORAL = "temporal"
+    PMU_CURRENTS = "pmu_currents"
 
 
 # ---- estimation and localization -----------------------------------------------------------------
@@ -182,6 +183,17 @@ class AmAttack(Choice):
 
     OVERLOAD = "overload"
     REDISTRIBUTION = "redistribution"
+
+
+class MeterModel(Choice):
+    """What the meters of a generated file measure (the plan's D10). "hybrid": a SCADA voltmeter reads
+    the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the
+    current phasor of each in-service branch at its bus [WU26, eqs. 17-20]. "v083": the meter plan of
+    data release v0.8.3 and earlier, an angle at every voltmeter bus and no branch currents, kept to
+    reproduce those files."""
+
+    HYBRID = "hybrid"
+    V083 = "v083"
 
 
 class AmDirection(Choice):

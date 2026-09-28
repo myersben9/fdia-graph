@@ -5,12 +5,33 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
-- The fewest-tamper search charges an angle channel only at a PMU bus: a SCADA voltmeter reads
-  `|V|` alone. The emitter still writes an angle at every voltmeter bus; the meter plan's angle
-  channels are corrected in the next data release.
+- The hybrid meter model (docs/plans/WU_MSFDIA_PLAN.md, decision D10), what new generation's meters
+  read: a SCADA voltmeter reads `|V|` only and the angle is a PMU channel, and every PMU reads the
+  current phasor of each in-service branch at its bus [WU26, eqs. 19-20], the real and imaginary
+  part at each end, per unit on the base current (`formulas.network.branch_currents`). Their noise
+  is IEEE C37.118.1's 1% total vector error taken as three standard deviations of the current's
+  magnitude plus a 1e-5 pu floor (`formulas.noise.current_sigma`, `PMU_CURRENT_CLASS`), one rule
+  the emitter (with the jitter part) and the fewest-tamper search (with the whole class) share
+  [C37118]. `generate_timeline(meter_model=None)` follows `min_tamper`: new generation is
+  `"hybrid"`, the v0.8.3 recipe (`min_tamper=False`) stays `"v083"`, and either can be asked for;
+  `FdiaGenerator`'s own default stays `"v083"`. A hybrid file gains `data/pmu_i`, `data/pmu_i_m`,
+  `benign/pmu_i_benign` and `attack/pmu_i_tamper` and the attributes `meter_model`,
+  `current_feat` and `current_units`; a v0.8.3-meter file has none of them and loads unchanged.
+  Records, batches and `export` carry `pmu_i`, `pmu_i_m` and `pmu_i_benign` when the file has them,
+  in per unit on every view (new capability `pmu_currents`). The stealthy families write
+  `h(x^a) - h(x)` on the current channels too; the fewest-tamper search counts a tampered current
+  in the PMU of the bus at its end, and bounds its step by the PMU accuracy class for `At` (D7) and
+  by 0.01 pu for `Am` (D8, `formulas.noise.paper_current_sigma`). Under either meter model the
+  search charges an angle channel only at a PMU bus. New option `pmu_pseudo` (off by default) on `WLS`,
+  `AdaptiveWeighting`, `ResidualRemoval`, `SubspacePrior` and `GatedPrior`: the pseudo voltage
+  phasors of [WU26, eq. (3)] at the far end of every PMU-metered branch fill the `|V|` and angle
+  slots no meter reads, weighted in the measured calibration by their first-order propagated
+  variance (`formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages`). New models
+  `MeterModel`, `CurrentColumns`, `CurrentIndex`, `CURRENT`, `PmuCurrentFields`, `PseudoLinks` and
+  `PseudoVoltages`; `AttackVector` is a named tuple with an optional `current`. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 11% higher), and with the eq. (3) pseudo-measurements added 0.0105 and 0.0099 (7% and 15% lower than PMUs only); on `At` records 0.063, 0.079 and 0.076 degrees on IEEE-14 and 0.0104, 0.0125 and 0.0123 on IEEE-118. The two meter models draw different noise and different episodes, so the `At` rows compare different ramps. Reading currents makes the attacks dearer: on IEEE-118 `At` held episodes tamper 11.7 devices on average instead of 8.8 (17.3 channels instead of 12.0) and `Am` 12.3 instead of 5.6 (42.3 channels instead of 14.8), and 3 overload episodes were stealthy instead of 5 (220 frames fell back to benign instead of 160); on IEEE-14 `At` 10.3 devices instead of 8.5 and no overload window instead of 2 of the 3,000-frame run. The v0.8.3 recipe and the strict frozen suite are bit-exact.
 - The documentation states what the stealthy families take from [WU26]: its constraints (13)-(18)
   and (21)-(23) (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating
-  limits; the PMU branch-current phasors (19)-(20) are not modeled yet). New generation also solves
+  limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation also solves
   its objective, eq. (12), for `At` and `Am`, and `Am` is its overload attack (below); the released
   files' `Aq`, `Al` and `Am` drew their targets at random and drove no line to its limit.
 - New generation makes the multi-snapshot families of [WU26], `At` and `Am`, both on the

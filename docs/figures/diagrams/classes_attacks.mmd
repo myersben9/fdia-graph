@@ -54,6 +54,9 @@ classDiagram
     class AttackDesign {
         <<models>>
     }
+    class AttackVector {
+        <<models>>
+    }
     class Band {
         <<models>>
     }
@@ -115,6 +118,7 @@ classDiagram
     CorruptMixin ..> TamperTarget : uses
     EpisodeDesignMixin ..> AmDesign : uses
     EpisodeDesignMixin ..> AttackDesign : uses
+    EpisodeDesignMixin ..> AttackVector : uses
     EpisodeDesignMixin ..> FrameKnobs : uses
     EpisodeDesignMixin ..> LoadGoal : uses
     EpisodeDesignMixin ..> RampDesign : uses
@@ -122,11 +126,14 @@ classDiagram
     FalseStateMixin ..> Frame : uses
     FalseStateMixin ..> FrameKnobs : uses
     FalseStateMixin ..> OperatingLimits : uses
+    FalseStateMixin ..> Scan : uses
+    MinimizeMixin ..> AttackVector : uses
     MinimizeMixin ..> FlowGoal : uses
     MinimizeMixin ..> FrameKnobs : uses
     MinimizeMixin ..> LoadGoal : uses
     MinimizeMixin ..> MinimizerResult : uses
     OverloadMixin ..> AmOverloadDesign : uses
+    OverloadMixin ..> AttackVector : uses
     OverloadMixin ..> FlowGoal : uses
     OverloadMixin ..> Frame : uses
     OverloadMixin ..> FrameKnobs : uses

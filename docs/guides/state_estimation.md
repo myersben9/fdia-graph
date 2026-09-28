@@ -45,6 +45,33 @@ Validation-selected hyperparameters from the estimation paper:
 | ieee118 | 0.50 | 2.5 | 5.0 |
 | ieee300 | 0.50 | 6.0 | none helps |
 
+## PMU pseudo-measurements
+
+On a hybrid-meter file (new generation) a SCADA voltmeter reads no angle, so the angle comes from the
+PMUs and the power meters alone. `pmu_pseudo=True` (every estimator but `JacobianWeighting`, whose
+previous-frame features carry no currents) adds the pseudo-measurements of [WU26, eq. (3)]: a PMU at
+the near end n of a branch reads `V_n` and `I_n`, and the branch's pi model gives the voltage at the
+far end f,
+
+    V_f = (I_n - y_nn V_n) / y_nf
+
+with `y_nn`, `y_nf` the branch's `Y_f` or `Y_t` entries (taps and phase shifts included), averaged over
+the branches that reach f (`formulas.estimation.pmu_pseudo_voltages`). The pseudo `|V|` and angle
+fill the slots of the reached buses that no meter reads; a SCADA `|V|` is kept where one exists. Their
+first-order error, with independent PMU errors, is the covariance of
+
+    dV_f = R(1/y_nf) dI_n - R(y_nn/y_nf) P_n (d|V_n|, dtheta_n)
+
+(R(c) the real 2x2 matrix of multiplying by c, P_n the polar-to-rectangular Jacobian at V_n), summed
+over the links with the voltage terms grouped by PMU bus, then carried to `|V_f|` and `theta_f`
+through the rectangular-to-polar gradients; for a round error of complex variance s^2 this is
+`var|V_f| = s^2 / 2` and `var theta_f = s^2 / (2 |V_f|^2)`. `calibrate="measured"` weights the pseudo
+slots by that variance, `calibrate="truth"` by their benign residual like every other slot. The
+formula is exact without noise (to 1e-16 on IEEE-14 and 118) and its variance matches a Monte Carlo
+of 20,000 draws to within 3% (`tests/test_pmu_channels.py`).
+
+Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 11% higher), and with the eq. (3) pseudo-measurements added 0.0105 and 0.0099 (7% and 15% lower than PMUs only); on `At` records 0.063, 0.079 and 0.076 degrees on IEEE-14 and 0.0104, 0.0125 and 0.0123 on IEEE-118. The two meter models draw different noise and different episodes, so the `At` rows compare different ramps. Reading currents makes the attacks dearer: on IEEE-118 `At` held episodes tamper 11.7 devices on average instead of 8.8 (17.3 channels instead of 12.0) and `Am` 12.3 instead of 5.6 (42.3 channels instead of 14.8), and 3 overload episodes were stealthy instead of 5 (220 frames fell back to benign instead of 160); on IEEE-14 `At` 10.3 devices instead of 8.5 and no overload window instead of 2 of the 3,000-frame run.
+
 ## What to expect per family
 
 | records | behaviour | why |

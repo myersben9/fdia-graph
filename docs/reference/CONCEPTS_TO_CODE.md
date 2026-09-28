@@ -49,6 +49,8 @@ and converts them on load.
 | Robust reweighting (Huber), residual removal, subspace prior | `se/methods.py`: one class per arm, each overrides one hook |
 | Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` is the RMS of the benign residuals at the training truth (`se/base.py` `SEBase.fit`); residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`/`Am`, `schema.STEALTHY_FAMILIES`) |
 | Noise model | `FdiaGenerator.SD` (accuracy class): reading = true + per-meter bias + per-scan jitter. The estimator does not read it; it calibrates `σ_i` from data |
+| Meter model (hybrid SCADA and PMU, the plan's D10) | `MeasurementMixin.meter_masks` (the angle at the PMU buses only), `current_mask` and `_emit_currents` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(meter_model=...)` |
+| PMU pseudo-measurements `V_f = (I_n − y_nn V_n)/y_nf` [WU26, eq. (3)] | `formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages` (with the propagated variance), used by `SEBase(pmu_pseudo=True)` in `_build_pseudo` and `_z_of` |
 
 Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 
@@ -68,8 +70,8 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
   with the boundary voltages held true, inside the case's voltage limits and the region's generator
   limits, and the attack vector `h(x') − h(x)` is added to the benign scan. The residual test flags
   them at the benign rate by construction. They satisfy equations (13)-(18) and (21)-(23) of [WU26]
-  (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits; the PMU
-  branch-current phasors (19)-(20) are not modeled yet). New generation also solves its objective,
+  (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits), and
+  new generation, whose PMUs read branch currents, meets the current phasors (19)-(20) as well. New generation also solves its objective,
   eq. (12): each `At` and `Am` episode is held on the support that tampers the fewest devices, and
   `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25). The released files'
   stealthy families drew their targets at random and drove no line to its limit; `LEGACY_FAMILIES`

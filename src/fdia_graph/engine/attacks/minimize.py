@@ -46,7 +46,13 @@ from typing import Optional, Union, cast
 import numpy as np
 
 from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
-from ...formulas.noise import accuracy_sigma, paper_sigma
+from ...formulas.noise import (
+    PMU_CURRENT_CLASS,
+    accuracy_sigma,
+    current_sigma,
+    paper_current_sigma,
+    paper_sigma,
+)
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
 from ..base import POWER_NOISE_FLOOR_MW
@@ -254,12 +260,15 @@ class _Window:
         self.pmu = np.zeros(g.C, bool)
         self.pmu[sorted(g.meters.pmu)] = True
         # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only, so the attack's tamper count
-        # and stealth bound see an angle only where a PMU is (the emitter still writes an angle at
-        # every voltmeter bus, a plan-level fix for the next data release)
+        # and stealth bound see an angle only where a PMU is. The hybrid meter plan already masks it
+        # there (the plan's D10); a v0.8.3-plan generator still writes one at every voltmeter bus.
         self.node_m = self.node_m.copy()
         self.node_m[~self.pmu, NODE.theta] = 0
         flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
         self.flows = flows
+        # the PMU branch-current channels [WU26, eqs. 19-20]: their mask and noise scale (None without)
+        self.i_m = g.current_mask()
+        self.i_sigma = self._current_sigmas(g, states, goal) if self.i_m is not None else None
         # the meters' rated accuracy: what a change must exceed to count, and the most a channel may move
         # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
         if goal.kind == "flow":  # the overload attack: [WU26]'s own noise (the plan's D8)
@@ -270,10 +279,22 @@ class _Window:
         zero = {int(b) for b in g.zero_inj} - {g.slack_bus}
         self.zero = np.array(sorted(zero), dtype=np.int64)
         # the attack vector of the frame before the window: zero when it is benign
-        none = (np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape))
-        self.prev: AttackVector = (
-            none if prev is None else (np.asarray(prev[0], float), np.asarray(prev[1], float))
-        )
+        no_i = None if self.i_m is None else np.zeros(self.i_m.shape)
+        if prev is None:
+            self.prev = AttackVector(np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape), no_i)
+        else:  # a bare (node, edge) pair is an attack vector without currents
+            p = AttackVector(*prev)
+            cur = no_i if p.current is None else np.asarray(p.current, float)
+            self.prev = AttackVector(np.asarray(p.node, float), np.asarray(p.edge, float), cur)
+
+    @staticmethod
+    def _current_sigmas(g: MinimizeMixin, states: list[np.ndarray], goal: Goal) -> list[np.ndarray]:
+        """The PMU branch-current channels' scale per snapshot: [WU26]'s 0.01 pu for the overload
+        attack (D8), the PMU accuracy class at the true currents for At (D7)."""
+        if goal.kind == "flow":
+            return [paper_current_sigma((g.E, 4)) for _ in states]
+        true = g.currents_from_states(np.stack(states))
+        return [current_sigma(i, PMU_CURRENT_CLASS) for i in true]
 
     def lower_bound(self) -> int:
         """Devices every support tampers, the only bound the search prunes with (`_load_bound`,
@@ -327,8 +348,8 @@ class _Window:
             moved = self._snapshot(t, S, prev)
             if moved is None:
                 return None
-            node, edge, prev = moved
-            self._tally(node, edge, devices, channels)
+            node, edge, current, prev = moved
+            self._tally(node, edge, current, devices, channels)
             if beat is not None and len(devices) > beat[0]:
                 return None
         if not devices:
@@ -337,12 +358,21 @@ class _Window:
         return cost if beat is None or cost < beat else None
 
     def _tally(
-        self, node: np.ndarray, edge: np.ndarray, devices: set[int], channels: set[tuple[int, int, int]]
+        self,
+        node: np.ndarray,
+        edge: np.ndarray,
+        current: Optional[np.ndarray],
+        devices: set[int],
+        channels: set[tuple[int, int, int]],
     ) -> None:
-        """Add one snapshot's tampered channels and their devices to the window's union."""
-        devices |= set(tampered_devices(node, edge, self.pmu, self.g.ei[0]).tolist())
+        """Add one snapshot's tampered channels and their devices to the window's union (a PMU branch
+        current joins the PMU of the bus at its end)."""
+        ei = self.g.ei
+        devices |= set(tampered_devices(node, edge, self.pmu, ei[0], current, ei[1]).tolist())
         channels |= {(0, int(i), int(j)) for i, j in zip(*np.nonzero(node))}
         channels |= {(1, int(i), int(j)) for i, j in zip(*np.nonzero(edge))}
+        if current is not None:
+            channels |= {(2, int(i), int(j)) for i, j in zip(*np.nonzero(current))}
 
     def _zero_on_boundary(self, S: np.ndarray) -> bool:
         """Whether a zero-injection bus sits on S's boundary (it could not absorb the changed power)."""
@@ -351,24 +381,47 @@ class _Window:
         return bool(np.isin(boundary, self.zero).any())
 
     def _snapshot(
-        self, t: int, S: np.ndarray, prev: tuple[np.ndarray, np.ndarray]
-    ) -> Optional[tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray]]]:
-        """Snapshot t on support S: (the channels moved beyond their accuracy-class sigma, node and flow,
-        and this snapshot's attack vector), or None when S has no false state here or breaks the stealth
-        bound against the previous snapshot's attack vector `prev`."""
+        self, t: int, S: np.ndarray, prev: AttackVector
+    ) -> Optional[tuple[np.ndarray, np.ndarray, Optional[np.ndarray], AttackVector]]:
+        """Snapshot t on support S: (the channels moved beyond their noise, node, flow and PMU branch
+        current, and this snapshot's attack vector), or None when S has no false state here or breaks
+        the stealth bound against the previous snapshot's attack vector `prev`."""
         g = self.g
         Xa, converged = g.goal_state(self.goal, t, self.states[t], S, self.k)
         if Xa is None:
             self.converged = converged
             return None
         a_node, a_edge = g._attack_vector(Xa, self.states[t])
+        a_cur = g._current_attack(Xa, self.states[t])
         sig_node, sig_edge = self.sigma[t]
-        # the stealth bound: no metered channel moves more than its accuracy-class sigma between snapshots
-        scale = self.k.stealth_scale  # the bound's step in multiples of the rated accuracy (D7: 1)
+        # the stealth bound: no metered channel moves more than its scale between snapshots
+        scale = self.k.stealth_scale  # the bound's step in multiples of the scale (D7, D8: 1)
         step = tampered_channels(
-            a_node - prev[0], a_edge - prev[1], scale * sig_node, scale * sig_edge, self.node_m, self.edge_m
+            a_node - prev.node,
+            a_edge - prev.edge,
+            scale * sig_node,
+            scale * sig_edge,
+            self.node_m,
+            self.edge_m,
         )
-        if self.stealth_bound and (step[0].any() or step[1].any()):
+        if self.stealth_bound and (
+            step[0].any() or step[1].any() or self._current_step(t, a_cur, prev, scale)
+        ):
             return None
         node, edge = tampered_channels(a_node, a_edge, sig_node, sig_edge, self.node_m, self.edge_m)
-        return node, edge, (a_node, a_edge)
+        current = self._over(t, a_cur, 1.0)
+        return node, edge, current, AttackVector(a_node, a_edge, a_cur)
+
+    def _over(self, t: int, a_cur: Optional[np.ndarray], scale: float) -> Optional[np.ndarray]:
+        """The PMU branch-current channels an attack-vector part moves beyond `scale` times their noise
+        at snapshot t, metered ones only; None without currents in the plan."""
+        if a_cur is None or self.i_m is None or self.i_sigma is None:
+            return None
+        return (np.abs(a_cur) > scale * self.i_sigma[t]) & (self.i_m > 0)
+
+    def _current_step(self, t: int, a_cur: Optional[np.ndarray], prev: AttackVector, scale: float) -> bool:
+        """Whether the attack's step on a PMU branch-current channel breaks the stealth bound."""
+        if a_cur is None or prev.current is None:
+            return False
+        over = self._over(t, a_cur - prev.current, scale)
+        return bool(over is not None and over.any())

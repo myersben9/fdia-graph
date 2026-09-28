@@ -29,8 +29,10 @@ class AdaptiveWeighting(SEBase):
     2.5 and 6.0 on IEEE 14, 118 and 300.
     """
 
-    def __init__(self, c: float = 1.5, npass: int = 40, iters: int = 8, tol: float = 1e-4) -> None:
-        super().__init__(npass=npass, iters=iters)
+    def __init__(
+        self, c: float = 1.5, npass: int = 40, iters: int = 8, tol: float = 1e-4, pmu_pseudo: bool = False
+    ) -> None:
+        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
         cfg = HuberConfig(c, tol)
         self.c = cfg.c
         self.tol = cfg.tol  # stop the reweighting passes once no weight moves by more than this
@@ -54,9 +56,14 @@ class ResidualRemoval(SEBase):
     """
 
     def __init__(
-        self, threshold: float = 4.0, cond_mult: float = 100.0, npass: int = 40, iters: int = 8
+        self,
+        threshold: float = 4.0,
+        cond_mult: float = 100.0,
+        npass: int = 40,
+        iters: int = 8,
+        pmu_pseudo: bool = False,
     ) -> None:
-        super().__init__(npass=npass, iters=iters)
+        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
         cfg = RemovalConfig(threshold, cond_mult)
         self.threshold, self.cond_mult = cfg.threshold, cfg.cond_mult
 
@@ -114,8 +121,9 @@ class SubspacePrior(SEBase):
         npass: int = 40,
         iters: int = 8,
         tol: float = 1e-4,
+        pmu_pseudo: bool = False,
     ) -> None:
-        super().__init__(npass=npass, iters=iters)
+        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
         cfg = PriorConfig(rank_frac, reweight, c, tol)
         self.tol = cfg.tol  # stop the Huber passes once no weight moves by more than this
         self.rank_frac, self.c = cfg.rank_frac, cfg.c

@@ -16,6 +16,10 @@ class Scan(NamedTuple):
     node_m: np.ndarray  # [N, 4] meter mask
     edge_x: np.ndarray  # [E, 2] P_from, Q_from
     edge_m: np.ndarray  # [E, 2] meter mask
+    # the PMU branch-current phasors [E, 4] (CURRENT columns, per unit) and their mask; None when the
+    # meter plan has no currents (the v0.8.3 meter model)
+    i_x: Optional[np.ndarray] = None
+    i_m: Optional[np.ndarray] = None
 
 
 class Band(NamedTuple):
@@ -87,6 +91,12 @@ class Frame(NamedTuple):
     # meters whose true value the local false state moves; None for the in-place families, whose
     # tamper set is the meters that differ from the benign twin.
     tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
+    # the PMU branch-current channels, observed and un-attacked [E, 4] (per unit), their mask and the
+    # current channels the attacker wrote; None without currents in the meter plan
+    i_x: Optional[np.ndarray] = None
+    i_m: Optional[np.ndarray] = None
+    benign_i_x: Optional[np.ndarray] = None
+    i_tamper: Optional[np.ndarray] = None
 
 
 class OperatingLimits(NamedTuple):
@@ -150,8 +160,12 @@ class ResolvedPool(NamedTuple):
     converged: np.ndarray
 
 
-# An attack vector h(x_false) - h(x_true) of one scan: node channels [N, 4], flow channels [E, 2].
-AttackVector = tuple[np.ndarray, np.ndarray]
+class AttackVector(NamedTuple):
+    """An attack vector h(x_false) - h(x_true) of one scan, per channel group in the scan's units."""
+
+    node: np.ndarray  # [N, 4] |V|, P_inj, Q_inj, theta
+    edge: np.ndarray  # [E, 2] P_from, Q_from
+    current: Optional[np.ndarray] = None  # [E, 4] the PMU branch-current channels, when the plan has them
 
 
 class LoadGoal(NamedTuple):

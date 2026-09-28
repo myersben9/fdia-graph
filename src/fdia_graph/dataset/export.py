@@ -24,6 +24,7 @@ from ..models.inputs import FieldRequest
 from .base import (
     _BENIGN_LAYERS,
     _CLEAN_LAYERS,
+    _CURRENT_LAYERS,
     _PREV_FIELDS,
     _UNIT_KIND,
     FAMILIES,
@@ -74,6 +75,7 @@ class ExportMixin(DatasetBase):
             + (["edge_clean_full"] if self.has_clean_full else [])
             + (list(_BENIGN_LAYERS) if self.has_benign else [])
             + ["family", "stealthy", "seq_id", "timestep"]
+            + (list(_CURRENT_LAYERS) if self.has_currents else [])
         )
 
     def _clean_layers(self, want: Sequence[str], ts: np.ndarray) -> dict[str, np.ndarray]:

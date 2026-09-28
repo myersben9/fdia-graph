@@ -24,7 +24,7 @@ import numpy as np
 
 from ..errors import GridIslanded
 from ..formulas.network import BranchModel, series_admittance
-from ..formulas.noise import bias_jitter_split
+from ..formulas.noise import PMU_CURRENT_CLASS, bias_jitter_split
 from ..models.assets import LineCandidate  # noqa: F401  re-exported: defined here before the models package
 from ..models.config import GeneratorOptions
 from ..models.inputs import OutageRef
@@ -183,6 +183,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         flow_frac: float = 0.90,
         outage: Optional[Union[int, str]] = None,
         max_load_mw: Optional[float] = 2000.0,
+        meter_model: str = "v083",
     ) -> None:
         """Load the IEEE case, apply the optional N-1 contingency, solve the base power flow, and
         draw the meter plan and the per-meter biases from `seed`.
@@ -195,6 +196,12 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         The random draws happen in a fixed order, the meter plan (voltage buses, PMU buses, flow
         meters) and then the six per-meter bias vectors, so a shard's meter plan and biases are
         identical across topologies at a given seed; the contingency consumes no randomness.
+
+        `meter_model` is what the meters measure (the plan's D10): "v083" (the default, the plan of
+        data release v0.8.3: an angle at every voltmeter bus, no branch currents) or "hybrid" (a
+        SCADA voltmeter reads |V| only, the angle is a PMU channel, and every PMU reads the current
+        phasor of each in-service branch at its bus [WU26, eqs. 17-20]). The hybrid model draws the
+        current channels' biases after the six, so the v0.8.3 draws are unchanged.
         """
         # pandapower is heavy/optional: import lazily so it's only needed when actually generating.
         import pandapower as pp
@@ -202,7 +209,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
 
         self.pp = pp
         self.C = system_id(system)  # "ieee118" and 118 both accepted, like every public entry point
-        self.max_load_mw = GeneratorOptions(max_load_mw).max_load_mw
+        opts = GeneratorOptions(max_load_mw, meter_model)
+        self.max_load_mw, hybrid = opts.max_load_mw, opts.meter_model == "hybrid"
         self.rng = np.random.default_rng(seed)
         # Measurement noise stds, the accuracy classes (ACCURACY_CLASS), split into a per-scan jitter
         # and a per-meter bias (see formulas.noise).
@@ -211,7 +219,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.NET = getattr(pn, _CASE[self.C])
         self.base = self._open_case(outage)
         self._load_tables(self.base)
-        self._meter_plan(self.base, vbus_frac, pmu_frac, flow_frac)
+        self._meter_plan(self.base, vbus_frac, pmu_frac, flow_frac, hybrid)
         self._edge_index(self.base)
         self._branch_physics(self.base._ppc)
         self._admittances(self.base._ppc)
@@ -221,6 +229,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         if self.contingency.line is not None:
             self._solve_net.line.at[self.contingency.line, "in_service"] = False
         self._meter_bias()
+        if hybrid:
+            self._current_bias()
         # Buffer of recent benign records: replay attacks (Ar) copy an earlier clean snapshot from here.
         self.benign_buf = []
 
@@ -353,16 +363,19 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             self.q_lim[int(b)] = (rows.min_q_mvar.sum(), rows.max_q_mvar.sum())
         self.v_case = np.stack([base.bus.min_vm_pu.values, base.bus.max_vm_pu.values], axis=1).astype(float)
 
-    def _meter_plan(self, base: PandapowerNet, vbus_frac: float, pmu_frac: float, flow_frac: float) -> None:
+    def _meter_plan(
+        self, base: PandapowerNet, vbus_frac: float, pmu_frac: float, flow_frac: float, hybrid: bool = False
+    ) -> None:
         """The sparse metering plan, sampled once (self.meters, a MeterPlan): vbus = voltage-magnitude
         meters, pmu = |V| + angle meters, inj = metered P/Q injection buses (all injection buses), and
         a per-branch flow-meter mask with fraction flow_frac. Three draws from the seeded RNG, in this
-        order."""
+        order; `hybrid` sets the D10 meter model (angles at PMUs only, PMU branch currents) without a
+        draw of its own."""
         C = self.C
         vbus = set(self.rng.choice(C, int(vbus_frac * C), replace=False).tolist())
         pmu = set(self.rng.choice(C, max(1, int(pmu_frac * C)), replace=False).tolist())
         flow = self.rng.random(len(base.line) + len(base.trafo)) < flow_frac
-        self.meters = MeterPlan(vbus, pmu, self._injection_buses, flow)
+        self.meters = MeterPlan(vbus, pmu, self._injection_buses, flow, hybrid, hybrid)
 
     def _edge_index(self, base: PandapowerNet) -> None:
         """Edge index (2 x E): row 0 = from-bus, row 1 = to-bus; lines use from/to, transformers hv/lv,
@@ -449,6 +462,15 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             pf=self.rng.normal(0, sb["pf"], E),
             qf=self.rng.normal(0, sb["qf"], E),
         )
+
+    def _current_bias(self) -> None:
+        """The PMU branch-current channels' systematic bias (hybrid meters only): relative, one per
+        channel, drawn once after the six v0.8.3 bias vectors from the accuracy class
+        `PMU_CURRENT_CLASS` split like the others (`bias_jitter_split`); the per-scan jitter part is
+        kept in `self._i_jitter`."""
+        jit, bias = bias_jitter_split({"i": PMU_CURRENT_CLASS}, jitter_frac=0.25)
+        self._i_jitter = jit["i"]
+        self.bias = self.bias._replace(i=self.rng.normal(0, bias["i"], (self.E, 4)))
 
     def centrality_probs(self, strength: float = 1.5) -> np.ndarray:
         """Sampling probability over attackable positions, biased toward structurally CRITICAL buses.

@@ -57,10 +57,16 @@ classDiagram
     class LocalizerBase {
         <<localization>>
     }
+    class MissingCapability {
+        <<models>>
+    }
     class NoBenignRecords {
         <<models>>
     }
     class PriorConfig {
+        <<models>>
+    }
+    class PseudoVoltages {
         <<models>>
     }
     class RemovalConfig {
@@ -99,7 +105,9 @@ classDiagram
     SEBase ..> ErrorPair : uses
     SEBase ..> EstimatorScores : uses
     SEBase ..> FitOptions : uses
+    SEBase ..> MissingCapability : uses
     SEBase ..> NoBenignRecords : uses
+    SEBase ..> PseudoVoltages : uses
     SEBase ..> ShapedArray : uses
     SEBase ..> SlackMismatch : uses
     SEBase ..> SolveConfig : uses

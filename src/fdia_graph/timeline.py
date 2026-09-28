@@ -163,7 +163,20 @@ _LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
     schema.NODE_TAMPER: (lambda C, E: (C, 4), np.uint8),
     schema.EDGE_TAMPER: (lambda C, E: (E, 2), np.uint8),
 }
+# the PMU branch-current layers of a hybrid-meter timeline (the plan's D10), created only when the meter
+# plan reads currents, so a v0.8.3-meter file has exactly its old datasets
+_CURRENT_LAYERS = {
+    schema.PMU_I: (lambda C, E: (E, 4), np.float32),
+    schema.PMU_I_BENIGN: (lambda C, E: (E, 4), np.float32),
+    schema.PMU_I_TAMPER: (lambda C, E: (E, 4), np.uint8),
+}
 CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
+
+
+def _layers(currents: bool) -> dict:
+    """The per-frame datasets of a timeline: the v0.8.3 set, plus the current layers when the meter
+    plan reads PMU branch currents."""
+    return {**_LAYERS, **(_CURRENT_LAYERS if currents else {})}
 
 
 def _clean_slice(g: FdiaGenerator, X: np.ndarray, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
@@ -186,13 +199,21 @@ class _TimelineBuffers:
     frames, flushed as the walk passes them, so memory is bounded whatever T.
     """
 
-    def __init__(self, dims: tuple[int, int, int], clean: CleanSlice, sink: dict[str, h5py.Dataset]) -> None:
+    def __init__(
+        self,
+        dims: tuple[int, int, int],
+        clean: CleanSlice,
+        sink: dict[str, h5py.Dataset],
+        currents: bool = False,
+    ) -> None:
         T, C, E = dims
         n = min(_BATCH, T)
         self.T, self._n, self._base, self._sink = T, n, 0, sink
         self._layers: dict[str, np.ndarray] = {
-            name: np.zeros((n, *shape(C, E)), dtype) for name, (shape, dtype) in _LAYERS.items()
+            name: np.zeros((n, *shape(C, E)), dtype) for name, (shape, dtype) in _layers(currents).items()
         }
+        self.currents = currents  # the meter plan reads PMU branch currents (hybrid meters)
+        self.i_m: Optional[np.ndarray] = None  # their mask, from the first stored frame
         self.family = np.zeros(T, np.int16)
         self.seq_id = np.full(T, -1, np.int32)
         self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T
@@ -205,7 +226,9 @@ class _TimelineBuffers:
         self.am_rows: list[tuple[int, int, float, float, float]] = []
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
-        self.last_attack: AttackVector = (np.zeros((C, 4)), np.zeros((E, 2)))
+        self.last_attack = AttackVector(
+            np.zeros((C, 4)), np.zeros((E, 2)), np.zeros((E, 4)) if currents else None
+        )
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self._clean_batch = clean(0, n)
@@ -230,11 +253,26 @@ class _TimelineBuffers:
         self.attacked += int(frame.y.any())
         if self.node_m is None:
             self.node_m, self.edge_m = frame.node_m, frame.edge_m
-        self.last_attack = (
+        current = self._store_currents(r, fid, frame) if self.currents else None
+        self.last_attack = AttackVector(
             np.asarray(frame.node_x, np.float64) - np.asarray(bnx, np.float64),
             np.asarray(frame.edge_x, np.float64) - np.asarray(bex, np.float64),
+            current,
         )
         self._store_attack(t, fid, frame, bnx, bex)
+
+    def _store_currents(self, r: int, fid: int, frame: Frame) -> np.ndarray:
+        """Stage the PMU branch-current layers of a frame (hybrid meters) and return its attack vector
+        on them (observed minus un-attacked, zero on a benign frame)."""
+        assert frame.i_x is not None, "a hybrid-meter generator emits the currents on every frame"
+        bix = frame.i_x if frame.benign_i_x is None else frame.benign_i_x
+        L = self._layers
+        L[schema.PMU_I][r], L[schema.PMU_I_BENIGN][r] = frame.i_x, bix
+        tamper = frame.i_tamper if fid != BENIGN_CODE and frame.i_tamper is not None else frame.i_x != bix
+        L[schema.PMU_I_TAMPER][r] = tamper if fid != BENIGN_CODE else 0
+        if self.i_m is None:
+            self.i_m = frame.i_m
+        return np.asarray(frame.i_x, np.float64) - np.asarray(bix, np.float64)
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
         """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
@@ -540,13 +578,13 @@ def _ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:
     return ptr, flat
 
 
-def _create_layers(f: h5py.File, T: int, C: int, E: int) -> dict[str, h5py.Dataset]:
+def _create_layers(f: h5py.File, T: int, C: int, E: int, currents: bool = False) -> dict[str, h5py.Dataset]:
     """The per-frame datasets at full length, chunked along the frame axis and gzipped, empty
-    until the walk flushes into them."""
+    until the walk flushes into them (the PMU current layers only when the plan reads currents)."""
     for group in (schema.Group.DATA, schema.Group.BENIGN, schema.Group.CLEAN, schema.Group.ATTACK):
         f.create_group(group)
     sink = {}
-    for name, (shape, dtype) in _LAYERS.items():
+    for name, (shape, dtype) in _layers(currents).items():
         trailing = shape(C, E)
         sink[name] = f.create_dataset(
             name,
@@ -563,7 +601,10 @@ def _write_masks(f: h5py.File, buf: _TimelineBuffers, T: int) -> None:
     """data/node_m and data/edge_m per frame (the static plan repeated, written in bounded slabs
     so a future N-1 series can switch topology mid-file without a layout change)."""
     assert buf.node_m is not None and buf.edge_m is not None
-    for name, m in ((schema.NODE_M, buf.node_m), (schema.EDGE_M, buf.edge_m)):
+    masks = [(schema.NODE_M, buf.node_m), (schema.EDGE_M, buf.edge_m)]
+    if buf.i_m is not None:  # hybrid meters: the PMU current channels read at each branch end
+        masks.append((schema.PMU_I_M, buf.i_m))
+    for name, m in masks:
         ds = f.create_dataset(
             name,
             shape=(T, *m.shape),
@@ -718,10 +759,11 @@ def _warn_deprecated_families(fams: Sequence[int]) -> None:
         )
 
 
-def _search_attrs(tk: TimelineKnobs, overload: bool) -> dict[str, object]:
-    """The attributes of the searches a walk ran, written only when they ran so a v0.8.3 file's
-    attributes are unchanged: the fewest-tamper knobs, the Am attack, and the stealth scale of
-    whichever search used it (At's or Am's)."""
+def _search_attrs(tk: TimelineKnobs, overload: bool, currents: bool) -> dict[str, object]:
+    """The attributes of the searches a walk ran and of the meters it read, written only when they
+    apply so a v0.8.3 file's attributes are unchanged: the fewest-tamper knobs, the Am attack, the
+    stealth scale of whichever search used it (At's or Am's), and on a hybrid-meter file its meter
+    model and the legend of its current layers."""
     out: dict[str, object] = {}
     if tk.min_tamper:
         out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
@@ -729,6 +771,14 @@ def _search_attrs(tk: TimelineKnobs, overload: bool) -> dict[str, object]:
         out[Attr.AM_ATTACK] = tk.am_attack
     if tk.min_tamper or overload:
         out[Attr.STEALTH_SCALE] = tk.stealth_scale
+    if currents:
+        out.update(
+            {
+                Attr.METER_MODEL: tk.meters,
+                Attr.CURRENT_FEAT: "Re_I_from,Im_I_from,Re_I_to,Im_I_to",
+                Attr.CURRENT_UNITS: "pu on the base current",
+            }
+        )
     return out
 
 
@@ -755,6 +805,7 @@ def generate_timeline(
     min_budget: int = 256,
     am_attack: str = "overload",
     stealth_scale: float = 1.0,
+    meter_model: Optional[str] = None,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
@@ -808,6 +859,12 @@ def generate_timeline(
                      attack step between snapshots at most this many times [WU26]'s case-study noise
                      for Am (0.03 pu SCADA, 0.01 pu PMU, the plan's D8) and the meters' rated accuracy
                      for At (D7); 1 by default
+    meter_model      what the meters measure (the plan's D10): "hybrid" (a SCADA voltmeter reads |V|
+                     only, the angle is a PMU channel, and every PMU reads the current phasor of each
+                     in-service branch at its bus, stored as data/pmu_i with benign/pmu_i_benign and
+                     attack/pmu_i_tamper [WU26, eqs. 17-20]) or "v083" (the plan of data release
+                     v0.8.3: an angle at every voltmeter bus and no currents). None (the default)
+                     follows min_tamper: hybrid for new generation, v083 for the v0.8.3 recipe
     """
     tk = TimelineKnobs(
         attacked_frac,
@@ -821,12 +878,14 @@ def generate_timeline(
         min_budget,
         am_attack,
         stealth_scale,
+        meter_model,
     )
     fams = FamilySelection(families).codes
     _warn_deprecated_families(fams)
     overload = tk.am_attack == "overload" and AM_FAMILY in fams
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
-    g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
+    g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, meter_model=tk.meters, **red)
+    currents = g.current_mask() is not None
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
@@ -875,12 +934,12 @@ def generate_timeline(
         Attr.PMU_FRAC: red["pmu_frac"],
         Attr.FLOW_FRAC: red["flow_frac"],
     }
-    recorded.update(_search_attrs(tk, overload))
+    recorded.update(_search_attrs(tk, overload, currents))
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)
-        sink = _create_layers(f, T, C, g.E)
-        buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink)
+        sink = _create_layers(f, T, C, g.E, currents)
+        buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink, currents=currents)
         _walk(_Walk(ctx, buf), plan)
         _finish_timeline(f, g, buf, split, seed, recorded)
         write_temporal_layers(f)

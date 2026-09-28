@@ -102,6 +102,17 @@ class GraphFields:
 
 
 @dataclass(frozen=True, eq=False)
+class PmuCurrentFields:
+    """The PMU branch-current phasors of a hybrid-meter timeline [WU26, eqs. 19-20] (the plan's D10):
+    per branch the real and imaginary current at each end (`CURRENT` columns), per unit on the base
+    current, zero where no PMU sits at that end. Absent from a v0.8.3-meter file."""
+
+    pmu_i: Optional[Array] = None  # [..., E, 4] observed (attacked where attacked), noise kept
+    pmu_i_m: Optional[Array] = None  # [..., E, 4] 1 where a PMU reads that end of the branch
+    pmu_i_benign: Optional[Array] = None  # [..., E, 4] attack removed, noise kept
+
+
+@dataclass(frozen=True, eq=False)
 class StreamLayers:
     """The attack-removed layer, next to the observed and the clean ones (streams, and every
     record of a timeline file)."""
@@ -120,4 +131,5 @@ __all__ = [
     "CleanFields",
     "GraphFields",
     "StreamLayers",
+    "PmuCurrentFields",
 ]

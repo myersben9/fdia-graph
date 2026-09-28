@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 import numpy as np
 
 from ..models.frames import OperatingLimits
-from ..models.grid import NODE
+from ..models.grid import CURRENT, NODE
 
 # Slack under a limit, below what a meter resolves (0.0012 pu on |V|, 1e-3 MW on P and Q): a true
 # state outside a limit is itself the bound (a regulated bus at its setpoint), and a false state
@@ -164,7 +166,12 @@ def tampered_channels(
 
 
 def tampered_devices(
-    node_mask: np.ndarray, edge_mask: np.ndarray, pmu_bus: np.ndarray, from_bus: np.ndarray
+    node_mask: np.ndarray,
+    edge_mask: np.ndarray,
+    pmu_bus: np.ndarray,
+    from_bus: np.ndarray,
+    current_mask: Optional[np.ndarray] = None,
+    to_bus: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """The devices holding the tampered channels, the unit [WU26] counts in its results: one SCADA
     terminal per bus and one PMU per bus.
@@ -172,14 +179,16 @@ def tampered_devices(
         SCADA terminal of bus b : P and Q injection at b, the flow meters of branches metered at b
                                   (a flow is metered at its from end), |V| and angle at b when b has
                                   no PMU (a voltage-magnitude meter)
-        PMU of bus b            : |V| and angle at b when b has a PMU (its branch-current channels
-                                  join here with [WU26, eqs. 19-20])
+        PMU of bus b            : |V| and angle at b when b has a PMU, and the branch-current
+                                  channels it reads at b's end of each branch [WU26, eqs. 19-20]
 
     Ids: the SCADA terminal of bus b is b, the PMU of bus b is N + b.
 
     node_mask, edge_mask : tampered channels, [N, 4] and [E, 2] booleans (`tampered_channels`)
     pmu_bus              : [N] booleans, the buses with a PMU
     from_bus             : [E] from-end bus of each branch (the end its flow is metered at)
+    current_mask         : [E, 4] tampered branch-current channels (`CURRENT` columns), or None
+    to_bus               : [E] to-end bus of each branch, needed with `current_mask`
     returns              : sorted unique device ids
     """
     node_mask = np.asarray(node_mask, bool)
@@ -189,8 +198,13 @@ def tampered_devices(
     voltage = node_mask[:, NODE.v] | node_mask[:, NODE.theta]
     scada = power | (voltage & ~pmu)
     flow_buses = np.asarray(from_bus)[np.asarray(edge_mask, bool).any(axis=1)]
-    ids = np.concatenate([np.where(scada)[0], flow_buses, N + np.where(voltage & pmu)[0]])
-    return np.unique(ids.astype(np.int64))
+    ids = [np.where(scada)[0], flow_buses, N + np.where(voltage & pmu)[0]]
+    if current_mask is not None and to_bus is not None:
+        cm = np.asarray(current_mask, bool)
+        from_end = cm[:, CURRENT.re_from] | cm[:, CURRENT.im_from]
+        to_end = cm[:, CURRENT.re_to] | cm[:, CURRENT.im_to]
+        ids += [N + np.asarray(from_bus)[from_end], N + np.asarray(to_bus)[to_end]]
+    return np.unique(np.concatenate(ids).astype(np.int64))
 
 
 UNRATED_MVA = 9900.0  # MATPOWER's "no limit" rating, which PGLib-OPF keeps on a few branches

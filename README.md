@@ -134,7 +134,7 @@ around the attack with the boundary voltages held true, writes only that subnetw
 the measurement vector stays consistent with an AC state, so the residual test sees noise. The
 meters written are the tamper masks in the file's `attack/` group. They satisfy equations (13)-(18)
 and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
-operating limits; the PMU branch-current phasors (19)-(20) are not modeled yet). New generation
+operating limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation
 also solves its objective, eq. (12): each `At` and `Am` episode is held on the support that tampers
 the fewest devices, and `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs.
 24-25). The released files' stealthy families drew their targets at random and drove no line to its

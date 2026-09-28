@@ -134,7 +134,38 @@ class FalseStateMixin(AreaMixin):
         tamper = (nx != bnx, ex != bex)  # the meters whose stored float32 reading changed, no fewer, no more
         y = np.zeros(self.C, np.uint8)
         y[buses] = 1
-        return Frame(nx, scan.node_m, ex, scan.edge_m, y, 1, buses, dev, bnx, bex, tamper)
+        ix, itamper = self._currents_with_attack(scan, Xa, Xt)
+        return Frame(
+            nx,
+            scan.node_m,
+            ex,
+            scan.edge_m,
+            y,
+            1,
+            buses,
+            dev,
+            bnx,
+            bex,
+            tamper,
+            i_x=ix,
+            i_m=scan.i_m,
+            benign_i_x=scan.i_x,
+            i_tamper=itamper,
+        )
+
+    def _currents_with_attack(
+        self, scan: Scan, Xa: np.ndarray, Xt: np.ndarray
+    ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """The PMU branch-current readings of a stealthy frame [WU26, eqs. 19-20]: the true scan's
+        currents plus the attack vector on them, and the current channels written; (None, None)
+        without currents in the meter plan."""
+        a = self._current_attack(Xa, Xt)
+        if a is None or scan.i_x is None or scan.i_m is None:
+            return None, None
+        moved = (np.abs(a) > 1e-9) & (scan.i_m > 0)
+        ix = scan.i_x.copy()
+        ix[moved] += a[moved].astype(np.float32)
+        return ix, ix != scan.i_x
 
     def stealthy_state(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[np.ndarray]:
         """The local false state of the design (its targets scaled by its multiplier, re-solved on its
@@ -191,6 +222,15 @@ class FalseStateMixin(AreaMixin):
         that of the true state (unmetered flows zero on both sides)."""
         flows = self.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
         return (np.asarray(Xa, float) - np.asarray(Xt, float)).astype(np.float32), flows[0] - flows[1]
+
+    def _current_attack(self, Xa: np.ndarray, Xt: np.ndarray) -> Optional[np.ndarray]:
+        """The attack vector on the PMU branch-current channels [E, 4] (per unit), zero where no PMU
+        reads that end; None without currents in the meter plan. The currents of a false state follow
+        from its voltages, so the attacker must write them too [WU26, eqs. 19-20]."""
+        if self.current_mask() is None:
+            return None
+        cur = self.currents_from_states(np.stack([Xa, Xt]))
+        return cur[0] - cur[1]
 
 
 def changed_meters(

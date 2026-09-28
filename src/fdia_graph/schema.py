@@ -53,6 +53,13 @@ EDGE_TAMPER = path(Group.ATTACK, "edge_tamper")
 MAG_PTR = path(Group.ATTACK, "mag_ptr")
 MAG_BUS = path(Group.ATTACK, "mag_bus")
 MAG = path(Group.ATTACK, "mag")
+# the PMU branch-current phasors of a hybrid-meter timeline [WU26, eqs. 19-20] (the plan's D10); absent
+# from a v0.8.3-meter file
+PMU_I = path(Group.DATA, "pmu_i")
+PMU_I_M = path(Group.DATA, "pmu_i_m")
+PMU_I_BENIGN = path(Group.BENIGN, "pmu_i_benign")
+PMU_I_TAMPER = path(Group.ATTACK, "pmu_i_tamper")
+CURRENT_LAYERS = (PMU_I, PMU_I_M, PMU_I_BENIGN, PMU_I_TAMPER)  # all of them or none, by meter model
 # graph/
 EDGE_INDEX = path(Group.GRAPH, "edge_index")
 EDGE_REACTANCE = path(Group.GRAPH, "edge_reactance")  # the pre-0.5 branch feature, kept for old callers
@@ -119,6 +126,9 @@ FIELD_PATH = {
     "edge_benign": EDGE_BENIGN,
     "clean": NODE_CLEAN,
     "edge_clean": EDGE_CLEAN,
+    "pmu_i": PMU_I,
+    "pmu_i_m": PMU_I_M,
+    "pmu_i_benign": PMU_I_BENIGN,
 }
 
 
@@ -166,6 +176,9 @@ class Attr:
     MIN_BUDGET = "min_budget"
     AM_ATTACK = "am_attack"
     STEALTH_SCALE = "stealth_scale"
+    METER_MODEL = "meter_model"  # written on a hybrid-meter file only (the plan's D10)
+    CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
+    CURRENT_UNITS = "current_units"
     MAX_LOAD_MW = "max_load_mw"
     V_LO = "v_lo"  # the widest bus voltage limits of the case, what a false state must stay in
     V_HI = "v_hi"

@@ -144,6 +144,19 @@ def branch_flows(V: np.ndarray, Yf: Admittance, from_bus: np.ndarray, base_mva: 
     return V[:, from_bus] * np.conj(V @ Yf.T) * base_mva
 
 
+def branch_currents(V: np.ndarray, Yf: Admittance, Yt: Admittance) -> np.ndarray:
+    """The branch-current phasors at both ends of every branch [WU26, eqs. 19-20], the channels a PMU
+    reads: I_f = Yf V (leaving the from bus into the branch) and I_t = Yt V (leaving the to bus),
+    in the `CURRENT` column order.
+
+    V       : [n] one complex voltage vector (per unit, ppc order), or [T, n] a stack of them
+    Yf, Yt  : [E, n] from- and to-end branch admittances (dense or scipy sparse)
+    returns : [E, 4] or [T, E, 4] real, per unit on the base current: Re I_f, Im I_f, Re I_t, Im I_t
+    """
+    If, It = (Yf @ V, Yt @ V) if V.ndim == 1 else ((V @ Yf.T), (V @ Yt.T))
+    return np.stack([np.real(If), np.imag(If), np.real(It), np.imag(It)], axis=-1)
+
+
 def ac_measurement(
     vm: np.ndarray,
     theta: np.ndarray,

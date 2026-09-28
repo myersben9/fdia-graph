@@ -49,9 +49,18 @@ The meter plan is drawn once per generator from the seed and is the same on ever
 
 | channel | metered at | default |
 |---|---|---|
-| <code>&#124;V&#124;</code> and `theta` | the union of the voltage buses and the PMU buses | `vbus_frac = 0.6` (`int(0.6 N)` buses), `pmu_frac = 0.2` (`max(1, int(0.2 N))` buses) |
+| <code>&#124;V&#124;</code> | the union of the voltage buses and the PMU buses | `vbus_frac = 0.6` (`int(0.6 N)` buses), `pmu_frac = 0.2` (`max(1, int(0.2 N))` buses) |
+| `theta` | the PMU buses (hybrid meters); every <code>&#124;V&#124;</code> bus (v0.8.3 meters) | as above |
+| branch current, `pmu_i` | both ends' real and imaginary part of every in-service branch with a PMU at that end (hybrid meters only) | as above |
 | `P_inj`, `Q_inj` | every injection bus and every zero-injection bus | always |
 | `P_from`, `Q_from` | each branch independently with probability `flow_frac` | `flow_frac = 0.9` |
+
+The meter model decides what a meter reads (`meter_model`, the plan's D10). New generation's
+`"hybrid"` model is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads `|V|` only, a PMU reads
+`|V|`, the angle and the current phasor of every in-service branch at its bus [WU26, eqs. 17-20]. The
+released files' `"v083"` model wrote an angle at every voltmeter bus and read no currents.
+`generate_timeline(meter_model=None)` follows `min_tamper`, so new generation is hybrid and the v0.8.3
+recipe stays v0.8.3; either can be asked for.
 
 Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
 generator; every other bus is zero-injection (`FdiaGenerator._load_tables`). The two sets cover every
@@ -67,6 +76,12 @@ Each reading is the true value plus a constant per-meter bias plus a fresh per-s
 | `P_inj`, `Q_inj`, `P_from`, `Q_from` | 0.017 | relative to the reading |
 | <code>&#124;V&#124;</code> | 0.0012 pu | absolute |
 | `theta` | 0.00168 rad | absolute |
+
+A branch current (hybrid meters) carries the PMU class of IEEE C37.118.1, a total vector error of
+at most 1% taken as three standard deviations, relative to the current's magnitude on the real and
+the imaginary part alike, plus a `1e-5` pu floor (`formulas.noise.current_sigma`,
+`PMU_CURRENT_CLASS`) [C37118]; its bias is drawn once per channel after the other meters' biases, so
+the v0.8.3 draws are unchanged.
 
 `formulas.noise.bias_jitter_split` splits each total into jitter `0.25 SD` and bias
 `sqrt(1 - 0.25^2) SD`, so the two add to the class total in quadrature. The bias is drawn once per
@@ -90,7 +105,7 @@ test sees noise only. Every false state must also stay within the case's bus vol
 generator P and Q limits widened to the range the pool used
 (`engine/attacks/false_state._within_limits`, `operating_limits`). They satisfy equations (13)-(18)
 and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
-operating limits; the PMU branch-current phasors (19)-(20) are not modeled yet). New generation also
+operating limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation also
 solves its objective, eq. (12): each `At` and `Am` episode is held on the support that tampers the
 fewest devices, and `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25).
 The released files' stealthy families drew their targets at random and drove no line to its limit;
@@ -126,7 +141,9 @@ several times that change, beyond the rated accuracy of the small loads there. M
 D9 on 60-snapshot windows at the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the
 search not proven within its budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s
 per snapshot); the reported noiseless flow reaches the rating exactly. A window with no stealthy
-overload stays benign and is counted in `fallback_benign`. The released files are v0.8.3's recipe:
+overload stays benign and is counted in `fallback_benign`. With the hybrid meters the attacker also
+writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end
+and is bounded like every other channel. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 11% higher), and with the eq. (3) pseudo-measurements added 0.0105 and 0.0099 (7% and 15% lower than PMUs only); on `At` records 0.063, 0.079 and 0.076 degrees on IEEE-14 and 0.0104, 0.0125 and 0.0123 on IEEE-118. The two meter models draw different noise and different episodes, so the `At` rows compare different ramps. Reading currents makes the attacks dearer: on IEEE-118 `At` held episodes tamper 11.7 devices on average instead of 8.8 (17.3 channels instead of 12.0) and `Am` 12.3 instead of 5.6 (42.3 channels instead of 14.8), and 3 overload episodes were stealthy instead of 5 (220 frames fell back to benign instead of 160); on IEEE-14 `At` 10.3 devices instead of 8.5 and no overload window instead of 2 of the 3,000-frame run. The released files are v0.8.3's recipe:
 `families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False`.
 
 Notes on the table:
@@ -176,6 +193,7 @@ on every system (`generate_timeline` docstring).
 | `benign/` | `node_benign`, `edge_benign` | the same scan with the attack removed and the same noise draw | `store` |
 | `clean/` | `node_clean`, `edge_clean` | the noiseless pool state and the exact flows on metered branches | `_clean_slice` |
 | `attack/` | `node_tamper`, `edge_tamper` | 1 where the attacker wrote the meter | `_store_attack` |
+| `data/`, `benign/`, `attack/` | `pmu_i`, `pmu_i_m`, `pmu_i_benign`, `pmu_i_tamper [T, E, 4]` | hybrid meters only: the PMU branch currents (Re and Im of `I_from`, then of `I_to`, per unit), their mask, the attack-removed twin, and 1 where the attacker wrote the channel | `_store_currents`, `_write_masks` |
 | `attack/` | `mag_ptr`, `mag_bus`, `mag` | designed change per attacked bus, ragged by frame | `_write_episodes` |
 | `episodes/` | `onset`, `length`, `family`, `bus_ptr`, `bus_idx` | one row per episode | `_write_episodes` |
 
