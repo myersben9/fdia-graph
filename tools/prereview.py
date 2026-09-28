@@ -11,11 +11,11 @@ editable install of another checkout cannot stand in for it), plus checks CI doe
 a kind of finding reviews kept raising (`docs/reference/REVIEW_CHECKLIST.md`). The changed files are
 the branch's commits against the base, the uncommitted changes and the untracked files.
 
-- **changelog**: never more than one `## Unreleased`; a change under `src/` needs exactly one, and
-  an entry in it (CHANGELOG.md changed).
+- **changelog**: never more than one `## Unreleased`; a change under `src/` needs exactly one, with
+  at least one entry, and CHANGELOG.md changed.
 - **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too.
-- **cited paths**: every repository path a changed Markdown file cites exists, in backticks or as a
-  link or image destination (relative to the file; anchors, queries and web links are ignored).
+- **cited paths**: every repository path a changed Markdown file cites exists (a file or a folder,
+  with or without an extension), in backticks or as a link or image destination (relative to the file; anchors, queries and web links are ignored).
 - **vacuous tests**: no `or True` / `assert True` in `tests/`.
 - **integer fields**: every `int` field of a model in `models/config.py` or `models/inputs.py`
   carries the `Integer()` rule (SKIP where the checkout has no such models).
@@ -92,20 +92,29 @@ def _read(rel: str) -> str:
     return open(os.path.join(ROOT, rel), encoding="utf-8").read()
 
 
+def _unreleased_entries(text: str) -> int:
+    """The bullets under `## Unreleased`, up to the next `## ` heading."""
+    m = re.search(r"^## Unreleased[^\n]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    return len(re.findall(r"^- ", m.group(1), re.M)) if m else 0
+
+
 def _changelog(files: list[str]) -> tuple[str, str]:
-    heads = len(re.findall(r"^## Unreleased", _read("CHANGELOG.md"), re.M))
+    text = _read("CHANGELOG.md")
+    heads = len(re.findall(r"^## Unreleased", text, re.M))
     if heads > 1:
         return FAIL, f"CHANGELOG.md has {heads} '## Unreleased' sections"
     src = [f for f in files if f.startswith("src/")]
     if src and heads != 1:
         return FAIL, "a change under src/ needs a '## Unreleased' section in CHANGELOG.md"
+    if src and _unreleased_entries(text) == 0:
+        return FAIL, "the '## Unreleased' section of CHANGELOG.md has no entry"
     if src and "CHANGELOG.md" not in files:
         return FAIL, f"{len(src)} file(s) under src/ changed but CHANGELOG.md did not"
     return PASS, ""
 
 
 _BACKTICKED = re.compile(
-    r"`((?:src|docs|tools|tests|examples|scripts)/[\w./-]+\.[A-Za-z0-9]+"
+    r"`((?:src|docs|tools|tests|examples|scripts)/[\w./-]+"
     r"|[A-Z][A-Z_]*\.md|pyproject\.toml|mkdocs\.yml)`"  # and the root files: README.md, pyproject.toml
 )
 _LINKED = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")

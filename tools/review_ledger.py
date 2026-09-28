@@ -95,10 +95,10 @@ def read_ledger() -> list[dict[str, str]]:
 
 def add(nums: list[int]) -> None:
     rows = read_ledger()
-    seen = {(r["pr"], r["where"], r["title"]) for r in rows}
+    seen = {(r["pr"], r["where"], r["path"], r["title"]) for r in rows}
     for num in nums:
         for f in findings(num):
-            key = (str(num), f["where"], f["title"])
+            key = (str(num), f["where"], f["path"], f["title"])
             if key not in seen:
                 seen.add(key)
                 rows.append({"pr": str(num), **f})

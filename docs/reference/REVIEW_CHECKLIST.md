@@ -114,6 +114,10 @@ A kind that keeps coming up becomes a checklist item or a mechanical check.
 16. **Read every touched file whole.** The reviewer does, and a third of its findings sit in lines
     the pull request did not change. Look for the same kind of problem the change fixes (an argument
     still used before its model, a second copy of the old wording) elsewhere in the file.
+17. **Every supported Python.** CI runs 3.9 and 3.12 on Linux and one job on Windows, and the local
+    gate runs one interpreter. A parser of loose input can differ between versions: from 3.11
+    `date.fromisoformat` also reads '20240131', which failed #147 on CI only. Pin a parsed form with
+    a pattern before handing it to the standard library.
 
 ## The order
 
