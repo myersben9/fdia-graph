@@ -136,6 +136,23 @@ def test_the_any_rule_finds_every_kind_of_annotation(tmp_path):
         "    y: int\n"
         "    def g(self, z: list[Any]) -> None:\n"
         "        w: Any = 1\n"
+        "        self.v: Any = 2\n"
+        "Bare = Any\n"
+        "Union604 = int | Any\n"
     )
-    found = [k.split(":", 1)[1] for k, _ in readability.any_annotations(str(p))]
-    assert found == ["Alias", "f:a", "f:b", "f:*args", "f:**kw", "f:return", "C.x", "C.g:z", "C.g.w"]
+    prefix = readability._rel(str(p)).replace(os.sep, "/") + ":"
+    found = [k[len(prefix) :] for k, _ in readability.any_annotations(str(p))]
+    assert found == [
+        "Alias",
+        "f:a",
+        "f:b",
+        "f:*args",
+        "f:**kw",
+        "f:return",
+        "C.x",
+        "C.g:z",
+        "C.g.w",
+        "C.g.self.v",
+        "Bare",
+        "Union604",
+    ]

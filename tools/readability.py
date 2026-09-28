@@ -334,15 +334,17 @@ def _annotated(tree: ast.AST) -> list[tuple[str, int, ast.AST]]:
                 walk(child, q + ".")
             elif isinstance(child, ast.ClassDef):
                 walk(child, prefix + child.name + ".")
-            elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
-                out.append((prefix + child.target.id, child.lineno, child.annotation))
+            elif isinstance(child, ast.AnnAssign):
+                # `x: T`, and the attribute and subscript forms: `self.x: T`, `d["k"]: T`
+                out.append((prefix + ast.unparse(child.target), child.lineno, child.annotation))
             elif (
                 isinstance(child, ast.Assign)
                 and not prefix
-                and isinstance(child.value, ast.Subscript)
+                and isinstance(child.value, (ast.Subscript, ast.Name, ast.Attribute, ast.BinOp))
                 and len(child.targets) == 1
                 and isinstance(child.targets[0], ast.Name)
             ):
+                # a module-level type alias: `Alias = Optional[Any]`, `Alias = Any`, `Alias = int | Any`
                 out.append((child.targets[0].id, child.lineno, child.value))
             else:
                 walk(child, prefix)

@@ -23,6 +23,7 @@ from .models.config import WindowSpec
 from .models.data import (
     EpisodeRow,
     Stream,  # noqa: F401  re-exported: defined here before the models package
+    StreamLike,
     StreamSummary,
 )
 from .registry import AssetSpec
@@ -176,9 +177,7 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     return Stream(**out)
 
 
-def windows(
-    stream: Mapping[str, np.ndarray], W: int, stride: int = 1, label: str = "any"
-) -> tuple[np.ndarray, np.ndarray]:
+def windows(stream: StreamLike, W: int, stride: int = 1, label: str = "any") -> tuple[np.ndarray, np.ndarray]:
     """Slide a length-W window over a stream. Returns (Xw [n,W,N,4], yw).
 
     label: "frame" -> per-frame per-bus labels yw [n,W,N]; "any" -> window-level per-bus label yw [n,N]

@@ -8,8 +8,9 @@ its dict view keeps (the order the old dict had)."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, Union
 
 import numpy as np
 
@@ -131,7 +132,7 @@ class Stream(
     features, and the episode list. `stealthy`, `seq_id` and `edge_clean_full` are not part of a
     stream. A dict as well, so `windows`, `pyg_stream` and every `s["node_x"]` keep working."""
 
-    episodes: Optional[list[EpisodeRow]] = None
+    episodes: Optional[list[EpisodeRow]] = None  # list of {onset, length, family, buses}
     system: Optional[int] = None  # bus count (generate_stream and load_stream both set it)
     attacked_frac: Optional[float] = None  # fraction of frames with at least one attacked bus (both set it)
 
@@ -175,3 +176,8 @@ class TrueState(Bundle):
 
     x: np.ndarray  # [n, 2N-1] the true state: non-slack angles (rad), then every voltage magnitude (pu)
     thsl: np.ndarray  # [n] the slack angle reference per record (rad)
+
+
+# What a stream consumer accepts: the `Stream` that `load_stream` and `generate_stream` return
+# (arrays plus the episode list and scalars), or a plain dict of the stream's arrays.
+StreamLike = Union[Stream, Mapping[str, np.ndarray]]

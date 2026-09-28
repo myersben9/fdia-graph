@@ -14,13 +14,13 @@ or, until the streams are removed, a stream dict (``stream=``) or a system name 
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 
 from .models.config import SplitFractions, WindowSpec
+from .models.data import StreamLike
 from .models.inputs import StreamSystem
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-free
@@ -42,9 +42,9 @@ def _f32(a: npt.ArrayLike) -> torch.Tensor:
 def _resolve_stream(
     system: Optional[Union[str, int]],
     release: Optional[str],
-    stream: Optional[Mapping[str, np.ndarray]],
+    stream: Optional[StreamLike],
     dataset: Optional[FdiaGraph] = None,
-) -> Mapping[str, np.ndarray]:
+) -> StreamLike:
     """The frames as one stream-shaped dict: from a loaded timeline dataset (the whole view, in
     time order), an already-loaded stream dict, or a system name (the v0.7.2 streams)."""
     if dataset is not None:
@@ -88,7 +88,7 @@ def pyg_stream(
     layer: str = "node_x",
     max_test: Optional[int] = None,
     release: Optional[str] = None,
-    stream: Optional[Mapping[str, np.ndarray]] = None,
+    stream: Optional[StreamLike] = None,
     dataset: Optional[FdiaGraph] = None,
 ) -> tuple[list[Data], ...]:
     """A continuous timeline as ready PyTorch-Geometric graphs, split chronologically.
@@ -149,7 +149,7 @@ def torch_windows(
     val_frac: float = 0.0,
     layer: str = "node_x",
     release: Optional[str] = None,
-    stream: Optional[Mapping[str, np.ndarray]] = None,
+    stream: Optional[StreamLike] = None,
     dataset: Optional[FdiaGraph] = None,
 ) -> tuple[tuple[torch.Tensor, torch.Tensor], ...]:
     """A continuous timeline as LSTM-ready sequence tensors, split chronologically.
