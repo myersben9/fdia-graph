@@ -91,15 +91,17 @@ at its true value:
 - **A load goal (`At`):** the targeted loads take their new values and every other bus of S keeps its
   true injection. That is 2|S| equations in the 2|S| unknowns `|V|` and `θ` of S, today's
   `local_ac_solve`.
-- **A flow goal (`Am`):** the loads of S are what the attacker pretends, so they are free. The
-  unknowns are `|V|` and `θ` of S, the one equation is the flow magnitude on line l at its target
-  value, and the solve takes the smallest voltage change that meets it (least-norm Gauss-Newton on
-  the flow equation, the false loads read off the result). Any flow change needs a free bus at one
-  end of l. One equation in 2|S| unknowns leaves many feasible states per support, and the
-  least-norm one need not cross the fewest noise thresholds, so for `Am` the optimum claimed is over
-  supports each solved by this rule, not over every false state. Lowering the device count inside
-  a support (reweighting the step toward channels already over noise) is a later refinement, with
-  no claim until it is measured.
+- **A flow goal (`Am`):** only the attackable loads of S are free, as the attacker pretends them;
+  every other bus of S keeps its true injection (a zero-injection bus stays at zero, a generator
+  bus at its true dispatch), as in the load goal. The unknowns are `|V|` and `θ` of S, the
+  equations are the fixed injections of S's non-load buses and the flow magnitude on line l at its
+  target value, and the solve takes the smallest voltage change that meets them (least-norm
+  Gauss-Newton, the false loads read off the result). Any flow change needs a free bus at one end
+  of l or an attackable load in S. With fewer equations than unknowns a support has many feasible
+  states, and the least-norm one need not cross the fewest noise thresholds, so for `Am` the
+  optimum claimed is over supports each solved by this rule, not over every false state. Lowering
+  the device count inside a support (reweighting the step toward channels already over noise) is a
+  later refinement, with no claim until it is measured.
 
 Both are checked against (21)-(23). The flow magnitude is `S_l = sqrt(P_l^2 + Q_l^2)` in MVA from the
 flow channels (MW and MVAr), compared with `rate_a` in MVA, or both divided by the base MVA in per
