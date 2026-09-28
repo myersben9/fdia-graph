@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The documentation states what the stealthy families take from [WU26]: its constraints (13)-(18)
+  and (21)-(23) (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating
+  limits; the PMU branch-current phasors (19)-(20) are not modeled), not its objective. By default
+  targets are drawn at random rather than chosen to tamper the fewest devices (the fewest-tamper
+  search covers `At` under `min_tamper=True`), and no line is driven to its limit; `Am` is a
+  multi-snapshot attack after the paper, not its overload attack. `docs/plans/WU_MSFDIA_PLAN.md`
+  plans the rest.
 - The fewest-tamper search of [WU26, eq. 12], behind `generate_timeline(min_tamper=True)` (off by
   default: every released number is unchanged). Each At episode is held on the support (the buses
   its false state moves) that tampers the fewest devices over the episode, a device being one SCADA
