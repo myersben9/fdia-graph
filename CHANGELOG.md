@@ -24,10 +24,11 @@ the public API, the generated files and the numbers are the same as the previous
   helpers the models replace are gone (`_check_knobs`, `_check_settings`, `_check_frac`,
   `_check_graph`, `_check_blocks`, `_index_array`, `_is_int`, `_FORMATS`, `_ISOS`, `_FIELD_FLAG`);
   `dataset._FAMILY_ALIAS` and `profiles.system_id` still resolve.
-  Integer settings (`npass`, `iters`, `n_calib`, `layers`, `hidden`, `k`, the episode lengths,
-  `max_test`) now refuse a float at construction; before, a value such as `npass=1.5` passed and
-  failed later with a raw `TypeError`. A malformed value of any setting (a string where a number
-  belongs) is a `ConfigError` with the same message as an out-of-range one.
+  Integer settings (`npass`, `iters`, `n_calib`, `layers`, `hidden`, `k`, a window's `T`, the
+  federated `partition_clients` and `epochs`, the episode lengths, `max_test`) now refuse a float
+  at construction; before, a value such as `npass=1.5` passed and failed later with a raw
+  `TypeError`. A malformed value of any setting (a string where a number belongs) is a
+  `ConfigError` with the same message as an out-of-range one.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

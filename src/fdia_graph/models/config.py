@@ -65,7 +65,7 @@ class ExportRequest(Validated):
 class WindowSpec(Validated):
     """A sliding-window request over a view of T frames."""
 
-    T: int
+    T: Count
     W: Annotated[int, Integer()]
     stride: Annotated[int, Integer()] = 1
     label: Annotated[str, OneOf(Label)] = "frame"
@@ -201,8 +201,10 @@ class FederatedSettings(Validated):
     halo: Annotated[int, Integer(), AtLeast(0)] = 0
     grad_clip: Norm = 1.0
     kcl: Annotated[str, OneOf(Kcl)] = "local"
-    partition_clients: Optional[int] = None  # K of a partition passed in, which must agree
-    epochs: Optional[int] = None  # the centralized knob, refused: a federated fit counts rounds
+    # K of a partition passed in, which must agree
+    partition_clients: Annotated[Optional[int], Integer(), AtLeast(1)] = None
+    # the centralized knob, refused: a federated fit counts rounds
+    epochs: Annotated[Optional[int], Integer()] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield self.epochs is None, "a federated fit trains rounds x local_epochs; pass those, not epochs"

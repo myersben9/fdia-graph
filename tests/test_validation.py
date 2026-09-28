@@ -80,6 +80,22 @@ def test_the_config_models_state_the_old_rules():
 
 
 @pytest.mark.parametrize(
+    "build, message",
+    [
+        (lambda: WindowSpec(T=10.5, W=2), "WindowSpec.T must be an integer"),
+        (
+            lambda: FederatedSettings(K=2, partition_clients=2.0),
+            "FederatedSettings.partition_clients must be an integer",
+        ),
+        (lambda: FederatedSettings(epochs=1.5), "FederatedSettings.epochs must be an integer"),
+    ],
+)
+def test_whole_number_settings_refuse_a_fraction(build, message):
+    with pytest.raises(ConfigError, match=message):
+        build()
+
+
+@pytest.mark.parametrize(
     "kwargs, message",
     [
         (dict(units="kw"), "LoadOptions.units must be one of"),
