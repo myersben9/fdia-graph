@@ -79,7 +79,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
 )
 from .models.config import TimelineKnobs
 from .models.data import EpisodeRow
-from .models.frames import MinimizerResult
+from .models.frames import AttackVector, MinimizerResult
 from .models.inputs import AdmissibleTargets, FamilySelection
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
@@ -195,6 +195,9 @@ class _TimelineBuffers:
         self.edge_m: Optional[np.ndarray] = None
         self.episodes: list[EpisodeRow] = []
         self.min_rows: list[tuple[int, MinimizerResult]] = []  # (episode, fewest-tamper result), knob on
+        # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
+        # an adjacent episode's stealth bound starts from it
+        self.last_attack: AttackVector = (np.zeros((C, 4)), np.zeros((E, 2)))
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self._clean_batch = clean(0, n)
@@ -219,6 +222,10 @@ class _TimelineBuffers:
         self.attacked += int(frame.y.any())
         if self.node_m is None:
             self.node_m, self.edge_m = frame.node_m, frame.edge_m
+        self.last_attack = (
+            np.asarray(frame.node_x, np.float64) - np.asarray(bnx, np.float64),
+            np.asarray(frame.edge_x, np.float64) - np.asarray(bex, np.float64),
+        )
         self._store_attack(t, fid, frame, bnx, bex)
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
@@ -314,7 +321,7 @@ def _ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> int:
     """One slow-ramp episode on a fixed bus set (rise, hold, return), its design from the generator
     (`AttackMixin.ramp_design`); returns the next free timestep."""
     ctx, T = w.ctx, w.T
-    design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs)
+    design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs, w.buf.last_attack)
     if design is None:  # no admissible ramp at this operating point: the placed frames stay benign, counted
         return _benign_run(w, t, min(t + ramp_len, T))
     ep = _episode(w, RAMP_FAMILY, t)
@@ -563,6 +570,7 @@ def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]])
     eg.create_dataset(schema.EPISODE_MIN_PROVEN, data=np.array([r.proven for r in rows], np.uint8))
     eg.create_dataset(schema.EPISODE_MIN_EVALUATED, data=np.array([r.evaluated for r in rows], np.int32))
     eg.create_dataset(schema.EPISODE_MIN_LOWER, data=np.array([r.lower_bound for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_UNSOLVED, data=np.array([r.unsolved for r in rows], np.int32))
     ptr, idx = _ragged([np.asarray(r.support) for r in rows], np.int32)
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_PTR, data=ptr)
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)

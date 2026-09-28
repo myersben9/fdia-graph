@@ -11,18 +11,22 @@ the public API, the generated files and the numbers are the same as the previous
   terminal or one PMU per bus and a change under a meter's accuracy-class sigma not counted. A
   support is held for the whole episode and must solve at every snapshot inside the operating
   limits and move no metered channel by more than its accuracy-class sigma from one snapshot to the
-  next. The search solves candidate supports in the attacker's area smallest first, each closed
-  over the zero-injection buses of its boundary, starting from the region the episode was accepted
-  on; it proves the optimum over held supports when it exhausts the area or reaches the devices the
-  goal forces above their accuracy-class sigma, settles after `min_budget` candidates otherwise,
-  and records `min_devices = -1` when no held support meets every constraint (the episode then runs
-  on its region). Each search is written under `episodes/` (`min_support_*`, `min_devices`,
-  `min_channels`, `min_proven`, `min_evaluated`, `min_lower_bound`). New formulas
-  `formulas.noise.jitter_sigma` (the emitter's per-scan noise rule, emission only) and
-  `accuracy_sigma` (a meter's rated accuracy at a reading, the measured calibration's rule through
-  `accuracy_class_sigma`, what the search counts against), `formulas.attacks.tampered_channels` and
-  `tampered_devices`; new models `LoadGoal` and `MinimizerResult`; `MeasurementMixin.meter_masks`
-  gives the masks without a random draw.
+  next, the first snapshot measured from the frame before the episode (its attack vector when that
+  frame was attacked, since episodes may be adjacent). The search solves candidate supports in the
+  attacker's area smallest first, each closed over the zero-injection buses of its boundary,
+  starting from the region the episode was accepted on; a local solve that does not converge proves
+  nothing, so those candidates are counted (`min_unsolved`) and the optimum over held supports is
+  claimed only among converged solves, when it exhausts the area or reaches the devices the goal
+  forces above their accuracy-class sigma, settles after `min_budget` candidates otherwise, and
+  treats a support moving no device beyond its sigma as no attack, and records `min_devices = -1`
+  when no held support meets every constraint (the episode then runs on its region). Each search is
+  written under `episodes/` (`min_support_*`, `min_devices`, `min_unsolved`, `min_channels`,
+  `min_proven`, `min_evaluated`, `min_lower_bound`). New formulas `formulas.noise.jitter_sigma`
+  (the emitter's per-scan noise rule, emission only) and `accuracy_sigma` (a meter's rated accuracy
+  at a reading, the measured calibration's rule through `accuracy_class_sigma`, what the search
+  counts against), `formulas.attacks.tampered_channels` and `tampered_devices`; new models
+  `LoadGoal` and `MinimizerResult`; `MeasurementMixin.meter_masks` gives the masks without a random
+  draw.
 - Every attack is built in one place, `engine.attacks`, a package whose modules compose the
   generator's `AttackMixin`: `area` (the attacker's area), `false_state` (the local solve, the
   operating limits, the attack vector and the tamper set), `redistribution` (the `Al` and `Am`

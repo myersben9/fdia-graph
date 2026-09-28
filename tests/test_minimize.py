@@ -70,15 +70,20 @@ def test_the_search_equals_brute_force_and_its_bound_holds(case):
     g, _, k = case
     for states, goal, d in _windows(case, 3):
         result = g.min_tamper(states, goal, k)
-        assert result is not None and result.proven
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
         window = _Window(g, states, goal, k)
-        costs = [window.cost(S, None) for S in g._supports(buses, area)] + [window.cost(area, None)]
-        feasible = [c for c in costs if c is not None]
-        best = min(feasible)
-        assert (result.devices, result.channels, len(result.support)) == best
+        feasible, unsolved = [], 0
+        for S in [*g._supports(buses, area), np.asarray(area)]:
+            c = window.cost(S, None)
+            unsolved += 0 if window.converged else 1
+            if c is not None:
+                feasible.append(c)
+        # like with like: the best among supports whose solves converged, and the proof scoped by them
+        assert (result.devices, result.channels, len(result.support)) == min(feasible)
         assert all(result.lower_bound <= c[0] for c in feasible)
+        assert result.proven == (result.unsolved == 0 or result.devices <= result.lower_bound)
+        assert result.unsolved <= unsolved
 
 
 def test_the_emitter_draws_with_the_shared_noise_rule(case):
@@ -282,3 +287,35 @@ def test_the_stealth_bound_covers_the_onset(case):
         )  # held at 1.15: only the onset jumps
         assert _Window(g, states, jump, k, stealth_bound=False).cost(area, None) is not None
         assert _Window(g, states, jump, k).cost(area, None) is None
+
+
+def test_a_support_within_noise_is_not_an_attack(case):
+    """A window whose loads never move a device beyond its accuracy sigma costs nothing, so it is not an
+    attack: no support is feasible and the search records -1, never a 0-device result."""
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.models.frames import AttackDesign, LoadGoal
+
+    g, _, k = case
+    for states, _, d in _windows(case, 1, held=False):
+        area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        still = LoadGoal(tuple(AttackDesign(d.targets, 1.0 + 1e-9) for _ in states))
+        assert _Window(g, states, still, k).cost(area, None) is None
+        assert g.min_tamper(states, still, k).devices == -1
+
+
+def test_the_onset_is_bounded_against_the_frame_before(case):
+    """Episodes may be adjacent: a window after an attacked frame starts its stealth bound from that
+    frame's attack vector. A held 15 percent step is refused after a benign frame (it jumps at onset)
+    and accepted right after a frame carrying the same step (no increment at onset)."""
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.models.frames import AttackDesign, LoadGoal
+
+    g, _, k = case
+    for states, _, d in _windows(case, 1, held=False):
+        area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
+        Xa, converged = g.goal_state(held, 0, states[0], area, k)
+        assert converged and Xa is not None
+        before = g._attack_vector(Xa, states[0])  # the frame before carried the same step
+        assert _Window(g, states, held, k).cost(area, None) is None
+        assert _Window(g, states, held, k, prev=before).cost(area, None) is not None

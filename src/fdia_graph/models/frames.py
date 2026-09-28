@@ -148,6 +148,10 @@ class ResolvedPool(NamedTuple):
     converged: np.ndarray
 
 
+# An attack vector h(x_false) - h(x_true) of one scan: node channels [N, 4], flow channels [E, 2].
+AttackVector = tuple[np.ndarray, np.ndarray]
+
+
 class LoadGoal(NamedTuple):
     """What a load-changing attack must realize at each snapshot of its window: the attack design of
     each snapshot (the loads it moves and their multipliers). The goal of At; the fewest-tamper
@@ -163,10 +167,12 @@ class MinimizerResult(NamedTuple):
 
     support: np.ndarray  # the buses whose voltages the false state moves (sorted)
     devices: int  # devices with a channel moved beyond its noise at some snapshot (the objective); -1 when
-    # no support held for the window meets every constraint (the episode then runs on the region)
+    # no support held for the window meets every constraint and moves at least one device beyond its
+    # accuracy sigma (the episode then runs on the region)
     channels: int  # channels moved beyond their noise at some snapshot, for analysis
     proven: (
         bool  # True: no other support in the area tampers fewer devices (search exhausted or at the bound)
     )
     evaluated: int  # candidate supports solved
     lower_bound: int  # devices every support must tamper (the target buses' own changed meters)
+    unsolved: int = 0  # candidates whose local solve did not converge (their feasibility unknown)

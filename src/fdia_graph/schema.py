@@ -97,6 +97,7 @@ EPISODE_MIN_PROVEN, EPISODE_MIN_EVALUATED, EPISODE_MIN_LOWER = (
     "min_lower_bound",
 )
 EPISODE_MIN_SUPPORT_PTR, EPISODE_MIN_SUPPORT_IDX = "min_support_ptr", "min_support_idx"
+EPISODE_MIN_UNSOLVED = "min_unsolved"
 
 # record field -> dataset path: the loader's vocabulary on disk (clean fields resolve per timestep)
 FIELD_PATH = {
