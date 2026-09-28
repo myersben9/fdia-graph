@@ -7,7 +7,29 @@ import numpy as np
 
 # The conftest tiny timeline, exactly. The seed is the first that puts every family in both the train
 # and the test split of the 1000 frames under the current episode lengths (one-frame Aq and Al).
-TIMELINE_KW = dict(frames=1000, ramp_len=20, seed=1)
+# The frozen timeline is data release v0.8.3's recipe: every family, the held Am redistribution and no
+# fewest-tamper search, so a refactor of the generator is checked bit for bit against it. New
+# generation's defaults (At and the overload Am) are tested in test_overload.py.
+TIMELINE_KW = dict(
+    frames=1000,
+    ramp_len=20,
+    seed=1,
+    families=("Aq", "Ad", "As", "Ar", "At", "Al", "Am"),
+    am_attack="redistribution",
+    min_tamper=False,
+)
+
+
+def generate_legacy(*args: Any, **kwargs: Any) -> str:
+    """`fg.generate` for the v0.8.3 recipe, its single-snapshot families' DeprecationWarning silenced:
+    reproducing a released layout is the one use the deprecation keeps."""
+    import warnings
+
+    import fdia_graph as fg
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return fg.generate(*args, **kwargs)
 
 
 def file_arrays(path: str) -> tuple[dict[str, np.ndarray], dict[str, Any]]:

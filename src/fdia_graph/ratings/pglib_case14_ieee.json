@@ -1,0 +1,115 @@
+{
+ "source": "pglib_opf_case14_ieee.m",
+ "library": "IEEE PES Power Grid Library - Optimal Power Flow (PGLib-OPF) v23.07",
+ "url": "https://github.com/power-grid-lib/pglib-opf/blob/master/pglib_opf_case14_ieee.m",
+ "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+ "sha256": "bd5c568621de65e4b0922317010868bc7fa94173807faa10ea8fdbbe77c28106",
+ "unit": "MVA",
+ "columns": [
+  "fbus",
+  "tbus",
+  "rate_a"
+ ],
+ "branches": [
+  [
+   1,
+   2,
+   472.0
+  ],
+  [
+   1,
+   5,
+   128.0
+  ],
+  [
+   2,
+   3,
+   145.0
+  ],
+  [
+   2,
+   4,
+   158.0
+  ],
+  [
+   2,
+   5,
+   161.0
+  ],
+  [
+   3,
+   4,
+   160.0
+  ],
+  [
+   4,
+   5,
+   664.0
+  ],
+  [
+   4,
+   7,
+   141.0
+  ],
+  [
+   4,
+   9,
+   53.0
+  ],
+  [
+   5,
+   6,
+   117.0
+  ],
+  [
+   6,
+   11,
+   134.0
+  ],
+  [
+   6,
+   12,
+   104.0
+  ],
+  [
+   6,
+   13,
+   201.0
+  ],
+  [
+   7,
+   8,
+   167.0
+  ],
+  [
+   7,
+   9,
+   267.0
+  ],
+  [
+   9,
+   10,
+   325.0
+  ],
+  [
+   9,
+   14,
+   99.0
+  ],
+  [
+   10,
+   11,
+   141.0
+  ],
+  [
+   12,
+   13,
+   99.0
+  ],
+  [
+   13,
+   14,
+   76.0
+  ]
+ ]
+}

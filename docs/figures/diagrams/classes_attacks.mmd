@@ -5,6 +5,9 @@ classDiagram
     class FalseStateMixin {
         +operating_limits()
         +solve_local()
+        +free_load_buses()
+        +solve_flow_local()
+        +frame_from_state()
         +stealthy_state()
         +with_region()
         +is_feasible()
@@ -51,11 +54,11 @@ classDiagram
     class LoadGoal {
         <<models>>
     }
-    class MinimizeMixin {
-        <<engine>>
-    }
     class OperatingLimits {
         <<models>>
+    }
+    class OverloadMixin {
+        <<engine>>
     }
     class RampDesign {
         <<models>>
@@ -75,7 +78,7 @@ classDiagram
     FalseStateMixin <|-- RedistributionMixin
     GridBase <|-- AreaMixin
     GridBase <|-- CorruptMixin
-    MinimizeMixin <|-- EpisodeDesignMixin
+    OverloadMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- StealthyMixin
     StealthyMixin <|-- AttackMixin
@@ -93,6 +96,7 @@ classDiagram
     EpisodeDesignMixin ..> LoadGoal : uses
     EpisodeDesignMixin ..> RampDesign : uses
     FalseStateMixin ..> AttackDesign : uses
+    FalseStateMixin ..> Frame : uses
     FalseStateMixin ..> FrameKnobs : uses
     FalseStateMixin ..> OperatingLimits : uses
     RedistributionMixin ..> Redistribution : uses

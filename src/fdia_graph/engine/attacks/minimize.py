@@ -41,43 +41,45 @@ from __future__ import annotations
 
 import heapq
 from collections.abc import Iterator
-from typing import Optional
+from typing import Optional, Union, cast
 
 import numpy as np
 
-from ...formulas.attacks import tampered_channels, tampered_devices
+from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
 from ...formulas.noise import accuracy_sigma
-from ...models.frames import AttackVector, FrameKnobs, LoadGoal, MinimizerResult
+from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
 from ..base import POWER_NOISE_FLOOR_MW
 from .false_state import FalseStateMixin
 
 _Cost = tuple[int, int, int]  # (devices, channels, support size): the objective, then its tie-breaks
 _Best = tuple[_Cost, np.ndarray]  # a solved support and its cost
+Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
 
 
 class MinimizeMixin(FalseStateMixin):
     """Find the support of an attack window that tampers the fewest devices [WU26, eq. 12]."""
 
     def min_tamper(
-        self, states: list[np.ndarray], goal: LoadGoal, k: FrameKnobs, prev: Optional[AttackVector] = None
+        self, states: list[np.ndarray], goal: Goal, k: FrameKnobs, prev: Optional[AttackVector] = None
     ) -> Optional[MinimizerResult]:
         """The fewest-tamper support for the window of `states` (one [N, 4] true state per snapshot)
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (node [N, 4], flow [E, 2]; None or zeros
         when that frame is benign): the stealth bound's first increment is measured from it, since
         episodes may be adjacent."""
-        goal_buses = np.unique(self.load_bus[goal.designs[0].targets])
-        area = self.local_region(goal_buses, k.hops)
+        seeds, starts, must_hold = self._goal_seeds(goal)
+        area = self.local_region(seeds, k.hops)
         if area is None:
             return None
+        starts = _starts_in_area(starts, area, must_hold)
         window = _Window(self, states, goal, k, prev=prev)
         region = window.cost(np.asarray(area), None)
         best = None if region is None else (region, np.asarray(area))
         lower = window.lower_bound()
         window.unsolved = 0 if window.converged else 1  # the region's own solve
         best, evaluated, exhausted = self._search(
-            window, self._supports(goal_buses, area), (best, lower), area, k
+            window, self._supports(starts, area, must_hold), (best, lower), area, k
         )
         if best is None:  # no support held for the window meets every constraint: say so, keep the region
             return MinimizerResult(np.asarray(area), -1, -1, False, evaluated, lower, window.unsolved)
@@ -111,16 +113,42 @@ class MinimizeMixin(FalseStateMixin):
             best = best if cost is None else (cost, S)
         return best, evaluated, True
 
+    def _goal_seeds(self, goal: Goal) -> tuple[np.ndarray, list[frozenset[int]], Optional[frozenset[int]]]:
+        """(the buses the area grows from, the candidate supports' starting sets, the buses a candidate
+        must hold one of, or None). A load goal acts through its targeted load buses, all of them in
+        every support. A flow goal acts on its branch through either end (a flow changes when one end's
+        voltage moves), so each end starts its own candidates, and a support must hold an attackable
+        load, the only injections the flow goal frees."""
+        if goal.kind == "load":
+            buses = np.unique(self.load_bus[cast(LoadGoal, goal).designs[0].targets])
+            return buses, [frozenset(int(b) for b in buses)], None
+        ends = np.unique(self.ei[:, cast(FlowGoal, goal).line])
+        return ends, [frozenset({int(e)}) for e in ends], frozenset(int(b) for b in self.free_load_buses())
+
     def goal_state(
-        self, goal: LoadGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
+        self, goal: Goal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
     ) -> tuple[Optional[np.ndarray], bool]:
         """(The false state of snapshot t on support S that meets the goal there, inside the operating
         limits, or None; whether the solve converged). Unknowns: |V| and theta of S, every other voltage
         held true. A solve that did not converge is not proof that S is infeasible, so the search counts
         it apart. Each goal kind has its own solve: a load goal is the square local power flow (the
-        targeted loads take their new values, every other bus of S keeps its true injection)."""
-        solve = {"load": self._load_goal_state}[goal.kind]
-        return solve(goal, t, Xt, S, k)
+        targeted loads take their new values, every other bus of S keeps its true injection); a flow
+        goal frees the attackable loads of S and holds the rest (`solve_flow_local`)."""
+        if goal.kind == "flow":
+            return self._flow_goal_state(cast(FlowGoal, goal), t, Xt, S, k)
+        return self._load_goal_state(cast(LoadGoal, goal), t, Xt, S, k)
+
+    def _flow_goal_state(
+        self, goal: FlowGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
+    ) -> tuple[Optional[np.ndarray], bool]:
+        Xa, converged, dload = self.solve_flow_local(Xt, S, goal.line, goal.targets[t])
+        if Xa is None:
+            return None, converged
+        if k.limits is not None:
+            gen = generator_output(Xt, self.load_base, self.gen_base)
+            if not within_limits(Xa, Xt, gen, dload, k.limits, S):
+                return None, True
+        return Xa, True
 
     def _load_goal_state(
         self, goal: LoadGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
@@ -136,7 +164,9 @@ class MinimizeMixin(FalseStateMixin):
             return None, True
         return Xa, True
 
-    def _supports(self, goal_buses: np.ndarray, area: np.ndarray) -> Iterator[np.ndarray]:
+    def _supports(
+        self, starts: list[frozenset[int]], area: np.ndarray, must_hold: Optional[frozenset[int]] = None
+    ) -> Iterator[np.ndarray]:
         """Every candidate support in the area, smallest first: the goal's buses, grown one adjacent area
         bus at a time (so every added bus joins a goal bus through the support), each closed over the
         zero-injection buses of its boundary exactly as `local_region` grows the region (a bus known to
@@ -144,18 +174,31 @@ class MinimizeMixin(FalseStateMixin):
         slack is never in a support: the area excludes it."""
         allowed = {int(b) for b in area}
         adj = self._area_adjacency(allowed)
-        start = self._zero_closed(frozenset(int(b) for b in goal_buses))
-        heap: list[tuple[int, tuple[int, ...]]] = [(len(start), tuple(sorted(start)))]
-        seen = {start}
+        heap: list[tuple[int, tuple[int, ...]]] = []
+        seen: set[frozenset[int]] = set()
+        for s in starts:
+            _push(heap, seen, self._zero_closed(s))
         while heap:
             _, key = heapq.heappop(heap)
             S = frozenset(key)
-            yield np.array(key, dtype=np.int64)
-            for v in sorted({n for b in S for n in adj[b]} - S):
-                child = self._zero_closed(S | {v})
-                if child not in seen and child <= allowed:
-                    seen.add(child)
-                    heapq.heappush(heap, (len(child), tuple(sorted(child))))
+            if must_hold is None or S & must_hold:  # a flow goal's support needs a free load
+                yield np.array(key, dtype=np.int64)
+            self._grow(S, adj, allowed, (heap, seen))
+
+    def _grow(
+        self,
+        S: frozenset[int],
+        adj: dict[int, set[int]],
+        allowed: set[int],
+        queue: tuple[list[tuple[int, tuple[int, ...]]], set[frozenset[int]]],
+    ) -> None:
+        """Queue every support one adjacent area bus larger than S, closed over its zero-injection
+        boundary, that stays in the area and was not queued before."""
+        heap, seen = queue
+        for v in sorted({n for b in S for n in adj[b]} - S):
+            child = self._zero_closed(S | {v})
+            if child <= allowed:
+                _push(heap, seen, child)
 
     def _area_adjacency(self, allowed: set[int]) -> dict[int, set[int]]:
         """The live branches between buses of the area, as neighbour sets."""
@@ -172,6 +215,24 @@ class MinimizeMixin(FalseStateMixin):
         return frozenset(int(b) for b in grown)
 
 
+def _push(heap: list[tuple[int, tuple[int, ...]]], seen: set[frozenset[int]], S: frozenset[int]) -> None:
+    """Queue support S by size, once."""
+    if S not in seen:
+        seen.add(S)
+        heapq.heappush(heap, (len(S), tuple(sorted(S))))
+
+
+def _starts_in_area(
+    starts: list[frozenset[int]], area: np.ndarray, must_hold: Optional[frozenset[int]]
+) -> list[frozenset[int]]:
+    """A flow goal starts only from its branch ends inside the area (an end at the slack is not one);
+    a load goal's starting set is kept as it is."""
+    if must_hold is None:
+        return starts
+    inside = {int(b) for b in area}
+    return [s for s in starts if s <= inside]
+
+
 class _Window:
     """One attack window evaluated for candidate supports: the true states, their accuracy sigmas and
     meter masks computed once, the goal's design per snapshot."""
@@ -180,7 +241,7 @@ class _Window:
         self,
         g: MinimizeMixin,
         states: list[np.ndarray],
-        goal: LoadGoal,
+        goal: Goal,
         k: FrameKnobs,
         stealth_bound: bool = True,
         prev: Optional[AttackVector] = None,
@@ -193,6 +254,7 @@ class _Window:
         self.pmu = np.zeros(g.C, bool)
         self.pmu[sorted(g.meters.pmu)] = True
         flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
+        self.flows = flows
         # the meters' rated accuracy: what a change must exceed to count, and the most a channel may move
         # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
         self.sigma = [accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, flows)]
@@ -205,13 +267,34 @@ class _Window:
         )
 
     def lower_bound(self) -> int:
-        """Devices every support tampers, the only bound the search prunes with: the SCADA terminal of a
+        """Devices every support tampers, the only bound the search prunes with (`_load_bound`,
+        `_flow_bound`)."""
+        return self._flow_bound() if self.goal.kind == "flow" else self._load_bound()
+
+    def _flow_bound(self) -> int:
+        """A flow goal forces the device metering its branch (the SCADA terminal of the from-end bus)
+        when the goal's change there must cross that meter's accuracy sigma at some snapshot: the
+        change delta of the apparent flow splits between P and Q, so one of them moves by at least
+        delta / sqrt(2), forced over noise only when that exceeds the larger of the two sigmas."""
+        goal = cast(FlowGoal, self.goal)
+        line = goal.line
+        if not self.edge_m[line].any():
+            return 0
+        for t, target in enumerate(goal.targets):
+            true = float(np.hypot(*self.flows[t, line]))
+            sig = float(np.max(self.sigma[t][1][line]))
+            if abs(target - true) / np.sqrt(2.0) > sig:
+                return 1
+        return 0
+
+    def _load_bound(self) -> int:
+        """The load goal's bound: the SCADA terminal of a
         target bus whose injected active power the goal fixes (the load the attacker pretends) and whose
         designed step exceeds that injection meter's accuracy-class sigma at some snapshot. The goal
         leaves a bus's reactive load unchanged, so only the active channel is forced."""
         g, C = self.g, self.g.C
         power = np.zeros(C, bool)
-        for t, design in enumerate(self.goal.designs):
+        for t, design in enumerate(cast(LoadGoal, self.goal).designs):
             Lp = g.true_load(self.states[t])
             dload = np.zeros(C)
             np.add.at(dload, g.load_bus[design.targets], Lp[design.targets] * (np.asarray(design.mult) - 1.0))
@@ -231,7 +314,7 @@ class _Window:
         devices: set[int] = set()
         channels: set[tuple[int, int, int]] = set()
         prev = self.prev  # the frame before the window: its attack vector, zero when benign
-        for t in range(len(self.goal.designs)):
+        for t in range(len(self.states)):
             moved = self._snapshot(t, S, prev)
             if moved is None:
                 return None
@@ -272,8 +355,9 @@ class _Window:
         a_node, a_edge = g._attack_vector(Xa, self.states[t])
         sig_node, sig_edge = self.sigma[t]
         # the stealth bound: no metered channel moves more than its accuracy-class sigma between snapshots
+        scale = self.k.stealth_scale  # the bound's step in multiples of the rated accuracy (D7: 1)
         step = tampered_channels(
-            a_node - prev[0], a_edge - prev[1], sig_node, sig_edge, self.node_m, self.edge_m
+            a_node - prev[0], a_edge - prev[1], scale * sig_node, scale * sig_edge, self.node_m, self.edge_m
         )
         if self.stealth_bound and (step[0].any() or step[1].any()):
             return None

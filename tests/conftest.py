@@ -27,13 +27,11 @@ def timeline(tmp_path_factory):
     """Name of a small generated IEEE-14 timeline: 1000 frames, every family, 20-frame ramps
     (the frozen references are built from it with the same knobs, see frozen_spec.TIMELINE_KW)."""
     pytest.importorskip("pandapower")
-    from frozen_spec import TIMELINE_KW
-
-    import fdia_graph as fg
+    from frozen_spec import TIMELINE_KW, generate_legacy
 
     out = tmp_path_factory.mktemp("timeline") / "tiny.h5"
     # The string system name is deliberate: it is the documented public form and once crashed generate().
-    fg.generate("ieee14", TINY, out=str(out), **TIMELINE_KW)
+    generate_legacy("ieee14", TINY, out=str(out), **TIMELINE_KW)
     return TINY
 
 

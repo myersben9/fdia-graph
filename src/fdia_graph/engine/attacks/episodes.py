@@ -17,7 +17,7 @@ import numpy as np
 from ...formulas.attacks import ramp_profile
 from ...models.choices import BENIGN_CODE, FAMILIES, FAMILY_CODE, STEALTHY_FAMILIES
 from ...models.frames import AmDesign, AttackDesign, AttackVector, FrameKnobs, LoadGoal, RampDesign
-from .minimize import MinimizeMixin
+from .overload import OverloadMixin
 from .redistribution import RedistributionMixin
 from .stealthy import AQ_FAMILY, AQ_HALVINGS
 
@@ -93,7 +93,7 @@ class _AmShape:
         return max(self.rate, self.at(i))
 
 
-class EpisodeDesignMixin(RedistributionMixin, MinimizeMixin):
+class EpisodeDesignMixin(RedistributionMixin, OverloadMixin):
     """Draw the design of an attack episode at its onset, and the design each of its frames applies."""
 
     def target_counts(self) -> dict[int, int]:

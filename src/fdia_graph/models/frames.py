@@ -121,6 +121,7 @@ class FrameKnobs(NamedTuple):
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
     min_budget: int = 256
+    stealth_scale: float = 1.0  # the stealth bound's step in multiples of the rated accuracy (D7: 1)
 
     @property
     def band(self) -> Band:
@@ -160,6 +161,28 @@ class LoadGoal(NamedTuple):
 
     designs: tuple[AttackDesign, ...]  # one per snapshot, in window order
     kind: str = "load"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
+
+
+class FlowGoal(NamedTuple):
+    """What the overload attack of [WU26, eqs. 24-25] must realize at each snapshot of its window: the
+    apparent flow (MVA) that the tampered measurements carry before noise on one target branch,
+    `S_{l,t} = S_{l,kappa} + (t - kappa)/T (S_max - S_{l,kappa})`, reaching the branch's rating at the
+    window's end. The loads the attacker pretends are free; the fewest-tamper search holds one
+    support for all snapshots."""
+
+    line: int  # the target branch (position in the edge index)
+    targets: tuple[float, ...]  # MVA per snapshot, in window order
+    kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
+
+
+class AmOverloadDesign(NamedTuple):
+    """One `Am` episode as the overload attack of [WU26]: the target branch, its rating, the flow each
+    frame must reach, and the fewest-tamper support held for the window with the search's result."""
+
+    goal: FlowGoal
+    rating: float  # the branch's rating S_max, MVA (PGLib-OPF rate_a)
+    support: np.ndarray  # the buses whose voltages the false state moves, held for every frame
+    tamper: MinimizerResult  # the search's result for the window
 
 
 class MinimizerResult(NamedTuple):

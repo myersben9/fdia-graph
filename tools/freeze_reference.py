@@ -22,17 +22,15 @@ atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 
 import numpy as np  # noqa: E402
 
-import fdia_graph as fg  # noqa: E402
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(os.path.dirname(HERE), "tests", "frozen")
 os.makedirs(OUT, exist_ok=True)
 
 # The single definition of what is frozen; the test imports these so the two can never drift.
-from frozen_spec import TIMELINE_KW, file_arrays, loc_scores, se_scores  # noqa: E402
+from frozen_spec import TIMELINE_KW, file_arrays, generate_legacy, loc_scores, se_scores  # noqa: E402
 
 path = os.path.join(_CACHE, "tiny.h5")
-fg.generate("ieee14", "tiny_ieee14", out=path, **TIMELINE_KW)
+generate_legacy("ieee14", "tiny_ieee14", out=path, **TIMELINE_KW)
 arrays, attrs = file_arrays(path)
 np.savez_compressed(os.path.join(OUT, "tiny_ieee14_timeline.npz"), **arrays)
 json.dump(attrs, open(os.path.join(OUT, "tiny_ieee14_timeline_attrs.json"), "w"), indent=1, sort_keys=True)

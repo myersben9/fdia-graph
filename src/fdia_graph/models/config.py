@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Annotated, Optional
 
 from .choices import (
+    AmAttack,
     AmDirection,
     Buses,
     Calibrate,
@@ -246,8 +247,10 @@ class TimelineKnobs(Validated):
     ramp_len: Annotated[int, Integer(), AtLeast(1)] = 60
     am_len: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # None: as long as a ramp
     corrupt_len: Annotated[Optional[int], Integer(), AtLeast(1)] = 1
-    min_tamper: bool = False  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
+    min_tamper: bool = True  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
     min_budget: Count = 256  # candidate supports the search solves per episode before it settles
+    am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload, or the v0.8.3 redistribution
+    stealth_scale: Scale = 1.0  # the stealth bound's step, in multiples of the meters' rated accuracy (D7: 1)
 
     @property
     def am_frames(self) -> int:

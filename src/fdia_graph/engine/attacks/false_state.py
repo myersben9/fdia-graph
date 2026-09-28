@@ -8,8 +8,15 @@ from typing import Optional
 import numpy as np
 
 from ...formulas.attacks import generator_output, operating_limits, within_limits
-from ...formulas.network import bus_injections, complex_voltages, local_ac_solve, subnetwork
-from ...models.frames import AttackDesign, FrameKnobs, OperatingLimits, Scan
+from ...formulas.network import (
+    _dense,
+    bus_injections,
+    complex_voltages,
+    local_ac_solve,
+    local_flow_solve,
+    subnetwork,
+)
+from ...models.frames import AttackDesign, Frame, FrameKnobs, OperatingLimits, Scan
 from ...models.grid import NODE
 from .area import AreaMixin
 
@@ -56,6 +63,78 @@ class FalseStateMixin(AreaMixin):
         Xa[touched, NODE.p_inj] = -S.real
         Xa[touched, NODE.q_inj] = -S.imag
         return Xa
+
+    def free_load_buses(self) -> np.ndarray:
+        """The buses whose load an attacker may pretend in a flow goal: the buses of the stealthy load
+        positions (a load off every generator bus, under the load cap), sorted."""
+        return np.unique(self.load_bus[self.stealthy_pos])
+
+    def solve_flow_local(
+        self, Xt: np.ndarray, S: np.ndarray, line: int, target_mva: float
+    ) -> tuple[Optional[np.ndarray], bool, np.ndarray]:
+        """The false state of a flow goal on support S [WU26, eqs. 24-25]: the voltages of S move, the
+        buses of S that hold no attackable load keep their true injections (a zero-injection bus at
+        zero, a generator bus at its dispatch), the attackable loads of S are free, and `line`'s
+        from-end apparent flow reaches `target_mva` (`formulas.network.local_flow_solve`). Returns
+        (the false state [N, 4] with the injections of S and its boundary moved by exactly the change
+        the false voltages cause, whether the solve converged, the pretended load change per bus in
+        MW [N]); the state is None when the solve fails or S holds no attackable load."""
+        C = self.C
+        dload = np.zeros(C)
+        free = np.intersect1d(S, self.free_load_buses())
+        if len(free) == 0:
+            return None, True, dload
+        lut = self._ppc_row[np.arange(C)]
+        V = np.zeros(self._n_ppc_buses, complex)
+        V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
+        Yb, Yf = self._dense_admittances()
+        fixed = lut[np.setdiff1d(S, free)]
+        S_true = bus_injections(V, Yb)  # per unit, the model's injections at the true voltages
+        Vf = local_flow_solve(
+            Yb,
+            Yf[line],
+            int(self._from_bus_ppc[line]),
+            V,
+            lut[S],
+            fixed,
+            S_true[fixed],
+            target_mva / self._base_mva,
+        )
+        if Vf is None:
+            return None, False, dload
+        Xa = np.array(Xt, np.float64, copy=True)
+        Xa[S, NODE.v] = np.abs(Vf[lut[S]])
+        Xa[S, NODE.theta] = np.degrees(np.angle(Vf[lut[S]]))
+        touched = np.union1d(S, subnetwork(self._live_edges(), S, 0, C)[1])
+        dS = (bus_injections(Vf, Yb) - S_true)[lut[touched]] * self._base_mva  # generation positive, MW
+        Xa[touched, NODE.p_inj] -= dS.real  # the stored injection is load positive
+        Xa[touched, NODE.q_inj] -= dS.imag
+        dload[free] = -dS.real[np.isin(touched, free)]  # a free bus has no generator: its load moved
+        return Xa, True, dload
+
+    def _dense_admittances(self) -> tuple[np.ndarray, np.ndarray]:
+        """Ybus and Yf as dense arrays, built once (the flow solve indexes rows and multiplies often)."""
+        cached = getattr(self, "_dense_Y", None)
+        if cached is None:
+            cached = (_dense(self._Ybus), _dense(self._Yf))
+            self._dense_Y = cached
+        return cached
+
+    def frame_from_state(self, Xt: np.ndarray, Xa: np.ndarray, buses: np.ndarray, dev: np.ndarray) -> Frame:
+        """The emitted frame of a local false state `Xa` on the true state `Xt`: the true scan (the
+        benign twin and every meter's noise draw) plus the attack vector a = h(x_false) - h(x_true) on
+        the meters it moves, labelled at `buses` with their designed magnitudes `dev`."""
+        scan = self.emit_from_state(Xt)  # the true scan: the benign twin, and the draw every meter keeps
+        bnx, bex = scan.node_x, scan.edge_x
+        a_node, a_edge = self._attack_vector(Xa, Xt)
+        moved = changed_meters(a_node, a_edge, scan)
+        nx, ex = bnx.copy(), bex.copy()
+        nx[moved[0]] += a_node[moved[0]]
+        ex[moved[1]] += a_edge[moved[1]]
+        tamper = (nx != bnx, ex != bex)  # the meters whose stored float32 reading changed, no fewer, no more
+        y = np.zeros(self.C, np.uint8)
+        y[buses] = 1
+        return Frame(nx, scan.node_m, ex, scan.edge_m, y, 1, buses, dev, bnx, bex, tamper)
 
     def stealthy_state(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[np.ndarray]:
         """The local false state of the design (its targets scaled by its multiplier, re-solved on its

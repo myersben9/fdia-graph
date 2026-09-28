@@ -5,6 +5,7 @@ alone over 150 frames. The loader for these files lands in step 2; here the file
 h5py against the layout the module docstring promises."""
 
 import os
+import warnings
 
 import h5py
 import numpy as np
@@ -15,7 +16,7 @@ pytest.importorskip("pandapower")
 from fdia_graph.dataset.base import STEALTHY_FAMILIES  # noqa: E402
 from fdia_graph.engine.records import AM_FAMILY, CORRUPT_KIND  # noqa: E402
 from fdia_graph.generation import NOISE_FLOOR, _load_states  # noqa: E402
-from fdia_graph.timeline import KIND, generate_timeline  # noqa: E402
+from fdia_graph.timeline import KIND, LEGACY_FAMILIES, generate_timeline  # noqa: E402
 
 SEED = 4  # covers every family in the 1000-frame fixture (the long families are few per 1000 frames)
 
@@ -25,17 +26,29 @@ def pool():
     return _load_states(14, None)[:1000]
 
 
+# the v0.8.3 recipe: every family, the held Am redistribution, no fewest-tamper search (the overload Am
+# and the search are tested in test_overload.py and test_minimize.py)
+LEGACY = dict(families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False)
+
+
+def _legacy(*args, **kwargs):
+    """generate_timeline on the v0.8.3 recipe, the single-snapshot families' deprecation silenced."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return generate_timeline(*args, **{**LEGACY, **kwargs})
+
+
 @pytest.fixture(scope="session")
 def timeline(tmp_path_factory, pool):
     """Every family, 1000 frames, short episodes so several of each family fit."""
     out = tmp_path_factory.mktemp("timeline") / "all.h5"
-    return generate_timeline(14, states=pool, seed=SEED, ramp_len=20, out=str(out))
+    return _legacy(14, states=pool, seed=SEED, ramp_len=20, out=str(out))
 
 
 @pytest.fixture(scope="session")
 def am_timeline(tmp_path_factory, pool):
     out = tmp_path_factory.mktemp("timeline") / "am.h5"
-    return generate_timeline(14, states=pool[:150], seed=SEED, families=("Am",), ramp_len=30, out=str(out))
+    return _legacy(14, states=pool[:150], seed=SEED, families=("Am",), ramp_len=30, out=str(out))
 
 
 def _read(path):
@@ -575,9 +588,7 @@ def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_
 def test_aq_is_one_frame_whatever_the_other_length_knobs(tmp_path, pool):
     """Aq has no length knob: with corrupt_len=None (Ad/As/Ar drawn from their band) every Aq
     episode is still one frame."""
-    out = generate_timeline(
-        14, states=pool, seed=SEED, ramp_len=20, corrupt_len=None, out=str(tmp_path / "band.h5")
-    )
+    out = _legacy(14, states=pool, seed=SEED, ramp_len=20, corrupt_len=None, out=str(tmp_path / "band.h5"))
     a, _ = _read(out)
     length, efam = a["episodes/length"], a["episodes/family"]
     assert (efam == 1).any() and (length[efam == 1] == 1).all()

@@ -7,13 +7,34 @@ the public API, the generated files and the numbers are the same as the previous
 
 - The documentation states what the stealthy families take from [WU26]: its constraints (13)-(18)
   and (21)-(23) (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating
-  limits; the PMU branch-current phasors (19)-(20) are not modeled), not its objective. By default
-  targets are drawn at random rather than chosen to tamper the fewest devices (the fewest-tamper
-  search covers `At` under `min_tamper=True`), and no line is driven to its limit; `Am` is a
-  multi-snapshot attack after the paper, not its overload attack. `docs/plans/WU_MSFDIA_PLAN.md`
-  plans the rest.
-- The fewest-tamper search of [WU26, eq. 12], behind `generate_timeline(min_tamper=True)` (off by
-  default: every released number is unchanged). Each At episode is held on the support (the buses
+  limits; the PMU branch-current phasors (19)-(20) are not modeled yet). New generation also solves
+  its objective, eq. (12), for `At` and `Am`, and `Am` is its overload attack (below); the released
+  files' `Aq`, `Al` and `Am` drew their targets at random and drove no line to its limit.
+- New generation makes the multi-snapshot families of [WU26], `At` and `Am`, both on the
+  fewest-tamper search (docs/plans/WU_MSFDIA_PLAN.md, decisions D2 and D6): `generate_timeline`
+  and `fg.generate` default to `families=("At", "Am")`, `min_tamper=True` and
+  `am_attack="overload"`. `Am` is the overload attack of [WU26, eqs. 24-25]: a rated branch whose
+  flow is metered and whose true flow stays below its rating over the window is driven, snapshot by
+  snapshot, until the flow the tampered measurements carry before noise reaches the rating, on the
+  support that tampers the fewest devices. Each snapshot's false state frees the attackable loads
+  of the support and holds every other bus's injection, the least-norm voltage change that meets
+  the flow (`formulas.network.local_flow_solve`, `FalseStateMixin.solve_flow_local`). The ratings
+  are the `rate_a` of the PGLib-OPF v23.07 versions of IEEE-14, 118 and 300 (CC BY 4.0), stored in
+  `fdia_graph.ratings` and matched to the branches by their end buses
+  (`formulas.attacks.branch_ratings`, `OverloadMixin.line_ratings`); pandapower rates every branch
+  9,900 MVA, the "no limit" placeholder. Other cases refuse `Am` with the new named error
+  `NoLineRatings`. Each overload episode writes its branch, rating, reached noiseless flow and
+  emitted flow under `episodes/` (`am_*`); new models `FlowGoal` and `AmOverloadDesign`; new knob
+  `stealth_scale` (the stealth bound's step in multiples of the rated accuracy, 1 as the plan's D7
+  sets it). Generating `Aq`, `Ad`, `As`, `Ar` or `Al` warns (`DeprecationWarning`) and is refused
+  from 0.22; released files holding them load unchanged. `timeline.LEGACY_FAMILIES` with
+  `am_attack="redistribution"` and `min_tamper=False` reproduces data release v0.8.3 (its build
+  script and the frozen test timeline use it; the strict frozen suite is bit-exact).
+  Measured on IEEE-14, 60-snapshot windows at the 5-minute pool cadence: under the rated-accuracy
+  bound (`stealth_scale=1`) no window admits a stealthy overload; with the bound off every window
+  does, at 5 to 8 devices, the reported flow reaching the rating exactly.
+- The fewest-tamper search of [WU26, eq. 12], behind `generate_timeline(min_tamper=True)` (on for
+  new generation; `min_tamper=False` walks the released files' recipe). Each At episode is held on the support (the buses
   its false state moves) that tampers the fewest devices over the episode, a device being one SCADA
   terminal or one PMU per bus and a change under a meter's accuracy-class sigma not counted. A
   support is held for the whole episode and must solve at every snapshot inside the operating

@@ -75,7 +75,22 @@ def main() -> None:
             print(f"[ieee{C}] timeline exists with these inputs, skip", flush=True)
             continue
         print(f"[ieee{C}] walking {FRAMES} frames ...", flush=True)
-        fg.generate(C, f"ieee{C}_v083", states=pool, seed=SEED, out=out, frames=FRAMES)
+        # v0.8.3's recipe, pinned: since new generation defaults to the multi-snapshot families with the
+        # overload Am and the fewest-tamper search, the release is rebuilt with its own families and
+        # knobs (the single-snapshot families' DeprecationWarning is expected here)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            fg.generate(
+                C,
+                f"ieee{C}_v083",
+                states=pool,
+                seed=SEED,
+                out=out,
+                frames=FRAMES,
+                families=("Aq", "Ad", "As", "Ar", "At", "Al", "Am"),
+                am_attack="redistribution",
+                min_tamper=False,
+            )
         with h5py.File(out, "r") as f:
             T, frac, n_ep = int(f.attrs["T"]), float(f.attrs["attacked_frac"]), int(f.attrs["n_episodes"])
         print(
