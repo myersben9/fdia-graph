@@ -98,6 +98,9 @@ class DateSpan(Validated):
     start: Annotated[Any, Parses(iso_date, "must be a date like '2024-01-31'")]
     end: Annotated[Any, Parses(iso_date, "must be a date like '2024-01-31'")]
 
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield self.start <= self.end, f"the span ends ({self.end}) before it starts ({self.start})"
+
 
 @dataclass(frozen=True)
 class ProfileSource(Validated):
@@ -154,9 +157,12 @@ class StateSource(Validated):
         return self.states.astype(np.float64) if isinstance(self.states, np.ndarray) else None
 
     @property
-    def path(self) -> Any:
-        """The path passed, or None (an array has no truth value, so it is never read as one)."""
-        return None if isinstance(self.states, np.ndarray) else self.states
+    def path(self) -> Optional[str]:
+        """The path passed, as a string (a `pathlib.Path` too), or None; an array is never read as
+        one, since it has no truth value."""
+        if self.states is None or isinstance(self.states, np.ndarray):
+            return None
+        return os.fspath(self.states)
 
 
 @dataclass(frozen=True)

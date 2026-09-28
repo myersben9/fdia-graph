@@ -326,6 +326,9 @@ def test_no_function_outside_the_models_is_a_check():
         lambda: config.ExportRequest("numpy", {"node_x"}),  # a set has no order
         lambda: inputs.LoadValues(3),  # a scalar is not a series
         lambda: inputs.CsvSpec("x.csv", None),  # a CSV source names its column
+        lambda: inputs.DateSpan("2024-01-02", "2024-01-01"),  # reversed
+        lambda: config.IsoExport("nyiso", None),
+        lambda: config.IsoExport("nyiso", 3),
         lambda: inputs.CsvSpec(3, "load_mw"),
         lambda: inputs.DatasetName(["ieee14"], frozenset(), frozenset({"ieee14"})),  # unhashable
         lambda: inputs.DatasetName(True, frozenset(), frozenset({"ieee14"})),
@@ -350,6 +353,12 @@ def test_a_csv_source_and_a_dataset_name_are_checked_when_given():
     assert resolve(118).name == resolve("118").name == resolve(" IEEE118 ").name == "ieee118"
     with pytest.raises(ConfigError, match="DatasetName"):
         fg.load(["ieee14"])
+
+
+def test_a_state_pool_path_may_be_a_pathlib_path(tmp_path):
+    import pathlib
+
+    assert inputs.StateSource(pathlib.Path(tmp_path) / "pool.npz").path == str(tmp_path / "pool.npz")
 
 
 def test_export_refuses_a_malformed_field_list(timeline):

@@ -56,6 +56,9 @@ the public API, the generated files and the numbers are the same as the previous
   `CsvColumn` checks its path and column when built (a missing column used to surface as a
   pandas `KeyError` on read), and a dataset name that is neither a name nor a bus count, such
   as `fg.load(["ieee14"])`, is a `ConfigError` instead of a raw `TypeError`.
+  A profile date span that ends before it starts, and an `IsoFolder` directory that is not a
+  path, are refused when given; `generate(states=pathlib.Path(...))` now reads the file instead
+  of failing with an `AttributeError`.
   A Huber `c`, a removal threshold, `am_rate` and the learned localizer's `lr` and `pos_weight`
   must be finite as well as positive, and a solver `tol` finite and non-negative. The learned
   localizer checks its whole training setup (`dropout`, `lr`, `weight_decay`, `batch_size`,

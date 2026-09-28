@@ -7,6 +7,7 @@ once, on the field, and nowhere in the consumer.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Annotated, Any, Optional
@@ -295,6 +296,10 @@ class IsoExport(Validated):
     directory: str = "."
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            isinstance(self.directory, (str, os.PathLike)),
+            f"directory must be a path, got {self.directory!r}",
+        )
         yield (
             self.iso in EXPORT_COLUMNS,
             f"no CSV export format is known for {self.iso}; one of {sorted(EXPORT_COLUMNS)}",
