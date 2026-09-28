@@ -59,6 +59,10 @@ the public API, the generated files and the numbers are the same as the previous
   A profile date span that ends before it starts, and an `IsoFolder` directory that is not a
   path, are refused when given; `generate(states=pathlib.Path(...))` now reads the file instead
   of failing with an `AttributeError`.
+  Arguments reach their models unconverted, so a malformed one is a `ConfigError`, not the raw
+  error of a conversion done first: `families=3`, `pool_moments(None)`, `fedavg(None, ...)`,
+  `block_diagonal_basis(3, d)`, `score(ds, scores="bad")`, `score(ds, xhat="bad")` and a
+  non-numeric in-memory state pool. A test refuses `Model(tuple(arg))`-style calls in the package.
   A Huber `c`, a removal threshold, `am_rate` and the learned localizer's `lr` and `pos_weight`
   must be finite as well as positive, and a solver `tol` finite and non-negative. The learned
   localizer checks its whole training setup (`dropout`, `lr`, `weight_decay`, `batch_size`,

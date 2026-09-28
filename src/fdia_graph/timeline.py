@@ -778,7 +778,7 @@ def generate_timeline(
     split            chronological train/val/test fractions by frame, episodes never cut
     """
     tk = TimelineKnobs(attacked_frac, am_rate, hops, am_direction, ramp_len, am_len, corrupt_len)
-    fams = FamilySelection(tuple(families)).codes
+    fams = FamilySelection(families).codes
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))

@@ -21,6 +21,7 @@ from .choices import FAMILIES, FAMILY_ALIAS, Capability, Iso, Reduce
 from .errors import NoAdmissibleTarget
 from .validation import (
     AsArray,
+    AsTuple,
     AtLeast,
     Dims,
     Integer,
@@ -149,6 +150,10 @@ class StateSource(Validated):
         yield (
             self.states is None or isinstance(self.states, (np.ndarray, str, os.PathLike)),
             f"states must be an array or a path, got {type(self.states).__name__}",
+        )
+        yield (
+            not isinstance(self.states, np.ndarray) or np.issubdtype(self.states.dtype, np.number),
+            f"an in-memory state pool must be numeric, got dtype {getattr(self.states, 'dtype', None)}",
         )
 
     @property
@@ -322,7 +327,7 @@ class ShapedArray(Validated):
 class FieldRequest(Validated):
     """Fields asked of a dataset view against the ones it offers."""
 
-    fields: tuple[str, ...]
+    fields: Annotated[Sequence[str], AsTuple()]
     offered: tuple[str, ...]
     known: tuple[str, ...]
 
@@ -475,7 +480,7 @@ class PartitionOnGrid(Validated):
 class ClientUpdates(Validated):
     """One tensor per client and its weight (record count)."""
 
-    tensors: tuple[Any, ...]
+    tensors: Annotated[Sequence[Any], AsTuple()]
     weights: Annotated[Any, AsArray(np.float64)]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -503,7 +508,7 @@ class ClientUpdates(Validated):
 class MomentParts(Validated):
     """(count, mean [C], variance [C]) per part, to be pooled."""
 
-    parts: tuple[Any, ...]
+    parts: Annotated[Sequence[Any], AsTuple()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield len(self.parts) > 0, "pool_moments needs at least one part"
@@ -552,7 +557,7 @@ class Affinity(Validated):
 class StateBlocks(Validated):
     """Per-client (state columns, basis) blocks over a state of dimension d."""
 
-    blocks: tuple[Any, ...]
+    blocks: Annotated[Sequence[Any], AsTuple()]
     d: Annotated[int, Integer()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:

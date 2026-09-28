@@ -61,7 +61,7 @@ class ExportMixin(DatasetBase):
         # on request only, a timeline's previous frame; its swing only when the file carries swing
         prev = [k for k in _PREV_FIELDS if self.is_timeline and (k != "prev_swing" or self.has_swing)]
         offered = known + prev
-        return list(FieldRequest(tuple(fields), tuple(offered), tuple(known)).fields)
+        return list(FieldRequest(fields, tuple(offered), tuple(known)).fields)
 
     def _default_fields(self) -> list[str]:
         """Every per-record array the file carries, in the order `export` returns them."""

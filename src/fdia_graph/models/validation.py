@@ -144,6 +144,21 @@ class AsArray(Rule):
             raise ConfigError(f"{where} {self.says}, got {value!r}") from None
 
 
+class AsTuple(Rule):
+    """Converts a list, tuple or other iterable to a tuple; a string, a mapping or a non-iterable is
+    not a sequence of items and is refused."""
+
+    says = "must be a sequence"
+
+    def apply(self, value: Any, where: str) -> Any:
+        if isinstance(value, (str, bytes, dict)):
+            raise ConfigError(f"{where} {self.says}, got {value!r}")
+        try:
+            return tuple(value)
+        except TypeError:
+            raise ConfigError(f"{where} {self.says}, got {value!r}") from None
+
+
 class Dims(Rule):
     def __init__(self, ndim: int) -> None:
         self.ndim, self.says = ndim, f"must be {ndim}-dimensional"

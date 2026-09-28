@@ -478,7 +478,7 @@ class SEBase:
         from ..dataset import FAMILIES
 
         require_physical(ds)
-        est = self.estimate(ds, chunk=chunk) if xhat is None else np.asarray(xhat, np.float64)
+        est = self.estimate(ds, chunk=chunk) if xhat is None else xhat
         est = ShapedArray(est, (len(ds), self.SD), "xhat").values
         d = ds.export(["family", "clean"])
         tr = self._truth_of(d["clean"])

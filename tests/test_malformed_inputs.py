@@ -366,3 +366,59 @@ def test_export_refuses_a_malformed_field_list(timeline):
 
     with pytest.raises(ConfigError, match="ExportRequest.fields"):
         fg.load(timeline, split="test").export(format="numpy", fields=3)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: __import__("fdia_graph.dataset.base", fromlist=["x"]).family_ids(3),
+        lambda: __import__("fdia_graph.formulas.federated", fromlist=["x"]).pool_moments(None),
+        lambda: __import__("fdia_graph.formulas.federated", fromlist=["x"]).fedavg(None, [1.0]),
+        lambda: __import__("fdia_graph.formulas.federated", fromlist=["x"]).block_diagonal_basis(3, 4),
+        lambda: inputs.ShapedArray("bad", (2, 2), "scores"),
+        lambda: inputs.StateSource(np.array(["bad"])),
+    ],
+)
+def test_a_raw_argument_reaches_its_model_unconverted(call):
+    with pytest.raises(ConfigError):
+        call()
+
+
+def test_no_function_converts_its_own_argument_before_the_model_sees_it():
+    """`Model(tuple(arg))` or `Model(np.asarray(arg))` turns a malformed argument into a raw
+    TypeError or ValueError before the model can refuse it; the model's rules do the conversion."""
+    import ast
+    import pathlib
+
+    src = pathlib.Path(__file__).resolve().parents[1] / "src" / "fdia_graph"
+    names = {
+        n
+        for m in (config, inputs)
+        for n, c in vars(m).items()
+        if inspect.isclass(c) and issubclass(c, Validated) and c is not Validated
+    }
+    conversions = {"tuple", "list", "float", "int", "np.asarray", "np.array", "np.ascontiguousarray"}
+    hits = []
+    for path in sorted(src.rglob("*.py")):
+        if "models" in path.parts:
+            continue
+        for fn in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            params = {a.arg for a in fn.args.args + fn.args.kwonlyargs}
+            for node in ast.walk(fn):
+                if not (
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names
+                ):
+                    continue
+                for arg in list(node.args) + [k.value for k in node.keywords]:
+                    for c in ast.walk(arg):
+                        if (
+                            isinstance(c, ast.Call)
+                            and ast.unparse(c.func) in conversions
+                            and c.args
+                            and isinstance(c.args[0], ast.Name)
+                            and c.args[0].id in params
+                        ):
+                            hits.append(f"{path.relative_to(src)}:{node.lineno} {ast.unparse(c)}")
+    assert not hits, "convert inside the model instead: " + "; ".join(hits)

@@ -38,7 +38,7 @@ def pool_moments(parts: Sequence[Moments]) -> Moments:
     parts   : (count, mean [C], var [C]) per part
     returns : (count, mean [C], var [C]) of the union
     """
-    parts = MomentParts(tuple(parts)).parts
+    parts = MomentParts(parts).parts
     n, mean, var = parts[0]
     for nb, mb, vb in parts[1:]:
         tot = n + nb
@@ -61,7 +61,7 @@ def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray
     weights : n_k per client (record counts), any positive scale
     returns : the averaged tensor in the dtype of arrays[0]
     """
-    updates = ClientUpdates(tuple(arrays), weights)
+    updates = ClientUpdates(arrays, weights)
     w = updates.weights
     w = w / w.max()  # scale first: finite weights near the float limit cannot overflow the sum
     w = w / w.sum()
@@ -160,7 +160,7 @@ def block_diagonal_basis(blocks: Sequence[tuple[np.ndarray, np.ndarray]], d: int
     d       : the full state dimension
     returns : [d, sum K_k]
     """
-    blocks = StateBlocks(tuple(blocks), d).blocks
+    blocks = StateBlocks(blocks, d).blocks
     out = np.zeros((d, sum(np.shape(V)[1] for _, V in blocks)))
     j = 0
     for c, V in blocks:

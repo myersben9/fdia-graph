@@ -86,7 +86,7 @@ _HELDOUT_TRAIN_EXCLUDE = {FAMILY_CODE[n] for n in HELDOUT_FAMILIES}
 def family_ids(families: Sequence[Union[str, int]]) -> list[int]:
     """Family names (with the legacy aliases) or raw integer codes as integer codes. An unknown
     name or code is an error rather than a silently empty selection."""
-    return list(FamilySelection(tuple(families)).codes)
+    return list(FamilySelection(families).codes)
 
 
 def _torch() -> ModuleType:

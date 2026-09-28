@@ -129,7 +129,7 @@ class LocalizerBase:
         from ..dataset import FAMILIES
 
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
-        s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
+        s = self._score(d, ds) if scores is None else scores
         s = ShapedArray(s, (len(ds), ds.N), "scores").values
         pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
@@ -162,7 +162,7 @@ class LocalizerBase:
 
         fr_over = PerBusReport(buses, fr_over).fr_over
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
-        s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
+        s = self._score(d, ds) if scores is None else scores
         s = ShapedArray(s, (len(ds), ds.N), "scores").values
         y, fam = d["y"].astype(bool), d["family"]
         cols = self._report_buses(y, buses)
