@@ -6,6 +6,7 @@ from __future__ import annotations
 import numpy as np
 
 from ..models.grid import EDGE, NODE
+from .estimation import accuracy_class_sigma
 
 
 def bias_jitter_split(
@@ -31,16 +32,18 @@ def bias_jitter_split(
 def jitter_sigma(
     node_true: np.ndarray, flow_true: np.ndarray, jitter: dict[str, float], floor_mw: float
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The per-scan noise standard deviation of every channel, the one the emitter draws with
-    (`MeasurementMixin.emit_from_state`) and the one the fewest-tamper objective counts against.
+    """The per-scan jitter standard deviation of every channel, the one the emitter draws its noise
+    with (`MeasurementMixin.emit_from_state`). Emission only: what counts as a change above a meter's
+    noise, for detection and for the fewest-tamper search, is the meter's rated accuracy
+    (`accuracy_sigma`).
 
         |V|      : jitter["v"]                              (pu, absolute)
         angle    : degrees(jitter["va"])                    (deg, absolute)
         P, Q inj : |P_true| jitter["pi"] + floor_mw, |Q_true| jitter["qi"] + floor_mw   (MW, MVAr)
         P, Q flow: |P_true| jitter["pf"] + floor_mw, |Q_true| jitter["qf"] + floor_mw   (MW, MVAr)
 
-    A new channel kind (the PMU branch-current phasors of [WU26, eqs. 19-20]) gets its rule here,
-    beside the others, so the emitter and the objective cannot disagree on it.
+    A new channel kind (the PMU branch-current phasors of [WU26, eqs. 19-20]) gets its rule here and
+    in `accuracy_sigma`, beside the others.
 
     node_true : [N, 4] true |V|, P_inj, Q_inj, theta of the scan
     flow_true : [E, 2] true P_from, Q_from of the scan (MW, MVAr)
@@ -59,3 +62,44 @@ def jitter_sigma(
     sig_flow[:, EDGE.p_from] = np.abs(flow_true[:, EDGE.p_from]) * jitter["pf"] + floor_mw
     sig_flow[:, EDGE.q_from] = np.abs(flow_true[:, EDGE.q_from]) * jitter["qf"] + floor_mw
     return sig_node, sig_flow
+
+
+def accuracy_sigma(
+    node_true: np.ndarray, flow_true: np.ndarray, cls: dict[str, float], floor_mw: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """The accuracy-class standard deviation of every channel of one scan [ASP14], in the scan's
+    physical units: the meter's rated accuracy, the sigma the measured calibration of the estimators
+    uses (`accuracy_class_sigma`, through `SEBase._class_sigma`), here at this scan's true readings.
+    What a change must exceed to count as tampered, and the most a channel may move between two
+    snapshots of a stealthy attack window [WU26].
+
+        |V|      : cls["v"]                                   (pu, absolute)
+        angle    : degrees(cls["va"])                         (deg, absolute)
+        P, Q inj : cls["pi"] |P_true| + floor_mw, cls["qi"] |Q_true| + floor_mw    (MW, MVAr)
+        P, Q flow: cls["pf"] |P_true| + floor_mw, cls["qf"] |Q_true| + floor_mw    (MW, MVAr)
+
+    node_true : [N, 4] true |V|, P_inj, Q_inj, theta of the scan
+    flow_true : [E, 2] true P_from, Q_from of the scan (MW, MVAr)
+    cls       : accuracy class per channel kind (`engine.base.ACCURACY_CLASS`)
+    floor_mw  : the absolute floor on power channels
+    returns   : (sigma per node channel [N, 4], sigma per flow channel [E, 2])
+    """
+    node_true = np.asarray(node_true, np.float64)
+    flow_true = np.asarray(flow_true, np.float64)
+    N, E = node_true.shape[0], flow_true.shape[0]
+
+    sig_node = np.empty((N, 4), np.float64)
+    sig_node[:, NODE.v] = _class_rule(node_true[:, NODE.v], cls["v"], False, floor_mw)
+    sig_node[:, NODE.p_inj] = _class_rule(node_true[:, NODE.p_inj], cls["pi"], True, floor_mw)
+    sig_node[:, NODE.q_inj] = _class_rule(node_true[:, NODE.q_inj], cls["qi"], True, floor_mw)
+    sig_node[:, NODE.theta] = np.degrees(_class_rule(node_true[:, NODE.theta], cls["va"], False, floor_mw))
+    sig_flow = np.empty((E, 2), np.float64)
+    sig_flow[:, EDGE.p_from] = _class_rule(flow_true[:, EDGE.p_from], cls["pf"], True, floor_mw)
+    sig_flow[:, EDGE.q_from] = _class_rule(flow_true[:, EDGE.q_from], cls["qf"], True, floor_mw)
+    return sig_node, sig_flow
+
+
+def _class_rule(reading: np.ndarray, c: float, relative: bool, floor: float) -> np.ndarray:
+    """One channel kind's accuracy-class sigma at its readings (`accuracy_class_sigma`)."""
+    n = len(reading)
+    return accuracy_class_sigma(np.abs(reading), np.full(n, c), np.full(n, relative), floor)

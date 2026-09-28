@@ -45,7 +45,7 @@ from .network import (
     series_admittance,
     subnetwork,
 )
-from .noise import bias_jitter_split, jitter_sigma
+from .noise import accuracy_sigma, bias_jitter_split, jitter_sigma
 from .projection import (
     bus_incidence,
     direction_coefficients,
@@ -64,6 +64,7 @@ __all__ = [
     "BranchModel",
     "ac_jacobian",
     "ac_measurement",
+    "accuracy_sigma",
     "attack_cost",
     "attack_subspace",
     "attackable_affinity",

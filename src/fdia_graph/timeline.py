@@ -547,20 +547,25 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     f.create_dataset(schema.MAG_BUS, data=bus)
     f.create_dataset(schema.MAG, data=mag)
     if buf.min_rows:  # the fewest-tamper knob: what the search chose per episode and whether it is proven
-        rows = [r for _, r in buf.min_rows]
-        eg.create_dataset(schema.EPISODE_MIN_EPISODE, data=np.array([s for s, _ in buf.min_rows], np.int32))
-        eg.create_dataset(schema.EPISODE_MIN_DEVICES, data=np.array([r.devices for r in rows], np.int32))
-        eg.create_dataset(schema.EPISODE_MIN_CHANNELS, data=np.array([r.channels for r in rows], np.int32))
-        eg.create_dataset(schema.EPISODE_MIN_PROVEN, data=np.array([r.proven for r in rows], np.uint8))
-        eg.create_dataset(schema.EPISODE_MIN_EVALUATED, data=np.array([r.evaluated for r in rows], np.int32))
-        eg.create_dataset(schema.EPISODE_MIN_LOWER, data=np.array([r.lower_bound for r in rows], np.int32))
-        ptr, idx = _ragged([np.asarray(r.support) for r in rows], np.int32)
-        eg.create_dataset(schema.EPISODE_MIN_SUPPORT_PTR, data=ptr)
-        eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)
+        _write_min_rows(eg, buf.min_rows)
     f[schema.Group.ATTACK].attrs[schema.Attr.TAMPER] = (
         "1 where the attacker wrote the meter: the meters the local false state moves for the "
         "stealthy families, the changed channels for Ad/As/Ar"
     )
+
+
+def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]]) -> None:
+    """episodes/min_*: one row per episode the fewest-tamper search ran on."""
+    rows = [r for _, r in min_rows]
+    eg.create_dataset(schema.EPISODE_MIN_EPISODE, data=np.array([s for s, _ in min_rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_DEVICES, data=np.array([r.devices for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_CHANNELS, data=np.array([r.channels for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_PROVEN, data=np.array([r.proven for r in rows], np.uint8))
+    eg.create_dataset(schema.EPISODE_MIN_EVALUATED, data=np.array([r.evaluated for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_LOWER, data=np.array([r.lower_bound for r in rows], np.int32))
+    ptr, idx = _ragged([np.asarray(r.support) for r in rows], np.int32)
+    eg.create_dataset(schema.EPISODE_MIN_SUPPORT_PTR, data=ptr)
+    eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)
 
 
 def _timeline_attrs(

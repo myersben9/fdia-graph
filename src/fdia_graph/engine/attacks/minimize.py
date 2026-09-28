@@ -15,9 +15,11 @@ true injection and moves nothing). Like the region, a support takes in every zer
 its boundary (a boundary bus absorbs the changed power, and a bus known to inject nothing cannot).
 S is feasible when the local false state with only S free exists at every snapshot of the window,
 meets the goal there on its noiseless readings h(x^a), stays inside the operating limits, and moves
-no metered channel by more than its noise from one snapshot to the next (the stealth bound, the
+no metered channel by more than its accuracy-class sigma from one snapshot to the next (the
+stealth bound, the
 first snapshot measured from no attack). Its cost is the number
-of devices (`formulas.attacks.tampered_devices`) with a channel moved beyond its noise at some
+of devices (`formulas.attacks.tampered_devices`) with a channel moved beyond its accuracy-class
+sigma (`formulas.noise.accuracy_sigma`) at some
 snapshot of the window, the union [WU26] counts over its window.
 
 The region itself is solved first: the episode was accepted on it, so when the region meets the
@@ -40,13 +42,14 @@ from typing import Optional
 import numpy as np
 
 from ...formulas.attacks import tampered_channels, tampered_devices
-from ...formulas.noise import jitter_sigma
+from ...formulas.noise import accuracy_sigma
 from ...models.frames import FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
 from ..base import POWER_NOISE_FLOOR_MW
 from .false_state import FalseStateMixin
 
 _Cost = tuple[int, int, int]  # (devices, channels, support size): the objective, then its tie-breaks
+_Best = tuple[_Cost, np.ndarray]  # a solved support and its cost
 
 
 class MinimizeMixin(FalseStateMixin):
@@ -62,28 +65,41 @@ class MinimizeMixin(FalseStateMixin):
         if area is None:
             return None
         window = _Window(self, states, goal, k)
-        best: Optional[tuple[_Cost, np.ndarray]] = None
         region = window.cost(np.asarray(area), None)
-        if region is not None:
-            best = (region, np.asarray(area))
+        best = None if region is None else (region, np.asarray(area))
         lower = window.lower_bound()
-        evaluated, exhausted = 1, True
-        for S in self._supports(goal_buses, area):
+        best, evaluated, exhausted = self._search(
+            window, self._supports(goal_buses, area), (best, lower), area, k
+        )
+        if best is None:  # no support held for the window meets every constraint: say so, keep the region
+            return MinimizerResult(np.asarray(area), -1, -1, False, evaluated, lower)
+        (devices, channels, _), support = best
+        return MinimizerResult(support, devices, channels, exhausted or devices <= lower, evaluated, lower)
+
+    @staticmethod
+    def _search(
+        window: _Window,
+        candidates: Iterator[np.ndarray],
+        start: tuple[Optional[_Best], int],
+        area: np.ndarray,
+        k: FrameKnobs,
+    ) -> tuple[Optional[_Best], int, bool]:
+        """Solve the candidates in order from the incumbent `start` = (best so far, the goal-forced lower
+        bound): (the best, candidates solved including the region, whether the search finished)."""
+        best, lower = start
+        evaluated = 1  # the region, solved before the search
+        for S in candidates:
             if best is not None and best[0][0] <= lower:
-                break  # at the bound every support shares: nothing tampers fewer devices
+                return best, evaluated, True  # at the bound every support shares: nothing tampers fewer
             if evaluated >= k.min_budget:
-                exhausted = False
-                break
+                return best, evaluated, False
             if np.array_equal(S, area):
                 continue
             evaluated += 1
             cost = window.cost(S, best[0] if best is not None else None)
             if cost is not None and (best is None or cost < best[0]):
                 best = (cost, S)
-        if best is None:  # no support held for the window meets every constraint: say so, keep the region
-            return MinimizerResult(np.asarray(area), -1, -1, False, evaluated, lower)
-        (devices, channels, _), support = best
-        return MinimizerResult(support, devices, channels, exhausted or devices <= lower, evaluated, lower)
+        return best, evaluated, True
 
     def goal_state(
         self, goal: LoadGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
@@ -107,17 +123,8 @@ class MinimizeMixin(FalseStateMixin):
         inject nothing cannot absorb the change, so it moves with the support), each set once. The
         slack is never in a support: the area excludes it."""
         allowed = {int(b) for b in area}
-        adj: dict[int, set[int]] = {b: set() for b in allowed}
-        for a, b in self._live_edges().T:
-            if int(a) in allowed and int(b) in allowed:
-                adj[int(a)].add(int(b))
-                adj[int(b)].add(int(a))
-
-        def closed(S: frozenset[int]) -> frozenset[int]:
-            grown, _ = self._grow_over_zero_injection(np.array(sorted(S), dtype=np.int64))
-            return frozenset(int(b) for b in grown)
-
-        start = closed(frozenset(int(b) for b in goal_buses))
+        adj = self._area_adjacency(allowed)
+        start = self._zero_closed(frozenset(int(b) for b in goal_buses))
         heap: list[tuple[int, tuple[int, ...]]] = [(len(start), tuple(sorted(start)))]
         seen = {start}
         while heap:
@@ -125,14 +132,28 @@ class MinimizeMixin(FalseStateMixin):
             S = frozenset(key)
             yield np.array(key, dtype=np.int64)
             for v in sorted({n for b in S for n in adj[b]} - S):
-                child = closed(S | {v})
+                child = self._zero_closed(S | {v})
                 if child not in seen and child <= allowed:
                     seen.add(child)
                     heapq.heappush(heap, (len(child), tuple(sorted(child))))
 
+    def _area_adjacency(self, allowed: set[int]) -> dict[int, set[int]]:
+        """The live branches between buses of the area, as neighbour sets."""
+        adj: dict[int, set[int]] = {b: set() for b in allowed}
+        for a, b in self._live_edges().T:
+            if int(a) in allowed and int(b) in allowed:
+                adj[int(a)].add(int(b))
+                adj[int(b)].add(int(a))
+        return adj
+
+    def _zero_closed(self, S: frozenset[int]) -> frozenset[int]:
+        """S with every zero-injection bus of its boundary taken in, as `local_region` grows the region."""
+        grown, _ = self._grow_over_zero_injection(np.array(sorted(S), dtype=np.int64))
+        return frozenset(int(b) for b in grown)
+
 
 class _Window:
-    """One attack window evaluated for candidate supports: the true states, their noise scales and
+    """One attack window evaluated for candidate supports: the true states, their accuracy sigmas and
     meter masks computed once, the goal's design per snapshot."""
 
     def __init__(
@@ -149,14 +170,17 @@ class _Window:
         self.pmu = np.zeros(g.C, bool)
         self.pmu[sorted(g.meters.pmu)] = True
         flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
-        self.sigma = [jitter_sigma(X, F, g.SDj, POWER_NOISE_FLOOR_MW) for X, F in zip(states, flows)]
+        # the meters' rated accuracy: what a change must exceed to count, and the most a channel may move
+        # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
+        self.sigma = [accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, flows)]
         zero = {int(b) for b in g.zero_inj} - {g.slack_bus}
         self.zero = np.array(sorted(zero), dtype=np.int64)
 
     def lower_bound(self) -> int:
-        """Devices every support tampers: the SCADA terminals of the target buses, whose injected power
-        the goal fixes (the load the attacker pretends), counted where that change exceeds the
-        injection meter's noise at a snapshot."""
+        """Devices every support tampers, the only bound the search prunes with: the SCADA terminal of a
+        target bus whose injected active power the goal fixes (the load the attacker pretends) and whose
+        designed step exceeds that injection meter's accuracy-class sigma at some snapshot. The goal
+        leaves a bus's reactive load unchanged, so only the active channel is forced."""
         g, C = self.g, self.g.C
         power = np.zeros(C, bool)
         for t, design in enumerate(self.goal.designs):
@@ -171,30 +195,19 @@ class _Window:
 
     def cost(self, S: np.ndarray, beat: Optional[_Cost]) -> Optional[_Cost]:
         """The cost of support S over the window, or None when S is infeasible at a snapshot or cannot
-        beat `beat` (stopped as soon as its devices so far reach it)."""
+        beat `beat` (stopped as soon as its devices so far exceed it)."""
         g = self.g
         boundary = np.setdiff1d(np.unique(g._live_edges()[:, np.isin(g._live_edges(), S).any(axis=0)]), S)
         if np.isin(boundary, self.zero).any():
             return None  # never for a candidate of `_supports`, which takes such a bus in; a guard for others
         devices: set[int] = set()
         channels: set[tuple[int, int, int]] = set()
-        prev_node = np.zeros(self.node_m.shape)  # the attack vector of the snapshot before the window: none
-        prev_edge = np.zeros(self.edge_m.shape)
+        prev = (np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape))  # before the window: no attack
         for t in range(len(self.goal.designs)):
-            Xt = self.states[t]
-            Xa = g.goal_state(self.goal, t, Xt, S, self.k)
-            if Xa is None:
+            moved = self._snapshot(t, S, prev)
+            if moved is None:
                 return None
-            a_node, a_edge = g._attack_vector(Xa, Xt)
-            sig_node, sig_edge = self.sigma[t]
-            # the stealth bound: no metered channel moves by more than its noise from one snapshot to the next
-            step_node, step_edge = tampered_channels(
-                a_node - prev_node, a_edge - prev_edge, sig_node, sig_edge, self.node_m, self.edge_m
-            )
-            if self.stealth_bound and (step_node.any() or step_edge.any()):
-                return None
-            prev_node, prev_edge = a_node, a_edge
-            node, edge = tampered_channels(a_node, a_edge, sig_node, sig_edge, self.node_m, self.edge_m)
+            node, edge, prev = moved
             devices |= set(tampered_devices(node, edge, self.pmu, g.ei[0]).tolist())
             channels |= {(0, int(i), int(j)) for i, j in zip(*np.nonzero(node))}
             channels |= {(1, int(i), int(j)) for i, j in zip(*np.nonzero(edge))}
@@ -202,3 +215,24 @@ class _Window:
                 return None
         cost = (len(devices), len(channels), len(S))
         return cost if beat is None or cost < beat else None
+
+    def _snapshot(
+        self, t: int, S: np.ndarray, prev: tuple[np.ndarray, np.ndarray]
+    ) -> Optional[tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray]]]:
+        """Snapshot t on support S: (the channels moved beyond their accuracy-class sigma, node and flow,
+        and this snapshot's attack vector), or None when S has no false state here or breaks the stealth
+        bound against the previous snapshot's attack vector `prev`."""
+        g = self.g
+        Xa = g.goal_state(self.goal, t, self.states[t], S, self.k)
+        if Xa is None:
+            return None
+        a_node, a_edge = g._attack_vector(Xa, self.states[t])
+        sig_node, sig_edge = self.sigma[t]
+        # the stealth bound: no metered channel moves more than its accuracy-class sigma between snapshots
+        step = tampered_channels(
+            a_node - prev[0], a_edge - prev[1], sig_node, sig_edge, self.node_m, self.edge_m
+        )
+        if self.stealth_bound and (step[0].any() or step[1].any()):
+            return None
+        node, edge = tampered_channels(a_node, a_edge, sig_node, sig_edge, self.node_m, self.edge_m)
+        return node, edge, (a_node, a_edge)

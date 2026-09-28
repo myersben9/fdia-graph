@@ -1,12 +1,13 @@
 """The fewest-tamper support search [WU26, eq. 12]: exact against brute force on IEEE-14, a lower
-bound that never exceeds a cost, the emitter's noise rule shared with the objective, and a
-continuous reweighted-l1 cross-check the search is never beaten by."""
+bound that never exceeds a cost, the two sigmas (the emitter's per-scan jitter, the meters'
+accuracy class the search counts against), and a continuous reweighted-l1 cross-check the search is
+never beaten by."""
 
 import numpy as np
 import pytest
 
 from fdia_graph.formulas.attacks import tampered_channels, tampered_devices
-from fdia_graph.formulas.noise import jitter_sigma
+from fdia_graph.formulas.noise import accuracy_sigma, jitter_sigma
 from fdia_graph.models.grid import NODE
 
 WINDOW = 6  # snapshots per test window: a ramp's loads move above their noise by then, still fast
@@ -108,6 +109,35 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
     # and the rule is the emitter's former one, relative power noise with the floor
     b = int(np.argmax(np.abs(X[0][:, NODE.p_inj])))
     assert sig[b, NODE.p_inj] == abs(X[0][b, NODE.p_inj]) * g.SDj["pi"] + 1e-3
+
+
+def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
+    """accuracy_sigma is the measured calibration's sigma (SEBase._class_sigma through
+    accuracy_class_sigma) at one scan's readings, in physical units; it is larger than the jitter."""
+    from fdia_graph.engine.base import ACCURACY_CLASS
+    from fdia_graph.formulas.estimation import accuracy_class_sigma
+
+    g, X, _ = case
+    x, base = X[0], g._base_mva
+    flows = g.clean_flows_from_states(X[:1])[0].astype(np.float64)
+    sig, sig_f = accuracy_sigma(x, flows, ACCURACY_CLASS, 1e-3)
+    # the calibration's rule, in its units (per unit on baseMVA, radians), on the same readings
+    pu_p = accuracy_class_sigma(
+        np.abs(x[:, NODE.p_inj]) / base, np.full(g.C, ACCURACY_CLASS["pi"]), np.ones(g.C, bool), 1e-3 / base
+    )
+    va = accuracy_class_sigma(
+        np.abs(np.radians(x[:, NODE.theta])),
+        np.full(g.C, ACCURACY_CLASS["va"]),
+        np.zeros(g.C, bool),
+        1e-3 / base,
+    )
+    assert np.allclose(sig[:, NODE.p_inj], pu_p * base) and np.allclose(sig[:, NODE.theta], np.degrees(va))
+    assert np.allclose(sig[:, NODE.v], ACCURACY_CLASS["v"])
+    # the stored angle is in degrees, the class in radians: the sigma is returned in the scan's units
+    assert np.allclose(sig[:, NODE.theta], np.degrees(ACCURACY_CLASS["va"]))
+    assert np.allclose(sig_f[:, 1], ACCURACY_CLASS["qf"] * np.abs(flows[:, 1]) + 1e-3)
+    jit, jit_f = jitter_sigma(x, flows, g.SDj, 1e-3)
+    assert (sig >= jit).all() and (sig_f >= jit_f).all()
 
 
 def test_devices_group_channels_by_bus_terminal_and_pmu():
@@ -236,3 +266,19 @@ def test_generate_with_the_knob_records_each_ramp_search(tmp_path):
         held = devices >= 0  # -1: no held support met the constraints, the episode ran on its region
         assert (devices[held] >= lower[held]).all()
         assert f.attrs[schema.Attr.MIN_TAMPER] == 1
+
+
+def test_the_stealth_bound_covers_the_onset(case):
+    """A window whose first frame jumps (a 15 percent load step from the attack-free frame before it)
+    solves without the bound and is refused with it: the increment is measured from a zero attack."""
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.models.frames import AttackDesign, LoadGoal
+
+    g, X, k = case
+    for states, _, d in _windows(case, 1, held=False):
+        area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
+        jump = LoadGoal(
+            tuple(AttackDesign(d.targets, 1.15) for _ in states)
+        )  # held at 1.15: only the onset jumps
+        assert _Window(g, states, jump, k, stealth_bound=False).cost(area, None) is not None
+        assert _Window(g, states, jump, k).cost(area, None) is None
