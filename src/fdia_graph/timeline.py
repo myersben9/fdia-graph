@@ -831,7 +831,9 @@ def generate_timeline(
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
-        AdmissibleTargets(fams, g.target_counts())
+        # the overload Am is not checked against the redistribution pool: its targets are the rated,
+        # metered lines of each window, decided per episode (a window with none stays benign)
+        AdmissibleTargets(tuple(f for f in fams if not (overload and f == AM_FAMILY)), g.target_counts())
         if overload:
             g.line_ratings()  # NoLineRatings on a case without ratings, before any frame is walked
     T, C = len(X), g.C

@@ -288,3 +288,28 @@ def test_the_deprecated_stream_keeps_its_recipe(monkeypatch):
             streams.generate_stream(30)
     assert tuple(seen["families"]) == tuple(LEGACY_FAMILIES)
     assert seen["am_attack"] == "redistribution" and seen["min_tamper"] is False
+
+
+def test_the_overload_am_is_not_held_to_the_redistribution_pool(monkeypatch):
+    """The overload Am picks its lines per window; an empty redistribution pool must not refuse it."""
+    from fdia_graph import timeline
+    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.models.choices import FAMILY_CODE
+
+    seen = {}
+    real = FdiaGenerator.target_counts
+
+    def counts(self):
+        out = dict(real(self))
+        out[FAMILY_CODE["Am"]] = 0  # no line admits a redistribution
+        return out
+
+    def stop(*a, **k):
+        seen["reached"] = True
+        raise RuntimeError("stop after the admissibility check")
+
+    monkeypatch.setattr(FdiaGenerator, "target_counts", counts)
+    monkeypatch.setattr(FdiaGenerator, "operating_limits", stop)
+    with pytest.raises(RuntimeError, match="after the admissibility check"):
+        timeline.generate_timeline(14, families=("At", "Am"), am_attack="overload")
+    assert seen["reached"]
