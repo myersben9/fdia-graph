@@ -153,7 +153,8 @@ def tampered_channels(
         tampered_m = metered_m  and  |a_m| > sigma_m
 
     a_node, a_edge     : the attack vector h(x_false) - h(x_true) per node [N, 4] and flow [E, 2] channel
-    sig_node, sig_edge : each channel's per-scan noise std (`formulas.noise.jitter_sigma`)
+    sig_node, sig_edge : each channel's rated-accuracy std in the stored units
+                         (`formulas.noise.accuracy_sigma`, D7 of the plan), not the per-scan jitter
     node_m, edge_m     : the meter masks (1 where the channel is metered)
     returns            : boolean masks [N, 4] and [E, 2]
     """
