@@ -109,6 +109,11 @@ def changed(base: str) -> list[str]:
     )
 
 
+def _tree() -> set[str]:
+    """Every file of the checkout, tracked or new (not ignored)."""
+    return _git_names("ls-files") | _git_names("ls-files", "--others", "--exclude-standard")
+
+
 def _read(rel: str) -> str:
     return open(os.path.join(ROOT, rel), encoding="utf-8").read()
 
@@ -156,7 +161,7 @@ _LINKED = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 def _targets(md: str, text: str) -> list[str]:
     """The repository paths a Markdown file cites: backticked repository-rooted paths, and link and
     image destinations resolved against the file's folder (web links, mail and anchors skipped)."""
-    top = {f.split("/", 1)[0] for f in _git_names("ls-files")}
+    top = {f.split("/", 1)[0] for f in _tree()}
     spans = _SPAN.findall(_LINKED.sub("", text))  # a link's text is not a citation; its target is
     out = [s for s in spans if _is_path(s, top)]
     for dest in _LINKED.findall(re.sub(r"`[^`\n]*`", "", text)):  # a code span holds no link
@@ -170,7 +175,7 @@ def _targets(md: str, text: str) -> list[str]:
 
 def _cited_paths(files: list[str]) -> tuple[str, str]:
     # a bare name such as `REFERENCES.md` is shorthand for a file of that name somewhere in the tree
-    names = {posixpath.basename(f) for f in _git_names("ls-files")}
+    names = {posixpath.basename(f) for f in _tree()}
     missing = [
         f"{f}: {path}"
         for f in files
@@ -183,10 +188,9 @@ def _cited_paths(files: list[str]) -> tuple[str, str]:
 
 def _vacuous_tests() -> tuple[str, str]:
     hits = [
-        f"tests/{name}:{i}"
-        for name in sorted(os.listdir(os.path.join(ROOT, "tests")))
-        if name.endswith(".py")
-        for i, line in enumerate(_read(f"tests/{name}").splitlines(), 1)
+        f"{rel}:{i}"
+        for rel in sorted(f for f in _tree() if f.startswith("tests/") and f.endswith(".py"))
+        for i, line in enumerate(_read(rel).splitlines(), 1)
         if re.search(r"\bor True\b|\bassert True\b", line)
     ]
     return (FAIL if hits else PASS), "vacuous assertions: " + ", ".join(hits)

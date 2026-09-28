@@ -11,26 +11,29 @@ request never touched. So the review starts from the diff and searches outward t
 repository, not just the changed lines.
 
 The reviewer also reads every file a pull request touches from top to bottom, not only the changed
-lines: on #140 to #152, 27 of its 78 findings (35%) were in lines the pull request did not change,
-and each one cost a further review round. So the local review reads each touched file whole too.
+lines: on #140 to #152, more than a third of its findings were in lines the pull request did not
+change, and each one cost a further review round. So the local review reads each touched file
+whole too.
 
 `python tools/review_ledger.py <num>` adds a pull request's findings to
 `docs/reference/review_ledger.csv` and prints the tally by kind. Run it after every automated review.
 A kind that keeps coming up becomes a checklist item or a mechanical check.
 
-## Since #140 (the ledger, as of #152)
+## Since #140 (the ledger)
 
-| kind | findings | pull requests | what now catches it |
-|---|---:|---:|---|
-| input escapes validation (a raw `TypeError` or `KeyError`, an argument used before its model, a missing `Integer()`, a negative count) | 25 | 5 | the integer-field check; the malformed-input test that arrives with #147; item 4 |
-| doc claim does not match the code (a release, a file, a count, an unmerged pull request, an uncited outside claim) | 21 | 5 | the cited-path check; item 15 |
-| logic and edge cases | 10 | 5 | item 3 |
-| cache and resume | 7 | 1 | item 10 |
-| generated file stale | 5 | 4 | the class-diagram, data-dictionary and rendered-diagram checks |
-| tooling | 4 | 2 | item 9 |
-| compatibility | 3 | 3 | item 8 |
-| export missing | 2 | 2 | item 8 |
-| performance | 1 | 1 | item 11 |
+The kinds, most frequent first; `python tools/review_ledger.py` prints the current counts.
+
+| kind | what now catches it |
+|---|---|
+| input escapes validation (a raw `TypeError` or `KeyError`, an argument used before its model, a missing `Integer()`, a negative count) | the integer-field check; the malformed-input test that arrives with #147; item 4 |
+| doc claim does not match the code (a release, a file, a count, an unmerged pull request, an uncited outside claim) | the cited-path check; item 15 |
+| logic and edge cases | item 3 |
+| cache and resume | item 10 |
+| tooling | item 9 |
+| generated file stale | the class-diagram, data-dictionary and rendered-diagram checks |
+| compatibility | item 8 |
+| export missing | item 8 |
+| performance | item 11 |
 
 ## What came up, and how often
 
