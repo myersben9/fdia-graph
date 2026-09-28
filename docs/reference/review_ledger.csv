@@ -49,6 +49,11 @@ pr,where,kind,path,title
 147,inline,input escapes validation,src/fdia_graph/models/config.py,"`n_calib` is declared as an integer but only has `AtLeast`, so a float such as `n_calib=1.5` passes validation and later becomes the non-integer `num` argument "
 147,inline,generated file stale,docs/figures/diagrams/modules.mmd,"`profiles.py:31` still imports `system_id` from `registry`, so the AST-generated module graph must retain this dependency"
 147,missed,input escapes validation,src/fdia_graph/engine/core.py,Convert invalid outage values to ConfigError
+147,missed,input escapes validation,src/fdia_graph/models/inputs.py,Defer state array numeric conversion
+147,missed,input escapes validation,src/fdia_graph/timeline.py,Let FamilySelection validate raw families
+147,missed,input escapes validation,src/fdia_graph/formulas/federated.py,Let MomentParts validate raw moments
+147,missed,input escapes validation,src/fdia_graph/localization/base.py,Let ShapedArray validate raw scores
+147,missed,input escapes validation,src/fdia_graph/se/base.py,Let ShapedArray validate raw xhat
 147,missed,logic and edge cases,src/fdia_graph/generation.py,Normalize PathLike state paths before suffix checks
 147,missed,input escapes validation,src/fdia_graph/models/validation.py,Normalize non-finite overflow to ConfigError
 147,missed,input escapes validation,src/fdia_graph/models/config.py,Preserve resample_min normalization behavior
@@ -59,6 +64,7 @@ pr,where,kind,path,title
 147,missed,input escapes validation,src/fdia_graph/profiles.py,Validate CsvColumn through the CsvSpec model
 147,missed,input escapes validation,src/fdia_graph/models/config.py,Validate IsoExport directory before filesystem access
 147,missed,input escapes validation,src/fdia_graph/registry.py,Validate dataset names before alias lookup
+147,missed,input escapes validation,src/fdia_graph/dataset/base.py,Validate family_ids before iterating
 147,missed,tooling,src/fdia_graph/models/config.py,Validate gate oracle handling and localize callability
 147,missed,input escapes validation,src/fdia_graph/federated/partition.py,Validate inputs before inferring assignment size
 147,missed,input escapes validation,src/fdia_graph/torch_data.py,Validate pyg_stream layer before indexing
@@ -94,6 +100,7 @@ pr,where,kind,path,title
 152,missed,tooling,tools/prereview.py,Changelog gate passes with empty Unreleased section
 152,missed,tooling,tools/prereview.py,Cited-path gate ignores extensionless repository paths
 152,missed,doc claim does not match the code,tools/prereview.py,Cited-path gate misses repository paths in Markdown code spans
+152,missed,tooling,tools/prereview.py,Git path parsing breaks on whitespace in filenames
 152,missed,input escapes validation,tools/prereview.py,Nested type aliases are not recursively resolved
 152,missed,input escapes validation,tools/prereview.py,Path checker accepts citations outside repository
 152,missed,doc claim does not match the code,tools/prereview.py,Path extraction ignores directories and extensionless references

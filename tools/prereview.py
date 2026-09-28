@@ -95,9 +95,9 @@ def run(gate: Gate) -> tuple[bool, str, float]:
 
 
 def _git_names(*args: str) -> set[str]:
-    return set(
-        subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
-    )
+    """The paths a git listing prints, read NUL-separated (`-z`), so a path with a space is one path."""
+    out = subprocess.run(["git", *args, "-z"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    return {name for name in out.split(chr(0)) if name}
 
 
 def changed(base: str) -> list[str]:
