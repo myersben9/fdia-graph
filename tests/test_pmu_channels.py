@@ -242,9 +242,41 @@ def test_pmu_pseudo_fills_only_unmetered_slots_and_needs_currents(files):
     assert np.isfinite(x).all()
 
 
-def test_new_generation_is_hybrid_and_the_v083_recipe_is_not():
-    from fdia_graph.models.config import TimelineKnobs
+def test_new_generation_is_hybrid_and_the_legacy_recipe_pins_v083():
+    import inspect
 
-    assert TimelineKnobs().meters == "hybrid"
-    assert TimelineKnobs(min_tamper=False).meters == "v083"  # the recipe of data release v0.8.3
-    assert TimelineKnobs(min_tamper=False, meter_model="hybrid").meters == "hybrid"
+    from frozen_spec import TIMELINE_KW
+
+    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.models.config import TimelineKnobs
+    from fdia_graph.timeline import generate_timeline
+
+    assert TimelineKnobs().meter_model == "hybrid"
+    assert TimelineKnobs(min_tamper=False).meter_model == "hybrid"  # its own knob (D12)
+    assert inspect.signature(generate_timeline).parameters["meter_model"].default == "hybrid"
+    assert inspect.signature(FdiaGenerator).parameters["meter_model"].default == "v083"
+    assert TIMELINE_KW["meter_model"] == "v083"  # the v0.8.3 recipe pins it
+
+
+def test_the_previous_frame_carries_its_currents(files):
+    from fdia_graph.dataset import FdiaGraph
+
+    old, new = files
+    ds = FdiaGraph(new, split="train")
+    a = ds.export(["pmu_i", "prev_pmu_i"])
+    rows = ds.idx
+    with h5py.File(new) as f:
+        whole = f["data/pmu_i"][:]
+    np.testing.assert_array_equal(a["prev_pmu_i"], whole[np.maximum(rows - 1, 0)])
+    with pytest.raises(ValueError, match="prev_pmu_i"):
+        FdiaGraph(old, split="train").export(["prev_pmu_i"])
+
+
+def test_jacobian_weighting_takes_the_pseudo_measurements(files):
+    from fdia_graph.dataset import FdiaGraph
+    from fdia_graph.se import JacobianWeighting
+
+    _, new = files
+    est = JacobianWeighting(pmu_pseudo=True).fit(FdiaGraph(new, split="train"))
+    assert len(est._pseudo_th) > 0
+    assert np.isfinite(est.estimate(FdiaGraph(new, split="test"))).all()

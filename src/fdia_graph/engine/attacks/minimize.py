@@ -14,18 +14,18 @@ and every other bus of S joins S to a goal bus through S (a bus that does not so
 true injection and moves nothing). Like the region, a support takes in every zero-injection bus of
 its boundary (a boundary bus absorbs the changed power, and a bus known to inject nothing cannot).
 S is feasible when the local false state with only S free exists at every snapshot of the window,
-meets the goal there on its noiseless readings h(x^a), stays inside the operating limits, and moves
-no metered channel by more than its accuracy-class sigma from one snapshot to the next (the
-stealth bound, the
-first snapshot measured from no attack). Its cost is the number
+meets the goal there on its noiseless readings h(x^a), stays inside the operating limits, and, for
+a load goal (At), moves no metered channel by more than its accuracy-class sigma from one snapshot
+to the next (the stealth bound, the first snapshot measured from the frame before). A flow goal (Am)
+has no stealth bound: [WU26]'s model has none, its noise only thresholds the count (the plan's D11). Its cost is the number
 of devices (`formulas.attacks.tampered_devices`) with a channel moved beyond its accuracy-class
 sigma (`formulas.noise.accuracy_sigma`) at some
 snapshot of the window, the union [WU26] counts over its window. A support that moves no device beyond its sigma
 at any snapshot is not an attack (an accurate estimator resolves it to the noise floor) and is
 treated as infeasible.
 
-The region itself is solved first: the episode was accepted on it, so when the region meets the
-stealth bound a feasible support exists and bounds the rest. The other candidates follow in order
+The region itself is solved first: the episode was accepted on it, so when the region is feasible
+a feasible support exists and bounds the rest. The other candidates follow in order
 of size; the search stops when every candidate is solved (the optimum over supports held for the
 window), when the best cost reaches the devices the goal forces above noise whatever the support
 (the only bound pruned with, the SCADA terminals of the targeted buses at a snapshot whose step
@@ -72,8 +72,8 @@ class MinimizeMixin(FalseStateMixin):
         """The fewest-tamper support for the window of `states` (one [N, 4] true state per snapshot)
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (node [N, 4], flow [E, 2]; None or zeros
-        when that frame is benign): the stealth bound's first increment is measured from it, since
-        episodes may be adjacent."""
+        when that frame is benign): At's stealth bound measures its first increment from it, since
+        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11)."""
         seeds, starts, must_hold = self._goal_seeds(goal)
         area = self.local_region(seeds, k.hops)
         if area is None:
@@ -252,8 +252,12 @@ class _Window:
         stealth_bound: bool = True,
         prev: Optional[AttackVector] = None,
     ) -> None:
-        # `stealth_bound` off only for analysis (the generator always applies it)
-        self.g, self.states, self.goal, self.k, self.stealth_bound = g, states, goal, k, stealth_bound
+        # The between-snapshot stealth bound is At's alone (a sub-noise ramp is what At is). [WU26]'s
+        # model, eqs. (12)-(25), has no increment constraint: its noise only decides which changes the
+        # l0 count ignores, so a flow goal (Am) is never bounded (the plan's D11). `stealth_bound` off
+        # is for analysis only.
+        self.g, self.states, self.goal, self.k = g, states, goal, k
+        self.stealth_bound = stealth_bound and goal.kind == "load"
         self.converged = True  # whether every local solve of the last `cost` call converged
         self.unsolved = 0  # candidates of the search whose solve failed to converge
         self.node_m, self.edge_m = g.meter_masks()
@@ -269,9 +273,9 @@ class _Window:
         # the PMU branch-current channels [WU26, eqs. 19-20]: their mask and noise scale (None without)
         self.i_m = g.current_mask()
         self.i_sigma = self._current_sigmas(g, states, goal) if self.i_m is not None else None
-        # the meters' rated accuracy: what a change must exceed to count, and the most a channel may move
+        # what a change must exceed to count as tampering, and for At also the most a channel may move
         # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
-        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise (the plan's D8)
+        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise, the l0 threshold only (D8, D11)
             paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
             self.sigma = [paper for _ in states]
         else:  # At: the meters' rated accuracy (D7)
@@ -384,8 +388,8 @@ class _Window:
         self, t: int, S: np.ndarray, prev: AttackVector
     ) -> Optional[tuple[np.ndarray, np.ndarray, Optional[np.ndarray], AttackVector]]:
         """Snapshot t on support S: (the channels moved beyond their noise, node, flow and PMU branch
-        current, and this snapshot's attack vector), or None when S has no false state here or breaks
-        the stealth bound against the previous snapshot's attack vector `prev`."""
+        current, and this snapshot's attack vector), or None when S has no false state here or (At)
+        breaks the stealth bound against the previous snapshot's attack vector `prev`."""
         g = self.g
         Xa, converged = g.goal_state(self.goal, t, self.states[t], S, self.k)
         if Xa is None:
@@ -394,8 +398,8 @@ class _Window:
         a_node, a_edge = g._attack_vector(Xa, self.states[t])
         a_cur = g._current_attack(Xa, self.states[t])
         sig_node, sig_edge = self.sigma[t]
-        # the stealth bound: no metered channel moves more than its scale between snapshots
-        scale = self.k.stealth_scale  # the bound's step in multiples of the scale (D7, D8: 1)
+        # At's stealth bound: no metered channel moves more than its rated accuracy between snapshots
+        scale = self.k.stealth_scale  # the bound's step in multiples of the rated accuracy (D7: 1)
         step = tampered_channels(
             a_node - prev.node,
             a_edge - prev.edge,

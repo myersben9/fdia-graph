@@ -175,7 +175,8 @@ columns of `pmu_i` are defined in `fdia_graph.models.CurrentColumns` (`re_from`,
 current, the same on a `units="pu"` or `"physical"` view, zero where no PMU reads that end
 (`pmu_i_m` is 0 there). `pmu_i_benign` is the attack-removed twin and `pmu_i_tamper` marks the
 channels the attacker wrote. A file without these datasets (every released file) loads unchanged
-and its records carry no `pmu_i`.
+and its records carry no `pmu_i`. `export(["prev_pmu_i"])` gives the previous emitted frame's
+currents on a hybrid-meter timeline, like `prev_node_x`.
 
 Chunked along the frame axis so a window of W frames is one read. The v0.7.2 record shards (the
 same `data/`, `clean/` once per pool timestep, a `gap` column, no `benign/`) still load through
@@ -283,6 +284,7 @@ Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphF
 | `pmu_i` | `pmu_i` | Array |  | [..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields) |
 | `pmu_i_m` | `pmu_i_m` | Array |  | [..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields) |
 | `pmu_i_benign` | `pmu_i_benign` | Array |  | [..., E, 4] attack removed, noise kept (PmuCurrentFields) |
+| `prev_pmu_i` | `prev_pmu_i` | Array |  | [..., E, 4] the previous frame's PMU branch currents (hybrid meters) (PreviousFrameFields) |
 
 ### `Summary` (`fdia_graph.models.data`)
 

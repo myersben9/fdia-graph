@@ -19,8 +19,6 @@ from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import NODE  # noqa: E402
 from fdia_graph.timeline import DEFAULT_FAMILIES, LEGACY_FAMILIES, generate_timeline  # noqa: E402
 
-WIDE = 256.0  # a stealth scale at which IEEE-14's overload windows are feasible (1, the plan's D7, is not)
-
 
 @pytest.fixture(scope="module")
 def g():
@@ -32,7 +30,7 @@ def pool():
     return _load_states(14, None)[:400]
 
 
-def _knobs(g, pool, scale=WIDE):
+def _knobs(g, pool, scale=1.0):
     return FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(pool), True, 256, scale)
 
 
@@ -153,7 +151,7 @@ def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
 
 
 def test_am_reaches_the_rating_on_the_held_support(tmp_path, pool):
-    """New generation's Am on IEEE-14 (the bound widened so a window is feasible): each episode's
+    """New generation's Am on IEEE-14 (no stealth bound, as in [WU26], the plan's D11): each episode's
     noiseless reported flow on its target branch reaches the branch's rating at the last frame, on a
     support that moves at least one device beyond noise."""
     out = generate_timeline(
@@ -163,7 +161,6 @@ def test_am_reaches_the_rating_on_the_held_support(tmp_path, pool):
         families=("Am",),
         am_len=30,
         attacked_frac=0.3,
-        stealth_scale=WIDE,
         out=str(tmp_path / "am.h5"),
     )
     with h5py.File(out, "r") as f:
@@ -176,7 +173,6 @@ def test_am_reaches_the_rating_on_the_held_support(tmp_path, pool):
         assert full.any() and np.allclose(reached[full], rating[full], rtol=1e-4)
         assert (eg[schema.EPISODE_MIN_DEVICES][()] >= 1).all()
         assert f.attrs[schema.Attr.AM_ATTACK] == "overload"
-        assert f.attrs[schema.Attr.STEALTH_SCALE] == WIDE
 
 
 def test_the_paper_noise_is_in_the_stored_units(g):
@@ -313,3 +309,18 @@ def test_the_overload_am_is_not_held_to_the_redistribution_pool(monkeypatch):
     with pytest.raises(RuntimeError, match="after the admissibility check"):
         timeline.generate_timeline(14, families=("At", "Am"), am_attack="overload")
     assert seen["reached"]
+
+
+def test_am_has_no_stealth_bound_and_at_keeps_its_own(g, pool):
+    """D11: [WU26]'s model bounds nothing between snapshots; its noise only thresholds the l0 count.
+    The overload window's cost does not depend on the stealth scale, At's window is bounded."""
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.models.frames import AttackDesign, LoadGoal
+
+    window = [pool[u] for u in range(8)]
+    goal = g.overload_goal(window, int(g.eligible_lines(window, 2)[0]))
+    area = np.asarray(g.local_region(np.unique(g.ei[:, goal.line]), 2))
+    tight, loose = (_Window(g, window, goal, _knobs(g, pool, s)) for s in (1e-9, 1e9))
+    assert not tight.stealth_bound and tight.cost(area, None) == loose.cost(area, None)
+    design = AttackDesign(g.stealthy_pos[:1], 1.01)
+    assert _Window(g, window, LoadGoal(tuple([design] * 8)), _knobs(g, pool)).stealth_bound

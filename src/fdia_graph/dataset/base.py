@@ -139,6 +139,7 @@ _PREV_FIELDS = {
     "prev_edge_x": "edge_x",
     "prev_timestep": "timestep",
     "prev_swing": "swing",
+    "prev_pmu_i": "pmu_i",  # hybrid-meter timelines only
 }
 # Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
 _UNIT_KIND = {

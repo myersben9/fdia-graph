@@ -109,7 +109,7 @@ operating limits; and, in new generation, whose PMUs read branch currents, the c
 solves its objective, eq. (12): each `At` and `Am` episode is held on the support that tampers the
 fewest devices, and `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25).
 The released files' stealthy families drew their targets at random and drove no line to its limit;
-`LEGACY_FAMILIES` with `am_attack="redistribution"` and `min_tamper=False` reproduces them
+`LEGACY_FAMILIES` with `am_attack="redistribution"`, `min_tamper=False` and `meter_model="v083"` reproduces them
 (`docs/plans/WU_MSFDIA_PLAN.md`).
 
 | family | code | construction | magnitude per bus | episode length | stealthy | target set |
@@ -132,10 +132,12 @@ the true flow plus a linear share of what separates the window's last true flow 
 the false state, reaching the rating `S_max` at the last snapshot; the attackable loads of the
 support are free, every other bus keeps its injection, and the false state is the least-norm voltage
 change that meets the flow. The ratings are PGLib-OPF's (IEEE-14, 118 and 300; other cases raise
-`NoLineRatings`).  Each channel's attack step between snapshots is bounded by, and a device counts
-as tampered beyond, [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU;
-`formulas.noise.paper_sigma`, the plan's D8); `At` keeps the meters' rated accuracy (D7). Under the
-meters' rated accuracy (D7) no overload window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118
+`NoLineRatings`). As in [WU26], nothing bounds how far `Am` moves a channel between snapshots: a
+device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the
+current channels included; `formulas.noise.paper_sigma`, the plan's D8 and D11), and the attack is
+stealthy because every snapshot is one AC state. `At` keeps its bound, each step within the meters'
+rated accuracy (D7). Before D11 `Am` carried a between-snapshot bound as well: under the meters'
+rated accuracy (D7) no overload window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118
 60-snapshot windows, since moving one line's flow moves the injections and flows around its ends by
 several times that change, beyond the rated accuracy of the small loads there. Measured under D8 and
 D9 on 60-snapshot windows at the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the
@@ -143,8 +145,8 @@ search not proven within its budget), IEEE-118 4 of 5 (3 to 11 devices, median 7
 per snapshot); the reported noiseless flow reaches the rating exactly. A window with no stealthy
 overload stays benign and is counted in `fallback_benign`. With the hybrid meters the attacker also
 writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end
-and is bounded like every other channel. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 11% higher), and with the eq. (3) pseudo-measurements added 0.0105 and 0.0099 (7% and 15% lower than PMUs only); on `At` records 0.063, 0.079 and 0.076 degrees on IEEE-14 and 0.0104, 0.0125 and 0.0123 on IEEE-118. The two meter models draw different noise and different episodes, so the `At` rows compare different ramps. Reading currents makes the attacks dearer: on IEEE-118 `At` held episodes tamper 11.7 devices on average instead of 8.8 (17.3 channels instead of 12.0) and `Am` 12.3 instead of 5.6 (42.3 channels instead of 14.8), and 3 overload episodes were stealthy instead of 5 (220 frames fell back to benign instead of 160); on IEEE-14 `At` 10.3 devices instead of 8.5 and no overload window instead of 2 of the 3,000-frame run. The released files are v0.8.3's recipe:
-`families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False`.
+and is bounded like every other channel. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0108 and 0.0099 (4% and 16% lower than PMUs only); on `At` records 0.063, 0.079 and 0.077 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0124 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The released files are v0.8.3's recipe:
+`families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False, meter_model="v083"`.
 
 Notes on the table:
 
@@ -257,7 +259,8 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `families` | ("At", "Am") | the families in rotation; the single-snapshot families are deprecated for generation |
 | `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12] |
 | `am_attack` | "overload" | `Am` as the overload attack of [WU26]; "redistribution" is v0.8.3's `Am` |
-| `stealth_scale` | 1.0 | a multiplier on the stealth bound (Am: [WU26]'s noise, At: the rated accuracy) |
+| `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none, D11) |
+| `meter_model` | `"hybrid"` | what the meters read (D10, D12); the v0.8.3 recipe passes `"v083"` |
 | `attack_intensity` | 0.20 | upper edge of the band of Aq, Al, Ad and As |
 | `ramp_rate` | 0.002 | `At` growth per frame |
 | `ramp_len` | 60 | `At` episode length |

@@ -131,7 +131,7 @@ class FrameKnobs(NamedTuple):
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
     min_budget: int = 256
-    # a multiplier on the stealth bound: Am's unit is [WU26]'s noise (D8), At's the rated accuracy (D7)
+    # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has none (D11)
     stealth_scale: float = 1.0
 
     @property

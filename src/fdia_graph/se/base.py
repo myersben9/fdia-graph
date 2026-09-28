@@ -256,18 +256,18 @@ class SEBase:
 
     # ---- data conversion (physical dataset units -> internal pu/rad) --------------------------
     def _fields(self, *names: str) -> list[str]:
-        """The export fields a solve reads: `names`, plus the PMU currents under pmu_pseudo."""
-        return [*names, *(["pmu_i"] if self.pmu_pseudo else [])]
+        """The export fields a solve reads: `names`, plus under pmu_pseudo the PMU currents of each
+        frame read (`prev_pmu_i` beside `prev_node_x`)."""
+        if not self.pmu_pseudo:
+            return list(names)
+        return [*names, "pmu_i", *(["prev_pmu_i"] if "prev_node_x" in names else [])]
 
     def _z_of(self, node_x: np.ndarray, edge_x: np.ndarray, pmu_i: Optional[np.ndarray] = None) -> np.ndarray:
         """The masked measurement vector [n, m] in pu and rad; under pmu_pseudo the eq. (3) pseudo
         readings fill their slots, which needs the scans' PMU currents `pmu_i`."""
         if self.pmu_pseudo:
             if pmu_i is None:
-                # the previous-frame features (JacobianFeatures) carry no currents
-                raise MissingCapability(
-                    "pmu_pseudo needs the scans' PMU currents, which this path does not read"
-                )
+                raise MissingCapability("pmu_pseudo needs the scans' PMU currents (pmu_i, prev_pmu_i)")
             pv = self._pseudo_of(node_x, pmu_i)
             node_x = np.array(node_x, np.float64)
             node_x[:, self._pseudo_v, NODE.v] = pv.v[:, self._pseudo_v]

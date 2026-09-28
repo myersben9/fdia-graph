@@ -123,6 +123,7 @@ EXPECTED = {
             *_PREV,
             "edge_attr",
             *_PMU_I,
+            "prev_pmu_i",
         ],
         [],
     ),

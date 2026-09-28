@@ -5,6 +5,18 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `Am` follows [WU26]'s model, eqs. (12)-(25), exactly (docs/plans/WU_MSFDIA_PLAN.md, D11): no
+  bound on how far the attack moves between snapshots, which the paper does not have; its noise
+  (0.03 pu SCADA, 0.01 pu PMU, currents included) only decides which changes the tamper count
+  ignores. The bound was what made the overload attack infeasible on IEEE-14. `At` keeps its
+  rated-accuracy bound, and `stealth_scale` is now `At`'s alone. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The rest of the `Am` path was audited against the paper; the constraints it adds are
+  listed in D11 for decision (generator buses held at dispatch among them).
+- `meter_model` is its own knob (D12): `"hybrid"` by default, and the v0.8.3 recipe (the frozen test
+  timeline, the v0.8.3 build script, `generate_stream`) pins `"v083"`.
+- New timeline field `prev_pmu_i` (D13): the previous emitted frame's PMU branch currents, offered
+  by `export` on a hybrid-meter file beside `prev_node_x` and `prev_edge_x`. `JacobianWeighting`
+  takes `pmu_pseudo=True` and reads it.
+
 - The hybrid meter model (docs/plans/WU_MSFDIA_PLAN.md, decision D10), what new generation's meters
   read: a SCADA voltmeter reads `|V|` only and the angle is a PMU channel, and every PMU reads the
   current phasor of each in-service branch at its bus [WU26, eqs. 19-20], the real and imaginary
@@ -12,23 +24,22 @@ the public API, the generated files and the numbers are the same as the previous
   is IEEE C37.118.1's 1% total vector error taken as three standard deviations of the current's
   magnitude plus a 1e-5 pu floor (`formulas.noise.current_sigma`, `PMU_CURRENT_CLASS`), one rule
   the emitter (with the jitter part) and the fewest-tamper search (with the whole class) share
-  [C37118]. `generate_timeline(meter_model=None)` follows `min_tamper`: new generation is
-  `"hybrid"`, the v0.8.3 recipe (`min_tamper=False`) stays `"v083"`, and either can be asked for;
-  `FdiaGenerator`'s own default stays `"v083"`. A hybrid file gains `data/pmu_i`, `data/pmu_i_m`,
+  [C37118]. `generate_timeline(meter_model="hybrid")` is new generation's default; the v0.8.3
+  recipe passes `meter_model="v083"` (D12); `FdiaGenerator`'s own default stays `"v083"`. A hybrid file gains `data/pmu_i`, `data/pmu_i_m`,
   `benign/pmu_i_benign` and `attack/pmu_i_tamper` and the attributes `meter_model`,
   `current_feat` and `current_units`; a v0.8.3-meter file has none of them and loads unchanged.
   Records, batches and `export` carry `pmu_i`, `pmu_i_m` and `pmu_i_benign` when the file has them,
   in per unit on every view (new capability `pmu_currents`). The stealthy families write
   `h(x^a) - h(x)` on the current channels too; the fewest-tamper search counts a tampered current
-  in the PMU of the bus at its end, and bounds its step by the PMU accuracy class for `At` (D7) and
-  by 0.01 pu for `Am` (D8, `formulas.noise.paper_current_sigma`). Under either meter model the
+  in the PMU of the bus at its end, and bounds its step by the PMU accuracy class for `At` (D7); for `Am`
+  it counts a current beyond 0.01 pu (D8, D11, `formulas.noise.paper_current_sigma`). Under either meter model the
   search charges an angle channel only at a PMU bus. New option `pmu_pseudo` (off by default) on `WLS`,
-  `AdaptiveWeighting`, `ResidualRemoval`, `SubspacePrior` and `GatedPrior`: the pseudo voltage
+  `AdaptiveWeighting`, `ResidualRemoval`, `SubspacePrior`, `GatedPrior` and `JacobianWeighting`: the pseudo voltage
   phasors of [WU26, eq. (3)] at the far end of every PMU-metered branch fill the `|V|` and angle
   slots no meter reads, weighted in the measured calibration by their first-order propagated
   variance (`formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages`). New models
   `MeterModel`, `CurrentColumns`, `CurrentIndex`, `CURRENT`, `PmuCurrentFields`, `PseudoLinks` and
-  `PseudoVoltages`; `AttackVector` is a named tuple with an optional `current`. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 11% higher), and with the eq. (3) pseudo-measurements added 0.0105 and 0.0099 (7% and 15% lower than PMUs only); on `At` records 0.063, 0.079 and 0.076 degrees on IEEE-14 and 0.0104, 0.0125 and 0.0123 on IEEE-118. The two meter models draw different noise and different episodes, so the `At` rows compare different ramps. Reading currents makes the attacks dearer: on IEEE-118 `At` held episodes tamper 11.7 devices on average instead of 8.8 (17.3 channels instead of 12.0) and `Am` 12.3 instead of 5.6 (42.3 channels instead of 14.8), and 3 overload episodes were stealthy instead of 5 (220 frames fell back to benign instead of 160); on IEEE-14 `At` 10.3 devices instead of 8.5 and no overload window instead of 2 of the 3,000-frame run. The v0.8.3 recipe and the strict frozen suite are bit-exact.
+  `PseudoVoltages`; `AttackVector` is a named tuple with an optional `current`. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0108 and 0.0099 (4% and 16% lower than PMUs only); on `At` records 0.063, 0.079 and 0.077 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0124 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The v0.8.3 recipe and the strict frozen suite are bit-exact.
 - The documentation states what the stealthy families take from [WU26]: its constraints (13)-(18)
   and (21)-(23) (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating
   limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation also solves
@@ -51,8 +62,8 @@ the public API, the generated files and the numbers are the same as the previous
   9,900 MVA, the "no limit" placeholder. Other cases refuse `Am` with the new named error
   `NoLineRatings`. Each overload episode writes its branch, rating, reached noiseless flow and
   emitted flow under `episodes/` (`am_*`); new models `FlowGoal` and `AmOverloadDesign`; new knob
-  `stealth_scale` (a multiplier on the stealth bound, 1 by default). `Am`'s stealth bound and tamper
-  count use [WU26]'s own case-study noise, 0.03 pu on SCADA channels and 0.01 pu on PMU channels in
+  `stealth_scale` (a multiplier on the stealth bound, 1 by default; `At`'s alone since D11). `Am`'s
+  tamper count (and, until D11, its stealth bound) use [WU26]'s own case-study noise, 0.03 pu on SCADA channels and 0.01 pu on PMU channels in
   the stored units (`formulas.noise.WU26_NOISE`, `paper_sigma`; the plan's D8), while `At` keeps the
   meters' rated accuracy (D7). Snapshot t's goal is the true flow plus a linear share of what
   separates the window's last true flow from the rating (D9), so the attack rides on the load's own

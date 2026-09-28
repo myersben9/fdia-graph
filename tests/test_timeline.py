@@ -28,7 +28,7 @@ def pool():
 
 # the v0.8.3 recipe: every family, the held Am redistribution, no fewest-tamper search (the overload Am
 # and the search are tested in test_overload.py and test_minimize.py)
-LEGACY = dict(families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False)
+LEGACY = dict(families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False, meter_model="v083")
 
 
 def _legacy(*args, **kwargs):

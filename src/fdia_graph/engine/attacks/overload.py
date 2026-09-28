@@ -12,11 +12,13 @@ the window (otherwise the goal is met with no attack). The goal at snapshot t (t
 
 on the noiseless reading of the false state: the true flow plus a share of what separates the last
 snapshot's true flow from the rating, so the attack adds a steady ramp on top of the load's own
-drift instead of cancelling it, and reaches S_max at the window's last snapshot (eq. 25). The stealth
-bound and the tamper count use [WU26]'s own noise (the plan's D8, `formulas.noise.paper_sigma`). Each snapshot's false state frees the attackable loads of the
-support and holds every other bus's injection (`FalseStateMixin.solve_flow_local`), and the
-fewest-tamper search (`MinimizeMixin.min_tamper`) chooses the support held for the window under the
-stealth bound. The labels of every frame are the attackable load buses of the support: the loads the
+drift instead of cancelling it, and reaches S_max at the window's last snapshot (eq. 25). As in
+[WU26], nothing bounds how far the attack moves between snapshots: the paper's noise only decides
+which changes its tamper count ignores (`formulas.noise.paper_sigma`, the plan's D8 and D11), and the
+attack is stealthy because every snapshot's readings are those of one AC state. Each snapshot's false
+state frees the attackable loads of the support and holds every other bus's injection
+(`FalseStateMixin.solve_flow_local`), and the fewest-tamper search (`MinimizeMixin.min_tamper`)
+chooses the support held for the window. The labels of every frame are the attackable load buses of the support: the loads the
 attacker pretends.
 """
 
@@ -96,8 +98,8 @@ class OverloadMixin(MinimizeMixin):
     ) -> Optional[AmOverloadDesign]:
         """One `Am` episode starting at t as the overload attack of [WU26]: at most `AM_LINE_TRIES` of the
         eligible branches, in a random order (one draw, only when there is one), each tried until the fewest-tamper search
-        finds a support that meets the goal at every snapshot, inside the operating limits and the
-        stealth bound, and moves at least one device beyond noise. None when no branch has one (the
+        finds a support that meets the goal at every snapshot, inside the operating limits, and
+        moves at least one device beyond noise. None when no branch has one (the
         span then stays benign and is counted)."""
         frames = range(t, min(t + length, len(X)))
         window = [X[u] for u in frames]

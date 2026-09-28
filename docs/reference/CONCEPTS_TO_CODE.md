@@ -75,7 +75,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
   eq. (12): each `At` and `Am` episode is held on the support that tampers the fewest devices, and
   `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25). The released files'
   stealthy families drew their targets at random and drove no line to its limit; `LEGACY_FAMILIES`
-  with `am_attack="redistribution"` and `min_tamper=False` reproduces them
+  with `am_attack="redistribution"`, `min_tamper=False` and `meter_model="v083"` reproduces them
   (`docs/plans/WU_MSFDIA_PLAN.md`).
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,

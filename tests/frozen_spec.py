@@ -7,8 +7,8 @@ import numpy as np
 
 # The conftest tiny timeline, exactly. The seed is the first that puts every family in both the train
 # and the test split of the 1000 frames under the current episode lengths (one-frame Aq and Al).
-# The frozen timeline is data release v0.8.3's recipe: every family, the held Am redistribution and no
-# fewest-tamper search, so a refactor of the generator is checked bit for bit against it. New
+# The frozen timeline is data release v0.8.3's recipe: every family, the held Am redistribution, no
+# fewest-tamper search and the v0.8.3 meters, so a refactor of the generator is checked bit for bit against it. New
 # generation's defaults (At and the overload Am) are tested in test_overload.py.
 TIMELINE_KW = dict(
     frames=1000,
@@ -17,6 +17,7 @@ TIMELINE_KW = dict(
     families=("Aq", "Ad", "As", "Ar", "At", "Al", "Am"),
     am_attack="redistribution",
     min_tamper=False,
+    meter_model="v083",
 )
 
 

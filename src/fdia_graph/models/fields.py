@@ -82,6 +82,7 @@ class PreviousFrameFields:
     prev_edge_x: Optional[Array] = None  # [..., E, 2] the previous frame's branch-flow readings
     prev_timestep: Optional[Array] = None  # [...] the previous frame's pool timestep
     prev_swing: Optional[Array] = None  # [..., N, 2] the previous frame's swing (dimensionless)
+    prev_pmu_i: Optional[Array] = None  # [..., E, 4] the previous frame's PMU branch currents (hybrid meters)
 
 
 @dataclass(frozen=True, eq=False)

@@ -90,7 +90,8 @@ from .schema import Attr
 
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
 # new generation makes the multi-snapshot families [WU26]; LEGACY_FAMILIES (with
-# am_attack="redistribution", min_tamper=False) reproduces data release v0.8.3 and the frozen timeline
+# am_attack="redistribution", min_tamper=False, meter_model="v083") reproduces data release v0.8.3
+# and the frozen timeline
 DEFAULT_FAMILIES = GENERATED_FAMILIES
 
 # Per-family episode-length band (frames): Ad, As, Ar (the upper end excluded), used when
@@ -762,8 +763,9 @@ def _warn_deprecated_families(fams: Sequence[int]) -> None:
 def _search_attrs(tk: TimelineKnobs, overload: bool, currents: bool) -> dict[str, object]:
     """The attributes of the searches a walk ran and of the meters it read, written only when they
     apply so a v0.8.3 file's attributes are unchanged: the fewest-tamper knobs, the Am attack, the
-    stealth scale of whichever search used it (At's or Am's), and on a hybrid-meter file its meter
-    model and the legend of its current layers."""
+    stealth scale of At's search (Am has no stealth bound, the plan's D11; an Am-only file records
+    the scale it was given, which nothing used), and on a hybrid-meter file its meter model and the
+    legend of its current layers."""
     out: dict[str, object] = {}
     if tk.min_tamper:
         out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
@@ -774,7 +776,7 @@ def _search_attrs(tk: TimelineKnobs, overload: bool, currents: bool) -> dict[str
     if currents:
         out.update(
             {
-                Attr.METER_MODEL: tk.meters,
+                Attr.METER_MODEL: tk.meter_model,
                 Attr.CURRENT_FEAT: "Re_I_from,Im_I_from,Re_I_to,Im_I_to",
                 Attr.CURRENT_UNITS: "pu on the base current",
             }
@@ -805,7 +807,7 @@ def generate_timeline(
     min_budget: int = 256,
     am_attack: str = "overload",
     stealth_scale: float = 1.0,
-    meter_model: Optional[str] = None,
+    meter_model: str = "hybrid",
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
@@ -821,7 +823,7 @@ def generate_timeline(
                      Aq, Ad, As, Ar and Al are deprecated for generation (a DeprecationWarning,
                      refused from 0.22) and stay loadable from released files. Data release v0.8.3
                      is reproduced with families=LEGACY_FAMILIES, am_attack="redistribution",
-                     min_tamper=False
+                     min_tamper=False, meter_model="v083"
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
     am_len           Am episode length (default ramp_len)
@@ -855,16 +857,16 @@ def generate_timeline(
                      fewest-tamper support (IEEE-14, 118 and 300 only: NoLineRatings elsewhere),
                      its branch, rating and reached flow under episodes/ (am_*); "redistribution":
                      the held load redistribution of data release v0.8.3
-    stealth_scale    a multiplier on the stealth bound of the multi-snapshot families: each channel's
-                     attack step between snapshots at most this many times [WU26]'s case-study noise
-                     for Am (0.03 pu SCADA, 0.01 pu PMU, the plan's D8) and the meters' rated accuracy
-                     for At (D7); 1 by default
+    stealth_scale    a multiplier on At's stealth bound: each channel's attack step between
+                     snapshots at most this many times the meters' rated accuracy (the plan's D7); 1
+                     by default. Am has no such bound, as in [WU26]: its noise (0.03 pu SCADA, 0.01 pu
+                     PMU, D8) only decides which changes its tamper count ignores (D11)
     meter_model      what the meters measure (the plan's D10): "hybrid" (a SCADA voltmeter reads |V|
                      only, the angle is a PMU channel, and every PMU reads the current phasor of each
                      in-service branch at its bus, stored as data/pmu_i with benign/pmu_i_benign and
-                     attack/pmu_i_tamper [WU26, eqs. 17-20]) or "v083" (the plan of data release
-                     v0.8.3: an angle at every voltmeter bus and no currents). None (the default)
-                     follows min_tamper: hybrid for new generation, v083 for the v0.8.3 recipe
+                     attack/pmu_i_tamper [WU26, eqs. 17-20]; the default) or "v083" (the plan of
+                     data release v0.8.3: an angle at every voltmeter bus and no currents, which the
+                     v0.8.3 recipe pins)
     """
     tk = TimelineKnobs(
         attacked_frac,
@@ -884,7 +886,7 @@ def generate_timeline(
     _warn_deprecated_families(fams)
     overload = tk.am_attack == "overload" and AM_FAMILY in fams
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
-    g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, meter_model=tk.meters, **red)
+    g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, meter_model=tk.meter_model, **red)
     currents = g.current_mask() is not None
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)

@@ -59,8 +59,10 @@ class ExportMixin(DatasetBase):
         known = self._default_fields()
         if not fields:
             return known
-        # on request only, a timeline's previous frame; its swing only when the file carries swing
-        prev = [k for k in _PREV_FIELDS if self.is_timeline and (k != "prev_swing" or self.has_swing)]
+        # on request only, a timeline's previous frame; its swing and PMU currents only when the file
+        # carries them
+        needs = {"prev_swing": self.has_swing, "prev_pmu_i": self.has_currents}
+        prev = [k for k in _PREV_FIELDS if self.is_timeline and needs.get(k, True)]
         offered = known + prev
         return list(FieldRequest(fields, tuple(offered), tuple(known)).fields)
 
@@ -106,7 +108,8 @@ class ExportMixin(DatasetBase):
         Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
         timestep [n], plus the static graph edge_index [2,E] and edge_reactance [E], always included.
         On a timeline, `fields` may also ask for prev_node_x [n,N,4], prev_edge_x [n,E,2],
-        prev_timestep [n] and prev_swing [n,N,2] (when the file carries swing): the readings of the
+        prev_timestep [n], prev_swing [n,N,2] (when the file carries swing) and prev_pmu_i [n,E,4]
+        (when it carries the PMU currents, a hybrid-meter file): the readings of the
         frame emitted just before each record (file row - 1, whatever split or family it belongs to);
         they are never part of the default set.
         `fields` limits the per-record arrays read; a pandas frame carries every field and refuses

@@ -164,8 +164,9 @@ class JacobianWeighting(SEBase):
         npass: int = 40,
         iters: int = 8,
         tol: float = 1e-4,
+        pmu_pseudo: bool = False,
     ) -> None:
-        super().__init__(npass=npass, iters=iters)
+        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
         cfg = JacobianWeightingConfig(c, reweight, huber_c, tol)
         self.c, self.huber_c = cfg.c, cfg.huber_c
         # "huber": Huber passes on the estimate's residual, from these weights
@@ -182,7 +183,7 @@ class JacobianWeighting(SEBase):
     def weights(self, ds: FdiaGraph) -> np.ndarray:
         """Per-record meter weights [n, m] from the unexplained temporal residual."""
         require_physical(ds)
-        d = ds.export(["node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep"])
+        d = ds.export(self._fields("node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep"))
         u = np.abs(self._jf.transform(d)["r_perp"]) * np.sqrt(self.Wk)[None, :]
         return self.Wk[None, :] * huber_weights(u, self.c)
 

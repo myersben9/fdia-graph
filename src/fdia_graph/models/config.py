@@ -253,24 +253,16 @@ class TimelineKnobs(Validated):
     min_tamper: bool = True  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
     min_budget: Count = 256  # candidate supports the search solves per episode before it settles
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload, or the v0.8.3 redistribution
-    # a multiplier on the stealth bound: Am's unit is [WU26]'s noise (D8), At's the rated accuracy (D7)
+    # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has no bound (D11)
     stealth_scale: Scale = 1.0
-    # what the meters measure (D10): "hybrid" (angles at PMUs only, PMU branch currents) or the v0.8.3
-    # plan; None follows min_tamper, so new generation is hybrid and the v0.8.3 recipe stays v0.8.3
-    meter_model: Annotated[Optional[str], OneOf(MeterModel)] = None
+    # what the meters measure (D10, D12): "hybrid" (angles at PMUs only, PMU branch currents) or the
+    # v0.8.3 plan, which the v0.8.3 recipe pins
+    meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
 
     @property
     def am_frames(self) -> int:
         """The Am episode length: `am_len`, or `ramp_len` when none is given."""
         return self.ramp_len if self.am_len is None else self.am_len
-
-    @property
-    def meters(self) -> str:
-        """The meter model the walk uses: `meter_model`, or, when none is given, "hybrid" for new
-        generation (the fewest-tamper search on) and "v083" for the v0.8.3 recipe (the search off)."""
-        if self.meter_model is not None:
-            return self.meter_model
-        return MeterModel.HYBRID.value if self.min_tamper else MeterModel.V083.value
 
 
 @dataclass(frozen=True)
