@@ -57,14 +57,17 @@ class OverloadMixin(MinimizeMixin):
         return self._line_ratings
 
     def eligible_lines(self, window: list[np.ndarray], hops: int) -> np.ndarray:
-        """The branches an overload attack may target over the snapshots `window`: rated, flow metered,
-        true apparent flow below the rating at every snapshot, and an area around its ends holding an
-        attackable load."""
+        """The branches an overload attack may target over the snapshots `window`: in service, rated, flow
+        metered, true apparent flow below the rating at every snapshot, and an area around its ends
+        holding an attackable load. An out-of-service branch (an N-1 outage) keeps its row with a zero
+        admittance, so its flow reads zero and no false state can drive it to its rating."""
         rating = self.line_ratings()
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
         S = np.hypot(flows[..., 0], flows[..., 1]).max(axis=0)  # [E] the window's largest true flow
         metered = np.asarray(self.meters.flow, bool)
-        ok = np.isfinite(rating) & metered & (S < np.nan_to_num(rating, nan=-np.inf))
+        status = self.branch.status
+        live = np.ones(len(rating), bool) if status is None else np.asarray(status) > 0
+        ok = live & np.isfinite(rating) & metered & (S < np.nan_to_num(rating, nan=-np.inf))
         free = set(self.free_load_buses().tolist())
         return np.array(
             [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)], dtype=np.int64

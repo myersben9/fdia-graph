@@ -120,6 +120,17 @@ def test_eligible_lines_are_rated_metered_and_below_their_rating(g, pool):
         g._line_ratings = saved
 
 
+def test_an_out_of_service_branch_is_never_a_target(g, pool, monkeypatch):
+    """An outage keeps the branch's row with a zero admittance: its flow reads zero, so it would look
+    rated, metered and below its rating, but no false state can drive it to its rating."""
+    window = [pool[u] for u in range(10)]
+    b = int(g.eligible_lines(window, 2)[0])
+    status = np.ones(g.ei.shape[1]) if g.branch.status is None else np.array(g.branch.status, float)
+    status[b] = 0.0
+    monkeypatch.setattr(g, "branch", g.branch._replace(status=status))
+    assert b not in set(g.eligible_lines(window, 2).tolist())
+
+
 def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
     """Every candidate support solved: the fewest-tamper result is the cheapest among the converged."""
     from fdia_graph.engine.attacks.minimize import _Window
