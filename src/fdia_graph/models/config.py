@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Any, Optional
+from typing import Annotated, Optional
 
 from .choices import (
     AmDirection,
@@ -50,7 +50,7 @@ class LoadOptions(Validated):
     format: Annotated[str, OneOf(RecordFormat)] = "torch"
 
 
-def field_names(fields: Any) -> tuple[str, ...]:
+def field_names(fields: object) -> tuple[str, ...]:
     """A list or tuple of field names as a tuple. A lone string is refused rather than split into
     letters, and a mapping or a set is refused rather than read for its keys."""
     if not isinstance(fields, (list, tuple)) or not all(isinstance(f, str) for f in fields):
@@ -148,7 +148,7 @@ class JacobianWeightingConfig(Validated):
 class GateConfig(Validated):
     """A localizer gating the proposed estimator's weights: a fitted localizer or "oracle"."""
 
-    gate: Any = None
+    gate: object = None  # "oracle" or a fitted localizer; the invariant says which
     gate_factor: Share = 1e-3
 
     @property

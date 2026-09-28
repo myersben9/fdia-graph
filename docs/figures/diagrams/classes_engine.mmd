@@ -57,6 +57,12 @@ classDiagram
     class Outage {
         <<models>>
     }
+    class PandapowerNet {
+        <<engine>>
+    }
+    class PpcTables {
+        <<engine>>
+    }
     class Redistribution {
         <<models>>
     }
@@ -85,12 +91,17 @@ classDiagram
     FdiaGenerator ..> MeterBias : uses
     FdiaGenerator ..> MeterPlan : uses
     FdiaGenerator ..> Outage : uses
+    FdiaGenerator ..> PandapowerNet : uses
+    FdiaGenerator ..> PpcTables : uses
     GridBase ..> BranchModel : uses
     GridBase ..> MeterBias : uses
     GridBase ..> MeterPlan : uses
     GridBase ..> Outage : uses
+    GridBase ..> PandapowerNet : uses
     GridBase ..> Redistribution : uses
     GridBase ..> Scan : uses
+    MeasurementMixin ..> PandapowerNet : uses
     MeasurementMixin ..> Scan : uses
     PhysicsMixin ..> OperatingLimits : uses
+    PhysicsMixin ..> PandapowerNet : uses
     PhysicsMixin ..> ResolvedPool : uses

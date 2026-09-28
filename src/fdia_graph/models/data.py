@@ -9,7 +9,7 @@ its dict view keeps (the order the old dict had)."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional, TypedDict
 
 import numpy as np
 
@@ -104,6 +104,23 @@ class EpisodeTable(Bundle):
         return len(self.onset)
 
 
+class EpisodeRow(TypedDict):
+    """One attack episode of a stream: its onset frame, its length in frames, its family code and
+    the buses it attacked."""
+
+    onset: int
+    length: int
+    family: int
+    buses: list[int]
+
+
+class StreamSummary(TypedDict):
+    """The two summary fields of a stream, derived from its arrays."""
+
+    system: int  # the bus count
+    attacked_frac: float  # the fraction of frames with at least one attacked bus
+
+
 @dataclass(frozen=True, eq=False)
 class Stream(
     StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
@@ -114,7 +131,7 @@ class Stream(
     features, and the episode list. `stealthy`, `seq_id` and `edge_clean_full` are not part of a
     stream. A dict as well, so `windows`, `pyg_stream` and every `s["node_x"]` keep working."""
 
-    episodes: Optional[list[dict[str, Any]]] = None  # list of {onset, length, family, buses}
+    episodes: Optional[list[EpisodeRow]] = None
     system: Optional[int] = None  # bus count (generate_stream and load_stream both set it)
     attacked_frac: Optional[float] = None  # fraction of frames with at least one attacked bus (both set it)
 

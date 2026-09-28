@@ -166,7 +166,7 @@ class LocalizerBase:
         s = ShapedArray(s, (len(ds), ds.N), "scores").values
         y, fam = d["y"].astype(bool), d["family"]
         cols = self._report_buses(y, buses)
-        out: dict[str, Any] = {
+        out: dict[str, PerBusMetrics] = {
             "all": self._perbus_rows(s, y, cols, fam, np.ones(len(fam), bool), fr_over, auprc)
         }
         for fid, name in FAMILIES.items():

@@ -115,3 +115,27 @@ def test_no_input_is_checked_by_hand_outside_the_models():
     """Every input check is declared on a model and run by the one engine (VALIDATION_PLAN.md);
     a condition only the data reveals raises a named error from fdia_graph.errors."""
     assert readability.hand_checks_all() == []
+
+
+def test_every_any_is_listed_with_its_reason():
+    """An annotation says Any only where the value can be anything (readability.ANY_ALLOWED); every
+    other annotation carries its real type, and a listed place that no longer says Any is dropped."""
+    assert readability.any_unlisted() == []
+    assert readability.any_stale() == []
+    assert all(reason.strip() for reason in readability.ANY_ALLOWED.values())
+
+
+def test_the_any_rule_finds_every_kind_of_annotation(tmp_path):
+    p = tmp_path / "m.py"
+    p.write_text(
+        "from typing import Annotated, Any, Optional\n"
+        "Alias = Optional[Any]\n"
+        "def f(a: Any, *args: Any, b: dict[str, Any], **kw: Any) -> Any: ...\n"
+        "class C:\n"
+        "    x: Annotated[Any, 1]\n"
+        "    y: int\n"
+        "    def g(self, z: list[Any]) -> None:\n"
+        "        w: Any = 1\n"
+    )
+    found = [k.split(":", 1)[1] for k, _ in readability.any_annotations(str(p))]
+    assert found == ["Alias", "f:a", "f:b", "f:*args", "f:**kw", "f:return", "C.x", "C.g:z", "C.g.w"]

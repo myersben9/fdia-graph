@@ -23,7 +23,8 @@ With K = 1 and no gradient clip the fit is the centralized one, weight for weigh
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
@@ -49,7 +50,13 @@ from .aggregate import fedavg_state, state_bytes
 from .partition import compute_nodes, spectral_partition
 
 if TYPE_CHECKING:
+    import torch
+    from torch import nn
+
     from ..dataset import FdiaGraph
+
+    # the process RNG state: CPU, and the device's when training on a GPU
+    RngState = tuple[torch.Tensor, Optional[torch.Tensor]]
 
 
 @dataclass
@@ -59,12 +66,13 @@ class _Client:
 
     nodes: np.ndarray
     owned: int
-    net: Any
+    net: nn.Module
     trainer: LocalTrainer
-    Xt: Any = None
-    Yt: Any = None
-    rng: Any = None  # the client's own torch RNG state (dropout), carried from run to run
-    attackable: Any = None  # [owned] bool: which of its own buses carry an attack label in its train records
+    Xt: torch.Tensor  # staged standardized features
+    Yt: torch.Tensor  # staged labels of its own buses
+    rng: RngState  # the client's own torch RNG state (dropout), carried from run to run
+    # [owned] bool: which of its own buses carry an attack label in its train records (set by fit)
+    attackable: np.ndarray = field(default_factory=lambda: np.zeros(0, bool))
 
     @property
     def own(self) -> np.ndarray:
@@ -172,12 +180,12 @@ class FederatedLocalizer(LearnedLocalizer):
         # LearnedLocalizer.fit sets from this mask are each bus's own, so it is assembled, not pooled
         self._attackable = np.zeros(self.N, bool)
         for c in self._clients:
-            c.attackable = d["y"][:, c.own].any(axis=0)
+            c.attackable = np.asarray(d["y"][:, c.own].any(axis=0))
             self._attackable[c.own] = c.attackable
         self.net = self._run_rounds()
         self.net.eval()
 
-    def _torch_seeded(self) -> Any:
+    def _torch_seeded(self) -> ModuleType:
         import torch
 
         torch.manual_seed(self.seed)
@@ -193,26 +201,24 @@ class FederatedLocalizer(LearnedLocalizer):
         clients = []
         for k, (X, (nodes, owned)) in enumerate(zip(blocks, views)):
             net = init if k == 0 else copy.deepcopy(init)
-            c = _Client(
-                nodes, owned, net, LocalTrainer(net, self._optim(), self.dev, self.seed + k, self.grad_clip)
-            )
-            c.rng = self._rng_state() if k == 0 else self._seeded_rng_state(self.seed + k)
+            trainer = LocalTrainer(net, self._optim(), self.dev, self.seed + k, self.grad_clip)
+            rng = self._rng_state() if k == 0 else self._seeded_rng_state(self.seed + k)
             Xs = ((X - self.mu) / self.sd).astype(np.float32)
-            c.Xt, c.Yt = c.trainer.stage(Xs, np.ascontiguousarray(Y[:, nodes[:owned]]))  # own labels only
-            clients.append(c)
+            Xt, Yt = trainer.stage(Xs, np.ascontiguousarray(Y[:, nodes[:owned]]))  # own labels only
+            clients.append(_Client(nodes, owned, net, trainer, Xt, Yt, rng))
         return clients
 
     # ---- per-client RNG streams -----------------------------------------------------------
     def _cuda(self) -> bool:
         return str(self.dev).startswith("cuda")
 
-    def _rng_state(self) -> tuple[Any, Any]:
+    def _rng_state(self) -> RngState:
         """The process RNG state now (CPU, and the device's when training on a GPU)."""
         import torch
 
         return torch.get_rng_state(), (torch.cuda.get_rng_state(self.dev) if self._cuda() else None)
 
-    def _seeded_rng_state(self, seed: int) -> tuple[Any, Any]:
+    def _seeded_rng_state(self, seed: int) -> RngState:
         """The RNG state a fresh `manual_seed(seed)` gives, without disturbing the current one."""
         import torch
 
@@ -233,7 +239,7 @@ class FederatedLocalizer(LearnedLocalizer):
             c.rng = self._rng_state()
         return loss
 
-    def _run_rounds(self) -> Any:
+    def _run_rounds(self) -> nn.Module:
         """The FedAvg loop: every client trains its local copy from the global weights on its own
         buses, the server averages (uniformly: every client holds every record)."""
         glob = {k: v.detach().clone() for k, v in self._clients[0].net.state_dict().items()}

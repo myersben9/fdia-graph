@@ -16,6 +16,7 @@ Needs torch: pip install "fdia-graph[torch]". Trains on the GPU when one is visi
 
 from __future__ import annotations
 
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
@@ -33,6 +34,9 @@ from ..models.training import OptimConfig  # noqa: F401  re-exported beside its 
 from .base import LocalizerBase
 
 if TYPE_CHECKING:
+    import torch
+    from torch import nn
+
     from ..dataset import FdiaGraph
 
 N_FEAT = 14  # the papers' per-bus vector: 4 readings + 4 mask + 2 KCL + 2 delta + 2 swing
@@ -55,7 +59,7 @@ FEATURE_SETS: dict[str, int] = {
 }
 
 
-def _torch() -> Any:
+def _torch() -> ModuleType:
     try:
         import torch
 
@@ -129,7 +133,7 @@ class LearnedLocalizer(LocalizerBase):
         self.tau: Optional[float] = None  # set by tune_threshold (the papers' global threshold)
 
     # ---- subclass hook --------------------------------------------------------------------
-    def _build(self, N: int) -> Any:
+    def _build(self, N: int) -> nn.Module:
         """Return an nn.Module mapping [B, N, 14] standardized features to [B, N] logits."""
         raise NotImplementedError
 
@@ -279,7 +283,7 @@ def standardization(parts: list[Moments]) -> tuple[np.ndarray, np.ndarray]:
     return mu, np.clip(np.sqrt(var), 1e-3, None)
 
 
-def predict(net: Any, Xs: np.ndarray, dev: str, chunk: int = 4096) -> np.ndarray:
+def predict(net: nn.Module, Xs: np.ndarray, dev: str, chunk: int = 4096) -> np.ndarray:
     """Per-bus attack probabilities [n, N] of standardized features [n, N, F], in chunks so the
     big systems stay inside a bounded device footprint."""
     torch = _torch()
@@ -301,7 +305,9 @@ class LocalTrainer:
     own buses, its halo after them); `clip` bounds the gradient norm. Neither is used centrally.
     """
 
-    def __init__(self, net: Any, cfg: OptimConfig, dev: str, seed: int, clip: Optional[float] = None) -> None:
+    def __init__(
+        self, net: nn.Module, cfg: OptimConfig, dev: str, seed: int, clip: Optional[float] = None
+    ) -> None:
         clip = TrainerConfig(clip).clip
         torch = _torch()
         self.net, self.cfg, self.dev, self.clip = net, cfg, dev, clip
@@ -309,7 +315,7 @@ class LocalTrainer:
         self.loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(cfg.pos_weight, device=dev))
         self.gen = torch.Generator().manual_seed(seed)
 
-    def stage(self, Xs: np.ndarray, Y: np.ndarray) -> tuple[Any, Any]:
+    def stage(self, Xs: np.ndarray, Y: np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
         """The split as CPU tensors, pinned when training on a GPU: only each batch crosses to the
         device, so the big systems train inside a bounded device footprint."""
         torch = _torch()
@@ -318,7 +324,7 @@ class LocalTrainer:
             Xt, Yt = Xt.pin_memory(), Yt.pin_memory()
         return Xt, Yt
 
-    def run(self, Xt: Any, Yt: Any, epochs: int, owned: Optional[int] = None) -> float:
+    def run(self, Xt: torch.Tensor, Yt: torch.Tensor, epochs: int, owned: Optional[int] = None) -> float:
         """Train `epochs` passes over the staged split; returns the mean batch loss of the last."""
         torch = _torch()
         self.net.train()
@@ -330,7 +336,7 @@ class LocalTrainer:
                 losses.append(self._step(Xt, Yt, perm[i : i + self.cfg.batch_size], owned))
         return float(np.mean(losses)) if losses else 0.0
 
-    def _step(self, Xt: Any, Yt: Any, j: Any, owned: Optional[int]) -> float:
+    def _step(self, Xt: torch.Tensor, Yt: torch.Tensor, j: torch.Tensor, owned: Optional[int]) -> float:
         """One optimizer step on the batch rows `j`."""
         torch = _torch()
         xb = Xt[j].to(self.dev, non_blocking=True)
@@ -360,7 +366,7 @@ class BusCNN(LearnedLocalizer):
         super().__init__(**kw)
         self.kernel = kernel
 
-    def _build(self, N: int) -> Any:
+    def _build(self, N: int) -> nn.Module:
         return _cnn_net(self.n_feat, self.hidden, self.layers, self.kernel, self.dropout)
 
 
@@ -373,11 +379,11 @@ class BusMLP(LearnedLocalizer):
     the paper's zero-shot protocol (v0.4.1 data).
     """
 
-    def _build(self, N: int) -> Any:
+    def _build(self, N: int) -> nn.Module:
         return _mlp_net(self.n_feat, self.hidden, self.layers, self.dropout)
 
 
-def _cnn_net(n_feat: int, hidden: int, layers: int, kernel: int, dropout: float) -> Any:
+def _cnn_net(n_feat: int, hidden: int, layers: int, kernel: int, dropout: float) -> nn.Module:
     """The BusCNN network: 1-D convolutions across the bus axis (kernel `kernel`, padding same),
     GroupNorm after every second convolution, ReLU, dropout, a linear head per bus."""
     nn = _torch().nn
@@ -393,7 +399,7 @@ def _cnn_net(n_feat: int, hidden: int, layers: int, kernel: int, dropout: float)
             self.drop = nn.Dropout(p)
             self.head = nn.Linear(H, 1)
 
-        def forward(self, x: Any) -> Any:  # [B, N, F] -> [B, N]
+        def forward(self, x: torch.Tensor) -> torch.Tensor:  # [B, N, F] -> [B, N]
             torch = _torch()
             x = x.permute(0, 2, 1)  # Conv1d wants [B, C, N]: the bus axis is the sequence
             for i, conv in enumerate(self.convs):
@@ -406,7 +412,7 @@ def _cnn_net(n_feat: int, hidden: int, layers: int, kernel: int, dropout: float)
     return _CNN(n_feat, hidden, layers, kernel, dropout)
 
 
-def _mlp_net(n_feat: int, hidden: int, layers: int, dropout: float) -> Any:
+def _mlp_net(n_feat: int, hidden: int, layers: int, dropout: float) -> nn.Module:
     """The BusMLP network: the same per-bus MLP applied to every bus on its own, LayerNorm after
     every second layer, ReLU, dropout, a linear head."""
     nn = _torch().nn
@@ -420,7 +426,7 @@ def _mlp_net(n_feat: int, hidden: int, layers: int, dropout: float) -> Any:
             self.drop = nn.Dropout(p)
             self.head = nn.Linear(H, 1)
 
-        def forward(self, x: Any) -> Any:  # [B, N, F] -> [B, N]
+        def forward(self, x: torch.Tensor) -> torch.Tensor:  # [B, N, F] -> [B, N]
             torch = _torch()
             for i, lin in enumerate(self.lins):
                 x = lin(x)

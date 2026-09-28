@@ -5,7 +5,9 @@ and cross-mixin method calls type-check. See core.py for the actual assignments.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Callable
+from types import ModuleType
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -25,15 +27,18 @@ ACCURACY_CLASS = {"pf": 0.017, "qf": 0.017, "v": 0.0012, "pi": 0.017, "qi": 0.01
 POWER_NOISE_FLOOR_MW = 1e-3
 
 if TYPE_CHECKING:
+    from scipy.sparse import csr_matrix
+
     from .attacks import Redistribution
+    from .pp_types import PandapowerNet
     from .records import Scan
 
 
 class GridBase:
     # grid + rng
-    pp: Any
-    NET: Any
-    base: Any
+    pp: ModuleType
+    NET: Callable[[], PandapowerNet]
+    base: PandapowerNet
     C: int
     E: int
     n_lines: int
@@ -73,16 +78,16 @@ class GridBase:
     bus_shunt_g: np.ndarray
     bus_shunt_b: np.ndarray
     x_react: np.ndarray
-    _Ybus: Any
-    _Yf: Any
-    _Yt: Any
+    _Ybus: csr_matrix
+    _Yf: csr_matrix
+    _Yt: csr_matrix
     _base_mva: float
-    _ppc_row: Any
+    _ppc_row: np.ndarray
     _from_bus_ppc: np.ndarray
     _n_ppc_buses: int
     _ptdf: np.ndarray
     _ptdf_load_buses: np.ndarray
-    _solve_net: Any
+    _solve_net: PandapowerNet
     # contingency
     contingency: Outage
     # LRA target pool (set in _pick_lra_target)
@@ -100,7 +105,7 @@ class GridBase:
     def solve_local(
         self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray
     ) -> Optional[np.ndarray]: ...
-    def state_from_net(self, net: Any) -> np.ndarray: ...
+    def state_from_net(self, net: PandapowerNet) -> np.ndarray: ...
 
     def solve(
         self,
@@ -108,7 +113,7 @@ class GridBase:
         Lq: np.ndarray,
         Xt: Optional[np.ndarray] = ...,
         Lp_true: Optional[np.ndarray] = ...,
-    ) -> Optional[Any]: ...
+    ) -> Optional[PandapowerNet]: ...
 
     def _lra_for_line(
         self, L: int, Lp: np.ndarray, rel: float, K: int, rand: bool = ..., floor: float = ...

@@ -13,19 +13,26 @@ from __future__ import annotations
 
 import os
 import warnings
-from collections.abc import Sequence
-from typing import Any, Optional, Union
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
 from .dataset.sequence import window_labels
 from .models.config import WindowSpec
-from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
+from .models.data import (
+    EpisodeRow,
+    Stream,  # noqa: F401  re-exported: defined here before the models package
+    StreamSummary,
+)
 from .registry import AssetSpec
 from .timeline import DEFAULT_FAMILIES
 
+if TYPE_CHECKING:
+    from .dataset import FdiaGraph
 
-def stream_summary(s: dict[str, Any]) -> dict[str, Any]:
+
+def stream_summary(s: Mapping[str, np.ndarray]) -> StreamSummary:
     """The two summary fields of a stream, derived from its arrays: `system` is the bus count and
     `attacked_frac` the fraction of frames with at least one attacked bus. `load_stream` uses this
     because the stream files carry the arrays only."""
@@ -99,13 +106,14 @@ _STREAM_FIELDS = (
 )
 
 
-def stream_of(ds: Any) -> Stream:
+def stream_of(ds: FdiaGraph) -> Stream:
     """A time-ordered, contiguous timeline view as the stream dict: the per-frame layers, the
     static graph and masks, and the episode list. A random order or a family subset is refused,
     since the frames of a stream are consecutive."""
     ds._check_timeline("stream_of")
     a = ds.export(_STREAM_FIELDS)  # only what the dict carries; edge_clean_full would cost a Yf pass
     ep = ds.episodes
+    assert a.node_m is not None and a.edge_m is not None, "the export was asked for the meter masks"
     return Stream(
         node_x=a.node_x,
         benign=a.benign,
@@ -123,7 +131,7 @@ def stream_of(ds: Any) -> Stream:
         swing=a.swing,
         timestep=a.timestep,
         episodes=[
-            dict(onset=int(o), length=int(n), family=int(f), buses=b.tolist())
+            EpisodeRow(onset=int(o), length=int(n), family=int(f), buses=b.tolist())
             for o, n, f, b in zip(ep.onset, ep.length, ep.family, ep.buses)
         ],
         **stream_summary(a),
@@ -158,16 +166,18 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     C = system_id(system)
     tag = release_tag(rel)  # the GitHub tag that carries the stream file
     z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", tag)), allow_pickle=True)
-    out = {k: z[k] for k in z.files}
+    out: dict[str, Any] = {k: z[k] for k in z.files}  # whatever the file holds, arrays and the episode list
     out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)  # torch.long
     out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
     for m in ("node_m", "edge_m"):
         out[m] = np.asarray(out[m], dtype=np.uint8)
-    return Stream(**out, **{k: v for k, v in stream_summary(out).items() if k not in out})
+    for key, value in stream_summary(out).items():  # the summary fields a file does not carry
+        out.setdefault(key, value)
+    return Stream(**out)
 
 
 def windows(
-    stream: dict[str, Any], W: int, stride: int = 1, label: str = "any"
+    stream: Mapping[str, np.ndarray], W: int, stride: int = 1, label: str = "any"
 ) -> tuple[np.ndarray, np.ndarray]:
     """Slide a length-W window over a stream. Returns (Xw [n,W,N,4], yw).
 

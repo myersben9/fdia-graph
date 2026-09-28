@@ -17,7 +17,7 @@ or a v0.7.2 record shard; it supplies the truth) loaded with units="physical" (t
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -49,6 +49,8 @@ from ..models.scores import (  # noqa: F401  re-exported: defined here before th
 )
 
 if TYPE_CHECKING:
+    import torch
+
     from ..dataset import FdiaGraph
 
 _CASE_FN = {
@@ -185,7 +187,7 @@ class SEBase:
         cols = np.concatenate([self.keep, N + np.arange(N)])
         return J[:, cols][self.mask]
 
-    def _h_t(self, x: Any, thsl: Any) -> Any:
+    def _h_t(self, x: torch.Tensor, thsl: torch.Tensor) -> torch.Tensor:
         """The torch twin of `_h`, unmasked: the same AC forward map, differentiable, kept for
         callers that take gradients through it (the estimator itself uses the numpy kernel and the
         closed-form Jacobian). Needs torch."""

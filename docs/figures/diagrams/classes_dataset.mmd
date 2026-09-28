@@ -96,6 +96,8 @@ classDiagram
     SequenceMixin <|-- FdiaGraph
     AdmittanceMixin ..> Admittances : uses
     AdmittanceMixin ..> BranchModel : uses
+    DatasetBase ..> ArraysBundle : uses
+    DatasetBase ..> EpisodeTable : uses
     DatasetBase ..> MissingCapability : uses
     DatasetBase ..> Requirement : uses
     ExportMixin ..> ArraysBundle : uses

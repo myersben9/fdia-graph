@@ -14,9 +14,11 @@ or, until the streams are removed, a stream dict (``stream=``) or a system name 
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, Union
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 
 from .models.config import SplitFractions, WindowSpec
 from .models.inputs import StreamSystem
@@ -30,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-fre
 __all__ = ["pyg_stream", "torch_windows"]
 
 
-def _f32(a: Any) -> torch.Tensor:
+def _f32(a: npt.ArrayLike) -> torch.Tensor:
     """numpy -> float32 torch tensor, zero-copy when the array is already contiguous float32."""
     import torch
 
@@ -40,9 +42,9 @@ def _f32(a: Any) -> torch.Tensor:
 def _resolve_stream(
     system: Optional[Union[str, int]],
     release: Optional[str],
-    stream: Optional[dict[str, Any]],
+    stream: Optional[Mapping[str, np.ndarray]],
     dataset: Optional[FdiaGraph] = None,
-) -> dict[str, Any]:
+) -> Mapping[str, np.ndarray]:
     """The frames as one stream-shaped dict: from a loaded timeline dataset (the whole view, in
     time order), an already-loaded stream dict, or a system name (the v0.7.2 streams)."""
     if dataset is not None:
@@ -54,17 +56,25 @@ def _resolve_stream(
     return load_stream(StreamSystem(system).number, release=release)
 
 
-def _dataset_stream(ds: FdiaGraph) -> dict[str, Any]:
+def _dataset_stream(ds: FdiaGraph) -> dict[str, np.ndarray]:
     """A time-ordered timeline view as the stream dict the helpers consume: the per-frame layers
     plus the static graph and masks (the same for every frame)."""
     ds._check_timeline("torch_windows / pyg_stream")
-    s: dict[str, Any] = dict(ds.export())
+    s: dict[str, np.ndarray] = dict(ds.export())
     s["edge_attr"] = ds.edge_attr_np
     s["node_m"], s["edge_m"] = s["node_m"][0], s["edge_m"][0]
     return s
 
 
-def _graphs(a: int, b: int, X: Any, F: Any, Y: Any, ei: Any, static: dict[str, Any]) -> list[Data]:
+def _graphs(
+    a: int,
+    b: int,
+    X: torch.Tensor,
+    F: torch.Tensor,
+    Y: torch.Tensor,
+    ei: torch.Tensor,
+    static: dict[str, torch.Tensor],
+) -> list[Data]:
     """Scans a..b-1 as PyG Data objects sharing the static tensors."""
     from torch_geometric.data import Data
 
@@ -78,7 +88,7 @@ def pyg_stream(
     layer: str = "node_x",
     max_test: Optional[int] = None,
     release: Optional[str] = None,
-    stream: Optional[dict[str, Any]] = None,
+    stream: Optional[Mapping[str, np.ndarray]] = None,
     dataset: Optional[FdiaGraph] = None,
 ) -> tuple[list[Data], ...]:
     """A continuous timeline as ready PyTorch-Geometric graphs, split chronologically.
@@ -139,7 +149,7 @@ def torch_windows(
     val_frac: float = 0.0,
     layer: str = "node_x",
     release: Optional[str] = None,
-    stream: Optional[dict[str, Any]] = None,
+    stream: Optional[Mapping[str, np.ndarray]] = None,
     dataset: Optional[FdiaGraph] = None,
 ) -> tuple[tuple[torch.Tensor, torch.Tensor], ...]:
     """A continuous timeline as LSTM-ready sequence tensors, split chronologically.

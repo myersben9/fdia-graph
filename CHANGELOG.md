@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Every annotation carries its real type. The engine's pandapower network and its internal case are
+  `engine.pp_types.PandapowerNet` and `PpcTables`; torch modules and tensors, HDF5 files and
+  datasets, sparse admittance matrices and the stream mappings are named; the column views are
+  `NodeColumns`/`EdgeColumns`/`BranchColumns` of arrays and the index constants `NODE`/`EDGE`/`BRANCH`
+  are `NodeIndex`/`EdgeIndex`/`BranchIndex` of ints (the same fields, still tuples); a stream's
+  episodes are `models.data.EpisodeRow` and its summary `StreamSummary`. `Any` stays only where the
+  value can be anything (the validation engine's raw input, keyword pass-throughs, mixed-value
+  staging dicts), each place listed in `ANY_ALLOWED` in `tools/readability.py` with its reason, and
+  the readability gate refuses an unlisted one. No behaviour changes.
+
 - `load_profile` takes a load source that reads itself: `IsoFolder(iso, directory)` (an operator's
   CSV export; `models.config.IsoExport` checks the operator and refuses one with no known export
   format, ERCOT, when the folder is described), `CsvColumn(path, column)` or `RawSeries(values)`, or

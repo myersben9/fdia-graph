@@ -13,15 +13,20 @@ greedy selection re-evaluates the attack cost on every candidate at every step.
 
 from __future__ import annotations
 
-from typing import Any
+from types import ModuleType
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from ..formulas.trust import attack_cost
 from .base import TrustSelector
 
+if TYPE_CHECKING:
+    import torch
+    from torch import nn
 
-def _torch() -> Any:
+
+def _torch() -> ModuleType:
     try:
         import torch
 
@@ -67,7 +72,7 @@ class TrustedMetersDQN(TrustSelector):
         return nxt, after, closed
 
     # ---- the network ----------------------------------------------------------------------------
-    def _net(self) -> Any:
+    def _net(self) -> nn.Module:
         torch = _torch()
         return torch.nn.Sequential(
             torch.nn.Linear(self.m, self.hidden),
@@ -77,20 +82,22 @@ class TrustedMetersDQN(TrustSelector):
             torch.nn.Linear(self.hidden, self.m),
         )
 
-    def _q(self, net: Any, states: np.ndarray) -> Any:
+    def _q(self, net: nn.Module, states: np.ndarray) -> torch.Tensor:
         """Q-values with the secured meters masked out (they cannot be secured twice)."""
         torch = _torch()
         s = torch.as_tensor(states, dtype=torch.float32)
         return net(s).masked_fill(s > 0, -1e9)
 
-    def _act(self, net: Any, state: np.ndarray, eps: float, rng: np.random.Generator) -> int:
+    def _act(self, net: nn.Module, state: np.ndarray, eps: float, rng: np.random.Generator) -> int:
         if rng.random() < eps:
             return int(rng.choice(np.flatnonzero(state == 0)))
         torch = _torch()
         with torch.no_grad():
             return int(self._q(net, state[None])[0].argmax())
 
-    def _learn(self, net: Any, target: Any, opt: Any, batch: list[tuple]) -> None:
+    def _learn(
+        self, net: nn.Module, target: nn.Module, opt: torch.optim.Optimizer, batch: list[tuple]
+    ) -> None:
         torch = _torch()
         s, a, r, s2, done = (np.array(x) for x in zip(*batch))
         q = self._q(net, s).gather(1, torch.as_tensor(a)[:, None]).squeeze(1)
@@ -133,7 +140,7 @@ class TrustedMetersDQN(TrustSelector):
         self.net = net
         self.order, self.cost = self._rollout(net)
 
-    def _rollout(self, net: Any) -> tuple[list[int], list[float]]:
+    def _rollout(self, net: nn.Module) -> tuple[list[int], list[float]]:
         """The greedy policy from the empty set: the selection and the attack cost after each meter."""
         state, order, cost = np.zeros(self.m, np.float32), [], []
         before = self._cost(state)[0]

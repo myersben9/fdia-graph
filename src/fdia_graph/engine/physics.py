@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -14,6 +14,9 @@ from ..models.frames import (  # noqa: F401  re-exported: defined here before th
 )
 from ..models.grid import NODE
 from .base import GridBase
+
+if TYPE_CHECKING:
+    from .pp_types import PandapowerNet
 
 
 class PhysicsMixin(GridBase):
@@ -75,7 +78,9 @@ class PhysicsMixin(GridBase):
         zero where the bus has no generator."""
         return generator_output(Xt, self.load_base, self.gen_base)[:, 0]
 
-    def _pin_generation(self, net: Any, Lp: np.ndarray, base_load: np.ndarray, Xt: np.ndarray) -> None:
+    def _pin_generation(
+        self, net: PandapowerNet, Lp: np.ndarray, base_load: np.ndarray, Xt: np.ndarray
+    ) -> None:
         """Hold every generator at the TRUE dispatch of the unattacked state and spread the attack's net
         load change across generators in proportion to dispatch (AGC-like).
 
@@ -185,7 +190,7 @@ class PhysicsMixin(GridBase):
         Lq: np.ndarray,
         Xt: Optional[np.ndarray] = None,
         Lp_true: Optional[np.ndarray] = None,
-    ) -> Optional[Any]:
+    ) -> Optional[PandapowerNet]:
         # Set new load P/Q on the reusable net and re-run AC power flow. Returns the solved net, or None on
         # non-convergence (attacks can push loads into non-convergent regions — caller skips those).
         net = self._solve_net

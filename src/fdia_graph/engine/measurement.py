@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from ..formulas.network import branch_flows, complex_voltages
-from ..models.grid import EDGE, NODE, NodeColumns
+from ..models.grid import EDGE, NODE
 from .base import POWER_NOISE_FLOOR_MW, GridBase
 from .records import Scan
+
+if TYPE_CHECKING:
+    from .pp_types import PandapowerNet
 
 
 class MeasurementMixin(GridBase):
@@ -23,7 +26,7 @@ class MeasurementMixin(GridBase):
         # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
         # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
         C, plan, bias = self.C, self.meters, self.bias
-        V, Pi, Qi, TH = NodeColumns.of(X)
+        V, Pi, Qi, TH = (X[..., i] for i in NODE)  # numpy views of the four columns, no copy
         # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
         # one physics primitive (formulas.network) shared with the loader and the estimator.
         Vc = np.zeros(self._n_ppc_buses, complex)
@@ -81,7 +84,7 @@ class MeasurementMixin(GridBase):
         ec[:, ~np.asarray(self.meters.flow, bool), :] = 0.0
         return ec
 
-    def state_from_net(self, net: Any) -> np.ndarray:
+    def state_from_net(self, net: PandapowerNet) -> np.ndarray:
         # Pull operating state [N,4]=[|V|, Pinj, Qinj, theta] from a SOLVED net, matching the stored pool.
         Pi = net.res_bus.p_mw.values.copy()
         Qi = net.res_bus.q_mvar.values.copy()
@@ -95,7 +98,7 @@ class MeasurementMixin(GridBase):
         TH = net.res_bus.va_degree.values
         return np.column_stack([V, Pi, Qi, TH])  # [N,4] = [|V|, Pinj, Qinj, theta]
 
-    def emit(self, net: Any) -> Scan:
+    def emit(self, net: PandapowerNet) -> Scan:
         # Emit from a SOLVED net (re-solving attacks) by routing its state through emit_from_state, so
         # attacked and benign samples use the IDENTICAL measurement path. Emitting flows from res_line here
         # (while benign uses the Ybus identity) left a ~7 MW systematic benign-vs-attack offset; sharing one
