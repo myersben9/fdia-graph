@@ -308,3 +308,5 @@ def test_a_capability_name_and_a_fetch_are_checked_by_their_models(timeline):
         fetch_profile("pjm", "2024-01-01", "2024-01-02")
     with pytest.raises(ConfigError, match=r"^ProfileFetch\.resample_min must be >= 1"):
         fetch_profile("nyiso", "2024-01-01", "2024-01-02", resample_min=0)
+    with pytest.raises(ConfigError, match=r"^ProfileFetch\.resample_min must be an integer"):
+        fetch_profile("nyiso", "2024-01-01", "2024-01-02", resample_min=1.5)  # was truncated to 1
