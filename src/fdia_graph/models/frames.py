@@ -52,6 +52,10 @@ class RampDesign(NamedTuple):
     direction: float  # +1 a load rise, -1 a load drop
     rise: int  # frames of the rise
     hold: int  # frames held at the peak
+    # with the fewest-tamper knob: the support the minimizer chose, held for every frame of the
+    # episode, and its result; None: every frame is solved on the region around its targets
+    support: Optional[np.ndarray] = None
+    tamper: Optional[MinimizerResult] = None
 
 
 class AmDesign(NamedTuple):
@@ -113,6 +117,10 @@ class FrameKnobs(NamedTuple):
     # `hops` branches of the attacked buses (or the target line) with the boundary voltages held true
     hops: int = 2
     limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected (then halved)
+    # [WU26, eq. 12]: an episode's support is the one that tampers the fewest devices (off: the region
+    # within `hops`), searched over at most `min_budget` candidate supports
+    min_tamper: bool = False
+    min_budget: int = 256
 
     @property
     def band(self) -> Band:
@@ -138,3 +146,33 @@ class ResolvedPool(NamedTuple):
 
     states: np.ndarray
     converged: np.ndarray
+
+
+# An attack vector h(x_false) - h(x_true) of one scan: node channels [N, 4], flow channels [E, 2].
+AttackVector = tuple[np.ndarray, np.ndarray]
+
+
+class LoadGoal(NamedTuple):
+    """What a load-changing attack must realize at each snapshot of its window: the attack design of
+    each snapshot (the loads it moves and their multipliers). The goal of At; the fewest-tamper
+    search holds one support for all of them. The Am overload goal of [WU26, eqs. 24-25], a target
+    line's reported flow reaching its rating, is its own goal type."""
+
+    designs: tuple[AttackDesign, ...]  # one per snapshot, in window order
+    kind: str = "load"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
+
+
+class MinimizerResult(NamedTuple):
+    """The fewest-tamper support of one attack window [WU26, eq. 12] and how it was found."""
+
+    support: np.ndarray  # the buses whose voltages the false state moves (sorted)
+    devices: int  # devices with a channel moved beyond its noise at some snapshot (the objective); -1 when
+    # no support held for the window meets every constraint and moves at least one device beyond its
+    # accuracy sigma (the episode then runs on the region)
+    channels: int  # channels moved beyond their noise at some snapshot, for analysis
+    proven: (
+        bool  # True: no other support in the area tampers fewer devices (search exhausted or at the bound)
+    )
+    evaluated: int  # candidate supports solved
+    lower_bound: int  # devices every support must tamper (the target buses' own changed meters)
+    unsolved: int = 0  # candidates whose local solve did not converge (their feasibility unknown)

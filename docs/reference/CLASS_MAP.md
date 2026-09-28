@@ -46,11 +46,12 @@ decides when and where each episode runs.
 Every attack is built in `engine/attacks/`, one module per concern, composed into `AttackMixin`:
 `AreaMixin` finds the attacker's area, `FalseStateMixin` solves and checks its false state and the
 attack vector, `RedistributionMixin` draws the load redistribution behind `Al` and `Am`,
-`StealthyMixin` builds the stealthy frames, `EpisodeDesignMixin` draws what an episode attacks at its
+`StealthyMixin` builds the stealthy frames, `MinimizeMixin` finds the support that tampers the fewest
+devices over an attack window [WU26, eq. 12], `EpisodeDesignMixin` draws what an episode attacks at its
 onset, and `CorruptMixin` tampers `Ad`, `As` and `Ar` in place. `AttackMixin.attack_frame` is the one
 entry for an attacked scan.
 
-![Class diagram of the attack package: GridBase with AreaMixin and CorruptMixin under it, FalseStateMixin under AreaMixin, RedistributionMixin under FalseStateMixin, StealthyMixin and EpisodeDesignMixin under RedistributionMixin, and AttackMixin inheriting EpisodeDesignMixin, StealthyMixin and CorruptMixin; the mixins use AttackDesign, RampDesign, AmDesign, Frame, FrameKnobs, OperatingLimits, Redistribution, Scan, Band and TamperTarget](../figures/diagrams/classes_attacks.png)
+![Class diagram of the attack package: GridBase with AreaMixin and CorruptMixin under it, FalseStateMixin under AreaMixin, RedistributionMixin under FalseStateMixin, StealthyMixin under RedistributionMixin, MinimizeMixin under FalseStateMixin, EpisodeDesignMixin under RedistributionMixin and MinimizeMixin, and AttackMixin inheriting EpisodeDesignMixin, StealthyMixin and CorruptMixin; the mixins use AttackDesign, RampDesign, AmDesign, LoadGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits, Redistribution, Scan, Band and TamperTarget](../figures/diagrams/classes_attacks.png)
 
 ## State estimation
 

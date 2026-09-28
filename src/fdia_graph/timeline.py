@@ -79,6 +79,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
 )
 from .models.config import TimelineKnobs
 from .models.data import EpisodeRow
+from .models.frames import AttackVector, MinimizerResult
 from .models.inputs import AdmissibleTargets, FamilySelection
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
@@ -108,7 +109,9 @@ _MOVED: dict[str, tuple[str, object]] = {
     ),
     "_draw_ramp": (
         f"{_EPISODES}.draw_ramp",
-        lambda ctx, rng, n: tuple(draw_ramp(rng, ctx.g.stealthy_pos, n)),
+        lambda ctx, rng, n: tuple(draw_ramp(rng, ctx.g.stealthy_pos, n))[
+            :4
+        ],  # its old (targets, direction, rise, hold)
     ),
     "_draw_single_shot": (
         f"{_EPISODES}.EpisodeDesignMixin.single_shot_design",
@@ -191,6 +194,10 @@ class _TimelineBuffers:
         self.node_m: Optional[np.ndarray] = None  # the meter plan, from the first stored frame
         self.edge_m: Optional[np.ndarray] = None
         self.episodes: list[EpisodeRow] = []
+        self.min_rows: list[tuple[int, MinimizerResult]] = []  # (episode, fewest-tamper result), knob on
+        # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
+        # an adjacent episode's stealth bound starts from it
+        self.last_attack: AttackVector = (np.zeros((C, 4)), np.zeros((E, 2)))
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self._clean_batch = clean(0, n)
@@ -215,6 +222,10 @@ class _TimelineBuffers:
         self.attacked += int(frame.y.any())
         if self.node_m is None:
             self.node_m, self.edge_m = frame.node_m, frame.edge_m
+        self.last_attack = (
+            np.asarray(frame.node_x, np.float64) - np.asarray(bnx, np.float64),
+            np.asarray(frame.edge_x, np.float64) - np.asarray(bex, np.float64),
+        )
         self._store_attack(t, fid, frame, bnx, bex)
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
@@ -310,10 +321,12 @@ def _ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> int:
     """One slow-ramp episode on a fixed bus set (rise, hold, return), its design from the generator
     (`AttackMixin.ramp_design`); returns the next free timestep."""
     ctx, T = w.ctx, w.T
-    design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs)
+    design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs, w.buf.last_attack)
     if design is None:  # no admissible ramp at this operating point: the placed frames stay benign, counted
         return _benign_run(w, t, min(t + ramp_len, T))
     ep = _episode(w, RAMP_FAMILY, t)
+    if design.tamper is not None:  # the fewest-tamper search ran on this episode
+        w.buf.min_rows.append((ep.sid, design.tamper))
     for i in range(ramp_len):
         if t >= T:
             break
@@ -540,10 +553,27 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     f.create_dataset(schema.MAG_PTR, data=ptr)
     f.create_dataset(schema.MAG_BUS, data=bus)
     f.create_dataset(schema.MAG, data=mag)
+    if buf.min_rows:  # the fewest-tamper knob: what the search chose per episode and whether it is proven
+        _write_min_rows(eg, buf.min_rows)
     f[schema.Group.ATTACK].attrs[schema.Attr.TAMPER] = (
         "1 where the attacker wrote the meter: the meters the local false state moves for the "
         "stealthy families, the changed channels for Ad/As/Ar"
     )
+
+
+def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]]) -> None:
+    """episodes/min_*: one row per episode the fewest-tamper search ran on."""
+    rows = [r for _, r in min_rows]
+    eg.create_dataset(schema.EPISODE_MIN_EPISODE, data=np.array([s for s, _ in min_rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_DEVICES, data=np.array([r.devices for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_CHANNELS, data=np.array([r.channels for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_PROVEN, data=np.array([r.proven for r in rows], np.uint8))
+    eg.create_dataset(schema.EPISODE_MIN_EVALUATED, data=np.array([r.evaluated for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_LOWER, data=np.array([r.lower_bound for r in rows], np.int32))
+    eg.create_dataset(schema.EPISODE_MIN_UNSOLVED, data=np.array([r.unsolved for r in rows], np.int32))
+    ptr, idx = _ragged([np.asarray(r.support) for r in rows], np.int32)
+    eg.create_dataset(schema.EPISODE_MIN_SUPPORT_PTR, data=ptr)
+    eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)
 
 
 def _timeline_attrs(
@@ -645,6 +675,8 @@ def generate_timeline(
     seed: int = 123,
     out: Optional[str] = None,
     max_load_mw: Optional[float] = 2000.0,
+    min_tamper: bool = False,
+    min_budget: int = 256,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
@@ -678,8 +710,16 @@ def generate_timeline(
     replay_tau       Ar replay depth in frames, None = random lag of at least 20
     redundancy       meter coverage {vbus_frac, pmu_frac, flow_frac}, default 0.6/0.2/0.9
     split            chronological train/val/test fractions by frame, episodes never cut
+    min_tamper       [WU26, eq. 12]: hold each At episode on the support (the buses the false state
+                     moves) that tampers the fewest devices over the episode, a change under a
+                     meter's noise not counted; off (default): the region within `hops`. The
+                     search's choice per episode is written under episodes/ (min_*)
+    min_budget       candidate supports the search solves per episode before it settles on the best
+                     found (recorded as not proven)
     """
-    tk = TimelineKnobs(attacked_frac, am_rate, hops, am_direction, ramp_len, am_len, corrupt_len)
+    tk = TimelineKnobs(
+        attacked_frac, am_rate, hops, am_direction, ramp_len, am_len, corrupt_len, min_tamper, min_budget
+    )
     fams = FamilySelection(families).codes
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
@@ -690,7 +730,18 @@ def generate_timeline(
         AdmissibleTargets(fams, g.target_counts())
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
-    knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)
+    knobs = FrameKnobs(
+        attack_intensity,
+        NOISE_FLOOR,
+        lra_k,
+        replay_tau,
+        False,
+        True,
+        hops,
+        limits,
+        tk.min_tamper,
+        tk.min_budget,
+    )
     ctx = _FrameContext(g, X, knobs, [])
     am = (tk.am_frames, tk.am_rate, tk.am_direction)
     plan = _Schedule.build(list(fams), tk.ramp_len, ramp_rate, am, tk.corrupt_len, tk.attacked_frac)
@@ -714,6 +765,8 @@ def generate_timeline(
         Attr.PMU_FRAC: red["pmu_frac"],
         Attr.FLOW_FRAC: red["flow_frac"],
     }
+    if tk.min_tamper:  # recorded only when on, so a default file's attributes are unchanged
+        recorded.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)

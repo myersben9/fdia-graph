@@ -89,6 +89,15 @@ STATIC_PHYSICS = tuple(v for k, v in vars(Static).items() if not k.startswith("_
 # episodes/: one row per episode
 EPISODE_ONSET, EPISODE_LENGTH, EPISODE_FAMILY = "onset", "length", "family"
 EPISODE_BUS_PTR, EPISODE_BUS_IDX = "bus_ptr", "bus_idx"
+# episodes/ with the fewest-tamper knob: one row per episode the search ran on
+EPISODE_MIN_EPISODE, EPISODE_MIN_DEVICES, EPISODE_MIN_CHANNELS = "min_episode", "min_devices", "min_channels"
+EPISODE_MIN_PROVEN, EPISODE_MIN_EVALUATED, EPISODE_MIN_LOWER = (
+    "min_proven",
+    "min_evaluated",
+    "min_lower_bound",
+)
+EPISODE_MIN_SUPPORT_PTR, EPISODE_MIN_SUPPORT_IDX = "min_support_ptr", "min_support_idx"
+EPISODE_MIN_UNSOLVED = "min_unsolved"
 
 # record field -> dataset path: the loader's vocabulary on disk (clean fields resolve per timestep)
 FIELD_PATH = {
@@ -150,6 +159,8 @@ class Attr:
     AM_RATE = "am_rate"
     AM_DIRECTION = "am_direction"
     HOPS = "hops"
+    MIN_TAMPER = "min_tamper"
+    MIN_BUDGET = "min_budget"
     MAX_LOAD_MW = "max_load_mw"
     V_LO = "v_lo"  # the widest bus voltage limits of the case, what a false state must stay in
     V_HI = "v_hi"

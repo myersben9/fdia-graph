@@ -16,7 +16,8 @@ import numpy as np
 
 from ...formulas.attacks import ramp_profile
 from ...models.choices import BENIGN_CODE, FAMILIES, FAMILY_CODE, STEALTHY_FAMILIES
-from ...models.frames import AmDesign, AttackDesign, FrameKnobs, RampDesign
+from ...models.frames import AmDesign, AttackDesign, AttackVector, FrameKnobs, LoadGoal, RampDesign
+from .minimize import MinimizeMixin
 from .redistribution import RedistributionMixin
 from .stealthy import AQ_FAMILY, AQ_HALVINGS
 
@@ -92,7 +93,7 @@ class _AmShape:
         return max(self.rate, self.at(i))
 
 
-class EpisodeDesignMixin(RedistributionMixin):
+class EpisodeDesignMixin(RedistributionMixin, MinimizeMixin):
     """Draw the design of an attack episode at its onset, and the design each of its frames applies."""
 
     def target_counts(self) -> dict[int, int]:
@@ -110,23 +111,50 @@ class EpisodeDesignMixin(RedistributionMixin):
 
     # ---- At, the slow ramp ------------------------------------------------------------------
     def ramp_step(self, design: RampDesign, i: int, rate: float) -> AttackDesign:
-        """The design of the ramp's frame i: its load set scaled by the profile's deviation there."""
+        """The design of the ramp's frame i: its load set scaled by the profile's deviation there, solved
+        on the episode's fewest-tamper support when the search chose one."""
         return AttackDesign(
-            design.targets, 1 + design.direction * ramp_dev(i, design.rise, design.hold, rate)
+            design.targets, 1 + design.direction * ramp_dev(i, design.rise, design.hold, rate), design.support
         )
 
     def ramp_design(
-        self, X: np.ndarray, t: int, shape: tuple[int, float], k: FrameKnobs
+        self,
+        X: np.ndarray,
+        t: int,
+        shape: tuple[int, float],
+        k: FrameKnobs,
+        prev: Optional[AttackVector] = None,
     ) -> Optional[RampDesign]:
         """A ramp starting at t whose every frame has a stealthy state, `shape` = (ramp_len, ramp_rate);
-        redrawn up to ONSET_DRAWS times, None when no draw has one (the span then stays benign)."""
+        redrawn up to ONSET_DRAWS times, None when no draw has one (the span then stays benign). With
+        `k.min_tamper` the accepted ramp carries the support that tampers the fewest devices over its
+        window [WU26, eq. 12], held for every frame, its first step measured from `prev`, the attack
+        vector of the frame before t (None: that frame is benign); the search spends no random draw."""
         ramp_len, rate = shape
         for _ in range(ONSET_DRAWS):
             design = draw_ramp(self.rng, self.stealthy_pos, ramp_len)  # At is stealthy: no generator bus
             frames = probe_frames(len(X), t, ramp_len)
             if all(self.is_feasible(X[u], self.ramp_step(design, u - t, rate), k) for u in frames):
-                return design
+                return self._fewest_tamper(design, X, (frames, t, rate), k, prev) if k.min_tamper else design
         return None
+
+    def _fewest_tamper(
+        self,
+        design: RampDesign,
+        X: np.ndarray,
+        window: tuple[range, int, float],
+        k: FrameKnobs,
+        prev: Optional[AttackVector],
+    ) -> RampDesign:
+        """The accepted ramp with the fewest-tamper support of its window (`frames`) and the search's
+        result; unchanged when the search finds none (it always has the region the ramp was accepted on)."""
+        frames, t, rate = window
+        goal = LoadGoal(tuple(self.ramp_step(design, u - t, rate) for u in frames))
+        result = self.min_tamper([X[u] for u in frames], goal, k, prev)
+        if result is None:
+            return design
+        held = result.support if result.devices >= 0 else None  # -1: no held support met the constraints
+        return design._replace(support=held, tamper=result)
 
     # ---- Aq, Ad, As, Ar: one design held over the episode -----------------------------------
     def single_shot_design(
