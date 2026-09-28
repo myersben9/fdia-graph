@@ -112,7 +112,7 @@ _MOVED: dict[str, tuple[str, object]] = {
     ),
     "_draw_single_shot": (
         f"{_EPISODES}.EpisodeDesignMixin.single_shot_design",
-        lambda ctx, rng, t, fid, n: _old_pair(ctx.g.single_shot_design(ctx.X, t, fid, n, ctx.knobs)),
+        lambda ctx, rng, t, fid, n: _old_pair(ctx.g.single_shot_design(ctx.X, t, fid, n, ctx.knobs, rng=rng)),
     ),
     "_am_multipliers": (
         f"{_EPISODES}.EpisodeDesignMixin._am_multipliers",

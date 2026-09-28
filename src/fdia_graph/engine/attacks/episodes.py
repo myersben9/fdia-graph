@@ -130,19 +130,26 @@ class EpisodeDesignMixin(RedistributionMixin):
 
     # ---- Aq, Ad, As, Ar: one design held over the episode -----------------------------------
     def single_shot_design(
-        self, X: np.ndarray, t: int, fid: int, length: int, k: FrameKnobs
+        self,
+        X: np.ndarray,
+        t: int,
+        fid: int,
+        length: int,
+        k: FrameKnobs,
+        *,
+        rng: Optional[np.random.Generator] = None,
     ) -> Optional[AttackDesign]:
         """The targets and load multipliers of an episode: the targets, the direction (a load rise or
         a load drop, one draw, like the ramp's) and the per-target scale in the band; an Aq design with
         no stealthy state on any frame of the episode is redrawn, up to ONSET_DRAWS (a case that runs
         below its voltage limits refuses most rises near the low buses, a drop there is the attack
-        that fits). None when no draw has one: the span then stays benign and is counted."""
+        that fits). None when no draw has one: the span then stays benign and is counted. `rng` is the
+        generator's own unless given (the deprecated `timeline._draw_single_shot` passes its caller's)."""
+        rng = self.rng if rng is None else rng
         for _ in range(ONSET_DRAWS):
-            a = pick_targets(
-                self.rng, self.stealthy_pos if fid in STEALTHY_FAMILIES else self.attackable_pos, fid
-            )
-            direction = 1.0 if fid != AQ_FAMILY or self.rng.random() < 0.5 else -1.0
-            mult = 1 + direction * self.rng.uniform(0.05, k.intensity, size=len(a))
+            a = pick_targets(rng, self.stealthy_pos if fid in STEALTHY_FAMILIES else self.attackable_pos, fid)
+            direction = 1.0 if fid != AQ_FAMILY or rng.random() < 0.5 else -1.0
+            mult = 1 + direction * rng.uniform(0.05, k.intensity, size=len(a))
             design = AttackDesign(a, mult)
             if fid != AQ_FAMILY or all(
                 self.is_feasible(X[u], design, k) for u in probe_frames(len(X), t, length)

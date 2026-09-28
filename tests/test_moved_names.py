@@ -54,3 +54,24 @@ def test_an_old_path_keeps_its_old_signature():
     scan = SimpleNamespace(node_m=np.ones((2, 4)), edge_m=np.ones((1, 2)))
     node, edge = changed(np.eye(2, 4), np.zeros((1, 2)), scan)
     assert node.sum() == 2 and not edge.any()
+
+
+def test_the_single_shot_alias_draws_from_the_generator_it_is_given():
+    """`timeline._draw_single_shot(ctx, rng, ...)` drew from `rng`; the alias still does, and leaves
+    the generator's own stream where it was."""
+    import fdia_graph.timeline as timeline
+    from fdia_graph.engine.attacks.episodes import EpisodeDesignMixin
+    from fdia_graph.models.choices import FAMILY_CODE
+
+    fid = FAMILY_CODE["Ad"]  # a corrupt-in-place family: no feasibility probe, only the draws
+    own = np.random.default_rng(1)
+    g = SimpleNamespace(rng=own, stealthy_pos=np.arange(8), attackable_pos=np.arange(8))
+    g.single_shot_design = lambda *a, **kw: EpisodeDesignMixin.single_shot_design(g, *a, **kw)
+    ctx = SimpleNamespace(g=g, X=np.zeros((10, 14, 4)), knobs=SimpleNamespace(intensity=0.2))
+    before = own.bit_generator.state
+    with pytest.warns(DeprecationWarning):
+        draw = timeline._draw_single_shot
+    got = draw(ctx, np.random.default_rng(5), 0, fid, 1)
+    want = EpisodeDesignMixin.single_shot_design(g, ctx.X, 0, fid, 1, ctx.knobs, rng=np.random.default_rng(5))
+    assert own.bit_generator.state == before
+    assert np.array_equal(got[0], want.targets) and np.allclose(got[1], want.mult)
