@@ -7,8 +7,10 @@ Paths are under `src/fdia_graph/`.
 
 ![one record: the operating state gives the clean layer and the benign scan; Aq, At, Al and Am re-solve a local false state whose attack vector is added to the benign scan; Ad, As and Ar corrupt readings in place; every path ends in the record](../figures/diagrams/concepts_one_record.png)
 
-Re-solve families are attacked before measurement (`engine.physics.solve`), in-place families
-after it (`engine.attacks.corrupt`); `engine.records.attack_frame` routes both.
+Every attack is built in `engine.attacks`, the generator's `AttackMixin`: the re-solve families
+before measurement (a local false state, `engine.attacks.false_state`), the in-place families after
+it (`engine.attacks.corrupt`); `AttackMixin.attack_frame` routes both, and
+`engine.records.attack_frame` adds the benign scan.
 
 ## Modules
 
@@ -54,13 +56,13 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 
 | family | paper | build | code |
 |--------|-------|-------|------|
-| Aq | `A_o` | scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode | `timeline._single_shot_episode` + `engine/records.stealthy_state` |
-| At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `timeline._ramp_episode` |
-| Al | `A_l` | load-conserving redistribution around a target line, one frame per episode | `engine/attacks.lra_delta` + `engine/records._lra_frame` |
-| Am | `A_m` | multi-snapshot: a held redistribution reached in steps under the noise floor [WU26] | `timeline._am_episode` + `engine/records._am_frame` |
-| Ad | `A_d` | `z ← z(1±u)` | `engine/attacks.corrupt` |
-| As | `A_s` | `z ← βz` | `engine/attacks.corrupt` |
-| Ar | `A_r` | replay `z(t−k)` | `engine/attacks.corrupt` |
+| Aq | `A_o` | scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode | `engine/attacks/episodes.single_shot_design` + `engine/attacks/false_state.stealthy_state` |
+| At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.ramp_design` + `ramp_step` |
+| Al | `A_l` | load-conserving redistribution around a target line, one frame per episode | `engine/attacks/redistribution.lra_delta` + `engine/attacks/stealthy._lra_frame` |
+| Am | `A_m` | multi-snapshot: a held redistribution reached in steps under the noise floor [WU26] | `engine/attacks/episodes.am_design` + `am_step` + `engine/attacks/stealthy._am_frame` |
+| Ad | `A_d` | `z ← z(1±u)` | `engine/attacks/corrupt.corrupt` |
+| As | `A_s` | `z ← βz` | `engine/attacks/corrupt.corrupt` |
+| Ar | `A_r` | replay `z(t−k)` | `engine/attacks/corrupt.corrupt` |
 
 - Aq/At/Al/Am are local false states [WU26]: the buses within two hops of the attacked loads are
   re-solved with the boundary voltages held true, inside the case's voltage limits and the region's

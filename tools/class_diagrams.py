@@ -33,7 +33,22 @@ GROUPS = {
         "dataset/sequence",
         "dataset/__init__",
     ],
-    "engine": ["engine/base", "engine/measurement", "engine/physics", "engine/attacks", "engine/core"],
+    "engine": [
+        "engine/base",
+        "engine/measurement",
+        "engine/physics",
+        "engine/attacks/__init__",
+        "engine/core",
+    ],
+    "attacks": [
+        "engine/attacks/area",
+        "engine/attacks/false_state",
+        "engine/attacks/redistribution",
+        "engine/attacks/stealthy",
+        "engine/attacks/episodes",
+        "engine/attacks/corrupt",
+        "engine/attacks/__init__",
+    ],
     "estimation": ["se/base", "se/methods", "se/jacobian"],
     "localization_trust": [
         "localization/base",
@@ -191,8 +206,9 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
 
 
 # read by every module, so their edges are said once in the caption instead of drawn; and the public
-# API imports everything, which is not a dependency worth a line each
-FOUNDATION = {"models", "formulas", "schema", "errors"}
+# API imports everything, which is not a dependency worth a line each. `_moved` only keeps old import
+# paths alive for a release, which is not a dependency either.
+FOUNDATION = {"models", "formulas", "schema", "errors", "_moved"}
 OMIT = {"fdia_graph"}
 
 

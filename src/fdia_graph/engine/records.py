@@ -1,17 +1,14 @@
-"""One attacked (or benign) scan, the per-frame physics of the timeline writer.
+"""One scan of the timeline writer: a benign scan, or an attacked one built by `engine.attacks`.
 
-The stealthy families (Aq, At, Al, Am) are local false states [WU26]: the attacker scales or
-redistributes loads inside a subnetwork and solves that subnetwork's power flow with the boundary
-voltages held true, so only the subnetwork's meters change and the measurement vector stays
-consistent with an AC state. Ad/As/Ar corrupt the emitted measurements in place; a benign scan
-emits the stored state. Two switches in `FrameKnobs` remain from the record-shard writer
-that shared this code until 0.18: `reject_below_floor` (reject a stealthy scan whose designed
-change sits inside the noise floor; the timeline keeps every scan and lets the label say what
-happened) and `with_benign` (also emit the un-attacked measurement of the same scan, the timeline's
-`benign` layer).
+Every attack is built in `engine.attacks` (the `AttackMixin` of FdiaGenerator); this module emits
+a benign scan and hands an attacked family to the mixin. Two switches in `FrameKnobs` remain from
+the record-shard writer that shared this code until 0.18: `reject_below_floor` (reject a stealthy
+scan whose designed change sits inside the noise floor; the timeline keeps every scan and lets the
+label say what happened) and `with_benign` (also emit the un-attacked measurement of the same scan,
+the timeline's `benign` layer).
 
 RNG-order invariant: every released file is reproduced bit for bit from its seed, so the order of
-random draws here is fixed: one emission per scan, the true one; a stealthy family adds its attack
+random draws is fixed: one emission per scan, the true one; a stealthy family adds its attack
 vector to it without a draw, and the corrupt-in-place families follow the emission with the
 replay-lag draw, then the corruption draws. Changing that order changes every released file.
 tests/test_frozen.py holds the line.
@@ -23,255 +20,53 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from ..formulas.attacks import generator_output, within_limits
-from ..models.choices import BENIGN_CODE, FAMILY_CODE
+from .._moved import moved
+from ..models.choices import BENIGN_CODE
 from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
     AttackDesign,
     Frame,
     FrameKnobs,
     Scan,
 )
+from .attacks.corrupt import (  # noqa: F401  re-exported: defined here before engine.attacks
+    BENIGN_BUFFER,
+    CORRUPT_KIND,
+    REPLAY_MIN_LAG,
+    CorruptMixin,
+    replay_frame,
+)
+from .attacks.false_state import FalseStateMixin, changed_meters
+from .attacks.stealthy import (  # noqa: F401  re-exported: defined here before engine.attacks
+    AM_FAMILY,
+    AQ_FAMILY,
+    AQ_HALVINGS,
+    LRA_DRAWS,
+    LRA_FAMILY,
+    RAMP_FAMILY,
+    RESOLVE_FAMILIES,
+    STEP_HALVINGS,
+    StealthyMixin,
+)
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator
-
-# Family ids by name (fdia_graph.FAMILIES); Am is multi-snapshot, timelines only.
-AQ_FAMILY = FAMILY_CODE["Aq"]
-RESOLVE_FAMILIES = (AQ_FAMILY, FAMILY_CODE["At"])  # stealthy: the grid is re-solved under a scaled load
-RAMP_FAMILY = FAMILY_CODE["At"]
-LRA_FAMILY = FAMILY_CODE["Al"]
-AM_FAMILY = FAMILY_CODE["Am"]
-# corrupt-in-place families and their AttackMixin.corrupt code
-CORRUPT_KIND = {FAMILY_CODE[n]: n for n in ("Ad", "As", "Ar")}
-BENIGN_BUFFER = 300  # recent benign scans kept for the replay families (FIFO)
-LRA_DRAWS = 40  # target lines an Al frame tries before giving up: a region may hold too few loads, or
-# every redistribution at this operating point may push a boundary generator past its limits
-AQ_HALVINGS = 3  # times an Aq load step with no local power-flow solution is halved before giving up
-STEP_HALVINGS = 6  # the same for one frame of a ramp (At, Am), whose step is under the floor anyway
-REPLAY_MIN_LAG = 20  # a random replay reaches at least this many benign scans back
-
-
-def replay_frame(
-    buffer: list[np.ndarray], tau: Optional[int], rng: np.random.Generator
-) -> Optional[np.ndarray]:
-    """The benign scan an Ar attack replays [DAT26]. It is drawn for every in-place family (Ad, As,
-    Ar) so the random stream stays fixed; only Ar uses it.
-
-    A fixed lag `tau` takes exactly that many scans back (clamped to what the buffer holds); no
-    lag takes a random scan at least REPLAY_MIN_LAG back once the buffer is deep enough, else the
-    oldest scan, else nothing (the attack then leaves the measurements untouched).
-    """
-    if tau is not None and buffer:
-        return buffer[-min(tau, len(buffer))]
-    if len(buffer) > REPLAY_MIN_LAG:
-        return buffer[int(rng.integers(0, len(buffer) - REPLAY_MIN_LAG))]
-    return buffer[0] if buffer else None
-
-
-def remember_benign(g: FdiaGenerator, nx: np.ndarray) -> None:
-    """Keep a benign scan for the replay families, FIFO of BENIGN_BUFFER scans."""
-    g.benign_buf.append(nx.copy())
-    if len(g.benign_buf) > BENIGN_BUFFER:
-        g.benign_buf.pop(0)
 
 
 def attack_frame(
     g: FdiaGenerator, Xt: np.ndarray, family: int, design: Optional[AttackDesign], knobs: FrameKnobs
 ) -> Optional[Frame]:
-    """Build the scan of `family` on the stored operating point `Xt` ([N, 4] = |V|, P_inj, Q_inj, theta).
-
-    `design` names the attacked loads (and, for the stealthy families, the multiplier and the held
-    interior); None for a benign scan and for Al, which draws its own redistribution. Returns None
-    when the scan is rejected: a non-converging local power flow, no feasible redistribution, or,
-    with knobs.reject_below_floor, a designed or realized change inside the noise floor.
-    """
+    """Build the scan of `family` on the stored operating point `Xt` ([N, 4] = |V|, P_inj, Q_inj, theta):
+    the benign scan here, an attacked one from `engine.attacks` (`AttackMixin.attack_frame`, where
+    `design` and the reasons a scan is rejected are described)."""
     if family == BENIGN_CODE:
         return _benign_frame(g, Xt)
-    if family == LRA_FAMILY:
-        return _lra_frame(g, Xt, knobs)
-    assert design is not None, f"family {family} needs an attack design"
-    if family in RESOLVE_FAMILIES:
-        return _resolve_frame(g, Xt, family, design, knobs)
-    if family == AM_FAMILY:
-        return _am_frame(g, Xt, design, knobs)
-    return _corrupt_frame(g, Xt, family, design.targets, knobs)
+    return g.attack_frame(Xt, family, design, knobs)
 
 
-def _stealthy_frame(g: FdiaGenerator, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[Frame]:
-    """One local false state [WU26]: the targeted loads scaled by `mult`, the interior buses
-    re-solved with the boundary voltages held true, and the attack vector a = h(x_false) - h(x_true)
-    added to the true scan. Every meter keeps its own noise draw and the tampered ones (the meters
-    the false state moves) are shifted by exactly what it moves them, so the measurement is a full
-    AC state plus meter noise and the residual test sees noise only. A re-emission of the false
-    state would draw each tampered meter's noise from the false reading instead, which a meter
-    whose true reading is structurally zero (a condenser's P, a zero-injection bus) gives away.
-    Needs `with_benign`: the true scan is the benign twin."""
-    assert k.with_benign, "a stealthy frame needs the benign twin (with_benign=True)"
-    Xa = stealthy_state(g, Xt, design, k)
-    if Xa is None:
-        return None  # no local solution, or one outside the operating limits: the caller halves
-    scan = g.emit_from_state(Xt)  # the true scan: the benign twin, and the draw every meter keeps
-    bnx, bex = scan.node_x, scan.edge_x
-    a_node, a_edge = _attack_vector(g, Xa, Xt)
-    moved = _changed_meters(a_node, a_edge, scan)
-    nx, ex = bnx.copy(), bex.copy()
-    nx[moved[0]] += a_node[moved[0]]
-    ex[moved[1]] += a_edge[moved[1]]
-    tamper = (nx != bnx, ex != bex)  # the meters whose stored float32 reading changed, no fewer, no more
-    buses = g.load_bus[design.targets]
-    y = np.zeros(g.C, np.uint8)
-    y[buses] = 1
-    dev = np.abs(np.asarray(design.mult, float) - 1.0)
-    return Frame(
-        nx,
-        scan.node_m,
-        ex,
-        scan.edge_m,
-        y,
-        1,
-        buses,
-        np.broadcast_to(dev, buses.shape).astype(float),
-        bnx,
-        bex,
-        tamper,
-    )
-
-
-def stealthy_state(
-    g: FdiaGenerator, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs
-) -> Optional[np.ndarray]:
-    """The local false state of the design (its targets scaled by its multiplier, re-solved on its
-    interior), or None when the local power flow has no solution or the state breaks the operating
-    limits [WU26, eqs. 21-23]. A design without an interior is solved on the region around its
-    targets. Spends no random draw, so an episode can test its design at onset and redraw."""
-    placed = with_region(g, design, k)
-    if placed is None or placed.interior is None:
-        return None
-    interior = placed.interior
-    Lp = g.true_load(Xt)  # this scan's active load per load element
-    Lq = g.true_reactive_load(Xt)
-    Lp_true, Lp = Lp, Lp.copy()
-    Lp[design.targets] *= design.mult
-    Xa = g.solve_local(Xt, interior, Lp, Lq)
-    if Xa is None:
-        return None
-    if k.limits is not None and not _within_limits(g, Xa, Xt, Lp - Lp_true, k.limits, interior):
-        return None
-    return Xa
-
-
-def with_region(g: FdiaGenerator, design: AttackDesign, k: FrameKnobs) -> Optional[AttackDesign]:
-    """The design with its interior filled in: the held one, else the region within `k.hops`
-    branches of its targets; None when the targets have no such region."""
-    if design.interior is not None:
-        return design
-    interior = g.local_region(g.load_bus[design.targets], k.hops)
-    return None if interior is None else design._replace(interior=interior)
-
-
-def is_feasible(g: FdiaGenerator, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> bool:
-    """Whether the design has a stealthy state on `Xt`, on its interior or the region around its
-    targets; the onset test of an episode (no random draw)."""
-    return stealthy_state(g, Xt, design, k) is not None
-
-
-def _within_limits(g, Xa, Xt, load_delta_pos, limits, interior) -> bool:
-    """[WU26, eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
-    load-table position (MW), summed per bus for buses carrying several loads; the generator
-    limits apply to the generators of `interior`, the attacked subnetwork."""
-    dload = np.zeros(g.C)
-    np.add.at(dload, g.load_bus, load_delta_pos)
-    return within_limits(Xa, Xt, generator_output(Xt, g.load_base, g.gen_base), dload, limits, interior)
-
-
-def _attack_vector(g, Xa, Xt) -> tuple[np.ndarray, np.ndarray]:
-    """The attack vector a = h(x_false) - h(x_true) [WU26] per node channel [N, 4] and per flow
-    channel [E, 2], in the scan's physical units: the noiseless reading of the false state minus
-    that of the true state (unmetered flows zero on both sides)."""
-    flows = g.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
-    return (np.asarray(Xa, float) - np.asarray(Xt, float)).astype(np.float32), flows[0] - flows[1]
-
-
-def _changed_meters(
-    a_node: np.ndarray, a_edge: np.ndarray, scan: Scan, tol: float = 1e-7
-) -> tuple[np.ndarray, np.ndarray]:
-    """The metered channels the attack vector moves (the tamper set): the interior's and the
-    boundary's injections and voltages and every flow on a branch touching the interior."""
-    node = (np.abs(a_node) > tol) & (scan.node_m > 0)
-    edge = (np.abs(a_edge) > tol) & (scan.edge_m > 0)
-    return node, edge
-
-
-def _solvable_step(
-    g: FdiaGenerator, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs, limit: tuple[int, Optional[float]]
-) -> Optional[Frame]:
-    """The stealthy frame of the design, or of the largest halving of its step that has a local
-    power-flow solution: `limit` = (halvings tried, the floor a halved step may not fall under, or
-    None). A step the region cannot absorb (a large load inside a fixed boundary) keeps the frame
-    attacked at the largest step that solves; the frame's magnitudes record the step used."""
-    halvings, floor = limit
-    frame = _stealthy_frame(g, Xt, design, k)
-    for _ in range(halvings):
-        if frame is not None:
-            break
-        mult = 1.0 + (np.asarray(design.mult, float) - 1.0) / 2
-        if floor is not None and np.max(np.abs(mult - 1.0)) < floor:
-            break
-        design = design._replace(mult=mult)
-        frame = _stealthy_frame(g, Xt, design, k)
-    return frame
-
-
-def _resolve_frame(
-    g: FdiaGenerator, Xt: np.ndarray, family: int, design: AttackDesign, k: FrameKnobs
-) -> Optional[Frame]:
-    """Aq and At: the targeted loads scaled, the subnetwork within `hops` of them re-solved locally.
-    A step without a local solution is halved: an Aq step at most AQ_HALVINGS times and never under
-    the noise floor, a ramp frame at most STEP_HALVINGS times (its design step is sub-floor)."""
-    dev = np.abs(np.asarray(design.mult) - 1.0)  # per-bus designed load-shift fraction
-    if k.reject_below_floor and family == AQ_FAMILY and np.max(dev) < k.floor:
-        return None  # a within-noise no-op; the ramp is exempt so its per-scan step may stay sub-floor
-    placed = with_region(g, design._replace(interior=None), k)  # always the region around the targets
-    if placed is None:
-        return None
-    limit = (AQ_HALVINGS, k.floor) if family == AQ_FAMILY else (STEP_HALVINGS, None)
-    return _solvable_step(g, Xt, placed, k, limit)
-
-
-def _lra_frame(g, Xt, k: FrameKnobs) -> Optional[Frame]:
-    """Al: a load-conserving redistribution over up to lra_k buses of the subnetwork around a
-    target line, steering that line, re-solved locally [DAT26, WU26]; a line whose redistribution
-    has no stealthy state at any halving above the floor is redrawn."""
-    Lp = g.true_load(Xt)
-    for _ in range(LRA_DRAWS):  # a line with no feasible or no solvable redistribution is redrawn
-        red = g.lra_delta(Lp, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)
-        a = red.buses
-        if len(a) == 0:
-            continue
-        dev = np.abs(red.delta[a]) / (np.abs(Lp[a]) + 1e-6)  # designed redistribution fraction per bus
-        if k.reject_below_floor and np.min(dev) < k.floor:
-            return None  # a bus inside the noise floor
-        mult = 1.0 + red.delta[a] / np.where(np.abs(Lp[a]) > 1e-9, Lp[a], 1e-9)
-        frame = _solvable_step(g, Xt, AttackDesign(a, mult, red.interior), k, (AQ_HALVINGS, k.floor))
-        if frame is not None:
-            return frame
-    return None  # no drawn line gave a redistribution with a stealthy state at any halving
-
-
-def _am_frame(g: FdiaGenerator, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[Frame]:
-    """Am, the multi-snapshot attack [WU26]: one step of a load redistribution held over an episode,
-    drawn once at onset by the timeline walker, whose design carries this frame's fraction of it as
-    the multiplier (one per target) and the attacker's interior; the local false state of that step."""
-    placed = with_region(g, design, k)
-    if placed is None:
-        return None
-    return _solvable_step(g, Xt, placed, k, (STEP_HALVINGS, None))
-
-
-def _benign_frame(g, Xt) -> Frame:
+def _benign_frame(g: FdiaGenerator, Xt: np.ndarray) -> Frame:
     """A benign scan: the stored state emitted through the meter plan, and remembered for replay."""
     scan = g.emit_from_state(Xt)
-    remember_benign(g, scan.node_x)
+    g.remember_benign(scan.node_x)
     empty = np.zeros(0, int)
     return Frame(
         scan.node_x,
@@ -287,22 +82,36 @@ def _benign_frame(g, Xt) -> Frame:
     )
 
 
-def _corrupt_frame(
-    g: FdiaGenerator, Xt: np.ndarray, family: int, targets: np.ndarray, k: FrameKnobs
-) -> Optional[Frame]:
-    """Ad, As, Ar: emit the true state, then tamper the measurements at the attacked buses and
-    their incident branches without re-solving, so bad-data detection can see them [DAT26]."""
-    scan = g.emit_from_state(Xt)
-    nx, nm, ex, em = scan  # corrupt() rewrites the scan's readings in place
-    bnx, bex = (nx.copy(), ex.copy()) if k.with_benign else (None, None)  # before corruption: same noise
-    buses = g.load_bus[targets]  # corrupt() and the label index by bus, targets index the load table
-    replay = replay_frame(g.benign_buf, k.replay_tau, g.rng)
-    weak, mags = g.corrupt(scan, buses, CORRUPT_KIND[family], replay, k.band)
-    nx[nm == 0] = 0.0
-    ex[em == 0] = 0.0  # corrupt() can write unmetered channels; re-assert mask == 0 -> value == 0
-    if k.reject_below_floor and weak:
-        return None  # the replayed change fell inside the noise floor
-    y = np.zeros(g.C, np.uint8)
-    y[buses] = 1
-    mag_bus = buses if len(mags) else np.zeros(0, int)
-    return Frame(nx, nm, ex, em, y, 0, mag_bus, np.asarray(mags, float), bnx, bex)
+# the public names this module held before engine.attacks: the mixins' own functions, called with
+# the generator first as they were here
+remember_benign = CorruptMixin.remember_benign
+stealthy_state = FalseStateMixin.stealthy_state
+with_region = FalseStateMixin.with_region
+is_feasible = FalseStateMixin.is_feasible
+
+
+# private helpers that moved to engine.attacks: each takes the generator first, as it did here
+_MOVED: dict[str, tuple[str, object]] = {
+    "_stealthy_frame": (
+        "engine.attacks.stealthy.StealthyMixin._stealthy_frame",
+        StealthyMixin._stealthy_frame,
+    ),
+    "_solvable_step": ("engine.attacks.stealthy.StealthyMixin._solvable_step", StealthyMixin._solvable_step),
+    "_resolve_frame": ("engine.attacks.stealthy.StealthyMixin._resolve_frame", StealthyMixin._resolve_frame),
+    "_lra_frame": ("engine.attacks.stealthy.StealthyMixin._lra_frame", StealthyMixin._lra_frame),
+    "_am_frame": ("engine.attacks.stealthy.StealthyMixin._am_frame", StealthyMixin._am_frame),
+    "_corrupt_frame": ("engine.attacks.corrupt.CorruptMixin._corrupt_frame", CorruptMixin._corrupt_frame),
+    "_within_limits": (
+        "engine.attacks.false_state.FalseStateMixin._within_limits",
+        FalseStateMixin._within_limits,
+    ),
+    "_attack_vector": (
+        "engine.attacks.false_state.FalseStateMixin._attack_vector",
+        FalseStateMixin._attack_vector,
+    ),
+    "_changed_meters": ("engine.attacks.false_state.changed_meters", changed_meters),
+}
+
+
+def __getattr__(name: str) -> object:
+    return moved(__name__, name, _MOVED)

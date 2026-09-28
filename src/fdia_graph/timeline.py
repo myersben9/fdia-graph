@@ -25,7 +25,6 @@ small per-step change and a spike as an abrupt jump (the signal the dataset is b
 
 from __future__ import annotations
 
-import math
 import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -36,9 +35,21 @@ import h5py
 import numpy as np
 
 from . import schema
+from ._moved import moved
 from .dataset.base import FAMILIES, STEALTHY_FAMILIES
 from .engine import FdiaGenerator
-from .engine.records import (
+from .engine.attacks import episodes as _episodes
+from .engine.attacks.episodes import (
+    AM_DRAWS,
+    ONSET_DRAWS,
+    EpisodeDesignMixin,
+    am_sign,
+    draw_ramp,
+    pick_targets,
+    probe_frames,
+    ramp_dev,
+)
+from .engine.records import (  # noqa: F401  AQ_HALVINGS, AttackDesign, is_feasible re-exported as before
     AM_FAMILY,
     AQ_HALVINGS,
     CORRUPT_KIND,
@@ -50,7 +61,7 @@ from .engine.records import (
     is_feasible,
 )
 from .errors import NoRoomForEpisode
-from .formulas.attacks import ramp_profile
+from .formulas.attacks import ramp_profile  # noqa: F401  re-exported as before
 from .formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
 from .generation import (
     _CHUNK_ROWS,
@@ -79,8 +90,54 @@ DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 # corrupt_len is None. Aq and Al are single-snapshot attacks: every Aq and Al episode is one frame.
 _EP_LEN = {2: (5, 25), 3: (5, 25), 4: (5, 25)}
 _ONE_FRAME = {FAMILY_CODE[n] for n in ONE_FRAME_FAMILIES}
-_ONSET_DRAWS = 40  # designs an episode (Aq, At, Am) tries for one with a stealthy state on its frames
-_AM_DRAWS = _ONSET_DRAWS  # the Am redistribution draws, the same budget
+
+# what an episode attacks moved to engine.attacks.episodes (the generator's AttackMixin); the old
+# private names keep their old signatures for one minor release, forwarding to the new home
+_EPISODES = "engine.attacks.episodes"
+_MOVED: dict[str, tuple[str, object]] = {
+    "_ONSET_DRAWS": (f"{_EPISODES}.ONSET_DRAWS", ONSET_DRAWS),
+    "_AM_DRAWS": (f"{_EPISODES}.AM_DRAWS", AM_DRAWS),
+    "_AmShape": (f"{_EPISODES}._AmShape", _episodes._AmShape),
+    "_am_sign": (f"{_EPISODES}.am_sign", am_sign),
+    "_ramp_dev": (f"{_EPISODES}.ramp_dev", ramp_dev),
+    "_pick_targets": (f"{_EPISODES}.pick_targets", pick_targets),
+    "_target_counts": (f"{_EPISODES}.EpisodeDesignMixin.target_counts", EpisodeDesignMixin.target_counts),
+    "_probe_frames": (
+        f"{_EPISODES}.probe_frames",
+        lambda ctx, t, length: probe_frames(len(ctx.X), t, length),
+    ),
+    "_draw_ramp": (
+        f"{_EPISODES}.draw_ramp",
+        lambda ctx, rng, n: tuple(draw_ramp(rng, ctx.g.stealthy_pos, n)),
+    ),
+    "_draw_single_shot": (
+        f"{_EPISODES}.EpisodeDesignMixin.single_shot_design",
+        lambda ctx, rng, t, fid, n: _old_pair(ctx.g.single_shot_design(ctx.X, t, fid, n, ctx.knobs, rng=rng)),
+    ),
+    "_am_multipliers": (
+        f"{_EPISODES}.EpisodeDesignMixin._am_multipliers",
+        lambda ctx, t, a, delta: ctx.g._am_multipliers(ctx.X[t], a, delta),
+    ),
+    "_am_peak_solves": (
+        f"{_EPISODES}.EpisodeDesignMixin._am_peak_solves",
+        lambda ctx, t, a, delta, interior: ctx.g._am_peak_solves(ctx.X[t], a, delta, interior, ctx.knobs),
+    ),
+    "_am_held_delta": (
+        f"{_EPISODES}.EpisodeDesignMixin._am_held_delta",
+        lambda ctx, t, a, delta, interior, shape: ctx.g._am_held_delta(
+            ctx.X, t, a, delta, interior, shape, ctx.knobs
+        ),
+    ),
+}
+
+
+def _old_pair(design: Optional[AttackDesign]) -> Optional[tuple[np.ndarray, Union[float, np.ndarray]]]:
+    """The (targets, multipliers) pair `_draw_single_shot` returned before it moved."""
+    return None if design is None else (design.targets, design.mult)
+
+
+def __getattr__(name: str) -> object:
+    return moved(__name__, name, _MOVED)
 
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
@@ -194,27 +251,6 @@ def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
     return frame
 
 
-def _target_counts(g: FdiaGenerator) -> dict[int, int]:
-    """The targets the case offers each family code: the stealthy Aq and At need a load off every
-    generator bus, Al and Am a line whose subnetwork admits a redistribution, Ad/As/Ar an attackable
-    load (checked against the request by `models.inputs.AdmissibleTargets`)."""
-    stealthy, lines = len(g.stealthy_pos), len(g._target_lines)
-    need = {
-        FAMILY_CODE["Aq"]: stealthy,
-        FAMILY_CODE["At"]: stealthy,
-        FAMILY_CODE["Al"]: lines,
-        FAMILY_CODE["Am"]: lines,
-    }
-    return {f: need.get(f, len(g.attackable_pos)) for f in FAMILIES if f != BENIGN_CODE}
-
-
-def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
-    """Attacked load-table positions for an episode: 1 to 6 buses for Aq, up to 4 otherwise."""
-    nab = len(apos)
-    k = int(rng.integers(1, min(6, nab) + 1)) if fid == FAMILY_CODE["Aq"] else min(4, nab)
-    return rng.choice(apos, k, replace=False)
-
-
 @dataclass
 class _Walk:
     """What every step of one timeline walk shares: the run context (generator, pool, knobs) and the
@@ -271,193 +307,54 @@ def _episode(w: _Walk, fid: int, t: int) -> _Episode:
 
 
 def _ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> int:
-    """One slow-ramp episode on a fixed bus set (rise, hold, return); returns the next free timestep."""
+    """One slow-ramp episode on a fixed bus set (rise, hold, return), its design from the generator
+    (`AttackMixin.ramp_design`); returns the next free timestep."""
     ctx, T = w.ctx, w.T
-    for _ in range(_ONSET_DRAWS):  # a design whose peak has no stealthy state on a plateau frame is redrawn
-        a, direction, rise, hold = _draw_ramp(ctx, w.rng, ramp_len)
-        steps = [
-            (u, 1 + direction * _ramp_dev(i, rise, hold, ramp_rate))
-            for i, u in enumerate(range(t, min(t + ramp_len, T)))
-        ]
-        if all(
-            is_feasible(ctx.g, ctx.X[u], AttackDesign(a, mult), ctx.knobs) for u, mult in steps
-        ):  # every frame's own step
-            break
-    else:  # no admissible ramp at this operating point: the placed frames stay benign, counted
+    design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs)
+    if design is None:  # no admissible ramp at this operating point: the placed frames stay benign, counted
         return _benign_run(w, t, min(t + ramp_len, T))
     ep = _episode(w, RAMP_FAMILY, t)
     for i in range(ramp_len):
         if t >= T:
             break
-        dev = _ramp_dev(i, rise, hold, ramp_rate)
-        design = AttackDesign(a, 1 + direction * dev)
-        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, design, ctx.knobs))
+        step = ctx.g.ramp_step(design, i, ramp_rate)
+        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, step, ctx.knobs))
         t += 1
     return ep.close(w, t)
 
 
-def _ramp_dev(i: int, rise: int, hold: int, rate: float) -> float:
-    """The ramp's deviation at step i, never zero: the profile's first frame and its return leg
-    floor at one rate, so every frame labelled At carries an attack."""
-    return max(rate, ramp_profile(i, rise, hold, rate, rate))
-
-
-def _draw_ramp(
-    ctx: _FrameContext, rng: np.random.Generator, ramp_len: int
-) -> tuple[np.ndarray, float, int, int]:
-    """One ramp design: a fixed bus set, a direction, the rise and hold lengths (four draws)."""
-    apos = ctx.g.stealthy_pos  # At is stealthy: no load on a generator bus
-    a = rng.choice(apos, min(5, len(apos)), replace=False)
-    direction = 1.0 if rng.random() < 0.5 else -1.0
-    rise = max(1, int(rng.uniform(0.2, 0.45) * ramp_len))
-    hold = int(rng.uniform(0.0, 0.25) * ramp_len)
-    return a, direction, rise, hold
-
-
-def _probe_frames(ctx: _FrameContext, t: int, length: int) -> range:
-    """The frames an episode's design is tested on before it is accepted: every frame it will
-    occupy, since the operating point drifts along the episode and a design feasible at onset can
-    lose its stealthy state later (the pool is known ahead, so the walker can look). A design that
-    passes cannot fall back to a benign frame."""
-    return range(t, min(t + length, len(ctx.X)))
-
-
-def _draw_single_shot(
-    ctx: _FrameContext, rng: np.random.Generator, t: int, fid: int, length: int
-) -> Optional[tuple[np.ndarray, np.ndarray]]:
-    """The targets and load multipliers of an episode: the targets, the direction (a load rise or
-    a load drop, one draw, like the ramp's) and the per-target scale in the band; an Aq design with
-    no stealthy state on any frame of the episode is redrawn, up to _ONSET_DRAWS (a case that runs
-    below its voltage limits refuses most rises near the low buses, a drop there is the attack
-    that fits). None when no draw has one: the span then stays benign and is counted."""
-    for _ in range(_ONSET_DRAWS):
-        a = _pick_targets(rng, ctx.g.stealthy_pos if fid in STEALTHY_FAMILIES else ctx.g.attackable_pos, fid)
-        direction = 1.0 if fid != 1 or rng.random() < 0.5 else -1.0
-        mult = 1 + direction * rng.uniform(0.05, ctx.knobs.intensity, size=len(a))
-        if fid != 1 or all(
-            is_feasible(ctx.g, ctx.X[u], AttackDesign(a, mult), ctx.knobs)
-            for u in _probe_frames(ctx, t, length)
-        ):
-            return a, mult
-    return None
-
-
 def _single_shot_episode(w: _Walk, t: int, fid: int, length: int) -> int:
-    """One episode of a single-shot family held for `length` frames; returns the next free timestep."""
+    """One episode of a single-shot family held for `length` frames, its design from the generator
+    (`AttackMixin.single_shot_design`); returns the next free timestep."""
     ctx, T = w.ctx, w.T
-    design = _draw_single_shot(ctx, w.rng, t, fid, length)
+    design = ctx.g.single_shot_design(ctx.X, t, fid, length, ctx.knobs)
     if design is None:  # no admissible design at this operating point: the placed frames stay benign
         return _benign_run(w, t, min(t + length, T))
-    a, mult = design
     ep = _episode(w, fid, t)
     for _ in range(length):
         if t >= T:
             break
-        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], fid, AttackDesign(a, mult), ctx.knobs))
+        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], fid, design, ctx.knobs))
         t += 1
     return ep.close(w, t)
 
 
-@dataclass
-class _AmShape:
-    """The schedule of one Am episode: how much of the held redistribution each frame applies."""
-
-    rate: float  # fraction of the full redistribution added per frame on the rise and the fall
-    rise: int
-    hold: int
-
-    @classmethod
-    def under_floor(cls, rel: float, length: int, am_rate: float, floor: float) -> _AmShape:
-        """Rise so that the largest per-bus per-frame load change stays under `am_rate` of the noise
-        floor: `rel` is the largest per-bus redistribution fraction, so a step of `rate` of the whole
-        moves that bus by rate * rel. The rate is never raised: an episode too short to reach the
-        full redistribution ramps as far as it gets and returns, its peak below the full delta."""
-        rate = min(1.0, am_rate * floor / max(rel, 1e-9))
-        rise = min(math.ceil(1.0 / rate), max(1, length // 2))
-        return cls(rate, rise, max(0, length - 2 * rise))
-
-    def at(self, i: int) -> float:
-        return min(1.0, ramp_profile(i, self.rise, self.hold, self.rate, self.rate))
-
-    def step(self, i: int) -> float:
-        """The fraction applied at frame i, never zero: the first frame and the return leg floor at
-        one rate, so every frame labelled Am carries an attack."""
-        return max(self.rate, self.at(i))
-
-
-def _am_multipliers(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray) -> np.ndarray:
-    """The load multipliers that add `delta` (MW, per target) to this frame's true load."""
-    Lp = ctx.g.true_load(ctx.X[t])[a]
-    return 1.0 + delta / np.where(np.abs(Lp) > 1e-9, Lp, 1e-9)
-
-
-def _am_held_delta(
-    ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray, interior, shape: tuple[int, float]
-) -> Optional[np.ndarray]:
-    """The held redistribution, at its drawn size or the largest halving above the noise floor whose
-    peak has a stealthy state on every frame of the plateau; None when none has."""
-    T, k = len(ctx.X), ctx.knobs
-    length, am_rate = shape
-    Lp0 = ctx.g.true_load(ctx.X[t])[a]
-    for _ in range(AQ_HALVINGS + 1):
-        dev = np.abs(delta) / (np.abs(Lp0) + 1e-6)
-        if np.min(dev) < k.floor:
-            return None  # a bus inside the noise floor: not an attack by the band's own rule
-        sh = _AmShape.under_floor(float(np.max(dev)), length, am_rate, k.floor)
-        frames = range(t, min(t + length, T))  # every frame's own fraction of the redistribution
-        if all(_am_peak_solves(ctx, u, a, sh.step(u - t) * delta, interior) for u in frames):
-            return delta
-        delta = delta / 2
-    return None
-
-
-def _am_peak_solves(ctx: _FrameContext, t: int, a: np.ndarray, delta: np.ndarray, interior) -> bool:
-    """Whether the held redistribution at its peak (`delta`, MW per target) has a stealthy state
-    (a local solution inside the operating limits) on the onset state; no random draw is spent."""
-    return is_feasible(
-        ctx.g, ctx.X[t], AttackDesign(a, _am_multipliers(ctx, t, a, delta), interior), ctx.knobs
-    )
-
-
-def _am_sign(direction: str, rng: np.random.Generator) -> float:
-    """The sign applied to the engine's redistribution. `lra_delta` orients its delta to LOWER the
-    target line's |flow| in the false state, so "mask" (a real overload reads lighter) keeps it (+1)
-    and "induce" (a safe line reads as overloaded, the [WU26] objective) flips it (-1); "both" draws
-    one of the two per episode (one RNG draw; a given draw maps to the same sign as before the
-    direction fix, though files still change where the stealthy load recovery did)."""
-    if direction == "both":
-        direction = "mask" if rng.random() < 0.5 else "induce"
-    return 1.0 if direction == "mask" else -1.0
-
-
 def _am_episode(w: _Walk, t: int, shape: tuple[int, float, str]) -> int:
-    """One multi-snapshot episode [WU26]: a load redistribution drawn once at onset (the Al
-    construction, PTDF-ranked buses, load-conserving), then applied frame by frame along a ramp
-    whose per-bus per-frame step stays under the noise floor, every frame re-solved and made sparse
-    by `engine.records._am_frame`. `shape` = (length, am_rate, am_direction), the direction
-    resolved by `_am_sign`. Returns the next free timestep."""
-    ctx, T, k = w.ctx, w.T, w.ctx.knobs
-    length, am_rate, direction = shape
-    Lp0 = ctx.g.true_load(ctx.X[t])
-    for _ in range(_AM_DRAWS):  # redrawn when the target-line pool gives no redistribution, or one
-        red = ctx.g.lra_delta(Lp0, k.intensity, k.lra_k, floor=k.floor, hops=k.hops)  # without a
-        a = red.buses  # stealthy state on its peak plateau at any halving above the floor
-        if len(a) == 0:
-            continue
-        delta = red.delta[a] * _am_sign(direction, w.rng)
-        delta = _am_held_delta(ctx, t, a, delta, red.interior, (length, am_rate))
-        if delta is not None:
-            break
-    else:  # no solvable redistribution at this operating point: the placed frames stay benign
+    """One multi-snapshot episode after [WU26]: a load redistribution drawn once at onset and applied
+    frame by frame along a ramp whose per-bus per-frame step stays under the noise floor
+    (`AttackMixin.am_design`, `am_step`). `shape` = (length, am_rate, am_direction). Returns the
+    next free timestep."""
+    ctx, T = w.ctx, w.T
+    length = shape[0]
+    design = ctx.g.am_design(ctx.X, t, shape, ctx.knobs)
+    if design is None:  # no solvable redistribution at this operating point: the placed frames stay benign
         return _benign_run(w, t, min(t + length, T))
-    rel = float(np.max(np.abs(delta) / (np.abs(Lp0[a]) + 1e-6)))
-    sh = _AmShape.under_floor(rel, length, am_rate, k.floor)
     ep = _episode(w, AM_FAMILY, t)
     for i in range(length):
         if t >= T:
             break
-        mult = _am_multipliers(ctx, t, a, sh.step(i) * delta)
-        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, AttackDesign(a, mult, red.interior), k))
+        step = ctx.g.am_step(design, ctx.X[t], i)
+        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, step, ctx.knobs))
         t += 1
     return ep.close(w, t)
 
@@ -790,7 +687,7 @@ def generate_timeline(
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
-        AdmissibleTargets(fams, _target_counts(g))
+        AdmissibleTargets(fams, g.target_counts())
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)

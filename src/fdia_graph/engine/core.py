@@ -9,8 +9,9 @@ flows, no re-solve); only attacks re-solve. Attack families:
 
 FdiaGenerator is split by concern across three mixins: state setup lives here (__init__), while
   measurement.py (MeasurementMixin)   emit meter readings from a state / net
-  physics.py     (PhysicsMixin)      AC re-solve under new loads
-  attacks.py     (AttackMixin)       corrupt() + load-redistribution deltas
+  physics.py     (PhysicsMixin)      AC re-solve under new loads, a scan's load and generation
+  attacks/       (AttackMixin)       every attack: the stealthy false states, their episode designs,
+                                     the load redistribution and the in-place corruption
 """
 
 from __future__ import annotations

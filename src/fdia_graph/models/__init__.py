@@ -58,11 +58,13 @@ from .fields import (
     TemporalFields,
 )
 from .frames import (
+    AmDesign,
     AttackDesign,
     Band,
     Frame,
     FrameKnobs,
     OperatingLimits,
+    RampDesign,
     Redistribution,
     ResolvedPool,
     Scan,
@@ -187,6 +189,8 @@ __all__ = [
     "Band",
     "TamperTarget",
     "AttackDesign",
+    "RampDesign",
+    "AmDesign",
     "OptimConfig",
     "ProfileFetch",
     "Aggregation",

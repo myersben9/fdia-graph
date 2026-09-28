@@ -1,0 +1,93 @@
+classDiagram
+    class AreaMixin {
+        +local_region()
+    }
+    class FalseStateMixin {
+        +operating_limits()
+        +solve_local()
+        +stealthy_state()
+        +with_region()
+        +is_feasible()
+    }
+    class RedistributionMixin {
+        +lra_delta()
+    }
+    class StealthyMixin {
+    }
+    class EpisodeDesignMixin {
+        +target_counts()
+        +ramp_step()
+        +ramp_design()
+        +single_shot_design()
+        +am_design()
+        +am_step()
+    }
+    class CorruptMixin {
+        +remember_benign()
+        +corrupt()
+        +incident_branches()
+    }
+    class AttackMixin {
+        +attack_frame()
+    }
+    class AmDesign {
+        <<models>>
+    }
+    class AttackDesign {
+        <<models>>
+    }
+    class Band {
+        <<models>>
+    }
+    class Frame {
+        <<models>>
+    }
+    class FrameKnobs {
+        <<models>>
+    }
+    class GridBase {
+        <<engine>>
+    }
+    class OperatingLimits {
+        <<models>>
+    }
+    class RampDesign {
+        <<models>>
+    }
+    class Redistribution {
+        <<models>>
+    }
+    class Scan {
+        <<models>>
+    }
+    class TamperTarget {
+        <<models>>
+    }
+    AreaMixin <|-- FalseStateMixin
+    CorruptMixin <|-- AttackMixin
+    EpisodeDesignMixin <|-- AttackMixin
+    FalseStateMixin <|-- RedistributionMixin
+    GridBase <|-- AreaMixin
+    GridBase <|-- CorruptMixin
+    RedistributionMixin <|-- EpisodeDesignMixin
+    RedistributionMixin <|-- StealthyMixin
+    StealthyMixin <|-- AttackMixin
+    AttackMixin ..> AttackDesign : uses
+    AttackMixin ..> Frame : uses
+    AttackMixin ..> FrameKnobs : uses
+    CorruptMixin ..> Band : uses
+    CorruptMixin ..> Frame : uses
+    CorruptMixin ..> FrameKnobs : uses
+    CorruptMixin ..> Scan : uses
+    CorruptMixin ..> TamperTarget : uses
+    EpisodeDesignMixin ..> AmDesign : uses
+    EpisodeDesignMixin ..> AttackDesign : uses
+    EpisodeDesignMixin ..> FrameKnobs : uses
+    EpisodeDesignMixin ..> RampDesign : uses
+    FalseStateMixin ..> AttackDesign : uses
+    FalseStateMixin ..> FrameKnobs : uses
+    FalseStateMixin ..> OperatingLimits : uses
+    RedistributionMixin ..> Redistribution : uses
+    StealthyMixin ..> AttackDesign : uses
+    StealthyMixin ..> Frame : uses
+    StealthyMixin ..> FrameKnobs : uses

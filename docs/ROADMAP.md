@@ -27,7 +27,7 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 | `schema.py` | the file protocol: every HDF5 group, dataset and attribute name, defined once |
 | `models/` | every value bundle a function returns, grouped `grid`, `frames`, `data`, `scores`, `assets` |
 | `formulas/` | the mathematics as pure functions with source keys; catalogue in `reference/FORMULAS.md` |
-| `engine/` | `FdiaGenerator` = `MeasurementMixin` (meters, noise) + `PhysicsMixin` (AC solves) + `AttackMixin` (the attack constructions) over `GridBase`; `records.py` builds one scan of any of the seven families |
+| `engine/` | `FdiaGenerator` = `MeasurementMixin` (meters, noise) + `PhysicsMixin` (AC solves) + `AttackMixin` (every attack, the `engine/attacks/` package: the attacker's area, the local false state, the redistribution, the stealthy and in-place frames, each episode's design) over `GridBase`; `records.py` emits a benign scan and hands an attacked family to the mixin |
 
 ## Docs
 
