@@ -311,7 +311,7 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `temporal_delta` | `temporal_delta` | Array | yes | [..., N, 2] injection change vs the previous pool scan (v0.3+) (TemporalFields) |
 | `swing` | `swing` | Array | yes | [..., N, 2] that change as a z-score of recent change (v0.4.1+) (TemporalFields) |
 | `timestep` | `timestep` | Scalars | yes | [...] position in the source load profile (RecordIds) |
-| `episodes` | `episodes` | list[dict[str, Any]] | yes | list of {onset, length, family, buses} |
+| `episodes` | `episodes` | list[EpisodeRow] | yes | list of {onset, length, family, buses} |
 | `system` | `system` | int |  | bus count (generate_stream and load_stream both set it) |
 | `attacked_frac` | `attacked_frac` | float |  | fraction of frames with at least one attacked bus (both set it) |
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |

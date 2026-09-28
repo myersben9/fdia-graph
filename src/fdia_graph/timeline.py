@@ -67,6 +67,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     AmDirection,
 )
 from .models.config import TimelineKnobs
+from .models.data import EpisodeRow
 from .models.inputs import AdmissibleTargets, FamilySelection
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
@@ -119,7 +120,7 @@ class _TimelineBuffers:
     frames, flushed as the walk passes them, so memory is bounded whatever T.
     """
 
-    def __init__(self, dims: tuple[int, int, int], clean: CleanSlice, sink: dict[str, Any]) -> None:
+    def __init__(self, dims: tuple[int, int, int], clean: CleanSlice, sink: dict[str, h5py.Dataset]) -> None:
         T, C, E = dims
         n = min(_BATCH, T)
         self.T, self._n, self._base, self._sink = T, n, 0, sink
@@ -132,7 +133,7 @@ class _TimelineBuffers:
         self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T
         self.node_m: Optional[np.ndarray] = None  # the meter plan, from the first stored frame
         self.edge_m: Optional[np.ndarray] = None
-        self.episodes: list[dict[str, Any]] = []
+        self.episodes: list[EpisodeRow] = []
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self._clean_batch = clean(0, n)
@@ -193,7 +194,7 @@ def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
     return frame
 
 
-def _target_counts(g: Any) -> dict[int, int]:
+def _target_counts(g: FdiaGenerator) -> dict[int, int]:
     """The targets the case offers each family code: the stealthy Aq and At need a load off every
     generator bus, Al and Am a line whose subnetwork admits a redistribution, Ad/As/Ar an attackable
     load (checked against the request by `models.inputs.AdmissibleTargets`)."""
@@ -258,7 +259,7 @@ class _Episode:
 
     def close(self, w: _Walk, t: int) -> int:
         w.buf.episodes.append(
-            dict(
+            EpisodeRow(
                 onset=self.onset, length=t - self.onset, family=self.fid, buses=np.where(self.ok)[0].tolist()
             )
         )
@@ -566,7 +567,7 @@ def _walk(w: _Walk, plan: _Schedule) -> None:
     _benign_run(w, t, w.T)
 
 
-def _frame_split(T: int, episodes: list[dict[str, Any]], frac: Sequence[float]) -> np.ndarray:
+def _frame_split(T: int, episodes: list[EpisodeRow], frac: Sequence[float]) -> np.ndarray:
     """train(0)/val(1)/test(2) by chronological order, each boundary moved to the end of the episode
     it would cut, so no episode straddles a split. Boundaries are settled in order and a later one
     never falls before an earlier one, so one long episode across both leaves an empty middle
@@ -592,7 +593,7 @@ def _ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:
     return ptr, flat
 
 
-def _create_layers(f: h5py.File, T: int, C: int, E: int) -> dict[str, Any]:
+def _create_layers(f: h5py.File, T: int, C: int, E: int) -> dict[str, h5py.Dataset]:
     """The per-frame datasets at full length, chunked along the frame axis and gzipped, empty
     until the walk flushes into them."""
     for group in (schema.Group.DATA, schema.Group.BENIGN, schema.Group.CLEAN, schema.Group.ATTACK):
@@ -649,8 +650,12 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
 
 
 def _timeline_attrs(
-    g: FdiaGenerator, T: int, seed: int, buf: _TimelineBuffers, knobs: dict[str, Any]
-) -> dict[str, Any]:
+    g: FdiaGenerator,
+    T: int,
+    seed: int,
+    buf: _TimelineBuffers,
+    knobs: dict[str, Any],  # the recorded knobs, each its own type, written as file attributes
+) -> dict[str, Union[int, float, str]]:
     """The attributes every file carries (dims, units, provenance) plus what makes this one a timeline."""
     attrs = _base_attrs(g, T, seed)
     attrs.update(
@@ -715,7 +720,7 @@ def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:
         delta[a:b], swing[a:b] = d, s
 
 
-def _block_scale(nx: Any, a: int, b: int) -> np.ndarray:
+def _block_scale(nx: h5py.Dataset, a: int, b: int) -> np.ndarray:
     """The swing scale of frames a..b-1 [b - a, N, 2]: the kernel run over the frames from
     SWING_WINDOW + 1 before a to b-1, so every frame's window lies inside the slice."""
     g0 = max(0, a - SWING_WINDOW - 1)

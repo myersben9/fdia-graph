@@ -4,7 +4,7 @@ between two arms is a difference between estimators rather than between implemen
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, cast
 
 import numpy as np
 
@@ -189,6 +189,12 @@ class JacobianWeighting(SEBase):
         return self._huber_passes(x, z, self.Wk if w is None else w, self.huber_c, self.tol)
 
 
+class Localizes(Protocol):
+    """What a gate is: anything that flags the attacked buses of every record, [n, N] bool."""
+
+    def localize(self, ds: FdiaGraph) -> np.ndarray: ...
+
+
 class OracleGate:
     """The ceiling for any gate: it flags exactly the buses the labels say are attacked."""
 
@@ -213,11 +219,15 @@ class GatedPrior(SubspacePrior):
     """
 
     def __init__(
-        self, gate: Any = None, gate_factor: float = 1e-3, secured: Optional[Sequence[int]] = None, **kw: Any
+        self,
+        gate: Union[str, Localizes, None] = None,
+        gate_factor: float = 1e-3,
+        secured: Optional[Sequence[int]] = None,
+        **kw: Any,
     ) -> None:
         super().__init__(**kw)
         cfg = GateConfig(gate, gate_factor)
-        self.gate = OracleGate() if cfg.is_oracle else cfg.gate
+        self.gate: Localizes = OracleGate() if cfg.is_oracle else cast(Localizes, cfg.gate)
         self.gate_factor = cfg.gate_factor
         self.secured = np.asarray([] if secured is None else secured, int)
 

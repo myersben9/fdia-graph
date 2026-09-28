@@ -21,7 +21,7 @@ import os
 import warnings
 import zipfile
 from collections.abc import Iterator, Sequence
-from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, runtime_checkable
+from typing import TYPE_CHECKING, Optional, Protocol, Union, runtime_checkable
 
 import numpy as np
 
@@ -46,6 +46,8 @@ def _pandas():
 
 if TYPE_CHECKING:
     import pandas as pd
+
+    from .engine.pp_types import PandapowerNet
 # per-bus scale at timestep t: clip(1 + K*S_t + N(0,SIGMA), CLIP_LO, CLIP_HI). K drives from the profile,
 # SIGMA is per-bus jitter, clip holds a plausible load band.
 K_DEFAULT = 0.1
@@ -75,7 +77,7 @@ class RawSeries:
     """Load values you already have, in any unit."""
 
     def __init__(self, values: Union[Sequence[float], np.ndarray]) -> None:
-        self.values: np.ndarray = LoadValues(values).values
+        self.values: np.ndarray = LoadValues(values).array
 
     def loads(self) -> np.ndarray:
         return self.values
@@ -142,11 +144,11 @@ def _legacy_source(spec: ProfileSource) -> LoadSource:
         stacklevel=3,
     )
     if spec.kind == "values":
-        return RawSeries(spec.source)
+        return RawSeries(spec.series)
     if spec.kind == "iso":
-        return IsoFolder(spec.source, spec.path or ".")
-    csv = CsvSpec(spec.source, spec.column)
-    return CsvColumn(csv.path, str(csv.column))
+        return IsoFolder(spec.text, spec.path or ".")
+    csv = CsvSpec(spec.text, spec.column)
+    return CsvColumn(os.fspath(csv.path), str(csv.column))
 
 
 def _case_buses(key: int) -> np.ndarray:
@@ -191,7 +193,7 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
     return out
 
 
-def _remove_shunt_injections(z: np.ndarray, base: Any, pos: dict[int, int]) -> None:
+def _remove_shunt_injections(z: np.ndarray, base: PandapowerNet, pos: dict[int, int]) -> None:
     """Subtract each shunt's draw from its bus's P and Q in place: state estimation models the shunt in
     the admittance matrix, not as an injection, so the stored injection must exclude it to be
     bad-data-clean."""
@@ -375,7 +377,7 @@ def fetch_profile(
     generate_states() exactly like load_profile()'s output.
     """
     req, span = ProfileFetch(iso, resample_min), DateSpan(start, end)
-    series = _FEEDS[req.iso].fetch(span.start, span.end)
+    series = _FEEDS[req.iso].fetch(span.first_day, span.last_day)
     if req.resample_min is not None:
         # Time-interpolate onto a uniform resample_min-minute grid (as reference resample("1T").interpolate("time")).
         pd = _pandas()

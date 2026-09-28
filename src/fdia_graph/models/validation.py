@@ -25,11 +25,12 @@ from __future__ import annotations
 import math
 import numbers
 import typing
-from collections.abc import Iterable
-from dataclasses import fields
+from collections.abc import Callable, Iterable
+from dataclasses import Field, fields
 from typing import Any, ClassVar, Union
 
 import numpy as np
+import numpy.typing as npt
 
 from .choices import Choice
 
@@ -70,7 +71,7 @@ class OneOf(Rule):
     def __init__(self, choice: type[Choice]) -> None:
         self.choice, self.says = choice, f"must be one of {choice.values()}"
 
-    def apply(self, value: Any, where: str) -> Any:
+    def apply(self, value: Any, where: str) -> str:
         try:
             return self.choice(value).value
         except ValueError:
@@ -134,10 +135,10 @@ class AsArray(Rule):
 
     says = "must be array-like"
 
-    def __init__(self, dtype: Any = None) -> None:
+    def __init__(self, dtype: npt.DTypeLike = None) -> None:
         self.dtype = dtype
 
-    def apply(self, value: Any, where: str) -> Any:
+    def apply(self, value: Any, where: str) -> np.ndarray:
         try:
             return np.asarray(value, self.dtype)
         except (TypeError, ValueError, OverflowError):
@@ -150,7 +151,7 @@ class AsTuple(Rule):
 
     says = "must be a sequence"
 
-    def apply(self, value: Any, where: str) -> Any:
+    def apply(self, value: Any, where: str) -> tuple[object, ...]:
         if isinstance(value, (str, bytes, dict)):
             raise ConfigError(f"{where} {self.says}, got {value!r}")
         try:
@@ -199,10 +200,10 @@ class Parses(Rule):
     """Replaces the value with `parse(value)`; a parser that raises ValueError, TypeError or
     KeyError means the value is not of the form the field takes."""
 
-    def __init__(self, parse: Any, says: str) -> None:
+    def __init__(self, parse: Callable[..., object], says: str) -> None:
         self.parse, self.says = parse, says
 
-    def apply(self, value: Any, where: str) -> Any:
+    def apply(self, value: Any, where: str) -> object:
         try:
             return self.parse(value)
         except (ValueError, TypeError, KeyError):
@@ -216,6 +217,8 @@ class Validated:
     # what a failed invariant raises: ConfigError for an input, or a named data condition
     # (`models.errors`) for a model that states what the data lacks
     error: ClassVar[type[ValueError]] = ConfigError
+    # every model is a dataclass (the subclass is decorated); declared so `fields(model)` type-checks
+    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
 
     def __post_init__(self) -> None:
         validate(self)
@@ -225,7 +228,7 @@ class Validated:
         return ()
 
 
-def validate(model: Any) -> None:
+def validate(model: Validated) -> None:
     """Convert and check every field of `model`, then its invariants."""
     name = type(model).__name__
     hints = typing.get_type_hints(type(model), include_extras=True)
@@ -247,7 +250,7 @@ def _checked(value: Any, rules: tuple[Rule, ...], optional: bool, where: str) ->
     return value
 
 
-def _check_invariants(model: Any, name: str) -> None:
+def _check_invariants(model: Validated, name: str) -> None:
     """The model's conditions across fields, taken lazily so a later condition never sees input an
     earlier one refused; one that cannot even be evaluated means the input is malformed. A named
     data condition keeps its message as it is: it says what the data lacks, not which model."""
@@ -265,7 +268,7 @@ def _check_invariants(model: Any, name: str) -> None:
         raise ConfigError(f"{name}: {failed}") if model.error is ConfigError else model.error(failed)
 
 
-def _unpack(hint: Any) -> tuple[tuple[Rule, ...], bool]:
+def _unpack(hint: object) -> tuple[tuple[Rule, ...], bool]:
     """(the field's rules, whether None is allowed) from its annotation."""
     rules: tuple[Rule, ...] = ()
     if typing.get_origin(hint) is typing.Annotated:

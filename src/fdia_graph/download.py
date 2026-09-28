@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import requests
 
@@ -68,7 +68,9 @@ def _sha256(path: str) -> str:
     return h.hexdigest()
 
 
-def _stream_to_file(session: Any, url: str, headers: dict[str, str], path: str, label: str) -> None:
+def _stream_to_file(
+    session: requests.Session, url: str, headers: dict[str, str], path: str, label: str
+) -> None:
     """Pull the asset incrementally (stream=True) into `path` with a progress bar; the response is
     closed even on error and a 401/403/404/5xx surfaces before any byte is written."""
     with session.get(url, headers=headers, stream=True, timeout=60) as r:

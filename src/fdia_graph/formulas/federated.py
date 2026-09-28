@@ -62,7 +62,7 @@ def fedavg(arrays: Sequence[np.ndarray], weights: Sequence[float]) -> np.ndarray
     returns : the averaged tensor in the dtype of arrays[0]
     """
     updates = ClientUpdates(arrays, weights)
-    w = updates.weights
+    w = updates.weight_array
     w = w / w.max()  # scale first: finite weights near the float limit cannot overflow the sum
     w = w / w.sum()
     acc = np.zeros(np.shape(arrays[0]), np.float64)

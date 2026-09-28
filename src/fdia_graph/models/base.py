@@ -35,8 +35,9 @@ construction. See docs/plans/DATA_MODELS_PLAN.md.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, fields
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, NoReturn, TypeVar
 
 _B = TypeVar("_B", bound="Bundle")
 
@@ -52,7 +53,7 @@ class Bundle(dict):
     _required: ClassVar[tuple[str, ...]] = ()  # fields that may not be None (construction raises TypeError)
     _names_cache: ClassVar[tuple[str, ...]] = ()
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> Bundle:
+    def __new__(cls, *args: object, **kwargs: object) -> Bundle:
         # A bundle built from field groups has a field order set by inheritance, so positional
         # arguments would bind silently to the wrong fields: those bundles are keyword-only.
         if args and cls._order:
@@ -115,31 +116,35 @@ class Bundle(dict):
     def _read_only(self) -> TypeError:
         return TypeError(f"{type(self).__name__} is read-only; build a new one or use to_dict()")
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: object) -> NoReturn:
         raise self._read_only()
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self, key: str) -> NoReturn:
         raise self._read_only()
 
-    def __ior__(self, other: Any) -> Bundle:
+    def __ior__(self, other: object) -> NoReturn:
         raise self._read_only()
 
-    def update(self, *args: Any, **kwargs: Any) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def update(self, *args: object, **kwargs: object) -> NoReturn:  # pyright: ignore[reportIncompatibleMethodOverride]
         raise self._read_only()
 
-    def setdefault(self, *args: Any, **kwargs: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def setdefault(self, *args: object, **kwargs: object) -> NoReturn:  # pyright: ignore[reportIncompatibleMethodOverride]
         raise self._read_only()
 
-    def pop(self, *args: Any, **kwargs: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def pop(self, *args: object, **kwargs: object) -> NoReturn:  # pyright: ignore[reportIncompatibleMethodOverride]
         raise self._read_only()
 
-    def popitem(self) -> Any:
+    def popitem(self) -> NoReturn:
         raise self._read_only()
 
-    def clear(self) -> None:
+    def clear(self) -> NoReturn:
         raise self._read_only()
 
-    def __reduce__(self) -> Any:  # pickle through the fields by name, and keep the dict view's key order
+    def __reduce__(
+        self,
+    ) -> tuple[
+        Callable[..., Bundle], tuple[object, ...]
+    ]:  # pickle through the fields by name, and keep the dict view's key order
         return (_rebuild, (type(self), {n: getattr(self, n) for n in self._names()}, list(self)))
 
 

@@ -143,7 +143,7 @@ def generate(
 _CHUNK_ROWS = 128  # per-frame datasets are chunked along the frame axis for efficient partial reads
 
 
-def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Any]:
+def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Union[int, float, str]]:
     """File attributes every file carries: dims, feature legends, units, topology provenance.
 
     Units are ENGINEERING quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows
@@ -173,7 +173,7 @@ def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Any]:
     }
 
 
-def _static_physics(g: FdiaGenerator) -> dict[str, Any]:
+def _static_physics(g: FdiaGenerator) -> dict[str, Optional[np.ndarray]]:
     """The graph/ datasets this writer fills, keyed by the schema's names (`Static`), so a file
     never carries what the reader's table (`STATIC_PHYSICS`) does not name."""
     br = g.branch
@@ -193,7 +193,7 @@ def _static_physics(g: FdiaGenerator) -> dict[str, Any]:
     }
 
 
-def _write_graph(f: Any, g: FdiaGenerator) -> None:
+def _write_graph(f: h5py.File, g: FdiaGenerator) -> None:
     """graph/ group: the static topology shared by all frames, including the full per-unit branch
     physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to 7e-15, 3e-14
     and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics."""

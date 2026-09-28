@@ -33,13 +33,11 @@ class AdmittanceMixin(DatasetBase):
         cached = getattr(self, "_adm", None)
         if cached is not None:
             return cached
-        need = ("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift")
-        missing = [k for k in need if self._phys.get(k) is None]
+        p, missing = self._physics_arrays(("edge_r", "edge_x", "edge_b", "edge_g", "edge_tap", "edge_shift"))
         if missing:
             raise AttributeError(
                 f"ybus/yf/yt need a v0.5.0+ shard with branch physics; missing graph/{', '.join(missing)}"
             )
-        p = self._phys
         self._adm = branch_admittances(
             BranchModel(
                 p["edge_r"],
@@ -48,12 +46,12 @@ class AdmittanceMixin(DatasetBase):
                 p["edge_g"],
                 p["edge_tap"],
                 p["edge_shift"],
-                p["edge_status"],
+                self._phys.get("edge_status"),
             ),
             self.edge_index_np,
             self.N,
-            bus_shunt_g=p.get("bus_shunt_g"),
-            bus_shunt_b=p.get("bus_shunt_b"),
+            bus_shunt_g=self._phys.get("bus_shunt_g"),
+            bus_shunt_b=self._phys.get("bus_shunt_b"),
             base_mva=self.baseMVA,
         )
         return self._adm

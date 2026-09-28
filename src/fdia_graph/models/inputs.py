@@ -13,7 +13,7 @@ import os
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Annotated, Any, ClassVar, Optional, Union, cast
+from typing import Annotated, ClassVar, Optional, Union, cast
 
 import numpy as np
 
@@ -37,7 +37,7 @@ from .validation import (
 _FAMILY_NAMES = {**{v: k for k, v in FAMILIES.items()}, **FAMILY_ALIAS}
 
 
-def _family_code(f: Any) -> int:
+def _family_code(f: object) -> int:
     if isinstance(f, str):
         return _FAMILY_NAMES[f]
     if isinstance(f, (int, np.integer)) and not isinstance(f, bool) and int(f) in FAMILIES:
@@ -63,7 +63,7 @@ def release_numbers(release: str) -> tuple[int, ...]:
     return tuple(int(x) for x in m.groups())
 
 
-def iso_date(d: Any) -> _dt.date:
+def iso_date(d: object) -> _dt.date:
     """'YYYY-MM-DD' (a longer ISO timestamp is cut to its date), a date or a datetime, as a date.
     The pattern is matched first: from Python 3.11 `fromisoformat` also reads '20240131', and an
     input must mean the same on every supported version."""
@@ -96,11 +96,19 @@ class FamilySelection(Validated):
 class DateSpan(Validated):
     """An inclusive span of days; each end a 'YYYY-MM-DD' string, a date or a datetime."""
 
-    start: Annotated[Any, Parses(iso_date, "must be a date like '2024-01-31'")]
-    end: Annotated[Any, Parses(iso_date, "must be a date like '2024-01-31'")]
+    start: Annotated[Union[str, _dt.date], Parses(iso_date, "must be a date like '2024-01-31'")]
+    end: Annotated[Union[str, _dt.date], Parses(iso_date, "must be a date like '2024-01-31'")]
+
+    @property
+    def first_day(self) -> _dt.date:
+        return cast(_dt.date, self.start)  # a date once the model is built
+
+    @property
+    def last_day(self) -> _dt.date:
+        return cast(_dt.date, self.end)
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield self.start <= self.end, f"the span ends ({self.end}) before it starts ({self.start})"
+        yield self.first_day <= self.last_day, f"the span ends ({self.end}) before it starts ({self.start})"
 
 
 @dataclass(frozen=True)
@@ -108,9 +116,19 @@ class ProfileSource(Validated):
     """What `load_profile` was handed: a source that reads itself (it has `loads()`), or the pre-0.21
     form, an operator name with a directory, a CSV path with its column, or the load values."""
 
-    source: Any
+    source: object
     path: Optional[str] = None
     column: Optional[str] = None
+
+    @property
+    def text(self) -> str:
+        """The operator name or CSV path, for the kinds "iso" and "csv"."""
+        return cast(str, self.source)
+
+    @property
+    def series(self) -> Sequence[float]:
+        """The load values, for the kind "values"."""
+        return cast(Sequence[float], self.source)
 
     @property
     def kind(self) -> str:
@@ -120,7 +138,7 @@ class ProfileSource(Validated):
         if isinstance(self.source, str):
             return "iso" if self.source.lower() in Iso.values() else "csv"
         if isinstance(self.source, (list, tuple, np.ndarray)):
-            values = np.asarray(self.source)
+            values = np.asarray(cast(Sequence[float], self.source))
             if values.ndim == 1 and values.size and np.issubdtype(values.dtype, np.number):
                 return "values"
         return "unsupported"
@@ -136,7 +154,11 @@ class ProfileSource(Validated):
 class LoadValues(Validated):
     """A load series handed in directly: a non-empty 1-d sequence of numbers, in any unit."""
 
-    values: Annotated[Any, AsArray(float), Dims(1), NonEmpty()]
+    values: Annotated[Union[Sequence[float], np.ndarray], AsArray(float), Dims(1), NonEmpty()]
+
+    @property
+    def array(self) -> np.ndarray:
+        return cast(np.ndarray, self.values)  # an array once the model is built
 
 
 @dataclass(frozen=True)
@@ -144,7 +166,7 @@ class StateSource(Validated):
     """Where an operating-point pool comes from: an array in memory, or a path (a directory of
     X_*.npy, an .npz or an HDF5 file); neither falls back to $FDIA_GRAPH_INIT, then the download."""
 
-    states: Optional[Any] = None
+    states: Optional[Union[np.ndarray, str, os.PathLike[str]]] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
@@ -175,10 +197,10 @@ class DatasetName(Validated):
     """A dataset name as the registry looks it up: a built-in name in any case and with spaces
     around it, unless a local registration uses that exact spelling; any other name exactly."""
 
-    name: Any
+    name: Union[str, int]
     local: frozenset[str]
     builtin: frozenset[str]
-    aliases: dict[Any, str] = field(default_factory=dict)  # "118" and 118 -> "ieee118"
+    aliases: dict[Union[str, int], str] = field(default_factory=dict)  # "118" and 118 -> "ieee118"
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
@@ -187,7 +209,7 @@ class DatasetName(Validated):
         )
 
     @property
-    def key(self) -> Any:
+    def key(self) -> Union[str, int]:
         n = self.aliases.get(self.name, self.name)
         if isinstance(n, str) and n not in self.local and n.strip().lower() in self.builtin:
             return n.strip().lower()  # "IEEE118" like system_id; a local name stays case-sensitive
@@ -259,7 +281,9 @@ class StreamSystem(Validated):
 class ReleaseName(Validated):
     """A data release name; `numbers` orders releases."""
 
-    release: Annotated[Any, Parses(release_numbers, "must be a data release name like 'v0.8.0'")]
+    release: Annotated[
+        Union[str, tuple[int, ...]], Parses(release_numbers, "must be a data release name like 'v0.8.0'")
+    ]
 
     @property
     def numbers(self) -> tuple[int, ...]:
@@ -270,7 +294,9 @@ class ReleaseName(Validated):
 class OutageRef(Validated):
     """A line taken out, by name or by index, against the case's lines; `index` is the line index."""
 
-    outage: Annotated[Any, Required("is required: an outage is a line name or an integer line index")]
+    outage: Annotated[
+        Union[str, int], Required("is required: an outage is a line name or an integer line index")
+    ]
     names: tuple[str, ...]
     indices: tuple[int, ...]
 
@@ -301,7 +327,7 @@ class OutageRef(Validated):
 class StatePool(Validated):
     """An operating-point pool [T, N, 4]."""
 
-    X: Annotated[Any, AsArray(np.float64)]
+    X: Annotated[np.ndarray, AsArray(np.float64)]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
@@ -314,7 +340,7 @@ class StatePool(Validated):
 class ShapedArray(Validated):
     """An array a caller hands back (scores, estimates) that must match the view it belongs to."""
 
-    values: Annotated[Any, AsArray(np.float64)]
+    values: Annotated[np.ndarray, AsArray(np.float64)]
     shape: tuple[int, ...]
     what: str = "values"
 
@@ -340,7 +366,7 @@ class FieldRequest(Validated):
 class CsvSpec(Validated):
     """One column of one CSV file."""
 
-    path: Any
+    path: Union[str, os.PathLike[str]]
     column: Annotated[Optional[str], Required()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -360,7 +386,7 @@ class SubBatch(Validated):
 class EdgeList(Validated):
     """A branch list [2, E] over buses 0..N-1."""
 
-    edge_index: Annotated[Any, AsArray()]
+    edge_index: Annotated[np.ndarray, AsArray()]
     N: Annotated[int, Integer(), AtLeast(0)]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -391,8 +417,8 @@ class ClientGraph(Validated):
     """The client of every bus [N] and the bus adjacency [N, N]; with K, the clients must be exactly
     0..K-1."""
 
-    assignment: Annotated[Any, AsArray()]
-    adjacency: Annotated[Any, AsArray()]
+    assignment: Annotated[np.ndarray, AsArray()]
+    adjacency: Annotated[np.ndarray, AsArray()]
     K: Annotated[Optional[int], Integer()] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -427,8 +453,8 @@ class AssignmentSpec(Validated):
     """A client-of-every-bus array over a branch list, with an optional attackable mask. The grid has
     the buses the branches name, or the assignment's length when there are no branches."""
 
-    assignment: Annotated[Any, AsArray()]
-    edge_index: Annotated[Any, AsArray()]
+    assignment: Annotated[np.ndarray, AsArray()]
+    edge_index: Annotated[np.ndarray, AsArray()]
     attackable: Annotated[Optional[np.ndarray], AsArray(bool)] = None
 
     @property
@@ -458,7 +484,7 @@ class AssignmentSpec(Validated):
 class PartitionOnGrid(Validated):
     """A partition's assignment fit for a system of N buses."""
 
-    assignment: Annotated[Any, AsArray()]
+    assignment: Annotated[np.ndarray, AsArray()]
     K: Annotated[int, Integer()]
     N: Annotated[int, Integer()]
 
@@ -480,21 +506,25 @@ class PartitionOnGrid(Validated):
 class ClientUpdates(Validated):
     """One tensor per client and its weight (record count)."""
 
-    tensors: Annotated[Sequence[Any], AsTuple()]
-    weights: Annotated[Any, AsArray(np.float64)]
+    tensors: Annotated[Sequence[np.ndarray], AsTuple()]
+    weights: Annotated[Union[Sequence[float], np.ndarray], AsArray(np.float64)]
+
+    @property
+    def weight_array(self) -> np.ndarray:
+        return cast(np.ndarray, self.weights)  # an array once the model is built
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
-        n = len(self.tensors)
+        n, w = len(self.tensors), self.weight_array
         yield (
-            n > 0 and n == len(self.weights),
-            f"need one weight per client tensor, got {n} tensors and {len(self.weights)} weights",
+            n > 0 and n == len(w),
+            f"need one weight per client tensor, got {n} tensors and {len(w)} weights",
         )
         yield (
-            self.weights.shape == (n,),
-            f"need one scalar weight per client, shape ({n},), got {self.weights.shape}",
+            w.shape == (n,),
+            f"need one scalar weight per client, shape ({n},), got {w.shape}",
         )
         yield (
-            bool((np.isfinite(self.weights) & (self.weights > 0)).all()),
+            bool((np.isfinite(w) & (w > 0)).all()),
             "client weights must be finite and positive",
         )
         shape = np.shape(self.tensors[0])
@@ -508,7 +538,7 @@ class ClientUpdates(Validated):
 class MomentParts(Validated):
     """(count, mean [C], variance [C]) per part, to be pooled."""
 
-    parts: Annotated[Sequence[Any], AsTuple()]
+    parts: Annotated[Sequence[tuple[float, np.ndarray, np.ndarray]], AsTuple()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield len(self.parts) > 0, "pool_moments needs at least one part"
@@ -526,7 +556,7 @@ class MomentParts(Validated):
 class FeatureBlock(Validated):
     """A client's feature block [n, N, C] with at least one record and one bus."""
 
-    X: Annotated[Any, AsArray(), Dims(3)]
+    X: Annotated[np.ndarray, AsArray(), Dims(3)]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
@@ -539,8 +569,8 @@ class FeatureBlock(Validated):
 class Affinity(Validated):
     """A square adjacency, an attackable mask over its buses, and the weight of an attackable bus."""
 
-    adjacency: Annotated[Any, AsArray()]
-    attackable: Annotated[Any, AsArray(bool)]
+    adjacency: Annotated[np.ndarray, AsArray()]
+    attackable: Annotated[np.ndarray, AsArray(bool)]
     heavy: float = 8.0
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -557,7 +587,7 @@ class Affinity(Validated):
 class StateBlocks(Validated):
     """Per-client (state columns, basis) blocks over a state of dimension d."""
 
-    blocks: Annotated[Sequence[Any], AsTuple()]
+    blocks: Annotated[Sequence[tuple[np.ndarray, np.ndarray]], AsTuple()]
     d: Annotated[int, Integer()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
@@ -571,7 +601,7 @@ class StateBlocks(Validated):
         )
 
 
-def _index_array(c: Any, d: int) -> bool:
+def _index_array(c: object, d: int) -> bool:
     """A one-dimensional integer array of state columns inside 0..d-1."""
     c = np.asarray(c)
     if c.ndim != 1 or not np.issubdtype(c.dtype, np.integer):
@@ -584,8 +614,8 @@ def _index_array(c: Any, d: int) -> bool:
 class LabelGrids(Validated):
     """Predicted and true per-bus labels [n, N]."""
 
-    pred: Annotated[Any, AsArray(bool)]
-    truth: Annotated[Any, AsArray(bool)]
+    pred: Annotated[np.ndarray, AsArray(bool)]
+    truth: Annotated[np.ndarray, AsArray(bool)]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
@@ -598,9 +628,9 @@ class LabelGrids(Validated):
 class TauSearch(Validated):
     """Per-bus counts [n_taus, N] at each candidate threshold, the buses to average and the grid."""
 
-    counts: tuple[Any, Any, Any]
-    active: Annotated[Any, AsArray(bool)]
-    taus: Annotated[Any, AsArray()]
+    counts: tuple[np.ndarray, np.ndarray, np.ndarray]
+    active: Annotated[np.ndarray, AsArray(bool)]
+    taus: Annotated[np.ndarray, AsArray()]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
@@ -618,8 +648,8 @@ class TauSearch(Validated):
 class RankedLabels(Validated):
     """Scores [n] and labels [n] with at least one positive."""
 
-    score: Annotated[Any, AsArray(np.float64)]
-    truth: Annotated[Any, AsArray(bool)]
+    score: Annotated[np.ndarray, AsArray(np.float64)]
+    truth: Annotated[np.ndarray, AsArray(bool)]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (

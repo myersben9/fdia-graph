@@ -16,7 +16,8 @@ FdiaGenerator is split by concern across three mixins: state setup lives here (_
 from __future__ import annotations
 
 import warnings
-from typing import Any, Optional, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
@@ -38,6 +39,9 @@ from .base import (  # noqa: F401  ACCURACY_CLASS, POWER_NOISE_FLOOR_MW re-expor
 )
 from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
+
+if TYPE_CHECKING:
+    from .pp_types import PandapowerNet, PpcTables
 
 # Integer family label written into the per-bus label tensor `y` (0=clean, >0=attacked of that family).
 # "Ao"/"SLS" are back-compat aliases for Aq (id 1); "ramp"=At, "LRA"=Al.
@@ -72,13 +76,13 @@ _CASE = {
 
 # N-1 LINE OUTAGE SUPPORT. The branch must be taken out BEFORE anything derived (Ybus, PTDF, base
 # operating point, measurements) is computed — a post-hoc mask on an intact-network dataset won't do.
-def _line_id(net: Any, outage: Union[str, int]) -> int:
+def _line_id(net: PandapowerNet, outage: Union[str, int]) -> int:
     """Map a line NAME or index to the pandapower line index, with a clear error if it names nothing."""
     names = tuple(net.line["name"].astype(str))
     return OutageRef(outage, names, tuple(int(i) for i in net.line.index)).index
 
 
-def _n_islands(net: Any) -> int:
+def _n_islands(net: PandapowerNet) -> int:
     """Number of connected components over the IN-SERVICE network (1 == still one connected grid).
 
     Cheap islanding screen to run BEFORE generating: pandapower "converges" on an islanded case by
@@ -91,7 +95,7 @@ def _n_islands(net: Any) -> int:
 
 
 def line_outage_candidates(
-    system: Union[int, str], top_n: int = 5, seed_flow_from: Any = None
+    system: Union[int, str], top_n: int = 5, seed_flow_from: Optional[PandapowerNet] = None
 ) -> tuple[list[LineCandidate], list[LineCandidate]]:
     """Rank single-line N-1 contingencies by base-case active power flow, keeping the network connected.
 
@@ -127,7 +131,7 @@ def line_outage_candidates(
     return accepted, rejected
 
 
-def _screen_line(NET: Any, idx: int, lut0: np.ndarray) -> Optional[str]:
+def _screen_line(NET: Callable[[], PandapowerNet], idx: int, lut0: np.ndarray) -> Optional[str]:
     """Why opening line `idx` is not an acceptable contingency, or None when it is: the grid must stay
     one island, the post-contingency power flow must converge with no isolated bus, the ppc bus
     ordering must not change (or the shard is not comparable to the base shard), and the DC PTDF
@@ -155,7 +159,7 @@ def _screen_line(NET: Any, idx: int, lut0: np.ndarray) -> Optional[str]:
     return None
 
 
-def _line_record(base: Any, idx: int, pos: int, base_flow_mw: float) -> LineCandidate:
+def _line_record(base: PandapowerNet, idx: int, pos: int, base_flow_mw: float) -> LineCandidate:
     """One candidate line as the caller reports it: index, position, terminals, name, base flow."""
     _nm = base.line.at[idx, "name"]
     return LineCandidate(
@@ -225,7 +229,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         warnings.warn("nl is deprecated and retires in 0.19: use n_lines", DeprecationWarning, stacklevel=2)
         return self.n_lines
 
-    def _open_case(self, outage: Optional[Union[int, str]]) -> Any:
+    def _open_case(self, outage: Optional[Union[int, str]]) -> PandapowerNet:
         """The pandapower case with the contingency applied and its base power flow solved; sets
         self.contingency (an Outage, INTACT when no line is opened).
 
@@ -268,7 +272,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
                 raise GridIslanded(f"line {self.contingency.line} outage leaves {n_iso} isolated bus(es)")
         return base
 
-    def _load_tables(self, base: Any) -> None:
+    def _load_tables(self, base: PandapowerNet) -> None:
         """Which buses carry load, which of those can be attacked, which inject nothing, and the
         generator MW co-located with each load.
 
@@ -326,7 +330,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.load_genP = np.array([genP.get(int(b), 0.0) for b in self.load_bus])
         self._case_limits(base)
 
-    def _case_limits(self, base: Any) -> None:
+    def _case_limits(self, base: PandapowerNet) -> None:
         """Per-bus base load and generation [N, 2] (P, Q) and the case's limits [WU26, eqs. 21-23]:
         bus voltage limits [N, 2] and generator P and Q limits [N, 2] summed over co-located
         generators, unbounded (±inf) where a bus has none; the slack (ext_grid) is unbounded, its
@@ -348,7 +352,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             self.q_lim[int(b)] = (rows.min_q_mvar.sum(), rows.max_q_mvar.sum())
         self.v_case = np.stack([base.bus.min_vm_pu.values, base.bus.max_vm_pu.values], axis=1).astype(float)
 
-    def _meter_plan(self, base: Any, vbus_frac: float, pmu_frac: float, flow_frac: float) -> None:
+    def _meter_plan(self, base: PandapowerNet, vbus_frac: float, pmu_frac: float, flow_frac: float) -> None:
         """The sparse metering plan, sampled once (self.meters, a MeterPlan): vbus = voltage-magnitude
         meters, pmu = |V| + angle meters, inj = metered P/Q injection buses (all injection buses), and
         a per-branch flow-meter mask with fraction flow_frac. Three draws from the seeded RNG, in this
@@ -359,7 +363,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         flow = self.rng.random(len(base.line) + len(base.trafo)) < flow_frac
         self.meters = MeterPlan(vbus, pmu, self._injection_buses, flow)
 
-    def _edge_index(self, base: Any) -> None:
+    def _edge_index(self, base: PandapowerNet) -> None:
         """Edge index (2 x E): row 0 = from-bus, row 1 = to-bus; lines use from/to, transformers hv/lv,
         concatenated so branches share one contiguous 0..E-1 indexing (lines first)."""
         base_line = base.line
@@ -377,7 +381,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             base_line.x_ohm_per_km.values * base_line.length_km.values, base.trafo.vk_percent.values
         ].astype(np.float32)
 
-    def _branch_physics(self, ppc: Any) -> None:
+    def _branch_physics(self, ppc: PpcTables) -> None:
         """Full per-unit branch and bus physics, exactly the quantities makeYbus consumes, so a model
         has the same information the state estimator does.
 
@@ -409,7 +413,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.bus_shunt_g = ppc["bus"][:, 4].real.astype(np.float64)
         self.bus_shunt_b = ppc["bus"][:, 5].real.astype(np.float64)
 
-    def _admittances(self, ppc: Any) -> None:
+    def _admittances(self, ppc: PpcTables) -> None:
         """Ybus and the from/to branch-admittance matrices (from-end flow Sf = V_from * conj(Yf @ V)),
         the ppc bus lookup, and the DC PTDF that steers the load-redistribution attack.
 

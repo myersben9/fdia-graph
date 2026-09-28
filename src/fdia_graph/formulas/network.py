@@ -14,9 +14,15 @@ generator and the loader always used.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from scipy.sparse import spmatrix
+
+    # Ybus, Yf, Yt: pandapower's makeYbus builds them sparse; a dense matrix works the same
+    Admittance = Union[np.ndarray, spmatrix]
 
 from ..models.grid import (  # noqa: F401  re-exported: defined here before the models package
     Admittances,
@@ -101,7 +107,13 @@ def branch_admittances(
     return Admittances(Y, Yf, Yt)
 
 
-def bus_injections(V: np.ndarray, Ybus: Any, base_mva: float = 1.0) -> np.ndarray:
+def _dense(Y: Admittance) -> np.ndarray:
+    """An admittance matrix as a dense array; a scipy sparse matrix is expanded, a dense one kept."""
+    todense = getattr(Y, "todense", None)
+    return np.asarray(todense() if todense is not None else Y)
+
+
+def bus_injections(V: np.ndarray, Ybus: Admittance, base_mva: float = 1.0) -> np.ndarray:
     """Complex bus injections S = V ∘ conj(Ybus V) [AE04, eq. 2.6], generation positive.
 
     V       : [N] or [T, N] complex bus voltages
@@ -113,7 +125,7 @@ def bus_injections(V: np.ndarray, Ybus: Any, base_mva: float = 1.0) -> np.ndarra
     return V * np.conj((Ybus @ V.T).T) * base_mva
 
 
-def branch_flows(V: np.ndarray, Yf: Any, from_bus: np.ndarray, base_mva: float = 1.0) -> np.ndarray:
+def branch_flows(V: np.ndarray, Yf: Admittance, from_bus: np.ndarray, base_mva: float = 1.0) -> np.ndarray:
     """Complex from-end branch flows S_f = V_f ∘ conj(Yf V) [AE04, eq. 2.8].
 
     V        : [N] one voltage vector, or [T, N] a stack of them
@@ -133,8 +145,8 @@ def branch_flows(V: np.ndarray, Yf: Any, from_bus: np.ndarray, base_mva: float =
 def ac_measurement(
     vm: np.ndarray,
     theta: np.ndarray,
-    Ybus: Any,
-    Yf: Any,
+    Ybus: Admittance,
+    Yf: Admittance,
     from_bus: np.ndarray,
     lut: np.ndarray,
     n_ppc: int,
@@ -160,7 +172,13 @@ def ac_measurement(
 
 
 def ac_jacobian(
-    vm: np.ndarray, theta: np.ndarray, Ybus: Any, Yf: Any, from_bus: np.ndarray, lut: np.ndarray, n_ppc: int
+    vm: np.ndarray,
+    theta: np.ndarray,
+    Ybus: Admittance,
+    Yf: Admittance,
+    from_bus: np.ndarray,
+    lut: np.ndarray,
+    n_ppc: int,
 ) -> np.ndarray:
     """The measurement Jacobian H = ∂h/∂[θ, |V|] of `ac_measurement` at one state, in closed
     form [AE04, ch. 2], written with the complex bus-voltage derivatives of [MP19, dSbus_dV and
@@ -178,8 +196,7 @@ def ac_jacobian(
     N, E = len(lut), len(from_bus)
     V = np.zeros(n_ppc, np.complex128)
     V[lut] = vm * np.exp(1j * theta)
-    Yb = np.asarray(Ybus.todense() if hasattr(Ybus, "todense") else Ybus)
-    Yff = np.asarray(Yf.todense() if hasattr(Yf, "todense") else Yf)
+    Yb, Yff = _dense(Ybus), _dense(Yf)
     Vnorm = np.where(np.abs(V) > 0, V / np.where(np.abs(V) > 0, np.abs(V), 1.0), 0.0)
     I = Yb @ V
     dS_dVa = 1j * (V[:, None] * np.conj(np.diag(I) - Yb * V[None, :]))
@@ -271,7 +288,12 @@ def _interior_jacobian(Yb: np.ndarray, V: np.ndarray, I_: np.ndarray) -> np.ndar
 
 
 def local_ac_solve(
-    Ybus: Any, V: np.ndarray, interior: np.ndarray, S_target: np.ndarray, iters: int = 50, tol: float = 1e-9
+    Ybus: Admittance,
+    V: np.ndarray,
+    interior: np.ndarray,
+    S_target: np.ndarray,
+    iters: int = 50,
+    tol: float = 1e-9,
 ) -> Optional[np.ndarray]:
     """The false state of a local attacker [WU26]: the interior bus voltages that give the target
     injections there, with every other bus voltage held at its true value.
@@ -291,7 +313,7 @@ def local_ac_solve(
     S_target : [len(interior)] target complex injections at those buses, per unit, generation positive
     returns  : [n] the false voltages, or None when no step lowers the mismatch or `iters` run out
     """
-    Yb = np.asarray(Ybus.todense() if hasattr(Ybus, "todense") else Ybus)
+    Yb = _dense(Ybus)
     V = np.array(V, np.complex128, copy=True)
     I_ = np.asarray(interior, int)
     for _ in range(iters):

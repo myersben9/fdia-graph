@@ -8,7 +8,7 @@ expression the estimator used before it existed (docs/plans/READABILITY_PLAN.md,
 
 from __future__ import annotations
 
-from typing import Any
+from types import ModuleType
 
 import numpy as np
 
@@ -50,7 +50,7 @@ def guarded_inverse(A: np.ndarray) -> np.ndarray:
     return np.linalg.pinv(S, rcond=100 * eps)
 
 
-def _triangular_rcond(L: np.ndarray, lapack: Any) -> float:
+def _triangular_rcond(L: np.ndarray, lapack: ModuleType) -> float:
     """Reciprocal 1-norm condition number of a lower-triangular factor: LAPACK's estimate (dtrcon)
     where SciPy exposes it, else the same kind of estimate computed here, since dtrcon is missing
     from the SciPy releases that still install on Python 3.9. Both are O(k²) after the factor."""

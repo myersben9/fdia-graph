@@ -4,7 +4,8 @@ pins the secured meters and asks the residual test whether the attack shows."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
@@ -106,7 +107,7 @@ class TrustSelector:
             false_alarm=float((before[ben] > level).mean()),
         )
 
-    def attack_cost(self, secured: Optional[Any] = None) -> float:
+    def attack_cost(self, secured: Optional[Union[Sequence[int], np.ndarray]] = None) -> float:
         """The attack cost with these meters secured (default: the selection)."""
         s = self.select() if secured is None else np.asarray(secured, int)
         return attack_cost(self.H, s)[0]

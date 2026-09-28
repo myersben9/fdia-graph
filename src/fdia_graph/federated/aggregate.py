@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING
 
 from ..formulas.federated import fedavg
 
+if TYPE_CHECKING:
+    import torch
 
-def fedavg_state(states: Sequence[dict[str, Any]], weights: Sequence[float]) -> dict[str, Any]:
+
+def fedavg_state(
+    states: Sequence[dict[str, torch.Tensor]], weights: Sequence[float]
+) -> dict[str, torch.Tensor]:
     """The federated average of several state dicts with the same keys: floating tensors averaged
     by `weights` (exact for one client), any other tensor taken from the first client."""
     import torch
 
-    out: dict[str, Any] = {}
+    out: dict[str, torch.Tensor] = {}
     for key, first in states[0].items():
         if torch.is_floating_point(first):
             avg = fedavg([s[key].detach().cpu().numpy() for s in states], weights)
@@ -23,6 +28,6 @@ def fedavg_state(states: Sequence[dict[str, Any]], weights: Sequence[float]) -> 
     return out
 
 
-def state_bytes(state: dict[str, Any]) -> int:
+def state_bytes(state: dict[str, torch.Tensor]) -> int:
     """The size of a state dict on the wire, in bytes."""
     return int(sum(v.numel() * v.element_size() for v in state.values()))

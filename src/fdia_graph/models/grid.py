@@ -4,57 +4,92 @@ built with. Nothing here changes from one scan to the next."""
 
 from __future__ import annotations
 
-from typing import Any, NamedTuple, Optional
+from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
 import numpy as np
+
+if TYPE_CHECKING:
+    import torch
+
+# One column of a measurement array, a view with no copy: numpy, or torch for a record bundle.
+Column = Union[np.ndarray, "torch.Tensor"]
 
 
 class NodeColumns(NamedTuple):
     """The four columns of `node_x`, `node_m` and `clean`, in the order every shard, stream and
     pool stores them. `NodeColumns.of(a)` gives named views of the last axis of any such array;
-    `NODE` holds the column indices for code that indexes."""
+    `NODE` (a `NodeIndex`, the same fields as column indices) is for code that indexes."""
 
-    v: Any  # |V|, voltage magnitude (pu)
-    p_inj: Any  # P_inj, active injection (MW, or pu on baseMVA)
-    q_inj: Any  # Q_inj, reactive injection (MVAr, or pu)
-    theta: Any  # voltage angle (deg, or rad)
+    v: Column  # |V|, voltage magnitude (pu)
+    p_inj: Column  # P_inj, active injection (MW, or pu on baseMVA)
+    q_inj: Column  # Q_inj, reactive injection (MVAr, or pu)
+    theta: Column  # voltage angle (deg, or rad)
 
     @classmethod
-    def of(cls, a: Any) -> NodeColumns:
+    def of(cls, a: Column) -> NodeColumns:
         return cls(a[..., 0], a[..., 1], a[..., 2], a[..., 3])
+
+
+class NodeIndex(NamedTuple):
+    """Where each `NodeColumns` field sits on the last axis: `node_x[..., NODE.theta]`."""
+
+    v: int
+    p_inj: int
+    q_inj: int
+    theta: int
 
 
 class EdgeColumns(NamedTuple):
     """The two columns of `edge_x`, `edge_m`, `edge_clean` and `edge_clean_full`."""
 
-    p_from: Any  # P_from, active flow leaving the from end (MW, or pu)
-    q_from: Any  # Q_from, reactive flow leaving the from end (MVAr, or pu)
+    p_from: Column  # P_from, active flow leaving the from end (MW, or pu)
+    q_from: Column  # Q_from, reactive flow leaving the from end (MVAr, or pu)
 
     @classmethod
-    def of(cls, a: Any) -> EdgeColumns:
+    def of(cls, a: Column) -> EdgeColumns:
         return cls(a[..., 0], a[..., 1])
+
+
+class EdgeIndex(NamedTuple):
+    """Where each `EdgeColumns` field sits on the last axis."""
+
+    p_from: int
+    q_from: int
 
 
 class BranchColumns(NamedTuple):
     """The eight columns of `edge_attr`, the static per-unit branch physics."""
 
-    r: Any
-    x: Any
-    b: Any
-    g: Any
-    gs: Any
-    bs: Any
-    tap: Any
-    shift: Any
+    r: Column
+    x: Column
+    b: Column
+    g: Column
+    gs: Column
+    bs: Column
+    tap: Column
+    shift: Column
 
     @classmethod
-    def of(cls, a: Any) -> BranchColumns:
+    def of(cls, a: Column) -> BranchColumns:
         return cls(*(a[..., i] for i in range(8)))
 
 
-NODE = NodeColumns(0, 1, 2, 3)  # column indices: node_x[..., NODE.theta]
-EDGE = EdgeColumns(0, 1)
-BRANCH = BranchColumns(0, 1, 2, 3, 4, 5, 6, 7)
+class BranchIndex(NamedTuple):
+    """Where each `BranchColumns` field sits on the last axis."""
+
+    r: int
+    x: int
+    b: int
+    g: int
+    gs: int
+    bs: int
+    tap: int
+    shift: int
+
+
+NODE = NodeIndex(0, 1, 2, 3)  # column indices: node_x[..., NODE.theta]
+EDGE = EdgeIndex(0, 1)
+BRANCH = BranchIndex(0, 1, 2, 3, 4, 5, 6, 7)
 
 
 class BranchModel(NamedTuple):

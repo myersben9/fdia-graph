@@ -5,7 +5,9 @@ spelled only in src/fdia_graph/schema.py; every other module goes through `schem
 validation rule (docs/plans/VALIDATION_PLAN.md): `raise ValueError` / `raise TypeError` and
 `isinstance(...)` only inside `fdia_graph.models`, where the one engine checks every input and the
 parser models read loose input by its type; everywhere else an input is checked or parsed by
-building its model, and a condition only the data reveals raises a named error from `errors`.
+building its model, and a condition only the data reveals raises a named error from `errors`. And
+the typing rule: an annotation says `Any` only where ANY_ALLOWED lists it with the reason the value
+can be anything; every other annotation carries its real type.
 
     python tools/readability.py --report                 # every function outside a limit, whole package
     python tools/readability.py --check --base origin/main   # gate: functions touched since base must pass
@@ -253,6 +255,131 @@ def hand_checks(path: str) -> list[tuple[str, int, str]]:
     return sorted(raises + types, key=lambda h: h[1])
 
 
+# Where `Any` stays, and why: the value there genuinely can be anything. Keyed by
+# "file.py:qualname" plus ":param" or ":return"; a field is "file.py:Class.field". Every other
+# annotation carries its real type (an optional dependency's type under `if TYPE_CHECKING:`).
+_RAW = "the validation engine's raw input: a rule runs on whatever the caller passed, and a failure becomes a ConfigError"
+_KW = "keyword arguments forwarded unchanged to another signature, each its own type"
+_STAGE = "a record's staging dict: tensors and scalar provenance, each key its own type, unpacked into RecordBundle"
+_BUNDLE = "a bundle's fields as a dict: arrays, tensors, scalars and lists, each key its own type"
+ANY_ALLOWED: dict[str, str] = {
+    "__init__.py:__getattr__:return": "a lazily imported public name: any of the package's functions or classes",
+    "generation.py:generate:**knobs": _KW,
+    "streams.py:generate_stream:**knobs": _KW,
+    "streams.py:load_stream.out": "a stream file's contents: arrays and the pickled episode list, each key its own type",
+    "timeline.py:_timeline_attrs:knobs": "the recorded generation knobs, each key its own type, written as file attributes",
+    "dataset/records.py:RecordsMixin._add_benign:item": _STAGE,
+    "dataset/records.py:RecordsMixin._base_item:return": _STAGE,
+    "dataset/records.py:RecordsMixin._add_optional_layers:item": _STAGE,
+    "dataset/records.py:RecordsMixin.loader:**kw": _KW,
+    "federated/localizer.py:FederatedLocalizer.__init__:**kw": _KW,
+    "federated/se.py:RegionalPrior.__init__:**kw": _KW,
+    "localization/base.py:LocalizerBase.score.out": "the score table's rows: overall, benign and per-family metrics, one row type per key",
+    "localization/learned.py:BusCNN.__init__:**kw": _KW,
+    "se/methods.py:GatedPrior.__init__:**kw": _KW,
+    "models/assets.py:AssetSpec.meta": "a local dataset's JSON metadata, as fg.generate wrote it",
+    "models/base.py:Bundle.to_dict:return": _BUNDLE,
+    "models/base.py:Bundle.ordered:mapping": _BUNDLE,
+    "models/base.py:_rebuild:field_values": _BUNDLE,
+    "models/validation.py:Validated.__dataclass_fields__": "the dataclasses protocol's own field map, Field[Any]",
+    "models/validation.py:Rule.holds:value": _RAW,
+    "models/validation.py:Rule.apply:value": _RAW,
+    "models/validation.py:Rule.apply:return": "what a rule stores: the value itself, or its conversion (a string, an array, a parse)",
+    "models/validation.py:OneOf.apply:value": _RAW,
+    "models/validation.py:Positive.holds:value": _RAW,
+    "models/validation.py:Finite.holds:value": _RAW,
+    "models/validation.py:Integer.holds:value": _RAW,
+    "models/validation.py:AtLeast.holds:value": _RAW,
+    "models/validation.py:InRange.holds:value": _RAW,
+    "models/validation.py:Required.holds:value": _RAW,
+    "models/validation.py:AsArray.apply:value": _RAW,
+    "models/validation.py:AsTuple.apply:value": _RAW,
+    "models/validation.py:Dims.holds:value": _RAW,
+    "models/validation.py:IntegerDtype.holds:value": _RAW,
+    "models/validation.py:NonEmpty.holds:value": _RAW,
+    "models/validation.py:AllFinite.holds:value": _RAW,
+    "models/validation.py:AllPositive.holds:value": _RAW,
+    "models/validation.py:Parses.apply:value": _RAW,
+    "models/validation.py:_checked:value": _RAW,
+    "models/validation.py:_checked:return": "a field's value after its rules: whatever the field's type is",
+}
+
+
+def _mentions_any(node: ast.AST) -> bool:
+    return any(
+        (isinstance(n, ast.Name) and n.id == "Any") or (isinstance(n, ast.Attribute) and n.attr == "Any")
+        for n in ast.walk(node)
+    )
+
+
+def _annotated(tree: ast.AST) -> list[tuple[str, int, ast.AST]]:
+    """(qualified place, line, annotation) for every annotation in a module: each parameter
+    ("f:x", "f:*args", "f:**kw"), each return ("f:return"), each annotated name ("C.field",
+    "f.var"), and each module-level type alias whose value names a type ("Alias")."""
+    out: list[tuple[str, int, ast.AST]] = []
+
+    def walk(node: ast.AST, prefix: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, _FUNC):
+                q = prefix + child.name
+                a = child.args
+                for arg in a.posonlyargs + a.args + a.kwonlyargs:
+                    if arg.annotation is not None:
+                        out.append((f"{q}:{arg.arg}", arg.lineno, arg.annotation))
+                for star, arg in (("*", a.vararg), ("**", a.kwarg)):
+                    if arg is not None and arg.annotation is not None:
+                        out.append((f"{q}:{star}{arg.arg}", arg.lineno, arg.annotation))
+                if child.returns is not None:
+                    out.append((f"{q}:return", child.lineno, child.returns))
+                walk(child, q + ".")
+            elif isinstance(child, ast.ClassDef):
+                walk(child, prefix + child.name + ".")
+            elif isinstance(child, ast.AnnAssign):
+                # `x: T`, and the attribute and subscript forms: `self.x: T`, `d["k"]: T`
+                out.append((prefix + ast.unparse(child.target), child.lineno, child.annotation))
+            elif (
+                isinstance(child, ast.Assign)
+                and not prefix
+                and isinstance(child.value, (ast.Subscript, ast.Name, ast.Attribute, ast.BinOp))
+                and len(child.targets) == 1
+                and isinstance(child.targets[0], ast.Name)
+            ):
+                # a module-level type alias: `Alias = Optional[Any]`, `Alias = Any`, `Alias = int | Any`
+                out.append((child.targets[0].id, child.lineno, child.value))
+            else:
+                walk(child, prefix)
+
+    walk(tree, "")
+    return out
+
+
+def any_annotations(path: str) -> list[tuple[str, int]]:
+    """(key, line) of every annotation in the file that uses `Any`; the key is what ANY_ALLOWED lists."""
+    tree = ast.parse(open(path, encoding="utf8").read())
+    rel = _rel(path).replace(os.sep, "/")
+    return [(f"{rel}:{place}", line) for place, line, ann in _annotated(tree) if _mentions_any(ann)]
+
+
+def any_annotations_all() -> list[tuple[str, int]]:
+    out: list[tuple[str, int]] = []
+    for dp, _, fs in os.walk(ROOT):
+        for f in sorted(fs):
+            if f.endswith(".py"):
+                out += any_annotations(os.path.join(dp, f))
+    return out
+
+
+def any_unlisted() -> list[tuple[str, int]]:
+    """`Any` where ANY_ALLOWED does not list it."""
+    return [(k, line) for k, line in any_annotations_all() if k not in ANY_ALLOWED]
+
+
+def any_stale() -> list[str]:
+    """ANY_ALLOWED entries that name no `Any` any more: a typed place, or one renamed or removed."""
+    found = {k for k, _ in any_annotations_all()}
+    return sorted(k for k in ANY_ALLOWED if k not in found)
+
+
 def _what(name: str) -> str:
     return f"raise {name}" if name in _BARE else f"{name}(...)"
 
@@ -315,6 +442,12 @@ def report(ms: list[Measure]) -> int:
     )
     for rel, line, name in hands:
         print(f"  {rel}:{line} {_what(name)}")
+    unlisted, stale = any_unlisted(), any_stale()
+    print(f"{len(unlisted)} Any annotations not in ANY_ALLOWED, {len(stale)} stale ANY_ALLOWED entries")
+    for key, line in unlisted:
+        print(f"  line {line}: {key}")
+    for key in stale:
+        print(f"  stale: {key}")
     return 0
 
 
@@ -385,6 +518,15 @@ def check(base: str) -> int:
         print("in fdia_graph.models, or raise a named error from fdia_graph.errors):")
         for rel, line, name in hands:
             print(f"  {rel}:{line} {_what(name)}")
+        return 1
+    unlisted, stale = any_unlisted(), any_stale()
+    if unlisted or stale:
+        print("Any annotations: give each its real type (an optional dependency's type under")
+        print("`if TYPE_CHECKING:`), or list it in ANY_ALLOWED in tools/readability.py with the reason:")
+        for key, line in unlisted:
+            print(f"  line {line}: {key}")
+        for key in stale:
+            print(f"  stale ANY_ALLOWED entry (no Any there now): {key}")
         return 1
     n_lines = sum(len(v) for v in changed.values())
     print(f"readability gate: {n_lines} changed lines in {len(changed)} file(s), all touched functions pass")

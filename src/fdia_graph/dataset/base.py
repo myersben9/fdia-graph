@@ -18,10 +18,12 @@ if TYPE_CHECKING:
 
 from collections.abc import Callable, Sequence
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
-    pass
+    import pandas as pd
+
+    from ..models.data import ArraysBundle, EpisodeTable
 
 
 import h5py
@@ -228,9 +230,9 @@ class DatasetBase:
     is_timeline: bool  # the file attribute kind == "timeline" (one row per frame, in time order)
     edge_status_per_record: Optional[np.ndarray]
     _perm: Optional[np.ndarray]  # order="random": view position -> position in idx
-    _episodes: Optional[Any]  # EpisodeTable of the whole file, None on a shard
+    _episodes: Optional[EpisodeTable]  # the whole file's, None on a shard
     _f: Optional[h5py.File]
-    _phys: dict[str, Any]  # graph/* arrays, None where the file predates the schema
+    _phys: dict[str, Optional[np.ndarray]]  # graph/* arrays, None where the file predates the schema
     _clean_np: Optional[np.ndarray]
     _eclean_np: Optional[np.ndarray]
     _eclean_full_np: Optional[np.ndarray]
@@ -253,10 +255,18 @@ class DatasetBase:
     @property
     def edge_attr(self) -> torch.Tensor: ...
 
+    def _physics_arrays(self, need: Sequence[str]) -> tuple[dict[str, np.ndarray], list[str]]:
+        """The graph/* arrays among `need` that the file carries, and the names it lacks (a file that
+        predates the physics schema)."""
+        got = {k: v for k in need if (v := self._phys.get(k)) is not None}
+        return got, [k for k in need if k not in got]
+
     def _h(self) -> h5py.File: ...
 
     def _to_units(self, arr: np.ndarray, kind: str) -> np.ndarray: ...
 
     def _clean_flows_full(self) -> Optional[np.ndarray]: ...
 
-    def export(self, fields: Optional[Sequence[str]] = None, format: str = "numpy") -> Any: ...
+    def export(
+        self, fields: Optional[Sequence[str]] = None, format: str = "numpy"
+    ) -> Union[ArraysBundle, pd.DataFrame]: ...
