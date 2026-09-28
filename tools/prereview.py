@@ -104,14 +104,17 @@ def _changelog(files: list[str]) -> tuple[str, str]:
     return PASS, ""
 
 
-_BACKTICKED = re.compile(r"`((?:src|docs|tools|tests|examples|scripts)/[\w./-]+\.[A-Za-z0-9]+)`")
+_BACKTICKED = re.compile(
+    r"`((?:src|docs|tools|tests|examples|scripts)/[\w./-]+\.[A-Za-z0-9]+"
+    r"|[A-Z][A-Z_]*\.md|pyproject\.toml|mkdocs\.yml)`"  # and the root files: README.md, pyproject.toml
+)
 _LINKED = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 
 
 def _targets(md: str, text: str) -> list[str]:
     """The repository paths a Markdown file cites: backticked repository-rooted paths, and link and
     image destinations resolved against the file's folder (web links, mail and anchors skipped)."""
-    out = list(_BACKTICKED.findall(text))
+    out = list(_BACKTICKED.findall(_LINKED.sub("", text)))  # a link's text is not a citation; its target is
     for dest in _LINKED.findall(text):
         if re.match(r"[a-z][a-z0-9+.-]*:", dest, re.I) or dest.startswith("#"):
             continue
@@ -122,12 +125,14 @@ def _targets(md: str, text: str) -> list[str]:
 
 
 def _cited_paths(files: list[str]) -> tuple[str, str]:
+    # a bare name such as `REFERENCES.md` is shorthand for a file of that name somewhere in the tree
+    names = {posixpath.basename(f) for f in _git_names("ls-files")}
     missing = [
         f"{f}: {path}"
         for f in files
         if f.endswith(".md") and os.path.exists(os.path.join(ROOT, f))
         for path in _targets(f, _read(f))
-        if not os.path.exists(os.path.join(ROOT, path))
+        if not os.path.exists(os.path.join(ROOT, path)) and not ("/" not in path and path in names)
     ]
     return (FAIL if missing else PASS), "missing: " + "; ".join(missing[:10])
 
