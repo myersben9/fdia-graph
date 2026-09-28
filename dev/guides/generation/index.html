@@ -1842,12 +1842,17 @@ over-jitter one-minute traces and hide the temporal signal (<code>bias_jitter_sp
 below 2% of the reading sits inside meter error and resolves to noise.</p>
 <h2 id="3-the-attack-families">3. The attack families<a class="headerlink" href="#3-the-attack-families" title="Permanent link">&para;</a></h2>
 <p><code>attack_intensity = 0.20</code> is the upper edge of the band for Aq, Al, Ad and As, and bounds the redistribution Am draws at onset (<code>generate_timeline</code>, <code>lra_delta</code>). The At ramp is set by <code>ramp_rate</code> and <code>ramp_len</code>, Am's steps by <code>am_rate</code> and <code>am_len</code>, and Ar records the realized change of its replay without bounding it.
-The stealthy families are local false states [WU26]: the attacker changes loads inside a subnetwork
+The stealthy families are local false states: the attacker changes loads inside a subnetwork
 within <code>hops = 2</code> branches, solves that subnetwork with the boundary voltages held true, and adds
 <code>a = h(x_false) - h(x_true)</code> to the true scan (<code>engine/attacks/stealthy._stealthy_frame</code>). Every meter keeps
 its own noise draw, so the residual test sees noise only. Every false state must also stay within
 the case's bus voltage limits and the generator P and Q limits widened to the range the pool used
-(<code>engine/attacks/false_state._within_limits</code>, <code>operating_limits</code>).</p>
+(<code>engine/attacks/false_state._within_limits</code>, <code>operating_limits</code>). They satisfy equations (13)-(18)
+and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
+operating limits; the PMU branch-current phasors (19)-(20) are not modeled) but not its objective:
+by default the targets are drawn at random rather than chosen to tamper the fewest devices (the
+fewest-tamper search of eq. 12 covers <code>At</code> under <code>min_tamper=True</code>), and no line is driven to its
+limit (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
 <table>
 <thead>
 <tr>
@@ -1918,7 +1923,7 @@ the case's bus voltage limits and the generator P and Q limits widened to the ra
 <tr>
 <td><code>Am</code></td>
 <td>7</td>
-<td>multi-snapshot [WU26]: an <code>Al</code> redistribution drawn at onset, reached in steps</td>
+<td>multi-snapshot, after [WU26]: an <code>Al</code> redistribution drawn at onset, reached in steps (not the paper's fewest-device overload attack)</td>
 <td>per-frame step at most <code>am_rate * NOISE_FLOOR</code> = 1.8%, peak 2% to 20% (<code>_AmShape.under_floor</code>)</td>
 <td>60 frames (<code>am_len</code> defaults to <code>ramp_len</code>)</td>
 <td>yes</td>

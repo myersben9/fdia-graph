@@ -1720,7 +1720,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>local false state</td>
-<td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan [WU26].</td>
+<td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan; it meets constraints (13)-(18) and (21)-(23) of [WU26] (not the branch-current phasors (19)-(20)), not its fewest-device objective.</td>
 <td><code>engine.attacks.stealthy.StealthyMixin._stealthy_frame</code>, <code>engine.attacks.false_state.FalseStateMixin.solve_local</code>, <code>engine.attacks.area.AreaMixin.local_region</code></td>
 </tr>
 <tr>
