@@ -95,7 +95,11 @@ at its true value:
   unknowns are `|V|` and `θ` of S, the one equation is the flow magnitude on line l at its target
   value, and the solve takes the smallest voltage change that meets it (least-norm Gauss-Newton on
   the flow equation, the false loads read off the result). Any flow change needs a free bus at one
-  end of l.
+  end of l. One equation in 2|S| unknowns leaves many feasible states per support, and the
+  least-norm one need not cross the fewest noise thresholds, so for `Am` the optimum claimed is over
+  supports each solved by this rule, not over every false state. Lowering the device count inside
+  a support (reweighting the step toward channels already over noise) is a later refinement, with
+  no claim until it is measured.
 
 Both are checked against (21)-(23). The flow magnitude is `S_l = sqrt(P_l^2 + Q_l^2)` in MVA from the
 flow channels (MW and MVAr), compared with `rate_a` in MVA, or both divided by the base MVA in per
@@ -106,11 +110,12 @@ unit.
 1. Candidates are connected supports that can reach the goal (the targeted load buses for a load
    goal, at least one end of l for a flow goal), under the area rules of today: never the slack, and
    a zero-injection bus on a support's boundary is taken in, since it cannot absorb the change.
-2. The only lower bound used for pruning is one that holds: the devices the goal forces above noise
-   whatever the support (for a flow goal the device metering line l, whose flow must change by more
-   than its noise; for a load goal the devices of the targeted buses, whose injections change by the
-   designed step). A channel that must move but may stay under noise is not counted, and cancelling
-   effects are therefore not assumed away.
+2. The only lower bound used for pruning is one that holds for every remaining support: a device
+   counts only when the goal forces one of its channels above that channel's noise. For a flow goal
+   the required change δ of the magnitude on l can split between P and Q, so at least one of them
+   moves by δ/√2 and the metering device is forced only when δ/√2 exceeds the larger of the two
+   `σ`. For a load goal a targeted bus's device is forced only when the designed step exceeds its
+   injection channel's `σ`. When nothing is forced the bound is zero and nothing is pruned.
 3. On IEEE-14 and small areas every candidate is solved (exhaustive), and the cheapest feasible one
    is the optimum over the area. A test compares the result with a brute-force enumeration.
 4. On IEEE-118 and 300 the search is best-first with a node budget and prunes only with the valid
