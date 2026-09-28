@@ -25,8 +25,8 @@ cites a file or page, and every claim about ours was checked in the code or on t
 ### A. Comparable and trustworthy numbers
 
 **1. A standalone evaluator per task (M, medium risk).**
-OGB's `Evaluator(name)` takes predictions only, reads the metric and task shape from packaged
-metadata, checks the input contract and states it in `expected_input_format`
+OGB's `Evaluator(name)` scores a dict of truth and predictions (`y_true`, `y_pred`), reads the
+metric and task shape from packaged metadata, checks the input contract and states it in `expected_input_format`
 ([evaluate.py](https://raw.githubusercontent.com/snap-stanford/ogb/master/ogb/nodeproppred/evaluate.py)).
 
 Ours has two problems:
@@ -114,7 +114,8 @@ Verified: `registry.py` has no sha256 entry for v0.8.2, and `download.py` skips 
 when none is pinned. So `fg.load(..., release="v0.8.2")` downloads unverified. Leaving it out of
 the registry does not retire it: `release_name()` accepts any version and `resolve()` builds the
 asset for it. So pin its hashes, or have `resolve()` refuse a release listed as retired. It is
-superseded and unreferenced.
+superseded as a download; `CHANGELOG.md` and `examples/_build_timelines_v083.py` still name it as
+history and as the source of the v0.8.3 build, and those references stay.
 
 **7. A timeline file checker (M, low risk).**
 power-grid-model's validator checks whole arrays column by column and reports every failing
@@ -126,7 +127,10 @@ failures by frame and bus. The domain checks are:
 - the meter masks are the same on every frame. The estimator assumes this (it reads the mask from
   record 0). Verified constant on the v0.8.3 files for IEEE-14, 118 and 300, but nothing enforces it;
 - metered slots are finite and unmetered slots zero;
-- the labels match the tamper masks;
+- labels and tamper masks agree per frame: a frame has a labelled bus exactly when it has a
+  tampered meter. `data/y` is per bus and `attack/node_tamper` and `attack/edge_tamper` are per
+  meter channel, and a stealthy family changes meters off its labelled buses, so the bus-level rule
+  is defined per family before it becomes a check;
 - the episode table agrees with the per-frame family and `seq_id` columns.
 
 Run it in the release build before upload.
@@ -159,9 +163,10 @@ reference.
 
 **11. One baseline per task in `examples/` (S, low risk).**
 OGB ships one runnable, multi-seed baseline per task next to the evaluator. Our `examples/` holds
-about 150 scratch scripts, while the real baselines live in `docs/*/run_*.py`. Move the scratch out
-(after checking that no paper script depends on those paths). Keep one baseline per task that calls
-the evaluator.
+seven files: a quickstart, three training scripts (`train_arma.py`, `train_gnn.py`, `train_tgnn.py`)
+and three release-build scripts (`_build_timelines_v08*.py`), while the guide baselines live in
+`docs/*/run_*.py`. Move the release-build scripts under `tools/`, and make each training script the
+one baseline of its task, scored by the evaluator over several seeds.
 
 **12. Two guide pages (S, low risk).**
 From power-grid-model's manual:
