@@ -1,8 +1,9 @@
 flowchart LR
-    A[branch off main] --> B[strict suite<br/>pyright · ruff · gate]
-    B --> C["tools/pr.py create"]
-    C --> D[CI + the review bots]
-    D --> E{comments?}
-    E -- yes --> F[apply what is right,<br/>reply to every one]
-    F --> D
-    E -- no --> G["tools/pr.py merge<br/>(green + review on head)"]
+    A[branch off main] --> B["tools/prereview.py<br/>every gate + strict suite"]
+    B --> C[checklist review<br/>REVIEW_CHECKLIST.md]
+    C --> D["tools/pr.py create"]
+    D --> E["tools/pr.py request-review<br/>CI + the review bots"]
+    E --> F{comments?}
+    F -- yes --> G[fix them all in one push,<br/>reply to every one]
+    G --> B
+    F -- no --> H["tools/pr.py merge<br/>(green + review on head)"]

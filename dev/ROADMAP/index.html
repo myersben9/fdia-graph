@@ -1117,6 +1117,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../reference/REVIEW_CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reference/REFERENCES/" class="md-nav__link">
         
   
@@ -1664,6 +1692,14 @@ analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</cod
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>python tools/review_ledger.py &lt;num&gt;</code></td>
+<td>records the automated reviewer's findings per pull request in <code>docs/reference/review_ledger.csv</code> and prints the tally by kind, so a recurring kind becomes a check</td>
+</tr>
+<tr>
+<td><code>python tools/prereview.py</code></td>
+<td>every CI gate, the strict suite and the checks CI does not run, on this checkout's source; run before a review is requested (<code>docs/reference/REVIEW_CHECKLIST.md</code>)</td>
+</tr>
 <tr>
 <td><code>pytest tests</code></td>
 <td>builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts</td>
