@@ -3,7 +3,7 @@
 Goal: raise the SDK to the standard of the two open-source projects closest to it. **power-grid-model**
 (Alliander) is the reference for a grid-calculation library with state estimation and input
 validation. **OGB** (Open Graph Benchmark) is the reference for a dataset and benchmark package:
-fixed splits, a standalone evaluator and reporting rules. PowerGraph (NeurIPS 2024) and the Hugging
+fixed splits, a standalone evaluator and reporting rules. PowerGraph ([NeurIPS 2024](https://arxiv.org/abs/2402.02827)) and the Hugging
 Face dataset-card template were read for dataset documentation.
 
 Their code and documentation were read on GitHub on 2026-09-26. Every claim about their side below
@@ -98,7 +98,8 @@ records, sha256, tasks and official metrics, the split fractions, and the minimu
 loader refuses a file newer than the installed SDK can read, with a clear error.
 
 **5. A dataset card per release (S to M, low risk).**
-Sections from the Hugging Face template, fitted to a generated dataset:
+Sections from the Hugging Face template ([datasetcard_template.md](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/datasetcard_template.md)), fitted to a generated
+dataset:
 
 1. summary and the diff from the previous release;
 2. systems table;
