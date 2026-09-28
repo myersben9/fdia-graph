@@ -1663,8 +1663,10 @@
 Paths are under <code>src/fdia_graph/</code>.</p>
 <h2 id="one-record-start-to-finish">One record, start to finish<a class="headerlink" href="#one-record-start-to-finish" title="Permanent link">&para;</a></h2>
 <p><img alt="one record: the operating state gives the clean layer and the benign scan; Aq, At, Al and Am re-solve a local false state whose attack vector is added to the benign scan; Ad, As and Ar corrupt readings in place; every path ends in the record" src="../../figures/diagrams/concepts_one_record.png" /></p>
-<p>Re-solve families are attacked before measurement (<code>engine.physics.solve</code>), in-place families
-after it (<code>engine.attacks.corrupt</code>); <code>engine.records.attack_frame</code> routes both.</p>
+<p>Every attack is built in <code>engine.attacks</code>, the generator's <code>AttackMixin</code>: the re-solve families
+before measurement (a local false state, <code>engine.attacks.false_state</code>), the in-place families after
+it (<code>engine.attacks.corrupt</code>); <code>AttackMixin.attack_frame</code> routes both, and
+<code>engine.records.attack_frame</code> adds the benign scan.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <p>The paper's math lives in <code>engine/</code>. At the top level, <code>generation.py</code>, <code>timeline.py</code> and
 <code>profiles.py</code> drive the engine; <code>se/</code> and <code>localization/</code> analyze the timelines; the rest load and
@@ -1787,43 +1789,43 @@ and converts them on load.</p>
 <td>Aq</td>
 <td><code>A_o</code></td>
 <td>scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode</td>
-<td><code>timeline._single_shot_episode</code> + <code>engine/records.stealthy_state</code></td>
+<td><code>engine/attacks/episodes.single_shot_design</code> + <code>engine/attacks/false_state.stealthy_state</code></td>
 </tr>
 <tr>
 <td>At</td>
 <td><code>A_t</code></td>
 <td>slow ramp, 0.2 percent per frame, a local false state per frame</td>
-<td><code>timeline._ramp_episode</code></td>
+<td><code>engine/attacks/episodes.ramp_design</code> + <code>ramp_step</code></td>
 </tr>
 <tr>
 <td>Al</td>
 <td><code>A_l</code></td>
 <td>load-conserving redistribution around a target line, one frame per episode</td>
-<td><code>engine/attacks.lra_delta</code> + <code>engine/records._lra_frame</code></td>
+<td><code>engine/attacks/redistribution.lra_delta</code> + <code>engine/attacks/stealthy._lra_frame</code></td>
 </tr>
 <tr>
 <td>Am</td>
 <td><code>A_m</code></td>
 <td>multi-snapshot: a held redistribution reached in steps under the noise floor [WU26]</td>
-<td><code>timeline._am_episode</code> + <code>engine/records._am_frame</code></td>
+<td><code>engine/attacks/episodes.am_design</code> + <code>am_step</code> + <code>engine/attacks/stealthy._am_frame</code></td>
 </tr>
 <tr>
 <td>Ad</td>
 <td><code>A_d</code></td>
 <td><code>z ← z(1±u)</code></td>
-<td><code>engine/attacks.corrupt</code></td>
+<td><code>engine/attacks/corrupt.corrupt</code></td>
 </tr>
 <tr>
 <td>As</td>
 <td><code>A_s</code></td>
 <td><code>z ← βz</code></td>
-<td><code>engine/attacks.corrupt</code></td>
+<td><code>engine/attacks/corrupt.corrupt</code></td>
 </tr>
 <tr>
 <td>Ar</td>
 <td><code>A_r</code></td>
 <td>replay <code>z(t−k)</code></td>
-<td><code>engine/attacks.corrupt</code></td>
+<td><code>engine/attacks/corrupt.corrupt</code></td>
 </tr>
 </tbody>
 </table>

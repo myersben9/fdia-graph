@@ -1676,7 +1676,7 @@ analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</cod
 </tr>
 <tr>
 <td><code>engine/</code></td>
-<td><code>FdiaGenerator</code> = <code>MeasurementMixin</code> (meters, noise) + <code>PhysicsMixin</code> (AC solves) + <code>AttackMixin</code> (the attack constructions) over <code>GridBase</code>; <code>records.py</code> builds one scan of any of the seven families</td>
+<td><code>FdiaGenerator</code> = <code>MeasurementMixin</code> (meters, noise) + <code>PhysicsMixin</code> (AC solves) + <code>AttackMixin</code> (every attack, the <code>engine/attacks/</code> package: the attacker's area, the local false state, the redistribution, the stealthy and in-place frames, each episode's design) over <code>GridBase</code>; <code>records.py</code> emits a benign scan and hands an attacked family to the mixin</td>
 </tr>
 </tbody>
 </table>

@@ -1678,6 +1678,17 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li>Every attack is built in one place, <code>engine.attacks</code>, a package whose modules compose the
+  generator's <code>AttackMixin</code>: <code>area</code> (the attacker's area), <code>false_state</code> (the local solve, the
+  operating limits, the attack vector and the tamper set), <code>redistribution</code> (the <code>Al</code> and <code>Am</code>
+  redistribution), <code>stealthy</code> (the <code>Aq</code>/<code>At</code>/<code>Al</code>/<code>Am</code> frames), <code>episodes</code> (what an episode
+  attacks, drawn at onset, typed as <code>RampDesign</code> and <code>AmDesign</code>) and <code>corrupt</code> (<code>Ad</code>/<code>As</code>/<code>Ar</code> and
+  the replay buffer). This code was spread over <code>engine/records.py</code>, <code>engine/physics.py</code>,
+  <code>engine/attacks.py</code> and <code>timeline.py</code>; <code>records</code> now emits a benign scan and hands an attacked
+  family to the mixin, and <code>timeline</code> decides when and where each episode runs. No user-visible
+  change: the generated files are bit for bit the same. The public names keep their old import
+  paths; a moved private name (such as <code>engine.records._stealthy_frame</code> or <code>timeline._AmShape</code>)
+  still imports from its old module with a <code>DeprecationWarning</code> naming its new home, until 0.22.</li>
 <li>
 <p>Every annotation carries its real type. The engine's pandapower network and its internal case are
   <code>engine.pp_types.PandapowerNet</code> and <code>PpcTables</code>; torch modules and tensors, HDF5 files and

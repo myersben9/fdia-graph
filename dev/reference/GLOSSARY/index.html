@@ -1696,7 +1696,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>local false state</td>
 <td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan [WU26].</td>
-<td><code>engine.records._stealthy_frame</code>, <code>engine.physics.PhysicsMixin.solve_local</code>, <code>local_region</code></td>
+<td><code>engine.attacks.stealthy.StealthyMixin._stealthy_frame</code>, <code>engine.attacks.false_state.FalseStateMixin.solve_local</code>, <code>engine.attacks.area.AreaMixin.local_region</code></td>
 </tr>
 <tr>
 <td>theta_ref</td>

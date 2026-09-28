@@ -1646,7 +1646,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>replay policy</td>
-<td><code>engine.records.replay_frame</code></td>
+<td><code>engine.attacks.corrupt.replay_frame</code></td>
 <td>fixed lag tau, else a random lag of at least 20 scans, else the oldest scan</td>
 <td>[DAT26]</td>
 <td>the Ar family (the draw is made for every in-place family to keep the random stream fixed; only Ar uses it)</td>
@@ -1709,28 +1709,28 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>ramp profile</td>
-<td><code>formulas.attacks.ramp_profile</code>, through <code>timeline._ramp_dev</code> and <code>timeline._AmShape</code></td>
+<td><code>formulas.attacks.ramp_profile</code>, through <code>engine.attacks.episodes.ramp_dev</code> and <code>engine.attacks.episodes._AmShape</code></td>
 <td>dev(i) = rate_up·i for i &lt; rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after</td>
 <td>[DAT26]</td>
 <td>the At and Am families</td>
 </tr>
 <tr>
 <td>attacker's subnetwork</td>
-<td><code>formulas.network.subnetwork</code>, <code>FdiaGenerator.local_region</code></td>
+<td><code>formulas.network.subnetwork</code>, <code>engine.attacks.area.AreaMixin.local_region</code></td>
 <td>the buses within <code>hops</code> branches of the seeds (never the slack, grown over zero-injection boundary buses) and their boundary</td>
 <td>[WU26]</td>
 <td>every stealthy family</td>
 </tr>
 <tr>
 <td>local false state</td>
-<td><code>formulas.network.local_ac_solve</code>, <code>FdiaGenerator.solve_local</code></td>
+<td><code>formulas.network.local_ac_solve</code>, <code>engine.attacks.false_state.FalseStateMixin.solve_local</code></td>
 <td>S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i on the interior, every other V held true; Newton on [θ_I, |V|_I], each step halved until the mismatch drops (the full step first, so a plain-Newton iteration is unchanged)</td>
 <td>[WU26], [AE04, ch. 2]</td>
 <td>Aq, At, Al, Am</td>
 </tr>
 <tr>
 <td>Am schedule</td>
-<td><code>timeline._AmShape.under_floor</code>, the ramp of one Am episode</td>
+<td><code>engine.attacks.episodes._AmShape.under_floor</code>, the ramp of one Am episode</td>
 <td>rate = am_rate · floor / max_b |δ_b| / |L_b|, rise = ⌈1 / rate⌉, the ramp profile above clipped at 1, so no bus's load moves by more than am_rate of the noise floor in one frame</td>
 <td>[WU26], closed form derived here</td>
 <td>the Am family</td>
@@ -1751,14 +1751,14 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>operating limits of a false state</td>
-<td><code>formulas.attacks.operating_limits</code>, <code>generator_output</code>, <code>within_limits</code>, checked by <code>_stealthy_frame</code></td>
+<td><code>formulas.attacks.operating_limits</code>, <code>generator_output</code>, <code>within_limits</code>, checked by <code>FalseStateMixin.stealthy_state</code></td>
 <td>per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected and its step halved</td>
 <td>[WU26, eqs. 21-23]</td>
 <td>Aq, At, Al, Am</td>
 </tr>
 <tr>
 <td>attack vector</td>
-<td><code>engine.records._attack_vector</code>, called by <code>_stealthy_frame</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code>, called by <code>_stealthy_frame</code></td>
 <td>a = h(x_false) - h(x_true), the noiseless reading of the local false state minus that of the true state, added to the true scan so every meter keeps its own noise draw</td>
 <td>[WU26]</td>
 <td>Aq, At, Al, Am</td>
@@ -1786,7 +1786,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>tamper set of a stealthy frame</td>
-<td><code>engine.records._changed_meters</code>, called by <code>_stealthy_frame</code></td>
+<td><code>engine.attacks.false_state.changed_meters</code>, called by <code>_stealthy_frame</code></td>
 <td>the metered channels the attack vector moves: the interior's and boundary's injections and voltages, the flows on branches touching the interior</td>
 <td>[WU26]</td>
 <td>Aq, At, Al, Am</td>
