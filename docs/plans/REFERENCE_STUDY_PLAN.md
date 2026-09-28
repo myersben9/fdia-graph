@@ -20,6 +20,10 @@ cites a file or page, and every claim about ours was checked in the code or on t
 | results | per family and per bus, at a calibrated false-alarm budget | OGB reports one scalar per task ([evaluate.py](https://github.com/snap-stanford/ogb/blob/master/ogb/nodeproppred/evaluate.py)) |
 | regression safety | bit-for-bit frozen references, readability gate, generated-diagram check, timing benchmark gate | power-grid-model has reference cases ([tests/data](https://github.com/PowerGridModel/power-grid-model/tree/main/tests/data)); OGB has no frozen outputs |
 
+The input-check and dataset-precondition rows describe the SDK with #147 merged
+(`models/validation.py`, `ds.require(...)`), which this plan builds on; every other row holds on
+`main` today.
+
 ## 2. Ranked changes
 
 ### A. Comparable and trustworthy numbers
