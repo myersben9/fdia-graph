@@ -158,19 +158,32 @@ def _is_path(span: str, top: set[str]) -> bool:
 _LINKED = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 
 
+_REFERENCE = re.compile(r"^ {0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?", re.M)  # a reference link: [name]: target
+
+
 def _targets(md: str, text: str) -> list[str]:
     """The repository paths a Markdown file cites: backticked repository-rooted paths, and link and
     image destinations resolved against the file's folder (web links, mail and anchors skipped)."""
     top = {f.split("/", 1)[0] for f in _tree()}
     spans = _SPAN.findall(_LINKED.sub("", text))  # a link's text is not a citation; its target is
     out = [s for s in spans if _is_path(s, top)]
-    for dest in _LINKED.findall(re.sub(r"`[^`\n]*`", "", text)):  # a code span holds no link
+    prose = re.sub(r"`[^`\n]*`", "", text)  # a code span holds no link
+    for dest in _LINKED.findall(prose) + _REFERENCE.findall(prose):
         if re.match(r"[a-z][a-z0-9+.-]*:", dest, re.I) or dest.startswith("#"):
             continue
         path = dest.split("#", 1)[0].split("?", 1)[0]
         if path:
             out.append(posixpath.normpath(posixpath.join(posixpath.dirname(md), path)))
     return out
+
+
+def _in_tree(path: str) -> bool:
+    """The path exists inside this checkout: an absolute path, or one climbing out with `..`, names
+    something that is not part of the repository even when it exists on this machine."""
+    full = os.path.realpath(os.path.join(ROOT, path))
+    return os.path.commonpath([full, os.path.realpath(ROOT)]) == os.path.realpath(ROOT) and os.path.exists(
+        full
+    )
 
 
 def _cited_paths(files: list[str]) -> tuple[str, str]:
@@ -181,7 +194,7 @@ def _cited_paths(files: list[str]) -> tuple[str, str]:
         for f in files
         if f.endswith(".md") and os.path.exists(os.path.join(ROOT, f))
         for path in _targets(f, _read(f))
-        if not os.path.exists(os.path.join(ROOT, path)) and not ("/" not in path and path in names)
+        if not _in_tree(path) and not ("/" not in path and path in names)
     ]
     return (FAIL if missing else PASS), "missing: " + "; ".join(missing[:10])
 
@@ -197,6 +210,21 @@ def _vacuous_tests() -> tuple[str, str]:
 
 
 _MODELS = ("src/fdia_graph/models/config.py", "src/fdia_graph/models/inputs.py")
+
+
+def _expand(ann: str, aliases: dict[str, str]) -> str:
+    """An annotation with every module-level alias in it replaced by its definition, to any depth:
+    `Optional[Count]` reads as `Optional[Annotated[int, Integer(), AtLeast(1)]]`."""
+    for _ in range(10):  # aliases of aliases; ten levels is far more than any module uses
+        new = (
+            re.sub(r"\b(" + "|".join(map(re.escape, aliases)) + r")\b", lambda m: aliases[m.group(1)], ann)
+            if aliases
+            else ann
+        )
+        if new == ann:
+            break
+        ann = new
+    return ann
 
 
 def _integer_fields() -> tuple[str, str]:
@@ -217,10 +245,10 @@ def _integer_fields() -> tuple[str, str]:
         }
         for node in ast.walk(tree):
             if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-                ann = ast.unparse(node.annotation)
-                ann = aliases.get(ann, ann)  # a field typed by an alias is checked as the alias
-                # a scalar int setting, bare or in Optional/Annotated; a collection of ints is not one
-                if re.match(r"(Annotated\[)?(Optional\[)?int\b", ann) and "Integer()" not in ann:
+                ann = _expand(ast.unparse(node.annotation), aliases)
+                # a scalar int setting, bare or wrapped in Optional/Annotated in any order; a
+                # collection of ints (tuple[int, ...]) is not one
+                if re.match(r"((Annotated|Optional)\[)*int\b", ann) and "Integer()" not in ann:
                     bare.append(f"{rel}:{node.lineno} {node.target.id}: {ann}")
     return (FAIL if bare else PASS), "int fields without Integer(): " + "; ".join(bare)
 
