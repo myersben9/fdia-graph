@@ -59,14 +59,18 @@ model itself.
 
 | model | fields | replaces |
 |---|---|---|
-| `LoadOptions` | split, families, units, order, format, include_gaps, heldout, preload, seed | the three `check_*` calls done twice, `split_or_none`, `family_ids(families)` pre-check |
-| `ExportRequest` | format, fields, flatten_features | the `format` check and "a pandas frame carries every field" |
-| `WindowSpec` | W, stride, label, layer, per_bus | `check_window_args`, the `layer` check |
+| `LoadOptions` | split, units, order, format | the three `check_*` calls done twice, `split_or_none` |
+| `FamilySelection` | families | the `family_ids(families)` pre-check |
+| `ExportRequest` | format, fields | the `format` check and "a pandas frame carries every field" |
+| `WindowSpec` | T, W, stride, label, layer | `check_window_args`, the `layer` check |
 | estimator configs, one per class | `npass`, `iters`, `c`, `threshold`, `cond_mult`, `rank_frac`, `reweight`, `huber_c`, `gate_factor`, `calibrate` | ten checks in `se/methods.py`, two in `se/base.py` |
 | `LocalizerConfig`, `LearnedConfig`, `TrustConfig` | `fa_target`, `layers`, `hidden`, `features`, `clip`, `k` | the constructor checks in `localization/` and `trust/` |
 | `FederatedSettings` | K, rounds, local_epochs, halo, grad_clip, kcl, partition | `_check_settings`, the `epochs` and `kcl` checks |
 | `TimelineKnobs` | attacked_frac, ramp and Am shapes, hops, lengths, am_direction | `_check_knobs` |
 | `GeneratorOptions`, `SplitFractions` | max_load_mw, frames; train/val fractions | the checks in `engine/core.py`, `generation.py`, `torch_data.py` |
+
+A plain on/off switch (`include_gaps`, `heldout`, `flatten_features`, `per_bus`) has no value to
+refuse, so it stays a keyword argument and no model declares it.
 
 ### 2c. Dataset capabilities: one table
 
