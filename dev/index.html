@@ -1951,9 +1951,9 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 </tr>
 <tr>
 <td><code>Am</code></td>
-<td>the redistribution reached in per-frame steps under the noise floor</td>
+<td>new generation: the overload attack of [WU26], a rated line's reported flow driven to its PGLib-OPF rating over the episode on the fewest-tamper support; data release v0.8.3 holds the earlier redistribution reached in per-frame steps</td>
 <td>evades</td>
-<td>2% to 20% band, spread over 60 scans</td>
+<td>the rating reached at the last scan; each scan's step within the stealth bound</td>
 </tr>
 <tr>
 <td><code>Ad</code> / <code>As</code> / <code>Ar</code></td>
@@ -1963,15 +1963,19 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 </tr>
 </tbody>
 </table>
+<p>New generation makes the multi-snapshot families <code>At</code> and <code>Am</code> only; <code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code> and <code>Ar</code> are
+deprecated for generation (refused from 0.22) and stay in the released files, which load unchanged.</p>
 <p>Every stealthy family is a local false state: the attacker solves the power flow of a subnetwork
 around the attack with the boundary voltages held true, writes only that subnetwork's meters, and
 the measurement vector stays consistent with an AC state, so the residual test sees noise. The
 meters written are the tamper masks in the file's <code>attack/</code> group. They satisfy equations (13)-(18)
 and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
-operating limits; the PMU branch-current phasors (19)-(20) are not modeled) but not its objective:
-by default the targets are drawn at random rather than chosen to tamper the fewest devices (the
-fewest-tamper search of eq. 12 covers <code>At</code> under <code>min_tamper=True</code>), and no line is driven to its
-limit (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
+operating limits; the PMU branch-current phasors (19)-(20) are not modeled yet). New generation
+also solves its objective, eq. (12): each <code>At</code> and <code>Am</code> episode is held on the support that tampers
+the fewest devices, and <code>Am</code> drives a rated line's reported flow to its PGLib-OPF rating (eqs.
+24-25). The released files' stealthy families drew their targets at random and drove no line to its
+limit; <code>LEGACY_FAMILIES</code> with <code>am_attack="redistribution"</code> and <code>min_tamper=False</code> reproduces them
+(<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
 <p><img alt="BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it" src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png" /></p>
 <p><em>Bad-data statistic relative to the alarm threshold, per family. Green families are indistinguishable
 from benign; red ones trip the alarm.</em> Meter error follows an accuracy-class model (per-meter bias

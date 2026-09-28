@@ -1704,6 +1704,26 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <td><code>formulas.attacks.tampered_devices</code></td>
 </tr>
 <tr>
+<td>overload attack</td>
+<td><code>Am</code> in new generation: a rated line's apparent flow, as the tampered measurements carry it before noise, driven snapshot by snapshot to the line's rating over the window, on the support that tampers the fewest devices [WU26, eqs. 24-25].</td>
+<td><code>engine.attacks.overload.OverloadMixin</code></td>
+</tr>
+<tr>
+<td>line rating</td>
+<td>A branch's thermal limit S_max in MVA, the PGLib-OPF <code>rate_a</code> matched by end buses; the IEEE cases pandapower ships carry only a 9,900 MVA placeholder.</td>
+<td><code>fdia_graph.ratings</code>, <code>formulas.attacks.branch_ratings</code></td>
+</tr>
+<tr>
+<td>stealth scale</td>
+<td>A multiplier on the stealth bound, whose unit is [WU26]'s case-study noise for <code>Am</code> (D8) and the meters' rated accuracy for <code>At</code> (D7); 1 by default.</td>
+<td><code>generate_timeline(stealth_scale=...)</code></td>
+</tr>
+<tr>
+<td>paper noise</td>
+<td>[WU26]'s case-study noise, 0.03 pu on SCADA and 0.01 pu on PMU channels, in the stored units; the scale of <code>Am</code>'s stealth bound and tamper count (D8).</td>
+<td><code>formulas.noise.WU26_NOISE</code>, <code>paper_sigma</code></td>
+</tr>
+<tr>
 <td>tamper cost</td>
 <td>The devices with a channel moved beyond its accuracy-class sigma at some snapshot of an attack window, the objective of [WU26, eq. 12].</td>
 <td><code>formulas.attacks.tampered_channels</code>, <code>tampered_devices</code></td>
@@ -1720,7 +1740,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>local false state</td>
-<td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan; it meets constraints (13)-(18) and (21)-(23) of [WU26] (not the branch-current phasors (19)-(20)), not its fewest-device objective.</td>
+<td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan; it meets constraints (13)-(18) and (21)-(23) of [WU26] (not yet the branch-current phasors (19)-(20)); new generation also holds it on the fewest-device support of eq. (12).</td>
 <td><code>engine.attacks.stealthy.StealthyMixin._stealthy_frame</code>, <code>engine.attacks.false_state.FalseStateMixin.solve_local</code>, <code>engine.attacks.area.AreaMixin.local_region</code></td>
 </tr>
 <tr>

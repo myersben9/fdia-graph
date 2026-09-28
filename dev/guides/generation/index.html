@@ -1841,18 +1841,23 @@ over-jitter one-minute traces and hide the temporal signal (<code>bias_jitter_sp
 <p><code>NOISE_FLOOR = 0.02</code> (<code>generation.py</code>) is the lower edge of the attack plausibility band: a change
 below 2% of the reading sits inside meter error and resolves to noise.</p>
 <h2 id="3-the-attack-families">3. The attack families<a class="headerlink" href="#3-the-attack-families" title="Permanent link">&para;</a></h2>
-<p><code>attack_intensity = 0.20</code> is the upper edge of the band for Aq, Al, Ad and As, and bounds the redistribution Am draws at onset (<code>generate_timeline</code>, <code>lra_delta</code>). The At ramp is set by <code>ramp_rate</code> and <code>ramp_len</code>, Am's steps by <code>am_rate</code> and <code>am_len</code>, and Ar records the realized change of its replay without bounding it.
-The stealthy families are local false states: the attacker changes loads inside a subnetwork
-within <code>hops = 2</code> branches, solves that subnetwork with the boundary voltages held true, and adds
-<code>a = h(x_false) - h(x_true)</code> to the true scan (<code>engine/attacks/stealthy._stealthy_frame</code>). Every meter keeps
-its own noise draw, so the residual test sees noise only. Every false state must also stay within
-the case's bus voltage limits and the generator P and Q limits widened to the range the pool used
+<p><code>attack_intensity = 0.20</code> is the upper edge of the band for Aq, Al, Ad and As, and bounds the
+redistribution Am draws at onset (<code>generate_timeline</code>, <code>lra_delta</code>). The At ramp is set by
+<code>ramp_rate</code> and <code>ramp_len</code>, Am's steps by <code>am_rate</code> and <code>am_len</code>, and Ar records the realized change
+of its replay without bounding it. The stealthy families are local false states: the attacker
+changes loads inside a subnetwork within <code>hops = 2</code> branches, solves that subnetwork with the
+boundary voltages held true, and adds <code>a = h(x_false) - h(x_true)</code> to the true scan
+(<code>engine/attacks/stealthy._stealthy_frame</code>). Every meter keeps its own noise draw, so the residual
+test sees noise only. Every false state must also stay within the case's bus voltage limits and the
+generator P and Q limits widened to the range the pool used
 (<code>engine/attacks/false_state._within_limits</code>, <code>operating_limits</code>). They satisfy equations (13)-(18)
 and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
-operating limits; the PMU branch-current phasors (19)-(20) are not modeled) but not its objective:
-by default the targets are drawn at random rather than chosen to tamper the fewest devices (the
-fewest-tamper search of eq. 12 covers <code>At</code> under <code>min_tamper=True</code>), and no line is driven to its
-limit (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
+operating limits; the PMU branch-current phasors (19)-(20) are not modeled yet). New generation also
+solves its objective, eq. (12): each <code>At</code> and <code>Am</code> episode is held on the support that tampers the
+fewest devices, and <code>Am</code> drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25).
+The released files' stealthy families drew their targets at random and drove no line to its limit;
+<code>LEGACY_FAMILIES</code> with <code>am_attack="redistribution"</code> and <code>min_tamper=False</code> reproduces them
+(<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
 <table>
 <thead>
 <tr>
@@ -1923,7 +1928,7 @@ limit (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
 <tr>
 <td><code>Am</code></td>
 <td>7</td>
-<td>multi-snapshot, after [WU26]: an <code>Al</code> redistribution drawn at onset, reached in steps (not the paper's fewest-device overload attack)</td>
+<td>v0.8.3: multi-snapshot, an <code>Al</code> redistribution drawn at onset, reached in steps (new generation: the overload attack below)</td>
 <td>per-frame step at most <code>am_rate * NOISE_FLOOR</code> = 1.8%, peak 2% to 20% (<code>_AmShape.under_floor</code>)</td>
 <td>60 frames (<code>am_len</code> defaults to <code>ramp_len</code>)</td>
 <td>yes</td>
@@ -1931,6 +1936,27 @@ limit (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
 </tr>
 </tbody>
 </table>
+<p>New generation (from 0.21) makes the multi-snapshot families only, <code>At</code> and <code>Am</code>, both on the
+fewest-tamper search. <code>Am</code> is the overload attack of [WU26, eqs. 24-25]
+(<code>engine/attacks/overload.py</code>): at onset, the eligible branches (rated, flow metered, true flow
+below the rating at every snapshot of the window) are tried in a random order, and the first whose
+fewest-tamper support meets the goal at every snapshot is the episode's target. Snapshot t's goal is
+the true flow plus a linear share of what separates the window's last true flow from the rating,
+<code>S_true_t + (t - kappa)/T (S_max - S_true_{kappa+T})</code> (the plan's D9), on the noiseless reading of
+the false state, reaching the rating <code>S_max</code> at the last snapshot; the attackable loads of the
+support are free, every other bus keeps its injection, and the false state is the least-norm voltage
+change that meets the flow. The ratings are PGLib-OPF's (IEEE-14, 118 and 300; other cases raise
+<code>NoLineRatings</code>).  Each channel's attack step between snapshots is bounded by, and a device counts
+as tampered beyond, [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU;
+<code>formulas.noise.paper_sigma</code>, the plan's D8); <code>At</code> keeps the meters' rated accuracy (D7). Under the
+meters' rated accuracy (D7) no overload window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118
+60-snapshot windows, since moving one line's flow moves the injections and flows around its ends by
+several times that change, beyond the rated accuracy of the small loads there. Measured under D8 and
+D9 on 60-snapshot windows at the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the
+search not proven within its budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s
+per snapshot); the reported noiseless flow reaches the rating exactly. A window with no stealthy
+overload stays benign and is counted in <code>fallback_benign</code>. The released files are v0.8.3's recipe:
+<code>families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False</code>.</p>
 <p>Notes on the table:</p>
 <ul>
 <li>A stealthy target is an attackable load that is not on a generator bus, zero-MW condensers
@@ -2201,8 +2227,23 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 </tr>
 <tr>
 <td><code>families</code></td>
-<td>all seven</td>
-<td>the families in rotation</td>
+<td>("At", "Am")</td>
+<td>the families in rotation; the single-snapshot families are deprecated for generation</td>
+</tr>
+<tr>
+<td><code>min_tamper</code></td>
+<td>True</td>
+<td>hold each episode on the support that tampers the fewest devices [WU26, eq. 12]</td>
+</tr>
+<tr>
+<td><code>am_attack</code></td>
+<td>"overload"</td>
+<td><code>Am</code> as the overload attack of [WU26]; "redistribution" is v0.8.3's <code>Am</code></td>
+</tr>
+<tr>
+<td><code>stealth_scale</code></td>
+<td>1.0</td>
+<td>a multiplier on the stealth bound (Am: [WU26]'s noise, At: the rated accuracy)</td>
 </tr>
 <tr>
 <td><code>attack_intensity</code></td>

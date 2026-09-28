@@ -1806,8 +1806,8 @@ and converts them on load.</p>
 <tr>
 <td>Am</td>
 <td><code>A_m</code></td>
-<td>multi-snapshot, after [WU26]: a held redistribution reached in steps under the noise floor</td>
-<td><code>engine/attacks/episodes.am_design</code> + <code>am_step</code> + <code>engine/attacks/stealthy._am_frame</code></td>
+<td>the overload attack of [WU26]: a rated line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps)</td>
+<td><code>engine/attacks/overload.am_overload_design</code> + <code>overload_step</code> (v0.8.3: <code>episodes.am_design</code> + <code>am_step</code> + <code>stealthy._am_frame</code>)</td>
 </tr>
 <tr>
 <td>Ad</td>
@@ -1835,9 +1835,11 @@ and converts them on load.</p>
   limits, and the attack vector <code>h(x') − h(x)</code> is added to the benign scan. The residual test flags
   them at the benign rate by construction. They satisfy equations (13)-(18) and (21)-(23) of [WU26]
   (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits; the PMU
-  branch-current phasors (19)-(20) are not modeled) but not its objective: by default the targets
-  are drawn at random rather than chosen to tamper the fewest devices (the fewest-tamper search of
-  eq. 12 covers <code>At</code> under <code>min_tamper=True</code>), and no line is driven to its limit
+  branch-current phasors (19)-(20) are not modeled yet). New generation also solves its objective,
+  eq. (12): each <code>At</code> and <code>Am</code> episode is held on the support that tampers the fewest devices, and
+  <code>Am</code> drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25). The released files'
+  stealthy families drew their targets at random and drove no line to its limit; <code>LEGACY_FAMILIES</code>
+  with <code>am_attack="redistribution"</code> and <code>min_tamper=False</code> reproduces them
   (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</li>
 <li>With <code>min_tamper=True</code> an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (<code>engine/attacks/minimize.MinimizeMixin.min_tamper</code>,
