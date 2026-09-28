@@ -11,4 +11,5 @@ promise covers, and the decisions Ben took at each step. They are history, not i
 | `RESTRUCTURE_PLAN.md` | the target layout of the formula kernel and its catalogue, the closed-form Jacobian decision |
 | `DATA_MODELS_PLAN.md` | typed models for everything a function returns, the dual-access `Bundle`, the `models/` package |
 | `FIELD_GROUPS_PLAN.md` | field groups for the fields the data models repeat (implemented) |
+| `VALIDATION_PLAN.md` | **active**: every input check declared on a data model and enforced by one engine; dataset capabilities in one table; the six-step series |
 | `ONE_DATASET_PLAN.md` | **active**: one generator, one HDF5 file, one loader with a seeded order; the seventh family `Am`; data release v0.8.0 |

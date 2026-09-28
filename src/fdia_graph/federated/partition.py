@@ -7,22 +7,20 @@ and 300 at K = 2 and 3 when checked by hand; the test suite pins IEEE 14. Needs 
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 import numpy as np
 
 from ..formulas.federated import attackable_affinity, cut_edge_count, halo_nodes, interior_boundary
 from ..models.federated import Partition
+from ..models.inputs import AssignmentSpec, ClientCount, EdgeList, PartitionOnGrid
 
 
 def bus_adjacency(edge_index: np.ndarray, N: int) -> np.ndarray:
     """The 0/1 undirected bus adjacency [N, N] of a branch list [2, E], without self-loops
     (parallel branches collapse to one edge)."""
-    ei = np.asarray(edge_index)
-    if ei.ndim != 2 or ei.shape[0] != 2 or not np.issubdtype(ei.dtype, np.integer):
-        raise ValueError(f"edge_index must be an integer [2, E] array, got shape {ei.shape}")
-    if ei.size and (ei.min() < 0 or ei.max() >= N):
-        raise ValueError(f"edge_index names a bus outside 0..{N - 1}")
+    ei = EdgeList(edge_index, N).edge_index
     A = np.zeros((N, N), np.float64)
     A[ei[0], ei[1]] = 1.0
     A[ei[1], ei[0]] = 1.0
@@ -41,8 +39,7 @@ def spectral_partition(
     """K clients by spectral clustering of the bus adjacency [VLX07], as in the federated paper;
     `attackable` (a [N] bool mask) biases the cut away from attackable buses (`heavy` its weight).
     K = 1 puts every bus in one client without clustering."""
-    if not 1 <= K <= N:
-        raise ValueError(f"K must be between 1 and the {N} buses, got {K}")
+    ClientCount(N, K)
     A = bus_adjacency(edge_index, N)
     if K == 1:
         assignment = np.zeros(N, np.int64)
@@ -67,27 +64,14 @@ def partition_from_assignment(
     assignment: np.ndarray, edge_index: np.ndarray, attackable: Optional[np.ndarray] = None
 ) -> Partition:
     """A Partition from a given client-of-every-bus array (e.g. one saved with a paper's runs)."""
-    assignment = np.asarray(assignment)
-    N = int(edge_index.max()) + 1 if edge_index.size else len(assignment)
-    if (
-        assignment.ndim != 1
-        or not len(assignment)
-        or len(assignment) < N
-        or not np.issubdtype(assignment.dtype, np.integer)
-    ):
-        raise ValueError(f"assignment must be one integer client per bus ({N} buses)")
-    assignment = assignment.astype(np.int64)
+    spec = AssignmentSpec(assignment, edge_index, attackable)
+    assignment = spec.assignment.astype(np.int64)
     K = int(assignment.max()) + 1
-    if assignment.min() < 0 or len(np.unique(assignment)) != K:
-        raise ValueError(f"clients must be numbered 0..{K - 1} with none empty")
-    A = bus_adjacency(edge_index, len(assignment))
+    A = bus_adjacency(spec.edge_index, len(assignment))
     interior, boundary = interior_boundary(assignment, A, K)
     on_boundary = None
-    if attackable is not None:
-        mask = np.asarray(attackable, bool)
-        if mask.shape != assignment.shape:
-            raise ValueError(f"the attackable mask must be one flag per bus, shape {assignment.shape}")
-        on_boundary = int((boundary.any(axis=0) & mask).sum())
+    if spec.attackable is not None:
+        on_boundary = int((boundary.any(axis=0) & spec.attackable).sum())
     return Partition(K, assignment, interior, boundary, cut_edge_count(assignment, A), on_boundary)
 
 
@@ -98,13 +82,10 @@ def compute_nodes(p: Partition, edge_index: np.ndarray, k: int, halo: int = 0) -
 
 
 def check_partition(p: Partition, N: int) -> None:
-    """A Partition fit for a system of N buses: one client per bus, the clients numbered 0..K-1 with
-    none empty (a hand-built Partition is not checked by its constructor)."""
-    a = np.asarray(p.assignment)
-    if a.ndim != 1 or not np.issubdtype(a.dtype, np.integer):
-        raise ValueError(f"the partition's assignment must be a 1-D integer array, got {a.dtype} {a.shape}")
-    if len(p.assignment) != N:
-        raise ValueError(f"the partition covers {len(p.assignment)} buses, the system has {N}")
-    labels = np.unique(p.assignment)
-    if not np.array_equal(labels, np.arange(p.K)):
-        raise ValueError(f"the partition must number its clients 0..{p.K - 1}, got {labels.tolist()}")
+    """Deprecated: build `models.inputs.PartitionOnGrid(p.assignment, p.K, N)`, which checks it."""
+    warnings.warn(
+        "check_partition is deprecated; PartitionOnGrid(p.assignment, p.K, N) checks a partition",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    PartitionOnGrid(p.assignment, p.K, N)

@@ -15,7 +15,12 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    Format,
+)
+from ..models.config import ExportRequest
 from ..models.data import ArraysBundle, Summary
+from ..models.inputs import FieldRequest
 from .base import (
     _BENIGN_LAYERS,
     _CLEAN_LAYERS,
@@ -26,7 +31,6 @@ from .base import (
     _torch,
 )
 
-_FORMATS = ("numpy", "torch", "tf", "pandas")
 _INT_KEYS = frozenset(
     {"family", "stealthy", "seq_id", "timestep", "prev_timestep", "edge_index"}
 )  # int64 tensors
@@ -57,10 +61,7 @@ class ExportMixin(DatasetBase):
         # on request only, a timeline's previous frame; its swing only when the file carries swing
         prev = [k for k in _PREV_FIELDS if self.is_timeline and (k != "prev_swing" or self.has_swing)]
         offered = known + prev
-        unknown = [k for k in fields if k not in offered]
-        if unknown:
-            raise ValueError(f"unknown field(s) {unknown}; this shard carries {known}")
-        return list(fields)
+        return list(FieldRequest(fields, tuple(offered), tuple(known)).fields)
 
     def _default_fields(self) -> list[str]:
         """Every per-record array the file carries, in the order `export` returns them."""
@@ -109,13 +110,11 @@ class ExportMixin(DatasetBase):
         `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
         `fields`, so a typo cannot pass unnoticed.
         """
-        if format not in _FORMATS:
-            raise ValueError(f"format must be one of {_FORMATS}, got {format!r}")
+        req = ExportRequest(format, fields)
+        format = req.format
         if format == "pandas":
-            if fields:
-                raise ValueError("a pandas frame carries every field; pass fields with an array format")
             return self._as_pandas(self._arrays(None), flatten_features)
-        arrays = self._arrays(fields)
+        arrays = self._arrays(req.fields)
         if format == "torch":
             return self._as_torch(arrays, device)
         if format == "tf":

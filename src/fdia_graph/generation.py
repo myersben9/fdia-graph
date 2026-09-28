@@ -26,7 +26,10 @@ import numpy as np
 from . import schema
 from .engine import FdiaGenerator
 from .engine.records import FrameKnobs
+from .errors import UnknownColumnOrder
+from .models.config import ShardRun
 from .models.grid import NODE
+from .models.inputs import StatePool, StateSource
 from .registry import CACHE_DIR, register_local
 from .schema import KIND_TIMELINE, Attr, Group, Static
 
@@ -46,9 +49,7 @@ def as_v_first(X: np.ndarray) -> np.ndarray:
     converted when column 2 looks like |V| and column 0 does not. Anything else is an error rather
     than a guess.
     """
-    X = np.asarray(X, np.float64)
-    if X.ndim != 3 or X.shape[2] != 4:
-        raise ValueError(f"a state pool is [T, N, 4], got shape {X.shape}")
+    X = StatePool(X).X
 
     def looks_like_v(col: np.ndarray) -> bool:
         return bool(np.all((col > 0.5) & (col < 1.5)))
@@ -58,7 +59,7 @@ def as_v_first(X: np.ndarray) -> np.ndarray:
         return X
     if v2 and not v0:
         return X[:, :, [2, 0, 1, 3]]  # [P, Q, V, th] -> [V, P, Q, th]
-    raise ValueError("cannot tell the pool's column order; expected [|V|, Pinj, Qinj, theta]")
+    raise UnknownColumnOrder("cannot tell the pool's column order; expected [|V|, Pinj, Qinj, theta]")
 
 
 def _load_states(
@@ -77,11 +78,11 @@ def _load_states(
 def _read_states(
     system: Union[int, str], states: Optional[Union[str, np.ndarray]], pool_cap: int
 ) -> np.ndarray:
-    # In-memory pool accepted directly (no disk). Checked first because a numpy array has no truth value for `or`.
-    if isinstance(states, np.ndarray):
-        return states.astype(np.float64)
+    source = StateSource(states)
+    if source.array is not None:  # an in-memory pool is used as it is (no disk)
+        return source.array
     # Source: caller arg wins, else FDIA_GRAPH_INIT, else None (downloaded below).
-    src = states or os.environ.get("FDIA_GRAPH_INIT")
+    src = source.path or os.environ.get("FDIA_GRAPH_INIT")
     if src and os.path.isdir(src):
         # Init directory: all X_*.npy sorted by integer timestep (name "X_<t>.npy").
         xs = sorted(glob.glob(os.path.join(src, "X_*.npy")), key=lambda p: int(os.path.basename(p)[2:-4]))
@@ -127,10 +128,7 @@ def generate(
     redundancy, split)."""
     from .timeline import generate_timeline
 
-    if frames is not None and (isinstance(frames, bool) or not isinstance(frames, int) or frames < 1):
-        raise ValueError(
-            f"frames caps the pool timesteps walked and must be a positive integer, got {frames!r}"
-        )
+    frames = ShardRun(frames).frames
     X = _load_states(system, states)
     if frames is not None:
         X = X[:frames]

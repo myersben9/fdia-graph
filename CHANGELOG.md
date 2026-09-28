@@ -5,6 +5,83 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `load_profile` takes a load source that reads itself: `IsoFolder(iso, directory)` (an operator's
+  CSV export; `models.config.IsoExport` checks the operator and refuses one with no known export
+  format, ERCOT, when the folder is described), `CsvColumn(path, column)` or `RawSeries(values)`, or
+  any object with a `loads()` method (`profiles.LoadSource`). The old form, `load_profile(source,
+  path=, column=)` with a string or an array, still works for one minor version and raises a
+  `DeprecationWarning`.
+- `fetch_profile` reads from the operator's feed in `profiles._FEEDS`: `NyisoArchive` (built in, no
+  dependency) for NYISO, `GridstatusFeed` for CAISO and ERCOT, which imports `gridstatus` itself and
+  names the install when it is missing; `models.config.ProfileFetch` checks the operator and
+  `resample_min`. The downloaded data and the returned vector are unchanged.
+- Every input is checked in one place (`docs/plans/VALIDATION_PLAN.md`). Each consumer's settings
+  are one model in `fdia_graph.models.config` (`LoadOptions`, `WindowSpec`, `HuberConfig`,
+  `PriorConfig`, `LearnedConfig`, `FederatedSettings`, `TimelineKnobs` and the rest), whose fields
+  declare their rules (`Annotated[float, Positive()]`, `OneOf(Units)`); one engine,
+  `models.validation`, checks them when the model is built. The public signatures are unchanged:
+  the keyword arguments build the model. Every fixed set of values is a `Choice` enum in
+  `models.choices`, still importable where it was used. A dataset view is checked through one table,
+  `ds.require(...)` over `dataset.base.CAPABILITIES`. A condition only the data reveals raises a
+  named error from `fdia_graph.errors` (`NoBenignRecords`, `NoAttackedRecords`, `GridIslanded`, ...).
+  The formulas and the parsers keep their signatures and build their input model
+  (`models.inputs`: `ClientUpdates`, `ClientGraph`, `LabelGrids`, `FamilySelection`, `SystemRef`,
+  `ReleaseName`, `OutageRef`, `StatePool`, ...), so no function body checks its arguments.
+  Every error is still a `ValueError`; the messages now have one shape, "<Model>.<field> <rule>, got
+  <value>". The loader's record `format` ("torch" or "pyg") is now checked too: a typo such as
+  "pygg" used to fall through to the torch records silently. `check_split`, `check_units` and
+  `check_order` still work for one minor version and raise a `DeprecationWarning`. The private
+  helpers the models replace are gone (`_check_knobs`, `_check_settings`, `_check_frac`,
+  `_check_graph`, `_check_blocks`, `_index_array`, `_is_int`, `_FORMATS`, `_ISOS`, `_FIELD_FLAG`);
+  `dataset._FAMILY_ALIAS` and `profiles.system_id` still resolve.
+  Integer settings (`npass`, `iters`, `n_calib`, `layers`, `hidden`, `k`, a window's `T`, the
+  federated `partition_clients` and `epochs`, the episode lengths, `max_test`) now refuse a float
+  at construction; before, a value such as `npass=1.5` passed and failed later with a raw
+  `TypeError`. A malformed value of any setting (a string where a number belongs) is a
+  `ConfigError` with the same message as an out-of-range one.
+  The deprecated `pyg_stream` and `torch_windows` refuse an unknown `layer` with a `ConfigError`
+  before the stream loads; before, it was a raw `KeyError` after loading. `fetch_profile`'s
+  `resample_min` must be a whole number of minutes: `1.5` used to be truncated to a 1-minute
+  cadence without a word, and is now a `ConfigError`. `partition_from_assignment` checks the
+  assignment and the branch list before sizing the grid from them, so a scalar assignment or a
+  non-integer `edge_index` is a `ConfigError`, not a raw `TypeError`, and so is a negative bus
+  count.
+  A profile date is a 'YYYY-MM-DD' string, a date or a datetime on every Python version (from
+  3.11 '20240131' and the integer 20240131 used to parse too). `load_profile` refuses a source
+  that is not a `LoadSource`, an operator name, a CSV path or a 1-d series of loads (a scalar
+  used to pass as a one-point profile); `generate`'s `states` must be an array or a path; and
+  `export(fields=...)` takes a list or tuple of names, so a lone string, a mapping or a set is a
+  `ConfigError`. `RawSeries` takes a non-empty 1-d series: a scalar used to pass as a one-point
+  profile and a 2-d array was flattened without a word.
+  `CsvColumn` checks its path and column when built (a missing column used to surface as a
+  pandas `KeyError` on read), and a dataset name that is neither a name nor a bus count, such
+  as `fg.load(["ieee14"])`, is a `ConfigError` instead of a raw `TypeError`.
+  A profile date span that ends before it starts, and an `IsoFolder` directory that is not a
+  path, are refused when given; `generate(states=pathlib.Path(...))` now reads the file instead
+  of failing with an `AttributeError`.
+  Arguments reach their models unconverted, so a malformed one is a `ConfigError`, not the raw
+  error of a conversion done first: `families=3`, `pool_moments(None)`, `fedavg(None, ...)`,
+  `block_diagonal_basis(3, d)`, `score(ds, scores="bad")`, `score(ds, xhat="bad")` and a
+  non-numeric in-memory state pool. A test refuses `Model(tuple(arg))`-style calls in the package.
+  A Huber `c`, a removal threshold, `am_rate` and the learned localizer's `lr` and `pos_weight`
+  must be finite as well as positive, and a solver `tol` finite and non-negative. The learned
+  localizer checks its whole training setup (`dropout`, `lr`, `weight_decay`, `batch_size`,
+  `epochs`, `pos_weight`, `seed`) on `LearnedConfig` when it is built. `generate_timeline` checks
+  `families` on `FamilySelection` before it builds the case, and the admissible-target check is a
+  model, `models.inputs.AdmissibleTargets`, which raises `NoAdmissibleTarget` as before (a model
+  names its failure type in `Validated.error`; the named data errors now live in `models.errors`
+  and `fdia_graph.errors` re-exports them). `TimelineKnobs.am_len` defaults to None, resolved to
+  `ramp_len` by the model. `check_partition` is deprecated in favour of building
+  `PartitionOnGrid`, and the internal `check_window_args` and `check_targets` are gone
+  (`WindowSpec`, `AdmissibleTargets`). A value no model can even read (a number past the float
+  range, a mapping where a sequence belongs) is a `ConfigError`, never a raw `OverflowError`,
+  `KeyError` or `AttributeError`; `tests/test_malformed_inputs.py` sweeps every config and input
+  model with values of the wrong kind and the public entry points with one bad argument each.
+  Loose input is read by a parser model, so no function outside `models/` dispatches on a type:
+  `ProfileSource` (what `load_profile` was handed), `DateSpan` (`fetch_profile`'s dates; a date it
+  cannot read is a `ConfigError` before any download), `StateSource` (an in-memory pool or a path)
+  and `DatasetName` (the registry's lookup key). `tools/readability.py` now refuses
+  `isinstance(...)` outside `fdia_graph.models` as it refuses a bare `raise ValueError`.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

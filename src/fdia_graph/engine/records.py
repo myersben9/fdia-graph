@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 
 from ..formulas.attacks import generator_output, within_limits
+from ..models.choices import BENIGN_CODE, FAMILY_CODE
 from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
     AttackDesign,
     Frame,
@@ -34,13 +35,14 @@ from ..models.frames import (  # noqa: F401  re-exported: defined here before th
 if TYPE_CHECKING:
     from .core import FdiaGenerator
 
-# Family ids (see fdia_graph.FAMILIES): 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At (ramp), 6 Al (LRA),
-# 7 Am (multi-snapshot, timelines only).
-RESOLVE_FAMILIES = (1, 5)  # stealthy: the grid is re-solved under a scaled load
-RAMP_FAMILY = 5
-LRA_FAMILY = 6
-AM_FAMILY = 7
-CORRUPT_KIND = {2: "Ad", 3: "As", 4: "Ar"}  # corrupt-in-place families and their AttackMixin.corrupt code
+# Family ids by name (fdia_graph.FAMILIES); Am is multi-snapshot, timelines only.
+AQ_FAMILY = FAMILY_CODE["Aq"]
+RESOLVE_FAMILIES = (AQ_FAMILY, FAMILY_CODE["At"])  # stealthy: the grid is re-solved under a scaled load
+RAMP_FAMILY = FAMILY_CODE["At"]
+LRA_FAMILY = FAMILY_CODE["Al"]
+AM_FAMILY = FAMILY_CODE["Am"]
+# corrupt-in-place families and their AttackMixin.corrupt code
+CORRUPT_KIND = {FAMILY_CODE[n]: n for n in ("Ad", "As", "Ar")}
 BENIGN_BUFFER = 300  # recent benign scans kept for the replay families (FIFO)
 LRA_DRAWS = 40  # target lines an Al frame tries before giving up: a region may hold too few loads, or
 # every redistribution at this operating point may push a boundary generator past its limits
@@ -83,7 +85,7 @@ def attack_frame(
     when the scan is rejected: a non-converging local power flow, no feasible redistribution, or,
     with knobs.reject_below_floor, a designed or realized change inside the noise floor.
     """
-    if family == 0:
+    if family == BENIGN_CODE:
         return _benign_frame(g, Xt)
     if family == LRA_FAMILY:
         return _lra_frame(g, Xt, knobs)
@@ -227,12 +229,12 @@ def _resolve_frame(
     A step without a local solution is halved: an Aq step at most AQ_HALVINGS times and never under
     the noise floor, a ramp frame at most STEP_HALVINGS times (its design step is sub-floor)."""
     dev = np.abs(np.asarray(design.mult) - 1.0)  # per-bus designed load-shift fraction
-    if k.reject_below_floor and family == 1 and np.max(dev) < k.floor:
+    if k.reject_below_floor and family == AQ_FAMILY and np.max(dev) < k.floor:
         return None  # a within-noise no-op; the ramp is exempt so its per-scan step may stay sub-floor
     placed = with_region(g, design._replace(interior=None), k)  # always the region around the targets
     if placed is None:
         return None
-    limit = (AQ_HALVINGS, k.floor) if family == 1 else (STEP_HALVINGS, None)
+    limit = (AQ_HALVINGS, k.floor) if family == AQ_FAMILY else (STEP_HALVINGS, None)
     return _solvable_step(g, Xt, placed, k, limit)
 
 
