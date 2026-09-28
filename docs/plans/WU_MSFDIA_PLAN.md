@@ -72,12 +72,14 @@ are defined on every channel the attack can touch.
   on line l that the tampered measurements carry before noise, the noiseless reading `h(x^a_t)` of
   the false state, rises from `S_{l,κ}` and reaches `S_max` by κ+T. Stealth bound: the attack's
   own increment on every channel is at most its rated accuracy, `|a_{m,t} - a_{m,t-1}| <= σ_{m,t}`,
-  onset included (`a_{m,κ-1} = 0`: the first attacked frame against the attack-free frame before
-  it), so a
-  detector that watches the change between snapshots (the swing and delta features) sees nothing it
-  could tell from noise. The residual test sees noise only at any magnitude, since the tampered
-  readings are those of an AC false state; the bound is about the temporal detectors, the reason the
-  paper keeps per-snapshot magnitudes small. The target line's flow is metered: the goal is defined
+  onset included: `a_{m,κ-1}` is the attack vector of the frame before the episode, zero when that
+  frame is benign and that frame's own vector when an episode ends there (episodes may be adjacent,
+  the placement being uniformly random). This is a rated-accuracy criterion: each step stays within
+  what the meter's accuracy class allows, the standard an operator holds a meter to. It is not a
+  guarantee against a temporal detector tuned to the per-scan jitter, which is smaller than the
+  rated accuracy, and how the swing and delta features fare against it is measured, not assumed.
+  The residual test sees noise only at any magnitude, since the tampered readings are those of an
+  AC false state. The target line's flow is metered: the goal is defined
   on what the operator sees, so only lines whose flow is metered are eligible targets.
 
 ## 3. How it is solved
@@ -127,7 +129,10 @@ per unit.
    `σ`. For a load goal a targeted bus's device is forced only when the designed step exceeds its
    injection channel's `σ`. When nothing is forced the bound is zero and nothing is pruned.
 3. On IEEE-14 and small areas every candidate is solved (exhaustive), and the cheapest feasible one
-   is the optimum over the area. A test compares the result with a brute-force enumeration.
+   is the optimum among the candidates whose solve converged. A solve that fails is not proof of
+   infeasibility (Newton can stall where a solution exists), so each window records how many
+   candidates failed, and the optimum is marked proven only when no candidate that could have
+   beaten it failed. A test compares the result with a brute-force enumeration on the same terms.
 4. On IEEE-118 and 300 the search is best-first with a node budget and prunes only with the valid
    bound above. The file records per episode whether the enumeration finished (optimal over the
    area) or the budget ran out (the best found, no claim).
