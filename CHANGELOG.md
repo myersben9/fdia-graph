@@ -29,6 +29,8 @@ the public API, the generated files and the numbers are the same as the previous
   at construction; before, a value such as `npass=1.5` passed and failed later with a raw
   `TypeError`. A malformed value of any setting (a string where a number belongs) is a
   `ConfigError` with the same message as an out-of-range one.
+  The deprecated `pyg_stream` and `torch_windows` refuse an unknown `layer` with a `ConfigError`
+  before the stream loads; before, it was a raw `KeyError` after loading.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

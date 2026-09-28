@@ -88,6 +88,7 @@ def test_the_config_models_state_the_old_rules():
             "FederatedSettings.partition_clients must be an integer",
         ),
         (lambda: FederatedSettings(epochs=1.5), "FederatedSettings.epochs must be an integer"),
+        (lambda: SplitFractions(layer="bogus"), "SplitFractions.layer must be one of"),
     ],
 )
 def test_whole_number_settings_refuse_a_fraction(build, message):

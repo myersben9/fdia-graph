@@ -67,7 +67,7 @@ model itself.
 | `LocalizerConfig`, `LearnedConfig`, `TrustConfig` | `fa_target`, `layers`, `hidden`, `features`, `clip`, `k` | the constructor checks in `localization/` and `trust/` |
 | `FederatedSettings` | K, rounds, local_epochs, halo, grad_clip, kcl, partition | `_check_settings`, the `epochs` and `kcl` checks |
 | `TimelineKnobs` | attacked_frac, ramp and Am shapes, hops, lengths, am_direction | `_check_knobs` |
-| `GeneratorOptions`, `SplitFractions` | max_load_mw, frames; train/val fractions | the checks in `engine/core.py`, `generation.py`, `torch_data.py` |
+| `GeneratorOptions`, `SplitFractions` | max_load_mw, frames; train/val fractions and the stream layer | the checks in `engine/core.py`, `generation.py`, `torch_data.py` |
 
 A plain on/off switch (`include_gaps`, `heldout`, `flatten_features`, `per_bus`) has no value to
 refuse, so it stays a keyword argument and no model declares it.

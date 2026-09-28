@@ -105,7 +105,7 @@ def pyg_stream(
     import torch
 
     _retiring("pyg_stream", "fg.load(name, split=..., order='time', format='pyg') and ds[i]")
-    SplitFractions(train_frac, val_frac, max_test)
+    layer = SplitFractions(train_frac, val_frac, max_test, layer).layer
     s = _resolve_stream(system, release, stream, dataset)
     X = _f32(s[layer])  # [T, N, 4]
     # The branch flows of the same layer: observed edge_x, or the benign / clean edge layer.
@@ -167,7 +167,7 @@ def torch_windows(
     from .dataset.sequence import check_window_args, window_labels
 
     _retiring("torch_windows", "ds.windows(W, stride, label, layer, per_bus=True) on each split view")
-    SplitFractions(train_frac, val_frac)
+    layer = SplitFractions(train_frac, val_frac, layer=layer).layer
     s = _resolve_stream(system, release, stream, dataset)
     nx, y = np.asarray(s[layer]), np.asarray(s["y"])
     T = int(nx.shape[0])

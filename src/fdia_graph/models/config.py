@@ -244,11 +244,13 @@ class ShardRun(Validated):
 
 @dataclass(frozen=True)
 class SplitFractions(Validated):
-    """A train / validation share of a stream, the rest the test (the deprecated torch_data helpers)."""
+    """A train / validation share of a stream, the rest the test, and the measurement layer read (the
+    deprecated torch_data helpers); checked before the stream loads."""
 
     train_frac: Fraction = 0.6
     val_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True)] = 0.2
     max_test: Annotated[Optional[int], Integer(), AtLeast(0)] = None
+    layer: Annotated[str, OneOf(Layer)] = "node_x"
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
