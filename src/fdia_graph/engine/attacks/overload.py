@@ -33,7 +33,11 @@ from ...models.grid import NODE
 from ...ratings import pglib_branches
 from .minimize import MinimizeMixin
 
-AM_LINE_TRIES = 8  # eligible target branches an Am episode tries, in a random order drawn once at onset
+# How many eligible target branches an Am episode tries, in a random order drawn once at onset. A
+# bounded heuristic, not a search over every branch: each try is a full fewest-tamper search (about 13 s
+# on IEEE-118), so an episode whose first eight branches admit no attack stays benign and is counted
+# even if a later branch would have.
+AM_LINE_TRIES = 8
 
 
 class OverloadMixin(MinimizeMixin):
@@ -90,8 +94,8 @@ class OverloadMixin(MinimizeMixin):
     def am_overload_design(
         self, X: np.ndarray, t: int, length: int, k: FrameKnobs, prev: Optional[AttackVector] = None
     ) -> Optional[AmOverloadDesign]:
-        """One `Am` episode starting at t as the overload attack of [WU26]: the eligible branches in a
-        random order (one draw, only when there is one), each tried until the fewest-tamper search
+        """One `Am` episode starting at t as the overload attack of [WU26]: at most `AM_LINE_TRIES` of the
+        eligible branches, in a random order (one draw, only when there is one), each tried until the fewest-tamper search
         finds a support that meets the goal at every snapshot, inside the operating limits and the
         stealth bound, and moves at least one device beyond noise. None when no branch has one (the
         span then stays benign and is counted)."""

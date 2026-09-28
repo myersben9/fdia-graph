@@ -718,6 +718,20 @@ def _warn_deprecated_families(fams: Sequence[int]) -> None:
         )
 
 
+def _search_attrs(tk: TimelineKnobs, overload: bool) -> dict[str, object]:
+    """The attributes of the searches a walk ran, written only when they ran so a v0.8.3 file's
+    attributes are unchanged: the fewest-tamper knobs, the Am attack, and the stealth scale of
+    whichever search used it (At's or Am's)."""
+    out: dict[str, object] = {}
+    if tk.min_tamper:
+        out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
+    if overload:
+        out[Attr.AM_ATTACK] = tk.am_attack
+    if tk.min_tamper or overload:
+        out[Attr.STEALTH_SCALE] = tk.stealth_scale
+    return out
+
+
 def generate_timeline(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
@@ -859,12 +873,7 @@ def generate_timeline(
         Attr.PMU_FRAC: red["pmu_frac"],
         Attr.FLOW_FRAC: red["flow_frac"],
     }
-    if tk.min_tamper:  # recorded only when on, so a v0.8.3 file's attributes are unchanged
-        recorded.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
-    if overload:  # the same: recorded only for the overload attack
-        recorded[Attr.AM_ATTACK] = tk.am_attack
-    if tk.min_tamper or overload:  # the stealth bound of whichever search ran, At's or Am's
-        recorded[Attr.STEALTH_SCALE] = tk.stealth_scale
+    recorded.update(_search_attrs(tk, overload))
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)

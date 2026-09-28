@@ -19,7 +19,9 @@ the public API, the generated files and the numbers are the same as the previous
   `Am` is the overload attack of [WU26, eqs. 24-25]: a rated branch whose flow is metered and whose
   true flow stays below its rating over the window is driven, snapshot by snapshot, until the flow
   the tampered measurements carry before noise reaches the rating, on the support that tampers the
-  fewest devices. Each snapshot's false state frees the attackable loads of the support and holds
+  fewest devices. An episode tries at most eight eligible branches in a random order (each try is a
+  full search), a bounded heuristic: when none of them admits an attack the episode stays benign and
+  is counted. Each snapshot's false state frees the attackable loads of the support and holds
   every other bus's injection, the least-norm voltage change that meets the flow
   (`formulas.network.local_flow_solve`, `FalseStateMixin.solve_flow_local`). The ratings are the
   `rate_a` of the PGLib-OPF v23.07 versions of IEEE-14, 118 and 300 (CC BY 4.0), stored in
