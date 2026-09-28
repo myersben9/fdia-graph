@@ -12,6 +12,18 @@ classDiagram
         +with_region()
         +is_feasible()
     }
+    class MinimizeMixin {
+        +min_tamper()
+        +goal_state()
+    }
+    class OverloadMixin {
+        +line_ratings()
+        +eligible_lines()
+        +overload_goal()
+        +am_overload_design()
+        +overload_step()
+        +true_load_by_bus()
+    }
     class RedistributionMixin {
         +lra_delta()
     }
@@ -36,10 +48,16 @@ classDiagram
     class AmDesign {
         <<models>>
     }
+    class AmOverloadDesign {
+        <<models>>
+    }
     class AttackDesign {
         <<models>>
     }
     class Band {
+        <<models>>
+    }
+    class FlowGoal {
         <<models>>
     }
     class Frame {
@@ -54,11 +72,14 @@ classDiagram
     class LoadGoal {
         <<models>>
     }
-    class OperatingLimits {
+    class MinimizerResult {
         <<models>>
     }
-    class OverloadMixin {
-        <<engine>>
+    class NoLineRatings {
+        <<models>>
+    }
+    class OperatingLimits {
+        <<models>>
     }
     class RampDesign {
         <<models>>
@@ -75,9 +96,11 @@ classDiagram
     AreaMixin <|-- FalseStateMixin
     CorruptMixin <|-- AttackMixin
     EpisodeDesignMixin <|-- AttackMixin
+    FalseStateMixin <|-- MinimizeMixin
     FalseStateMixin <|-- RedistributionMixin
     GridBase <|-- AreaMixin
     GridBase <|-- CorruptMixin
+    MinimizeMixin <|-- OverloadMixin
     OverloadMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- StealthyMixin
@@ -99,6 +122,15 @@ classDiagram
     FalseStateMixin ..> Frame : uses
     FalseStateMixin ..> FrameKnobs : uses
     FalseStateMixin ..> OperatingLimits : uses
+    MinimizeMixin ..> FlowGoal : uses
+    MinimizeMixin ..> FrameKnobs : uses
+    MinimizeMixin ..> LoadGoal : uses
+    MinimizeMixin ..> MinimizerResult : uses
+    OverloadMixin ..> AmOverloadDesign : uses
+    OverloadMixin ..> FlowGoal : uses
+    OverloadMixin ..> Frame : uses
+    OverloadMixin ..> FrameKnobs : uses
+    OverloadMixin ..> NoLineRatings : uses
     RedistributionMixin ..> Redistribution : uses
     StealthyMixin ..> AttackDesign : uses
     StealthyMixin ..> Frame : uses

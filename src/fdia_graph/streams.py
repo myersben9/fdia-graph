@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import numpy as np
 
 from .dataset.sequence import window_labels
+from .models.choices import LEGACY_FAMILIES
 from .models.config import WindowSpec
 from .models.data import (
     EpisodeRow,
@@ -27,7 +28,6 @@ from .models.data import (
     StreamSummary,
 )
 from .registry import AssetSpec
-from .timeline import DEFAULT_FAMILIES
 
 if TYPE_CHECKING:
     from .dataset import FdiaGraph
@@ -48,7 +48,7 @@ def generate_stream(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
     attacked_frac: float = 0.5,
-    families: Sequence[str] = DEFAULT_FAMILIES,
+    families: Sequence[str] = LEGACY_FAMILIES,
     attack_intensity: float = 0.20,
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
@@ -73,6 +73,10 @@ def generate_stream(
         stacklevel=2,
     )
     out = out or os.path.join(CACHE_DIR, f"stream_ieee{system_id(system)}.h5")
+    # the deprecated stream keeps the recipe it always had (every family, the redistribution Am, no
+    # fewest-tamper search), which runs on every supported system; the overload Am needs line ratings
+    knobs.setdefault("am_attack", "redistribution")
+    knobs.setdefault("min_tamper", False)
     path = generate_timeline(
         system,
         states=states,

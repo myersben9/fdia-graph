@@ -265,3 +265,26 @@ def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
     assert not w.node_m[~pmu, NODE.theta].any()
+
+
+def test_the_deprecated_stream_keeps_its_recipe(monkeypatch):
+    """generate_stream is deprecated and keeps what it always generated: every family, the
+    redistribution Am and no fewest-tamper search, so it still runs on systems without line ratings."""
+    import warnings
+
+    from fdia_graph import streams, timeline
+    from fdia_graph.models.choices import LEGACY_FAMILIES
+
+    seen = {}
+
+    def fake(system, **kw):
+        seen.update(kw)
+        raise RuntimeError("stop before any work")
+
+    monkeypatch.setattr(timeline, "generate_timeline", fake)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises(RuntimeError, match="stop before any work"):
+            streams.generate_stream(30)
+    assert tuple(seen["families"]) == tuple(LEGACY_FAMILIES)
+    assert seen["am_attack"] == "redistribution" and seen["min_tamper"] is False
