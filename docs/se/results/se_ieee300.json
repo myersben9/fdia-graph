@@ -188,5 +188,81 @@
    "angle_mae_deg": 0.021292106355334586,
    "voltage_mae_pu": 0.00018297993322093122
   }
+ },
+ "prior+huber+gate": {
+  "benign": {
+   "angle_mae_deg": 0.011970970071374399,
+   "voltage_mae_pu": 5.011162077843485e-05
+  },
+  "Aq": {
+   "angle_mae_deg": 0.023905662266419228,
+   "voltage_mae_pu": 9.383673129215974e-05
+  },
+  "Ad": {
+   "angle_mae_deg": 0.012780541639547692,
+   "voltage_mae_pu": 5.418671978609732e-05
+  },
+  "As": {
+   "angle_mae_deg": 0.012788077061921501,
+   "voltage_mae_pu": 5.4388751905568456e-05
+  },
+  "Ar": {
+   "angle_mae_deg": 0.012906443462441049,
+   "voltage_mae_pu": 5.485220393688411e-05
+  },
+  "At": {
+   "angle_mae_deg": 0.014357455227992939,
+   "voltage_mae_pu": 5.899546148562629e-05
+  },
+  "Al": {
+   "angle_mae_deg": 0.018654082263945004,
+   "voltage_mae_pu": 7.13893063622243e-05
+  },
+  "Am": {
+   "angle_mae_deg": 0.020521910952660802,
+   "voltage_mae_pu": 7.898517659270564e-05
+  },
+  "geo": {
+   "angle_mae_deg": 0.015492002063827625,
+   "voltage_mae_pu": 6.314850733836098e-05
+  }
+ },
+ "prior+huber+oracle": {
+  "benign": {
+   "angle_mae_deg": 0.011693012743594152,
+   "voltage_mae_pu": 4.837545354387947e-05
+  },
+  "Aq": {
+   "angle_mae_deg": 0.023398869085200814,
+   "voltage_mae_pu": 9.135706663999765e-05
+  },
+  "Ad": {
+   "angle_mae_deg": 0.01216947474032254,
+   "voltage_mae_pu": 5.108283633194073e-05
+  },
+  "As": {
+   "angle_mae_deg": 0.012172582752484725,
+   "voltage_mae_pu": 5.1405076914261235e-05
+  },
+  "Ar": {
+   "angle_mae_deg": 0.012177822749266987,
+   "voltage_mae_pu": 5.140564619090787e-05
+  },
+  "At": {
+   "angle_mae_deg": 0.013725039669437483,
+   "voltage_mae_pu": 5.627271939974398e-05
+  },
+  "Al": {
+   "angle_mae_deg": 0.01847184539596972,
+   "voltage_mae_pu": 7.021547398875689e-05
+  },
+  "Am": {
+   "angle_mae_deg": 0.017454620028663388,
+   "voltage_mae_pu": 6.609279410551014e-05
+  },
+  "geo": {
+   "angle_mae_deg": 0.014703136025117839,
+   "voltage_mae_pu": 5.943851975950508e-05
+  }
  }
 }

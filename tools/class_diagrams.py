@@ -192,7 +192,7 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
 
 # read by every module, so their edges are said once in the caption instead of drawn; and the public
 # API imports everything, which is not a dependency worth a line each
-FOUNDATION = {"models", "formulas", "schema"}
+FOUNDATION = {"models", "formulas", "schema", "errors"}
 OMIT = {"fdia_graph"}
 
 

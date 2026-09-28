@@ -13,9 +13,10 @@ lives there.
 
 ## Modules
 
-Which module imports which. Three foundations are read by nearly every module and are left out so the
-real dependencies show: `models/` (every returned record), `formulas/` (the equations) and `schema.py`
-(the file protocol). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
+Which module imports which. Four foundations are read by nearly every module and are left out so the
+real dependencies show: `models/` (every returned record, every config model and the one validation
+engine), `formulas/` (the equations), `schema.py` (the file protocol) and `errors.py` (the named
+errors). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
 same reason. `streams.py` and `torch_data.py` are deprecated and will be removed in a future release.
 
 ![Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)

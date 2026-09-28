@@ -41,20 +41,25 @@ checks a docs change locally.
 | nothing a user sees changes without a changelog entry | public API, file formats, the numbers a timeline, estimator or localizer produces; moved private names get a warning alias for one minor version | `CHANGELOG.md`, `## Unreleased` |
 | every change is proven behaviour-free, or its effect is measured | the strict frozen suite compares a tiny timeline and its state-estimation and localization scores bit for bit; an intended change re-freezes in the same PR and states the deltas | `FDIA_FROZEN_STRICT=1 pytest -W "error::DeprecationWarning:fdia_graph" tests`, `python tools/freeze_reference.py` |
 | code reads as its subject | complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in `formulas/` with a source key; every returned bundle a model in `models/` | `python tools/readability.py --report`, `--check --base origin/main` |
+| an input is checked in one place | a new argument is a field on its consumer's model in `models/config.py`, with its rules in the annotation (`Annotated[float, Positive()]`, `OneOf(<Choice>)`) and cross-field rules in `invariants()`; a dataset precondition is a `ds.require(...)` capability; a condition only the data reveals raises a named error from `errors.py`; never a `raise ValueError` in a function body | `python tools/readability.py --check` (refuses a new one), `docs/plans/VALIDATION_PLAN.md` |
 | typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src`, `ruff check src tests tools` |
 | generated docs match the code | the class and module diagram sources and the data dictionary's Models section | `python tools/class_diagrams.py --check`, `python tools/models_doc.py --check` |
 | speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python tools/bench.py --check` before a release, `python tools/bench.py` after |
 
 ## The pull request
 
-![the pull request flow: branch, strict suite, create, CI and the review bots, answer every comment, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
+![the pull request flow: branch, the pre-review gate and the checklist review, create, request the review, fix every finding in one push and go through the gate again, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
 
 ```bash
+python tools/prereview.py                                      # every gate, locally, on this checkout's source
+python tools/prereview.py --also-python <path-to-python3.12>  # and the suite on a second Python, as CI runs 3.9 and 3.12
 python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked
+python tools/pr.py request-review 80                           # only after the gate and the checklist are clean
 python tools/pr.py wait 80                                     # CI plus every required review bot
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
 python tools/pr.py merge 80                                    # refuses unless green with every required bot's review on the head
+python tools/review_ledger.py 80                               # record the review's findings, print the tally by kind
 ```
 
 Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (windows)`, `typecheck`,
@@ -62,12 +67,19 @@ Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (wi
 started yet counts as not green), every other listed check has finished without failure, and every required review bot has reviewed
 that exact head.
 
-Three reviewers read a pull request, in this order:
+The automated review is billed per review, so a pull request reaches it only once it is clean, and
+the fixes to its findings are batched into one push. The order:
 
-1. `/code-review ultra <number>` in Claude Code, before the bots: a multi-agent review of the whole
-   branch with the repository as context. Fold what it finds into the branch first.
-2. Copilot, on every push, always required on the head.
-3. CodeRabbit (`.coderabbit.yaml` carries the repository's review instructions) and Gemini Code Assist, both
+1. `python tools/prereview.py` until it passes: the CI gates, the strict suite, and the checks CI
+   does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).
+2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff and every touched
+   file read whole, searching outward from every change (a `/code-review` in Claude Code with the
+   checklist does this). Fold what it finds into the branch.
+3. Copilot, requested with `tools/pr.py request-review`, required on the head at merge. Answer its
+   findings, fix them all in one push, repeat steps 1 and 2, and only then request it again. Record
+   each review with `tools/review_ledger.py`; a kind of finding that keeps coming up becomes a
+   checklist item or a check in `tools/prereview.py`.
+4. CodeRabbit (`.coderabbit.yaml` carries the repository's review instructions) and Gemini Code Assist, both
    GitHub apps installed on the repository; `tools/pr.py` requires a bot's review on the head as
    soon as that bot has reviewed the pull request once, so a bot that is not installed never
    blocks a merge and an installed one is never skipped.

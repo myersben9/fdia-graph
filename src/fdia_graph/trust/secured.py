@@ -40,8 +40,7 @@ def _secured_copy(
 ) -> str:
     """The copy for `meters` given as indices into an estimator's masked measurement vector, `mask`
     its [4N + 2E] slot mask and `n_branch` its E."""
-    if not ds.has_benign:
-        raise ValueError("secured_copy needs a timeline with the benign layer")
+    ds.require("benign_layer", by="secured_copy")
     nodes, edges = meter_positions(ds.N, n_branch, mask, np.asarray(meters, int))
     shutil.copyfile(ds.path, out)
     with h5py.File(out, "r+") as f:

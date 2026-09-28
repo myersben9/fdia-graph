@@ -20,9 +20,12 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
+from ..errors import GridIslanded
 from ..formulas.network import BranchModel, series_admittance
 from ..formulas.noise import bias_jitter_split
 from ..models.assets import LineCandidate  # noqa: F401  re-exported: defined here before the models package
+from ..models.config import GeneratorOptions
+from ..models.inputs import OutageRef
 from ..registry import system_id
 from .attacks import AttackMixin
 from .base import (  # noqa: F401  ACCURACY_CLASS, POWER_NOISE_FLOOR_MW re-exported
@@ -71,19 +74,8 @@ _CASE = {
 # operating point, measurements) is computed — a post-hoc mask on an intact-network dataset won't do.
 def _line_id(net: Any, outage: Union[str, int]) -> int:
     """Map a line NAME or index to the pandapower line index, with a clear error if it names nothing."""
-    if isinstance(outage, str):
-        hit = net.line.index[net.line["name"].astype(str) == outage]
-        if len(hit) == 0:
-            raise ValueError(f"no line named {outage!r} in this case")
-        if len(hit) > 1:
-            raise ValueError(f"line name {outage!r} is ambiguous ({len(hit)} matches); pass an index")
-        return int(hit[0])
-    idx = int(outage)
-    if idx not in net.line.index:
-        raise ValueError(
-            f"line index {idx} is not in this case (lines are {net.line.index.min()}..{net.line.index.max()})"
-        )
-    return idx
+    names = tuple(net.line["name"].astype(str))
+    return OutageRef(outage, names, tuple(int(i) for i in net.line.index)).index
 
 
 def _n_islands(net: Any) -> int:
@@ -205,9 +197,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
 
         self.pp = pp
         self.C = system_id(system)  # "ieee118" and 118 both accepted, like every public entry point
-        if max_load_mw is not None and not max_load_mw > 0:
-            raise ValueError(f"max_load_mw is a load cap in MW (or None), got {max_load_mw!r}")
-        self.max_load_mw = max_load_mw
+        self.max_load_mw = GeneratorOptions(max_load_mw).max_load_mw
         self.rng = np.random.default_rng(seed)
         # Measurement noise stds, the accuracy classes (ACCURACY_CLASS), split into a per-scan jitter
         # and a per-meter bias (see formulas.noise).
@@ -266,7 +256,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
             )
             base.line.at[line, "in_service"] = False
             if _n_islands(base) != 1:
-                raise ValueError(
+                raise GridIslanded(
                     f"line {line} outage splits the grid into {_n_islands(base)} islands; "
                     f"screen with line_outage_candidates() before generating"
                 )
@@ -275,7 +265,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         if self.contingency.line is not None:
             n_iso = int((base._ppc["bus"][:, 1].real == 4).sum())
             if n_iso:
-                raise ValueError(f"line {self.contingency.line} outage leaves {n_iso} isolated bus(es)")
+                raise GridIslanded(f"line {self.contingency.line} outage leaves {n_iso} isolated bus(es)")
         return base
 
     def _load_tables(self, base: Any) -> None:

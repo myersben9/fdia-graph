@@ -18,7 +18,8 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
-from .dataset.sequence import check_window_args, window_labels
+from .dataset.sequence import window_labels
+from .models.config import WindowSpec
 from .models.data import Stream  # noqa: F401  re-exported: defined here before the models package
 from .registry import AssetSpec
 from .timeline import DEFAULT_FAMILIES
@@ -182,7 +183,7 @@ def windows(
         DeprecationWarning,
         stacklevel=2,
     )
-    check_window_args(T, W, stride, label)
+    WindowSpec(T, W, stride, label)
     starts = range(0, T - W + 1, stride)
     Xw = np.stack([nx[s : s + W] for s in starts])
     return Xw, window_labels(y, starts, W, label)

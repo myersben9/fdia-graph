@@ -436,7 +436,7 @@ def test_attacked_frac_zero_is_all_benign(tmp_path, pool):
 
 def test_empty_episode_lengths_are_refused(tmp_path, pool):
     for bad in (dict(ramp_len=0), dict(am_len=0), dict(corrupt_len=0)):
-        with pytest.raises(ValueError, match="at least 1 frame"):
+        with pytest.raises(ValueError, match="TimelineKnobs.(ramp_len|am_len|corrupt_len) must be >= 1"):
             generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), **bad)
     with pytest.raises(ValueError, match="am_rate"):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_rate=0.0)
@@ -551,15 +551,21 @@ def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_
     from types import SimpleNamespace
 
     from fdia_graph.engine import FdiaGenerator
-    from fdia_graph.timeline import check_targets
+    from fdia_graph.errors import NoAdmissibleTarget
+    from fdia_graph.models.inputs import AdmissibleTargets
+    from fdia_graph.timeline import _target_counts
 
-    g = SimpleNamespace(stealthy_pos=np.array([], int), _target_lines=[], attackable_pos=np.arange(3))
-    check_targets(g, ["Ad", "As", "Ar"])  # the in-place families still have targets
-    check_targets(SimpleNamespace(stealthy_pos=[], _target_lines=[], attackable_pos=[]), ["benign"])
-    with pytest.raises(ValueError, match="Aq, Al"):
-        check_targets(g, ["Aq", "Ad", "Al"])
-    with pytest.raises(ValueError, match="Aq, At, Al"):
-        check_targets(g, ["Ao", "ramp", "LRA"])  # legacy aliases resolve first
+    g = _target_counts(
+        SimpleNamespace(stealthy_pos=np.array([], int), _target_lines=[], attackable_pos=np.arange(3))
+    )
+    AdmissibleTargets(["Ad", "As", "Ar"], g)  # the in-place families still have targets
+    AdmissibleTargets(
+        ["benign"], _target_counts(SimpleNamespace(stealthy_pos=[], _target_lines=[], attackable_pos=[]))
+    )
+    with pytest.raises(NoAdmissibleTarget, match="Aq, Al"):
+        AdmissibleTargets(["Aq", "Ad", "Al"], g)
+    with pytest.raises(NoAdmissibleTarget, match="Aq, At, Al"):
+        AdmissibleTargets(["Ao", "ramp", "LRA"], g)  # legacy aliases resolve first
     eng = FdiaGenerator(14, seed=1)
     eng._target_lines = []
     red = eng.lra_delta(np.ones(len(eng.load_bus)), 0.2, 3)

@@ -18,7 +18,15 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
+from ..errors import ConfigError, NoBenignRecords
 from ..formulas.metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates
+from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    BENIGN_CODE,
+    Buses,
+    FrOver,
+)
+from ..models.config import LocalizerConfig, PerBusReport
+from ..models.inputs import ShapedArray
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     BenignMetrics,
     FamilyMetrics,
@@ -33,14 +41,14 @@ if TYPE_CHECKING:
 
 # Per-record fields that only exist on newer datasets, and the FdiaGraph flag that says so — checked
 # up front so a missing field is a clear message instead of an h5py KeyError mid-read.
-_FIELD_FLAG = {
-    "swing": "has_swing",
-    "temporal_delta": "has_temporal",
-    "clean": "has_clean",
-    "prev_node_x": "is_timeline",
-    "prev_edge_x": "is_timeline",
-    "prev_timestep": "is_timeline",
-    "prev_swing": "is_timeline",
+_FIELD_CAPABILITY = {  # the capability a view needs to carry each optional field
+    "swing": "swing",
+    "temporal_delta": "temporal",
+    "clean": "clean_layer",
+    "prev_node_x": "timeline",
+    "prev_edge_x": "timeline",
+    "prev_timestep": "timeline",
+    "prev_swing": "timeline",
 }
 
 
@@ -58,9 +66,9 @@ class LocalizerBase:
     """
 
     def __init__(self, fa_target: float = 0.01) -> None:
-        if not 0.0 < fa_target < 1.0:
-            raise ValueError(f"fa_target must be in (0, 1), got {fa_target}")
-        self.fa_target = fa_target  # per-bus benign alarm rate the threshold is calibrated to
+        self.fa_target = LocalizerConfig(
+            fa_target
+        ).fa_target  # per-bus benign alarm rate the threshold is calibrated to
 
     # ---- subclass hooks ---------------------------------------------------------------------
     def _fields(self) -> list[str]:
@@ -80,9 +88,8 @@ class LocalizerBase:
     def _pull(self, ds: FdiaGraph, extra: Sequence[str] = ()) -> dict[str, np.ndarray]:
         want = list(dict.fromkeys(list(self._fields()) + list(extra)))  # ordered de-dup
         for k in want:
-            flag = _FIELD_FLAG.get(k)
-            if flag is not None and not getattr(ds, flag):
-                raise ValueError(f"dataset has no '{k}' field; this method needs a newer dataset")
+            if k in _FIELD_CAPABILITY:
+                ds.require(_FIELD_CAPABILITY[k], by=f"the '{k}' field (this method needs a newer dataset)")
         return ds.export(want)
 
     # ---- fitting ----------------------------------------------------------------------------
@@ -90,7 +97,7 @@ class LocalizerBase:
         d = self._pull(ds, extra=["family"])
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
-            raise ValueError("fit needs benign records; pass the train split unfiltered")
+            raise NoBenignRecords("fit needs benign records; pass the train split unfiltered")
         self._fit_stats(d, ben, ds)
         s = self._score(d, ds)[ben]
         # Per-bus threshold at the (1 - fa_target) benign quantile: each bus alarms on ~fa_target
@@ -122,16 +129,15 @@ class LocalizerBase:
         from ..dataset import FAMILIES
 
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
-        s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
-        if s.shape != (len(ds), ds.N):
-            raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        s = self._score(d, ds) if scores is None else scores
+        s = ShapedArray(s, (len(ds), ds.N), "scores").values
         pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
-        out: dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
+        out: dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == BENIGN_CODE)}
         for fid, name in FAMILIES.items():
             m = d["family"] == fid
             if m.any():
-                out[name] = _benign_metrics(pred[m]) if fid == 0 else _family_metrics(pred[m], y[m])
+                out[name] = _benign_metrics(pred[m]) if fid == BENIGN_CODE else _family_metrics(pred[m], y[m])
         return LocalizerScores(**out)
 
     def score_perbus(
@@ -154,19 +160,17 @@ class LocalizerBase:
         """
         from ..dataset import FAMILIES
 
-        if fr_over not in ("all", "benign"):
-            raise ValueError(f"fr_over must be 'all' or 'benign', got {fr_over!r}")
+        fr_over = PerBusReport(buses, fr_over).fr_over
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
-        s = self._score(d, ds) if scores is None else np.asarray(scores, np.float64)
-        if s.shape != (len(ds), ds.N):
-            raise ValueError(f"scores must be [{len(ds)}, {ds.N}], got {s.shape}")
+        s = self._score(d, ds) if scores is None else scores
+        s = ShapedArray(s, (len(ds), ds.N), "scores").values
         y, fam = d["y"].astype(bool), d["family"]
         cols = self._report_buses(y, buses)
         out: dict[str, Any] = {
             "all": self._perbus_rows(s, y, cols, fam, np.ones(len(fam), bool), fr_over, auprc)
         }
         for fid, name in FAMILIES.items():
-            rows = (fam == fid) | (fam == 0)
+            rows = (fam == fid) | (fam == BENIGN_CODE)
             if fid and (fam == fid).any():
                 out[name] = self._perbus_rows(s[rows], y[rows], cols, fam[rows], rows[rows], fr_over, auprc)
         return PerBusScores(**out)
@@ -177,7 +181,7 @@ class LocalizerBase:
             return np.flatnonzero(y.any(axis=0))
         if buses == "attackable" and hasattr(self, "_attackable"):
             return np.flatnonzero(getattr(self, "_attackable"))
-        raise ValueError(f"buses must be 'active' or, for a learned localizer, 'attackable'; got {buses!r}")
+        raise ConfigError("buses='attackable' needs a learned localizer, which records the attackable set")
 
     def _perbus_rows(
         self,
@@ -190,7 +194,7 @@ class LocalizerBase:
         auprc: bool,
     ) -> PerBusMetrics:
         """One block: the negatives for FR are every record, or the benign ones."""
-        negatives = rows if fr_over == "all" else fam == 0
+        negatives = rows if fr_over == "all" else fam == BENIGN_CODE
         return perbus_block(s, y, np.asarray(self.thr, np.float64), cols, negatives, auprc)
 
 

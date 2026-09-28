@@ -109,3 +109,9 @@ def test_no_module_but_schema_spells_a_dataset_path(tmp_path):
     schema_copy = tmp_path / "schema.py"
     schema_copy.write_text('x = f["data/node_x"]\n')
     assert readability.protocol_literals(str(schema_copy))  # only the package's schema.py is exempt
+
+
+def test_no_input_is_checked_by_hand_outside_the_models():
+    """Every input check is declared on a model and run by the one engine (VALIDATION_PLAN.md);
+    a condition only the data reveals raises a named error from fdia_graph.errors."""
+    assert readability.hand_checks_all() == []

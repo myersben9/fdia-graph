@@ -21,8 +21,8 @@ import numpy as np
 from ..formulas.estimation import whitened_svd_basis
 from ..formulas.federated import block_diagonal_basis
 from ..models.federated import Partition
+from ..models.inputs import PartitionOnGrid
 from ..se.methods import SubspacePrior
-from .partition import check_partition
 
 
 class RegionalPrior(SubspacePrior):
@@ -44,7 +44,7 @@ class RegionalPrior(SubspacePrior):
         return np.concatenate([angles, len(self.keep) + own])
 
     def _fit_states(self, x_benign: np.ndarray) -> None:
-        check_partition(self.partition, self.N)
+        PartitionOnGrid(self.partition.assignment, self.partition.K, self.N)
         blocks = []
         for k in range(self.partition.K):
             cols = self.state_columns(k)
