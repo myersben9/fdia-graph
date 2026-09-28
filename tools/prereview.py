@@ -110,8 +110,10 @@ def changed(base: str) -> list[str]:
 
 
 def _tree() -> set[str]:
-    """Every file of the checkout, tracked or new (not ignored)."""
-    return _git_names("ls-files") | _git_names("ls-files", "--others", "--exclude-standard")
+    """Every file of the checkout, tracked or new (not ignored); a tracked file deleted in the working
+    tree is not part of it."""
+    names = _git_names("ls-files") | _git_names("ls-files", "--others", "--exclude-standard")
+    return {f for f in names if os.path.exists(os.path.join(ROOT, f))}
 
 
 def _read(rel: str) -> str:
@@ -169,7 +171,8 @@ def _targets(md: str, text: str) -> list[str]:
     out = [s for s in spans if _is_path(s, top)]
     prose = re.sub(r"`[^`\n]*`", "", text)  # a code span holds no link
     for dest in _LINKED.findall(prose) + _REFERENCE.findall(prose):
-        if re.match(r"[a-z][a-z0-9+.-]*:", dest, re.I) or dest.startswith("#"):
+        # a web or mail link (`https:`, `mailto:`, protocol-relative `//host`) or an anchor
+        if re.match(r"[a-z][a-z0-9+.-]*:", dest, re.I) or dest.startswith(("#", "//")):
             continue
         path = dest.split("#", 1)[0].split("?", 1)[0]
         if path:
