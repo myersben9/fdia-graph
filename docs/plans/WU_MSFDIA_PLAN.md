@@ -52,16 +52,18 @@ snapshots t = κ ... κ+T, and the true states `x_t` and scans `z_t` from the ti
   voltage magnitude, angle and branch-current channels. A device counts once however many of its
   channels move; the number of channels moved is recorded next to it for analysis.
 
-  `σ_{m,t}` is the meter's rated accuracy for that channel in that snapshot, the accuracy-class
-  standard deviation the package's measured calibration already uses (D7): a change within a
-  meter's rated accuracy cannot be told from noise. The emitter keeps drawing its per-scan
-  jitter from its own rule (absolute for `|V|` and `θ`, relative plus `POWER_NOISE_FLOOR_MW` for P
-  and Q), so the data is unchanged; the two are separate named functions.
-  The current-phasor channels of D4 (the real and imaginary part of each branch current at a PMU
-  bus, per unit on the base current) get the same kind of rule: noise relative to the current's
-  magnitude at the PMU accuracy class of IEEE C37.118.1 (1% total vector error, taken as three
-  standard deviations) plus a small floor, added to the same function, so the objective and the
-  stealth bound are defined on every channel the attack can touch.
+`σ_{m,t}` is the meter's rated accuracy for that channel in that snapshot, the accuracy-class
+standard deviation the package's measured calibration already uses (D7): a change within a meter's
+rated accuracy cannot be told from noise. It is expressed in the stored scan's units, as `a_{m,t}`
+is: `|V|` in per unit, P and Q in MW and MVAr, and `θ` in degrees (the accuracy class and the
+emitter's internal angle noise are in radians, converted with `np.degrees`). The emitter keeps
+drawing its per-scan jitter from its own rule (absolute for `|V|` and `θ`, relative plus
+`POWER_NOISE_FLOOR_MW` for P and Q), so the data is unchanged; the two are separate named functions.
+The current-phasor channels of D4 (the real and imaginary part of each branch current at a PMU bus,
+per unit on the base current) get the same kind of rule: noise relative to the current's magnitude
+at the PMU accuracy class of IEEE C37.118.1 (1% total vector error, taken as three standard
+deviations) plus a small floor, added to the same function, so the objective and the stealth bound
+are defined on every channel the attack can touch.
 
   The paper writes `||Σ_t (z^a_t - h_A(x^a_t))||_0` and calls it "the number of nonzero entries
   in the attack vector"; its results count compromised devices over the window, which is the set
