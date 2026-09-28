@@ -43,12 +43,17 @@ snapshots t = κ ... κ+T, and the true states `x_t` and scans `z_t` from the ti
 - **Objective (12):** the number of meters tampered over the window. Following the paper's
   experiments section, a change smaller than the meter's noise does not count:
 
-      minimize  | { m : max_t |a_{m,t}| > σ_{m,t} } |
+      minimize  | { m : there is a snapshot t with |a_{m,t}| > σ_{m,t} } |
 
   `σ_{m,t}` is the standard deviation the package's own emitter gives that channel in that
   snapshot (`emit_from_state`): absolute for `|V|` and `θ`, relative to the reading plus a floor
   (`POWER_NOISE_FLOOR_MW`) for P and Q. One function computes it for the emitter and the
   objective, so the optimum is judged against the noise the data actually carries.
+  The current-phasor channels of D4 (the real and imaginary part of each branch current at a PMU
+  bus, per unit on the base current) get the same kind of rule: noise relative to the current's
+  magnitude at the PMU accuracy class of IEEE C37.118.1 (1% total vector error, taken as three
+  standard deviations) plus a small floor, added to the same function, so the objective and the
+  stealth bound are defined on every channel the attack can touch.
 
   The paper writes `||Σ_t (z^a_t - h_A(x^a_t))||_0` and calls it "the number of nonzero entries
   in the attack vector"; its results count compromised devices over the window, which is the set
