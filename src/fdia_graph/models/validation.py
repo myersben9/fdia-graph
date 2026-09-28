@@ -27,7 +27,7 @@ import numbers
 import typing
 from collections.abc import Iterable
 from dataclasses import fields
-from typing import Any, Union
+from typing import Any, ClassVar, Union
 
 import numpy as np
 
@@ -140,7 +140,7 @@ class AsArray(Rule):
     def apply(self, value: Any, where: str) -> Any:
         try:
             return np.asarray(value, self.dtype)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             raise ConfigError(f"{where} {self.says}, got {value!r}") from None
 
 
@@ -198,6 +198,10 @@ class Parses(Rule):
 class Validated:
     """Base of every model whose fields are checked on construction (a frozen dataclass)."""
 
+    # what a failed invariant raises: ConfigError for an input, or a named data condition
+    # (`models.errors`) for a model that states what the data lacks
+    error: ClassVar[type[ValueError]] = ConfigError
+
     def __post_init__(self) -> None:
         validate(self)
 
@@ -230,15 +234,20 @@ def _checked(value: Any, rules: tuple[Rule, ...], optional: bool, where: str) ->
 
 def _check_invariants(model: Any, name: str) -> None:
     """The model's conditions across fields, taken lazily so a later condition never sees input an
-    earlier one refused; one that cannot even be evaluated means the input is malformed."""
+    earlier one refused; one that cannot even be evaluated means the input is malformed. A named
+    data condition keeps its message as it is: it says what the data lacks, not which model."""
+    failed = None
     try:
         for holds, says in model.invariants():
             if not holds:
-                raise ConfigError(f"{name}: {says}")
+                failed = says
+                break
     except ConfigError:
         raise
-    except (TypeError, ValueError, IndexError, OverflowError) as e:
+    except (TypeError, ValueError, IndexError, KeyError, AttributeError, OverflowError) as e:
         raise ConfigError(f"{name}: the input is malformed ({e})") from None
+    if failed is not None:
+        raise ConfigError(f"{name}: {failed}") if model.error is ConfigError else model.error(failed)
 
 
 def _unpack(hint: Any) -> tuple[tuple[Rule, ...], bool]:

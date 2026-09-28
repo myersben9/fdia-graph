@@ -7,6 +7,7 @@ and 300 at K = 2 and 3 when checked by hand; the test suite pins IEEE 14. Needs 
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -81,6 +82,10 @@ def compute_nodes(p: Partition, edge_index: np.ndarray, k: int, halo: int = 0) -
 
 
 def check_partition(p: Partition, N: int) -> None:
-    """A Partition fit for a system of N buses: one client per bus, the clients numbered 0..K-1 with
-    none empty (a hand-built Partition is not checked by its constructor)."""
+    """Deprecated: build `models.inputs.PartitionOnGrid(p.assignment, p.K, N)`, which checks it."""
+    warnings.warn(
+        "check_partition is deprecated; PartitionOnGrid(p.assignment, p.K, N) checks a partition",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     PartitionOnGrid(p.assignment, p.K, N)

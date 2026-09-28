@@ -36,6 +36,20 @@ the public API, the generated files and the numbers are the same as the previous
   assignment and the branch list before sizing the grid from them, so a scalar assignment or a
   non-integer `edge_index` is a `ConfigError`, not a raw `TypeError`, and so is a negative bus
   count.
+  A Huber `c`, a removal threshold, `am_rate` and the learned localizer's `lr` and `pos_weight`
+  must be finite as well as positive, and a solver `tol` finite and non-negative. The learned
+  localizer checks its whole training setup (`dropout`, `lr`, `weight_decay`, `batch_size`,
+  `epochs`, `pos_weight`, `seed`) on `LearnedConfig` when it is built. `generate_timeline` checks
+  `families` on `FamilySelection` before it builds the case, and the admissible-target check is a
+  model, `models.inputs.AdmissibleTargets`, which raises `NoAdmissibleTarget` as before (a model
+  names its failure type in `Validated.error`; the named data errors now live in `models.errors`
+  and `fdia_graph.errors` re-exports them). `TimelineKnobs.am_len` defaults to None, resolved to
+  `ramp_len` by the model. `check_partition` is deprecated in favour of building
+  `PartitionOnGrid`, and the internal `check_window_args` and `check_targets` are gone
+  (`WindowSpec`, `AdmissibleTargets`). A value no model can even read (a number past the float
+  range, a mapping where a sequence belongs) is a `ConfigError`, never a raw `OverflowError`,
+  `KeyError` or `AttributeError`; `tests/test_malformed_inputs.py` sweeps every config and input
+  model with values of the wrong kind and the public entry points with one bad argument each.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

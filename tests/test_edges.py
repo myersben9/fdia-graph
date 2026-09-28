@@ -126,7 +126,8 @@ def _tiny_stream(T: int = 12, N: int = 3):
 def test_windows_labels_and_bounds():
     """The deprecated stream-dict `windows` (retires in 0.19) and the label helper it shares with
     `ds.windows`."""
-    from fdia_graph.dataset.sequence import check_window_args, window_labels
+    from fdia_graph.dataset.sequence import window_labels
+    from fdia_graph.models.config import WindowSpec
 
     s = _tiny_stream()
     with pytest.warns(DeprecationWarning, match="windows.*deprecated"):
@@ -138,14 +139,14 @@ def test_windows_labels_and_bounds():
     assert y_any.shape == y_last.shape == (5, 3)
     assert np.array_equal(y_any, yw.max(axis=1)) and np.array_equal(y_last, yw[:, -1])
     with pytest.raises(ValueError, match="label must be"):
-        check_window_args(12, 4, 1, "bogus")
+        WindowSpec(12, 4, 1, "bogus")
     with pytest.raises(ValueError, match="need integers 1 <= W"):
-        check_window_args(12, 13, 1, "any")
+        WindowSpec(12, 13, 1, "any")
     with pytest.raises(ValueError, match="stride"):
-        check_window_args(12, 4, 0, "any")
+        WindowSpec(12, 4, 0, "any")
     for W, stride in ((4.5, 1), (4, 1.5), (True, 1)):
         with pytest.raises(ValueError, match="WindowSpec.(W|stride) must be an integer"):
-            check_window_args(12, W, stride, "any")
+            WindowSpec(12, W, stride, "any")
 
 
 def test_load_stream_rejects_an_unknown_system():

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 
-from .models.config import SplitFractions
+from .models.config import SplitFractions, WindowSpec
 from .models.inputs import StreamSystem
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the runtime torch-free
@@ -164,14 +164,14 @@ def torch_windows(
     Returns:
         ``((Xtr, ytr), (Xte, yte))``, or ``((Xtr, ytr), (Xva, yva), (Xte, yte))`` when ``val_frac`` > 0.
     """
-    from .dataset.sequence import check_window_args, window_labels
+    from .dataset.sequence import window_labels
 
     _retiring("torch_windows", "ds.windows(W, stride, label, layer, per_bus=True) on each split view")
     layer = SplitFractions(train_frac, val_frac, layer=layer).layer
     s = _resolve_stream(system, release, stream, dataset)
     nx, y = np.asarray(s[layer]), np.asarray(s["y"])
     T = int(nx.shape[0])
-    check_window_args(T, W, stride, label)
+    WindowSpec(T, W, stride, label)
     starts = range(0, T - W + 1, stride)
     Xw, yw = np.stack([nx[a : a + W] for a in starts]), window_labels(y, starts, W, label)
     cut = int(train_frac * T)

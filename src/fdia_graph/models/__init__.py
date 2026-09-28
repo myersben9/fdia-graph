@@ -82,6 +82,7 @@ from .grid import (
     Outage,
 )
 from .inputs import (
+    AdmissibleTargets,
     Affinity,
     Aggregation,
     AssignmentSpec,
@@ -193,6 +194,7 @@ __all__ = [
     "ClientCount",
     "ClientGraph",
     "Halo",
+    "AdmissibleTargets",
     "AssignmentSpec",
     "PartitionOnGrid",
     "ClientUpdates",

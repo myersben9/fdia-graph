@@ -16,11 +16,6 @@ from ..models.data import EpisodeTable
 from .base import DatasetBase
 
 
-def check_window_args(T: int, W: int, stride: int, label: str) -> None:
-    """A window request as its model (`models.config.WindowSpec`), which checks it."""
-    WindowSpec(T, W, stride, label)
-
-
 def window_labels(y: np.ndarray, starts: range, W: int, label: str) -> np.ndarray:
     """Per-window labels: every frame ("frame"), attacked at any frame ("any"), or the last frame."""
     if label == "frame":

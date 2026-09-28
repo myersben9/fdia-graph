@@ -383,12 +383,16 @@ def test_a_regional_prior_refuses_a_partition_with_gaps(splits):
 def test_check_partition_wants_integer_labels(splits):
     from fdia_graph.federated import check_partition
     from fdia_graph.models.federated import Partition
+    from fdia_graph.models.inputs import PartitionOnGrid
 
     N = splits["train"].N
     z = np.zeros((2, N), bool)
     for a in (np.r_[np.zeros(N - 1), 1.0], np.zeros((1, N), int)):
         with pytest.raises(ValueError, match="1-D integer array"):
-            check_partition(Partition(2, a, z, z, 0), N)
+            PartitionOnGrid(a, 2, N)
+        with pytest.warns(DeprecationWarning, match="check_partition is deprecated"):
+            with pytest.raises(ValueError, match="1-D integer array"):
+                check_partition(Partition(2, a, z, z, 0), N)
 
 
 def test_the_jacobian_feature_set_federates_with_one_central_block(zs):

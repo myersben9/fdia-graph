@@ -37,7 +37,7 @@ import numpy as np
 
 from . import schema
 from .dataset.base import FAMILIES, STEALTHY_FAMILIES
-from .engine import FAM_ID, FdiaGenerator
+from .engine import FdiaGenerator
 from .engine.records import (
     AM_FAMILY,
     AQ_HALVINGS,
@@ -49,7 +49,7 @@ from .engine.records import (
     attack_frame,
     is_feasible,
 )
-from .errors import NoAdmissibleTarget, NoRoomForEpisode
+from .errors import NoRoomForEpisode
 from .formulas.attacks import ramp_profile
 from .formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
 from .generation import (
@@ -64,6 +64,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     AmDirection,
 )
 from .models.config import TimelineKnobs
+from .models.inputs import AdmissibleTargets, FamilySelection
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
 
@@ -189,16 +190,12 @@ def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
     return frame
 
 
-def check_targets(g: Any, families: Sequence[str]) -> None:
-    """Refuse, before any frame is walked, a requested family that has nothing to attack on this
-    case: the stealthy Aq and At need a load off every generator bus, Al and Am a line whose
-    subnetwork admits a redistribution, Ad/As/Ar an attackable load. Legacy aliases resolve first."""
+def _target_counts(g: Any) -> dict[int, int]:
+    """The targets the case offers each family code: the stealthy Aq and At need a load off every
+    generator bus, Al and Am a line whose subnetwork admits a redistribution, Ad/As/Ar an attackable
+    load (checked against the request by `models.inputs.AdmissibleTargets`)."""
     need = {1: len(g.stealthy_pos), 5: len(g.stealthy_pos), 6: len(g._target_lines), 7: len(g._target_lines)}
-    fids = {FAM_ID[f] for f in families} - {0}  # benign needs no target
-    empty = sorted(i for i in fids if need.get(i, len(g.attackable_pos)) == 0)
-    if empty:
-        names = ", ".join(FAMILIES[i] for i in empty)
-        raise NoAdmissibleTarget(f"no admissible target on this case for {names}; drop them from families")
+    return {f: need.get(f, len(g.attackable_pos)) for f in FAMILIES if f != 0}
 
 
 def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
@@ -771,21 +768,21 @@ def generate_timeline(
     redundancy       meter coverage {vbus_frac, pmu_frac, flow_frac}, default 0.6/0.2/0.9
     split            chronological train/val/test fractions by frame, episodes never cut
     """
-    am_len = ramp_len if am_len is None else am_len
-    TimelineKnobs(attacked_frac, am_rate, hops, am_direction, ramp_len, am_len, corrupt_len)
+    tk = TimelineKnobs(attacked_frac, am_rate, hops, am_direction, ramp_len, am_len, corrupt_len)
+    fams = FamilySelection(tuple(families)).codes
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
-        check_targets(g, families)
+        AdmissibleTargets(fams, _target_counts(g))
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(attack_intensity, NOISE_FLOOR, lra_k, replay_tau, False, True, hops, limits)
     ctx = _FrameContext(g, X, knobs, [])
-    am = (am_len, am_rate, am_direction)
-    plan = _Schedule.build([FAM_ID[f] for f in families], ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
+    am = (tk.am_frames, tk.am_rate, tk.am_direction)
+    plan = _Schedule.build(list(fams), tk.ramp_len, ramp_rate, am, tk.corrupt_len, tk.attacked_frac)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = {
         Attr.TARGET_ATTACKED_FRAC: attacked_frac,

@@ -44,8 +44,9 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
 )
 from ..models.config import FederatedSettings
 from ..models.federated import Partition, RoundLog
+from ..models.inputs import PartitionOnGrid
 from .aggregate import fedavg_state, state_bytes
-from .partition import check_partition, compute_nodes, spectral_partition
+from .partition import compute_nodes, spectral_partition
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -153,7 +154,7 @@ class FederatedLocalizer(LearnedLocalizer):
 
             self._jac = JacobianFeatures().fit(ds)
         self._part = self.partition or spectral_partition(ei, int(ds.N), self.K)
-        check_partition(self._part, int(ds.N))
+        PartitionOnGrid(self._part.assignment, self._part.K, int(ds.N))
         views = [compute_nodes(self._part, ei, k, self.halo) for k in range(self.K)]
         blocks, moments, jac = [], [], self._central(d)
         for k, (nodes, owned) in enumerate(views):  # one client's grid-wide block at a time

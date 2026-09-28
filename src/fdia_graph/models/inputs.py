@@ -11,11 +11,12 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Any, Optional, Union, cast
+from typing import Annotated, Any, ClassVar, Optional, Union, cast
 
 import numpy as np
 
 from .choices import FAMILIES, FAMILY_ALIAS, Capability, Reduce
+from .errors import NoAdmissibleTarget
 from .validation import AsArray, AtLeast, Dims, Integer, IntegerDtype, OneOf, Parses, Required, Validated
 
 # ---- parsers of loose input -----------------------------------------------------------------------
@@ -62,6 +63,23 @@ class FamilySelection(Validated):
     @property
     def codes(self) -> tuple[int, ...]:
         return tuple(int(c) for c in self.families)
+
+
+@dataclass(frozen=True)
+class AdmissibleTargets(Validated):
+    """The families a timeline attacks, against the number of targets the case offers each family
+    code; a family with none is `NoAdmissibleTarget`, found before any frame is walked."""
+
+    error: ClassVar[type[ValueError]] = NoAdmissibleTarget
+
+    families: Annotated[Sequence[Union[str, int]], Parses(family_codes, FAMILY_WORDS)]
+    targets: dict[int, int]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        codes = {int(f) for f in self.families} - {0}  # codes once parsed; benign needs no target
+        empty = sorted(f for f in codes if self.targets.get(f, 0) == 0)
+        names = ", ".join(FAMILIES[f] for f in empty)
+        yield not empty, f"no admissible target on this case for {names}; drop them from families"
 
 
 @dataclass(frozen=True)
@@ -251,8 +269,9 @@ class ClientGraph(Validated):
             f"need an [N] assignment and an [N, N] adjacency, got {self.assignment.shape} and {self.adjacency.shape}",
         )
         if self.K is not None:
+            used = np.unique(self.assignment)  # never range(K): K may be any size
             yield (
-                self.K >= 1 and set(np.unique(self.assignment).tolist()) == set(range(self.K)),
+                self.K >= 1 and len(used) == self.K and used[0] == 0 and used[-1] == self.K - 1,
                 f"the assignment must use exactly the clients 0..{self.K - 1}",
             )
 

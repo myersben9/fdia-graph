@@ -28,9 +28,12 @@ classDiagram
         <<localization>>
     }
     class NoAttackedRecords {
-        <<errors>>
+        <<models>>
     }
     class Partition {
+        <<models>>
+    }
+    class PartitionOnGrid {
         <<models>>
     }
     class RoundLog {
@@ -50,5 +53,7 @@ classDiagram
     FederatedLocalizer ..> LocalTrainer : uses
     FederatedLocalizer ..> NoAttackedRecords : uses
     FederatedLocalizer ..> Partition : uses
+    FederatedLocalizer ..> PartitionOnGrid : uses
     FederatedLocalizer ..> RoundLog : uses
     RegionalPrior ..> Partition : uses
+    RegionalPrior ..> PartitionOnGrid : uses

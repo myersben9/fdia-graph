@@ -10,6 +10,19 @@ caller's `except ValueError` keeps working.
 
 from __future__ import annotations
 
+from .models.errors import (
+    CountOverflow,
+    DataConditionError,
+    GridIslanded,
+    NoAdmissibleTarget,
+    NoAttackedRecords,
+    NoBenignRecords,
+    NoRoomForEpisode,
+    NotFitted,
+    SlackMismatch,
+    UnknownColumnOrder,
+    VaryingReference,
+)
 from .models.validation import ConfigError, MissingCapability
 
 __all__ = [
@@ -27,47 +40,3 @@ __all__ = [
     "CountOverflow",
     "UnknownColumnOrder",
 ]
-
-
-class DataConditionError(ValueError):
-    """A condition the data read does not meet; base of the named errors below."""
-
-
-class NoBenignRecords(DataConditionError):
-    """A fit that calibrates on benign records was given none (a filtered view instead of a split)."""
-
-
-class NoAttackedRecords(DataConditionError):
-    """A threshold tuned on labelled validation records was given no attacked (or no benign) ones."""
-
-
-class NotFitted(DataConditionError):
-    """A step that needs an earlier one was called first."""
-
-
-class NoAdmissibleTarget(DataConditionError):
-    """A requested attack family has nothing to attack on this case."""
-
-
-class NoRoomForEpisode(DataConditionError):
-    """The attacked fraction cannot be placed: no free span is long enough for an episode."""
-
-
-class GridIslanded(DataConditionError):
-    """A line outage splits the grid or leaves a bus isolated."""
-
-
-class SlackMismatch(DataConditionError):
-    """The dataset's slack bus is not the case's."""
-
-
-class VaryingReference(DataConditionError):
-    """The slack angle varies across the training frames, so there is no one reference to fix."""
-
-
-class CountOverflow(DataConditionError):
-    """Pooled record counts past the float range."""
-
-
-class UnknownColumnOrder(DataConditionError):
-    """A state pool whose column order cannot be read from its values."""

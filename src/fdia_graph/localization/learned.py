@@ -115,12 +115,14 @@ class LearnedLocalizer(LocalizerBase):
         features: str = "full14",
     ) -> None:
         super().__init__(fa_target=fa_target)
-        cfg = LearnedConfig(layers, hidden, features)
+        cfg = LearnedConfig(
+            layers, hidden, features, dropout, lr, weight_decay, batch_size, epochs, pos_weight, seed
+        )
         self.features = cfg.features  # which per-bus vector the encoder sees (see FEATURE_SETS)
         self.n_feat = FEATURE_SETS[cfg.features]
-        self.hidden, self.layers, self.dropout = cfg.hidden, cfg.layers, dropout
-        self.lr, self.weight_decay, self.batch_size = lr, weight_decay, batch_size
-        self.epochs, self.pos_weight, self.seed = epochs, pos_weight, seed
+        self.hidden, self.layers, self.dropout = cfg.hidden, cfg.layers, cfg.dropout
+        self.lr, self.weight_decay, self.batch_size = cfg.lr, cfg.weight_decay, cfg.batch_size
+        self.epochs, self.pos_weight, self.seed = cfg.epochs, cfg.pos_weight, cfg.seed
         self.attackable_only = attackable_only
         self.device = device  # None -> cuda if available, else cpu
         self.tau: Optional[float] = None  # set by tune_threshold (the papers' global threshold)

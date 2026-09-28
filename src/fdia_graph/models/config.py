@@ -34,6 +34,8 @@ Fraction = Annotated[float, InRange(0.0, 1.0)]  # (0, 1), a false-alarm target o
 Share = Annotated[float, InRange(0.0, 1.0, hi_closed=True)]  # (0, 1]
 Count = Annotated[int, Integer(), AtLeast(1)]  # a whole number of rounds, frames, clients
 Norm = Annotated[Optional[float], Finite(), Positive()]  # an optional gradient-norm bound
+Scale = Annotated[float, Positive(), Finite()]  # a finite positive constant (a Huber c, a rate)
+Tolerance = Annotated[float, Finite(), AtLeast(0)]  # a convergence tolerance; 0 runs every pass
 
 
 # ---- the dataset --------------------------------------------------------------------------------------
@@ -99,15 +101,15 @@ class FitOptions(Validated):
 class HuberConfig(Validated):
     """Iteratively reweighted least squares with Huber weights."""
 
-    c: Annotated[float, Positive()] = 1.5
-    tol: float = 1e-4
+    c: Scale = 1.5
+    tol: Tolerance = 1e-4
 
 
 @dataclass(frozen=True)
 class RemovalConfig(Validated):
     """Largest-normalized-residual removal."""
 
-    threshold: Annotated[float, Positive()] = 4.0
+    threshold: Scale = 4.0
     cond_mult: Annotated[float, AtLeast(1)] = 100.0
 
 
@@ -117,18 +119,18 @@ class PriorConfig(Validated):
 
     rank_frac: Share = 0.5
     reweight: Annotated[Optional[str], OneOf(Reweight)] = None
-    c: Annotated[float, Positive()] = 1.5
-    tol: float = 1e-4
+    c: Scale = 1.5
+    tol: Tolerance = 1e-4
 
 
 @dataclass(frozen=True)
 class JacobianWeightingConfig(Validated):
     """Huber weights from the unexplained scan-to-scan change, optionally with classical passes."""
 
-    c: Annotated[float, Positive()] = 3.0
+    c: Scale = 3.0
     reweight: Annotated[Optional[str], OneOf(Reweight)] = None
-    huber_c: Annotated[float, Positive()] = 1.5
-    tol: float = 1e-4
+    huber_c: Scale = 1.5
+    tol: Tolerance = 1e-4
 
 
 @dataclass(frozen=True)
@@ -161,11 +163,18 @@ class LocalizerConfig(Validated):
 
 @dataclass(frozen=True)
 class LearnedConfig(Validated):
-    """The encoder a learned localizer builds and the vector it reads."""
+    """The encoder a learned localizer builds, the vector it reads and how it trains."""
 
     layers: Annotated[int, Integer(), AtLeast(1)] = 4
     hidden: Annotated[int, Integer(), AtLeast(8)] = 128
     features: Annotated[str, OneOf(Features)] = "full14"
+    dropout: Annotated[float, InRange(0.0, 1.0, lo_closed=True)] = 0.1
+    lr: Scale = 5e-4
+    weight_decay: Annotated[float, Finite(), AtLeast(0)] = 0.01
+    batch_size: Count = 256
+    epochs: Count = 60
+    pos_weight: Scale = 1.0
+    seed: Annotated[int, Integer()] = 123
 
 
 @dataclass(frozen=True)
@@ -220,12 +229,17 @@ class TimelineKnobs(Validated):
     """The knobs of one timeline walk that the walk cannot recover from."""
 
     attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.5
-    am_rate: Annotated[float, Positive()] = 0.9
+    am_rate: Scale = 0.9
     hops: Count = 2
     am_direction: Annotated[str, OneOf(AmDirection)] = "both"
     ramp_len: Annotated[int, Integer(), AtLeast(1)] = 60
-    am_len: Annotated[int, Integer(), AtLeast(1)] = 60
+    am_len: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # None: as long as a ramp
     corrupt_len: Annotated[Optional[int], Integer(), AtLeast(1)] = 1
+
+    @property
+    def am_frames(self) -> int:
+        """The Am episode length: `am_len`, or `ramp_len` when none is given."""
+        return self.ramp_len if self.am_len is None else self.am_len
 
 
 @dataclass(frozen=True)
