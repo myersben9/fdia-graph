@@ -1,0 +1,79 @@
+pr,where,kind,path,title
+140,inline,generated file stale,src/fdia_graph/models/__init__.py,"Although these three models are exported here, `tools/models_doc.py` renders only `fdia_graph.models.PUBLIC` (tools/models_doc.py:103-105), and that tuple still"
+140,inline,generated file stale,docs/figures/diagrams/classes_engine.mmd,"The engine diagram adds `Band` and `TamperTarget` but omits the third new model, `AttackDesign`; the generated SVG and the `CLASS_MAP.md` caption likewise conta"
+140,inline,compatibility,src/fdia_graph/engine/records.py,"This signature change leaves the existing timeline test calling `_resolve_frame(g, Xt, family, targets, mult, k)` and monkeypatching `_stealthy_frame` with the "
+141,inline,doc claim does not match the code,docs/reference/GLOSSARY.md,"The current default is v0.8.1 (`registry._RELEASE`), so describing the timeline as “the dataset from data release v0.8.0” is stale and conflicts with the genera"
+141,inline,logic and edge cases,docs/guides/generation.md,"The default `SEBase.score(ds)` path first calls `estimate(ds)`, which exports `node_x` and `edge_x`, and only then exports `family` and `clean` to compute error"
+141,inline,doc claim does not match the code,docs/guides/generation.md,"This citation points to `examples/_build_pool72_v071.py`, but that file is not present in the repository (the checked-in builders are `_build_timelines_v080.py`"
+141,inline,doc claim does not match the code,docs/guides/generation.md,"`attack_intensity` also bounds the per-bus redistribution drawn for `Am` (`lra_delta` receives the same intensity), and `Am` has its own `am_rate`/`am_len` knob"
+141,inline,doc claim does not match the code,docs/guides/generation.md,"`attack_intensity` is not the upper edge for every family: `At` is controlled by `ramp_rate`/`ramp_len`, and timeline `Ar` records the realized replay change wi"
+141,inline,doc claim does not match the code,docs/guides/generation.md,"`examples/_build_timelines_v083.py` does not exist in this checkout, so the release procedure links readers to a command they cannot run"
+141,missed,doc claim does not match the code,docs/reference/GLOSSARY.md,Clarify pool gaps from skipped non-converging states
+141,missed,logic and edge cases,docs/guides/generation.md,Clarify skipped timesteps and pool timestamp spacing
+141,missed,doc claim does not match the code,docs/guides/generation.md,Document all layers consumed by TrustSelector fit and score
+142,inline,cache and resume,examples/_build_timelines_v083.py,"The resume check treats any existing timeline plus fragment as complete, even when `FRAMES`, `SEED`, or other generation inputs have changed"
+142,inline,cache and resume,examples/_build_timelines_v083.py,"The resume metadata records only the pool directory path, not the contents of each source pool"
+142,inline,cache and resume,examples/_build_timelines_v083.py,"The script documents parallel workers, but `fg.generate` also registers each output through the shared default cache"
+142,inline,cache and resume,examples/_build_timelines_v083.py,`pool_h5` trusts any existing destination solely because it exists
+142,missed,cache and resume,examples/_build_timelines_v083.py,Merge accepts stale or unvalidated build artifacts
+142,missed,doc claim does not match the code,docs/guides/generation.md,Release comparison inaccurately generalizes differences across versions
+142,missed,cache and resume,examples/_build_timelines_v083.py,Resume check ignores timeline file integrity
+142,missed,cache and resume,examples/_build_timelines_v083.py,setdefault permits shared cache paths across parallel workers
+143,inline,logic and edge cases,src/fdia_graph/se/base.py,The `full_state=True` flag only changes which matrices `_set_model` builds; `_solve_plain()` still applies `_basis()`
+143,inline,input escapes validation,src/fdia_graph/se/base.py,"This branch omits `clean` from `export`, but `_build_network(ds)` immediately rejects any dataset without a clean layer at its existing guard"
+143,inline,logic and edge cases,src/fdia_graph/engine/core.py,"`POWER_NOISE_FLOOR_MW` is now the calibration source for the relative-meter floor, but `MeasurementMixin.emit_from_state` still hard-codes `1e-3` for all P/Q ji"
+143,missed,export missing,src/fdia_graph/formulas/estimation.py,Export accuracy_class_sigma from the formulas package
+143,missed,compatibility,src/fdia_graph/se/methods.py,Preserve the _basis hook with a deprecation path
+143,missed,generated file stale,docs/figures/diagrams/modules.mmd,Regenerate and commit the missing PNG diagram artifact
+145,inline,performance,src/fdia_graph/se/base.py,This helper recreates a full-length `thsl` array on every prediction call
+147,inline,compatibility,src/fdia_graph/dataset/__init__.py,"Removing these three re-exports breaks callers of `fdia_graph.dataset.check_units`, `check_order`, and `check_split`; they were intentionally exposed from `data"
+147,inline,input escapes validation,src/fdia_graph/models/config.py,The episode lengths are annotated as integers but `AtLeast` accepts floats
+147,inline,export missing,docs/plans/VALIDATION_PLAN.md,"The implemented model inventory does not match this plan: `LoadOptions` only declares split/units/order/format, `ExportRequest` has no `flatten_features`, and `"
+147,inline,input escapes validation,src/fdia_graph/models/config.py,The integer annotation is not enforced here: `AtLeast` accepts values like `layers=1.5` or `hidden=8.5`
+147,inline,tooling,tools/readability.py,"The prefix test exempts any path beginning with the models directory string, including a future sibling such as `src/fdia_graph/models_backup.py` or `models_ext"
+147,inline,input escapes validation,src/fdia_graph/models/config.py,These fields are annotated as integers but `AtLeast` alone accepts floats
+147,inline,input escapes validation,src/fdia_graph/dataset/export.py,"This `Format` enum only validates `ExportMixin.export(format=...)`; the public `fg.load(..., format=...)`/`FdiaGraph` argument is a separate fixed set (`""torch"""
+147,inline,input escapes validation,src/fdia_graph/formulas/projection.py,"This formula still validates its option by calling the enum directly, so it bypasses `Validated` and raises `Choice._missing_`'s raw message (`reduce must be on"
+147,inline,input escapes validation,src/fdia_graph/__init__.py,"This new entry conversion still omits `format`, even though `load` documents it as the fixed set `""torch""|""pyg""`"
+147,inline,doc claim does not match the code,docs/plans/VALIDATION_PLAN.md,"This says the validation design is standard-library-only, but the landed engine imports NumPy and the array rules (`AsArray`, `IntegerDtype`, `AllFinite`, etc.)"
+147,inline,input escapes validation,src/fdia_graph/models/inputs.py,`EdgeList.N` is declared as an integer but is not validated
+147,inline,input escapes validation,src/fdia_graph/models/validation.py,`Rule.apply` assumes every runtime value can be compared by `holds`
+147,inline,input escapes validation,src/fdia_graph/models/inputs.py,"`StateBlocks.d` is used later as the shape passed to `np.zeros`, but this model never enforces that it is an integer"
+147,inline,input escapes validation,src/fdia_graph/models/validation.py,"`_unpack` treats every `Any` annotation as optional, so required fields such as `StatePool.X`, `ShapedArray.values`, and `ReleaseName.release` skip their rules "
+147,inline,input escapes validation,src/fdia_graph/models/config.py,`k` is annotated as an integer but `AtLeast` accepts a float
+147,inline,input escapes validation,src/fdia_graph/models/config.py,`max_test` is typed as an optional integer but `AtLeast` accepts floats
+147,inline,input escapes validation,src/fdia_graph/models/config.py,"`n_calib` is declared as an integer but only has `AtLeast`, so a float such as `n_calib=1.5` passes validation and later becomes the non-integer `num` argument "
+147,inline,generated file stale,docs/figures/diagrams/modules.mmd,"`profiles.py:31` still imports `system_id` from `registry`, so the AST-generated module graph must retain this dependency"
+147,missed,input escapes validation,src/fdia_graph/engine/core.py,Convert invalid outage values to ConfigError
+147,missed,input escapes validation,src/fdia_graph/models/validation.py,Normalize non-finite overflow to ConfigError
+147,missed,input escapes validation,src/fdia_graph/models/config.py,Preserve resample_min normalization behavior
+147,missed,input escapes validation,src/fdia_graph/models/inputs.py,Reject negative bus counts
+147,missed,doc claim does not match the code,src/fdia_graph/models/__init__.py,Update package dependency description for standard library imports
+147,missed,tooling,src/fdia_graph/models/config.py,Validate gate oracle handling and localize callability
+147,missed,input escapes validation,src/fdia_graph/federated/partition.py,Validate inputs before inferring assignment size
+147,missed,input escapes validation,src/fdia_graph/torch_data.py,Validate pyg_stream layer before indexing
+148,inline,logic and edge cases,docs/plans/VALIDATION_PLAN.md,"The existing `models/` package is intentionally producer-independent, but these config models need runtime annotations for choices/value objects declared in `da"
+148,inline,input escapes validation,docs/plans/VALIDATION_PLAN.md,"`Format` cannot be one shared field type for these two models while preserving the stated compatibility: `load`/`FdiaGraph` accepts `format=""pyg""`, whereas `Exp"
+148,inline,input escapes validation,docs/plans/VALIDATION_PLAN.md,"`Partition` is currently a `typing.NamedTuple` (`src/fdia_graph/models/federated.py:10-19`), so adding a method named `__post_init__` will not make construction"
+148,inline,logic and edge cases,docs/plans/VALIDATION_PLAN.md,"`WindowSpec` is listed as replacing `check_window_args`, whose `W <= T` check depends on the selected dataset's runtime length (`src/fdia_graph/dataset/sequence"
+150,inline,input escapes validation,docs/plans/REFERENCE_STUDY_PLAN.md,"Because these evaluators read truth internally while accepting only prediction arrays, the plan does not define how each prediction row is matched to a row in t"
+150,inline,input escapes validation,docs/plans/REFERENCE_STUDY_PLAN.md,"The current registry has no release allowlist: `release_name()` accepts any semver and `resolve()` builds an asset for it, while v0.8.2 is already absent from `"
+150,inline,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,"The proposed invariant is only existential (`any(y)` iff `any(tamper)`), so an unrelated or incomplete tamper footprint would still pass; it cannot establish th"
+150,inline,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,"The stated evidence standard is not met consistently: several external claims below only name a project, without a file/page link—for example the power-grid-mod"
+150,inline,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,"This statement does not match the current checkout: there is no `src/fdia_graph/models/validation.py` and no `FdiaGraph.require(...)` implementation, so #147 is"
+150,missed,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,Clarify v0.8.2 remains a history and build reference
+150,missed,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,Correct the OGB evaluator contract description
+150,missed,logic and edge cases,docs/plans/REFERENCE_STUDY_PLAN.md,Define family-specific consistency checks for data artifacts
+150,missed,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,Restrict generator-bus bug claim to v0.8.0
+150,missed,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,SDK capability claims conflict with current checkout
+150,missed,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,Update the examples inventory to match the repository
+152,inline,doc claim does not match the code,tools/prereview.py,Neither `src/fdia_graph/models/config.py` nor `src/fdia_graph/models/inputs.py` exists in this checkout (`src/fdia_graph/models/` contains the data/fields/etc
+152,inline,doc claim does not match the code,tools/prereview.py,"The backtick parser only recognizes paths under `src/`, `docs/`, `tools/`, `tests/`, `examples/`, or `scripts/`"
+152,inline,generated file stale,docs/figures/diagrams/contributing_pr_flow.mmd,"This PR changes the Mermaid source, but the corresponding `contributing_pr_flow.png` is not included among the changed files"
+152,inline,input escapes validation,tools/prereview.py,"This condition only rejects multiple headings, so a `CHANGELOG.md` with zero `## Unreleased` sections passes even though the documented gate requires exactly on"
+152,inline,logic and edge cases,tools/pr.py,"This new command routes through `api()`, but that helper sends the literal `Authorization: ******` header and never calls the `token()` function above"
+152,inline,logic and edge cases,tools/prereview.py,"`_CITED` only matches backtick-wrapped, repository-rooted paths with this narrow extension list; it misses normal Markdown link/image destinations and relative "
+152,inline,tooling,tools/prereview.py,`git diff` does not list untracked files
+152,missed,logic and edge cases,tools/prereview.py,Changelog check allows invalid or empty Unreleased entries
+152,missed,tooling,tools/prereview.py,Changelog check does not require an Unreleased entry
+152,missed,doc claim does not match the code,tools/prereview.py,Path extraction ignores directories and extensionless references

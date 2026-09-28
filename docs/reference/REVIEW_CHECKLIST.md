@@ -10,6 +10,28 @@ a number or a generated file describing it did not. Most of those findings point
 request never touched. So the review starts from the diff and searches outward through the whole
 repository, not just the changed lines.
 
+The reviewer also reads every file a pull request touches from top to bottom, not only the changed
+lines: on #140 to #152, 27 of its 78 findings (35%) were in lines the pull request did not change,
+and each one cost a further review round. So the local review reads each touched file whole too.
+
+`python tools/review_ledger.py <num>` adds a pull request's findings to
+`docs/reference/review_ledger.csv` and prints the tally by kind. Run it after every automated review.
+A kind that keeps coming up becomes a checklist item or a mechanical check.
+
+## Since #140 (the ledger, as of #152)
+
+| kind | findings | pull requests | what now catches it |
+|---|---:|---:|---|
+| input escapes validation (a raw `TypeError` or `KeyError`, an argument used before its model, a missing `Integer()`, a negative count) | 25 | 5 | the integer-field check; the malformed-input test that arrives with #147; item 4 |
+| doc claim does not match the code (a release, a file, a count, an unmerged pull request, an uncited outside claim) | 21 | 5 | the cited-path check; item 15 |
+| logic and edge cases | 10 | 5 | item 3 |
+| cache and resume | 7 | 1 | item 10 |
+| generated file stale | 5 | 4 | the class-diagram, data-dictionary and rendered-diagram checks |
+| tooling | 4 | 2 | item 9 |
+| compatibility | 3 | 3 | item 8 |
+| export missing | 2 | 2 | item 8 |
+| performance | 1 | 1 | item 11 |
+
 ## What came up, and how often
 
 | kind | findings | pull requests |
@@ -84,11 +106,20 @@ repository, not just the changed lines.
 13. **Extras.** A new import of scipy, torch or pandapower is declared in the matching extra, guarded
     with an install message, and kept off the `import fdia_graph` path.
 14. **Prose.** Read every added paragraph once for grammar, empty code fences and the docs' tone.
+15. **Every factual sentence holds in this checkout.**
+    - A release named as the default or current matches `registry._RELEASE`.
+    - A count (files, systems, findings) is recounted, not remembered.
+    - A feature that arrives with an unmerged pull request is said to depend on it.
+    - A claim about another project links the file or page that shows it.
+16. **Read every touched file whole.** The reviewer does, and a third of its findings sit in lines
+    the pull request did not change. Look for the same kind of problem the change fixes (an argument
+    still used before its model, a second copy of the old wording) elsewhere in the file.
 
 ## The order
 
 1. `python tools/prereview.py` until it passes.
-2. Work through the checklist above against the diff, searching outward from every change, and fix
-   what it finds.
+2. Work through the checklist above against the diff and every touched file, searching outward from
+   every change, and fix what it finds.
 3. Only then request the automated review (`python tools/pr.py request-review <num>`). Batch the
    fixes to its findings into one push, and run steps 1 and 2 again before requesting it again.
+4. `python tools/review_ledger.py <num>` after each review, so the tally stays current.

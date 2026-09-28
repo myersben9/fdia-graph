@@ -57,6 +57,7 @@ python tools/pr.py wait 80                                     # CI plus every r
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
 python tools/pr.py merge 80                                    # refuses unless green with every required bot's review on the head
+python tools/review_ledger.py 80                               # record the review's findings, print the tally by kind
 ```
 
 Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (windows)`, `typecheck`,
@@ -69,11 +70,13 @@ the fixes to its findings are batched into one push. The order:
 
 1. `python tools/prereview.py` until it passes: the CI gates, the strict suite, and the checks CI
    does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).
-2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff, searching outward
-   from every change (a `/code-review` in Claude Code with the checklist does this). Fold what it
-   finds into the branch.
+2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff and every touched
+   file read whole, searching outward from every change (a `/code-review` in Claude Code with the
+   checklist does this). Fold what it finds into the branch.
 3. Copilot, requested with `tools/pr.py request-review`, required on the head at merge. Answer its
-   findings, fix them all in one push, repeat steps 1 and 2, and only then request it again.
+   findings, fix them all in one push, repeat steps 1 and 2, and only then request it again. Record
+   each review with `tools/review_ledger.py`; a kind of finding that keeps coming up becomes a
+   checklist item or a check in `tools/prereview.py`.
 4. CodeRabbit (`.coderabbit.yaml` carries the repository's review instructions) and Gemini Code Assist, both
    GitHub apps installed on the repository; `tools/pr.py` requires a bot's review on the head as
    soon as that bot has reviewed the pull request once, so a bot that is not installed never
