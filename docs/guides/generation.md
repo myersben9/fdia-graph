@@ -8,7 +8,7 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 |---|---|---|
 | 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
 | 2. meter plan and noise | `engine/core.py` (`FdiaGenerator.__init__`), `engine/measurement.py` | which channels are metered, one noisy scan per state |
-| 3. attack families | `timeline.py`, `engine/records.py`, `engine/attacks.py` | the attacked scan of each family |
+| 3. attack families | `engine/attacks/` (the `AttackMixin`), `engine/records.py`, `timeline.py` | the attacked scan of each family |
 | 4. episode placement | `timeline._place_episodes`, `timeline._frame_split` | onsets, lengths, the split |
 | 5. per-frame layers | `timeline._TimelineBuffers`, `timeline.write_temporal_layers` | the HDF5 file |
 
@@ -82,18 +82,18 @@ below 2% of the reading sits inside meter error and resolves to noise.
 `attack_intensity = 0.20` is the upper edge of the band for Aq, Al, Ad and As, and bounds the redistribution Am draws at onset (`generate_timeline`, `lra_delta`). The At ramp is set by `ramp_rate` and `ramp_len`, Am's steps by `am_rate` and `am_len`, and Ar records the realized change of its replay without bounding it.
 The stealthy families are local false states [WU26]: the attacker changes loads inside a subnetwork
 within `hops = 2` branches, solves that subnetwork with the boundary voltages held true, and adds
-`a = h(x_false) - h(x_true)` to the true scan (`engine/records._stealthy_frame`). Every meter keeps
+`a = h(x_false) - h(x_true)` to the true scan (`engine/attacks/stealthy._stealthy_frame`). Every meter keeps
 its own noise draw, so the residual test sees noise only. Every false state must also stay within
 the case's bus voltage limits and the generator P and Q limits widened to the range the pool used
-(`records._within_limits`, `FdiaGenerator.operating_limits`).
+(`engine/attacks/false_state._within_limits`, `operating_limits`).
 
 | family | code | construction | magnitude per bus | episode length | stealthy | target set |
 |---|---|---|---|---|---|---|
-| `Aq` | 1 | local false state: each target load scaled by its own factor, rise or drop | 5% to 20% (`_draw_single_shot`) | 1 frame (`_ONE_FRAME`) | yes | 1 to 6 stealthy loads (`_pick_targets`) |
+| `Aq` | 1 | local false state: each target load scaled by its own factor, rise or drop | 5% to 20% (`single_shot_design`) | 1 frame (`_ONE_FRAME`) | yes | 1 to 6 stealthy loads (`pick_targets`) |
 | `Ad` | 2 | in-place bias: additive shift on P and Q, a `N(0, 0.02)` pu shift on <code>&#124;V&#124;</code>, a shift on each incident flow | 2% to 20% per channel, random sign (`_corrupt_bias`) | `corrupt_len = 1` | no | 4 attackable loads |
 | `As` | 3 | in-place scaling: one gain on P and Q, one gain per incident flow | gain 1.02 to 1.20 (`_corrupt_scaling`) | `corrupt_len = 1` | no | 4 attackable loads |
 | `Ar` | 4 | in-place replay: the bus's four node channels copied from an earlier benign scan, at least 20 benign scans back once that many are buffered | not bounded; the realized change is recorded (`_corrupt_replay`) | `corrupt_len = 1` | no | 4 attackable loads |
-| `At` | 5 | slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state | 0.2% per frame (`ramp_rate`), peak 2.4% to 5.2% | 60 frames (`ramp_len`) | yes | 5 stealthy loads (`_draw_ramp`) |
+| `At` | 5 | slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state | 0.2% per frame (`ramp_rate`), peak 2.4% to 5.2% | 60 frames (`ramp_len`) | yes | 5 stealthy loads (`draw_ramp`) |
 | `Al` | 6 | redistribution: load-conserving shift across the two PTDF sides of a target line, lowering its apparent flow | 2% to 20% (`_lra_for_line`) | 1 frame (`_ONE_FRAME`) | yes | up to 6 stealthy loads per PTDF side, inside the line's subnetwork |
 | `Am` | 7 | multi-snapshot [WU26]: an `Al` redistribution drawn at onset, reached in steps | per-frame step at most `am_rate * NOISE_FLOOR` = 1.8%, peak 2% to 20% (`_AmShape.under_floor`) | 60 frames (`am_len` defaults to `ramp_len`) | yes | as `Al` |
 
@@ -103,16 +103,16 @@ Notes on the table:
   included [BOY22] (`_load_tables`, `stealthy_pos`). An attackable load has nonzero active power,
   is not on the slack bus and is at most `max_load_mw = 2000` MW (`attackable_pos`). `Ad`, `As` and
   `Ar` draw from the attackable set.
-- The `At` rise lasts 20% to 45% of the episode and the hold 0% to 25% (`_draw_ramp`). Every frame
+- The `At` rise lasts 20% to 45% of the episode and the hold 0% to 25% (`draw_ramp`). Every frame
   carries at least one `ramp_rate` of change, so every frame labelled `At` is attacked
-  (`_ramp_dev`).
+  (`ramp_dev`).
 - `Al` picks its target line at random from the 15 lines with the largest achievable flow change
   (`_pick_lra_target`). `Am` flips the sign per episode with `am_direction = "both"`: "mask" makes a
-  loaded line read lighter, "induce" makes a safe line read loaded (`_am_sign`).
+  loaded line read lighter, "induce" makes a safe line read loaded (`am_sign`).
 - A stealthy step with no local solution is halved: up to 3 times and never below the noise floor
   for `Aq` and `Al` (`AQ_HALVINGS`), up to 6 times for a ramp frame (`STEP_HALVINGS`). `Aq`, `At`
   and `Am` designs are tested on every frame they will occupy before they are accepted, up to 40
-  draws (`_ONSET_DRAWS`).
+  draws (`ONSET_DRAWS`).
 - `Ad`, `As` and `Ar` do not re-solve the grid, so bad-data detection can see them [DAT26].
   Unmetered channels stay zero after corruption (`_corrupt_frame`).
 

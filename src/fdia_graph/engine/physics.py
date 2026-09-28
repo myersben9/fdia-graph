@@ -1,4 +1,7 @@
-"""AC power-flow re-solve: recompute a state under new loads with generation pinned to true dispatch."""
+"""AC power-flow re-solve: recompute a state under new loads with generation pinned to true dispatch.
+
+The attacker's local false state (its area, the local solve, the operating limits) is in
+`engine.attacks`."""
 
 from __future__ import annotations
 
@@ -6,8 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from ..formulas.attacks import bus_load, element_loads, generator_output, operating_limits
-from ..formulas.network import bus_injections, complex_voltages, local_ac_solve, subnetwork
+from ..formulas.attacks import bus_load, element_loads, generator_output
 from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
     OperatingLimits,
     ResolvedPool,
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
 
 
 class PhysicsMixin(GridBase):
-    """Re-solve the grid under attacked/redistributed loads. Mixed into FdiaGenerator."""
+    """Re-solve the grid under new loads, and read a scan's load and generation. Mixed into FdiaGenerator."""
 
     def resolve_states(self, X: np.ndarray) -> ResolvedPool:
         """Re-solve a pool of operating points [T,N,4] under THIS generator's topology.
@@ -110,79 +112,6 @@ class PhysicsMixin(GridBase):
         sb = net.ext_grid["bus"].values  # pin the slack reference to the true voltage and angle
         net.ext_grid["vm_pu"] = [Xt[int(b), 0] for b in sb]
         net.ext_grid["va_degree"] = [Xt[int(b), 3] for b in sb]
-
-    def local_region(self, seeds: np.ndarray, hops: int) -> Optional[np.ndarray]:
-        """The attacker's interior around `seeds` [WU26]: the buses within `hops` branches, never the
-        slack (the angle reference the estimator pins, so its voltage stays true), grown to take in
-        any zero-injection bus on the boundary (a boundary bus absorbs the changed power, and a bus
-        known to inject nothing cannot), and shrunk in reach until a boundary of fixed-voltage buses
-        exists at all. None when even the seeds alone leave no boundary."""
-        live = self._live_edges()
-        for h in range(hops, -1, -1):
-            interior, _ = subnetwork(live, seeds, h, self.C)
-            interior, boundary = self._grow_over_zero_injection(interior[interior != self.slack_bus])
-            if len(interior) and len(boundary):
-                return interior
-        return None
-
-    def _live_edges(self) -> np.ndarray:
-        """The edge index without the branches out of service: an opened line (an N-1 contingency)
-        is not a hop and its far bus is not a boundary."""
-        status = self.branch.status
-        return self.ei if status is None else self.ei[:, status > 0]
-
-    def _grow_over_zero_injection(self, interior: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """The interior with every zero-injection bus of its boundary taken in (repeated until the
-        boundary holds none), and that boundary; the slack stays out."""
-        zero = {int(b) for b in self.zero_inj} - {self.slack_bus}
-        live = self._live_edges()
-        interior, boundary = subnetwork(live, interior, 0, self.C)
-        while len(boundary):
-            grow = [int(b) for b in boundary if int(b) in zero]
-            if not grow:
-                break
-            interior, boundary = subnetwork(live, np.union1d(interior, grow), 0, self.C)
-        return interior, boundary
-
-    def operating_limits(self, X: np.ndarray) -> OperatingLimits:
-        """The constraints every false state of this system must satisfy [WU26, eqs. 21-23]: the
-        case's bus voltage limits verbatim and its generator limits widened to what the pool X ran
-        each generator over (formulas.attacks.operating_limits)."""
-        return operating_limits(self.v_case, self.p_lim, self.q_lim, X, (self.load_base, self.gen_base))
-
-    def solve_local(
-        self, Xt: np.ndarray, interior: np.ndarray, Lp: np.ndarray, Lq: np.ndarray
-    ) -> Optional[np.ndarray]:
-        """The local attacker's false state [WU26]: the interior buses re-solved under the false loads
-        `Lp`, `Lq` (per load-table position, MW/MVAr) with every other voltage held at its true value.
-        Returns the false state [N, 4] in the pool's columns, with the injections of the interior and
-        boundary buses recomputed from the false voltages (the meters the attack must write), or None
-        when the local power flow does not converge."""
-        C = self.C
-        Xa = np.array(Xt, np.float64, copy=True)
-        Pinj, Qinj = Xa[:, NODE.p_inj].copy(), Xa[:, NODE.q_inj].copy()
-        # the pool's injection is load-positive: every load element at a bus minus that bus's
-        # generation, held at this scan's dispatch (the attacker moves loads only)
-        load, qload = np.zeros(C), np.zeros(C)
-        np.add.at(load, self.load_bus, Lp)
-        np.add.at(qload, self.load_bus, Lq)
-        buses = np.unique(self.load_bus)
-        Pinj[buses] = load[buses] - self.scan_generation(Xt)[buses]
-        Qinj[buses] = qload[buses] - self.scan_reactive_generation(Xt)[buses]
-        lut = self._ppc_row[np.arange(C)]
-        Vc = np.zeros(self._n_ppc_buses, complex)
-        Vc[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])
-        target = -(Pinj[interior] + 1j * Qinj[interior]) / self._base_mva  # generation-positive, per unit
-        Vf = local_ac_solve(self._Ybus, Vc, lut[interior], target)
-        if Vf is None:
-            return None
-        Xa[interior, NODE.v] = np.abs(Vf[lut[interior]])
-        Xa[interior, NODE.theta] = np.degrees(np.angle(Vf[lut[interior]]))
-        touched = np.union1d(interior, subnetwork(self._live_edges(), interior, 0, C)[1])  # and its boundary
-        S = bus_injections(Vf, self._Ybus, self._base_mva)[lut[touched]]
-        Xa[touched, NODE.p_inj] = -S.real
-        Xa[touched, NODE.q_inj] = -S.imag
-        return Xa
 
     def solve(
         self,

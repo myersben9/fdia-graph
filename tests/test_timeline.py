@@ -199,13 +199,13 @@ def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
 def test_am_direction_sign_follows_the_engine_convention():
     """`lra_delta` lowers the target line's |flow| in the false state, so mask keeps its sign, and
     a given "both" draw maps to the same sign as before the fix (+1 below 0.5)."""
-    from fdia_graph.timeline import _am_sign
+    from fdia_graph.engine.attacks.episodes import am_sign
 
     rng = np.random.default_rng(0)
-    assert _am_sign("mask", rng) == 1.0 and _am_sign("induce", rng) == -1.0
+    assert am_sign("mask", rng) == 1.0 and am_sign("induce", rng) == -1.0
     draws = np.random.default_rng(7).random(50)
     rng = np.random.default_rng(7)
-    assert [_am_sign("both", rng) for _ in range(50)] == [1.0 if r < 0.5 else -1.0 for r in draws]
+    assert [am_sign("both", rng) for _ in range(50)] == [1.0 if r < 0.5 else -1.0 for r in draws]
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
@@ -241,7 +241,6 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
     from the frame's own labels (targets, magnitudes, the clean state), on every tampered channel,
     and is zero elsewhere: no second noise draw enters."""
     from fdia_graph.engine import FdiaGenerator
-    from fdia_graph.engine.records import _attack_vector
 
     a, attrs = _read(timeline)
     red = {k: float(attrs[k]) for k in ("vbus_frac", "pmu_frac", "flow_frac")}  # the file's meter plan
@@ -264,7 +263,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
             Lp[targets] *= 1.0 + sign * dev
             Xa = g.solve_local(Xt, region, Lp, g.true_reactive_load(Xt))
             if Xa is not None:
-                rebuilt.append(_attack_vector(g, Xa, Xt))
+                rebuilt.append(g._attack_vector(Xa, Xt))
         # exactly one direction reproduces the frame; the clean layer is the pool state in float32, so
         # the rebuilt vector agrees to ~1e-4 MW, where a second noise draw would differ by about 1%
         match = [(n, e) for n, e in rebuilt if np.allclose(dn[nt], n[nt], rtol=1e-3, atol=1e-2)]
@@ -321,27 +320,27 @@ def test_area_equivalent_loads_are_never_targets():
 def test_a_step_without_a_local_solution_is_halved(monkeypatch):
     """The frame is built at the largest halving of the step that solves; an Aq step stops at the
     noise floor, a ramp frame does not."""
-    from fdia_graph.engine import FdiaGenerator, records
+    from fdia_graph.engine import FdiaGenerator
     from fdia_graph.models.frames import AttackDesign, FrameKnobs
 
     g = FdiaGenerator(14, seed=1)
     steps: list[float] = []
 
-    def fake(g_, Xt, design, k):
+    def fake(Xt, design, k):
         steps.append(float(np.max(np.abs(np.asarray(design.mult) - 1.0))))
         return "frame" if steps[-1] <= 0.01 else None
 
-    monkeypatch.setattr(records, "_stealthy_frame", fake)
+    monkeypatch.setattr(g, "_stealthy_frame", fake)
     k = FrameKnobs(0.2, 0.02, 6, None, False, True, hops=2)
     Xt = np.zeros((g.C, 4))
     two = g.attackable_pos[:2]
-    assert records._resolve_frame(g, Xt, 1, AttackDesign(two, np.array([1.2, 1.1])), k) is None
+    assert g._resolve_frame(Xt, 1, AttackDesign(two, np.array([1.2, 1.1])), k) is None
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025])  # three halvings above the floor, none solved
     steps.clear()
-    assert records._resolve_frame(g, Xt, 1, AttackDesign(two, np.array([1.05, 1.05])), k) is None
+    assert g._resolve_frame(Xt, 1, AttackDesign(two, np.array([1.05, 1.05])), k) is None
     assert np.allclose(steps, [0.05, 0.025])  # the next halving would fall under the floor
     steps.clear()
-    assert records._resolve_frame(g, Xt, 5, AttackDesign(two, 1.2), k) == "frame"
+    assert g._resolve_frame(Xt, 5, AttackDesign(two, 1.2), k) == "frame"
     assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])  # the ramp halves past the floor
 
 
@@ -407,7 +406,7 @@ def test_local_region_keeps_a_boundary_and_the_slack_fixed():
 
 
 def test_a_short_am_episode_keeps_the_capped_rate():
-    from fdia_graph.timeline import _AmShape
+    from fdia_graph.engine.attacks.episodes import _AmShape
 
     full = _AmShape.under_floor(rel=0.2, length=60, am_rate=0.9, floor=0.02)
     short = _AmShape.under_floor(rel=0.2, length=4, am_rate=0.9, floor=0.02)
@@ -460,9 +459,9 @@ def test_redistribution_lightens_the_target_line_and_am_names_follow():
     """The engine's redistribution lowers the target line's |flow| in the false state (Al masks an
     overload), so Am's "mask" keeps its sign and "induce" flips it."""
     from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.attacks.episodes import am_sign
     from fdia_graph.formulas.network import branch_flows, complex_voltages
     from fdia_graph.profiles import _case_buses, _solve_states_chunk
-    from fdia_graph.timeline import _am_sign
 
     g = FdiaGenerator(14, seed=5)
     g._pick_lra_target(0.2, 3)  # the target-line pool generation builds before any Al frame
@@ -479,7 +478,7 @@ def test_redistribution_lightens_the_target_line_and_am_names_follow():
         red = g.lra_delta(Lp, 0.2, 3, floor=0.02, hops=2)
         if len(red.buses) == 0:
             continue
-        for sign, lighter in ((_am_sign("mask", None), True), (_am_sign("induce", None), False)):
+        for sign, lighter in ((am_sign("mask", None), True), (am_sign("induce", None), False)):
             Xa = g.solve_local(X, red.interior, Lp + sign * red.delta, Lq)
             if Xa is not None:
                 assert (abs(flow(Xa, red.line)) < abs(flow(X, red.line))) == lighter
@@ -551,16 +550,17 @@ def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_
     from types import SimpleNamespace
 
     from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.engine.attacks.episodes import EpisodeDesignMixin
     from fdia_graph.errors import NoAdmissibleTarget
     from fdia_graph.models.inputs import AdmissibleTargets
-    from fdia_graph.timeline import _target_counts
 
-    g = _target_counts(
+    target_counts = EpisodeDesignMixin.target_counts  # read off any object carrying the three fields
+    g = target_counts(
         SimpleNamespace(stealthy_pos=np.array([], int), _target_lines=[], attackable_pos=np.arange(3))
     )
     AdmissibleTargets(["Ad", "As", "Ar"], g)  # the in-place families still have targets
     AdmissibleTargets(
-        ["benign"], _target_counts(SimpleNamespace(stealthy_pos=[], _target_lines=[], attackable_pos=[]))
+        ["benign"], target_counts(SimpleNamespace(stealthy_pos=[], _target_lines=[], attackable_pos=[]))
     )
     with pytest.raises(NoAdmissibleTarget, match="Aq, Al"):
         AdmissibleTargets(["Aq", "Ad", "Al"], g)

@@ -163,12 +163,21 @@ _LINKED = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 _REFERENCE = re.compile(r"^ {0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?", re.M)  # a reference link: [name]: target
 
 
+_FENCED = re.compile(r"^ {0,3}```.*?^ {0,3}```[^\n]*$", re.M | re.S)  # a fenced code block, fence to fence
+
+
 def _targets(md: str, text: str) -> list[str]:
     """The repository paths a Markdown file cites: backticked repository-rooted paths, and link and
     image destinations resolved against the file's folder (web links, mail and anchors skipped)."""
     top = {f.split("/", 1)[0] for f in _tree()}
+    text = _FENCED.sub("", text)  # a fenced code block cites nothing: `[x](t)` there is code
     spans = _SPAN.findall(_LINKED.sub("", text))  # a link's text is not a citation; its target is
-    out = [s for s in spans if _is_path(s, top)]
+    out = []
+    for s in spans:
+        if s.startswith(("./", "../")):  # relative to the citing file, as a link is
+            out.append(posixpath.normpath(posixpath.join(posixpath.dirname(md), s)))
+        elif _is_path(s, top):
+            out.append(s)
     prose = re.sub(r"`[^`\n]*`", "", text)  # a code span holds no link
     for dest in _LINKED.findall(prose) + _REFERENCE.findall(prose):
         # a web or mail link (`https:`, `mailto:`, protocol-relative `//host`) or an anchor

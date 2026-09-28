@@ -34,11 +34,23 @@ summary); the graph properties are tensors or arrays, `loader()` is a DataLoader
 ## The engine
 
 `FdiaGenerator` is the AC model of one system with its meter plan. `GridBase` declares what the mixins
-provide: `MeasurementMixin` emits scans, `PhysicsMixin` solves states (the whole grid, or the attacker's
-local region), `AttackMixin` builds the in-place corruptions and the load redistribution. The frame
-builders in `engine/records.py` are functions over a generator, and `timeline.py` walks them.
+provide: `MeasurementMixin` emits scans, `PhysicsMixin` re-solves the whole grid under new loads and
+reads a scan's load and generation, and `AttackMixin` builds every attack (next section).
+`engine/records.py` emits a benign scan and hands an attacked family to the mixin; `timeline.py`
+decides when and where each episode runs.
 
-![Class diagram of the engine package: GridBase with MeasurementMixin, PhysicsMixin and AttackMixin under it and FdiaGenerator inheriting all three; the mixins use Scan, Band, TamperTarget, Redistribution, OperatingLimits and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias and an Outage](../figures/diagrams/classes_engine.png)
+![Class diagram of the engine package: GridBase with MeasurementMixin and PhysicsMixin under it, AttackMixin composed of EpisodeDesignMixin, StealthyMixin and CorruptMixin, and FdiaGenerator inheriting MeasurementMixin, PhysicsMixin and AttackMixin; the mixins use Scan, AttackDesign, Frame, FrameKnobs and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias, an Outage, a PandapowerNet and its PpcTables](../figures/diagrams/classes_engine.png)
+
+## The attacks
+
+Every attack is built in `engine/attacks/`, one module per concern, composed into `AttackMixin`:
+`AreaMixin` finds the attacker's area, `FalseStateMixin` solves and checks its false state and the
+attack vector, `RedistributionMixin` draws the load redistribution behind `Al` and `Am`,
+`StealthyMixin` builds the stealthy frames, `EpisodeDesignMixin` draws what an episode attacks at its
+onset, and `CorruptMixin` tampers `Ad`, `As` and `Ar` in place. `AttackMixin.attack_frame` is the one
+entry for an attacked scan.
+
+![Class diagram of the attack package: GridBase with AreaMixin and CorruptMixin under it, FalseStateMixin under AreaMixin, RedistributionMixin under FalseStateMixin, StealthyMixin and EpisodeDesignMixin under RedistributionMixin, and AttackMixin inheriting EpisodeDesignMixin, StealthyMixin and CorruptMixin; the mixins use AttackDesign, RampDesign, AmDesign, Frame, FrameKnobs, OperatingLimits, Redistribution, Scan, Band and TamperTarget](../figures/diagrams/classes_attacks.png)
 
 ## State estimation
 

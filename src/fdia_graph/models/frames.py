@@ -1,6 +1,6 @@
 """What the generator passes around per scan: a measurement scan, the emitted frame with its labels,
-the run's attack knobs, the design and target of one attack, and the two intermediate results of the
-physics (a load redistribution, a re-solved pool)."""
+the run's attack knobs, the design and target of one attack (and of a ramp or Am episode), and the
+two intermediate results of the physics (a load redistribution, a re-solved pool)."""
 
 from __future__ import annotations
 
@@ -37,11 +37,33 @@ class TamperTarget(NamedTuple):
 
 class AttackDesign(NamedTuple):
     """A stealthy attack's design on one scan: the loads it moves, by how much, and over which
-    subnetwork. The local false state is solved from it (engine.records.stealthy_state)."""
+    subnetwork. The local false state is solved from it (engine.attacks, `stealthy_state`)."""
 
     targets: np.ndarray  # positions in the generator's load table (not bus numbers)
     mult: Union[float, np.ndarray]  # load multiplier: a scalar for the ramp, one per target otherwise
     interior: Optional[np.ndarray] = None  # the attacker's subnetwork; None: the region around targets
+
+
+class RampDesign(NamedTuple):
+    """One At episode, drawn at onset: a fixed load set scaled along a rise, a hold and a return
+    (engine.attacks, `ramp_design`); frame i applies `ramp_step(design, i, rate)`."""
+
+    targets: np.ndarray  # positions in the generator's load table
+    direction: float  # +1 a load rise, -1 a load drop
+    rise: int  # frames of the rise
+    hold: int  # frames held at the peak
+
+
+class AmDesign(NamedTuple):
+    """One Am episode, drawn at onset: a load redistribution held over the episode and the ramp that
+    reaches it (engine.attacks, `am_design`); frame i applies `am_step(design, Xt, i)`."""
+
+    targets: np.ndarray  # positions in the generator's load table
+    delta: np.ndarray  # MW per target at full strength (load-conserving)
+    interior: Optional[np.ndarray]  # the attacker's subnetwork around the target line
+    rate: float  # fraction of the full redistribution added per frame on the rise and the fall
+    rise: int
+    hold: int
 
 
 class Frame(NamedTuple):

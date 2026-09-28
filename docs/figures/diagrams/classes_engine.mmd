@@ -2,9 +2,11 @@ classDiagram
     class GridBase {
         +emit_from_state()
         +clean_flows_from_states()
-        +local_region()
-        +solve_local()
         +state_from_net()
+        +true_load()
+        +true_reactive_load()
+        +scan_generation()
+        +scan_reactive_generation()
         +solve()
     }
     class MeasurementMixin {
@@ -19,24 +21,31 @@ classDiagram
         +true_reactive_load()
         +scan_reactive_generation()
         +scan_generation()
-        +local_region()
-        +operating_limits()
-        +solve_local()
-        ... and 1 more
+        +solve()
     }
     class AttackMixin {
-        +corrupt()
-        +incident_branches()
-        +lra_delta()
+        +attack_frame()
     }
     class FdiaGenerator {
         +nl
         +centrality_probs()
     }
-    class Band {
+    class AttackDesign {
         <<models>>
     }
     class BranchModel {
+        <<models>>
+    }
+    class CorruptMixin {
+        <<engine>>
+    }
+    class EpisodeDesignMixin {
+        <<engine>>
+    }
+    class Frame {
+        <<models>>
+    }
+    class FrameKnobs {
         <<models>>
     }
     class GeneratorOptions {
@@ -51,9 +60,6 @@ classDiagram
     class MeterPlan {
         <<models>>
     }
-    class OperatingLimits {
-        <<models>>
-    }
     class Outage {
         <<models>>
     }
@@ -63,28 +69,26 @@ classDiagram
     class PpcTables {
         <<engine>>
     }
-    class Redistribution {
-        <<models>>
-    }
     class ResolvedPool {
         <<models>>
     }
     class Scan {
         <<models>>
     }
-    class TamperTarget {
-        <<models>>
+    class StealthyMixin {
+        <<engine>>
     }
     AttackMixin <|-- FdiaGenerator
-    GridBase <|-- AttackMixin
+    CorruptMixin <|-- AttackMixin
+    EpisodeDesignMixin <|-- AttackMixin
     GridBase <|-- MeasurementMixin
     GridBase <|-- PhysicsMixin
     MeasurementMixin <|-- FdiaGenerator
     PhysicsMixin <|-- FdiaGenerator
-    AttackMixin ..> Band : uses
-    AttackMixin ..> Redistribution : uses
-    AttackMixin ..> Scan : uses
-    AttackMixin ..> TamperTarget : uses
+    StealthyMixin <|-- AttackMixin
+    AttackMixin ..> AttackDesign : uses
+    AttackMixin ..> Frame : uses
+    AttackMixin ..> FrameKnobs : uses
     FdiaGenerator ..> BranchModel : uses
     FdiaGenerator ..> GeneratorOptions : uses
     FdiaGenerator ..> GridIslanded : uses
@@ -98,10 +102,8 @@ classDiagram
     GridBase ..> MeterPlan : uses
     GridBase ..> Outage : uses
     GridBase ..> PandapowerNet : uses
-    GridBase ..> Redistribution : uses
     GridBase ..> Scan : uses
     MeasurementMixin ..> PandapowerNet : uses
     MeasurementMixin ..> Scan : uses
-    PhysicsMixin ..> OperatingLimits : uses
     PhysicsMixin ..> PandapowerNet : uses
     PhysicsMixin ..> ResolvedPool : uses

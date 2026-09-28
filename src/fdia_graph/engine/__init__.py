@@ -1,7 +1,7 @@
 """The generation engine — the math/physics/theory half of the SDK, behind fg.generate().
 
 FdiaGenerator (core.py) composes three concern mixins over a pandapower grid:
-measurement.py (meters + noise), physics.py (AC solves), attacks.py (the six families).
+measurement.py (meters + noise), physics.py (AC solves), attacks/ (every attack family).
 Everything user-facing (loading, registry, streams) lives one level up.
 """
 

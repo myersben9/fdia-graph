@@ -1,4 +1,5 @@
-"""Attack construction: meter-level corruption (Ad/As/Ar) and load-redistribution (Al) deltas."""
+"""The load redistribution behind `Al` and `Am`: the target lines ranked once by how far a
+load-conserving redistribution can steer them, and the redistribution drawn for one attack."""
 
 from __future__ import annotations
 
@@ -6,103 +7,12 @@ from typing import Optional
 
 import numpy as np
 
-from ..models.frames import (  # noqa: F401  Redistribution re-exported: defined here before the models package
-    Band,
-    Redistribution,
-    Scan,
-    TamperTarget,
-)
-from .base import GridBase
+from ...models.frames import Redistribution
+from .false_state import FalseStateMixin
 
 
-class AttackMixin(GridBase):
-    """Build the attacks that tamper measurements or redistribute load. Mixed into FdiaGenerator."""
-
-    def corrupt(
-        self,
-        scan: Scan,
-        buses: np.ndarray,
-        kind: str,
-        replay: Optional[np.ndarray],
-        band: Band = Band(0.02, 0.20),
-    ) -> tuple[bool, np.ndarray]:
-        """Measurement-level attacks (the BDD-detectable contrast families): tamper the emitted
-        readings of `scan` in place at the attacked `buses` and their incident branches WITHOUT
-        respecting the power-flow physics, which is why bad-data detection catches them [DAT26].
-
-        The plausibility `band` keeps each tamper above the noise floor (not a within-noise no-op)
-        and below the literature cap. Returns (weak, mags): `weak` flags a scan whose realized change
-        left the band (only Ar can, since it replays the grid) so the caller can reject and redraw;
-        `mags` is the realized per-bus |delta| / |base| on the P/Q injection channels. The family is
-        decided once; each family's draws happen bus by bus, then branch by branch, in the order
-        released files were built with.
-        """
-        target = TamperTarget(buses, self.incident_branches(buses))
-        if kind == "Ad":
-            return False, np.array(self._corrupt_bias(scan, target, band), float)
-        if kind == "As":
-            return False, np.array(self._corrupt_scaling(scan, target, band), float)
-        if kind == "Ar" and replay is not None:
-            mags, weak = self._corrupt_replay(scan, target, replay, band)
-            return weak, np.array(mags, float)
-        return False, np.zeros(0, float)  # Ar with nothing to replay yet: untouched
-
-    def incident_branches(self, buses: np.ndarray) -> list[int]:
-        """Branch positions with one of `buses` at either end."""
-        return [e for e in range(self.E) if self.ei[0, e] in buses or self.ei[1, e] in buses]
-
-    def _band_shift(self, cur: np.ndarray, band: Band) -> np.ndarray:
-        """An additive perturbation with per-channel |delta| / |cur| drawn UNIFORMLY over the band
-        and a random sign. An in-band draw (rather than clipping a big Gaussian) keeps Ad spread
-        across the band instead of piled at the cap."""
-        base = np.abs(cur) + 1e-6
-        rel = self.rng.uniform(band.floor, band.cap, cur.shape)
-        sign = np.where(self.rng.random(cur.shape) < 0.5, -1.0, 1.0)
-        return sign * rel * base
-
-    def _corrupt_bias(self, scan: Scan, target: TamperTarget, band: Band) -> list[float]:
-        """Ad: an in-band additive shift on P/Q and a small |V| shift at each attacked bus, then an
-        in-band shift on the flows of every incident branch."""
-        nx, ex = scan.node_x, scan.edge_x
-        mags = []
-        for b in target.buses:
-            base = np.abs(nx[b, 1:3]) + 1e-6
-            sh = self._band_shift(nx[b, 1:3], band)
-            nx[b, 1:3] += sh
-            nx[b, 0] += self.rng.normal(0, 0.02)
-            mags.append(float(np.max(np.abs(sh) / base)))
-        for e in target.branches:
-            ex[e] += self._band_shift(ex[e], band)
-        return mags
-
-    def _corrupt_scaling(self, scan: Scan, target: TamperTarget, band: Band) -> list[float]:
-        """As: a multiplicative gain inside the band on P/Q at each attacked bus and on each incident flow."""
-        nx, ex = scan.node_x, scan.edge_x
-        mags = []
-        for b in target.buses:
-            gain = self.rng.uniform(1.0 + band.floor, 1.0 + band.cap)
-            nx[b, 1:3] *= gain
-            mags.append(abs(gain - 1.0))
-        for e in target.branches:
-            ex[e] *= self.rng.uniform(1.0 + band.floor, 1.0 + band.cap)
-        return mags
-
-    def _corrupt_replay(
-        self, scan: Scan, target: TamperTarget, replay: np.ndarray, band: Band
-    ) -> tuple[list[float], bool]:
-        """Ar: replace each attacked bus's reading with an earlier benign scan's; weak when the realized
-        change leaves the plausibility band. The branch flows are left as read."""
-        nx = scan.node_x
-        mags, weak = [], False
-        for b in target.buses:
-            base = np.abs(nx[b, 1:3]) + 1e-6
-            cur = nx[b, 1:3].copy()
-            nx[b, :] = replay[b, :]
-            m = float(np.max(np.abs(nx[b, 1:3] - cur) / base))
-            mags.append(m)
-            if m < band.floor or m > band.cap:
-                weak = True
-        return mags, weak
+class RedistributionMixin(FalseStateMixin):
+    """Choose a target line and the load-conserving redistribution that steers it [DAT26, WU26]."""
 
     def _lra_for_line(
         self,

@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Every attack is built in one place, `engine.attacks`, a package whose modules compose the
+  generator's `AttackMixin`: `area` (the attacker's area), `false_state` (the local solve, the
+  operating limits, the attack vector and the tamper set), `redistribution` (the `Al` and `Am`
+  redistribution), `stealthy` (the `Aq`/`At`/`Al`/`Am` frames), `episodes` (what an episode
+  attacks, drawn at onset, typed as `RampDesign` and `AmDesign`) and `corrupt` (`Ad`/`As`/`Ar` and
+  the replay buffer). This code was spread over `engine/records.py`, `engine/physics.py`,
+  `engine/attacks.py` and `timeline.py`; `records` now emits a benign scan and hands an attacked
+  family to the mixin, and `timeline` decides when and where each episode runs. No user-visible
+  change: the generated files are bit for bit the same. The public names keep their old import
+  paths; a moved private name (such as `engine.records._stealthy_frame` or `timeline._AmShape`)
+  still imports from its old module with a `DeprecationWarning` naming its new home, until 0.22.
 - Every annotation carries its real type. The engine's pandapower network and its internal case are
   `engine.pp_types.PandapowerNet` and `PpcTables`; torch modules and tensors, HDF5 files and
   datasets, sparse admittance matrices and the stream mappings are named; the column views are
