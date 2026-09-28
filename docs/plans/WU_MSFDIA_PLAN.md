@@ -107,10 +107,17 @@ general solver. It needs a heavy optional dependency, gives no better guarantee 
 search on the small cases, and is slower on the large ones. It can serve as an offline validation
 if a reviewer asks.
 
-**The window.** Snapshots are solved in order, as the paper does. Snapshot t targets
-`S_{l,t} >= S_{l,κ} + (t - κ)/T · (S_max - S_{l,κ})`, starts its search from the previous
-snapshot's support, and keeps each meter's change from the previous snapshot under the stealth
-bound (`σ_{m,t}`). The support may shrink over the window, as the paper's Fig. 4 reports.
+**The window.** D1 counts the devices tampered over the whole window, so the search is over the
+window, not snapshot by snapshot: a candidate is one support S held for the episode, feasible at
+every snapshot, where snapshot t meets `S_{l,t} >= S_{l,κ} + (t - κ)/T · (S_max - S_{l,κ})`
+and keeps each channel's change from the previous snapshot under the stealth bound (`σ_{m,t}`).
+Its exact cost is the union over the window of the devices with a channel moved beyond noise, and
+the lower bound is the same count for the channels S must move at every snapshot. The optimum is
+therefore exact over supports held for the window, and the plan claims no more than that. Supports
+that change between snapshots, as in the paper's Fig. 4, touch the devices their union touches, so
+holding that union costs no more whenever it is feasible at every snapshot, which is not
+guaranteed. Per-snapshot solving from the previous support is the fallback when the budget runs
+out on 118 and 300, and the file records which one each episode used.
 
 ## 4. What changes for each family
 
