@@ -5,7 +5,7 @@ docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue.
 Provisional until 1.0: names may still be adjusted once, with a deprecation alias.
 """
 
-from .attacks import ramp_profile
+from .attacks import ramp_profile, tampered_channels, tampered_devices
 from .estimation import (
     critical_measurements,
     floored_covariance,
@@ -45,7 +45,7 @@ from .network import (
     series_admittance,
     subnetwork,
 )
-from .noise import bias_jitter_split
+from .noise import bias_jitter_split, jitter_sigma
 from .projection import (
     bus_incidence,
     direction_coefficients,
@@ -91,6 +91,7 @@ __all__ = [
     "hop_distance",
     "huber_weights",
     "interior_boundary",
+    "jitter_sigma",
     "leverage",
     "local_ac_solve",
     "meters_to_buses",
@@ -108,6 +109,8 @@ __all__ = [
     "sparse_basis",
     "subnetwork",
     "swing_zscore",
+    "tampered_channels",
+    "tampered_devices",
     "tau_from_counts",
     "temporal_delta",
     "weak_directions",

@@ -7,6 +7,7 @@ A reader looking for how an attack is made starts here:
                        a = h(x_false) - h(x_true) and the meters it moves
     redistribution.py  the load-conserving redistribution behind Al and Am, and its target lines
     stealthy.py        the frames of Aq, At, Al and Am, and the halving of a step that does not solve
+    minimize.py        the fewest-tamper support of an attack window [WU26, eq. 12], behind `min_tamper`
     episodes.py        what an episode attacks, drawn at its onset: the ramp, the single-shot design,
                        the held Am redistribution and the schedule each frame applies
     corrupt.py         Ad, As and Ar, tampered in place, and the benign scans the replay draws from

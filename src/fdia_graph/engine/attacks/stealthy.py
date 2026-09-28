@@ -98,7 +98,9 @@ class StealthyMixin(RedistributionMixin):
         dev = np.abs(np.asarray(design.mult) - 1.0)  # per-bus designed load-shift fraction
         if k.reject_below_floor and family == AQ_FAMILY and np.max(dev) < k.floor:
             return None  # a within-noise no-op; the ramp is exempt so its per-scan step may stay sub-floor
-        placed = self.with_region(design._replace(interior=None), k)  # always the region around the targets
+        # the region around the targets, or the episode's fewest-tamper support when the search chose one
+        held = design if k.min_tamper and design.interior is not None else design._replace(interior=None)
+        placed = self.with_region(held, k)
         if placed is None:
             return None
         limit = (AQ_HALVINGS, k.floor) if family == AQ_FAMILY else (STEP_HALVINGS, None)

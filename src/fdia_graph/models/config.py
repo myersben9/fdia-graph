@@ -246,6 +246,8 @@ class TimelineKnobs(Validated):
     ramp_len: Annotated[int, Integer(), AtLeast(1)] = 60
     am_len: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # None: as long as a ramp
     corrupt_len: Annotated[Optional[int], Integer(), AtLeast(1)] = 1
+    min_tamper: bool = False  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
+    min_budget: Count = 256  # candidate supports the search solves per episode before it settles
 
     @property
     def am_frames(self) -> int:

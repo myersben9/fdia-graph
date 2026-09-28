@@ -137,3 +137,56 @@ def ramp_profile(i: int, rise: int, hold: int, rate_up: float, rate_down: float)
     if i < rise + hold:
         return peak
     return max(0.0, peak - rate_down * (i - rise - hold))
+
+
+def tampered_channels(
+    a_node: np.ndarray,
+    a_edge: np.ndarray,
+    sig_node: np.ndarray,
+    sig_edge: np.ndarray,
+    node_m: np.ndarray,
+    edge_m: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """The metered channels an attack vector moves by more than their noise [WU26, the l0 count of
+    eq. 12 with sub-noise changes excluded, as the paper's experiments do]:
+
+        tampered_m = metered_m  and  |a_m| > sigma_m
+
+    a_node, a_edge     : the attack vector h(x_false) - h(x_true) per node [N, 4] and flow [E, 2] channel
+    sig_node, sig_edge : each channel's per-scan noise std (`formulas.noise.jitter_sigma`)
+    node_m, edge_m     : the meter masks (1 where the channel is metered)
+    returns            : boolean masks [N, 4] and [E, 2]
+    """
+    node = (np.abs(a_node) > sig_node) & (np.asarray(node_m) > 0)
+    edge = (np.abs(a_edge) > sig_edge) & (np.asarray(edge_m) > 0)
+    return node, edge
+
+
+def tampered_devices(
+    node_mask: np.ndarray, edge_mask: np.ndarray, pmu_bus: np.ndarray, from_bus: np.ndarray
+) -> np.ndarray:
+    """The devices holding the tampered channels, the unit [WU26] counts in its results: one SCADA
+    terminal per bus and one PMU per bus.
+
+        SCADA terminal of bus b : P and Q injection at b, the flow meters of branches metered at b
+                                  (a flow is metered at its from end), |V| and angle at b when b has
+                                  no PMU (a voltage-magnitude meter)
+        PMU of bus b            : |V| and angle at b when b has a PMU (its branch-current channels
+                                  join here with [WU26, eqs. 19-20])
+
+    Ids: the SCADA terminal of bus b is b, the PMU of bus b is N + b.
+
+    node_mask, edge_mask : tampered channels, [N, 4] and [E, 2] booleans (`tampered_channels`)
+    pmu_bus              : [N] booleans, the buses with a PMU
+    from_bus             : [E] from-end bus of each branch (the end its flow is metered at)
+    returns              : sorted unique device ids
+    """
+    node_mask = np.asarray(node_mask, bool)
+    N = node_mask.shape[0]
+    pmu = np.asarray(pmu_bus, bool)
+    power = node_mask[:, NODE.p_inj] | node_mask[:, NODE.q_inj]
+    voltage = node_mask[:, NODE.v] | node_mask[:, NODE.theta]
+    scada = power | (voltage & ~pmu)
+    flow_buses = np.asarray(from_bus)[np.asarray(edge_mask, bool).any(axis=1)]
+    ids = np.concatenate([np.where(scada)[0], flow_buses, N + np.where(voltage & pmu)[0]])
+    return np.unique(ids.astype(np.int64))

@@ -5,6 +5,22 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The fewest-tamper search of [WU26, eq. 12], behind `generate_timeline(min_tamper=True)` (off by
+  default: every released number is unchanged). Each At episode is held on the support (the buses
+  its false state moves) that tampers the fewest devices over the episode, a device being one SCADA
+  terminal or one PMU per bus and a change under a meter's noise not counted. A support is held for
+  the whole episode and must solve at every snapshot inside the operating limits and move no
+  metered channel by more than its noise from one snapshot to the next. The search solves candidate
+  supports in the attacker's area smallest first, each closed over the zero-injection buses of its
+  boundary, starting from the region the episode was accepted on; it proves the optimum over held
+  supports when it exhausts the area or reaches the devices the goal forces above noise, settles
+  after `min_budget` candidates otherwise, and records `min_devices = -1` when no held support
+  meets every constraint (the episode then runs on its region). Each search is written under
+  `episodes/` (`min_support_*`, `min_devices`, `min_channels`, `min_proven`, `min_evaluated`,
+  `min_lower_bound`). New formulas `formulas.noise.jitter_sigma` (the emitter's per-channel noise
+  rule, now shared with the objective), `formulas.attacks.tampered_channels` and
+  `tampered_devices`; new models `LoadGoal` and `MinimizerResult`; `MeasurementMixin.meter_masks`
+  gives the masks without a random draw.
 - Every attack is built in one place, `engine.attacks`, a package whose modules compose the
   generator's `AttackMixin`: `area` (the attacker's area), `false_state` (the local solve, the
   operating limits, the attack vector and the tamper set), `redistribution` (the `Al` and `Am`
