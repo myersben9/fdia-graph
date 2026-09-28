@@ -132,7 +132,9 @@ the true flow plus a linear share of what separates the window's last true flow 
 the false state, reaching the rating `S_max` at the last snapshot; the attackable loads of the
 support are free, every other bus keeps its injection, and the false state is the least-norm voltage
 change that meets the flow. The ratings are PGLib-OPF's (IEEE-14, 118 and 300; other cases raise
-`NoLineRatings`). As in [WU26], nothing bounds how far `Am` moves a channel between snapshots: a
+`NoLineRatings`). The generators of the support are free inside their limits, like its attackable loads, and the
+flow solve enforces the voltage and generator limits by an active set (the plan's D14). As in
+[WU26], nothing bounds how far `Am` moves a channel between snapshots: a
 device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the
 current channels included; `formulas.noise.paper_sigma`, the plan's D8 and D11), and the attack is
 stealthy because every snapshot is one AC state. `At` keeps its bound, each step within the meters'

@@ -351,25 +351,35 @@ def local_ac_solve(
 
 def _flow_residual(
     Yb: np.ndarray,
-    yf: np.ndarray,
-    f: int,
+    goal: tuple[np.ndarray, np.ndarray, np.ndarray],
     V: np.ndarray,
     fixed: np.ndarray,
     S_fixed: np.ndarray,
-    target: float,
+    vm_fixed: tuple[np.ndarray, np.ndarray] = (np.zeros(0, int), np.zeros(0)),
 ) -> np.ndarray:
-    """[Re; Im] of S_fixed - S(V) at the fixed buses, then |S_f(V)| - target on the goal branch."""
+    """[Re; Im] of S_fixed - S(V) at the fixed buses, then |S_f(V)| - target on each goal branch
+    (`goal` = (yf [L, n], f [L], target [L])), then |V_b| - value at each held magnitude
+    (`vm_fixed`)."""
+    yf, f, target = goal
     mis = S_fixed - (V * np.conj(Yb @ V))[fixed]
-    flow = abs(V[f] * np.conj(yf @ V))
-    return np.concatenate([np.real(mis), np.imag(mis), [flow - target]])
+    flow = np.abs(V[f] * np.conj(yf @ V))
+    vb, vm = vm_fixed
+    return np.concatenate([np.real(mis), np.imag(mis), flow - target, np.abs(V[vb]) - vm])
 
 
 def _flow_jacobian(
-    Yb: np.ndarray, yf: np.ndarray, f: int, V: np.ndarray, I_: np.ndarray, fixed_rows: np.ndarray
+    Yb: np.ndarray,
+    yf: np.ndarray,
+    f: np.ndarray,
+    V: np.ndarray,
+    I_: np.ndarray,
+    fixed_rows: np.ndarray,
+    vm_cols: np.ndarray = np.zeros(0, int),
 ) -> np.ndarray:
     """The Jacobian of `_flow_residual` in [θ_I, |V|_I]: the fixed buses' injection rows (negated,
-    the residual is target minus injection) and the goal branch's apparent-power row, from the
-    from-end flow S_f = V_f conj(y_f . V):
+    the residual is target minus injection), one apparent-power row per goal branch, from its
+    from-end flow S_f = V_f conj(y_f . V), and a unit row per held magnitude (`vm_cols`, positions
+    in the interior):
 
         dS_f/dθ_j   = 1j S_f [j = f] - 1j V_f conj(y_fj V_j)
         dS_f/d|V|_j = (V_f/|V_f|) conj(y_f . V) [j = f] + V_f conj(y_fj V_j / |V_j|)
@@ -378,38 +388,44 @@ def _flow_jacobian(
     k = len(I_)
     Jinj = _interior_jacobian(Yb, V, I_)
     rows = np.concatenate([fixed_rows, k + fixed_rows])
-    Iff = yf @ V
-    Sf = V[f] * np.conj(Iff)
     VI = V[I_]
-    dth = -1j * V[f] * np.conj(yf[I_] * VI)
-    dvm = V[f] * np.conj(yf[I_] * VI / np.abs(VI))
-    at_f = np.flatnonzero(I_ == f)
-    if len(at_f):
-        dth[at_f] += 1j * Sf
-        dvm[at_f] += (V[f] / abs(V[f])) * np.conj(Iff)
-    mag = max(abs(Sf), 1e-12)
-    dmag = np.concatenate([np.real(np.conj(Sf) * dth), np.real(np.conj(Sf) * dvm)]) / mag
-    return np.vstack([-Jinj[rows], dmag[None, :]])
+    flow_rows = []
+    for y, b in zip(yf, f):
+        Iff = y @ V
+        Sf = V[b] * np.conj(Iff)
+        dth = -1j * V[b] * np.conj(y[I_] * VI)
+        dvm = V[b] * np.conj(y[I_] * VI / np.abs(VI))
+        at_f = np.flatnonzero(I_ == b)
+        if len(at_f):
+            dth[at_f] += 1j * Sf
+            dvm[at_f] += (V[b] / abs(V[b])) * np.conj(Iff)
+        mag = max(abs(Sf), 1e-12)
+        flow_rows.append(np.concatenate([np.real(np.conj(Sf) * dth), np.real(np.conj(Sf) * dvm)]) / mag)
+    vm_rows = np.zeros((len(vm_cols), 2 * k))
+    vm_rows[np.arange(len(vm_cols)), k + np.asarray(vm_cols, int)] = 1.0  # d|V_b| / d|V|_b
+    return np.vstack([-Jinj[rows], *flow_rows, vm_rows])
 
 
 def local_flow_solve(
     Ybus: Admittance,
     yf_row: np.ndarray,
-    from_bus: int,
+    from_bus: Union[int, np.ndarray],
     V: np.ndarray,
     interior: np.ndarray,
     fixed: np.ndarray,
     S_fixed: np.ndarray,
-    target: float,
+    target: Union[float, np.ndarray],
     iters: int = 50,
     tol: float = 1e-9,
+    vm_fixed: Optional[tuple[np.ndarray, np.ndarray]] = None,
 ) -> Optional[np.ndarray]:
-    """The false state of a local attacker who drives one branch's apparent flow to `target` [WU26,
-    eqs. 24-25]: the interior voltages move, the buses of `fixed` keep their injections, the others of
-    the interior (the loads the attacker pretends) are free, and every bus outside the interior keeps
-    its true voltage.
+    """The false state of a local attacker who drives one or more branches' apparent flows to their
+    targets [WU26, eqs. 24-25]: the interior voltages move, the buses of `fixed` keep their
+    injections, the others of the interior (the free injections: the loads the attacker pretends and
+    the generators whose output it pretends) are free, and every bus outside the interior keeps its
+    true voltage.
 
-        S_i(V) = S_fixed_i   for i in `fixed`,      |V_f conj(y_f . V)| = target
+        S_i(V) = S_fixed_i   for i in `fixed`,      |V_f conj(y_f . V)| = target_l for each goal l
 
     With fewer equations than the 2k unknowns [θ_I, |V|_I], the solve takes the least-norm
     Gauss-Newton step (the smallest voltage change that removes the residual to first order, numpy's
@@ -417,31 +433,39 @@ def local_flow_solve(
     backtracks. From the true state this reaches the solution nearest to it.
 
     Ybus     : [n, n] nodal admittance, per unit
-    yf_row   : [n] the goal branch's row of Yf (from-end current), per unit
-    from_bus : the goal branch's from-end bus (the end its flow is metered at)
+    yf_row   : [n] the goal branch's row of Yf (from-end current), or [L, n] for L goal branches
+    from_bus : the goal branch's from-end bus (the end its flow is metered at), or [L]
     V        : [n] true complex bus voltages
     interior : the buses whose voltages may change
     fixed    : the interior buses whose injection is held (a subset of `interior`)
     S_fixed  : [len(fixed)] their injections, per unit, generation positive
-    target   : the goal branch's apparent flow, per unit
+    target   : the goal branch's apparent flow, per unit, or [L]
+    vm_fixed : (interior buses, magnitudes) held at those voltage magnitudes, or None (a bound the
+               caller enforces, e.g. a voltage limit)
     returns  : [n] the false voltages, or None when no step lowers the residual or `iters` run out
     """
     Yb = _dense(Ybus)
-    yf = np.asarray(_dense(yf_row)).ravel()
+    yf = np.atleast_2d(np.asarray(_dense(yf_row)))
+    f = np.atleast_1d(np.asarray(from_bus, int))
+    goal = np.atleast_1d(np.asarray(target, float))
     V = np.array(V, np.complex128, copy=True)
     I_ = np.asarray(interior, int)
     fx = np.asarray(fixed, int)
     fixed_rows = np.array([int(np.flatnonzero(I_ == b)[0]) for b in fx], int)
+    vb, vm = (
+        (np.zeros(0, int), np.zeros(0)) if vm_fixed is None else (np.asarray(vm_fixed[0], int), vm_fixed[1])
+    )
+    vm_cols = np.array([int(np.flatnonzero(I_ == b)[0]) for b in vb], int)
+    residual = partial(_flow_residual, Yb, (yf, f, goal), fixed=fx, S_fixed=S_fixed, vm_fixed=(vb, vm))
     for _ in range(iters):
-        r = _flow_residual(Yb, yf, from_bus, V, fx, S_fixed, target)
+        r = residual(V)
         norm = float(np.max(np.abs(r)))
         if norm < tol:
             return V
-        J = _flow_jacobian(Yb, yf, from_bus, V, I_, fixed_rows)
+        J = _flow_jacobian(Yb, yf, f, V, I_, fixed_rows, vm_cols)
         step = np.linalg.lstsq(J, -r, rcond=None)[0]  # the minimum-norm solution of J step = -r
         if not np.all(np.isfinite(step)):
             return None
-        residual = partial(_flow_residual, Yb, yf, from_bus, fixed=fx, S_fixed=S_fixed, target=target)
         Vnext = _flow_backtrack(residual, V, I_, step, norm)
         if Vnext is None:
             return None

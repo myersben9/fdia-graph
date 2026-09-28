@@ -40,6 +40,7 @@ already exceeds the best. When no held support meets every constraint, the resul
 from __future__ import annotations
 
 import heapq
+import itertools
 from collections.abc import Iterator
 from typing import Optional, Union, cast
 
@@ -122,14 +123,20 @@ class MinimizeMixin(FalseStateMixin):
     def _goal_seeds(self, goal: Goal) -> tuple[np.ndarray, list[frozenset[int]], Optional[frozenset[int]]]:
         """(the buses the area grows from, the candidate supports' starting sets, the buses a candidate
         must hold one of, or None). A load goal acts through its targeted load buses, all of them in
-        every support. A flow goal acts on its branch through either end (a flow changes when one end's
-        voltage moves), so each end starts its own candidates, and a support must hold an attackable
-        load, the only injections the flow goal frees."""
+        every support. A flow goal acts on each of its branches through either end (a flow changes
+        when one end's voltage moves), so every choice of one end per branch starts its own
+        candidates, and a support must hold a free injection (an attackable load or a generator, the
+        injections the flow goal frees)."""
         if goal.kind == "load":
             buses = np.unique(self.load_bus[cast(LoadGoal, goal).designs[0].targets])
             return buses, [frozenset(int(b) for b in buses)], None
-        ends = np.unique(self.ei[:, cast(FlowGoal, goal).line])
-        return ends, [frozenset({int(e)}) for e in ends], frozenset(int(b) for b in self.free_load_buses())
+        lines = list(cast(FlowGoal, goal).lines)
+        ends = np.unique(self.ei[:, lines])
+        choices = [
+            frozenset(int(b) for b in combo) for combo in itertools.product(*(self.ei[:, ln] for ln in lines))
+        ]
+        starts = list(dict.fromkeys(choices))  # each set once, in a fixed order
+        return ends, starts, frozenset(int(b) for b in self.free_injection_buses())
 
     def goal_state(
         self, goal: Goal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
@@ -139,7 +146,7 @@ class MinimizeMixin(FalseStateMixin):
         held true. A solve that did not converge is not proof that S is infeasible, so the search counts
         it apart. Each goal kind has its own solve: a load goal is the square local power flow (the
         targeted loads take their new values, every other bus of S keeps its true injection); a flow
-        goal frees the attackable loads of S and holds the rest (`solve_flow_local`)."""
+        goal frees the attackable loads and generators of S and holds the rest (`solve_flow_local`)."""
         if goal.kind == "flow":
             return self._flow_goal_state(cast(FlowGoal, goal), t, Xt, S, k)
         return self._load_goal_state(cast(LoadGoal, goal), t, Xt, S, k)
@@ -147,7 +154,7 @@ class MinimizeMixin(FalseStateMixin):
     def _flow_goal_state(
         self, goal: FlowGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
     ) -> tuple[Optional[np.ndarray], bool]:
-        Xa, converged, dload = self.solve_flow_local(Xt, S, goal.line, goal.targets[t])
+        Xa, converged, dload = self.solve_flow_local(Xt, S, goal.lines, goal.targets_at(t), k.limits)
         if Xa is None:
             return None, converged
         if k.limits is not None:
@@ -306,20 +313,22 @@ class _Window:
         return self._flow_bound() if self.goal.kind == "flow" else self._load_bound()
 
     def _flow_bound(self) -> int:
-        """A flow goal forces the device metering its branch (the SCADA terminal of the from-end bus)
-        when the goal's change there must cross that meter's accuracy sigma at some snapshot: the
-        change delta of the apparent flow splits between P and Q, so one of them moves by at least
+        """A flow goal forces the device metering each goal branch (the SCADA terminal of its from-end
+        bus) when the goal's change there must cross that meter's sigma at some snapshot: the change
+        delta of the apparent flow splits between P and Q, so one of them moves by at least
         delta / sqrt(2), forced over noise only when that exceeds the larger of the two sigmas."""
         goal = cast(FlowGoal, self.goal)
-        line = goal.line
-        if not self.edge_m[line].any():
-            return 0
-        for t, target in enumerate(goal.targets):
-            true = float(np.hypot(*self.flows[t, line]))
-            sig = float(np.max(self.sigma[t][1][line]))
-            if abs(target - true) / np.sqrt(2.0) > sig:
-                return 1
-        return 0
+        forced: set[int] = set()
+        for i, line in enumerate(goal.lines):
+            if not self.edge_m[line].any():
+                continue
+            for t in range(len(goal.targets)):
+                true = float(np.hypot(*self.flows[t, line]))
+                sig = float(np.max(self.sigma[t][1][line]))
+                if abs(goal.targets_at(t)[i] - true) / np.sqrt(2.0) > sig:
+                    forced.add(int(self.g.ei[0, line]))
+                    break
+        return len(forced)
 
     def _load_bound(self) -> int:
         """The load goal's bound: the SCADA terminal of a

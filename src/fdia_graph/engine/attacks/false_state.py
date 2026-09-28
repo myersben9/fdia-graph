@@ -3,7 +3,8 @@ the boundary held true, checked against the operating limits, and the attack vec
 
 from __future__ import annotations
 
-from typing import Optional
+from collections.abc import Sequence
+from typing import Optional, Union
 
 import numpy as np
 
@@ -19,6 +20,20 @@ from ...formulas.network import (
 from ...models.frames import AttackDesign, Frame, FrameKnobs, OperatingLimits, Scan
 from ...models.grid import NODE
 from .area import AreaMixin
+
+
+def _voltages_out_of_range(
+    Xa: np.ndarray, Xt: np.ndarray, S: np.ndarray, limits: OperatingLimits, held: dict[int, float]
+) -> dict[int, float]:
+    """The buses of S whose false |V| left its limit (21) (the bound at a bus already outside it is
+    its true value, as `within_limits` has it), each with the limit to hold it at."""
+    lo, hi = np.minimum(limits.v_lo, Xt[:, NODE.v]), np.maximum(limits.v_hi, Xt[:, NODE.v])
+    out: dict[int, float] = {}
+    for b in np.asarray(S, int):
+        v = Xa[b, NODE.v]
+        if int(b) not in held and (v < lo[b] or v > hi[b]):
+            out[int(b)] = float(np.clip(v, lo[b], hi[b]))
+    return out
 
 
 class FalseStateMixin(AreaMixin):
@@ -69,48 +84,127 @@ class FalseStateMixin(AreaMixin):
         positions (a load off every generator bus, under the load cap), sorted."""
         return np.unique(self.load_bus[self.stealthy_pos])
 
+    def generator_buses(self) -> np.ndarray:
+        """The buses with a generator (zero-MW condensers included), the slack excluded: their output
+        is an injection measurement the overload attacker may tamper [WU26, eqs. 13-14], bounded by
+        the generator limits (22)-(23)."""
+        return np.setdiff1d(np.flatnonzero(self.has_gen), [self.slack_bus])
+
+    def free_injection_buses(self) -> np.ndarray:
+        """The buses whose injection a flow-goal attacker may change: the attackable loads and the
+        generators (the plan's D14). A zero-injection bus is held at zero: nothing is connected there
+        (a rule of ours, not the paper's)."""
+        return np.union1d(self.free_load_buses(), self.generator_buses())
+
     def solve_flow_local(
-        self, Xt: np.ndarray, S: np.ndarray, line: int, target_mva: float
+        self,
+        Xt: np.ndarray,
+        S: np.ndarray,
+        line: Union[int, Sequence[int]],
+        target_mva: Union[float, Sequence[float]],
+        limits: Optional[OperatingLimits] = None,
     ) -> tuple[Optional[np.ndarray], bool, np.ndarray]:
         """The false state of a flow goal on support S [WU26, eqs. 24-25]: the voltages of S move, the
-        buses of S that hold no attackable load keep their true injections (a zero-injection bus at
-        zero, a generator bus at its dispatch), the attackable loads of S are free, and `line`'s
-        from-end apparent flow reaches `target_mva` (`formulas.network.local_flow_solve`). Returns
-        (the false state [N, 4] with the injections of S and its boundary moved by exactly the change
-        the false voltages cause, whether the solve converged, the pretended load change per bus in
-        MW [N]); the state is None when the solve fails or S holds no attackable load."""
-        C = self.C
-        dload = np.zeros(C)
-        free = np.intersect1d(S, self.free_load_buses())
+        free injections of S (attackable loads and generators, `free_injection_buses`) move, every
+        other bus of S keeps its true injection (a zero-injection bus at zero), and each goal branch's
+        from-end apparent flow reaches its target (`line` and `target_mva` one each, or one per
+        branch; `formulas.network.local_flow_solve`). With `limits`, a generator is free only inside
+        its limits (22)-(23): one whose output the solve drives outside is pinned at the nearest
+        limit and the solve repeated (an active set), so the least-norm state is sought among those
+        that keep every generator in range. Returns (the false state [N, 4] with the injections of S
+        and its boundary moved by exactly the change the false voltages cause, whether the solve
+        converged, the pretended load change per load bus in MW [N], zero at a generator bus, whose
+        change is its output's and is checked against the generator limits by `within_limits`); the
+        state is None when the solve fails or S holds no free injection."""
+        dload = np.zeros(self.C)
+        free = np.intersect1d(S, self.free_injection_buses())
         if len(free) == 0:
             return None, True, dload
-        lut = self._ppc_row[np.arange(C)]
+        goal = (np.atleast_1d(np.asarray(line, np.int64)), np.atleast_1d(np.asarray(target_mva, float)))
+        pinned: dict[int, complex] = {}  # generator bus -> its pinned change, generation positive, MW
+        held_v: dict[int, float] = {}  # bus -> the voltage limit its magnitude is held at, pu
+        for _ in range(2 * len(S) + 1):
+            solved = self._flow_solve_pinned(Xt, S, free, goal, (pinned, held_v))
+            if solved is None:
+                return None, False, dload
+            Xa, dS = solved
+            over = {} if limits is None else self._generators_out_of_range(Xt, free, dS, limits, pinned)
+            v_over = {} if limits is None else _voltages_out_of_range(Xa, Xt, S, limits, held_v)
+            if not over and not v_over:
+                # a load bus's change is its pretended load
+                loads = np.setdiff1d(free, self.generator_buses())
+                dload[loads] = -np.real(dS[loads])
+                return Xa, True, dload
+            pinned.update(over)
+            held_v.update(v_over)
+        return None, True, dload
+
+    def _flow_solve_pinned(
+        self,
+        Xt: np.ndarray,
+        S: np.ndarray,
+        free: np.ndarray,
+        goal: tuple[np.ndarray, np.ndarray],
+        held: tuple[dict[int, complex], dict[int, float]],
+    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
+        """One flow solve on S with the free injections `free` except the pinned generators, which
+        hold their true injection plus the pinned change, and with the held voltage magnitudes
+        (`held` = (generator bus -> change, bus -> |V|)): (the false state [N, 4], the injection
+        change per bus [N], generation positive, MVA), or None when the solve fails."""
+        C, lut = self.C, self._ppc_row[np.arange(self.C)]
+        lines, targets = goal
+        pinned, held_v = held
         V = np.zeros(self._n_ppc_buses, complex)
         V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
         Yb, Yf = self._dense_admittances()
-        fixed = lut[np.setdiff1d(S, free)]
+        fixed = np.union1d(np.setdiff1d(S, free), np.array(sorted(pinned), np.int64))
         S_true = bus_injections(V, Yb)  # per unit, the model's injections at the true voltages
+        S_held = S_true[lut[fixed]] + np.array([pinned.get(int(b), 0j) for b in fixed]) / self._base_mva
+        vb = np.array(sorted(held_v), np.int64)
         Vf = local_flow_solve(
             Yb,
-            Yf[line],
-            int(self._from_bus_ppc[line]),
+            Yf[lines],
+            np.asarray(self._from_bus_ppc)[lines],
             V,
             lut[S],
-            fixed,
-            S_true[fixed],
-            target_mva / self._base_mva,
+            lut[fixed],
+            S_held,
+            targets / self._base_mva,
+            vm_fixed=(lut[vb], np.array([held_v[int(b)] for b in vb])),
         )
         if Vf is None:
-            return None, False, dload
+            return None
         Xa = np.array(Xt, np.float64, copy=True)
         Xa[S, NODE.v] = np.abs(Vf[lut[S]])
         Xa[S, NODE.theta] = np.degrees(np.angle(Vf[lut[S]]))
         touched = np.union1d(S, subnetwork(self._live_edges(), S, 0, C)[1])
-        dS = (bus_injections(Vf, Yb) - S_true)[lut[touched]] * self._base_mva  # generation positive, MW
-        Xa[touched, NODE.p_inj] -= dS.real  # the stored injection is load positive
-        Xa[touched, NODE.q_inj] -= dS.imag
-        dload[free] = -dS.real[np.isin(touched, free)]  # a free bus has no generator: its load moved
-        return Xa, True, dload
+        dS = np.zeros(C, complex)
+        dS[touched] = (bus_injections(Vf, Yb) - S_true)[lut[touched]] * self._base_mva
+        Xa[touched, NODE.p_inj] -= np.real(dS[touched])  # the stored injection is load positive
+        Xa[touched, NODE.q_inj] -= np.imag(dS[touched])
+        return Xa, dS
+
+    def _generators_out_of_range(
+        self,
+        Xt: np.ndarray,
+        free: np.ndarray,
+        dS: np.ndarray,
+        limits: OperatingLimits,
+        pinned: dict[int, complex],
+    ) -> dict[int, complex]:
+        """The free generators of a solve whose output left its limits (22)-(23), each with the change
+        that puts it at the nearest limit (MVA, generation positive)."""
+        gen = generator_output(Xt, self.load_base, self.gen_base)
+        out: dict[int, complex] = {}
+        for b in np.intersect1d(free, self.generator_buses()):
+            b = int(b)
+            if b in pinned:
+                continue
+            p, q = gen[b, 0] + np.real(dS[b]), gen[b, 1] + np.imag(dS[b])
+            pc, qc = np.clip(p, limits.p_lo[b], limits.p_hi[b]), np.clip(q, limits.q_lo[b], limits.q_hi[b])
+            if pc != p or qc != q:
+                out[b] = complex(pc - gen[b, 0], qc - gen[b, 1])
+        return out
 
     def _dense_admittances(self) -> tuple[np.ndarray, np.ndarray]:
         """Ybus and Yf as dense arrays, built once (the flow solve indexes rows and multiplies often)."""

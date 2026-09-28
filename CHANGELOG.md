@@ -9,8 +9,20 @@ the public API, the generated files and the numbers are the same as the previous
   bound on how far the attack moves between snapshots, which the paper does not have; its noise
   (0.03 pu SCADA, 0.01 pu PMU, currents included) only decides which changes the tamper count
   ignores. The bound was what made the overload attack infeasible on IEEE-14. `At` keeps its
-  rated-accuracy bound, and `stealth_scale` is now `At`'s alone. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The rest of the `Am` path was audited against the paper; the constraints it adds are
-  listed in D11 for decision (generator buses held at dispatch among them).
+  rated-accuracy bound, and `stealth_scale` is now `At`'s alone. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The rest of the `Am` path follows the paper too (D14, below).
+- `Am`'s generators are free (D14): [WU26, eqs. 13-14] let every injection be tampered and (22)-(23)
+  bound only the generator output, so a generator bus in the support has free P and Q injection
+  inside its limits, like an attackable load (`FalseStateMixin.free_injection_buses`,
+  `generator_buses`); a support needs an end bus of each goal line and one free injection. The flow
+  solve enforces the limits (21)-(23) by an active set (a generator pinned at the limit it would
+  pass, a bus voltage held at its limit, the least-norm solve repeated;
+  `formulas.network.local_flow_solve(vm_fixed=...)`). `FlowGoal` takes one or more lines
+  (`FlowGoal.more`, `lines`, `targets_at`; `overload_goal(window, line, *more)`,
+  `solve_flow_local(line=[...])`): one held support, each line to its own rating. Generated episodes
+  still drive one line. A zero-injection bus stays held at zero, a rule of ours. The labels of an
+  overload frame are the free-injection buses of the support. Measured on the hybrid meters with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000): `Am` 12 stealthy overload episodes on IEEE-14 (6.0 devices, 22.0 channels on average) and 7 on IEEE-118 (6.9 devices, 27.6 channels), no frame falling back to benign; `At` 10.3 and 12.5 devices (the At episodes differ from the previous run because the Am designs draw from the same random stream). On [WU26]'s IEEE-14 metering and two-line scenarios with the PGLib-OPF ratings (the paper
+  does not state its limits) the attack is feasible and tampers more devices than the paper's, with
+  changes of several pu, since the ratings are 3 to 19 times the true flows (the plan's D14 table).
 - `meter_model` is its own knob (D12): `"hybrid"` by default, and the v0.8.3 recipe (the frozen test
   timeline, the v0.8.3 build script, `generate_stream`) pins `"v083"`.
 - New timeline field `prev_pmu_i` (D13): the previous emitted frame's PMU branch currents, offered

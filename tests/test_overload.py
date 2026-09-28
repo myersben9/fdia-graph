@@ -92,7 +92,7 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
     got = np.concatenate(
         [np.angle(Vf[interior]) - np.angle(V[interior]), np.abs(Vf[interior]) - np.abs(V[interior])]
     )
-    J = _flow_jacobian(Yb, Yf[line], f, V, interior, np.arange(2))
+    J = _flow_jacobian(Yb, Yf[[line]], np.array([f]), V, interior, np.arange(2))  # one goal branch
     r = np.zeros(J.shape[0])
     r[-1] = -eps
     want = np.linalg.lstsq(J, -r, rcond=None)[0]
@@ -324,3 +324,47 @@ def test_am_has_no_stealth_bound_and_at_keeps_its_own(g, pool):
     assert not tight.stealth_bound and tight.cost(area, None) == loose.cost(area, None)
     design = AttackDesign(g.stealthy_pos[:1], 1.01)
     assert _Window(g, window, LoadGoal(tuple([design] * 8)), _knobs(g, pool)).stealth_bound
+
+
+def test_a_generator_only_support_is_valid_and_its_output_stays_in_limits(g, pool):
+    """D14: a generator's injection is free within its limits [WU26, eqs. 13-14, 22-23]; a support
+    whose only free injection is a generator meets a small flow goal, and the implied generator output
+    passes the limit check."""
+    from fdia_graph.formulas.attacks import generator_output, within_limits
+
+    Xt = pool[0]
+    gens = g.generator_buses()
+    assert set(gens.tolist()) <= set(g.free_injection_buses().tolist()) and g.slack_bus not in gens
+    k = _knobs(g, pool)
+    for line in range(g.E):
+        S = np.intersect1d(g.ei[:, line], gens)
+        if len(S) != 1 or len(np.intersect1d(g.ei[:, line], g.zero_inj)):
+            continue
+        flow = g.clean_flows_from_states(Xt[None])[0, line]
+        Xa, converged, dload = g.solve_flow_local(Xt, S, line, 1.03 * float(np.hypot(*flow)))
+        if Xa is None:
+            continue
+        assert converged and not dload.any()  # a generator's change is its output, not a load
+        reached = g.clean_flows_from_states(Xa[None])[0, line]
+        assert np.hypot(*reached) == pytest.approx(1.03 * float(np.hypot(*flow)), rel=1e-6)
+        gen = generator_output(Xt, g.load_base, g.gen_base)
+        assert within_limits(Xa, Xt, gen, dload, k.limits, S)
+        return
+    pytest.fail("no generator-only support met a 3% flow goal")
+
+
+def test_a_goal_drives_two_lines_at_once(g, pool):
+    """D14: one held support, each line's noiseless flow reaching its own target."""
+    window = [pool[u] for u in range(6)]
+    lines = [int(b) for b in g.eligible_lines(window, 2)[:2]]
+    goal = g.overload_goal(window, *lines)
+    assert goal.lines == tuple(lines) and len(goal.targets_at(0)) == 2
+    assert goal.targets_at(5) == pytest.approx(tuple(float(g.line_ratings()[b]) for b in lines))
+    Xt = pool[0]
+    area = np.asarray(g.local_region(np.unique(g.ei[:, lines]), 2))
+    flows = g.clean_flows_from_states(Xt[None])[0]
+    want = [1.02 * float(np.hypot(*flows[b])) for b in lines]
+    Xa, converged, _ = g.solve_flow_local(Xt, area, lines, want)
+    assert converged and Xa is not None
+    got = g.clean_flows_from_states(Xa[None])[0]
+    assert np.allclose([np.hypot(*got[b]) for b in lines], want, rtol=1e-6)

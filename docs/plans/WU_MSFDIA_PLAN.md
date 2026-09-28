@@ -1,6 +1,6 @@
 # Plan: the [WU26] attack as the optimization it is, and one home for attack generation
 
-**Status: accepted; decisions D1 to D13 taken (section 9).**
+**Status: accepted; decisions D1 to D14 taken (section 9).**
 
 [WU26] defines its multi-snapshot attack (MS-FDIA) as an optimization: eq. (12) minimizes the
 number of tampered measurements subject to the AC measurement model (13)-(20), the operating limits
@@ -305,19 +305,7 @@ families as they are.
   channels included). The rest of eqs. (12)-(25) is kept: (13)-(20) by construction, currents
   included; the limits (21)-(23); the goal (24)-(25) with the D9 schedule on the noiseless reading.
   `At`, which is not [WU26]'s attack, keeps its rated-accuracy bound: a sub-noise ramp is what `At`
-  is. `stealth_scale` is `At`'s alone. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. On [WU26]'s IEEE-14 metering (PMUs at 1, 4, 6 and 13, line 6-11 metered, each target line
-  attacked on its own and the scenario's device sets united; `wu_scenarios.py` in the working
-  notes), with the PGLib-OPF ratings, lines 3-4 and 6-11: 3-4 infeasible, 6-11 infeasible; union none against the paper's SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 11 PMU 4 PMU 6 (largest 0.22 pu); lines 1-2 and 4-5: 1-2 12 devices, largest 5.19 pu, 4-5 7 devices, largest 9.44 pu; union PMU 1 PMU 4 PMU 6 SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 against the paper's SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 9 PMU 1 PMU 4 PMU 6 (largest 0.17 pu). with S_max 0.20 pu above the window's largest flow, lines 3-4 and 6-11: 3-4 9 devices, largest 13.26 pu, 6-11 4 devices, largest 0.38 pu; union PMU 1 PMU 4 PMU 6 SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 10 SCADA 11 against the paper's SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 11 PMU 4 PMU 6 (largest 0.22 pu); lines 1-2 and 4-5: 1-2 9 devices, largest 2.46 pu, 4-5 5 devices, largest 0.27 pu; union PMU 1 PMU 4 PMU 6 SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 against the paper's SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 9 PMU 1 PMU 4 PMU 6 (largest 0.17 pu). The audit of the rest of the `Am` path against the paper found these constraints the paper
-  does not state, kept for now and open for decision: generator buses hold their dispatch and are
-  never free (the paper's (22)-(23) bound generator outputs, so its attacker may move them; its
-  device sets include the generator buses 3 and 6), which with the PGLib ratings leaves a far line
-  only a few free loads and drives the least-norm false state to boundary injections of several pu;
-  the attacker's area is the buses within `hops = 2` of the line's ends with boundary voltages held
-  true; one support is held for the whole window; among the false states of a support the
-  least-norm voltage change is taken; a target must be rated by PGLib-OPF, metered and below its
-  rating over the window, and at most `AM_LINE_TRIES = 8` lines are tried; the generator limits are
-  widened to the pool's range and a bus already outside its voltage limit may not be made worse;
-  and the goal is the apparent flow at the from end.
+  is. `stealth_scale` is `At`'s alone. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The comparison with the paper's case studies and the audit of the rest of the `Am` path are D14.
 - **D12, `meter_model` is its own knob:** new generation defaults to `"hybrid"`; the v0.8.3 recipe
   (the frozen test timeline, the legacy test recipe, the v0.8.3 build script and
   `generate_stream`'s defaults) passes `meter_model="v083"` explicitly. `FdiaGenerator`'s own
@@ -326,6 +314,42 @@ families as they are.
   `prev_node_x` and `prev_edge_x` (offered on a hybrid-meter file), so `JacobianWeighting` and any
   estimator that reads the previous frame can use the eq. (3) pseudo-measurements; the refusal is
   lifted.
+- **D14, the rest of the `Am` path against eqs. (12)-(25):** generator injections are free, as
+  [WU26, eqs. 13-14] let every injection measurement be tampered and (22)-(23) bound only the
+  generator output: a generator bus of the support has free P and Q injection like an attackable
+  load, inside its limits. The flow solve enforces the limits (21)-(23) with an active set: a
+  generator driven outside its limits is pinned at the nearest limit, a bus voltage outside its
+  limit is held at it, and the least-norm solve is repeated. A candidate support holds an end bus of
+  each goal line and at least one free injection (an attackable load or a generator). A flow goal
+  takes one or more lines (`FlowGoal.more`, `overload_goal(window, line, *more)`): one held support,
+  each line's noiseless flow reaching its own rating by the window's end on the D9 schedule, the l0
+  count over the union. The generator's episodes drive one line; the multi-line goal is what the
+  paper's case studies use and is available as an option. S_max is the PGLib-OPF rating only:
+  [WU26] does not state its line limits, so no assumed limit is compared with it. Measured on the hybrid meters with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000): `Am` 12 stealthy overload episodes on IEEE-14 (6.0 devices, 22.0 channels on average) and 7 on IEEE-118 (6.9 devices, 27.6 channels), no frame falling back to benign; `At` 10.3 and 12.5 devices (the At episodes differ from the previous run because the Am designs draw from the same random stream). On the paper's IEEE-14 metering (PMUs at 1, 4, 6 and 13, line 6-11 metered, everything else
+  the hybrid plan), each scenario one two-line goal on the PGLib-OPF ratings, a 10-snapshot window
+  (`wu_scenarios.py` in the working notes):
+
+  | scenario (lines) | S_max, MVA (PGLib-OPF) | our devices | our largest, pu | [WU26]'s devices | its largest, pu |
+  |---|---|---|---|---|---|
+  | 3-4 and 6-11 | 160 / 134 | PMU 4 PMU 6 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 SCADA 10 SCADA 11 SCADA 14 (13), support 4 7 9 11 | 10.55 | SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 11 PMU 4 PMU 6 (7) | 0.22 |
+  | 1-2 and 4-5 | 472 / 664 | PMU 1 PMU 4 PMU 6 SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 (12), support 2 3 4 5 7 | 11.09 | SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 9 PMU 1 PMU 4 PMU 6 (9) | 0.17 |
+
+  The PGLib-OPF ratings are 3 to 19 times the lines' true flows in these windows (3-4 carries about
+  21 MVA against 160, 6-11 about 7 against 134, 4-5 about 59 against 664), so reaching them takes
+  changes of several pu at the generators and loads around the lines; the paper's 0.22 and 0.17 pu
+  imply limits much closer to the flows, which it does not state. Every device of the paper's
+  sets is in ours, in both scenarios, but ours are larger, as the larger goal moves more of the neighbourhood above noise. The constraints this
+  package adds that the paper does not state:
+
+  | constraint we add | ours, because |
+  |---|---|
+  | a zero-injection bus is held at zero | physical: nothing is connected there, so no meter there can read anything else |
+  | the attacker's area is the buses within `hops = 2` of the goal lines' ends, boundary voltages held true | the local attacker of the package's stealthy families; the paper's attacker also knows only a local subnetwork but states no radius |
+  | one support held for the whole window | the l0 count is over the window, and a support that changes between snapshots would count the union anyway; it keeps the search finite |
+  | the least-norm voltage change among a support's false states, with the limits enforced by an active set | the paper leaves the choice among feasible false states to its solver; the smallest change is the one nearest the true state |
+  | at most `AM_LINE_TRIES = 8` eligible lines tried per episode, each rated, metered and below its rating over the window | a bounded generator; the paper studies chosen lines |
+  | generator limits widened to the range the pool ran each generator over, and a bus already outside its voltage limit may not be made worse | the pools were built without nameplate enforcement, so the nameplate would refuse states the pool already holds |
+  | the goal is the apparent flow at the from end, where the flow is metered | the reading the operator sees |
 - **D10, the meters of new generation:** the hybrid SCADA and PMU plan of [WU26]. A SCADA voltmeter
   reads `|V|` only and the angle is a PMU channel (the released files wrote an angle at every
   voltmeter bus); every PMU reads the current phasor of each in-service branch at its bus (19)-(20),

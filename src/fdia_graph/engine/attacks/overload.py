@@ -16,10 +16,11 @@ drift instead of cancelling it, and reaches S_max at the window's last snapshot 
 [WU26], nothing bounds how far the attack moves between snapshots: the paper's noise only decides
 which changes its tamper count ignores (`formulas.noise.paper_sigma`, the plan's D8 and D11), and the
 attack is stealthy because every snapshot's readings are those of one AC state. Each snapshot's false
-state frees the attackable loads of the support and holds every other bus's injection
+state frees the attackable loads and the generators of the support (the latter within their limits,
+eqs. 22-23) and holds every other bus's injection
 (`FalseStateMixin.solve_flow_local`), and the fewest-tamper search (`MinimizeMixin.min_tamper`)
-chooses the support held for the window. The labels of every frame are the attackable load buses of the support: the loads the
-attacker pretends.
+chooses the support held for the window. The labels of every frame are the free-injection buses of the support: the loads and
+generator outputs the attacker pretends.
 """
 
 from __future__ import annotations
@@ -40,6 +41,15 @@ from .minimize import MinimizeMixin
 # on IEEE-118), so an episode whose first eight branches admit no attack stays benign and is counted
 # even if a later branch would have.
 AM_LINE_TRIES = 8
+
+
+def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
+    """One branch's goal over a window from its true flows [T, 2] (MW, MVAr): the true flow plus a
+    linear share of what separates the last true flow from the rating (the plan's D9)."""
+    true = np.hypot(flows[:, 0], flows[:, 1])
+    T = len(true) - 1
+    share = np.arange(len(true)) / T if T > 0 else np.ones(1)
+    return tuple(float(x) for x in true + share * (rating - true[-1]))
 
 
 class OverloadMixin(MinimizeMixin):
@@ -65,7 +75,7 @@ class OverloadMixin(MinimizeMixin):
     def eligible_lines(self, window: list[np.ndarray], hops: int) -> np.ndarray:
         """The branches an overload attack may target over the snapshots `window`: in service, rated, flow
         metered, true apparent flow below the rating at every snapshot, and an area around its ends
-        holding an attackable load. An out-of-service branch (an N-1 outage) keeps its row with a zero
+        holding a free injection (an attackable load or a generator). An out-of-service branch (an N-1 outage) keeps its row with a zero
         admittance, so its flow reads zero and no false state can drive it to its rating."""
         rating = self.line_ratings()
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
@@ -74,24 +84,26 @@ class OverloadMixin(MinimizeMixin):
         status = self.branch.status
         live = np.ones(len(rating), bool) if status is None else np.asarray(status) > 0
         ok = live & np.isfinite(rating) & metered & (S < np.nan_to_num(rating, nan=-np.inf))
-        free = set(self.free_load_buses().tolist())
+        free = set(self.free_injection_buses().tolist())
         return np.array(
             [int(b) for b in np.flatnonzero(ok) if self._acts_on(int(b), free, hops)], dtype=np.int64
         )
 
     def _acts_on(self, line: int, free: set[int], hops: int) -> bool:
-        """Whether the area within `hops` of the branch's ends holds an attackable load to pretend."""
+        """Whether the area within `hops` of the branch's ends holds a free injection to pretend."""
         area = self.local_region(np.unique(self.ei[:, line]), hops)
         return area is not None and bool(free & {int(b) for b in area})
 
-    def overload_goal(self, window: list[np.ndarray], line: int) -> FlowGoal:
-        """The per-snapshot flow the attack must reach on `line` over `window` (module docstring)."""
-        rating = float(self.line_ratings()[line])
-        flows = self.clean_flows_from_states(np.stack(window))[:, line]  # [T, 2] MW, MVAr
-        true = np.hypot(flows[:, 0], flows[:, 1])
-        T = len(window) - 1
-        share = np.arange(len(window)) / T if T > 0 else np.ones(1)
-        return FlowGoal(line, tuple(float(x) for x in true + share * (rating - true[-1])))
+    def overload_goal(self, window: list[np.ndarray], line: int, *more: int) -> FlowGoal:
+        """The per-snapshot flow the attack must reach on `line` over `window` (module docstring), and
+        on each branch of `more` at once, each toward its own rating (the paper's two-line case
+        studies; the generator's episodes drive one line)."""
+        flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2] MW, MVAr
+        rating = self.line_ratings()
+        first = _schedule(flows[:, line], float(rating[line]))
+        return FlowGoal(
+            line, first, more=tuple((int(b), _schedule(flows[:, b], float(rating[b]))) for b in more)
+        )
 
     def am_overload_design(
         self, X: np.ndarray, t: int, length: int, k: FrameKnobs, prev: Optional[AttackVector] = None
@@ -124,10 +136,10 @@ class OverloadMixin(MinimizeMixin):
         Xa, _ = self.goal_state(design.goal, i, Xt, design.support, k)
         if Xa is None:
             return None, float("nan")
-        free = np.intersect1d(design.support, self.free_load_buses())
-        load = self.true_load_by_bus(Xt)
-        dload = Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj]  # a free bus's injection change is its pretended load
-        dev = np.abs(dload[free]) / np.maximum(np.abs(load[free]), 1e-6)
+        # the labels: the free injections of the support, the loads and generator outputs it pretends
+        free = np.intersect1d(design.support, self.free_injection_buses())
+        dinj = Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj]  # a free bus's injection change is what it pretends
+        dev = np.abs(dinj[free]) / np.maximum(np.abs(Xt[free, NODE.p_inj]), 1e-6)
         frame = self.frame_from_state(Xt, Xa, free, dev.astype(float))
         flow = self.clean_flows_from_states(Xa[None])[0, design.goal.line]
         return frame, float(np.hypot(flow[0], flow[1]))

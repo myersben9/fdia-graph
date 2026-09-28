@@ -6,11 +6,12 @@ classDiagram
         +operating_limits()
         +solve_local()
         +free_load_buses()
+        +generator_buses()
+        +free_injection_buses()
         +solve_flow_local()
         +frame_from_state()
         +stealthy_state()
-        +with_region()
-        +is_feasible()
+        ... and 2 more
     }
     class MinimizeMixin {
         +min_tamper()

@@ -180,14 +180,26 @@ class LoadGoal(NamedTuple):
 
 class FlowGoal(NamedTuple):
     """What the overload attack of [WU26, eqs. 24-25] must realize at each snapshot of its window: the
-    apparent flow (MVA) that the tampered measurements carry before noise on one target branch,
+    apparent flow (MVA) that the tampered measurements carry before noise on each target branch,
     `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free, the plan's D9),
-    reaching the branch's rating at the window's end. The loads the attacker pretends are free; the fewest-tamper search holds one
-    support for all snapshots."""
+    reaching the branch's rating at the window's end. The free injections of the support (attackable
+    loads and generators) move; the fewest-tamper search holds one support for all snapshots. The
+    generator drives one line; `more` holds further lines driven at once on the same support, as the
+    paper's case studies overload two (the plan's D14)."""
 
     line: int  # the target branch (position in the edge index)
     targets: tuple[float, ...]  # MVA per snapshot, in window order
     kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
+    more: tuple[tuple[int, tuple[float, ...]], ...] = ()  # further (branch, MVA per snapshot) pairs
+
+    @property
+    def lines(self) -> tuple[int, ...]:
+        """Every target branch, the first one first."""
+        return (self.line, *(line for line, _ in self.more))
+
+    def targets_at(self, t: int) -> tuple[float, ...]:
+        """Every target branch's flow at snapshot t (MVA), in `lines` order."""
+        return (self.targets[t], *(targets[t] for _, targets in self.more))
 
 
 class AmOverloadDesign(NamedTuple):
