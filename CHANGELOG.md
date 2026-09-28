@@ -50,7 +50,9 @@ the public API, the generated files and the numbers are the same as the previous
   3.11 '20240131' and the integer 20240131 used to parse too). `load_profile` refuses a source
   that is not a `LoadSource`, an operator name, a CSV path or a 1-d series of loads (a scalar
   used to pass as a one-point profile); `generate`'s `states` must be an array or a path; and
-  `export(fields=...)` takes a sequence of names, so a lone string is a `ConfigError`.
+  `export(fields=...)` takes a list or tuple of names, so a lone string, a mapping or a set is a
+  `ConfigError`. `RawSeries` takes a non-empty 1-d series: a scalar used to pass as a one-point
+  profile and a 2-d array was flattened without a word.
   A Huber `c`, a removal threshold, `am_rate` and the learned localizer's `lr` and `pos_weight`
   must be finite as well as positive, and a solver `tol` finite and non-negative. The learned
   localizer checks its whole training setup (`dropout`, `lr`, `weight_decay`, `batch_size`,

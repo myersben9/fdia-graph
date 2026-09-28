@@ -50,8 +50,9 @@ class LoadOptions(Validated):
 
 
 def field_names(fields: Any) -> tuple[str, ...]:
-    """A sequence of field names as a tuple; a lone string is refused rather than split into letters."""
-    if isinstance(fields, str) or not all(isinstance(f, str) for f in fields):
+    """A list or tuple of field names as a tuple. A lone string is refused rather than split into
+    letters, and a mapping or a set is refused rather than read for its keys."""
+    if not isinstance(fields, (list, tuple)) or not all(isinstance(f, str) for f in fields):
         raise TypeError(fields)
     return tuple(fields)
 
@@ -61,9 +62,9 @@ class ExportRequest(Validated):
     """What `export` is asked for."""
 
     format: Annotated[str, OneOf(Format)] = "torch"
-    fields: Annotated[Optional[Sequence[str]], Parses(field_names, "must be a sequence of field names")] = (
-        None
-    )
+    fields: Annotated[
+        Optional[Sequence[str]], Parses(field_names, "must be a list or tuple of field names")
+    ] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (

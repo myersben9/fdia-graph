@@ -62,6 +62,7 @@ VALID = {
     inputs.RankedLabels: dict(score=np.array([0.1, 0.9]), truth=np.array([False, True])),
     inputs.Aggregation: dict(reduce="sum"),
     inputs.Requirement: dict(capabilities=("timeline",), by="a test"),
+    inputs.LoadValues: dict(values=[1.0, 2.0, 3.0]),
 }
 
 
@@ -321,6 +322,11 @@ def test_no_function_outside_the_models_is_a_check():
         lambda: inputs.DateSpan("20240101", "2024-01-02"),
         lambda: config.ExportRequest("numpy", 3),
         lambda: config.ExportRequest("numpy", "node_x"),  # one string, not split into letters
+        lambda: config.ExportRequest("numpy", {"node_x": 1}),  # a mapping, not read for its keys
+        lambda: config.ExportRequest("numpy", {"node_x"}),  # a set has no order
+        lambda: inputs.LoadValues(3),  # a scalar is not a series
+        lambda: inputs.LoadValues([]),
+        lambda: inputs.LoadValues([[1.0, 2.0], [3.0, 4.0]]),
     ],
 )
 def test_a_source_or_field_list_of_the_wrong_kind_is_refused(build):

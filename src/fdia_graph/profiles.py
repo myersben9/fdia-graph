@@ -30,7 +30,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     Iso,
 )
 from .models.config import EXPORT_COLUMNS, IsoExport, ProfileFetch
-from .models.inputs import CsvSpec, DateSpan, ProfileSource, SupportedSystem
+from .models.inputs import CsvSpec, DateSpan, LoadValues, ProfileSource, SupportedSystem
 from .registry import system_id  # noqa: F401  re-exported: callers read it from here before
 
 
@@ -75,7 +75,7 @@ class RawSeries:
     """Load values you already have, in any unit."""
 
     def __init__(self, values: Union[Sequence[float], np.ndarray]) -> None:
-        self.values = np.asarray(values, dtype=float).ravel()
+        self.values: np.ndarray = LoadValues(values).values
 
     def loads(self) -> np.ndarray:
         return self.values

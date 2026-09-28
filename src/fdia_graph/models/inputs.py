@@ -19,7 +19,18 @@ import numpy as np
 
 from .choices import FAMILIES, FAMILY_ALIAS, Capability, Iso, Reduce
 from .errors import NoAdmissibleTarget
-from .validation import AsArray, AtLeast, Dims, Integer, IntegerDtype, OneOf, Parses, Required, Validated
+from .validation import (
+    AsArray,
+    AtLeast,
+    Dims,
+    Integer,
+    IntegerDtype,
+    NonEmpty,
+    OneOf,
+    Parses,
+    Required,
+    Validated,
+)
 
 # ---- parsers of loose input -----------------------------------------------------------------------
 _FAMILY_NAMES = {**{v: k for k, v in FAMILIES.items()}, **FAMILY_ALIAS}
@@ -115,6 +126,13 @@ class ProfileSource(Validated):
             self.kind != "unsupported",
             "source must be a LoadSource, an operator name, a CSV path, or a 1-d sequence of load values",
         )
+
+
+@dataclass(frozen=True)
+class LoadValues(Validated):
+    """A load series handed in directly: a non-empty 1-d sequence of numbers, in any unit."""
+
+    values: Annotated[Any, AsArray(float), Dims(1), NonEmpty()]
 
 
 @dataclass(frozen=True)
