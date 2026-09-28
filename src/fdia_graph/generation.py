@@ -29,7 +29,7 @@ from .engine.records import FrameKnobs
 from .errors import UnknownColumnOrder
 from .models.config import ShardRun
 from .models.grid import NODE
-from .models.inputs import StatePool
+from .models.inputs import StatePool, StateSource
 from .registry import CACHE_DIR, register_local
 from .schema import KIND_TIMELINE, Attr, Group, Static
 
@@ -78,11 +78,11 @@ def _load_states(
 def _read_states(
     system: Union[int, str], states: Optional[Union[str, np.ndarray]], pool_cap: int
 ) -> np.ndarray:
-    # In-memory pool accepted directly (no disk). Checked first because a numpy array has no truth value for `or`.
-    if isinstance(states, np.ndarray):
-        return states.astype(np.float64)
+    source = StateSource(states)
+    if source.array is not None:  # an in-memory pool is used as it is (no disk)
+        return source.array
     # Source: caller arg wins, else FDIA_GRAPH_INIT, else None (downloaded below).
-    src = states or os.environ.get("FDIA_GRAPH_INIT")
+    src = source.path or os.environ.get("FDIA_GRAPH_INIT")
     if src and os.path.isdir(src):
         # Init directory: all X_*.npy sorted by integer timestep (name "X_<t>.npy").
         xs = sorted(glob.glob(os.path.join(src, "X_*.npy")), key=lambda p: int(os.path.basename(p)[2:-4]))

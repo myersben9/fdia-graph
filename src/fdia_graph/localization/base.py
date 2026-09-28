@@ -21,6 +21,7 @@ import numpy as np
 from ..errors import ConfigError, NoBenignRecords
 from ..formulas.metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    BENIGN_CODE,
     Buses,
     FrOver,
 )
@@ -132,11 +133,11 @@ class LocalizerBase:
         s = ShapedArray(s, (len(ds), ds.N), "scores").values
         pred = s > self.thr[None, :]
         y = d["y"].astype(bool)
-        out: dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == 0)}
+        out: dict[str, Any] = {"all": _overall_metrics(pred, y, d["family"] == BENIGN_CODE)}
         for fid, name in FAMILIES.items():
             m = d["family"] == fid
             if m.any():
-                out[name] = _benign_metrics(pred[m]) if fid == 0 else _family_metrics(pred[m], y[m])
+                out[name] = _benign_metrics(pred[m]) if fid == BENIGN_CODE else _family_metrics(pred[m], y[m])
         return LocalizerScores(**out)
 
     def score_perbus(
@@ -169,7 +170,7 @@ class LocalizerBase:
             "all": self._perbus_rows(s, y, cols, fam, np.ones(len(fam), bool), fr_over, auprc)
         }
         for fid, name in FAMILIES.items():
-            rows = (fam == fid) | (fam == 0)
+            rows = (fam == fid) | (fam == BENIGN_CODE)
             if fid and (fam == fid).any():
                 out[name] = self._perbus_rows(s[rows], y[rows], cols, fam[rows], rows[rows], fr_over, auprc)
         return PerBusScores(**out)
@@ -193,7 +194,7 @@ class LocalizerBase:
         auprc: bool,
     ) -> PerBusMetrics:
         """One block: the negatives for FR are every record, or the benign ones."""
-        negatives = rows if fr_over == "all" else fam == 0
+        negatives = rows if fr_over == "all" else fam == BENIGN_CODE
         return perbus_block(s, y, np.asarray(self.thr, np.float64), cols, negatives, auprc)
 
 

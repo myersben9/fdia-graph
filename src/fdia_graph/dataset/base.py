@@ -30,6 +30,8 @@ import numpy as np
 from .. import schema
 from ..models.choices import FAMILY_ALIAS as _FAMILY_ALIAS  # noqa: F401  kept where it was read before
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    FAMILY_CODE,
+    HELDOUT_FAMILIES,
     Capability,
     Order,
     RecordFormat,
@@ -77,10 +79,8 @@ def _deprecated_check(name: str) -> None:
     )
 
 
-_HELDOUT_TRAIN_EXCLUDE = {
-    3,
-    4,
-}  # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
+# As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
+_HELDOUT_TRAIN_EXCLUDE = {FAMILY_CODE[n] for n in HELDOUT_FAMILIES}
 
 
 def family_ids(families: Sequence[Union[str, int]]) -> list[int]:

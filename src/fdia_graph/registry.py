@@ -14,7 +14,7 @@ import os
 from typing import Optional, Union
 
 from .models.assets import AssetSpec  # noqa: F401  re-exported: defined here before the models package
-from .models.inputs import ReleaseName, SystemRef
+from .models.inputs import DatasetName, ReleaseName, SystemRef
 
 # Cache dir for downloaded shards + the local-datasets JSON; override via FDIA_GRAPH_CACHE.
 CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("~"), ".cache", "fdia_graph"))
@@ -222,8 +222,7 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
     """
     name = _ALIASES.get(name, name)  # "118"/118 -> "ieee118"; canonical unchanged
     local = _load_local()
-    if isinstance(name, str) and name not in local and name.strip().lower() in BUILTIN:
-        name = name.strip().lower()  # "IEEE118" like system_id; a local name stays case-sensitive
+    name = DatasetName(name, frozenset(local), frozenset(BUILTIN)).key
     if name in local:  # a local registration shadows a built-in name, as list_datasets says
         return AssetSpec("local", name, path=local[name]["path"], meta=local[name].get("meta"))
     if name in BUILTIN:

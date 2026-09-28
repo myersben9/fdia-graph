@@ -61,6 +61,9 @@ from .generation import (
     _write_graph,
 )
 from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    BENIGN_CODE,
+    FAMILY_CODE,
+    ONE_FRAME_FAMILIES,
     AmDirection,
 )
 from .models.config import TimelineKnobs
@@ -74,7 +77,7 @@ DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 # Per-family episode-length band (frames): Ad, As, Ar (the upper end excluded), used when
 # corrupt_len is None. Aq and Al are single-snapshot attacks: every Aq and Al episode is one frame.
 _EP_LEN = {2: (5, 25), 3: (5, 25), 4: (5, 25)}
-_ONE_FRAME = {1, 6}  # the single-snapshot stealthy families, Aq and Al
+_ONE_FRAME = {FAMILY_CODE[n] for n in ONE_FRAME_FAMILIES}
 _ONSET_DRAWS = 40  # designs an episode (Aq, At, Am) tries for one with a stealthy state on its frames
 _AM_DRAWS = _ONSET_DRAWS  # the Am redistribution draws, the same budget
 
@@ -160,7 +163,7 @@ class _TimelineBuffers:
         """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
         (zeroed on a benign frame: the staged batch rows are reused between flushes)."""
         r = t - self._base
-        if fid == 0:
+        if fid == BENIGN_CODE:
             self._layers[schema.NODE_TAMPER][r] = 0
             self._layers[schema.EDGE_TAMPER][r] = 0
             return
@@ -194,14 +197,20 @@ def _target_counts(g: Any) -> dict[int, int]:
     """The targets the case offers each family code: the stealthy Aq and At need a load off every
     generator bus, Al and Am a line whose subnetwork admits a redistribution, Ad/As/Ar an attackable
     load (checked against the request by `models.inputs.AdmissibleTargets`)."""
-    need = {1: len(g.stealthy_pos), 5: len(g.stealthy_pos), 6: len(g._target_lines), 7: len(g._target_lines)}
-    return {f: need.get(f, len(g.attackable_pos)) for f in FAMILIES if f != 0}
+    stealthy, lines = len(g.stealthy_pos), len(g._target_lines)
+    need = {
+        FAMILY_CODE["Aq"]: stealthy,
+        FAMILY_CODE["At"]: stealthy,
+        FAMILY_CODE["Al"]: lines,
+        FAMILY_CODE["Am"]: lines,
+    }
+    return {f: need.get(f, len(g.attackable_pos)) for f in FAMILIES if f != BENIGN_CODE}
 
 
 def _pick_targets(rng: np.random.Generator, apos: np.ndarray, fid: int) -> np.ndarray:
     """Attacked load-table positions for an episode: 1 to 6 buses for Aq, up to 4 otherwise."""
     nab = len(apos)
-    k = int(rng.integers(1, min(6, nab) + 1)) if fid == 1 else min(4, nab)
+    k = int(rng.integers(1, min(6, nab) + 1)) if fid == FAMILY_CODE["Aq"] else min(4, nab)
     return rng.choice(apos, k, replace=False)
 
 

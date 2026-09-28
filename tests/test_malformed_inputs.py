@@ -29,6 +29,10 @@ VALID = {
     config.TrustConfig: dict(k=2),
     config.ProfileFetch: dict(iso="nyiso"),
     config.GateConfig: dict(gate="oracle"),
+    config.IsoExport: dict(iso="nyiso"),
+    inputs.DateSpan: dict(start="2024-01-01", end="2024-01-02"),
+    inputs.ProfileSource: dict(source=[1.0, 2.0]),
+    inputs.DatasetName: dict(name="ieee14", local=frozenset(), builtin=frozenset({"ieee14"})),
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
     inputs.FamilySelection: dict(families=("Aq",)),
     inputs.SystemRef: dict(system="ieee14"),
@@ -217,6 +221,17 @@ def test_fetch_profile_refuses_a_bad_argument_before_the_network(kwargs, monkeyp
     args = {"iso": "nyiso", **kwargs}
     with pytest.raises(ConfigError):
         profiles.fetch_profile(args.pop("iso"), "2024-01-01", "2024-01-02", **args)
+
+
+@pytest.mark.parametrize(
+    "start, end", [("bogus", "2024-01-02"), ("2024-01-01", None), (20240101, "2024-01-02")]
+)
+def test_fetch_profile_refuses_a_bad_date_before_the_network(start, end, monkeypatch):
+    from fdia_graph import profiles
+
+    monkeypatch.setattr(profiles, "_FEEDS", {})  # reaching a feed is the failure
+    with pytest.raises(ConfigError, match="DateSpan"):
+        profiles.fetch_profile("nyiso", start, end)
 
 
 @pytest.mark.parametrize(

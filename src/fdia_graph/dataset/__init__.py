@@ -31,6 +31,7 @@ import h5py
 import numpy as np
 
 from .. import schema
+from ..models.choices import Split
 from ..models.config import LoadOptions
 from ..models.data import (  # noqa: F401  re-exported: defined here before the models package
     ArraysBundle,
@@ -82,7 +83,7 @@ def _record_mask(
     if filt.split is not None:
         code = _SPLIT[filt.split]
         keep &= (sp == code) if sp is not None else False  # a file without the column is refused first
-        if filt.heldout and code in (0, 1):  # test keeps As/Ar
+        if filt.heldout and filt.split != Split.TEST:  # test keeps As/Ar
             keep &= ~np.isin(fam, list(_HELDOUT_TRAIN_EXCLUDE))
     if filt.families is not None:
         keep &= np.isin(fam, family_ids(filt.families))

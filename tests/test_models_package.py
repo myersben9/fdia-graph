@@ -59,7 +59,18 @@ def test_all_names_every_model_and_public_is_a_subset():
 def test_package_imports_only_numpy_and_the_standard_library():
     """Models never import a producer, so no import cycle is possible."""
     # the standard library's own modules are fine; what is refused is a producer of the package
-    allowed = {"__future__", "dataclasses", "typing", "numpy", "enum", "re", "math", "numbers", "collections"}
+    allowed = {
+        "__future__",
+        "dataclasses",
+        "typing",
+        "numpy",
+        "enum",
+        "re",
+        "math",
+        "numbers",
+        "collections",
+        "datetime",
+    }
     for info in pkgutil.iter_modules(models.__path__):
         tree = ast.parse(open(os.path.join(SRC, "models", info.name + ".py"), encoding="utf8").read())
         typing_only = {

@@ -36,7 +36,12 @@ class Choice(str, Enum):
 # ---- the attack families -------------------------------------------------------------------------
 # Their codes (the file's data/family), the stealthy ones, and the names older releases used.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
-STEALTHY_FAMILIES = {1, 5, 6, 7}  # Aq, At, Al, Am: local false states that pass the residual test
+FAMILY_CODE = {name: code for code, name in FAMILIES.items()}  # "Aq" -> 1 (aliases: FAMILY_ALIAS)
+BENIGN_CODE = FAMILY_CODE["benign"]
+# local false states that pass the residual test
+STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", "At", "Al", "Am")}
+HELDOUT_FAMILIES = ("As", "Ar")  # kept out of train and val in the unseen-attack protocol [BOY22]
+ONE_FRAME_FAMILIES = ("Aq", "Al")  # the single-snapshot stealthy families
 FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
 
 

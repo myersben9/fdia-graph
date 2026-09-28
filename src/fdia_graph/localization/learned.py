@@ -24,6 +24,7 @@ from ..errors import NoAttackedRecords, NotFitted
 from ..formulas.federated import Moments, channel_moments, pool_moments
 from ..formulas.metrics import perbus_counts, tau_from_counts
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
+    BENIGN_CODE,
     Features,
 )
 from ..models.config import LearnedConfig, TrainerConfig
@@ -265,7 +266,7 @@ class LearnedLocalizer(LocalizerBase):
         by = {n: float(flag[fam == f].mean()) for f, n in FAMILIES.items() if f and (fam == f).any()}
         return GridScores(
             tau=float(tau),
-            false_alarm=float(flag[fam == 0].mean()) if (fam == 0).any() else 0.0,
+            false_alarm=float(flag[fam == BENIGN_CODE].mean()) if (fam == BENIGN_CODE).any() else 0.0,
             detection_rate=float(flag[fam != 0].mean()) if (fam != 0).any() else 0.0,
             by_family=by,
         )

@@ -10,6 +10,7 @@ import numpy as np
 
 from ..errors import NoBenignRecords
 from ..formulas.trust import attack_cost, greedy_trusted_meters
+from ..models.choices import BENIGN_CODE
 from ..models.config import TrustConfig
 from ..models.scores import TrustScores  # noqa: F401  re-exported: defined here before the models package
 
@@ -88,7 +89,7 @@ class TrustSelector:
         zs[:, secured] = zb[:, secured]  # the attacker cannot write a secured meter
         before, after = self._max_residual(z), self._max_residual(zs)
         fam = d["family"]
-        ben = fam == 0
+        ben = fam == BENIGN_CODE
         level = self.level
         det_b: dict[str, float] = {}
         det_a: dict[str, float] = {}

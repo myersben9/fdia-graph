@@ -2,8 +2,9 @@
 and the file-protocol rule: a dataset path ("data/...", "graph/...", any group of `schema.Group`)
 or a group name used as one (`f.create_group("data")`, `f["attack"]`, `"episodes" in f`) may be
 spelled only in src/fdia_graph/schema.py; every other module goes through `schema`. And the
-validation rule (docs/plans/VALIDATION_PLAN.md): `raise ValueError` / `raise TypeError` only inside
-`fdia_graph.models`, where the one engine checks every input; everywhere else an input is checked by
+validation rule (docs/plans/VALIDATION_PLAN.md): `raise ValueError` / `raise TypeError` and
+`isinstance(...)` only inside `fdia_graph.models`, where the one engine checks every input and the
+parser models read loose input by its type; everywhere else an input is checked or parsed by
 building its model, and a condition only the data reveals raises a named error from `errors`.
 
     python tools/readability.py --report                 # every function outside a limit, whole package
@@ -233,16 +234,27 @@ _BARE = {"ValueError", "TypeError"}
 
 
 def hand_checks(path: str) -> list[tuple[str, int, str]]:
-    """`raise ValueError(...)` / `raise TypeError(...)` outside `fdia_graph.models`: (file, line, type)."""
+    """`raise ValueError(...)` / `raise TypeError(...)` / `isinstance(...)` outside `fdia_graph.models`:
+    (file, line, "ValueError" | "TypeError" | "isinstance")."""
     here, models = os.path.normcase(os.path.abspath(path)), os.path.normcase(os.path.abspath(_MODELS))
     if os.path.commonpath([here, models]) == models:  # inside the package, not a sibling named models_*
         return []
     tree = ast.parse(open(path, encoding="utf8").read())
-    return [
+    raises = [
         (_rel(path), n.lineno, name)
         for n in ast.walk(tree)
         if isinstance(n, ast.Raise) and (name := _raised_name(n)) in _BARE
     ]
+    types = [
+        (_rel(path), n.lineno, "isinstance")
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "isinstance"
+    ]
+    return sorted(raises + types, key=lambda h: h[1])
+
+
+def _what(name: str) -> str:
+    return f"raise {name}" if name in _BARE else f"{name}(...)"
 
 
 def _raised_name(n: ast.Raise) -> str:
@@ -298,9 +310,11 @@ def report(ms: list[Measure]) -> int:
     for rel, line, lit in lits:
         print(f"  {rel}:{line} {lit!r}")
     hands = hand_checks_all()
-    print(f"{len(hands)} hand-written ValueError/TypeError raises outside fdia_graph.models")
+    print(
+        f"{len(hands)} hand-written ValueError/TypeError raises or isinstance calls outside fdia_graph.models"
+    )
     for rel, line, name in hands:
-        print(f"  {rel}:{line} raise {name}")
+        print(f"  {rel}:{line} {_what(name)}")
     return 0
 
 
@@ -367,10 +381,10 @@ def check(base: str) -> int:
         if line in lines
     ]
     if hands:
-        print("hand-written input checks added by this change (declare the rule on a model in")
-        print("fdia_graph.models.config, or raise a named error from fdia_graph.errors):")
+        print("hand-written input checks added by this change (declare the rule or the parse on a model")
+        print("in fdia_graph.models, or raise a named error from fdia_graph.errors):")
         for rel, line, name in hands:
-            print(f"  {rel}:{line} raise {name}")
+            print(f"  {rel}:{line} {_what(name)}")
         return 1
     n_lines = sum(len(v) for v in changed.values())
     print(f"readability gate: {n_lines} changed lines in {len(changed)} file(s), all touched functions pass")

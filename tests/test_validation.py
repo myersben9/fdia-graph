@@ -230,6 +230,25 @@ def test_the_gate_exempts_the_models_package_only(tmp_path, monkeypatch):
     assert [h[2] for h in readability.hand_checks(str(sibling))] == ["ValueError"]
 
 
+def test_the_gate_refuses_a_type_dispatch_outside_the_models(tmp_path, monkeypatch):
+    """Loose input is parsed by a model (models.inputs), so `isinstance` lives in the models only."""
+    import os
+    import sys
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools"))
+    import readability
+
+    (tmp_path / "models").mkdir()
+    inside = tmp_path / "models" / "inputs.py"
+    outside = tmp_path / "loader.py"
+    for f in (inside, outside):
+        f.write_text("def f(x):\n    return isinstance(x, str)\n")
+    monkeypatch.setattr(readability, "_MODELS", str(tmp_path / "models"))
+    monkeypatch.setattr(readability, "ROOT", str(tmp_path))
+    assert readability.hand_checks(str(inside)) == []
+    assert [h[2] for h in readability.hand_checks(str(outside))] == ["isinstance"]
+
+
 def test_the_gate_must_be_oracle_or_a_callable_localizer():
     from types import SimpleNamespace
 
