@@ -70,8 +70,10 @@ are defined on every channel the attack can touch.
   above, grouped into devices as stated. Decision D1 confirms this reading.
 - **Constraints:** (21)-(23) on every snapshot, as today, and the goal (24)-(25): the flow magnitude
   on line l that the tampered measurements carry before noise, the noiseless reading `h(x^a_t)` of
-  the false state, rises from `S_{l,κ}` and reaches `S_max` by κ+T. Stealth bound: each tampered
-  meter's change from one snapshot to the next is at most its rated accuracy `σ_{m,t}`, so a
+  the false state, rises from `S_{l,κ}` and reaches `S_max` by κ+T. Stealth bound: the attack's
+  own increment on every channel is at most its rated accuracy, `|a_{m,t} - a_{m,t-1}| <= σ_{m,t}`,
+  onset included (`a_{m,κ-1} = 0`: the first attacked frame against the attack-free frame before
+  it), so a
   detector that watches the change between snapshots (the swing and delta features) sees nothing it
   could tell from noise. The residual test sees noise only at any magnitude, since the tampered
   readings are those of an AC false state; the bound is about the temporal detectors, the reason the
@@ -141,11 +143,11 @@ if a reviewer asks.
 **The window.** D1 counts the devices tampered over the whole window, so a candidate is one support
 held for the episode and solved at every snapshot: snapshot t meets its share of the goal (for `Am`,
 `S_{l,t} >= S_{l,κ} + (t - κ)/T · (S_max - S_{l,κ})`, for `At` the ramp's multiplier at t) and keeps
-each channel's change from the previous snapshot under `σ_{m,t}`. Its cost is the union over the
-window of the devices with a channel moved beyond noise. The optimum claimed is over supports held
-for the window and no more: device cost is not monotone in the support, so nothing is claimed about
-supports that change between snapshots. When the budget runs out on 118 and 300, the fallback solves
-snapshot by snapshot from the previous support, and the file records which episodes used it.
+the attack's increment on each channel under `σ_{m,t}`, onset included. Its cost is the union over
+the window of the devices with a channel moved beyond noise. The optimum claimed is over supports
+held for the window and no more: device cost is not monotone in the support, so nothing is claimed
+about supports that change between snapshots. When the budget runs out on 118 and 300, the fallback
+solves snapshot by snapshot from the previous support, and the file records which episodes used it.
 
 ## 4. What changes for each family
 
@@ -246,8 +248,10 @@ families as they are.
   rated 9,900 MVA, MATPOWER's placeholder for "no limit", and the base case loads the most loaded
   line to 1.5%, 4.5% and 8.7% of it. Matched by end buses, all branches pair up (20 of 20, 186 of
   186, 411 of 411) and the base-case loadings are realistic (median 11%, 21% and 16%; most loaded
-  59%, 121% and 148%). A branch PGLib leaves at 9,900 MVA (7 on IEEE-300) or one already above its
-  rating in the base case is not an eligible target.
+  59%, 121% and 148%). A branch PGLib leaves at 9,900 MVA (7 on IEEE-300) is never a target, and a
+  line whose true flow reaches its rating at any snapshot of a candidate window is not a target for
+  that window, since the loads move along the timeline and such a goal would be met with no
+  attack.
 - **D4, PMU current phasors (19)-(20):** added as branch current-phasor channels at PMU buses, a
   file-format change in the same release.
 - **D5, the overload's meaning:** (24)-(25) as written, on the noiseless reading of the false state:
