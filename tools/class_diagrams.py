@@ -43,6 +43,8 @@ GROUPS = {
     "attacks": [
         "engine/attacks/area",
         "engine/attacks/false_state",
+        "engine/attacks/minimize",
+        "engine/attacks/overload",
         "engine/attacks/redistribution",
         "engine/attacks/stealthy",
         "engine/attacks/episodes",

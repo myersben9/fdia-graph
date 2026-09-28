@@ -42,6 +42,12 @@ BENIGN_CODE = FAMILY_CODE["benign"]
 STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", "At", "Al", "Am")}
 HELDOUT_FAMILIES = ("As", "Ar")  # kept out of train and val in the unseen-attack protocol [BOY22]
 ONE_FRAME_FAMILIES = ("Aq", "Al")  # the single-snapshot stealthy families
+# new generation makes the multi-snapshot families only; the single-snapshot ones stay loadable from
+# released files and are deprecated for generation (retire in 0.22)
+GENERATED_FAMILIES = ("At", "Am")
+DEPRECATED_FOR_GENERATION = ("Aq", "Ad", "As", "Ar", "Al")
+# the families of data release v0.8.3 and the frozen test timeline, in their rotation order
+LEGACY_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
 FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
 
 
@@ -169,6 +175,15 @@ class Reduce(Choice):
 
 
 # ---- generation ----------------------------------------------------------------------------------
+class AmAttack(Choice):
+    """What an Am episode is: the overload attack of [WU26] (a target branch's reported flow driven
+    to its rating, the fewest devices tampered), or the held load redistribution of data release
+    v0.8.3 and earlier, kept to reproduce those files."""
+
+    OVERLOAD = "overload"
+    REDISTRIBUTION = "redistribution"
+
+
 class AmDirection(Choice):
     """What an Am episode does to its target line: reads lighter (a real overload hidden), reads
     more loaded than it is, or either, drawn per episode."""

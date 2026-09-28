@@ -26,6 +26,7 @@ small per-step change and a spike as an abrupt jump (the signal the dataset is b
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -73,19 +74,24 @@ from .generation import (
 )
 from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
     BENIGN_CODE,
+    DEPRECATED_FOR_GENERATION,
     FAMILY_CODE,
+    GENERATED_FAMILIES,
+    LEGACY_FAMILIES,
     ONE_FRAME_FAMILIES,
     AmDirection,
 )
 from .models.config import TimelineKnobs
 from .models.data import EpisodeRow
-from .models.frames import AttackVector, MinimizerResult
+from .models.frames import AmOverloadDesign, AttackVector, MinimizerResult
 from .models.inputs import AdmissibleTargets, FamilySelection
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
 
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
-DEFAULT_FAMILIES = ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
+# new generation makes the multi-snapshot families [WU26]; LEGACY_FAMILIES (with
+# am_attack="redistribution", min_tamper=False) reproduces data release v0.8.3 and the frozen timeline
+DEFAULT_FAMILIES = GENERATED_FAMILIES
 
 # Per-family episode-length band (frames): Ad, As, Ar (the upper end excluded), used when
 # corrupt_len is None. Aq and Al are single-snapshot attacks: every Aq and Al episode is one frame.
@@ -195,6 +201,8 @@ class _TimelineBuffers:
         self.edge_m: Optional[np.ndarray] = None
         self.episodes: list[EpisodeRow] = []
         self.min_rows: list[tuple[int, MinimizerResult]] = []  # (episode, fewest-tamper result), knob on
+        # (episode, target branch, rating, noiseless flow reached, emitted flow) per overload Am episode
+        self.am_rows: list[tuple[int, int, float, float, float]] = []
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
         self.last_attack: AttackVector = (np.zeros((C, 4)), np.zeros((E, 2)))
@@ -352,6 +360,32 @@ def _single_shot_episode(w: _Walk, t: int, fid: int, length: int) -> int:
     return ep.close(w, t)
 
 
+def _am_overload_episode(w: _Walk, t: int, length: int) -> int:
+    """One `Am` episode as the overload attack of [WU26] (`AttackMixin.am_overload_design`,
+    `overload_step`): a target branch's reported flow driven to its rating over the window, on the
+    support that tampers the fewest devices. Returns the next free timestep."""
+    ctx, T = w.ctx, w.T
+    design: Optional[AmOverloadDesign] = ctx.g.am_overload_design(
+        ctx.X, t, length, ctx.knobs, w.buf.last_attack
+    )
+    if design is None:  # no eligible branch reaches its rating stealthily here: the frames stay benign
+        return _benign_run(w, t, min(t + length, T))
+    ep = _episode(w, AM_FAMILY, t)
+    w.buf.min_rows.append((ep.sid, design.tamper))
+    reached = emitted = float("nan")
+    line = design.goal.line
+    for i in range(length):
+        if t >= T:
+            break
+        frame, reached = ctx.g.overload_step(design, ctx.X[t], i, ctx.knobs)
+        ep.store(w, t, frame)
+        if frame is not None:
+            emitted = float(np.hypot(*frame.edge_x[line]))
+        t += 1
+    w.buf.am_rows.append((ep.sid, line, design.rating, reached, emitted))
+    return ep.close(w, t)
+
+
 def _am_episode(w: _Walk, t: int, shape: tuple[int, float, str]) -> int:
     """One multi-snapshot episode after [WU26]: a load redistribution drawn once at onset and applied
     frame by frame along a ramp whose per-bus per-frame step stays under the noise floor
@@ -385,6 +419,7 @@ class _Schedule:
     am: tuple[int, float, str]  # (length, am_rate, am_direction)
     corrupt_len: Optional[int]  # Ad/As/Ar episode length; None draws the band
     attacked_frac: float
+    am_overload: bool = False  # Am as the overload attack of [WU26]; False: the v0.8.3 redistribution
 
     @classmethod
     def build(
@@ -462,6 +497,8 @@ def _run_episode(w: _Walk, at: tuple[int, int, int], plan: _Schedule) -> int:
     onset, fid, length = at
     if fid == RAMP_FAMILY:
         return _ramp_episode(w, onset, length, plan.ramp_rate)
+    if fid == AM_FAMILY and plan.am_overload:
+        return _am_overload_episode(w, onset, length)
     if fid == AM_FAMILY:
         return _am_episode(w, onset, (length, plan.am[1], plan.am[2]))
     return _single_shot_episode(w, onset, fid, length)
@@ -555,6 +592,8 @@ def _write_episodes(f: h5py.File, buf: _TimelineBuffers) -> None:
     f.create_dataset(schema.MAG, data=mag)
     if buf.min_rows:  # the fewest-tamper knob: what the search chose per episode and whether it is proven
         _write_min_rows(eg, buf.min_rows)
+    if buf.am_rows:  # the overload attack: its target branch, rating and the flow it reached
+        _write_am_rows(eg, buf.am_rows)
     f[schema.Group.ATTACK].attrs[schema.Attr.TAMPER] = (
         "1 where the attacker wrote the meter: the meters the local false state moves for the "
         "stealthy families, the changed channels for Ad/As/Ar"
@@ -574,6 +613,16 @@ def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]])
     ptr, idx = _ragged([np.asarray(r.support) for r in rows], np.int32)
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_PTR, data=ptr)
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)
+
+
+def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, float]]) -> None:
+    """episodes/am_*: one row per overload Am episode, the target branch, its rating (MVA), the
+    noiseless apparent flow the last frame reached and the emitted (noisy) one."""
+    eg.create_dataset(schema.EPISODE_AM_EPISODE, data=np.array([r[0] for r in am_rows], np.int32))
+    eg.create_dataset(schema.EPISODE_AM_LINE, data=np.array([r[1] for r in am_rows], np.int32))
+    eg.create_dataset(schema.EPISODE_AM_RATING, data=np.array([r[2] for r in am_rows], np.float32))
+    eg.create_dataset(schema.EPISODE_AM_REACHED, data=np.array([r[3] for r in am_rows], np.float32))
+    eg.create_dataset(schema.EPISODE_AM_EMITTED, data=np.array([r[4] for r in am_rows], np.float32))
 
 
 def _timeline_attrs(
@@ -656,6 +705,33 @@ def _block_scale(nx: h5py.Dataset, a: int, b: int) -> np.ndarray:
     return recent_change_scale(pq, SWING_WINDOW, nx.shape[1])[a - g0 :]
 
 
+def _warn_deprecated_families(fams: Sequence[int]) -> None:
+    """A DeprecationWarning when a single-snapshot family is asked of new generation (the plan's D6)."""
+    old = [FAMILIES[f] for f in fams if FAMILIES[f] in DEPRECATED_FOR_GENERATION]
+    if old:
+        warnings.warn(
+            f"generating {', '.join(old)} is deprecated and refused from 0.22: new generation makes the "
+            "multi-snapshot families At and Am [WU26]; released files holding the single-snapshot "
+            "families keep loading",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
+
+def _search_attrs(tk: TimelineKnobs, overload: bool) -> dict[str, object]:
+    """The attributes of the searches a walk ran, written only when they ran so a v0.8.3 file's
+    attributes are unchanged: the fewest-tamper knobs, the Am attack, and the stealth scale of
+    whichever search used it (At's or Am's)."""
+    out: dict[str, object] = {}
+    if tk.min_tamper:
+        out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
+    if overload:
+        out[Attr.AM_ATTACK] = tk.am_attack
+    if tk.min_tamper or overload:
+        out[Attr.STEALTH_SCALE] = tk.stealth_scale
+    return out
+
+
 def generate_timeline(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
@@ -675,8 +751,10 @@ def generate_timeline(
     seed: int = 123,
     out: Optional[str] = None,
     max_load_mw: Optional[float] = 2000.0,
-    min_tamper: bool = False,
+    min_tamper: bool = True,
     min_budget: int = 256,
+    am_attack: str = "overload",
+    stealth_scale: float = 1.0,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
@@ -687,7 +765,12 @@ def generate_timeline(
                      of the draw; a frame whose local power flow has no solution at any halving
                      of its step stays benign and is counted in the file's `fallback_benign`
                      attribute (zero on every released file)
-    families         the families in rotation; each gets about the same share of attacked frames
+    families         the families in rotation; each gets about the same share of attacked frames.
+                     New generation makes the multi-snapshot families At and Am (the default);
+                     Aq, Ad, As, Ar and Al are deprecated for generation (a DeprecationWarning,
+                     refused from 0.22) and stay loadable from released files. Data release v0.8.3
+                     is reproduced with families=LEGACY_FAMILIES, am_attack="redistribution",
+                     min_tamper=False
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
     am_len           Am episode length (default ramp_len)
@@ -712,22 +795,47 @@ def generate_timeline(
     split            chronological train/val/test fractions by frame, episodes never cut
     min_tamper       [WU26, eq. 12]: hold each At episode on the support (the buses the false state
                      moves) that tampers the fewest devices over the episode, a change under a
-                     meter's noise not counted; off (default): the region within `hops`. The
+                     meter's noise not counted (default on); off: the region within `hops`. The
                      search's choice per episode is written under episodes/ (min_*)
     min_budget       candidate supports the search solves per episode before it settles on the best
                      found (recorded as not proven)
+    am_attack        "overload" (default): Am is the overload attack of [WU26], a rated, metered
+                     branch's reported flow driven to its PGLib-OPF rating over the episode on the
+                     fewest-tamper support (IEEE-14, 118 and 300 only: NoLineRatings elsewhere),
+                     its branch, rating and reached flow under episodes/ (am_*); "redistribution":
+                     the held load redistribution of data release v0.8.3
+    stealth_scale    a multiplier on the stealth bound of the multi-snapshot families: each channel's
+                     attack step between snapshots at most this many times [WU26]'s case-study noise
+                     for Am (0.03 pu SCADA, 0.01 pu PMU, the plan's D8) and the meters' rated accuracy
+                     for At (D7); 1 by default
     """
     tk = TimelineKnobs(
-        attacked_frac, am_rate, hops, am_direction, ramp_len, am_len, corrupt_len, min_tamper, min_budget
+        attacked_frac,
+        am_rate,
+        hops,
+        am_direction,
+        ramp_len,
+        am_len,
+        corrupt_len,
+        min_tamper,
+        min_budget,
+        am_attack,
+        stealth_scale,
     )
     fams = FamilySelection(families).codes
+    _warn_deprecated_families(fams)
+    overload = tk.am_attack == "overload" and AM_FAMILY in fams
     red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
     g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
-        AdmissibleTargets(fams, g.target_counts())
+        # the overload Am is not checked against the redistribution pool: its targets are the rated,
+        # metered lines of each window, decided per episode (a window with none stays benign)
+        AdmissibleTargets(tuple(f for f in fams if not (overload and f == AM_FAMILY)), g.target_counts())
+        if overload:
+            g.line_ratings()  # NoLineRatings on a case without ratings, before any frame is walked
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(
@@ -741,10 +849,12 @@ def generate_timeline(
         limits,
         tk.min_tamper,
         tk.min_budget,
+        tk.stealth_scale,
     )
     ctx = _FrameContext(g, X, knobs, [])
     am = (tk.am_frames, tk.am_rate, tk.am_direction)
     plan = _Schedule.build(list(fams), tk.ramp_len, ramp_rate, am, tk.corrupt_len, tk.attacked_frac)
+    plan.am_overload = overload
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = {
         Attr.TARGET_ATTACKED_FRAC: attacked_frac,
@@ -765,8 +875,7 @@ def generate_timeline(
         Attr.PMU_FRAC: red["pmu_frac"],
         Attr.FLOW_FRAC: red["flow_frac"],
     }
-    if tk.min_tamper:  # recorded only when on, so a default file's attributes are unchanged
-        recorded.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
+    recorded.update(_search_attrs(tk, overload))
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)

@@ -14,7 +14,6 @@ import numpy as np
 
 from ...models.choices import FAMILY_CODE
 from ...models.frames import AttackDesign, Frame, FrameKnobs
-from .false_state import changed_meters
 from .redistribution import RedistributionMixin
 
 AQ_FAMILY = FAMILY_CODE["Aq"]
@@ -44,31 +43,9 @@ class StealthyMixin(RedistributionMixin):
         Xa = self.stealthy_state(Xt, design, k)
         if Xa is None:
             return None  # no local solution, or one outside the operating limits: the caller halves
-        scan = self.emit_from_state(Xt)  # the true scan: the benign twin, and the draw every meter keeps
-        bnx, bex = scan.node_x, scan.edge_x
-        a_node, a_edge = self._attack_vector(Xa, Xt)
-        moved = changed_meters(a_node, a_edge, scan)
-        nx, ex = bnx.copy(), bex.copy()
-        nx[moved[0]] += a_node[moved[0]]
-        ex[moved[1]] += a_edge[moved[1]]
-        tamper = (nx != bnx, ex != bex)  # the meters whose stored float32 reading changed, no fewer, no more
         buses = self.load_bus[design.targets]
-        y = np.zeros(self.C, np.uint8)
-        y[buses] = 1
         dev = np.abs(np.asarray(design.mult, float) - 1.0)
-        return Frame(
-            nx,
-            scan.node_m,
-            ex,
-            scan.edge_m,
-            y,
-            1,
-            buses,
-            np.broadcast_to(dev, buses.shape).astype(float),
-            bnx,
-            bex,
-            tamper,
-        )
+        return self.frame_from_state(Xt, Xa, buses, np.broadcast_to(dev, buses.shape).astype(float))
 
     def _solvable_step(
         self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs, limit: tuple[int, Optional[float]]

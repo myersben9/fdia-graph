@@ -17,6 +17,7 @@ from .models.errors import (
     NoAdmissibleTarget,
     NoAttackedRecords,
     NoBenignRecords,
+    NoLineRatings,
     NoRoomForEpisode,
     NotFitted,
     SlackMismatch,
@@ -39,4 +40,5 @@ __all__ = [
     "VaryingReference",
     "CountOverflow",
     "UnknownColumnOrder",
+    "NoLineRatings",
 ]

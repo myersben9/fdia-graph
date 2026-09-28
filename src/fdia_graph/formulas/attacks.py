@@ -191,3 +191,25 @@ def tampered_devices(
     flow_buses = np.asarray(from_bus)[np.asarray(edge_mask, bool).any(axis=1)]
     ids = np.concatenate([np.where(scada)[0], flow_buses, N + np.where(voltage & pmu)[0]])
     return np.unique(ids.astype(np.int64))
+
+
+UNRATED_MVA = 9900.0  # MATPOWER's "no limit" rating, which PGLib-OPF keeps on a few branches
+
+
+def branch_ratings(ends: list[tuple[int, int]], rows: list[tuple[int, int, float]]) -> np.ndarray:
+    """Each branch's thermal rating (MVA) from a table of (from bus, to bus, rate_a) rows, matched by
+    the branch's two end buses in either order [WU26, the S_max of eq. 25; PGLib-OPF for the values].
+    Parallel rows between the same buses give the smallest rating (the binding one); a branch with no
+    matching row, or one the table leaves at MATPOWER's 9,900 MVA placeholder, is unrated (NaN).
+
+    ends    : [E] (from bus, to bus) of each branch, in the table's bus numbering
+    rows    : the rating table, (from bus, to bus, rate_a MVA)
+    returns : [E] rating in MVA, NaN where unrated
+    """
+    table: dict[frozenset[int], float] = {}
+    for f, t, r in rows:
+        key = frozenset((int(f), int(t)))
+        table[key] = min(r, table.get(key, np.inf))
+    rating = np.array([table.get(frozenset((int(a), int(b))), np.nan) for a, b in ends], np.float64)
+    rating[rating >= UNRATED_MVA] = np.nan
+    return rating

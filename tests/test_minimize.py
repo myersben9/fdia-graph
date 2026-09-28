@@ -60,7 +60,11 @@ def test_a_window_with_no_held_support_says_so(case):
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
         window = _Window(g, states, goal, k)
-        feasible = [c for S in g._supports(buses, area) if (c := window.cost(S, None)) is not None]
+        feasible = [
+            c
+            for S in g._supports([frozenset(int(b) for b in buses)], area)
+            if (c := window.cost(S, None)) is not None
+        ]
         assert (result.devices < 0) == (not feasible and window.cost(area, None) is None)
 
 
@@ -74,7 +78,7 @@ def test_the_search_equals_brute_force_and_its_bound_holds(case):
         area = g.local_region(buses, k.hops)
         window = _Window(g, states, goal, k)
         feasible, unsolved = [], 0
-        for S in [*g._supports(buses, area), np.asarray(area)]:
+        for S in [*g._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
             c = window.cost(S, None)
             unsolved += 0 if window.converged else 1
             if c is not None:
@@ -219,7 +223,11 @@ def test_reweighted_l1_never_beats_the_search(case):
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
         window = _Window(g, states, goal, k, stealth_bound=False)
-        costs = [c for S in g._supports(buses, area) if (c := window.cost(S, None)) is not None]
+        costs = [
+            c
+            for S in g._supports([frozenset(int(b) for b in buses)], area)
+            if (c := window.cost(S, None)) is not None
+        ]
         S = _irls_support(g, states, goal, np.asarray(area))
         cost = window.cost(S, None)
         if costs and cost is not None:
@@ -228,12 +236,14 @@ def test_reweighted_l1_never_beats_the_search(case):
     assert compared >= 1, "the reweighted-l1 support should be feasible on at least one window"
 
 
-def test_the_knob_is_off_by_default():
+def test_new_generation_searches_and_the_v083_recipe_does_not():
+    """New generation holds every At episode on its fewest-tamper support (the plan's D2); the frame
+    knobs default off, so the v0.8.3 recipe (min_tamper=False) walks exactly as it did."""
     from fdia_graph.models.config import TimelineKnobs
     from fdia_graph.models.frames import FrameKnobs, RampDesign
 
     assert FrameKnobs(0.2, 0.02, 6, None, False, True).min_tamper is False
-    assert TimelineKnobs().min_tamper is False
+    assert TimelineKnobs().min_tamper is True
     assert RampDesign(np.array([0]), 1.0, 1, 0).support is None
 
 
@@ -246,7 +256,7 @@ def test_supports_keep_the_region_rules(case):
     for _, _, d in _windows(case, 2):
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
-        for S in g._supports(buses, area):
+        for S in g._supports([frozenset(int(b) for b in buses)], area):
             assert g.slack_bus not in S
             boundary = set(np.unique(edges[:, np.isin(edges, S).any(axis=0)]).tolist()) - set(S.tolist())
             assert not boundary & zero
@@ -271,6 +281,7 @@ def test_generate_with_the_knob_records_each_ramp_search(tmp_path):
         held = devices >= 0  # -1: no held support met the constraints, the episode ran on its region
         assert (devices[held] >= lower[held]).all()
         assert f.attrs[schema.Attr.MIN_TAMPER] == 1
+        assert f.attrs[schema.Attr.STEALTH_SCALE] == 1.0  # an At-only timeline records its bound too
 
 
 def test_the_stealth_bound_covers_the_onset(case):

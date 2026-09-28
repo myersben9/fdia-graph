@@ -59,7 +59,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 | Aq | `A_o` | scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode | `engine/attacks/episodes.single_shot_design` + `engine/attacks/false_state.stealthy_state` |
 | At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.ramp_design` + `ramp_step` |
 | Al | `A_l` | load-conserving redistribution around a target line, one frame per episode | `engine/attacks/redistribution.lra_delta` + `engine/attacks/stealthy._lra_frame` |
-| Am | `A_m` | multi-snapshot, after [WU26]: a held redistribution reached in steps under the noise floor | `engine/attacks/episodes.am_design` + `am_step` + `engine/attacks/stealthy._am_frame` |
+| Am | `A_m` | the overload attack of [WU26]: a rated line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps) | `engine/attacks/overload.am_overload_design` + `overload_step` (v0.8.3: `episodes.am_design` + `am_step` + `stealthy._am_frame`) |
 | Ad | `A_d` | `z ← z(1±u)` | `engine/attacks/corrupt.corrupt` |
 | As | `A_s` | `z ← βz` | `engine/attacks/corrupt.corrupt` |
 | Ar | `A_r` | replay `z(t−k)` | `engine/attacks/corrupt.corrupt` |
@@ -69,9 +69,11 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
   limits, and the attack vector `h(x') − h(x)` is added to the benign scan. The residual test flags
   them at the benign rate by construction. They satisfy equations (13)-(18) and (21)-(23) of [WU26]
   (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits; the PMU
-  branch-current phasors (19)-(20) are not modeled) but not its objective: by default the targets
-  are drawn at random rather than chosen to tamper the fewest devices (the fewest-tamper search of
-  eq. 12 covers `At` under `min_tamper=True`), and no line is driven to its limit
+  branch-current phasors (19)-(20) are not modeled yet). New generation also solves its objective,
+  eq. (12): each `At` and `Am` episode is held on the support that tampers the fewest devices, and
+  `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25). The released files'
+  stealthy families drew their targets at random and drove no line to its limit; `LEGACY_FAMILIES`
+  with `am_attack="redistribution"` and `min_tamper=False` reproduces them
   (`docs/plans/WU_MSFDIA_PLAN.md`).
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,

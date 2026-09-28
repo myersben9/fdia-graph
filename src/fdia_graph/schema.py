@@ -98,6 +98,9 @@ EPISODE_MIN_PROVEN, EPISODE_MIN_EVALUATED, EPISODE_MIN_LOWER = (
 )
 EPISODE_MIN_SUPPORT_PTR, EPISODE_MIN_SUPPORT_IDX = "min_support_ptr", "min_support_idx"
 EPISODE_MIN_UNSOLVED = "min_unsolved"
+# episodes/ for the overload attack Am [WU26]: one row per Am episode
+EPISODE_AM_EPISODE, EPISODE_AM_LINE, EPISODE_AM_RATING = "am_episode", "am_line", "am_rating_mva"
+EPISODE_AM_REACHED, EPISODE_AM_EMITTED = "am_reached_mva", "am_emitted_mva"
 
 # record field -> dataset path: the loader's vocabulary on disk (clean fields resolve per timestep)
 FIELD_PATH = {
@@ -161,6 +164,8 @@ class Attr:
     HOPS = "hops"
     MIN_TAMPER = "min_tamper"
     MIN_BUDGET = "min_budget"
+    AM_ATTACK = "am_attack"
+    STEALTH_SCALE = "stealth_scale"
     MAX_LOAD_MW = "max_load_mw"
     V_LO = "v_lo"  # the widest bus voltage limits of the case, what a false state must stay in
     V_HI = "v_hi"

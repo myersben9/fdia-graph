@@ -1,6 +1,6 @@
 # Plan: the [WU26] attack as the optimization it is, and one home for attack generation
 
-**Status: accepted; decisions D1 to D7 taken (section 9).**
+**Status: accepted; decisions D1 to D9 taken (section 9).**
 
 [WU26] defines its multi-snapshot attack (MS-FDIA) as an optimization: eq. (12) minimizes the
 number of tampered measurements subject to the AC measurement model (13)-(20), the operating limits
@@ -70,17 +70,18 @@ are defined on every channel the attack can touch.
   above, grouped into devices as stated. Decision D1 confirms this reading.
 - **Constraints:** (21)-(23) on every snapshot, as today, and the goal (24)-(25): the flow magnitude
   on line l that the tampered measurements carry before noise, the noiseless reading `h(x^a_t)` of
-  the false state, rises from `S_{l,κ}` and reaches `S_max` by κ+T. Stealth bound: the attack's
-  own increment on every channel is at most its rated accuracy, `|a_{m,t} - a_{m,t-1}| <= σ_{m,t}`,
+  the false state, rides on the true flow and reaches `S_max` by κ+T (the schedule of D9). Stealth
+  bound: the attack's own increment on every channel is at most its noise scale, `|a_{m,t} -
+  a_{m,t-1}| <= σ_{m,t}`, the rated accuracy for `At` (D7) and [WU26]'s own noise for `Am` (D8),
   onset included: `a_{m,κ-1}` is the attack vector of the frame before the episode, zero when that
   frame is benign and that frame's own vector when an episode ends there (episodes may be adjacent,
   the placement being uniformly random). This is a rated-accuracy criterion: each step stays within
   what the meter's accuracy class allows, the standard an operator holds a meter to. It is not a
   guarantee against a temporal detector tuned to the per-scan jitter, which is smaller than the
-  rated accuracy, and how the swing and delta features fare against it is measured, not assumed.
-  The residual test sees noise only at any magnitude, since the tampered readings are those of an
-  AC false state. The target line's flow is metered: the goal is defined
-  on what the operator sees, so only lines whose flow is metered are eligible targets.
+  rated accuracy, and how the swing and delta features fare against it is measured, not assumed. The
+  residual test sees noise only at any magnitude, since the tampered readings are those of an AC
+  false state. The target line's flow is metered: the goal is defined on what the operator sees, so
+  only lines whose flow is metered are eligible targets.
 
 ## 3. How it is solved
 
@@ -147,12 +148,13 @@ if a reviewer asks.
 
 **The window.** D1 counts the devices tampered over the whole window, so a candidate is one support
 held for the episode and solved at every snapshot: snapshot t meets its share of the goal (for `Am`,
-`S_{l,t} >= S_{l,κ} + (t - κ)/T · (S_max - S_{l,κ})`, for `At` the ramp's multiplier at t) and keeps
-the attack's increment on each channel under `σ_{m,t}`, onset included. Its cost is the union over
-the window of the devices with a channel moved beyond noise. The optimum claimed is over supports
-held for the window and no more: device cost is not monotone in the support, so nothing is claimed
-about supports that change between snapshots. When the budget runs out on 118 and 300, the fallback
-solves snapshot by snapshot from the previous support, and the file records which episodes used it.
+`S_{l,t} = S_true_{l,t} + (t - κ)/T · (S_max - S_true_{l,κ+T})` (D9), for `At` the ramp's multiplier
+at t) and keeps the attack's increment on each channel under `σ_{m,t}`, onset included. Its cost is
+the union over the window of the devices with a channel moved beyond noise. The optimum claimed is
+over supports held for the window and no more: device cost is not monotone in the support, so
+nothing is claimed about supports that change between snapshots. When the budget runs out on 118 and
+300, the fallback solves snapshot by snapshot from the previous support, and the file records which
+episodes used it.
 
 ## 4. What changes for each family
 
@@ -272,3 +274,19 @@ families as they are.
   0.001 MVAr on near-zero reactive flows, today's attack area met the between-snapshot bound in
   0 of 20 IEEE-14 `At` windows and 0 of 8 on IEEE-118, and a feasible held support existed in only
   4 of 20 and 3 of 8: the jitter floor is far tighter than any real meter's resolution.
+- **D8, `Am`'s noise scale:** [WU26]'s own case-study noise, 0.03 pu on SCADA channels (P and Q
+  injections and flows on the case base, in MW and MVAr as stored) and 0.01 pu on PMU channels (|V|
+  in pu, the angle 0.01 rad in degrees), for both the stealth bound and the tamper count, since the
+  paper excludes from its l0 count the changes smaller than its noise
+  (`formulas.noise.paper_sigma`). `At` keeps D7. Under the meters' rated accuracy (D7) no overload
+  window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118 60-snapshot windows, since moving one
+  line's flow moves the injections and flows around its ends by several times that change, beyond
+  the rated accuracy of the small loads there. Measured under D8 and D9 on 60-snapshot windows at
+  the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the search not proven within its
+  budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s per snapshot); the reported
+  noiseless flow reaches the rating exactly.
+- **D9, the goal schedule:** `S_{l,t} = S_true_{l,t} + (t - κ)/T (S_max - S_true_{l,κ+T})` on the
+  noiseless reading, replacing the onset-anchored `S_{l,κ} + (t - κ)/T (S_max - S_{l,κ})` and its
+  floor at the true flow: the anchored form made the attack cancel the load's natural drift (a flow
+  rising on its own had to be held back, one falling had to be propped up), spending tampering on
+  the drift rather than the goal; the drift-free form still reaches the rating at κ+T (eq. 25).

@@ -47,7 +47,7 @@ Repository = "https://github.com/myersben9/fdia-graph"
 where = ["src"]
 
 [tool.setuptools.package-data]
-fdia_graph = ["profiles/*.npz"]
+fdia_graph = ["profiles/*.npz", "ratings/*.json"]
 
 # Static type checking, scoped to the SDK package (enforced in CI, see .github/workflows/smoke.yml).
 # The optional heavy stack (torch/pandas/pandapower/h5py/torch_geometric/gridstatus/tensorflow) is

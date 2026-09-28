@@ -59,8 +59,10 @@ from .fields import (
 )
 from .frames import (
     AmDesign,
+    AmOverloadDesign,
     AttackDesign,
     Band,
+    FlowGoal,
     Frame,
     FrameKnobs,
     LoadGoal,
@@ -194,6 +196,8 @@ __all__ = [
     "RampDesign",
     "AmDesign",
     "LoadGoal",
+    "FlowGoal",
+    "AmOverloadDesign",
     "MinimizerResult",
     "OptimConfig",
     "ProfileFetch",

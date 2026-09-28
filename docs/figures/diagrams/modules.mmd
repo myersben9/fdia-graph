@@ -6,6 +6,7 @@ flowchart TB
     generation["generation.py"]
     localization["localization/"]
     profiles["profiles.py"]
+    ratings["ratings"]
     registry["registry.py"]
     se["se/"]
     streams["streams.py<br/>(deprecated)"]
@@ -13,6 +14,7 @@ flowchart TB
     torch_data["torch_data.py<br/>(deprecated)"]
     trust["trust/"]
     download --> registry
+    engine --> ratings
     engine --> registry
     federated --> dataset
     federated --> localization
