@@ -115,7 +115,7 @@ def _targets(md: str, text: str) -> list[str]:
     """The repository paths a Markdown file cites: backticked repository-rooted paths, and link and
     image destinations resolved against the file's folder (web links, mail and anchors skipped)."""
     out = list(_BACKTICKED.findall(_LINKED.sub("", text)))  # a link's text is not a citation; its target is
-    for dest in _LINKED.findall(text):
+    for dest in _LINKED.findall(re.sub(r"`[^`\n]*`", "", text)):  # a code span holds no link
         if re.match(r"[a-z][a-z0-9+.-]*:", dest, re.I) or dest.startswith("#"):
             continue
         path = dest.split("#", 1)[0].split("?", 1)[0]
