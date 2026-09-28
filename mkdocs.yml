@@ -67,6 +67,7 @@ nav:
       - References: reference/REFERENCES.md
   - Plans:
       - Overview: plans/README.md
+      - Reference study: plans/REFERENCE_STUDY_PLAN.md
       - One dataset: plans/ONE_DATASET_PLAN.md
       - Validation: plans/VALIDATION_PLAN.md
       - Data models: plans/DATA_MODELS_PLAN.md

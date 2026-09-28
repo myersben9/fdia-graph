@@ -12,4 +12,5 @@ promise covers, and the decisions Ben took at each step. They are history, not i
 | `DATA_MODELS_PLAN.md` | typed models for everything a function returns, the dual-access `Bundle`, the `models/` package |
 | `FIELD_GROUPS_PLAN.md` | field groups for the fields the data models repeat (implemented) |
 | `VALIDATION_PLAN.md` | **active**: every input check declared on a data model and enforced by one engine; dataset capabilities in one table; the six-step series |
+| `REFERENCE_STUDY_PLAN.md` | **proposed**: twelve changes taken from power-grid-model and OGB (standalone evaluators, per-record estimation status, provenance and seeds, release metadata and dataset cards, a timeline file checker, collect-all validation errors), ranked, with the open decisions and the sequence |
 | `ONE_DATASET_PLAN.md` | **active**: one generator, one HDF5 file, one loader with a seeded order; the seventh family `Am`; data release v0.8.0 |
