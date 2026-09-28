@@ -5,6 +5,9 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The fewest-tamper search charges an angle channel only at a PMU bus: a SCADA voltmeter reads
+  `|V|` alone. The emitter still writes an angle at every voltmeter bus; the meter plan's angle
+  channels are corrected in the next data release.
 - The documentation states what the stealthy families take from [WU26]: its constraints (13)-(18)
   and (21)-(23) (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating
   limits; the PMU branch-current phasors (19)-(20) are not modeled yet). New generation also solves

@@ -253,6 +253,11 @@ class _Window:
         self.node_m, self.edge_m = g.meter_masks()
         self.pmu = np.zeros(g.C, bool)
         self.pmu[sorted(g.meters.pmu)] = True
+        # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only, so the attack's tamper count
+        # and stealth bound see an angle only where a PMU is (the emitter still writes an angle at
+        # every voltmeter bus, a plan-level fix for the next data release)
+        self.node_m = self.node_m.copy()
+        self.node_m[~self.pmu, NODE.theta] = 0
         flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
         self.flows = flows
         # the meters' rated accuracy: what a change must exceed to count, and the most a channel may move

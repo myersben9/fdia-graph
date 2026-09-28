@@ -251,3 +251,17 @@ def test_new_generation_makes_the_multi_snapshot_families_and_the_old_ones_warn(
 def test_the_overload_attack_is_refused_on_a_case_without_ratings(tmp_path):
     with pytest.raises(NoLineRatings, match="IEEE-30 has no line ratings"):
         generate_timeline(30, families=("Am",), attacked_frac=0.5, out=str(tmp_path / "x.h5"))
+
+
+def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
+    """A SCADA voltmeter reads |V| only; the angle channel exists only at a PMU bus, so the search's
+    masks carry an angle at PMU buses alone."""
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.models.grid import NODE
+
+    window = [pool[u] for u in range(3)]
+    line = int(g.eligible_lines(window, 2)[0])
+    w = _Window(g, window, g.overload_goal(window, line), None, True)
+    pmu = np.zeros(g.C, bool)
+    pmu[sorted(g.meters.pmu)] = True
+    assert not w.node_m[~pmu, NODE.theta].any()
