@@ -1,15 +1,17 @@
 classDiagram
     class GridBase {
         +emit_from_state()
+        +meter_masks()
         +clean_flows_from_states()
         +state_from_net()
         +true_load()
         +true_reactive_load()
         +scan_generation()
         +scan_reactive_generation()
-        +solve()
+        ... and 1 more
     }
     class MeasurementMixin {
+        +meter_masks()
         +emit_from_state()
         +clean_flows_from_states()
         +state_from_net()

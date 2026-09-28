@@ -1792,6 +1792,41 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>Aq, At, Al, Am</td>
 </tr>
 <tr>
+<td>per-scan jitter sigma</td>
+<td><code>formulas.noise.jitter_sigma</code>, called by <code>MeasurementMixin.emit_from_state</code></td>
+<td>σ_jit = jitter_v on |V|, degrees(jitter_va) on the angle, |P| jitter_pi + floor and |Q| jitter_qi + floor on injections, |P_f| jitter_pf + floor and |Q_f| jitter_qf + floor on flows</td>
+<td>[ASP14], the rule set in this package</td>
+<td>emission only: the per-scan noise every measurement draws</td>
+</tr>
+<tr>
+<td>accuracy-class sigma of a scan</td>
+<td><code>formulas.noise.accuracy_sigma</code>, through <code>formulas.estimation.accuracy_class_sigma</code> (the measured calibration's rule)</td>
+<td>σ_acc = class_v on |V|, degrees(class_va) on the angle, class_x |reading| + floor on every power channel</td>
+<td>[ASP14]</td>
+<td>what a change must exceed to count as tampered, and the most a channel may move between snapshots, in the fewest-tamper search</td>
+</tr>
+<tr>
+<td>tampered channels</td>
+<td><code>formulas.attacks.tampered_channels</code>, called by the fewest-tamper search</td>
+<td>tampered_m = metered_m and |a_m| &gt; σ_acc,m</td>
+<td>[WU26, eq. 12] with sub-noise changes excluded</td>
+<td>At with <code>min_tamper</code></td>
+</tr>
+<tr>
+<td>tampered devices</td>
+<td><code>formulas.attacks.tampered_devices</code>, called by the fewest-tamper search</td>
+<td>a channel counts toward its device: a bus's SCADA terminal (injections, the flows metered at the bus, a voltage meter without PMU) or its PMU (|V| and angle)</td>
+<td>[WU26], the device count of its results</td>
+<td>At with <code>min_tamper</code></td>
+</tr>
+<tr>
+<td>fewest-tamper support</td>
+<td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code>, called by <code>EpisodeDesignMixin.ramp_design</code></td>
+<td>minimize over supports S in the attacker's area the devices tampered at some snapshot of the window, S held for the window and feasible at every snapshot (local solve, the goal, the operating limits, no metered channel moving more than its σ_acc from one snapshot to the next, the first from the frame before the episode) and moving at least one device beyond σ_acc; proven only among converged local solves, closed over zero-injection boundary buses; smallest first from the region, proven when exhausted or at the devices the goal forces above noise</td>
+<td>[WU26, eq. 12]</td>
+<td>At with <code>min_tamper</code></td>
+</tr>
+<tr>
 <td>WLS step</td>
 <td><code>formulas.estimation.wls_step</code> (shared weights) and <code>wls_step_batched</code> (per-record weights), called by <code>SEBase._solve_plain</code> and <code>_w_solve</code></td>
 <td>Δc = (BᵀWB)⁻¹BᵀW (z − h(x))</td>

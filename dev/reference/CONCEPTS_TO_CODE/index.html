@@ -1834,6 +1834,9 @@ and converts them on load.</p>
   re-solved with the boundary voltages held true, inside the case's voltage limits and the region's
   generator limits, and the attack vector <code>h(x') − h(x)</code> is added to the benign scan. The residual
   test flags them at the benign rate by construction.</li>
+<li>With <code>min_tamper=True</code> an At episode is held on the support that tampers the fewest devices over
+  the episode, the objective of [WU26, eq. 12] (<code>engine/attacks/minimize.MinimizeMixin.min_tamper</code>,
+  called by <code>engine/attacks/episodes.ramp_design</code>).</li>
 <li>Ad/As/Ar tamper readings in place. Detectable.</li>
 <li>Every designed change sits above the noise floor and below <code>attack_intensity</code> (20 percent by
   default). Aq draws its per-bus load change from 5 to 20 percent; Ad, As and Al use the 2 to 20

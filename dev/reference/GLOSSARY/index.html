@@ -1694,6 +1694,31 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <td><code>schema.STEALTHY_FAMILIES</code>, <code>data/stealthy</code></td>
 </tr>
 <tr>
+<td>support</td>
+<td>The buses whose voltages a local false state moves; only meters that depend on them can change. The fewest-tamper search chooses it.</td>
+<td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code></td>
+</tr>
+<tr>
+<td>device</td>
+<td>One SCADA terminal (a bus's injection meters, the flows metered at that bus, a voltage meter without PMU) or one PMU (a bus's voltage magnitude and angle), the unit [WU26] counts.</td>
+<td><code>formulas.attacks.tampered_devices</code></td>
+</tr>
+<tr>
+<td>tamper cost</td>
+<td>The devices with a channel moved beyond its accuracy-class sigma at some snapshot of an attack window, the objective of [WU26, eq. 12].</td>
+<td><code>formulas.attacks.tampered_channels</code>, <code>tampered_devices</code></td>
+</tr>
+<tr>
+<td>accuracy-class sigma</td>
+<td>A meter's rated accuracy at a reading (relative for power channels plus a floor, absolute for voltage and angle): the sigma the measured calibration uses and the threshold of the fewest-tamper search.</td>
+<td><code>formulas.noise.accuracy_sigma</code>, <code>formulas.estimation.accuracy_class_sigma</code></td>
+</tr>
+<tr>
+<td>jitter sigma</td>
+<td>The per-scan random part of a meter's error, a quarter of its accuracy class; the emitter draws each reading's noise with it. Emission only.</td>
+<td><code>formulas.noise.jitter_sigma</code></td>
+</tr>
+<tr>
 <td>local false state</td>
 <td>A state in which only a subnetwork around the targets is re-solved under false loads, boundary voltages held true, and the attack vector <code>h(x_false) - h(x_true)</code> is added to the true scan [WU26].</td>
 <td><code>engine.attacks.stealthy.StealthyMixin._stealthy_frame</code>, <code>engine.attacks.false_state.FalseStateMixin.solve_local</code>, <code>engine.attacks.area.AreaMixin.local_region</code></td>

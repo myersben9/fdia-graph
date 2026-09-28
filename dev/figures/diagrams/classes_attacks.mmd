@@ -48,6 +48,12 @@ classDiagram
     class GridBase {
         <<engine>>
     }
+    class LoadGoal {
+        <<models>>
+    }
+    class MinimizeMixin {
+        <<engine>>
+    }
     class OperatingLimits {
         <<models>>
     }
@@ -69,6 +75,7 @@ classDiagram
     FalseStateMixin <|-- RedistributionMixin
     GridBase <|-- AreaMixin
     GridBase <|-- CorruptMixin
+    MinimizeMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- StealthyMixin
     StealthyMixin <|-- AttackMixin
@@ -83,6 +90,7 @@ classDiagram
     EpisodeDesignMixin ..> AmDesign : uses
     EpisodeDesignMixin ..> AttackDesign : uses
     EpisodeDesignMixin ..> FrameKnobs : uses
+    EpisodeDesignMixin ..> LoadGoal : uses
     EpisodeDesignMixin ..> RampDesign : uses
     FalseStateMixin ..> AttackDesign : uses
     FalseStateMixin ..> FrameKnobs : uses
