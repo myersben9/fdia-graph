@@ -79,51 +79,60 @@ snapshots t = κ ... κ+T, and the true states `x_t` and scans `z_t` from the ti
 The paper does not name its solver; it reports 1.1 to 7.5 s per snapshot. The plan solves the
 problem exactly where it is small and by a bounded search where it is not, and records which.
 
-**The structure that makes it tractable.** Because every tampered reading is a reading of the false
-state, a meter can be tampered only when the state of a bus it depends on moves, and it counts when
-its reading moves by more than its noise. So the objective is bounded by the support S (the buses of
-A whose voltage moves): the injections at S and its neighbours, the flows on branches touching S,
-and the PMU readings at S and on its branches. Minimizing (12) is minimizing the number of devices
-those channels belong to, over the supports S for which a
-feasible false state exists: a local AC solution with only S free that meets the goal and (21)-(23).
-Feasibility for one S is the existing `local_ac_solve` with the goal added as a target; the cost of
-a solved S is counted exactly, noise threshold (`σ_{m,t}`) included.
+**The structure.** Every tampered reading is a reading of the false state, so a channel can change
+only when a bus it depends on moves: the injections at the moved buses and their neighbours, the
+flows on branches touching them, and the PMU readings there. The candidates are therefore supports
+S, the buses of A whose voltage the false state moves, and a support's cost is the number of devices
+with a channel moved beyond its noise (`σ_{m,t}`), counted exactly once the false state is solved.
+
+**The false state of one support.** Two goals, two solves, both with every voltage outside S held
+at its true value:
+
+- **A load goal (`At`):** the targeted loads take their new values and every other bus of S keeps its
+  true injection. That is 2|S| equations in the 2|S| unknowns `|V|` and `θ` of S, today's
+  `local_ac_solve`.
+- **A flow goal (`Am`):** the loads of S are what the attacker pretends, so they are free. The
+  unknowns are `|V|` and `θ` of S, the one equation is the flow magnitude on line l at its target
+  value, and the solve takes the smallest voltage change that meets it (least-norm Gauss-Newton on
+  the flow equation, the false loads read off the result). Any flow change needs a free bus at one
+  end of l.
+
+Both are checked against (21)-(23). The flow magnitude is `S_l = sqrt(P_l^2 + Q_l^2)` in MVA from the
+flow channels (MW and MVAr), compared with `rate_a` in MVA, or both divided by the base MVA in per
+unit.
 
 **The search.**
 
-1. Branch and bound over connected supports that can move the goal: for a line goal at least one end
-   bus of the line (moving one end already changes the flow, so both are not required), for the ramp
-   goal the targeted load buses. A support follows the area rules of today: never the slack, and a
-   zero-injection bus on its boundary is taken in, since it cannot absorb the change. Each candidate
-   has a cheap lower bound on its cost (the devices with a channel that must move when its buses
-   move) and, once solved, an exact cost (the devices with a channel moved beyond its noise).
-   Candidates are taken in order of the lower bound; the search stops when the next lower bound is
-   no smaller than the best exact cost found, and that best support is optimal.
-2. On IEEE-14 and small areas the enumeration is exhaustive (an area of about ten buses has at
-   most 2^10 supports, each a small Newton solve).
-3. On IEEE-118 and 300, best-first search with a node budget. The file records per episode whether
-   the optimum was proven or the best support within the budget was taken.
+1. Candidates are connected supports that can reach the goal (the targeted load buses for a load
+   goal, at least one end of l for a flow goal), under the area rules of today: never the slack, and
+   a zero-injection bus on a support's boundary is taken in, since it cannot absorb the change.
+2. The only lower bound used for pruning is one that holds: the devices the goal forces above noise
+   whatever the support (for a flow goal the device metering line l, whose flow must change by more
+   than its noise; for a load goal the devices of the targeted buses, whose injections change by the
+   designed step). A channel that must move but may stay under noise is not counted, and cancelling
+   effects are therefore not assumed away.
+3. On IEEE-14 and small areas every candidate is solved (exhaustive), and the cheapest feasible one
+   is the optimum over the area. A test compares the result with a brute-force enumeration.
+4. On IEEE-118 and 300 the search is best-first with a node budget and prunes only with the valid
+   bound above. The file records per episode whether the enumeration finished (optimal over the area)
+   or the budget ran out (the best found, no claim).
 
-**Checks on the solver.** A brute-force test on IEEE-14 areas confirms the search returns the true
-minimum. A continuous cross-check, iteratively reweighted ℓ1 on the local AC equations, runs on the
-same cases and may never beat the search.
+**Checks on the solver.** The brute-force test on IEEE-14 areas, and a continuous cross-check,
+iteratively reweighted ℓ1 on the local AC equations, that may never beat the search.
 
 **Rejected:** a mixed-integer nonlinear program (binary per meter, big-M, nonconvex AC) handed to a
 general solver. It needs a heavy optional dependency, gives no better guarantee than exhaustive
 search on the small cases, and is slower on the large ones. It can serve as an offline validation
 if a reviewer asks.
 
-**The window.** D1 counts the devices tampered over the whole window, so the search is over the
-window, not snapshot by snapshot: a candidate is one support S held for the episode, feasible at
-every snapshot, where snapshot t meets `S_{l,t} >= S_{l,κ} + (t - κ)/T · (S_max - S_{l,κ})`
-and keeps each channel's change from the previous snapshot under the stealth bound (`σ_{m,t}`).
-Its exact cost is the union over the window of the devices with a channel moved beyond noise, and
-the lower bound is the same count for the channels S must move at every snapshot. The optimum is
-therefore exact over supports held for the window, and the plan claims no more than that. Supports
-that change between snapshots, as in the paper's Fig. 4, touch the devices their union touches, so
-holding that union costs no more whenever it is feasible at every snapshot, which is not
-guaranteed. Per-snapshot solving from the previous support is the fallback when the budget runs
-out on 118 and 300, and the file records which one each episode used.
+**The window.** D1 counts the devices tampered over the whole window, so a candidate is one support
+held for the episode and solved at every snapshot: snapshot t meets its share of the goal (for `Am`,
+`S_{l,t} >= S_{l,κ} + (t - κ)/T · (S_max - S_{l,κ})`, for `At` the ramp's multiplier at t) and keeps
+each channel's change from the previous snapshot under `σ_{m,t}`. Its cost is the union over the
+window of the devices with a channel moved beyond noise. The optimum claimed is over supports held
+for the window and no more: device cost is not monotone in the support, so nothing is claimed about
+supports that change between snapshots. When the budget runs out on 118 and 300, the fallback solves
+snapshot by snapshot from the previous support, and the file records which episodes used it.
 
 ## 4. What changes for each family
 
@@ -133,8 +142,8 @@ multi-snapshot families, and both are generated by the minimizer (D2):
 - **`Am` is the MS-FDIA of [WU26]:** the overload goal (24)-(25) on a metered target line over the
   window, the fewest devices tampered, SCADA and PMU (current phasors included, D4).
 - **`At`, the slow ramp,** keeps its goal (a load ramp: rise, hold, return) and is generated by the
-  same minimizer: at every snapshot, the least-tampering local false state that reaches the ramp's
-  load change, under the same stealth bound.
+  same minimizer: one support held for the episode, the fewest devices over the window, each
+  snapshot reaching the ramp's load change under the same stealth bound.
 - **The single-snapshot families are deprecated for new generation:** `Aq` and `Al` (stealthy, one
   frame) and `Ad`, `As`, `Ar` (in-place corruption, one frame). Asking the generator for one warns
   (`DeprecationWarning`) for one minor release and then is refused. Released files that hold them
@@ -218,7 +227,9 @@ families as they are.
 - **D2, the minimizer's reach:** every family the generator makes, `At` and `Am` (D6), so the area
   of every attack is the least a real attacker would need.
 - **D3, `S_max`:** the branch ratings (`rate_a`) of the PGLib-OPF v23.07 versions of IEEE-14, 118
-  and 300 (CC BY 4.0), stored with the package and matched to our branches by their end buses.
+  and 300 (CC BY 4.0), in MVA, stored with the package and matched to our branches by their end
+  buses; a branch's flow magnitude `sqrt(P^2 + Q^2)` from its MW and MVAr channels is compared with it
+  directly.
   Pandapower's ratings cannot serve: every line and transformer of the three cases is rated 9,900
   MVA, MATPOWER's placeholder for "no limit", and the base case loads the most loaded line to 1.5%,
   4.5% and 8.7% of it. Matched by end buses, all branches pair up (20 of 20, 186 of 186, 411 of 411)
