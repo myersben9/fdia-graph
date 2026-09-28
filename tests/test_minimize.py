@@ -281,6 +281,7 @@ def test_generate_with_the_knob_records_each_ramp_search(tmp_path):
         held = devices >= 0  # -1: no held support met the constraints, the episode ran on its region
         assert (devices[held] >= lower[held]).all()
         assert f.attrs[schema.Attr.MIN_TAMPER] == 1
+        assert f.attrs[schema.Attr.STEALTH_SCALE] == 1.0  # an At-only timeline records its bound too
 
 
 def test_the_stealth_bound_covers_the_onset(case):

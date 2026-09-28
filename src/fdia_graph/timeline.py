@@ -862,7 +862,9 @@ def generate_timeline(
     if tk.min_tamper:  # recorded only when on, so a v0.8.3 file's attributes are unchanged
         recorded.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
     if overload:  # the same: recorded only for the overload attack
-        recorded.update({Attr.AM_ATTACK: tk.am_attack, Attr.STEALTH_SCALE: tk.stealth_scale})
+        recorded[Attr.AM_ATTACK] = tk.am_attack
+    if tk.min_tamper or overload:  # the stealth bound of whichever search ran, At's or Am's
+        recorded[Attr.STEALTH_SCALE] = tk.stealth_scale
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)
