@@ -6,13 +6,14 @@ snapshot by snapshot until it reaches the line's rating S_max. The rating is the
 `rate_a` (`fdia_graph.ratings`; the IEEE cases pandapower ships rate every branch 9,900 MVA, which
 no flow comes near). A branch is a target for a window only when it is rated, its flow is metered
 (the goal is what the operator sees) and its true flow stays below the rating at every snapshot of
-the window (otherwise the goal is met with no attack). The goal at snapshot t is
+the window (otherwise the goal is met with no attack). The goal at snapshot t (the plan's D9) is
 
-    S_{l,t} = max(S_{l,kappa} + (t - kappa)/T (S_max - S_{l,kappa}),  S_true_{l,t})
+    S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})
 
-on the noiseless reading of the false state, reaching S_max at the window's last snapshot; the true
-flow floors it, since the goal is an inequality and a false state that lowered a flow already above
-the ramp would tamper for nothing. Each snapshot's false state frees the attackable loads of the
+on the noiseless reading of the false state: the true flow plus a share of what separates the last
+snapshot's true flow from the rating, so the attack adds a steady ramp on top of the load's own
+drift instead of cancelling it, and reaches S_max at the window's last snapshot (eq. 25). The stealth
+bound and the tamper count use [WU26]'s own noise (the plan's D8, `formulas.noise.paper_sigma`). Each snapshot's false state frees the attackable loads of the
 support and holds every other bus's injection (`FalseStateMixin.solve_flow_local`), and the
 fewest-tamper search (`MinimizeMixin.min_tamper`) chooses the support held for the window under the
 stealth bound. The labels of every frame are the attackable load buses of the support: the loads the
@@ -80,10 +81,8 @@ class OverloadMixin(MinimizeMixin):
         flows = self.clean_flows_from_states(np.stack(window))[:, line]  # [T, 2] MW, MVAr
         true = np.hypot(flows[:, 0], flows[:, 1])
         T = len(window) - 1
-        ramp = true[0] + (np.arange(len(window)) / max(T, 1)) * (rating - true[0])
-        if T == 0:
-            ramp = np.array([rating])
-        return FlowGoal(line, tuple(float(x) for x in np.maximum(ramp, true)))
+        share = np.arange(len(window)) / T if T > 0 else np.ones(1)
+        return FlowGoal(line, tuple(float(x) for x in true + share * (rating - true[-1])))
 
     def am_overload_design(
         self, X: np.ndarray, t: int, length: int, k: FrameKnobs, prev: Optional[AttackVector] = None

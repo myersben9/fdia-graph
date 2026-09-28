@@ -121,7 +121,8 @@ class FrameKnobs(NamedTuple):
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
     min_budget: int = 256
-    stealth_scale: float = 1.0  # the stealth bound's step in multiples of the rated accuracy (D7: 1)
+    # a multiplier on the stealth bound: Am's unit is [WU26]'s noise (D8), At's the rated accuracy (D7)
+    stealth_scale: float = 1.0
 
     @property
     def band(self) -> Band:
@@ -166,8 +167,8 @@ class LoadGoal(NamedTuple):
 class FlowGoal(NamedTuple):
     """What the overload attack of [WU26, eqs. 24-25] must realize at each snapshot of its window: the
     apparent flow (MVA) that the tampered measurements carry before noise on one target branch,
-    `S_{l,t} = S_{l,kappa} + (t - kappa)/T (S_max - S_{l,kappa})`, reaching the branch's rating at the
-    window's end. The loads the attacker pretends are free; the fewest-tamper search holds one
+    `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free, the plan's D9),
+    reaching the branch's rating at the window's end. The loads the attacker pretends are free; the fewest-tamper search holds one
     support for all snapshots."""
 
     line: int  # the target branch (position in the edge index)

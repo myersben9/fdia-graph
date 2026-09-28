@@ -103,3 +103,36 @@ def _class_rule(reading: np.ndarray, c: float, relative: bool, floor: float) -> 
     """One channel kind's accuracy-class sigma at its readings (`accuracy_class_sigma`)."""
     n = len(reading)
     return accuracy_class_sigma(np.abs(reading), np.full(n, c), np.full(n, relative), floor)
+
+
+# The measurement noise of [WU26]'s case studies: 0.03 pu on SCADA channels, 0.01 pu on PMU channels.
+WU26_NOISE = {"scada": 0.03, "pmu": 0.01}
+
+
+def paper_sigma(
+    node_shape: tuple[int, int], edge_shape: tuple[int, int], pmu_bus: np.ndarray, base_mva: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """The noise standard deviation of every channel as [WU26]'s case studies state it (0.03 pu for
+    SCADA, 0.01 pu for PMU), in the stored units: the plan's D8, the scale of the overload attack's
+    stealth bound and of its tamper count, since the paper excludes from its l0 count the changes
+    smaller than its own noise.
+
+        |V|      : 0.01 pu at a PMU bus, 0.03 pu at a SCADA voltmeter
+        angle    : degrees(0.01 rad) (angles are PMU channels)
+        P, Q inj : 0.03 base_mva                              (MW, MVAr)
+        P, Q flow: 0.03 base_mva                              (MW, MVAr)
+
+    node_shape : (N, 4), the node channels
+    edge_shape : (E, 2), the flow channels
+    pmu_bus    : [N] booleans, the buses with a PMU
+    base_mva   : the case's base power
+    returns    : (sigma per node channel [N, 4], sigma per flow channel [E, 2])
+    """
+    scada, pmu = WU26_NOISE["scada"], WU26_NOISE["pmu"]
+    sig_node = np.empty(node_shape, np.float64)
+    sig_node[:, NODE.v] = np.where(np.asarray(pmu_bus, bool), pmu, scada)
+    sig_node[:, NODE.p_inj] = scada * base_mva
+    sig_node[:, NODE.q_inj] = scada * base_mva
+    sig_node[:, NODE.theta] = np.degrees(pmu)
+    sig_flow = np.full(edge_shape, scada * base_mva, np.float64)
+    return sig_node, sig_flow

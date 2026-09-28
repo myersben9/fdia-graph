@@ -168,21 +168,52 @@ def test_am_reaches_the_rating_on_the_held_support(tmp_path, pool):
         assert f.attrs[schema.Attr.STEALTH_SCALE] == WIDE
 
 
-def test_under_the_plans_bound_the_ieee14_windows_stay_benign_and_are_counted(tmp_path, pool):
-    """With the stealth bound at the meters' rated accuracy (D7), no IEEE-14 overload window is
-    stealthy at a 5-minute cadence: the placed frames stay benign and the file counts them."""
-    out = generate_timeline(
-        14,
-        states=pool[:120],
-        seed=3,
-        families=("Am",),
-        am_len=30,
-        attacked_frac=0.3,
-        out=str(tmp_path / "d7.h5"),
-    )
-    with h5py.File(out, "r") as f:
-        assert f.attrs[schema.Attr.FALLBACK_BENIGN] > 0
-        assert (f[schema.FAMILY][()] == 0).all()
+def test_the_paper_noise_is_in_the_stored_units(g):
+    """D8: [WU26]'s case-study noise, 0.03 pu on SCADA channels and 0.01 pu on PMU channels, in the
+    units a scan stores (MW and MVAr on the case base, |V| in pu, the angle in degrees)."""
+    from fdia_graph.formulas.noise import WU26_NOISE, paper_sigma
+
+    pmu = np.zeros(g.C, bool)
+    pmu[[0, 3]] = True
+    node, edge = paper_sigma((g.C, 4), (g.E, 2), pmu, g._base_mva)
+    assert WU26_NOISE == {"scada": 0.03, "pmu": 0.01}
+    assert np.all(node[:, NODE.p_inj] == 0.03 * g._base_mva) and np.all(edge == 0.03 * g._base_mva)
+    assert node[0, NODE.v] == 0.01 and node[1, NODE.v] == 0.03  # a PMU bus against a SCADA voltmeter
+    assert np.allclose(node[:, NODE.theta], np.degrees(0.01))
+
+
+def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, pool):
+    """The window of a flow goal (Am) takes [WU26]'s noise (D8); a load goal (At) keeps the meters'
+    rated accuracy (D7)."""
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.base import POWER_NOISE_FLOOR_MW
+    from fdia_graph.formulas.noise import accuracy_sigma
+    from fdia_graph.models.frames import AttackDesign, LoadGoal
+
+    k = _knobs(g, pool, 1.0)
+    window = [pool[u] for u in range(5)]
+    flow = _Window(g, window, g.overload_goal(window, int(g.eligible_lines(window, 2)[0])), k)
+    assert np.all(flow.sigma[0][1] == 0.03 * g._base_mva)
+    design = AttackDesign(g.stealthy_pos[:1], 1.01)
+    load = _Window(g, window, LoadGoal(tuple([design] * 5)), k)
+    flows = g.clean_flows_from_states(np.stack(window))
+    want = accuracy_sigma(window[0], flows[0], g.SD, POWER_NOISE_FLOOR_MW)
+    assert np.allclose(load.sigma[0][0], want[0]) and np.allclose(load.sigma[0][1], want[1])
+
+
+def test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating(g, pool):
+    """D9: S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}): the attack's own
+    share grows linearly from zero, the natural drift is left in, and the last target is the rating."""
+    window = [pool[u] for u in range(12)]
+    line = int(g.eligible_lines(window, 2)[0])
+    goal = g.overload_goal(window, line)
+    flows = g.clean_flows_from_states(np.stack(window))[:, line]
+    true = np.hypot(flows[:, 0], flows[:, 1])
+    added = np.array(goal.targets) - true
+    rating = float(g.line_ratings()[line])
+    assert added[0] == pytest.approx(0.0, abs=1e-9)
+    assert np.allclose(np.diff(added), (rating - true[-1]) / 11)
+    assert goal.targets[-1] == pytest.approx(rating)
 
 
 def test_new_generation_makes_the_multi_snapshot_families_and_the_old_ones_warn(tmp_path, pool):

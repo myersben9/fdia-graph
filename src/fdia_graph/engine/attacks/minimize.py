@@ -46,7 +46,7 @@ from typing import Optional, Union, cast
 import numpy as np
 
 from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
-from ...formulas.noise import accuracy_sigma
+from ...formulas.noise import accuracy_sigma, paper_sigma
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
 from ..base import POWER_NOISE_FLOOR_MW
@@ -257,7 +257,11 @@ class _Window:
         self.flows = flows
         # the meters' rated accuracy: what a change must exceed to count, and the most a channel may move
         # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
-        self.sigma = [accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, flows)]
+        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise (the plan's D8)
+            paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
+            self.sigma = [paper for _ in states]
+        else:  # At: the meters' rated accuracy (D7)
+            self.sigma = [accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, flows)]
         zero = {int(b) for b in g.zero_inj} - {g.slack_bus}
         self.zero = np.array(sorted(zero), dtype=np.int64)
         # the attack vector of the frame before the window: zero when it is benign

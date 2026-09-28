@@ -109,18 +109,24 @@ The released files' stealthy families drew their targets at random and drove no 
 
 New generation (from 0.21) makes the multi-snapshot families only, `At` and `Am`, both on the
 fewest-tamper search. `Am` is the overload attack of [WU26, eqs. 24-25]
-(`engine/attacks/overload.py`): at onset, the eligible branches (rated, flow metered, true flow below
-the rating at every snapshot of the window) are tried in a random order, and the first whose
+(`engine/attacks/overload.py`): at onset, the eligible branches (rated, flow metered, true flow
+below the rating at every snapshot of the window) are tried in a random order, and the first whose
 fewest-tamper support meets the goal at every snapshot is the episode's target. Snapshot t's goal is
-the apparent flow `S_{l,kappa} + (t - kappa)/T (S_max - S_{l,kappa})` (floored at the true flow) on
-the noiseless reading of the false state, reaching the rating `S_max` at the last snapshot; the
-attackable loads of the support are free, every other bus keeps its injection, and the false state
-is the least-norm voltage change that meets the flow. The ratings are PGLib-OPF's (IEEE-14, 118 and
-300; other cases raise `NoLineRatings`). With the stealth bound at the meters' rated accuracy
-(`stealth_scale=1`, the plan's D7), IEEE-14's windows at the 5-minute pool cadence admit no stealthy
-overload and the placed frames stay benign, counted in `fallback_benign`: moving one line's flow
-moves the injections and flows around its ends by several times that change, beyond the rated
-accuracy of the small loads there. The released files are v0.8.3's recipe:
+the true flow plus a linear share of what separates the window's last true flow from the rating,
+`S_true_t + (t - kappa)/T (S_max - S_true_{kappa+T})` (the plan's D9), on the noiseless reading of
+the false state, reaching the rating `S_max` at the last snapshot; the attackable loads of the
+support are free, every other bus keeps its injection, and the false state is the least-norm voltage
+change that meets the flow. The ratings are PGLib-OPF's (IEEE-14, 118 and 300; other cases raise
+`NoLineRatings`).  Each channel's attack step between snapshots is bounded by, and a device counts
+as tampered beyond, [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU;
+`formulas.noise.paper_sigma`, the plan's D8); `At` keeps the meters' rated accuracy (D7). Under the
+meters' rated accuracy (D7) no overload window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118
+60-snapshot windows, since moving one line's flow moves the injections and flows around its ends by
+several times that change, beyond the rated accuracy of the small loads there. Measured under D8 and
+D9 on 60-snapshot windows at the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the
+search not proven within its budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s
+per snapshot); the reported noiseless flow reaches the rating exactly. A window with no stealthy
+overload stays benign and is counted in `fallback_benign`. The released files are v0.8.3's recipe:
 `families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False`.
 
 Notes on the table:
@@ -233,7 +239,7 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `families` | ("At", "Am") | the families in rotation; the single-snapshot families are deprecated for generation |
 | `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12] |
 | `am_attack` | "overload" | `Am` as the overload attack of [WU26]; "redistribution" is v0.8.3's `Am` |
-| `stealth_scale` | 1.0 | the stealth bound's step in multiples of the meters' rated accuracy |
+| `stealth_scale` | 1.0 | a multiplier on the stealth bound (Am: [WU26]'s noise, At: the rated accuracy) |
 | `attack_intensity` | 0.20 | upper edge of the band of Aq, Al, Ad and As |
 | `ramp_rate` | 0.002 | `At` growth per frame |
 | `ramp_len` | 60 | `At` episode length |

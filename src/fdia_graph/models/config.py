@@ -250,7 +250,8 @@ class TimelineKnobs(Validated):
     min_tamper: bool = True  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
     min_budget: Count = 256  # candidate supports the search solves per episode before it settles
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload, or the v0.8.3 redistribution
-    stealth_scale: Scale = 1.0  # the stealth bound's step, in multiples of the meters' rated accuracy (D7: 1)
+    # a multiplier on the stealth bound: Am's unit is [WU26]'s noise (D8), At's the rated accuracy (D7)
+    stealth_scale: Scale = 1.0
 
     @property
     def am_frames(self) -> int:

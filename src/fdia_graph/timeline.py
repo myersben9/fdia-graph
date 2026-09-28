@@ -790,9 +790,10 @@ def generate_timeline(
                      fewest-tamper support (IEEE-14, 118 and 300 only: NoLineRatings elsewhere),
                      its branch, rating and reached flow under episodes/ (am_*); "redistribution":
                      the held load redistribution of data release v0.8.3
-    stealth_scale    the stealth bound of the multi-snapshot families: each channel's attack step
-                     between snapshots at most this many times the meter's rated accuracy (1, the
-                     plan's D7)
+    stealth_scale    a multiplier on the stealth bound of the multi-snapshot families: each channel's
+                     attack step between snapshots at most this many times [WU26]'s case-study noise
+                     for Am (0.03 pu SCADA, 0.01 pu PMU, the plan's D8) and the meters' rated accuracy
+                     for At (D7); 1 by default
     """
     tk = TimelineKnobs(
         attacked_frac,
