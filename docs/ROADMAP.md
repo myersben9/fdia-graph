@@ -43,6 +43,7 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 
 | | |
 |---|---|
+| `python tools/prereview.py` | every CI gate, the strict suite and the checks CI does not run, on this checkout's source; run before a review is requested (`docs/reference/REVIEW_CHECKLIST.md`) |
 | `pytest tests` | builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts |
 | `FDIA_FROZEN_STRICT=1 pytest tests` | bit-identical comparison against `tests/frozen/`; run before every push |
 | `FDIA_SLOW=1 pytest tests` | adds a sanity test on the published IEEE-118 file |

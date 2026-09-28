@@ -47,10 +47,12 @@ checks a docs change locally.
 
 ## The pull request
 
-![the pull request flow: branch, strict suite, create, CI and the review bots, answer every comment, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
+![the pull request flow: branch, the pre-review gate and the checklist review, create, request the review, fix every finding in one push and go through the gate again, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
 
 ```bash
+python tools/prereview.py                                      # every gate, locally, on this checkout's source
 python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked
+python tools/pr.py request-review 80                           # only after the gate and the checklist are clean
 python tools/pr.py wait 80                                     # CI plus every required review bot
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
@@ -62,12 +64,17 @@ Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (wi
 started yet counts as not green), every other listed check has finished without failure, and every required review bot has reviewed
 that exact head.
 
-Three reviewers read a pull request, in this order:
+The automated review is billed per review, so a pull request reaches it only once it is clean, and
+the fixes to its findings are batched into one push. The order:
 
-1. `/code-review ultra <number>` in Claude Code, before the bots: a multi-agent review of the whole
-   branch with the repository as context. Fold what it finds into the branch first.
-2. Copilot, on every push, always required on the head.
-3. CodeRabbit (`.coderabbit.yaml` carries the repository's review instructions) and Gemini Code Assist, both
+1. `python tools/prereview.py` until it passes: the CI gates, the strict suite, and the checks CI
+   does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).
+2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff, searching outward
+   from every change (a `/code-review` in Claude Code with the checklist does this). Fold what it
+   finds into the branch.
+3. Copilot, requested with `tools/pr.py request-review`, required on the head at merge. Answer its
+   findings, fix them all in one push, repeat steps 1 and 2, and only then request it again.
+4. CodeRabbit (`.coderabbit.yaml` carries the repository's review instructions) and Gemini Code Assist, both
    GitHub apps installed on the repository; `tools/pr.py` requires a bot's review on the head as
    soon as that bot has reviewed the pull request once, so a bot that is not installed never
    blocks a merge and an installed one is never skipped.
