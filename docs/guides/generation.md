@@ -80,12 +80,17 @@ below 2% of the reading sits inside meter error and resolves to noise.
 ## 3. The attack families
 
 `attack_intensity = 0.20` is the upper edge of the band for Aq, Al, Ad and As, and bounds the redistribution Am draws at onset (`generate_timeline`, `lra_delta`). The At ramp is set by `ramp_rate` and `ramp_len`, Am's steps by `am_rate` and `am_len`, and Ar records the realized change of its replay without bounding it.
-The stealthy families are local false states [WU26]: the attacker changes loads inside a subnetwork
+The stealthy families are local false states: the attacker changes loads inside a subnetwork
 within `hops = 2` branches, solves that subnetwork with the boundary voltages held true, and adds
 `a = h(x_false) - h(x_true)` to the true scan (`engine/attacks/stealthy._stealthy_frame`). Every meter keeps
 its own noise draw, so the residual test sees noise only. Every false state must also stay within
 the case's bus voltage limits and the generator P and Q limits widened to the range the pool used
-(`engine/attacks/false_state._within_limits`, `operating_limits`).
+(`engine/attacks/false_state._within_limits`, `operating_limits`). They satisfy equations (13)-(18)
+and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
+operating limits; the PMU branch-current phasors (19)-(20) are not modeled) but not its objective:
+by default the targets are drawn at random rather than chosen to tamper the fewest devices (the
+fewest-tamper search of eq. 12 covers `At` under `min_tamper=True`), and no line is driven to its
+limit (`docs/plans/WU_MSFDIA_PLAN.md`).
 
 | family | code | construction | magnitude per bus | episode length | stealthy | target set |
 |---|---|---|---|---|---|---|
@@ -95,7 +100,7 @@ the case's bus voltage limits and the generator P and Q limits widened to the ra
 | `Ar` | 4 | in-place replay: the bus's four node channels copied from an earlier benign scan, at least 20 benign scans back once that many are buffered | not bounded; the realized change is recorded (`_corrupt_replay`) | `corrupt_len = 1` | no | 4 attackable loads |
 | `At` | 5 | slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state | 0.2% per frame (`ramp_rate`), peak 2.4% to 5.2% | 60 frames (`ramp_len`) | yes | 5 stealthy loads (`draw_ramp`) |
 | `Al` | 6 | redistribution: load-conserving shift across the two PTDF sides of a target line, lowering its apparent flow | 2% to 20% (`_lra_for_line`) | 1 frame (`_ONE_FRAME`) | yes | up to 6 stealthy loads per PTDF side, inside the line's subnetwork |
-| `Am` | 7 | multi-snapshot [WU26]: an `Al` redistribution drawn at onset, reached in steps | per-frame step at most `am_rate * NOISE_FLOOR` = 1.8%, peak 2% to 20% (`_AmShape.under_floor`) | 60 frames (`am_len` defaults to `ramp_len`) | yes | as `Al` |
+| `Am` | 7 | multi-snapshot, after [WU26]: an `Al` redistribution drawn at onset, reached in steps (not the paper's fewest-device overload attack) | per-frame step at most `am_rate * NOISE_FLOOR` = 1.8%, peak 2% to 20% (`_AmShape.under_floor`) | 60 frames (`am_len` defaults to `ramp_len`) | yes | as `Al` |
 
 Notes on the table:
 

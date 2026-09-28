@@ -126,10 +126,15 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 | `Am` | the redistribution reached in per-frame steps under the noise floor | evades | 2% to 20% band, spread over 60 scans |
 | `Ad` / `As` / `Ar` | meter bias / scaling / replay, one frame | caught | Ad and As 2% to 20% band; Ar replays an earlier benign scan and records the realized change |
 
-Every stealthy family is a local false state [WU26]: the attacker solves the power flow of a
-subnetwork around the attack with the boundary voltages held true, writes only that subnetwork's
-meters, and the measurement vector stays consistent with an AC state, so the residual test sees noise.
-The meters written are the tamper masks in the file's `attack/` group.
+Every stealthy family is a local false state: the attacker solves the power flow of a subnetwork
+around the attack with the boundary voltages held true, writes only that subnetwork's meters, and
+the measurement vector stays consistent with an AC state, so the residual test sees noise. The
+meters written are the tamper masks in the file's `attack/` group. They satisfy equations (13)-(18)
+and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
+operating limits; the PMU branch-current phasors (19)-(20) are not modeled) but not its objective:
+by default the targets are drawn at random rather than chosen to tamper the fewest devices (the
+fewest-tamper search of eq. 12 covers `At` under `min_tamper=True`), and no line is driven to its
+limit (`docs/plans/WU_MSFDIA_PLAN.md`).
 
 ![BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
 

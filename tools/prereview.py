@@ -163,7 +163,10 @@ _LINKED = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 _REFERENCE = re.compile(r"^ {0,3}\[[^\]]+\]:\s*<?([^\s>]+)>?", re.M)  # a reference link: [name]: target
 
 
-_FENCED = re.compile(r"^ {0,3}```.*?^ {0,3}```[^\n]*$", re.M | re.S)  # a fenced code block, fence to fence
+_FENCED = re.compile(  # a fenced block: the whole opening run, closed by a run of the same character
+    r"^ {0,3}(`{3,}).*?^ {0,3}\1`*[ \t]*$|^ {0,3}(~{3,}).*?^ {0,3}\2~*[ \t]*$",
+    re.M | re.S,
+)
 
 
 def _targets(md: str, text: str) -> list[str]:
