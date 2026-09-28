@@ -1,6 +1,6 @@
 # Plan: the [WU26] attack as the optimization it is, and one home for attack generation
 
-**Status: accepted; decisions D1 to D6 taken (section 9).**
+**Status: accepted; decisions D1 to D7 taken (section 9).**
 
 [WU26] defines its multi-snapshot attack (MS-FDIA) as an optimization: eq. (12) minimizes the
 number of tampered measurements subject to the AC measurement model (13)-(20), the operating limits
@@ -52,10 +52,11 @@ snapshots t = κ ... κ+T, and the true states `x_t` and scans `z_t` from the ti
   voltage magnitude, angle and branch-current channels. A device counts once however many of its
   channels move; the number of channels moved is recorded next to it for analysis.
 
-  `σ_{m,t}` is the standard deviation the package's own emitter gives that channel in that
-  snapshot (`emit_from_state`): absolute for `|V|` and `θ`, relative to the reading plus a floor
-  (`POWER_NOISE_FLOOR_MW`) for P and Q. One function computes it for the emitter and the
-  objective, so the optimum is judged against the noise the data actually carries.
+  `σ_{m,t}` is the meter's rated accuracy for that channel in that snapshot, the accuracy-class
+  standard deviation the package's measured calibration already uses (D7): a change within a
+  meter's rated accuracy cannot be told from noise. The emitter keeps drawing its per-scan
+  jitter from its own rule (absolute for `|V|` and `θ`, relative plus `POWER_NOISE_FLOOR_MW` for P
+  and Q), so the data is unchanged; the two are separate named functions.
   The current-phasor channels of D4 (the real and imaginary part of each branch current at a PMU
   bus, per unit on the base current) get the same kind of rule: noise relative to the current's
   magnitude at the PMU accuracy class of IEEE C37.118.1 (1% total vector error, taken as three
@@ -67,12 +68,13 @@ snapshots t = κ ... κ+T, and the true states `x_t` and scans `z_t` from the ti
   above, grouped into devices as stated. Decision D1 confirms this reading.
 - **Constraints:** (21)-(23) on every snapshot, as today, and the goal (24)-(25): the flow magnitude
   on line l that the tampered measurements carry before noise, the noiseless reading `h(x^a_t)` of
-  the false state, rises from `S_{l,κ}` and reaches `S_max` by
-  κ+T. Stealth bound: each tampered meter's change from one snapshot to the next is at most its
-  noise standard deviation `σ_{m,t}`, so a single snapshot shows the residual test noise only (the
-  paper keeps per-snapshot magnitudes small for this reason). The target line's flow is metered:
-  the goal is defined on what the operator sees, so only lines whose flow is metered are eligible
-  targets.
+  the false state, rises from `S_{l,κ}` and reaches `S_max` by κ+T. Stealth bound: each tampered
+  meter's change from one snapshot to the next is at most its rated accuracy `σ_{m,t}`, so a
+  detector that watches the change between snapshots (the swing and delta features) sees nothing it
+  could tell from noise. The residual test sees noise only at any magnitude, since the tampered
+  readings are those of an AC false state; the bound is about the temporal detectors, the reason the
+  paper keeps per-snapshot magnitudes small. The target line's flow is metered: the goal is defined
+  on what the operator sees, so only lines whose flow is metered are eligible targets.
 
 ## 3. How it is solved
 
@@ -88,30 +90,32 @@ with a channel moved beyond its noise (`σ_{m,t}`), counted exactly once the fal
 **The false state of one support.** Two goals, two solves, both with every voltage outside S held
 at its true value:
 
-- **A load goal (`At`):** the targeted loads take their new values and every other bus of S keeps its
-  true injection. That is 2|S| equations in the 2|S| unknowns `|V|` and `θ` of S, today's
+- **A load goal (`At`):** the targeted loads take their new values and every other bus of S keeps
+  its true injection. That is 2|S| equations in the 2|S| unknowns `|V|` and `θ` of S, today's
   `local_ac_solve`.
 - **A flow goal (`Am`):** only the attackable loads of S are free, as the attacker pretends them;
-  every other bus of S keeps its true injection (a zero-injection bus stays at zero, a generator
-  bus at its true dispatch), as in the load goal. The unknowns are `|V|` and `θ` of S, the
-  equations are the fixed injections of S's non-load buses and the flow magnitude on line l at its
-  target value, and the solve takes the smallest voltage change that meets them (least-norm
-  Gauss-Newton, the false loads read off the result). Any flow change needs a free bus at one end
-  of l or an attackable load in S. With fewer equations than unknowns a support has many feasible
-  states, and the least-norm one need not cross the fewest noise thresholds, so for `Am` the
-  optimum claimed is over supports each solved by this rule, not over every false state. Lowering
-  the device count inside a support (reweighting the step toward channels already over noise) is a
-  later refinement, with no claim until it is measured.
+  every other bus of S keeps its true injection (a zero-injection bus stays at zero, a generator bus
+  at its true dispatch), as in the load goal. The unknowns are `|V|` and `θ` of S, the equations are
+  the fixed injections of S's non-load buses and the flow magnitude on line l at its target value,
+  and the solve takes the smallest voltage change that meets them (least-norm Gauss-Newton, the
+  false loads read off the result). A support can change the flow only when it holds an end bus of l
+  and at least one attackable load (the only free injections). With fewer equations than unknowns a
+  support has many feasible states, and the least-norm one need not cross the fewest noise
+  thresholds, so for `Am` the optimum claimed is over supports each solved by this rule, not over
+  every false state. Lowering the device count inside a support (reweighting the step toward
+  channels already over noise) is a later refinement, with no claim until it is measured.
 
-Both are checked against (21)-(23). The flow magnitude is `S_l = sqrt(P_l^2 + Q_l^2)` in MVA from the
-flow channels (MW and MVAr), compared with `rate_a` in MVA, or both divided by the base MVA in per
-unit.
+Both are checked against (21)-(23). The flow magnitude is `S_l = sqrt(P_l^2 + Q_l^2)` in MVA from
+the flow channels (MW and MVAr), compared with `rate_a` in MVA, or both divided by the base MVA in
+per unit.
 
 **The search.**
 
 1. Candidates are connected supports that can reach the goal (the targeted load buses for a load
-   goal, at least one end of l for a flow goal), under the area rules of today: never the slack, and
-   a zero-injection bus on a support's boundary is taken in, since it cannot absorb the change.
+   goal, for a flow goal an end bus of l and at least one attackable load, since a support of
+   generator and zero-injection buses alone has no free injection), under the area rules of today:
+   never the slack, and a zero-injection bus on a support's boundary is taken in, since it cannot
+   absorb the change.
 2. The only lower bound used for pruning is one that holds for every remaining support: a device
    counts only when the goal forces one of its channels above that channel's noise. For a flow goal
    the required change δ of the magnitude on l can split between P and Q, so at least one of them
@@ -121,8 +125,8 @@ unit.
 3. On IEEE-14 and small areas every candidate is solved (exhaustive), and the cheapest feasible one
    is the optimum over the area. A test compares the result with a brute-force enumeration.
 4. On IEEE-118 and 300 the search is best-first with a node budget and prunes only with the valid
-   bound above. The file records per episode whether the enumeration finished (optimal over the area)
-   or the budget ran out (the best found, no claim).
+   bound above. The file records per episode whether the enumeration finished (optimal over the
+   area) or the budget ran out (the best found, no claim).
 
 **Checks on the solver.** The brute-force test on IEEE-14 areas, and a continuous cross-check,
 iteratively reweighted ℓ1 on the local AC equations, that may never beat the search.
@@ -235,14 +239,13 @@ families as they are.
   of every attack is the least a real attacker would need.
 - **D3, `S_max`:** the branch ratings (`rate_a`) of the PGLib-OPF v23.07 versions of IEEE-14, 118
   and 300 (CC BY 4.0), in MVA, stored with the package and matched to our branches by their end
-  buses; a branch's flow magnitude `sqrt(P^2 + Q^2)` from its MW and MVAr channels is compared with it
-  directly.
-  Pandapower's ratings cannot serve: every line and transformer of the three cases is rated 9,900
-  MVA, MATPOWER's placeholder for "no limit", and the base case loads the most loaded line to 1.5%,
-  4.5% and 8.7% of it. Matched by end buses, all branches pair up (20 of 20, 186 of 186, 411 of 411)
-  and the base-case loadings are realistic (median 11%, 21% and 16%; most loaded 59%, 121% and
-  148%). A branch PGLib leaves at 9,900 MVA (7 on IEEE-300) or one already above its rating in the
-  base case is not an eligible target.
+  buses; a branch's flow magnitude `sqrt(P^2 + Q^2)` from its MW and MVAr channels is compared with
+  it directly. Pandapower's ratings cannot serve: every line and transformer of the three cases is
+  rated 9,900 MVA, MATPOWER's placeholder for "no limit", and the base case loads the most loaded
+  line to 1.5%, 4.5% and 8.7% of it. Matched by end buses, all branches pair up (20 of 20, 186 of
+  186, 411 of 411) and the base-case loadings are realistic (median 11%, 21% and 16%; most loaded
+  59%, 121% and 148%). A branch PGLib leaves at 9,900 MVA (7 on IEEE-300) or one already above its
+  rating in the base case is not an eligible target.
 - **D4, PMU current phasors (19)-(20):** added as branch current-phasor channels at PMU buses, a
   file-format change in the same release.
 - **D5, the overload's meaning:** (24)-(25) as written, on the noiseless reading of the false state:
@@ -253,3 +256,8 @@ families as they are.
 - **D6, multi-snapshot only:** new generation makes `At` and `Am`; the single-snapshot families
   (`Aq`, `Al`, `Ad`, `As`, `Ar`) are deprecated for generation and remain loadable from released
   files.
+- **D7, the noise scale of the bound and the objective:** the meter's rated accuracy (the
+  accuracy-class σ), not the per-scan jitter. Measured with the jitter σ, whose power floor is
+  0.001 MVAr on near-zero reactive flows, today's attack area met the between-snapshot bound in
+  0 of 20 IEEE-14 `At` windows and 0 of 8 on IEEE-118, and a feasible held support existed in only
+  4 of 20 and 3 of 8: the jitter floor is far tighter than any real meter's resolution.
