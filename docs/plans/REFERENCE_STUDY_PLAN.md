@@ -40,7 +40,10 @@ Ours has two problems:
 Add `fdia_graph.evaluate` with `LocalizationEvaluator(system, release, protocol)` and
 `EstimationEvaluator(system, release)`. They take predictions (`y_pred`, optional `y_score`;
 `x_hat`) and read the truth from the pinned file. They fix the bus set and family set per release
-and protocol, state the input contract, and return the existing score models. The `score()` methods
+and protocol, state the input contract, and return the existing score models. The contract names
+the records scored: predictions come with the record indices of the pinned file they belong to (or
+cover the protocol's whole split in file order), and a length or index mismatch is refused before
+any score, so a filtered or reordered view cannot be scored against the wrong labels. The `score()` methods
 become thin wrappers. A model built outside the SDK can then be scored on the same terms.
 
 Re-baselining the frozen references and the guide tables is part of the change.
@@ -103,8 +106,8 @@ Sections from the Hugging Face template, fitted to a generated dataset:
 6. official tasks, metrics and the evaluator call;
 7. baselines;
 8. intended and out-of-scope use (research, not operational decisions);
-9. limitations: synthetic data, the known generator-bus load issue in v0.8.x, how residual-stealthy
-   each family is;
+9. limitations: synthetic data, the generator-bus load issue of v0.8.0 (fixed from v0.8.1), how
+   residual-stealthy each family is;
 10. license, citation and contact.
 
 Add `CITATION.cff` and a self-citation to the README. Today the README cites other work only.
@@ -127,10 +130,10 @@ failures by frame and bus. The domain checks are:
 - the meter masks are the same on every frame. The estimator assumes this (it reads the mask from
   record 0). Verified constant on the v0.8.3 files for IEEE-14, 118 and 300, but nothing enforces it;
 - metered slots are finite and unmetered slots zero;
-- labels and tamper masks agree per frame: a frame has a labelled bus exactly when it has a
-  tampered meter. `data/y` is per bus and `attack/node_tamper` and `attack/edge_tamper` are per
-  meter channel, and a stealthy family changes meters off its labelled buses, so the bus-level rule
-  is defined per family before it becomes a check;
+- labels and tamper masks exist together: a frame has a labelled bus exactly when it has a
+  tampered meter. This is only an existence check. `data/y` is per bus, the tamper masks are per
+  meter channel, and a stealthy family changes meters off its labelled buses, so a bus-level
+  agreement rule needs a per-family mapping from buses to meters, which is left to a later step;
 - the episode table agrees with the per-frame family and `seq_id` columns.
 
 Run it in the release build before upload.
