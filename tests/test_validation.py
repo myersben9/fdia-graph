@@ -97,6 +97,21 @@ def test_whole_number_settings_refuse_a_fraction(build, message):
 
 
 @pytest.mark.parametrize(
+    "assignment, edge_index, message",
+    [
+        (3, np.array([[0, 1], [1, 2]]), "assignment must be one integer client per bus"),
+        ([0, 0, 1], np.array([[0.0, 1.0], [1.0, 2.0]]), "edge_index must be a non-negative integer"),
+        ([0, 0, 1], np.array([["a", "b"], ["b", "c"]]), "edge_index must be a non-negative integer"),
+    ],
+)
+def test_a_malformed_assignment_is_refused_before_the_grid_is_sized(assignment, edge_index, message):
+    from fdia_graph.federated.partition import partition_from_assignment
+
+    with pytest.raises(ConfigError, match=message):
+        partition_from_assignment(assignment, edge_index)
+
+
+@pytest.mark.parametrize(
     "kwargs, message",
     [
         (dict(units="kw"), "LoadOptions.units must be one of"),

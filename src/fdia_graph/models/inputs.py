@@ -272,14 +272,23 @@ class Halo(Validated):
 
 @dataclass(frozen=True)
 class AssignmentSpec(Validated):
-    """A client-of-every-bus array for a grid of at least N buses, with an optional attackable mask."""
+    """A client-of-every-bus array over a branch list, with an optional attackable mask. The grid has
+    the buses the branches name, or the assignment's length when there are no branches."""
 
     assignment: Annotated[Any, AsArray()]
-    N: Annotated[int, Integer()]
+    edge_index: Annotated[Any, AsArray()]
     attackable: Annotated[Optional[np.ndarray], AsArray(bool)] = None
 
+    @property
+    def N(self) -> int:
+        return int(self.edge_index.max()) + 1 if self.edge_index.size else len(self.assignment)
+
     def invariants(self) -> Iterable[tuple[bool, str]]:
-        a = self.assignment
+        a, ei = self.assignment, self.edge_index
+        yield (
+            ei.ndim == 2 and ei.shape[0] == 2 and IntegerDtype().holds(ei) and (not ei.size or ei.min() >= 0),
+            f"edge_index must be a non-negative integer [2, E] array, got shape {ei.shape}",
+        )
         yield (
             a.ndim == 1 and len(a) > 0 and len(a) >= self.N and IntegerDtype().holds(a),
             f"assignment must be one integer client per bus ({self.N} buses)",

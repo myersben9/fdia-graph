@@ -32,7 +32,9 @@ the public API, the generated files and the numbers are the same as the previous
   The deprecated `pyg_stream` and `torch_windows` refuse an unknown `layer` with a `ConfigError`
   before the stream loads; before, it was a raw `KeyError` after loading. `fetch_profile`'s
   `resample_min` must be a whole number of minutes: `1.5` used to be truncated to a 1-minute
-  cadence without a word, and is now a `ConfigError`.
+  cadence without a word, and is now a `ConfigError`. `partition_from_assignment` checks the
+  assignment and the branch list before sizing the grid from them, so a scalar assignment or a
+  non-integer `edge_index` is a `ConfigError`, not a raw `TypeError`.
 - The estimator solve path no longer takes the slack angle. `_solve(z, w)`, `_w_solve(z, w)`,
   `_nres(x, z)` and the rest solve at the fitted reference (`ref_angles`, through the new
   `_h_ref(x)`); a custom `SEBase` subclass that overrides `_solve` drops its `thsl` argument.

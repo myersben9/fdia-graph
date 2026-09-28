@@ -63,11 +63,10 @@ def partition_from_assignment(
     assignment: np.ndarray, edge_index: np.ndarray, attackable: Optional[np.ndarray] = None
 ) -> Partition:
     """A Partition from a given client-of-every-bus array (e.g. one saved with a paper's runs)."""
-    N = int(edge_index.max()) + 1 if edge_index.size else len(np.asarray(assignment))
-    spec = AssignmentSpec(assignment, N, attackable)
+    spec = AssignmentSpec(assignment, edge_index, attackable)
     assignment = spec.assignment.astype(np.int64)
     K = int(assignment.max()) + 1
-    A = bus_adjacency(edge_index, len(assignment))
+    A = bus_adjacency(spec.edge_index, len(assignment))
     interior, boundary = interior_boundary(assignment, A, K)
     on_boundary = None
     if spec.attackable is not None:
