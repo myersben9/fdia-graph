@@ -96,6 +96,13 @@ def test_whole_number_settings_refuse_a_fraction(build, message):
         build()
 
 
+def test_a_negative_bus_count_is_refused_even_without_branches():
+    from fdia_graph.models.inputs import EdgeList
+
+    with pytest.raises(ConfigError, match=r"EdgeList\.N must be >= 0"):
+        EdgeList(np.zeros((2, 0), dtype=np.int64), -1)
+
+
 @pytest.mark.parametrize(
     "assignment, edge_index, message",
     [

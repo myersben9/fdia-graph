@@ -210,7 +210,7 @@ class EdgeList(Validated):
     """A branch list [2, E] over buses 0..N-1."""
 
     edge_index: Annotated[Any, AsArray()]
-    N: Annotated[int, Integer()]
+    N: Annotated[int, Integer(), AtLeast(0)]
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         ei = self.edge_index
