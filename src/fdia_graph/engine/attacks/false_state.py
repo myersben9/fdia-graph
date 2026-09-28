@@ -109,9 +109,9 @@ class FalseStateMixin(AreaMixin):
         other bus of S keeps its true injection (a zero-injection bus at zero), and each goal branch's
         from-end apparent flow reaches its target (`line` and `target_mva` one each, or one per
         branch; `formulas.network.local_flow_solve`). With `limits`, a generator is free only inside
-        its limits (22)-(23): one whose output the solve drives outside is pinned at the nearest
-        limit and the solve repeated (an active set), so the least-norm state is sought among those
-        that keep every generator in range. Returns (the false state [N, 4] with the injections of S
+        its limits (22)-(23): a component (P or Q) the solve drives outside its limit is pinned at
+        that limit, the other left free, and the solve repeated (an active set), so the least-norm
+        state is sought among those that keep every generator in range. Returns (the false state [N, 4] with the injections of S
         and its boundary moved by exactly the change the false voltages cause, whether the solve
         converged, the pretended load change per load bus in MW [N], zero at a generator bus, whose
         change is its output's and is checked against the generator limits by `within_limits`); the
@@ -121,21 +121,23 @@ class FalseStateMixin(AreaMixin):
         if len(free) == 0:
             return None, True, dload
         goal = (np.atleast_1d(np.asarray(line, np.int64)), np.atleast_1d(np.asarray(target_mva, float)))
-        pinned: dict[int, complex] = {}  # generator bus -> its pinned change, generation positive, MW
+        # generator bus -> its pinned change per component (P in MW, Q in MVAr, generation positive)
+        pinned: tuple[dict[int, float], dict[int, float]] = ({}, {})
         held_v: dict[int, float] = {}  # bus -> the voltage limit its magnitude is held at, pu
-        for _ in range(2 * len(S) + 1):
+        for _ in range(3 * len(S) + 1):
             solved = self._flow_solve_pinned(Xt, S, free, goal, (pinned, held_v))
             if solved is None:
                 return None, False, dload
             Xa, dS = solved
-            over = {} if limits is None else self._generators_out_of_range(Xt, free, dS, limits, pinned)
+            over = ({}, {}) if limits is None else self._generators_out_of_range(Xt, free, dS, limits, pinned)
             v_over = {} if limits is None else _voltages_out_of_range(Xa, Xt, S, limits, held_v)
-            if not over and not v_over:
+            if not over[0] and not over[1] and not v_over:
                 # a load bus's change is its pretended load
                 loads = np.setdiff1d(free, self.generator_buses())
                 dload[loads] = -np.real(dS[loads])
                 return Xa, True, dload
-            pinned.update(over)
+            for component, changes in zip(pinned, over):
+                component.update(changes)
             held_v.update(v_over)
         return None, True, dload
 
@@ -145,21 +147,27 @@ class FalseStateMixin(AreaMixin):
         S: np.ndarray,
         free: np.ndarray,
         goal: tuple[np.ndarray, np.ndarray],
-        held: tuple[dict[int, complex], dict[int, float]],
+        held: tuple[tuple[dict[int, float], dict[int, float]], dict[int, float]],
     ) -> Optional[tuple[np.ndarray, np.ndarray]]:
-        """One flow solve on S with the free injections `free` except the pinned generators, which
-        hold their true injection plus the pinned change, and with the held voltage magnitudes
-        (`held` = (generator bus -> change, bus -> |V|)): (the false state [N, 4], the injection
-        change per bus [N], generation positive, MVA), or None when the solve fails."""
+        """One flow solve on S with the free injections `free` except the pinned generator
+        components, each holding its true value plus the pinned change, and with the held voltage
+        magnitudes (`held` = ((bus -> P change, bus -> Q change), bus -> |V|)): (the false state
+        [N, 4], the injection change per bus [N], generation positive, MVA), or None when the solve
+        fails."""
         C, lut = self.C, self._ppc_row[np.arange(self.C)]
         lines, targets = goal
-        pinned, held_v = held
+        (pin_p, pin_q), held_v = held
         V = np.zeros(self._n_ppc_buses, complex)
         V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
         Yb, Yf = self._dense_admittances()
-        fixed = np.union1d(np.setdiff1d(S, free), np.array(sorted(pinned), np.int64))
+        fixed = np.union1d(np.setdiff1d(S, free), np.array(sorted({*pin_p, *pin_q}), np.int64))
         S_true = bus_injections(V, Yb)  # per unit, the model's injections at the true voltages
-        S_held = S_true[lut[fixed]] + np.array([pinned.get(int(b), 0j) for b in fixed]) / self._base_mva
+        change = np.array([complex(pin_p.get(int(b), 0.0), pin_q.get(int(b), 0.0)) for b in fixed])
+        S_held = S_true[lut[fixed]] + change / self._base_mva
+        # a held bus holds both components, a pinned generator only the pinned one(s)
+        hold = np.array(
+            [(int(b) not in free or int(b) in pin_p, int(b) not in free or int(b) in pin_q) for b in fixed]
+        )
         vb = np.array(sorted(held_v), np.int64)
         Vf = local_flow_solve(
             Yb,
@@ -171,6 +179,7 @@ class FalseStateMixin(AreaMixin):
             S_held,
             targets / self._base_mva,
             vm_fixed=(lut[vb], np.array([held_v[int(b)] for b in vb])),
+            hold=hold.reshape(-1, 2),
         )
         if Vf is None:
             return None
@@ -190,20 +199,22 @@ class FalseStateMixin(AreaMixin):
         free: np.ndarray,
         dS: np.ndarray,
         limits: OperatingLimits,
-        pinned: dict[int, complex],
-    ) -> dict[int, complex]:
-        """The free generators of a solve whose output left its limits (22)-(23), each with the change
-        that puts it at the nearest limit (MVA, generation positive)."""
+        pinned: tuple[dict[int, float], dict[int, float]],
+    ) -> tuple[dict[int, float], dict[int, float]]:
+        """The free generator components of a solve whose output left its limits (22)-(23), P and Q
+        apart, each with the change that puts it at its nearest limit (MW or MVAr, generation
+        positive): the component within its limit stays free."""
         gen = generator_output(Xt, self.load_base, self.gen_base)
-        out: dict[int, complex] = {}
+        bounds = ((limits.p_lo, limits.p_hi), (limits.q_lo, limits.q_hi))
+        out: tuple[dict[int, float], dict[int, float]] = ({}, {})
         for b in np.intersect1d(free, self.generator_buses()):
             b = int(b)
-            if b in pinned:
-                continue
-            p, q = gen[b, 0] + np.real(dS[b]), gen[b, 1] + np.imag(dS[b])
-            pc, qc = np.clip(p, limits.p_lo[b], limits.p_hi[b]), np.clip(q, limits.q_lo[b], limits.q_hi[b])
-            if pc != p or qc != q:
-                out[b] = complex(pc - gen[b, 0], qc - gen[b, 1])
+            moved = (np.real(dS[b]), np.imag(dS[b]))
+            for c in range(2):
+                value = gen[b, c] + moved[c]
+                clipped = float(np.clip(value, bounds[c][0][b], bounds[c][1][b]))
+                if b not in pinned[c] and clipped != value:
+                    out[c][b] = clipped - gen[b, c]
         return out
 
     def _dense_admittances(self) -> tuple[np.ndarray, np.ndarray]:

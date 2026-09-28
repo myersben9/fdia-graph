@@ -29,7 +29,7 @@ from typing import Optional
 
 import numpy as np
 
-from ...formulas.attacks import branch_ratings
+from ...formulas.attacks import branch_ratings, generator_output
 from ...models.errors import NoLineRatings
 from ...models.frames import AmOverloadDesign, AttackVector, FlowGoal, Frame, FrameKnobs
 from ...models.grid import NODE
@@ -138,11 +138,24 @@ class OverloadMixin(MinimizeMixin):
             return None, float("nan")
         # the labels: the free injections of the support, the loads and generator outputs it pretends
         free = np.intersect1d(design.support, self.free_injection_buses())
-        dinj = Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj]  # a free bus's injection change is what it pretends
-        dev = np.abs(dinj[free]) / np.maximum(np.abs(Xt[free, NODE.p_inj]), 1e-6)
+        dev = self.pretended_change(Xt, Xa, free)
         frame = self.frame_from_state(Xt, Xa, free, dev.astype(float))
         flow = self.clean_flows_from_states(Xa[None])[0, design.goal.line]
         return frame, float(np.hypot(flow[0], flow[1]))
+
+    def pretended_change(self, Xt: np.ndarray, Xa: np.ndarray, buses: np.ndarray) -> np.ndarray:
+        """The relative change the false state pretends at each free-injection bus of `buses`: at a
+        generator bus (a bus with a load as well included, whose change the model gives the
+        generator) the apparent power change against the true generator output, |dP + j dQ| /
+        |P_gen + j Q_gen|; at a load bus the active change against the true load, |dP| / |P_load|."""
+        gen = generator_output(Xt, self.load_base, self.gen_base)  # [N, 2] MW, MVAr
+        load = self.true_load_by_bus(Xt)
+        dP = Xa[:, NODE.p_inj] - Xt[:, NODE.p_inj]
+        dQ = Xa[:, NODE.q_inj] - Xt[:, NODE.q_inj]
+        is_gen = np.isin(buses, self.generator_buses())
+        change = np.where(is_gen, np.hypot(dP[buses], dQ[buses]), np.abs(dP[buses]))
+        base = np.where(is_gen, np.hypot(gen[buses, 0], gen[buses, 1]), np.abs(load[buses]))
+        return (change / np.maximum(base, 1e-6)).astype(float)
 
     def true_load_by_bus(self, Xt: np.ndarray) -> np.ndarray:
         """[N] the scan's active load per bus (MW), summed over the load elements at each bus."""

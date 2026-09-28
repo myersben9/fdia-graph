@@ -92,7 +92,8 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
     got = np.concatenate(
         [np.angle(Vf[interior]) - np.angle(V[interior]), np.abs(Vf[interior]) - np.abs(V[interior])]
     )
-    J = _flow_jacobian(Yb, Yf[[line]], np.array([f]), V, interior, np.arange(2))  # one goal branch
+    # one goal branch; the two fixed buses hold P (rows 0, 1) and Q (rows k, k + 1)
+    J = _flow_jacobian(Yb, Yf[[line]], np.array([f]), V, interior, np.r_[0:2, k : k + 2])
     r = np.zeros(J.shape[0])
     r[-1] = -eps
     want = np.linalg.lstsq(J, -r, rcond=None)[0]
@@ -368,3 +369,55 @@ def test_a_goal_drives_two_lines_at_once(g, pool):
     assert converged and Xa is not None
     got = g.clean_flows_from_states(Xa[None])[0]
     assert np.allclose([np.hypot(*got[b]) for b in lines], want, rtol=1e-6)
+
+
+def _generator_only_case(g, pool):
+    """A branch with a generator at one end (not the slack, no zero-injection end), that generator as
+    the only support bus, and a 3% flow goal on the branch."""
+    Xt = pool[0]
+    gens = g.generator_buses()
+    for line in range(g.E):
+        S = np.intersect1d(g.ei[:, line], gens)
+        if len(S) == 1 and not len(np.intersect1d(g.ei[:, line], g.zero_inj)):
+            flow = g.clean_flows_from_states(Xt[None])[0, line]
+            return Xt, S, line, 1.03 * float(np.hypot(*flow))
+    pytest.fail("IEEE-14 has no generator-ended branch")
+
+
+def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
+    """Review fix: pinning is per component. With the generator's P range shut to its true output, the
+    solve pins P alone and still meets the goal by moving Q; pinning both would leave no free injection."""
+    from fdia_graph.formulas.attacks import generator_output
+
+    Xt, S, line, target = _generator_only_case(g, pool)
+    b = int(S[0])
+    gen = generator_output(Xt, g.load_base, g.gen_base)
+    limits = _knobs(g, pool).limits
+    p_lo, p_hi = limits.p_lo.copy(), limits.p_hi.copy()
+    p_lo[b] = p_hi[b] = gen[b, 0]
+    q_lo, q_hi = limits.q_lo.copy(), limits.q_hi.copy()
+    q_lo[b], q_hi[b] = -1e6, 1e6
+    tight = limits._replace(p_lo=p_lo, p_hi=p_hi, q_lo=q_lo, q_hi=q_hi)
+    Xa, converged, _ = g.solve_flow_local(Xt, S, line, target, tight)
+    assert converged and Xa is not None
+    reached = g.clean_flows_from_states(Xa[None])[0, line]
+    assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
+    out = generator_output(Xt, g.load_base, g.gen_base)[b] - (
+        Xa[b, NODE.p_inj : NODE.q_inj + 1] - Xt[b, NODE.p_inj : NODE.q_inj + 1]
+    )
+    assert out[0] == pytest.approx(gen[b, 0], abs=1e-6)  # P held at its (shut) limit
+    assert abs(out[1] - gen[b, 1]) > 1e-3  # Q moved to meet the goal
+
+
+def test_a_generator_label_is_relative_to_its_output(g, pool):
+    """Review fix: the frame magnitude at a generator bus is its apparent change against the true
+    generator output, not against the bus's net injection."""
+    from fdia_graph.formulas.attacks import generator_output
+
+    Xt, S, line, target = _generator_only_case(g, pool)
+    Xa, _, _ = g.solve_flow_local(Xt, S, line, target)
+    b = int(S[0])
+    gen = generator_output(Xt, g.load_base, g.gen_base)[b]
+    d = Xa[b] - Xt[b]
+    want = np.hypot(d[NODE.p_inj], d[NODE.q_inj]) / np.hypot(gen[0], gen[1])
+    assert g.pretended_change(Xt, Xa, S)[0] == pytest.approx(want)

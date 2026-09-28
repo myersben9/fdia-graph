@@ -356,15 +356,17 @@ def _flow_residual(
     fixed: np.ndarray,
     S_fixed: np.ndarray,
     vm_fixed: tuple[np.ndarray, np.ndarray] = (np.zeros(0, int), np.zeros(0)),
+    keep: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """[Re; Im] of S_fixed - S(V) at the fixed buses, then |S_f(V)| - target on each goal branch
-    (`goal` = (yf [L, n], f [L], target [L])), then |V_b| - value at each held magnitude
-    (`vm_fixed`)."""
+    """[Re; Im] of S_fixed - S(V) at the fixed buses (only the rows `keep` marks, [2 len(fixed)]
+    over [Re; Im], every row when None), then |S_f(V)| - target on each goal branch (`goal` =
+    (yf [L, n], f [L], target [L])), then |V_b| - value at each held magnitude (`vm_fixed`)."""
     yf, f, target = goal
     mis = S_fixed - (V * np.conj(Yb @ V))[fixed]
+    inj = np.concatenate([np.real(mis), np.imag(mis)])
     flow = np.abs(V[f] * np.conj(yf @ V))
     vb, vm = vm_fixed
-    return np.concatenate([np.real(mis), np.imag(mis), flow - target, np.abs(V[vb]) - vm])
+    return np.concatenate([inj if keep is None else inj[keep], flow - target, np.abs(V[vb]) - vm])
 
 
 def _flow_jacobian(
@@ -373,11 +375,12 @@ def _flow_jacobian(
     f: np.ndarray,
     V: np.ndarray,
     I_: np.ndarray,
-    fixed_rows: np.ndarray,
+    inj_rows: np.ndarray,
     vm_cols: np.ndarray = np.zeros(0, int),
 ) -> np.ndarray:
-    """The Jacobian of `_flow_residual` in [θ_I, |V|_I]: the fixed buses' injection rows (negated,
-    the residual is target minus injection), one apparent-power row per goal branch, from its
+    """The Jacobian of `_flow_residual` in [θ_I, |V|_I]: the held injection rows (`inj_rows`, rows
+    of the interior's [P; Q] injection Jacobian, negated since the residual is target minus
+    injection), one apparent-power row per goal branch, from its
     from-end flow S_f = V_f conj(y_f . V), and a unit row per held magnitude (`vm_cols`, positions
     in the interior):
 
@@ -387,7 +390,6 @@ def _flow_jacobian(
     """
     k = len(I_)
     Jinj = _interior_jacobian(Yb, V, I_)
-    rows = np.concatenate([fixed_rows, k + fixed_rows])
     VI = V[I_]
     flow_rows = []
     for y, b in zip(yf, f):
@@ -403,7 +405,7 @@ def _flow_jacobian(
         flow_rows.append(np.concatenate([np.real(np.conj(Sf) * dth), np.real(np.conj(Sf) * dvm)]) / mag)
     vm_rows = np.zeros((len(vm_cols), 2 * k))
     vm_rows[np.arange(len(vm_cols)), k + np.asarray(vm_cols, int)] = 1.0  # d|V_b| / d|V|_b
-    return np.vstack([-Jinj[rows], *flow_rows, vm_rows])
+    return np.vstack([-Jinj[inj_rows], *flow_rows, vm_rows])
 
 
 def local_flow_solve(
@@ -418,6 +420,7 @@ def local_flow_solve(
     iters: int = 50,
     tol: float = 1e-9,
     vm_fixed: Optional[tuple[np.ndarray, np.ndarray]] = None,
+    hold: Optional[np.ndarray] = None,
 ) -> Optional[np.ndarray]:
     """The false state of a local attacker who drives one or more branches' apparent flows to their
     targets [WU26, eqs. 24-25]: the interior voltages move, the buses of `fixed` keep their
@@ -442,6 +445,8 @@ def local_flow_solve(
     target   : the goal branch's apparent flow, per unit, or [L]
     vm_fixed : (interior buses, magnitudes) held at those voltage magnitudes, or None (a bound the
                caller enforces, e.g. a voltage limit)
+    hold     : [len(fixed), 2] booleans, which of P and Q each fixed bus holds (a generator at one
+               limit keeps the other component free); None holds both everywhere
     returns  : [n] the false voltages, or None when no step lowers the residual or `iters` run out
     """
     Yb = _dense(Ybus)
@@ -452,17 +457,23 @@ def local_flow_solve(
     I_ = np.asarray(interior, int)
     fx = np.asarray(fixed, int)
     fixed_rows = np.array([int(np.flatnonzero(I_ == b)[0]) for b in fx], int)
+    keep = (
+        np.ones(2 * len(fx), bool) if hold is None else np.concatenate([hold[:, 0], hold[:, 1]]).astype(bool)
+    )
+    inj_rows = np.concatenate([fixed_rows, len(I_) + fixed_rows])[keep]
     vb, vm = (
         (np.zeros(0, int), np.zeros(0)) if vm_fixed is None else (np.asarray(vm_fixed[0], int), vm_fixed[1])
     )
     vm_cols = np.array([int(np.flatnonzero(I_ == b)[0]) for b in vb], int)
-    residual = partial(_flow_residual, Yb, (yf, f, goal), fixed=fx, S_fixed=S_fixed, vm_fixed=(vb, vm))
+    residual = partial(
+        _flow_residual, Yb, (yf, f, goal), fixed=fx, S_fixed=S_fixed, vm_fixed=(vb, vm), keep=keep
+    )
     for _ in range(iters):
         r = residual(V)
         norm = float(np.max(np.abs(r)))
         if norm < tol:
             return V
-        J = _flow_jacobian(Yb, yf, f, V, I_, fixed_rows, vm_cols)
+        J = _flow_jacobian(Yb, yf, f, V, I_, inj_rows, vm_cols)
         step = np.linalg.lstsq(J, -r, rcond=None)[0]  # the minimum-norm solution of J step = -r
         if not np.all(np.isfinite(step)):
             return None

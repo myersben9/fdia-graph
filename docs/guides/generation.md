@@ -55,12 +55,12 @@ The meter plan is drawn once per generator from the seed and is the same on ever
 | `P_inj`, `Q_inj` | every injection bus and every zero-injection bus | always |
 | `P_from`, `Q_from` | each branch independently with probability `flow_frac` | `flow_frac = 0.9` |
 
-The meter model decides what a meter reads (`meter_model`, the plan's D10). New generation's
-`"hybrid"` model is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads `|V|` only, a PMU reads
-`|V|`, the angle and the current phasor of every in-service branch at its bus [WU26, eqs. 17-20]. The
-released files' `"v083"` model wrote an angle at every voltmeter bus and read no currents.
-`generate_timeline(meter_model=None)` follows `min_tamper`, so new generation is hybrid and the v0.8.3
-recipe stays v0.8.3; either can be asked for.
+The meter model decides what a meter reads (`meter_model` in the meter plan, the plan's D10). The
+default, `"hybrid"`, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads `|V|` only, a PMU
+reads `|V|`, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
+17-20]. The released files' `"v083"` model wrote an angle at every voltmeter bus and read no
+currents; the v0.8.3 recipe asks for it explicitly, `generate_timeline(redundancy={"meter_model":
+"v083"})` (`models.MeterSettings`, the plan's D12).
 
 Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
 generator; every other bus is zero-injection (`FdiaGenerator._load_tables`). The two sets cover every
@@ -109,7 +109,7 @@ operating limits; and, in new generation, whose PMUs read branch currents, the c
 solves its objective, eq. (12): each `At` and `Am` episode is held on the support that tampers the
 fewest devices, and `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25).
 The released files' stealthy families drew their targets at random and drove no line to its limit;
-`LEGACY_FAMILIES` with `am_attack="redistribution"`, `min_tamper=False` and `meter_model="v083"` reproduces them
+`LEGACY_FAMILIES` with `am_attack="redistribution"`, `min_tamper=False` and `redundancy={"meter_model": "v083"}` reproduces them
 (`docs/plans/WU_MSFDIA_PLAN.md`).
 
 | family | code | construction | magnitude per bus | episode length | stealthy | target set |
@@ -146,9 +146,11 @@ D9 on 60-snapshot windows at the 5-minute pool cadence: IEEE-14 2 of 10 windows 
 search not proven within its budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s
 per snapshot); the reported noiseless flow reaches the rating exactly. A window with no stealthy
 overload stays benign and is counted in `fallback_benign`. With the hybrid meters the attacker also
-writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end
-and is bounded like every other channel. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0108 and 0.0099 (4% and 16% lower than PMUs only); on `At` records 0.063, 0.079 and 0.077 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0124 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The released files are v0.8.3's recipe:
-`families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False, meter_model="v083"`.
+writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
+Only `At`'s channels are bounded between snapshots, the currents included (the PMU class, D7); `Am`'s
+current channels are only counted when they move by more than 0.01 pu (D8, D11). Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The released files are v0.8.3's recipe:
+`families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False,
+redundancy={"meter_model": "v083"}`.
 
 Notes on the table:
 
@@ -262,7 +264,7 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12] |
 | `am_attack` | "overload" | `Am` as the overload attack of [WU26]; "redistribution" is v0.8.3's `Am` |
 | `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none, D11) |
-| `meter_model` | `"hybrid"` | what the meters read (D10, D12); the v0.8.3 recipe passes `"v083"` |
+| `redundancy` | `{}` | the meter plan (`MeterSettings`): coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` (D10, D12); the v0.8.3 recipe passes `{"meter_model": "v083"}` |
 | `attack_intensity` | 0.20 | upper edge of the band of Aq, Al, Ad and As |
 | `ramp_rate` | 0.002 | `At` growth per frame |
 | `ramp_len` | 60 | `At` episode length |

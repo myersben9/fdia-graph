@@ -255,14 +255,29 @@ class TimelineKnobs(Validated):
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload, or the v0.8.3 redistribution
     # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has no bound (D11)
     stealth_scale: Scale = 1.0
-    # what the meters measure (D10, D12): "hybrid" (angles at PMUs only, PMU branch currents) or the
-    # v0.8.3 plan, which the v0.8.3 recipe pins
-    meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
 
     @property
     def am_frames(self) -> int:
         """The Am episode length: `am_len`, or `ramp_len` when none is given."""
         return self.ramp_len if self.am_len is None else self.am_len
+
+
+@dataclass(frozen=True)
+class MeterSettings(Validated):
+    """The meter plan a timeline walks, as `generate_timeline(redundancy=...)` takes it: the coverage
+    fractions of the voltage meters, the PMUs and the flow meters, and what the meters measure (the
+    plan's D10, D12): "hybrid", new generation's (angles at the PMUs only, PMU branch currents), or
+    "v083", the plan of data release v0.8.3, which its recipe passes."""
+
+    vbus_frac: float = 0.6
+    pmu_frac: float = 0.2
+    flow_frac: float = 0.9
+    meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
+
+    @property
+    def coverage(self) -> dict[str, float]:
+        """The coverage fractions as the generator takes them."""
+        return {"vbus_frac": self.vbus_frac, "pmu_frac": self.pmu_frac, "flow_frac": self.flow_frac}
 
 
 @dataclass(frozen=True)

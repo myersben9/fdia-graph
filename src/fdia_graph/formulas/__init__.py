@@ -51,6 +51,8 @@ from .network import (
 from .noise import (
     accuracy_sigma,
     bias_jitter_split,
+    biased_current,
+    current_magnitude,
     current_sigma,
     jitter_sigma,
     paper_current_sigma,
@@ -102,6 +104,8 @@ __all__ = [
     "hop_distance",
     "huber_weights",
     "interior_boundary",
+    "biased_current",
+    "current_magnitude",
     "current_sigma",
     "jitter_sigma",
     "paper_current_sigma",

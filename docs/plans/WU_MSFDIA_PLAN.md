@@ -306,9 +306,11 @@ families as they are.
   included; the limits (21)-(23); the goal (24)-(25) with the D9 schedule on the noiseless reading.
   `At`, which is not [WU26]'s attack, keeps its rated-accuracy bound: a sub-noise ramp is what `At`
   is. `stealth_scale` is `At`'s alone. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The comparison with the paper's case studies and the audit of the rest of the `Am` path are D14.
-- **D12, `meter_model` is its own knob:** new generation defaults to `"hybrid"`; the v0.8.3 recipe
-  (the frozen test timeline, the legacy test recipe, the v0.8.3 build script and
-  `generate_stream`'s defaults) passes `meter_model="v083"` explicitly. `FdiaGenerator`'s own
+- **D12, `meter_model` is its own knob:** a field of the meter plan (`models.MeterSettings`, passed
+  as `generate_timeline(redundancy=...)` beside the coverage fractions, so the entry point takes no
+  new parameter); new generation defaults to `"hybrid"`; the v0.8.3 recipe (the frozen test
+  timeline, the legacy test recipe, the v0.8.3 build script and `generate_stream`'s defaults)
+  passes `redundancy={"meter_model": "v083"}` explicitly. `FdiaGenerator`'s own
   default stays `"v083"`, which nothing depends on. The frozen suite is bit-exact.
 - **D13, `prev_pmu_i`:** the previous emitted frame's PMU branch currents, a timeline field like
   `prev_node_x` and `prev_edge_x` (offered on a hybrid-meter file), so `JacobianWeighting` and any
@@ -325,14 +327,14 @@ families as they are.
   each line's noiseless flow reaching its own rating by the window's end on the D9 schedule, the l0
   count over the union. The generator's episodes drive one line; the multi-line goal is what the
   paper's case studies use and is available as an option. S_max is the PGLib-OPF rating only:
-  [WU26] does not state its line limits, so no assumed limit is compared with it. Measured on the hybrid meters with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000): `Am` 12 stealthy overload episodes on IEEE-14 (6.0 devices, 22.0 channels on average) and 7 on IEEE-118 (6.9 devices, 27.6 channels), no frame falling back to benign; `At` 10.3 and 12.5 devices (the At episodes differ from the previous run because the Am designs draw from the same random stream). On the paper's IEEE-14 metering (PMUs at 1, 4, 6 and 13, line 6-11 metered, everything else
+  [WU26] does not state its line limits, so no assumed limit is compared with it. Measured on the hybrid meters with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000): `Am` 12 stealthy overload episodes on IEEE-14 (6.5 devices, 23.9 channels on average) and 7 on IEEE-118 (7.0 devices, 27.3 channels), no frame falling back to benign; `At` 10.3 and 12.5 devices (the At episodes differ from the previous run because the Am designs draw from the same random stream). On the paper's IEEE-14 metering (PMUs at 1, 4, 6 and 13, line 6-11 metered, everything else
   the hybrid plan), each scenario one two-line goal on the PGLib-OPF ratings, a 10-snapshot window
   (`wu_scenarios.py` in the working notes):
 
   | scenario (lines) | S_max, MVA (PGLib-OPF) | our devices | our largest, pu | [WU26]'s devices | its largest, pu |
   |---|---|---|---|---|---|
-  | 3-4 and 6-11 | 160 / 134 | PMU 4 PMU 6 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 SCADA 10 SCADA 11 SCADA 14 (13), support 4 7 9 11 | 10.55 | SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 11 PMU 4 PMU 6 (7) | 0.22 |
-  | 1-2 and 4-5 | 472 / 664 | PMU 1 PMU 4 PMU 6 SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 (12), support 2 3 4 5 7 | 11.09 | SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 9 PMU 1 PMU 4 PMU 6 (9) | 0.17 |
+  | 3-4 and 6-11 | 160 / 134 | PMU 4 PMU 6 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 SCADA 10 SCADA 11 (12), support 4 7 8 11 | 10.32 | SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 11 PMU 4 PMU 6 (7) | 0.22 |
+  | 1-2 and 4-5 | 472 / 664 | PMU 1 PMU 4 PMU 6 SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 SCADA 10 SCADA 14 (14), support 2 3 4 5 7 9 | 11.27 | SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 9 PMU 1 PMU 4 PMU 6 (9) | 0.17 |
 
   The PGLib-OPF ratings are 3 to 19 times the lines' true flows in these windows (3-4 carries about
   21 MVA against 160, 6-11 about 7 against 134, 4-5 about 59 against 664), so reaching them takes
@@ -356,9 +358,11 @@ families as they are.
   the real and imaginary part at each end in per unit, with the PMU class of IEEE C37.118.1 (1%
   total vector error as three standard deviations of the magnitude, plus a 1e-5 pu floor), one rule
   for the emitter and the search (`formulas.noise.current_sigma`). The stealthy families write
-  `h(x^a) - h(x)` on the currents too, a tampered current counts in the PMU of its bus (D1), and its
-  step is bounded by the class for `At` (D7) and by 0.01 pu for `Am` (D8). The file stores
+  `h(x^a) - h(x)` on the currents too, a tampered current counts in the PMU of its bus (D1); `At` bounds
+  its step by the class (D7), and `Am` counts it as tampered only beyond 0.01 pu, a tamper-count
+  threshold and not a step bound (D8, D11). The file stores
   `pmu_i` with its benign twin, mask and tamper mask; a file without them loads unchanged.
-  `meter_model` defaults to `"hybrid"` and the v0.8.3 recipe pins `"v083"` (D12). The estimators may add [WU26, eq. (3)]'s pseudo voltage phasors at the far ends of the
+  `meter_model` defaults to `"hybrid"` and the v0.8.3 recipe pins `"v083"` through the meter plan,
+  `redundancy={"meter_model": "v083"}` (D12). The estimators may add [WU26, eq. (3)]'s pseudo voltage phasors at the far ends of the
   PMU-metered branches (`pmu_pseudo`, off by default), weighted by their propagated variance.
-  Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0108 and 0.0099 (4% and 16% lower than PMUs only); on `At` records 0.063, 0.079 and 0.077 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0124 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. (D11 applies.)
+  Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. (D11 applies.)

@@ -81,7 +81,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     ONE_FRAME_FAMILIES,
     AmDirection,
 )
-from .models.config import TimelineKnobs
+from .models.config import MeterSettings, TimelineKnobs
 from .models.data import EpisodeRow
 from .models.frames import AmOverloadDesign, AttackVector, MinimizerResult
 from .models.inputs import AdmissibleTargets, FamilySelection
@@ -90,8 +90,8 @@ from .schema import Attr
 
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
 # new generation makes the multi-snapshot families [WU26]; LEGACY_FAMILIES (with
-# am_attack="redistribution", min_tamper=False, meter_model="v083") reproduces data release v0.8.3
-# and the frozen timeline
+# am_attack="redistribution", min_tamper=False, redundancy={"meter_model": "v083"}) reproduces data
+# release v0.8.3 and the frozen timeline
 DEFAULT_FAMILIES = GENERATED_FAMILIES
 
 # Per-family episode-length band (frames): Ad, As, Ar (the upper end excluded), used when
@@ -760,7 +760,7 @@ def _warn_deprecated_families(fams: Sequence[int]) -> None:
         )
 
 
-def _search_attrs(tk: TimelineKnobs, overload: bool, currents: bool) -> dict[str, object]:
+def _search_attrs(tk: TimelineKnobs, overload: bool, meter_model: Optional[str]) -> dict[str, object]:
     """The attributes of the searches a walk ran and of the meters it read, written only when they
     apply so a v0.8.3 file's attributes are unchanged: the fewest-tamper knobs, the Am attack, the
     stealth scale of At's search (Am has no stealth bound, the plan's D11; an Am-only file records
@@ -773,15 +773,33 @@ def _search_attrs(tk: TimelineKnobs, overload: bool, currents: bool) -> dict[str
         out[Attr.AM_ATTACK] = tk.am_attack
     if tk.min_tamper or overload:
         out[Attr.STEALTH_SCALE] = tk.stealth_scale
-    if currents:
+    if meter_model is not None:  # a hybrid-meter file, which reads PMU currents
         out.update(
             {
-                Attr.METER_MODEL: tk.meter_model,
+                Attr.METER_MODEL: meter_model,
                 Attr.CURRENT_FEAT: "Re_I_from,Im_I_from,Re_I_to,Im_I_to",
                 Attr.CURRENT_UNITS: "pu on the base current",
             }
         )
     return out
+
+
+def _generator(
+    system: Union[int, str], seed: int, max_load_mw: Optional[float], redundancy: Optional[dict]
+) -> tuple[FdiaGenerator, MeterSettings]:
+    """The walk's generator on the meter plan `redundancy` (a dict of `MeterSettings` fields), and
+    that plan."""
+    meters = MeterSettings(**(redundancy or {}))
+    g = FdiaGenerator(
+        system,
+        seed=seed,
+        max_load_mw=max_load_mw,
+        meter_model=meters.meter_model,
+        vbus_frac=meters.vbus_frac,
+        pmu_frac=meters.pmu_frac,
+        flow_frac=meters.flow_frac,
+    )
+    return g, meters
 
 
 def generate_timeline(
@@ -807,7 +825,6 @@ def generate_timeline(
     min_budget: int = 256,
     am_attack: str = "overload",
     stealth_scale: float = 1.0,
-    meter_model: str = "hybrid",
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
@@ -823,7 +840,7 @@ def generate_timeline(
                      Aq, Ad, As, Ar and Al are deprecated for generation (a DeprecationWarning,
                      refused from 0.22) and stay loadable from released files. Data release v0.8.3
                      is reproduced with families=LEGACY_FAMILIES, am_attack="redistribution",
-                     min_tamper=False, meter_model="v083"
+                     min_tamper=False, redundancy={"meter_model": "v083"}
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
     am_len           Am episode length (default ramp_len)
@@ -844,7 +861,14 @@ def generate_timeline(
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
                      draw as in the papers, None draws a 5 to 24 frame episode
     replay_tau       Ar replay depth in frames, None = random lag of at least 20
-    redundancy       meter coverage {vbus_frac, pmu_frac, flow_frac}, default 0.6/0.2/0.9
+    redundancy       the meter plan, a dict of `MeterSettings` fields: coverage {vbus_frac, pmu_frac,
+                     flow_frac}, default 0.6/0.2/0.9, and `meter_model`, what the meters measure (the
+                     plan's D10): "hybrid" (the default: a SCADA voltmeter reads |V| only, the angle
+                     is a PMU channel, and every PMU reads the current phasor of each in-service
+                     branch at its bus, stored as data/pmu_i with benign/pmu_i_benign and
+                     attack/pmu_i_tamper [WU26, eqs. 17-20]) or "v083" (the plan of data release
+                     v0.8.3: an angle at every voltmeter bus and no currents), e.g.
+                     redundancy={"meter_model": "v083"}
     split            chronological train/val/test fractions by frame, episodes never cut
     min_tamper       [WU26, eq. 12]: hold each At episode on the support (the buses the false state
                      moves) that tampers the fewest devices over the episode, a change under a
@@ -861,12 +885,6 @@ def generate_timeline(
                      snapshots at most this many times the meters' rated accuracy (the plan's D7); 1
                      by default. Am has no such bound, as in [WU26]: its noise (0.03 pu SCADA, 0.01 pu
                      PMU, D8) only decides which changes its tamper count ignores (D11)
-    meter_model      what the meters measure (the plan's D10): "hybrid" (a SCADA voltmeter reads |V|
-                     only, the angle is a PMU channel, and every PMU reads the current phasor of each
-                     in-service branch at its bus, stored as data/pmu_i with benign/pmu_i_benign and
-                     attack/pmu_i_tamper [WU26, eqs. 17-20]; the default) or "v083" (the plan of
-                     data release v0.8.3: an angle at every voltmeter bus and no currents, which the
-                     v0.8.3 recipe pins)
     """
     tk = TimelineKnobs(
         attacked_frac,
@@ -880,13 +898,12 @@ def generate_timeline(
         min_budget,
         am_attack,
         stealth_scale,
-        meter_model,
     )
     fams = FamilySelection(families).codes
     _warn_deprecated_families(fams)
     overload = tk.am_attack == "overload" and AM_FAMILY in fams
-    red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
-    g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, meter_model=tk.meter_model, **red)
+    g, meters = _generator(system, seed, max_load_mw, redundancy)
+    red = meters.coverage
     currents = g.current_mask() is not None
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
@@ -936,7 +953,7 @@ def generate_timeline(
         Attr.PMU_FRAC: red["pmu_frac"],
         Attr.FLOW_FRAC: red["flow_frac"],
     }
-    recorded.update(_search_attrs(tk, overload, currents))
+    recorded.update(_search_attrs(tk, overload, meters.meter_model if currents else None))
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)

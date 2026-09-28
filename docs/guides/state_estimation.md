@@ -48,8 +48,8 @@ Validation-selected hyperparameters from the estimation paper:
 ## PMU pseudo-measurements
 
 On a hybrid-meter file (new generation) a SCADA voltmeter reads no angle, so the angle comes from the
-PMUs and the power meters alone. `pmu_pseudo=True` (every estimator but `JacobianWeighting`, whose
-previous-frame features carry no currents) adds the pseudo-measurements of [WU26, eq. (3)]: a PMU at
+PMUs and the power meters alone. `pmu_pseudo=True` (every estimator, `JacobianWeighting` included, which
+reads the previous frame's currents from `prev_pmu_i`) adds the pseudo-measurements of [WU26, eq. (3)]: a PMU at
 the near end n of a branch reads `V_n` and `I_n`, and the branch's pi model gives the voltage at the
 far end f,
 
@@ -70,7 +70,7 @@ slots by that variance, `calibrate="truth"` by their benign residual like every 
 formula is exact without noise (to 1e-16 on IEEE-14 and 118) and its variance matches a Monte Carlo
 of 20,000 draws to within 3% (`tests/test_pmu_channels.py`).
 
-Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0117 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0108 and 0.0099 (4% and 16% lower than PMUs only); on `At` records 0.063, 0.079 and 0.077 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0124 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones.
+Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones.
 
 ## What to expect per family
 

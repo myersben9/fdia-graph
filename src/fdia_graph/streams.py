@@ -77,7 +77,7 @@ def generate_stream(
     # fewest-tamper search), which runs on every supported system; the overload Am needs line ratings
     knobs.setdefault("am_attack", "redistribution")
     knobs.setdefault("min_tamper", False)
-    knobs.setdefault("meter_model", "v083")
+    redundancy = {"meter_model": "v083", **(redundancy or {})}
     path = generate_timeline(
         system,
         states=states,

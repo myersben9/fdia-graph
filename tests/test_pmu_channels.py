@@ -36,8 +36,8 @@ def files(tmp_path_factory, pool):
     d = tmp_path_factory.mktemp("pmu")
     kw = dict(states=pool, seed=1, families=("At",), ramp_len=10, min_budget=32)
     return (
-        generate_timeline(14, out=str(d / "v083.h5"), meter_model="v083", **kw),
-        generate_timeline(14, out=str(d / "hybrid.h5"), meter_model="hybrid", **kw),
+        generate_timeline(14, out=str(d / "v083.h5"), redundancy={"meter_model": "v083"}, **kw),
+        generate_timeline(14, out=str(d / "hybrid.h5"), **kw),
     )
 
 
@@ -248,14 +248,15 @@ def test_new_generation_is_hybrid_and_the_legacy_recipe_pins_v083():
     from frozen_spec import TIMELINE_KW
 
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.models.config import TimelineKnobs
+    from fdia_graph.models.config import MeterSettings
     from fdia_graph.timeline import generate_timeline
 
-    assert TimelineKnobs().meter_model == "hybrid"
-    assert TimelineKnobs(min_tamper=False).meter_model == "hybrid"  # its own knob (D12)
-    assert inspect.signature(generate_timeline).parameters["meter_model"].default == "hybrid"
+    assert MeterSettings().meter_model == "hybrid"  # its own knob (D12), in the meter plan
+    assert "meter_model" not in inspect.signature(generate_timeline).parameters  # no new top-level knob
     assert inspect.signature(FdiaGenerator).parameters["meter_model"].default == "v083"
-    assert TIMELINE_KW["meter_model"] == "v083"  # the v0.8.3 recipe pins it
+    assert TIMELINE_KW["redundancy"] == {"meter_model": "v083"}  # the v0.8.3 recipe pins it
+    with pytest.raises(ValueError):
+        MeterSettings(meter_model="scada")
 
 
 def test_the_previous_frame_carries_its_currents(files):
@@ -280,3 +281,17 @@ def test_jacobian_weighting_takes_the_pseudo_measurements(files):
     est = JacobianWeighting(pmu_pseudo=True).fit(FdiaGraph(new, split="train"))
     assert len(est._pseudo_th) > 0
     assert np.isfinite(est.estimate(FdiaGraph(new, split="test"))).all()
+
+
+def test_a_current_bias_scales_with_the_end_phasor():
+    """Review fix: the systematic error of a current channel is its relative bias times |I_end| (the
+    C37.118 scale of `current_sigma`), so the Re channel of I = 1j still carries it."""
+    from fdia_graph.formulas.noise import CURRENT_FLOOR_PU, biased_current
+
+    true = np.array([[0.0, 1.0, 0.0, 0.0]])  # I_from = 1j pu, no PMU current at the to end
+    bias = np.array([[0.004, -0.002, 0.003, 0.001]])
+    got = biased_current(true, bias)
+    assert got[0, 0] == pytest.approx(0.004) and got[0, 1] == pytest.approx(1.0 - 0.002)
+    assert got[0, 2] == 0.0 and got[0, 3] == 0.0  # a zero end phasor carries no bias
+    sig = current_sigma(true, PMU_CURRENT_CLASS)
+    assert sig[0, 0] == pytest.approx(PMU_CURRENT_CLASS + CURRENT_FLOOR_PU) == sig[0, 1]

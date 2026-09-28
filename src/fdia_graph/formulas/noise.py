@@ -112,6 +112,27 @@ PMU_CURRENT_CLASS = 0.01 / 3
 CURRENT_FLOOR_PU = 1e-5
 
 
+def current_magnitude(current_true: np.ndarray) -> np.ndarray:
+    """Each PMU branch-current channel's end-phasor magnitude [..., E, 4]: |I_from| on the two from
+    columns, |I_to| on the two to columns, the scale of the C37.118 error model [C37118]."""
+    i = np.asarray(current_true, np.float64)
+    from_mag = np.hypot(i[..., 0], i[..., 1])
+    to_mag = np.hypot(i[..., 2], i[..., 3])
+    return np.stack([from_mag, from_mag, to_mag, to_mag], axis=-1)
+
+
+def biased_current(current_true: np.ndarray, bias: np.ndarray) -> np.ndarray:
+    """The PMU branch-current readings with their systematic error before jitter [C37118]: each
+    channel moved by its relative bias times its end-phasor magnitude, the same scale as
+    `current_sigma`, so a channel whose component is zero still carries the class error.
+
+        I_reading = I_true + b |I_end|            (per channel, before the per-scan jitter)
+    """
+    return np.asarray(current_true, np.float64) + np.asarray(bias, np.float64) * current_magnitude(
+        current_true
+    )
+
+
 def current_sigma(current_true: np.ndarray, rel: float, floor: float = CURRENT_FLOOR_PU) -> np.ndarray:
     """The standard deviation of every PMU branch-current channel [C37118]: `rel` times the magnitude
     of that end's phasor, plus `floor`, on both its real and imaginary part. The one rule the
@@ -125,13 +146,7 @@ def current_sigma(current_true: np.ndarray, rel: float, floor: float = CURRENT_F
     floor        : the absolute floor, per unit
     returns      : [..., E, 4] sigma per channel
     """
-    i = np.asarray(current_true, np.float64)
-    from_mag = np.hypot(i[..., 0], i[..., 1])
-    to_mag = np.hypot(i[..., 2], i[..., 3])
-    sig = np.empty(i.shape, np.float64)
-    sig[..., 0] = sig[..., 1] = rel * from_mag + floor
-    sig[..., 2] = sig[..., 3] = rel * to_mag + floor
-    return sig
+    return rel * current_magnitude(current_true) + floor
 
 
 # The measurement noise of [WU26]'s case studies: 0.03 pu on SCADA channels, 0.01 pu on PMU channels.

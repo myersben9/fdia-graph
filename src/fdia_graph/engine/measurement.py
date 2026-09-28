@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 
 from ..formulas.network import branch_currents, branch_flows, complex_voltages
-from ..formulas.noise import current_sigma, jitter_sigma
+from ..formulas.noise import biased_current, current_sigma, jitter_sigma
 from ..models.grid import CURRENT, EDGE, NODE
 from .base import POWER_NOISE_FLOOR_MW, GridBase
 from .records import Scan
@@ -96,17 +96,19 @@ class MeasurementMixin(GridBase):
 
     def _emit_currents(self, Vc: np.ndarray, cm: np.ndarray) -> np.ndarray:
         """The PMU branch-current readings [E, 4] of one scan (hybrid meters): the exact phasor at each
-        metered end plus its relative bias and a per-scan jitter [C37118], drawn branch by branch and
-        column by column after the flows; zero where no PMU reads that end."""
+        metered end plus its relative bias times the end's phasor magnitude and a per-scan jitter,
+        both on the C37.118 scale of `current_sigma` [C37118] (`biased_current`), drawn branch by
+        branch and column by column after the flows; zero where no PMU reads that end."""
         true = branch_currents(Vc, self._Yf, self._Yt)
         sig = current_sigma(true, self._i_jitter)
         bias = self.bias.i
         assert bias is not None, "a hybrid-meter generator draws the current biases at construction"
+        biased = biased_current(true, bias)
         ix = np.zeros((self.E, 4), np.float32)
         for e in range(self.E):
             for c in CURRENT:
                 if cm[e, c]:
-                    ix[e, c] = true[e, c] * (1.0 + bias[e, c]) + self._draw_noise(sig[e, c])
+                    ix[e, c] = biased[e, c] + self._draw_noise(sig[e, c])
         return ix
 
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray:

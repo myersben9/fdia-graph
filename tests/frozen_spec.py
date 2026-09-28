@@ -17,7 +17,7 @@ TIMELINE_KW = dict(
     families=("Aq", "Ad", "As", "Ar", "At", "Al", "Am"),
     am_attack="redistribution",
     min_tamper=False,
-    meter_model="v083",
+    redundancy={"meter_model": "v083"},
 )
 
 

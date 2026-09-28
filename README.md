@@ -138,7 +138,7 @@ operating limits; and, in new generation, whose PMUs read branch currents, the c
 also solves its objective, eq. (12): each `At` and `Am` episode is held on the support that tampers
 the fewest devices, and `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs.
 24-25). The released files' stealthy families drew their targets at random and drove no line to its
-limit; `LEGACY_FAMILIES` with `am_attack="redistribution"`, `min_tamper=False` and `meter_model="v083"` reproduces them
+limit; `LEGACY_FAMILIES` with `am_attack="redistribution"`, `min_tamper=False` and `redundancy={"meter_model": "v083"}` reproduces them
 (`docs/plans/WU_MSFDIA_PLAN.md`).
 
 ![BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
