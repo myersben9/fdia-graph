@@ -15,9 +15,11 @@ generation into the engine's attack mixin, so a reader finds all of it in one pl
 
 ## 1. What the generator does today, equation by equation
 
+Paths are as of `main` before step 2 moved the attack code into `engine/attacks/`.
+
 | [WU26] | today | where |
 |---|---|---|
-| (12) minimize the number of tampered measurements | not solved. Targets are drawn at random and the attack area is every bus within `hops` branches of them; the tampered meters are the metered channels whose attack-vector entry moves by more than 1e-7 (`_changed_meters`), whatever that count is. | `engine/physics.py: local_region`, `engine/records.py: _stealthy_frame` |
+| (12) minimize the number of tampered measurements | not solved. Targets are drawn at random and the attack area is the buses within `hops` branches of them, never the slack, grown over any zero-injection bus on its boundary and shrunk in reach until a fixed-voltage boundary exists (`local_region`); the tampered meters are the metered channels whose attack-vector entry moves by more than 1e-7 (`_changed_meters`), whatever that count is. | `engine/physics.py: local_region`, `engine/records.py: _stealthy_frame` |
 | (13)-(16) SCADA injections and flows consistent with the false state | satisfied exactly: the false state is a local AC solution, and the attack vector is `h(x_false) - h(x_true)` | `formulas/network.py: local_ac_solve`, `engine/records.py: _attack_vector` |
 | (17)-(18) PMU voltage magnitude and angle | satisfied by the same attack vector | `_attack_vector` |
 | (19)-(20) PMU branch current phasors | not modeled: the meter plan has no current-phasor channels | `engine/core.py: _meter_plan` |
@@ -64,7 +66,8 @@ snapshots t = κ ... κ+T, and the true states `x_t` and scans `z_t` from the ti
   in the attack vector"; its results count compromised devices over the window, which is the set
   above, grouped into devices as stated. Decision D1 confirms this reading.
 - **Constraints:** (21)-(23) on every snapshot, as today, and the goal (24)-(25): the flow magnitude
-  on line l, as the tampered measurements report it, rises from `S_{l,κ}` and reaches `S_max` by
+  on line l that the tampered measurements carry before noise, the noiseless reading `h(x^a_t)` of
+  the false state, rises from `S_{l,κ}` and reaches `S_max` by
   κ+T. Stealth bound: each tampered meter's change from one snapshot to the next is at most its
   noise standard deviation `σ_{m,t}`, so a single snapshot shows the residual test noise only (the
   paper keeps per-snapshot magnitudes small for this reason). The target line's flow is metered:
@@ -88,11 +91,14 @@ a solved S is counted exactly, noise threshold (`σ_{m,t}`) included.
 
 **The search.**
 
-1. Branch and bound over connected supports containing the goal's buses. Each candidate has a
-   cheap lower bound on its cost (the devices with a channel that must move when its buses move) and,
-   once solved, an exact cost (the devices with a channel moved beyond its noise). Candidates are taken in order
-   of the lower bound; the search stops when the next lower bound is no smaller than the best exact
-   cost found, and that best support is optimal.
+1. Branch and bound over connected supports that can move the goal: for a line goal at least one end
+   bus of the line (moving one end already changes the flow, so both are not required), for the ramp
+   goal the targeted load buses. A support follows the area rules of today: never the slack, and a
+   zero-injection bus on its boundary is taken in, since it cannot absorb the change. Each candidate
+   has a cheap lower bound on its cost (the devices with a channel that must move when its buses
+   move) and, once solved, an exact cost (the devices with a channel moved beyond its noise).
+   Candidates are taken in order of the lower bound; the search stops when the next lower bound is
+   no smaller than the best exact cost found, and that best support is optimal.
 2. On IEEE-14 and small areas the enumeration is exhaustive (an area of about ten buses has at
    most 2^10 supports, each a small Newton solve).
 3. On IEEE-118 and 300, best-first search with a node budget. The file records per episode whether
@@ -175,9 +181,10 @@ the new path in the same change.
 - **Optimality:** the brute-force test on IEEE-14 areas, and proven-versus-budget counts per system.
 - **Stealth:** per snapshot, the residual test at the noise level sees noise only; each meter's
   per-snapshot change sits under the bound.
-- **The goal:** the reported flow on the target line reaches `S_max` by the window's end.
-- **Cost:** tampered devices and channels per frame before and after (today's footprint is 3% to 45% of meters),
-  and solve time per snapshot next to the paper's 1.1 to 7.5 s.
+- **The goal:** the noiseless reported flow on the target line reaches `S_max` by the window's end,
+  with the emitted (noisy) value recorded beside it.
+- **Cost:** tampered devices and channels per frame before and after (today's footprint is 3% to 45%
+  of meters), and solve time per snapshot next to the paper's 1.1 to 7.5 s.
 
 ## 7. Data and documentation
 
@@ -220,9 +227,11 @@ families as they are.
   base case is not an eligible target.
 - **D4, PMU current phasors (19)-(20):** added as branch current-phasor channels at PMU buses, a
   file-format change in the same release.
-- **D5, the overload's meaning:** (24)-(25) as written: the flow the tampered measurements report
-  reaches the rating, so the operator sees the line at its limit. The operator's response, which
-  the paper does not model, is out of scope and said so.
+- **D5, the overload's meaning:** (24)-(25) as written, on the noiseless reading of the false state:
+  the flow the tampered measurements carry before noise and bias reaches the rating (the emitted
+  reading adds noise, and its realized value is recorded next to the goal), so the operator sees the
+  line at its limit. The operator's response, which the paper does not model, is out of scope and
+  said so.
 - **D6, multi-snapshot only:** new generation makes `At` and `Am`; the single-snapshot families
   (`Aq`, `Al`, `Ad`, `As`, `Ar`) are deprecated for generation and remain loadable from released
   files.
