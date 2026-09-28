@@ -309,3 +309,27 @@ def test_no_function_outside_the_models_is_a_check():
         if isinstance(node, ast.FunctionDef) and node.name.startswith("check_") and node.name not in _SHIMS
     ]
     assert not found, f"declare these checks on a model in models/: {found}"
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: inputs.ProfileSource(3),  # a scalar is not a load series
+        lambda: inputs.ProfileSource({"a": 1.0}),  # nor is a mapping
+        lambda: inputs.StateSource(3),  # a pool is an array or a path
+        lambda: inputs.DateSpan(20240101, "2024-01-02"),  # '20240131' reads as a date from Python 3.11
+        lambda: inputs.DateSpan("20240101", "2024-01-02"),
+        lambda: config.ExportRequest("numpy", 3),
+        lambda: config.ExportRequest("numpy", "node_x"),  # one string, not split into letters
+    ],
+)
+def test_a_source_or_field_list_of_the_wrong_kind_is_refused(build):
+    with pytest.raises(ConfigError):
+        build()
+
+
+def test_export_refuses_a_malformed_field_list(timeline):
+    import fdia_graph as fg
+
+    with pytest.raises(ConfigError, match="ExportRequest.fields"):
+        fg.load(timeline, split="test").export(format="numpy", fields=3)

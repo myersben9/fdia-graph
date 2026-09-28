@@ -9,6 +9,7 @@ checked in a function body.
 from __future__ import annotations
 
 import datetime as _dt
+import os
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -51,8 +52,16 @@ def release_numbers(release: str) -> tuple[int, ...]:
 
 
 def iso_date(d: Any) -> _dt.date:
-    """'YYYY-MM-DD', a date or a datetime, as a date: all three print as the ISO date first."""
-    return _dt.date.fromisoformat(str(d)[:10])
+    """'YYYY-MM-DD' (a longer ISO timestamp is cut to its date), a date or a datetime, as a date.
+    The pattern is matched first: from Python 3.11 `fromisoformat` also reads '20240131', and an
+    input must mean the same on every supported version."""
+    if isinstance(d, _dt.datetime):
+        return d.date()
+    if isinstance(d, _dt.date):
+        return d
+    if not isinstance(d, str) or not re.match(r"\d{4}-\d{2}-\d{2}", d.strip()):
+        raise ValueError(d)
+    return _dt.date.fromisoformat(d.strip()[:10])
 
 
 FAMILY_WORDS = (
@@ -90,12 +99,22 @@ class ProfileSource(Validated):
 
     @property
     def kind(self) -> str:
-        """ "source", "values", "iso" or "csv"."""
-        if hasattr(self.source, "loads"):  # what `LoadSource`'s runtime check tests
+        """ "source", "values", "iso", "csv", or "unsupported" (which the invariant refuses)."""
+        if callable(getattr(self.source, "loads", None)):  # what `LoadSource`'s runtime check tests
             return "source"
-        if not isinstance(self.source, str):
-            return "values"
-        return "iso" if self.source.lower() in Iso.values() else "csv"
+        if isinstance(self.source, str):
+            return "iso" if self.source.lower() in Iso.values() else "csv"
+        if isinstance(self.source, (list, tuple, np.ndarray)):
+            values = np.asarray(self.source)
+            if values.ndim == 1 and values.size and np.issubdtype(values.dtype, np.number):
+                return "values"
+        return "unsupported"
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.kind != "unsupported",
+            "source must be a LoadSource, an operator name, a CSV path, or a 1-d sequence of load values",
+        )
 
 
 @dataclass(frozen=True)
@@ -104,6 +123,12 @@ class StateSource(Validated):
     X_*.npy, an .npz or an HDF5 file); neither falls back to $FDIA_GRAPH_INIT, then the download."""
 
     states: Optional[Any] = None
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.states is None or isinstance(self.states, (np.ndarray, str, os.PathLike)),
+            f"states must be an array or a path, got {type(self.states).__name__}",
+        )
 
     @property
     def array(self) -> Optional[np.ndarray]:

@@ -70,6 +70,7 @@ def test_package_imports_only_numpy_and_the_standard_library():
         "numbers",
         "collections",
         "datetime",
+        "os",
     }
     for info in pkgutil.iter_modules(models.__path__):
         tree = ast.parse(open(os.path.join(SRC, "models", info.name + ".py"), encoding="utf8").read())

@@ -7,7 +7,7 @@ once, on the field, and nowhere in the consumer.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Annotated, Any, Optional
 
@@ -28,7 +28,7 @@ from .choices import (
     Split,
     Units,
 )
-from .validation import AtLeast, Finite, InRange, Integer, OneOf, Positive, Validated
+from .validation import AtLeast, Finite, InRange, Integer, OneOf, Parses, Positive, Validated
 
 Fraction = Annotated[float, InRange(0.0, 1.0)]  # (0, 1), a false-alarm target or a split share
 Share = Annotated[float, InRange(0.0, 1.0, hi_closed=True)]  # (0, 1]
@@ -49,12 +49,21 @@ class LoadOptions(Validated):
     format: Annotated[str, OneOf(RecordFormat)] = "torch"
 
 
+def field_names(fields: Any) -> tuple[str, ...]:
+    """A sequence of field names as a tuple; a lone string is refused rather than split into letters."""
+    if isinstance(fields, str) or not all(isinstance(f, str) for f in fields):
+        raise TypeError(fields)
+    return tuple(fields)
+
+
 @dataclass(frozen=True)
 class ExportRequest(Validated):
     """What `export` is asked for."""
 
     format: Annotated[str, OneOf(Format)] = "torch"
-    fields: Optional[tuple[str, ...]] = None
+    fields: Annotated[Optional[Sequence[str]], Parses(field_names, "must be a sequence of field names")] = (
+        None
+    )
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (

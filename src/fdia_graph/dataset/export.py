@@ -110,10 +110,11 @@ class ExportMixin(DatasetBase):
         `fields` limits the per-record arrays read; a pandas frame carries every field and refuses
         `fields`, so a typo cannot pass unnoticed.
         """
-        format = ExportRequest(format, None if fields is None else tuple(fields)).format
+        req = ExportRequest(format, fields)
+        format = req.format
         if format == "pandas":
             return self._as_pandas(self._arrays(None), flatten_features)
-        arrays = self._arrays(fields)
+        arrays = self._arrays(req.fields)
         if format == "torch":
             return self._as_torch(arrays, device)
         if format == "tf":
