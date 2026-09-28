@@ -51,6 +51,7 @@ checks a docs change locally.
 
 ```bash
 python tools/prereview.py                                      # every gate, locally, on this checkout's source
+python tools/prereview.py --also-python <path-to-python3.12>  # and the suite on a second Python, as CI runs 3.9 and 3.12
 python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked
 python tools/pr.py request-review 80                           # only after the gate and the checklist are clean
 python tools/pr.py wait 80                                     # CI plus every required review bot

@@ -33,13 +33,17 @@ pr,where,kind,path,title
 147,inline,tooling,tools/readability.py,"The prefix test exempts any path beginning with the models directory string, including a future sibling such as `src/fdia_graph/models_backup.py` or `models_ext"
 147,inline,input escapes validation,src/fdia_graph/models/config.py,These fields are annotated as integers but `AtLeast` alone accepts floats
 147,inline,input escapes validation,src/fdia_graph/dataset/export.py,"This `Format` enum only validates `ExportMixin.export(format=...)`; the public `fg.load(..., format=...)`/`FdiaGraph` argument is a separate fixed set (`""torch"""
+147,inline,input escapes validation,src/fdia_graph/dataset/export.py,"This conversion happens before `ExportRequest` is built, so a malformed non-iterable `fields` value (for example `export(fields=3)`) leaks `TypeError` from `tup"
 147,inline,input escapes validation,src/fdia_graph/formulas/projection.py,"This formula still validates its option by calling the enum directly, so it bypasses `Validated` and raises `Choice._missing_`'s raw message (`reduce must be on"
 147,inline,input escapes validation,src/fdia_graph/__init__.py,"This new entry conversion still omits `format`, even though `load` documents it as the fixed set `""torch""|""pyg""`"
 147,inline,doc claim does not match the code,docs/plans/VALIDATION_PLAN.md,"This says the validation design is standard-library-only, but the landed engine imports NumPy and the array rules (`AsArray`, `IntegerDtype`, `AllFinite`, etc.)"
 147,inline,input escapes validation,src/fdia_graph/models/inputs.py,`EdgeList.N` is declared as an integer but is not validated
+147,inline,input escapes validation,src/fdia_graph/models/inputs.py,`ProfileSource.kind` classifies every non-string object without a `loads` attribute as raw values
 147,inline,input escapes validation,src/fdia_graph/models/validation.py,`Rule.apply` assumes every runtime value can be compared by `holds`
 147,inline,input escapes validation,src/fdia_graph/models/inputs.py,"`StateBlocks.d` is used later as the shape passed to `np.zeros`, but this model never enforces that it is an integer"
+147,inline,input escapes validation,src/fdia_graph/models/inputs.py,"`StateSource.states` is an unconstrained `Any`, and only NumPy arrays are recognized as in-memory pools"
 147,inline,input escapes validation,src/fdia_graph/models/validation.py,"`_unpack` treats every `Any` annotation as optional, so required fields such as `StatePool.X`, `ShapedArray.values`, and `ReleaseName.release` skip their rules "
+147,inline,input escapes validation,src/fdia_graph/models/config.py,"`field_names` accepts mappings whose keys are strings because mappings are iterable, so `export(fields={'node_x': 1})` is silently converted to `('node_x',)` ev"
 147,inline,input escapes validation,src/fdia_graph/models/config.py,`k` is annotated as an integer but `AtLeast` accepts a float
 147,inline,input escapes validation,src/fdia_graph/models/config.py,`max_test` is typed as an optional integer but `AtLeast` accepts floats
 147,inline,input escapes validation,src/fdia_graph/models/config.py,"`n_calib` is declared as an integer but only has `AtLeast`, so a float such as `n_calib=1.5` passes validation and later becomes the non-integer `num` argument "
@@ -48,6 +52,7 @@ pr,where,kind,path,title
 147,missed,input escapes validation,src/fdia_graph/models/validation.py,Normalize non-finite overflow to ConfigError
 147,missed,input escapes validation,src/fdia_graph/models/config.py,Preserve resample_min normalization behavior
 147,missed,input escapes validation,src/fdia_graph/models/inputs.py,Reject negative bus counts
+147,missed,input escapes validation,src/fdia_graph/profiles.py,Reject scalar values in RawSeries
 147,missed,doc claim does not match the code,src/fdia_graph/models/__init__.py,Update package dependency description for standard library imports
 147,missed,tooling,src/fdia_graph/models/config.py,Validate gate oracle handling and localize callability
 147,missed,input escapes validation,src/fdia_graph/federated/partition.py,Validate inputs before inferring assignment size
@@ -69,11 +74,18 @@ pr,where,kind,path,title
 150,missed,doc claim does not match the code,docs/plans/REFERENCE_STUDY_PLAN.md,Update the examples inventory to match the repository
 152,inline,doc claim does not match the code,tools/prereview.py,Neither `src/fdia_graph/models/config.py` nor `src/fdia_graph/models/inputs.py` exists in this checkout (`src/fdia_graph/models/` contains the data/fields/etc
 152,inline,doc claim does not match the code,tools/prereview.py,"The backtick parser only recognizes paths under `src/`, `docs/`, `tools/`, `tests/`, `examples/`, or `scripts/`"
+152,inline,logic and edge cases,tools/review_ledger.py,"The deduplication key omits `path`, so two distinct inline findings on the same PR with the same first-sentence title are collapsed into one row"
 152,inline,generated file stale,docs/figures/diagrams/contributing_pr_flow.mmd,"This PR changes the Mermaid source, but the corresponding `contributing_pr_flow.png` is not included among the changed files"
+152,inline,doc claim does not match the code,docs/reference/REVIEW_CHECKLIST.md,"This checklist is numbered through item 16, while the PR description says it holds 14 reader-check items"
 152,inline,input escapes validation,tools/prereview.py,"This condition only rejects multiple headings, so a `CHANGELOG.md` with zero `## Unreleased` sections passes even though the documented gate requires exactly on"
 152,inline,logic and edge cases,tools/pr.py,"This new command routes through `api()`, but that helper sends the literal `Authorization: ******` header and never calls the `token()` function above"
 152,inline,logic and edge cases,tools/prereview.py,"`_CITED` only matches backtick-wrapped, repository-rooted paths with this narrow extension list; it misses normal Markdown link/image destinations and relative "
 152,inline,tooling,tools/prereview.py,`git diff` does not list untracked files
+152,missed,input escapes validation,tools/prereview.py,Changelog check allows an empty Unreleased section
 152,missed,logic and edge cases,tools/prereview.py,Changelog check allows invalid or empty Unreleased entries
 152,missed,tooling,tools/prereview.py,Changelog check does not require an Unreleased entry
+152,missed,tooling,tools/prereview.py,Changelog gate passes with empty Unreleased section
+152,missed,tooling,tools/prereview.py,Cited-path gate ignores extensionless repository paths
+152,missed,doc claim does not match the code,tools/prereview.py,Cited-path gate misses repository paths in Markdown code spans
 152,missed,doc claim does not match the code,tools/prereview.py,Path extraction ignores directories and extensionless references
+152,missed,doc claim does not match the code,tools/prereview.py,Path matcher excludes extensionless and directory paths

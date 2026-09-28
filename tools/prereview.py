@@ -4,6 +4,12 @@
     python tools/prereview.py                  # every gate, against origin/main
     python tools/prereview.py --base main      # a different base for the changed-lines gates
     python tools/prereview.py --fast           # skip the test suite (the gates only)
+    python tools/prereview.py --also-python C:/envs/py312/python.exe   # the suite again on another Python
+
+CI runs the suite on Python 3.9 and 3.12 and on Windows; this gate runs one interpreter, the one it is
+started with. A parser of loose input can behave differently between versions, so an interpreter
+with the test extras installed can be added with `--also-python` (repeatable) or, set once per
+machine, `FDIA_PREREVIEW_PYTHONS` (paths joined by the platform's path separator).
 
 It runs the gates CI runs (formatting, lint, types, readability, the generated diagrams and data
 dictionary) and the strict test suite on this checkout's own source (`PYTHONPATH=src`, so an
@@ -15,7 +21,8 @@ the branch's commits against the base, the uncommitted changes and the untracked
   at least one entry, and CHANGELOG.md changed.
 - **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too.
 - **cited paths**: every repository path a changed Markdown file cites exists (a file or a folder,
-  with or without an extension), in backticks or as a link or image destination (relative to the file; anchors, queries and web links are ignored).
+  with or without an extension), in a code span whose first part is a root entry of the tree (or a
+  dotfile or upper-case Markdown name), or as a link or image destination (relative to the file; anchors, queries and web links are ignored).
 - **vacuous tests**: no `or True` / `assert True` in `tests/`.
 - **integer fields**: every `int` field of a model in `models/config.py` or `models/inputs.py`
   carries the `Integer()` rule (SKIP where the checkout has no such models).
@@ -45,9 +52,21 @@ class Gate:
     name: str
     cmd: list[str]
     slow: bool = False
+    strict: bool = True  # frozen references compared exactly; only this interpreter's build matches them
 
 
-def gates(base: str) -> list[Gate]:
+def _suite(py: str) -> list[str]:
+    return [py, "-m", "pytest", "-q", "-x", "-W", "error::DeprecationWarning:fdia_graph", "tests"]
+
+
+def _version(py: str) -> str:
+    out = subprocess.run(
+        [py, "-c", "import sys; print('%d.%d' % sys.version_info[:2])"], capture_output=True, text=True
+    )
+    return out.stdout.strip() or "?"
+
+
+def gates(base: str, also: list[str]) -> list[Gate]:
     py = sys.executable
     return [
         Gate("format", [py, "-m", "ruff", "format", "--check", "src/fdia_graph", "tests", "tools"]),
@@ -56,16 +75,18 @@ def gates(base: str) -> list[Gate]:
         Gate("readability", [py, "tools/readability.py", "--report", "--check", "--base", base]),
         Gate("class diagrams", [py, "tools/class_diagrams.py", "--check"]),
         Gate("data dictionary", [py, "tools/models_doc.py", "--check"]),
-        Gate(
-            "tests (strict)",
-            [py, "-m", "pytest", "-q", "-x", "-W", "error::DeprecationWarning:fdia_graph", "tests"],
-            slow=True,
-        ),
+        Gate("tests (strict)", _suite(py), slow=True),
+        # another interpreter brings its own numpy build, so it compares within tolerance, as CI does
+        *(Gate(f"tests ({_version(other)})", _suite(other), slow=True, strict=False) for other in also),
     ]
 
 
 def run(gate: Gate) -> tuple[bool, str, float]:
-    env = {**os.environ, "PYTHONPATH": os.path.join(ROOT, "src"), "FDIA_FROZEN_STRICT": "1"}
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.path.join(ROOT, "src"),
+        "FDIA_FROZEN_STRICT": "1" if gate.strict else "0",
+    }
     t0 = time.time()
     p = subprocess.run(
         gate.cmd, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace"
@@ -113,17 +134,31 @@ def _changelog(files: list[str]) -> tuple[str, str]:
     return PASS, ""
 
 
-_BACKTICKED = re.compile(
-    r"`((?:src|docs|tools|tests|examples|scripts)/[\w./-]+"
-    r"|[A-Z][A-Z_]*\.md|pyproject\.toml|mkdocs\.yml)`"  # and the root files: README.md, pyproject.toml
-)
+_SPAN = re.compile(r"`([\w.][\w./-]*)`")  # a code span with no space: a candidate path
+
+
+def _is_path(span: str, top: set[str]) -> bool:
+    """A code span names a repository path when its first part is an entry at the root of the tree
+    (`tools/pr.py`, `.github/workflows/docs.yml`, `CHANGELOG.md`), or it is a dotfile or an upper-case
+    Markdown name, which a deleted root file would otherwise slip past. `fg.load` and `np.ndarray`
+    are not: no root entry is called `fg` or `np`."""
+    first = span.split("/", 1)[0]
+    return (
+        first in top
+        or (span.startswith(".") and "." in span[1:])
+        or bool(re.fullmatch(r"[A-Z][A-Z_]*\.md", span))
+    )
+
+
 _LINKED = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
 
 
 def _targets(md: str, text: str) -> list[str]:
     """The repository paths a Markdown file cites: backticked repository-rooted paths, and link and
     image destinations resolved against the file's folder (web links, mail and anchors skipped)."""
-    out = list(_BACKTICKED.findall(_LINKED.sub("", text)))  # a link's text is not a citation; its target is
+    top = {f.split("/", 1)[0] for f in _git_names("ls-files")}
+    spans = _SPAN.findall(_LINKED.sub("", text))  # a link's text is not a citation; its target is
+    out = [s for s in spans if _is_path(s, top)]
     for dest in _LINKED.findall(re.sub(r"`[^`\n]*`", "", text)):  # a code span holds no link
         if re.match(r"[a-z][a-z0-9+.-]*:", dest, re.I) or dest.startswith("#"):
             continue
@@ -212,9 +247,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="origin/main")
     ap.add_argument("--fast", action="store_true", help="skip the test suite")
+    ap.add_argument(
+        "--also-python", action="append", default=[], help="run the suite on this interpreter too"
+    )
     a = ap.parse_args()
+    also = a.also_python + [p for p in os.environ.get("FDIA_PREREVIEW_PYTHONS", "").split(os.pathsep) if p]
     results: list[tuple[str, str, str]] = []
-    for gate in gates(a.base):
+    for gate in gates(a.base, also):
         if gate.slow and a.fast:
             continue
         ok, out, secs = run(gate)
