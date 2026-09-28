@@ -1678,12 +1678,25 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>load_profile</code> takes a load source that reads itself: <code>IsoFolder(iso, directory)</code> (an operator's
+<li>
+<p>Every annotation carries its real type. The engine's pandapower network and its internal case are
+  <code>engine.pp_types.PandapowerNet</code> and <code>PpcTables</code>; torch modules and tensors, HDF5 files and
+  datasets, sparse admittance matrices and the stream mappings are named; the column views are
+  <code>NodeColumns</code>/<code>EdgeColumns</code>/<code>BranchColumns</code> of arrays and the index constants <code>NODE</code>/<code>EDGE</code>/<code>BRANCH</code>
+  are <code>NodeIndex</code>/<code>EdgeIndex</code>/<code>BranchIndex</code> of ints (the same fields, still tuples); a stream's
+  episodes are <code>models.data.EpisodeRow</code> and its summary <code>StreamSummary</code>. <code>Any</code> stays only where the
+  value can be anything (the validation engine's raw input, keyword pass-throughs, mixed-value
+  staging dicts), each place listed in <code>ANY_ALLOWED</code> in <code>tools/readability.py</code> with its reason, and
+  the readability gate refuses an unlisted one. No behaviour changes.</p>
+</li>
+<li>
+<p><code>load_profile</code> takes a load source that reads itself: <code>IsoFolder(iso, directory)</code> (an operator's
   CSV export; <code>models.config.IsoExport</code> checks the operator and refuses one with no known export
   format, ERCOT, when the folder is described), <code>CsvColumn(path, column)</code> or <code>RawSeries(values)</code>, or
   any object with a <code>loads()</code> method (<code>profiles.LoadSource</code>). The old form, <code>load_profile(source,
   path=, column=)</code> with a string or an array, still works for one minor version and raises a
-  <code>DeprecationWarning</code>.</li>
+  <code>DeprecationWarning</code>.</p>
+</li>
 <li><code>fetch_profile</code> reads from the operator's feed in <code>profiles._FEEDS</code>: <code>NyisoArchive</code> (built in, no
   dependency) for NYISO, <code>GridstatusFeed</code> for CAISO and ERCOT, which imports <code>gridstatus</code> itself and
   names the install when it is missing; <code>models.config.ProfileFetch</code> checks the operator and

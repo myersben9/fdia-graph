@@ -1667,6 +1667,11 @@ checks a docs change locally.</p>
 <td><code>python tools/readability.py --check</code> (refuses a new one), <code>docs/plans/VALIDATION_PLAN.md</code></td>
 </tr>
 <tr>
+<td>everything is typed</td>
+<td>every parameter, return and field carries its real type; an optional dependency's type (pandapower, torch, h5py, scipy, pandas) is imported under <code>if TYPE_CHECKING:</code> so the import stays lazy; <code>Any</code> only where the value can be anything, listed in <code>ANY_ALLOWED</code> in <code>tools/readability.py</code> with the reason</td>
+<td><code>python tools/readability.py --check</code> (refuses an unlisted <code>Any</code> and a stale entry), pyright in CI</td>
+</tr>
+<tr>
 <td>typed, formatted, linted</td>
 <td>pyright at zero, ruff format and check clean</td>
 <td><code>pyright src/fdia_graph</code>, <code>ruff format --check src</code>, <code>ruff check src tests tools</code></td>
