@@ -157,7 +157,7 @@ previous scan, the temporal direction.
 ```bash
 FG_SYSTEM=ieee14 python docs/se/run_se.py      # fits, writes results/se_ieee14.json (estimates cached per arm)
 FG_SYSTEM=ieee118 python docs/se/run_se.py
-FG_SYSTEM=ieee300 python docs/se/run_se.py
+OMP_NUM_THREADS=1 FG_SYSTEM=ieee300 python docs/se/run_se.py   # single-threaded: multi-threaded, the gated arms hung in the OpenMP runtime
 python docs/se/make_report.py                  # tables (markdown) + figures + CSV from the JSON
 ```
 
