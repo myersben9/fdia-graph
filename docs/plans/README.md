@@ -13,4 +13,5 @@ promise covers, and the decisions Ben took at each step. They are history, not i
 | `FIELD_GROUPS_PLAN.md` | field groups for the fields the data models repeat (implemented) |
 | `VALIDATION_PLAN.md` | **active**: every input check declared on a data model and enforced by one engine; dataset capabilities in one table; the six-step series |
 | `REFERENCE_STUDY_PLAN.md` | **proposed**: twelve changes taken from power-grid-model and OGB (standalone evaluators, per-record estimation status, provenance and seeds, release metadata and dataset cards, a timeline file checker, collect-all validation errors), ranked, with the open decisions and the sequence |
+| `WU_MSFDIA_PLAN.md` | **proposed**: generate the stealthy families by solving the [WU26] optimization (fewest tampered meters, eq. 12) under its constraints and line-overload goal, and move all attack generation into the engine's attack mixin; the sequence and five open decisions |
 | `ONE_DATASET_PLAN.md` | **active**: one generator, one HDF5 file, one loader with a seeded order; the seventh family `Am`; data release v0.8.0 |
