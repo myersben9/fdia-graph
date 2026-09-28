@@ -474,3 +474,17 @@ One line of `line_outage_candidates`: its pandapower index and branch position, 
 | `base_flow_mw` | `base_flow_mw` | float | yes | active flow in the intact case, MW |
 | `reason` | `reason` | str |  | why the line was rejected (islands the grid), rejected list only |
 <!-- models:end -->
+
+## Hops Sweep
+
+<!-- hops-sweep:start -->
+
+| hops | generation time (s) | fallback_benign | attacked fraction | mean tampered meters per stealthy frame |
+|---|---|---|---|---|
+| 1 | 8.6 | 0 | 0.500 | 48.52 |
+| 2 | 3.9 | 0 | 0.500 | 58.69 |
+| 3 | 3.9 | 0 | 0.500 | 59.88 |
+
+On ieee14 with 3000 frames, the mean number of tampered meters per stealthy frame rises from 48.52 at hops=1 to 59.88 at hops=3.
+
+<!-- hops-sweep:end -->
