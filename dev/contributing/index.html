@@ -1156,6 +1156,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../plans/VALIDATION_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plans/DATA_MODELS_PLAN/" class="md-nav__link">
         
   
@@ -1576,6 +1604,11 @@ checks a docs change locally.</p>
 <td>code reads as its subject</td>
 <td>complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in <code>formulas/</code> with a source key; every returned bundle a model in <code>models/</code></td>
 <td><code>python tools/readability.py --report</code>, <code>--check --base origin/main</code></td>
+</tr>
+<tr>
+<td>an input is checked in one place</td>
+<td>a new argument is a field on its consumer's model in <code>models/config.py</code>, with its rules in the annotation (<code>Annotated[float, Positive()]</code>, <code>OneOf(&lt;Choice&gt;)</code>) and cross-field rules in <code>invariants()</code>; a dataset precondition is a <code>ds.require(...)</code> capability; a condition only the data reveals raises a named error from <code>errors.py</code>; never a <code>raise ValueError</code> in a function body</td>
+<td><code>python tools/readability.py --check</code> (refuses a new one), <code>docs/plans/VALIDATION_PLAN.md</code></td>
 </tr>
 <tr>
 <td>typed, formatted, linted</td>

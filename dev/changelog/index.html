@@ -1154,6 +1154,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../plans/VALIDATION_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../plans/DATA_MODELS_PLAN/" class="md-nav__link">
         
   
@@ -1594,6 +1622,83 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>load_profile</code> takes a load source that reads itself: <code>IsoFolder(iso, directory)</code> (an operator's
+  CSV export; <code>models.config.IsoExport</code> checks the operator and refuses one with no known export
+  format, ERCOT, when the folder is described), <code>CsvColumn(path, column)</code> or <code>RawSeries(values)</code>, or
+  any object with a <code>loads()</code> method (<code>profiles.LoadSource</code>). The old form, <code>load_profile(source,
+  path=, column=)</code> with a string or an array, still works for one minor version and raises a
+  <code>DeprecationWarning</code>.</li>
+<li><code>fetch_profile</code> reads from the operator's feed in <code>profiles._FEEDS</code>: <code>NyisoArchive</code> (built in, no
+  dependency) for NYISO, <code>GridstatusFeed</code> for CAISO and ERCOT, which imports <code>gridstatus</code> itself and
+  names the install when it is missing; <code>models.config.ProfileFetch</code> checks the operator and
+  <code>resample_min</code>. The downloaded data and the returned vector are unchanged.</li>
+<li>Every input is checked in one place (<code>docs/plans/VALIDATION_PLAN.md</code>). Each consumer's settings
+  are one model in <code>fdia_graph.models.config</code> (<code>LoadOptions</code>, <code>WindowSpec</code>, <code>HuberConfig</code>,
+  <code>PriorConfig</code>, <code>LearnedConfig</code>, <code>FederatedSettings</code>, <code>TimelineKnobs</code> and the rest), whose fields
+  declare their rules (<code>Annotated[float, Positive()]</code>, <code>OneOf(Units)</code>); one engine,
+  <code>models.validation</code>, checks them when the model is built. The public signatures are unchanged:
+  the keyword arguments build the model. Every fixed set of values is a <code>Choice</code> enum in
+  <code>models.choices</code>, still importable where it was used. A dataset view is checked through one table,
+  <code>ds.require(...)</code> over <code>dataset.base.CAPABILITIES</code>. A condition only the data reveals raises a
+  named error from <code>fdia_graph.errors</code> (<code>NoBenignRecords</code>, <code>NoAttackedRecords</code>, <code>GridIslanded</code>, ...).
+  The formulas and the parsers keep their signatures and build their input model
+  (<code>models.inputs</code>: <code>ClientUpdates</code>, <code>ClientGraph</code>, <code>LabelGrids</code>, <code>FamilySelection</code>, <code>SystemRef</code>,
+  <code>ReleaseName</code>, <code>OutageRef</code>, <code>StatePool</code>, ...), so no function body checks its arguments.
+  Every error is still a <code>ValueError</code>; the messages now have one shape, "<Model>.<field> <rule>, got
+  <value>". The loader's record <code>format</code> ("torch" or "pyg") is now checked too: a typo such as
+  "pygg" used to fall through to the torch records silently. <code>check_split</code>, <code>check_units</code> and
+  <code>check_order</code> still work for one minor version and raise a <code>DeprecationWarning</code>. The private
+  helpers the models replace are gone (<code>_check_knobs</code>, <code>_check_settings</code>, <code>_check_frac</code>,
+  <code>_check_graph</code>, <code>_check_blocks</code>, <code>_index_array</code>, <code>_is_int</code>, <code>_FORMATS</code>, <code>_ISOS</code>, <code>_FIELD_FLAG</code>);
+  <code>dataset._FAMILY_ALIAS</code> and <code>profiles.system_id</code> still resolve.
+  Integer settings (<code>npass</code>, <code>iters</code>, <code>n_calib</code>, <code>layers</code>, <code>hidden</code>, <code>k</code>, a window's <code>T</code>, the
+  federated <code>partition_clients</code> and <code>epochs</code>, the episode lengths, <code>max_test</code>) now refuse a float
+  at construction; before, a value such as <code>npass=1.5</code> passed and failed later with a raw
+  <code>TypeError</code>. A malformed value of any setting (a string where a number belongs) is a
+  <code>ConfigError</code> with the same message as an out-of-range one.
+  The deprecated <code>pyg_stream</code> and <code>torch_windows</code> refuse an unknown <code>layer</code> with a <code>ConfigError</code>
+  before the stream loads; before, it was a raw <code>KeyError</code> after loading. <code>fetch_profile</code>'s
+  <code>resample_min</code> must be a whole number of minutes: <code>1.5</code> used to be truncated to a 1-minute
+  cadence without a word, and is now a <code>ConfigError</code>. <code>partition_from_assignment</code> checks the
+  assignment and the branch list before sizing the grid from them, so a scalar assignment or a
+  non-integer <code>edge_index</code> is a <code>ConfigError</code>, not a raw <code>TypeError</code>, and so is a negative bus
+  count.
+  A profile date is a 'YYYY-MM-DD' string, a date or a datetime on every Python version (from
+  3.11 '20240131' and the integer 20240131 used to parse too). <code>load_profile</code> refuses a source
+  that is not a <code>LoadSource</code>, an operator name, a CSV path or a 1-d series of loads (a scalar
+  used to pass as a one-point profile); <code>generate</code>'s <code>states</code> must be an array or a path; and
+  <code>export(fields=...)</code> takes a list or tuple of names, so a lone string, a mapping or a set is a
+  <code>ConfigError</code>. <code>RawSeries</code> takes a non-empty 1-d series: a scalar used to pass as a one-point
+  profile and a 2-d array was flattened without a word.
+  <code>CsvColumn</code> checks its path and column when built (a missing column used to surface as a
+  pandas <code>KeyError</code> on read), and a dataset name that is neither a name nor a bus count, such
+  as <code>fg.load(["ieee14"])</code>, is a <code>ConfigError</code> instead of a raw <code>TypeError</code>.
+  A profile date span that ends before it starts, and an <code>IsoFolder</code> directory that is not a
+  path, are refused when given; <code>generate(states=pathlib.Path(...))</code> now reads the file instead
+  of failing with an <code>AttributeError</code>.
+  Arguments reach their models unconverted, so a malformed one is a <code>ConfigError</code>, not the raw
+  error of a conversion done first: <code>families=3</code>, <code>pool_moments(None)</code>, <code>fedavg(None, ...)</code>,
+  <code>block_diagonal_basis(3, d)</code>, <code>score(ds, scores="bad")</code>, <code>score(ds, xhat="bad")</code> and a
+  non-numeric in-memory state pool. A test refuses <code>Model(tuple(arg))</code>-style calls in the package.
+  A Huber <code>c</code>, a removal threshold, <code>am_rate</code> and the learned localizer's <code>lr</code> and <code>pos_weight</code>
+  must be finite as well as positive, and a solver <code>tol</code> finite and non-negative. The learned
+  localizer checks its whole training setup (<code>dropout</code>, <code>lr</code>, <code>weight_decay</code>, <code>batch_size</code>,
+  <code>epochs</code>, <code>pos_weight</code>, <code>seed</code>) on <code>LearnedConfig</code> when it is built. <code>generate_timeline</code> checks
+  <code>families</code> on <code>FamilySelection</code> before it builds the case, and the admissible-target check is a
+  model, <code>models.inputs.AdmissibleTargets</code>, which raises <code>NoAdmissibleTarget</code> as before (a model
+  names its failure type in <code>Validated.error</code>; the named data errors now live in <code>models.errors</code>
+  and <code>fdia_graph.errors</code> re-exports them). <code>TimelineKnobs.am_len</code> defaults to None, resolved to
+  <code>ramp_len</code> by the model. <code>check_partition</code> is deprecated in favour of building
+  <code>PartitionOnGrid</code>, and the internal <code>check_window_args</code> and <code>check_targets</code> are gone
+  (<code>WindowSpec</code>, <code>AdmissibleTargets</code>). A value no model can even read (a number past the float
+  range, a mapping where a sequence belongs) is a <code>ConfigError</code>, never a raw <code>OverflowError</code>,
+  <code>KeyError</code> or <code>AttributeError</code>; <code>tests/test_malformed_inputs.py</code> sweeps every config and input
+  model with values of the wrong kind and the public entry points with one bad argument each.
+  Loose input is read by a parser model, so no function outside <code>models/</code> dispatches on a type:
+  <code>ProfileSource</code> (what <code>load_profile</code> was handed), <code>DateSpan</code> (<code>fetch_profile</code>'s dates; a date it
+  cannot read is a <code>ConfigError</code> before any download), <code>StateSource</code> (an in-memory pool or a path)
+  and <code>DatasetName</code> (the registry's lookup key). <code>tools/readability.py</code> now refuses
+  <code>isinstance(...)</code> outside <code>fdia_graph.models</code> as it refuses a bare <code>raise ValueError</code>.</li>
 <li>The estimator solve path no longer takes the slack angle. <code>_solve(z, w)</code>, <code>_w_solve(z, w)</code>,
   <code>_nres(x, z)</code> and the rest solve at the fitted reference (<code>ref_angles</code>, through the new
   <code>_h_ref(x)</code>); a custom <code>SEBase</code> subclass that overrides <code>_solve</code> drops its <code>thsl</code> argument.

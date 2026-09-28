@@ -1296,6 +1296,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
         
   
@@ -1607,9 +1635,10 @@ Read with <a href="../../ROADMAP/"><code>ROADMAP.md</code></a> (what each file i
 type or a collaborator it builds), and a box marked with another package's name is a participant that
 lives there.</p>
 <h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
-<p>Which module imports which. Three foundations are read by nearly every module and are left out so the
-real dependencies show: <code>models/</code> (every returned record), <code>formulas/</code> (the equations) and <code>schema.py</code>
-(the file protocol). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
+<p>Which module imports which. Four foundations are read by nearly every module and are left out so the
+real dependencies show: <code>models/</code> (every returned record, every config model and the one validation
+engine), <code>formulas/</code> (the equations), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named
+errors). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
 same reason. <code>streams.py</code> and <code>torch_data.py</code> are deprecated and will be removed in a future release.</p>
 <p><img alt="Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry" src="../../figures/diagrams/modules.png" /></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>

@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/plans/DATA_MODELS_PLAN/">
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/plans/VALIDATION_PLAN/">
       
       
-        <link rel="prev" href="../VALIDATION_PLAN/">
+        <link rel="prev" href="../ONE_DATASET_PLAN/">
       
       
-        <link rel="next" href="../FIELD_GROUPS_PLAN/">
+        <link rel="next" href="../DATA_MODELS_PLAN/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Data models - fdia-graph</title>
+        <title>Validation - fdia-graph</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#plan-structured-data-models-for-what-functions-return-and-objects-hold" class="md-skip">
+        <a href="#plan-validation-in-one-place" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Data models
+              Validation
             
           </span>
         </div>
@@ -1158,34 +1158,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../VALIDATION_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -1205,7 +1177,7 @@
   <span class="md-ellipsis">
     
   
-    Data models
+    Validation
   
 
     
@@ -1223,7 +1195,7 @@
   <span class="md-ellipsis">
     
   
-    Data models
+    Validation
   
 
     
@@ -1249,10 +1221,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-what-already-exists" class="md-nav__link">
+  <a href="#1-where-validation-sits-today" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. What already exists
+        1. Where validation sits today
       
     </span>
   </a>
@@ -1260,22 +1232,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-inventory-what-is-still-a-bare-tuple-or-dict" class="md-nav__link">
+  <a href="#2-design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Inventory: what is still a bare tuple or dict
+        2. Design
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Inventory: what is still a bare tuple or dict">
+    <nav class="md-nav" aria-label="2. Design">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#2a-internal-no-compatibility-constraint-change-freely" class="md-nav__link">
+  <a href="#2a-the-engine-fdia_graphmodelsvalidationpy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2a. Internal, no compatibility constraint (change freely)
+        2a. The engine: fdia_graph/models/validation.py
       
     </span>
   </a>
@@ -1283,10 +1255,54 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2b-public-api-returning-dicts-compatibility-bound" class="md-nav__link">
+  <a href="#2b-configuration-models" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2b. Public API returning dicts (compatibility-bound)
+        2b. Configuration models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-dataset-capabilities-one-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c. Dataset capabilities: one table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-models-that-check-themselves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2d. Models that check themselves
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2e-parsing-loose-input-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2e. Parsing loose input once
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2f-runtime-data-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2f. Runtime data conditions
       
     </span>
   </a>
@@ -1299,10 +1315,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-design-rules" class="md-nav__link">
+  <a href="#3-keeping-it-that-way" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Design rules
+        3. Keeping it that way
       
     </span>
   </a>
@@ -1310,96 +1326,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-sequencing" class="md-nav__link">
+  <a href="#4-status" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Sequencing
+        4. Status
       
     </span>
   </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4a-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4a. Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-decisions-for-ben" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Decisions for Ben
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-step-5-one-models-package-planned-2026-09-16-bens-request" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Step 5: one models/ package (planned 2026-09-16, Ben's request)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="6. Step 5: one models/ package (planned 2026-09-16, Ben&#39;s request)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#61-layout" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.1 Layout
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#62-rules" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.2 Rules
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#63-sequence-one-pr" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.3 Sequence (one PR)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#64-decisions-taken-2026-09-16-ben-delegated-the-call" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.4 Decisions (taken 2026-09-16, Ben delegated the call)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1407,6 +1340,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_MODELS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1584,10 +1545,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-what-already-exists" class="md-nav__link">
+  <a href="#1-where-validation-sits-today" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. What already exists
+        1. Where validation sits today
       
     </span>
   </a>
@@ -1595,22 +1556,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-inventory-what-is-still-a-bare-tuple-or-dict" class="md-nav__link">
+  <a href="#2-design" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Inventory: what is still a bare tuple or dict
+        2. Design
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Inventory: what is still a bare tuple or dict">
+    <nav class="md-nav" aria-label="2. Design">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#2a-internal-no-compatibility-constraint-change-freely" class="md-nav__link">
+  <a href="#2a-the-engine-fdia_graphmodelsvalidationpy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2a. Internal, no compatibility constraint (change freely)
+        2a. The engine: fdia_graph/models/validation.py
       
     </span>
   </a>
@@ -1618,10 +1579,54 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2b-public-api-returning-dicts-compatibility-bound" class="md-nav__link">
+  <a href="#2b-configuration-models" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2b. Public API returning dicts (compatibility-bound)
+        2b. Configuration models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-dataset-capabilities-one-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c. Dataset capabilities: one table
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-models-that-check-themselves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2d. Models that check themselves
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2e-parsing-loose-input-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2e. Parsing loose input once
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2f-runtime-data-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2f. Runtime data conditions
       
     </span>
   </a>
@@ -1634,10 +1639,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-design-rules" class="md-nav__link">
+  <a href="#3-keeping-it-that-way" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Design rules
+        3. Keeping it that way
       
     </span>
   </a>
@@ -1645,96 +1650,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-sequencing" class="md-nav__link">
+  <a href="#4-status" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Sequencing
+        4. Status
       
     </span>
   </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4a-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4a. Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-decisions-for-ben" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Decisions for Ben
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-step-5-one-models-package-planned-2026-09-16-bens-request" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Step 5: one models/ package (planned 2026-09-16, Ben's request)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="6. Step 5: one models/ package (planned 2026-09-16, Ben&#39;s request)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#61-layout" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.1 Layout
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#62-rules" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.2 Rules
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#63-sequence-one-pr" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.3 Sequence (one PR)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#64-decisions-taken-2026-09-16-ben-delegated-the-call" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6.4 Decisions (taken 2026-09-16, Ben delegated the call)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1758,406 +1680,241 @@
   
 
 
-<h1 id="plan-structured-data-models-for-what-functions-return-and-objects-hold">Plan: structured data models for what functions return and objects hold<a class="headerlink" href="#plan-structured-data-models-for-what-functions-return-and-objects-hold" title="Permanent link">&para;</a></h1>
-<p>Goal (Ben, 2026-09-16): where a function returns a bundle of things, or an object holds a bundle
-of related arrays, the bundle is a named, typed model rather than a tuple indexed by position or
-a dict indexed by string. A reader then sees the fields in one place, pyright checks them, and a
-caller that receives the model can hand it on to the next function unchanged.</p>
-<p>This is the plan only. It follows the readability series (<code>READABILITY_PLAN.md</code>) and keeps its
-compatibility promise: nothing a user of the package can see changes.</p>
-<h2 id="1-what-already-exists">1. What already exists<a class="headerlink" href="#1-what-already-exists" title="Permanent link">&para;</a></h2>
-<p>The readability series introduced eight models where the old code passed tuples or closures:</p>
+<h1 id="plan-validation-in-one-place">Plan: validation in one place<a class="headerlink" href="#plan-validation-in-one-place" title="Permanent link">&para;</a></h1>
+<p>Goal: every check on an input is declared once, on the data model that carries the input, and
+enforced by one engine. No function body validates its own arguments. A reader finds what a value
+may be next to the field that holds it, the error messages come from one place, and adding a
+parameter means adding a field with its rule rather than another <code>if ...: raise</code> at the top of a
+function.</p>
+<p>Implemented in one change (section 4 lists what landed and what is left). It keeps the
+compatibility promise of the readability series: public signatures, accepted values, generated files
+and numbers stay the same; only the wording of the error messages changes, and it becomes uniform.</p>
+<h2 id="1-where-validation-sits-today">1. Where validation sits today<a class="headerlink" href="#1-where-validation-sits-today" title="Permanent link">&para;</a></h2>
+<p><code>raise ValueError</code> / <code>raise TypeError</code> on <code>main</code> (0.20.0), 119 sites in 24 modules, by kind:</p>
+<table>
+<thead>
+<tr>
+<th>kind</th>
+<th style="text-align: right;">sites</th>
+<th>examples</th>
+<th>problem</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>argument and configuration values</td>
+<td style="text-align: right;">about 50</td>
+<td><code>c must be &gt; 0</code> (five estimator constructors), <code>fa_target must be in (0, 1)</code> (localizers, trust), the fixed-set strings (<code>units</code>, <code>split</code>, <code>kcl</code>, <code>calibrate</code>, ...), <code>_check_knobs</code>, <code>_check_settings</code>, <code>check_window_args</code>, <code>_check_frac</code></td>
+<td>each constructor re-implements the same range checks with its own wording; the loader checks <code>split</code>/<code>units</code>/<code>order</code> twice (<code>fg.load</code> and <code>FdiaGraph.__init__</code>)</td>
+</tr>
+<tr>
+<td>dataset capabilities</td>
+<td style="text-align: right;">about 13</td>
+<td>"needs a timeline", "needs the benign layer", "has no clean layer", <code>require_physical</code>, <code>_check_timeline</code>, federated <code>_check_units</code></td>
+<td>the same property of a dataset is tested in several modules with different messages</td>
+</tr>
+<tr>
+<td>array contracts of formulas and models</td>
+<td style="text-align: right;">about 38</td>
+<td><code>need two [n, N] boolean arrays of one shape</code> (<code>formulas.metrics</code>), eighteen checks in <code>formulas.federated</code>, nine in <code>federated.partition</code></td>
+<td>a model such as <code>Partition</code> is checked by a separate <code>check_partition</code> instead of by itself</td>
+</tr>
+<tr>
+<td>parsing loose input</td>
+<td style="text-align: right;">about 9</td>
+<td><code>family_ids</code>, <code>registry.system_id</code>, <code>release_tuple</code>, <code>engine.core._line_id</code>, <code>GatedPrior(gate="oracle" or a localizer)</code></td>
+<td>the type of the argument decides what it means, inside the consumer</td>
+</tr>
+<tr>
+<td>runtime data conditions</td>
+<td style="text-align: right;">about 13</td>
+<td>"fit needs benign records", "tune_threshold needs attacked records in val", "no room for a 60-frame episode", an outage that islands the grid</td>
+<td>these depend on the data read, so they cannot move to construction; they only need named error types</td>
+</tr>
+</tbody>
+</table>
+<p>Reproduce the inventory with <code>git grep -n "raise ValueError\|raise TypeError" -- src</code>.</p>
+<h2 id="2-design">2. Design<a class="headerlink" href="#2-design" title="Permanent link">&para;</a></h2>
+<h3 id="2a-the-engine-fdia_graphmodelsvalidationpy">2a. The engine: <code>fdia_graph/models/validation.py</code><a class="headerlink" href="#2a-the-engine-fdia_graphmodelsvalidationpy" title="Permanent link">&para;</a></h3>
+<p>A rule is a small declared object; a field carries its rules in its annotation; one base class runs
+them.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuberConfig</span><span class="p">(</span><span class="n">Validated</span><span class="p">):</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">c</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Positive</span><span class="p">()]</span> <span class="o">=</span> <span class="mf">1.5</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">reweight</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">OneOf</span><span class="p">(</span><span class="n">Reweight</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># stored as the canonical string</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>piece</th>
+<th>does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Rule</code> (<code>Positive</code>, <code>AtLeast(n)</code>, <code>InRange(lo, hi, ...)</code>, <code>Integer</code>, <code>Finite</code>, <code>OneOf(&lt;Choice&gt;)</code>)</td>
+<td>one predicate and the phrase it prints ("must be &gt; 0"); <code>OneOf</code> also converts the value to the choice's canonical string</td>
+</tr>
+<tr>
+<td><code>Validated.__post_init__</code></td>
+<td>the one place validation runs: applies each field's rules in order (a None value of an <code>Optional</code> field skips them), then the model's <code>invariants()</code></td>
+</tr>
+<tr>
+<td><code>invariants()</code></td>
+<td>cross-field rules declared as (condition, phrase) pairs: <code>train_frac + val_frac &lt; 1</code>, <code>W &lt;= T</code>, <code>partition.K == K</code></td>
+</tr>
+<tr>
+<td><code>ConfigError(ValueError)</code></td>
+<td>the one error: "<code>HuberConfig.c</code> must be &gt; 0, got -1" (model, field, rule, value); a <code>ValueError</code> subclass, so every caller catching <code>ValueError</code> keeps working</td>
+</tr>
+</tbody>
+</table>
+<p>No new dependency: the engine is the standard library (<code>dataclasses</code>, <code>typing.Annotated</code>, <code>enum</code>)
+plus NumPy, which the package already requires and which the array rules (<code>AsArray</code>, <code>IntegerDtype</code>,
+<code>AllFinite</code>, ...) use; Python 3.9 as before. The fixed sets are <code>Choice</code> enums, all in <code>models/choices.py</code>; a field is typed <code>str</code> and
+declares its set with <code>OneOf</code>, so a caller passes a plain string and a consumer reads one.</p>
+<h3 id="2b-configuration-models">2b. Configuration models<a class="headerlink" href="#2b-configuration-models" title="Permanent link">&para;</a></h3>
+<p>Every consumer's settings become one model in <code>models/</code> (the repo rule for data models). Public
+signatures do not change: the keyword arguments build the model, and a class also accepts the
+model itself.</p>
 <table>
 <thead>
 <tr>
 <th>model</th>
-<th>kind</th>
-<th>holds</th>
-<th>used by</th>
+<th>fields</th>
+<th>replaces</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>engine.records.Frame</code></td>
-<td>NamedTuple</td>
-<td>one emitted scan: measurements, masks, label, stealthy flag, designed magnitudes, benign twin</td>
-<td>both generators</td>
+<td><code>LoadOptions</code></td>
+<td>split, units, order, format</td>
+<td>the three <code>check_*</code> calls done twice, <code>split_or_none</code></td>
 </tr>
 <tr>
-<td><code>engine.records.FrameKnobs</code></td>
-<td>NamedTuple</td>
-<td>the attack settings of a run</td>
-<td>both generators</td>
+<td><code>FamilySelection</code></td>
+<td>families</td>
+<td>the <code>family_ids(families)</code> pre-check</td>
 </tr>
 <tr>
-<td><code>generation.Record</code></td>
-<td>NamedTuple</td>
-<td>one finished shard record: the scan, ids, the two temporal features</td>
-<td>the writer</td>
+<td><code>ExportRequest</code></td>
+<td>format, fields</td>
+<td>the <code>format</code> check and "a pandas frame carries every field"</td>
 </tr>
 <tr>
-<td><code>formulas.network.BranchModel</code></td>
-<td>NamedTuple</td>
-<td>the per-branch pi model (r, x, b, g, tap, shift, status)</td>
-<td><code>branch_admittances</code>, the loader</td>
+<td><code>WindowSpec</code></td>
+<td>T, W, stride, label, layer</td>
+<td><code>check_window_args</code>, the <code>layer</code> check</td>
 </tr>
 <tr>
-<td><code>generation._FrameContext</code></td>
-<td>dataclass</td>
-<td>what every record of a run shares (generator, pool, scale, knobs, magnitude log)</td>
-<td>the record functions</td>
+<td>estimator configs, one per class</td>
+<td><code>npass</code>, <code>iters</code>, <code>c</code>, <code>threshold</code>, <code>cond_mult</code>, <code>rank_frac</code>, <code>reweight</code>, <code>huber_c</code>, <code>gate_factor</code>, <code>calibrate</code></td>
+<td>ten checks in <code>se/methods.py</code>, two in <code>se/base.py</code></td>
 </tr>
 <tr>
-<td><code>streams._StreamBuffers</code></td>
-<td>class</td>
-<td>the per-frame layers of one stream and the previous emitted frame</td>
-<td>the timeline walk</td>
+<td><code>LocalizerConfig</code>, <code>LearnedConfig</code>, <code>TrustConfig</code></td>
+<td><code>fa_target</code>, <code>layers</code>, <code>hidden</code>, <code>features</code>, <code>clip</code>, <code>k</code></td>
+<td>the constructor checks in <code>localization/</code> and <code>trust/</code></td>
 </tr>
 <tr>
-<td><code>streams._StreamPlan</code></td>
-<td>dataclass</td>
-<td>which families rotate, the ramp shape, the attacked fraction</td>
-<td>the timeline walk</td>
+<td><code>FederatedSettings</code></td>
+<td>K, rounds, local_epochs, halo, grad_clip, kcl, partition</td>
+<td><code>_check_settings</code>, the <code>epochs</code> and <code>kcl</code> checks</td>
 </tr>
 <tr>
-<td><code>dataset._RecordFilter</code></td>
-<td>NamedTuple</td>
-<td>which records a view keeps</td>
-<td><code>_record_mask</code></td>
+<td><code>TimelineKnobs</code></td>
+<td>attacked_frac, ramp and Am shapes, hops, lengths, am_direction</td>
+<td><code>_check_knobs</code></td>
+</tr>
+<tr>
+<td><code>GeneratorOptions</code>, <code>SplitFractions</code></td>
+<td>max_load_mw, frames; train/val fractions and the stream layer</td>
+<td>the checks in <code>engine/core.py</code>, <code>generation.py</code>, <code>torch_data.py</code></td>
 </tr>
 </tbody>
 </table>
-<p>So the pattern is in place; what is left is to apply it to the rest of the package, with one
-extra rule for the public dicts.</p>
-<h2 id="2-inventory-what-is-still-a-bare-tuple-or-dict">2. Inventory: what is still a bare tuple or dict<a class="headerlink" href="#2-inventory-what-is-still-a-bare-tuple-or-dict" title="Permanent link">&para;</a></h2>
-<p>Surveyed 2026-09-16 on the step 6 branch (every function whose return annotation is a Dict or
-Tuple, plus the generator's attribute groups).</p>
-<h3 id="2a-internal-no-compatibility-constraint-change-freely">2a. Internal, no compatibility constraint (change freely)<a class="headerlink" href="#2a-internal-no-compatibility-constraint-change-freely" title="Permanent link">&para;</a></h3>
+<p>A plain on/off switch (<code>include_gaps</code>, <code>heldout</code>, <code>flatten_features</code>, <code>per_bus</code>) has no value to
+refuse, so it stays a keyword argument and no model declares it.</p>
+<h3 id="2c-dataset-capabilities-one-table">2c. Dataset capabilities: one table<a class="headerlink" href="#2c-dataset-capabilities-one-table" title="Permanent link">&para;</a></h3>
+<p>A <code>Capability</code> enum (<code>TIMELINE</code>, <code>BENIGN_LAYER</code>, <code>CLEAN_LAYER</code>, <code>PHYSICAL_UNITS</code>, <code>TIME_ORDER</code>,
+<code>CONSECUTIVE</code>) and one table on the dataset mapping each to its predicate and its
+message. A consumer declares what it needs, <code>requires = (Capability.TIMELINE,
+Capability.BENIGN_LAYER)</code>, and the base class checks it once at <code>fit</code>/<code>score</code> entry through
+<code>ds.require(...)</code>. Replaces <code>require_physical</code>, <code>_check_timeline</code>, federated <code>_check_units</code>, and
+the <code>has_clean</code> / <code>has_benign</code> checks in <code>se</code>, <code>trust</code> and <code>se.jacobian</code>.</p>
+<h3 id="2d-models-that-check-themselves">2d. Models that check themselves<a class="headerlink" href="#2d-models-that-check-themselves" title="Permanent link">&para;</a></h3>
+<p>The formulas keep their array signatures, and each builds its input model from its arguments
+(<code>models/inputs.py</code>): <code>ClientUpdates</code> for <code>fedavg</code>, <code>ClientGraph</code> and <code>Halo</code> for the partition
+formulas, <code>MomentParts</code> and <code>FeatureBlock</code> for the moments, <code>StateBlocks</code>, <code>Affinity</code>, <code>LabelGrids</code>,
+<code>TauSearch</code>, <code>RankedLabels</code>, <code>EdgeList</code>, <code>AssignmentSpec</code>, <code>PartitionOnGrid</code>. The body computes on
+the model's fields, so it only ever sees values the model accepted; the array rules (<code>AsArray</code>,
+<code>Dims</code>, <code>IntegerDtype</code>, <code>NonEmpty</code>, <code>AllFinite</code>, <code>AllPositive</code>) and the model's invariants state
+what an input may be. Scores and estimates handed back by a caller are a <code>ShapedArray</code> against the
+view.</p>
+<h3 id="2e-parsing-loose-input-once">2e. Parsing loose input once<a class="headerlink" href="#2e-parsing-loose-input-once" title="Permanent link">&para;</a></h3>
+<p>Loose input is parsed once, by a model whose field carries a <code>Parses</code> rule: <code>FamilySelection</code>
+(a family name, alias or code), <code>SystemRef</code> ("ieee118" or 118), <code>ReleaseName</code> ("v0.8.3"),
+<code>OutageRef</code> (a line name or index against the case), <code>SupportedSystem</code>, <code>StatePool</code>. The field keeps
+the raw input and a typed property gives the parsed value. A field that must be given even where the
+caller's type allows None carries <code>Required</code>. <code>GatedPrior(gate="oracle")</code> builds an <code>OracleGate</code>
+with the localizer's interface, so the gate is always an object with a callable <code>localize(ds)</code>. The
+profile sources (<code>IsoFolder</code>, <code>CsvColumn</code>, <code>RawSeries</code>, the per-operator feeds) follow the same rule
+in the next pull request.</p>
+<h3 id="2f-runtime-data-conditions">2f. Runtime data conditions<a class="headerlink" href="#2f-runtime-data-conditions" title="Permanent link">&para;</a></h3>
+<p>They stay where the data is read, raised as named errors from <code>fdia_graph/errors.py</code>
+(<code>NoBenignRecords</code>, <code>NotFitted</code>, <code>NoAdmissibleTarget</code>, <code>GridIslanded</code>), subclassing the built-in
+type they raise today, so no caller's <code>except</code> changes.</p>
+<h2 id="3-keeping-it-that-way">3. Keeping it that way<a class="headerlink" href="#3-keeping-it-that-way" title="Permanent link">&para;</a></h2>
+<p><code>tools/readability.py</code> gains one check: <code>raise ValueError</code> / <code>raise TypeError</code> only in
+<code>validation.py</code>, <code>errors.py</code> and <code>models/</code>. CONTRIBUTING gets the rule: a new argument is a field
+with a rule on a config model, never a check in a function body.</p>
+<h2 id="4-status">4. Status<a class="headerlink" href="#4-status" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>today</th>
-<th>shape</th>
-<th>proposed model</th>
-<th>notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>MeasurementMixin.emit_from_state</code>, <code>emit</code></td>
-<td>4-tuple <code>(nx, nm, ex, em)</code></td>
-<td><code>Scan(node_x, node_m, edge_x, edge_m)</code></td>
-<td>called at seven sites, always unpacked positionally; <code>Frame</code> already holds the same four fields, so <code>Frame</code> can be built from a <code>Scan</code></td>
-</tr>
-<tr>
-<td><code>SEBase._truth_of</code></td>
-<td>dict <code>{"x", "thsl"}</code></td>
-<td><code>TrueState(x, slack_angle)</code></td>
-<td>eleven call sites read <code>tr["x"]</code>, <code>tr["thsl"]</code></td>
-</tr>
-<tr>
-<td><code>AttackMixin.lra_delta</code>, <code>_lra_for_line</code></td>
-<td>tuples <code>(delta, buses)</code>, <code>(delta, buses, flow_change)</code></td>
-<td><code>Redistribution(delta, buses, line_flow_change)</code></td>
-<td>the plausibility band check reads the pieces</td>
-</tr>
-<tr>
-<td><code>PhysicsMixin.resolve_states</code></td>
-<td>tuple <code>(X, kept)</code></td>
-<td><code>ResolvedPool(states, converged)</code></td>
-<td></td>
-</tr>
-<tr>
-<td><code>FdiaGraph._admittances</code></td>
-<td>dict <code>{"ybus", "yf", "yt"}</code></td>
-<td><code>Admittances(ybus, yf, yt)</code></td>
-<td>the three properties <code>ybus_np</code>, <code>yf_np</code>, <code>yt_np</code> read it; <code>branch_admittances</code> returns the same three, so the kernel returns the model too</td>
-</tr>
-<tr>
-<td><code>generation._stack_records</code></td>
-<td>dict of arrays</td>
-<td><code>ShardArrays</code> (dataclass with one field per dataset)</td>
-<td>the writer reads it by key</td>
-</tr>
-<tr>
-<td><code>registry</code> specs (<code>resolve</code>, <code>_asset_spec</code>, <code>download.ensure_local(spec)</code>)</td>
-<td>dict <code>{"kind", "name", "file", "release", "repo", "sha256", "path"}</code></td>
-<td><code>AssetSpec</code> (frozen dataclass)</td>
-<td>four producers, one consumer; <code>ensure_local</code> branches on <code>kind</code></td>
-</tr>
-<tr>
-<td><code>download._asset_url</code></td>
-<td>tuple <code>(url, headers)</code></td>
-<td><code>DownloadTarget(url, headers)</code></td>
-<td></td>
-</tr>
-<tr>
-<td><code>FdiaGenerator</code> attribute groups</td>
-<td><code>edge_r … bus_shunt_b</code> (12 arrays), <code>M</code> dict + <code>flow_meter</code>, six <code>bias_*</code> vectors, six <code>outage_*</code> fields</td>
-<td><code>g.branch: BranchModel</code> (the model already exists), <code>g.meters: MeterPlan(vbus, pmu, inj, flow)</code>, <code>g.bias: MeterBias(pi, qi, v, va, pf, qf)</code>, <code>g.contingency: Outage(line, pos, name, from_bus, to_bus, base_flow_mw)</code> (<code>INTACT</code> when no line is opened)</td>
-<td>the old attribute names stay as read-only properties for one minor version (the writer, the docs scripts and the temporal harness read them)</td>
-</tr>
-<tr>
-<td><code>localization.LocalizerBase._pull</code></td>
-<td>dict of arrays</td>
-<td><code>LocalizerInputs</code></td>
-<td>internal</td>
-</tr>
-</tbody>
-</table>
-<h3 id="2b-public-api-returning-dicts-compatibility-bound">2b. Public API returning dicts (compatibility-bound)<a class="headerlink" href="#2b-public-api-returning-dicts-compatibility-bound" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>today</th>
-<th>who depends on it</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>FdiaGraph.__getitem__</code> dict record, <code>collate</code> batch dict</td>
-<td>every training loop on the package, <code>torch.utils.data</code> default collate, our examples</td>
-</tr>
-<tr>
-<td><code>FdiaGraph.to_numpy</code>, <code>to_torch</code>, <code>to_tf</code></td>
-<td>our SE and localization modules, the temporal harness, users</td>
-</tr>
-<tr>
-<td><code>generate_stream</code> / <code>load_stream</code> stream dict</td>
-<td><code>windows</code>, <code>pyg_stream</code>, <code>torch_windows</code>, the deck scripts, users</td>
-</tr>
-<tr>
-<td><code>SEBase.score</code>, <code>LocalizerBase.score</code> nested dicts</td>
-<td><code>docs/*/make_report.py</code>, the frozen tests, users' tables</td>
-</tr>
-<tr>
-<td><code>JacobianFeatures.transform</code> dict <code>{"bus", "global", "dx_hat", "r_perp"}</code></td>
-<td>the learned localizers, <code>JacobianWeighting</code>, the deck scripts</td>
-</tr>
-<tr>
-<td><code>FdiaGraph.summary</code>, <code>registry.list_datasets</code></td>
-<td>users</td>
-</tr>
-<tr>
-<td><code>line_outage_candidates</code> lists of dicts</td>
-<td>users, <code>docs</code></td>
-</tr>
-</tbody>
-</table>
-<p>These cannot become plain dataclasses without breaking <code>out["node_x"]</code>, <code>**out</code>, <code>for k in out</code>,
-JSON dumping, and the default collate. The rule for them is section 3.</p>
-<h2 id="3-design-rules">3. Design rules<a class="headerlink" href="#3-design-rules" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Value bundles that get unpacked are NamedTuples</strong> (<code>Scan</code>, <code>TrueState</code>, <code>Redistribution</code>,
-   <code>Admittances</code>, <code>DownloadTarget</code>): immutable, cheap, <code>a, b = f()</code> still works, fields have names
-   and types.</li>
-<li><strong>Larger models with behaviour are frozen dataclasses</strong> (<code>AssetSpec</code>, <code>MeterPlan</code>, <code>MeterBias</code>,
-   <code>Outage</code>, <code>ShardArrays</code>): named fields, a <code>__post_init__</code> for validation where useful, methods
-   where they belong (<code>AssetSpec.cache_name()</code>).</li>
-<li><strong>Public dict returns become dual-access models.</strong> <code>fdia_graph.models.Bundle</code> is a frozen
-   dataclass that is also a real <code>dict</code> subclass: <code>__post_init__</code> fills the dict with the non-None
-   fields, the dict side refuses writes, and pickling goes through the fields.</li>
-</ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">TrueState</span><span class="p">(</span><span class="n">Bundle</span><span class="p">):</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>      <span class="c1"># the 2N-1 state per record</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">thsl</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>   <span class="c1"># the slack angle reference per record</span>
-</code></pre></div>
-<p>A bundle keeps every existing use working (<code>isinstance(out, dict)</code>, <code>out["node_x"]</code>, <code>**out</code>,
-   <code>for k in out</code>, <code>json.dump</code> of a score table, PyTorch's default collate, which batches a dict
-   key by key) and adds <code>out.node_x</code>, pyright-checked field names, and one docstring naming every
-   field. Optional layers are <code>Optional[...]</code> fields; absent ones are not in the dict, so
-   <code>"swing" in out</code> keeps its meaning. A dict key that is not a valid attribute name (<code>"global"</code>)
-   is declared with a trailing underscore and mapped through <code>_keys</code>; a required field the old
-   dict listed last (<code>geo</code>) is named in <code>_tail</code> so the key order does not change. A <code>dict</code>
-   subclass rather than a <code>Mapping</code> because users test <code>isinstance(x, dict)</code> and <code>json.dump</code>
-   score tables directly.
-4. <strong>Serialization is explicit.</strong> Every model has <code>to_dict()</code>; a bundle is already the dict
-   <code>savez</code> and <code>json.dump</code> see, so files do not change.
-5. <strong>Models live next to their producers</strong> (superseded by step 5, section 6: they live in the
-   <code>models/</code> package and are re-exported from their producers), not in one giant module: <code>engine.records.Scan</code>,
-   <code>se.base.TrueState</code>, <code>dataset.RecordBundle</code>, and so on. <code>fdia_graph.models</code> holds only the
-   <code>Bundle</code> base (re-exporting the producers' models from it would import the whole package);
-   the data dictionary lists them (step 4).
-6. <strong>A public bundle keeps the shape of the dict it replaces</strong>, whatever its size: the stream
-   dict has eighteen keys and <code>Stream</code> has eighteen fields, because splitting it into a pair would
-   change what <code>s["node_x"]</code> and <code>**s</code> mean for every caller. The readability measures apply to
-   functions, not to the field count of a record; a long field list with one comment per field is
-   the documentation the old dict never had.</p>
-<h2 id="4-sequencing">4. Sequencing<a class="headerlink" href="#4-sequencing" title="Permanent link">&para;</a></h2>
-<ol>
-<li><code>fdia_graph.models.Bundle</code> with its tests (dict behaviour, JSON, default collate, <code>**</code>).</li>
-<li>The internal models of 2a, one PR: <code>Scan</code>, <code>TrueState</code>, <code>Redistribution</code>, <code>ResolvedPool</code>,
-   <code>Admittances</code>, <code>ShardArrays</code>, <code>AssetSpec</code>, <code>DownloadTarget</code>. Pure renames of plumbing; the
-   strict frozen tests are the proof.</li>
-<li>The generator's attribute groups (<code>g.branch</code>, <code>g.meters</code>, <code>g.bias</code>, <code>g.outage</code>) with the old
-   attribute names as properties for one minor version; the writer and the docs scripts move to
-   the models in the same PR.</li>
-<li>The public dual-access models, one PR: <code>EstimatorScores</code> and <code>LocalizerScores</code> with their
-   row models, <code>JacobianOutputs</code>, <code>Stream</code>, <code>LineCandidate</code>, <code>Summary</code>, then <code>RecordBundle</code>,
-   <code>BatchBundle</code> and <code>ArraysBundle</code> (the loader). One PR rather than four because the base class
-   change (<code>Mapping</code> to <code>dict</code> subclass) touches them all and each is a few lines at its producer.</li>
-<li>Docs: <code>docs/reference/DATA_DICTIONARY.md</code> gains a "models" section listing every public
-   model and its fields, generated from the dataclasses so it cannot drift.</li>
-</ol>
-<p>Verification is the same net as the readability series: the strict frozen tests, pyright, and
-the readability gate; plus, for every public bundle, a test that the dict view equals the
-previous dict exactly.</p>
-<h2 id="4a-status">4a. Status<a class="headerlink" href="#4a-status" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>step</th>
-<th>pull request</th>
+<th>part</th>
 <th>state</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>1 <code>Bundle</code> and the internal models</td>
-<td>#69</td>
-<td>merged</td>
+<td>engine, <code>ConfigError</code>, <code>MissingCapability</code> (<code>models/validation.py</code>)</td>
+<td>done</td>
 </tr>
 <tr>
-<td>2 the generator's attribute groups</td>
-<td>#69</td>
-<td>merged</td>
+<td>every fixed set as a <code>Choice</code> (<code>models/choices.py</code>)</td>
+<td>done</td>
 </tr>
 <tr>
-<td>3 public dual-access bundles</td>
-<td>#70</td>
-<td>merged</td>
+<td>20 config models (<code>models/config.py</code>), every constructor and entry point building its model</td>
+<td>done</td>
 </tr>
 <tr>
-<td>4 the data dictionary's models section</td>
-<td>#71</td>
-<td>merged</td>
+<td>dataset capabilities (<code>dataset.base.CAPABILITIES</code>, <code>ds.require</code>)</td>
+<td>done</td>
 </tr>
 <tr>
-<td>5 one <code>models/</code> package</td>
-<td>#72</td>
-<td>open</td>
+<td>formula and parser inputs as models (<code>models/inputs.py</code>); no check in any function body</td>
+<td>done</td>
+</tr>
+<tr>
+<td>named errors for data conditions (<code>errors.py</code>)</td>
+<td>done</td>
+</tr>
+<tr>
+<td>readability rule: no <code>raise ValueError</code> / <code>TypeError</code> outside <code>models/</code></td>
+<td>done, with a test that the package has none</td>
+</tr>
+<tr>
+<td>profile sources and operator feeds</td>
+<td>next pull request</td>
 </tr>
 </tbody>
 </table>
-<p>Decisions taken 2026-09-16: dual-access bundles for the public dicts; the DataLoader test came
-first (<code>tests/test_models.py</code>); the base class is named <code>Bundle</code>; the generator's old attribute
-names are properties that warn for one minor version (removed after 0.16.0, #75).</p>
-<h2 id="5-decisions-for-ben">5. Decisions for Ben<a class="headerlink" href="#5-decisions-for-ben" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Dual-access models for the public dicts (proposed), or a hard switch to dataclasses in a
-   major version. Dual access costs one small base class and keeps every user's code working.</li>
-<li>Whether <code>__getitem__</code> records become a <code>RecordBundle</code> now or only after PyG and the default
-   collate are exercised in a test on a real DataLoader (proposed: the test first, in step 1).</li>
-<li>The name <code>Bundle</code> for the base class, or <code>Model</code>, or <code>Struct</code>.</li>
-<li>Whether the generator's old attribute names (<code>g.edge_r</code>, <code>g.M</code>, <code>g.bias_pi</code>, ...) are removed
-   after one minor version or kept for good as properties (they are private in spirit but
-   undocumented code reads them).</li>
-</ol>
-<h2 id="6-step-5-one-models-package-planned-2026-09-16-bens-request">6. Step 5: one <code>models/</code> package (planned 2026-09-16, Ben's request)<a class="headerlink" href="#6-step-5-one-models-package-planned-2026-09-16-bens-request" title="Permanent link">&para;</a></h2>
-<p>Steps 1 to 4 left thirty model classes in thirteen files, each next to its producer (rule 5).
-That avoided one giant module and import cycles, but a reader has no single place to look, which
-is what Ben asked to fix. Step 5 moves every model into a <code>fdia_graph/models/</code> package grouped
-by what the data is, and keeps every old import path working.</p>
-<h3 id="61-layout">6.1 Layout<a class="headerlink" href="#61-layout" title="Permanent link">&para;</a></h3>
-<p><code>models.py</code> becomes a package. Each file holds one kind of data, in the order a reader meets it:</p>
-<table>
-<thead>
-<tr>
-<th>file</th>
-<th>holds</th>
-<th>moved from</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>models/base.py</code></td>
-<td><code>Bundle</code> (unchanged)</td>
-<td><code>models.py</code></td>
-</tr>
-<tr>
-<td><code>models/grid.py</code></td>
-<td>the static description of a system: <code>BranchModel</code>, <code>Admittances</code>, <code>MeterPlan</code>, <code>MeterBias</code>, <code>Outage</code>, <code>INTACT</code></td>
-<td><code>formulas/network.py</code>, <code>engine/base.py</code></td>
-</tr>
-<tr>
-<td><code>models/frames.py</code></td>
-<td>what the generators pass around per scan: <code>Scan</code>, <code>Frame</code>, <code>FrameKnobs</code>, <code>Record</code>, <code>Redistribution</code>, <code>ResolvedPool</code></td>
-<td><code>engine/records.py</code>, <code>generation.py</code>, <code>engine/attacks.py</code>, <code>engine/physics.py</code></td>
-</tr>
-<tr>
-<td><code>models/data.py</code></td>
-<td>what users get back: <code>RecordBundle</code>, <code>BatchBundle</code>, <code>ArraysBundle</code>, <code>Summary</code>, <code>ShardArrays</code>, <code>Stream</code>, <code>TrueState</code></td>
-<td><code>dataset.py</code>, <code>generation.py</code>, <code>streams.py</code>, <code>se/base.py</code></td>
-</tr>
-<tr>
-<td><code>models/scores.py</code></td>
-<td>the result tables: <code>ErrorPair</code>, <code>EstimatorScores</code>, <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code>, <code>LocalizerScores</code>, <code>JacobianOutputs</code></td>
-<td><code>se/base.py</code>, <code>localization/base.py</code>, <code>se/jacobian.py</code></td>
-</tr>
-<tr>
-<td><code>models/assets.py</code></td>
-<td>how files are found: <code>AssetSpec</code>, <code>DownloadTarget</code>, <code>LineCandidate</code></td>
-<td><code>registry.py</code>, <code>download.py</code>, <code>engine/core.py</code></td>
-</tr>
-<tr>
-<td><code>models/__init__.py</code></td>
-<td>re-exports all of the above with an <code>__all__</code>, so <code>fdia_graph.models</code> is the one namespace to browse</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p>Every class above is pure data: none has a method of its own or reads a module constant, so
-each moves as written (with its docstring and field comments). Constants that describe families
-(<code>RESOLVE_FAMILIES</code>, <code>CORRUPT_KIND</code>, <code>SINGLE_SHOT_ORDER</code>, <code>RAMP_FAMILY</code>, <code>LRA_FAMILY</code>) stay in
-<code>engine/records.py</code>, since they belong to the attack logic, not to the record shape.</p>
-<p>Four private workflow objects do <strong>not</strong> move: <code>generation._FrameContext</code>, <code>streams._StreamBuffers</code>,
-<code>streams._StreamPlan</code>, <code>dataset._RecordFilter</code>. They are the state of one algorithm, read only
-by the loop next to them, so they stay beside it.</p>
-<h3 id="62-rules">6.2 Rules<a class="headerlink" href="#62-rules" title="Permanent link">&para;</a></h3>
-<ol>
-<li><strong>Models import only numpy and typing</strong> (<code>models/data.py</code> may import <code>Bundle</code> from <code>base</code>,
-   <code>models/scores.py</code> may import <code>ErrorPair</code> and the metric rows from itself). Producers import
-   from <code>models</code>; nothing under <code>models/</code> imports a producer. Import cycles are therefore
-   impossible. (The parent package still imports the loader, h5py included, on any import.)</li>
-<li><strong>Every old import path keeps working.</strong> Each producer module re-exports the names it used to
-   define (<code>from .models.data import Stream</code> at the top of <code>streams.py</code>, and so on), so
-   <code>from fdia_graph.streams import Stream</code>, <code>from fdia_graph.se.base import TrueState</code>,
-   <code>from fdia_graph.engine.records import Frame</code> are unchanged. The re-exports of public names
-   stay for good; those of private names for one minor version, per the compatibility promise.</li>
-<li><strong>A test keeps it from scattering again.</strong> <code>tests/test_models_package.py</code> walks every module of
-   the package and fails if a <code>Bundle</code> subclass or a <code>NamedTuple</code> with a public name is defined
-   outside <code>models/</code>. It also checks that <code>fdia_graph.models.__all__</code> names every one of them, and
-   that no module under <code>models/</code> imports anything but numpy, typing and dataclasses.</li>
-<li><strong>The data dictionary follows the package.</strong> <code>fdia_graph.models.PUBLIC</code> names the bundles a
-   user receives (<code>__all__</code> also holds the internal models and <code>Bundle</code>); <code>tools/models_doc.py</code>
-   iterates <code>PUBLIC</code> instead of its hand-kept list.</li>
-<li><strong>No behaviour change.</strong> The strict frozen tests, pyright and the readability gate are the
-   proof, as in every step before.</li>
-</ol>
-<h3 id="63-sequence-one-pr">6.3 Sequence (one PR)<a class="headerlink" href="#63-sequence-one-pr" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Create the package: move <code>models.py</code> to <code>models/base.py</code>, add the five domain files with the
-   classes moved verbatim, and <code>__init__.py</code> with <code>__all__</code> in the table's order.</li>
-<li>In each former home, replace the class with a re-export line and switch the module's own uses
-   to the import. Producers that built models keep building them the same way.</li>
-<li>Add <code>tests/test_models_package.py</code>; point <code>tools/models_doc.py</code> at <code>__all__</code> and regenerate
-   the data dictionary section (it should render byte-identical apart from the module column).</li>
-<li>Run the strict frozen suite, pyright, the readability gate and the deprecation-as-error run.</li>
-<li><code>CHANGELOG.md</code>: "models live in <code>fdia_graph.models</code>; old import paths unchanged".
-   <code>docs/reference/FORMULAS.md</code> and <code>docs/ROADMAP.md</code> rows that name <code>engine/records.py</code> or
-   <code>formulas/network.py</code> for a model get the new path.</li>
-</ol>
-<h3 id="64-decisions-taken-2026-09-16-ben-delegated-the-call">6.4 Decisions (taken 2026-09-16, Ben delegated the call)<a class="headerlink" href="#64-decisions-taken-2026-09-16-ben-delegated-the-call" title="Permanent link">&para;</a></h3>
-<ol>
-<li>File names by kind of data: <code>grid</code>, <code>frames</code>, <code>data</code>, <code>scores</code>, <code>assets</code>. Grouping by producer
-   would only reproduce today's scatter inside one folder.</li>
-<li>The internal NamedTuples move too. One place to look is the point; a reader of <code>Frame</code> should
-   not have to know it is internal to find it.</li>
-<li><code>TrueState</code> lives in <code>data.py</code>: it is per-record truth a user can ask for, not a score.</li>
-<li>Re-exports of public names stay for good. They cost one line each and keep every published
-   example and every user's import working; there is nothing to gain from removing them.</li>
-</ol>
+<p>Removed helpers (<code>check_split</code>, <code>check_units</code>, <code>check_order</code>) keep a deprecated alias for one minor
+version; <code>require_physical</code> stays as the named requirement of the estimators and delegates to the
+capability table.</p>
 
 
 
@@ -2193,7 +1950,7 @@ by the loop next to them, so they stay beside it.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../VALIDATION_PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Validation">
+          <a href="../ONE_DATASET_PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: One dataset">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2203,20 +1960,20 @@ by the loop next to them, so they stay beside it.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Validation
+                One dataset
               </div>
             </div>
           </a>
         
         
           
-          <a href="../FIELD_GROUPS_PLAN/" class="md-footer__link md-footer__link--next" aria-label="Next: Field groups">
+          <a href="../DATA_MODELS_PLAN/" class="md-footer__link md-footer__link--next" aria-label="Next: Data models">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Field groups
+                Data models
               </div>
             </div>
             <div class="md-footer__button md-icon">
