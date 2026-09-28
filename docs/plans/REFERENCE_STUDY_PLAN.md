@@ -13,12 +13,12 @@ cites a file or page, and every claim about ours was checked in the code or on t
 
 | area | ours | theirs |
 |---|---|---|
-| input checks | declared on the field and run when the object is built; a function never sees an unchecked argument (`models/validation.py`) | power-grid-model's validator is opt-in and separate from the calls it protects |
+| input checks | declared on the field and run when the object is built; a function never sees an unchecked argument (`models/validation.py`) | power-grid-model's validator is opt-in and separate from the calls it protects ([data validator](https://power-grid-model.readthedocs.io/en/stable/user_manual/data-validator.html)) |
 | dataset preconditions | one capability table, `ds.require(...)` | no equivalent in either |
-| downloads | cache keyed by release, atomic `.part` install, sha256 gate, no interactive prompt (`download.py`) | OGB prompts to delete a stale copy |
-| splits | stored inside the file | OGB ships separate index files |
-| results | per family and per bus, at a calibrated false-alarm budget | OGB reports one scalar per task |
-| regression safety | bit-for-bit frozen references, readability gate, generated-diagram check, timing benchmark gate | power-grid-model has reference cases; OGB has no frozen outputs |
+| downloads | cache keyed by release, atomic `.part` install, sha256 gate, no interactive prompt (`download.py`) | OGB prompts before updating a stale copy ([dataset_pyg.py](https://github.com/snap-stanford/ogb/blob/master/ogb/nodeproppred/dataset_pyg.py)) |
+| splits | stored inside the file | OGB ships separate index files, read by `get_idx_split` ([dataset_pyg.py](https://github.com/snap-stanford/ogb/blob/master/ogb/nodeproppred/dataset_pyg.py)) |
+| results | per family and per bus, at a calibrated false-alarm budget | OGB reports one scalar per task ([evaluate.py](https://github.com/snap-stanford/ogb/blob/master/ogb/nodeproppred/evaluate.py)) |
+| regression safety | bit-for-bit frozen references, readability gate, generated-diagram check, timing benchmark gate | power-grid-model has reference cases ([tests/data](https://github.com/PowerGridModel/power-grid-model/tree/main/tests/data)); OGB has no frozen outputs |
 
 ## 2. Ranked changes
 
@@ -48,7 +48,9 @@ Re-baselining the frozen references and the guide tables is part of the change.
 **2. Per-record state-estimation status (M, low risk).**
 power-grid-model takes `error_tolerance` and `max_iterations` and raises named errors
 (`IterationDiverge`, `MaxIterationReached`, `NotObservableError`). In batch mode it reports
-`failed_scenarios` and `succeeded_scenarios`.
+`failed_scenarios` and `succeeded_scenarios`
+([power_grid_model.py](https://github.com/PowerGridModel/power-grid-model/blob/main/src/power_grid_model/_core/power_grid_model.py),
+[errors.py](https://github.com/PowerGridModel/power-grid-model/blob/main/src/power_grid_model/_core/errors.py)).
 
 Ours:
 
@@ -81,7 +83,8 @@ arms are marked as such.
 ### B. Data releases
 
 **4. One metadata table per release (M, low risk).**
-OGB's `master.csv` holds each dataset's version, URL, split, metric and task count. Ours is spread
+OGB's `master.csv` holds each dataset's version, URL, split, metric and task count
+([master.csv](https://github.com/snap-stanford/ogb/blob/master/ogb/nodeproppred/master.csv)). Ours is spread
 across `registry.py` (hashes) and the docs.
 
 Add one file per release, read by the registry. It lists the systems with bus and meter counts,
@@ -108,8 +111,10 @@ Add `CITATION.cff` and a self-citation to the README. Today the README cites oth
 
 **6. Pin or retire v0.8.2 (S, low risk).**
 Verified: `registry.py` has no sha256 entry for v0.8.2, and `download.py` skips the integrity check
-when none is pinned. So `fg.load(..., release="v0.8.2")` downloads unverified. Pin its hashes, or
-remove it from the registry: it is superseded and unreferenced.
+when none is pinned. So `fg.load(..., release="v0.8.2")` downloads unverified. Leaving it out of
+the registry does not retire it: `release_name()` accepts any version and `resolve()` builds the
+asset for it. So pin its hashes, or have `resolve()` refuse a release listed as retired. It is
+superseded and unreferenced.
 
 **7. A timeline file checker (M, low risk).**
 power-grid-model's validator checks whole arrays column by column and reports every failing
@@ -147,7 +152,9 @@ the failing indices, not just the fact.
 
 **10. Tolerances per field in the frozen references (S, low risk).**
 power-grid-model gives each reference case a `params.json` with per-attribute tolerances (by
-regex) and the methods to run. Ours are hard-coded in the test. Move them next to each frozen
+regex) and the methods to run
+([an example](https://github.com/PowerGridModel/power-grid-model/blob/main/tests/data/state_estimation/1os2msr-no-angle/params.json), read by
+[tests/unit/utils.py](https://github.com/PowerGridModel/power-grid-model/blob/main/tests/unit/utils.py)). Ours are hard-coded in the test. Move them next to each frozen
 reference.
 
 **11. One baseline per task in `examples/` (S, low risk).**
