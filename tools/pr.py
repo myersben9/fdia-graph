@@ -6,6 +6,7 @@
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
     python tools/pr.py wait <num> [minutes]                  # block until CI has finished and every required bot reviewed
     python tools/pr.py merge <num>                           # squash-merge on green, delete the branch
+    python tools/pr.py request-review <num>                  # ask the automated reviewer, once the pre-review is clean
 
 The token comes from the Git Credential Manager (`git credential fill`), the same one `git push`
 uses, so nothing is stored in the repo. `merge` refuses while a check is failing or still running
@@ -239,6 +240,17 @@ def merge(num: int) -> None:
         print("deleted branch", pr["head"]["ref"])
 
 
+def request_review(num: int) -> None:
+    """Ask the automated reviewer for one review of the current head. Run `tools/prereview.py` and the
+    checklist in docs/reference/REVIEW_CHECKLIST.md first: each request is a billed review."""
+    api(
+        "POST",
+        f"/pulls/{num}/requested_reviewers",
+        json={"reviewers": ["copilot-pull-request-reviewer[bot]"]},
+    )
+    print(f"review requested on #{num}")
+
+
 def main(argv: list[str]) -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(
@@ -259,6 +271,8 @@ def main(argv: list[str]) -> None:
         wait(int(args[0]), float(args[1]) if len(args) > 1 else 25)
     elif cmd == "merge":
         merge(int(args[0]))
+    elif cmd == "request-review":
+        request_review(int(args[0]))
     else:
         raise SystemExit(__doc__)
 

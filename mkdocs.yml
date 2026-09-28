@@ -63,6 +63,7 @@ nav:
       - Examples: reference/EXAMPLES.md
       - Formulas: reference/FORMULAS.md
       - Benchmarks: reference/BENCHMARKS.md
+      - Review checklist: reference/REVIEW_CHECKLIST.md
       - References: reference/REFERENCES.md
   - Plans:
       - Overview: plans/README.md
