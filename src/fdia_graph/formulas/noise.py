@@ -110,7 +110,7 @@ WU26_NOISE = {"scada": 0.03, "pmu": 0.01}
 
 
 def paper_sigma(
-    node_shape: tuple[int, int], edge_shape: tuple[int, int], pmu_bus: np.ndarray, base_mva: float
+    node_shape: tuple[int, ...], edge_shape: tuple[int, ...], pmu_bus: np.ndarray, base_mva: float
 ) -> tuple[np.ndarray, np.ndarray]:
     """The noise standard deviation of every channel as [WU26]'s case studies state it (0.03 pu for
     SCADA, 0.01 pu for PMU), in the stored units: the plan's D8, the scale of the overload attack's
