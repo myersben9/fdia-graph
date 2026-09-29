@@ -103,6 +103,9 @@ classDiagram
     class TamperTarget {
         <<models>>
     }
+    class TrustSchedule {
+        <<models>>
+    }
     AreaMixin <|-- FalseStateMixin
     CorruptMixin <|-- AttackMixin
     EpisodeDesignMixin <|-- AttackMixin
@@ -139,6 +142,7 @@ classDiagram
     MinimizeMixin ..> FrameKnobs : uses
     MinimizeMixin ..> LoadGoal : uses
     MinimizeMixin ..> MinimizerResult : uses
+    MinimizeMixin ..> TrustSchedule : uses
     OverloadMixin ..> AmOverloadDesign : uses
     OverloadMixin ..> AttackVector : uses
     OverloadMixin ..> FlowGoal : uses

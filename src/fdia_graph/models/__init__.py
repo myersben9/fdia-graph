@@ -38,6 +38,7 @@ from .config import (
     TimelineKnobs,
     TrainerConfig,
     TrustConfig,
+    TrustSchedule,
     WindowSpec,
 )
 from .data import (
@@ -278,6 +279,7 @@ __all__ = [
     "GeneratorOptions",
     "MeterSettings",
     "OverloadSettings",
+    "TrustSchedule",
     "ShardRun",
     "SplitFractions",
     "IsoExport",

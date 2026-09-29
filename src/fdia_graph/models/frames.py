@@ -231,6 +231,9 @@ class MinimizerResult(NamedTuple):
     evaluated: int  # candidate supports solved
     lower_bound: int  # devices every support must tamper (the target buses' own changed meters)
     unsolved: int = 0  # candidates whose local solve did not converge (their feasibility unknown)
+    # under a trusted-PMU schedule with a support per slot (`TrustSchedule.per_slot`): the support of each
+    # segment of the window, `support` their union; empty when one support is held for the window
+    plan: tuple[np.ndarray, ...] = ()
 
 
 class Certificate(NamedTuple):

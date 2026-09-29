@@ -180,7 +180,7 @@ def test_search_holds_blas_to_one_thread_and_restores_it(monkeypatch):
         pytest.skip("no BLAS pool loaded")
     seen: list[list[int]] = []
 
-    def search(self, states, goal, k, prev):
+    def search(self, states, goal, k, prev, trust=None):
         seen.append(blas())
         return "answer"
 

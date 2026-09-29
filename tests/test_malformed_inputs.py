@@ -36,6 +36,7 @@ _LIMITS = OperatingLimits(*(np.full(3, v) for v in (0.94, 1.06, -np.inf, np.inf,
 VALID = {
     config.WindowSpec: dict(T=10, W=2),
     config.TrustConfig: dict(k=2),
+    config.TrustSchedule: dict(buses=[0], slots=[1]),
     config.ProfileFetch: dict(iso="nyiso"),
     config.GateConfig: dict(gate="oracle"),
     config.IsoExport: dict(iso="nyiso"),

@@ -5,6 +5,22 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- [WU26]'s trusted-PMU defense as a constraint on the fewest-tamper search (docs/plans/WU_DEFENSE_PLAN.md,
+  PR A): `min_tamper(..., trust=TrustSchedule(buses, slots))`. A PMU trusted at slot s keeps its bus's
+  |V| and angle true at every snapshot t >= s (eqs. 26-32: the deviation is zero on its two secure rows,
+  and trust accumulates, eqs. 30-31); its branch currents stay untrusted, as eq. (27) leaves them in the
+  nonsecure set. With `per_slot` (the default) the attack's support may change at each slot, since eq.
+  (28) takes each snapshot's deviation on its own (the plan's E13): a search one segment at a time from
+  the held support, with the other segments fixed, and `MinimizerResult.plan` carries the support of each
+  segment. New model `TrustSchedule` (validated: one slot per bus, each PMU once, non-negative indices).
+  Without a schedule the search and its answers are unchanged. Measured on [WU26]'s IEEE-14 scenarios,
+  20 pool frames, the PMUs trusted at the paper's snapshots 2, 4, 6 and 8, ratings k times each target
+  line's peak flow: at k = 1.1 the attack survives with 5 to 6 devices and 8 to 11 channels (lines 3-4
+  and 6-11) and 7 to 9 devices and 23 to 28 channels (lines 1-2 and 4-5), +20% and +29% in devices and
+  +38% and +22% in channels against the paper's Table II 24% to 35%; at k = 1.2 no candidate reaches
+  both ratings with the four PMUs trusted. Per slot and held give the same answer there, and so do the
+  paper's trust order and the swapped one.
+
 - Development only, no user-visible change: the test suite runs in parallel. pytest-xdist joins the
   `test` and `dev` extras, CI runs the three suites with `-n auto`, and `tools/prereview.py` does so
   (at most 8 workers) when the interpreter has it. The test extra's pip cache is kept between CI runs,
