@@ -1,0 +1,170 @@
+# Plan: certifying the fewest-tamper attack by convex relaxation
+
+**Status: shipped as an optional analysis tool; a valid but loose lower bound.** [WU26] eq. (12)
+asks for the attack that tampers the fewest devices. The fewest-tamper search
+(`engine/attacks/minimize.py`) returns a feasible exact-AC attack, so its device count is an upper
+bound. It proves that bound optimal only when it exhausts its candidates or meets its forced-device
+bound, which with new generation's defaults it seldom does for `Am` (`proven`, 0 to 8% of the
+searches in the generation guide's runs). This plan adds a separate certifier: a convex relaxation of the same problem whose
+optimum is a lower bound. When the two bounds meet, the search's attack is certified globally
+optimal over the attacker's area; otherwise the certificate reports the gap. The certifier is an
+analysis tool. Generation never calls it.
+
+## 1. The problem the certifier bounds
+
+The search's problem, for a window of T snapshots with true states x_t, over the attacker's area A
+(`local_region(seeds, hops)`, the slack never in it):
+
+- **Unknowns:** the false complex voltage V_i,t of every bus i in A. Every bus outside A keeps its
+  true voltage (the search's supports lie in A and hold every other voltage true).
+- **Count, eq. (12):** the devices d (one SCADA terminal and one PMU per bus, D1) with a channel m
+  whose attack value a_m,t = h_m(V_t) - h_m(V_t^true) exceeds its noise sigma_m,t at some snapshot
+  (D8 for `Am`, D7 for `At`). The channels are the metered P and Q injections, from-end flows,
+  |V|, angles at PMU buses (D10) and the PMU branch-current channels.
+- **Limits (21):** v_lo,i <= |V_i,t| <= v_hi,i, both widened to the true value and by 1e-3 pu as
+  in `within_limits`.
+- **Zero injection:** a zero-injection bus keeps its true (zero) injection.
+- **Goal, `Am` (24)-(25):** the noiseless apparent from-end flow |S_l,t| of each goal line equals
+  its scheduled target at every snapshot (two lines by default, D17).
+- **Injection bounds, `Am` (D14, D16):** every generator whose output the attack changes, in the
+  support or on its edge, stays inside its limits (22)-(23), and every load bus it changes shows an
+  active change of at most `load_cap` times its true load. **Goal, `At`:** each targeted bus's active injection
+  moves by the designed load change, its reactive injection not at all, and every metered linear
+  channel moves by at most its rated accuracy between snapshots (the stealth bound, D7).
+
+## 2. The relaxation
+
+Per snapshot, with W = V V^H (Jabr's variables):
+
+- **Variables:** W_ii for i in A, a complex W_ij for every connected pair of A-buses, and the
+  complex V_i for i in A. A bus outside A has its true V. A W_ij between an A-bus and a fixed bus is
+  V_i conj(V_j^true), linear in V_i.
+- **Linear physics:** injections S_i = sum_j conj(Y_ij) W_ij, from-end flows
+  S_l = sum_n conj(Yf_ln) W_f(l),n and currents I = Yf V, Yt V are linear in (W, V). They are exact
+  whenever W is rank one.
+- **Cones (the relaxation):** |W_ij|^2 <= W_ii W_jj (rotated second-order cone) and
+  |V_i|^2 <= W_ii. Dropping rank one is the only step that enlarges the feasible set.
+- **Binaries and big-M:** one binary b_d per device, shared by the snapshots. Each linear channel
+  gets -sigma - M b_d <= a <= sigma + M b_d. |V| gets (v - sigma)^2 - M b_d <= W_ii <=
+  (v + sigma)^2 + M b_d. An angle gets |Im(V e^{-j theta})| <= tan(sigma) Re(V e^{-j theta}) + M b_d,
+  the wedge the angle may not leave (exact for a voltage, since sigma is below 90 degrees).
+- **Rigorous M:** the voltage limits bound W_ii, the cones bound |W_ij| by
+  sqrt(W_ii,max W_jj,max) and |V_i| by v_max. M for a channel is sum_k |A_mk| r_k, with r_k the
+  largest distance of variable k from its true value inside that box, so no feasible point is cut.
+- **Flow goal:** |S_l,t| <= target is a cone. |S_l,t| >= target is not convex; it is replaced by K
+  sectors with binaries z_k (sum z_k = 1): u_k . S >= target cos(pi / K) when z_k = 1. Every point
+  on the circle lies in some sector, so the disjunction contains the true constraint.
+- **Tying W to V where the meters pin V:** on a rank-one W the residual
+  X_ij = W_ij - V_i conj(V0_j) - V0_i conj(V_j) + V0_i conj(V0_j) equals dV_i conj(dV_j), with
+  dV = V - V^true. A variable r_i >= |dV_i| is capped while a device is untampered: by the bus's
+  own PMU (|V| within sigma and angle within sigma put V in a small disc around its true value), and
+  by a PMU at a neighbour that reads the current on the branch between them (the current is linear
+  in both end voltages, so |dV_i| <= (|dI| + |y_a| rho_j) / |y_b|). Then |X_ij| <= R_j r_i,
+  |X_ij| <= rho_i r_j + (R_i - rho_i) R_j b_d for each cap, X_ii <= rho_i^2 while untampered, and
+  |X_ij|^2 <= X_ii X_jj (X = dV dV^H is positive semidefinite). R_i is the most |dV_i| can be in
+  the voltage box. Without these cuts the paper scenarios' bound was 4 and 6 devices; with them 8 and
+  7.
+- **The search's support rule:** one binary y_i per area bus whose injection the search holds (every
+  bus but the goal's free injections), shared by the snapshots: out of the support its voltage stays
+  true (|dV_i| <= R_i y_i), in it its injection stays true (|dS_i| <= M_i (1 - y_i)). This makes the
+  bound one on the search's own problem, the problem the generator solves.
+- **Injection bounds (`Am`):** the D14 and D16 bounds as linear constraints on the injection
+  changes, over the area and its edge (every bus whose injection a support in the area can change):
+  a generator's implied output P_gen - dP, Q_gen - dQ inside its limits, widened to its true output,
+  and a load bus's |dP| within `load_cap` times its true load. A bus the attack does not touch meets
+  them at its true value, so they hold whatever the support.
+- **Objective:** minimize sum_d b_d, with sum_d b_d >= 1 (the search never returns an empty attack).
+- **Snapshots:** by default the relaxation keeps one snapshot, the one where the goal moves furthest
+  from the true state. Keeping all sixty of a window made SCIP stop at its time limit with a weaker
+  bound than the single snapshot, and on the `At` episodes eleven snapshots gave the same bound as
+  one.
+
+### 2.1 Cut families (`engine/attacks/relax_cuts.py`)
+
+With cuts on, the relaxation admits at most one device fewer than the search's attack (the cutoff).
+Infeasible, at bound tightening or at the end, it proves the search's count optimal. Feasible, its
+optimum is the bound.
+
+- **bounds:** optimization-based bound tightening of how far each area bus's voltage can move,
+  |V_i - V_i^true| <= rho_i: the move is bounded in 8 directions over the mixed-integer relaxation
+  at the cutoff, each solve stopped at 5 seconds and read by SCIP's dual bound (valid at any stop),
+  so rho_i <= max direction bound / cos(pi / 8). The continuous relaxation tightened nothing, since
+  relaxed binaries let every channel move. rho gives the angle bound asin(rho_i / |V_i^true|), used
+  as wedges on V_i and on each W_ij, and a smaller big-M reach.
+- **qc:** the QC relaxation. Per pair of area buses, the product of the magnitudes and the cosine
+  and sine of the angle-difference move inside their convex envelopes, W_ij their McCormick
+  products, and in rectangular form Re W_ij = e_i e_j + f_i f_j, Im W_ij = f_i e_j - e_i f_j with
+  each product in its McCormick envelope over the box rho gives.
+- **cycle:** one angle per area bus. Each pair's angle-difference move is the difference of its
+  ends' moves, so the moves sum to zero around every cycle, and V_i is its bus's magnitude times the
+  envelopes of its angle.
+
+Each family holds at every AC point inside the bounds. A test per family tightens the bounds at the
+search's own count, puts the search's attack and its polar quantities into the relaxation, and
+checks that no constraint is violated.
+
+## 3. Why the optimum is a lower bound
+
+Every attack the search can return is a point of the relaxation. Its voltages give a rank-one W
+that satisfies the linear physics and the cones with equality, and the residual cuts with
+X = dV dV^H. Its devices give binaries that satisfy every big-M link, and its support gives the
+support binaries. Its goal and limits are among the relaxation's constraints. The relaxation also
+drops constraints that only shrink the search's set: the angle and |V| steps of the `At` stealth
+bound, the generator limits of `At`'s support (its solve holds every non-target injection, so
+they cannot bind), and the connectivity of the support. A test builds the relaxation on a window, puts the
+search's attack in it and checks that no constraint is violated. Dropping a constraint only enlarges the set. The
+relaxation minimizes the same count over a superset, so its optimum is at most the search's.
+The bound covers the attacker's area, the region every search candidate lies in, not the whole
+grid.
+
+## 4. Solver and interface
+
+cvxpy with SCIP (open source, mixed-integer second-order cone), in the optional extra
+`[certify]`. `fdia_graph.engine.attacks.certify.certify(g, states, goal, k, prev)` runs the search,
+builds the relaxation over the same area, and returns a `Certificate`: the upper and lower bound,
+whether they meet, the solve time, SCIP's status, and two tightness measures of the relaxed point.
+`cone_gap` is the largest relative slack of its cones, and `mismatch` is the largest injection
+mismatch (MW) between its W and the exact injections of its voltages, zero only at an AC state. The
+cones can be tight pair by pair while the mesh's cycles are not, so `mismatch` is the one that says
+whether the relaxation found a real attack. When SCIP stops at its time limit, the lower bound is
+its dual bound rounded up, still valid. The tests check that the channel maps reproduce the search's
+attack vector and that the search's own attack satisfies every constraint of the relaxation.
+
+## 5. IEEE-14 runs
+
+A valid but loose lower bound: it never exceeds the search's count, and on these episodes it meets it
+once. IEEE-14, hybrid meters, new generation's defaults (pool ratings at 1.25 times the peak flow,
+`load_cap` 0.5, two-line `Am`, budget 256), one kept snapshot per window, each family on top of the
+previous one. The paper scenarios run on [WU26]'s metering (PMUs at buses 1, 4, 6 and 13, lines 3-4
+and 6-11, then 1-2 and 4-5) at ratings 1.2 times the window's peak flow, as
+`tests/test_wu_scenarios.py` sets them up. A gap is the search's count minus the certified bound.
+
+| family | paper certified | `Am` certified | `At` certified | `Am` gaps | median mismatch, MW (`Am`) | seconds |
+|---|---|---|---|---|---|---|
+| second-order cone | 0 of 2 (gaps 7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 17 | 6 to 49 solve |
+| + bounds | 0 of 2 (7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 19 | 400 to 630 tightening, 7 to 42 solve |
+| + qc | 0 of 2 (7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 17 | 9 to 70 solve |
+| + cycle | 0 of 2 (7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 18 | 12 to 49 solve |
+
+The search takes 8 to 27 seconds per `Am` window and under 2 per `At` window. No cut family moves an
+`Am` bound: bound tightening at one device fewer than the search leaves the median voltage move at
+0.7 to 2.1 pu, and only 1 to 6 of the area buses get an angle bound, so the QC and cycle envelopes
+seldom bind. The D16 bounds bring the relaxed `Am` points much closer to an AC state than before
+them (median mismatch 17 MW, against about 320 MW on the earlier recipe), but not close enough to
+certify. The one certified `At` episode (loads at 5, 10, 12, 13 and 14) is certified by the cone
+relaxation alone; bound tightening proves the cutoff infeasible there, so its value is speed of
+proof, not new certificates.
+
+SCIP's tolerances decide some `At` bounds. On the earlier recipe two runs of the same cuts on `At`
+episode 0 disagreed (a relaxed attack with 8 devices at 0.3 MW mismatch in one, infeasible in the
+other). Here `At` episode 1 has bound 10 under the cone relaxation and 9 once bounds are tightened,
+although cuts can only shrink the relaxation. A certificate or bound on these episodes should not be
+read as robust to the last device.
+
+## 6. What remains for `Am`
+
+The relaxed optimum stays tens of MW from an AC state because the angles are mostly free. A certificate
+for `Am` needs angle bounds, which need either a tighter cutoff model (the bound tightening sees the
+same loose relaxation it is meant to tighten) or bounds from outside it: the SDP relaxation on the
+area's cliques (a conic solver such as MOSEK or SCS, not SCIP), or a spatial branch on the bus
+angles so each branch carries narrow envelopes. The bound stays over the attacker's area.

@@ -231,3 +231,28 @@ class MinimizerResult(NamedTuple):
     evaluated: int  # candidate supports solved
     lower_bound: int  # devices every support must tamper (the target buses' own changed meters)
     unsolved: int = 0  # candidates whose local solve did not converge (their feasibility unknown)
+
+
+class CertifyOptions(NamedTuple):
+    """How `engine.attacks.certify.certify` bounds the search (docs/plans/RELAX_CERTIFIER_PLAN.md)."""
+
+    time_limit: float = 300.0  # seconds SCIP may take on the mixed-integer relaxation
+    snapshots: Optional[tuple[int, ...]] = None  # the snapshots kept; None: the one the goal moves furthest
+    cuts: tuple[str, ...] = ("bounds", "qc", "cycle")  # the cut families (engine/attacks/relax_cuts.py)
+
+
+class Certificate(NamedTuple):
+    """How close the fewest-tamper search's attack is to the global optimum of [WU26, eq. 12] over the
+    attacker's area: the search's device count (an upper bound) against the optimum of a convex
+    relaxation of the same problem (a lower bound; docs/plans/RELAX_CERTIFIER_PLAN.md)."""
+
+    upper: int  # the search's devices; -1 when it found no attack
+    lower: int  # devices every attack in the area must tamper (the relaxation's optimum, rounded up)
+    certified: bool  # the bounds meet: the search's attack is globally optimal over the area
+    status: str  # the solver's status of the mixed-integer relaxation ("optimal", or the limit it hit)
+    seconds: float  # the relaxation's solve time
+    cone_gap: float  # largest relative slack of the relaxed point's cones (0: every cone tight)
+    mismatch: float  # largest injection mismatch, MW, between the relaxed W and its voltages (0: an AC state)
+    area: np.ndarray  # the attacker's area both bounds range over
+    support: np.ndarray  # the search's support (empty without an attack)
+    devices: np.ndarray  # the devices the relaxation's optimum tampers

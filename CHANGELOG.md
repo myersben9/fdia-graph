@@ -12,6 +12,23 @@ the public API, the generated files and the numbers are the same as the previous
   checks) skips the suites' install and run steps, the jobs still reporting success. The malformed-input
   tests' ids no longer carry memory addresses, which differed between workers.
 
+- A certifier for the fewest-tamper search, optional and never on the generation path
+  (docs/plans/RELAX_CERTIFIER_PLAN.md): `engine.attacks.certify.certify(g, states, goal, k)` runs the
+  search and bounds its device count from below by a mixed-integer second-order-cone relaxation of
+  [WU26] eq. (12) over the same area: device binaries with big-M links, Jabr's W with cuts that tie
+  it to the voltages the PMUs pin, the goal (every line of a multi-line goal), the voltage limits,
+  the zero injections, the search's support rule, and for `Am` the D14 and D16 injection bounds
+  (generator limits (22)-(23) and `load_cap`, over the area and its edge). It returns a
+  `Certificate` (`models.frames`): both bounds, whether they meet, the solve time and how far the
+  relaxed point is from an AC state; `CertifyOptions` sets the time limit, the kept snapshots and
+  the cut families of `engine/attacks/relax_cuts.py` (bound tightening of each bus's voltage move,
+  the QC relaxation, bus angles closing every cycle). Solved with SCIP through cvxpy, in the new
+  optional extra `[certify]`. The bound is valid but loose: on IEEE-14 with new generation's
+  defaults it certifies 1 of 4 `At` episodes, 0 of 10 two-line `Am` episodes (gaps of 3 to 11
+  devices, median 4) and 0 of [WU26]'s two scenarios (gaps 7 and 6), with or without the cuts, and
+  SCIP's tolerances decide some `At` bounds. `tests/test_certify.py` runs one IEEE-14 validity case
+  by default; the cut families' cases and the full solve run with `FDIA_SLOW=1`.
+
 - The fewest-tamper search (`MinimizeMixin.min_tamper`) holds BLAS to one thread while it runs and
   restores the caller's setting after, through threadpoolctl (added to the `generate` and `all`
   extras; without it the search runs on whatever BLAS is set to). Its products are too small for
