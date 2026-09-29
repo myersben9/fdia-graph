@@ -9,6 +9,7 @@ entry point that takes settings is called with one bad argument, and must refuse
 
 import dataclasses
 import inspect
+import re
 
 import numpy as np
 import pytest
@@ -16,6 +17,12 @@ import pytest
 from fdia_graph.errors import ConfigError
 from fdia_graph.models import config, inputs
 from fdia_graph.models.validation import Validated
+
+
+def _id(value: object) -> str:
+    """A test id without memory addresses, so parallel workers (pytest-xdist) collect the same ids."""
+    return re.sub(r" at 0x[0-9a-fA-F]+", "", str(value))
+
 
 BAD = ("bogus", 1.5, -1, float("nan"), float("inf"), 10**1000, None, object(), [1, 2], {"a": 1})
 
@@ -167,7 +174,7 @@ def test_an_entry_point_refuses_a_bad_setting_with_a_config_error(name, call):
         dict(release="latest"),
         dict(release=8),
     ],
-    ids=str,
+    ids=_id,
 )
 def test_load_refuses_a_bad_argument_before_any_download(kwargs, monkeypatch):
     import fdia_graph as fg
@@ -187,7 +194,7 @@ def test_load_refuses_a_bad_argument_before_any_download(kwargs, monkeypatch):
         dict(val_frac=-0.1),
         dict(max_test=2.5),
     ],
-    ids=str,
+    ids=_id,
 )
 def test_pyg_stream_refuses_a_bad_argument_before_loading(kwargs, monkeypatch):
     from fdia_graph import torch_data
@@ -200,7 +207,7 @@ def test_pyg_stream_refuses_a_bad_argument_before_loading(kwargs, monkeypatch):
 @pytest.mark.parametrize(
     "kwargs",
     [dict(layer="bogus"), dict(train_frac=1.5), dict(val_frac="some")],
-    ids=str,
+    ids=_id,
 )
 def test_torch_windows_refuses_a_bad_argument_before_loading(kwargs, monkeypatch):
     from fdia_graph import torch_data
@@ -213,7 +220,7 @@ def test_torch_windows_refuses_a_bad_argument_before_loading(kwargs, monkeypatch
 @pytest.mark.parametrize(
     "kwargs",
     [dict(iso="bogus"), dict(iso=None), dict(resample_min="five"), dict(resample_min=-5)],
-    ids=str,
+    ids=_id,
 )
 def test_fetch_profile_refuses_a_bad_argument_before_the_network(kwargs, monkeypatch):
     from fdia_graph import profiles
@@ -264,7 +271,7 @@ def test_partition_from_assignment_refuses_a_malformed_input(assignment, edge_in
         dict(corrupt_len=-1),
         dict(am_rate=float("inf")),
     ],
-    ids=str,
+    ids=_id,
 )
 def test_timeline_knobs_refuse_a_bad_value_before_any_work(knobs):
     with pytest.raises(ConfigError):
@@ -281,7 +288,7 @@ def test_timeline_knobs_refuse_a_bad_value_before_any_work(knobs):
         dict(attacked_frac=2.0),
         dict(am_direction="sideways"),
     ],
-    ids=str,
+    ids=_id,
 )
 def test_generate_timeline_refuses_a_bad_knob_before_building_the_case(kwargs, monkeypatch):
     from fdia_graph import timeline

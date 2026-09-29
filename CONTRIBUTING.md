@@ -9,7 +9,8 @@ rule is a command you can run.
 git clone https://github.com/myersben9/fdia-graph
 cd fdia-graph
 pip install -e ".[generate,se,torch,dev]"
-pytest tests                                  # about a minute; one 13 MB pool download
+pytest -n auto tests                          # in parallel (pytest-xdist, in the dev and test extras);
+                                              # each worker builds its own tiny timeline and pool download
 ```
 
 `docs/ROADMAP.md` is the map and the reading order.

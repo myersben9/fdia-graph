@@ -56,7 +56,12 @@ class Gate:
 
 
 def _suite(py: str) -> list[str]:
-    return [py, "-m", "pytest", "-q", "-x", "-W", "error::DeprecationWarning:fdia_graph", "tests"]
+    """The test suite on interpreter `py`, spread over worker processes when it has pytest-xdist (the
+    test extra installs it). Every worker builds its own tiny timeline in its own cache, so more
+    workers than a few repeat that build more than they save; 8 at most."""
+    has_xdist = subprocess.run([py, "-c", "import xdist"], capture_output=True).returncode == 0
+    workers = ["-n", "auto", "--maxprocesses", "8"] if has_xdist else []
+    return [py, "-m", "pytest", "-q", "-x", *workers, "-W", "error::DeprecationWarning:fdia_graph", "tests"]
 
 
 def _version(py: str) -> str:

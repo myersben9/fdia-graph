@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- Development only, no user-visible change: the test suite runs in parallel. pytest-xdist joins the
+  `test` and `dev` extras, CI runs the three suites with `-n auto`, and `tools/prereview.py` does so
+  (at most 8 workers) when the interpreter has it. The test extra's pip cache is kept between CI runs,
+  and a pull request that changes only Markdown or `docs/` (not the data dictionary, which a test
+  checks) skips the suites' install and run steps, the jobs still reporting success. The malformed-input
+  tests' ids no longer carry memory addresses, which differed between workers.
+
 - The fewest-tamper search (`MinimizeMixin.min_tamper`) holds BLAS to one thread while it runs and
   restores the caller's setting after, through threadpoolctl (added to the `generate` and `all`
   extras; without it the search runs on whatever BLAS is set to). Its products are too small for
