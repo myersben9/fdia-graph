@@ -74,7 +74,7 @@ def test_the_flow_solve_reaches_its_target_and_holds_the_fixed_buses(g, pool):
 def test_the_flow_solve_takes_the_least_norm_step(g, pool):
     """For a small target change the solution's voltage change matches the minimum-norm solution of
     the linearized equations, the smallest change that meets them to first order."""
-    from fdia_graph.formulas.network import _flow_jacobian
+    from fdia_graph.formulas.network import _flow_blocks, _flow_jacobian, _held
 
     Xt = pool[0]
     lut = g._ppc_row[np.arange(g.C)]
@@ -93,7 +93,9 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
         [np.angle(Vf[interior]) - np.angle(V[interior]), np.abs(Vf[interior]) - np.abs(V[interior])]
     )
     # one goal branch; the two fixed buses hold P and Q
-    J = _flow_jacobian(Yb, Yf[[line]], np.array([f]), V, interior, (fixed, np.ones(4, bool)))
+    blocks = _flow_blocks(Yb, Yf[[line]], interior, interior)
+    held = _held(blocks, interior, (fixed, None), np.zeros(0, int), np.array([f]))
+    J = _flow_jacobian(blocks, held, np.array([f]), V, interior, (fixed, Yb @ V))
     r = np.zeros(J.shape[0])
     r[-1] = -eps
     want = np.linalg.lstsq(J, -r, rcond=None)[0]

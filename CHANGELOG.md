@@ -5,6 +5,39 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The fewest-tamper search is faster and finds the same supports, bit for bit. The flow solve keeps
+  the full Ybus products of the released solve, since a search's answer can turn on the last bit of a
+  solve near its convergence limit (a product over the region's rows alone changed the answer of 4 of
+  30 pinned IEEE-14 searches), and does less around them.
+  - Each voltage vector tried costs one product Ybus V, which the residual and, for an accepted
+    vector, the next iteration's Jacobian share (`local_flow_solve`, `local_ac_solve`); the solve's
+    slices of Ybus and Yf are cut once per support and reused by the active set's re-solves
+    (`local_flow_solve(blocks=...)`, `formulas.network._flow_blocks`).
+  - The bus adjacency is cached (`AreaMixin._boundary`) rather than rebuilt from the edge list for
+    every candidate, and the generator and free-injection buses are built once.
+  - Each snapshot's true flows and currents are computed once per window, and the attack vector is
+    evaluated on the support's branches only; every other branch reads the same on both sides.
+  - The tamper count is a union of boolean masks instead of Python sets.
+
+  Measured on a fixed set of episodes (seed 1, hybrid meters, pool ratings, the D16 bounds with
+  `load_cap` 0.5, two-line `Am`, budget 256, 20-snapshot windows), before and after side by side on
+  the same shared machine. Median seconds per episode, before to after:
+
+  | System | Default threads, Am | Default threads, At | One thread, Am | One thread, At |
+  |---|---|---|---|---|
+  | IEEE-14 (10 Am, 4 At) | 4.5 to 3.0 | 0.84 to 0.66 | 4.5 to 2.9 | 0.36 to 0.21 |
+  | IEEE-30 (5 Am, 3 At) | 8.5 to 4.8 | 1.1 to 1.0 | 8.4 to 5.1 | 0.54 to 0.41 |
+  | IEEE-118 (4 Am, 3 At) | 14.5 to 9.5 | 1.8 to 1.0 | 5.2 to 3.3 | 1.1 to 0.4 |
+
+  Every one of the 29 episodes, in both thread settings, returns the same target lines, support,
+  device and channel counts, proof, candidates solved and failed solves as before, and 160 flow
+  solves on IEEE-14 and 118 (with and without the load cap) return the same false states bit for bit.
+  On IEEE-118 most of what remains is the full Ybus product's BLAS thread start-up: the same search
+  runs about three times faster with BLAS held to one thread (`OPENBLAS_NUM_THREADS=1`), with the same
+  answers.
+  Exhaustive searches on fixed IEEE-14 windows, with and without the load cap and with two-line goals,
+  are pinned to their earlier answers (tests/test_search_speed.py).
+
 - `SEBase.estimate` builds the measurement vectors, the `pmu_pseudo` slots included, one `chunk` at a
   time, and reads the pseudo values alone (new `formulas.estimation.pmu_pseudo_phasors`); the
   propagated covariances are computed only for the measured calibration's scans in `fit`. On a
