@@ -87,7 +87,7 @@ optimum is the bound.
 
 - **bounds:** optimization-based bound tightening of how far each area bus's voltage can move,
   |V_i - V_i^true| <= rho_i: the move is bounded in 8 directions over the mixed-integer relaxation
-  at the cutoff, each solve stopped at 5 seconds and read by SCIP's dual bound (valid at any stop),
+  at the cutoff, each solve stopped at 5 seconds (`CertifyOptions.tighten_limit`) and read by SCIP's dual bound (valid at any stop),
   so rho_i <= max direction bound / cos(pi / 8). The continuous relaxation tightened nothing, since
   relaxed binaries let every channel move. rho gives the angle bound asin(rho_i / |V_i^true|), used
   as wedges on V_i and on each W_ij, and a smaller big-M reach.

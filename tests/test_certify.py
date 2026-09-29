@@ -12,6 +12,7 @@ from fdia_graph.formulas.relax import big_m, cone_gap, sector_cuts, voltage_box
 from fdia_graph.models.grid import NODE
 
 WINDOW = 2  # snapshots: enough for a shared device binary, still fast
+RAMP_RATE = 0.002  # the At ramp's rate per frame, as generation's default
 SLOW = pytest.mark.skipif(not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: minutes of SCIP solves")
 
 
@@ -87,32 +88,52 @@ def test_the_channel_maps_reproduce_the_search_attack_vector(window):
         assert np.allclose(got, ref, atol=1e-6)
 
 
-@pytest.mark.parametrize(
-    "cuts",
-    [
-        (),
-        pytest.param(("bounds",), marks=SLOW),
-        pytest.param(("bounds", "qc"), marks=SLOW),
-        pytest.param(("bounds", "cycle"), marks=SLOW),
-    ],
-    ids=["socp", "bounds", "qc", "cycle"],
-)
-def test_the_search_attack_is_a_point_of_the_relaxation(window, cuts, monkeypatch):
-    """Validity, per cut family: the search's attack (its rank-one W, r = |dV|, its devices' binaries
-    at 1, its support, each goal line in the sector it lies in, its polar quantities for the QC
-    variables) satisfies every constraint of the relaxation, after bound tightening at the search's
-    own count, so the relaxation's optimum cannot exceed that count."""
-    monkeypatch.setenv("KMP_DUPLICATE_LIB_OK", "TRUE")
-    pytest.importorskip("cvxpy")
+@pytest.fixture(scope="module")
+def ramp_window():
+    """An At window that starts mid-ramp: frames t+1 and t+2 of an accepted ramp on IEEE-14's hybrid
+    meters, their first step measured from `prev`, the attack vector of frame t on the ramp's
+    support (a non-zero onset), and the search's attack on the window from that `prev`."""
+    pytest.importorskip("pandapower")
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.engine.core import FdiaGenerator
+    from fdia_graph.generation import NOISE_FLOOR, _load_states
+    from fdia_graph.models.frames import FrameKnobs, LoadGoal
+
+    g = FdiaGenerator(14, seed=1, meter_model="hybrid")
+    X = _load_states(14, None)
+    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(X), True, 256, 1.0, 0.5, 2)
+    for t in range(0, len(X) - 3, 53):
+        design = g.ramp_design(X, t, (3, RAMP_RATE), k)
+        if design is None or design.tamper is None or design.tamper.devices < 1:
+            continue
+        first = _Window(g, [X[t]], LoadGoal((g.ramp_step(design, 0, RAMP_RATE),)), k)
+        onset = first._snapshot(0, design.tamper.support, first.prev)
+        if onset is None:
+            continue
+        prev = onset[3]
+        states = [X[t + 1], X[t + 2]]
+        goal = LoadGoal(tuple(g.ramp_step(design, i, RAMP_RATE) for i in (1, 2)))
+        res = g.min_tamper(states, goal, k, prev)
+        if res is not None and res.devices > 0:
+            assert np.abs(prev.node).max() > 0  # the onset is measured from a real attack vector
+            return g, k, states, goal, res, prev
+    pytest.skip("no ramp window with an attack")
+
+
+def _assert_search_attack_in_relaxation(case, cuts, prev=None):
+    """Put the search's attack of `case` (its rank-one W, r = |dV|, its devices' binaries at 1, its
+    support, each goal line in the sector it lies in, its polar quantities for the QC variables) into
+    the relaxation built with `cuts` from the window's `prev`, after bound tightening at the search's
+    own count, and check that no constraint is violated."""
     from fdia_graph.engine.attacks import relax_cuts
     from fdia_graph.engine.attacks.certify import _Relaxation
     from fdia_graph.engine.attacks.minimize import _union, _Window
     from fdia_graph.formulas.attacks import tampered_devices
     from fdia_graph.formulas.relax import sector_cuts
 
-    g, k, states, goal, res = window
+    g, k, states, goal, res = case
     seeds, _, _ = g._goal_seeds(goal)
-    w = _Window(g, states, goal, k)
+    w = _Window(g, states, goal, k, prev=prev)
     relax = _Relaxation(g, w, np.asarray(g.local_region(seeds, k.hops)))
     relax.cuts = cuts
     if "bounds" in cuts:
@@ -120,14 +141,14 @@ def test_the_search_attack_is_a_point_of_the_relaxation(window, cuts, monkeypatc
         assert relax_cuts.tighten(relax, 0, res.devices, time_limit=0.5)  # any stop gives a valid bound
         assert np.all(relax.rho[0] <= rho_before)
     prob, X, b = relax.build()
-    points, prev = [], w.prev
+    points, before = [], w.prev
     union = (np.zeros(w.node_m.shape, bool), np.zeros(w.edge_m.shape, bool), None)
     for t, Xt in enumerate(states):
         Xa, _ = g.goal_state(goal, t, Xt, res.support, k)
         V = relax._voltages(Xa)
         points.append(relax.layout.point(V, relax.V[t]))
         relax_cuts.lift(relax, t, V)
-        node, edge, current, prev = w._snapshot(t, res.support, prev)
+        node, edge, current, before = w._snapshot(t, res.support, before)
         union = _union(union, (node, edge, current))
     devices = tampered_devices(union[0], union[1], w.pmu, g.ei[0], union[2], g.ei[1])
     X.value = np.array(points)
@@ -139,6 +160,38 @@ def test_the_search_attack_is_a_point_of_the_relaxation(window, cuts, monkeypatc
     assert b.value.sum() == res.devices
     assert relax.mismatch(np.array(points), list(range(len(states)))) < 1e-6  # a rank-one point is AC
     assert max(float(np.max(c.violation())) for c in prob.constraints) < 1e-5
+
+
+CUT_CASES = pytest.mark.parametrize(
+    "cuts",
+    [
+        (),
+        pytest.param(("bounds",), marks=SLOW),
+        pytest.param(("bounds", "qc"), marks=SLOW),
+        pytest.param(("bounds", "cycle"), marks=SLOW),
+    ],
+    ids=["socp", "bounds", "qc", "cycle"],
+)
+
+
+@CUT_CASES
+def test_the_search_attack_is_a_point_of_the_relaxation(window, cuts, monkeypatch):
+    """Validity, per cut family, on a two-line overload window under the D16 bounds: the search's
+    attack satisfies every constraint of the relaxation, so the relaxation's optimum cannot exceed
+    its count."""
+    monkeypatch.setenv("KMP_DUPLICATE_LIB_OK", "TRUE")
+    pytest.importorskip("cvxpy")
+    _assert_search_attack_in_relaxation(window, cuts)
+
+
+@CUT_CASES
+def test_the_search_ramp_attack_is_a_point_of_the_relaxation(ramp_window, cuts, monkeypatch):
+    """Validity, per cut family, on an At window that starts mid-ramp: the search's attack satisfies
+    every constraint of the relaxation, the stealth bound's onset step from `prev` included."""
+    monkeypatch.setenv("KMP_DUPLICATE_LIB_OK", "TRUE")
+    pytest.importorskip("cvxpy")
+    *case, prev = ramp_window
+    _assert_search_attack_in_relaxation(tuple(case), cuts, prev)
 
 
 def test_the_qc_envelopes_hold_on_their_interval():
@@ -165,10 +218,43 @@ def test_the_bound_never_exceeds_the_search(window, monkeypatch):
     pytest.importorskip("cvxpy")
     pytest.importorskip("pyscipopt")
     from fdia_graph.engine.attacks.certify import certify
-    from fdia_graph.models.frames import CertifyOptions
+    from fdia_graph.models.config import CertifyOptions
 
     g, k, states, goal, res = window
     c = certify(g, states, goal, k, options=CertifyOptions(time_limit=120.0))
     assert c is not None and c.upper == res.devices
     assert 1 <= c.lower <= c.upper
     assert c.certified == (c.lower == c.upper)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"time_limit": 0.0},
+        {"time_limit": -5.0},
+        {"tighten_limit": 0.0},
+        {"time_limit": float("inf")},
+        {"snapshots": ()},
+        {"snapshots": (-1,)},
+        {"snapshots": (0.5,)},
+        {"snapshots": "0"},
+        {"snapshots": (0, 2), "window": 2},
+        {"cuts": ("bounds", "sdp")},
+        {"cuts": "qc"},
+        {"window": 0},
+    ],
+)
+def test_the_certify_options_refuse_bad_values_on_construction(kwargs):
+    from fdia_graph.models.config import CertifyOptions
+    from fdia_graph.models.validation import ConfigError
+
+    with pytest.raises(ConfigError):
+        CertifyOptions(**kwargs)
+
+
+def test_the_certify_options_store_canonical_values():
+    from fdia_graph.models.config import CertifyOptions
+
+    opts = CertifyOptions(snapshots=[1, 0, 1], cuts=["qc", "bounds", "qc"], window=2)
+    assert opts.snapshots == (0, 1) and opts.cuts == ("qc", "bounds")
+    assert CertifyOptions().tighten_limit == 5.0  # the plan's section 2.1

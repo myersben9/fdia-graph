@@ -20,14 +20,18 @@ the public API, the generated files and the numbers are the same as the previous
   the zero injections, the search's support rule, and for `Am` the D14 and D16 injection bounds
   (generator limits (22)-(23) and `load_cap`, over the area and its edge). It returns a
   `Certificate` (`models.frames`): both bounds, whether they meet, the solve time and how far the
-  relaxed point is from an AC state; `CertifyOptions` sets the time limit, the kept snapshots and
-  the cut families of `engine/attacks/relax_cuts.py` (bound tightening of each bus's voltage move,
-  the QC relaxation, bus angles closing every cycle). Solved with SCIP through cvxpy, in the new
-  optional extra `[certify]`. The bound is valid but loose: on IEEE-14 with new generation's
+  relaxed point is from an AC state. `CertifyOptions` (`models.config`, checked on construction)
+  sets SCIP's time limits (the relaxation, and 5 s per bound-tightening solve), the kept snapshots
+  (non-empty, inside the window) and the cut families, new choice `CutFamily`, of
+  `engine/attacks/relax_cuts.py` (bound tightening of each bus's voltage move, the QC relaxation,
+  bus angles closing every cycle). Solved with SCIP through cvxpy, in the new
+  optional extra `[certify]`, also part of `[all]`. The bound is valid but loose: on IEEE-14 with new generation's
   defaults it certifies 1 of 4 `At` episodes, 0 of 10 two-line `Am` episodes (gaps of 3 to 11
   devices, median 4) and 0 of [WU26]'s two scenarios (gaps 7 and 6), with or without the cuts, and
-  SCIP's tolerances decide some `At` bounds. `tests/test_certify.py` runs one IEEE-14 validity case
-  by default; the cut families' cases and the full solve run with `FDIA_SLOW=1`.
+  SCIP's tolerances decide some `At` bounds. By default `tests/test_certify.py` checks the cone
+  relaxation's validity on an IEEE-14 two-line `Am` window and on an `At` window whose stealth bound
+  starts from a non-zero previous attack vector; the cut families' cases and the full solve run with
+  `FDIA_SLOW=1`.
 
 - The fewest-tamper search (`MinimizeMixin.min_tamper`) holds BLAS to one thread while it runs and
   restores the caller's setting after, through threadpoolctl (added to the `generate` and `all`

@@ -18,6 +18,7 @@ from .choices import (
     AmDirection,
     Buses,
     Calibrate,
+    CutFamily,
     Features,
     Format,
     FrOver,
@@ -33,7 +34,7 @@ from .choices import (
     Split,
     Units,
 )
-from .validation import AtLeast, Finite, InRange, Integer, OneOf, Parses, Positive, Validated
+from .validation import AtLeast, Finite, InRange, Integer, NonEmpty, OneOf, Parses, Positive, Validated
 
 Fraction = Annotated[float, InRange(0.0, 1.0)]  # (0, 1), a false-alarm target or a split share
 Share = Annotated[float, InRange(0.0, 1.0, hi_closed=True)]  # (0, 1]
@@ -370,3 +371,50 @@ class ProfileFetch(Validated):
 
     iso: Annotated[str, OneOf(Iso)]
     resample_min: Annotated[Optional[int], Integer(), AtLeast(1)] = None
+
+
+# ---- the certifier -----------------------------------------------------------------------------------
+def cut_families(cuts: object) -> tuple[str, ...]:
+    """A list or tuple of cut family names (`CutFamily`) as a tuple of their canonical strings, each
+    once, in the given order. A lone string is refused rather than split into letters."""
+    if not isinstance(cuts, (list, tuple)):
+        raise TypeError(cuts)
+    return tuple(dict.fromkeys(CutFamily(c).value for c in cuts))
+
+
+def snapshot_indices(snapshots: object) -> tuple[int, ...]:
+    """A list or tuple of non-negative whole snapshot indices as a sorted tuple, each once."""
+    if not isinstance(snapshots, (list, tuple)):
+        raise TypeError(snapshots)
+    if not all(isinstance(t, int) and not isinstance(t, bool) and t >= 0 for t in snapshots):
+        raise ValueError(snapshots)
+    return tuple(sorted(set(snapshots)))
+
+
+@dataclass(frozen=True)
+class CertifyOptions(Validated):
+    """How `engine.attacks.certify.certify` bounds the fewest-tamper search
+    (docs/plans/RELAX_CERTIFIER_PLAN.md): SCIP's time limit on the mixed-integer relaxation and on
+    each bound-tightening solve, the snapshots kept (None: the one where the goal moves furthest),
+    the cut families, and the window's length, which `certify` fills in so a kept snapshot outside
+    the window is refused."""
+
+    time_limit: Annotated[float, Finite(), Positive()] = 300.0  # seconds, the mixed-integer relaxation
+    # seconds per bound-tightening solve; SCIP's dual bound at the stop is valid, so a short limit
+    # only weakens the bounds (the plan's section 2.1)
+    tighten_limit: Annotated[float, Finite(), Positive()] = 5.0
+    snapshots: Annotated[
+        Optional[tuple[int, ...]],
+        Parses(snapshot_indices, "must be a list or tuple of snapshot indices >= 0"),
+        NonEmpty(),
+    ] = None
+    cuts: Annotated[
+        tuple[str, ...], Parses(cut_families, f"must be a list or tuple of {CutFamily.values()}")
+    ] = (CutFamily.BOUNDS.value, CutFamily.QC.value, CutFamily.CYCLE.value)
+    window: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # snapshots in the window
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.window is None or self.snapshots is None or max(self.snapshots) < self.window,
+            f"snapshots must lie in the window of {self.window} snapshots, got {self.snapshots!r}",
+        )

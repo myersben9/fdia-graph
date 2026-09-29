@@ -14,6 +14,7 @@ PUBLIC names the bundles a user receives from the public API; the data dictionar
 from .assets import AssetSpec, DownloadTarget, LineCandidate
 from .base import Bundle
 from .config import (
+    CertifyOptions,
     ExportRequest,
     FederatedSettings,
     FitOptions,
@@ -67,7 +68,6 @@ from .frames import (
     AttackVector,
     Band,
     Certificate,
-    CertifyOptions,
     FlowGoal,
     Frame,
     FrameKnobs,

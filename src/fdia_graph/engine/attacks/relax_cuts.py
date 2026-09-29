@@ -33,7 +33,7 @@ BOUND_SLACK = 1e-6  # widens every tightened bound, so the solver's tolerance ne
 RIGHT_ANGLE = math.pi / 2 - 1e-3  # angle bounds at or beyond this give no usable envelope
 
 
-def tighten(relax: _Relaxation, t: int, cutoff: int, time_limit: float = 10.0) -> bool:
+def tighten(relax: _Relaxation, t: int, cutoff: int, time_limit: float = 5.0) -> bool:
     """Tighten how far each area bus's voltage can move at snapshot t (rho) by bounding the move in
     DIRECTIONS directions over the mixed-integer relaxation with at most `cutoff` devices, each solve
     stopped at `time_limit` seconds and read by SCIP's dual bound (valid at any stop). False when

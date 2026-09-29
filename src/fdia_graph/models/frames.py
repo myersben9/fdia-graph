@@ -233,14 +233,6 @@ class MinimizerResult(NamedTuple):
     unsolved: int = 0  # candidates whose local solve did not converge (their feasibility unknown)
 
 
-class CertifyOptions(NamedTuple):
-    """How `engine.attacks.certify.certify` bounds the search (docs/plans/RELAX_CERTIFIER_PLAN.md)."""
-
-    time_limit: float = 300.0  # seconds SCIP may take on the mixed-integer relaxation
-    snapshots: Optional[tuple[int, ...]] = None  # the snapshots kept; None: the one the goal moves furthest
-    cuts: tuple[str, ...] = ("bounds", "qc", "cycle")  # the cut families (engine/attacks/relax_cuts.py)
-
-
 class Certificate(NamedTuple):
     """How close the fewest-tamper search's attack is to the global optimum of [WU26, eq. 12] over the
     attacker's area: the search's device count (an upper bound) against the optimum of a convex

@@ -16,6 +16,7 @@ pip install "fdia-graph[certify]".
 
 from __future__ import annotations
 
+import dataclasses
 import itertools
 import math
 import time
@@ -26,10 +27,10 @@ import numpy as np
 from ...formulas.attacks import LIMIT_TOL_PQ, LIMIT_TOL_V, bus_load, generator_output
 from ...formulas.network import _dense, bus_injections, complex_voltages
 from ...formulas.relax import big_m, cone_gap, sector_cuts, voltage_box
+from ...models.config import CertifyOptions
 from ...models.frames import (
     AttackVector,
     Certificate,
-    CertifyOptions,
     FlowGoal,
     FrameKnobs,
     LoadGoal,
@@ -339,38 +340,46 @@ class _Relaxation:
 
     def _flow_bounds(self, x, t: int) -> list:
         """An overload goal's bounds on the injections the attack moves, as the search's flow solve
-        holds them (`FalseStateMixin.solve_flow_local`, `_out_of_bounds`): each generator's implied
-        output P_gen - dP_inj, Q_gen - dQ_inj inside its limits (22)-(23), widened to its true output,
-        and each load bus's active change within `load_cap` times its true load [YUA11] (D16). Both
-        range over the area and its edge, every bus whose injection a support in the area can change;
-        a bus the attack leaves alone meets them at its true value, so they hold for every support."""
+        holds them (`FalseStateMixin.solve_flow_local`, `_out_of_bounds`): the generator limits
+        (22)-(23) and the load cap (D16), both over the area and its edge, every bus whose injection
+        a support in the area can change; a bus the attack leaves alone meets them at its true
+        value, so they hold for every support."""
+        if self.window.goal.kind != "flow":
+            return []  # the search's load-goal solve holds every non-target injection of S
+        buses = self.g.touched_buses(self.area)
+        return self._generator_bounds(x, t, buses) + self._load_cap_bounds(x, t, buses)
+
+    def _generator_bounds(self, x, t: int, buses: np.ndarray) -> list:
+        """Each generator's implied output P_gen - dP_inj, Q_gen - dQ_inj among `buses` inside its
+        limits (22)-(23), widened to its true output as `within_limits` has it."""
+        g, lim = self.g, self.window.k.limits
+        if lim is None:
+            return []
+        gen = generator_output(self.window.states[t], g.load_base, g.gen_base)
+        cons = []
+        for b in np.intersect1d(buses, g.generator_buses()):
+            box = ((float(lim.p_lo[b]), float(lim.p_hi[b])), (float(lim.q_lo[b]), float(lim.q_hi[b])))
+            for c, row in enumerate(self.injection(t, int(b))):
+                change = row @ (x - self.x0[t])  # load positive, so the output is gen - change
+                cons += _output_in_box(change, float(gen[b, c]), box[c])
+        return cons
+
+    def _load_cap_bounds(self, x, t: int, buses: np.ndarray) -> list:
+        """Each load bus among `buses` (no generator, not the slack) showing an active change of at
+        most `load_cap` times its true load [YUA11] (D16)."""
         import cvxpy as cp
 
-        g, w = self.g, self.window
-        if w.goal.kind != "flow":
-            return []  # the search's load-goal solve holds every non-target injection of S
-        buses = g.touched_buses(self.area)
+        g, cap = self.g, self.window.k.load_cap
+        if cap is None:
+            return []
+        load = bus_load(self.window.states[t], g.load_base, g.gen_base)
+        loads = np.setdiff1d(
+            np.intersect1d(buses, np.flatnonzero(g.load_base[:, 0] != 0)), g.generator_buses()
+        )
         cons = []
-        if w.k.limits is not None:
-            lim, gen = w.k.limits, generator_output(w.states[t], g.load_base, g.gen_base)
-            for b in np.intersect1d(buses, g.generator_buses()):
-                rows = self.injection(t, int(b))
-                box = ((lim.p_lo[b], lim.p_hi[b]), (lim.q_lo[b], lim.q_hi[b]))
-                for c, row in enumerate(rows):
-                    lo, hi = min(box[c][0], gen[b, c]), max(box[c][1], gen[b, c])
-                    change = row @ (x - self.x0[t])  # load positive, so the output is gen - change
-                    if np.isfinite(hi):
-                        cons.append(change >= gen[b, c] - hi - LIMIT_TOL_PQ - POWER_TOL_MW)
-                    if np.isfinite(lo):
-                        cons.append(change <= gen[b, c] - lo + LIMIT_TOL_PQ + POWER_TOL_MW)
-        if w.k.load_cap is not None:
-            load = bus_load(w.states[t], g.load_base, g.gen_base)
-            loads = np.setdiff1d(
-                np.intersect1d(buses, np.flatnonzero(g.load_base[:, 0] != 0)), g.generator_buses()
-            )
-            for b in np.setdiff1d(loads, [g.slack_bus]):
-                P, _ = self.injection(t, int(b))
-                cons.append(cp.abs(P @ (x - self.x0[t])) <= w.k.load_cap * abs(float(load[b])) + POWER_TOL_MW)
+        for b in np.setdiff1d(loads, [g.slack_bus]):
+            P, _ = self.injection(t, int(b))
+            cons.append(cp.abs(P @ (x - self.x0[t])) <= cap * abs(float(load[b])) + POWER_TOL_MW)
         return cons
 
     def _cuts(self, x, t: int) -> list:
@@ -667,6 +676,18 @@ class _Relaxation:
         return worst
 
 
+def _output_in_box(change, output: float, box: tuple[float, float]) -> list:
+    """A generator component's implied output `output` - `change` inside `box` widened to `output`
+    (the true value), with the search's tolerances; an infinite end adds nothing."""
+    lo, hi = min(box[0], output), max(box[1], output)
+    cons = []
+    if np.isfinite(hi):
+        cons.append(change >= output - hi - LIMIT_TOL_PQ - POWER_TOL_MW)
+    if np.isfinite(lo):
+        cons.append(change <= output - lo + LIMIT_TOL_PQ + POWER_TOL_MW)
+    return cons
+
+
 def certify(
     g: MinimizeMixin,
     states: list[np.ndarray],
@@ -682,7 +703,8 @@ def certify(
     optimal; feasible, its optimum is the bound. When SCIP stops at the time limit, the bound is its
     dual bound rounded up, still valid but weaker. The search's forced-device bound is a floor."""
     _require_solver()
-    opts = CertifyOptions() if options is None else options
+    # the window's length joins the options, so a kept snapshot outside it is refused on construction
+    opts = dataclasses.replace(CertifyOptions() if options is None else options, window=len(states))
     seeds, _, _ = g._goal_seeds(goal)
     area = g.local_region(seeds, k.hops)
     if area is None:
@@ -695,7 +717,7 @@ def certify(
     keep = [_strongest(g, window)] if opts.snapshots is None else list(opts.snapshots)
     cutoff = upper - 1 if upper >= 1 and relax.cuts else None
     start = time.perf_counter()
-    status, bound, x, bv = _bound(relax, keep, cutoff, opts.time_limit)
+    status, bound, x, bv = _bound(relax, keep, cutoff, opts)
     seconds = time.perf_counter() - start
     lower = max(_lower(status, bound, upper), window.lower_bound())
     support = np.zeros(0, dtype=np.int64) if upper < 0 else np.asarray(cast(MinimizerResult, found).support)
@@ -722,16 +744,17 @@ def _lower(status: str, bound: float, upper: int) -> int:
 
 
 def _bound(
-    relax: _Relaxation, keep: list[int], cutoff: Optional[int], time_limit: float
+    relax: _Relaxation, keep: list[int], cutoff: Optional[int], opts: CertifyOptions
 ) -> tuple[str, float, Optional[np.ndarray], np.ndarray]:
-    """Bound tightening on the kept snapshots (with the "bounds" family), then the mixed-integer
-    solve: `_Relaxation.solve`'s tuple, status "infeasible" when either proves no attack within
-    `cutoff` devices."""
+    """Bound tightening on the kept snapshots (with the "bounds" family, each solve stopped at
+    `opts.tighten_limit`), then the mixed-integer solve stopped at `opts.time_limit`:
+    `_Relaxation.solve`'s tuple, status "infeasible" when either proves no attack within `cutoff`
+    devices."""
     if cutoff is not None and "bounds" in relax.cuts:
         for t in keep:
-            if not relax_cuts.tighten(relax, t, cutoff):
+            if not relax_cuts.tighten(relax, t, cutoff, opts.tighten_limit):
                 return "infeasible", math.inf, None, np.zeros(len(relax.devices))
-    return relax.solve(time_limit, keep, cutoff)
+    return relax.solve(opts.time_limit, keep, cutoff)
 
 
 def _strongest(g: MinimizeMixin, window: _Window) -> int:
