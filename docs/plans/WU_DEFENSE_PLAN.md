@@ -34,7 +34,9 @@ journal's.
   branch current measurements, which are processed through the branch measurement conversion method
   to estimate neighboring node voltages" (p. 655). `h^S'` holds the non-trusted PMUs and all SCADA
   (eqs. 26-27). In eq. (27), `h^S` is the PMU voltage rows `-[H_P3 0; 0 H_P4]`: angle and
-  `V^-1 dV` of the secured PMU nodes, after the branch-current conversion of eqs. (1)-(3).
+  `V^-1 dV` of the secured PMU nodes. Adopted (E2): a trusted PMU pins those two rows, its own |V| and
+  θ, and its branch currents stay untrusted; the p. 655 reading, in which the currents also pin the
+  converted voltages of its neighbours, is run as a sensitivity.
 - **What Δx_t is.** Eq. (26), p. 655, is the SE linearization
   `[ΔP; ΔQ; (Δδ_PMU)_S'; (V^-1 ΔV_PMU)_S'; (Δδ_PMU)_S; (V^-1 ΔV_PMU)_S] = -H [Δδ; ΔV/V]`. So
   `Δx_t = [Δδ_t; ΔV_t/V_t]`. Eqs. (17)-(18) (`V_i,t + ΔV^a_i,t = V^a_i,t`,
@@ -178,7 +180,7 @@ State of `origin/main` at df53f90:
 
 | aspect | [WU26] | ours | gap |
 |---|---|---|---|
-| what is trusted | a PMU (the whole device: \|V\|, θ, branch currents; eq. 27) | any single metered channel (a row of H, SCADA included) | wrong unit |
+| what is trusted | a PMU's own \|V\| and θ rows (eqs. 27, 32; its branch currents stay in `h^S'`), the neighbour reading of p. 655 as a sensitivity (E2) | any single metered channel (a row of H, SCADA included) | wrong unit |
 | candidates | the PMU buses (4 on 14, 11 on 118) | every metered channel (m ≈ 80-500) | wrong action space |
 | attack cost | eq. (28): AC multi-snapshot l0 with the overload goal (24)-(25) and (13)-(23) | sparsest RREF row of the linear single-snapshot attack subspace {H c : H_S c = 0} at the benign mean, with no goal | different problem |
 | time | secure set grows one PMU per snapshot inside the attack window (eqs. 30-31) | one static k-set for the whole dataset | no schedule |

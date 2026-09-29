@@ -164,3 +164,42 @@ def test_the_schedule_stops_the_ieee14_scenarios_at_k_1_2(scenario):
     assert g.min_tamper(window, goal, k).devices == (8, 10)[scenario]
     for per_slot in (False, True):
         assert g.min_tamper(window, goal, k, trust=_schedule(g, scenario, per_slot)).devices == -1
+
+
+@pytest.mark.parametrize("bus", [2, 99])  # MATPOWER bus 2 has no PMU in the paper's plan; 99 is no bus
+def test_a_trusted_bus_must_carry_a_pmu(bus):
+    """The schedule is checked against the grid and the meter plan before the search runs."""
+    g, window, k, goal = _setup(0, 1.1)
+    trusted = int(g.wu26_buses([bus])[0]) if bus <= 14 else bus
+    with pytest.raises(ConfigError):
+        g.min_tamper(window, goal, k, trust=TrustSchedule([trusted], [1]))
+
+
+class _TableWindow:
+    """A window whose cost is a table over plans: the per-slot search sees only `segments` and
+    `cost_plan`, so a constructed table isolates its logic from the physics."""
+
+    def __init__(self, costs: dict) -> None:
+        self.segments = [(0, 1), (1, 2)]
+        self.costs, self.converged, self.unsolved, self.last_tried = costs, True, 0, 0
+
+    def cost_plan(self, plan, beat):
+        cost = self.costs.get(tuple(tuple(int(b) for b in S) for S in plan))
+        return cost if cost is not None and (beat is None or cost < beat) else None
+
+
+def test_the_support_changes_at_a_slot_when_that_is_cheaper():
+    """A constructed window of two segments where A = {1, 2} is the cheapest held support (5 devices) but
+    A before the slot and B = {3} after it costs 3: the per-slot search finds the changed plan, and the
+    result's support is the union of its segments. The IEEE-14 case studies have no such window (the
+    held support is already cheapest there, `test_the_ieee14_scenarios_at_k_1_1`), so the table stands
+    in for the physics."""
+    from fdia_graph.engine.attacks.minimize import MinimizeMixin
+
+    A, B = np.array([1, 2]), np.array([3])
+    window = _TableWindow({((1, 2), (1, 2)): (5, 9, 2), ((1, 2), (3,)): (3, 6, 3), ((3,), (3,)): (7, 12, 1)})
+    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
+    r = MinimizeMixin._per_slot_result(window, ((5, 9, 2), A), lambda: iter([A, B]), (1, 0), k)
+    assert [S.tolist() for S in r.plan] == [[1, 2], [3]]
+    assert r.support.tolist() == [1, 2, 3]
+    assert (r.devices, r.channels) == (3, 6)

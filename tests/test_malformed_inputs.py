@@ -45,6 +45,7 @@ VALID = {
     inputs.DatasetName: dict(name="ieee14", local=frozenset(), builtin=frozenset({"ieee14"})),
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
     inputs.CertifiableLimits: dict(limits=_LIMITS),
+    inputs.TrustablePmus: dict(buses=[0], pmu=frozenset({0}), n_bus=3),
     inputs.FamilySelection: dict(families=("Aq",)),
     inputs.SystemRef: dict(system="ieee14"),
     inputs.SupportedSystem: dict(system="ieee14", supported=frozenset({14})),

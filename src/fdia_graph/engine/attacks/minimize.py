@@ -60,6 +60,7 @@ from ...formulas.noise import (
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
+from ...models.inputs import TrustablePmus
 from ..base import POWER_NOISE_FLOOR_MW
 from .false_state import FalseStateMixin
 
@@ -136,6 +137,8 @@ class MinimizeMixin(FalseStateMixin):
         defender's trusted-PMU schedule [WU26, eqs. 26-32]: from its slot on, a trusted PMU's bus keeps
         its true voltage whatever the support (eq. 29), and with `trust.per_slot` the support may change
         at each slot (`_per_slot`). The search runs with BLAS on one thread (`_one_blas_thread`)."""
+        if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
+            TrustablePmus(trust.buses, frozenset(self.meters.pmu), self.C)
         with _one_blas_thread():
             return self._min_tamper(states, goal, k, prev, trust)
 
