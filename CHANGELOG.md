@@ -59,7 +59,7 @@ the public API, the generated files and the numbers are the same as the previous
   `formulas.network.local_flow_solve(vm_fixed=...)`). `FlowGoal` takes one or more lines
   (`FlowGoal.more`, `lines`, `targets_at`; `overload_goal(window, line, *more)`,
   `solve_flow_local(line=[...])`): one held support, each line to its own rating. Generated episodes
-  still drive one line. A zero-injection bus stays held at zero, a rule of ours. The labels of an
+  drive two lines by default since D17 (`OverloadSettings.n_lines`, one line when set to 1). A zero-injection bus stays held at zero, a rule of ours. The labels of an
   overload frame are the free-injection buses of the support. Measured on the hybrid meters with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000): `Am` 12 stealthy overload episodes on IEEE-14 (6.5 devices, 23.9 channels on average) and 7 on IEEE-118 (7.0 devices, 27.3 channels), no frame falling back to benign; `At` 10.3 and 12.5 devices (the At episodes differ from the previous run because the Am designs draw from the same random stream). On [WU26]'s IEEE-14 metering and two-line scenarios with the PGLib-OPF ratings (the paper
   does not state its limits) the attack is feasible and tampers more devices than the paper's, with
   changes of several pu, since the ratings are 3 to 19 times the true flows (the plan's D14 table).
