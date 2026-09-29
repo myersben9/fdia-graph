@@ -127,39 +127,74 @@ whether they meet, the solve time, SCIP's status, and two tightness measures of 
 mismatch (MW) between its W and the exact injections of its voltages, zero only at an AC state. The
 cones can be tight pair by pair while the mesh's cycles are not, so `mismatch` is the one that says
 whether the relaxation found a real attack. When SCIP stops at its time limit, the lower bound is
-its dual bound rounded up, still valid. The tests check that the channel maps reproduce the search's
-attack vector and that the search's own attack satisfies every constraint of the relaxation.
+its dual bound rounded with the margin below, still valid. The tests check that the channel maps
+reproduce the search's attack vector and that the search's own attack satisfies every constraint of
+the relaxation.
+
+### 4.1 The tolerance guard
+
+SCIP decides feasibility and integrality within a tolerance (numerics/feastol, 1e-6 by default), and
+on these problems some answers sit inside it: two runs of the same cuts on one `At` episode have
+disagreed, and a cut relaxation has returned a bound below the cone relaxation's, which cuts cannot
+do. A certificate is therefore claimed only clear of the tolerances, and `Certificate.verdict` says
+which case holds: "certified", "gap", or "uncertain" with the reason in `Certificate.reason`.
+
+- **Rounding:** a bound b proves ceil(b - `bound_margin`) devices (0.01 by default), never a plain
+  rounding, so a relaxed optimum just above an integer by the tolerances is not rounded past it.
+- **Infeasibility:** an "infeasible at one device fewer" answer, from the final solve or from bound
+  tightening, is accepted only when a re-solve with numerics/feastol loosened to `robust_feastol`
+  (1e-4, 100 times SCIP's default; SCIP judges integrality by the same tolerance) is still
+  infeasible. A problem that stays infeasible with every constraint relaxed by more than the
+  solver's own tolerance was not made infeasible by rounding. Tightening the tolerance would test
+  the opposite direction: it makes infeasibility easier to reach. When the loosened problem is
+  feasible, its dual bound is the claim and the verdict is "uncertain".
+- **Consistency between levels:** `certify` solves the cone relaxation alone (`Certificate.cone_lower`)
+  and, with cut families, the cut relaxation at one device fewer. Cuts only shrink the relaxation, so
+  a cut bound below the cone bound is a numerical contradiction: the smaller bound is kept and the
+  verdict is "uncertain".
+
+Both knobs are fields of `CertifyOptions` (`models.config`), checked on construction.
 
 ## 5. IEEE-14 runs
 
 A valid but loose lower bound: it never exceeds the search's count, and on these episodes it meets it
-once. IEEE-14, hybrid meters, new generation's defaults (pool ratings at 1.25 times the peak flow,
-`load_cap` 0.5, two-line `Am`, budget 256), one kept snapshot per window, each family on top of the
-previous one. The paper scenarios run on [WU26]'s metering (PMUs at buses 1, 4, 6 and 13, lines 3-4
-and 6-11, then 1-2 and 4-5) at ratings 1.2 times the window's peak flow, as
-`tests/test_wu_scenarios.py` sets them up. A gap is the search's count minus the certified bound.
+once, with the cone relaxation alone. IEEE-14, hybrid meters, new generation's defaults (pool ratings
+at 1.25 times the peak flow, `load_cap` 0.5, two-line `Am`, budget 256), one kept snapshot per
+window, each family on top of the previous one, every verdict through the tolerance guard (section
+4.1, `bound_margin` 0.01, `robust_feastol` 1e-4). The paper scenarios run on [WU26]'s metering
+(PMUs at buses 1, 4, 6 and 13, lines 3-4 and 6-11, then 1-2 and 4-5) at ratings 1.2 times the
+window's peak flow, as `tests/test_wu_scenarios.py` sets them up. A gap is the search's count minus
+the bound; the last row is `certify`'s default.
 
-| family | paper certified | `Am` certified | `At` certified | `Am` gaps | median mismatch, MW (`Am`) | seconds |
+| family | paper | `Am` | `At` | `Am` gaps | median mismatch, MW (`Am`) | seconds |
 |---|---|---|---|---|---|---|
-| second-order cone | 0 of 2 (gaps 7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 17 | 6 to 49 solve |
-| + bounds | 0 of 2 (7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 19 | 400 to 630 tightening, 7 to 42 solve |
-| + qc | 0 of 2 (7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 17 | 9 to 70 solve |
-| + cycle | 0 of 2 (7, 6) | 0 of 10 | 1 of 4 | 3 to 11, median 4 | 18 | 12 to 49 solve |
+| second-order cone | 0 of 2 certified (gaps 7, 6) | 0 of 10 certified | 1 of 4 certified | 3 to 11, median 4 | 17 | 6 to 47 solve |
+| + bounds | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 2 uncertain | 3 to 11, median 4 | 17 | 400 to 635 tightening, 8 to 36 solve |
+| + qc | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 2 uncertain | 3 to 11, median 4 | 15 | 8 to 48 solve |
+| + cycle | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 17 | 9 to 64 solve |
 
 The search takes 8 to 27 seconds per `Am` window and under 2 per `At` window. No cut family moves an
 `Am` bound: bound tightening at one device fewer than the search leaves the median voltage move at
 0.7 to 2.1 pu, and only 1 to 6 of the area buses get an angle bound, so the QC and cycle envelopes
 seldom bind. The D16 bounds bring the relaxed `Am` points much closer to an AC state than before
 them (median mismatch 17 MW, against about 320 MW on the earlier recipe), but not close enough to
-certify. The one certified `At` episode (loads at 5, 10, 12, 13 and 14) is certified by the cone
-relaxation alone; bound tightening proves the cutoff infeasible there, so its value is speed of
-proof, not new certificates.
+certify. Every `Am` and paper verdict is a plain gap: no claim there sits at the tolerances.
 
-SCIP's tolerances decide some `At` bounds. On the earlier recipe two runs of the same cuts on `At`
-episode 0 disagreed (a relaxed attack with 8 devices at 0.3 MW mismatch in one, infeasible in the
-other). Here `At` episode 1 has bound 10 under the cone relaxation and 9 once bounds are tightened,
-although cuts can only shrink the relaxation. A certificate or bound on these episodes should not be
-read as robust to the last device.
+The guard changes the `At` column, and nowhere else:
+
+- `At` episode 1 (loads at 4, 5, 11, 13 and 14): the cone relaxation bounds 10 devices, the
+  bounds and qc levels 9, although cuts only shrink the relaxation. The contradiction is reported
+  ("uncertain", bound 9); the cycle level agrees with the cone (10, a gap of 2).
+- `At` episode 3 (loads at 5, 10, 12, 13 and 14): every cut level finds the relaxation infeasible at
+  one device fewer than the search's 9, which without the guard certified it. The re-solve with
+  numerics/feastol at 1e-4 is feasible, bounding 6 or 7, so the infeasibility is not accepted and the
+  verdict is "uncertain". The cone relaxation alone still meets the search's count (an optimum of 9,
+  certified in the first row), but the loosened cut relaxation lies inside the loosened cone
+  relaxation, so the cone's 9 would fall to 6 or below under the same loosening: that certificate
+  too rests on SCIP's default tolerance. The guard re-solves infeasibilities only, so it keeps it.
+- On the earlier recipe, two runs of the same cuts on `At` episode 0 disagreed (a relaxed attack
+  with 8 devices at 0.3 MW mismatch in one, infeasible in the other), a different draw from this
+  set's episode 0, whose verdicts here are plain gaps.
 
 ## 6. What remains for `Am`
 

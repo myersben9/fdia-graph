@@ -204,6 +204,17 @@ class CutFamily(Choice):
     CYCLE = "cycle"
 
 
+class CertifyVerdict(Choice):
+    """What a certificate says (`models.frames.Certificate.verdict`): the search's count is globally
+    minimal over the area, a gap remains between the bounds, or the bound rests on a result inside
+    SCIP's numerical tolerances (a contradiction between relaxation levels, or an infeasibility the
+    loosened re-solve does not confirm), so nothing is claimed."""
+
+    CERTIFIED = "certified"
+    GAP = "gap"
+    UNCERTAIN = "uncertain"
+
+
 class MeterModel(Choice):
     """What the meters of a generated file measure (the plan's D10). "hybrid": a SCADA voltmeter reads
     the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the

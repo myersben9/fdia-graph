@@ -27,9 +27,11 @@ import numpy as np
 from ...formulas.attacks import LIMIT_TOL_PQ, LIMIT_TOL_V, bus_load, generator_output
 from ...formulas.network import _dense, bus_injections, complex_voltages
 from ...formulas.relax import big_m, cone_gap, sector_cuts, voltage_box
+from ...models.choices import CertifyVerdict
 from ...models.config import CertifyOptions
 from ...models.frames import (
     AttackVector,
+    BoundClaim,
     Certificate,
     FlowGoal,
     FrameKnobs,
@@ -391,16 +393,25 @@ class _Relaxation:
         return cons
 
     def solve(
-        self, time_limit: float, snapshots: Optional[list[int]] = None, cutoff: Optional[int] = None
+        self,
+        time_limit: float,
+        snapshots: Optional[list[int]] = None,
+        cutoff: Optional[int] = None,
+        feastol: Optional[float] = None,
     ) -> tuple[str, float, Optional[np.ndarray], np.ndarray]:
         """(SCIP's status, its dual bound, the relaxed x per snapshot [T, n] or None, the device
-        binaries) of the relaxation over `snapshots` (all when None), at most `cutoff` devices."""
+        binaries) of the relaxation over `snapshots` (all when None), at most `cutoff` devices, with
+        SCIP's feasibility and integrality tolerance numerics/feastol at `feastol` (None: SCIP's
+        default)."""
         from cvxpy.error import SolverError
 
         prob, X, b = self.build(snapshots, cutoff=cutoff)
         solver = _bounding_scip()
+        params: dict[str, float] = {"limits/time": float(time_limit)}
+        if feastol is not None:
+            params["numerics/feastol"] = float(feastol)
         try:
-            prob.solve(solver=solver, scip_params={"limits/time": float(time_limit)})
+            prob.solve(solver=solver, scip_params=params)
         except SolverError:  # stopped with no feasible point: SCIP's status and dual bound still hold
             return solver.status, solver.dual_bound, None, np.zeros(len(self.devices))
         x = None if X.value is None else np.asarray(X.value)
@@ -698,10 +709,13 @@ def certify(
 ) -> Optional[Certificate]:
     """The fewest-tamper search's attack on the window of `states` and `goal` (as `min_tamper` takes
     them), bounded from below by the relaxation over the same area; None when the goal has no area.
-    With cut families (`CertifyOptions.cuts`), the relaxation admits at most one device fewer than
-    the search's attack: infeasible, at bound tightening or at the end, proves the search's count
-    optimal; feasible, its optimum is the bound. When SCIP stops at the time limit, the bound is its
-    dual bound rounded up, still valid but weaker. The search's forced-device bound is a floor."""
+    The cone relaxation alone gives a first bound. With cut families (`CertifyOptions.cuts`), a
+    second relaxation admits at most one device fewer than the search's attack: infeasible, at bound
+    tightening or at the end, proves the search's count optimal; feasible, its optimum is the bound.
+    A certificate is claimed only clear of SCIP's tolerances (`_verdict`): every bound is rounded
+    with a margin, an infeasibility must survive a re-solve with loosened tolerances, and a cut
+    relaxation whose bound falls below the cone relaxation's (cuts only shrink it) makes the verdict
+    "uncertain". The search's forced-device bound is a floor."""
     _require_solver()
     # the window's length joins the options, so a kept snapshot outside it is refused on construction
     opts = dataclasses.replace(CertifyOptions() if options is None else options, window=len(states))
@@ -712,49 +726,120 @@ def certify(
     found = g.min_tamper(states, goal, k, prev)
     upper = -1 if found is None else int(found.devices)
     window = _Window(g, states, goal, k, prev=prev)
-    relax = _Relaxation(g, window, np.asarray(area))
-    relax.cuts = tuple(opts.cuts)
     keep = [_strongest(g, window)] if opts.snapshots is None else list(opts.snapshots)
-    cutoff = upper - 1 if upper >= 1 and relax.cuts else None
     start = time.perf_counter()
-    status, bound, x, bv = _bound(relax, keep, cutoff, opts)
+    relax = _Relaxation(g, window, np.asarray(area))
+    base = solve_claim(relax, keep, (None, upper), opts)
+    cut = None
+    if opts.cuts and upper >= 1:
+        relax = _Relaxation(g, window, np.asarray(area))
+        relax.cuts = tuple(opts.cuts)
+        cut = solve_claim(relax, keep, (upper - 1, upper), opts, tighten(relax, keep, upper - 1, opts))
     seconds = time.perf_counter() - start
-    lower = max(_lower(status, bound, upper), window.lower_bound())
+    lower, verdict, reason = _verdict(upper, base, cut, window.lower_bound())
+    final = base if cut is None else cut
     support = np.zeros(0, dtype=np.int64) if upper < 0 else np.asarray(cast(MinimizerResult, found).support)
+    x = final.x
     tight = (math.nan, math.nan) if x is None else (relax.gap(x[keep]), relax.mismatch(x, keep))
     return Certificate(
         upper,
         lower,
-        upper >= 0 and lower >= upper,
-        status,
+        verdict == CertifyVerdict.CERTIFIED.value,
+        final.status,
         seconds,
         *tight,
         np.asarray(area),
         support,
-        relax.devices[bv > 0.5],
+        relax.devices[final.binaries > 0.5],
+        verdict,
+        reason,
+        base.lower,
     )
 
 
-def _lower(status: str, bound: float, upper: int) -> int:
-    """The device count the relaxation proves: the search's own when it proved the cutoff
-    infeasible, else its dual bound rounded up (0 without one)."""
+def tighten(relax: _Relaxation, keep: list[int], cutoff: int, opts: CertifyOptions) -> bool:
+    """Bound tightening at `cutoff` devices on the kept snapshots when the relaxation carries the
+    "bounds" family (each solve stopped at `opts.tighten_limit`); False when it finds the relaxation
+    infeasible, a claim `solve_claim` then has confirmed."""
+    if "bounds" not in relax.cuts:
+        return True
+    return all(relax_cuts.tighten(relax, t, cutoff, opts.tighten_limit) for t in keep)
+
+
+def solve_claim(
+    relax: _Relaxation,
+    keep: list[int],
+    counts: tuple[Optional[int], int],
+    opts: CertifyOptions,
+    feasible: bool = True,
+) -> BoundClaim:
+    """What the relaxation over the kept snapshots proves, `counts` = (the cutoff, at most that many
+    devices or None, and the search's count): its dual bound rounded with `opts.bound_margin`, or,
+    when it is infeasible (or bound tightening found it so, `feasible` False), the search's count
+    once a re-solve with loosened tolerances confirms it (`_confirm_infeasible`)."""
+    cutoff, upper = counts
+    if feasible:
+        status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff)
+        if status != "infeasible":
+            return BoundClaim(_rounded(bound, opts.bound_margin, upper), status, x, bv, "")
+    return _confirm_infeasible(relax, keep, counts, opts)
+
+
+def _confirm_infeasible(
+    relax: _Relaxation, keep: list[int], counts: tuple[Optional[int], int], opts: CertifyOptions
+) -> BoundClaim:
+    """An infeasibility at SCIP's default tolerances, re-solved with numerics/feastol loosened to
+    `opts.robust_feastol`: still infeasible, it proves the search's count (at a cutoff below it);
+    feasible, the loosened problem's dual bound is the claim, with the doubt stated. Without a
+    cutoff, an infeasible relaxation contradicts the search's own attack, which is a point of it."""
+    cutoff, upper = counts
+    status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff, feastol=opts.robust_feastol)
     if status == "infeasible":
-        return upper
-    return int(math.ceil(bound - 1e-6)) if math.isfinite(bound) else 0
+        doubt = ""
+        if cutoff is None and upper >= 0:
+            doubt = f"the relaxation admits no attack, though the search's attack of {upper} devices is a point of it"
+        return BoundClaim(upper, status, None, np.zeros(len(relax.devices)), doubt)
+    doubt = f"infeasible at SCIP's default tolerances but {status} at feastol {opts.robust_feastol:g}"
+    return BoundClaim(_rounded(bound, opts.bound_margin, upper), status, x, bv, doubt)
 
 
-def _bound(
-    relax: _Relaxation, keep: list[int], cutoff: Optional[int], opts: CertifyOptions
-) -> tuple[str, float, Optional[np.ndarray], np.ndarray]:
-    """Bound tightening on the kept snapshots (with the "bounds" family, each solve stopped at
-    `opts.tighten_limit`), then the mixed-integer solve stopped at `opts.time_limit`:
-    `_Relaxation.solve`'s tuple, status "infeasible" when either proves no attack within `cutoff`
-    devices."""
-    if cutoff is not None and "bounds" in relax.cuts:
-        for t in keep:
-            if not relax_cuts.tighten(relax, t, cutoff, opts.tighten_limit):
-                return "infeasible", math.inf, None, np.zeros(len(relax.devices))
-    return relax.solve(opts.time_limit, keep, cutoff)
+def _rounded(bound: float, margin: float, upper: int) -> int:
+    """The device count a relaxation bound proves: ceil(bound - margin), never a plain rounding, so a
+    bound just above an integer by SCIP's tolerances is not rounded past it (0 without a bound), and
+    never above the search's count, a point of every relaxation."""
+    if not math.isfinite(bound):
+        return 0
+    lower = int(math.ceil(bound - margin))
+    return lower if upper < 0 else min(lower, upper)
+
+
+def _verdict(upper: int, base: BoundClaim, cut: Optional[BoundClaim], forced: int) -> tuple[int, str, str]:
+    """(the lower bound, the `CertifyVerdict`, the reason when uncertain) from the cone relaxation's
+    claim `base`, the cut relaxation's `cut` (None without cuts) and the search's forced-device bound:
+    "uncertain" on any doubt (`_doubts`), with the smaller of the two bounds kept; else "certified"
+    when the bound meets the search's count, "gap" when it does not."""
+    doubts = _doubts(base, cut)
+    lower = base.lower if cut is None else (min(cut.lower, base.lower) if doubts else cut.lower)
+    lower = max(lower, forced)
+    if doubts:
+        return lower, CertifyVerdict.UNCERTAIN.value, "; ".join(doubts)
+    if upper >= 0 and lower >= upper:
+        return lower, CertifyVerdict.CERTIFIED.value, ""
+    return lower, CertifyVerdict.GAP.value, ""
+
+
+def _doubts(base: BoundClaim, cut: Optional[BoundClaim]) -> list[str]:
+    """Why the claims are not clear of SCIP's tolerances: each claim's own doubt (an infeasibility the
+    loosened re-solve did not confirm), and a contradiction between the levels. Cuts only shrink the
+    relaxation, so a cut bound below the cone bound, both at SCIP's default tolerances, is numerical;
+    a doubted claim bounds a larger, loosened problem, so its lower value is doubt, not contradiction."""
+    doubts = [c.doubt for c in (base, cut) if c is not None and c.doubt]
+    if cut is not None and not doubts and cut.lower < base.lower:
+        doubts.append(
+            f"the cut relaxation's bound {cut.lower} is below the cone relaxation's {base.lower}, "
+            "though cuts only shrink the relaxation"
+        )
+    return doubts
 
 
 def _strongest(g: MinimizeMixin, window: _Window) -> int:

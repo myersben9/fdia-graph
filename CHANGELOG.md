@@ -24,11 +24,18 @@ the public API, the generated files and the numbers are the same as the previous
   sets SCIP's time limits (the relaxation, and 5 s per bound-tightening solve), the kept snapshots
   (non-empty, inside the window) and the cut families, new choice `CutFamily`, of
   `engine/attacks/relax_cuts.py` (bound tightening of each bus's voltage move, the QC relaxation,
-  bus angles closing every cycle). Solved with SCIP through cvxpy, in the new
+  bus angles closing every cycle). A certificate is claimed only clear of SCIP's tolerances
+  (docs/plans/RELAX_CERTIFIER_PLAN.md, section 4.1): a bound b proves ceil(b - `bound_margin`)
+  devices, an infeasibility is accepted only when a re-solve with numerics/feastol loosened to
+  `robust_feastol` stays infeasible, and a cut relaxation whose bound falls below the cone
+  relaxation's is a contradiction; `Certificate.verdict` (new choice `CertifyVerdict`: "certified",
+  "gap", "uncertain"), `reason` and `cone_lower` report it, and `models.frames.BoundClaim` is what
+  one solve proves. Solved with SCIP through cvxpy, in the new
   optional extra `[certify]`, also part of `[all]`. The bound is valid but loose: on IEEE-14 with new generation's
-  defaults it certifies 1 of 4 `At` episodes, 0 of 10 two-line `Am` episodes (gaps of 3 to 11
-  devices, median 4) and 0 of [WU26]'s two scenarios (gaps 7 and 6), with or without the cuts, and
-  SCIP's tolerances decide some `At` bounds. By default `tests/test_certify.py` checks the cone
+  defaults it certifies 0 of 10 two-line `Am` episodes (gaps of 3 to 11 devices, median 4) and 0 of
+  [WU26]'s two scenarios (gaps 7 and 6) at every cut level; of 4 `At` episodes the cone relaxation
+  alone certifies 1, and with the default cuts none is certified and 1 is "uncertain" (its
+  infeasibility at one device fewer does not survive the loosened re-solve). By default `tests/test_certify.py` checks the cone
   relaxation's validity on an IEEE-14 two-line `Am` window and on an `At` window whose stealth bound
   starts from a non-zero previous attack vector; the cut families' cases and the full solve run with
   `FDIA_SLOW=1`.

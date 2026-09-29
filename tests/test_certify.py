@@ -224,7 +224,10 @@ def test_the_bound_never_exceeds_the_search(window, monkeypatch):
     c = certify(g, states, goal, k, options=CertifyOptions(time_limit=120.0))
     assert c is not None and c.upper == res.devices
     assert 1 <= c.lower <= c.upper
-    assert c.certified == (c.lower == c.upper)
+    assert c.verdict in ("certified", "gap", "uncertain")
+    assert c.certified == (c.verdict == "certified")
+    assert not c.certified or c.lower == c.upper
+    assert not c.certified or c.cone_lower <= c.lower  # a contradiction between levels never certifies
 
 
 @pytest.mark.parametrize(
@@ -258,3 +261,100 @@ def test_the_certify_options_store_canonical_values():
     opts = CertifyOptions(snapshots=[1, 0, 1], cuts=["qc", "bounds", "qc"], window=2)
     assert opts.snapshots == (0, 1) and opts.cuts == ("qc", "bounds")
     assert CertifyOptions().tighten_limit == 5.0  # the plan's section 2.1
+
+
+def _claim(lower, status="optimal", doubt=""):
+    from fdia_graph.models.frames import BoundClaim
+
+    return BoundClaim(lower, status, None, np.zeros(3), doubt)
+
+
+def test_a_cut_bound_below_the_cone_bound_is_uncertain_not_certified():
+    """Cuts only shrink the relaxation, so a cut bound below the cone bound (IEEE-14 At episode 1:
+    10 against 9) is a numerical contradiction: the smaller bound is kept and nothing is certified."""
+    from fdia_graph.engine.attacks.certify import _verdict
+
+    lower, verdict, reason = _verdict(12, _claim(10), _claim(9), 3)
+    assert (lower, verdict) == (9, "uncertain") and "below the cone relaxation's 10" in reason
+    # even when the smaller bound would meet the search's count
+    assert _verdict(9, _claim(10), _claim(9, "infeasible"), 0)[1] == "uncertain"
+
+
+def test_the_verdict_certifies_only_clear_claims():
+    from fdia_graph.engine.attacks.certify import _verdict
+
+    assert _verdict(9, _claim(7), _claim(9, "infeasible"), 0) == (9, "certified", "")
+    assert _verdict(9, _claim(9), None, 0) == (9, "certified", "")  # the cone bound alone meets it
+    assert _verdict(9, _claim(6), _claim(7), 0) == (7, "gap", "")
+    assert _verdict(9, _claim(6), None, 8) == (8, "gap", "")  # the search's forced devices are a floor
+    doubted = _verdict(9, _claim(7), _claim(9, "optimal", "not confirmed"), 0)
+    assert doubted == (7, "uncertain", "not confirmed")
+    # IEEE-14 At episode 3: the cut level's infeasibility is not confirmed and the loosened problem,
+    # a larger set, bounds 6; that is doubt, not a contradiction with the cone's 9 at default tolerance
+    loosened = _verdict(9, _claim(9), _claim(6, "optimal", "not confirmed"), 0)
+    assert loosened == (6, "uncertain", "not confirmed")
+
+
+def test_a_bound_is_rounded_down_with_a_margin():
+    from fdia_graph.engine.attacks.certify import _rounded
+
+    assert _rounded(9.005, 0.01, 12) == 9  # just above an integer by the tolerances: not rounded up
+    assert _rounded(9.02, 0.01, 12) == 10
+    assert _rounded(12.5, 0.01, 12) == 12  # never above the search's count
+    assert _rounded(float("-inf"), 0.01, 12) == 0
+
+
+class _FakeRelaxation:
+    """Stands in for `_Relaxation` in the claim logic: infeasible at SCIP's default tolerances and,
+    per `loose`, infeasible or feasible once numerics/feastol is loosened."""
+
+    devices = np.arange(3)
+    cuts = ()
+
+    def __init__(self, loose):
+        self.loose, self.calls = loose, []
+
+    def solve(self, time_limit, snapshots=None, cutoff=None, feastol=None):
+        self.calls.append(feastol)
+        if feastol is None or self.loose == "infeasible":
+            return "infeasible", float("inf"), None, np.zeros(3)
+        return "optimal", 7.3, np.zeros((1, 4)), np.array([1.0, 0.0, 1.0])
+
+
+def test_an_infeasibility_is_accepted_only_after_the_loosened_re_solve():
+    from fdia_graph.engine.attacks.certify import solve_claim
+    from fdia_graph.models.config import CertifyOptions
+
+    opts = CertifyOptions()
+    held = _FakeRelaxation("infeasible")
+    claim = solve_claim(held, [0], (8, 9), opts)
+    assert held.calls == [None, opts.robust_feastol]  # the default solve, then the loosened re-solve
+    assert (claim.lower, claim.doubt) == (9, "")
+    gone = _FakeRelaxation("feasible")
+    claim = solve_claim(gone, [0], (8, 9), opts)
+    assert claim.lower == 8 and "feastol 0.0001" in claim.doubt  # the loosened bound, and the doubt
+    tightened = _FakeRelaxation("infeasible")
+    solve_claim(tightened, [0], (8, 9), opts, feasible=False)  # bound tightening found it infeasible
+    assert tightened.calls == [opts.robust_feastol]
+
+
+def test_the_robust_re_solve_runs_on_scip(window, monkeypatch):
+    """The loosened re-solve on SCIP itself: at a cutoff of zero devices the relaxation (which asks
+    for at least one) is infeasible at any tolerance, and the claim is the search's count."""
+    monkeypatch.setenv("KMP_DUPLICATE_LIB_OK", "TRUE")
+    pytest.importorskip("cvxpy")
+    pytest.importorskip("pyscipopt")
+    from fdia_graph.engine.attacks.certify import _Relaxation, solve_claim
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.models.config import CertifyOptions
+
+    g, k, states, goal, res = window
+    seeds, _, _ = g._goal_seeds(goal)
+    relax = _Relaxation(g, _Window(g, states, goal, k), np.asarray(g.local_region(seeds, k.hops)))
+    calls = []
+    solve = relax.solve
+    monkeypatch.setattr(relax, "solve", lambda *a, **kw: calls.append(kw.get("feastol")) or solve(*a, **kw))
+    opts = CertifyOptions(time_limit=60.0)
+    claim = solve_claim(relax, [0], (0, res.devices), opts)
+    assert calls == [None, opts.robust_feastol]
+    assert (claim.lower, claim.status, claim.doubt) == (res.devices, "infeasible", "")

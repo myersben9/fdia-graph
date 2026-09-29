@@ -239,8 +239,8 @@ class Certificate(NamedTuple):
     relaxation of the same problem (a lower bound; docs/plans/RELAX_CERTIFIER_PLAN.md)."""
 
     upper: int  # the search's devices; -1 when it found no attack
-    lower: int  # devices every attack in the area must tamper (the relaxation's optimum, rounded up)
-    certified: bool  # the bounds meet: the search's attack is globally optimal over the area
+    lower: int  # devices every attack in the area must tamper (the relaxation's bound, rounded with a margin)
+    certified: bool  # verdict "certified": the bounds meet, clear of SCIP's tolerances
     status: str  # the solver's status of the mixed-integer relaxation ("optimal", or the limit it hit)
     seconds: float  # the relaxation's solve time
     cone_gap: float  # largest relative slack of the relaxed point's cones (0: every cone tight)
@@ -248,3 +248,18 @@ class Certificate(NamedTuple):
     area: np.ndarray  # the attacker's area both bounds range over
     support: np.ndarray  # the search's support (empty without an attack)
     devices: np.ndarray  # the devices the relaxation's optimum tampers
+    verdict: str  # `CertifyVerdict`: "certified", "gap" or "uncertain"
+    reason: str  # why the verdict is "uncertain" (empty otherwise)
+    cone_lower: int  # the bound of the cone relaxation alone, which the cut families may only raise
+
+
+class BoundClaim(NamedTuple):
+    """What one relaxation solve proves for `certify`: a lower bound on the device count, SCIP's
+    status, the relaxed point and device binaries (None and zeros when infeasible), and a doubt,
+    empty when the claim is clear of SCIP's tolerances."""
+
+    lower: int  # devices every attack must tamper, per this solve
+    status: str  # SCIP's status ("optimal", "infeasible", or the limit it hit)
+    x: Optional[np.ndarray]  # the relaxed variables per snapshot [T, n], None without a point
+    binaries: np.ndarray  # the device binaries of the relaxed point
+    doubt: str  # why the claim is not clear of the tolerances (empty when it is)

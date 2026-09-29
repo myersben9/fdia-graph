@@ -412,6 +412,14 @@ class CertifyOptions(Validated):
         tuple[str, ...], Parses(cut_families, f"must be a list or tuple of {CutFamily.values()}")
     ] = (CutFamily.BOUNDS.value, CutFamily.QC.value, CutFamily.CYCLE.value)
     window: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # snapshots in the window
+    # the count is an integer, so a bound b proves ceil(b - bound_margin) devices: a relaxed optimum
+    # that lands just above an integer by SCIP's tolerances is not rounded up past it
+    bound_margin: Annotated[float, InRange(0.0, 0.5)] = 0.01
+    # an infeasibility is accepted only when it survives a re-solve with SCIP's feasibility (and
+    # integrality) tolerance numerics/feastol loosened to this, 100 times SCIP's default 1e-6: a
+    # problem that stays infeasible with every constraint relaxed by more than the solver's own
+    # tolerance was not made infeasible by rounding
+    robust_feastol: Annotated[float, InRange(1e-6, 0.1)] = 1e-4
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
