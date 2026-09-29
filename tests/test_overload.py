@@ -245,9 +245,65 @@ def test_new_generation_makes_the_multi_snapshot_families_and_the_old_ones_warn(
             )
 
 
-def test_the_overload_attack_is_refused_on_a_case_without_ratings(tmp_path):
+def test_the_pglib_ratings_are_refused_on_a_case_without_them(tmp_path):
+    """D15: rating_source="pglib" keeps the previous behaviour, IEEE-14, 118 and 300 only."""
     with pytest.raises(NoLineRatings, match="IEEE-30 has no line ratings"):
-        generate_timeline(30, families=("Am",), attacked_frac=0.5, out=str(tmp_path / "x.h5"))
+        generate_timeline(
+            30,
+            families=("Am",),
+            attacked_frac=0.5,
+            am_attack={"rating_source": "pglib"},
+            out=str(tmp_path / "x.h5"),
+        )
+
+
+def test_pool_ratings_are_the_margin_times_the_pool_peak_flow(g, pool):
+    """D15: each branch's rating is rating_margin times its peak true apparent flow over the pool, on
+    every branch, metered or not; "pglib" restores PGLib-OPF's rate_a."""
+    from fdia_graph.formulas.attacks import branch_ratings
+    from fdia_graph.models.config import OverloadSettings
+    from fdia_graph.ratings import pglib_branches
+
+    fresh = FdiaGenerator(14, seed=123)
+    fresh.use_line_ratings(OverloadSettings(rating_margin=1.3), pool)
+    peak = np.abs(fresh.all_flows_from_states(pool)).max(axis=0)
+    assert np.allclose(fresh.line_ratings(), 1.3 * peak) and (peak > 0).all()
+    fresh.use_line_ratings(OverloadSettings(rating_source="pglib"), pool)
+    number = fresh.base.bus["name"].astype(int).to_numpy()
+    want = branch_ratings([(int(number[a]), int(number[b])) for a, b in fresh.ei.T], pglib_branches(14))
+    assert np.array_equal(fresh.line_ratings(), want, equal_nan=True)
+
+
+def test_the_rating_margin_must_exceed_one():
+    from fdia_graph.models.config import OverloadSettings
+
+    for bad in (1.0, 0.9, float("inf"), float("nan")):
+        with pytest.raises(ValueError):
+            OverloadSettings(rating_margin=bad)
+    with pytest.raises(ValueError):
+        OverloadSettings(rating_source="nameplate")
+    assert OverloadSettings.of("overload")[1] == OverloadSettings()
+    assert OverloadSettings.of("redistribution") == ("redistribution", None)
+    assert OverloadSettings.of({"rating_margin": 1.5}) == ("overload", OverloadSettings(rating_margin=1.5))
+
+
+def test_a_system_without_pglib_ratings_makes_am_on_pool_ratings(tmp_path):
+    """D15: the pool ratings work on every system of the ladder; IEEE-30 has no PGLib-OPF ratings."""
+    out = generate_timeline(
+        30,
+        states=_load_states(30, None)[:120],
+        seed=2,
+        families=("Am",),
+        am_len=10,
+        ramp_len=10,
+        attacked_frac=0.3,
+        out=str(tmp_path / "am30.h5"),
+    )
+    with h5py.File(out, "r") as f:
+        assert f.attrs[schema.Attr.RATING_SOURCE] == "pool" and f.attrs[schema.Attr.RATING_MARGIN] == 1.25
+        eg = f[schema.Group.EPISODES]
+        assert schema.EPISODE_AM_LINE in eg, "no overload episode was built"
+        assert (eg[schema.EPISODE_MIN_DEVICES][()] >= 1).all()
 
 
 def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):

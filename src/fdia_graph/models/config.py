@@ -7,10 +7,11 @@ once, on the field, and nowhere in the consumer.
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union
 
 from .choices import (
     AmAttack,
@@ -26,6 +27,7 @@ from .choices import (
     Layer,
     MeterModel,
     Order,
+    RatingSource,
     RecordFormat,
     Reweight,
     Split,
@@ -260,6 +262,25 @@ class TimelineKnobs(Validated):
     def am_frames(self) -> int:
         """The Am episode length: `am_len`, or `ramp_len` when none is given."""
         return self.ramp_len if self.am_len is None else self.am_len
+
+
+@dataclass(frozen=True)
+class OverloadSettings(Validated):
+    """The overload attack's line ratings (the plan's D15), as `generate_timeline(am_attack=...)`
+    takes them in a dict of these fields (the string "overload" is these defaults): S_max of each
+    branch is `rating_margin` times its peak true apparent flow over the operating pool ("pool",
+    every system), or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300)."""
+
+    rating_source: Annotated[str, OneOf(RatingSource)] = "pool"
+    rating_margin: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.25  # > 1
+
+    @staticmethod
+    def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:
+        """(the Am attack's kind, its rating settings or None for the redistribution): a dict of these
+        fields means the overload attack with them."""
+        if isinstance(am_attack, dict):
+            return AmAttack.OVERLOAD.value, OverloadSettings(**am_attack)
+        return am_attack, OverloadSettings() if am_attack == AmAttack.OVERLOAD.value else None
 
 
 @dataclass(frozen=True)

@@ -107,7 +107,8 @@ generator P and Q limits widened to the range the pool used
 and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
 operating limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation also
 solves its objective, eq. (12): each `At` and `Am` episode is held on the support that tampers the
-fewest devices, and `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25).
+fewest devices, and `Am` drives a line's reported flow to its rating (eqs. 24-25; by default 1.25
+times the line's peak flow over the pool, the plan's D15).
 The released files' stealthy families drew their targets at random and drove no line to its limit;
 `LEGACY_FAMILIES` with `am_attack="redistribution"`, `min_tamper=False` and `redundancy={"meter_model": "v083"}` reproduces them
 (`docs/plans/WU_MSFDIA_PLAN.md`).
@@ -131,8 +132,12 @@ the true flow plus a linear share of what separates the window's last true flow 
 `S_true_t + (t - kappa)/T (S_max - S_true_{kappa+T})` (the plan's D9), on the noiseless reading of
 the false state, reaching the rating `S_max` at the last snapshot; the attackable loads of the
 support are free, every other bus keeps its injection, and the false state is the least-norm voltage
-change that meets the flow. The ratings are PGLib-OPF's (IEEE-14, 118 and 300; other cases raise
-`NoLineRatings`). The generators of the support are free inside their limits, like its attackable loads, and the
+change that meets the flow. The ratings are by default 1.25 times each branch's peak true apparent flow
+over the operating pool (`rating_margin`, the plan's D15), which works on every system; the
+PGLib-OPF ratings are the alternative, `am_attack={"rating_source": "pglib"}` (IEEE-14, 118 and 300;
+other cases raise `NoLineRatings`). """
+    + MEAS
+    + """ The generators of the support are free inside their limits, like its attackable loads, and the
 flow solve enforces the voltage and generator limits by an active set (the plan's D14). As in
 [WU26], nothing bounds how far `Am` moves a channel between snapshots: a
 device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the

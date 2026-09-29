@@ -123,7 +123,7 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 | `Aq` | load rescale, the subnetwork around the buses re-solved locally, one frame | evades | every per-bus change within a 5% to 20% band |
 | `At` | slow load ramp, re-solved locally every frame | evades | peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames |
 | `Al` | load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally, one frame | evades | 2% to 20% band, load conserved |
-| `Am` | new generation: the overload attack of [WU26], a rated line's reported flow driven to its PGLib-OPF rating over the episode on the fewest-tamper support; data release v0.8.3 holds the earlier redistribution reached in per-frame steps | evades | the rating reached at the last scan; every scan one AC state, the fewest devices beyond [WU26]'s noise |
+| `Am` | new generation: the overload attack of [WU26], a line's reported flow driven to its rating (1.25 times its peak pool flow, or PGLib-OPF's) over the episode on the fewest-tamper support; data release v0.8.3 holds the earlier redistribution reached in per-frame steps | evades | the rating reached at the last scan; every scan one AC state, the fewest devices beyond [WU26]'s noise |
 | `Ad` / `As` / `Ar` | meter bias / scaling / replay, one frame | caught | Ad and As 2% to 20% band; Ar replays an earlier benign scan and records the realized change |
 
 New generation makes the multi-snapshot families `At` and `Am` only; `Aq`, `Al`, `Ad`, `As` and `Ar` are
@@ -136,7 +136,7 @@ meters written are the tamper masks in the file's `attack/` group. They satisfy 
 and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
 operating limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation
 also solves its objective, eq. (12): each `At` and `Am` episode is held on the support that tampers
-the fewest devices, and `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs.
+the fewest devices, and `Am` drives a line's reported flow to its rating (eqs.
 24-25). The released files' stealthy families drew their targets at random and drove no line to its
 limit; `LEGACY_FAMILIES` with `am_attack="redistribution"`, `min_tamper=False` and `redundancy={"meter_model": "v083"}` reproduces them
 (`docs/plans/WU_MSFDIA_PLAN.md`).

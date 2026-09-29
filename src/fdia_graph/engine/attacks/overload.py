@@ -2,9 +2,10 @@
 rating over the window, with the fewest devices tampered.
 
 [WU26, eqs. 24-25] asks that the apparent flow the tampered measurements carry on a target line grow
-snapshot by snapshot until it reaches the line's rating S_max. The rating is the branch's PGLib-OPF
-`rate_a` (`fdia_graph.ratings`; the IEEE cases pandapower ships rate every branch 9,900 MVA, which
-no flow comes near). A branch is a target for a window only when it is rated, its flow is metered
+snapshot by snapshot until it reaches the line's rating S_max. The rating is by default 1.25 times the
+branch's peak true flow over the operating pool (the plan's D15, `use_line_ratings`), or on request the
+branch's PGLib-OPF `rate_a` (`fdia_graph.ratings`; the IEEE cases pandapower ships rate every branch
+9,900 MVA, which no flow comes near). A branch is a target for a window only when it is rated, its flow is metered
 (the goal is what the operator sees) and its true flow stays below the rating at every snapshot of
 the window (otherwise the goal is met with no attack). The goal at snapshot t (the plan's D9) is
 
@@ -30,6 +31,7 @@ from typing import Optional
 import numpy as np
 
 from ...formulas.attacks import branch_ratings, generator_output
+from ...models.config import OverloadSettings
 from ...models.errors import NoLineRatings
 from ...models.frames import AmOverloadDesign, AttackVector, FlowGoal, Frame, FrameKnobs
 from ...models.grid import NODE
@@ -55,9 +57,24 @@ def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
 class OverloadMixin(MinimizeMixin):
     """Design and step the overload attack of [WU26] on a rated, metered target branch."""
 
+    def use_line_ratings(self, settings: OverloadSettings, X: np.ndarray) -> None:
+        """Set the ratings the overload attack drives its lines to (the plan's D15): with "pool", each
+        branch's `rating_margin` times its peak true apparent flow over the pool X [T, N, 4], at the
+        from end as the goal reads it (a static rating per line, every system); with "pglib", the
+        PGLib-OPF ratings (`line_ratings`, NoLineRatings on a case without them)."""
+        if settings.rating_source == "pglib":
+            self._line_ratings = None
+            self.line_ratings()
+            return
+        peak = np.zeros(self.E)
+        for a in range(0, len(X), 4096):  # the pool in slabs: a 72k-state pool is one pass
+            peak = np.maximum(peak, np.abs(self.all_flows_from_states(X[a : a + 4096])).max(axis=0))
+        self._line_ratings = settings.rating_margin * peak
+
     def line_ratings(self) -> np.ndarray:
-        """[E] each branch's rating in MVA (PGLib-OPF `rate_a`, matched by end buses), NaN where unrated.
-        Raises `NoLineRatings` on a case the package holds no ratings for."""
+        """[E] each branch's rating in MVA: the ratings `use_line_ratings` set, else PGLib-OPF's `rate_a`
+        (matched by end buses), NaN where unrated. Raises `NoLineRatings` on a case the package holds
+        no PGLib-OPF ratings for."""
         cached = getattr(self, "_line_ratings", None)
         if cached is not None:
             return cached

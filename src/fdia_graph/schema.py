@@ -176,6 +176,8 @@ class Attr:
     MIN_BUDGET = "min_budget"
     AM_ATTACK = "am_attack"
     STEALTH_SCALE = "stealth_scale"
+    RATING_SOURCE = "rating_source"  # the overload attack's line ratings (D15)
+    RATING_MARGIN = "rating_margin"
     METER_MODEL = "meter_model"  # written on a hybrid-meter file only (the plan's D10)
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"

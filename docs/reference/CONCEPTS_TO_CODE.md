@@ -61,7 +61,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 | Aq | `A_o` | scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode | `engine/attacks/episodes.single_shot_design` + `engine/attacks/false_state.stealthy_state` |
 | At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.ramp_design` + `ramp_step` |
 | Al | `A_l` | load-conserving redistribution around a target line, one frame per episode | `engine/attacks/redistribution.lra_delta` + `engine/attacks/stealthy._lra_frame` |
-| Am | `A_m` | the overload attack of [WU26]: a rated line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps) | `engine/attacks/overload.am_overload_design` + `overload_step` (v0.8.3: `episodes.am_design` + `am_step` + `stealthy._am_frame`) |
+| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps) | `engine/attacks/overload.am_overload_design` + `overload_step` (v0.8.3: `episodes.am_design` + `am_step` + `stealthy._am_frame`) |
 | Ad | `A_d` | `z ← z(1±u)` | `engine/attacks/corrupt.corrupt` |
 | As | `A_s` | `z ← βz` | `engine/attacks/corrupt.corrupt` |
 | Ar | `A_r` | replay `z(t−k)` | `engine/attacks/corrupt.corrupt` |
@@ -73,7 +73,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
   (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits), and
   new generation, whose PMUs read branch currents, meets the current phasors (19)-(20) as well. New generation also solves its objective,
   eq. (12): each `At` and `Am` episode is held on the support that tampers the fewest devices, and
-  `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25). The released files'
+  `Am` drives a line's reported flow to its rating (eqs. 24-25; by default 1.25 times its peak pool flow, D15). The released files'
   stealthy families drew their targets at random and drove no line to its limit; `LEGACY_FAMILIES`
   with `am_attack="redistribution"`, `min_tamper=False` and `redundancy={"meter_model": "v083"}` reproduces them
   (`docs/plans/WU_MSFDIA_PLAN.md`).

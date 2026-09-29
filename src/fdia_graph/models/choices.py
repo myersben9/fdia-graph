@@ -185,6 +185,15 @@ class AmAttack(Choice):
     REDISTRIBUTION = "redistribution"
 
 
+class RatingSource(Choice):
+    """Where the overload attack's line ratings S_max come from (the plan's D15): each branch's peak
+    true flow over the operating pool times a margin (every system), or PGLib-OPF's `rate_a`
+    (IEEE-14, 118 and 300)."""
+
+    POOL = "pool"
+    PGLIB = "pglib"
+
+
 class MeterModel(Choice):
     """What the meters of a generated file measure (the plan's D10). "hybrid": a SCADA voltmeter reads
     the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the

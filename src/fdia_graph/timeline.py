@@ -81,7 +81,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     ONE_FRAME_FAMILIES,
     AmDirection,
 )
-from .models.config import MeterSettings, TimelineKnobs
+from .models.config import MeterSettings, OverloadSettings, TimelineKnobs
 from .models.data import EpisodeRow
 from .models.frames import AmOverloadDesign, AttackVector, MinimizerResult
 from .models.inputs import AdmissibleTargets, FamilySelection
@@ -760,18 +760,21 @@ def _warn_deprecated_families(fams: Sequence[int]) -> None:
         )
 
 
-def _search_attrs(tk: TimelineKnobs, overload: bool, meter_model: Optional[str]) -> dict[str, object]:
+def _search_attrs(
+    tk: TimelineKnobs, overload: Optional[OverloadSettings], meter_model: Optional[str]
+) -> dict[str, object]:
     """The attributes of the searches a walk ran and of the meters it read, written only when they
     apply so a v0.8.3 file's attributes are unchanged: the fewest-tamper knobs, the Am attack, the
     stealth scale of At's search (Am has no stealth bound, the plan's D11; an Am-only file records
     the scale it was given, which nothing used), and on a hybrid-meter file its meter model and the
-    legend of its current layers."""
+    legend of its current layers; the overload attack's rating source and margin (D15)."""
     out: dict[str, object] = {}
     if tk.min_tamper:
         out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
-    if overload:
+    if overload is not None:
         out[Attr.AM_ATTACK] = tk.am_attack
-    if tk.min_tamper or overload:
+        out.update({Attr.RATING_SOURCE: overload.rating_source, Attr.RATING_MARGIN: overload.rating_margin})
+    if tk.min_tamper or overload is not None:
         out[Attr.STEALTH_SCALE] = tk.stealth_scale
     if meter_model is not None:  # a hybrid-meter file, which reads PMU currents
         out.update(
@@ -823,7 +826,7 @@ def generate_timeline(
     max_load_mw: Optional[float] = 2000.0,
     min_tamper: bool = True,
     min_budget: int = 256,
-    am_attack: str = "overload",
+    am_attack: Union[str, dict] = "overload",
     stealth_scale: float = 1.0,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
@@ -876,16 +879,20 @@ def generate_timeline(
                      search's choice per episode is written under episodes/ (min_*)
     min_budget       candidate supports the search solves per episode before it settles on the best
                      found (recorded as not proven)
-    am_attack        "overload" (default): Am is the overload attack of [WU26], a rated, metered
-                     branch's reported flow driven to its PGLib-OPF rating over the episode on the
-                     fewest-tamper support (IEEE-14, 118 and 300 only: NoLineRatings elsewhere),
-                     its branch, rating and reached flow under episodes/ (am_*); "redistribution":
-                     the held load redistribution of data release v0.8.3
+    am_attack        "overload" (default): Am is the overload attack of [WU26], a metered branch's
+                     reported flow driven to its rating over the episode on the fewest-tamper
+                     support, its branch, rating and reached flow under episodes/ (am_*); the
+                     rating is 1.25 times the branch's peak true flow over the pool (the plan's
+                     D15). A dict of `OverloadSettings` fields asks for the overload attack with
+                     other ratings: {"rating_margin": 1.5}, or {"rating_source": "pglib"} for the
+                     PGLib-OPF ratings (IEEE-14, 118 and 300 only: NoLineRatings elsewhere).
+                     "redistribution": the held load redistribution of data release v0.8.3
     stealth_scale    a multiplier on At's stealth bound: each channel's attack step between
                      snapshots at most this many times the meters' rated accuracy (the plan's D7); 1
                      by default. Am has no such bound, as in [WU26]: its noise (0.03 pu SCADA, 0.01 pu
                      PMU, D8) only decides which changes its tamper count ignores (D11)
     """
+    am_kind, ratings = OverloadSettings.of(am_attack)
     tk = TimelineKnobs(
         attacked_frac,
         am_rate,
@@ -896,12 +903,12 @@ def generate_timeline(
         corrupt_len,
         min_tamper,
         min_budget,
-        am_attack,
+        am_kind,
         stealth_scale,
     )
     fams = FamilySelection(families).codes
     _warn_deprecated_families(fams)
-    overload = tk.am_attack == "overload" and AM_FAMILY in fams
+    overload = ratings if AM_FAMILY in fams else None  # the overload attack's ratings when it runs
     g, meters = _generator(system, seed, max_load_mw, redundancy)
     red = meters.coverage
     currents = g.current_mask() is not None
@@ -911,9 +918,11 @@ def generate_timeline(
     if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
         # the overload Am is not checked against the redistribution pool: its targets are the rated,
         # metered lines of each window, decided per episode (a window with none stays benign)
-        AdmissibleTargets(tuple(f for f in fams if not (overload and f == AM_FAMILY)), g.target_counts())
-        if overload:
-            g.line_ratings()  # NoLineRatings on a case without ratings, before any frame is walked
+        AdmissibleTargets(
+            tuple(f for f in fams if not (overload is not None and f == AM_FAMILY)), g.target_counts()
+        )
+        if overload is not None:  # the ratings, before any frame is walked (pglib: NoLineRatings early)
+            g.use_line_ratings(overload, X)
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(
@@ -932,7 +941,7 @@ def generate_timeline(
     ctx = _FrameContext(g, X, knobs, [])
     am = (tk.am_frames, tk.am_rate, tk.am_direction)
     plan = _Schedule.build(list(fams), tk.ramp_len, ramp_rate, am, tk.corrupt_len, tk.attacked_frac)
-    plan.am_overload = overload
+    plan.am_overload = overload is not None
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = {
         Attr.TARGET_ATTACKED_FRAC: attacked_frac,

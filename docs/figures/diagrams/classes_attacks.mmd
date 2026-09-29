@@ -18,6 +18,7 @@ classDiagram
         +goal_state()
     }
     class OverloadMixin {
+        +use_line_ratings()
         +line_ratings()
         +eligible_lines()
         +overload_goal()
@@ -86,6 +87,9 @@ classDiagram
     class OperatingLimits {
         <<models>>
     }
+    class OverloadSettings {
+        <<models>>
+    }
     class RampDesign {
         <<models>>
     }
@@ -140,6 +144,7 @@ classDiagram
     OverloadMixin ..> Frame : uses
     OverloadMixin ..> FrameKnobs : uses
     OverloadMixin ..> NoLineRatings : uses
+    OverloadMixin ..> OverloadSettings : uses
     RedistributionMixin ..> Redistribution : uses
     StealthyMixin ..> AttackDesign : uses
     StealthyMixin ..> Frame : uses

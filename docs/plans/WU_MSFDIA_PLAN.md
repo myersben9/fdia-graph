@@ -1,6 +1,6 @@
 # Plan: the [WU26] attack as the optimization it is, and one home for attack generation
 
-**Status: accepted; decisions D1 to D14 taken (section 9).**
+**Status: accepted; decisions D1 to D15 taken (section 9).**
 
 [WU26] defines its multi-snapshot attack (MS-FDIA) as an optimization: eq. (12) minimizes the
 number of tampered measurements subject to the AC measurement model (13)-(20), the operating limits
@@ -252,8 +252,9 @@ families as they are.
   would let opposite changes cancel).
 - **D2, the minimizer's reach:** every family the generator makes, `At` and `Am` (D6), so the area
   of every attack is the least a real attacker would need.
-- **D3, `S_max`:** the branch ratings (`rate_a`) of the PGLib-OPF v23.07 versions of IEEE-14, 118
-  and 300 (CC BY 4.0), in MVA, stored with the package and matched to our branches by their end
+- **D3, `S_max`:** (since D15 the alternative, `am_attack={"rating_source": "pglib"}`; the default
+  rating is the pool's) the branch ratings (`rate_a`) of the PGLib-OPF v23.07 versions of IEEE-14,
+  118 and 300 (CC BY 4.0), in MVA, stored with the package and matched to our branches by their end
   buses; a branch's flow magnitude `sqrt(P^2 + Q^2)` from its MW and MVAr channels is compared with
   it directly. Pandapower's ratings cannot serve: every line and transformer of the three cases is
   rated 9,900 MVA, MATPOWER's placeholder for "no limit", and the base case loads the most loaded
@@ -316,6 +317,24 @@ families as they are.
   `prev_node_x` and `prev_edge_x` (offered on a hybrid-meter file), so `JacobianWeighting` and any
   estimator that reads the previous frame can use the eq. (3) pseudo-measurements; the refusal is
   lifted.
+- **D15, the ratings default to the operating pool:** S_max of each branch is `rating_margin`
+  times its peak true apparent flow over the operating pool the timeline walks (static per line,
+  like a thermal rating, computed once from the pool's noiseless from-end flows, the magnitude the
+  goal reads), with `rating_margin = 1.25` by default. Ben's advisor's guidance is that limits sit
+  20% to 30% above a line's flow. The sensitivity study on [WU26]'s IEEE-14 case-study metering
+  (the working notes' `wu_smax_sensitivity.csv` and `wu_smax_sensitivity.png`: S_max = k times each
+  goal line's peak flow over the window, k from 1.05 to 2) puts the paper's reported scale of about
+  0.2 pu at k between 1.05 and 1.2, and our device counts equal the paper's (7 and 9) at k = 1.2;
+  the PGLib-OPF ratings sit 3 to 19 times above those lines' flows and ask changes of about 10 pu.
+  The pool ratings work on every system of the ladder (no `NoLineRatings`); the PGLib-OPF ratings
+  stay available as the robustness alternative (`am_attack={"rating_source": "pglib"}`, IEEE-14,
+  118 and 300 only) and are reported alongside in the papers. Both knobs live in
+  `models.OverloadSettings`, passed as a dict through `am_attack` (no new top-level parameter), and
+  are recorded in the file's attributes (`rating_source`, `rating_margin`) when the overload attack
+  runs. Eligibility is unchanged: a line whose true flow reaches its rating at any snapshot of the
+  window is not a target. """
+    + MEAS
+    + """
 - **D14, the rest of the `Am` path against eqs. (12)-(25):** generator injections are free, as
   [WU26, eqs. 13-14] let every injection measurement be tampered and (22)-(23) bound only the
   generator output: a generator bus of the support has free P and Q injection like an attackable

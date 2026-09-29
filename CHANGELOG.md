@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The overload attack's line ratings default to the operating pool (docs/plans/WU_MSFDIA_PLAN.md,
+  D15): S_max of each branch is 1.25 times its peak true apparent flow over the pool the timeline
+  walks, so `Am` runs on every system of the ladder. The PGLib-OPF ratings stay available,
+  `generate_timeline(am_attack={"rating_source": "pglib"})` (IEEE-14, 118 and 300; `NoLineRatings`
+  elsewhere). New model `OverloadSettings` (`rating_source` "pool" or "pglib", `rating_margin` > 1),
+  passed as a dict through `am_attack`; new choice `RatingSource`;
+  `OverloadMixin.use_line_ratings`, `MeasurementMixin.all_flows_from_states`; new file attributes
+  `rating_source` and `rating_margin` when the overload attack runs. """
+    + MEAS
+    + """
+
 - Review fixes to the hybrid meters and the overload attack: a generator pinned at one limit keeps
   its other component free (the active set pins P and Q apart); an overload frame's magnitude at a
   generator bus is its apparent change against the true generator output (at a load bus, the

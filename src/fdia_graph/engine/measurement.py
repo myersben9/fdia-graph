@@ -118,14 +118,18 @@ class MeasurementMixin(GridBase):
         # physics primitive instead of re-deriving Ybus flows in the loader/generator.
         # X is [T, N, 4] = [|V|, Pinj, Qinj, angle]; only |V| (col 0) and angle (col 3) enter.
         # Returns [T, E, 2] = [P_from MW, Q_from MVAr], unmetered branches zeroed to match emit()'s flow mask.
-        X = np.asarray(X, float)
-        C = X.shape[1]
-        Vc = np.zeros((len(X), self._n_ppc_buses), complex)
-        Vc[:, self._ppc_row[np.arange(C)]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
-        Sf = branch_flows(Vc, self._Yf, self._from_bus_ppc, self._base_mva)
+        Sf = self.all_flows_from_states(X)
         ec = np.stack([Sf.real, Sf.imag], axis=2).astype(np.float32)
         ec[:, ~np.asarray(self.meters.flow, bool), :] = 0.0
         return ec
+
+    def all_flows_from_states(self, X: np.ndarray) -> np.ndarray:
+        """The exact from-end complex flow [T, E] (MW + j MVAr) of every branch, metered or not, for a
+        stack of states [T, N, 4] (`clean_flows_from_states` masks it to the metered branches)."""
+        X = np.asarray(X, float)
+        Vc = np.zeros((len(X), self._n_ppc_buses), complex)
+        Vc[:, self._ppc_row[np.arange(X.shape[1])]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
+        return branch_flows(Vc, self._Yf, self._from_bus_ppc, self._base_mva)
 
     def currents_from_states(self, X: np.ndarray) -> np.ndarray:
         """The exact PMU branch-current channels [T, E, 4] (`CURRENT` columns, per unit) of a stack of
