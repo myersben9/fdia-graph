@@ -266,13 +266,17 @@ class TimelineKnobs(Validated):
 
 @dataclass(frozen=True)
 class OverloadSettings(Validated):
-    """The overload attack's line ratings (the plan's D15), as `generate_timeline(am_attack=...)`
-    takes them in a dict of these fields (the string "overload" is these defaults): S_max of each
-    branch is `rating_margin` times its peak true apparent flow over the operating pool ("pool",
-    every system), or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300)."""
+    """The overload attack's settings, as `generate_timeline(am_attack=...)` takes them in a dict of
+    these fields (the string "overload" is these defaults): the line ratings (the plan's D15), S_max
+    of each branch `rating_margin` times its peak true apparent flow over the operating pool
+    ("pool", every system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300); and the
+    load-plausibility cap `load_cap` on every load bus the attack moves (D16)."""
 
     rating_source: Annotated[str, OneOf(RatingSource)] = "pool"
     rating_margin: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.25  # > 1
+    # the load-plausibility cap tau: no load bus the attack moves shows a change beyond tau times its
+    # true load [YUA11] (the plan's D16; a rule of ours, Yuan's 20% to 50%, the upper end by default)
+    load_cap: Annotated[float, Finite(), InRange(0.0, 1.0, hi_closed=True)] = 0.5
 
     @staticmethod
     def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:

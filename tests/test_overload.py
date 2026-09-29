@@ -92,8 +92,8 @@ def test_the_flow_solve_takes_the_least_norm_step(g, pool):
     got = np.concatenate(
         [np.angle(Vf[interior]) - np.angle(V[interior]), np.abs(Vf[interior]) - np.abs(V[interior])]
     )
-    # one goal branch; the two fixed buses hold P (rows 0, 1) and Q (rows k, k + 1)
-    J = _flow_jacobian(Yb, Yf[[line]], np.array([f]), V, interior, np.r_[0:2, k : k + 2])
+    # one goal branch; the two fixed buses hold P and Q
+    J = _flow_jacobian(Yb, Yf[[line]], np.array([f]), V, interior, (fixed, np.ones(4, bool)))
     r = np.zeros(J.shape[0])
     r[-1] = -eps
     want = np.linalg.lstsq(J, -r, rcond=None)[0]
@@ -282,6 +282,10 @@ def test_the_rating_margin_must_exceed_one():
             OverloadSettings(rating_margin=bad)
     with pytest.raises(ValueError):
         OverloadSettings(rating_source="nameplate")
+    for bad in (0.0, -0.1, 1.5, float("nan")):  # the load cap tau is in (0, 1]
+        with pytest.raises(ValueError):
+            OverloadSettings(load_cap=bad)
+    assert OverloadSettings(load_cap=1.0).load_cap == 1.0
     assert OverloadSettings.of("overload")[1] == OverloadSettings()
     assert OverloadSettings.of("redistribution") == ("redistribution", None)
     assert OverloadSettings.of({"rating_margin": 1.5}) == ("overload", OverloadSettings(rating_margin=1.5))
@@ -301,6 +305,7 @@ def test_a_system_without_pglib_ratings_makes_am_on_pool_ratings(tmp_path):
     )
     with h5py.File(out, "r") as f:
         assert f.attrs[schema.Attr.RATING_SOURCE] == "pool" and f.attrs[schema.Attr.RATING_MARGIN] == 1.25
+        assert f.attrs[schema.Attr.LOAD_CAP] == 0.5
         eg = f[schema.Group.EPISODES]
         assert schema.EPISODE_AM_LINE in eg, "no overload episode was built"
         assert (eg[schema.EPISODE_MIN_DEVICES][()] >= 1).all()
@@ -449,10 +454,10 @@ def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
     b = int(S[0])
     gen = generator_output(Xt, g.load_base, g.gen_base)
     limits = _knobs(g, pool).limits
-    p_lo, p_hi = limits.p_lo.copy(), limits.p_hi.copy()
+    # every other generator (the edge's too, D16) unbounded, so only this one's P limit binds
+    p_lo, p_hi = np.full(g.C, -np.inf), np.full(g.C, np.inf)
     p_lo[b] = p_hi[b] = gen[b, 0]
-    q_lo, q_hi = limits.q_lo.copy(), limits.q_hi.copy()
-    q_lo[b], q_hi[b] = -1e6, 1e6
+    q_lo, q_hi = np.full(g.C, -np.inf), np.full(g.C, np.inf)
     tight = limits._replace(p_lo=p_lo, p_hi=p_hi, q_lo=q_lo, q_hi=q_hi)
     Xa, converged, _ = g.solve_flow_local(Xt, S, line, target, tight)
     assert converged and Xa is not None
@@ -477,3 +482,67 @@ def test_a_generator_label_is_relative_to_its_output(g, pool):
     d = Xa[b] - Xt[b]
     want = np.hypot(d[NODE.p_inj], d[NODE.q_inj]) / np.hypot(gen[0], gen[1])
     assert g.pretended_change(Xt, Xa, S)[0] == pytest.approx(want)
+
+
+def _edge_cases(g, pool):
+    """Supports of one free load bus at a branch end whose edge holds a non-slack generator, each with
+    a 3% flow goal on that branch, the edge generator, and the free state without bounds."""
+    Xt = pool[0]
+    gens, loads = set(g.generator_buses().tolist()), set(g.free_load_buses().tolist())
+    for line in range(g.E):
+        for end in g.ei[:, line]:
+            S = np.array([int(end)])
+            if int(end) not in loads:
+                continue
+            edge_gens = sorted(set(g.touched_buses(S).tolist()) & gens)
+            flow = g.clean_flows_from_states(Xt[None])[0, line]
+            target = 1.03 * float(np.hypot(*flow))
+            free, _, _ = g.solve_flow_local(Xt, S, line, target)
+            if edge_gens and free is not None:
+                yield Xt, S, line, target, edge_gens, free
+
+
+def test_an_edge_generator_stays_inside_its_limits(g, pool):
+    """D16: (22)-(23) bound every generator whose reported output the attack changes, a generator on
+    the support's edge included: shut its P range and the solve holds its P there or refuses."""
+    from fdia_graph.formulas.attacks import generator_output
+
+    base = _knobs(g, pool).limits
+    gen = None
+    checked = 0
+    for Xt, S, line, target, edge_gens, free in _edge_cases(g, pool):
+        gen = generator_output(Xt, g.load_base, g.gen_base)
+        b = edge_gens[0]
+        if abs(free[b, NODE.p_inj] - Xt[b, NODE.p_inj]) < 1e-3:
+            continue  # the unbounded solve leaves this generator's P alone: nothing to test
+        p_lo, p_hi = base.p_lo.copy(), base.p_hi.copy()
+        p_lo[b] = p_hi[b] = gen[b, 0]
+        Xa, _, _ = g.solve_flow_local(Xt, S, line, target, base._replace(p_lo=p_lo, p_hi=p_hi))
+        if Xa is not None:
+            out = gen[b, 0] - (Xa[b, NODE.p_inj] - Xt[b, NODE.p_inj])
+            assert out == pytest.approx(gen[b, 0], abs=1e-6)
+            reached = g.clean_flows_from_states(Xa[None])[0, line]
+            assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
+            checked += 1
+    assert checked, "no edge generator case solved"
+
+
+def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):
+    """D16: with load_cap tau, no load bus the attack moves (in the support or on its edge) shows a
+    change beyond tau times its true load [YUA11]; the goal is still met."""
+    from fdia_graph.formulas.attacks import bus_load
+
+    checked = 0
+    for Xt, S, line, target, _, _ in _edge_cases(g, pool):
+        Xa, _, _ = g.solve_flow_local(Xt, S, line, target, None, 0.05)
+        if Xa is None:
+            continue
+        load = bus_load(Xt, g.load_base, g.gen_base)
+        buses = np.setdiff1d(g.touched_buses(S), np.r_[g.generator_buses(), g.slack_bus])
+        buses = buses[g.load_base[buses, 0] != 0]
+        change = np.abs(Xa[buses, NODE.p_inj] - Xt[buses, NODE.p_inj])
+        assert (change <= 0.05 * np.abs(load[buses]) + 1e-6).all()
+        reached = g.clean_flows_from_states(Xa[None])[0, line]
+        assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
+        checked += 1
+    assert checked, "no capped case solved"

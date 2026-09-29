@@ -302,6 +302,25 @@ def _interior_jacobian(Yb: np.ndarray, V: np.ndarray, I_: np.ndarray) -> np.ndar
     return np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
 
 
+def _injection_jacobian(Yb: np.ndarray, V: np.ndarray, R: np.ndarray, I_: np.ndarray) -> np.ndarray:
+    """The [2r, 2k] Jacobian of the injections at the buses R (any buses: inside the interior or on
+    its edge) in the interior's [θ_I, |V|_I], from S_r = V_r conj(sum_j Y_rj V_j):
+
+        dS_r/dθ_j   = 1j V_r conj(I_r) [r = j] - 1j V_r conj(Y_rj V_j)
+        dS_r/d|V|_j = V_r conj(Y_rj V_j / |V_j|) + conj(I_r) V_r / |V_r| [r = j]
+    """
+    Y_RI = Yb[np.ix_(R, I_)]
+    V_R, V_I = V[R], V[I_]
+    I_R = (Yb @ V)[R]
+    D = (np.asarray(R)[:, None] == np.asarray(I_)[None, :]).astype(float)
+    A = 1j * V_R[:, None] * (np.conj(I_R)[:, None] * D - np.conj(Y_RI * V_I[None, :]))
+    B = (
+        V_R[:, None] * np.conj(Y_RI * (V_I / np.abs(V_I))[None, :])
+        + (np.conj(I_R) * V_R / np.abs(V_R))[:, None] * D
+    )
+    return np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+
+
 def local_ac_solve(
     Ybus: Admittance,
     V: np.ndarray,
@@ -375,12 +394,12 @@ def _flow_jacobian(
     f: np.ndarray,
     V: np.ndarray,
     I_: np.ndarray,
-    inj_rows: np.ndarray,
+    held: tuple[np.ndarray, np.ndarray],
     vm_cols: np.ndarray = np.zeros(0, int),
 ) -> np.ndarray:
-    """The Jacobian of `_flow_residual` in [θ_I, |V|_I]: the held injection rows (`inj_rows`, rows
-    of the interior's [P; Q] injection Jacobian, negated since the residual is target minus
-    injection), one apparent-power row per goal branch, from its
+    """The Jacobian of `_flow_residual` in [θ_I, |V|_I]: the held injection rows (`held` = (the
+    held buses, inside the interior or on its edge; the [P; Q] rows kept), negated since the
+    residual is target minus injection), one apparent-power row per goal branch, from its
     from-end flow S_f = V_f conj(y_f . V), and a unit row per held magnitude (`vm_cols`, positions
     in the interior):
 
@@ -389,7 +408,8 @@ def _flow_jacobian(
         d|S_f|      = (P_f dP_f + Q_f dQ_f) / |S_f|
     """
     k = len(I_)
-    Jinj = _interior_jacobian(Yb, V, I_)
+    fixed, keep = held
+    Jinj = _injection_jacobian(Yb, V, np.asarray(fixed, int), I_)[keep]
     VI = V[I_]
     flow_rows = []
     for y, b in zip(yf, f):
@@ -405,7 +425,7 @@ def _flow_jacobian(
         flow_rows.append(np.concatenate([np.real(np.conj(Sf) * dth), np.real(np.conj(Sf) * dvm)]) / mag)
     vm_rows = np.zeros((len(vm_cols), 2 * k))
     vm_rows[np.arange(len(vm_cols)), k + np.asarray(vm_cols, int)] = 1.0  # d|V_b| / d|V|_b
-    return np.vstack([-Jinj[inj_rows], *flow_rows, vm_rows])
+    return np.vstack([-Jinj, *flow_rows, vm_rows])
 
 
 def local_flow_solve(
@@ -440,7 +460,8 @@ def local_flow_solve(
     from_bus : the goal branch's from-end bus (the end its flow is metered at), or [L]
     V        : [n] true complex bus voltages
     interior : the buses whose voltages may change
-    fixed    : the interior buses whose injection is held (a subset of `interior`)
+    fixed    : the buses whose injection is held: interior buses, or buses on the interior's edge
+               (whose voltage is held true, and whose injection the interior's voltages move)
     S_fixed  : [len(fixed)] their injections, per unit, generation positive
     target   : the goal branch's apparent flow, per unit, or [L]
     vm_fixed : (interior buses, magnitudes) held at those voltage magnitudes, or None (a bound the
@@ -456,11 +477,9 @@ def local_flow_solve(
     V = np.array(V, np.complex128, copy=True)
     I_ = np.asarray(interior, int)
     fx = np.asarray(fixed, int)
-    fixed_rows = np.array([int(np.flatnonzero(I_ == b)[0]) for b in fx], int)
     keep = (
         np.ones(2 * len(fx), bool) if hold is None else np.concatenate([hold[:, 0], hold[:, 1]]).astype(bool)
     )
-    inj_rows = np.concatenate([fixed_rows, len(I_) + fixed_rows])[keep]
     vb, vm = (
         (np.zeros(0, int), np.zeros(0)) if vm_fixed is None else (np.asarray(vm_fixed[0], int), vm_fixed[1])
     )
@@ -473,7 +492,7 @@ def local_flow_solve(
         norm = float(np.max(np.abs(r)))
         if norm < tol:
             return V
-        J = _flow_jacobian(Yb, yf, f, V, I_, inj_rows, vm_cols)
+        J = _flow_jacobian(Yb, yf, f, V, I_, (fx, keep), vm_cols)
         step = np.linalg.lstsq(J, -r, rcond=None)[0]  # the minimum-norm solution of J step = -r
         if not np.all(np.isfinite(step)):
             return None

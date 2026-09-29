@@ -133,6 +133,8 @@ class FrameKnobs(NamedTuple):
     min_budget: int = 256
     # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has none (D11)
     stealth_scale: float = 1.0
+    # the overload attack's load-plausibility cap tau (D16): None leaves the load changes unbounded
+    load_cap: Optional[float] = None
 
     @property
     def band(self) -> Band:

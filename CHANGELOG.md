@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The overload attack bounds the edge of its support (docs/plans/WU_MSFDIA_PLAN.md, D16): the
+  generator limits (22)-(23) apply to every generator whose reported output the attack changes, the
+  support's edge included (pinned in the solve, P and Q apart, and checked by `within_limits` over the
+  support and its edge), and every load bus it moves, in the support or on its edge, shows an active
+  change of at most `load_cap` times its true load [YUA11] (new `OverloadSettings.load_cap`, 0.5 by
+  default, in (0, 1], passed as `am_attack={"load_cap": ...}` and recorded as the file attribute
+  `load_cap`). `local_flow_solve` holds injections at edge buses as well
+  (`formulas.network._injection_jacobian`); `FalseStateMixin.touched_buses`; `FrameKnobs.load_cap`.
+
 - The overload attack's line ratings default to the operating pool (docs/plans/WU_MSFDIA_PLAN.md,
   D15): S_max of each branch is 1.25 times its peak true apparent flow over the pool the timeline
   walks, so `Am` runs on every system of the ladder. The PGLib-OPF ratings stay available,
@@ -12,9 +21,7 @@ the public API, the generated files and the numbers are the same as the previous
   elsewhere). New model `OverloadSettings` (`rating_source` "pool" or "pglib", `rating_margin` > 1),
   passed as a dict through `am_attack`; new choice `RatingSource`;
   `OverloadMixin.use_line_ratings`, `MeasurementMixin.all_flows_from_states`; new file attributes
-  `rating_source` and `rating_margin` when the overload attack runs. """
-    + MEAS
-    + """
+  `rating_source` and `rating_margin` when the overload attack runs. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, the pool ratings computed over the frames walked, the bounds of D16): IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 3.9 devices and 9.9 channels on average, the largest change on a channel 0.14 pu at the median episode and 0.82 pu at most, 8% of the searches proven, 30 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 9.6 devices and 30.4 channels on average, the largest change on a channel 0.40 pu at the median episode and 3.29 pu at most, 0% of the searches proven, 71 s of generation per episode; every episode's noiseless flow reaches its rating. Before D16 bounded the edge of the support the same runs gave IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 5.3 devices and 15.0 channels on average, the largest change on a channel 0.18 pu at the median episode and 5.74 pu at most, 36% of the searches proven, 15 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 6.8 devices and 21.4 channels on average, the largest change on a channel 1.05 pu at the median episode and 44.94 pu at most, 24% of the searches proven, 43 s of generation per episode, and IEEE-30 (600 frames, a smoke run) 5 episodes of 3.8 devices.
 
 - Review fixes to the hybrid meters and the overload attack: a generator pinned at one limit keeps
   its other component free (the active set pins P and Q apart); an overload frame's magnitude at a

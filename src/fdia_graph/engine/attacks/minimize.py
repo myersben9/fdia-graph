@@ -154,12 +154,14 @@ class MinimizeMixin(FalseStateMixin):
     def _flow_goal_state(
         self, goal: FlowGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
     ) -> tuple[Optional[np.ndarray], bool]:
-        Xa, converged, dload = self.solve_flow_local(Xt, S, goal.lines, goal.targets_at(t), k.limits)
+        Xa, converged, dload = self.solve_flow_local(
+            Xt, S, goal.lines, goal.targets_at(t), k.limits, k.load_cap
+        )
         if Xa is None:
             return None, converged
-        if k.limits is not None:
+        if k.limits is not None:  # every generator the attack moves, on S's edge too (D16)
             gen = generator_output(Xt, self.load_base, self.gen_base)
-            if not within_limits(Xa, Xt, gen, dload, k.limits, S):
+            if not within_limits(Xa, Xt, gen, dload, k.limits, self.touched_buses(S)):
                 return None, True
         return Xa, True
 

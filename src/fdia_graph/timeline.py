@@ -773,7 +773,13 @@ def _search_attrs(
         out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
     if overload is not None:
         out[Attr.AM_ATTACK] = tk.am_attack
-        out.update({Attr.RATING_SOURCE: overload.rating_source, Attr.RATING_MARGIN: overload.rating_margin})
+        out.update(
+            {
+                Attr.RATING_SOURCE: overload.rating_source,
+                Attr.RATING_MARGIN: overload.rating_margin,
+                Attr.LOAD_CAP: overload.load_cap,
+            }
+        )
     if tk.min_tamper or overload is not None:
         out[Attr.STEALTH_SCALE] = tk.stealth_scale
     if meter_model is not None:  # a hybrid-meter file, which reads PMU currents
@@ -937,6 +943,7 @@ def generate_timeline(
         tk.min_tamper,
         tk.min_budget,
         tk.stealth_scale,
+        getattr(overload, "load_cap", None),  # the overload attack's cap; none without it
     )
     ctx = _FrameContext(g, X, knobs, [])
     am = (tk.am_frames, tk.am_rate, tk.am_direction)

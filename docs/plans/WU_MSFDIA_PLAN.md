@@ -1,6 +1,6 @@
 # Plan: the [WU26] attack as the optimization it is, and one home for attack generation
 
-**Status: accepted; decisions D1 to D15 taken (section 9).**
+**Status: accepted; decisions D1 to D16 taken (section 9).**
 
 [WU26] defines its multi-snapshot attack (MS-FDIA) as an optimization: eq. (12) minimizes the
 number of tampered measurements subject to the AC measurement model (13)-(20), the operating limits
@@ -317,6 +317,18 @@ families as they are.
   `prev_node_x` and `prev_edge_x` (offered on a hybrid-meter file), so `JacobianWeighting` and any
   estimator that reads the previous frame can use the eq. (3) pseudo-measurements; the refusal is
   lifted.
+- **D16, the edge of the support is bounded:** the injections of the buses on the support's edge
+  move with the false voltages, and nothing bounded them: under D15 the heaviest lines' least-norm
+  false states moved them by up to 5.7 pu on IEEE-14 and 45 pu on IEEE-118. Two bounds, both enforced
+  in the flow solve by the active set that pins the generator limits (a component past its bound is
+  pinned at it and the solve repeated), P and Q apart: (22)-(23) apply to every generator whose
+  reported output the attack changes, the edge's included, and are checked by `within_limits` over
+  the support and its edge, which is closer to the paper, whose (22)-(23) bound every generator,
+  than our earlier interior-only reading; and a load bus the attack moves, in the support or on its
+  edge (no generator, not the slack), shows an active change of at most `load_cap` times its true
+  load, the load-plausibility rule of [YUA11] (tau 20% to 50%), ours and not the paper's, with tau =
+  0.5 by default (`OverloadSettings.load_cap`, in (0, 1], recorded in the file's attributes as
+  `load_cap`). The measurements are with D15 below, under the D16 bounds and before them.
 - **D15, the ratings default to the operating pool:** S_max of each branch is `rating_margin`
   times its peak true apparent flow over the operating pool the timeline walks (static per line,
   like a thermal rating, computed once from the pool's noiseless from-end flows, the magnitude the
@@ -332,9 +344,7 @@ families as they are.
   `models.OverloadSettings`, passed as a dict through `am_attack` (no new top-level parameter), and
   are recorded in the file's attributes (`rating_source`, `rating_margin`) when the overload attack
   runs. Eligibility is unchanged: a line whose true flow reaches its rating at any snapshot of the
-  window is not a target. """
-    + MEAS
-    + """
+  window is not a target. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, the pool ratings computed over the frames walked, the bounds of D16): IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 3.9 devices and 9.9 channels on average, the largest change on a channel 0.14 pu at the median episode and 0.82 pu at most, 8% of the searches proven, 30 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 9.6 devices and 30.4 channels on average, the largest change on a channel 0.40 pu at the median episode and 3.29 pu at most, 0% of the searches proven, 71 s of generation per episode; every episode's noiseless flow reaches its rating. Before D16 bounded the edge of the support the same runs gave IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 5.3 devices and 15.0 channels on average, the largest change on a channel 0.18 pu at the median episode and 5.74 pu at most, 36% of the searches proven, 15 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 6.8 devices and 21.4 channels on average, the largest change on a channel 1.05 pu at the median episode and 44.94 pu at most, 24% of the searches proven, 43 s of generation per episode, and IEEE-30 (600 frames, a smoke run) 5 episodes of 3.8 devices.
 - **D14, the rest of the `Am` path against eqs. (12)-(25):** generator injections are free, as
   [WU26, eqs. 13-14] let every injection measurement be tampered and (22)-(23) bound only the
   generator output: a generator bus of the support has free P and Q injection like an attackable
@@ -371,6 +381,7 @@ families as they are.
   | at most `AM_LINE_TRIES = 8` eligible lines tried per episode, each rated, metered and below its rating over the window | a bounded generator; the paper studies chosen lines |
   | generator limits widened to the range the pool ran each generator over, and a bus already outside its voltage limit may not be made worse | the pools were built without nameplate enforcement, so the nameplate would refuse states the pool already holds |
   | the goal is the apparent flow at the from end, where the flow is metered | the reading the operator sees |
+  | a load bus the attack moves, in the support or on its edge, shows an active change of at most `load_cap` (tau, 0.5 by default) times its true load (D16) | load plausibility: a load redistribution attack keeps each load within tau of its true value, tau 20% to 50% [YUA11]; without it the least-norm state moved edge injections by up to 45 pu |
 - **D10, the meters of new generation:** the hybrid SCADA and PMU plan of [WU26]. A SCADA voltmeter
   reads `|V|` only and the angle is a PMU channel (the released files wrote an angle at every
   voltmeter bus); every PMU reads the current phasor of each in-service branch at its bus (19)-(20),
