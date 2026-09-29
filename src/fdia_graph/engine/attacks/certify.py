@@ -804,7 +804,9 @@ def solve_claim(
 ) -> BoundClaim:
     """What the relaxation over the kept snapshots proves, `counts` = (the cutoff, at most that many
     devices or None, and the search's count): its dual bound rounded with `opts.bound_margin`, or,
-    when it is infeasible (or bound tightening found it so, `feasible` False), the search's count.
+    when it is infeasible (or bound tightening found it so, `feasible` False), what the infeasibility
+    proves (`_confirm_infeasible`: one more than the cutoff, 0 without one). Every claim comes from a
+    solve's proven bound or proven infeasibility, never from the search's count alone.
     A claim that would certify the search's count, by infeasibility or by an optimum that reaches
     the count, stands only when a re-solve with loosened tolerances certifies it too
     (`_confirm_infeasible`, `_confirm_optimum`). The re-solve runs on `confirm_on` (default `relax`
@@ -831,12 +833,13 @@ def _confirm_optimum(
     numerics/feastol loosened to `opts.robust_feastol`: when the loosened problem's bound still
     reaches the count, `claim` stands; otherwise the loosened bound is the claim, with the doubt
     stated (the loosened problem holds the default one, so its bound is the one clear of the
-    tolerances)."""
+    tolerances). A loosened problem that is infeasible where the default one is not contradicts the
+    search's attack, a point of both: nothing is proved, so the claim is 0, with the doubt."""
     cutoff, upper = counts
     status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff, feastol=opts.robust_feastol)
-    if status == "infeasible":  # a larger problem infeasible where the smaller one is not: numerical
+    if status == "infeasible":
         doubt = f"the relaxation is {claim.status} at SCIP's default tolerances but infeasible at feastol {opts.robust_feastol:g}"
-        return claim._replace(doubt=doubt)
+        return BoundClaim(0, status, None, np.zeros(len(relax.devices)), doubt)
     loose = _rounded(bound, opts.bound_margin, upper)
     if loose >= upper:
         return claim
@@ -848,18 +851,24 @@ def _confirm_infeasible(
     relax: _Relaxation, keep: list[int], counts: tuple[Optional[int], int], opts: CertifyOptions
 ) -> BoundClaim:
     """An infeasibility at SCIP's default tolerances, re-solved with numerics/feastol loosened to
-    `opts.robust_feastol`: still infeasible at cutoff c, it proves c + 1 devices (the search's count
-    when c is one fewer); feasible, the loosened problem's dual bound is the claim, with the doubt
-    stated. Without a cutoff, an infeasible relaxation contradicts the search's own attack, which is
-    a point of it."""
+    `opts.robust_feastol`: still infeasible at cutoff c, it proves c + 1 devices, at most the
+    search's count (the count when c is one fewer); feasible, the loosened problem's dual bound is the
+    claim, with the doubt stated. Without a cutoff the infeasibility proves no count: the claim is 0,
+    and when the search found an attack, a point of the relaxation, the contradiction is the doubt."""
     cutoff, upper = counts
     status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff, feastol=opts.robust_feastol)
     if status == "infeasible":
-        doubt = ""
-        if cutoff is None and upper >= 0:
-            doubt = f"the relaxation admits no attack, though the search's attack of {upper} devices is a point of it"
-        proved = upper if cutoff is None else (cutoff + 1 if upper < 0 else min(cutoff + 1, upper))
-        return BoundClaim(proved, status, None, np.zeros(len(relax.devices)), doubt)
+        none = np.zeros(len(relax.devices))
+        if cutoff is None:
+            doubt = (
+                ""
+                if upper < 0
+                else (
+                    f"the relaxation admits no attack, though the search's attack of {upper} devices is a point of it"
+                )
+            )
+            return BoundClaim(0, status, None, none, doubt)
+        return BoundClaim(cutoff + 1 if upper < 0 else min(cutoff + 1, upper), status, None, none, "")
     doubt = f"infeasible at SCIP's default tolerances but {status} at feastol {opts.robust_feastol:g}"
     return BoundClaim(_rounded(bound, opts.bound_margin, upper), status, x, bv, doubt)
 

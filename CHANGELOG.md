@@ -37,7 +37,9 @@ the public API, the generated files and the numbers are the same as the previous
   (`formulas.relax.roundoff_slack`; At's step bound by the float32 roundoff of attack values
   as large as the box allows, `step_roundoff_slack`), so the relaxation never cuts the search's
   attack. After bound tightening a would-be certificate is re-solved on the untightened
-  relaxation, and the search's forced-device bound is no longer a floor. The certifier refuses
+  relaxation, and the search's forced-device bound is no longer a floor. Every claim comes from a solve's proven
+  bound or infeasibility: an infeasibility at cutoff c proves c + 1 devices, one without a cutoff
+  proves nothing (0, and "uncertain" when the search found an attack). The certifier refuses
   knobs without finite voltage limits with the new named error `NoOperatingLimits` (input model
   `models.inputs.CertifiableLimits`): its voltage box and big-M constants come from the search's own
   limits, never from a default box. The bound is valid but loose: on IEEE-14 with new generation's

@@ -492,3 +492,38 @@ def test_the_certifier_refuses_knobs_without_finite_voltage_limits(window, monke
     with pytest.raises(NoOperatingLimits):
         certify(g, states, goal, unbounded)
     assert not searched  # refused before the search runs
+
+
+def test_an_infeasibility_without_a_cutoff_proves_nothing():
+    """Without a cutoff an infeasible relaxation proves no count: the claim is 0. When the search found
+    an attack, a point of the relaxation, the infeasibility contradicts it and the verdict is
+    uncertain; with no search attack (count -1) it is a plain claim of 0, never -1."""
+    from fdia_graph.engine.attacks.certify import _verdict, solve_claim
+    from fdia_graph.models.config import CertifyOptions
+
+    opts = CertifyOptions()
+    found = solve_claim(_FakeRelaxation("infeasible"), [0], (None, 9), opts)
+    assert found.lower == 0 and "admits no attack" in found.doubt
+    assert _verdict(9, found, None)[:2] == (0, "uncertain")
+    none = solve_claim(_FakeRelaxation("infeasible"), [0], (None, -1), opts)
+    assert (none.lower, none.doubt) == (0, "")
+    assert _verdict(-1, none, None) == (0, "gap", "")
+
+
+class _FeasibleThenInfeasible(_FakeRelaxation):
+    """An optimum of 9 at SCIP's default tolerance whose loosened re-solve is infeasible."""
+
+    def solve(self, time_limit, snapshots=None, cutoff=None, feastol=None):
+        self.calls.append(feastol)
+        if feastol is None:
+            return "optimal", 9.0, np.zeros((1, 4)), np.ones(3)
+        return "infeasible", float("inf"), None, np.zeros(3)
+
+
+def test_a_certifying_optimum_whose_loosened_re_solve_is_infeasible_proves_nothing():
+    from fdia_graph.engine.attacks.certify import _verdict, solve_claim
+    from fdia_graph.models.config import CertifyOptions
+
+    claim = solve_claim(_FeasibleThenInfeasible("infeasible"), [0], (None, 9), CertifyOptions())
+    assert claim.lower == 0 and "infeasible at feastol" in claim.doubt
+    assert _verdict(9, claim, None)[:2] == (0, "uncertain")
