@@ -1678,6 +1678,56 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li>The fewest-tamper search (<code>MinimizeMixin.min_tamper</code>) holds BLAS to one thread while it runs and
+  restores the caller's setting after, through threadpoolctl (added to the <code>generate</code> and <code>all</code>
+  extras; without it the search runs on whatever BLAS is set to). Its products are too small for
+  threads to pay: on a many-core machine starting them cost more than the arithmetic. The limit is process-wide:
+  while any search runs, other BLAS work in the process is on one thread too, and overlapping searches
+  share one limit, so the caller's setting comes back when the last of them leaves. No knob is added. Measured on the same fixed episodes as the entry below
+  (seed 1, hybrid meters, pool ratings, the D16 bounds with <code>load_cap</code> 0.5, two-line <code>Am</code>, budget
+  256, 20-snapshot windows), before and after side by side on the same shared machine. Median seconds
+  per episode, before to after:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Default threads, Am</th>
+<th>Default threads, At</th>
+<th><code>OPENBLAS_NUM_THREADS=1</code>, Am</th>
+<th><code>OPENBLAS_NUM_THREADS=1</code>, At</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14 (10 Am, 4 At)</td>
+<td>3.1 to 3.1</td>
+<td>0.58 to 0.28</td>
+<td>3.0 to 2.7</td>
+<td>0.31 to 0.31</td>
+</tr>
+<tr>
+<td>IEEE-30 (5 Am, 3 At)</td>
+<td>5.5 to 5.6</td>
+<td>0.81 to 0.33</td>
+<td>5.5 to 5.1</td>
+<td>0.32 to 0.26</td>
+</tr>
+<tr>
+<td>IEEE-118 (4 Am, 3 At)</td>
+<td>7.2 to 3.1</td>
+<td>0.89 to 0.44</td>
+<td>3.3 to 3.3</td>
+<td>0.38 to 0.51</td>
+</tr>
+</tbody>
+</table>
+<p>With the default threads the search now runs as fast as it did with the whole process on one
+  thread; with the process already on one thread nothing changes but timing noise. Every one of the
+  29 episodes, in all four runs, returns the same target lines, support, device and channel counts,
+  proof, candidates solved and failed solves, and the pinned searches of tests/test_search_speed.py
+  are unchanged.</p>
+<ul>
 <li>The fewest-tamper search is faster and finds the same supports, bit for bit. The flow solve keeps
   the full Ybus products of the released solve, since a search's answer can turn on the last bit of a
   solve near its convergence limit (a product over the region's rows alone changed the answer of 4 of
