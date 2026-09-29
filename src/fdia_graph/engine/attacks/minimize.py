@@ -39,10 +39,12 @@ already exceeds the best. When no held support meets every constraint, the resul
 
 from __future__ import annotations
 
+import contextlib
 import heapq
 import itertools
+import threading
 from collections.abc import Iterator
-from typing import NamedTuple, Optional, Union, cast
+from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
 import numpy as np
 
@@ -60,11 +62,54 @@ from ...models.grid import NODE
 from ..base import POWER_NOISE_FLOOR_MW
 from .false_state import FalseStateMixin
 
+if TYPE_CHECKING:
+    from threadpoolctl import ThreadpoolController
+
 _Cost = tuple[int, int, int]  # (devices, channels, support size): the objective, then its tie-breaks
 _Best = tuple[_Cost, np.ndarray]  # a solved support and its cost
 # the tampered node, flow and PMU current channels (masks; no currents without them in the plan)
 _Channels = tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]
 Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
+
+
+_BLAS: list[Optional[ThreadpoolController]] = []  # the process's BLAS pools, found on the first search
+# BLAS limits are process-wide, so concurrent searches share one limit: the first to enter sets it,
+# the last to leave restores the caller's setting (a stack of per-call limits would restore out of
+# order when calls overlap and leave the process on the wrong count)
+_BLAS_LOCK = threading.Lock()
+_BLAS_HELD: list[contextlib.AbstractContextManager[object]] = []  # the active limit, while any search runs
+_BLAS_USERS = [0]  # searches currently inside the limit
+
+
+@contextlib.contextmanager
+def _one_blas_thread() -> Iterator[None]:
+    """Hold the BLAS pools to one thread for a search, restoring them after the last concurrent search
+    leaves. The search's products are small (a few hundred buses at most), so on a many-core machine
+    starting BLAS threads costs more than the arithmetic (the CHANGELOG's timings; every measured
+    episode gave the same answer on one thread as on the default pool). Without threadpoolctl (the
+    `generate` extra installs it) the search runs on whatever BLAS is set to. The limit is process-wide,
+    so other BLAS work running while a search holds it is on one thread too."""
+    with _BLAS_LOCK:
+        if not _BLAS:
+            try:
+                from threadpoolctl import ThreadpoolController
+
+                _BLAS.append(ThreadpoolController())
+            except ImportError:
+                _BLAS.append(None)
+        controller = _BLAS[0]
+        if controller is not None and _BLAS_USERS[0] == 0:
+            held = controller.limit(limits=1, user_api="blas")
+            held.__enter__()
+            _BLAS_HELD.append(held)
+        _BLAS_USERS[0] += 1
+    try:
+        yield
+    finally:
+        with _BLAS_LOCK:
+            _BLAS_USERS[0] -= 1
+            if _BLAS_USERS[0] == 0 and _BLAS_HELD:
+                _BLAS_HELD.pop().__exit__(None, None, None)
 
 
 class MinimizeMixin(FalseStateMixin):
@@ -77,7 +122,15 @@ class MinimizeMixin(FalseStateMixin):
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (node [N, 4], flow [E, 2]; None or zeros
         when that frame is benign): At's stealth bound measures its first increment from it, since
-        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11)."""
+        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11). The search runs
+        with BLAS on one thread (`_one_blas_thread`)."""
+        with _one_blas_thread():
+            return self._min_tamper(states, goal, k, prev)
+
+    def _min_tamper(
+        self, states: list[np.ndarray], goal: Goal, k: FrameKnobs, prev: Optional[AttackVector]
+    ) -> Optional[MinimizerResult]:
+        """`min_tamper`'s search, on whatever BLAS threads the caller set."""
         seeds, starts, must_hold = self._goal_seeds(goal)
         area = self.local_region(seeds, k.hops)
         if area is None:
