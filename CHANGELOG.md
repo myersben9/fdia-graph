@@ -12,6 +12,45 @@ the public API, the generated files and the numbers are the same as the previous
   checks) skips the suites' install and run steps, the jobs still reporting success. The malformed-input
   tests' ids no longer carry memory addresses, which differed between workers.
 
+- A certifier for the fewest-tamper search, optional and never on the generation path
+  (docs/plans/RELAX_CERTIFIER_PLAN.md): `engine.attacks.certify.certify(g, states, goal, k)` runs the
+  search and bounds its device count from below by a mixed-integer second-order-cone relaxation of
+  [WU26] eq. (12) over the same area: device binaries with big-M links, Jabr's W with cuts that tie
+  it to the voltages the PMUs pin, the goal (every line of a multi-line goal), the voltage limits,
+  the zero injections, the search's support rule, and for `Am` the D14 and D16 injection bounds
+  (generator limits (22)-(23) and `load_cap`, over the area and its edge). It returns a
+  `Certificate` (`models.frames`): both bounds, whether they meet, the solve time and how far the
+  relaxed point is from an AC state. `CertifyOptions` (`models.config`, checked on construction)
+  sets SCIP's time limits (the relaxation, and 5 s per bound-tightening solve), the kept snapshots
+  (non-empty, inside the window) and the cut families, new choice `CutFamily`, of
+  `engine/attacks/relax_cuts.py` (bound tightening of each bus's voltage move, the QC relaxation,
+  bus angles closing every cycle). A certificate is claimed only clear of SCIP's tolerances
+  (docs/plans/RELAX_CERTIFIER_PLAN.md, section 4.1): a bound b proves ceil(b - `bound_margin`)
+  devices, a would-be certificate (an infeasibility at one device fewer, or an optimum that reaches
+  the search's count) stands only when a re-solve with numerics/feastol loosened to `robust_feastol`
+  certifies it too, and a cut relaxation whose bound falls below the cone
+  relaxation's is a contradiction; `Certificate.verdict` (new choice `CertifyVerdict`: "certified",
+  "gap", "uncertain"), `reason` and `cone_lower` report it, and `models.frames.BoundClaim` is what
+  one solve proves. Solved with SCIP through cvxpy, in the new
+  optional extra `[certify]`, also part of `[all]`. Every noise threshold the relaxation reproduces
+  is widened by the float32 roundoff of the search's own classification
+  (`formulas.relax.roundoff_slack`; At's step bound by the float32 roundoff of attack values
+  as large as the box allows, `step_roundoff_slack`), so the relaxation never cuts the search's
+  attack. After bound tightening a would-be certificate is re-solved on the untightened
+  relaxation, and the search's forced-device bound is no longer a floor. Every claim comes from a solve's proven
+  bound or infeasibility: an infeasibility at cutoff c proves c + 1 devices, one without a cutoff
+  proves nothing (0, and "uncertain" when the search found an attack). The certifier refuses
+  knobs without finite voltage limits with the new named error `NoOperatingLimits` (input model
+  `models.inputs.CertifiableLimits`): its voltage box and big-M constants come from the search's own
+  limits, never from a default box. The bound is valid but loose: on IEEE-14 with new generation's
+  defaults it certifies 0 of 10 two-line `Am` episodes (gaps of 3 to 11 devices, median 4) and 0 of
+  [WU26]'s two scenarios (gaps 7 and 6) at every cut level, and 0 of 4 `At` episodes: the one
+  the relaxation met without the guard (the cone relaxation's optimum at 9, the search's count) bounds
+  5 to 6 at the loosened tolerance and is "uncertain". By default `tests/test_certify.py` checks the cone
+  relaxation's validity on an IEEE-14 two-line `Am` window and on an `At` window whose stealth bound
+  starts from a non-zero previous attack vector; the cut families' cases and the full solve run with
+  `FDIA_SLOW=1`.
+
 - The fewest-tamper search (`MinimizeMixin.min_tamper`) holds BLAS to one thread while it runs and
   restores the caller's setting after, through threadpoolctl (added to the `generate` and `all`
   extras; without it the search runs on whatever BLAS is set to). Its products are too small for

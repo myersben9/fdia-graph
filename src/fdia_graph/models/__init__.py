@@ -14,6 +14,7 @@ PUBLIC names the bundles a user receives from the public API; the data dictionar
 from .assets import AssetSpec, DownloadTarget, LineCandidate
 from .base import Bundle
 from .config import (
+    CertifyOptions,
     ExportRequest,
     FederatedSettings,
     FitOptions,
@@ -66,6 +67,8 @@ from .frames import (
     AttackDesign,
     AttackVector,
     Band,
+    BoundClaim,
+    Certificate,
     FlowGoal,
     Frame,
     FrameKnobs,
@@ -105,6 +108,7 @@ from .inputs import (
     Affinity,
     Aggregation,
     AssignmentSpec,
+    CertifiableLimits,
     ClientCount,
     ClientGraph,
     ClientUpdates,
@@ -215,6 +219,9 @@ __all__ = [
     "FlowGoal",
     "AmOverloadDesign",
     "MinimizerResult",
+    "BoundClaim",
+    "Certificate",
+    "CertifyOptions",
     "OptimConfig",
     "ProfileFetch",
     "Aggregation",
@@ -235,6 +242,7 @@ __all__ = [
     "ClientGraph",
     "Halo",
     "AdmissibleTargets",
+    "CertifiableLimits",
     "DatasetName",
     "DateSpan",
     "ProfileSource",

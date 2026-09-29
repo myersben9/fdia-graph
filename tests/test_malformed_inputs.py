@@ -16,6 +16,7 @@ import pytest
 
 from fdia_graph.errors import ConfigError
 from fdia_graph.models import config, inputs
+from fdia_graph.models.frames import OperatingLimits
 from fdia_graph.models.validation import Validated
 
 
@@ -29,6 +30,7 @@ BAD = ("bogus", 1.5, -1, float("nan"), float("inf"), 10**1000, None, object(), [
 _EDGES = np.array([[0, 1], [1, 2]])
 _ADJ = np.eye(3)
 _GRAPH = inputs.ClientGraph(np.array([0, 0, 1]), _ADJ)
+_LIMITS = OperatingLimits(*(np.full(3, v) for v in (0.94, 1.06, -np.inf, np.inf, -np.inf, np.inf)))
 
 # a valid value for every required field, so each bad value is the only thing wrong
 VALID = {
@@ -41,6 +43,7 @@ VALID = {
     inputs.ProfileSource: dict(source=[1.0, 2.0]),
     inputs.DatasetName: dict(name="ieee14", local=frozenset(), builtin=frozenset({"ieee14"})),
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
+    inputs.CertifiableLimits: dict(limits=_LIMITS),
     inputs.FamilySelection: dict(families=("Aq",)),
     inputs.SystemRef: dict(system="ieee14"),
     inputs.SupportedSystem: dict(system="ieee14", supported=frozenset({14})),

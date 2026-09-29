@@ -194,6 +194,27 @@ class RatingSource(Choice):
     PGLIB = "pglib"
 
 
+class CutFamily(Choice):
+    """A family of valid cuts the certifier adds to its relaxation (`engine/attacks/relax_cuts.py`):
+    bound tightening of each bus's voltage move, the QC relaxation, and bus angles closing every
+    cycle (docs/plans/RELAX_CERTIFIER_PLAN.md, section 2.1)."""
+
+    BOUNDS = "bounds"
+    QC = "qc"
+    CYCLE = "cycle"
+
+
+class CertifyVerdict(Choice):
+    """What a certificate says (`models.frames.Certificate.verdict`): the search's count is globally
+    minimal over the area, a gap remains between the bounds, or the bound rests on a result inside
+    SCIP's numerical tolerances (a contradiction between relaxation levels, or an infeasibility the
+    loosened re-solve does not confirm), so nothing is claimed."""
+
+    CERTIFIED = "certified"
+    GAP = "gap"
+    UNCERTAIN = "uncertain"
+
+
 class MeterModel(Choice):
     """What the meters of a generated file measure (the plan's D10). "hybrid": a SCADA voltmeter reads
     the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the
