@@ -68,4 +68,3 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 | 10 | `localization/README.md` | which buses are under attack, and why the slow ramp is open |
 | 11 | `trust/README.md` | which meters to secure so a stealthy attack stops being stealthy |
 | 12 | `federated/README.md` | the localizers and the prior trained across clients that never pool their records |
-
