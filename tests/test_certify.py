@@ -274,24 +274,24 @@ def test_a_cut_bound_below_the_cone_bound_is_uncertain_not_certified():
     10 against 9) is a numerical contradiction: the smaller bound is kept and nothing is certified."""
     from fdia_graph.engine.attacks.certify import _verdict
 
-    lower, verdict, reason = _verdict(12, _claim(10), _claim(9), 3)
+    lower, verdict, reason = _verdict(12, _claim(10), _claim(9))
     assert (lower, verdict) == (9, "uncertain") and "below the cone relaxation's 10" in reason
     # even when the smaller bound would meet the search's count
-    assert _verdict(9, _claim(10), _claim(9, "infeasible"), 0)[1] == "uncertain"
+    assert _verdict(9, _claim(10), _claim(9, "infeasible"))[1] == "uncertain"
 
 
 def test_the_verdict_certifies_only_clear_claims():
     from fdia_graph.engine.attacks.certify import _verdict
 
-    assert _verdict(9, _claim(7), _claim(9, "infeasible"), 0) == (9, "certified", "")
-    assert _verdict(9, _claim(9), None, 0) == (9, "certified", "")  # the cone bound alone meets it
-    assert _verdict(9, _claim(6), _claim(7), 0) == (7, "gap", "")
-    assert _verdict(9, _claim(6), None, 8) == (8, "gap", "")  # the search's forced devices are a floor
-    doubted = _verdict(9, _claim(7), _claim(9, "optimal", "not confirmed"), 0)
+    assert _verdict(9, _claim(7), _claim(9, "infeasible")) == (9, "certified", "")
+    assert _verdict(9, _claim(9), None) == (9, "certified", "")  # the cone bound alone meets it
+    assert _verdict(9, _claim(6), _claim(7)) == (7, "gap", "")
+    assert _verdict(9, _claim(6), None) == (6, "gap", "")  # no floor from the search's forced devices
+    doubted = _verdict(9, _claim(7), _claim(9, "optimal", "not confirmed"))
     assert doubted == (7, "uncertain", "not confirmed")
     # IEEE-14 At episode 3: the cut level's infeasibility is not confirmed and the loosened problem,
     # a larger set, bounds 6; that is doubt, not a contradiction with the cone's 9 at default tolerance
-    loosened = _verdict(9, _claim(9), _claim(6, "optimal", "not confirmed"), 0)
+    loosened = _verdict(9, _claim(9), _claim(6, "optimal", "not confirmed"))
     assert loosened == (6, "uncertain", "not confirmed")
 
 
@@ -338,10 +338,50 @@ def test_an_infeasibility_is_accepted_only_after_the_loosened_re_solve():
     assert (below.lower, below.doubt) == (6, "")
     from fdia_graph.engine.attacks.certify import _verdict
 
-    assert _verdict(9, _claim(4), below, 0) == (6, "gap", "")
+    assert _verdict(9, _claim(4), below) == (6, "gap", "")
     tightened = _FakeRelaxation("infeasible")
     solve_claim(tightened, [0], (8, 9), opts, feasible=False)  # bound tightening found it infeasible
     assert tightened.calls == [opts.robust_feastol]
+
+
+def test_the_confirmation_runs_on_the_model_it_is_given():
+    """After bound tightening, the loosened re-solve runs on the untightened relaxation (`confirm_on`),
+    not on the tightened one whose bounds came from the default tolerance."""
+    from fdia_graph.engine.attacks.certify import solve_claim
+    from fdia_graph.models.config import CertifyOptions
+
+    opts = CertifyOptions()
+    tightened, untightened = _FakeRelaxation("infeasible"), _FakeRelaxation("feasible")
+    claim = solve_claim(tightened, [0], (8, 9), opts, confirm_on=untightened)
+    assert tightened.calls == [None] and untightened.calls == [opts.robust_feastol]
+    assert claim.lower == 8 and claim.doubt  # the untightened re-solve does not confirm it
+    tightened, untightened = _FakeRelaxation("infeasible"), _FakeRelaxation("infeasible")
+    claim = solve_claim(tightened, [0], (8, 9), opts, feasible=False, confirm_on=untightened)
+    assert tightened.calls == [] and untightened.calls == [opts.robust_feastol]
+    assert (claim.lower, claim.doubt) == (9, "")
+
+
+def test_the_step_slack_scales_with_the_attack_values():
+    """At's stealth bound on a late ramp frame: attack values near 100 whose float32 step the search
+    finds within sigma = 0.001 (0.00099945 in Copilot's example) while the exact step is 0.0010031.
+    The count's slack, which assumes |a| <= sigma, is too small; the step slack, scaled by the most
+    |a| can be at each snapshot, covers every such step."""
+    from fdia_graph.formulas.relax import roundoff_slack, step_roundoff_slack
+
+    sigma, reach = 0.001, 100.0  # the step threshold; the most |a| can be at either snapshot
+    old = 2 * roundoff_slack(sigma, 0.0) + roundoff_slack(sigma, 0.0)
+    new = step_roundoff_slack((reach, 0.0), (reach, 0.0), sigma)
+    exceeds = 0
+    for k in range(4000):
+        before = 99.9 + k * 1.37e-5  # an attack value near 100, float64
+        now = before + sigma + 3.1e-6  # an exact step just above sigma, as in the example
+        step32 = float(np.float32(now) - np.float32(before))  # the search: rounded values, float32 step
+        if step32 <= sigma:
+            exceeds += (now - before) > sigma + old
+            assert now - before <= sigma + float(new)
+    assert exceeds > 0  # the count's slack would cut these steps
+    # Copilot's numbers: an exact step of 0.0010031 read as 0.00099945
+    assert 0.0010031 - sigma > old and 0.0010031 <= sigma + float(new)
 
 
 class _FakeOptimum:
@@ -371,11 +411,11 @@ def test_a_certifying_optimum_stands_only_if_the_loosened_re_solve_certifies_it(
     claim = solve_claim(fragile, [0], (None, 9), opts)
     assert fragile.calls == [None, opts.robust_feastol]
     assert claim.lower == 7 and "reaches 9" in claim.doubt and "but 7" in claim.doubt
-    assert _verdict(9, claim, None, 0)[:2] == (7, "uncertain")
+    assert _verdict(9, claim, None)[:2] == (7, "uncertain")
     firm = _FakeOptimum(9.0, 9.0)
     claim = solve_claim(firm, [0], (None, 9), opts)
     assert firm.calls == [None, opts.robust_feastol] and (claim.lower, claim.doubt) == (9, "")
-    assert _verdict(9, claim, None, 0) == (9, "certified", "")
+    assert _verdict(9, claim, None) == (9, "certified", "")
     short = _FakeOptimum(7.0, 7.0)
     solve_claim(short, [0], (None, 9), opts)
     assert short.calls == [None]  # a bound below the count certifies nothing: no re-solve

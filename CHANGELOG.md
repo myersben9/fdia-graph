@@ -34,14 +34,17 @@ the public API, the generated files and the numbers are the same as the previous
   one solve proves. Solved with SCIP through cvxpy, in the new
   optional extra `[certify]`, also part of `[all]`. Every noise threshold the relaxation reproduces
   is widened by the float32 roundoff of the search's own classification
-  (`formulas.relax.roundoff_slack`), so the relaxation never cuts the search's attack. The certifier refuses
+  (`formulas.relax.roundoff_slack`; At's step bound by the float32 roundoff of attack values
+  as large as the box allows, `step_roundoff_slack`), so the relaxation never cuts the search's
+  attack. After bound tightening a would-be certificate is re-solved on the untightened
+  relaxation, and the search's forced-device bound is no longer a floor. The certifier refuses
   knobs without finite voltage limits with the new named error `NoOperatingLimits` (input model
   `models.inputs.CertifiableLimits`): its voltage box and big-M constants come from the search's own
   limits, never from a default box. The bound is valid but loose: on IEEE-14 with new generation's
   defaults it certifies 0 of 10 two-line `Am` episodes (gaps of 3 to 11 devices, median 4) and 0 of
   [WU26]'s two scenarios (gaps 7 and 6) at every cut level, and 0 of 4 `At` episodes: the one
   the relaxation met without the guard (the cone relaxation's optimum at 9, the search's count) bounds
-  5 at the loosened tolerance and is "uncertain". By default `tests/test_certify.py` checks the cone
+  5 to 6 at the loosened tolerance and is "uncertain". By default `tests/test_certify.py` checks the cone
   relaxation's validity on an IEEE-14 two-line `Am` window and on an `At` window whose stealth bound
   starts from a non-zero previous attack vector; the cut families' cases and the full solve run with
   `FDIA_SLOW=1`.

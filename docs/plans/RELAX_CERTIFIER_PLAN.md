@@ -53,9 +53,18 @@ Per snapshot, with W = V V^H (Jabr's variables):
   the wedge the angle may not leave (exact for a voltage, since sigma is below 90 degrees).
 - **Roundoff slack:** the search classifies channels in float32 (a flow as the difference of its
   false and true readings, each rounded first), so each sigma above is widened by
-  2 eps32 (|true reading| + sigma) + 1e-6 (`formulas.relax.roundoff_slack`), and At's step bound by
-  both snapshots' slack. Without it a large flow the search counts within noise could exceed a
-  fixed 1e-6 margin in exact arithmetic, and the relaxation would cut the search's own attack.
+  2 eps32 (|true reading| + sigma) + 1e-6 (`formulas.relax.roundoff_slack`). At's step bound compares
+  attack values of any size (near 100 on a late ramp frame), so each of its endpoints takes the slack
+  of the most |a| can be at that snapshot, |A| r over the box, in place of sigma
+  (`formulas.relax.step_roundoff_slack`); the frame before the window is data both share and adds
+  none. Without these a channel the search counts within noise or within the step bound could lie
+  beyond a fixed 1e-6 margin in exact arithmetic, and the relaxation would cut the search's attack.
+  Every comparison with a float32-rounded search quantity carries such a margin: the count's linear
+  channels (flows with their true reading, injections and currents with sigma), the |V| band, the
+  angle wedge, the PMU caps (own |V| and angle, and branch currents) and At's step bound. The
+  generator limits, the load cap, the voltage limits and the goal compare float64 quantities the
+  search computes from the same stored states, with margins of 1e-3 (MW, MVAr, MVA, pu) against
+  solves converged to 1e-9 pu.
 - **Rigorous M:** the voltage limits bound W_ii, the cones bound |W_ij| by
   sqrt(W_ii,max W_jj,max) and |V_i| by v_max. M for a channel is sum_k |A_mk| r_k, with r_k the
   largest distance of variable k from its true value inside that box, so no feasible point is cut.
@@ -155,7 +164,9 @@ which case holds: "certified", "gap", or "uncertain" with the reason in `Certifi
   infeasible. A problem that stays infeasible with every constraint relaxed by more than the
   solver's own tolerance was not made infeasible by rounding. Tightening the tolerance would test
   the opposite direction: it makes infeasibility easier to reach. When the loosened problem is
-  feasible, its dual bound is the claim and the verdict is "uncertain".
+  feasible, its dual bound is the claim and the verdict is "uncertain". After bound tightening the
+  re-solve runs on the untightened relaxation with the same cuts: the tightened bounds were found at
+  the default tolerance, so confirming on them would check the tolerance with its own output.
 - **Certifying optima:** an optimum whose bound reaches the search's count (a certificate without
   infeasibility, as the cone relaxation alone can give) is re-solved the same way and stands only
   when the loosened bound still reaches the count; otherwise the loosened bound is the claim and the
@@ -165,6 +176,9 @@ which case holds: "certified", "gap", or "uncertain" with the reason in `Certifi
   and, with cut families, the cut relaxation at one device fewer. Cuts only shrink the relaxation, so
   a cut bound below the cone bound is a numerical contradiction: the smaller bound is kept and the
   verdict is "uncertain".
+- **No floor from the search:** the search's forced-device bound (`_Window.lower_bound`) counts the
+  goal's own changes crossing sigma in float64, while the search counts after float32 rounding, so
+  it could exceed the true minimum; the certifier does not use it.
 
 Both knobs are fields of `CertifyOptions` (`models.config`), checked on construction.
 
@@ -197,11 +211,13 @@ The guard changes the `At` column, and nowhere else:
 
 - `At` episode 3 (loads at 5, 10, 12, 13 and 14): the cone relaxation's optimum reaches the
   search's 9 at SCIP's default tolerance, which without the guard certified it, but the re-solve
-  with numerics/feastol at 1e-4 bounds 5, so it is "uncertain" with bound 5. Every cut level finds
-  the relaxation infeasible at one device fewer, and that re-solve is feasible too. No configuration
-  certifies the episode.
-- `At` episode 1 (loads at 4, 5, 11, 13 and 14): the cone relaxation bounds 9 devices and every cut
-  level 10, a gap of 3 and 2. Before the roundoff slack (section 2) the cone relaxation bounded 10
+  with numerics/feastol at 1e-4 bounds 6 (5 in an earlier run of the same code path: the loosened
+  problem is solved at a loose tolerance, and its bound moves by a device between runs), so it is
+  "uncertain". Every cut level finds the relaxation infeasible at one device fewer, and the re-solve
+  on the untightened relaxation is feasible too. No configuration certifies the episode.
+- `At` episode 1 (loads at 4, 5, 11, 13 and 14): the cone relaxation bounds 9 devices, the bounds
+  and qc levels 10 and the cycle level 9 (10 before At's step slack scaled with the attack values),
+  gaps of 2 and 3. Before the roundoff slack (section 2) the cone relaxation bounded 10
   and the bounds and qc levels 9, which the guard reported as a contradiction: the fixed 1e-6 margin
   had cut part of the cone relaxation's set, so its 10 was too high. The slack removes the
   contradiction.

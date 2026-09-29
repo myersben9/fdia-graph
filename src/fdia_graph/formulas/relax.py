@@ -35,6 +35,29 @@ def roundoff_slack(sigma: npt.ArrayLike, reading: npt.ArrayLike) -> np.ndarray:
     )
 
 
+def step_roundoff_slack(
+    now: tuple[npt.ArrayLike, npt.ArrayLike],
+    before: tuple[npt.ArrayLike, npt.ArrayLike],
+    step_sigma: npt.ArrayLike,
+) -> np.ndarray:
+    """How far above its step threshold `step_sigma` a channel's exact step between two snapshots may
+    lie while the search, which compares float32 attack values (`_Window`: a_t - a_(t-1), each rounded
+    as `roundoff_slack` says, then subtracted in float32), still finds it within the stealth bound (a
+    rule of ours). Unlike a count, a step is taken between attack values of any size, so each endpoint's
+    error scales with the most |a| can be at its snapshot, not with sigma: `now` and `before` are
+    (that bound, the true reading the search rounds) per channel, and an endpoint the search and the
+    relaxation share exactly (the frame before the window, given as data) passes zeros.
+
+        slack = roundoff_slack(bound_now, reading_now) + roundoff_slack(bound_before, reading_before)
+                + roundoff_slack(step_sigma, 0)
+    """
+    return (
+        roundoff_slack(now[0], now[1])
+        + roundoff_slack(before[0], before[1])
+        + roundoff_slack(step_sigma, 0.0)
+    )
+
+
 def voltage_box(
     v_true: np.ndarray, v_lo: np.ndarray, v_hi: np.ndarray, tol: float
 ) -> tuple[np.ndarray, np.ndarray]:

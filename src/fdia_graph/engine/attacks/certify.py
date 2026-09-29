@@ -26,7 +26,7 @@ import numpy as np
 
 from ...formulas.attacks import LIMIT_TOL_PQ, LIMIT_TOL_V, bus_load, generator_output
 from ...formulas.network import _dense, bus_injections, complex_voltages
-from ...formulas.relax import big_m, cone_gap, roundoff_slack, sector_cuts, voltage_box
+from ...formulas.relax import big_m, cone_gap, roundoff_slack, sector_cuts, step_roundoff_slack, voltage_box
 from ...models.choices import CertifyVerdict
 from ...models.config import CertifyOptions
 from ...models.frames import (
@@ -213,7 +213,8 @@ class _Channels:
         self.sigma = np.array([c[1] for c in channels], float)
         self.device = np.array([c[2] for c in channels], dtype=np.int64)
         self.prev = np.array([c[3] for c in channels], float)
-        self.slack = roundoff_slack(self.sigma, np.array([c[4] for c in channels], float))
+        self.reading = np.array([c[4] for c in channels], float)
+        self.slack = roundoff_slack(self.sigma, self.reading)
 
 
 class _Relaxation:
@@ -489,6 +490,7 @@ class _Relaxation:
                 continue
             ya, yb = abs(Ymat[line, self.lut[j]]), abs(Ymat[line, self.lut[i]])
             sig = float(np.hypot(*w.i_sigma[t][line, cols]))
+            sig += float(roundoff_slack(sig, 0.0))  # float64 currents: only the floor
             caps[pos[i]].append((g.C + j, (sig + ya * own[j]) / yb))
 
     def _targets(self) -> np.ndarray:
@@ -652,7 +654,10 @@ class _Relaxation:
     def _step(self, X, t: int) -> list:
         """At's stealth bound on the linear channels: no metered channel moves more than its rated
         accuracy between snapshots (from the frame before the window at t = 0), widened by the float32
-        roundoff of both snapshots' attack values and of the step (`roundoff_slack`)."""
+        roundoff of both snapshots' attack values and of the step (`step_roundoff_slack`). Each
+        endpoint's roundoff scales with the most |a| can be at its snapshot, |A| r over the box (a
+        late ramp frame's attack values are far above sigma); the frame before the window is data the
+        search and the relaxation share, so it adds none."""
         import cvxpy as cp
 
         if not self.window.stealth_bound:
@@ -663,8 +668,13 @@ class _Relaxation:
         now = ch.A @ (X[t] - self.x0[t])
         before = ch.prev if t == 0 else self.lin[t - 1].A @ (X[t - 1] - self.x0[t - 1])
         scaled = self.window.k.stealth_scale * ch.sigma
-        slack = 2 * ch.slack + roundoff_slack(scaled, 0.0)
-        return [cp.abs(now - before) <= scaled + slack]
+        reach = (np.abs(ch.A) @ self._radius(t), ch.reading)
+        if t == 0:
+            earlier = (np.zeros(len(ch.sigma)), np.zeros(len(ch.sigma)))
+        else:
+            last = self.lin[t - 1]
+            earlier = (np.abs(last.A) @ self._radius(t - 1), last.reading)
+        return [cp.abs(now - before) <= scaled + step_roundoff_slack(reach, earlier, scaled)]
 
     def mismatch(self, x: np.ndarray, keep: list[int]) -> float:
         """The relaxed point's largest power mismatch (MW or MVAr) over the kept snapshots: each bus's
@@ -726,7 +736,8 @@ def certify(
     A certificate is claimed only clear of SCIP's tolerances (`_verdict`): every bound is rounded
     with a margin, an infeasibility must survive a re-solve with loosened tolerances, and a cut
     relaxation whose bound falls below the cone relaxation's (cuts only shrink it) makes the verdict
-    "uncertain". The search's forced-device bound is a floor."""
+    "uncertain". The search's forced-device bound is not used as a floor: it counts goal changes
+    in float64, the search in float32, so it could exceed the true minimum."""
     _require_solver()
     CertifiableLimits(k.limits)  # refused before the search runs: the relaxation needs the limits
     # the window's length joins the options, so a kept snapshot outside it is refused on construction
@@ -746,9 +757,14 @@ def certify(
     if opts.cuts and upper >= 1:
         relax = _Relaxation(g, window, np.asarray(area))
         relax.cuts = tuple(opts.cuts)
-        cut = solve_claim(relax, keep, (upper - 1, upper), opts, tighten(relax, keep, upper - 1, opts))
+        # the confirmation's model: the same cuts, its bounds untightened, so no bound it keeps came
+        # from a solve at the default tolerance it is meant to check
+        loose = _Relaxation(g, window, np.asarray(area))
+        loose.cuts = relax.cuts
+        feasible = tighten(relax, keep, upper - 1, opts)
+        cut = solve_claim(relax, keep, (upper - 1, upper), opts, feasible, confirm_on=loose)
     seconds = time.perf_counter() - start
-    lower, verdict, reason = _verdict(upper, base, cut, window.lower_bound())
+    lower, verdict, reason = _verdict(upper, base, cut)
     final = base if cut is None else cut
     support = np.zeros(0, dtype=np.int64) if upper < 0 else np.asarray(cast(MinimizerResult, found).support)
     x = final.x
@@ -772,7 +788,7 @@ def certify(
 def tighten(relax: _Relaxation, keep: list[int], cutoff: int, opts: CertifyOptions) -> bool:
     """Bound tightening at `cutoff` devices on the kept snapshots when the relaxation carries the
     "bounds" family (each solve stopped at `opts.tighten_limit`); False when it finds the relaxation
-    infeasible, a claim `solve_claim` then has confirmed."""
+    infeasible, a claim `solve_claim` then confirms on the untightened relaxation."""
     if "bounds" not in relax.cuts:
         return True
     return all(relax_cuts.tighten(relax, t, cutoff, opts.tighten_limit) for t in keep)
@@ -784,20 +800,24 @@ def solve_claim(
     counts: tuple[Optional[int], int],
     opts: CertifyOptions,
     feasible: bool = True,
+    confirm_on: Optional[_Relaxation] = None,
 ) -> BoundClaim:
     """What the relaxation over the kept snapshots proves, `counts` = (the cutoff, at most that many
     devices or None, and the search's count): its dual bound rounded with `opts.bound_margin`, or,
     when it is infeasible (or bound tightening found it so, `feasible` False), the search's count.
     A claim that would certify the search's count, by infeasibility or by an optimum that reaches
     the count, stands only when a re-solve with loosened tolerances certifies it too
-    (`_confirm_infeasible`, `_confirm_optimum`)."""
+    (`_confirm_infeasible`, `_confirm_optimum`). The re-solve runs on `confirm_on` (default `relax`
+    itself): after bound tightening, the untightened relaxation with the same cuts, since the
+    tightened bounds were themselves found at the default tolerance."""
     cutoff, upper = counts
+    check = relax if confirm_on is None else confirm_on
     if feasible:
         status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff)
         if status != "infeasible":
             claim = BoundClaim(_rounded(bound, opts.bound_margin, upper), status, x, bv, "")
-            return _confirm_optimum(relax, keep, counts, opts, claim) if 0 <= upper <= claim.lower else claim
-    return _confirm_infeasible(relax, keep, counts, opts)
+            return _confirm_optimum(check, keep, counts, opts, claim) if 0 <= upper <= claim.lower else claim
+    return _confirm_infeasible(check, keep, counts, opts)
 
 
 def _confirm_optimum(
@@ -854,14 +874,13 @@ def _rounded(bound: float, margin: float, upper: int) -> int:
     return lower if upper < 0 else min(lower, upper)
 
 
-def _verdict(upper: int, base: BoundClaim, cut: Optional[BoundClaim], forced: int) -> tuple[int, str, str]:
+def _verdict(upper: int, base: BoundClaim, cut: Optional[BoundClaim]) -> tuple[int, str, str]:
     """(the lower bound, the `CertifyVerdict`, the reason when uncertain) from the cone relaxation's
-    claim `base`, the cut relaxation's `cut` (None without cuts) and the search's forced-device bound:
+    claim `base` and the cut relaxation's `cut` (None without cuts):
     "uncertain" on any doubt (`_doubts`), with the smaller of the two bounds kept; else "certified"
     when the bound meets the search's count, "gap" when it does not."""
     doubts = _doubts(base, cut)
     lower = base.lower if cut is None else (min(cut.lower, base.lower) if doubts else cut.lower)
-    lower = max(lower, forced)
     if doubts:
         return lower, CertifyVerdict.UNCERTAIN.value, "; ".join(doubts)
     if upper >= 0 and lower >= upper:
