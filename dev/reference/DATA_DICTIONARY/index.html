@@ -2598,8 +2598,22 @@ a <code>DeprecationWarning</code>; the rename exists because <code>ds.edge_x</co
 <td><code>mag_ptr, mag_bus, mag, node_tamper, edge_tamper</code></td>
 <td>designed magnitude per attacked bus, unsigned (a load rise and a drop of the same size record the same value); the meters the attacker wrote</td>
 </tr>
+<tr>
+<td><code>data/</code>, <code>benign/</code>, <code>attack/</code></td>
+<td><code>pmu_i, pmu_i_m</code>; <code>pmu_i_benign</code>; <code>pmu_i_tamper</code></td>
+<td>hybrid-meter files only (<code>attrs["meter_model"] == "hybrid"</code>, new generation): the PMU branch currents <code>[T, E, 4]</code>, see below</td>
+</tr>
 </tbody>
 </table>
+<p>On a hybrid-meter file a SCADA voltmeter reads no angle, so <code>node_m[:, 3]</code> is 1 at the PMU buses only,
+and each PMU reads the current phasor of every in-service branch at its bus [WU26, eqs. 19-20]. The
+columns of <code>pmu_i</code> are defined in <code>fdia_graph.models.CurrentColumns</code> (<code>re_from</code>, <code>im_from</code>, <code>re_to</code>,
+<code>im_to</code>): the real and imaginary part of <code>I_from = Y_f V</code> and <code>I_to = Y_t V</code> in per unit on the base
+current, the same on a <code>units="pu"</code> or <code>"physical"</code> view, zero where no PMU reads that end
+(<code>pmu_i_m</code> is 0 there). <code>pmu_i_benign</code> is the attack-removed twin and <code>pmu_i_tamper</code> marks the
+channels the attacker wrote. A file without these datasets (every released file) loads unchanged
+and its records carry no <code>pmu_i</code>. <code>export(["prev_pmu_i"])</code> gives the previous emitted frame's
+currents on a hybrid-meter timeline, like <code>prev_node_x</code>.</p>
 <p>Chunked along the frame axis so a window of W frames is one read. The v0.7.2 record shards (the
 same <code>data/</code>, <code>clean/</code> once per pool timestep, a <code>gap</code> column, no <code>benign/</code>) still load through
 <code>fg.load(..., release="v0.7.2")</code>.</p>
@@ -2611,7 +2625,7 @@ keep working and <code>out.node_x</code> is new. Fields set to None are absent f
 by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <h3 id="recordbundle-fdia_graphmodelsdata"><code>RecordBundle</code> (<code>fdia_graph.models.data</code>)<a class="headerlink" href="#recordbundle-fdia_graphmodelsdata" title="Permanent link">&para;</a></h3>
 <p>One record as <code>FdiaGraph[i]</code> returns it (format="torch"): tensors in self.units with no leading axis, the static graph shared by every record, the label and provenance, and the optional layers the file carries (the benign layer on a timeline file). A dict as well, so DataLoaders, <code>**item</code> and <code>item["node_x"]</code> keep working.</p>
-<p>Field groups: <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
+<p>Field groups: <code>PmuCurrentFields</code>, <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2748,12 +2762,33 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td>Array</td>
 <td></td>
 <td>[..., E, 2] attack removed, noise kept (StreamLayers)</td>
+</tr>
+<tr>
+<td><code>pmu_i</code></td>
+<td><code>pmu_i</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_m</code></td>
+<td><code>pmu_i_m</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_benign</code></td>
+<td><code>pmu_i_benign</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] attack removed, noise kept (PmuCurrentFields)</td>
 </tr>
 </tbody>
 </table>
 <h3 id="batchbundle-fdia_graphmodelsdata"><code>BatchBundle</code> (<code>fdia_graph.models.data</code>)<a class="headerlink" href="#batchbundle-fdia_graphmodelsdata" title="Permanent link">&para;</a></h3>
 <p>A batch of records as <code>FdiaGraph.collate</code> builds it: per-record tensors stacked along a leading batch axis B, the static graph once (the first record's), scalar metadata as long tensors [B].</p>
-<p>Field groups: <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
+<p>Field groups: <code>PmuCurrentFields</code>, <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
 <table>
 <thead>
 <tr>
@@ -2891,11 +2926,32 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td></td>
 <td>[...] position in the source load profile (RecordIds)</td>
 </tr>
+<tr>
+<td><code>pmu_i</code></td>
+<td><code>pmu_i</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_m</code></td>
+<td><code>pmu_i_m</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_benign</code></td>
+<td><code>pmu_i_benign</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] attack removed, noise kept (PmuCurrentFields)</td>
+</tr>
 </tbody>
 </table>
 <h3 id="arraysbundle-fdia_graphmodelsdata"><code>ArraysBundle</code> (<code>fdia_graph.models.data</code>)<a class="headerlink" href="#arraysbundle-fdia_graphmodelsdata" title="Permanent link">&para;</a></h3>
 <p>A whole split of n records as <code>export</code> returns it (arrays, or tensors with format="torch" or "tf"), leading axis n: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.</p>
-<p>Field groups: <code>PreviousFrameFields</code>, <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
+<p>Field groups: <code>PmuCurrentFields</code>, <code>PreviousFrameFields</code>, <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3067,6 +3123,34 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td>Array</td>
 <td></td>
 <td>[E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i</code></td>
+<td><code>pmu_i</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_m</code></td>
+<td><code>pmu_i_m</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_benign</code></td>
+<td><code>pmu_i_benign</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] attack removed, noise kept (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>prev_pmu_i</code></td>
+<td><code>prev_pmu_i</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] the previous frame's PMU branch currents (hybrid meters) (PreviousFrameFields)</td>
 </tr>
 </tbody>
 </table>

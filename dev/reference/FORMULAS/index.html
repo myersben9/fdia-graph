@@ -1815,13 +1815,20 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>tampered devices</td>
 <td><code>formulas.attacks.tampered_devices</code>, called by the fewest-tamper search</td>
-<td>a channel counts toward its device: a bus's SCADA terminal (injections, the flows metered at the bus, a voltage meter without PMU) or its PMU (|V| and angle)</td>
+<td>a channel counts toward its device: a bus's SCADA terminal (injections, the flows metered at the bus, a voltage meter without PMU) or its PMU (|V|, angle, and the branch currents read at the bus)</td>
 <td>[WU26], the device count of its results</td>
 <td>At with <code>min_tamper</code></td>
 </tr>
 <tr>
+<td>pool line rating</td>
+<td><code>OverloadMixin.use_line_ratings</code> with <code>rating_source="pool"</code> (the default; <code>generate_timeline(..., am_attack={"rating_margin": ...})</code>)</td>
+<td>S_max_l = rating_margin × max over the pool of |S_f,l|, the noiseless from-end apparent flow of every branch (<code>MeasurementMixin.all_flows_from_states</code>), rating_margin = 1.25</td>
+<td>the plan's D15</td>
+<td>Am</td>
+</tr>
+<tr>
 <td>branch rating</td>
-<td><code>formulas.attacks.branch_ratings</code>, called by <code>OverloadMixin.line_ratings</code></td>
+<td><code>formulas.attacks.branch_ratings</code>, called by <code>OverloadMixin.line_ratings</code> (<code>am_attack={"rating_source": "pglib"}</code>)</td>
 <td>the PGLib-OPF <code>rate_a</code> of the row with the branch's two end buses, the smallest over parallel rows; the 9,900 MVA placeholder is no rating</td>
 <td>[WU26, eq. 25]; PGLib-OPF v23.07</td>
 <td>Am</td>
@@ -1829,9 +1836,30 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>flow-goal false state</td>
 <td><code>formulas.network.local_flow_solve</code>, called by <code>FalseStateMixin.solve_flow_local</code></td>
-<td>S_i(V) = S_fixed_i at the held buses of the interior and |V_f conj(y_f · V)| = target on the goal branch, the attackable loads free, solved by least-norm Gauss-Newton steps halved until the residual drops</td>
-<td>[WU26, eqs. 24-25]</td>
+<td>S_i(V) = S_fixed_i at the held buses of the interior and |V_f conj(y_f · V)| = target_l on each goal branch l, the free injections (attackable loads and generators) free, least-norm Gauss-Newton steps halved until the residual drops; an active set pins a generator component at the limit (22)-(23) it would pass (in the support or on its edge), a load bus's active change at <code>load_cap</code> times its true load (|ΔD_i| ≤ τ D_i [YUA11]), and holds a bus voltage at its limit (21), then solves again</td>
+<td>[WU26, eqs. 13-14, 21-25], [YUA11]</td>
 <td>Am</td>
+</tr>
+<tr>
+<td>branch currents</td>
+<td><code>formulas.network.branch_currents</code>, called by <code>MeasurementMixin._emit_currents</code> and <code>currents_from_states</code></td>
+<td>I_f = Y_f V, I_t = Y_t V; columns Re I_f, Im I_f, Re I_t, Im I_t</td>
+<td>[WU26, eqs. 19-20], [MP19]</td>
+<td>the hybrid meters' PMU current channels</td>
+</tr>
+<tr>
+<td>PMU current sigma</td>
+<td><code>formulas.noise.current_sigma</code>, <code>PMU_CURRENT_CLASS</code>; <code>paper_current_sigma</code> for Am</td>
+<td>σ_re = σ_im = rel |I_end| + 1e-5 pu, rel = 0.01/3 (the whole class) or its jitter part; Am: 0.01 pu</td>
+<td>[C37118]; [WU26, case studies]</td>
+<td>the emitter's jitter, the fewest-tamper search (D7, D8)</td>
+</tr>
+<tr>
+<td>PMU pseudo voltage</td>
+<td><code>formulas.estimation.pmu_pseudo_links</code>, <code>pmu_pseudo_voltages</code>, through <code>SEBase(pmu_pseudo=True)</code></td>
+<td>V_f = (I_n − y_nn V_n) / y_nf, the mean over the links reaching f; dV_f = R(1/y_nf) dI_n − R(y_nn/y_nf) P_n (d|V_n|, dθ_n), var|V_f| = g_r C g_rᵀ, var θ_f = g_θ C g_θᵀ</td>
+<td>[WU26, eq. (3)]</td>
+<td>the estimators' <code>pmu_pseudo</code> option</td>
 </tr>
 <tr>
 <td>paper noise</td>
@@ -1839,6 +1867,13 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>σ = 0.03 pu × base MVA on P, Q injections and flows, 0.01 pu on a PMU bus's |V| (0.03 on a SCADA voltmeter), degrees(0.01) on the angle</td>
 <td>[WU26, case studies]</td>
 <td>Am (D8)</td>
+</tr>
+<tr>
+<td>overload target sets</td>
+<td><code>OverloadMixin._target_sets</code>, <code>_partner</code>, called by <code>am_overload_design</code></td>
+<td>from one random order of the eligible lines, each line a with the first other eligible line b whose ends lie inside a's attack area (the buses within <code>hops</code> of a's ends), each pair once, at most <code>AM_LINE_TRIES</code></td>
+<td>[WU26, case studies]; the plan's D17</td>
+<td>Am</td>
 </tr>
 <tr>
 <td>overload goal</td>
@@ -1850,7 +1885,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>fewest-tamper support</td>
 <td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code>, called by <code>EpisodeDesignMixin.ramp_design</code> and <code>OverloadMixin.am_overload_design</code></td>
-<td>minimize over supports S in the attacker's area the devices tampered at some snapshot of the window, S held for the window and feasible at every snapshot (local solve, the goal, the operating limits, no metered channel moving more than its σ from one snapshot to the next, the first from the frame before the episode) and moving at least one device beyond σ, where σ is σ_acc for At's load goal (D7) and [WU26]'s own noise <code>paper_sigma</code> for Am's flow goal (D8); proven only among converged local solves, closed over zero-injection boundary buses; smallest first from the region, proven when exhausted or at the devices the goal forces above noise</td>
+<td>minimize over supports S in the attacker's area the devices tampered at some snapshot of the window, S held for the window and feasible at every snapshot (local solve, the goal, the operating limits, for At's load goal no metered channel moving more than its σ from one snapshot to the next, the first from the frame before the episode; Am's flow goal has no such bound, D11) and moving at least one device beyond σ, where σ is σ_acc for At's load goal (D7) and [WU26]'s own noise <code>paper_sigma</code> for Am's flow goal (D8, the count's threshold only, D11); proven only among converged local solves, closed over zero-injection boundary buses; smallest first from the region, proven when exhausted or at the devices the goal forces above noise</td>
 <td>[WU26, eq. 12]</td>
 <td>At with <code>min_tamper</code>, Am with <code>am_attack="overload"</code></td>
 </tr>

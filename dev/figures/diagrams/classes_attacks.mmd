@@ -6,23 +6,27 @@ classDiagram
         +operating_limits()
         +solve_local()
         +free_load_buses()
+        +generator_buses()
+        +free_injection_buses()
         +solve_flow_local()
+        +touched_buses()
         +frame_from_state()
-        +stealthy_state()
-        +with_region()
-        +is_feasible()
+        ... and 3 more
     }
     class MinimizeMixin {
         +min_tamper()
         +goal_state()
     }
     class OverloadMixin {
+        +use_line_ratings()
         +line_ratings()
         +eligible_lines()
         +overload_goal()
         +am_overload_design()
+        +wu26_branch()
+        +wu26_buses()
         +overload_step()
-        +true_load_by_bus()
+        ... and 2 more
     }
     class RedistributionMixin {
         +lra_delta()
@@ -54,6 +58,9 @@ classDiagram
     class AttackDesign {
         <<models>>
     }
+    class AttackVector {
+        <<models>>
+    }
     class Band {
         <<models>>
     }
@@ -79,6 +86,9 @@ classDiagram
         <<models>>
     }
     class OperatingLimits {
+        <<models>>
+    }
+    class OverloadSettings {
         <<models>>
     }
     class RampDesign {
@@ -115,6 +125,7 @@ classDiagram
     CorruptMixin ..> TamperTarget : uses
     EpisodeDesignMixin ..> AmDesign : uses
     EpisodeDesignMixin ..> AttackDesign : uses
+    EpisodeDesignMixin ..> AttackVector : uses
     EpisodeDesignMixin ..> FrameKnobs : uses
     EpisodeDesignMixin ..> LoadGoal : uses
     EpisodeDesignMixin ..> RampDesign : uses
@@ -122,15 +133,19 @@ classDiagram
     FalseStateMixin ..> Frame : uses
     FalseStateMixin ..> FrameKnobs : uses
     FalseStateMixin ..> OperatingLimits : uses
+    FalseStateMixin ..> Scan : uses
+    MinimizeMixin ..> AttackVector : uses
     MinimizeMixin ..> FlowGoal : uses
     MinimizeMixin ..> FrameKnobs : uses
     MinimizeMixin ..> LoadGoal : uses
     MinimizeMixin ..> MinimizerResult : uses
     OverloadMixin ..> AmOverloadDesign : uses
+    OverloadMixin ..> AttackVector : uses
     OverloadMixin ..> FlowGoal : uses
     OverloadMixin ..> Frame : uses
     OverloadMixin ..> FrameKnobs : uses
     OverloadMixin ..> NoLineRatings : uses
+    OverloadMixin ..> OverloadSettings : uses
     RedistributionMixin ..> Redistribution : uses
     StealthyMixin ..> AttackDesign : uses
     StealthyMixin ..> Frame : uses

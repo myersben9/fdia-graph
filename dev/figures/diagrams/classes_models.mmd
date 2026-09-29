@@ -21,6 +21,8 @@ classDiagram
     }
     class PreviousFrameFields {
     }
+    class PmuCurrentFields {
+    }
     class RecordBundle {
     }
     class BatchBundle {
@@ -50,4 +52,7 @@ classDiagram
     FieldGroups <|-- BatchBundle
     FieldGroups <|-- RecordBundle
     FieldGroups <|-- Stream
+    PmuCurrentFields <|-- ArraysBundle
+    PmuCurrentFields <|-- BatchBundle
+    PmuCurrentFields <|-- RecordBundle
     PreviousFrameFields <|-- ArraysBundle
