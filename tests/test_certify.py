@@ -420,3 +420,35 @@ def test_the_roundoff_slack_covers_the_search_float32_flow_classification():
             assert change <= sigma + float(roundoff_slack(sigma, true))
             exceeds += change > sigma + 1e-6
     assert exceeds > 0  # the float32 and float64 classifications do differ here
+
+
+def test_the_certifier_refuses_knobs_without_finite_voltage_limits(window, monkeypatch):
+    """Without operating limits the search's voltages are unbounded, so no voltage box the relaxation
+    could add bounds the same problem: `certify` and the relaxation refuse (NoOperatingLimits) rather
+    than invent one, before the search runs."""
+    from fdia_graph.engine.attacks.certify import _Relaxation
+    from fdia_graph.engine.attacks.minimize import _Window
+    from fdia_graph.errors import NoOperatingLimits
+    from fdia_graph.models.inputs import CertifiableLimits
+
+    g, k, states, goal, res = window
+    assert CertifiableLimits(k.limits).given is k.limits
+    with pytest.raises(NoOperatingLimits, match="operating limits"):
+        CertifiableLimits(None)
+    open_top = k.limits._replace(v_hi=np.where(np.arange(len(k.limits.v_hi)) == 0, np.inf, k.limits.v_hi))
+    with pytest.raises(NoOperatingLimits, match="finite voltage limit"):
+        CertifiableLimits(open_top)
+    unbounded = k._replace(limits=None)
+    seeds, _, _ = g._goal_seeds(goal)
+    with pytest.raises(NoOperatingLimits):
+        _Relaxation(g, _Window(g, states, goal, unbounded), np.asarray(g.local_region(seeds, k.hops)))
+    monkeypatch.setenv("KMP_DUPLICATE_LIB_OK", "TRUE")
+    pytest.importorskip("cvxpy")
+    pytest.importorskip("pyscipopt")
+    from fdia_graph.engine.attacks.certify import certify
+
+    searched = []
+    monkeypatch.setattr(g, "min_tamper", lambda *a, **kw: searched.append(1))
+    with pytest.raises(NoOperatingLimits):
+        certify(g, states, goal, unbounded)
+    assert not searched  # refused before the search runs

@@ -18,7 +18,8 @@ from typing import Annotated, ClassVar, Optional, Union, cast
 import numpy as np
 
 from .choices import FAMILIES, FAMILY_ALIAS, Capability, Iso, Reduce
-from .errors import NoAdmissibleTarget
+from .errors import NoAdmissibleTarget, NoOperatingLimits
+from .frames import OperatingLimits
 from .validation import (
     AsArray,
     AsTuple,
@@ -678,3 +679,33 @@ class Requirement(Validated):
         Sequence[str], Parses(capability_names, f"must name capabilities {Capability.values()}")
     ]
     by: str
+
+
+@dataclass(frozen=True)
+class CertifiableLimits(Validated):
+    """The operating limits the certifier's relaxation takes its voltage box from ([WU26, eq. 21] as
+    the search applies it, `formulas.attacks.within_limits`): present, with a finite |V| bound at
+    every bus. Without them the search's voltages are unbounded, and any box the relaxation added
+    would bound a smaller problem than the search's, so the lower bound would not hold; the
+    certifier refuses (`NoOperatingLimits`) rather than invent one. Generator limits may be
+    infinite: an infinite end bounds nothing in the search and adds nothing to the relaxation."""
+
+    error: ClassVar[type[ValueError]] = NoOperatingLimits
+
+    limits: Optional[OperatingLimits]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.limits is not None,
+            "the certifier needs operating limits (FrameKnobs.limits): without them the search's "
+            "voltages are unbounded and the relaxation has no valid voltage box",
+        )
+        yield (
+            bool(np.isfinite(self.given.v_lo).all() and np.isfinite(self.given.v_hi).all()),
+            "the certifier needs a finite voltage limit at every bus (OperatingLimits.v_lo, v_hi)",
+        )
+
+    @property
+    def given(self) -> OperatingLimits:
+        """The limits, once the model has accepted them."""
+        return cast(OperatingLimits, self.limits)

@@ -39,12 +39,12 @@ from ...models.frames import (
     MinimizerResult,
 )
 from ...models.grid import CURRENT, NODE
+from ...models.inputs import CertifiableLimits
 from . import relax_cuts
 from .minimize import Goal, MinimizeMixin, _Window
 
 GOAL_TOL_MVA = 1e-3  # how far the search's solve may leave a goal line's flow from its target
 POWER_TOL_MW = 1e-3  # how far a held or designed injection may move in the search's solve
-VOLTAGE_BOX = (0.5, 1.5)  # |V| bounds, pu, when the knobs carry no operating limits (big-M needs some)
 
 
 def _require_solver() -> None:
@@ -228,6 +228,8 @@ class _Relaxation:
         self.from_ppc = g._from_bus_ppc
         self.layout = _Layout(self.lut[np.asarray(area, dtype=np.int64)], Y)
         self.area = np.asarray(area, dtype=np.int64)
+        # the voltage box comes from the search's own limits: knobs without them are refused
+        self.limits = CertifiableLimits(window.k.limits).given
         self.V = [self._voltages(X) for X in window.states]
         self.x0 = [self.layout.point(V) for V in self.V]
         self.box = [self._box(t) for t in range(len(self.V))]
@@ -258,10 +260,7 @@ class _Relaxation:
     def _box(self, t: int) -> tuple[np.ndarray, np.ndarray]:
         """The W_ii bounds of the area buses at snapshot t ([WU26, eq. 21] as the search applies it)."""
         v = self.window.states[t][self.area, NODE.v]
-        lim = self.window.k.limits
-        if lim is None:
-            return voltage_box(v, np.full(len(v), VOLTAGE_BOX[0]), np.full(len(v), VOLTAGE_BOX[1]), 0.0)
-        return voltage_box(v, lim.v_lo[self.area], lim.v_hi[self.area], LIMIT_TOL_V)
+        return voltage_box(v, self.limits.v_lo[self.area], self.limits.v_hi[self.area], LIMIT_TOL_V)
 
     def injection(self, t: int, bus: int) -> tuple[np.ndarray, np.ndarray]:
         """Rows of the stored injection's change at `bus` (load positive, MW, MVAr)."""
@@ -729,6 +728,7 @@ def certify(
     relaxation whose bound falls below the cone relaxation's (cuts only shrink it) makes the verdict
     "uncertain". The search's forced-device bound is a floor."""
     _require_solver()
+    CertifiableLimits(k.limits)  # refused before the search runs: the relaxation needs the limits
     # the window's length joins the options, so a kept snapshot outside it is refused on construction
     opts = dataclasses.replace(CertifyOptions() if options is None else options, window=len(states))
     seeds, _, _ = g._goal_seeds(goal)

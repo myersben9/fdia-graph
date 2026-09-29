@@ -22,7 +22,10 @@ The search's problem, for a window of T snapshots with true states x_t, over the
   (D8 for `Am`, D7 for `At`). The channels are the metered P and Q injections, from-end flows,
   |V|, angles at PMU buses (D10) and the PMU branch-current channels.
 - **Limits (21):** v_lo,i <= |V_i,t| <= v_hi,i, both widened to the true value and by 1e-3 pu as
-  in `within_limits`.
+  in `within_limits`. The relaxation's voltage box and every big-M constant come from these limits,
+  so `certify` refuses knobs without finite voltage limits (`NoOperatingLimits`, checked by the
+  input model `models.inputs.CertifiableLimits`): the search's voltages are then unbounded, and no
+  box the relaxation invented would bound the same problem.
 - **Zero injection:** a zero-injection bus keeps its true (zero) injection.
 - **Goal, `Am` (24)-(25):** the noiseless apparent from-end flow |S_l,t| of each goal line equals
   its scheduled target at every snapshot (two lines by default, D17).
