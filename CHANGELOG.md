@@ -18,8 +18,10 @@ the public API, the generated files and the numbers are the same as the previous
   line's peak flow: at k = 1.1 the attack survives with 5 to 6 devices and 8 to 11 channels (lines 3-4
   and 6-11) and 7 to 9 devices and 23 to 28 channels (lines 1-2 and 4-5), +20% and +29% in devices and
   +38% and +22% in channels against the paper's Table II 24% to 35%; at k = 1.2 no candidate reaches
-  both ratings with the four PMUs trusted. Per slot and held give the same answer there, and so do the
-  paper's trust order and the swapped one.
+  both ratings with the four PMUs trusted, held or with a support per segment. When no held support is
+  feasible, the per-slot search seeds a plan with each segment's own cheapest support before calling
+  the window infeasible (`_segment_seed`); on these scenarios no segment after the last slot has one.
+  Per slot and held give the same answer, and so do the paper's trust order and the swapped one.
 
 - Development only, no user-visible change: the test suite runs in parallel. pytest-xdist joins the
   `test` and `dev` extras, CI runs the three suites with `-n auto`, and `tools/prereview.py` does so

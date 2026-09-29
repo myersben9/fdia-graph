@@ -40,6 +40,7 @@ already exceeds the best. When no held support meets every constraint, the resul
 from __future__ import annotations
 
 import contextlib
+import functools
 import heapq
 import itertools
 import threading
@@ -164,12 +165,11 @@ class MinimizeMixin(FalseStateMixin):
         best, evaluated, exhausted = self._search(
             window, self._supports(starts, area, must_hold), (best, lower), area, k
         )
+        if trust is not None and trust.per_slot:
+            candidates = functools.partial(self._supports, starts, area, must_hold)
+            return self._per_slot_result(window, best, candidates, (evaluated, lower, np.asarray(area)), k)
         if best is None:  # no support held for the window meets every constraint: say so, keep the region
             return MinimizerResult(np.asarray(area), -1, -1, False, evaluated, lower, window.unsolved)
-        if trust is not None and trust.per_slot:
-            return self._per_slot_result(
-                window, best, lambda: self._supports(starts, area, must_hold), (evaluated, lower), k
-            )
         (devices, channels, _), support = best
         # optimal among supports whose solves converged, and only when none that failed could have beaten it
         proven = devices <= lower or (exhausted and window.unsolved == 0)
@@ -178,16 +178,26 @@ class MinimizeMixin(FalseStateMixin):
     @staticmethod
     def _per_slot_result(
         window: _Window,
-        best: _Best,
+        best: Optional[_Best],
         candidates: Callable[[], Iterator[np.ndarray]],
-        counts: tuple[int, int],
+        counts: tuple[int, int, np.ndarray],
         k: FrameKnobs,
     ) -> MinimizerResult:
         """The per-slot search's result (`_per_slot`) from the held search's `best` and its `counts`
-        (candidates solved, the goal-forced bound): the plan, the support the union of its supports,
-        proven only at the bound (a search one segment at a time is not exhaustive over plans)."""
-        evaluated, lower = counts
-        (devices, channels, _), plan, more = _per_slot(window, best, candidates, k)
+        (candidates solved, the goal-forced bound, the area): the plan, the support the union of its
+        supports, proven only at the bound (a search one segment at a time is not exhaustive over
+        plans). When no held support is feasible, a plan can still be (a PMU trusted mid-window can
+        rule out every support that works before its slot and after it): each segment's own cheapest
+        support seeds the plan (`_segment_seed`), and only when some segment has none is the window
+        infeasible."""
+        evaluated, lower, area = counts
+        start = None if best is None else (best[0], tuple(best[1] for _ in window.segments))
+        if start is None:
+            start, seeded = _segment_seed(window, candidates, k)
+            evaluated += seeded
+        if start is None:
+            return MinimizerResult(area, -1, -1, False, evaluated, lower, window.unsolved)
+        (devices, channels, _), plan, more = _per_slot(window, start, candidates, k)
         support = np.array(sorted({int(b) for S in plan for b in S}), dtype=np.int64)
         return MinimizerResult(
             support, devices, channels, devices <= lower, evaluated + more, lower, window.unsolved, plan
@@ -328,25 +338,48 @@ class MinimizeMixin(FalseStateMixin):
         return frozenset(int(b) for b in grown)
 
 
+def _segment_seed(
+    window: _Window, candidates: Callable[[], Iterator[np.ndarray]], k: FrameKnobs
+) -> tuple[Optional[tuple[_Cost, _Plan]], int]:
+    """A plan from each segment's cheapest support over the segment's own snapshots
+    (`_Window.segment_cost`), joined and costed over the window by the union count [WU26, eq. 28], or
+    None when some segment has no feasible support or the joined plan is not an attack; and the
+    candidates solved."""
+    plan, evaluated = [], 0
+    for j in range(len(window.segments)):
+        best: Optional[_Best] = None
+        for S in itertools.islice(candidates(), k.min_budget):
+            found = window.segment_cost(j, S, None if best is None else best[0])
+            evaluated += 1
+            window.unsolved += 0 if window.converged else 1
+            best = best if found is None else (found, S)
+        if best is None:
+            return None, evaluated
+        plan.append(best[1])
+    cost = window.cost_plan(tuple(plan), None)
+    return (None if cost is None else (cost, tuple(plan))), evaluated
+
+
 def _per_slot(
-    window: _Window, best: _Best, candidates: Callable[[], Iterator[np.ndarray]], k: FrameKnobs
+    window: _Window, start: tuple[_Cost, _Plan], candidates: Callable[[], Iterator[np.ndarray]], k: FrameKnobs
 ) -> tuple[_Cost, _Plan, int]:
     """A support per segment of the trusted schedule (the plan's E13): [WU26, eq. 28] counts the window's
     tampered measurements with each snapshot's deviation taken on its own, so the attacker may move a
     different set of buses once a PMU becomes trusted. From the held support, each segment in turn takes
     the candidate that lowers the window's cost most with the other segments fixed, until a round over
     the segments gains nothing (at most `PER_SLOT_PASSES` rounds, `k.min_budget` candidates per
-    segment). Returns (the cost, the plan, candidates solved)."""
-    cost, plan = best[0], tuple(best[1] for _ in window.segments)
+    segment). `start` is the held support as a plan, or `_segment_seed`'s plan when no held support is
+    feasible. Returns (the cost, the plan, candidates solved)."""
+    cost, plan = start
     evaluated = 0
     for _ in range(PER_SLOT_PASSES):
-        start = cost
+        before = cost
         for j in range(len(plan)):
             cost, plan = _best_for_segment(
                 window, (cost, plan), j, itertools.islice(candidates(), k.min_budget)
             )
             evaluated += min(k.min_budget, window.last_tried)
-        if cost == start:
+        if cost == before:
             break
     return cost, plan, evaluated
 
@@ -547,6 +580,18 @@ class _Window:
         cost = (devices, _channel_count(union), _plan_size(plan))
         return cost if beat is None or cost < beat else None
 
+    def segment_cost(self, j: int, S: np.ndarray, beat: Optional[_Cost]) -> Optional[_Cost]:
+        """The cost of support S over segment j's snapshots alone (a flow goal's snapshot needs nothing
+        from the one before), or None when S fails there or cannot beat `beat`. A segment may move no
+        device beyond noise: only the joined plan must be an attack."""
+        a, b = self.segments[j]
+        self.converged = True
+        tampered = self._tampered(tuple(S for _ in self.segments), beat, range(a, b))
+        if tampered is None:
+            return None
+        cost = (tampered[1], _channel_count(tampered[0]), len(S))
+        return cost if beat is None or cost < beat else None
+
     def support_at(self, t: int, plan: _Plan) -> np.ndarray:
         """The buses free at snapshot t under `plan`: its segment's support less the buses of the PMUs
         trusted by then (eq. 29 holds their deviation at zero, so they keep their true voltage)."""
@@ -554,13 +599,16 @@ class _Window:
         pinned = self.pinned[t]
         return S if not pinned else S[~np.isin(S, sorted(pinned))]
 
-    def _tampered(self, plan: _Plan, beat: Optional[_Cost]) -> Optional[tuple[_Channels, int]]:
-        """The window's union of tampered channels (node, flow, PMU current masks) under `plan` and
-        its device count, or None when it fails at a snapshot or its devices so far exceed `beat`'s."""
+    def _tampered(
+        self, plan: _Plan, beat: Optional[_Cost], snapshots: Optional[range] = None
+    ) -> Optional[tuple[_Channels, int]]:
+        """The union of tampered channels (node, flow, PMU current masks) under `plan` over the window's
+        snapshots (or `snapshots`) and its device count, or None when it fails at a snapshot or its
+        devices so far exceed `beat`'s."""
         union: _Channels = (np.zeros(self.node_m.shape, bool), np.zeros(self.edge_m.shape, bool), None)
         devices = 0
         prev = self.prev  # the frame before the window: its attack vector, zero when benign
-        for t in range(len(self.states)):
+        for t in range(len(self.states)) if snapshots is None else snapshots:
             moved = self._free_snapshot(t, self.support_at(t, plan), prev)
             if moved is None:
                 return None

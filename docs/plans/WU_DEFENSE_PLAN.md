@@ -227,6 +227,9 @@ PMUs trusted at or before t (eqs. 30-31). Under the neighbour reading, b's neigh
 
 - **Range:** at k = 1.1 both scenarios survive the defense, and the increases are in Table II's
   range.
+- **k = 1.2 with a support per segment:** PR A's per-slot search also seeds a plan segment by segment
+  when no held support is feasible. It finds none on either scenario: the last segment, with all four
+  PMUs trusted, has no feasible support.
 - **Scenario 1 devices (k = 1.1):**
   - undefended: SCADA 2, 3, 4, 5 and PMU 4;
   - defended: SCADA 1, 2, 4, 5 and PMU 1, 4;

@@ -158,8 +158,9 @@ def test_the_ieee14_scenarios_at_k_1_1(scenario, before, after):
 @SLOW
 @pytest.mark.parametrize("scenario", [0, 1])
 def test_the_schedule_stops_the_ieee14_scenarios_at_k_1_2(scenario):
-    """At k = 1.2 no candidate reaches both ratings with the four PMUs trusted, held or per slot, while
-    the undefended attack does (8 and 10 devices)."""
+    """At k = 1.2 no candidate reaches both ratings with the four PMUs trusted, held or per slot (where
+    a plan is also seeded segment by segment when no held support works), while the undefended attack
+    does (8 and 10 devices)."""
     g, window, k, goal = _setup(scenario, 1.2)
     assert g.min_tamper(window, goal, k).devices == (8, 10)[scenario]
     for per_slot in (False, True):
@@ -179,13 +180,20 @@ class _TableWindow:
     """A window whose cost is a table over plans: the per-slot search sees only `segments` and
     `cost_plan`, so a constructed table isolates its logic from the physics."""
 
-    def __init__(self, costs: dict) -> None:
+    def __init__(self, costs: dict, alone: dict = {}) -> None:  # noqa: B006  read only
         self.segments = [(0, 1), (1, 2)]
-        self.costs, self.converged, self.unsolved, self.last_tried = costs, True, 0, 0
+        self.costs, self.alone = costs, alone  # plan -> cost; (segment, support) -> cost on the segment
+        self.converged, self.unsolved, self.last_tried = True, 0, 0
 
     def cost_plan(self, plan, beat):
-        cost = self.costs.get(tuple(tuple(int(b) for b in S) for S in plan))
-        return cost if cost is not None and (beat is None or cost < beat) else None
+        return _beats(self.costs.get(tuple(tuple(int(b) for b in S) for S in plan)), beat)
+
+    def segment_cost(self, j, S, beat):
+        return _beats(self.alone.get((j, tuple(int(b) for b in S))), beat)
+
+
+def _beats(cost, beat):
+    return cost if cost is not None and (beat is None or cost < beat) else None
 
 
 def test_the_support_changes_at_a_slot_when_that_is_cheaper():
@@ -199,7 +207,26 @@ def test_the_support_changes_at_a_slot_when_that_is_cheaper():
     A, B = np.array([1, 2]), np.array([3])
     window = _TableWindow({((1, 2), (1, 2)): (5, 9, 2), ((1, 2), (3,)): (3, 6, 3), ((3,), (3,)): (7, 12, 1)})
     k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
-    r = MinimizeMixin._per_slot_result(window, ((5, 9, 2), A), lambda: iter([A, B]), (1, 0), k)
+    r = MinimizeMixin._per_slot_result(window, ((5, 9, 2), A), lambda: iter([A, B]), (1, 0, np.arange(4)), k)
     assert [S.tolist() for S in r.plan] == [[1, 2], [3]]
     assert r.support.tolist() == [1, 2, 3]
     assert (r.devices, r.channels) == (3, 6)
+
+
+def test_a_plan_can_be_feasible_when_no_held_support_is():
+    """A constructed window where A = {1, 2} works only before the slot and B = {3} only after it: no
+    held support is feasible, so the search seeds a plan with each segment's own cheapest support and
+    returns (A, B) instead of reporting the window infeasible. When some segment has no feasible
+    support, the window is infeasible (-1, the area as the support)."""
+    from fdia_graph.engine.attacks.minimize import MinimizeMixin
+
+    A, B = np.array([1, 2]), np.array([3])
+    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
+    area = np.arange(4)
+    window = _TableWindow({((1, 2), (3,)): (4, 7, 3)}, {(0, (1, 2)): (2, 4, 2), (1, (3,)): (3, 5, 1)})
+    r = MinimizeMixin._per_slot_result(window, None, lambda: iter([A, B]), (1, 0, area), k)
+    assert [S.tolist() for S in r.plan] == [[1, 2], [3]]
+    assert r.support.tolist() == [1, 2, 3] and (r.devices, r.channels) == (4, 7)
+    stuck = _TableWindow({}, {(0, (1, 2)): (2, 4, 2)})  # nothing works after the slot
+    r = MinimizeMixin._per_slot_result(stuck, None, lambda: iter([A, B]), (1, 0, area), k)
+    assert r.devices == -1 and r.support.tolist() == area.tolist() and r.plan == ()
