@@ -39,9 +39,11 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          # --no-renames lists a rename as its old and its new path, so moving a tested file out counts
+          changed=$(git diff --name-only --no-renames "origin/${{ github.base_ref }}...HEAD")
           echo "$changed"
-          if echo "$changed" | grep -vE '^docs/|\.md$' | grep -q . || echo "$changed" | grep -qx 'docs/reference/DATA_DICTIONARY.md'; then
+          code_files=$(grep -vE '^docs/|\.md$' <<< "$changed" || true)
+          if [ -z "$changed" ] || [ -n "$code_files" ] || grep -qx 'docs/reference/DATA_DICTIONARY.md' <<< "$changed"; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"

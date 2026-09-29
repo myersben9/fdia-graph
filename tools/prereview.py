@@ -60,7 +60,7 @@ def _suite(py: str) -> list[str]:
     test extra installs it). Every worker builds its own tiny timeline in its own cache, so more
     workers than a few repeat that build more than they save; 8 at most."""
     has_xdist = subprocess.run([py, "-c", "import xdist"], capture_output=True).returncode == 0
-    workers = ["-n", "auto", "--maxprocesses", "8"] if has_xdist else []
+    workers = ["-n", str(min(8, os.cpu_count() or 1))] if has_xdist else []
     return [py, "-m", "pytest", "-q", "-x", *workers, "-W", "error::DeprecationWarning:fdia_graph", "tests"]
 
 
