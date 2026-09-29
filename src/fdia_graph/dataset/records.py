@@ -20,6 +20,7 @@ from .base import (
     _BATCH_SCALARS,
     _BATCH_STACKED,
     _BENIGN_LAYERS,
+    _CURRENT_LAYERS,
     DatasetBase,
     _torch,
 )
@@ -55,6 +56,7 @@ class RecordsMixin(DatasetBase):
         item = self._base_item(d, j)
         self._add_optional_layers(item, d, j)
         self._add_benign(item, pos)
+        self._add_currents(item, pos)
         record = RecordBundle(**item)
         return self._to_pyg(record) if self.format == "pyg" else record
 
@@ -75,6 +77,16 @@ class RecordsMixin(DatasetBase):
             item[k] = torch.as_tensor(
                 self._to_units(a, "node" if k == "benign" else "edge"), dtype=torch.float32
             )
+
+    def _add_currents(self, item: dict[str, Any], pos: int) -> None:
+        """The PMU branch-current phasors of a hybrid-meter timeline record [E, 4], per unit on every
+        view: observed, their mask, and the attack-removed twin."""
+        if not self.has_currents:
+            return
+        torch = _torch()
+        for k, path in _CURRENT_LAYERS.items():
+            a = self._mem[k][pos] if self._mem is not None else self._h()[path][int(self.idx[pos])]
+            item[k] = torch.as_tensor(np.asarray(a), dtype=torch.float32)
 
     def _base_item(self, d: RecordSource, j: int) -> dict[str, Any]:
         """The fields every record has: the static graph (shared tensors, not copies), the measurements

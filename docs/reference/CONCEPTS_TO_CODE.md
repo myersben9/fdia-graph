@@ -49,6 +49,8 @@ and converts them on load.
 | Robust reweighting (Huber), residual removal, subspace prior | `se/methods.py`: one class per arm, each overrides one hook |
 | Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` is the RMS of the benign residuals at the training truth (`se/base.py` `SEBase.fit`); residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`/`Am`, `schema.STEALTHY_FAMILIES`) |
 | Noise model | `FdiaGenerator.SD` (accuracy class): reading = true + per-meter bias + per-scan jitter. The estimator does not read it; it calibrates `σ_i` from data |
+| Meter model (hybrid SCADA and PMU, the plan's D10) | `MeasurementMixin.meter_masks` (the angle at the PMU buses only), `current_mask` and `_emit_currents` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(..., redundancy={"meter_model": ...})` through `models.MeterSettings` |
+| PMU pseudo-measurements `V_f = (I_n − y_nn V_n)/y_nf` [WU26, eq. (3)] | `formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages` (with the propagated variance), used by `SEBase(pmu_pseudo=True)` in `_build_pseudo` and `_z_of` |
 
 Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 
@@ -59,7 +61,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 | Aq | `A_o` | scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode | `engine/attacks/episodes.single_shot_design` + `engine/attacks/false_state.stealthy_state` |
 | At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.ramp_design` + `ramp_step` |
 | Al | `A_l` | load-conserving redistribution around a target line, one frame per episode | `engine/attacks/redistribution.lra_delta` + `engine/attacks/stealthy._lra_frame` |
-| Am | `A_m` | the overload attack of [WU26]: a rated line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps) | `engine/attacks/overload.am_overload_design` + `overload_step` (v0.8.3: `episodes.am_design` + `am_step` + `stealthy._am_frame`) |
+| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps) | `engine/attacks/overload.am_overload_design` + `overload_step` (v0.8.3: `episodes.am_design` + `am_step` + `stealthy._am_frame`) |
 | Ad | `A_d` | `z ← z(1±u)` | `engine/attacks/corrupt.corrupt` |
 | As | `A_s` | `z ← βz` | `engine/attacks/corrupt.corrupt` |
 | Ar | `A_r` | replay `z(t−k)` | `engine/attacks/corrupt.corrupt` |
@@ -68,12 +70,12 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
   with the boundary voltages held true, inside the case's voltage limits and the region's generator
   limits, and the attack vector `h(x') − h(x)` is added to the benign scan. The residual test flags
   them at the benign rate by construction. They satisfy equations (13)-(18) and (21)-(23) of [WU26]
-  (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits; the PMU
-  branch-current phasors (19)-(20) are not modeled yet). New generation also solves its objective,
+  (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits), and
+  new generation, whose PMUs read branch currents, meets the current phasors (19)-(20) as well. New generation also solves its objective,
   eq. (12): each `At` and `Am` episode is held on the support that tampers the fewest devices, and
-  `Am` drives a rated line's reported flow to its PGLib-OPF rating (eqs. 24-25). The released files'
+  `Am` drives a line's reported flow to its rating (eqs. 24-25; by default 1.25 times its peak pool flow, D15). The released files'
   stealthy families drew their targets at random and drove no line to its limit; `LEGACY_FAMILIES`
-  with `am_attack="redistribution"` and `min_tamper=False` reproduces them
+  with `am_attack="redistribution"`, `min_tamper=False` and `redundancy={"meter_model": "v083"}` reproduces them
   (`docs/plans/WU_MSFDIA_PLAN.md`).
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,

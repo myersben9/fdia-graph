@@ -19,6 +19,7 @@ from .fields import (
     CleanFields,
     GraphFields,
     LabelFields,
+    PmuCurrentFields,
     PreviousFrameFields,
     RecordIds,
     ScanFields,
@@ -32,11 +33,20 @@ _CLEAN = ("clean", "edge_clean", "edge_clean_full")
 _IDS = ("family", "stealthy", "seq_id", "timestep")
 _BENIGN = ("benign", "edge_benign")
 _PREV = ("prev_node_x", "prev_edge_x", "prev_timestep", "prev_swing")
+_PMU_I = ("pmu_i", "pmu_i_m", "pmu_i_benign")
 
 
 @dataclass(frozen=True, eq=False)
 class RecordBundle(
-    StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
+    PmuCurrentFields,
+    StreamLayers,
+    GraphFields,
+    CleanFields,
+    TemporalFields,
+    RecordIds,
+    LabelFields,
+    ScanFields,
+    Bundle,
 ):
     """One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units with no
     leading axis, the static graph shared by every record, the label and provenance, and the
@@ -44,23 +54,32 @@ class RecordBundle(
     DataLoaders, `**item` and `item["node_x"]` keep working."""
 
     _required = ("edge_index", *_SCAN, "y", *_IDS)
-    _order = ("edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN, *_BENIGN)
+    _order = ("edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN, *_BENIGN, *_PMU_I)
 
 
 @dataclass(frozen=True, eq=False)
 class BatchBundle(
-    StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
+    PmuCurrentFields,
+    StreamLayers,
+    GraphFields,
+    CleanFields,
+    TemporalFields,
+    RecordIds,
+    LabelFields,
+    ScanFields,
+    Bundle,
 ):
     """A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a
     leading batch axis B, the static graph once (the first record's), scalar metadata as long
     tensors [B]."""
 
     _required = (*_SCAN, "y")
-    _order = (*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS)
+    _order = (*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS, *_PMU_I)
 
 
 @dataclass(frozen=True, eq=False)
 class ArraysBundle(
+    PmuCurrentFields,
     PreviousFrameFields,
     StreamLayers,
     GraphFields,
@@ -89,6 +108,8 @@ class ArraysBundle(
         *_IDS,
         *_PREV,
         "edge_attr",
+        *_PMU_I,
+        "prev_pmu_i",
     )
 
 

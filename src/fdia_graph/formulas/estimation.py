@@ -12,7 +12,11 @@ Shapes: m measurements, k state (or basis) coordinates, n records. `w` is a weig
 
 from __future__ import annotations
 
+from typing import Union
+
 import numpy as np
+
+from ..models.grid import PseudoLinks, PseudoVoltages
 
 
 def normal_matrix(H: np.ndarray, w: np.ndarray) -> np.ndarray:
@@ -166,3 +170,150 @@ def accuracy_class_sigma(
     """
     mean_abs, cls = np.asarray(mean_abs, np.float64), np.asarray(cls, np.float64)
     return np.where(np.asarray(relative, bool), cls * mean_abs + floor, cls)
+
+
+def pmu_pseudo_links(
+    pmu: np.ndarray,
+    current_m: np.ndarray,
+    f_bus: np.ndarray,
+    t_bus: np.ndarray,
+    Yf: np.ndarray,
+    Yt: np.ndarray,
+) -> PseudoLinks:
+    """The branch ends where [WU26, eq. (3)] places a pseudo voltage phasor: a PMU at the metered end
+    reads the bus voltage and the branch current, which fix the voltage at the far end when the far
+    bus has no PMU of its own.
+
+    pmu        : [N] bool, the PMU buses
+    current_m  : [E, 4] the PMU branch-current mask (`CURRENT` columns)
+    f_bus, t_bus : [E] the branch terminals, in the same bus order as the columns of Yf and Yt
+    Yf, Yt     : [E, N] complex branch admittances, I_f = Yf V and I_t = Yt V
+    returns    : `PseudoLinks`, one row per usable metered end
+    """
+    pmu = np.asarray(pmu, bool)
+    cm = np.asarray(current_m) > 0
+    f_bus, t_bus = np.asarray(f_bus, np.int64), np.asarray(t_bus, np.int64)
+    # a PMU at the from end (Yf row) or at the to end (Yt row), the far bus without a PMU of its own
+    ef = np.where(cm[:, 0] & pmu[f_bus] & ~pmu[t_bus])[0]
+    et = np.where(cm[:, 2] & pmu[t_bus] & ~pmu[f_bus])[0]
+    near = np.concatenate([f_bus[ef], t_bus[et]])
+    far = np.concatenate([t_bus[ef], f_bus[et]])
+    y_nn = np.concatenate([Yf[ef, f_bus[ef]], Yt[et, t_bus[et]]]).astype(complex)
+    y_nf = np.concatenate([Yf[ef, t_bus[ef]], Yt[et, f_bus[et]]]).astype(complex)
+    edge = np.concatenate([ef, et])
+    end = np.concatenate([np.zeros(len(ef), np.int64), np.ones(len(et), np.int64)])
+    ok = y_nf != 0  # an open branch couples nothing
+    return PseudoLinks(near[ok], far[ok], edge[ok], end[ok], y_nn[ok], y_nf[ok])
+
+
+def pmu_pseudo_phasors(
+    links: PseudoLinks, n_bus: int, v: np.ndarray, theta: np.ndarray, current: np.ndarray
+) -> np.ndarray:
+    """The pseudo voltage phasors of [WU26, eq. (3)] alone [n, N] (complex, NaN where no link reaches),
+    the values `pmu_pseudo_voltages` propagates the noise of: V_f = (I_n - y_nn V_n) / y_nf, the mean
+    over the links reaching f. The estimator's solve reads only these, so it builds no covariance.
+
+    v, theta : [n, N] bus |V| (pu) and angle (rad); current : [n, E, 4] the PMU current readings
+    """
+    v, theta = np.atleast_2d(v).astype(float), np.atleast_2d(theta).astype(float)
+    cur = np.asarray(current, float).reshape(v.shape[0], -1, 4)
+    near, far, e, re = links.near, links.far, links.edge, 2 * links.end
+    k = np.bincount(far, minlength=n_bus).astype(float)
+    w = 1.0 / np.maximum(k[far], 1.0)  # [J] each link's share of its bus's mean
+    I_n = cur[:, e, re] + 1j * cur[:, e, re + 1]
+    V_n = v[:, near] * np.exp(1j * theta[:, near])
+    V_f = np.zeros((v.shape[0], n_bus), complex)
+    np.add.at(V_f.T, far, (w * (I_n - links.y_nn * V_n) / links.y_nf).T)  # .T: sum over the bus axis
+    V_f[:, k == 0] = np.nan
+    return V_f
+
+
+def _rotation(c: np.ndarray) -> np.ndarray:
+    """Complex multiplication by c as a real 2x2 matrix on (Re, Im): [..., 2, 2]."""
+    return np.stack([np.stack([c.real, -c.imag], -1), np.stack([c.imag, c.real], -1)], -2)
+
+
+def pmu_pseudo_voltages(
+    links: PseudoLinks,
+    n_bus: int,
+    v: np.ndarray,
+    theta: np.ndarray,
+    current: np.ndarray,
+    sigma_v: Union[float, np.ndarray],
+    sigma_theta: Union[float, np.ndarray],
+    sigma_i: Union[float, np.ndarray],
+) -> PseudoVoltages:
+    """The pseudo voltage phasors of [WU26, eq. (3)] at the far end of every PMU-metered branch,
+    averaged over the links that reach a bus, with their first-order propagated noise.
+
+    From the metered end n of a branch to its far end f (pi model, taps and shifts included):
+
+        I_n = y_nn V_n + y_nf V_f   =>   V_f = (I_n - y_nn V_n) / y_nf
+
+    which is eq. (3) written for a general branch (y_nn = y_s + j b/2 and y_nf = -y_s on a line
+    without a tap). A bus reached by k links takes the mean of its k estimates.
+
+    Noise: with independent errors on the PMU readings (|V_n| and its angle with standard deviations
+    sigma_v and sigma_theta, Re and Im of I_n each with its sigma_i), the first-order error of one
+    estimate as a real 2-vector is
+
+        dV_f = R(1/y_nf) dI_n - R(y_nn/y_nf) P_n (d|V_n|, dtheta_n)
+
+    with R(c) the real 2x2 matrix of multiplying by c and P_n the polar-to-rectangular Jacobian at
+    V_n. The mean over k links sums the current terms as independent and groups the voltage terms
+    by PMU bus (two branches from one PMU share its voltage error), giving a 2x2 covariance C_f;
+    the polar variances follow through the rectangular-to-polar gradients at the estimate,
+
+        var|V_f| = g_r C_f g_r^T,   g_r = (x, y)/|V_f|
+        var theta_f = g_t C_f g_t^T,   g_t = (-y, x)/|V_f|^2          (V_f = x + j y)
+
+    so with a round error on V_f of complex variance s^2 = tr C_f, var|V_f| = s^2/2 and
+    var theta_f = s^2/(2|V_f|^2).
+
+    links      : `pmu_pseudo_links`
+    n_bus      : N
+    v, theta   : [n, N] or [N] bus |V| (pu) and angle (rad), read at the PMU buses
+    current    : [n, E, 4] or [E, 4] the PMU branch-current readings (`CURRENT` columns, pu)
+    sigma_v, sigma_theta : [N] or [n, N] the standard deviations of the PMU |V| and angle
+    sigma_i    : [n, E, 4] or [E, 4] the standard deviation of every current channel
+    returns    : `PseudoVoltages`, NaN where no link reaches
+    """
+    single = np.ndim(v) == 1
+    v, theta = np.atleast_2d(v).astype(float), np.atleast_2d(theta).astype(float)
+    cur = np.asarray(current, float).reshape(v.shape[0], -1, 4)
+    s_i = np.broadcast_to(np.asarray(sigma_i, float), cur.shape)
+    s_v = np.broadcast_to(np.asarray(sigma_v, float), v.shape)
+    s_t = np.broadcast_to(np.asarray(sigma_theta, float), v.shape)
+    n, N = v.shape[0], n_bus
+    near, far, e, re = links.near, links.far, links.edge, 2 * links.end
+    k = np.bincount(far, minlength=N).astype(float)
+    w = 1.0 / np.maximum(k[far], 1.0)  # [J] each link's share of its bus's mean
+    V_f = pmu_pseudo_phasors(links, N, v, theta, cur)
+    # the current terms, one independent source per link
+    Ri = _rotation(1.0 / links.y_nf)  # [J, 2, 2]
+    CI = np.zeros((n, len(far), 2, 2))
+    CI[..., 0, 0], CI[..., 1, 1] = s_i[:, e, re] ** 2, s_i[:, e, re + 1] ** 2
+    C = np.zeros((n, N, 2, 2))
+    Cb = C.transpose(1, 0, 2, 3)  # a view with the bus axis first, for np.add.at
+    np.add.at(Cb, far, ((w**2)[:, None, None] * (Ri @ CI @ np.swapaxes(Ri, -1, -2))).transpose(1, 0, 2, 3))
+    # the voltage terms, grouped by (far bus, PMU bus): one source per PMU voltage
+    pair, g = np.unique(far * N + near, return_inverse=True)
+    A = np.zeros((len(pair), 2, 2))
+    np.add.at(A, g, -w[:, None, None] * _rotation(links.y_nn / links.y_nf))
+    g_far, g_near = pair // N, pair % N
+    c, s, r = np.cos(theta[:, g_near]), np.sin(theta[:, g_near]), v[:, g_near]
+    P = np.stack([np.stack([c, -r * s], -1), np.stack([s, r * c], -1)], -2)  # [n, G, 2, 2]
+    D = np.zeros((n, len(pair), 2, 2))
+    D[..., 0, 0], D[..., 1, 1] = s_v[:, g_near] ** 2, s_t[:, g_near] ** 2
+    AP = A @ P
+    np.add.at(Cb, g_far, (AP @ D @ np.swapaxes(AP, -1, -2)).transpose(1, 0, 2, 3))
+    reached = k > 0
+    x, y, mag = np.real(V_f), np.imag(V_f), np.abs(V_f)
+    g_r = np.stack([x, y], -1) / mag[..., None]
+    g_t = np.stack([-y, x], -1) / (mag**2)[..., None]
+    var_v = np.einsum("nba,nbac,nbc->nb", g_r, C, g_r)
+    var_t = np.einsum("nba,nbac,nbc->nb", g_t, C, g_t)
+    th = np.angle(V_f)
+    if single:
+        return PseudoVoltages(mag[0], th[0], var_v[0], var_t[0], reached)
+    return PseudoVoltages(mag, th, var_v, var_t, reached)

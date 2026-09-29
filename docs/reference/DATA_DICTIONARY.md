@@ -166,6 +166,17 @@ Every frame of a timeline carries three aligned layers, for node and for edge me
 | `graph/` | `edge_index` and the static branch physics and bus shunts | the same for every frame |
 | `episodes/` | `onset, length, family, bus_ptr, bus_idx` | `ds.episodes` |
 | `attack/` | `mag_ptr, mag_bus, mag, node_tamper, edge_tamper` | designed magnitude per attacked bus, unsigned (a load rise and a drop of the same size record the same value); the meters the attacker wrote |
+| `data/`, `benign/`, `attack/` | `pmu_i, pmu_i_m`; `pmu_i_benign`; `pmu_i_tamper` | hybrid-meter files only (`attrs["meter_model"] == "hybrid"`, new generation): the PMU branch currents `[T, E, 4]`, see below |
+
+On a hybrid-meter file a SCADA voltmeter reads no angle, so `node_m[:, 3]` is 1 at the PMU buses only,
+and each PMU reads the current phasor of every in-service branch at its bus [WU26, eqs. 19-20]. The
+columns of `pmu_i` are defined in `fdia_graph.models.CurrentColumns` (`re_from`, `im_from`, `re_to`,
+`im_to`): the real and imaginary part of `I_from = Y_f V` and `I_to = Y_t V` in per unit on the base
+current, the same on a `units="pu"` or `"physical"` view, zero where no PMU reads that end
+(`pmu_i_m` is 0 there). `pmu_i_benign` is the attack-removed twin and `pmu_i_tamper` marks the
+channels the attacker wrote. A file without these datasets (every released file) loads unchanged
+and its records carry no `pmu_i`. `export(["prev_pmu_i"])` gives the previous emitted frame's
+currents on a hybrid-meter timeline, like `prev_node_x`.
 
 Chunked along the frame axis so a window of W frames is one read. The v0.7.2 record shards (the
 same `data/`, `clean/` once per pool timestep, a `gap` column, no `benign/`) still load through
@@ -183,7 +194,7 @@ by `tools/models_doc.py` from the dataclasses.
 
 One record as `FdiaGraph[i]` returns it (format="torch"): tensors in self.units with no leading axis, the static graph shared by every record, the label and provenance, and the optional layers the file carries (the benign layer on a timeline file). A dict as well, so DataLoaders, `**item` and `item["node_x"]` keep working.
 
-Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `PmuCurrentFields`, `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -205,12 +216,15 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
 | `benign` | `benign` | Array |  | [..., N, 4] attack removed, noise kept (StreamLayers) |
 | `edge_benign` | `edge_benign` | Array |  | [..., E, 2] attack removed, noise kept (StreamLayers) |
+| `pmu_i` | `pmu_i` | Array |  | [..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields) |
+| `pmu_i_m` | `pmu_i_m` | Array |  | [..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields) |
+| `pmu_i_benign` | `pmu_i_benign` | Array |  | [..., E, 4] attack removed, noise kept (PmuCurrentFields) |
 
 ### `BatchBundle` (`fdia_graph.models.data`)
 
 A batch of records as `FdiaGraph.collate` builds it: per-record tensors stacked along a leading batch axis B, the static graph once (the first record's), scalar metadata as long tensors [B].
 
-Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `PmuCurrentFields`, `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -232,12 +246,15 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars |  | [...] episode index of the frame's attack (every family), -1 benign (RecordIds) |
 | `timestep` | `timestep` | Scalars |  | [...] position in the source load profile (RecordIds) |
+| `pmu_i` | `pmu_i` | Array |  | [..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields) |
+| `pmu_i_m` | `pmu_i_m` | Array |  | [..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields) |
+| `pmu_i_benign` | `pmu_i_benign` | Array |  | [..., E, 4] attack removed, noise kept (PmuCurrentFields) |
 
 ### `ArraysBundle` (`fdia_graph.models.data`)
 
 A whole split of n records as `export` returns it (arrays, or tensors with format="torch" or "tf"), leading axis n: every per-record field that was requested and the file carries, plus the static graph. Fields not requested are absent from the dict view.
 
-Field groups: `PreviousFrameFields`, `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -264,6 +281,10 @@ Field groups: `PreviousFrameFields`, `StreamLayers`, `GraphFields`, `CleanFields
 | `prev_timestep` | `prev_timestep` | Array |  | [...] the previous frame's pool timestep (PreviousFrameFields) |
 | `prev_swing` | `prev_swing` | Array |  | [..., N, 2] the previous frame's swing (dimensionless) (PreviousFrameFields) |
 | `edge_attr` | `edge_attr` | Array |  | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
+| `pmu_i` | `pmu_i` | Array |  | [..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields) |
+| `pmu_i_m` | `pmu_i_m` | Array |  | [..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields) |
+| `pmu_i_benign` | `pmu_i_benign` | Array |  | [..., E, 4] attack removed, noise kept (PmuCurrentFields) |
+| `prev_pmu_i` | `prev_pmu_i` | Array |  | [..., E, 4] the previous frame's PMU branch currents (hybrid meters) (PreviousFrameFields) |
 
 ### `Summary` (`fdia_graph.models.data`)
 

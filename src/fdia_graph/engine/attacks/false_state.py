@@ -3,11 +3,12 @@ the boundary held true, checked against the operating limits, and the attack vec
 
 from __future__ import annotations
 
-from typing import Optional
+from collections.abc import Sequence
+from typing import Optional, Union
 
 import numpy as np
 
-from ...formulas.attacks import generator_output, operating_limits, within_limits
+from ...formulas.attacks import bus_load, generator_output, operating_limits, within_limits
 from ...formulas.network import (
     _dense,
     bus_injections,
@@ -19,6 +20,38 @@ from ...formulas.network import (
 from ...models.frames import AttackDesign, Frame, FrameKnobs, OperatingLimits, Scan
 from ...models.grid import NODE
 from .area import AreaMixin
+
+
+def _voltages_out_of_range(
+    Xa: np.ndarray, Xt: np.ndarray, S: np.ndarray, limits: OperatingLimits, held: dict[int, float]
+) -> dict[int, float]:
+    """The buses of S whose false |V| left its limit (21) (the bound at a bus already outside it is
+    its true value, as `within_limits` has it), each with the limit to hold it at."""
+    lo, hi = np.minimum(limits.v_lo, Xt[:, NODE.v]), np.maximum(limits.v_hi, Xt[:, NODE.v])
+    out: dict[int, float] = {}
+    for b in np.asarray(S, int):
+        v = Xa[b, NODE.v]
+        if int(b) not in held and (v < lo[b] or v > hi[b]):
+            out[int(b)] = float(np.clip(v, lo[b], hi[b]))
+    return out
+
+
+def _clip_generator(
+    b: int,
+    gen: np.ndarray,
+    dS: complex,
+    box: tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]],
+    pins: tuple[tuple[dict[int, float], dict[int, float]], tuple[dict[int, float], dict[int, float]]],
+) -> None:
+    """Record in `pins`[1] each of generator b's components (P, Q) that the change dS drives outside
+    its limits `box` [WU26, eqs. 22-23] and that `pins`[0] has not pinned yet, with the change that
+    puts it at the nearest limit (generation positive)."""
+    pinned, out = pins
+    for c, moved in enumerate((np.real(dS), np.imag(dS))):
+        value = gen[c] + moved
+        clipped = float(np.clip(value, box[c][0][b], box[c][1][b]))
+        if b not in pinned[c] and clipped != value:
+            out[c][b] = clipped - gen[c]
 
 
 class FalseStateMixin(AreaMixin):
@@ -69,48 +102,168 @@ class FalseStateMixin(AreaMixin):
         positions (a load off every generator bus, under the load cap), sorted."""
         return np.unique(self.load_bus[self.stealthy_pos])
 
+    def generator_buses(self) -> np.ndarray:
+        """The buses with a generator (zero-MW condensers included), the slack excluded: their output
+        is an injection measurement the overload attacker may tamper [WU26, eqs. 13-14], bounded by
+        the generator limits (22)-(23)."""
+        return np.setdiff1d(np.flatnonzero(self.has_gen), [self.slack_bus])
+
+    def free_injection_buses(self) -> np.ndarray:
+        """The buses whose injection a flow-goal attacker may change: the attackable loads and the
+        generators (the plan's D14). A zero-injection bus is held at zero: nothing is connected there
+        (a rule of ours, not the paper's)."""
+        return np.union1d(self.free_load_buses(), self.generator_buses())
+
     def solve_flow_local(
-        self, Xt: np.ndarray, S: np.ndarray, line: int, target_mva: float
+        self,
+        Xt: np.ndarray,
+        S: np.ndarray,
+        line: Union[int, Sequence[int]],
+        target_mva: Union[float, Sequence[float]],
+        limits: Optional[OperatingLimits] = None,
+        load_cap: Optional[float] = None,
     ) -> tuple[Optional[np.ndarray], bool, np.ndarray]:
         """The false state of a flow goal on support S [WU26, eqs. 24-25]: the voltages of S move, the
-        buses of S that hold no attackable load keep their true injections (a zero-injection bus at
-        zero, a generator bus at its dispatch), the attackable loads of S are free, and `line`'s
-        from-end apparent flow reaches `target_mva` (`formulas.network.local_flow_solve`). Returns
-        (the false state [N, 4] with the injections of S and its boundary moved by exactly the change
-        the false voltages cause, whether the solve converged, the pretended load change per bus in
-        MW [N]); the state is None when the solve fails or S holds no attackable load."""
-        C = self.C
-        dload = np.zeros(C)
-        free = np.intersect1d(S, self.free_load_buses())
+        free injections of S (attackable loads and generators, `free_injection_buses`) move, every
+        other bus of S keeps its true injection (a zero-injection bus at zero), and each goal branch's
+        from-end apparent flow reaches its target (`line` and `target_mva` one each, or one per
+        branch; `formulas.network.local_flow_solve`). The injections of S's edge buses move with the
+        false voltages. With `limits`, every generator whose reported output the attack changes, in
+        S or on its edge, stays inside its limits (22)-(23), and every voltage of S inside (21); with
+        `load_cap` tau, every load bus whose reported injection it changes shows at most tau times
+        its true load (D16). A component (P or Q) the solve drives past its bound is pinned at the
+        bound, the other left free, and the solve repeated (an active set), so the least-norm state
+        is sought among those that keep every bound. Returns (the false state [N, 4] with the
+        injections of S and its edge moved by exactly the change the false voltages cause, whether
+        the solve converged, the pretended load change per load bus of S in MW [N], zero at a
+        generator bus, whose change is its output's and is checked against the generator limits by
+        `within_limits`); the state is None when the solve fails, a bound cannot be met, or S holds
+        no free injection."""
+        dload = np.zeros(self.C)
+        free = np.intersect1d(S, self.free_injection_buses())
         if len(free) == 0:
             return None, True, dload
-        lut = self._ppc_row[np.arange(C)]
+        goal = (np.atleast_1d(np.asarray(line, np.int64)), np.atleast_1d(np.asarray(target_mva, float)))
+        edge = np.setdiff1d(self.touched_buses(S), S)
+        # bus -> its pinned change per component (P in MW, Q in MVAr, generation positive)
+        pinned: tuple[dict[int, float], dict[int, float]] = ({}, {})
+        held_v: dict[int, float] = {}  # bus -> the voltage limit its magnitude is held at, pu
+        for _ in range(3 * (len(S) + len(edge)) + 1):
+            solved = self._flow_solve_pinned(Xt, S, free, goal, (pinned, held_v))
+            if solved is None:
+                return None, False, dload
+            Xa, dS = solved
+            over = self._out_of_bounds(Xt, np.union1d(S, edge), dS, (limits, load_cap), pinned)
+            v_over = {} if limits is None else _voltages_out_of_range(Xa, Xt, S, limits, held_v)
+            if not over[0] and not over[1] and not v_over:
+                # a load bus's change is its pretended load
+                loads = np.setdiff1d(free, self.generator_buses())
+                dload[loads] = -np.real(dS[loads])
+                return Xa, True, dload
+            for component, changes in zip(pinned, over):
+                component.update(changes)
+            held_v.update(v_over)
+        return None, True, dload
+
+    def touched_buses(self, S: np.ndarray) -> np.ndarray:
+        """S and its edge: the buses whose reported injection a false state on S can change."""
+        return np.union1d(S, subnetwork(self._live_edges(), S, 0, self.C)[1])
+
+    def _flow_solve_pinned(
+        self,
+        Xt: np.ndarray,
+        S: np.ndarray,
+        free: np.ndarray,
+        goal: tuple[np.ndarray, np.ndarray],
+        held: tuple[tuple[dict[int, float], dict[int, float]], dict[int, float]],
+    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
+        """One flow solve on S with the free injections `free`, the non-free buses of S held, the
+        pinned components (in S or on its edge) each at its true value plus the pinned change, and
+        the held voltage magnitudes (`held` = ((bus -> P change, bus -> Q change), bus -> |V|)):
+        (the false state [N, 4], the injection change per bus [N], generation positive, MVA), or
+        None when the solve fails."""
+        C, lut = self.C, self._ppc_row[np.arange(self.C)]
+        lines, targets = goal
+        (pin_p, pin_q), held_v = held
         V = np.zeros(self._n_ppc_buses, complex)
         V[lut] = complex_voltages(Xt[:, NODE.v], Xt[:, NODE.theta])
         Yb, Yf = self._dense_admittances()
-        fixed = lut[np.setdiff1d(S, free)]
+        both = np.setdiff1d(S, free)  # the buses of S that hold their injection
+        fixed = np.union1d(both, np.array(sorted({*pin_p, *pin_q}), np.int64))
         S_true = bus_injections(V, Yb)  # per unit, the model's injections at the true voltages
+        change = np.array([complex(pin_p.get(int(b), 0.0), pin_q.get(int(b), 0.0)) for b in fixed])
+        S_held = S_true[lut[fixed]] + change / self._base_mva
+        # a held bus of S holds both components, a pinned bus only the pinned one(s)
+        whole = set(both.tolist())
+        hold = np.array(
+            [(int(b) in whole or int(b) in pin_p, int(b) in whole or int(b) in pin_q) for b in fixed]
+        )
+        vb = np.array(sorted(held_v), np.int64)
         Vf = local_flow_solve(
             Yb,
-            Yf[line],
-            int(self._from_bus_ppc[line]),
+            Yf[lines],
+            np.asarray(self._from_bus_ppc)[lines],
             V,
             lut[S],
-            fixed,
-            S_true[fixed],
-            target_mva / self._base_mva,
+            lut[fixed],
+            S_held,
+            targets / self._base_mva,
+            vm_fixed=(lut[vb], np.array([held_v[int(b)] for b in vb])),
+            hold=hold.reshape(-1, 2),
         )
         if Vf is None:
-            return None, False, dload
+            return None
         Xa = np.array(Xt, np.float64, copy=True)
         Xa[S, NODE.v] = np.abs(Vf[lut[S]])
         Xa[S, NODE.theta] = np.degrees(np.angle(Vf[lut[S]]))
-        touched = np.union1d(S, subnetwork(self._live_edges(), S, 0, C)[1])
-        dS = (bus_injections(Vf, Yb) - S_true)[lut[touched]] * self._base_mva  # generation positive, MW
-        Xa[touched, NODE.p_inj] -= dS.real  # the stored injection is load positive
-        Xa[touched, NODE.q_inj] -= dS.imag
-        dload[free] = -dS.real[np.isin(touched, free)]  # a free bus has no generator: its load moved
-        return Xa, True, dload
+        touched = self.touched_buses(S)
+        dS = np.zeros(C, complex)
+        dS[touched] = (bus_injections(Vf, Yb) - S_true)[lut[touched]] * self._base_mva
+        Xa[touched, NODE.p_inj] -= np.real(dS[touched])  # the stored injection is load positive
+        Xa[touched, NODE.q_inj] -= np.imag(dS[touched])
+        return Xa, dS
+
+    def _out_of_bounds(
+        self,
+        Xt: np.ndarray,
+        touched: np.ndarray,
+        dS: np.ndarray,
+        bounds: tuple[Optional[OperatingLimits], Optional[float]],
+        pinned: tuple[dict[int, float], dict[int, float]],
+    ) -> tuple[dict[int, float], dict[int, float]]:
+        """The components of a solve past their bounds, each with the change that puts it at the
+        bound (MW or MVAr, generation positive): a generator's P or Q outside its limits (22)-(23),
+        in S or on its edge (the slack excluded, its output the balance); a load bus's active change
+        beyond `load_cap` times its true load (D16). `bounds` = (limits, load_cap), either None."""
+        limits, load_cap = bounds
+        out: tuple[dict[int, float], dict[int, float]] = ({}, {})
+        if limits is not None:
+            gen = generator_output(Xt, self.load_base, self.gen_base)
+            box = ((limits.p_lo, limits.p_hi), (limits.q_lo, limits.q_hi))
+            for b in np.intersect1d(touched, self.generator_buses()):
+                _clip_generator(int(b), gen[b], complex(dS[b]), box, (pinned, out))
+        if load_cap is not None:
+            out[0].update(self._loads_past_cap(Xt, touched, dS, load_cap, pinned[0]))
+        return out
+
+    def _loads_past_cap(
+        self, Xt: np.ndarray, touched: np.ndarray, dS: np.ndarray, load_cap: float, pinned: dict[int, float]
+    ) -> dict[int, float]:
+        """The load buses (no generator, not the slack) whose reported active load the solve changes
+        by more than `load_cap` times their true load [YUA11], each with the injection change
+        (generation positive, MW) that puts the load change at the cap."""
+        load = bus_load(Xt, self.load_base, self.gen_base)
+        buses = np.setdiff1d(
+            np.intersect1d(touched, np.flatnonzero(self.load_base[:, 0] != 0)), self.generator_buses()
+        )
+        out: dict[int, float] = {}
+        for b in np.setdiff1d(buses, [self.slack_bus]):
+            b = int(b)
+            cap = load_cap * abs(float(load[b]))
+            dD = -float(np.real(dS[b]))  # the load change the reading shows, MW
+            if b not in pinned and abs(dD) > cap:
+                out[b] = -float(np.clip(dD, -cap, cap))
+        return out
 
     def _dense_admittances(self) -> tuple[np.ndarray, np.ndarray]:
         """Ybus and Yf as dense arrays, built once (the flow solve indexes rows and multiplies often)."""
@@ -134,7 +287,38 @@ class FalseStateMixin(AreaMixin):
         tamper = (nx != bnx, ex != bex)  # the meters whose stored float32 reading changed, no fewer, no more
         y = np.zeros(self.C, np.uint8)
         y[buses] = 1
-        return Frame(nx, scan.node_m, ex, scan.edge_m, y, 1, buses, dev, bnx, bex, tamper)
+        ix, itamper = self._currents_with_attack(scan, Xa, Xt)
+        return Frame(
+            nx,
+            scan.node_m,
+            ex,
+            scan.edge_m,
+            y,
+            1,
+            buses,
+            dev,
+            bnx,
+            bex,
+            tamper,
+            i_x=ix,
+            i_m=scan.i_m,
+            benign_i_x=scan.i_x,
+            i_tamper=itamper,
+        )
+
+    def _currents_with_attack(
+        self, scan: Scan, Xa: np.ndarray, Xt: np.ndarray
+    ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """The PMU branch-current readings of a stealthy frame [WU26, eqs. 19-20]: the true scan's
+        currents plus the attack vector on them, and the current channels written; (None, None)
+        without currents in the meter plan."""
+        a = self._current_attack(Xa, Xt)
+        if a is None or scan.i_x is None or scan.i_m is None:
+            return None, None
+        moved = (np.abs(a) > 1e-9) & (scan.i_m > 0)
+        ix = scan.i_x.copy()
+        ix[moved] += a[moved].astype(np.float32)
+        return ix, ix != scan.i_x
 
     def stealthy_state(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[np.ndarray]:
         """The local false state of the design (its targets scaled by its multiplier, re-solved on its
@@ -191,6 +375,15 @@ class FalseStateMixin(AreaMixin):
         that of the true state (unmetered flows zero on both sides)."""
         flows = self.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
         return (np.asarray(Xa, float) - np.asarray(Xt, float)).astype(np.float32), flows[0] - flows[1]
+
+    def _current_attack(self, Xa: np.ndarray, Xt: np.ndarray) -> Optional[np.ndarray]:
+        """The attack vector on the PMU branch-current channels [E, 4] (per unit), zero where no PMU
+        reads that end; None without currents in the meter plan. The currents of a false state follow
+        from its voltages, so the attacker must write them too [WU26, eqs. 19-20]."""
+        if self.current_mask() is None:
+            return None
+        cur = self.currents_from_states(np.stack([Xa, Xt]))
+        return cur[0] - cur[1]
 
 
 def changed_meters(

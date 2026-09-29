@@ -20,7 +20,8 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         f.visititems(lambda n, o: names.append(n) if isinstance(o, h5py.Dataset) else None)
         groups = {n for n in f}
         attrs = dict(f.attrs)
-    per_frame = set(schema.FIELD_PATH.values()) | {
+    # the fixture is a v0.8.3-meter file: the PMU current layers are the hybrid meter model's (D10)
+    per_frame = (set(schema.FIELD_PATH.values()) - set(schema.CURRENT_LAYERS)) | {
         schema.SPLIT,
         schema.NODE_TAMPER,
         schema.EDGE_TAMPER,

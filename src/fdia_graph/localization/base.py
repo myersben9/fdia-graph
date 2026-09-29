@@ -49,6 +49,7 @@ _FIELD_CAPABILITY = {  # the capability a view needs to carry each optional fiel
     "prev_edge_x": "timeline",
     "prev_timestep": "timeline",
     "prev_swing": "timeline",
+    "prev_pmu_i": "pmu_currents",
 }
 
 

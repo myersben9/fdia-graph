@@ -118,6 +118,9 @@ _BATCH_STACKED = (
     "edge_clean_full",
     "benign",
     "edge_benign",
+    "pmu_i",
+    "pmu_i_m",
+    "pmu_i_benign",
 )
 _BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 # Layers stored once per POOL timestep (not per record), resolved through data/timestep.
@@ -126,6 +129,9 @@ _BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 _CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
 # The attack-removed layer of a timeline file: record field -> dataset path, one row per frame.
 _BENIGN_LAYERS = {k: schema.FIELD_PATH[k] for k in ("benign", "edge_benign")}
+# The PMU branch-current layers of a hybrid-meter timeline (D10): record field -> dataset path, one row
+# per frame, per unit on every view (a current has no MW form to convert from).
+_CURRENT_LAYERS = {k: schema.FIELD_PATH[k] for k in ("pmu_i", "pmu_i_m", "pmu_i_benign")}
 # The previous frame's readings on a timeline (the row emitted just before each record, whatever
 # split or family it belongs to): observed data an operator holds, offered on request only.
 _PREV_FIELDS = {
@@ -133,6 +139,7 @@ _PREV_FIELDS = {
     "prev_edge_x": "edge_x",
     "prev_timestep": "timestep",
     "prev_swing": "swing",
+    "prev_pmu_i": "pmu_i",  # hybrid-meter timelines only
 }
 # Which unit conversion each returned array takes under units="pu" (masks, labels, swing: none).
 _UNIT_KIND = {
@@ -181,6 +188,10 @@ def _has_temporal(ds: DatasetBase) -> bool:
     return ds.has_temporal
 
 
+def _has_currents(ds: DatasetBase) -> bool:
+    return ds.has_currents
+
+
 def _consecutive(ds: DatasetBase) -> bool:
     return not len(ds.idx) or bool(np.all(np.diff(ds.idx) == 1))
 
@@ -203,6 +214,10 @@ CAPABILITIES: dict[str, tuple[Callable[[DatasetBase], bool], str]] = {
     Capability.SPLIT: (_has_split, "a file with the split column"),
     Capability.SWING: (_has_swing, "a file with the swing layer"),
     Capability.TEMPORAL: (_has_temporal, "a file with the temporal_delta layer"),
+    Capability.PMU_CURRENTS: (
+        _has_currents,
+        'a hybrid-meter timeline (meter_model="hybrid"), which carries PMU currents',
+    ),
 }
 
 
@@ -226,6 +241,7 @@ class DatasetBase:
     has_clean: bool
     has_clean_full: bool
     has_benign: bool
+    has_currents: bool
     has_split: bool
     is_timeline: bool  # the file attribute kind == "timeline" (one row per frame, in time order)
     edge_status_per_record: Optional[np.ndarray]

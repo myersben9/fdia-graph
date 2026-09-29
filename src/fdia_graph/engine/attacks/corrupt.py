@@ -49,7 +49,12 @@ class CorruptMixin(GridBase):
         """Ad, As, Ar: emit the true state, then tamper the measurements at the attacked buses and
         their incident branches without re-solving, so bad-data detection can see them [DAT26]."""
         scan = self.emit_from_state(Xt)
-        nx, nm, ex, em = scan  # corrupt() rewrites the scan's readings in place
+        nx, nm, ex, em = (
+            scan.node_x,
+            scan.node_m,
+            scan.edge_x,
+            scan.edge_m,
+        )  # corrupt() rewrites these in place
         bnx, bex = (nx.copy(), ex.copy()) if k.with_benign else (None, None)  # before corruption: same noise
         buses = self.load_bus[targets]  # corrupt() and the label index by bus, targets index the load table
         replay = replay_frame(self.benign_buf, k.replay_tau, self.rng)
@@ -61,7 +66,22 @@ class CorruptMixin(GridBase):
         y = np.zeros(self.C, np.uint8)
         y[buses] = 1
         mag_bus = buses if len(mags) else np.zeros(0, int)
-        return Frame(nx, nm, ex, em, y, 0, mag_bus, np.asarray(mags, float), bnx, bex)
+        # the in-place families write the SCADA readings; the PMU branch currents keep their true scan
+        return Frame(
+            nx,
+            nm,
+            ex,
+            em,
+            y,
+            0,
+            mag_bus,
+            np.asarray(mags, float),
+            bnx,
+            bex,
+            i_x=scan.i_x,
+            i_m=scan.i_m,
+            benign_i_x=scan.i_x,
+        )
 
     def corrupt(
         self,

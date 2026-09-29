@@ -82,6 +82,7 @@ class PreviousFrameFields:
     prev_edge_x: Optional[Array] = None  # [..., E, 2] the previous frame's branch-flow readings
     prev_timestep: Optional[Array] = None  # [...] the previous frame's pool timestep
     prev_swing: Optional[Array] = None  # [..., N, 2] the previous frame's swing (dimensionless)
+    prev_pmu_i: Optional[Array] = None  # [..., E, 4] the previous frame's PMU branch currents (hybrid meters)
 
 
 @dataclass(frozen=True, eq=False)
@@ -99,6 +100,17 @@ class GraphFields:
 
     edge_index: Optional[Array] = None  # [2, E] from and to bus of every branch
     edge_attr: Optional[Array] = None  # [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+)
+
+
+@dataclass(frozen=True, eq=False)
+class PmuCurrentFields:
+    """The PMU branch-current phasors of a hybrid-meter timeline [WU26, eqs. 19-20] (the plan's D10):
+    per branch the real and imaginary current at each end (`CURRENT` columns), per unit on the base
+    current, zero where no PMU sits at that end. Absent from a v0.8.3-meter file."""
+
+    pmu_i: Optional[Array] = None  # [..., E, 4] observed (attacked where attacked), noise kept
+    pmu_i_m: Optional[Array] = None  # [..., E, 4] 1 where a PMU reads that end of the branch
+    pmu_i_benign: Optional[Array] = None  # [..., E, 4] attack removed, noise kept
 
 
 @dataclass(frozen=True, eq=False)
@@ -120,4 +132,5 @@ __all__ = [
     "CleanFields",
     "GraphFields",
     "StreamLayers",
+    "PmuCurrentFields",
 ]

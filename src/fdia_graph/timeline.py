@@ -81,7 +81,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     ONE_FRAME_FAMILIES,
     AmDirection,
 )
-from .models.config import TimelineKnobs
+from .models.config import MeterSettings, OverloadSettings, TimelineKnobs
 from .models.data import EpisodeRow
 from .models.frames import AmOverloadDesign, AttackVector, MinimizerResult
 from .models.inputs import AdmissibleTargets, FamilySelection
@@ -90,7 +90,8 @@ from .schema import Attr
 
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
 # new generation makes the multi-snapshot families [WU26]; LEGACY_FAMILIES (with
-# am_attack="redistribution", min_tamper=False) reproduces data release v0.8.3 and the frozen timeline
+# am_attack="redistribution", min_tamper=False, redundancy={"meter_model": "v083"}) reproduces data
+# release v0.8.3 and the frozen timeline
 DEFAULT_FAMILIES = GENERATED_FAMILIES
 
 # Per-family episode-length band (frames): Ad, As, Ar (the upper end excluded), used when
@@ -163,7 +164,20 @@ _LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
     schema.NODE_TAMPER: (lambda C, E: (C, 4), np.uint8),
     schema.EDGE_TAMPER: (lambda C, E: (E, 2), np.uint8),
 }
+# the PMU branch-current layers of a hybrid-meter timeline (the plan's D10), created only when the meter
+# plan reads currents, so a v0.8.3-meter file has exactly its old datasets
+_CURRENT_LAYERS = {
+    schema.PMU_I: (lambda C, E: (E, 4), np.float32),
+    schema.PMU_I_BENIGN: (lambda C, E: (E, 4), np.float32),
+    schema.PMU_I_TAMPER: (lambda C, E: (E, 4), np.uint8),
+}
 CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
+
+
+def _layers(currents: bool) -> dict:
+    """The per-frame datasets of a timeline: the v0.8.3 set, plus the current layers when the meter
+    plan reads PMU branch currents."""
+    return {**_LAYERS, **(_CURRENT_LAYERS if currents else {})}
 
 
 def _clean_slice(g: FdiaGenerator, X: np.ndarray, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
@@ -186,13 +200,21 @@ class _TimelineBuffers:
     frames, flushed as the walk passes them, so memory is bounded whatever T.
     """
 
-    def __init__(self, dims: tuple[int, int, int], clean: CleanSlice, sink: dict[str, h5py.Dataset]) -> None:
+    def __init__(
+        self,
+        dims: tuple[int, int, int],
+        clean: CleanSlice,
+        sink: dict[str, h5py.Dataset],
+        currents: bool = False,
+    ) -> None:
         T, C, E = dims
         n = min(_BATCH, T)
         self.T, self._n, self._base, self._sink = T, n, 0, sink
         self._layers: dict[str, np.ndarray] = {
-            name: np.zeros((n, *shape(C, E)), dtype) for name, (shape, dtype) in _LAYERS.items()
+            name: np.zeros((n, *shape(C, E)), dtype) for name, (shape, dtype) in _layers(currents).items()
         }
+        self.currents = currents  # the meter plan reads PMU branch currents (hybrid meters)
+        self.i_m: Optional[np.ndarray] = None  # their mask, from the first stored frame
         self.family = np.zeros(T, np.int16)
         self.seq_id = np.full(T, -1, np.int32)
         self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T
@@ -202,10 +224,12 @@ class _TimelineBuffers:
         self.episodes: list[EpisodeRow] = []
         self.min_rows: list[tuple[int, MinimizerResult]] = []  # (episode, fewest-tamper result), knob on
         # (episode, target branch, rating, noiseless flow reached, emitted flow) per overload Am episode
-        self.am_rows: list[tuple[int, int, float, float, float]] = []
+        self.am_rows: list[tuple[int, int, float, float, float, float]] = []
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
-        self.last_attack: AttackVector = (np.zeros((C, 4)), np.zeros((E, 2)))
+        self.last_attack = AttackVector(
+            np.zeros((C, 4)), np.zeros((E, 2)), np.zeros((E, 4)) if currents else None
+        )
         self.attacked = 0  # frames stored so far with at least one attacked bus
         self._clean = clean
         self._clean_batch = clean(0, n)
@@ -230,11 +254,26 @@ class _TimelineBuffers:
         self.attacked += int(frame.y.any())
         if self.node_m is None:
             self.node_m, self.edge_m = frame.node_m, frame.edge_m
-        self.last_attack = (
+        current = self._store_currents(r, fid, frame) if self.currents else None
+        self.last_attack = AttackVector(
             np.asarray(frame.node_x, np.float64) - np.asarray(bnx, np.float64),
             np.asarray(frame.edge_x, np.float64) - np.asarray(bex, np.float64),
+            current,
         )
         self._store_attack(t, fid, frame, bnx, bex)
+
+    def _store_currents(self, r: int, fid: int, frame: Frame) -> np.ndarray:
+        """Stage the PMU branch-current layers of a frame (hybrid meters) and return its attack vector
+        on them (observed minus un-attacked, zero on a benign frame)."""
+        assert frame.i_x is not None, "a hybrid-meter generator emits the currents on every frame"
+        bix = frame.i_x if frame.benign_i_x is None else frame.benign_i_x
+        L = self._layers
+        L[schema.PMU_I][r], L[schema.PMU_I_BENIGN][r] = frame.i_x, bix
+        tamper = frame.i_tamper if fid != BENIGN_CODE and frame.i_tamper is not None else frame.i_x != bix
+        L[schema.PMU_I_TAMPER][r] = tamper if fid != BENIGN_CODE else 0
+        if self.i_m is None:
+            self.i_m = frame.i_m
+        return np.asarray(frame.i_x, np.float64) - np.asarray(bix, np.float64)
 
     def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
         """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
@@ -372,17 +411,19 @@ def _am_overload_episode(w: _Walk, t: int, length: int) -> int:
         return _benign_run(w, t, min(t + length, T))
     ep = _episode(w, AM_FAMILY, t)
     w.buf.min_rows.append((ep.sid, design.tamper))
-    reached = emitted = float("nan")
-    line = design.goal.line
+    lines = list(design.goal.lines)
+    reached = emitted = np.full(len(lines), np.nan)
     for i in range(length):
         if t >= T:
             break
         frame, reached = ctx.g.overload_step(design, ctx.X[t], i, ctx.knobs)
         ep.store(w, t, frame)
         if frame is not None:
-            emitted = float(np.hypot(*frame.edge_x[line]))
+            emitted = np.hypot(frame.edge_x[lines, 0], frame.edge_x[lines, 1])
         t += 1
-    w.buf.am_rows.append((ep.sid, line, design.rating, reached, emitted))
+    last = design.goal.targets_at(len(design.goal.targets) - 1)  # the goal at the window's end
+    for j, line in enumerate(lines):  # one row per target line (D17)
+        w.buf.am_rows.append((ep.sid, line, design.ratings[j], last[j], float(reached[j]), float(emitted[j])))
     return ep.close(w, t)
 
 
@@ -540,13 +581,13 @@ def _ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:
     return ptr, flat
 
 
-def _create_layers(f: h5py.File, T: int, C: int, E: int) -> dict[str, h5py.Dataset]:
+def _create_layers(f: h5py.File, T: int, C: int, E: int, currents: bool = False) -> dict[str, h5py.Dataset]:
     """The per-frame datasets at full length, chunked along the frame axis and gzipped, empty
-    until the walk flushes into them."""
+    until the walk flushes into them (the PMU current layers only when the plan reads currents)."""
     for group in (schema.Group.DATA, schema.Group.BENIGN, schema.Group.CLEAN, schema.Group.ATTACK):
         f.create_group(group)
     sink = {}
-    for name, (shape, dtype) in _LAYERS.items():
+    for name, (shape, dtype) in _layers(currents).items():
         trailing = shape(C, E)
         sink[name] = f.create_dataset(
             name,
@@ -563,7 +604,10 @@ def _write_masks(f: h5py.File, buf: _TimelineBuffers, T: int) -> None:
     """data/node_m and data/edge_m per frame (the static plan repeated, written in bounded slabs
     so a future N-1 series can switch topology mid-file without a layout change)."""
     assert buf.node_m is not None and buf.edge_m is not None
-    for name, m in ((schema.NODE_M, buf.node_m), (schema.EDGE_M, buf.edge_m)):
+    masks = [(schema.NODE_M, buf.node_m), (schema.EDGE_M, buf.edge_m)]
+    if buf.i_m is not None:  # hybrid meters: the PMU current channels read at each branch end
+        masks.append((schema.PMU_I_M, buf.i_m))
+    for name, m in masks:
         ds = f.create_dataset(
             name,
             shape=(T, *m.shape),
@@ -615,14 +659,20 @@ def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]])
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)
 
 
-def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, float]]) -> None:
-    """episodes/am_*: one row per overload Am episode, the target branch, its rating (MVA), the
-    noiseless apparent flow the last frame reached and the emitted (noisy) one."""
-    eg.create_dataset(schema.EPISODE_AM_EPISODE, data=np.array([r[0] for r in am_rows], np.int32))
-    eg.create_dataset(schema.EPISODE_AM_LINE, data=np.array([r[1] for r in am_rows], np.int32))
-    eg.create_dataset(schema.EPISODE_AM_RATING, data=np.array([r[2] for r in am_rows], np.float32))
-    eg.create_dataset(schema.EPISODE_AM_REACHED, data=np.array([r[3] for r in am_rows], np.float32))
-    eg.create_dataset(schema.EPISODE_AM_EMITTED, data=np.array([r[4] for r in am_rows], np.float32))
+def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, float, float]]) -> None:
+    """episodes/am_*: one row per target line of each overload Am episode (two rows for a two-line
+    episode, D17), the episode, the target branch, its rating (MVA), the goal at the window's end,
+    the noiseless apparent flow the last frame reached and the emitted (noisy) one."""
+    names = (
+        (schema.EPISODE_AM_EPISODE, np.int32),
+        (schema.EPISODE_AM_LINE, np.int32),
+        (schema.EPISODE_AM_RATING, np.float32),
+        (schema.EPISODE_AM_TARGET, np.float32),
+        (schema.EPISODE_AM_REACHED, np.float32),
+        (schema.EPISODE_AM_EMITTED, np.float32),
+    )
+    for (name, dtype), column in zip(names, zip(*am_rows)):
+        eg.create_dataset(name, data=np.array(column, dtype))
 
 
 def _timeline_attrs(
@@ -718,18 +768,56 @@ def _warn_deprecated_families(fams: Sequence[int]) -> None:
         )
 
 
-def _search_attrs(tk: TimelineKnobs, overload: bool) -> dict[str, object]:
-    """The attributes of the searches a walk ran, written only when they ran so a v0.8.3 file's
-    attributes are unchanged: the fewest-tamper knobs, the Am attack, and the stealth scale of
-    whichever search used it (At's or Am's)."""
+def _search_attrs(
+    tk: TimelineKnobs, overload: Optional[OverloadSettings], meter_model: Optional[str]
+) -> dict[str, object]:
+    """The attributes of the searches a walk ran and of the meters it read, written only when they
+    apply so a v0.8.3 file's attributes are unchanged: the fewest-tamper knobs, the Am attack, the
+    stealth scale of At's search (Am has no stealth bound, the plan's D11; an Am-only file records
+    the scale it was given, which nothing used), and on a hybrid-meter file its meter model and the
+    legend of its current layers; the overload attack's rating source and margin (D15)."""
     out: dict[str, object] = {}
     if tk.min_tamper:
         out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: tk.min_budget})
-    if overload:
+    if overload is not None:
         out[Attr.AM_ATTACK] = tk.am_attack
-    if tk.min_tamper or overload:
+        out.update(
+            {
+                Attr.RATING_SOURCE: overload.rating_source,
+                Attr.RATING_MARGIN: overload.rating_margin,
+                Attr.LOAD_CAP: overload.load_cap,
+                Attr.N_LINES: overload.n_lines,
+            }
+        )
+    if tk.min_tamper or overload is not None:
         out[Attr.STEALTH_SCALE] = tk.stealth_scale
+    if meter_model is not None:  # a hybrid-meter file, which reads PMU currents
+        out.update(
+            {
+                Attr.METER_MODEL: meter_model,
+                Attr.CURRENT_FEAT: "Re_I_from,Im_I_from,Re_I_to,Im_I_to",
+                Attr.CURRENT_UNITS: "pu on the base current",
+            }
+        )
     return out
+
+
+def _generator(
+    system: Union[int, str], seed: int, max_load_mw: Optional[float], redundancy: Optional[dict]
+) -> tuple[FdiaGenerator, MeterSettings]:
+    """The walk's generator on the meter plan `redundancy` (a dict of `MeterSettings` fields), and
+    that plan."""
+    meters = MeterSettings(**(redundancy or {}))
+    g = FdiaGenerator(
+        system,
+        seed=seed,
+        max_load_mw=max_load_mw,
+        meter_model=meters.meter_model,
+        vbus_frac=meters.vbus_frac,
+        pmu_frac=meters.pmu_frac,
+        flow_frac=meters.flow_frac,
+    )
+    return g, meters
 
 
 def generate_timeline(
@@ -753,7 +841,7 @@ def generate_timeline(
     max_load_mw: Optional[float] = 2000.0,
     min_tamper: bool = True,
     min_budget: int = 256,
-    am_attack: str = "overload",
+    am_attack: Union[str, dict] = "overload",
     stealth_scale: float = 1.0,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
@@ -770,7 +858,7 @@ def generate_timeline(
                      Aq, Ad, As, Ar and Al are deprecated for generation (a DeprecationWarning,
                      refused from 0.22) and stay loadable from released files. Data release v0.8.3
                      is reproduced with families=LEGACY_FAMILIES, am_attack="redistribution",
-                     min_tamper=False
+                     min_tamper=False, redundancy={"meter_model": "v083"}
     attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
     am_len           Am episode length (default ramp_len)
@@ -791,7 +879,14 @@ def generate_timeline(
     corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
                      draw as in the papers, None draws a 5 to 24 frame episode
     replay_tau       Ar replay depth in frames, None = random lag of at least 20
-    redundancy       meter coverage {vbus_frac, pmu_frac, flow_frac}, default 0.6/0.2/0.9
+    redundancy       the meter plan, a dict of `MeterSettings` fields: coverage {vbus_frac, pmu_frac,
+                     flow_frac}, default 0.6/0.2/0.9, and `meter_model`, what the meters measure (the
+                     plan's D10): "hybrid" (the default: a SCADA voltmeter reads |V| only, the angle
+                     is a PMU channel, and every PMU reads the current phasor of each in-service
+                     branch at its bus, stored as data/pmu_i with benign/pmu_i_benign and
+                     attack/pmu_i_tamper [WU26, eqs. 17-20]) or "v083" (the plan of data release
+                     v0.8.3: an angle at every voltmeter bus and no currents), e.g.
+                     redundancy={"meter_model": "v083"}
     split            chronological train/val/test fractions by frame, episodes never cut
     min_tamper       [WU26, eq. 12]: hold each At episode on the support (the buses the false state
                      moves) that tampers the fewest devices over the episode, a change under a
@@ -799,16 +894,20 @@ def generate_timeline(
                      search's choice per episode is written under episodes/ (min_*)
     min_budget       candidate supports the search solves per episode before it settles on the best
                      found (recorded as not proven)
-    am_attack        "overload" (default): Am is the overload attack of [WU26], a rated, metered
-                     branch's reported flow driven to its PGLib-OPF rating over the episode on the
-                     fewest-tamper support (IEEE-14, 118 and 300 only: NoLineRatings elsewhere),
-                     its branch, rating and reached flow under episodes/ (am_*); "redistribution":
-                     the held load redistribution of data release v0.8.3
-    stealth_scale    a multiplier on the stealth bound of the multi-snapshot families: each channel's
-                     attack step between snapshots at most this many times [WU26]'s case-study noise
-                     for Am (0.03 pu SCADA, 0.01 pu PMU, the plan's D8) and the meters' rated accuracy
-                     for At (D7); 1 by default
+    am_attack        "overload" (default): Am is the overload attack of [WU26], a metered branch's
+                     reported flow driven to its rating over the episode on the fewest-tamper
+                     support, its branch, rating and reached flow under episodes/ (am_*); the
+                     rating is 1.25 times the branch's peak true flow over the pool (the plan's
+                     D15). A dict of `OverloadSettings` fields asks for the overload attack with
+                     other ratings: {"rating_margin": 1.5}, or {"rating_source": "pglib"} for the
+                     PGLib-OPF ratings (IEEE-14, 118 and 300 only: NoLineRatings elsewhere).
+                     "redistribution": the held load redistribution of data release v0.8.3
+    stealth_scale    a multiplier on At's stealth bound: each channel's attack step between
+                     snapshots at most this many times the meters' rated accuracy (the plan's D7); 1
+                     by default. Am has no such bound, as in [WU26]: its noise (0.03 pu SCADA, 0.01 pu
+                     PMU, D8) only decides which changes its tamper count ignores (D11)
     """
+    am_kind, ratings = OverloadSettings.of(am_attack)
     tk = TimelineKnobs(
         attacked_frac,
         am_rate,
@@ -819,23 +918,26 @@ def generate_timeline(
         corrupt_len,
         min_tamper,
         min_budget,
-        am_attack,
+        am_kind,
         stealth_scale,
     )
     fams = FamilySelection(families).codes
     _warn_deprecated_families(fams)
-    overload = tk.am_attack == "overload" and AM_FAMILY in fams
-    red = {"vbus_frac": 0.6, "pmu_frac": 0.2, "flow_frac": 0.9, **(redundancy or {})}
-    g = FdiaGenerator(system, seed=seed, max_load_mw=max_load_mw, **red)
+    overload = ratings if AM_FAMILY in fams else None  # the overload attack's ratings when it runs
+    g, meters = _generator(system, seed, max_load_mw, redundancy)
+    red = meters.coverage
+    currents = g.current_mask() is not None
     lra_k = min(6, len(g.load_bus))
     g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
         # the overload Am is not checked against the redistribution pool: its targets are the rated,
         # metered lines of each window, decided per episode (a window with none stays benign)
-        AdmissibleTargets(tuple(f for f in fams if not (overload and f == AM_FAMILY)), g.target_counts())
-        if overload:
-            g.line_ratings()  # NoLineRatings on a case without ratings, before any frame is walked
+        AdmissibleTargets(
+            tuple(f for f in fams if not (overload is not None and f == AM_FAMILY)), g.target_counts()
+        )
+        if overload is not None:  # the ratings, before any frame is walked (pglib: NoLineRatings early)
+            g.use_line_ratings(overload, X)
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(
@@ -850,11 +952,13 @@ def generate_timeline(
         tk.min_tamper,
         tk.min_budget,
         tk.stealth_scale,
+        getattr(overload, "load_cap", None),  # the overload attack's cap; none without it
+        getattr(overload, "n_lines", 1),  # the lines an overload episode drives (D17)
     )
     ctx = _FrameContext(g, X, knobs, [])
     am = (tk.am_frames, tk.am_rate, tk.am_direction)
     plan = _Schedule.build(list(fams), tk.ramp_len, ramp_rate, am, tk.corrupt_len, tk.attacked_frac)
-    plan.am_overload = overload
+    plan.am_overload = overload is not None
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = {
         Attr.TARGET_ATTACKED_FRAC: attacked_frac,
@@ -875,12 +979,12 @@ def generate_timeline(
         Attr.PMU_FRAC: red["pmu_frac"],
         Attr.FLOW_FRAC: red["flow_frac"],
     }
-    recorded.update(_search_attrs(tk, overload))
+    recorded.update(_search_attrs(tk, overload, meters.meter_model if currents else None))
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)
-        sink = _create_layers(f, T, C, g.E)
-        buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink)
+        sink = _create_layers(f, T, C, g.E, currents)
+        buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink, currents=currents)
         _walk(_Walk(ctx, buf), plan)
         _finish_timeline(f, g, buf, split, seed, recorded)
         write_temporal_layers(f)

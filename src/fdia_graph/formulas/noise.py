@@ -105,8 +105,58 @@ def _class_rule(reading: np.ndarray, c: float, relative: bool, floor: float) -> 
     return accuracy_class_sigma(np.abs(reading), np.full(n, c), np.full(n, relative), floor)
 
 
+# The PMU branch-current accuracy class [C37118]: a total vector error of at most 1% in steady
+# state, taken as three standard deviations of each component relative to the phasor's magnitude;
+# CURRENT_FLOOR_PU keeps a branch carrying almost no current from a zero standard deviation.
+PMU_CURRENT_CLASS = 0.01 / 3
+CURRENT_FLOOR_PU = 1e-5
+
+
+def current_magnitude(current_true: np.ndarray) -> np.ndarray:
+    """Each PMU branch-current channel's end-phasor magnitude [..., E, 4]: |I_from| on the two from
+    columns, |I_to| on the two to columns, the scale of the C37.118 error model [C37118]."""
+    i = np.asarray(current_true, np.float64)
+    from_mag = np.hypot(i[..., 0], i[..., 1])
+    to_mag = np.hypot(i[..., 2], i[..., 3])
+    return np.stack([from_mag, from_mag, to_mag, to_mag], axis=-1)
+
+
+def biased_current(current_true: np.ndarray, bias: np.ndarray) -> np.ndarray:
+    """The PMU branch-current readings with their systematic error before jitter [C37118]: each
+    channel moved by its relative bias times its end-phasor magnitude, the same scale as
+    `current_sigma`, so a channel whose component is zero still carries the class error.
+
+        I_reading = I_true + b |I_end|            (per channel, before the per-scan jitter)
+    """
+    return np.asarray(current_true, np.float64) + np.asarray(bias, np.float64) * current_magnitude(
+        current_true
+    )
+
+
+def current_sigma(current_true: np.ndarray, rel: float, floor: float = CURRENT_FLOOR_PU) -> np.ndarray:
+    """The standard deviation of every PMU branch-current channel [C37118]: `rel` times the magnitude
+    of that end's phasor, plus `floor`, on both its real and imaginary part. The one rule the
+    emitter (with the per-scan jitter part of the class) and the detection side (with the whole
+    class, `PMU_CURRENT_CLASS`) share.
+
+        sigma_re = sigma_im = rel |I_end| + floor          (per unit on the base current)
+
+    current_true : [..., E, 4] the true Re/Im of I_from and I_to (`CURRENT` columns)
+    rel          : the relative std (the class, or its jitter part)
+    floor        : the absolute floor, per unit
+    returns      : [..., E, 4] sigma per channel
+    """
+    return rel * current_magnitude(current_true) + floor
+
+
 # The measurement noise of [WU26]'s case studies: 0.03 pu on SCADA channels, 0.01 pu on PMU channels.
 WU26_NOISE = {"scada": 0.03, "pmu": 0.01}
+
+
+def paper_current_sigma(shape: tuple[int, ...]) -> np.ndarray:
+    """[WU26]'s case-study noise on the PMU branch-current channels (its D8 scale for the overload
+    attack): 0.01 pu on every channel, per unit on the base current."""
+    return np.full(shape, WU26_NOISE["pmu"], np.float64)
 
 
 def paper_sigma(

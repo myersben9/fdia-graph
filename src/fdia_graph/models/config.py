@@ -7,10 +7,11 @@ once, on the field, and nowhere in the consumer.
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union
 
 from .choices import (
     AmAttack,
@@ -24,7 +25,9 @@ from .choices import (
     Kcl,
     Label,
     Layer,
+    MeterModel,
     Order,
+    RatingSource,
     RecordFormat,
     Reweight,
     Split,
@@ -99,6 +102,8 @@ class SolveConfig(Validated):
 
     npass: Annotated[int, Integer(), AtLeast(1)] = 40  # reweighting passes
     iters: Annotated[int, Integer(), AtLeast(1)] = 8  # chord-Newton steps inside each solve
+    # [WU26, eq. (3)] pseudo voltage phasors at the far ends of PMU-metered branches (hybrid-meter files)
+    pmu_pseudo: bool = False
 
 
 @dataclass(frozen=True)
@@ -250,7 +255,7 @@ class TimelineKnobs(Validated):
     min_tamper: bool = True  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
     min_budget: Count = 256  # candidate supports the search solves per episode before it settles
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload, or the v0.8.3 redistribution
-    # a multiplier on the stealth bound: Am's unit is [WU26]'s noise (D8), At's the rated accuracy (D7)
+    # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has no bound (D11)
     stealth_scale: Scale = 1.0
 
     @property
@@ -260,10 +265,57 @@ class TimelineKnobs(Validated):
 
 
 @dataclass(frozen=True)
+class OverloadSettings(Validated):
+    """The overload attack's settings, as `generate_timeline(am_attack=...)` takes them in a dict of
+    these fields (the string "overload" is these defaults): the line ratings (the plan's D15), S_max
+    of each branch `rating_margin` times its peak true apparent flow over the operating pool
+    ("pool", every system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300); the
+    load-plausibility cap `load_cap` on every load bus the attack moves (D16); and `n_lines`, the
+    lines one episode overloads at once (D17)."""
+
+    rating_source: Annotated[str, OneOf(RatingSource)] = "pool"
+    rating_margin: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.25  # > 1
+    # the load-plausibility cap tau: no load bus the attack moves shows a change beyond tau times its
+    # true load [YUA11] (the plan's D16; a rule of ours, Yuan's 20% to 50%, the upper end by default)
+    load_cap: Annotated[float, Finite(), InRange(0.0, 1.0, hi_closed=True)] = 0.5
+    # the lines each episode overloads at once (D17): [WU26]'s case studies always drive two; 1 or 2,
+    # since every added line multiplies the target sets an episode tries and the paper uses no more
+    n_lines: Annotated[int, Integer(), InRange(1, 2, lo_closed=True, hi_closed=True)] = 2
+
+    @staticmethod
+    def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:
+        """(the Am attack's kind, its rating settings or None for the redistribution): a dict of these
+        fields means the overload attack with them."""
+        if isinstance(am_attack, dict):
+            return AmAttack.OVERLOAD.value, OverloadSettings(**am_attack)
+        return am_attack, OverloadSettings() if am_attack == AmAttack.OVERLOAD.value else None
+
+
+@dataclass(frozen=True)
+class MeterSettings(Validated):
+    """The meter plan a timeline walks, as `generate_timeline(redundancy=...)` takes it: the coverage
+    fractions of the voltage meters, the PMUs and the flow meters, and what the meters measure (the
+    plan's D10, D12): "hybrid", new generation's (angles at the PMUs only, PMU branch currents), or
+    "v083", the plan of data release v0.8.3, which its recipe passes."""
+
+    vbus_frac: float = 0.6
+    pmu_frac: float = 0.2
+    flow_frac: float = 0.9
+    meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
+
+    @property
+    def coverage(self) -> dict[str, float]:
+        """The coverage fractions as the generator takes them."""
+        return {"vbus_frac": self.vbus_frac, "pmu_frac": self.pmu_frac, "flow_frac": self.flow_frac}
+
+
+@dataclass(frozen=True)
 class GeneratorOptions(Validated):
-    """The generator's cap on what counts as a single load (MW); None disables it."""
+    """The generator's cap on what counts as a single load (MW, None disables it) and the meter model
+    its plan follows (the engine's default is the v0.8.3 plan; new generation asks for "hybrid")."""
 
     max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
+    meter_model: Annotated[str, OneOf(MeterModel)] = "v083"
 
 
 @dataclass(frozen=True)

@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from ..errors import NoBenignRecords, SlackMismatch, VaryingReference
+from ..errors import MissingCapability, NoBenignRecords, SlackMismatch, VaryingReference
 from ..formulas.estimation import (
     accuracy_class_sigma,
     critical_measurements,
@@ -29,6 +29,9 @@ from ..formulas.estimation import (
     huber_weights,
     normal_matrix,
     normalized_residual,
+    pmu_pseudo_links,
+    pmu_pseudo_phasors,
+    pmu_pseudo_voltages,
     residual_covariance_diag,
     weighted_objective,
     wls_step,
@@ -36,12 +39,13 @@ from ..formulas.estimation import (
 )
 from ..formulas.linalg import batched_normal_matrices, condition_number, guarded_inverse
 from ..formulas.network import ac_jacobian, ac_measurement
+from ..formulas.noise import PMU_CURRENT_CLASS, current_sigma
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
     Calibrate,
 )
 from ..models.config import FitOptions, SolveConfig
 from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
-from ..models.grid import EDGE, NODE, EdgeColumns, NodeColumns
+from ..models.grid import EDGE, NODE, EdgeColumns, NodeColumns, PseudoVoltages
 from ..models.inputs import ShapedArray
 from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
     ErrorPair,
@@ -102,10 +106,13 @@ class SEBase:
     state, the chord that makes per-record solves cheap.
     """
 
-    def __init__(self, npass: int = 40, iters: int = 8) -> None:
-        solve = SolveConfig(npass, iters)
+    def __init__(self, npass: int = 40, iters: int = 8, pmu_pseudo: bool = False) -> None:
+        solve = SolveConfig(npass, iters, pmu_pseudo)
         self.npass = solve.npass  # reweighting passes (run to convergence per the paper protocol)
         self.iters = solve.iters  # chord-Newton steps inside each solve
+        # [WU26, eq. (3)]: the PMU currents place pseudo |V| and angle readings at the far end of every
+        # PMU-metered branch, in the slots no meter fills (`_build_pseudo`); needs a hybrid-meter file
+        self.pmu_pseudo = solve.pmu_pseudo
 
     # ---- network + measurement model -------------------------------------------------------
     def _build_network(self, ds: FdiaGraph, need_clean: bool = True) -> None:
@@ -119,7 +126,7 @@ class SEBase:
         net = getattr(pn, _CASE_FN[int(ds.system)])()
         pp.runpp(net)
         ppc = net._ppc
-        Yb, Yf, _ = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
+        Yb, Yf, Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
         self.baseMVA = float(ppc["baseMVA"])
         self.N = int(ds.N)
         self.E = int(ds.E)
@@ -153,7 +160,47 @@ class SEBase:
         nm = masks["node_m"][0].astype(bool)
         em = masks["edge_m"][0].astype(bool)
         self.mask = np.concatenate([*NodeColumns.of(nm), *EdgeColumns.of(em)])
+        if self.pmu_pseudo:
+            self._build_pseudo(ds, nm, np.asarray(Yt.todense()), ppc["branch"])
         self.m = int(self.mask.sum())
+
+    def _build_pseudo(self, ds: FdiaGraph, nm: np.ndarray, Yt_ppc: np.ndarray, branch: np.ndarray) -> None:
+        """The [WU26, eq. (3)] preprocessing: the PMU-metered branch ends (`pmu_pseudo_links`, in the
+        dataset's bus order) and the slots their pseudo readings fill, the |V| and angle slots of the
+        reached buses that no meter reads (a SCADA |V| reading is kept where one exists)."""
+        ds.require("pmu_currents", by="pmu_pseudo")
+        N = self.N
+        inv = np.full(self._nppc, -1, np.int64)
+        inv[self._lut] = np.arange(N)
+        f_bus, t_bus = inv[branch[:, 0].real.astype(np.int64)], inv[branch[:, 1].real.astype(np.int64)]
+        cm = ds.export(["pmu_i_m"])["pmu_i_m"][0]
+        pmu = nm[:, NODE.theta].astype(bool)  # a hybrid-meter file reads angles at the PMUs only
+        Yf, Yt = self._Yf_np[:, self._lut], Yt_ppc[:, self._lut]
+        self._links = pmu_pseudo_links(pmu, cm, f_bus, t_bus, Yf, Yt)
+        reached = np.zeros(N, bool)
+        reached[self._links.far] = True
+        self._pseudo_v = np.where(reached & ~nm[:, NODE.v].astype(bool))[0]
+        self._pseudo_th = np.where(reached & ~pmu)[0]
+        self.mask[self._pseudo_v] = True  # the |V| block of the measurement vector
+        self.mask[3 * N + self._pseudo_th] = True  # the angle block
+        full = np.where(self.mask)[0]
+        self._pseudo_pos = np.searchsorted(full, np.concatenate([self._pseudo_v, 3 * N + self._pseudo_th]))
+
+    def _pseudo_of(self, node_x: np.ndarray, pmu_i: np.ndarray) -> PseudoVoltages:
+        """The eq. (3) pseudo phasors of a batch of scans, their noise propagated from the PMU accuracy
+        class (|V| and angle absolute, the currents `PMU_CURRENT_CLASS` of the reading)."""
+        from ..engine.base import ACCURACY_CLASS
+
+        return pmu_pseudo_voltages(
+            self._links,
+            self.N,
+            node_x[:, :, NODE.v],
+            np.deg2rad(node_x[:, :, NODE.theta]),
+            pmu_i,
+            ACCURACY_CLASS["v"],
+            ACCURACY_CLASS["va"],
+            current_sigma(pmu_i, PMU_CURRENT_CLASS),
+        )
 
     def _angles(self, x: np.ndarray, thsl: np.ndarray) -> np.ndarray:
         """Every bus angle [n, N]: the state's non-slack angles and the pinned slack angle."""
@@ -209,7 +256,27 @@ class SEBase:
         return torch.cat([V, -Sb.real[:, LUT], -Sb.imag[:, LUT], th, Sf.real, Sf.imag], dim=1)
 
     # ---- data conversion (physical dataset units -> internal pu/rad) --------------------------
-    def _z_of(self, node_x: np.ndarray, edge_x: np.ndarray) -> np.ndarray:
+    def _fields(self, *names: str) -> list[str]:
+        """The export fields a solve reads: `names`, plus under pmu_pseudo the PMU currents of each
+        frame read (`prev_pmu_i` beside `prev_node_x`)."""
+        if not self.pmu_pseudo:
+            return list(names)
+        return [*names, "pmu_i", *(["prev_pmu_i"] if "prev_node_x" in names else [])]
+
+    def _z_of(self, node_x: np.ndarray, edge_x: np.ndarray, pmu_i: Optional[np.ndarray] = None) -> np.ndarray:
+        """The masked measurement vector [n, m] in pu and rad; under pmu_pseudo the eq. (3) pseudo
+        readings fill their slots, which needs the scans' PMU currents `pmu_i`."""
+        if self.pmu_pseudo:
+            if pmu_i is None:
+                raise MissingCapability("pmu_pseudo needs the scans' PMU currents (pmu_i, prev_pmu_i)")
+            # the values alone: the solve reads no variance (the measured calibration's sigma of the
+            # pseudo slots comes from `_pseudo_of` on the calibration scans, once, in `fit`)
+            V_f = pmu_pseudo_phasors(
+                self._links, self.N, node_x[:, :, NODE.v], np.deg2rad(node_x[:, :, NODE.theta]), pmu_i
+            )
+            node_x = np.array(node_x, np.float64)
+            node_x[:, self._pseudo_v, NODE.v] = np.abs(V_f[:, self._pseudo_v])
+            node_x[:, self._pseudo_th, NODE.theta] = np.rad2deg(np.angle(V_f[:, self._pseudo_th]))
         b = self.baseMVA
         z = np.concatenate(
             [
@@ -240,7 +307,10 @@ class SEBase:
         opts = FitOptions(n_calib, calibrate)
         n_calib, calibrate = opts.n_calib, opts.calibrate
         self._build_network(ds, need_clean=calibrate == "truth")
-        d = ds.export(["node_x", "edge_x", "family"] + (["clean"] if calibrate == "truth" else []))
+        d = ds.export(
+            self._fields("node_x", "edge_x", "family", *(["clean"] if calibrate == "truth" else []))
+        )
+        cur = d["pmu_i"] if self.pmu_pseudo else None
         ben = np.where(d["family"] == 0)[0]
         if not len(ben):
             raise NoBenignRecords("fit needs benign records; pass the train split unfiltered")
@@ -248,11 +318,16 @@ class SEBase:
         # are one early stretch of the year, a single load regime, and the meter error scales with the
         # reading.
         c = ben[np.linspace(0, len(ben) - 1, min(n_calib, len(ben))).round().astype(int)]
-        zc = self._z_of(d["node_x"][c], d["edge_x"][c])
+        zc = self._z_of(d["node_x"][c], d["edge_x"][c], None if cur is None else cur[c])
         if calibrate == "truth":
             self._fit_from_truth(d["clean"][ben], d["clean"][c], zc)
         else:
-            self._fit_from_measurements(self._z_of(d["node_x"][ben], d["edge_x"][ben]), zc)
+            if cur is not None:  # the pseudo slots' sigma: eq. (3)'s propagated noise over the scans
+                pv = self._pseudo_of(d["node_x"][c], cur[c])
+                var = np.concatenate([pv.var_v[:, self._pseudo_v], pv.var_theta[:, self._pseudo_th]], axis=1)
+                self._pseudo_sig = np.sqrt(var.mean(axis=0))
+            z_ben = self._z_of(d["node_x"][ben], d["edge_x"][ben], None if cur is None else cur[ben])
+            self._fit_from_measurements(z_ben, zc)
         self.calibrate = calibrate
         self._post_fit()
         return self
@@ -298,7 +373,10 @@ class SEBase:
         ]
         cls = np.concatenate([np.full(n, ACCURACY_CLASS[k]) for k, n, _ in order])[self.mask]
         rel = np.concatenate([np.full(n, r) for _, n, r in order])[self.mask]
-        return accuracy_class_sigma(mean_abs, cls, rel, POWER_NOISE_FLOOR_MW / self.baseMVA)
+        sig = accuracy_class_sigma(mean_abs, cls, rel, POWER_NOISE_FLOOR_MW / self.baseMVA)
+        if self.pmu_pseudo:  # a pseudo reading is no meter: its sigma is eq. (3)'s propagated noise
+            sig[self._pseudo_pos] = self._pseudo_sig
+        return sig
 
     def _set_model(self, xmean: np.ndarray, sig: np.ndarray, full_state: bool = False) -> None:
         """The linearized model at `xmean` with meter errors `sig`: the weights, the chord Jacobian, the
@@ -453,11 +531,19 @@ class SEBase:
 
     # ---- public API -------------------------------------------------------------------------
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
-        """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order."""
+        """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order. The
+        measurement vectors are built `chunk` records at a time, the eq. (3) pseudo-measurements
+        included, so a long timeline never holds more than one chunk of them."""
         require_physical(ds)
-        d = ds.export(["node_x", "edge_x"])
-        z = self._z_of(d["node_x"], d["edge_x"])
-        return self._estimate_arrays(z, self._record_weights(ds), chunk)
+        d = ds.export(self._fields("node_x", "edge_x"))
+        w = self._record_weights(ds)
+        cur = d["pmu_i"] if self.pmu_pseudo else None
+        out = np.empty((len(d["node_x"]), self.SD))
+        for s in range(0, len(out), chunk):
+            e = slice(s, s + chunk)
+            z = self._z_of(d["node_x"][e], d["edge_x"][e], None if cur is None else cur[e])
+            out[e] = self._solve(z, None if w is None else w[e])
+        return out
 
     def _fit_reference(self, thsl: np.ndarray) -> None:
         """The angle reference from the training truth, part of the fit's calibration: the slack

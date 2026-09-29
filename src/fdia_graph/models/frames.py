@@ -16,6 +16,10 @@ class Scan(NamedTuple):
     node_m: np.ndarray  # [N, 4] meter mask
     edge_x: np.ndarray  # [E, 2] P_from, Q_from
     edge_m: np.ndarray  # [E, 2] meter mask
+    # the PMU branch-current phasors [E, 4] (CURRENT columns, per unit) and their mask; None when the
+    # meter plan has no currents (the v0.8.3 meter model)
+    i_x: Optional[np.ndarray] = None
+    i_m: Optional[np.ndarray] = None
 
 
 class Band(NamedTuple):
@@ -87,6 +91,12 @@ class Frame(NamedTuple):
     # meters whose true value the local false state moves; None for the in-place families, whose
     # tamper set is the meters that differ from the benign twin.
     tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
+    # the PMU branch-current channels, observed and un-attacked [E, 4] (per unit), their mask and the
+    # current channels the attacker wrote; None without currents in the meter plan
+    i_x: Optional[np.ndarray] = None
+    i_m: Optional[np.ndarray] = None
+    benign_i_x: Optional[np.ndarray] = None
+    i_tamper: Optional[np.ndarray] = None
 
 
 class OperatingLimits(NamedTuple):
@@ -121,8 +131,11 @@ class FrameKnobs(NamedTuple):
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
     min_budget: int = 256
-    # a multiplier on the stealth bound: Am's unit is [WU26]'s noise (D8), At's the rated accuracy (D7)
+    # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has none (D11)
     stealth_scale: float = 1.0
+    # the overload attack's load-plausibility cap tau (D16): None leaves the load changes unbounded
+    load_cap: Optional[float] = None
+    n_lines: int = 1  # the lines an overload episode drives at once (D17; new generation: 2)
 
     @property
     def band(self) -> Band:
@@ -150,8 +163,12 @@ class ResolvedPool(NamedTuple):
     converged: np.ndarray
 
 
-# An attack vector h(x_false) - h(x_true) of one scan: node channels [N, 4], flow channels [E, 2].
-AttackVector = tuple[np.ndarray, np.ndarray]
+class AttackVector(NamedTuple):
+    """An attack vector h(x_false) - h(x_true) of one scan, per channel group in the scan's units."""
+
+    node: np.ndarray  # [N, 4] |V|, P_inj, Q_inj, theta
+    edge: np.ndarray  # [E, 2] P_from, Q_from
+    current: Optional[np.ndarray] = None  # [E, 4] the PMU branch-current channels, when the plan has them
 
 
 class LoadGoal(NamedTuple):
@@ -166,22 +183,36 @@ class LoadGoal(NamedTuple):
 
 class FlowGoal(NamedTuple):
     """What the overload attack of [WU26, eqs. 24-25] must realize at each snapshot of its window: the
-    apparent flow (MVA) that the tampered measurements carry before noise on one target branch,
+    apparent flow (MVA) that the tampered measurements carry before noise on each target branch,
     `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free, the plan's D9),
-    reaching the branch's rating at the window's end. The loads the attacker pretends are free; the fewest-tamper search holds one
-    support for all snapshots."""
+    reaching the branch's rating at the window's end. The free injections of the support (attackable
+    loads and generators) move; the fewest-tamper search holds one support for all snapshots. A goal
+    drives one or more lines at once on the same support: `line` is the first target and `more` the
+    others. Generated episodes drive `OverloadSettings.n_lines` lines, two by default as the paper's
+    case studies do, or one (the plan's D14, D17)."""
 
-    line: int  # the target branch (position in the edge index)
-    targets: tuple[float, ...]  # MVA per snapshot, in window order
+    line: int  # the first target branch (position in the edge index)
+    targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order
     kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
+    more: tuple[tuple[int, tuple[float, ...]], ...] = ()  # further (branch, MVA per snapshot) pairs
+
+    @property
+    def lines(self) -> tuple[int, ...]:
+        """Every target branch, the first one first."""
+        return (self.line, *(line for line, _ in self.more))
+
+    def targets_at(self, t: int) -> tuple[float, ...]:
+        """Every target branch's flow at snapshot t (MVA), in `lines` order."""
+        return (self.targets[t], *(targets[t] for _, targets in self.more))
 
 
 class AmOverloadDesign(NamedTuple):
-    """One `Am` episode as the overload attack of [WU26]: the target branch, its rating, the flow each
-    frame must reach, and the fewest-tamper support held for the window with the search's result."""
+    """One `Am` episode as the overload attack of [WU26]: the target branches (`goal.lines`), their
+    ratings, the flow each frame must reach, and the fewest-tamper support held for the window with
+    the search's result."""
 
     goal: FlowGoal
-    rating: float  # the branch's rating S_max, MVA (PGLib-OPF rate_a)
+    ratings: tuple[float, ...]  # each target branch's rating S_max, MVA, in `goal.lines` order
     support: np.ndarray  # the buses whose voltages the false state moves, held for every frame
     tamper: MinimizerResult  # the search's result for the window
 

@@ -94,14 +94,19 @@ _BENIGN = ["benign", "edge_benign"]
 _PREV = ["prev_node_x", "prev_edge_x", "prev_timestep", "prev_swing"]
 _TEMPORAL = ["temporal_delta", "swing"]
 _CLEAN = ["clean", "edge_clean", "edge_clean_full"]
+_PMU_I = [
+    "pmu_i",
+    "pmu_i_m",
+    "pmu_i_benign",
+]  # hybrid-meter timelines (D10), last so older keys keep their order
 EXPECTED = {
     # benign / edge_benign (0.18, timeline files) come after the layers a shard record carries
     "RecordBundle": (
-        ["edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN, *_BENIGN],
+        ["edge_index", *_SCAN, "y", *_IDS, "edge_attr", *_TEMPORAL, *_CLEAN, *_BENIGN, *_PMU_I],
         ["edge_index", *_SCAN, "y", *_IDS],
     ),
     "BatchBundle": (
-        [*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS],
+        [*_SCAN, "y", *_TEMPORAL, *_CLEAN, *_BENIGN, "edge_index", "edge_attr", *_IDS, *_PMU_I],
         [*_SCAN, "y"],
     ),
     # edge_attr is new on ArraysBundle (it comes with GraphFields), last and never filled by the exports
@@ -117,6 +122,8 @@ EXPECTED = {
             *_IDS,
             *_PREV,
             "edge_attr",
+            *_PMU_I,
+            "prev_pmu_i",
         ],
         [],
     ),

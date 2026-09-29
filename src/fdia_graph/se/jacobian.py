@@ -121,19 +121,20 @@ class JacobianFeatures:
         """The estimator's plain solve of the previous frame's readings, x_hat_{t-1} [n, SD], at the
         case's reference angle."""
         est = self.est
-        zp = est._z_of(d["prev_node_x"], d["prev_edge_x"])
+        zp = est._z_of(d["prev_node_x"], d["prev_edge_x"], d.get("prev_pmu_i"))
         parts = [est._solve_plain(zp[i : i + chunk]) for i in range(0, len(zp), chunk)]
         return np.concatenate(parts) if parts else np.zeros((0, est.SD))
 
     def delta_z(self, d: dict[str, np.ndarray]) -> np.ndarray:
         """dz = z_t - h(x_hat_{t-1}), the reading change the previous estimate does not predict."""
-        z = self.est._z_of(d["node_x"], d["edge_x"])
+        z = self.est._z_of(d["node_x"], d["edge_x"], d.get("pmu_i"))
         return z - self.est._h_ref(self.previous_estimate(d))
 
     # ---- features ------------------------------------------------------------------------
     def transform(self, d: dict[str, np.ndarray]) -> JacobianOutputs:
         """d must carry node_x, edge_x, prev_node_x, prev_edge_x and prev_timestep (as a timeline's
-        export returns them, physical units). Returns {"bus": [n, N, 8], "global": [n, 4], "dx_hat": [n, SD], "r_perp": [n, m]}."""
+        export returns them, physical units), and pmu_i and prev_pmu_i when the estimator uses the
+        PMU pseudo-measurements. Returns {"bus": [n, N, 8], "global": [n, 4], "dx_hat": [n, SD], "r_perp": [n, m]}."""
         est = self.est
         dz = self.delta_z(d)  # [n, m]
         dx, r_par, r_perp = explained_unexplained(

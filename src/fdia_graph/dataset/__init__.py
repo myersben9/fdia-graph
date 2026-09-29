@@ -43,6 +43,7 @@ from ..models.grid import NODE
 from ..schema import Attr
 from .base import (  # noqa: F401  re-exported: defined here before the split
     _BENIGN_LAYERS,
+    _CURRENT_LAYERS,
     _FAMILY_ALIAS,
     _HELDOUT_TRAIN_EXCLUDE,
     _SPLIT,
@@ -176,6 +177,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         self._eclean_np = f[schema.EDGE_CLEAN][:] if schema.EDGE_CLEAN in f else None
         self.has_clean = self._clean_np is not None
         self.has_benign = schema.NODE_BENIGN in f  # timeline files: the attack-removed layer per frame
+        self.has_currents = schema.PMU_I in f  # hybrid-meter timelines: the PMU branch-current phasors
         # edge_clean_full ([Tpool,E,2], the same flows on EVERY branch) is derived from the clean
         # state through Yf on first use, so it needs the clean layer and the branch physics.
         self._eclean_full_np: Optional[np.ndarray] = None
@@ -215,6 +217,8 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
             self._mem = {k: dg[k][lo:hi][rel] for k in keys if k in dg}
             if self.has_benign:
                 self._mem.update({k: f[p][lo:hi][rel] for k, p in _BENIGN_LAYERS.items()})
+            if self.has_currents:
+                self._mem.update({k: f[p][lo:hi][rel] for k, p in _CURRENT_LAYERS.items()})
 
     def __len__(self) -> int:
         return len(self.idx)  # number of records this filtered view exposes

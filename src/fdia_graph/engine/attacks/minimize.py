@@ -14,18 +14,18 @@ and every other bus of S joins S to a goal bus through S (a bus that does not so
 true injection and moves nothing). Like the region, a support takes in every zero-injection bus of
 its boundary (a boundary bus absorbs the changed power, and a bus known to inject nothing cannot).
 S is feasible when the local false state with only S free exists at every snapshot of the window,
-meets the goal there on its noiseless readings h(x^a), stays inside the operating limits, and moves
-no metered channel by more than its accuracy-class sigma from one snapshot to the next (the
-stealth bound, the
-first snapshot measured from no attack). Its cost is the number
+meets the goal there on its noiseless readings h(x^a), stays inside the operating limits, and, for
+a load goal (At), moves no metered channel by more than its accuracy-class sigma from one snapshot
+to the next (the stealth bound, the first snapshot measured from the frame before). A flow goal (Am)
+has no stealth bound: [WU26]'s model has none, its noise only thresholds the count (the plan's D11). Its cost is the number
 of devices (`formulas.attacks.tampered_devices`) with a channel moved beyond its accuracy-class
 sigma (`formulas.noise.accuracy_sigma`) at some
 snapshot of the window, the union [WU26] counts over its window. A support that moves no device beyond its sigma
 at any snapshot is not an attack (an accurate estimator resolves it to the noise floor) and is
 treated as infeasible.
 
-The region itself is solved first: the episode was accepted on it, so when the region meets the
-stealth bound a feasible support exists and bounds the rest. The other candidates follow in order
+The region itself is solved first: the episode was accepted on it, so when the region is feasible
+a feasible support exists and bounds the rest. The other candidates follow in order
 of size; the search stops when every candidate is solved (the optimum over supports held for the
 window), when the best cost reaches the devices the goal forces above noise whatever the support
 (the only bound pruned with, the SCADA terminals of the targeted buses at a snapshot whose step
@@ -40,13 +40,20 @@ already exceeds the best. When no held support meets every constraint, the resul
 from __future__ import annotations
 
 import heapq
+import itertools
 from collections.abc import Iterator
 from typing import Optional, Union, cast
 
 import numpy as np
 
 from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
-from ...formulas.noise import accuracy_sigma, paper_sigma
+from ...formulas.noise import (
+    PMU_CURRENT_CLASS,
+    accuracy_sigma,
+    current_sigma,
+    paper_current_sigma,
+    paper_sigma,
+)
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
 from ..base import POWER_NOISE_FLOOR_MW
@@ -66,8 +73,8 @@ class MinimizeMixin(FalseStateMixin):
         """The fewest-tamper support for the window of `states` (one [N, 4] true state per snapshot)
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (node [N, 4], flow [E, 2]; None or zeros
-        when that frame is benign): the stealth bound's first increment is measured from it, since
-        episodes may be adjacent."""
+        when that frame is benign): At's stealth bound measures its first increment from it, since
+        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11)."""
         seeds, starts, must_hold = self._goal_seeds(goal)
         area = self.local_region(seeds, k.hops)
         if area is None:
@@ -116,14 +123,20 @@ class MinimizeMixin(FalseStateMixin):
     def _goal_seeds(self, goal: Goal) -> tuple[np.ndarray, list[frozenset[int]], Optional[frozenset[int]]]:
         """(the buses the area grows from, the candidate supports' starting sets, the buses a candidate
         must hold one of, or None). A load goal acts through its targeted load buses, all of them in
-        every support. A flow goal acts on its branch through either end (a flow changes when one end's
-        voltage moves), so each end starts its own candidates, and a support must hold an attackable
-        load, the only injections the flow goal frees."""
+        every support. A flow goal acts on each of its branches through either end (a flow changes
+        when one end's voltage moves), so every choice of one end per branch starts its own
+        candidates, and a support must hold a free injection (an attackable load or a generator, the
+        injections the flow goal frees)."""
         if goal.kind == "load":
             buses = np.unique(self.load_bus[cast(LoadGoal, goal).designs[0].targets])
             return buses, [frozenset(int(b) for b in buses)], None
-        ends = np.unique(self.ei[:, cast(FlowGoal, goal).line])
-        return ends, [frozenset({int(e)}) for e in ends], frozenset(int(b) for b in self.free_load_buses())
+        lines = list(cast(FlowGoal, goal).lines)
+        ends = np.unique(self.ei[:, lines])
+        choices = [
+            frozenset(int(b) for b in combo) for combo in itertools.product(*(self.ei[:, ln] for ln in lines))
+        ]
+        starts = list(dict.fromkeys(choices))  # each set once, in a fixed order
+        return ends, starts, frozenset(int(b) for b in self.free_injection_buses())
 
     def goal_state(
         self, goal: Goal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
@@ -133,7 +146,7 @@ class MinimizeMixin(FalseStateMixin):
         held true. A solve that did not converge is not proof that S is infeasible, so the search counts
         it apart. Each goal kind has its own solve: a load goal is the square local power flow (the
         targeted loads take their new values, every other bus of S keeps its true injection); a flow
-        goal frees the attackable loads of S and holds the rest (`solve_flow_local`)."""
+        goal frees the attackable loads and generators of S and holds the rest (`solve_flow_local`)."""
         if goal.kind == "flow":
             return self._flow_goal_state(cast(FlowGoal, goal), t, Xt, S, k)
         return self._load_goal_state(cast(LoadGoal, goal), t, Xt, S, k)
@@ -141,12 +154,14 @@ class MinimizeMixin(FalseStateMixin):
     def _flow_goal_state(
         self, goal: FlowGoal, t: int, Xt: np.ndarray, S: np.ndarray, k: FrameKnobs
     ) -> tuple[Optional[np.ndarray], bool]:
-        Xa, converged, dload = self.solve_flow_local(Xt, S, goal.line, goal.targets[t])
+        Xa, converged, dload = self.solve_flow_local(
+            Xt, S, goal.lines, goal.targets_at(t), k.limits, k.load_cap
+        )
         if Xa is None:
             return None, converged
-        if k.limits is not None:
+        if k.limits is not None:  # every generator the attack moves, on S's edge too (D16)
             gen = generator_output(Xt, self.load_base, self.gen_base)
-            if not within_limits(Xa, Xt, gen, dload, k.limits, S):
+            if not within_limits(Xa, Xt, gen, dload, k.limits, self.touched_buses(S)):
                 return None, True
         return Xa, True
 
@@ -246,23 +261,30 @@ class _Window:
         stealth_bound: bool = True,
         prev: Optional[AttackVector] = None,
     ) -> None:
-        # `stealth_bound` off only for analysis (the generator always applies it)
-        self.g, self.states, self.goal, self.k, self.stealth_bound = g, states, goal, k, stealth_bound
+        # The between-snapshot stealth bound is At's alone (a sub-noise ramp is what At is). [WU26]'s
+        # model, eqs. (12)-(25), has no increment constraint: its noise only decides which changes the
+        # l0 count ignores, so a flow goal (Am) is never bounded (the plan's D11). `stealth_bound` off
+        # is for analysis only.
+        self.g, self.states, self.goal, self.k = g, states, goal, k
+        self.stealth_bound = stealth_bound and goal.kind == "load"
         self.converged = True  # whether every local solve of the last `cost` call converged
         self.unsolved = 0  # candidates of the search whose solve failed to converge
         self.node_m, self.edge_m = g.meter_masks()
         self.pmu = np.zeros(g.C, bool)
         self.pmu[sorted(g.meters.pmu)] = True
         # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only, so the attack's tamper count
-        # and stealth bound see an angle only where a PMU is (the emitter still writes an angle at
-        # every voltmeter bus, a plan-level fix for the next data release)
+        # and stealth bound see an angle only where a PMU is. The hybrid meter plan already masks it
+        # there (the plan's D10); a v0.8.3-plan generator still writes one at every voltmeter bus.
         self.node_m = self.node_m.copy()
         self.node_m[~self.pmu, NODE.theta] = 0
         flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
         self.flows = flows
-        # the meters' rated accuracy: what a change must exceed to count, and the most a channel may move
+        # the PMU branch-current channels [WU26, eqs. 19-20]: their mask and noise scale (None without)
+        self.i_m = g.current_mask()
+        self.i_sigma = self._current_sigmas(g, states, goal) if self.i_m is not None else None
+        # what a change must exceed to count as tampering, and for At also the most a channel may move
         # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
-        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise (the plan's D8)
+        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise, the l0 threshold only (D8, D11)
             paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
             self.sigma = [paper for _ in states]
         else:  # At: the meters' rated accuracy (D7)
@@ -270,10 +292,22 @@ class _Window:
         zero = {int(b) for b in g.zero_inj} - {g.slack_bus}
         self.zero = np.array(sorted(zero), dtype=np.int64)
         # the attack vector of the frame before the window: zero when it is benign
-        none = (np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape))
-        self.prev: AttackVector = (
-            none if prev is None else (np.asarray(prev[0], float), np.asarray(prev[1], float))
-        )
+        no_i = None if self.i_m is None else np.zeros(self.i_m.shape)
+        if prev is None:
+            self.prev = AttackVector(np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape), no_i)
+        else:  # a bare (node, edge) pair is an attack vector without currents
+            p = AttackVector(*prev)
+            cur = no_i if p.current is None else np.asarray(p.current, float)
+            self.prev = AttackVector(np.asarray(p.node, float), np.asarray(p.edge, float), cur)
+
+    @staticmethod
+    def _current_sigmas(g: MinimizeMixin, states: list[np.ndarray], goal: Goal) -> list[np.ndarray]:
+        """The PMU branch-current channels' scale per snapshot: [WU26]'s 0.01 pu for the overload
+        attack (D8), the PMU accuracy class at the true currents for At (D7)."""
+        if goal.kind == "flow":
+            return [paper_current_sigma((g.E, 4)) for _ in states]
+        true = g.currents_from_states(np.stack(states))
+        return [current_sigma(i, PMU_CURRENT_CLASS) for i in true]
 
     def lower_bound(self) -> int:
         """Devices every support tampers, the only bound the search prunes with (`_load_bound`,
@@ -281,20 +315,22 @@ class _Window:
         return self._flow_bound() if self.goal.kind == "flow" else self._load_bound()
 
     def _flow_bound(self) -> int:
-        """A flow goal forces the device metering its branch (the SCADA terminal of the from-end bus)
-        when the goal's change there must cross that meter's accuracy sigma at some snapshot: the
-        change delta of the apparent flow splits between P and Q, so one of them moves by at least
+        """A flow goal forces the device metering each goal branch (the SCADA terminal of its from-end
+        bus) when the goal's change there must cross that meter's sigma at some snapshot: the change
+        delta of the apparent flow splits between P and Q, so one of them moves by at least
         delta / sqrt(2), forced over noise only when that exceeds the larger of the two sigmas."""
         goal = cast(FlowGoal, self.goal)
-        line = goal.line
-        if not self.edge_m[line].any():
-            return 0
-        for t, target in enumerate(goal.targets):
-            true = float(np.hypot(*self.flows[t, line]))
-            sig = float(np.max(self.sigma[t][1][line]))
-            if abs(target - true) / np.sqrt(2.0) > sig:
-                return 1
-        return 0
+        forced: set[int] = set()
+        for i, line in enumerate(goal.lines):
+            if not self.edge_m[line].any():
+                continue
+            for t in range(len(goal.targets)):
+                true = float(np.hypot(*self.flows[t, line]))
+                sig = float(np.max(self.sigma[t][1][line]))
+                if abs(goal.targets_at(t)[i] - true) / np.sqrt(2.0) > sig:
+                    forced.add(int(self.g.ei[0, line]))
+                    break
+        return len(forced)
 
     def _load_bound(self) -> int:
         """The load goal's bound: the SCADA terminal of a
@@ -327,8 +363,8 @@ class _Window:
             moved = self._snapshot(t, S, prev)
             if moved is None:
                 return None
-            node, edge, prev = moved
-            self._tally(node, edge, devices, channels)
+            node, edge, current, prev = moved
+            self._tally(node, edge, current, devices, channels)
             if beat is not None and len(devices) > beat[0]:
                 return None
         if not devices:
@@ -337,12 +373,21 @@ class _Window:
         return cost if beat is None or cost < beat else None
 
     def _tally(
-        self, node: np.ndarray, edge: np.ndarray, devices: set[int], channels: set[tuple[int, int, int]]
+        self,
+        node: np.ndarray,
+        edge: np.ndarray,
+        current: Optional[np.ndarray],
+        devices: set[int],
+        channels: set[tuple[int, int, int]],
     ) -> None:
-        """Add one snapshot's tampered channels and their devices to the window's union."""
-        devices |= set(tampered_devices(node, edge, self.pmu, self.g.ei[0]).tolist())
+        """Add one snapshot's tampered channels and their devices to the window's union (a PMU branch
+        current joins the PMU of the bus at its end)."""
+        ei = self.g.ei
+        devices |= set(tampered_devices(node, edge, self.pmu, ei[0], current, ei[1]).tolist())
         channels |= {(0, int(i), int(j)) for i, j in zip(*np.nonzero(node))}
         channels |= {(1, int(i), int(j)) for i, j in zip(*np.nonzero(edge))}
+        if current is not None:
+            channels |= {(2, int(i), int(j)) for i, j in zip(*np.nonzero(current))}
 
     def _zero_on_boundary(self, S: np.ndarray) -> bool:
         """Whether a zero-injection bus sits on S's boundary (it could not absorb the changed power)."""
@@ -351,24 +396,47 @@ class _Window:
         return bool(np.isin(boundary, self.zero).any())
 
     def _snapshot(
-        self, t: int, S: np.ndarray, prev: tuple[np.ndarray, np.ndarray]
-    ) -> Optional[tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray]]]:
-        """Snapshot t on support S: (the channels moved beyond their accuracy-class sigma, node and flow,
-        and this snapshot's attack vector), or None when S has no false state here or breaks the stealth
-        bound against the previous snapshot's attack vector `prev`."""
+        self, t: int, S: np.ndarray, prev: AttackVector
+    ) -> Optional[tuple[np.ndarray, np.ndarray, Optional[np.ndarray], AttackVector]]:
+        """Snapshot t on support S: (the channels moved beyond their noise, node, flow and PMU branch
+        current, and this snapshot's attack vector), or None when S has no false state here or (At)
+        breaks the stealth bound against the previous snapshot's attack vector `prev`."""
         g = self.g
         Xa, converged = g.goal_state(self.goal, t, self.states[t], S, self.k)
         if Xa is None:
             self.converged = converged
             return None
         a_node, a_edge = g._attack_vector(Xa, self.states[t])
+        a_cur = g._current_attack(Xa, self.states[t])
         sig_node, sig_edge = self.sigma[t]
-        # the stealth bound: no metered channel moves more than its accuracy-class sigma between snapshots
+        # At's stealth bound: no metered channel moves more than its rated accuracy between snapshots
         scale = self.k.stealth_scale  # the bound's step in multiples of the rated accuracy (D7: 1)
         step = tampered_channels(
-            a_node - prev[0], a_edge - prev[1], scale * sig_node, scale * sig_edge, self.node_m, self.edge_m
+            a_node - prev.node,
+            a_edge - prev.edge,
+            scale * sig_node,
+            scale * sig_edge,
+            self.node_m,
+            self.edge_m,
         )
-        if self.stealth_bound and (step[0].any() or step[1].any()):
+        if self.stealth_bound and (
+            step[0].any() or step[1].any() or self._current_step(t, a_cur, prev, scale)
+        ):
             return None
         node, edge = tampered_channels(a_node, a_edge, sig_node, sig_edge, self.node_m, self.edge_m)
-        return node, edge, (a_node, a_edge)
+        current = self._over(t, a_cur, 1.0)
+        return node, edge, current, AttackVector(a_node, a_edge, a_cur)
+
+    def _over(self, t: int, a_cur: Optional[np.ndarray], scale: float) -> Optional[np.ndarray]:
+        """The PMU branch-current channels an attack-vector part moves beyond `scale` times their noise
+        at snapshot t, metered ones only; None without currents in the plan."""
+        if a_cur is None or self.i_m is None or self.i_sigma is None:
+            return None
+        return (np.abs(a_cur) > scale * self.i_sigma[t]) & (self.i_m > 0)
+
+    def _current_step(self, t: int, a_cur: Optional[np.ndarray], prev: AttackVector, scale: float) -> bool:
+        """Whether the attack's step on a PMU branch-current channel breaks the stealth bound."""
+        if a_cur is None or prev.current is None:
+            return False
+        over = self._over(t, a_cur - prev.current, scale)
+        return bool(over is not None and over.any())
