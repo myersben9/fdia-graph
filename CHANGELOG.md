@@ -5,6 +5,27 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- The fewest-tamper search (`MinimizeMixin.min_tamper`) holds BLAS to one thread while it runs and
+  restores the caller's setting after, through threadpoolctl (added to the `generate` and `all`
+  extras; without it the search runs on whatever BLAS is set to). Its products are too small for
+  threads to pay: on a many-core machine starting them cost more than the arithmetic. Nothing else in
+  the process changes, and no knob is added. Measured on the same fixed episodes as the entry below
+  (seed 1, hybrid meters, pool ratings, the D16 bounds with `load_cap` 0.5, two-line `Am`, budget
+  256, 20-snapshot windows), before and after side by side on the same shared machine. Median seconds
+  per episode, before to after:
+
+  | System | Default threads, Am | Default threads, At | `OPENBLAS_NUM_THREADS=1`, Am | `OPENBLAS_NUM_THREADS=1`, At |
+  |---|---|---|---|---|
+  | IEEE-14 (10 Am, 4 At) | 3.1 to 3.1 | 0.58 to 0.28 | 3.0 to 2.7 | 0.31 to 0.31 |
+  | IEEE-30 (5 Am, 3 At) | 5.5 to 5.6 | 0.81 to 0.33 | 5.5 to 5.1 | 0.32 to 0.26 |
+  | IEEE-118 (4 Am, 3 At) | 7.2 to 3.1 | 0.89 to 0.44 | 3.3 to 3.3 | 0.38 to 0.51 |
+
+  With the default threads the search now runs as fast as it did with the whole process on one
+  thread; with the process already on one thread nothing changes but timing noise. Every one of the
+  29 episodes, in all four runs, returns the same target lines, support, device and channel counts,
+  proof, candidates solved and failed solves, and the pinned searches of tests/test_search_speed.py
+  are unchanged.
+
 - The fewest-tamper search is faster and finds the same supports, bit for bit. The flow solve keeps
   the full Ybus products of the released solve, since a search's answer can turn on the last bit of a
   solve near its convergence limit (a product over the region's rows alone changed the answer of 4 of

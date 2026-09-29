@@ -165,3 +165,29 @@ def test_the_support_attack_vector_equals_the_full_one(gen, pool):
     assert (a_cur is None) == (want_cur is None)
     if a_cur is not None and want_cur is not None:
         assert np.allclose(a_cur, want_cur, rtol=1e-10, atol=1e-12)
+
+
+def test_search_holds_blas_to_one_thread_and_restores_it(monkeypatch):
+    """`min_tamper` runs its search with every BLAS pool on one thread and gives the caller's
+    setting back after, returning the search's answer unchanged."""
+    threadpoolctl = pytest.importorskip("threadpoolctl")
+    from fdia_graph.engine.attacks.minimize import MinimizeMixin
+
+    def blas() -> list[int]:
+        return [p["num_threads"] for p in threadpoolctl.threadpool_info() if p["user_api"] == "blas"]
+
+    if not blas():
+        pytest.skip("no BLAS pool loaded")
+    seen: list[list[int]] = []
+
+    def search(self, states, goal, k, prev):
+        seen.append(blas())
+        return "answer"
+
+    monkeypatch.setattr(MinimizeMixin, "_min_tamper", search)
+    with threadpoolctl.threadpool_limits(limits=2, user_api="blas"):
+        outside = blas()
+        g = object.__new__(MinimizeMixin)  # no grid needed: the search itself is replaced
+        assert g.min_tamper([], None, None) == "answer"  # type: ignore[arg-type]
+        assert seen == [[1] * len(outside)]
+        assert blas() == outside

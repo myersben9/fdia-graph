@@ -39,10 +39,11 @@ already exceeds the best. When no held support meets every constraint, the resul
 
 from __future__ import annotations
 
+import contextlib
 import heapq
 import itertools
 from collections.abc import Iterator
-from typing import NamedTuple, Optional, Union, cast
+from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
 import numpy as np
 
@@ -60,11 +61,34 @@ from ...models.grid import NODE
 from ..base import POWER_NOISE_FLOOR_MW
 from .false_state import FalseStateMixin
 
+if TYPE_CHECKING:
+    from threadpoolctl import ThreadpoolController
+
 _Cost = tuple[int, int, int]  # (devices, channels, support size): the objective, then its tie-breaks
 _Best = tuple[_Cost, np.ndarray]  # a solved support and its cost
 # the tampered node, flow and PMU current channels (masks; no currents without them in the plan)
 _Channels = tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]
 Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
+
+
+_BLAS: list[Optional[ThreadpoolController]] = []  # the process's BLAS pools, found on the first search
+
+
+def _one_blas_thread() -> contextlib.AbstractContextManager[object]:
+    """Hold the BLAS pools to one thread for a search, restoring them after. The search's products
+    are small (a few hundred buses at most), so on a many-core machine starting BLAS threads costs
+    more than the arithmetic (the CHANGELOG's timings; every measured episode gave the same answer on
+    one thread as on the default pool). Without
+    threadpoolctl (the `generate` extra installs it) the search runs on whatever BLAS is set to."""
+    if not _BLAS:
+        try:
+            from threadpoolctl import ThreadpoolController
+
+            _BLAS.append(ThreadpoolController())
+        except ImportError:
+            _BLAS.append(None)
+    controller = _BLAS[0]
+    return contextlib.nullcontext() if controller is None else controller.limit(limits=1, user_api="blas")
 
 
 class MinimizeMixin(FalseStateMixin):
@@ -77,7 +101,15 @@ class MinimizeMixin(FalseStateMixin):
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (node [N, 4], flow [E, 2]; None or zeros
         when that frame is benign): At's stealth bound measures its first increment from it, since
-        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11)."""
+        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11). The search runs
+        with BLAS on one thread (`_one_blas_thread`)."""
+        with _one_blas_thread():
+            return self._min_tamper(states, goal, k, prev)
+
+    def _min_tamper(
+        self, states: list[np.ndarray], goal: Goal, k: FrameKnobs, prev: Optional[AttackVector]
+    ) -> Optional[MinimizerResult]:
+        """`min_tamper`'s search, on whatever BLAS threads the caller set."""
         seeds, starts, must_hold = self._goal_seeds(goal)
         area = self.local_region(seeds, k.hops)
         if area is None:
