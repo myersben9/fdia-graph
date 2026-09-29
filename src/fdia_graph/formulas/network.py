@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
 import numpy as np
 
@@ -259,20 +259,22 @@ def subnetwork(
 
 
 def _local_mismatch(
-    Yb: np.ndarray, V: np.ndarray, I_: np.ndarray, S_target: np.ndarray
+    YV: np.ndarray, V: np.ndarray, I_: np.ndarray, S_target: np.ndarray
 ) -> tuple[np.ndarray, float]:
-    """The interior injection mismatch [Re; Im] of S_target - S(V) and its largest entry."""
-    mis = S_target - (V * np.conj(Yb @ V))[I_]
+    """The interior injection mismatch [Re; Im] of S_target - S(V) and its largest entry, from the
+    bus currents YV = Ybus V of the same V."""
+    mis = S_target - (V * np.conj(YV))[I_]
     f = np.concatenate([np.real(mis), np.imag(mis)])
     return f, float(np.max(np.abs(f)))
 
 
 def _backtrack(
     Yb: np.ndarray, V: np.ndarray, I_: np.ndarray, S_target: np.ndarray, step: np.ndarray, norm: float
-) -> Optional[np.ndarray]:
+) -> Optional[tuple[np.ndarray, np.ndarray]]:
     """The Newton step, halved until it lowers the mismatch and keeps every magnitude positive;
-    the full step is tried first, so an iteration the plain method accepts is unchanged. None when
-    no fraction of the step helps (the target has no solution near this state)."""
+    the full step is tried first, so an iteration the plain method accepts is unchanged. Returns the
+    accepted voltages and their bus currents Ybus V (the next iteration's mismatch and Jacobian reuse
+    them), or None when no fraction of the step helps (the target has no solution near this state)."""
     k = len(I_)
     vm0, va0 = np.abs(V[I_]), np.angle(V[I_])
     for _ in range(_BACKTRACK_HALVINGS):
@@ -280,8 +282,9 @@ def _backtrack(
         if np.all(vm > 0):
             Vtry = V.copy()
             Vtry[I_] = vm * np.exp(1j * va)
-            if _local_mismatch(Yb, Vtry, I_, S_target)[1] < norm:
-                return Vtry
+            YV = Yb @ Vtry
+            if _local_mismatch(YV, Vtry, I_, S_target)[1] < norm:
+                return Vtry, YV
         step = step / 2
     return None
 
@@ -289,36 +292,46 @@ def _backtrack(
 _BACKTRACK_HALVINGS = 8  # step fractions tried per Newton iteration: 1, 1/2, ... 1/128
 
 
-def _interior_jacobian(Yb: np.ndarray, V: np.ndarray, I_: np.ndarray) -> np.ndarray:
+def _as_real_blocks(A: np.ndarray, B: np.ndarray) -> np.ndarray:
+    """[[Re A, Re B], [Im A, Im B]] filled in place (what np.block builds, without its checks, which
+    cost more than the fill for the small blocks of a local solve)."""
+    r, k = A.shape
+    J = np.empty((2 * r, 2 * k))
+    J[:r, :k], J[:r, k:], J[r:, :k], J[r:, k:] = A.real, B.real, A.imag, B.imag
+    return J
+
+
+def _interior_jacobian(Y_II: np.ndarray, V_I: np.ndarray, I_I: np.ndarray) -> np.ndarray:
     """The [2k, 2k] Jacobian of the interior injections in [θ_I, |V|_I]: the entries of the full
     ac_jacobian derivatives at (i, j) in the interior depend only on Y_ij, V_i, V_j and the current
-    into i, so the block is built from Y_II directly instead of the n x n matrices sliced."""
-    Y_II = Yb[np.ix_(I_, I_)]
-    V_I = V[I_]
-    I_I = (Yb @ V)[I_]
+    I_i into i, so the block is built from the interior block Y_II of Ybus, the interior voltages
+    V_I and currents I_I directly instead of the n x n matrices sliced."""
     Vn_I = V_I / np.abs(V_I)
     A = 1j * (V_I[:, None] * np.conj(np.diag(I_I) - Y_II * V_I[None, :]))
     B = V_I[:, None] * np.conj(Y_II * Vn_I[None, :]) + np.conj(I_I)[:, None] * np.diag(Vn_I)
-    return np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+    return _as_real_blocks(A, B)
 
 
-def _injection_jacobian(Yb: np.ndarray, V: np.ndarray, R: np.ndarray, I_: np.ndarray) -> np.ndarray:
+def _injection_jacobian(
+    Y_RI: np.ndarray, V_R: np.ndarray, V_I: np.ndarray, I_R: np.ndarray, D: np.ndarray
+) -> np.ndarray:
     """The [2r, 2k] Jacobian of the injections at the buses R (any buses: inside the interior or on
     its edge) in the interior's [θ_I, |V|_I], from S_r = V_r conj(sum_j Y_rj V_j):
 
         dS_r/dθ_j   = 1j V_r conj(I_r) [r = j] - 1j V_r conj(Y_rj V_j)
         dS_r/d|V|_j = V_r conj(Y_rj V_j / |V_j|) + conj(I_r) V_r / |V_r| [r = j]
+
+    Y_RI : [r, k] the rows of R of Ybus on the interior's columns
+    V_R, V_I : the voltages of R and of the interior
+    I_R  : [r] the bus currents into R, (Ybus V)_R
+    D    : [r, k] 1 where the bus of R is the interior bus, else 0
     """
-    Y_RI = Yb[np.ix_(R, I_)]
-    V_R, V_I = V[R], V[I_]
-    I_R = (Yb @ V)[R]
-    D = (np.asarray(R)[:, None] == np.asarray(I_)[None, :]).astype(float)
     A = 1j * V_R[:, None] * (np.conj(I_R)[:, None] * D - np.conj(Y_RI * V_I[None, :]))
     B = (
         V_R[:, None] * np.conj(Y_RI * (V_I / np.abs(V_I))[None, :])
         + (np.conj(I_R) * V_R / np.abs(V_R))[:, None] * D
     )
-    return np.block([[np.real(A), np.real(B)], [np.imag(A), np.imag(B)]])
+    return _as_real_blocks(A, B)
 
 
 def local_ac_solve(
@@ -341,90 +354,180 @@ def local_ac_solve(
     so the attack touches exactly the interior's and the boundary's meters and is consistent with
     a full AC state.
 
-    Ybus     : [n, n] nodal admittance (dense or scipy sparse), per unit
+    Ybus     : [n, n] nodal admittance (dense or scipy sparse), per unit; pass it dense when solving
+               often (a sparse one is expanded on every call)
     V        : [n] true complex bus voltages
     interior : the buses whose voltages may change
     S_target : [len(interior)] target complex injections at those buses, per unit, generation positive
     returns  : [n] the false voltages, or None when no step lowers the mismatch or `iters` run out
+
+    The products stay the full dense Ybus V of the released generator, evaluated once per accepted
+    voltage vector and reused by the next mismatch and Jacobian, so the frozen reference timeline's
+    stealthy frames reproduce bit for bit (a product over the interior rows alone rounds differently
+    in the last bit for a few row sets).
     """
     Yb = _dense(Ybus)
     V = np.array(V, np.complex128, copy=True)
     I_ = np.asarray(interior, int)
+    YV = Yb @ V
     for _ in range(iters):
-        f, norm = _local_mismatch(Yb, V, I_, S_target)
+        f, norm = _local_mismatch(YV, V, I_, S_target)
         if norm < tol:
             return V
-        J = _interior_jacobian(Yb, V, I_)
+        J = _interior_jacobian(Yb[np.ix_(I_, I_)], V[I_], YV[I_])
         try:
             step = np.linalg.solve(J, f)
         except np.linalg.LinAlgError:
             return None
         if not np.all(np.isfinite(step)):
             return None
-        Vnext = _backtrack(Yb, V, I_, S_target, step, norm)
-        if Vnext is None:
+        accepted = _backtrack(Yb, V, I_, S_target, step, norm)
+        if accepted is None:
             return None
-        V = Vnext
+        V, YV = accepted
     return None
 
 
+def _row_block(Y: Admittance, rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The rows of an admittance matrix cut down to the columns where they hold an admittance: (the
+    dense block [len(rows), m], those m columns), so that Y[rows] @ V = block @ V[columns]. A branch
+    or bus touches a few buses, so a product over a few rows costs their size, not the grid's, and
+    stays small enough that BLAS runs it on one thread (a product of a full matrix starts threads
+    whose start-up, hundreds of microseconds on a many-core machine, outweighs the arithmetic). The
+    sum runs over fewer terms than the full product, so it can differ from it in the last bit: use it
+    where a reading is only compared with its noise (the search's attack vector), not inside a solve.
+
+    Y       : [n, n] or [E, n] admittance, dense or scipy sparse
+    rows    : the row indices kept
+    returns : (block [len(rows), m] complex, columns [m] sorted)
+    """
+    sub = np.asarray(_dense(Y[rows]))
+    cols = np.flatnonzero(np.any(sub != 0, axis=0))
+    return sub[:, cols], cols
+
+
+class _FlowBlocks(NamedTuple):
+    """The constant pieces of a local flow solve on one interior, cut once (`_flow_blocks`): the dense
+    Ybus, the rows of the buses whose injection a solve may hold (`rows`: the interior and any edge
+    bus) on the interior's columns (the Jacobian's), and the goal branches' dense from-end rows of Yf
+    and their interior columns. Slices only: every product is still the full one of the released
+    solve, so its answers are unchanged to the last bit."""
+
+    Yb: np.ndarray
+    rows: np.ndarray
+    Y_RI: np.ndarray
+    yf: np.ndarray
+    yf_I: np.ndarray
+
+
+class _Held(NamedTuple):
+    """What one `local_flow_solve` call holds, placed in its `_FlowBlocks`: the fixed buses' rows of
+    Ybus on the interior's columns, where each fixed bus is the interior bus (the Jacobian's diagonal
+    term), which [P; Q] rows are held, the held magnitudes' positions in the interior, and each goal
+    branch's from bus's position there (-1 outside it)."""
+
+    Y_FI: np.ndarray
+    D: np.ndarray
+    keep: np.ndarray
+    vm_cols: np.ndarray
+    f_at: np.ndarray
+
+
+def _flow_blocks(
+    Ybus: Admittance, yf_rows: Admittance, interior: np.ndarray, rows: np.ndarray
+) -> _FlowBlocks:
+    """The `_FlowBlocks` of `local_flow_solve` on this interior for the held buses among `rows` (the
+    interior and the edge buses whose injection a solve may hold) and these goal branches' Yf rows
+    (`yf_row` there), for a caller that solves the same region many times (the active set of
+    `FalseStateMixin.solve_flow_local` re-solves it with bounds pinned)."""
+    I_ = np.asarray(interior, int)
+    R = np.asarray(rows, int)
+    Yb = np.asarray(_dense(Ybus))
+    yf = np.atleast_2d(np.asarray(_dense(yf_rows)))
+    return _FlowBlocks(Yb, R, Yb[np.ix_(R, I_)], yf, yf[:, I_])
+
+
+def _held(
+    blocks: _FlowBlocks,
+    I_: np.ndarray,
+    fixed: tuple[np.ndarray, Optional[np.ndarray]],
+    vb: np.ndarray,
+    f: np.ndarray,
+) -> _Held:
+    """`_Held` of a solve: `fixed` = (the held buses, which of P and Q each holds or None for both),
+    `vb` the buses of the held magnitudes, `f` the goal branches' from buses."""
+    fx, hold = fixed
+    row = {int(b): i for i, b in enumerate(blocks.rows)}
+    position = {int(b): i for i, b in enumerate(I_)}
+    keep = (
+        np.ones(2 * len(fx), bool) if hold is None else np.concatenate([hold[:, 0], hold[:, 1]]).astype(bool)
+    )
+    return _Held(
+        blocks.Y_RI[[row[int(b)] for b in fx]],
+        (fx[:, None] == I_[None, :]).astype(float),
+        keep,
+        np.array([position[int(b)] for b in vb], int),
+        np.array([position.get(int(b), -1) for b in f], int),
+    )
+
+
 def _flow_residual(
-    Yb: np.ndarray,
-    goal: tuple[np.ndarray, np.ndarray, np.ndarray],
+    blocks: _FlowBlocks,
+    held: _Held,
+    goal: tuple[np.ndarray, np.ndarray],
     V: np.ndarray,
     fixed: np.ndarray,
     S_fixed: np.ndarray,
     vm_fixed: tuple[np.ndarray, np.ndarray] = (np.zeros(0, int), np.zeros(0)),
-    keep: Optional[np.ndarray] = None,
-) -> np.ndarray:
-    """[Re; Im] of S_fixed - S(V) at the fixed buses (only the rows `keep` marks, [2 len(fixed)]
-    over [Re; Im], every row when None), then |S_f(V)| - target on each goal branch (`goal` =
-    (yf [L, n], f [L], target [L])), then |V_b| - value at each held magnitude (`vm_fixed`)."""
-    yf, f, target = goal
-    mis = S_fixed - (V * np.conj(Yb @ V))[fixed]
+) -> tuple[np.ndarray, np.ndarray]:
+    """([Re; Im] of S_fixed - S(V) at the fixed buses (only the rows `held.keep` marks, [2 len(fixed)]
+    over [Re; Im]), then |S_f(V)| - target on each goal branch (`goal` = (f [L], target [L]), the
+    branches' rows in `blocks`), then |V_b| - value at each held magnitude (`vm_fixed`); the bus
+    currents Ybus V, which the Jacobian at the same V reuses)."""
+    f, target = goal
+    YV = blocks.Yb @ V
+    mis = S_fixed - (V * np.conj(YV))[fixed]
     inj = np.concatenate([np.real(mis), np.imag(mis)])
-    flow = np.abs(V[f] * np.conj(yf @ V))
+    flow = np.abs(V[f] * np.conj(blocks.yf @ V))
     vb, vm = vm_fixed
-    return np.concatenate([inj if keep is None else inj[keep], flow - target, np.abs(V[vb]) - vm])
+    return np.concatenate([inj[held.keep], flow - target, np.abs(V[vb]) - vm]), YV
 
 
 def _flow_jacobian(
-    Yb: np.ndarray,
-    yf: np.ndarray,
+    blocks: _FlowBlocks,
+    held: _Held,
     f: np.ndarray,
     V: np.ndarray,
     I_: np.ndarray,
-    held: tuple[np.ndarray, np.ndarray],
-    vm_cols: np.ndarray = np.zeros(0, int),
+    at: tuple[np.ndarray, np.ndarray],
 ) -> np.ndarray:
-    """The Jacobian of `_flow_residual` in [θ_I, |V|_I]: the held injection rows (`held` = (the
-    held buses, inside the interior or on its edge; the [P; Q] rows kept), negated since the
-    residual is target minus injection), one apparent-power row per goal branch, from its
-    from-end flow S_f = V_f conj(y_f . V), and a unit row per held magnitude (`vm_cols`, positions
-    in the interior):
+    """The Jacobian of `_flow_residual` in [θ_I, |V|_I] at V: the held injection rows (`at` = (the
+    buses `fixed`, inside the interior or on its edge; the bus currents Ybus V at V); the [P; Q] rows
+    `held.keep`), negated since the residual is target minus injection), one apparent-power row per
+    goal branch, from its from-end flow S_f = V_f conj(y_f . V), and a unit row per held magnitude
+    (`held.vm_cols`, positions in the interior):
 
         dS_f/dθ_j   = 1j S_f [j = f] - 1j V_f conj(y_fj V_j)
         dS_f/d|V|_j = (V_f/|V_f|) conj(y_f . V) [j = f] + V_f conj(y_fj V_j / |V_j|)
         d|S_f|      = (P_f dP_f + Q_f dQ_f) / |S_f|
     """
+    fixed, YV = at
     k = len(I_)
-    fixed, keep = held
-    Jinj = _injection_jacobian(Yb, V, np.asarray(fixed, int), I_)[keep]
     VI = V[I_]
+    Jinj = _injection_jacobian(held.Y_FI, V[fixed], VI, YV[fixed], held.D)[held.keep]
     flow_rows = []
-    for y, b in zip(yf, f):
+    for y, y_I, b, at_f in zip(blocks.yf, blocks.yf_I, f, held.f_at):
         Iff = y @ V
         Sf = V[b] * np.conj(Iff)
-        dth = -1j * V[b] * np.conj(y[I_] * VI)
-        dvm = V[b] * np.conj(y[I_] * VI / np.abs(VI))
-        at_f = np.flatnonzero(I_ == b)
-        if len(at_f):
+        dth = -1j * V[b] * np.conj(y_I * VI)
+        dvm = V[b] * np.conj(y_I * VI / np.abs(VI))
+        if at_f >= 0:
             dth[at_f] += 1j * Sf
             dvm[at_f] += (V[b] / abs(V[b])) * np.conj(Iff)
         mag = max(abs(Sf), 1e-12)
         flow_rows.append(np.concatenate([np.real(np.conj(Sf) * dth), np.real(np.conj(Sf) * dvm)]) / mag)
-    vm_rows = np.zeros((len(vm_cols), 2 * k))
-    vm_rows[np.arange(len(vm_cols)), k + np.asarray(vm_cols, int)] = 1.0  # d|V_b| / d|V|_b
+    vm_rows = np.zeros((len(held.vm_cols), 2 * k))
+    vm_rows[np.arange(len(held.vm_cols)), k + held.vm_cols] = 1.0  # d|V_b| / d|V|_b
     return np.vstack([-Jinj, *flow_rows, vm_rows])
 
 
@@ -441,6 +544,7 @@ def local_flow_solve(
     tol: float = 1e-9,
     vm_fixed: Optional[tuple[np.ndarray, np.ndarray]] = None,
     hold: Optional[np.ndarray] = None,
+    blocks: Optional[_FlowBlocks] = None,
 ) -> Optional[np.ndarray]:
     """The false state of a local attacker who drives one or more branches' apparent flows to their
     targets [WU26, eqs. 24-25]: the interior voltages move, the buses of `fixed` keep their
@@ -455,7 +559,12 @@ def local_flow_solve(
     minimum-norm least squares), each step halved until the residual drops, as `local_ac_solve`
     backtracks. From the true state this reaches the solution nearest to it.
 
-    Ybus     : [n, n] nodal admittance, per unit
+    Each voltage vector tried costs one product Ybus V, whose rows the residual and, for an accepted
+    vector, the next iteration's Jacobian share. The products are the full ones, not a region's rows:
+    a search's answer can turn on the last bit of a solve near its convergence limit, and a product
+    over fewer terms rounds differently.
+
+    Ybus     : [n, n] nodal admittance (dense or scipy sparse), per unit
     yf_row   : [n] the goal branch's row of Yf (from-end current), or [L, n] for L goal branches
     from_bus : the goal branch's from-end bus (the end its flow is metered at), or [L]
     V        : [n] true complex bus voltages
@@ -468,46 +577,47 @@ def local_flow_solve(
                caller enforces, e.g. a voltage limit)
     hold     : [len(fixed), 2] booleans, which of P and Q each fixed bus holds (a generator at one
                limit keeps the other component free); None holds both everywhere
+    blocks   : `_flow_blocks(Ybus, yf_row, interior, rows)` when the caller already cut them for a
+               `rows` holding every bus of `fixed`, else None (cut here)
     returns  : [n] the false voltages, or None when no step lowers the residual or `iters` run out
     """
-    Yb = _dense(Ybus)
-    yf = np.atleast_2d(np.asarray(_dense(yf_row)))
     f = np.atleast_1d(np.asarray(from_bus, int))
     goal = np.atleast_1d(np.asarray(target, float))
     V = np.array(V, np.complex128, copy=True)
     I_ = np.asarray(interior, int)
     fx = np.asarray(fixed, int)
-    keep = (
-        np.ones(2 * len(fx), bool) if hold is None else np.concatenate([hold[:, 0], hold[:, 1]]).astype(bool)
-    )
     vb, vm = (
         (np.zeros(0, int), np.zeros(0)) if vm_fixed is None else (np.asarray(vm_fixed[0], int), vm_fixed[1])
     )
-    vm_cols = np.array([int(np.flatnonzero(I_ == b)[0]) for b in vb], int)
-    residual = partial(
-        _flow_residual, Yb, (yf, f, goal), fixed=fx, S_fixed=S_fixed, vm_fixed=(vb, vm), keep=keep
-    )
+    cut = _flow_blocks(Ybus, yf_row, I_, np.union1d(I_, fx)) if blocks is None else blocks
+    held = _held(cut, I_, (fx, hold), vb, f)
+    residual = partial(_flow_residual, cut, held, (f, goal), fixed=fx, S_fixed=S_fixed, vm_fixed=(vb, vm))
+    r, YV = residual(V)
     for _ in range(iters):
-        r = residual(V)
         norm = float(np.max(np.abs(r)))
         if norm < tol:
             return V
-        J = _flow_jacobian(Yb, yf, f, V, I_, (fx, keep), vm_cols)
+        J = _flow_jacobian(cut, held, f, V, I_, (fx, YV))
         step = np.linalg.lstsq(J, -r, rcond=None)[0]  # the minimum-norm solution of J step = -r
         if not np.all(np.isfinite(step)):
             return None
-        Vnext = _flow_backtrack(residual, V, I_, step, norm)
-        if Vnext is None:
+        accepted = _flow_backtrack(residual, V, I_, step, norm)
+        if accepted is None:
             return None
-        V = Vnext
+        V, (r, YV) = accepted
     return None
 
 
 def _flow_backtrack(
-    residual: Callable[[np.ndarray], np.ndarray], V: np.ndarray, I_: np.ndarray, step: np.ndarray, norm: float
-) -> Optional[np.ndarray]:
+    residual: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray]],
+    V: np.ndarray,
+    I_: np.ndarray,
+    step: np.ndarray,
+    norm: float,
+) -> Optional[tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]]:
     """The Gauss-Newton step on [θ_I, |V|_I], halved until the residual's largest entry drops below
-    `norm` with every magnitude positive; None when no fraction of it helps."""
+    `norm` with every magnitude positive: (the voltages, their residual and bus currents, which the
+    next iteration starts from), or None when no fraction of it helps."""
     k = len(I_)
     vm0, va0 = np.abs(V[I_]), np.angle(V[I_])
     for _ in range(_BACKTRACK_HALVINGS):
@@ -515,7 +625,8 @@ def _flow_backtrack(
         if np.all(vm > 0):
             Vtry = V.copy()
             Vtry[I_] = vm * np.exp(1j * va)
-            if np.max(np.abs(residual(Vtry))) < norm:
-                return Vtry
+            tried = residual(Vtry)
+            if np.max(np.abs(tried[0])) < norm:
+                return Vtry, tried
         step = step / 2
     return None

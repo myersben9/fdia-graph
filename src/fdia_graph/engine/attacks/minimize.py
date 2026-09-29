@@ -42,11 +42,12 @@ from __future__ import annotations
 import heapq
 import itertools
 from collections.abc import Iterator
-from typing import Optional, Union, cast
+from typing import NamedTuple, Optional, Union, cast
 
 import numpy as np
 
 from ...formulas.attacks import generator_output, tampered_channels, tampered_devices, within_limits
+from ...formulas.network import _row_block, complex_voltages
 from ...formulas.noise import (
     PMU_CURRENT_CLASS,
     accuracy_sigma,
@@ -61,6 +62,8 @@ from .false_state import FalseStateMixin
 
 _Cost = tuple[int, int, int]  # (devices, channels, support size): the objective, then its tie-breaks
 _Best = tuple[_Cost, np.ndarray]  # a solved support and its cost
+# the tampered node, flow and PMU current channels (masks; no currents without them in the plan)
+_Channels = tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]
 Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
 
 
@@ -248,6 +251,29 @@ def _starts_in_area(
     return [s for s in starts if s <= inside]
 
 
+class _Near(NamedTuple):
+    """The branches with an end in a support (`lines`) and what their readings need: their from-end
+    and to-end Yf and Yt rows cut to the columns they touch (`_row_block`: block, columns), their
+    from buses in ppc order, and whether each is metered."""
+
+    lines: np.ndarray
+    yf: tuple[np.ndarray, np.ndarray]
+    yt: tuple[np.ndarray, np.ndarray]
+    from_ppc: np.ndarray
+    metered: np.ndarray
+
+
+def _near_branches(g: MinimizeMixin, S: np.ndarray) -> _Near:
+    """`_Near` of support S: the in-service branches with an end in S."""
+    touches = np.isin(g.ei, S).any(axis=0)
+    if g.branch.status is not None:
+        touches &= np.asarray(g.branch.status) > 0
+    lines = np.flatnonzero(touches)
+    metered = np.asarray(g.meters.flow, bool)[lines]
+    from_ppc = np.asarray(g._from_bus_ppc)[lines]
+    return _Near(lines, _row_block(g._Yf, lines), _row_block(g._Yt, lines), from_ppc, metered)
+
+
 class _Window:
     """One attack window evaluated for candidate supports: the true states, their accuracy sigmas and
     meter masks computed once, the goal's design per snapshot."""
@@ -268,6 +294,7 @@ class _Window:
         self.g, self.states, self.goal, self.k = g, states, goal, k
         self.stealth_bound = stealth_bound and goal.kind == "load"
         self.converged = True  # whether every local solve of the last `cost` call converged
+        self._near: Optional[tuple[bytes, _Near]] = None  # the last support's branches (`near`)
         self.unsolved = 0  # candidates of the search whose solve failed to converge
         self.node_m, self.edge_m = g.meter_masks()
         self.pmu = np.zeros(g.C, bool)
@@ -281,7 +308,7 @@ class _Window:
         self.flows = flows
         # the PMU branch-current channels [WU26, eqs. 19-20]: their mask and noise scale (None without)
         self.i_m = g.current_mask()
-        self.i_sigma = self._current_sigmas(g, states, goal) if self.i_m is not None else None
+        self.currents, self.i_sigma = self._currents(g, states, goal)
         # what a change must exceed to count as tampering, and for At also the most a channel may move
         # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
         if goal.kind == "flow":  # the overload attack: [WU26]'s own noise, the l0 threshold only (D8, D11)
@@ -301,13 +328,19 @@ class _Window:
             self.prev = AttackVector(np.asarray(p.node, float), np.asarray(p.edge, float), cur)
 
     @staticmethod
-    def _current_sigmas(g: MinimizeMixin, states: list[np.ndarray], goal: Goal) -> list[np.ndarray]:
-        """The PMU branch-current channels' scale per snapshot: [WU26]'s 0.01 pu for the overload
-        attack (D8), the PMU accuracy class at the true currents for At (D7)."""
-        if goal.kind == "flow":
-            return [paper_current_sigma((g.E, 4)) for _ in states]
+    def _currents(
+        g: MinimizeMixin, states: list[np.ndarray], goal: Goal
+    ) -> tuple[Optional[np.ndarray], Optional[list[np.ndarray]]]:
+        """(The true PMU branch currents per snapshot [T, E, 4], computed once since every candidate's
+        attack vector subtracts them, as it subtracts `flows`; their scale per snapshot: [WU26]'s
+        0.01 pu for the overload attack (D8), the PMU accuracy class at the true currents for At
+        (D7)), both None without currents in the meter plan."""
+        if g.current_mask() is None:
+            return None, None
         true = g.currents_from_states(np.stack(states))
-        return [current_sigma(i, PMU_CURRENT_CLASS) for i in true]
+        if goal.kind == "flow":
+            return true, [paper_current_sigma((g.E, 4)) for _ in true]
+        return true, [current_sigma(i, PMU_CURRENT_CLASS) for i in true]
 
     def lower_bound(self) -> int:
         """Devices every support tampers, the only bound the search prunes with (`_load_bound`,
@@ -356,44 +389,42 @@ class _Window:
         self.converged = True
         if self._zero_on_boundary(S):
             return None  # never for a candidate of `_supports`, which takes such a bus in; a guard for others
-        devices: set[int] = set()
-        channels: set[tuple[int, int, int]] = set()
+        tampered = self._tampered(S, beat)
+        if tampered is None:
+            return None
+        union, devices = tampered
+        if not devices:
+            return None  # within noise at every snapshot: no effect, so not an attack [the sub-noise rule]
+        cost = (devices, sum(int(m.sum()) for m in union if m is not None), len(S))
+        return cost if beat is None or cost < beat else None
+
+    def _tampered(self, S: np.ndarray, beat: Optional[_Cost]) -> Optional[tuple[_Channels, int]]:
+        """The window's union of tampered channels (node, flow, PMU current masks) on support S and
+        its device count, or None when S fails at a snapshot or its devices so far exceed `beat`'s."""
+        union: _Channels = (np.zeros(self.node_m.shape, bool), np.zeros(self.edge_m.shape, bool), None)
+        devices = 0
         prev = self.prev  # the frame before the window: its attack vector, zero when benign
         for t in range(len(self.states)):
             moved = self._snapshot(t, S, prev)
             if moved is None:
                 return None
             node, edge, current, prev = moved
-            self._tally(node, edge, current, devices, channels)
-            if beat is not None and len(devices) > beat[0]:
+            union = _union(union, (node, edge, current))
+            devices = self._devices(union)
+            if beat is not None and devices > beat[0]:
                 return None
-        if not devices:
-            return None  # within noise at every snapshot: no effect, so not an attack [the sub-noise rule]
-        cost = (len(devices), len(channels), len(S))
-        return cost if beat is None or cost < beat else None
+        return union, devices
 
-    def _tally(
-        self,
-        node: np.ndarray,
-        edge: np.ndarray,
-        current: Optional[np.ndarray],
-        devices: set[int],
-        channels: set[tuple[int, int, int]],
-    ) -> None:
-        """Add one snapshot's tampered channels and their devices to the window's union (a PMU branch
-        current joins the PMU of the bus at its end)."""
+    def _devices(self, union: _Channels) -> int:
+        """How many devices hold a channel of the union (a PMU branch current joins the PMU of the
+        bus at its end). A device is a function of its channel alone, so the devices of the union
+        are the union of every snapshot's devices."""
         ei = self.g.ei
-        devices |= set(tampered_devices(node, edge, self.pmu, ei[0], current, ei[1]).tolist())
-        channels |= {(0, int(i), int(j)) for i, j in zip(*np.nonzero(node))}
-        channels |= {(1, int(i), int(j)) for i, j in zip(*np.nonzero(edge))}
-        if current is not None:
-            channels |= {(2, int(i), int(j)) for i, j in zip(*np.nonzero(current))}
+        return len(tampered_devices(union[0], union[1], self.pmu, ei[0], union[2], ei[1]))
 
     def _zero_on_boundary(self, S: np.ndarray) -> bool:
         """Whether a zero-injection bus sits on S's boundary (it could not absorb the changed power)."""
-        edges = self.g._live_edges()
-        boundary = np.setdiff1d(np.unique(edges[:, np.isin(edges, S).any(axis=0)]), S)
-        return bool(np.isin(boundary, self.zero).any())
+        return bool(np.isin(self.g._boundary(S)[1], self.zero).any())
 
     def _snapshot(
         self, t: int, S: np.ndarray, prev: AttackVector
@@ -406,8 +437,8 @@ class _Window:
         if Xa is None:
             self.converged = converged
             return None
-        a_node, a_edge = g._attack_vector(Xa, self.states[t])
-        a_cur = g._current_attack(Xa, self.states[t])
+        a_node = (np.asarray(Xa, float) - np.asarray(self.states[t], float)).astype(np.float32)
+        a_edge, a_cur = self._branch_attack(t, Xa, self.near(S))
         sig_node, sig_edge = self.sigma[t]
         # At's stealth bound: no metered channel moves more than its rated accuracy between snapshots
         scale = self.k.stealth_scale  # the bound's step in multiples of the rated accuracy (D7: 1)
@@ -427,6 +458,41 @@ class _Window:
         current = self._over(t, a_cur, 1.0)
         return node, edge, current, AttackVector(a_node, a_edge, a_cur)
 
+    def near(self, S: np.ndarray) -> _Near:
+        """`_Near` of support S, kept for the last support (a search solves one support at every
+        snapshot of the window in turn)."""
+        key = np.asarray(S, np.int64).tobytes()
+        if self._near is None or self._near[0] != key:
+            self._near = (key, _near_branches(self.g, S))
+        return self._near[1]
+
+    def _branch_attack(self, t: int, Xa: np.ndarray, near: _Near) -> tuple[np.ndarray, Optional[np.ndarray]]:
+        """The attack vector of false state Xa at snapshot t on the flow channels [E, 2] and the PMU
+        branch currents [E, 4] (None without currents), as `_attack_vector` and `_current_attack` give
+        it: only a branch with an end in the support sees a false voltage, so only the support's
+        branches (`near`) are evaluated and every other branch's entry is exactly zero, as it is
+        there (its readings come from the same true voltages on both sides)."""
+        g = self.g
+        lut = g._ppc_row[np.arange(g.C)]
+        V = np.zeros(g._n_ppc_buses, complex)
+        V[lut] = complex_voltages(Xa[:, NODE.v], Xa[:, NODE.theta])
+        (Yf, f_cols), (Yt, t_cols) = near.yf, near.yt
+        If = Yf @ V[f_cols]
+        Sf = V[near.from_ppc] * np.conj(If) * g._base_mva
+        flows = np.stack([np.real(Sf), np.imag(Sf)], axis=1).astype(np.float32)
+        flows[~near.metered] = (
+            0.0  # an unmetered flow is zero on both sides, as `clean_flows_from_states` has it
+        )
+        a_edge = np.zeros(self.edge_m.shape, np.float32)
+        a_edge[near.lines] = flows - self.flows[t][near.lines]
+        if self.currents is None or self.i_m is None:
+            return a_edge, None
+        It = Yt @ V[t_cols]
+        cur = np.stack([np.real(If), np.imag(If), np.real(It), np.imag(It)], axis=1) * self.i_m[near.lines]
+        a_cur = np.zeros(self.i_m.shape)
+        a_cur[near.lines] = cur - self.currents[t][near.lines]
+        return a_edge, a_cur
+
     def _over(self, t: int, a_cur: Optional[np.ndarray], scale: float) -> Optional[np.ndarray]:
         """The PMU branch-current channels an attack-vector part moves beyond `scale` times their noise
         at snapshot t, metered ones only; None without currents in the plan."""
@@ -440,3 +506,9 @@ class _Window:
             return False
         over = self._over(t, a_cur - prev.current, scale)
         return bool(over is not None and over.any())
+
+
+def _union(a: _Channels, b: _Channels) -> _Channels:
+    """The channels tampered in either of a and b (a PMU current part is None without currents)."""
+    current = b[2] if a[2] is None else (a[2] if b[2] is None else a[2] | b[2])
+    return a[0] | b[0], a[1] | b[1], current
