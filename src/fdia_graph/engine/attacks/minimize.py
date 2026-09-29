@@ -87,7 +87,8 @@ def _one_blas_thread() -> Iterator[None]:
     leaves. The search's products are small (a few hundred buses at most), so on a many-core machine
     starting BLAS threads costs more than the arithmetic (the CHANGELOG's timings; every measured
     episode gave the same answer on one thread as on the default pool). Without threadpoolctl (the
-    `generate` extra installs it) the search runs on whatever BLAS is set to."""
+    `generate` extra installs it) the search runs on whatever BLAS is set to. The limit is process-wide,
+    so other BLAS work running while a search holds it is on one thread too."""
     with _BLAS_LOCK:
         if not _BLAS:
             try:

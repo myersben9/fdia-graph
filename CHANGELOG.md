@@ -8,8 +8,9 @@ the public API, the generated files and the numbers are the same as the previous
 - The fewest-tamper search (`MinimizeMixin.min_tamper`) holds BLAS to one thread while it runs and
   restores the caller's setting after, through threadpoolctl (added to the `generate` and `all`
   extras; without it the search runs on whatever BLAS is set to). Its products are too small for
-  threads to pay: on a many-core machine starting them cost more than the arithmetic. Nothing else in
-  the process changes, and no knob is added. Measured on the same fixed episodes as the entry below
+  threads to pay: on a many-core machine starting them cost more than the arithmetic. The limit is process-wide:
+  while any search runs, other BLAS work in the process is on one thread too, and overlapping searches
+  share one limit, so the caller's setting comes back when the last of them leaves. No knob is added. Measured on the same fixed episodes as the entry below
   (seed 1, hybrid meters, pool ratings, the D16 bounds with `load_cap` 0.5, two-line `Am`, budget
   256, 20-snapshot windows), before and after side by side on the same shared machine. Median seconds
   per episode, before to after:
