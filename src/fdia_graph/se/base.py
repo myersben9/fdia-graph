@@ -30,6 +30,7 @@ from ..formulas.estimation import (
     normal_matrix,
     normalized_residual,
     pmu_pseudo_links,
+    pmu_pseudo_phasors,
     pmu_pseudo_voltages,
     residual_covariance_diag,
     weighted_objective,
@@ -268,10 +269,14 @@ class SEBase:
         if self.pmu_pseudo:
             if pmu_i is None:
                 raise MissingCapability("pmu_pseudo needs the scans' PMU currents (pmu_i, prev_pmu_i)")
-            pv = self._pseudo_of(node_x, pmu_i)
+            # the values alone: the solve reads no variance (the measured calibration's sigma of the
+            # pseudo slots comes from `_pseudo_of` on the calibration scans, once, in `fit`)
+            V_f = pmu_pseudo_phasors(
+                self._links, self.N, node_x[:, :, NODE.v], np.deg2rad(node_x[:, :, NODE.theta]), pmu_i
+            )
             node_x = np.array(node_x, np.float64)
-            node_x[:, self._pseudo_v, NODE.v] = pv.v[:, self._pseudo_v]
-            node_x[:, self._pseudo_th, NODE.theta] = np.rad2deg(pv.theta[:, self._pseudo_th])
+            node_x[:, self._pseudo_v, NODE.v] = np.abs(V_f[:, self._pseudo_v])
+            node_x[:, self._pseudo_th, NODE.theta] = np.rad2deg(np.angle(V_f[:, self._pseudo_th]))
         b = self.baseMVA
         z = np.concatenate(
             [
@@ -526,11 +531,19 @@ class SEBase:
 
     # ---- public API -------------------------------------------------------------------------
     def estimate(self, ds: FdiaGraph, chunk: int = 1000) -> np.ndarray:
-        """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order."""
+        """Estimated states [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)], record order. The
+        measurement vectors are built `chunk` records at a time, the eq. (3) pseudo-measurements
+        included, so a long timeline never holds more than one chunk of them."""
         require_physical(ds)
         d = ds.export(self._fields("node_x", "edge_x"))
-        z = self._z_of(d["node_x"], d["edge_x"], d["pmu_i"] if self.pmu_pseudo else None)
-        return self._estimate_arrays(z, self._record_weights(ds), chunk)
+        w = self._record_weights(ds)
+        cur = d["pmu_i"] if self.pmu_pseudo else None
+        out = np.empty((len(d["node_x"]), self.SD))
+        for s in range(0, len(out), chunk):
+            e = slice(s, s + chunk)
+            z = self._z_of(d["node_x"][e], d["edge_x"][e], None if cur is None else cur[e])
+            out[e] = self._solve(z, None if w is None else w[e])
+        return out
 
     def _fit_reference(self, thsl: np.ndarray) -> None:
         """The angle reference from the training truth, part of the fit's calibration: the slack

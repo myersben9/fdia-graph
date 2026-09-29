@@ -295,3 +295,46 @@ def test_a_current_bias_scales_with_the_end_phasor():
     assert got[0, 2] == 0.0 and got[0, 3] == 0.0  # a zero end phasor carries no bias
     sig = current_sigma(true, PMU_CURRENT_CLASS)
     assert sig[0, 0] == pytest.approx(PMU_CURRENT_CLASS + CURRENT_FLOOR_PU) == sig[0, 1]
+
+
+@pytest.mark.parametrize("method", ["WLS", "JacobianWeighting"])
+def test_pmu_pseudo_with_the_measured_calibration(files, method):
+    """The measured calibration weights each pseudo slot by eq. (3)'s propagated noise: `_pseudo_sig`
+    is set from the calibration scans before the accuracy classes, and `_class_sigma` places it at
+    the pseudo slots; fit and estimate run, WLS and JacobianWeighting (which reads prev_pmu_i)."""
+    import fdia_graph.se as se
+    from fdia_graph.dataset import FdiaGraph
+
+    _, new = files
+    est = getattr(se, method)(pmu_pseudo=True).fit(FdiaGraph(new, split="train"), calibrate="measured")
+    n_pseudo = len(est._pseudo_v) + len(est._pseudo_th)
+    assert est._pseudo_sig.shape == (n_pseudo,) and np.isfinite(est._pseudo_sig).all()
+    assert (est._pseudo_sig > 0).all()
+    np.testing.assert_array_equal(est.sig[est._pseudo_pos], np.maximum(est._pseudo_sig, 1e-9))
+    x = est.estimate(FdiaGraph(new, split="test"))
+    assert np.isfinite(x).all()
+
+
+def test_estimate_builds_the_pseudo_measurements_chunk_by_chunk(files):
+    """Review fix: estimate builds the measurement vectors, pseudo slots included, one chunk at a
+    time and reads the pseudo values alone. The result is the whole-split path's, bit for bit at the
+    same chunk, and the same to solver tolerance at any chunk size."""
+    from fdia_graph.dataset import FdiaGraph
+    from fdia_graph.se import WLS
+
+    _, new = files
+    train, test = FdiaGraph(new, split="train"), FdiaGraph(new, split="test")
+    est = WLS(pmu_pseudo=True).fit(train)
+    d = test.export(["node_x", "edge_x", "pmu_i"])
+    whole = est._estimate_arrays(est._z_of(d["node_x"], d["edge_x"], d["pmu_i"]), None, 1000)
+    np.testing.assert_array_equal(est.estimate(test, chunk=1000), whole)
+    np.testing.assert_allclose(est.estimate(test, chunk=7), whole, rtol=0, atol=1e-10)
+    # the values the solve reads are the propagating formula's, without its covariances
+    from fdia_graph.formulas.estimation import pmu_pseudo_phasors
+
+    pv = est._pseudo_of(d["node_x"], d["pmu_i"])
+    V_f = pmu_pseudo_phasors(
+        est._links, est.N, d["node_x"][:, :, NODE.v], np.deg2rad(d["node_x"][:, :, NODE.theta]), d["pmu_i"]
+    )
+    np.testing.assert_array_equal(np.abs(V_f), pv.v)
+    np.testing.assert_array_equal(np.angle(V_f), pv.theta)

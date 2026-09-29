@@ -588,3 +588,39 @@ def test_a_two_line_episode_records_both_lines(tmp_path, pool):
         rating, target = eg[schema.EPISODE_AM_RATING][()], eg[schema.EPISODE_AM_TARGET][()]
         reached = eg[schema.EPISODE_AM_REACHED][()]
         assert np.allclose(target, rating) and np.allclose(reached, rating, rtol=1e-4)
+
+
+def test_a_voltage_is_held_at_its_limit_while_the_goal_is_met(g, pool):
+    """The voltage active set of the flow solve: shut one support bus's voltage range to its true
+    magnitude; the unbounded solve moves it, the bounded one holds it at the limit (21) and still
+    meets the flow goal."""
+    Xt = pool[0]
+    k = _knobs(g, pool)
+    free_box = k.limits._replace(
+        p_lo=np.full(g.C, -np.inf),
+        p_hi=np.full(g.C, np.inf),
+        q_lo=np.full(g.C, -np.inf),
+        q_hi=np.full(g.C, np.inf),
+    )
+    for line in g.eligible_lines([Xt], 2):
+        S = np.asarray(g.local_region(np.unique(g.ei[:, line]), 2))
+        flow = g.clean_flows_from_states(Xt[None])[0, line]
+        target = 1.03 * float(np.hypot(*flow))
+        free, _, _ = g.solve_flow_local(Xt, S, int(line), target)
+        if free is None:
+            continue
+        b = int(S[np.argmax(np.abs(free[S, NODE.v] - Xt[S, NODE.v]))])
+        if abs(free[b, NODE.v] - Xt[b, NODE.v]) < 1e-4:
+            continue  # the goal barely moves any voltage here: nothing to hold
+        v_lo, v_hi = np.zeros(g.C), np.full(g.C, 10.0)
+        v_lo[b] = v_hi[b] = Xt[b, NODE.v]  # the allowed range at b is its true magnitude alone
+        Xa, converged, _ = g.solve_flow_local(
+            Xt, S, int(line), target, free_box._replace(v_lo=v_lo, v_hi=v_hi)
+        )
+        if Xa is None:
+            continue
+        assert converged and Xa[b, NODE.v] == pytest.approx(Xt[b, NODE.v], abs=1e-9)
+        reached = g.clean_flows_from_states(Xa[None])[0, line]
+        assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
+        return
+    pytest.fail("no line's flow solve moved and then held a voltage")

@@ -206,6 +206,28 @@ def pmu_pseudo_links(
     return PseudoLinks(near[ok], far[ok], edge[ok], end[ok], y_nn[ok], y_nf[ok])
 
 
+def pmu_pseudo_phasors(
+    links: PseudoLinks, n_bus: int, v: np.ndarray, theta: np.ndarray, current: np.ndarray
+) -> np.ndarray:
+    """The pseudo voltage phasors of [WU26, eq. (3)] alone [n, N] (complex, NaN where no link reaches),
+    the values `pmu_pseudo_voltages` propagates the noise of: V_f = (I_n - y_nn V_n) / y_nf, the mean
+    over the links reaching f. The estimator's solve reads only these, so it builds no covariance.
+
+    v, theta : [n, N] bus |V| (pu) and angle (rad); current : [n, E, 4] the PMU current readings
+    """
+    v, theta = np.atleast_2d(v).astype(float), np.atleast_2d(theta).astype(float)
+    cur = np.asarray(current, float).reshape(v.shape[0], -1, 4)
+    near, far, e, re = links.near, links.far, links.edge, 2 * links.end
+    k = np.bincount(far, minlength=n_bus).astype(float)
+    w = 1.0 / np.maximum(k[far], 1.0)  # [J] each link's share of its bus's mean
+    I_n = cur[:, e, re] + 1j * cur[:, e, re + 1]
+    V_n = v[:, near] * np.exp(1j * theta[:, near])
+    V_f = np.zeros((v.shape[0], n_bus), complex)
+    np.add.at(V_f.T, far, (w * (I_n - links.y_nn * V_n) / links.y_nf).T)  # .T: sum over the bus axis
+    V_f[:, k == 0] = np.nan
+    return V_f
+
+
 def _rotation(c: np.ndarray) -> np.ndarray:
     """Complex multiplication by c as a real 2x2 matrix on (Re, Im): [..., 2, 2]."""
     return np.stack([np.stack([c.real, -c.imag], -1), np.stack([c.imag, c.real], -1)], -2)
@@ -266,10 +288,7 @@ def pmu_pseudo_voltages(
     near, far, e, re = links.near, links.far, links.edge, 2 * links.end
     k = np.bincount(far, minlength=N).astype(float)
     w = 1.0 / np.maximum(k[far], 1.0)  # [J] each link's share of its bus's mean
-    I_n = cur[:, e, re] + 1j * cur[:, e, re + 1]
-    V_n = v[:, near] * np.exp(1j * theta[:, near])
-    V_f = np.zeros((n, N), complex)
-    np.add.at(V_f.T, far, (w * (I_n - links.y_nn * V_n) / links.y_nf).T)  # .T: sum over the bus axis
+    V_f = pmu_pseudo_phasors(links, N, v, theta, cur)
     # the current terms, one independent source per link
     Ri = _rotation(1.0 / links.y_nf)  # [J, 2, 2]
     CI = np.zeros((n, len(far), 2, 2))
@@ -289,7 +308,6 @@ def pmu_pseudo_voltages(
     AP = A @ P
     np.add.at(Cb, g_far, (AP @ D @ np.swapaxes(AP, -1, -2)).transpose(1, 0, 2, 3))
     reached = k > 0
-    V_f[:, ~reached] = np.nan
     x, y, mag = np.real(V_f), np.imag(V_f), np.abs(V_f)
     g_r = np.stack([x, y], -1) / mag[..., None]
     g_t = np.stack([-y, x], -1) / (mag**2)[..., None]

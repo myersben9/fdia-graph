@@ -1,5 +1,6 @@
-"""`Am`, the multi-snapshot overload attack of [WU26]: a target branch's reported flow driven to its
-rating over the window, with the fewest devices tampered.
+"""`Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two
+by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`,
+the plan's D17) driven to their ratings over the window, with the fewest devices tampered.
 
 [WU26, eqs. 24-25] asks that the apparent flow the tampered measurements carry on a target line grow
 snapshot by snapshot until it reaches the line's rating S_max. The rating is by default 1.25 times the
@@ -159,9 +160,10 @@ class OverloadMixin(MinimizeMixin):
         return area is not None and bool(free & {int(b) for b in area})
 
     def overload_goal(self, window: list[np.ndarray], line: int, *more: int) -> FlowGoal:
-        """The per-snapshot flow the attack must reach on `line` over `window` (module docstring), and
-        on each branch of `more` at once, each toward its own rating (the paper's two-line case
-        studies; the generator's episodes drive one line)."""
+        """The per-snapshot flow the attack must reach on `line`, the first target, over `window`
+        (module docstring), and on each branch of `more` at once, each toward its own rating. The
+        generator's episodes pass `OverloadSettings.n_lines` targets: two by default, as the paper's
+        case studies overload two lines at once, or one (the plan's D17)."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2] MW, MVAr
         rating = self.line_ratings()
         first = _schedule(flows[:, line], float(rating[line]))

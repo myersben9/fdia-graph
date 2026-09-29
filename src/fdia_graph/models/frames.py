@@ -186,12 +186,13 @@ class FlowGoal(NamedTuple):
     apparent flow (MVA) that the tampered measurements carry before noise on each target branch,
     `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free, the plan's D9),
     reaching the branch's rating at the window's end. The free injections of the support (attackable
-    loads and generators) move; the fewest-tamper search holds one support for all snapshots. The
-    generator drives one line; `more` holds further lines driven at once on the same support, as the
-    paper's case studies overload two (the plan's D14)."""
+    loads and generators) move; the fewest-tamper search holds one support for all snapshots. A goal
+    drives one or more lines at once on the same support: `line` is the first target and `more` the
+    others. Generated episodes drive `OverloadSettings.n_lines` lines, two by default as the paper's
+    case studies do, or one (the plan's D14, D17)."""
 
-    line: int  # the target branch (position in the edge index)
-    targets: tuple[float, ...]  # MVA per snapshot, in window order
+    line: int  # the first target branch (position in the edge index)
+    targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order
     kind: str = "flow"  # the solve the fewest-tamper search applies per snapshot (MinimizeMixin.goal_state)
     more: tuple[tuple[int, tuple[float, ...]], ...] = ()  # further (branch, MVA per snapshot) pairs
 

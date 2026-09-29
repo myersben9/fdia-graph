@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `SEBase.estimate` builds the measurement vectors, the `pmu_pseudo` slots included, one `chunk` at a
+  time, and reads the pseudo values alone (new `formulas.estimation.pmu_pseudo_phasors`); the
+  propagated covariances are computed only for the measured calibration's scans in `fit`. On a
+  72k-frame IEEE-300 timeline this drops several whole-split float64 tensors (the [n, N, 2, 2]
+  covariance alone about 691 MB). The estimates are unchanged, bit for bit.
 - An overload episode drives two lines at once by default, as [WU26]'s case studies do
   (docs/plans/WU_MSFDIA_PLAN.md, D17): `OverloadSettings.n_lines` (2, or 1), passed as
   `am_attack={"n_lines": 1}`; the pair is drawn inside one attack area so one held support reaches
