@@ -361,8 +361,9 @@ families as they are.
   20% to 30% above a line's flow. The sensitivity study on [WU26]'s IEEE-14 case-study metering
   (the working notes' `wu_smax_sensitivity.csv` and `wu_smax_sensitivity.png`: S_max = k times each
   goal line's peak flow over the window, k from 1.05 to 2) puts the paper's reported scale of about
-  0.2 pu at k between 1.05 and 1.2, and our device counts equal the paper's (7 and 9) at k = 1.2;
-  the PGLib-OPF ratings sit 3 to 19 times above those lines' flows and ask changes of about 10 pu.
+  0.2 pu at k between 1.05 and 1.2, where our device counts are 4 to 10 against the paper's 7 and 9.
+  The PGLib-OPF ratings sit 3 to 19 times above those lines' flows: before D16 they asked changes of
+  about 10 pu, and with D16's edge bounds no attack reaches them (nor k = 1.5 or 2) on these scenarios.
   The pool ratings work on every system of the ladder (no `NoLineRatings`); the PGLib-OPF ratings
   stay available as the robustness alternative (`am_attack={"rating_source": "pglib"}`, IEEE-14,
   118 and 300 only) and are reported alongside in the papers. Both knobs live in
