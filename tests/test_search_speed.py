@@ -191,3 +191,25 @@ def test_search_holds_blas_to_one_thread_and_restores_it(monkeypatch):
         assert g.min_tamper([], None, None) == "answer"  # type: ignore[arg-type]
         assert seen == [[1] * len(outside)]
         assert blas() == outside
+
+
+def test_overlapping_searches_share_one_blas_limit():
+    """Two searches that overlap (A enters, B enters, A leaves first) both run on one thread, and the
+    caller's setting comes back only when the last one leaves, not when the first does."""
+    threadpoolctl = pytest.importorskip("threadpoolctl")
+    from fdia_graph.engine.attacks.minimize import _one_blas_thread
+
+    def blas() -> list[int]:
+        return [p["num_threads"] for p in threadpoolctl.threadpool_info() if p["user_api"] == "blas"]
+
+    if not blas():
+        pytest.skip("no BLAS pool loaded")
+    with threadpoolctl.threadpool_limits(limits=2, user_api="blas"):
+        outside = blas()
+        a, b = _one_blas_thread(), _one_blas_thread()
+        a.__enter__()
+        b.__enter__()
+        a.__exit__(None, None, None)
+        assert blas() == [1] * len(outside)  # B is still searching
+        b.__exit__(None, None, None)
+        assert blas() == outside

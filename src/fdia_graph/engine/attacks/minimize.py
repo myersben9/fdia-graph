@@ -42,6 +42,7 @@ from __future__ import annotations
 import contextlib
 import heapq
 import itertools
+import threading
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
@@ -72,23 +73,42 @@ Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At,
 
 
 _BLAS: list[Optional[ThreadpoolController]] = []  # the process's BLAS pools, found on the first search
+# BLAS limits are process-wide, so concurrent searches share one limit: the first to enter sets it,
+# the last to leave restores the caller's setting (a stack of per-call limits would restore out of
+# order when calls overlap and leave the process on the wrong count)
+_BLAS_LOCK = threading.Lock()
+_BLAS_HELD: list[contextlib.AbstractContextManager[object]] = []  # the active limit, while any search runs
+_BLAS_USERS = [0]  # searches currently inside the limit
 
 
-def _one_blas_thread() -> contextlib.AbstractContextManager[object]:
-    """Hold the BLAS pools to one thread for a search, restoring them after. The search's products
-    are small (a few hundred buses at most), so on a many-core machine starting BLAS threads costs
-    more than the arithmetic (the CHANGELOG's timings; every measured episode gave the same answer on
-    one thread as on the default pool). Without
-    threadpoolctl (the `generate` extra installs it) the search runs on whatever BLAS is set to."""
-    if not _BLAS:
-        try:
-            from threadpoolctl import ThreadpoolController
+@contextlib.contextmanager
+def _one_blas_thread() -> Iterator[None]:
+    """Hold the BLAS pools to one thread for a search, restoring them after the last concurrent search
+    leaves. The search's products are small (a few hundred buses at most), so on a many-core machine
+    starting BLAS threads costs more than the arithmetic (the CHANGELOG's timings; every measured
+    episode gave the same answer on one thread as on the default pool). Without threadpoolctl (the
+    `generate` extra installs it) the search runs on whatever BLAS is set to."""
+    with _BLAS_LOCK:
+        if not _BLAS:
+            try:
+                from threadpoolctl import ThreadpoolController
 
-            _BLAS.append(ThreadpoolController())
-        except ImportError:
-            _BLAS.append(None)
-    controller = _BLAS[0]
-    return contextlib.nullcontext() if controller is None else controller.limit(limits=1, user_api="blas")
+                _BLAS.append(ThreadpoolController())
+            except ImportError:
+                _BLAS.append(None)
+        controller = _BLAS[0]
+        if controller is not None and _BLAS_USERS[0] == 0:
+            held = controller.limit(limits=1, user_api="blas")
+            held.__enter__()
+            _BLAS_HELD.append(held)
+        _BLAS_USERS[0] += 1
+    try:
+        yield
+    finally:
+        with _BLAS_LOCK:
+            _BLAS_USERS[0] -= 1
+            if _BLAS_USERS[0] == 0 and _BLAS_HELD:
+                _BLAS_HELD.pop().__exit__(None, None, None)
 
 
 class MinimizeMixin(FalseStateMixin):
