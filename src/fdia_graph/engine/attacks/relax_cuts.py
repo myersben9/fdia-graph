@@ -1,9 +1,9 @@
 """The valid cuts that tighten the certifier's relaxation (docs/plans/RELAX_CERTIFIER_PLAN.md,
 section 2.1), each family a function of the relaxation it tightens:
 
-- **bounds:** optimization-based bound tightening of each area bus's W_ii and of how far its voltage
-  can move (|V_i - V_i^true| <= rho_i), then the angle bounds these imply, as wedges on V_i and on
-  each W_ij.
+- **bounds:** optimization-based bound tightening of how far each area bus's voltage can move,
+  |V_i - V_i^true| <= rho_i, from its move in DIRECTIONS directions (the W_ii bounds stay the voltage
+  box's), then the angle bounds rho implies, as wedges on V_i and on each W_ij.
 - **qc:** the QC relaxation [CHV16]: per pair of area buses, the voltage product and the cosine and
   sine of the angle difference, each with its convex envelope, and W_ij as their McCormick products.
 - **cycle:** one angle per area bus, each pair's angle difference the difference of its ends' angles

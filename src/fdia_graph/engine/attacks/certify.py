@@ -26,7 +26,7 @@ import numpy as np
 
 from ...formulas.attacks import LIMIT_TOL_PQ, LIMIT_TOL_V, bus_load, generator_output
 from ...formulas.network import _dense, bus_injections, complex_voltages
-from ...formulas.relax import big_m, cone_gap, sector_cuts, voltage_box
+from ...formulas.relax import big_m, cone_gap, roundoff_slack, sector_cuts, voltage_box
 from ...models.choices import CertifyVerdict
 from ...models.config import CertifyOptions
 from ...models.frames import (
@@ -44,7 +44,6 @@ from .minimize import Goal, MinimizeMixin, _Window
 
 GOAL_TOL_MVA = 1e-3  # how far the search's solve may leave a goal line's flow from its target
 POWER_TOL_MW = 1e-3  # how far a held or designed injection may move in the search's solve
-STEP_TOL = 1e-6  # added to every noise threshold, so a channel exactly at its sigma is never cut
 VOLTAGE_BOX = (0.5, 1.5)  # |V| bounds, pu, when the knobs carry no operating limits (big-M needs some)
 
 
@@ -205,13 +204,16 @@ class _Layout:
 
 class _Channels:
     """The linear channels of one snapshot the count sees: rows A [m, n] with a = A (x - x0) in the
-    scan's units, their noise sigma, device and the previous frame's attack value (At's bound)."""
+    scan's units, their noise sigma, device, the previous frame's attack value (At's bound) and the
+    float32 roundoff slack of the search's comparison with sigma (`formulas.relax.roundoff_slack`,
+    from the true reading the search rounds)."""
 
-    def __init__(self, channels: list[tuple[np.ndarray, float, int, float]]) -> None:
+    def __init__(self, channels: list[tuple[np.ndarray, float, int, float, float]]) -> None:
         self.A = np.array([c[0] for c in channels]).reshape(len(channels), -1)
         self.sigma = np.array([c[1] for c in channels], float)
         self.device = np.array([c[2] for c in channels], dtype=np.int64)
         self.prev = np.array([c[3] for c in channels], float)
+        self.slack = roundoff_slack(self.sigma, np.array([c[4] for c in channels], float))
 
 
 class _Relaxation:
@@ -276,30 +278,33 @@ class _Relaxation:
         """The metered injections, from-end flows and PMU branch-current channels of snapshot t."""
         w, g = self.window, self.g
         sig_node, sig_edge = w.sigma[t]
-        out: list[tuple[np.ndarray, float, int, float]] = []
-        for b in range(g.C):
+        out: list[tuple[np.ndarray, float, int, float, float]] = []
+        for b in range(g.C):  # the search rounds only an injection's change: no reading to add
             for col, row in zip((NODE.p_inj, NODE.q_inj), self.injection(t, b)):
                 if w.node_m[b, col] > 0:
-                    out.append((row, sig_node[b, col], b, w.prev.node[b, col]))
-        for line in range(g.E):
+                    out.append((row, sig_node[b, col], b, w.prev.node[b, col], 0.0))
+        for line in range(g.E):  # the search rounds both absolute flows before subtracting
             for col, row in enumerate(self.flow(t, line)):
                 if w.edge_m[line, col] > 0:
-                    out.append((row, sig_edge[line, col], int(g.ei[0, line]), w.prev.edge[line, col]))
+                    reading = float(w.flows[t][line, col])
+                    out.append(
+                        (row, sig_edge[line, col], int(g.ei[0, line]), w.prev.edge[line, col], reading)
+                    )
         return _Channels(out + self._currents(t))
 
-    def _currents(self, t: int) -> list[tuple[np.ndarray, float, int, float]]:
+    def _currents(self, t: int) -> list[tuple[np.ndarray, float, int, float, float]]:
         """The metered PMU branch-current channels of snapshot t (a current joins the PMU of the bus at
         its end)."""
         w, g = self.window, self.g
         if w.i_m is None or w.i_sigma is None:
             return []
-        out: list[tuple[np.ndarray, float, int, float]] = []
+        out: list[tuple[np.ndarray, float, int, float, float]] = []
         ends = ((CURRENT.re_from, CURRENT.im_from, self.Yf, 0), (CURRENT.re_to, CURRENT.im_to, self.Yt, 1))
         for line, (c_re, c_im, Ymat, end) in itertools.product(range(g.E), ends):
             for col, row in zip((c_re, c_im), self.layout.current_rows(Ymat[line])):
                 if w.i_m[line, col] > 0:
                     before = 0.0 if w.prev.current is None else w.prev.current[line, col]
-                    out.append((row, w.i_sigma[t][line, col], g.C + int(g.ei[end, line]), before))
+                    out.append((row, w.i_sigma[t][line, col], g.C + int(g.ei[end, line]), before, 0.0))
         return out
 
     def _nonlinear_devices(self) -> np.ndarray:
@@ -447,7 +452,8 @@ class _Relaxation:
             if int(bus) not in area:
                 out[int(bus)] = 0.0
             elif w.node_m[bus, NODE.v] > 0 and w.node_m[bus, NODE.theta] > 0:
-                v0, dv, dth = w.states[t][bus, NODE.v], sig[bus, NODE.v], math.radians(sig[bus, NODE.theta])
+                dv, dth = (float(s + roundoff_slack(s, 0.0)) for s in sig[bus, [NODE.v, NODE.theta]])
+                v0, dth = w.states[t][bus, NODE.v], math.radians(dth)
                 out[int(bus)] = max(
                     math.sqrt(v * v + v0 * v0 - 2 * v * v0 * math.cos(dth)) for v in (v0 - dv, v0 + dv)
                 )
@@ -562,12 +568,13 @@ class _Relaxation:
         M = big_m(ch.A, self._radius(t), ch.sigma)
         cons = []
         if len(ch.sigma):
-            cons.append(cp.abs(ch.A @ (x - self.x0[t])) <= ch.sigma + STEP_TOL + cp.multiply(M, b[dev]))
+            cons.append(cp.abs(ch.A @ (x - self.x0[t])) <= ch.sigma + ch.slack + cp.multiply(M, b[dev]))
         return cons + self._voltage_count(x, b, t)
 
     def _voltage_count(self, x, b, t: int) -> list:
         """|V| stays in [v - sigma, v + sigma] and the angle within sigma of its true value unless its
-        device is tampered: W_ii in the squared band, V_i in the wedge around the true angle."""
+        device is tampered: W_ii in the squared band, V_i in the wedge around the true angle, each
+        sigma widened by its float32 roundoff slack (`roundoff_slack`)."""
         w, L = self.window, self.layout
         sig = w.sigma[t][0]
         wlo, whi = self.box[t]
@@ -576,12 +583,14 @@ class _Relaxation:
             v0, th0 = w.states[t][bus, NODE.v], math.radians(w.states[t][bus, NODE.theta])
             if w.node_m[bus, NODE.v] > 0:
                 d = b[int(np.searchsorted(self.devices, self.g.C + bus if w.pmu[bus] else bus))]
-                hi, lo = (v0 + sig[bus, NODE.v]) ** 2, max(v0 - sig[bus, NODE.v], 0.0) ** 2
-                cons += [x[L.w[a]] <= hi + STEP_TOL + max(whi[a] - hi, 0.0) * d]
-                cons += [x[L.w[a]] >= lo - STEP_TOL - max(lo - wlo[a], 0.0) * d]
+                sv = float(sig[bus, NODE.v] + roundoff_slack(sig[bus, NODE.v], 0.0))
+                hi, lo = (v0 + sv) ** 2, max(v0 - sv, 0.0) ** 2
+                cons += [x[L.w[a]] <= hi + max(whi[a] - hi, 0.0) * d]
+                cons += [x[L.w[a]] >= lo - max(lo - wlo[a], 0.0) * d]
             if w.node_m[bus, NODE.theta] > 0:
                 d = b[int(np.searchsorted(self.devices, self.g.C + bus))]
-                cons += self._wedge(x, a, th0, math.radians(sig[bus, NODE.theta]), (whi[a], d))
+                sth = float(sig[bus, NODE.theta] + roundoff_slack(sig[bus, NODE.theta], 0.0))
+                cons += self._wedge(x, a, th0, math.radians(sth), (whi[a], d))
         return cons
 
     def _wedge(self, x, a: int, th0: float, delta: float, cap: tuple) -> list:
@@ -592,7 +601,7 @@ class _Relaxation:
         u = math.cos(th0) * x[L.e[a]] + math.sin(th0) * x[L.f[a]]
         p = -math.sin(th0) * x[L.e[a]] + math.cos(th0) * x[L.f[a]]
         M = math.sqrt(whi) * (1.0 + math.tan(delta))
-        return [cp.abs(p) <= math.tan(delta) * u + STEP_TOL + M * d]
+        return [cp.abs(p) <= math.tan(delta) * u + M * d]
 
     def _goal(self, x, t: int) -> list:
         """The goal at snapshot t: each goal line's apparent flow on its target (Am), or the designed
@@ -643,7 +652,8 @@ class _Relaxation:
 
     def _step(self, X, t: int) -> list:
         """At's stealth bound on the linear channels: no metered channel moves more than its rated
-        accuracy between snapshots (from the frame before the window at t = 0)."""
+        accuracy between snapshots (from the frame before the window at t = 0), widened by the float32
+        roundoff of both snapshots' attack values and of the step (`roundoff_slack`)."""
         import cvxpy as cp
 
         if not self.window.stealth_bound:
@@ -653,7 +663,9 @@ class _Relaxation:
             return []
         now = ch.A @ (X[t] - self.x0[t])
         before = ch.prev if t == 0 else self.lin[t - 1].A @ (X[t - 1] - self.x0[t - 1])
-        return [cp.abs(now - before) <= self.window.k.stealth_scale * ch.sigma + STEP_TOL]
+        scaled = self.window.k.stealth_scale * ch.sigma
+        slack = 2 * ch.slack + roundoff_slack(scaled, 0.0)
+        return [cp.abs(now - before) <= scaled + slack]
 
     def mismatch(self, x: np.ndarray, keep: list[int]) -> float:
         """The relaxed point's largest power mismatch (MW or MVAr) over the kept snapshots: each bus's
@@ -816,16 +828,18 @@ def _confirm_infeasible(
     relax: _Relaxation, keep: list[int], counts: tuple[Optional[int], int], opts: CertifyOptions
 ) -> BoundClaim:
     """An infeasibility at SCIP's default tolerances, re-solved with numerics/feastol loosened to
-    `opts.robust_feastol`: still infeasible, it proves the search's count (at a cutoff below it);
-    feasible, the loosened problem's dual bound is the claim, with the doubt stated. Without a
-    cutoff, an infeasible relaxation contradicts the search's own attack, which is a point of it."""
+    `opts.robust_feastol`: still infeasible at cutoff c, it proves c + 1 devices (the search's count
+    when c is one fewer); feasible, the loosened problem's dual bound is the claim, with the doubt
+    stated. Without a cutoff, an infeasible relaxation contradicts the search's own attack, which is
+    a point of it."""
     cutoff, upper = counts
     status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff, feastol=opts.robust_feastol)
     if status == "infeasible":
         doubt = ""
         if cutoff is None and upper >= 0:
             doubt = f"the relaxation admits no attack, though the search's attack of {upper} devices is a point of it"
-        return BoundClaim(upper, status, None, np.zeros(len(relax.devices)), doubt)
+        proved = upper if cutoff is None else (cutoff + 1 if upper < 0 else min(cutoff + 1, upper))
+        return BoundClaim(proved, status, None, np.zeros(len(relax.devices)), doubt)
     doubt = f"infeasible at SCIP's default tolerances but {status} at feastol {opts.robust_feastol:g}"
     return BoundClaim(_rounded(bound, opts.bound_margin, upper), status, x, bv, doubt)
 

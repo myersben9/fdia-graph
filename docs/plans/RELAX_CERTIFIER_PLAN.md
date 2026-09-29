@@ -48,6 +48,11 @@ Per snapshot, with W = V V^H (Jabr's variables):
   gets -sigma - M b_d <= a <= sigma + M b_d. |V| gets (v - sigma)^2 - M b_d <= W_ii <=
   (v + sigma)^2 + M b_d. An angle gets |Im(V e^{-j theta})| <= tan(sigma) Re(V e^{-j theta}) + M b_d,
   the wedge the angle may not leave (exact for a voltage, since sigma is below 90 degrees).
+- **Roundoff slack:** the search classifies channels in float32 (a flow as the difference of its
+  false and true readings, each rounded first), so each sigma above is widened by
+  2 eps32 (|true reading| + sigma) + 1e-6 (`formulas.relax.roundoff_slack`), and At's step bound by
+  both snapshots' slack. Without it a large flow the search counts within noise could exceed a
+  fixed 1e-6 margin in exact arithmetic, and the relaxation would cut the search's own attack.
 - **Rigorous M:** the voltage limits bound W_ii, the cones bound |W_ij| by
   sqrt(W_ii,max W_jj,max) and |V_i| by v_max. M for a channel is sum_k |A_mk| r_k, with r_k the
   largest distance of variable k from its true value inside that box, so no feasible point is cut.
@@ -173,31 +178,30 @@ the bound; the last row is `certify`'s default.
 
 | family | paper | `Am` | `At` | `Am` gaps | median mismatch, MW (`Am`) | seconds |
 |---|---|---|---|---|---|---|
-| second-order cone | 0 of 2 certified (gaps 7, 6) | 0 of 10 certified | 0 certified, 1 uncertain | 3 to 11, median 4 | 17 | 6 to 47 solve |
-| + bounds | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 17 | 400 to 635 tightening, 8 to 36 solve |
-| + qc | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 2 uncertain | 3 to 11, median 4 | 15 | 8 to 48 solve |
-| + cycle | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 17 | 9 to 64 solve |
+| second-order cone | 0 of 2 certified (gaps 7, 6) | 0 of 10 certified | 0 certified, 1 uncertain | 3 to 11, median 4 | 24 | 5 to 35 solve |
+| + bounds | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 18 | 400 to 637 tightening, 7 to 52 solve |
+| + qc | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 20 | 9 to 68 solve |
+| + cycle | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 18 | 9 to 57 solve |
 
-The search takes 8 to 27 seconds per `Am` window and under 2 per `At` window. No cut family moves an
+The search takes 6 to 29 seconds per `Am` window and under 1 per `At` window. No cut family moves an
 `Am` bound: bound tightening at one device fewer than the search leaves the median voltage move at
-0.7 to 2.1 pu, and only 1 to 6 of the area buses get an angle bound, so the QC and cycle envelopes
+0.7 to 2.1 pu, and only 1 to 7 of the area buses get an angle bound, so the QC and cycle envelopes
 seldom bind. The D16 bounds bring the relaxed `Am` points much closer to an AC state than before
-them (median mismatch 17 MW, against about 320 MW on the earlier recipe), but not close enough to
-certify. Every `Am` and paper verdict is a plain gap: no claim there sits at the tolerances.
+them (median mismatch 18 to 24 MW, against about 320 MW on the earlier recipe), but not close enough
+to certify. Every `Am` and paper verdict is a plain gap: no claim there sits at the tolerances.
 
-The guard changes the `At` column, and nowhere else. The `At` rows were run twice (the second
-time with the re-solve of certifying optima); the table is the second run:
+The guard changes the `At` column, and nowhere else:
 
 - `At` episode 3 (loads at 5, 10, 12, 13 and 14): the cone relaxation's optimum reaches the
   search's 9 at SCIP's default tolerance, which without the guard certified it, but the re-solve
   with numerics/feastol at 1e-4 bounds 5, so it is "uncertain" with bound 5. Every cut level finds
-  the relaxation infeasible at one device fewer, and that re-solve is feasible too (bounds 6 or 7
-  in the first run). No configuration certifies the episode.
-- `At` episode 1 (loads at 4, 5, 11, 13 and 14): the cone relaxation bounds 10 devices. The qc level
-  bounds 9 in both runs, although cuts only shrink the relaxation, so it is "uncertain" with bound
-  9; the bounds level bounded 9 in the first run and 10 in the second, and the cycle level 10 in
-  both. The answer at this episode moves between identical runs, which is itself the tolerance at
-  work.
+  the relaxation infeasible at one device fewer, and that re-solve is feasible too. No configuration
+  certifies the episode.
+- `At` episode 1 (loads at 4, 5, 11, 13 and 14): the cone relaxation bounds 9 devices and every cut
+  level 10, a gap of 3 and 2. Before the roundoff slack (section 2) the cone relaxation bounded 10
+  and the bounds and qc levels 9, which the guard reported as a contradiction: the fixed 1e-6 margin
+  had cut part of the cone relaxation's set, so its 10 was too high. The slack removes the
+  contradiction.
 - On the earlier recipe, two runs of the same cuts on `At` episode 0 disagreed (a relaxed attack
   with 8 devices at 0.3 MW mismatch in one, infeasible in the other), a different draw from this
   set's episode 0, whose verdicts here are plain gaps.

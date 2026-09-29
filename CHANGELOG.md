@@ -32,7 +32,9 @@ the public API, the generated files and the numbers are the same as the previous
   relaxation's is a contradiction; `Certificate.verdict` (new choice `CertifyVerdict`: "certified",
   "gap", "uncertain"), `reason` and `cone_lower` report it, and `models.frames.BoundClaim` is what
   one solve proves. Solved with SCIP through cvxpy, in the new
-  optional extra `[certify]`, also part of `[all]`. The bound is valid but loose: on IEEE-14 with new generation's
+  optional extra `[certify]`, also part of `[all]`. Every noise threshold the relaxation reproduces
+  is widened by the float32 roundoff of the search's own classification
+  (`formulas.relax.roundoff_slack`), so the relaxation never cuts the search's attack. The bound is valid but loose: on IEEE-14 with new generation's
   defaults it certifies 0 of 10 two-line `Am` episodes (gaps of 3 to 11 devices, median 4) and 0 of
   [WU26]'s two scenarios (gaps 7 and 6) at every cut level, and 0 of 4 `At` episodes: the one
   the relaxation met without the guard (the cone relaxation's optimum at 9, the search's count) bounds

@@ -1,17 +1,38 @@
 """The pieces of the convex relaxation that certifies the fewest-tamper attack
 (docs/plans/RELAX_CERTIFIER_PLAN.md): the voltage box, the big-M constants derived from it, the
-sectors that outer-approximate the exterior of a circle, and the cone gap that says how far a
-relaxed point is from an AC one. numpy only; the model itself is built in
+sectors that outer-approximate the exterior of a circle, the cone gap that says how tight a
+relaxed point's pairwise cones are, and the roundoff slack that keeps the search's float32 noise
+thresholds reproduced conservatively. numpy only; the model itself is built in
 `engine/attacks/certify.py`.
 """
 
 from __future__ import annotations
 
 import numpy as np
+import numpy.typing as npt
 
 SECTORS = (
     24  # sectors of the flow goal's |S| >= target disjunction: the cut sits at cos(pi / 24) = 0.991 of it
 )
+FLOAT32_EPS = float(np.finfo(np.float32).eps)  # 2^-23, the spacing of float32 numbers at 1
+ROUNDOFF_FLOOR = 1e-6  # absolute slack for the relaxation's own float64 arithmetic
+
+
+def roundoff_slack(sigma: npt.ArrayLike, reading: npt.ArrayLike) -> np.ndarray:
+    """How far above its noise threshold `sigma` a channel's exact attack value may lie while the
+    fewest-tamper search still counts it within noise, per channel (a rule of ours, so the relaxation
+    never cuts the search's own attack). The search rounds readings to float32 (`_Window`: a flow as
+    fl32(h(x_false)) - fl32(h(x_true)), a node or current channel as the float64 difference rounded
+    once), so the value it compares with sigma is off by at most eps32/2 (|h_true| + |h_false| + |a|);
+    within noise |a| <= sigma and |h_false| <= |h_true| + |a|, which bounds the error by
+    eps32 (|h_true| + sigma) to first order. The slack doubles that and adds a floor:
+
+        slack = 2 eps32 (|reading| + sigma) + 1e-6
+
+    `reading` is the true reading the search rounds (0 where only the difference is rounded)."""
+    return (
+        2.0 * FLOAT32_EPS * (np.abs(np.asarray(reading, float)) + np.asarray(sigma, float)) + ROUNDOFF_FLOOR
+    )
 
 
 def voltage_box(
@@ -46,7 +67,9 @@ def sector_cuts(k: int = SECTORS) -> tuple[np.ndarray, float]:
 
 def cone_gap(w_i: np.ndarray, w_j: np.ndarray, re: np.ndarray, im: np.ndarray) -> float:
     """The largest relative slack of the cones |W_ij|^2 <= W_ii W_jj over a relaxed point: 0 when
-    every cone is tight (the point is a rank-one W, an AC voltage), up to 1.
+    every pairwise cone is tight, up to 1. A tight cone makes each 2x2 block of W rank one, not W as a
+    whole: on a meshed network the angles around a cycle need not add up, so a zero gap does not make
+    the point an AC voltage (`_Relaxation.mismatch` says whether it is).
 
         gap = max (W_ii W_jj - |W_ij|^2) / (W_ii W_jj)
     """

@@ -333,6 +333,12 @@ def test_an_infeasibility_is_accepted_only_after_the_loosened_re_solve():
     gone = _FakeRelaxation("feasible")
     claim = solve_claim(gone, [0], (8, 9), opts)
     assert claim.lower == 8 and "feastol 0.0001" in claim.doubt  # the loosened bound, and the doubt
+    # an infeasibility at cutoff c proves c + 1 devices, not the search's count
+    below = solve_claim(_FakeRelaxation("infeasible"), [0], (5, 9), opts)
+    assert (below.lower, below.doubt) == (6, "")
+    from fdia_graph.engine.attacks.certify import _verdict
+
+    assert _verdict(9, _claim(4), below, 0) == (6, "gap", "")
     tightened = _FakeRelaxation("infeasible")
     solve_claim(tightened, [0], (8, 9), opts, feasible=False)  # bound tightening found it infeasible
     assert tightened.calls == [opts.robust_feastol]
@@ -377,7 +383,8 @@ def test_a_certifying_optimum_stands_only_if_the_loosened_re_solve_certifies_it(
 
 def test_the_robust_re_solve_runs_on_scip(window, monkeypatch):
     """The loosened re-solve on SCIP itself: at a cutoff of zero devices the relaxation (which asks
-    for at least one) is infeasible at any tolerance, and the claim is the search's count."""
+    for at least one) is infeasible at any tolerance, and the claim is one device, what an
+    infeasibility at a cutoff of zero proves."""
     monkeypatch.setenv("KMP_DUPLICATE_LIB_OK", "TRUE")
     pytest.importorskip("cvxpy")
     pytest.importorskip("pyscipopt")
@@ -394,4 +401,22 @@ def test_the_robust_re_solve_runs_on_scip(window, monkeypatch):
     opts = CertifyOptions(time_limit=60.0)
     claim = solve_claim(relax, [0], (0, res.devices), opts)
     assert calls == [None, opts.robust_feastol]
-    assert (claim.lower, claim.status, claim.doubt) == (res.devices, "infeasible", "")
+    assert (claim.lower, claim.status, claim.doubt) == (min(1, res.devices), "infeasible", "")
+
+
+def test_the_roundoff_slack_covers_the_search_float32_flow_classification():
+    """The search rounds a flow's false and true readings to float32 before subtracting, so on a
+    large flow it counts a channel within noise whose exact change exceeds sigma by more than a
+    fixed 1e-6; the slack keeps every such channel inside the relaxation's untampered band."""
+    from fdia_graph.formulas.relax import roundoff_slack
+
+    true, sigma = 2718.123456789, 0.5  # MW: a large flow, a rated-accuracy sigma
+    exceeds = 0
+    for k in range(1, 400):
+        false = true + sigma + k * 1e-6
+        within32 = float(np.float32(false) - np.float32(true)) <= sigma  # the search's classification
+        change = false - true  # the exact change the relaxation constrains
+        if within32:
+            assert change <= sigma + float(roundoff_slack(sigma, true))
+            exceeds += change > sigma + 1e-6
+    assert exceeds > 0  # the float32 and float64 classifications do differ here
