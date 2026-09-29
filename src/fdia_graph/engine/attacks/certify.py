@@ -775,14 +775,41 @@ def solve_claim(
 ) -> BoundClaim:
     """What the relaxation over the kept snapshots proves, `counts` = (the cutoff, at most that many
     devices or None, and the search's count): its dual bound rounded with `opts.bound_margin`, or,
-    when it is infeasible (or bound tightening found it so, `feasible` False), the search's count
-    once a re-solve with loosened tolerances confirms it (`_confirm_infeasible`)."""
+    when it is infeasible (or bound tightening found it so, `feasible` False), the search's count.
+    A claim that would certify the search's count, by infeasibility or by an optimum that reaches
+    the count, stands only when a re-solve with loosened tolerances certifies it too
+    (`_confirm_infeasible`, `_confirm_optimum`)."""
     cutoff, upper = counts
     if feasible:
         status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff)
         if status != "infeasible":
-            return BoundClaim(_rounded(bound, opts.bound_margin, upper), status, x, bv, "")
+            claim = BoundClaim(_rounded(bound, opts.bound_margin, upper), status, x, bv, "")
+            return _confirm_optimum(relax, keep, counts, opts, claim) if 0 <= upper <= claim.lower else claim
     return _confirm_infeasible(relax, keep, counts, opts)
+
+
+def _confirm_optimum(
+    relax: _Relaxation,
+    keep: list[int],
+    counts: tuple[Optional[int], int],
+    opts: CertifyOptions,
+    claim: BoundClaim,
+) -> BoundClaim:
+    """An optimum that reaches the search's count at SCIP's default tolerances, re-solved with
+    numerics/feastol loosened to `opts.robust_feastol`: when the loosened problem's bound still
+    reaches the count, `claim` stands; otherwise the loosened bound is the claim, with the doubt
+    stated (the loosened problem holds the default one, so its bound is the one clear of the
+    tolerances)."""
+    cutoff, upper = counts
+    status, bound, x, bv = relax.solve(opts.time_limit, keep, cutoff, feastol=opts.robust_feastol)
+    if status == "infeasible":  # a larger problem infeasible where the smaller one is not: numerical
+        doubt = f"the relaxation is {claim.status} at SCIP's default tolerances but infeasible at feastol {opts.robust_feastol:g}"
+        return claim._replace(doubt=doubt)
+    loose = _rounded(bound, opts.bound_margin, upper)
+    if loose >= upper:
+        return claim
+    doubt = f"the optimum reaches {claim.lower} at SCIP's default tolerances but {loose} at feastol {opts.robust_feastol:g}"
+    return BoundClaim(loose, status, x, bv, doubt)
 
 
 def _confirm_infeasible(

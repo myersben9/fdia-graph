@@ -338,6 +338,43 @@ def test_an_infeasibility_is_accepted_only_after_the_loosened_re_solve():
     assert tightened.calls == [opts.robust_feastol]
 
 
+class _FakeOptimum:
+    """Stands in for `_Relaxation` with an optimum `default` at SCIP's default tolerances and `loose`
+    once numerics/feastol is loosened."""
+
+    devices = np.arange(3)
+    cuts = ()
+
+    def __init__(self, default, loose):
+        self.bounds, self.calls = {None: default, "loose": loose}, []
+
+    def solve(self, time_limit, snapshots=None, cutoff=None, feastol=None):
+        self.calls.append(feastol)
+        bound = self.bounds[None if feastol is None else "loose"]
+        return "optimal", bound, np.zeros((1, 4)), np.array([1.0, 1.0, 0.0])
+
+
+def test_a_certifying_optimum_stands_only_if_the_loosened_re_solve_certifies_it():
+    """IEEE-14 At episode 3: the cone relaxation's optimum reaches the search's 9 at SCIP's default
+    tolerances; it is kept only when the loosened problem's bound still reaches 9."""
+    from fdia_graph.engine.attacks.certify import _verdict, solve_claim
+    from fdia_graph.models.config import CertifyOptions
+
+    opts = CertifyOptions()
+    fragile = _FakeOptimum(9.0, 6.2)
+    claim = solve_claim(fragile, [0], (None, 9), opts)
+    assert fragile.calls == [None, opts.robust_feastol]
+    assert claim.lower == 7 and "reaches 9" in claim.doubt and "but 7" in claim.doubt
+    assert _verdict(9, claim, None, 0)[:2] == (7, "uncertain")
+    firm = _FakeOptimum(9.0, 9.0)
+    claim = solve_claim(firm, [0], (None, 9), opts)
+    assert firm.calls == [None, opts.robust_feastol] and (claim.lower, claim.doubt) == (9, "")
+    assert _verdict(9, claim, None, 0) == (9, "certified", "")
+    short = _FakeOptimum(7.0, 7.0)
+    solve_claim(short, [0], (None, 9), opts)
+    assert short.calls == [None]  # a bound below the count certifies nothing: no re-solve
+
+
 def test_the_robust_re_solve_runs_on_scip(window, monkeypatch):
     """The loosened re-solve on SCIP itself: at a cutoff of zero devices the relaxation (which asks
     for at least one) is infeasible at any tolerance, and the claim is the search's count."""
