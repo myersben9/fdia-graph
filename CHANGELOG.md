@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- An overload episode drives two lines at once by default, as [WU26]'s case studies do
+  (docs/plans/WU_MSFDIA_PLAN.md, D17): `OverloadSettings.n_lines` (2, or 1), passed as
+  `am_attack={"n_lines": 1}`; the pair is drawn inside one attack area so one held support reaches
+  both, at most `AM_LINE_TRIES` pairs are tried and an episode with none stays benign. The file
+  records `n_lines`, and `episodes/am_*` holds one row per target line with the new
+  `am_target_mva` (the goal at the window's end); `AmOverloadDesign.rating` became `ratings`, and
+  `overload_step` returns the flow reached on every target line. New tables `WU26_SCENARIOS`,
+  `WU26_PMUS` (IEEE-118's from the paper's Fig. 9) and `WU26_ATTACK_AREA`, with
+  `OverloadMixin.wu26_branch` and `wu26_buses`; new tests `tests/test_wu_scenarios.py`. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, pool ratings, the D16 bounds, two lines): IEEE-14 (3000 frames) 25 two-line episodes built and 0 fallen back to benign, 6.8 devices and 19.3 channels on average, the largest change on a channel 0.17 pu at the median episode and 1.59 pu at most, 0% of the searches proven, 39 s of generation per episode; IEEE-118 (2000 frames) 17 two-line episodes built and 0 fallen back to benign, 17.8 devices and 72.0 channels on average, the largest change on a channel 1.33 pu at the median episode and 3.39 pu at most, 0% of the searches proven, 78 s of generation per episode; every line of every episode reaches its rating.
+
 - The overload attack bounds the edge of its support (docs/plans/WU_MSFDIA_PLAN.md, D16): the
   generator limits (22)-(23) apply to every generator whose reported output the attack changes, the
   support's edge included (pinned in the solve, P and Q apart, and checked by `within_limits` over the

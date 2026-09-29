@@ -135,6 +135,7 @@ class FrameKnobs(NamedTuple):
     stealth_scale: float = 1.0
     # the overload attack's load-plausibility cap tau (D16): None leaves the load changes unbounded
     load_cap: Optional[float] = None
+    n_lines: int = 1  # the lines an overload episode drives at once (D17; new generation: 2)
 
     @property
     def band(self) -> Band:
@@ -205,11 +206,12 @@ class FlowGoal(NamedTuple):
 
 
 class AmOverloadDesign(NamedTuple):
-    """One `Am` episode as the overload attack of [WU26]: the target branch, its rating, the flow each
-    frame must reach, and the fewest-tamper support held for the window with the search's result."""
+    """One `Am` episode as the overload attack of [WU26]: the target branches (`goal.lines`), their
+    ratings, the flow each frame must reach, and the fewest-tamper support held for the window with
+    the search's result."""
 
     goal: FlowGoal
-    rating: float  # the branch's rating S_max, MVA (PGLib-OPF rate_a)
+    ratings: tuple[float, ...]  # each target branch's rating S_max, MVA, in `goal.lines` order
     support: np.ndarray  # the buses whose voltages the false state moves, held for every frame
     tamper: MinimizerResult  # the search's result for the window
 

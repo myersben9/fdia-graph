@@ -108,6 +108,7 @@ EPISODE_MIN_UNSOLVED = "min_unsolved"
 # episodes/ for the overload attack Am [WU26]: one row per Am episode
 EPISODE_AM_EPISODE, EPISODE_AM_LINE, EPISODE_AM_RATING = "am_episode", "am_line", "am_rating_mva"
 EPISODE_AM_REACHED, EPISODE_AM_EMITTED = "am_reached_mva", "am_emitted_mva"
+EPISODE_AM_TARGET = "am_target_mva"  # the goal at the window's end; one am_* row per target line (D17)
 
 # record field -> dataset path: the loader's vocabulary on disk (clean fields resolve per timestep)
 FIELD_PATH = {
@@ -179,6 +180,7 @@ class Attr:
     RATING_SOURCE = "rating_source"  # the overload attack's line ratings (D15)
     RATING_MARGIN = "rating_margin"
     LOAD_CAP = "load_cap"  # the overload attack's load-plausibility cap (D16)
+    N_LINES = "n_lines"  # the lines one overload episode drives at once (D17)
     METER_MODEL = "meter_model"  # written on a hybrid-meter file only (the plan's D10)
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"

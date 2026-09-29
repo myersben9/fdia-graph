@@ -546,3 +546,45 @@ def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):
         assert np.hypot(*reached) == pytest.approx(target, rel=1e-6)
         checked += 1
     assert checked, "no capped case solved"
+
+
+def test_two_lines_by_default_and_the_pairs_share_one_area(g, pool):
+    """D17: an episode overloads n_lines at once (2 by default, 1 allowed); each pair's second line
+    lies inside the first one's attack area, so one held support can reach both."""
+    from fdia_graph.models.config import OverloadSettings
+
+    assert OverloadSettings().n_lines == 2 and OverloadSettings(n_lines=1).n_lines == 1
+    for bad in (0, 3, 1.5):
+        with pytest.raises(ValueError):
+            OverloadSettings(n_lines=bad)
+    window = [pool[u] for u in range(6)]
+    order = g.rng.permutation(g.eligible_lines(window, 2))
+    pairs = g._target_sets(order, 2, 2)
+    assert pairs and all(len(p) == 2 and p[0] != p[1] for p in pairs)
+    for a, b in pairs:
+        area = {int(x) for x in g.local_region(np.unique(g.ei[:, a]), 2)}
+        assert {int(e) for e in g.ei[:, b]} <= area
+    assert g._target_sets(order, 1, 2) == [(int(b),) for b in order[:8]]
+
+
+def test_a_two_line_episode_records_both_lines(tmp_path, pool):
+    """D17: the file records n_lines and one am_* row per target line, each with its rating, the
+    goal at the window's end (the rating) and the noiseless flow reached."""
+    out = generate_timeline(
+        14,
+        states=pool[:200],
+        seed=3,
+        families=("Am",),
+        am_len=10,
+        attacked_frac=0.3,
+        out=str(tmp_path / "am2.h5"),
+    )
+    with h5py.File(out, "r") as f:
+        assert f.attrs[schema.Attr.N_LINES] == 2
+        eg = f[schema.Group.EPISODES]
+        assert schema.EPISODE_AM_LINE in eg, "no overload episode was built"
+        ep = eg[schema.EPISODE_AM_EPISODE][()]
+        assert (np.unique(ep, return_counts=True)[1] == 2).all()
+        rating, target = eg[schema.EPISODE_AM_RATING][()], eg[schema.EPISODE_AM_TARGET][()]
+        reached = eg[schema.EPISODE_AM_REACHED][()]
+        assert np.allclose(target, rating) and np.allclose(reached, rating, rtol=1e-4)

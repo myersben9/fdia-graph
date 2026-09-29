@@ -224,7 +224,7 @@ class _TimelineBuffers:
         self.episodes: list[EpisodeRow] = []
         self.min_rows: list[tuple[int, MinimizerResult]] = []  # (episode, fewest-tamper result), knob on
         # (episode, target branch, rating, noiseless flow reached, emitted flow) per overload Am episode
-        self.am_rows: list[tuple[int, int, float, float, float]] = []
+        self.am_rows: list[tuple[int, int, float, float, float, float]] = []
         # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
         # an adjacent episode's stealth bound starts from it
         self.last_attack = AttackVector(
@@ -411,17 +411,19 @@ def _am_overload_episode(w: _Walk, t: int, length: int) -> int:
         return _benign_run(w, t, min(t + length, T))
     ep = _episode(w, AM_FAMILY, t)
     w.buf.min_rows.append((ep.sid, design.tamper))
-    reached = emitted = float("nan")
-    line = design.goal.line
+    lines = list(design.goal.lines)
+    reached = emitted = np.full(len(lines), np.nan)
     for i in range(length):
         if t >= T:
             break
         frame, reached = ctx.g.overload_step(design, ctx.X[t], i, ctx.knobs)
         ep.store(w, t, frame)
         if frame is not None:
-            emitted = float(np.hypot(*frame.edge_x[line]))
+            emitted = np.hypot(frame.edge_x[lines, 0], frame.edge_x[lines, 1])
         t += 1
-    w.buf.am_rows.append((ep.sid, line, design.rating, reached, emitted))
+    last = design.goal.targets_at(len(design.goal.targets) - 1)  # the goal at the window's end
+    for j, line in enumerate(lines):  # one row per target line (D17)
+        w.buf.am_rows.append((ep.sid, line, design.ratings[j], last[j], float(reached[j]), float(emitted[j])))
     return ep.close(w, t)
 
 
@@ -657,14 +659,20 @@ def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]])
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)
 
 
-def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, float]]) -> None:
-    """episodes/am_*: one row per overload Am episode, the target branch, its rating (MVA), the
-    noiseless apparent flow the last frame reached and the emitted (noisy) one."""
-    eg.create_dataset(schema.EPISODE_AM_EPISODE, data=np.array([r[0] for r in am_rows], np.int32))
-    eg.create_dataset(schema.EPISODE_AM_LINE, data=np.array([r[1] for r in am_rows], np.int32))
-    eg.create_dataset(schema.EPISODE_AM_RATING, data=np.array([r[2] for r in am_rows], np.float32))
-    eg.create_dataset(schema.EPISODE_AM_REACHED, data=np.array([r[3] for r in am_rows], np.float32))
-    eg.create_dataset(schema.EPISODE_AM_EMITTED, data=np.array([r[4] for r in am_rows], np.float32))
+def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, float, float]]) -> None:
+    """episodes/am_*: one row per target line of each overload Am episode (two rows for a two-line
+    episode, D17), the episode, the target branch, its rating (MVA), the goal at the window's end,
+    the noiseless apparent flow the last frame reached and the emitted (noisy) one."""
+    names = (
+        (schema.EPISODE_AM_EPISODE, np.int32),
+        (schema.EPISODE_AM_LINE, np.int32),
+        (schema.EPISODE_AM_RATING, np.float32),
+        (schema.EPISODE_AM_TARGET, np.float32),
+        (schema.EPISODE_AM_REACHED, np.float32),
+        (schema.EPISODE_AM_EMITTED, np.float32),
+    )
+    for (name, dtype), column in zip(names, zip(*am_rows)):
+        eg.create_dataset(name, data=np.array(column, dtype))
 
 
 def _timeline_attrs(
@@ -778,6 +786,7 @@ def _search_attrs(
                 Attr.RATING_SOURCE: overload.rating_source,
                 Attr.RATING_MARGIN: overload.rating_margin,
                 Attr.LOAD_CAP: overload.load_cap,
+                Attr.N_LINES: overload.n_lines,
             }
         )
     if tk.min_tamper or overload is not None:
@@ -944,6 +953,7 @@ def generate_timeline(
         tk.min_budget,
         tk.stealth_scale,
         getattr(overload, "load_cap", None),  # the overload attack's cap; none without it
+        getattr(overload, "n_lines", 1),  # the lines an overload episode drives (D17)
     )
     ctx = _FrameContext(g, X, knobs, [])
     am = (tk.am_frames, tk.am_rate, tk.am_direction)

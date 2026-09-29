@@ -269,14 +269,18 @@ class OverloadSettings(Validated):
     """The overload attack's settings, as `generate_timeline(am_attack=...)` takes them in a dict of
     these fields (the string "overload" is these defaults): the line ratings (the plan's D15), S_max
     of each branch `rating_margin` times its peak true apparent flow over the operating pool
-    ("pool", every system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300); and the
-    load-plausibility cap `load_cap` on every load bus the attack moves (D16)."""
+    ("pool", every system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300); the
+    load-plausibility cap `load_cap` on every load bus the attack moves (D16); and `n_lines`, the
+    lines one episode overloads at once (D17)."""
 
     rating_source: Annotated[str, OneOf(RatingSource)] = "pool"
     rating_margin: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.25  # > 1
     # the load-plausibility cap tau: no load bus the attack moves shows a change beyond tau times its
     # true load [YUA11] (the plan's D16; a rule of ours, Yuan's 20% to 50%, the upper end by default)
     load_cap: Annotated[float, Finite(), InRange(0.0, 1.0, hi_closed=True)] = 0.5
+    # the lines each episode overloads at once (D17): [WU26]'s case studies always drive two; 1 or 2,
+    # since every added line multiplies the target sets an episode tries and the paper uses no more
+    n_lines: Annotated[int, Integer(), InRange(1, 2, lo_closed=True, hi_closed=True)] = 2
 
     @staticmethod
     def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:

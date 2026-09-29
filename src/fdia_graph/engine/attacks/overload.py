@@ -38,11 +38,58 @@ from ...models.grid import NODE
 from ...ratings import pglib_branches
 from .minimize import MinimizeMixin
 
-# How many eligible target branches an Am episode tries, in a random order drawn once at onset. A
-# bounded heuristic, not a search over every branch: each try is a full fewest-tamper search (about 13 s
-# on IEEE-118), so an episode whose first eight branches admit no attack stays benign and is counted
-# even if a later branch would have.
+# How many target sets (one line, or two, D17) an Am episode tries, drawn from one random order of the
+# eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
+# a full fewest-tamper search (about 13 s on IEEE-118), so an episode whose first eight sets admit no
+# attack stays benign and is counted even if a later set would have.
 AM_LINE_TRIES = 8
+
+# [WU26]'s case studies, in MATPOWER bus numbers (`wu26_branch` maps a pair to our branch by its end
+# buses): the two lines each scenario overloads at once, and the PMU buses of its metering.
+WU26_SCENARIOS: dict[int, tuple[tuple[tuple[int, int], tuple[int, int]], ...]] = {
+    14: (((3, 4), (6, 11)), ((1, 2), (4, 5))),  # Section V-A
+    118: (((84, 85), (99, 100)),),  # Section V-B, inside the attacker's local network of Fig. 9
+}
+WU26_PMUS: dict[int, tuple[int, ...]] = {
+    14: (1, 4, 6, 13),  # Section V-A, the trusted-PMU sequence 1 -> 4 -> 6 -> 13
+    # Fig. 9 ("IEEE 118-bus system topology and PMU distribution", page 12 of the published PDF), the
+    # buses drawn in red: 11 bars, each read against its bus label at 1,200 dpi; bus 94's label sits
+    # beside bus 95's bar, but the red bar is 94's
+    118: (76, 78, 80, 83, 89, 92, 94, 100, 105, 106, 110),
+}
+# Fig. 9's red dashed region, the attacker's local network on IEEE-118: every bus drawn inside it
+WU26_ATTACK_AREA: dict[int, tuple[int, ...]] = {
+    118: (
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+    )
+    + (101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 118),
+}
 
 
 def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
@@ -135,30 +182,66 @@ class OverloadMixin(MinimizeMixin):
         lines = self.eligible_lines(window, k.hops)
         if len(lines) == 0:
             return None
-        for line in self.rng.permutation(lines)[:AM_LINE_TRIES]:
-            goal = self.overload_goal(window, int(line))
+        for targets in self._target_sets(self.rng.permutation(lines), k.n_lines, k.hops):
+            goal = self.overload_goal(window, *targets)
             result = self.min_tamper(window, goal, k, prev)
             if result is not None and result.devices >= 1:
-                rating = float(self.line_ratings()[int(line)])
-                return AmOverloadDesign(goal, rating, result.support, result)
+                ratings = tuple(float(self.line_ratings()[b]) for b in targets)
+                return AmOverloadDesign(goal, ratings, result.support, result)
         return None
+
+    def _target_sets(self, order: np.ndarray, n_lines: int, hops: int) -> list[tuple[int, ...]]:
+        """At most `AM_LINE_TRIES` target sets from the eligible branches in `order` (D17): single
+        branches, or pairs one held support can reach, each first branch taken in order with the
+        first other branch whose ends lie inside the first one's attack area (the buses within
+        `hops` of its ends), each pair once."""
+        if n_lines == 1:
+            return [(int(b),) for b in order[:AM_LINE_TRIES]]
+        pairs: list[tuple[int, ...]] = []
+        for a in order:
+            second = self._partner(int(a), order, hops)
+            if second is not None and not any(set(p) == {int(a), second} for p in pairs):
+                pairs.append((int(a), second))
+            if len(pairs) == AM_LINE_TRIES:
+                break
+        return pairs
+
+    def _partner(self, a: int, order: np.ndarray, hops: int) -> Optional[int]:
+        """The first branch of `order` other than a whose two ends lie inside a's attack area (the
+        buses within `hops` of a's ends), or None."""
+        area = self.local_region(np.unique(self.ei[:, a]), hops)
+        if area is None:
+            return None
+        inside = {int(b) for b in area}
+        return next((int(b) for b in order if b != a and {int(e) for e in self.ei[:, b]} <= inside), None)
+
+    def wu26_branch(self, a: int, b: int) -> int:
+        """Our branch between the MATPOWER buses a and b (either order): the first match."""
+        number = self.base.bus["name"].astype(int).to_numpy()
+        ends = [{int(number[f]), int(number[t])} for f, t in self.ei.T]
+        return next(e for e, pair in enumerate(ends) if pair == {a, b})
+
+    def wu26_buses(self, numbers: tuple[int, ...]) -> np.ndarray:
+        """Our bus positions of the MATPOWER bus numbers `numbers`."""
+        number = self.base.bus["name"].astype(int).to_numpy()
+        return np.array([int(np.flatnonzero(number == n)[0]) for n in numbers], np.int64)
 
     def overload_step(
         self, design: AmOverloadDesign, Xt: np.ndarray, i: int, k: FrameKnobs
-    ) -> tuple[Optional[Frame], float]:
+    ) -> tuple[Optional[Frame], np.ndarray]:
         """Frame i of the episode on its state `Xt`: the false state on the held support that reaches
         the goal's flow there, emitted on the true scan, labelled at the pretended loads; and the
-        noiseless apparent flow it reaches on the target branch (MVA, NaN when the frame could not be
-        built)."""
+        noiseless apparent flow it reaches on each target branch (MVA, `goal.lines` order, NaN when
+        the frame could not be built)."""
         Xa, _ = self.goal_state(design.goal, i, Xt, design.support, k)
         if Xa is None:
-            return None, float("nan")
+            return None, np.full(len(design.goal.lines), np.nan)
         # the labels: the free injections of the support, the loads and generator outputs it pretends
         free = np.intersect1d(design.support, self.free_injection_buses())
         dev = self.pretended_change(Xt, Xa, free)
         frame = self.frame_from_state(Xt, Xa, free, dev.astype(float))
-        flow = self.clean_flows_from_states(Xa[None])[0, design.goal.line]
-        return frame, float(np.hypot(flow[0], flow[1]))
+        flow = self.clean_flows_from_states(Xa[None])[0, list(design.goal.lines)]
+        return frame, np.hypot(flow[:, 0], flow[:, 1])
 
     def pretended_change(self, Xt: np.ndarray, Xa: np.ndarray, buses: np.ndarray) -> np.ndarray:
         """The relative change the false state pretends at each free-injection bus of `buses`: at a

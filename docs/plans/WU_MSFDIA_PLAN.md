@@ -1,6 +1,6 @@
 # Plan: the [WU26] attack as the optimization it is, and one home for attack generation
 
-**Status: accepted; decisions D1 to D16 taken (section 9).**
+**Status: accepted; decisions D1 to D17 taken (section 9).**
 
 [WU26] defines its multi-snapshot attack (MS-FDIA) as an optimization: eq. (12) minimizes the
 number of tampered measurements subject to the AC measurement model (13)-(20), the operating limits
@@ -317,6 +317,31 @@ families as they are.
   `prev_node_x` and `prev_edge_x` (offered on a hybrid-meter file), so `JacobianWeighting` and any
   estimator that reads the previous frame can use the eq. (3) pseudo-measurements; the refusal is
   lifted.
+- **D17, two lines at once, and [WU26]'s scenarios as a table:** [WU26]'s case studies always
+  overload two lines at once, so an overload episode drives `n_lines` lines, 2 by default
+  (`OverloadSettings.n_lines`, 1 or 2: each added line multiplies the target sets an episode tries,
+  and the paper uses no more). An episode draws its pairs from one random order of the eligible
+  lines: each line in turn with the first other eligible line whose ends lie inside its attack area
+  (the buses within `hops` of its ends), so one held support can reach both; it tries at most
+  `AM_LINE_TRIES` pairs and otherwise stays benign and is counted. The file records `n_lines`, and
+  `episodes/am_*` holds one row per target line: the branch, its rating, the goal at the window's
+  end (`am_target_mva`) and the noiseless and emitted flows reached. The paper's scenarios are a
+  table in `engine/attacks/overload.py`, in MATPOWER bus numbers mapped to our branches by their end
+  buses (`OverloadMixin.wu26_branch`, `wu26_buses`):
+
+  | system | lines overloaded at once | PMU buses | source |
+  |---|---|---|---|
+  | IEEE-14 | 3-4 with 6-11; 1-2 with 4-5 | 1, 4, 6, 13 | Section V-A |
+  | IEEE-118 | 84-85 with 99-100 | 76, 78, 80, 83, 89, 92, 94, 100, 105, 106, 110 | Section V-B; the PMUs are the 11 buses drawn in red in Fig. 9 ("IEEE 118-bus system topology and PMU distribution", page 12 of the published PDF), read at 1,200 dpi against their bus labels; bus 94's label sits beside bus 95's bar, but the red bar is 94's |
+
+  Fig. 9's red dashed region, the attacker's local network on IEEE-118, is legible: buses 74 to
+  112 and 118 (`WU26_ATTACK_AREA`). `tests/test_wu_scenarios.py` runs each scenario on the paper's
+  PMUs with two-line goals and ratings 1.2 times each line's peak flow over a 10-snapshot window:
+  on IEEE-14 both are feasible, reach both ratings, tamper every device of the paper's sets but one
+  (SCADA 11 in lines 3-4 and 6-11: our 6-11 flow meter sits at its from end, bus 6, and the
+  least-norm state leaves bus 11's injection within noise), with a largest per-device change inside
+  0.05 to 1.0 pu (0.81 and 0.37 pu against the paper's 0.22 and 0.17); on IEEE-118 (with
+  `FDIA_SLOW`) the scenario is feasible and reaches both ratings (10 devices, 0.19 pu). The S_max sensitivity study rerun on this code (two-line goals, the D16 bounds; `wu_smax_sensitivity.csv` and `.png` in the working notes, the earlier run kept beside them as `_pre162`) finds both scenarios feasible for k up to 1.3 and 1.3 and infeasible above, the PGLib-OPF ratings included, since the generator limits and the load cap now bound what the attack can move; the paper's scale of about 0.2 pu falls between k = 1.1 and 1.2 on lines 3-4 and 6-11 and between 1.05 and 1.1 on lines 1-2 and 4-5. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, pool ratings, the D16 bounds, two lines): IEEE-14 (3000 frames) 25 two-line episodes built and 0 fallen back to benign, 6.8 devices and 19.3 channels on average, the largest change on a channel 0.17 pu at the median episode and 1.59 pu at most, 0% of the searches proven, 39 s of generation per episode; IEEE-118 (2000 frames) 17 two-line episodes built and 0 fallen back to benign, 17.8 devices and 72.0 channels on average, the largest change on a channel 1.33 pu at the median episode and 3.39 pu at most, 0% of the searches proven, 78 s of generation per episode; every line of every episode reaches its rating.
 - **D16, the edge of the support is bounded:** the injections of the buses on the support's edge
   move with the false voltages, and nothing bounded them: under D15 the heaviest lines' least-norm
   false states moved them by up to 5.7 pu on IEEE-14 and 45 pu on IEEE-118. Two bounds, both enforced
