@@ -1616,7 +1616,8 @@ rule is a command you can run.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/myersben9/fdia-graph
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>fdia-graph
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[generate,se,torch,dev]"</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>pytest<span class="w"> </span>tests<span class="w">                                  </span><span class="c1"># about a minute; one 13 MB pool download</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>pytest<span class="w"> </span>-n<span class="w"> </span>auto<span class="w"> </span>tests<span class="w">                          </span><span class="c1"># in parallel (pytest-xdist, in the dev and test extras);</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">                                              </span><span class="c1"># each worker builds its own tiny timeline and pool download</span>
 </code></pre></div>
 <p><code>docs/ROADMAP.md</code> is the map and the reading order.</p>
 <p>Every diagram is a rendered image, never a Mermaid block: the README is also the PyPI page, and the

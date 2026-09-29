@@ -1678,7 +1678,16 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The fewest-tamper search (<code>MinimizeMixin.min_tamper</code>) holds BLAS to one thread while it runs and
+<li>
+<p>Development only, no user-visible change: the test suite runs in parallel. pytest-xdist joins the
+  <code>test</code> and <code>dev</code> extras, CI runs the three suites with <code>-n auto</code>, and <code>tools/prereview.py</code> does so
+  (at most 8 workers) when the interpreter has it. The test extra's pip cache is kept between CI runs,
+  and a pull request that changes only Markdown or <code>docs/</code> (not the data dictionary, which a test
+  checks) skips the suites' install and run steps, the jobs still reporting success. The malformed-input
+  tests' ids no longer carry memory addresses, which differed between workers.</p>
+</li>
+<li>
+<p>The fewest-tamper search (<code>MinimizeMixin.min_tamper</code>) holds BLAS to one thread while it runs and
   restores the caller's setting after, through threadpoolctl (added to the <code>generate</code> and <code>all</code>
   extras; without it the search runs on whatever BLAS is set to). Its products are too small for
   threads to pay: on a many-core machine starting them cost more than the arithmetic. The limit is process-wide:
@@ -1686,7 +1695,8 @@ the public API, the generated files and the numbers are the same as the previous
   share one limit, so the caller's setting comes back when the last of them leaves. No knob is added. Measured on the same fixed episodes as the entry below
   (seed 1, hybrid meters, pool ratings, the D16 bounds with <code>load_cap</code> 0.5, two-line <code>Am</code>, budget
   256, 20-snapshot windows), before and after side by side on the same shared machine. Median seconds
-  per episode, before to after:</li>
+  per episode, before to after:</p>
+</li>
 </ul>
 <table>
 <thead>
