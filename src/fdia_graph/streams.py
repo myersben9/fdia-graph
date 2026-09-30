@@ -136,6 +136,9 @@ def stream_of(ds: FdiaGraph) -> Stream:
     )
 
 
+_GRAPH_KEYS = ("edge_index", "edge_attr", "node_m", "edge_m")  # a stream's graph and static meter masks
+
+
 def _asset_spec(name: str, file: str, release: str) -> AssetSpec:
     from .registry import _REPO
 
@@ -165,6 +168,12 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     tag = release_tag(rel)  # the GitHub tag that carries the stream file
     z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", tag)), allow_pickle=True)
     out: dict[str, Any] = {k: z[k] for k in z.files}  # whatever the file holds, arrays and the episode list
+    # the stream files of v0.7.1 and v0.7.2 carry the frames only; the graph and the meter masks are the
+    # release's per-system sidecar (dropped in 0.18 with the writer, restored so those files read again)
+    missing = [k for k in _GRAPH_KEYS if k not in out]
+    if missing:
+        side = np.load(ensure_local(_asset_spec(f"graph{C}", f"graph_ieee{C}.npz", tag)))
+        out.update({k: side[k] for k in missing})
     out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)  # torch.long
     out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
     for m in ("node_m", "edge_m"):

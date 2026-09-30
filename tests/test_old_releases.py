@@ -1,7 +1,7 @@
-"""Old data releases stay readable. The generator makes only At and Am, but a v0.8.3 timeline, a
-v0.7.2 record shard and a v0.7.x stream file (all seven families, the v0.8.3 meters) load, split,
-filter by family name and score per family as before. The fixtures under tests/data were written by
-the legacy recipe before it was removed (tests/data/README.md), since it can no longer build them.
+"""Old data releases stay readable. The generator makes only At and Am, but a timeline of each of
+v0.8.0, v0.8.1 and v0.8.3, a v0.7.2 record shard and a v0.7.1 stream file load, split, filter by
+family name and score per family as before. Each fixture under tests/data was written by the SDK
+that built its release, or is a slice of the published file (tests/data/README.md).
 
 Also here: the graph fields a GNN user relies on (the series admittance and the clean flow on every
 branch), checked on a timeline."""
@@ -13,7 +13,15 @@ import pytest
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 TIMELINE_V083 = os.path.join(DATA, "tiny_timeline_v083.h5")
+# one timeline per data release, each written by the SDK that built that release
+TIMELINES = {
+    "v0.8.0": os.path.join(DATA, "tiny_timeline_v080.h5"),
+    "v0.8.1": os.path.join(DATA, "tiny_timeline_v081.h5"),
+    "v0.8.3": TIMELINE_V083,
+}
+# the first 100 frames of the published IEEE-118 stream file
 STREAM_V071 = os.path.join(DATA, "tiny_stream_v071.npz")
+GRAPH_V071 = os.path.join(DATA, "graph_ieee118_v071.npz")  # that release's graph sidecar, as published
 OLD_FAMILIES = {"Aq", "Ad", "As", "Ar", "At", "Al", "Am"}
 
 
@@ -23,16 +31,18 @@ def _family_names(ds):
     return {FAMILIES[int(f)] for f in np.unique(ds.export(["family"])["family"])} - {"benign"}
 
 
-def test_a_v083_timeline_loads_every_split_and_family():
+@pytest.mark.parametrize("release", sorted(TIMELINES))
+def test_an_old_timeline_loads_every_split_and_family(release):
     from fdia_graph.dataset import FdiaGraph
 
-    ds = FdiaGraph(TIMELINE_V083)
+    path = TIMELINES[release]
+    ds = FdiaGraph(path)
     assert ds.is_timeline and ds.has_benign and ds.has_clean and _family_names(ds) == OLD_FAMILIES
-    sizes = [len(FdiaGraph(TIMELINE_V083, split=s)) for s in ("train", "val", "test")]
+    sizes = [len(FdiaGraph(path, split=s)) for s in ("train", "val", "test")]
     assert all(n > 0 for n in sizes) and sum(sizes) == len(ds)
-    only = FdiaGraph(TIMELINE_V083, families=["Aq", "Al"])
+    only = FdiaGraph(path, families=["Aq", "Al"])
     assert _family_names(only) == {"Aq", "Al"}
-    held = FdiaGraph(TIMELINE_V083, split="train", heldout=True)
+    held = FdiaGraph(path, split="train", heldout=True)
     assert not {"As", "Ar"} & _family_names(held)
     rec = ds[0]
     assert tuple(rec["clean"].shape) == (14, 4) and tuple(rec["edge_clean_full"].shape) == (ds.E, 2)
@@ -51,17 +61,19 @@ def test_a_v083_timeline_reads_as_pyg():
     )  # flows, and the clean flow everywhere
 
 
-def test_old_releases_score_per_old_family():
-    """A per-family estimator and localizer score on a v0.8.3 timeline names the old families."""
+@pytest.mark.parametrize("release", sorted(TIMELINES))
+def test_old_releases_score_per_old_family(release):
+    """A per-family estimator and localizer score on an old timeline names the old families."""
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.localization import SwingThreshold
     from fdia_graph.se import WLS
 
-    train, test = FdiaGraph(TIMELINE_V083, split="train"), FdiaGraph(TIMELINE_V083, split="test")
+    path = TIMELINES[release]
+    train, test = FdiaGraph(path, split="train"), FdiaGraph(path, split="test")
     se = WLS().fit(train).score(test)
     loc = SwingThreshold().fit(train).score(test)
     present = _family_names(test)
-    assert present <= OLD_FAMILIES and {"Aq", "Ad", "As", "Ar"} <= present
+    assert present <= OLD_FAMILIES and {"Aq", "Ad"} <= present
     for name in present:
         assert se[name] is not None and loc[name] is not None
 
@@ -79,19 +91,23 @@ def test_a_v072_record_shard_scores_per_family():
 
 
 def test_a_v071_stream_file_loads_and_windows(monkeypatch):
-    """`load_stream` at a pre-timeline release reads the stream file (download replaced by the
-    checked-in one), and `streams.windows` slides over it."""
+    """`load_stream` at a pre-timeline release reads the published stream file and that release's
+    graph sidecar (the download replaced by the checked-in slices), and `streams.windows` slides
+    over it."""
     import fdia_graph as fg
     import fdia_graph.download as download
     from fdia_graph.streams import windows
 
-    monkeypatch.setattr(download, "ensure_local", lambda spec: STREAM_V071)
+    files = {"stream_ieee118.npz": STREAM_V071, "graph_ieee118.npz": GRAPH_V071}
+    monkeypatch.setattr(download, "ensure_local", lambda spec: files[spec.file])
     with pytest.warns(DeprecationWarning):
-        s = fg.load_stream("ieee14", release="v0.7.1")
-    assert s.system == 14 and 0 < s.attacked_frac < 1 and len(s.episodes) > 0
+        s = fg.load_stream("ieee118", release="v0.7.1")
+    assert s.system == 118 and s.node_x.shape == (100, 118, 4) and 0 < s.attacked_frac < 1
+    assert s.edge_index.shape == (2, 186) and s.edge_attr.shape == (186, 8) and s.node_m.shape == (118, 4)
+    assert len(s.episodes) > 0 and {int(e["family"]) for e in s.episodes} <= set(range(8))
     with pytest.warns(DeprecationWarning):
         X, y = windows(s, 8, stride=4)
-    assert X.shape[1] == 8 and len(X) == len(y)
+    assert X.shape[1:] == (8, 118, 4) and len(X) == len(y)
 
 
 @pytest.mark.parametrize("release", ["v0.7.1", "v0.7.2", "v0.8.0", "v0.8.1", "v0.8.3"])

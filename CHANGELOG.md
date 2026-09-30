@@ -40,6 +40,11 @@ the public API, the generated files and the numbers are the same as the previous
   - Docs: the finished plans (data models, field groups, one dataset, readability, reference study,
     restructure, validation), FUTURE_DATASETS.md, the v0.8.0 to v0.8.3 release build scripts and
     five unlinked figures.
+  - Fixed: `load_stream` at v0.7.1 and v0.7.2 reads the stream files again. Those files carry the
+    frames only, and the release's graph sidecar (`graph_ieee{N}.npz`: `edge_index`, `edge_attr`,
+    `node_m`, `edge_m`) that 0.18 stopped attaching is attached again; the tests read a slice of the
+    published IEEE-118 stream with its sidecar, and one timeline of each of v0.8.0, v0.8.1 and
+    v0.8.3 written by the SDK that built it.
   - Known behaviour made visible by the new test timeline, unchanged here: an overload `Am` whose
     window has no stealthy design falls back to benign for the whole episode (`fallback_benign`), and
     its first snapshot can tamper nothing, its drift-free goal there being the true flow (D9).

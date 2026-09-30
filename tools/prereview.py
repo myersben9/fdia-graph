@@ -205,11 +205,12 @@ def _current_text(md: str) -> str:
     """The part of a Markdown file whose citations must hold today: the whole file, except the
     changelog, whose released sections are history and may cite files a later release removed."""
     text = _read(md)
-    released = "\n## "  # a released section starts at the next level-2 heading
-    if md == "CHANGELOG.md" and released in text.split("## Unreleased", 1)[-1]:
-        head, rest = text.split("## Unreleased", 1)
-        return head + "## Unreleased" + rest.split(released, 1)[0]
-    return text
+    if md != "CHANGELOG.md":
+        return text
+    if "## Unreleased" not in text:  # nothing unreleased: every section is history
+        return ""
+    head, rest = text.split("## Unreleased", 1)
+    return head + "## Unreleased" + rest.split("\n## ", 1)[0]  # up to the next release's heading
 
 
 def _cited_paths(files: list[str]) -> tuple[str, str]:
