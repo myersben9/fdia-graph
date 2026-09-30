@@ -106,3 +106,17 @@ def test_the_schedule_stops_the_rref_attack_at_k_1_2(scenario):
     trust = TrustSchedule([int(b) for b in g.wu26_buses(ORDER[scenario])], SLOTS)
     r = g.min_tamper(window, goal, k._replace(support_method="rref"), trust=trust)
     assert r.devices == -1
+
+
+def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatch):
+    """When no attack on the free buses moves a target line, the reduction has no eligible row: the
+    snapshot's ladder is empty and the search reports the window infeasible instead of failing."""
+    import fdia_graph.engine.attacks.rref as rref
+
+    assert sparsest_rows(np.eye(3), eligible=lambda r: False).shape == (0, 3)
+    monkeypatch.setattr(rref, "_moved_lines", lambda G, c: set())
+    g, window, k, goal = _setup(0, 1.1)
+    seeds, _, _ = g._goal_seeds(goal)
+    area = np.asarray(g.local_region(seeds, k.hops))
+    assert g._rref_ladder(_Window(g, window, goal, k), 0, area) == []
+    assert g.min_tamper(window, goal, k._replace(support_method="rref")).devices == -1

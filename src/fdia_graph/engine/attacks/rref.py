@@ -106,7 +106,8 @@ class RrefMixin(MinimizeMixin):
         sparsest attack that moves each target line (the column exchanges chase, for each line, the
         sparsest row whose state change moves its flow; restricting the chased row to the goal is ours,
         the paper chases the sparsest row outright), then the buses of each remaining row of the last
-        reduction, sparsest first."""
+        reduction, sparsest first. Empty when some target line moves with no free bus (every bus that
+        could move it trusted): the snapshot then adds nothing, and the AC solve decides the window."""
         free = np.array([int(b) for b in area if int(b) not in window.pinned[t]], dtype=np.int64)
         if not len(free):
             return []
@@ -120,6 +121,8 @@ class RrefMixin(MinimizeMixin):
             rows = sparsest_rows(
                 H.T, tol, eligible=lambda a, line=line: line in _moved_lines(G, _state_change(H, a))
             )
+            if not len(rows):  # no attack on the free buses moves this line: nothing to rank here
+                return []
             first |= {int(b) for b in _moved_buses(free, _state_change(H, rows[0]))}
         rest = [_moved_buses(free, _state_change(H, a)) for a in rows[1:]]
         return [np.array(sorted(first), dtype=np.int64), *rest]
