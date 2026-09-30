@@ -111,3 +111,50 @@ def test_an_infeasible_attack_costs_everything_it_could_tamper(env):
     _, reward, done = env.step(0)
     assert done and reward == env.closed_cost - env.undefended
     del env.cache[(0,)]
+
+
+def test_the_search_minimizes_the_unit_the_reward_counts(env):
+    """In channels (eq. 33's unit) the search puts the channel count first: its answer never tampers
+    more channels than the device-first search's, which may trade channels for devices."""
+    assert env.k.objective == "channels"
+    channels_first = env.result_of(())
+    devices_first = env.g.min_tamper(env.states, env.goal, env.k._replace(objective="devices"))
+    assert channels_first.channels <= devices_first.channels
+    assert devices_first.devices <= channels_first.devices
+
+
+def test_a_step_outside_the_window_is_refused(env):
+    with pytest.raises(ConfigError):
+        WuDefenseEnv(
+            env.g, env.states, env.goal, env.k, WuDefenseConfig(env.config.pmus, (1, len(env.states)))
+        )
+
+
+@pytest.mark.parametrize("action", [-1, 1.5, 4, 2])
+def test_only_a_pmu_still_on_offer_is_an_action(env, action):
+    """A negative index, a fraction, an index past the PMUs, and a PMU trusted already are refused
+    before the schedule changes."""
+    env.reset()
+    env.step(2)
+    with pytest.raises(ConfigError):
+        env.step(action)
+    assert env.trusted == (2,)
+
+
+def test_the_infeasible_cost_counts_only_what_the_plan_meters(env):
+    """The device ceiling holds the devices with a metered channel, not every bus's terminal."""
+    from fdia_graph.formulas.attacks import tampered_devices
+    from fdia_graph.models import WuDefenseConfig as Config
+
+    devices = WuDefenseEnv(env.g, env.states, env.goal, env.k, Config(env.config.pmus, SLOTS, unit="devices"))
+    w = devices.window
+    ceiling = tampered_devices(w.node_m > 0, w.edge_m > 0, w.pmu, env.g.ei[0], w.i_m > 0, env.g.ei[1])
+    assert devices.closed_cost == len(ceiling) <= env.g.C + len(env.g.meters.pmu)
+
+
+def test_the_state_reads_only_metered_channels(env):
+    obs = env.reset()
+    N, E = env.g.C, env.g.E
+    node = obs[: N * 4].reshape(N, 4)
+    edge = obs[N * 4 : N * 4 + E * 2].reshape(E, 2)
+    assert not node[env.window.node_m == 0].any() and not edge[env.window.edge_m == 0].any()

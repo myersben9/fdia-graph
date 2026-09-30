@@ -111,6 +111,7 @@ from .inputs import (
     Aggregation,
     AssignmentSpec,
     CertifiableLimits,
+    ChosenAction,
     ClientCount,
     ClientGraph,
     ClientUpdates,
@@ -141,6 +142,7 @@ from .inputs import (
     SystemRef,
     TauSearch,
     TrustablePmus,
+    WindowSlots,
 )
 from .scores import (
     BenignMetrics,
@@ -246,7 +248,9 @@ __all__ = [
     "Halo",
     "AdmissibleTargets",
     "CertifiableLimits",
+    "ChosenAction",
     "TrustablePmus",
+    "WindowSlots",
     "DatasetName",
     "DateSpan",
     "ProfileSource",

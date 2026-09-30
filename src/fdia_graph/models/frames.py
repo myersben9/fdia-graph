@@ -138,6 +138,9 @@ class FrameKnobs(NamedTuple):
     n_lines: int = 1  # the lines an overload episode drives at once (D17; new generation: 2)
     # the overload attack's support method (`OverloadSettings.support_method`): "search" or "rref"
     support_method: str = "search"
+    # what the search minimizes first (`CostUnit`): the tampered devices, or the tampered measurements
+    # (the l0 of [WU26]'s eqs. 12, 28 and 33 taken literally); the other count breaks ties
+    objective: str = "devices"
 
     @property
     def band(self) -> Band:

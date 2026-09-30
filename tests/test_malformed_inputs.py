@@ -47,6 +47,8 @@ VALID = {
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
     inputs.CertifiableLimits: dict(limits=_LIMITS),
     inputs.TrustablePmus: dict(buses=[0], pmu=frozenset({0}), n_bus=3),
+    inputs.WindowSlots: dict(slots=[1], snapshots=3),
+    inputs.ChosenAction: dict(action=0, valid=[True, False]),
     inputs.FamilySelection: dict(families=("Aq",)),
     inputs.SystemRef: dict(system="ieee14"),
     inputs.SupportedSystem: dict(system="ieee14", supported=frozenset({14})),

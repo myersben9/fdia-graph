@@ -712,6 +712,37 @@ class CertifiableLimits(Validated):
 
 
 @dataclass(frozen=True)
+class WindowSlots(Validated):
+    """A trusted-PMU MDP's configuration steps against its window (`trust.WuDefenseEnv`): every step
+    falls on a snapshot of the window."""
+
+    slots: Annotated[Sequence[int], AsTuple()]
+    snapshots: Annotated[int, Integer(), AtLeast(1)]  # the window's length
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            all(int(s) < self.snapshots for s in self.slots),
+            f"slots must fall in the window of {self.snapshots} snapshots, got {self.slots!r}",
+        )
+
+
+@dataclass(frozen=True)
+class ChosenAction(Validated):
+    """An action of the trusted-PMU MDP (`trust.WuDefenseEnv.step`): the index of a PMU `valid` still
+    offers (a whole number, not negative, not trusted already, and a step left to take)."""
+
+    action: Annotated[int, Integer(), AtLeast(0)]
+    valid: Annotated[np.ndarray, AsArray(bool), Dims(1)]
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            int(self.action) < len(self.valid) and bool(self.valid[int(self.action)]),
+            f"action must be a PMU still on offer, one of {np.flatnonzero(self.valid).tolist()}, "
+            f"got {self.action!r}",
+        )
+
+
+@dataclass(frozen=True)
 class TrustablePmus(Validated):
     """A trusted-PMU schedule's buses against the generator's grid and meter plan
     (`MinimizeMixin.min_tamper`'s `trust`): every trusted bus is a bus of the grid with a PMU, since a

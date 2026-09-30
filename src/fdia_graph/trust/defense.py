@@ -28,10 +28,11 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 
 from ..engine.attacks.minimize import _Window
+from ..formulas.attacks import tampered_devices
 from ..models.choices import CostUnit
 from ..models.config import TrustSchedule, WuDefenseConfig
 from ..models.frames import FlowGoal, FrameKnobs, MinimizerResult
-from ..models.inputs import TrustablePmus
+from ..models.inputs import ChosenAction, TrustablePmus, WindowSlots
 
 if TYPE_CHECKING:
     from ..engine.core import FdiaGenerator
@@ -51,17 +52,15 @@ class WuDefenseEnv:
         config: WuDefenseConfig,
     ) -> None:
         TrustablePmus(config.pmus, frozenset(g.meters.pmu), g.C)  # every candidate is a PMU of the plan
-        self.g, self.states, self.goal, self.k, self.config = g, states, goal, k, config
+        WindowSlots(config.slots, len(states))  # every step falls in the window
+        # the search minimizes the unit the reward counts (eq. 33's measurements, or devices)
+        self.k = k._replace(objective=config.unit)
+        self.g, self.states, self.goal, self.config = g, states, goal, config
         self.cache: dict[_Schedule, MinimizerResult] = {}
         self.solves = 0  # searches run (cache misses)
         self.breaks = 0  # episodes Algorithm 1's line 8 ended
-        window = _Window(g, states, goal, k)
-        channels = int((window.node_m > 0).sum() + (window.edge_m > 0).sum())
-        channels += 0 if window.i_m is None else int((window.i_m > 0).sum())
-        # the cost of an attack the schedule makes infeasible: all it could ever tamper (ours)
-        self.closed_cost = float(
-            channels if config.unit == CostUnit.CHANNELS.value else g.C + len(g.meters.pmu)
-        )
+        self.window = _Window(g, states, goal, self.k)
+        self.closed_cost = self._everything()
         self.trusted: _Schedule = ()
         self.undefended = self.cost_of(())
         self.cost = self.undefended
@@ -85,6 +84,7 @@ class WuDefenseEnv:
     def step(self, action: int) -> tuple[np.ndarray, float, bool]:
         """Trust PMU `action` at the next step: (the next state, the reward, whether the episode ended).
         It ends when every step is taken, when the attack is infeasible, or at Algorithm 1's line 8."""
+        ChosenAction(action, self.valid())  # a PMU still on offer, refused before anything changes
         trusted = (*self.trusted, int(action))
         result = self.result_of(trusted)
         after = self._cost(result)
@@ -121,13 +121,15 @@ class WuDefenseEnv:
         X = self._reported_state(t)
         flows = self.g.all_flows_from_states(X[None])[0]
         lines = list(self.goal.lines)
-        rate = np.abs(flows[lines]) / self.g.line_ratings()[lines]
+        rate = np.abs(flows[lines]) / self.g.line_ratings()[lines]  # from the full flows, metered or not
+        node = np.where(self.window.node_m > 0, X, 0.0)  # what the meters read, unmetered channels zero
+        edge = np.where(self.window.edge_m > 0, np.stack([flows.real, flows.imag], axis=1), 0.0)
         mask = np.zeros(self.n_actions)
         mask[list(self.trusted)] = 1.0
         return np.concatenate(
             [
-                X.ravel(),
-                np.stack([flows.real, flows.imag], axis=1).ravel(),
+                node.ravel(),
+                edge.ravel(),
                 rate,
                 mask,
                 [len(self.trusted) / len(slots)],
@@ -141,7 +143,7 @@ class WuDefenseEnv:
         if result.devices < 0:
             return np.asarray(self.states[t], np.float64)
         trust = self._schedule(self.trusted)
-        window = _Window(self.g, self.states, self.goal, self.k, trust=trust)
+        window = _Window(self.g, self.states, self.goal, self.k, trust=trust)  # the schedule's pins
         plan = result.plan or tuple(result.support for _ in window.segments)
         Xa, _ = self.g.goal_state(self.goal, t, self.states[t], window.support_at(t, plan), self.k)
         return np.asarray(self.states[t] if Xa is None else Xa, np.float64)
@@ -156,6 +158,18 @@ class WuDefenseEnv:
             [int(slots[j]) for j in range(len(trusted))],
             self.config.per_slot,
         )
+
+    def _everything(self) -> float:
+        """The cost of an attack the schedule makes infeasible (ours): every channel the plan meters, or
+        every device holding one (`tampered_devices` over the full meter masks), the most the attacker
+        could ever tamper."""
+        w = self.window
+        node, edge = w.node_m > 0, w.edge_m > 0
+        current = None if w.i_m is None else w.i_m > 0
+        if self.config.unit == CostUnit.CHANNELS.value:
+            return float(node.sum() + edge.sum() + (0 if current is None else current.sum()))
+        ei = self.g.ei
+        return float(len(tampered_devices(node, edge, w.pmu, ei[0], current, ei[1])))
 
     def _cost(self, result: MinimizerResult) -> float:
         """The attack cost of a search answer in the configured unit; an infeasible attack costs all."""
