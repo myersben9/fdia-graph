@@ -2109,6 +2109,84 @@ PMUs trusted at or before t (eqs. 30-31). Under the neighbour reading, b's neigh
 <p><strong>Per-call time:</strong> 16-35 s per 20-snapshot IEEE-14 search, exhaustive at budget 4096. IEEE-118 took
 42-43 s at budget 4096 for a 10-snapshot window in the first prototype,
 and about 3.1 s at budget 256 (#164's table).</p>
+<p><strong>The attack method: search or [WU26]'s row reduction.</strong> The paper builds its attack by row reduction of the transposed Jacobian with column exchanges (p. 655, after [YAN17]; <code>support_method="rref"</code>). Measured on its scenarios (IEEE-14: 20 pool frames, slots 2, 4, 6, 8; IEEE-118: 10 pool frames, one PMU per snapshot in Fig. 9's order, budget 256):</p>
+<table>
+<thead>
+<tr>
+<th>Scenario, k</th>
+<th>Trusted PMUs</th>
+<th>Search: devices / channels</th>
+<th>RREF: devices / channels</th>
+<th>Paper</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lines 3-4 and 6-11, 1.1</td>
+<td>none</td>
+<td>5 / 8</td>
+<td>7 / 14</td>
+<td>7 devices</td>
+</tr>
+<tr>
+<td>Lines 3-4 and 6-11, 1.1</td>
+<td>1, 4, 6, 13</td>
+<td>6 / 11 (+20.0% / +37.5%)</td>
+<td>6 / 11 (-14.3% / -21.4%)</td>
+<td>+25.6% (Sol 1), +23.9% (Sol 2)</td>
+</tr>
+<tr>
+<td>Lines 1-2 and 4-5, 1.1</td>
+<td>none</td>
+<td>7 / 23</td>
+<td>8 / 24</td>
+<td>9 devices</td>
+</tr>
+<tr>
+<td>Lines 1-2 and 4-5, 1.1</td>
+<td>4, 6, 1, 13</td>
+<td>9 / 28 (+28.6% / +21.7%)</td>
+<td>9 / 28 (+12.5% / +16.7%)</td>
+<td>+35.2% (Sol 1), +27.0% (Sol 2)</td>
+</tr>
+<tr>
+<td>Lines 3-4 and 6-11, 1.2</td>
+<td>none</td>
+<td>8 / 26</td>
+<td>12 / 37</td>
+<td></td>
+</tr>
+<tr>
+<td>Lines 1-2 and 4-5, 1.2</td>
+<td>none</td>
+<td>10 / 40</td>
+<td>11 / 46</td>
+<td></td>
+</tr>
+<tr>
+<td>both IEEE-14 scenarios, 1.2</td>
+<td>the paper's</td>
+<td>no support reaches both ratings</td>
+<td>no support reaches both ratings</td>
+<td></td>
+</tr>
+<tr>
+<td>IEEE-118 lines 84-85 and 99-100, 1.2</td>
+<td>none</td>
+<td>10 / 25</td>
+<td>31 / 93</td>
+<td></td>
+</tr>
+<tr>
+<td>IEEE-118, 1.2</td>
+<td>the 11 PMUs, one per snapshot</td>
+<td>12 / 26 (+20.0% / +4.0%)</td>
+<td>20 / 48</td>
+<td>+16.4% mean, 3-5 extra devices</td>
+</tr>
+</tbody>
+</table>
+<p>The search matches Table II and Fig. 12 better, so PR B's cost oracle uses it. The reduction names the right buses first (3 and 11 for lines 3-4 and 6-11) but that pair cannot reach both ratings under the limits, and growing it by the next sparsest rows reaches the whole area, which costs more devices; with the PMUs trusted its columns shrink, so its device count can fall.</p>
 <p><strong>Caching.</strong> The cost depends only on the window (its states and goal) and the trusted schedule, so
 the key is (window id, tuple of (snapshot, PMU)).
 - A DQN episode revisits prefixes constantly.

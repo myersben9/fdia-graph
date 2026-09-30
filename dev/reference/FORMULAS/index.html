@@ -1778,6 +1778,13 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td><code>TrustedMeters</code>, the DQN reward</td>
 </tr>
 <tr>
+<td>sparsest attack by row reduction</td>
+<td><code>formulas.trust.sparsest_rows</code>, called by <code>engine.attacks.rref.RrefMixin.rref_support</code></td>
+<td>reduce the transposed Jacobian to RREF, move the sparsest row's nonzero columns to the end, reduce again until the sparsest row stops getting sparser, map the rows back; <code>eligible</code> restricts the chased row (an attack that moves a target line)</td>
+<td>[WU26] Sec. IV-D1, [YAN17]</td>
+<td><code>Am</code> with <code>support_method="rref"</code></td>
+</tr>
+<tr>
 <td>greedy trusted meters</td>
 <td><code>formulas.trust.greedy_trusted_meters</code>, called by <code>trust.TrustedMeters</code></td>
 <td>secure, on the cheapest open attack, the meter whose protection leaves the costliest cheapest attack; ties to the meter the most basis attacks pass through</td>
