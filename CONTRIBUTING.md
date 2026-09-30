@@ -40,9 +40,9 @@ checks a docs change locally.
 | rule | means | command |
 |---|---|---|
 | nothing a user sees changes without a changelog entry | public API, file formats, the numbers a timeline, estimator or localizer produces; moved private names get a warning alias for one minor version | `CHANGELOG.md`, `## Unreleased` |
-| every change is proven behaviour-free, or its effect is measured | the strict frozen suite compares a tiny timeline and its state-estimation and localization scores bit for bit; an intended change re-freezes in the same PR and states the deltas | `FDIA_FROZEN_STRICT=1 pytest -W "error::DeprecationWarning:fdia_graph" tests`, `python tools/freeze_reference.py` |
+| every change is proven behaviour-free, or its effect is measured | the tests pin the fewest-tamper search's answers (`tests/test_search_speed.py`), [WU26]'s scenarios (`tests/test_wu_scenarios.py`) and the formulas and models; a change that moves a generated number states the delta | `pytest -W "error::DeprecationWarning:fdia_graph" tests` |
 | code reads as its subject | complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in `formulas/` with a source key; every returned bundle a model in `models/` | `python tools/readability.py --report`, `--check --base origin/main` |
-| an input is checked in one place | a new argument is a field on its consumer's model in `models/config.py`, with its rules in the annotation (`Annotated[float, Positive()]`, `OneOf(<Choice>)`) and cross-field rules in `invariants()`; a dataset precondition is a `ds.require(...)` capability; a condition only the data reveals raises a named error from `errors.py`; never a `raise ValueError` in a function body | `python tools/readability.py --check` (refuses a new one), `docs/plans/VALIDATION_PLAN.md` |
+| an input is checked in one place | a new argument is a field on its consumer's model in `models/config.py`, with its rules in the annotation (`Annotated[float, Positive()]`, `OneOf(<Choice>)`) and cross-field rules in `invariants()`; a dataset precondition is a `ds.require(...)` capability; a condition only the data reveals raises a named error from `errors.py`; never a `raise ValueError` in a function body | `python tools/readability.py --check` (refuses a new one) |
 | everything is typed | every parameter, return and field carries its real type; an optional dependency's type (pandapower, torch, h5py, scipy, pandas) is imported under `if TYPE_CHECKING:` so the import stays lazy; `Any` only where the value can be anything, listed in `ANY_ALLOWED` in `tools/readability.py` with the reason | `python tools/readability.py --check` (refuses an unlisted `Any` and a stale entry), pyright in CI |
 | typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src`, `ruff check src tests tools` |
 | generated docs match the code | the class and module diagram sources and the data dictionary's Models section | `python tools/class_diagrams.py --check`, `python tools/models_doc.py --check` |
@@ -72,7 +72,7 @@ that exact head.
 The automated review is billed per review, so a pull request reaches it only once it is clean, and
 the fixes to its findings are batched into one push. The order:
 
-1. `python tools/prereview.py` until it passes: the CI gates, the strict suite, and the checks CI
+1. `python tools/prereview.py` until it passes: the CI gates, the test suite, and the checks CI
    does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).
 2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff and every touched
    file read whole, searching outward from every change (a `/code-review` in Claude Code with the

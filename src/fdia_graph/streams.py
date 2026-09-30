@@ -1,7 +1,8 @@
 """The deprecated stream entry points, to be removed in a future release: `generate_stream` writes a timeline file
 through `fdia_graph.timeline` and returns it as the stream dict, `load_stream` reads the v0.7.2
 stream files, and `windows` slides over a stream dict. The timeline file is the dataset now:
-`fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`.
+`fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`. `load_stream`
+and `windows` stay for reading the v0.7.x stream files, which a timeline loader does not open.
 
 A stream dict has, per frame, three aligned measurement layers ([|V|, Pinj, Qinj, angle] columns):
 node_x (observed), benign (attack removed, noise kept), clean (noiseless truth), the same three for
@@ -19,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import numpy as np
 
 from .dataset.sequence import window_labels
-from .models.choices import LEGACY_FAMILIES
+from .models.choices import GENERATED_FAMILIES
 from .models.config import WindowSpec
 from .models.data import (
     EpisodeRow,
@@ -48,11 +49,9 @@ def generate_stream(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
     attacked_frac: float = 0.5,
-    families: Sequence[str] = LEGACY_FAMILIES,
-    attack_intensity: float = 0.20,
+    families: Sequence[str] = GENERATED_FAMILIES,
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
-    replay_tau: Optional[int] = None,
     redundancy: Optional[dict] = None,
     seed: int = 123,
     out: Optional[str] = None,
@@ -60,8 +59,8 @@ def generate_stream(
 ) -> Stream:
     """Deprecated: `fg.generate` writes the timeline and `fg.load(name, order="time")` reads it.
     Builds one timeline file for `system` (`out`, default `stream_ieee{N}.h5` under the cache
-    directory) and returns it as the stream dict. The parameters keep their pre-0.18 positions;
-    the Am knobs and `corrupt_len` of `timeline.generate_timeline` pass through `knobs`."""
+    directory) and returns it as the stream dict, with new generation's families and defaults (At and
+    the overload Am); every other knob of `timeline.generate_timeline` passes through `knobs`."""
     from .dataset import FdiaGraph
     from .registry import CACHE_DIR, system_id
     from .timeline import generate_timeline
@@ -73,20 +72,13 @@ def generate_stream(
         stacklevel=2,
     )
     out = out or os.path.join(CACHE_DIR, f"stream_ieee{system_id(system)}.h5")
-    # the deprecated stream keeps the recipe it always had (every family, the redistribution Am, no
-    # fewest-tamper search), which runs on every supported system; the overload Am needs line ratings
-    knobs.setdefault("am_attack", "redistribution")
-    knobs.setdefault("min_tamper", False)
-    redundancy = {"meter_model": "v083", **(redundancy or {})}
     path = generate_timeline(
         system,
         states=states,
         attacked_frac=attacked_frac,
         families=families,
-        attack_intensity=attack_intensity,
         ramp_rate=ramp_rate,
         ramp_len=ramp_len,
-        replay_tau=replay_tau,
         redundancy=redundancy,
         seed=seed,
         out=out,

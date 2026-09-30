@@ -17,9 +17,9 @@ Which module imports which. Four foundations are read by nearly every module and
 real dependencies show: `models/` (every returned record, every config model and the one validation
 engine), `formulas/` (the equations), `schema.py` (the file protocol) and `errors.py` (the named
 errors). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
-same reason. `streams.py` and `torch_data.py` are deprecated and will be removed in a future release.
+same reason. `streams.py` is deprecated for generation and kept for reading the v0.7 stream files.
 
-![Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
+![Module diagram: streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
 
 ## The dataset
 
@@ -39,19 +39,18 @@ reads a scan's load and generation, and `AttackMixin` builds every attack (next 
 `engine/records.py` emits a benign scan and hands an attacked family to the mixin; `timeline.py`
 decides when and where each episode runs.
 
-![Class diagram of the engine package: GridBase with MeasurementMixin and PhysicsMixin under it, AttackMixin composed of EpisodeDesignMixin, StealthyMixin and CorruptMixin, and FdiaGenerator inheriting MeasurementMixin, PhysicsMixin and AttackMixin; the mixins use Scan, AttackDesign, Frame, FrameKnobs and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias, an Outage, a PandapowerNet and its PpcTables](../figures/diagrams/classes_engine.png)
+![Class diagram of the engine package: GridBase with MeasurementMixin and PhysicsMixin under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting MeasurementMixin, PhysicsMixin and AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a BranchModel, a MeterPlan, a MeterBias, an Outage, a PandapowerNet and its PpcTables](../figures/diagrams/classes_engine.png)
 
 ## The attacks
 
 Every attack is built in `engine/attacks/`, one module per concern, composed into `AttackMixin`:
 `AreaMixin` finds the attacker's area, `FalseStateMixin` solves and checks its false state and the
-attack vector, `RedistributionMixin` draws the load redistribution behind `Al` and `Am`,
-`StealthyMixin` builds the stealthy frames, `MinimizeMixin` finds the support that tampers the fewest
-devices over an attack window [WU26, eq. 12], `EpisodeDesignMixin` draws what an episode attacks at its
-onset, and `CorruptMixin` tampers `Ad`, `As` and `Ar` in place. `AttackMixin.attack_frame` is the one
-entry for an attacked scan.
+attack vector, `StealthyMixin` builds the ramp frames, `MinimizeMixin` finds the support that tampers
+the fewest devices over an attack window [WU26, eq. 12], `OverloadMixin` builds the overload `Am`,
+and `EpisodeDesignMixin` draws what an `At` episode attacks at its onset. `AttackMixin.attack_frame`
+is the one entry for an attacked `At` scan; an `Am` frame comes from `overload_step`.
 
-![Class diagram of the attack package: GridBase with AreaMixin and CorruptMixin under it, FalseStateMixin under AreaMixin, RedistributionMixin under FalseStateMixin, StealthyMixin under RedistributionMixin, MinimizeMixin under FalseStateMixin, EpisodeDesignMixin under RedistributionMixin and MinimizeMixin, and AttackMixin inheriting EpisodeDesignMixin, StealthyMixin and CorruptMixin; the mixins use AttackDesign, RampDesign, AmDesign, LoadGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits, Redistribution, Scan, Band and TamperTarget](../figures/diagrams/classes_attacks.png)
+![Class diagram of the attack package: GridBase with AreaMixin under it, FalseStateMixin under AreaMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, RrefMixin under MinimizeMixin, OverloadMixin under RrefMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan](../figures/diagrams/classes_attacks.png)
 
 ## State estimation
 
@@ -96,7 +95,7 @@ for the trusted meters, `JacobianOutputs` for the feature block.
 
 ![Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores and JacobianOutputs all under Bundle](../figures/diagrams/classes_scores.png)
 
-The named tuples of `models/frames.py` (`Scan`, `Frame`, `OperatingLimits`, `FrameKnobs`,
-`Redistribution`, `ResolvedPool`), `models/grid.py` (the column indices, `BranchModel`, `Admittances`,
-`MeterPlan`, `MeterBias`, `Outage`) and `models/assets.py` (`AssetSpec`, `LineCandidate`) are plain
+The named tuples of `models/frames.py` (`Scan`, `Frame`, `OperatingLimits`, `FrameKnobs`),
+`models/grid.py` (the column indices, `BranchModel`, `Admittances`, `MeterPlan`, `MeterBias`,
+`Outage`) and `models/assets.py` (`AssetSpec`) are plain
 value types with no hierarchy, so they appear only where a class above uses them.

@@ -37,7 +37,7 @@ from ..formulas.estimation import (
     wls_step,
     wls_step_batched,
 )
-from ..formulas.linalg import batched_normal_matrices, condition_number, guarded_inverse
+from ..formulas.linalg import batched_normal_matrices, guarded_inverse
 from ..formulas.network import ac_jacobian, ac_measurement
 from ..formulas.noise import PMU_CURRENT_CLASS, current_sigma
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
@@ -415,11 +415,6 @@ class SEBase:
         """Guarded inverse of a normal matrix: `formulas.linalg.guarded_inverse`."""
         return guarded_inverse(A)
 
-    @staticmethod
-    def _normal_matrices(w: np.ndarray, B_: np.ndarray, sub: int = 50) -> np.ndarray:
-        """Per-record normal matrices: `formulas.linalg.batched_normal_matrices`."""
-        return batched_normal_matrices(w, B_, sub)
-
     @classmethod
     def _inv_batch(cls, A: np.ndarray) -> np.ndarray:
         """Inverses of a stack of normal matrices [n, k, k] through torch's batched Cholesky when
@@ -440,11 +435,6 @@ class SEBase:
         for i in np.where(~good)[0]:  # not positive definite (e.g. a removal set): guarded path
             out[i] = cls._inv(S[i])
         return out
-
-    @staticmethod
-    def _cond(A: np.ndarray, its: int = 40) -> float:
-        """Spectral condition number of a normal matrix: `formulas.linalg.condition_number`."""
-        return condition_number(A, its)
 
     # ---- solving ----------------------------------------------------------------------------
     def _basis(self) -> Optional[np.ndarray]:

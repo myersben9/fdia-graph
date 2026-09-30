@@ -10,7 +10,6 @@ one mixin calls on another.
 
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -39,7 +38,6 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
     RecordFormat,
     Units,
 )
-from ..models.config import LoadOptions
 from ..models.inputs import FamilySelection, Requirement
 from ..models.validation import MissingCapability
 
@@ -55,31 +53,6 @@ from ..schema import (
 from ..schema import (
     STATIC_PHYSICS as _STATIC_PHYSICS,  # noqa: F401
 )
-
-
-def check_split(split: Optional[str]) -> None:
-    """Deprecated: `models.config.LoadOptions` checks the partition."""
-    _deprecated_check("check_split")
-    LoadOptions(split=split)
-
-
-def check_units(units: str) -> None:
-    """Deprecated: `models.config.LoadOptions` checks the unit system."""
-    _deprecated_check("check_units")
-    LoadOptions(units=units)
-
-
-def check_order(order: str) -> None:
-    """Deprecated: `models.config.LoadOptions` checks the record order."""
-    _deprecated_check("check_order")
-    LoadOptions(order=order)
-
-
-def _deprecated_check(name: str) -> None:
-    warnings.warn(
-        f"{name} is deprecated; LoadOptions checks the loader's arguments", DeprecationWarning, stacklevel=3
-    )
-
 
 # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
 _HELDOUT_TRAIN_EXCLUDE = {FAMILY_CODE[n] for n in HELDOUT_FAMILIES}

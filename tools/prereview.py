@@ -12,7 +12,7 @@ with the test extras installed can be added with `--also-python` (repeatable) or
 machine, `FDIA_PREREVIEW_PYTHONS` (paths joined by the platform's path separator).
 
 It runs the gates CI runs (formatting, lint, types, readability, the generated diagrams and data
-dictionary) and the strict test suite on this checkout's own source (`PYTHONPATH=src`, so an
+dictionary) and the test suite on this checkout's own source (`PYTHONPATH=src`, so an
 editable install of another checkout cannot stand in for it), plus checks CI does not run, each one
 a kind of finding reviews kept raising (`docs/reference/REVIEW_CHECKLIST.md`). The changed files are
 the branch's commits against the base, the uncommitted changes and the untracked files.
@@ -21,7 +21,8 @@ the branch's commits against the base, the uncommitted changes and the untracked
   at least one entry, and CHANGELOG.md changed.
 - **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too.
 - **cited paths**: every repository path a changed Markdown file cites exists (a file or a folder,
-  with or without an extension), in a code span whose first part is a root entry of the tree (or a
+  with or without an extension; in CHANGELOG.md the `## Unreleased` section only, the released
+  sections being history), in a code span whose first part is a root entry of the tree (or a
   dotfile or upper-case Markdown name), or as a link or image destination (relative to the file; anchors, queries and web links are ignored).
 - **vacuous tests**: no `or True` / `assert True` in `tests/`.
 - **integer fields**: every `int` field of a model in `models/config.py` or `models/inputs.py`
@@ -52,7 +53,6 @@ class Gate:
     name: str
     cmd: list[str]
     slow: bool = False
-    strict: bool = True  # frozen references compared exactly; only this interpreter's build matches them
 
 
 def _suite(py: str) -> list[str]:
@@ -80,18 +80,13 @@ def gates(base: str, also: list[str]) -> list[Gate]:
         Gate("readability", [py, "tools/readability.py", "--report", "--check", "--base", base]),
         Gate("class diagrams", [py, "tools/class_diagrams.py", "--check"]),
         Gate("data dictionary", [py, "tools/models_doc.py", "--check"]),
-        Gate("tests (strict)", _suite(py), slow=True),
-        # another interpreter brings its own numpy build, so it compares within tolerance, as CI does
-        *(Gate(f"tests ({_version(other)})", _suite(other), slow=True, strict=False) for other in also),
+        Gate(f"tests ({_version(py)})", _suite(py), slow=True),
+        *(Gate(f"tests ({_version(other)})", _suite(other), slow=True) for other in also),
     ]
 
 
 def run(gate: Gate) -> tuple[bool, str, float]:
-    env = {
-        **os.environ,
-        "PYTHONPATH": os.path.join(ROOT, "src"),
-        "FDIA_FROZEN_STRICT": "1" if gate.strict else "0",
-    }
+    env = {**os.environ, "PYTHONPATH": os.path.join(ROOT, "src")}
     t0 = time.time()
     p = subprocess.run(
         gate.cmd, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace"
@@ -206,6 +201,17 @@ def _in_tree(path: str) -> bool:
     )
 
 
+def _current_text(md: str) -> str:
+    """The part of a Markdown file whose citations must hold today: the whole file, except the
+    changelog, whose released sections are history and may cite files a later release removed."""
+    text = _read(md)
+    released = "\n## "  # a released section starts at the next level-2 heading
+    if md == "CHANGELOG.md" and released in text.split("## Unreleased", 1)[-1]:
+        head, rest = text.split("## Unreleased", 1)
+        return head + "## Unreleased" + rest.split(released, 1)[0]
+    return text
+
+
 def _cited_paths(files: list[str]) -> tuple[str, str]:
     # a bare name such as `REFERENCES.md` is shorthand for a file of that name somewhere in the tree
     names = {posixpath.basename(f) for f in _tree()}
@@ -213,7 +219,7 @@ def _cited_paths(files: list[str]) -> tuple[str, str]:
         f"{f}: {path}"
         for f in files
         if f.endswith(".md") and os.path.exists(os.path.join(ROOT, f))
-        for path in _targets(f, _read(f))
+        for path in _targets(f, _current_text(f))
         if not _in_tree(path) and not ("/" not in path and path in names)
     ]
     return (FAIL if missing else PASS), "missing: " + "; ".join(missing[:10])

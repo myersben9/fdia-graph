@@ -94,8 +94,12 @@ def test_removal_takes_out_one_gross_error_and_keeps_its_neighbours(splits, test
     keep = np.ones_like(z)
     keep[:, j] = 0.0
     only_j = est._w_solve(z, est.Wk * keep)  # the answer with exactly that meter removed
-    # the frames where nothing else crosses the threshold once it is gone: one removal is the answer
-    rest = np.where(keep > 0, np.abs(est._nres(only_j, z)), 0.0).max(axis=1) < est.threshold
+    # the frames where the bad meter has the largest normalized residual (a meter in a critical pair
+    # with it can tie) and nothing else crosses the threshold once it is gone: one removal is the answer
+    first = np.where(est.critical[None, :], -np.inf, est._nres(est._w_solve(z, est.Wk * np.ones_like(z)), z))
+    rest = (first.argmax(axis=1) == j) & (
+        np.where(keep > 0, np.abs(est._nres(only_j, z)), 0.0).max(axis=1) < est.threshold
+    )
     assert rest.sum() >= 5
     z, only_j = z[rest][:5], only_j[rest][:5]
     assert np.abs(est._solve(z) - only_j).max() < 1e-9

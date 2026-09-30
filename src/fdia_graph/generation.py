@@ -1,7 +1,7 @@
 """generate(system, name, **knobs) — build a custom dataset and register it as `name`.
 
 `generate` writes one timeline file (`fdia_graph.timeline`): every frame of the operating-point
-pool scanned in time order with attack episodes of every family, which `fg.load(name)` reads as a
+pool scanned in time order with At and Am attack episodes, which `fg.load(name)` reads as a
 record table (`order="random"`) or as the timeline (`order="time"`). The knobs are those of
 `timeline.generate_timeline` plus `frames` (how many pool timesteps to walk, default the whole
 pool). This module also holds what the writer shares with the engine: the operating-point pool
@@ -32,12 +32,6 @@ from .models.grid import NODE
 from .models.inputs import StatePool, StateSource
 from .registry import CACHE_DIR, register_local
 from .schema import KIND_TIMELINE, Attr, Group, Static
-
-# Lower edge of the plausibility band: a realized change below this fraction of the meter reading sits inside
-# the noise floor (accuracy-class sigma ~1.7%) and resolves to noise, so we reject such draws for spike/meter
-# families. Ramp At is DELIBERATELY exempt so its per-scan step can stay sub-floor while the deviation
-# accumulates. Upper edge of the band is `attack_intensity` (default 0.20).
-NOISE_FLOOR = 0.02
 
 
 def as_v_first(X: np.ndarray) -> np.ndarray:
@@ -109,7 +103,6 @@ class _FrameContext:
     g: FdiaGenerator
     X: np.ndarray  # operating-point pool [T, N, 4] in [|V|, Pinj, Qinj, theta] order
     knobs: FrameKnobs  # the attack settings every scan shares
-    mag_log: list[tuple[int, np.ndarray, np.ndarray]]  # (family, designed magnitude, swing) per attacked bus
 
 
 def generate(
@@ -123,9 +116,8 @@ def generate(
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system`, write it as one HDF5
     file and register it as `name`; returns the path. `frames` caps the pool timesteps walked;
-    every other knob is `timeline.generate_timeline`'s (families, attacked_frac, attack_intensity,
-    ramp_rate, ramp_len, am_len, am_rate, am_direction, hops, max_load_mw, corrupt_len, replay_tau,
-    redundancy, split)."""
+    every other knob is `timeline.generate_timeline`'s (families, attacked_frac, ramp_rate, ramp_len,
+    am_len, hops, max_load_mw, redundancy, split, min_tamper, min_budget, am_attack, stealth_scale)."""
     from .timeline import generate_timeline
 
     frames = ShardRun(frames).frames
@@ -161,7 +153,6 @@ def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Union[
         Attr.NODE_UNITS: "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
         Attr.EDGE_UNITS: "P_from:MW,Q_from:MVAr",
         Attr.BASEMVA: float(g.base.sn_mva),
-        Attr.LRA_TARGET_LINE: g._primary_target_line,
         Attr.SEED: seed,
         Attr.TOPOLOGY: ("base" if g.contingency.line is None else "n1_line"),
         Attr.OUTAGE_LINE: (-1 if g.contingency.line is None else int(g.contingency.line)),

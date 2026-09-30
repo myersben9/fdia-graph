@@ -34,5 +34,5 @@ print("pandas head:\n", df.head())
 #    fg.load("ieee14", release="v0.1.0")
 
 # 6) GENERATE A CUSTOM VARIANT (needs: pip install 'fdia-graph[generate]')
-#    fg.generate("ieee14", name="my_run", per_family=2000, attack_intensity=0.2, families=["Ao","ramp","LRA"])
+#    fg.generate("ieee14", name="my_run", frames=2000, families=["At", "Am"])
 #    ds = fg.load("my_run", split="train")

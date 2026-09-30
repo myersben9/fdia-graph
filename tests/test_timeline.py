@@ -1,11 +1,10 @@
-"""The one-file timeline writer (docs/plans/ONE_DATASET_PLAN.md step 1) and the Am family.
+"""The one-file timeline writer: its layout, its episodes and the At and Am frames.
 
-Two tiny IEEE-14 timelines are generated once per session: every family over 400 frames, and Am
-alone over 150 frames. The loader for these files lands in step 2; here the file is read with
-h5py against the layout the module docstring promises."""
+One tiny IEEE-14 timeline is generated once per session (1000 frames, At and the overload Am,
+20-frame episodes, the search capped as in conftest.TIMELINE_KW), and read here with h5py against
+the layout the module docstring promises."""
 
 import os
-import warnings
 
 import h5py
 import numpy as np
@@ -14,11 +13,10 @@ import pytest
 pytest.importorskip("pandapower")
 
 from fdia_graph.dataset.base import STEALTHY_FAMILIES  # noqa: E402
-from fdia_graph.engine.records import AM_FAMILY, CORRUPT_KIND  # noqa: E402
-from fdia_graph.generation import NOISE_FLOOR, _load_states  # noqa: E402
-from fdia_graph.timeline import KIND, LEGACY_FAMILIES, generate_timeline  # noqa: E402
+from fdia_graph.generation import _load_states  # noqa: E402
+from fdia_graph.timeline import KIND, generate_timeline  # noqa: E402
 
-SEED = 4  # covers every family in the 1000-frame fixture (the long families are few per 1000 frames)
+SEED = 2  # puts At and Am in every split of the 1000-frame fixture
 
 
 @pytest.fixture(scope="session")
@@ -26,31 +24,13 @@ def pool():
     return _load_states(14, None)[:1000]
 
 
-# the v0.8.3 recipe: every family, the held Am redistribution, no fewest-tamper search (the overload Am
-# and the search are tested in test_overload.py and test_minimize.py)
-LEGACY = dict(
-    families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False, redundancy={"meter_model": "v083"}
-)
-
-
-def _legacy(*args, **kwargs):
-    """generate_timeline on the v0.8.3 recipe, the single-snapshot families' deprecation silenced."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        return generate_timeline(*args, **{**LEGACY, **kwargs})
-
-
 @pytest.fixture(scope="session")
 def timeline(tmp_path_factory, pool):
-    """Every family, 1000 frames, short episodes so several of each family fit."""
+    """At and the overload Am, 1000 frames, 20-frame episodes, the search capped at 16 supports."""
     out = tmp_path_factory.mktemp("timeline") / "all.h5"
-    return _legacy(14, states=pool, seed=SEED, ramp_len=20, out=str(out))
-
-
-@pytest.fixture(scope="session")
-def am_timeline(tmp_path_factory, pool):
-    out = tmp_path_factory.mktemp("timeline") / "am.h5"
-    return _legacy(14, states=pool[:150], seed=SEED, families=("Am",), ramp_len=30, out=str(out))
+    return generate_timeline(
+        14, states=pool, seed=SEED, ramp_len=20, min_tamper=False, min_budget=16, out=str(out)
+    )
 
 
 def _read(path):
@@ -99,9 +79,9 @@ def test_every_family_appears_and_frames_are_balanced(timeline):
     a, _ = _read(timeline)
     fam = a["data/family"]
     present = set(np.unique(fam).tolist())
-    assert present == {0, 1, 2, 3, 4, 5, 6, 7}
-    counts = np.bincount(fam[fam > 0], minlength=8)[1:]
-    # the schedule weights families by inverse expected length; no family under a fifth of the mean
+    assert present == {0, 5, 7}
+    counts = np.bincount(fam[fam > 0], minlength=8)[[5, 7]]
+    # the schedule weights families by inverse episode length; neither under a fifth of the mean
     assert counts.min() >= counts.mean() / 5, counts
     assert abs((fam > 0).mean() - 0.5) < 0.15
 
@@ -119,11 +99,7 @@ def test_episodes_index_the_frames(timeline):
         buses = set(idx[ptr[k] : ptr[k + 1]].tolist())
         assert set(np.where(y[rows].any(0))[0].tolist()) == buses
     assert sorted(np.unique(seq[seq >= 0]).tolist()) == list(range(len(onset)))
-    # corrupt-in-place families are independent one-frame draws by default (corrupt_len=1)
-    assert (length[np.isin(efam, list(CORRUPT_KIND))] == 1).all()
-    # Aq and Al are single-snapshot attacks: every Aq and Al episode is one frame
-    assert (efam == 1).any() and (length[efam == 1] == 1).all()
-    assert (efam == 6).any() and (length[efam == 6] == 1).all()
+    assert set(np.unique(efam).tolist()) <= {5, 7}
 
 
 def test_episodes_are_placed_at_random_without_overlap(timeline):
@@ -133,9 +109,10 @@ def test_episodes_are_placed_at_random_without_overlap(timeline):
     onset, length = a["episodes/onset"], a["episodes/length"]
     order = np.argsort(onset)
     assert (onset[order][1:] >= (onset + length)[order][:-1]).all()
-    # the episodes' frames are exactly the set fraction; only a non-converging frame falls back to benign
-    assert int(length.sum()) == round(0.5 * attrs["T"])
-    assert round(attrs["attacked_frac"] * attrs["T"]) + attrs["fallback_benign"] == int(length.sum())
+    # the placed frames are exactly the set fraction; an Am episode with no stealthy overload design
+    # at its window stays benign and is counted in fallback_benign (whole episodes here)
+    assert int(length.sum()) + attrs["fallback_benign"] == round(0.5 * attrs["T"])
+    assert round(attrs["attacked_frac"] * attrs["T"]) == int(length.sum())
     thirds = np.bincount(np.minimum(onset * 3 // attrs["T"], 2), minlength=3) / len(onset)
     assert thirds.min() > 0.2, thirds
 
@@ -161,73 +138,35 @@ def test_layers_and_tamper_masks_agree(timeline):
     assert (nt[nm == 0] == 0).all() and (et[em == 0] == 0).all()
     # untouched meters read the un-attacked value; a tampered meter is where the attacker wrote
     assert (nx[nt == 0] == bn[nt == 0]).all() and (ex[et == 0] == be[et == 0]).all()
-    corrupt = np.isin(fam, list(CORRUPT_KIND))
-    assert ((nx != bn) == (nt > 0))[corrupt].all()
-    # the stealthy families write the meters of a local region: some, never none, never all
-    stealthy = np.isin(fam, [1, 5, 6, 7])
+    # At and Am write the meters of a local region: some, never none, never all
+    stealthy = np.isin(fam, [5, 7])
     assert (nt[stealthy] <= nm[stealthy]).all()
     share = nt[stealthy].sum(axis=(1, 2)) / nm[stealthy].sum(axis=(1, 2))
-    assert 0 < share.min() and share.max() < 1
+    assert share.max() < 1 and (share[fam[stealthy] == 5] > 0).all()
+    # an overload Am's first snapshot may tamper nothing: its drift-free goal there is the true flow (D9)
+    assert (share[fam[stealthy] == 7] > 0).mean() > 0.9
     # the benign layer is the clean truth plus a small meter error on metered voltages
     v = nm[:, :, 0] > 0
     assert np.abs(bn[:, :, 0] - cl[:, :, 0])[v].max() < 0.02
     assert (a["data/stealthy"] == np.isin(fam, sorted(STEALTHY_FAMILIES))).all()
 
 
-def test_am_is_a_sparse_sub_floor_ramp_of_a_held_redistribution(am_timeline):
-    a, attrs = _read(am_timeline)
-    fam, y = a["data/family"], a["data/y"]
-    am = np.where(fam == AM_FAMILY)[0]
-    assert len(am) > 40 and (a["data/stealthy"][am] == 1).all()
-    nt, nm = a["attack/node_tamper"], a["data/node_m"]
-    share = nt[am].sum(axis=(1, 2)) / nm[am].sum(axis=(1, 2))
-    assert 0 < share.min() and share.max() < 0.8  # the region's meters, never the whole grid
-    ptr, bus, mag = a["attack/mag_ptr"], a["attack/mag_bus"], a["attack/mag"]
-    per = {t: (bus[ptr[t] : ptr[t + 1]], mag[ptr[t] : ptr[t + 1]]) for t in am}
-    onset, length = a["episodes/onset"], a["episodes/length"]
-    cap = attrs["am_rate"] * NOISE_FLOOR
-    for o, n in zip(onset, length):
-        frames = [t for t in range(o, o + n) if t in per]
-        buses = per[frames[0]][0]
-        for t0, t1 in zip(frames, frames[1:]):
-            assert (per[t1][0] == buses).all()  # the bus set is held for the whole episode
-            # the designed per-bus fraction moves under the noise-floor cap per frame (the load
-            # itself drifts a few percent between frames, hence the slack)
-            assert np.abs(per[t1][1] - per[t0][1]).max() < 1.5 * cap
-        peak = max(per[t][1].max() for t in frames)
-        assert cap < peak <= attrs["attack_intensity"] * 1.1
-        assert (y[frames][:, buses] == 1).all()
-
-
 def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
     import fdia_graph as fg
 
-    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):  # the pre-0.18 positions
+    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
         s = fg.generate_stream(
-            14, pool[:60], 0.5, ("Am", "Ad"), 0.2, 0.002, 10, None, None, SEED, str(tmp_path / "s.h5")
+            14, pool[:60], 0.5, ("At",), 0.002, 10, None, SEED, str(tmp_path / "s.h5"), min_tamper=False
         )
     assert s.system == 14 and s.node_x.shape == (60, 14, 4) and s.node_m.shape == (14, 4)
-    assert set(np.unique(s.family).tolist()) <= {0, 2, 7} and len(s.episodes) > 0
+    assert set(np.unique(s.family).tolist()) <= {0, 5} and len(s.episodes) > 0
     assert os.path.exists(tmp_path / "s.h5")
-
-
-def test_am_direction_sign_follows_the_engine_convention():
-    """`lra_delta` lowers the target line's |flow| in the false state, so mask keeps its sign, and
-    a given "both" draw maps to the same sign as before the fix (+1 below 0.5)."""
-    from fdia_graph.engine.attacks.episodes import am_sign
-
-    rng = np.random.default_rng(0)
-    assert am_sign("mask", rng) == 1.0 and am_sign("induce", rng) == -1.0
-    draws = np.random.default_rng(7).random(50)
-    rng = np.random.default_rng(7)
-    assert [am_sign("both", rng) for _ in range(50)] == [1.0 if r < 0.5 else -1.0 for r in draws]
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
     """Every stealthy frame is an exact local AC state plus the true scan's own meter noise: a WLS
     residual test at the 1% benign alarm level flags a stealthy frame no more often than it flags
-    that frame's own benign twin (a noisy stretch of true states raises both alike), and flags
-    the in-place corruption of Ad."""
+    that frame's own benign twin (a noisy stretch of true states raises both alike)."""
     pytest.importorskip("torch")
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se import WLS
@@ -242,17 +181,14 @@ def test_stealthy_families_pass_the_residual_test(timeline):
 
     r, twin = alarm(d["node_x"], d["edge_x"]), alarm(d["benign"], d["edge_benign"])
     level = np.quantile(r[d["family"] == 0], 0.99)
-    for fid in (1, 5, 6, 7):
+    for fid in (5, 7):
         rows = d["family"] == fid
         if rows.sum() >= 10:
             assert (r[rows] > level).mean() <= (twin[rows] > level).mean() + 0.05, fid
-    ad = d["family"] == 2
-    if ad.sum() >= 5:
-        assert (r[ad] > level).mean() >= 0.8
 
 
 def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
-    """observed - benign on an Aq frame equals h(x_false) - h(x_true) of the false state rebuilt
+    """observed - benign on an At frame equals h(x_false) - h(x_true) of the false state rebuilt
     from the frame's own labels (targets, magnitudes, the clean state), on every tampered channel,
     and is zero elsewhere: no second noise draw enters."""
     from fdia_graph.engine import FdiaGenerator
@@ -262,7 +198,7 @@ def test_a_stealthy_frame_is_the_benign_scan_plus_its_attack_vector(timeline):
     g = FdiaGenerator(int(attrs["system"]), seed=int(attrs["seed"]), **red)
     pos = {int(b): i for i, b in enumerate(g.load_bus)}
     ptr, mag, mag_bus = a["attack/mag_ptr"], a["attack/mag"], a["attack/mag_bus"]
-    frames = np.flatnonzero(a["data/family"] == 1)[:20]
+    frames = np.flatnonzero(a["data/family"] == 5)[:20]
     assert len(frames) >= 5
     for t in frames:
         Xt = a["clean/node_clean"][t].astype(np.float64)  # the pool state the frame was emitted from
@@ -299,24 +235,6 @@ def test_a_slack_bus_load_is_never_a_target():
     assert g.slack_bus not in set(g.load_bus[g.attackable_pos].tolist())
 
 
-def test_an_open_branch_is_not_a_hop():
-    """On an N-1 generator the opened line is not walked: its far bus is neither interior nor boundary
-    unless another live path reaches it."""
-    from fdia_graph.engine import FdiaGenerator
-    from fdia_graph.formulas.network import subnetwork
-
-    g = FdiaGenerator(14, seed=1, outage=0)  # line 0 joins buses 0 and 1
-    assert g.branch.status[0] == 0
-    live = g._live_edges()
-    assert live.shape[1] == g.E - 1
-    interior = g.local_region(np.array([1]), 0)  # bus 1 alone as the seed
-    assert interior is not None
-    assert 0 not in set(subnetwork(live, interior, 0, g.C)[1].tolist())  # the far bus is not a boundary
-    reach_live = set(subnetwork(live, np.array([1]), 1, g.C)[0].tolist())
-    reach_all = set(subnetwork(g.ei, np.array([1]), 1, g.C)[0].tolist())
-    assert reach_all - reach_live == {0}
-
-
 def test_area_equivalent_loads_are_never_targets():
     """IEEE-145 lumps regions into gigawatt loads; the cap keeps them out of the target set and
     leaves every other ladder system's set as it was."""
@@ -333,8 +251,8 @@ def test_area_equivalent_loads_are_never_targets():
 
 
 def test_a_step_without_a_local_solution_is_halved(monkeypatch):
-    """The frame is built at the largest halving of the step that solves; an Aq step stops at the
-    noise floor, a ramp frame does not."""
+    """A ramp frame is built at the largest halving of its step that solves (STEP_HALVINGS at most),
+    past the noise floor: its design step is sub-floor anyway."""
     from fdia_graph.engine import FdiaGenerator
     from fdia_graph.models.frames import AttackDesign, FrameKnobs
 
@@ -346,17 +264,14 @@ def test_a_step_without_a_local_solution_is_halved(monkeypatch):
         return "frame" if steps[-1] <= 0.01 else None
 
     monkeypatch.setattr(g, "_stealthy_frame", fake)
-    k = FrameKnobs(0.2, 0.02, 6, None, False, True, hops=2)
+    k = FrameKnobs(hops=2)
     Xt = np.zeros((g.C, 4))
-    two = g.attackable_pos[:2]
-    assert g._resolve_frame(Xt, 1, AttackDesign(two, np.array([1.2, 1.1])), k) is None
-    assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025])  # three halvings above the floor, none solved
+    two = g.stealthy_pos[:2]
+    assert g._ramp_frame(Xt, AttackDesign(two, 1.2), k) == "frame"
+    assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])
     steps.clear()
-    assert g._resolve_frame(Xt, 1, AttackDesign(two, np.array([1.05, 1.05])), k) is None
-    assert np.allclose(steps, [0.05, 0.025])  # the next halving would fall under the floor
-    steps.clear()
-    assert g._resolve_frame(Xt, 5, AttackDesign(two, 1.2), k) == "frame"
-    assert np.allclose(steps, [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625])  # the ramp halves past the floor
+    assert g._ramp_frame(Xt, AttackDesign(two, 1.9), k) is None  # six halvings, none small enough
+    assert len(steps) == 7
 
 
 def test_operating_limits_are_the_case_limits_widened_to_the_pool():
@@ -398,9 +313,11 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     assert within_limits(bad, X0, gen, none, lim, outside)
 
 
-def test_the_fixture_has_no_fallback_frame(timeline):
+def test_the_fixture_falls_back_only_whole_am_episodes(timeline):
     _, attrs = _read(timeline)
-    assert attrs["fallback_benign"] == 0 and attrs["max_load_mw"] == 2000.0
+    # every fallback is a whole Am episode with no stealthy overload design at its window (redrawn from
+    # the split-first generation on); no placed frame falls back on its own
+    assert attrs["fallback_benign"] % 20 == 0 and attrs["max_load_mw"] == 2000.0
     assert attrs["v_lo"] <= 0.94 and attrs["v_hi"] >= 1.06
 
 
@@ -418,16 +335,6 @@ def test_local_region_keeps_a_boundary_and_the_slack_fixed():
         np.arange(g.C), 0
     )  # every bus as a seed: the slack alone is left to balance against
     assert whole is not None and sorted(whole.tolist()) == sorted(set(range(g.C)) - {g.slack_bus})
-
-
-def test_a_short_am_episode_keeps_the_capped_rate():
-    from fdia_graph.engine.attacks.episodes import _AmShape
-
-    full = _AmShape.under_floor(rel=0.2, length=60, am_rate=0.9, floor=0.02)
-    short = _AmShape.under_floor(rel=0.2, length=4, am_rate=0.9, floor=0.02)
-    assert full.rate == short.rate == pytest.approx(0.09) and full.rise == 12 and short.rise == 2
-    assert max(short.at(i) for i in range(4)) == pytest.approx(0.18)  # never reaches the full delta
-    assert max(full.at(i) for i in range(60)) == pytest.approx(1.0)
 
 
 def test_split_boundaries_settle_in_order():
@@ -449,11 +356,9 @@ def test_attacked_frac_zero_is_all_benign(tmp_path, pool):
 
 
 def test_empty_episode_lengths_are_refused(tmp_path, pool):
-    for bad in (dict(ramp_len=0), dict(am_len=0), dict(corrupt_len=0)):
-        with pytest.raises(ValueError, match="TimelineKnobs.(ramp_len|am_len|corrupt_len) must be >= 1"):
+    for bad in (dict(ramp_len=0), dict(am_len=0)):
+        with pytest.raises(ValueError, match="TimelineKnobs.(ramp_len|am_len) must be >= 1"):
             generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), **bad)
-    with pytest.raises(ValueError, match="am_rate"):
-        generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), am_rate=0.0)
     with pytest.raises(ValueError, match="hops"):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), hops=0)
 
@@ -468,37 +373,6 @@ def test_score_bundles_accept_the_seventh_family():
     fam = FamilyMetrics(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
     loc = LocalizerScores(all=OverallMetrics(1.0, 1.0, 0.0, 1.0), Am=fam)
     assert list(loc) == ["all", "Am"] and loc.Am is fam
-
-
-def test_redistribution_lightens_the_target_line_and_am_names_follow():
-    """The engine's redistribution lowers the target line's |flow| in the false state (Al masks an
-    overload), so Am's "mask" keeps its sign and "induce" flips it."""
-    from fdia_graph.engine import FdiaGenerator
-    from fdia_graph.engine.attacks.episodes import am_sign
-    from fdia_graph.formulas.network import branch_flows, complex_voltages
-    from fdia_graph.profiles import _case_buses, _solve_states_chunk
-
-    g = FdiaGenerator(14, seed=5)
-    g._pick_lra_target(0.2, 3)  # the target-line pool generation builds before any Al frame
-    X = _solve_states_chunk(14, np.ones((1, len(_case_buses(14)))))[0]
-
-    def flow(Xs, line):
-        Vc = np.zeros(g._n_ppc_buses, complex)
-        Vc[g._ppc_row[np.arange(g.C)]] = complex_voltages(Xs[:, 0], Xs[:, 3])
-        return branch_flows(Vc, g._Yf, g._from_bus_ppc, g._base_mva).real[line]
-
-    Lp, Lq = g.true_load(X), g.true_reactive_load(X)
-    moved = 0
-    for _ in range(10):
-        red = g.lra_delta(Lp, 0.2, 3, floor=0.02, hops=2)
-        if len(red.buses) == 0:
-            continue
-        for sign, lighter in ((am_sign("mask", None), True), (am_sign("induce", None), False)):
-            Xa = g.solve_local(X, red.interior, Lp + sign * red.delta, Lq)
-            if Xa is not None:
-                assert (abs(flow(Xa, red.line)) < abs(flow(X, red.line))) == lighter
-                moved += 1
-    assert moved >= 4
 
 
 def test_a_producing_static_generator_bus_injects():
@@ -535,17 +409,16 @@ def test_reactive_load_adds_back_the_generators_output():
 
 
 def test_stealthy_families_never_target_a_generator_bus(timeline):
-    """The stealthy families skip every load on a generator bus, zero-MW condensers included
-    [BOY22]; the in-place families may still tamper there."""
+    """The ramp skips every load on a generator bus, zero-MW condensers included [BOY22] (an
+    overload Am's labels are its support's free-injection buses, generators among them)."""
     import pandapower.networks as pn
 
     a, _ = _read(timeline)
     gen = np.zeros(a["data/y"].shape[1], bool)
     gen[pn.case14().gen.bus.values] = True
     fam, y = a["data/family"], a["data/y"].astype(bool)
-    stealthy = np.isin(fam, sorted(STEALTHY_FAMILIES))
-    assert stealthy.any() and not (y[stealthy] & gen).any()
-    assert (y[np.isin(fam, [2, 3, 4])] & gen).any()  # Ad/As/Ar keep the full target set
+    ramp = fam == 5
+    assert ramp.any() and not (y[ramp] & gen).any()
 
 
 def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
@@ -561,40 +434,30 @@ def test_stealthy_targets_avoid_every_generator_and_live_static_generator_bus():
         assert set(g.stealthy_pos) <= set(g.attackable_pos)
 
 
-def test_a_family_with_nothing_to_attack_is_refused_and_an_empty_line_pool_is_a_no_op():
+def test_a_family_with_nothing_to_attack_is_refused():
     from types import SimpleNamespace
 
-    from fdia_graph.engine import FdiaGenerator
     from fdia_graph.engine.attacks.episodes import EpisodeDesignMixin
     from fdia_graph.errors import NoAdmissibleTarget
     from fdia_graph.models.inputs import AdmissibleTargets
 
-    target_counts = EpisodeDesignMixin.target_counts  # read off any object carrying the three fields
-    g = target_counts(
-        SimpleNamespace(stealthy_pos=np.array([], int), _target_lines=[], attackable_pos=np.arange(3))
-    )
-    AdmissibleTargets(["Ad", "As", "Ar"], g)  # the in-place families still have targets
-    AdmissibleTargets(
-        ["benign"], target_counts(SimpleNamespace(stealthy_pos=[], _target_lines=[], attackable_pos=[]))
-    )
-    with pytest.raises(NoAdmissibleTarget, match="Aq, Al"):
-        AdmissibleTargets(["Aq", "Ad", "Al"], g)
-    with pytest.raises(NoAdmissibleTarget, match="Aq, At, Al"):
-        AdmissibleTargets(["Ao", "ramp", "LRA"], g)  # legacy aliases resolve first
-    eng = FdiaGenerator(14, seed=1)
-    eng._target_lines = []
-    red = eng.lra_delta(np.ones(len(eng.load_bus)), 0.2, 3)
-    assert len(red.buses) == 0 and red.line == -1
+    none = EpisodeDesignMixin.target_counts(SimpleNamespace(stealthy_pos=np.array([], int)))
+    AdmissibleTargets(["benign"], none)
+    with pytest.raises(NoAdmissibleTarget, match="At"):
+        AdmissibleTargets(["At"], none)
+    with pytest.raises(NoAdmissibleTarget, match="At"):
+        AdmissibleTargets(["ramp"], none)  # an alias resolves first
 
 
-def test_aq_is_one_frame_whatever_the_other_length_knobs(tmp_path, pool):
-    """Aq has no length knob: with corrupt_len=None (Ad/As/Ar drawn from their band) every Aq
-    episode is still one frame."""
-    out = _legacy(14, states=pool, seed=SEED, ramp_len=20, corrupt_len=None, out=str(tmp_path / "band.h5"))
-    a, _ = _read(out)
-    length, efam = a["episodes/length"], a["episodes/family"]
-    assert (efam == 1).any() and (length[efam == 1] == 1).all()
-    assert (length[efam == 2] > 1).any()  # the corrupt families did draw their band
+def test_the_single_snapshot_families_are_read_only(tmp_path, pool):
+    """Generation makes At and Am; asking for an older family is refused with the families it makes,
+    before any frame is walked (the families stay readable in old releases)."""
+    from fdia_graph.models.inputs import GeneratedFamilies
+
+    assert GeneratedFamilies(["At", "Am", "ramp"]).codes == (5, 7, 5)
+    for old in (["Aq"], ["At", "Ad"], ["LRA"]):
+        with pytest.raises(ValueError, match="makes At, Am only"):
+            generate_timeline(14, states=pool[:20], families=old, out=str(tmp_path / "x.h5"))
 
 
 def test_temporal_features_read_only_the_observed_frames(timeline, tmp_path):

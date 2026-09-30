@@ -13,13 +13,13 @@ a record table. Three aligned measurement layers come with every frame, for buse
 ```python
 ts = fg.load("ieee118", split="train", order="time")
 
-a = ts.to_numpy()
+a = ts.export()
 a["node_x"]   # [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
 a["benign"]   # the same meters with the ATTACK REMOVED (noise kept)
 a["clean"]    # NOISELESS, attack-free TRUE state (the SE target)
 a["edge_x"], a["edge_benign"], a["edge_clean"]   # [T, E, 2] the same three layers for branch flows
 a["y"], a["family"], a["seq_id"]                  # per-frame labels, family, episode index (-1 benign)
-ts.edge_index, ts.edge_attr                        # static graph; ts.to_numpy()["node_m"][0] the meter plan
+ts.edge_index, ts.edge_attr                        # static graph; ts.export()["node_m"][0] the meter plan
 
 Xw, yw = ts.windows(W=24, stride=12)               # [n, 24, N, 4] windows + per-window labels
 ep = ts.episodes                                   # onset, length, family, buses of every episode in the view
@@ -61,7 +61,7 @@ target = Cw[..., [0, 3]]                         # [n,W,N,2] clean V and theta
 ```
 
 - `Xw` is the attacked, noisy input. `target` is the clean V/θ it should reconstruct.
-- For a full SE measurement set, window `edge_x` the same way (`ts.to_numpy(["edge_x"])`) and feed
+- For a full SE measurement set, window `edge_x` the same way (`ts.export(["edge_x"])`) and feed
   node + edge together. That is exactly what a WLS/robust estimator consumes.
 - Line physics: `ts.edge_attr` (`[E,8]`), `ts.ybus`, `ts.yf`.
 - Custom timeline: `fg.generate(system, name, attacked_frac=0.5, families=[...], seed=...)`.
@@ -280,7 +280,7 @@ report(lote > tau, yte > 0)
 ```
 
 These are minutes-of-CPU baselines with deliberate headroom, not the dataset's ceiling.
-`layer="benign"`/`"clean"` on `windows`, `torch_windows` and `pyg_stream` swaps the model input
+`layer="benign"`/`"clean"` on `windows` swaps the model input
 layer (the label stays the attack target).
 
 ## Dataset statistics

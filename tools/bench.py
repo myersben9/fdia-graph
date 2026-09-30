@@ -5,8 +5,8 @@ can compare them with the last run (docs/reference/BENCHMARKS.md).
     python tools/bench.py --check    # exit 1 if any timing is more than 3x slower than the last row
 
 Timings are per record for the estimators (fit excluded) and per frame for timeline generation,
-in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, every family,
-20-frame ramps, the settings of tests/frozen_spec.TIMELINE_KW). They are for spotting a regression on one machine, not for comparing
+in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, At and Am,
+20-frame episodes, the settings of tests/conftest.TIMELINE_KW). They are for spotting a regression on one machine, not for comparing
 machines: the table carries the CPU and the torch state with every row for that reason.
 """
 
@@ -33,7 +33,7 @@ import fdia_graph as fg
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "BENCHMARKS.md")
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tests"))
-from frozen_spec import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
+from conftest import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
 
 SLOW_FACTOR = 3.0
 

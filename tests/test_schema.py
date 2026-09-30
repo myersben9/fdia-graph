@@ -20,15 +20,19 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         f.visititems(lambda n, o: names.append(n) if isinstance(o, h5py.Dataset) else None)
         groups = {n for n in f}
         attrs = dict(f.attrs)
-    # the fixture is a v0.8.3-meter file: the PMU current layers are the hybrid meter model's (D10)
-    per_frame = (set(schema.FIELD_PATH.values()) - set(schema.CURRENT_LAYERS)) | {
-        schema.SPLIT,
-        schema.NODE_TAMPER,
-        schema.EDGE_TAMPER,
-        schema.MAG_PTR,
-        schema.MAG_BUS,
-        schema.MAG,
-    }
+    # the fixture is a hybrid-meter file (D10): it carries the PMU current layers
+    per_frame = (
+        set(schema.FIELD_PATH.values())
+        | set(schema.CURRENT_LAYERS)
+        | {
+            schema.SPLIT,
+            schema.NODE_TAMPER,
+            schema.EDGE_TAMPER,
+            schema.MAG_PTR,
+            schema.MAG_BUS,
+            schema.MAG,
+        }
+    )
     assert per_frame <= set(names)
     assert groups == {
         schema.Group.DATA,
@@ -49,9 +53,16 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         )
     }
     assert episodes <= set(names)
+    # the fewest-tamper search's and the overload attack's per-episode rows (min_*, am_*)
+    searched = {
+        schema.path(schema.Group.EPISODES, v)
+        for k, v in vars(schema).items()
+        if k.startswith(("EPISODE_MIN_", "EPISODE_AM_")) and isinstance(v, str)
+    }
     known = (
         per_frame
         | episodes
+        | searched
         | {schema.EDGE_INDEX, schema.EDGE_REACTANCE}
         | {schema.path(schema.Group.GRAPH, k) for k in schema.STATIC_PHYSICS}
     )
@@ -113,7 +124,7 @@ def test_no_module_but_schema_spells_a_dataset_path(tmp_path):
 
 
 def test_no_input_is_checked_by_hand_outside_the_models():
-    """Every input check is declared on a model and run by the one engine (VALIDATION_PLAN.md);
+    """Every input check is declared on a model and run by the one engine (CONTRIBUTING.md);
     a condition only the data reveals raises a named error from fdia_graph.errors."""
     assert readability.hand_checks_all() == []
 

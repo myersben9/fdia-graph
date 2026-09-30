@@ -16,7 +16,6 @@ from ..models.federated import Partition, RoundLog
 from .localizer import FedBusCNN, FedBusMLP, FederatedLocalizer
 from .partition import (
     bus_adjacency,
-    check_partition,
     compute_nodes,
     partition_from_assignment,
     spectral_partition,
@@ -31,7 +30,6 @@ __all__ = [
     "RegionalPrior",
     "RoundLog",
     "bus_adjacency",
-    "check_partition",
     "compute_nodes",
     "partition_from_assignment",
     "spectral_partition",

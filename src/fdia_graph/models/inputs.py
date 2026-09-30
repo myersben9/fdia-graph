@@ -17,7 +17,7 @@ from typing import Annotated, ClassVar, Optional, Union, cast
 
 import numpy as np
 
-from .choices import FAMILIES, FAMILY_ALIAS, Capability, Iso, Reduce
+from .choices import FAMILIES, FAMILY_ALIAS, GENERATED_FAMILIES, Capability, Iso, Reduce
 from .errors import NoAdmissibleTarget, NoOperatingLimits
 from .frames import OperatingLimits
 from .validation import (
@@ -91,6 +91,27 @@ class FamilySelection(Validated):
     @property
     def codes(self) -> tuple[int, ...]:
         return tuple(int(c) for c in self.families)
+
+
+@dataclass(frozen=True)
+class GeneratedFamilies(Validated):
+    """The families a timeline generates: At and Am only. The single-snapshot families of older
+    releases (Aq, Ad, As, Ar, Al) stay readable (`FamilySelection`) but are not generated."""
+
+    families: Annotated[Sequence[Union[str, int]], Parses(family_codes, FAMILY_WORDS)]
+
+    @property
+    def codes(self) -> tuple[int, ...]:
+        return tuple(int(c) for c in self.families)
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        made = {_FAMILY_NAMES[n] for n in GENERATED_FAMILIES}
+        old = sorted(FAMILIES[c] for c in self.codes if c not in made)
+        yield (
+            not old,
+            f"the generator makes {', '.join(GENERATED_FAMILIES)} only; {', '.join(old)} are single-snapshot "
+            "families kept readable in old releases (fdia-graph 0.20 generates them)",
+        )
 
 
 @dataclass(frozen=True)
@@ -264,21 +285,6 @@ class SupportedSystem(Validated):
 
 
 @dataclass(frozen=True)
-class StreamSystem(Validated):
-    """The system a deprecated torch_data helper streams when given neither a dataset nor a stream."""
-
-    system: Annotated[
-        Optional[Union[str, int]],
-        Required("is required: pass dataset=<fg.load(..., order='time')>, stream=<dict>, or a system name"),
-        Parses(system_number, "must be like 'ieee118' or 118"),
-    ]
-
-    @property
-    def number(self) -> int:
-        return int(cast(int, self.system))  # an int once the model is built
-
-
-@dataclass(frozen=True)
 class ReleaseName(Validated):
     """A data release name; `numbers` orders releases."""
 
@@ -289,38 +295,6 @@ class ReleaseName(Validated):
     @property
     def numbers(self) -> tuple[int, ...]:
         return tuple(int(x) for x in self.release)
-
-
-@dataclass(frozen=True)
-class OutageRef(Validated):
-    """A line taken out, by name or by index, against the case's lines; `index` is the line index."""
-
-    outage: Annotated[
-        Union[str, int], Required("is required: an outage is a line name or an integer line index")
-    ]
-    names: tuple[str, ...]
-    indices: tuple[int, ...]
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        if isinstance(self.outage, str):
-            hits = self.names.count(self.outage)
-            yield hits != 0, f"no line named {self.outage!r} in this case"
-            yield hits <= 1, f"line name {self.outage!r} is ambiguous ({hits} matches); pass an index"
-            return
-        yield (
-            Integer().holds(self.outage),
-            f"an outage is a line name or an integer line index, got {self.outage!r}",
-        )
-        yield (
-            int(self.outage) in self.indices,
-            f"line index {self.outage} is not in this case (lines are {min(self.indices)}..{max(self.indices)})",
-        )
-
-    @property
-    def index(self) -> int:
-        if isinstance(self.outage, str):
-            return self.indices[self.names.index(self.outage)]
-        return int(self.outage)
 
 
 # ---- arrays ---------------------------------------------------------------------------------------

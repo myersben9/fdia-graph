@@ -1,4 +1,4 @@
-"""Every data model of the package in one place (docs/plans/DATA_MODELS_PLAN.md, step 5).
+"""Every data model of the package in one place.
 
 Grouped by what the data is: `fields` (the field groups the data bundles share), `grid` (the static system), `frames` (what the generators pass
 around per scan), `training` (what a learned localizer's fitting pieces share), `config` (the settings every consumer
@@ -11,7 +11,7 @@ produces it, which is where it used to be defined.
 PUBLIC names the bundles a user receives from the public API; the data dictionary lists those.
 """
 
-from .assets import AssetSpec, DownloadTarget, LineCandidate
+from .assets import AssetSpec, DownloadTarget
 from .base import Bundle
 from .config import (
     CertifyOptions,
@@ -34,7 +34,6 @@ from .config import (
     RemovalConfig,
     ShardRun,
     SolveConfig,
-    SplitFractions,
     TimelineKnobs,
     TrainerConfig,
     TrustConfig,
@@ -64,11 +63,9 @@ from .fields import (
     TemporalFields,
 )
 from .frames import (
-    AmDesign,
     AmOverloadDesign,
     AttackDesign,
     AttackVector,
-    Band,
     BoundClaim,
     Certificate,
     FlowGoal,
@@ -78,10 +75,7 @@ from .frames import (
     MinimizerResult,
     OperatingLimits,
     RampDesign,
-    Redistribution,
-    ResolvedPool,
     Scan,
-    TamperTarget,
 )
 from .grid import (
     BRANCH,
@@ -122,11 +116,11 @@ from .inputs import (
     FamilySelection,
     FeatureBlock,
     FieldRequest,
+    GeneratedFamilies,
     Halo,
     LabelGrids,
     LoadValues,
     MomentParts,
-    OutageRef,
     PartitionOnGrid,
     ProfileSource,
     RankedLabels,
@@ -136,7 +130,6 @@ from .inputs import (
     StateBlocks,
     StatePool,
     StateSource,
-    StreamSystem,
     SubBatch,
     SupportedSystem,
     SystemRef,
@@ -177,7 +170,6 @@ PUBLIC = (
     "PerBusScores",
     "PerBusMetrics",
     "GridScores",
-    "LineCandidate",
 )
 
 __all__ = [
@@ -214,12 +206,9 @@ __all__ = [
     "Scan",
     "Frame",
     "FrameKnobs",
-    "Band",
-    "TamperTarget",
     "AttackDesign",
     "AttackVector",
     "RampDesign",
-    "AmDesign",
     "LoadGoal",
     "FlowGoal",
     "AmOverloadDesign",
@@ -232,12 +221,11 @@ __all__ = [
     "Aggregation",
     "Requirement",
     "FamilySelection",
+    "GeneratedFamilies",
     "SystemRef",
     "SupportedSystem",
     "ReleaseName",
-    "OutageRef",
     "StatePool",
-    "StreamSystem",
     "ShapedArray",
     "FieldRequest",
     "CsvSpec",
@@ -289,14 +277,11 @@ __all__ = [
     "TrustSchedule",
     "WuDefenseConfig",
     "ShardRun",
-    "SplitFractions",
     "IsoExport",
     "ProfileFetch",
     "Partition",
     "RoundLog",
     "OperatingLimits",
-    "Redistribution",
-    "ResolvedPool",
     "RecordBundle",
     "BatchBundle",
     "ArraysBundle",
@@ -317,5 +302,4 @@ __all__ = [
     "JacobianOutputs",
     "AssetSpec",
     "DownloadTarget",
-    "LineCandidate",
 ]

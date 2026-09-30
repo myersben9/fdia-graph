@@ -28,10 +28,6 @@ class NoRoomForEpisode(DataConditionError):
     """The attacked fraction cannot be placed: no free span is long enough for an episode."""
 
 
-class GridIslanded(DataConditionError):
-    """A line outage splits the grid or leaves a bus isolated."""
-
-
 class SlackMismatch(DataConditionError):
     """The dataset's slack bus is not the case's."""
 

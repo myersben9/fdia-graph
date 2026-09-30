@@ -99,7 +99,7 @@ class JacobianFeatures:
         self._inc = bus_incidence(est, ds.edge_index_np)
         sw = np.sqrt(est.Wk)  # W^1/2 as a vector
         Hw = sw[:, None] * est.H  # [m, SD], the whitened Jacobian
-        self._Hw, self._sw = Hw, sw
+        self._sw = sw
         # weighted pseudo-inverse H_W^+ = (H^T W H)^-1 H^T W, as the [SD, m] map dz -> dx_hat
         self._pinv = weighted_pseudoinverse(est.H, est.Wk, est._Ai)
         # projection onto the column space of the whitened Jacobian: leverage on its diagonal

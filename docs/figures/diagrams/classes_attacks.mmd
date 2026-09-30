@@ -28,29 +28,15 @@ classDiagram
         +overload_step()
         ... and 2 more
     }
-    class RedistributionMixin {
-        +lra_delta()
-    }
     class StealthyMixin {
     }
     class EpisodeDesignMixin {
         +target_counts()
         +ramp_step()
         +ramp_design()
-        +single_shot_design()
-        +am_design()
-        +am_step()
-    }
-    class CorruptMixin {
-        +remember_benign()
-        +corrupt()
-        +incident_branches()
     }
     class AttackMixin {
         +attack_frame()
-    }
-    class AmDesign {
-        <<models>>
     }
     class AmOverloadDesign {
         <<models>>
@@ -59,9 +45,6 @@ classDiagram
         <<models>>
     }
     class AttackVector {
-        <<models>>
-    }
-    class Band {
         <<models>>
     }
     class FlowGoal {
@@ -94,16 +77,10 @@ classDiagram
     class RampDesign {
         <<models>>
     }
-    class Redistribution {
-        <<models>>
-    }
     class RrefMixin {
         <<engine>>
     }
     class Scan {
-        <<models>>
-    }
-    class TamperTarget {
         <<models>>
     }
     class TrustSchedule {
@@ -113,26 +90,16 @@ classDiagram
         <<models>>
     }
     AreaMixin <|-- FalseStateMixin
-    CorruptMixin <|-- AttackMixin
     EpisodeDesignMixin <|-- AttackMixin
     FalseStateMixin <|-- MinimizeMixin
-    FalseStateMixin <|-- RedistributionMixin
+    FalseStateMixin <|-- StealthyMixin
     GridBase <|-- AreaMixin
-    GridBase <|-- CorruptMixin
     OverloadMixin <|-- EpisodeDesignMixin
-    RedistributionMixin <|-- EpisodeDesignMixin
-    RedistributionMixin <|-- StealthyMixin
     RrefMixin <|-- OverloadMixin
     StealthyMixin <|-- AttackMixin
     AttackMixin ..> AttackDesign : uses
     AttackMixin ..> Frame : uses
     AttackMixin ..> FrameKnobs : uses
-    CorruptMixin ..> Band : uses
-    CorruptMixin ..> Frame : uses
-    CorruptMixin ..> FrameKnobs : uses
-    CorruptMixin ..> Scan : uses
-    CorruptMixin ..> TamperTarget : uses
-    EpisodeDesignMixin ..> AmDesign : uses
     EpisodeDesignMixin ..> AttackDesign : uses
     EpisodeDesignMixin ..> AttackVector : uses
     EpisodeDesignMixin ..> FrameKnobs : uses
@@ -157,7 +124,6 @@ classDiagram
     OverloadMixin ..> FrameKnobs : uses
     OverloadMixin ..> NoLineRatings : uses
     OverloadMixin ..> OverloadSettings : uses
-    RedistributionMixin ..> Redistribution : uses
     StealthyMixin ..> AttackDesign : uses
     StealthyMixin ..> Frame : uses
     StealthyMixin ..> FrameKnobs : uses

@@ -50,11 +50,10 @@ VALID = {
     inputs.WindowSlots: dict(slots=[1], snapshots=3),
     inputs.ChosenAction: dict(action=0, valid=[True, False]),
     inputs.FamilySelection: dict(families=("Aq",)),
+    inputs.GeneratedFamilies: dict(families=("At",)),
     inputs.SystemRef: dict(system="ieee14"),
     inputs.SupportedSystem: dict(system="ieee14", supported=frozenset({14})),
-    inputs.StreamSystem: dict(system="ieee14"),
     inputs.ReleaseName: dict(release="v0.8.0"),
-    inputs.OutageRef: dict(outage=0, names=("a", "b"), indices=(0, 1)),
     inputs.StatePool: dict(X=np.zeros((2, 3, 4))),
     inputs.ShapedArray: dict(values=np.zeros((2, 3)), shape=(2, 3)),
     inputs.FieldRequest: dict(fields=("a",), offered=("a", "b"), known=("a", "b")),
@@ -194,39 +193,6 @@ def test_load_refuses_a_bad_argument_before_any_download(kwargs, monkeypatch):
 
 @pytest.mark.parametrize(
     "kwargs",
-    [
-        dict(layer="bogus"),
-        dict(layer=None),
-        dict(train_frac="most"),
-        dict(train_frac=float("nan")),
-        dict(val_frac=-0.1),
-        dict(max_test=2.5),
-    ],
-    ids=_id,
-)
-def test_pyg_stream_refuses_a_bad_argument_before_loading(kwargs, monkeypatch):
-    from fdia_graph import torch_data
-
-    monkeypatch.setattr(torch_data, "_resolve_stream", _no_work)
-    with pytest.warns(DeprecationWarning), pytest.raises(ConfigError):
-        torch_data.pyg_stream("ieee14", **kwargs)
-
-
-@pytest.mark.parametrize(
-    "kwargs",
-    [dict(layer="bogus"), dict(train_frac=1.5), dict(val_frac="some")],
-    ids=_id,
-)
-def test_torch_windows_refuses_a_bad_argument_before_loading(kwargs, monkeypatch):
-    from fdia_graph import torch_data
-
-    monkeypatch.setattr(torch_data, "_resolve_stream", _no_work)
-    with pytest.warns(DeprecationWarning), pytest.raises(ConfigError):
-        torch_data.torch_windows("ieee14", **kwargs)
-
-
-@pytest.mark.parametrize(
-    "kwargs",
     [dict(iso="bogus"), dict(iso=None), dict(resample_min="five"), dict(resample_min=-5)],
     ids=_id,
 )
@@ -275,9 +241,6 @@ def test_partition_from_assignment_refuses_a_malformed_input(assignment, edge_in
         dict(attacked_frac="half"),
         dict(ramp_len=2.5),
         dict(hops=0),
-        dict(am_direction="sideways"),
-        dict(corrupt_len=-1),
-        dict(am_rate=float("inf")),
     ],
     ids=_id,
 )
@@ -291,10 +254,10 @@ def test_timeline_knobs_refuse_a_bad_value_before_any_work(knobs):
     [
         dict(families=["Zz"]),
         dict(families="Aq"),
+        dict(families=["Ad"]),
         dict(am_len=2.5),
         dict(ramp_len=0),
         dict(attacked_frac=2.0),
-        dict(am_direction="sideways"),
     ],
     ids=_id,
 )

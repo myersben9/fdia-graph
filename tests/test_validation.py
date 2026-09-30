@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from fdia_graph.models.choices import Choice, Iso
-from fdia_graph.models.config import FederatedSettings, LoadOptions, PriorConfig, SplitFractions, WindowSpec
+from fdia_graph.models.config import FederatedSettings, LoadOptions, PriorConfig, WindowSpec
 from fdia_graph.models.validation import AtLeast, ConfigError, InRange, Integer, OneOf, Positive, Validated
 
 
@@ -69,8 +69,6 @@ def test_the_config_models_state_the_old_rules():
         LoadOptions(split="holdout")
     with pytest.raises(ConfigError, match=r"PriorConfig.rank_frac must be in \(0, 1\]"):
         PriorConfig(rank_frac=0.0)
-    with pytest.raises(ConfigError, match="need train_frac \\+ val_frac < 1"):
-        SplitFractions(0.7, 0.4)
     with pytest.raises(ConfigError, match="need integers 1 <= W <= 10"):
         WindowSpec(T=10, W=11)
     with pytest.raises(ConfigError, match="the partition has 3 clients but K=2"):
@@ -88,7 +86,6 @@ def test_the_config_models_state_the_old_rules():
             "FederatedSettings.partition_clients must be an integer",
         ),
         (lambda: FederatedSettings(epochs=1.5), "FederatedSettings.epochs must be an integer"),
-        (lambda: SplitFractions(layer="bogus"), "SplitFractions.layer must be one of"),
     ],
 )
 def test_whole_number_settings_refuse_a_fraction(build, message):
@@ -136,18 +133,6 @@ def test_load_rejects_a_bad_argument_before_any_download(kwargs, message, monkey
     monkeypatch.setattr(fg, "ensure_local", no_download)  # the name load() calls
     with pytest.raises(ConfigError, match=message):
         fg.load("ieee14", **kwargs)
-
-
-def test_the_old_check_functions_warn_and_still_validate():
-    from fdia_graph.dataset import check_order, check_split, check_units
-
-    with pytest.warns(DeprecationWarning, match="LoadOptions checks"):
-        check_units("pu")
-    with pytest.warns(DeprecationWarning), pytest.raises(ConfigError, match="split must be one of"):
-        check_split("holdout")
-    with pytest.warns(DeprecationWarning):
-        check_order("time")
-        check_split(None)
 
 
 def test_estimators_and_localizers_build_their_models():
@@ -262,27 +247,8 @@ def test_the_gate_must_be_oracle_or_a_callable_localizer():
             GateConfig(bad)
 
 
-def test_an_outage_that_is_neither_a_name_nor_an_integer_is_refused():
-    from fdia_graph.engine.core import _line_id
-
-    net = SimpleNamespaceNet()
-    for bad in (1.5, None):
-        with pytest.raises(ConfigError, match="an outage is a line name or an integer line index"):
-            _line_id(net, bad)
-    assert _line_id(net, np.int64(2)) == 2
-
-
-class SimpleNamespaceNet:
-    """The part of a pandapower net `_line_id` reads: lines 0..3."""
-
-    def __init__(self):
-        import pandas as pd
-
-        self.line = pd.DataFrame({"name": ["a", "b", "c", "d"]})
-
-
 def test_parsers_are_models_that_keep_the_input_and_give_the_result():
-    from fdia_graph.models.inputs import FamilySelection, OutageRef, ReleaseName, SystemRef
+    from fdia_graph.models.inputs import FamilySelection, ReleaseName, SystemRef
 
     assert SystemRef("IEEE118").number == 118 and ReleaseName("data-v0.8.3").numbers == (0, 8, 3)
     assert FamilySelection(["Ao", 2, "Am"]).codes == (1, 2, 7)
@@ -290,20 +256,13 @@ def test_parsers_are_models_that_keep_the_input_and_give_the_result():
         FamilySelection(["Aq", "Zz"])
     with pytest.raises(ConfigError, match="SystemRef.system must be like 'ieee118' or 118"):
         SystemRef("big")
-    assert OutageRef("b", ("a", "b"), (4, 7)).index == 7
-    assert OutageRef(np.int64(4), ("a", "b"), (4, 7)).index == 4
-    with pytest.raises(ConfigError, match="is ambiguous"):
-        OutageRef("a", ("a", "a"), (4, 7))
 
 
 def test_a_required_field_refuses_none_with_its_phrase():
-    from fdia_graph.models.inputs import CsvSpec, StreamSystem
+    from fdia_graph.models.inputs import CsvSpec
 
     with pytest.raises(ConfigError, match=r"^CsvSpec\.column is required$"):
         CsvSpec("x.csv", None)
-    with pytest.raises(ConfigError, match="pass dataset=<fg.load"):
-        StreamSystem(None)
-    assert StreamSystem("ieee14").number == 14
 
 
 def test_formulas_build_their_input_models():

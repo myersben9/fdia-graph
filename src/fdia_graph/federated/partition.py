@@ -7,14 +7,13 @@ and 300 at K = 2 and 3 when checked by hand; the test suite pins IEEE 14. Needs 
 
 from __future__ import annotations
 
-import warnings
 from typing import Optional
 
 import numpy as np
 
 from ..formulas.federated import attackable_affinity, cut_edge_count, halo_nodes, interior_boundary
 from ..models.federated import Partition
-from ..models.inputs import AssignmentSpec, ClientCount, EdgeList, PartitionOnGrid
+from ..models.inputs import AssignmentSpec, ClientCount, EdgeList
 
 
 def bus_adjacency(edge_index: np.ndarray, N: int) -> np.ndarray:
@@ -79,13 +78,3 @@ def compute_nodes(p: Partition, edge_index: np.ndarray, k: int, halo: int = 0) -
     """Client k's compute buses, its own first and then a `halo`-hop ring of other clients' buses
     as read-only context, and the number of its own buses (`formulas.federated.halo_nodes`)."""
     return halo_nodes(p.assignment, bus_adjacency(edge_index, len(p.assignment)), k, halo)
-
-
-def check_partition(p: Partition, N: int) -> None:
-    """Deprecated: build `models.inputs.PartitionOnGrid(p.assignment, p.K, N)`, which checks it."""
-    warnings.warn(
-        "check_partition is deprecated; PartitionOnGrid(p.assignment, p.K, N) checks a partition",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    PartitionOnGrid(p.assignment, p.K, N)

@@ -51,9 +51,6 @@ from .base import (  # noqa: F401  re-exported: defined here before the split
     FAMILIES,
     STEALTHY_FAMILIES,
     _torch,
-    check_order,
-    check_split,
-    check_units,
     family_ids,
 )
 from .export import ExportMixin

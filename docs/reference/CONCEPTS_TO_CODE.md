@@ -33,9 +33,9 @@ serve data.
 | engine/ file | formula it implements |
 |------|-----|
 | `core.py` | `FdiaGenerator`: grid + noise setup (`__init__`), attack targeting; composes the three mixins |
-| `measurement.py` | `emit_from_state` (the measurement function `h(x)`), `clean_flows_from_states`, `emit`, `state_from_net` |
-| `physics.py` | `solve` / `resolve_states`: AC re-solve under new loads |
-| `attacks.py` | `corrupt` (Ad/As/Ar) and `lra_delta` (Al redistribution) |
+| `measurement.py` | `emit_from_state` (the measurement function `h(x)`), `clean_flows_from_states`, `currents_from_states` |
+| `physics.py` | `true_load`, `scan_generation`: a scan's load and generation from its stored state |
+| `attacks/` | the false states, the fewest-tamper search, the `At` ramp and the overload `Am` |
 
 One column order everywhere: the operating-state pool, `node_x`, and `clean` are all
 `[|V|, P_inj, Q_inj, theta]`. Pools saved before 0.12 were P-first; `generation.as_v_first` detects
@@ -58,34 +58,22 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 
 | family | paper | build | code |
 |--------|-------|-------|------|
-| Aq | `A_o` | scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode | `engine/attacks/episodes.single_shot_design` + `engine/attacks/false_state.stealthy_state` |
 | At | `A_t` | slow ramp, 0.2 percent per frame, a local false state per frame | `engine/attacks/episodes.ramp_design` + `ramp_step` |
-| Al | `A_l` | load-conserving redistribution around a target line, one frame per episode | `engine/attacks/redistribution.lra_delta` + `engine/attacks/stealthy._lra_frame` |
-| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps) | `engine/attacks/overload.am_overload_design` + `overload_step` (v0.8.3: `episodes.am_design` + `am_step` + `stealthy._am_frame`) |
-| Ad | `A_d` | `z ← z(1±u)` | `engine/attacks/corrupt.corrupt` |
-| As | `A_s` | `z ← βz` | `engine/attacks/corrupt.corrupt` |
-| Ar | `A_r` | replay `z(t−k)` | `engine/attacks/corrupt.corrupt` |
+| Am | `A_m` | the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered | `engine/attacks/overload.am_overload_design` + `overload_step` |
 
-- Aq/At/Al/Am are local false states: the buses within two hops of the attacked loads are re-solved
-  with the boundary voltages held true, inside the case's voltage limits and the region's generator
-  limits, and the attack vector `h(x') − h(x)` is added to the benign scan. The residual test flags
-  them at the benign rate by construction. They satisfy equations (13)-(18) and (21)-(23) of [WU26]
-  (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits), and
-  new generation, whose PMUs read branch currents, meets the current phasors (19)-(20) as well. New generation also solves its objective,
-  eq. (12): each `At` and `Am` episode is held on the support that tampers the fewest devices, and
-  `Am` drives a line's reported flow to its rating (eqs. 24-25; by default 1.25 times its peak pool flow, D15). The released files'
-  stealthy families drew their targets at random and drove no line to its limit; `LEGACY_FAMILIES`
-  with `am_attack="redistribution"`, `min_tamper=False` and `redundancy={"meter_model": "v083"}` reproduces them
-  (`docs/plans/WU_MSFDIA_PLAN.md`).
+- At and Am are local false states: the buses around the attack are re-solved with the boundary
+  voltages held true, inside the case's voltage limits and the region's generator limits, and the
+  attack vector `h(x') − h(x)` is added to the benign scan. The residual test flags them at the
+  benign rate by construction. They satisfy equations (13)-(25) of [WU26] (the SCADA measurements,
+  the PMU voltage magnitudes, angles and branch currents, the operating limits and the line-overload
+  goal) and its objective, eq. (12): each episode is held on the support that tampers the fewest
+  devices, and `Am` drives a line's reported flow to its rating (by default 1.25 times its peak pool
+  flow, D15; `docs/plans/WU_MSFDIA_PLAN.md`). The single-snapshot families of older releases (`Aq`,
+  `Al`, and the in-place `Ad`, `As`, `Ar`) are read-only: fdia-graph 0.20 generates them.
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,
   called by `engine/attacks/episodes.ramp_design`).
-- Ad/As/Ar tamper readings in place. Detectable.
-- Every designed change sits above the noise floor and below `attack_intensity` (20 percent by
-  default). Aq draws its per-bus load change from 5 to 20 percent; Ad, As and Al use the 2 to 20
-  percent band, whose lower edge is the noise floor (`generation.NOISE_FLOOR`). The multi-snapshot
-  families are the exception, by design: the At ramp and the Am redistribution move in per-frame
-  steps under the noise floor.
+- The At ramp moves in per-frame steps under the noise floor, by design.
 
 ## Temporal feature
 

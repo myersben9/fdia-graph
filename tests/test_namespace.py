@@ -7,21 +7,16 @@ import fdia_graph as fg
 
 
 def test_lazy_names_resolve_to_the_real_functions():
-    import fdia_graph.engine
     import fdia_graph.generation
     import fdia_graph.profiles
     import fdia_graph.streams
-    import fdia_graph.torch_data
 
     assert fg.generate is fdia_graph.generation.generate
     assert fg.generate_stream is fdia_graph.streams.generate_stream
     assert fg.load_stream is fdia_graph.streams.load_stream and fg.windows is fdia_graph.streams.windows
-    assert fg.pyg_stream is fdia_graph.torch_data.pyg_stream
-    assert fg.torch_windows is fdia_graph.torch_data.torch_windows
     assert fg.load_profile is fdia_graph.profiles.load_profile
     assert fg.fetch_profile is fdia_graph.profiles.fetch_profile
     assert fg.generate_states is fdia_graph.profiles.generate_states
-    assert fg.line_outage_candidates is fdia_graph.engine.line_outage_candidates
 
 
 def test_all_names_exist_and_dir_lists_them():

@@ -1,4 +1,4 @@
-"""One continuous attacked timeline per system, written as one HDF5 file (docs/plans/ONE_DATASET_PLAN.md).
+"""One continuous attacked timeline per system, written as one HDF5 file.
 
 The timeline is the dataset. Attack episodes are placed at uniform random onsets over the
 operating-point pool, without overlap, their frames summing to exactly the attacked fraction;
@@ -26,7 +26,6 @@ small per-step change and a spike as an abrupt jump (the signal the dataset is b
 from __future__ import annotations
 
 import os
-import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -39,21 +38,15 @@ from . import schema
 from ._moved import moved
 from .dataset.base import FAMILIES, STEALTHY_FAMILIES
 from .engine import FdiaGenerator
-from .engine.attacks import episodes as _episodes
 from .engine.attacks.episodes import (
-    AM_DRAWS,
     ONSET_DRAWS,
     EpisodeDesignMixin,
-    am_sign,
     draw_ramp,
-    pick_targets,
     probe_frames,
     ramp_dev,
 )
-from .engine.records import (  # noqa: F401  AQ_HALVINGS, AttackDesign, is_feasible re-exported as before
+from .engine.records import (  # noqa: F401  AttackDesign, is_feasible re-exported as before
     AM_FAMILY,
-    AQ_HALVINGS,
-    CORRUPT_KIND,
     RAMP_FAMILY,
     AttackDesign,
     Frame,
@@ -66,7 +59,6 @@ from .formulas.attacks import ramp_profile  # noqa: F401  re-exported as before
 from .formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
 from .generation import (
     _CHUNK_ROWS,
-    NOISE_FLOOR,
     _base_attrs,
     _FrameContext,
     _load_states,
@@ -74,41 +66,26 @@ from .generation import (
 )
 from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
     BENIGN_CODE,
-    DEPRECATED_FOR_GENERATION,
     FAMILY_CODE,
     GENERATED_FAMILIES,
-    LEGACY_FAMILIES,
-    ONE_FRAME_FAMILIES,
-    AmDirection,
 )
 from .models.config import MeterSettings, OverloadSettings, TimelineKnobs
 from .models.data import EpisodeRow
 from .models.frames import AmOverloadDesign, AttackVector, MinimizerResult
-from .models.inputs import AdmissibleTargets, FamilySelection
+from .models.inputs import AdmissibleTargets, GeneratedFamilies
 from .registry import CACHE_DIR, system_id
 from .schema import Attr
 
 KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
-# new generation makes the multi-snapshot families [WU26]; LEGACY_FAMILIES (with
-# am_attack="redistribution", min_tamper=False, redundancy={"meter_model": "v083"}) reproduces data
-# release v0.8.3 and the frozen timeline
+# the generator makes the multi-snapshot families [WU26]: the ramp At and the overload Am
 DEFAULT_FAMILIES = GENERATED_FAMILIES
-
-# Per-family episode-length band (frames): Ad, As, Ar (the upper end excluded), used when
-# corrupt_len is None. Aq and Al are single-snapshot attacks: every Aq and Al episode is one frame.
-_EP_LEN = {2: (5, 25), 3: (5, 25), 4: (5, 25)}
-_ONE_FRAME = {FAMILY_CODE[n] for n in ONE_FRAME_FAMILIES}
 
 # what an episode attacks moved to engine.attacks.episodes (the generator's AttackMixin); the old
 # private names keep their old signatures for one minor release, forwarding to the new home
 _EPISODES = "engine.attacks.episodes"
 _MOVED: dict[str, tuple[str, object]] = {
     "_ONSET_DRAWS": (f"{_EPISODES}.ONSET_DRAWS", ONSET_DRAWS),
-    "_AM_DRAWS": (f"{_EPISODES}.AM_DRAWS", AM_DRAWS),
-    "_AmShape": (f"{_EPISODES}._AmShape", _episodes._AmShape),
-    "_am_sign": (f"{_EPISODES}.am_sign", am_sign),
     "_ramp_dev": (f"{_EPISODES}.ramp_dev", ramp_dev),
-    "_pick_targets": (f"{_EPISODES}.pick_targets", pick_targets),
     "_target_counts": (f"{_EPISODES}.EpisodeDesignMixin.target_counts", EpisodeDesignMixin.target_counts),
     "_probe_frames": (
         f"{_EPISODES}.probe_frames",
@@ -120,30 +97,7 @@ _MOVED: dict[str, tuple[str, object]] = {
             :4
         ],  # its old (targets, direction, rise, hold)
     ),
-    "_draw_single_shot": (
-        f"{_EPISODES}.EpisodeDesignMixin.single_shot_design",
-        lambda ctx, rng, t, fid, n: _old_pair(ctx.g.single_shot_design(ctx.X, t, fid, n, ctx.knobs, rng=rng)),
-    ),
-    "_am_multipliers": (
-        f"{_EPISODES}.EpisodeDesignMixin._am_multipliers",
-        lambda ctx, t, a, delta: ctx.g._am_multipliers(ctx.X[t], a, delta),
-    ),
-    "_am_peak_solves": (
-        f"{_EPISODES}.EpisodeDesignMixin._am_peak_solves",
-        lambda ctx, t, a, delta, interior: ctx.g._am_peak_solves(ctx.X[t], a, delta, interior, ctx.knobs),
-    ),
-    "_am_held_delta": (
-        f"{_EPISODES}.EpisodeDesignMixin._am_held_delta",
-        lambda ctx, t, a, delta, interior, shape: ctx.g._am_held_delta(
-            ctx.X, t, a, delta, interior, shape, ctx.knobs
-        ),
-    ),
 }
-
-
-def _old_pair(design: Optional[AttackDesign]) -> Optional[tuple[np.ndarray, Union[float, np.ndarray]]]:
-    """The (targets, multipliers) pair `_draw_single_shot` returned before it moved."""
-    return None if design is None else (design.targets, design.mult)
 
 
 def __getattr__(name: str) -> object:
@@ -383,22 +337,6 @@ def _ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> int:
     return ep.close(w, t)
 
 
-def _single_shot_episode(w: _Walk, t: int, fid: int, length: int) -> int:
-    """One episode of a single-shot family held for `length` frames, its design from the generator
-    (`AttackMixin.single_shot_design`); returns the next free timestep."""
-    ctx, T = w.ctx, w.T
-    design = ctx.g.single_shot_design(ctx.X, t, fid, length, ctx.knobs)
-    if design is None:  # no admissible design at this operating point: the placed frames stay benign
-        return _benign_run(w, t, min(t + length, T))
-    ep = _episode(w, fid, t)
-    for _ in range(length):
-        if t >= T:
-            break
-        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], fid, design, ctx.knobs))
-        t += 1
-    return ep.close(w, t)
-
-
 def _am_overload_episode(w: _Walk, t: int, length: int) -> int:
     """One `Am` episode as the overload attack of [WU26] (`AttackMixin.am_overload_design`,
     `overload_step`): a target branch's reported flow driven to its rating over the window, on the
@@ -427,66 +365,30 @@ def _am_overload_episode(w: _Walk, t: int, length: int) -> int:
     return ep.close(w, t)
 
 
-def _am_episode(w: _Walk, t: int, shape: tuple[int, float, str]) -> int:
-    """One multi-snapshot episode after [WU26]: a load redistribution drawn once at onset and applied
-    frame by frame along a ramp whose per-bus per-frame step stays under the noise floor
-    (`AttackMixin.am_design`, `am_step`). `shape` = (length, am_rate, am_direction). Returns the
-    next free timestep."""
-    ctx, T = w.ctx, w.T
-    length = shape[0]
-    design = ctx.g.am_design(ctx.X, t, shape, ctx.knobs)
-    if design is None:  # no solvable redistribution at this operating point: the placed frames stay benign
-        return _benign_run(w, t, min(t + length, T))
-    ep = _episode(w, AM_FAMILY, t)
-    for i in range(length):
-        if t >= T:
-            break
-        step = ctx.g.am_step(design, ctx.X[t], i)
-        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], AM_FAMILY, step, ctx.knobs))
-        t += 1
-    return ep.close(w, t)
-
-
 @dataclass
 class _Schedule:
     """What is placed on the timeline: the families in rotation, weighted by the inverse of their
-    expected episode length so every family gets about the same share of attacked frames, the
-    episode shapes, and the attacked fraction the placement fills up to."""
+    episode length so every family gets about the same share of attacked frames, the episode
+    lengths and the ramp's rate, and the attacked fraction the placement fills up to."""
 
     families: list[int]
     weights: np.ndarray
     ramp_len: int
     ramp_rate: float
-    am: tuple[int, float, str]  # (length, am_rate, am_direction)
-    corrupt_len: Optional[int]  # Ad/As/Ar episode length; None draws the band
+    am_len: int
     attacked_frac: float
-    am_overload: bool = False  # Am as the overload attack of [WU26]; False: the v0.8.3 redistribution
 
     @classmethod
     def build(
-        cls, fams: list[int], ramp_len: int, ramp_rate: float, am, corrupt_len, attacked_frac
+        cls, fams: list[int], ramp_len: int, ramp_rate: float, am_len: int, attacked_frac: float
     ) -> _Schedule:
-        expected = {f: float(np.mean(_EP_LEN.get(f, (1, 1)))) for f in fams}
-        expected.update({RAMP_FAMILY: float(ramp_len), AM_FAMILY: float(am[0])})
-        expected.update({f: 1.0 for f in _ONE_FRAME})
-        for f in CORRUPT_KIND:
-            if corrupt_len is not None:
-                expected[f] = float(corrupt_len)
-        w = np.array([1.0 / expected[f] for f in fams], float)
-        return cls(fams, w / w.sum() if len(w) else w, ramp_len, ramp_rate, am, corrupt_len, attacked_frac)
+        length = {RAMP_FAMILY: float(ramp_len), AM_FAMILY: float(am_len)}
+        w = np.array([1.0 / length[f] for f in fams], float)
+        return cls(fams, w / w.sum() if len(w) else w, ramp_len, ramp_rate, am_len, attacked_frac)
 
-    def length_of(self, fid: int, rng: np.random.Generator) -> int:
-        """The frames an episode of `fid` takes: one for Aq and Al, the ramp lengths for At and Am,
-        `corrupt_len` for Ad/As/Ar when set, else a draw from the family's band."""
-        if fid in _ONE_FRAME:
-            return 1
-        if fid == RAMP_FAMILY:
-            return self.ramp_len
-        if fid == AM_FAMILY:
-            return self.am[0]
-        if fid in CORRUPT_KIND and self.corrupt_len is not None:
-            return self.corrupt_len
-        return int(rng.integers(*_EP_LEN.get(fid, (5, 25))))
+    def length_of(self, fid: int) -> int:
+        """The frames an episode of `fid` takes: the ramp length for At, `am_len` for Am."""
+        return self.ramp_len if fid == RAMP_FAMILY else self.am_len
 
 
 def _draw_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[tuple[int, int]]:
@@ -496,7 +398,7 @@ def _draw_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[tu
     frames, target = 0, int(round(plan.attacked_frac * T))
     while frames < target:
         fid = int(rng.choice(plan.families, p=plan.weights))
-        length = min(plan.length_of(fid, rng), target - frames)
+        length = min(plan.length_of(fid), target - frames)
         drawn.append((length, fid))
         frames += length
     return drawn
@@ -538,11 +440,7 @@ def _run_episode(w: _Walk, at: tuple[int, int, int], plan: _Schedule) -> int:
     onset, fid, length = at
     if fid == RAMP_FAMILY:
         return _ramp_episode(w, onset, length, plan.ramp_rate)
-    if fid == AM_FAMILY and plan.am_overload:
-        return _am_overload_episode(w, onset, length)
-    if fid == AM_FAMILY:
-        return _am_episode(w, onset, (length, plan.am[1], plan.am[2]))
-    return _single_shot_episode(w, onset, fid, length)
+    return _am_overload_episode(w, onset, length)
 
 
 def _walk(w: _Walk, plan: _Schedule) -> None:
@@ -755,24 +653,11 @@ def _block_scale(nx: h5py.Dataset, a: int, b: int) -> np.ndarray:
     return recent_change_scale(pq, SWING_WINDOW, nx.shape[1])[a - g0 :]
 
 
-def _warn_deprecated_families(fams: Sequence[int]) -> None:
-    """A DeprecationWarning when a single-snapshot family is asked of new generation (the plan's D6)."""
-    old = [FAMILIES[f] for f in fams if FAMILIES[f] in DEPRECATED_FOR_GENERATION]
-    if old:
-        warnings.warn(
-            f"generating {', '.join(old)} is deprecated and refused from 0.22: new generation makes the "
-            "multi-snapshot families At and Am [WU26]; released files holding the single-snapshot "
-            "families keep loading",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-
-
 def _search_attrs(
     tk: TimelineKnobs, overload: Optional[OverloadSettings], meter_model: Optional[str]
 ) -> dict[str, object]:
     """The attributes of the searches a walk ran and of the meters it read, written only when they
-    apply so a v0.8.3 file's attributes are unchanged: the fewest-tamper knobs, the Am attack, the
+    apply: the fewest-tamper knobs, the Am attack, the
     stealth scale of At's search (Am has no stealth bound, the plan's D11; an Am-only file records
     the scale it was given, which nothing used), and on a hybrid-meter file its meter model and the
     legend of its current layers; the overload attack's rating source and margin (D15)."""
@@ -826,15 +711,10 @@ def generate_timeline(
     states: Optional[Union[str, np.ndarray]] = None,
     attacked_frac: float = 0.5,
     families: Sequence[str] = DEFAULT_FAMILIES,
-    attack_intensity: float = 0.20,
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
     am_len: Optional[int] = None,
-    am_rate: float = 0.9,
-    am_direction: str = "both",
     hops: int = 2,
-    corrupt_len: Optional[int] = 1,
-    replay_tau: Optional[int] = None,
     redundancy: Optional[dict] = None,
     split: Sequence[float] = (0.6, 0.2, 0.2),
     seed: int = 123,
@@ -854,19 +734,15 @@ def generate_timeline(
                      of the draw; a frame whose local power flow has no solution at any halving
                      of its step stays benign and is counted in the file's `fallback_benign`
                      attribute (zero on every released file)
-    families         the families in rotation; each gets about the same share of attacked frames.
-                     New generation makes the multi-snapshot families At and Am (the default);
-                     Aq, Ad, As, Ar and Al are deprecated for generation (a DeprecationWarning,
-                     refused from 0.22) and stay loadable from released files. Data release v0.8.3
-                     is reproduced with families=LEGACY_FAMILIES, am_attack="redistribution",
-                     min_tamper=False, redundancy={"meter_model": "v083"}
-    attack_intensity per-bus load-shift bound of Aq/Al/Am and the plausibility cap of Ad/As/Ar
+    families         the families in rotation, each getting about the same share of attacked frames:
+                     the ramp At and the overload Am (the default, both). The single-snapshot
+                     families of data releases v0.8.3 and earlier (Aq, Ad, As, Ar, Al) are refused
+                     here and stay loadable from those files
     ramp_rate, ramp_len   the At ramp's per-frame growth and episode length
     am_len           Am episode length (default ramp_len)
-    am_rate          Am's largest per-bus per-frame load change as a fraction of the noise floor
-    hops             the attacker's subnetwork for the stealthy families: buses within this many
-                     branches of the attacked loads (Aq, At) or of the target line (Al, Am); the
-                     boundary voltages are held true and only the subnetwork's meters are written
+    hops             the attacker's subnetwork: buses within this many branches of the attacked loads
+                     (At) or of the target lines (Am); the boundary voltages are held true and only
+                     the subnetwork's meters are written
     max_load_mw      a load above this (MW) is never a target: an area equivalent, not a substation
                      (IEEE-145 lumps regions into 4 to 58 GW loads); None disables the cap
                      Every false state also satisfies the operating limits: each bus voltage
@@ -874,20 +750,12 @@ def generate_timeline(
                      may not be made worse) and every generator's implied output within its P and
                      Q limits widened to the range the pool ran it over; a state outside them is
                      halved; v_lo and v_hi record the widest bus limits of the case
-    am_direction     "induce" (the target line reads more loaded than it is), "mask" (it reads
-                     lighter, a real overload hidden, the engine's Al sign) or "both" (drawn per
-                     episode)
-    corrupt_len      episode length of Ad/As/Ar; 1 (default) makes every such frame an independent
-                     draw as in the papers, None draws a 5 to 24 frame episode
-    replay_tau       Ar replay depth in frames, None = random lag of at least 20
     redundancy       the meter plan, a dict of `MeterSettings` fields: coverage {vbus_frac, pmu_frac,
                      flow_frac}, default 0.6/0.2/0.9, and `meter_model`, what the meters measure (the
-                     plan's D10): "hybrid" (the default: a SCADA voltmeter reads |V| only, the angle
+                     plan's D10): "hybrid", a SCADA voltmeter reads |V| only, the angle
                      is a PMU channel, and every PMU reads the current phasor of each in-service
                      branch at its bus, stored as data/pmu_i with benign/pmu_i_benign and
-                     attack/pmu_i_tamper [WU26, eqs. 17-20]) or "v083" (the plan of data release
-                     v0.8.3: an angle at every voltmeter bus and no currents), e.g.
-                     redundancy={"meter_model": "v083"}
+                     attack/pmu_i_tamper [WU26, eqs. 17-20]
     split            chronological train/val/test fractions by frame, episodes never cut
     min_tamper       [WU26, eq. 12]: hold each At episode on the support (the buses the false state
                      moves) that tampers the fewest devices over the episode, a change under a
@@ -901,8 +769,7 @@ def generate_timeline(
                      rating is 1.25 times the branch's peak true flow over the pool (the plan's
                      D15). A dict of `OverloadSettings` fields asks for the overload attack with
                      other ratings: {"rating_margin": 1.5}, or {"rating_source": "pglib"} for the
-                     PGLib-OPF ratings (IEEE-14, 118 and 300 only: NoLineRatings elsewhere).
-                     "redistribution": the held load redistribution of data release v0.8.3
+                     PGLib-OPF ratings (IEEE-14, 118 and 300 only: NoLineRatings elsewhere)
     stealth_scale    a multiplier on At's stealth bound: each channel's attack step between
                      snapshots at most this many times the meters' rated accuracy (the plan's D7); 1
                      by default. Am has no such bound, as in [WU26]: its noise (0.03 pu SCADA, 0.01 pu
@@ -911,43 +778,29 @@ def generate_timeline(
     am_kind, ratings = OverloadSettings.of(am_attack)
     tk = TimelineKnobs(
         attacked_frac,
-        am_rate,
         hops,
-        am_direction,
         ramp_len,
         am_len,
-        corrupt_len,
         min_tamper,
         min_budget,
         am_kind,
         stealth_scale,
     )
-    fams = FamilySelection(families).codes
-    _warn_deprecated_families(fams)
+    fams = GeneratedFamilies(families).codes
     overload = ratings if AM_FAMILY in fams else None  # the overload attack's ratings when it runs
     g, meters = _generator(system, seed, max_load_mw, redundancy)
     red = meters.coverage
     currents = g.current_mask() is not None
-    lra_k = min(6, len(g.load_bus))
-    g._pick_lra_target(attack_intensity, lra_k, n_targets=15)
     X = _load_states(system, states)
     if round(attacked_frac * len(X)) > 0:  # a timeline placing no attacked frame needs no target
-        # the overload Am is not checked against the redistribution pool: its targets are the rated,
-        # metered lines of each window, decided per episode (a window with none stays benign)
-        AdmissibleTargets(
-            tuple(f for f in fams if not (overload is not None and f == AM_FAMILY)), g.target_counts()
-        )
+        # the overload Am is not checked here: its targets are the rated, metered lines of each
+        # window, decided per episode (a window with none stays benign)
+        AdmissibleTargets(tuple(f for f in fams if f != AM_FAMILY), g.target_counts())
         if overload is not None:  # the ratings, before any frame is walked (pglib: NoLineRatings early)
             g.use_line_ratings(overload, X)
     T, C = len(X), g.C
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26]
     knobs = FrameKnobs(
-        attack_intensity,
-        NOISE_FLOOR,
-        lra_k,
-        replay_tau,
-        False,
-        True,
         hops,
         limits,
         tk.min_tamper,
@@ -957,26 +810,18 @@ def generate_timeline(
         getattr(overload, "n_lines", 1),  # the lines an overload episode drives (D17)
         getattr(overload, "support_method", "search"),  # how its support is chosen
     )
-    ctx = _FrameContext(g, X, knobs, [])
-    am = (tk.am_frames, tk.am_rate, tk.am_direction)
-    plan = _Schedule.build(list(fams), tk.ramp_len, ramp_rate, am, tk.corrupt_len, tk.attacked_frac)
-    plan.am_overload = overload is not None
+    ctx = _FrameContext(g, X, knobs)
+    plan = _Schedule.build(list(fams), tk.ramp_len, ramp_rate, tk.am_frames, tk.attacked_frac)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = {
         Attr.TARGET_ATTACKED_FRAC: attacked_frac,
-        Attr.ATTACK_INTENSITY: attack_intensity,
         Attr.RAMP_RATE: ramp_rate,
         Attr.RAMP_LEN: ramp_len,
-        Attr.AM_LEN: am[0],
-        Attr.AM_RATE: am_rate,
-        Attr.AM_DIRECTION: am_direction,
+        Attr.AM_LEN: tk.am_frames,
         Attr.HOPS: hops,
         Attr.MAX_LOAD_MW: max_load_mw,
         Attr.V_LO: float(limits.v_lo.min()),
         Attr.V_HI: float(limits.v_hi.max()),
-        Attr.CORRUPT_LEN: corrupt_len,
-        Attr.REPLAY_TAU: replay_tau,
-        Attr.NOISE_FLOOR: NOISE_FLOOR,
         Attr.VBUS_FRAC: red["vbus_frac"],
         Attr.PMU_FRAC: red["pmu_frac"],
         Attr.FLOW_FRAC: red["flow_frac"],

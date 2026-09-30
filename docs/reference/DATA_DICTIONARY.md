@@ -85,7 +85,7 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 - Bus shunts are not branch properties and are not in this table: `ds.bus_shunt_g` / `ds.bus_shunt_b` in
   MW / MVAr at 1 pu (divide by `ds.baseMVA` for per-unit admittance). `ds.ybus` already includes them on
   the diagonal, together with the halved charging and the tap / shift handling.
-- In PyG format (`fg.load(..., format="pyg")` and `fg.pyg_stream`), `Data.edge_attr` is the `[E,2]` flows
+- In PyG format (`fg.load(..., format="pyg")`), `Data.edge_attr` is the `[E,2]` flows
   (also exposed as `Data.edge_x`) and this `[E,8]` table is `Data.edge_phys`. On the dataset object it is `ds.edge_attr`.
 
 ## Where the branch flows live, per format
@@ -93,7 +93,7 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 | you have | flows `[E,2]` | flow mask `[E,2]` | static line physics `[E,8]` |
 |---|---|---|---|
 | dict record `ds[i]` or a `ds.loader()` batch | `["edge_x"]` | `["edge_m"]` | `["edge_attr"]` |
-| PyG `Data` or `DataBatch` (`format="pyg"`, `fg.pyg_stream`) | `.edge_attr` or `.edge_x` | `.edge_mask` | `.edge_phys` |
+| PyG `Data` or `DataBatch` (`format="pyg"`) | `.edge_attr` or `.edge_x` | `.edge_mask` | `.edge_phys` |
 | `ds.export()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` | `ds.edge_attr` |
 | stream dict `fg.load_stream()` | `["edge_x"]` `[T,E,2]` | `["edge_m"]` | `["edge_attr"]` |
 
@@ -480,18 +480,4 @@ One block of per-bus localization metrics at the localizer's thresholds, the fed
 | `false_alarm` | `false_alarm` | float | yes | benign records flagged |
 | `detection_rate` | `detection_rate` | float | yes | attacked records flagged (every family) |
 | `by_family` | `by_family` | dict | yes | detection rate per attacked family present |
-
-### `LineCandidate` (`fdia_graph.models.assets`)
-
-One line of `line_outage_candidates`: its pandapower index and branch position, terminals, name, intact-case active flow, and, when rejected, the reason.
-
-| field | dict key | type | required | meaning |
-|---|---|---|---|---|
-| `line` | `line` | int | yes | pandapower line index (N-1 timeline generation is disabled; the engine keeps `outage`) |
-| `pos` | `pos` | int | yes | branch position in edge_index |
-| `from_bus` | `from_bus` | int | yes | from-end bus |
-| `to_bus` | `to_bus` | int | yes | to-end bus |
-| `name` | `name` | str | yes | line name from the case, or line<idx> |
-| `base_flow_mw` | `base_flow_mw` | float | yes | active flow in the intact case, MW |
-| `reason` | `reason` | str |  | why the line was rejected (islands the grid), rejected list only |
 <!-- models:end -->

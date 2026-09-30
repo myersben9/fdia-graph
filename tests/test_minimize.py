@@ -17,12 +17,12 @@ WINDOW = 6  # snapshots per test window: a ramp's loads move above their noise b
 def case():
     pytest.importorskip("pandapower")
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.generation import NOISE_FLOOR, _load_states
+    from fdia_graph.generation import _load_states
     from fdia_graph.models.frames import FrameKnobs
 
     g = FdiaGenerator(14, seed=1)
     X = _load_states(14, None)
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(X), True, 4096)
+    k = FrameKnobs(2, g.operating_limits(X), True, 4096)
     return g, X, k
 
 
@@ -108,13 +108,17 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
     expected = []
     for b in range(g.C):
         if scan.node_m[b, NODE.v]:
-            expected += [sig[b, NODE.v], sig[b, NODE.theta]]
+            expected.append(sig[b, NODE.v])
+        if scan.node_m[b, NODE.theta]:  # the hybrid meters: an angle at the PMU buses only
+            expected.append(sig[b, NODE.theta])
         if scan.node_m[b, NODE.p_inj]:
             expected += [sig[b, NODE.p_inj], sig[b, NODE.q_inj]]
     for e in range(g.E):
         if scan.edge_m[e, 0]:
             expected += [sig_f[e, 0], sig_f[e, 1]]
-    assert drawn == pytest.approx(expected, rel=0, abs=0)
+    # then the PMU branch-current channels, after the flows
+    assert drawn[: len(expected)] == pytest.approx(expected, rel=0, abs=0)
+    assert len(drawn) == len(expected) + int(scan.i_m.sum())
     # and the rule is the emitter's former one, relative power noise with the floor
     b = int(np.argmax(np.abs(X[0][:, NODE.p_inj])))
     assert sig[b, NODE.p_inj] == abs(X[0][b, NODE.p_inj]) * g.SDj["pi"] + 1e-3
@@ -236,13 +240,13 @@ def test_reweighted_l1_never_beats_the_search(case):
     assert compared >= 1, "the reweighted-l1 support should be feasible on at least one window"
 
 
-def test_new_generation_searches_and_the_v083_recipe_does_not():
+def test_new_generation_searches_by_default():
     """New generation holds every At episode on its fewest-tamper support (the plan's D2); the frame
-    knobs default off, so the v0.8.3 recipe (min_tamper=False) walks exactly as it did."""
+    knobs default off, so a walk with min_tamper=False holds the region within `hops`."""
     from fdia_graph.models.config import TimelineKnobs
     from fdia_graph.models.frames import FrameKnobs, RampDesign
 
-    assert FrameKnobs(0.2, 0.02, 6, None, False, True).min_tamper is False
+    assert FrameKnobs().min_tamper is False
     assert TimelineKnobs().min_tamper is True
     assert RampDesign(np.array([0]), 1.0, 1, 0).support is None
 
@@ -327,6 +331,9 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
         Xa, converged = g.goal_state(held, 0, states[0], area, k)
         assert converged and Xa is not None
-        before = g._attack_vector(Xa, states[0])  # the frame before carried the same step
+        # the frame before carried the same step, its branch currents included (hybrid meters)
+        from fdia_graph.models.frames import AttackVector
+
+        before = AttackVector(*g._attack_vector(Xa, states[0]), g._current_attack(Xa, states[0]))
         assert _Window(g, states, held, k).cost(area, None) is None
         assert _Window(g, states, held, k, prev=before).cost(area, None) is not None

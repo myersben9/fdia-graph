@@ -2,9 +2,9 @@
 
 Per-record timings on the tiny IEEE-14 timeline, appended by `python tools/bench.py`; `--check` fails when a timing is more than 3x slower than the last row. One machine's rows are comparable with each other, not with another machine's.
 
-From 0.18 the generate column is milliseconds per timeline frame of the test suite's tiny timeline (`frozen_spec.TIMELINE_KW`, 1000 frames, every family); earlier rows timed the record-shard writer per record and are not comparable to it.
+From 0.18 the generate column is milliseconds per timeline frame of the test suite's tiny timeline (`TIMELINE_KW` in `tests/conftest.py`, 1000 frames); earlier rows timed the record-shard writer per record and are not comparable to it.
 
-From 0.20 that timeline has one-frame Aq and Al episodes, and its seed moved with them (`frozen_spec.TIMELINE_KW`), so a later row's generate column times a different episode mix from the rows above it. The estimator columns are per record and stay comparable.
+From 0.20 that timeline has one-frame Aq and Al episodes, and its seed moved with them, so a later row's generate column times a different episode mix from the rows above it. From 0.21 it holds At and the overload Am only (seed 2, the search capped at 16 supports), a different mix again. The estimator columns are per record and stay comparable.
 
 | date | generate ms/record | wls ms/record | huber ms/record | prior+huber ms/record | version | machine |
 |---|---|---|---|---|---|---|

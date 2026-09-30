@@ -31,17 +31,3 @@ class DownloadTarget(NamedTuple):
 
     url: str
     headers: dict[str, str]
-
-
-@dataclass(frozen=True, eq=False)
-class LineCandidate(Bundle):
-    """One line of `line_outage_candidates`: its pandapower index and branch position, terminals,
-    name, intact-case active flow, and, when rejected, the reason."""
-
-    line: int  # pandapower line index (N-1 timeline generation is disabled; the engine keeps `outage`)
-    pos: int  # branch position in edge_index
-    from_bus: int  # from-end bus
-    to_bus: int  # to-end bus
-    name: str  # line name from the case, or line<idx>
-    base_flow_mw: float  # active flow in the intact case, MW
-    reason: Optional[str] = None  # why the line was rejected (islands the grid), rejected list only

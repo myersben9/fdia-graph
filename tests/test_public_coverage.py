@@ -13,30 +13,6 @@ from fdia_graph import registry
 # ---- the replay families' benign buffer ------------------------------------------------------------
 
 
-def test_replay_frame_follows_its_policy():
-    from fdia_graph.engine.records import REPLAY_MIN_LAG, replay_frame
-
-    rng = np.random.default_rng(0)
-    assert replay_frame([], None, rng) is None and replay_frame([], 5, rng) is None
-    buf = [np.full(2, i) for i in range(50)]
-    assert replay_frame(buf, 3, rng)[0] == 47  # a fixed lag: exactly that far back
-    assert replay_frame(buf, 500, rng)[0] == 0  # clamped to the oldest the buffer holds
-    lags = {50 - int(replay_frame(buf, None, rng)[0]) for _ in range(200)}
-    assert min(lags) >= REPLAY_MIN_LAG  # a random lag reaches at least the minimum back
-    assert replay_frame(buf[:REPLAY_MIN_LAG], None, rng)[0] == 0  # too shallow: the oldest
-
-
-def test_remember_benign_is_a_bounded_fifo():
-    from types import SimpleNamespace
-
-    from fdia_graph.engine.records import BENIGN_BUFFER, remember_benign
-
-    g = SimpleNamespace(benign_buf=[])
-    for i in range(BENIGN_BUFFER + 5):
-        remember_benign(g, np.array([i]))
-    assert len(g.benign_buf) == BENIGN_BUFFER and g.benign_buf[0][0] == 5
-
-
 # ---- kernels, checked by hand ------------------------------------------------------------------------
 
 

@@ -20,7 +20,7 @@ pytest.importorskip("pandapower")
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
 from fdia_graph.engine.attacks.overload import WU26_PMUS, WU26_SCENARIOS  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
-from fdia_graph.generation import NOISE_FLOOR, _load_states  # noqa: E402
+from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models import TrustSchedule  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
@@ -46,7 +46,7 @@ def _setup(scenario: int, margin: float) -> tuple:
     g.meters = g.meters._replace(pmu=set(g.wu26_buses(WU26_PMUS[14]).tolist()), flow=flow)
     window = list(X[:WINDOW])
     g.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(window))
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
+    k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
     return g, window, k, g.overload_goal(window, *lines)
 
 
@@ -216,7 +216,7 @@ def test_the_support_changes_at_a_slot_when_that_is_cheaper():
 
     A, B = np.array([1, 2]), np.array([3])
     window = _TableWindow({((1, 2), (1, 2)): (5, 9, 2), ((1, 2), (3,)): (3, 6, 3), ((3,), (3,)): (7, 12, 1)})
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
+    k = FrameKnobs()
     r = MinimizeMixin._per_slot_result(window, ((5, 9, 2), A), lambda: iter([A, B]), (1, 0, np.arange(4)), k)
     assert [S.tolist() for S in r.plan] == [[1, 2], [3]]
     assert r.support.tolist() == [1, 2, 3]
@@ -231,7 +231,7 @@ def test_a_plan_can_be_feasible_when_no_held_support_is():
     from fdia_graph.engine.attacks.minimize import MinimizeMixin
 
     A, B = np.array([1, 2]), np.array([3])
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
+    k = FrameKnobs()
     area = np.arange(4)
     alone = {(0, (1, 2), "start"): ((2, 4, 2), "A"), (1, (3,), "A"): ((3, 5, 1), "B")}
     window = _TableWindow({((1, 2), (3,)): (4, 7, 3)}, alone)
@@ -251,7 +251,7 @@ def test_a_segment_starts_from_where_the_one_before_ended():
     from fdia_graph.engine.attacks.minimize import MinimizeMixin
 
     A, B = np.array([1, 2]), np.array([3])
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
+    k = FrameKnobs()
     area = np.arange(4)
     ramp = {(0, (1, 2), "start"): ((2, 4, 2), "A"), (1, (3,), "A"): ((3, 5, 1), "B")}
     window = _TableWindow({((1, 2), (3,)): (4, 7, 3)}, ramp)

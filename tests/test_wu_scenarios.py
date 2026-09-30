@@ -15,7 +15,7 @@ pytest.importorskip("pandapower")
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
 from fdia_graph.engine.attacks.overload import WU26_ATTACK_AREA, WU26_PMUS, WU26_SCENARIOS  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
-from fdia_graph.generation import NOISE_FLOOR, _load_states  # noqa: E402
+from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import CURRENT, NODE  # noqa: E402
@@ -46,7 +46,7 @@ def _scenario(system: int, scenario: tuple) -> tuple:
     g.meters = g.meters._replace(pmu=set(g.wu26_buses(WU26_PMUS[system]).tolist()), flow=flow)
     window = list(X[:WINDOW])
     g.use_line_ratings(OverloadSettings(rating_margin=MARGIN), np.stack(window))
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
+    k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
     goal = g.overload_goal(window, *lines)
     return g, window, k, goal, g.min_tamper(window, goal, k)
 
