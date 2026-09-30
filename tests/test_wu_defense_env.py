@@ -158,3 +158,11 @@ def test_the_state_reads_only_metered_channels(env):
     node = obs[: N * 4].reshape(N, 4)
     edge = obs[N * 4 : N * 4 + E * 2].reshape(E, 2)
     assert not node[env.window.node_m == 0].any() and not edge[env.window.edge_m == 0].any()
+
+
+@pytest.mark.parametrize("slots", [[-1], [1.5], [3]])
+def test_window_slots_are_whole_indices_in_the_window(slots):
+    from fdia_graph.models import WindowSlots
+
+    with pytest.raises(ConfigError):
+        WindowSlots(slots, 3)

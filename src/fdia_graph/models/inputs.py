@@ -720,9 +720,11 @@ class WindowSlots(Validated):
     snapshots: Annotated[int, Integer(), AtLeast(1)]  # the window's length
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
+        slots = np.asarray(self.slots)
+        whole = slots.size == 0 or (np.issubdtype(slots.dtype, np.integer) and bool((slots >= 0).all()))
         yield (
-            all(int(s) < self.snapshots for s in self.slots),
-            f"slots must fall in the window of {self.snapshots} snapshots, got {self.slots!r}",
+            whole and bool((slots < self.snapshots).all()),
+            f"slots must be snapshot indices in the window of {self.snapshots} snapshots, got {self.slots!r}",
         )
 
 
