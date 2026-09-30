@@ -1588,7 +1588,8 @@
 <p><strong>Status: accepted 2026-09-29, with these changes: k = 1.2 default (k = 1.1 only for Table II), 1-minute snapshots, the DQN state and hyperparameters as stated in Fig. 1 and Sec. V, parallel harness. PR A in progress.</strong>
 - E1 is now fixed by the paper: <code>Δx_t</code> is the state deviation, and trust is cumulative from its slot.
 - E2, E3 and E13-E15 were added or revised on the faithful re-prototype (section 3).
-- The other decisions are open (section 7).</p>
+- The other decisions are open (section 7).
+- PR A (#168) and the row-reduction attack (#169) are merged; PR B is <code>trust.WuDefenseEnv</code>.</p>
 <p>[WU26] defends against its multi-snapshot attack by making a few PMUs trusted (encrypted, so they cannot be
 tampered with), one PMU per attack snapshot. It chooses them with two solvers:
 - Solution 1, a row-transformation heuristic;
