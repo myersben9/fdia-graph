@@ -87,7 +87,10 @@ def test_a_v072_record_shard_scores_per_family():
     ds = FdiaGraph(SHARD_V072)
     rep = WLS().fit(ds).score(ds)
     assert rep["benign"] is not None and rep["geo"].angle_mae_deg > 0
-    assert _family_names(ds) <= OLD_FAMILIES
+    present = _family_names(ds)
+    assert present <= OLD_FAMILIES and {"Aq", "Ad", "As", "Ar", "At", "Al"} <= present
+    for name in present:  # every attacked family of the shard is scored
+        assert rep[name] is not None and rep[name].angle_mae_deg >= 0
 
 
 def test_a_v071_stream_file_loads_and_windows(monkeypatch):

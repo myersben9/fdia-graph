@@ -126,7 +126,7 @@ def main(check: bool) -> int:
             "`--check` fails when a timing is more than 3x slower than the last row of the same machine and "
             "fixture recipe.\n\n" + table
         )
-    elif not any(row.get("recipe") == RECIPE for row in _rows(text)):  # a new recipe: a new table
+    elif (_rows(text) or [{}])[-1].get("recipe") != RECIPE:  # the last table is another recipe's
         text = text.rstrip("\n") + f"\n\n## Recipe `{RECIPE}`\n\n" + table
     row = [dt.date.today().isoformat(), *(f"{v:.3f}" for v in t.values()), fg.__version__, machine, RECIPE]
     text = text.rstrip("\n") + "\n| " + " | ".join(row) + " |\n"

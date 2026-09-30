@@ -64,11 +64,12 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 - At and Am are local false states: the buses around the attack are re-solved with the boundary
   voltages held true, inside the case's voltage limits and the region's generator limits, and the
   attack vector `h(x') − h(x)` is added to the benign scan. The residual test flags them at the
-  benign rate by construction. They satisfy equations (13)-(25) of [WU26] (the SCADA measurements,
-  the PMU voltage magnitudes, angles and branch currents, the operating limits and the line-overload
-  goal) and its objective, eq. (12): each episode is held on the support that tampers the fewest
-  devices, and `Am` drives a line's reported flow to its rating (by default 1.25 times its peak pool
-  flow, D15; `docs/plans/WU_MSFDIA_PLAN.md`). The single-snapshot families of older releases (`Aq`,
+  benign rate by construction. Both satisfy equations (13)-(23) of [WU26] (the SCADA measurements,
+  the PMU voltage magnitudes, angles and branch currents, and the operating limits). `Am` also
+  drives a line's reported flow to its rating, eqs. (24)-(25) (by default 1.25 times its peak pool
+  flow, D15), on the support that tampers the fewest devices, eq. (12); `At` is held on that
+  support when `min_tamper=True` (the default), else on the region within `hops`
+  (`docs/plans/WU_MSFDIA_PLAN.md`). The single-snapshot families of older releases (`Aq`,
   `Al`, and the in-place `Ad`, `As`, `Ar`) are read-only: fdia-graph 0.20 generates them.
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,
