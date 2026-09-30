@@ -26,12 +26,14 @@ from .defense import WuDefenseEnv
 from .dqn import TrustedMetersDQN
 from .secured import secured_copy
 from .solution1 import TrustedPMUs
+from .wu_dqn import TrustedPMUsDQN
 
 __all__ = [
     "TrustSelector",
     "TrustedMeters",
     "TrustedMetersDQN",
     "TrustedPMUs",
+    "TrustedPMUsDQN",
     "WuDefenseEnv",
     "secured_copy",
 ]
