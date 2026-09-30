@@ -309,7 +309,7 @@ def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
 
     window = [pool[u] for u in range(3)]
     line = int(g.eligible_lines(window, 2)[0])
-    w = _Window(g, window, g.overload_goal(window, line), FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True))
+    w = _Window(g, window, g.overload_goal(window, line), FrameKnobs())
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
     assert not w.node_m[~pmu, NODE.theta].any()
