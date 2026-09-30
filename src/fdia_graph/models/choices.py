@@ -185,6 +185,16 @@ class AmAttack(Choice):
     REDISTRIBUTION = "redistribution"
 
 
+class SupportMethod(Choice):
+    """How the overload attack picks the buses its false state moves [WU26, eq. 12]: the fewest-tamper
+    search over the area's supports (`MinimizeMixin.min_tamper`), or the paper's row reduction of the
+    transposed attack-area Jacobian with column exchanges (`RrefMixin.rref_support`, Sec. IV-D1 after
+    [YAN17])."""
+
+    SEARCH = "search"
+    RREF = "rref"
+
+
 class RatingSource(Choice):
     """Where the overload attack's line ratings S_max come from (the plan's D15): each branch's peak
     true flow over the operating pool times a margin (every system), or PGLib-OPF's `rate_a`

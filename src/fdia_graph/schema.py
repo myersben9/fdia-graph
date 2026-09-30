@@ -181,6 +181,7 @@ class Attr:
     RATING_MARGIN = "rating_margin"
     LOAD_CAP = "load_cap"  # the overload attack's load-plausibility cap (D16)
     N_LINES = "n_lines"  # the lines one overload episode drives at once (D17)
+    SUPPORT_METHOD = "support_method"  # how the overload attack chose its supports: "search" or "rref"
     METER_MODEL = "meter_model"  # written on a hybrid-meter file only (the plan's D10)
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"

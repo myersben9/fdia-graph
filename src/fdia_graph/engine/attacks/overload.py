@@ -37,7 +37,7 @@ from ...models.errors import NoLineRatings
 from ...models.frames import AmOverloadDesign, AttackVector, FlowGoal, Frame, FrameKnobs
 from ...models.grid import NODE
 from ...ratings import pglib_branches
-from .minimize import MinimizeMixin
+from .rref import RrefMixin
 
 # How many target sets (one line, or two, D17) an Am episode tries, drawn from one random order of the
 # eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
@@ -102,7 +102,7 @@ def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
     return tuple(float(x) for x in true + share * (rating - true[-1]))
 
 
-class OverloadMixin(MinimizeMixin):
+class OverloadMixin(RrefMixin):
     """Design and step the overload attack of [WU26] on a rated, metered target branch."""
 
     def use_line_ratings(self, settings: OverloadSettings, X: np.ndarray) -> None:

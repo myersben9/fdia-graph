@@ -787,6 +787,7 @@ def _search_attrs(
                 Attr.RATING_MARGIN: overload.rating_margin,
                 Attr.LOAD_CAP: overload.load_cap,
                 Attr.N_LINES: overload.n_lines,
+                Attr.SUPPORT_METHOD: overload.support_method,
             }
         )
     if tk.min_tamper or overload is not None:
@@ -954,6 +955,7 @@ def generate_timeline(
         tk.stealth_scale,
         getattr(overload, "load_cap", None),  # the overload attack's cap; none without it
         getattr(overload, "n_lines", 1),  # the lines an overload episode drives (D17)
+        getattr(overload, "support_method", "search"),  # how its support is chosen
     )
     ctx = _FrameContext(g, X, knobs, [])
     am = (tk.am_frames, tk.am_rate, tk.am_direction)
