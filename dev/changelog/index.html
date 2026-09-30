@@ -1679,6 +1679,29 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p>[WU26]'s trusted-PMU defense as a constraint on the fewest-tamper search (docs/plans/WU_DEFENSE_PLAN.md,
+  PR A): <code>min_tamper(..., trust=TrustSchedule(buses, slots))</code>. A PMU trusted at slot s keeps its bus's
+  |V| and angle true at every snapshot t &gt;= s (eqs. 26-32: the deviation is zero on its two secure rows,
+  and trust accumulates, eqs. 30-31); its branch currents stay untrusted, as eq. (27) leaves them in the
+  nonsecure set. With <code>per_slot</code> (the default) the attack's support may change at each slot, since eq.
+  (28) takes each snapshot's deviation on its own (the plan's E13): a search one segment at a time from
+  the held support, with the other segments fixed, and <code>MinimizerResult.plan</code> carries the support of each
+  segment. New model <code>TrustSchedule</code> (validated: one slot per bus, each PMU once, non-negative indices).
+  Without a schedule the search and its answers are unchanged. Measured on [WU26]'s IEEE-14 scenarios,
+  20 pool frames, the PMUs trusted at the paper's snapshots 2, 4, 6 and 8, ratings k times each target
+  line's peak flow: at k = 1.1 the attack survives with 5 to 6 devices and 8 to 11 channels (lines 3-4
+  and 6-11) and 7 to 9 devices and 23 to 28 channels (lines 1-2 and 4-5), +20% and +29% in devices and
+  +38% and +22% in channels against the paper's Table II 24% to 35%; at k = 1.2 no candidate reaches
+  both ratings with the four PMUs trusted, held or with a support per segment. When no held support is
+  feasible, the per-slot search seeds a plan with each segment's own cheapest support before calling
+  the window infeasible (<code>_segment_seed</code>); on these scenarios no segment after the last slot has one.
+  Segments are seeded in order, each from the attack vector its predecessor leaves, so an <code>At</code> window's
+  stealth bound measures a segment's first step from where the previous one ended; the seed is greedy
+  (a None from it is not a proof), and every plan the per-slot search returns is checked over the whole
+  window.
+  Per slot and held give the same answer, and so do the paper's trust order and the swapped one.</p>
+</li>
+<li>
 <p>Development only, no user-visible change: the test suite runs in parallel. pytest-xdist joins the
   <code>test</code> and <code>dev</code> extras, CI runs the three suites with <code>-n auto</code>, and <code>tools/prereview.py</code> does so
   (at most 8 workers) when the interpreter has it. The test extra's pip cache is kept between CI runs,

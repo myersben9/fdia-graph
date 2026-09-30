@@ -1,0 +1,2414 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/plans/WU_DEFENSE_PLAN/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Plan: [WU26]'s trusted-PMU defense as the paper defines it - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#plan-wu26s-trusted-pmu-defense-as-the-paper-defines-it" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Plan: [WU26]'s trusted-PMU defense as the paper defines it
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/generation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeline generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/GLOSSARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture (UML diagrams)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/FORMULAS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REVIEW_CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REFERENCE_STUDY_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference study
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ONE_DATASET_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    One dataset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../VALIDATION_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_MODELS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FIELD_GROUPS_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Field groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../READABILITY_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Readability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../RESTRUCTURE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Restructure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-the-paper-states" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What the paper states
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. What the paper states">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-the-trusted-pmu-and-the-secure-set-sec-iv-a-to-iv-c-pp-655-656" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 The trusted PMU and the secure set (Sec. IV-A to IV-C, pp. 655-656)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-solution-1-row-transformation-sec-iv-d1-pp-656-657" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Solution 1: row transformation (Sec. IV-D1, pp. 656-657)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-solution-2-the-mdp-and-the-dqn-sec-iv-d2-pp-657-658-sec-v-p-658-appendix-p-663" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Solution 2: the MDP and the DQN (Sec. IV-D2, pp. 657-658; Sec. V, p. 658; Appendix, p. 663)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#14-the-case-studies-and-every-number-sec-v-pp-658-663" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.4 The case studies and every number (Sec. V, pp. 658-663)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-our-implementation-against-the-paper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Our implementation against the paper
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-the-attackers-cost-with-trusted-pmus-the-minimizer-as-the-reward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The attacker's cost with trusted PMUs: the minimizer as the reward
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-what-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. What changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-reproduction-harness-docswu26-generated-csv-sidecars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The reproduction harness (docs/wu26/, generated, CSV sidecars)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Sequence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-compute-estimate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Compute estimate
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="plan-wu26s-trusted-pmu-defense-as-the-paper-defines-it">Plan: [WU26]'s trusted-PMU defense as the paper defines it<a class="headerlink" href="#plan-wu26s-trusted-pmu-defense-as-the-paper-defines-it" title="Permanent link">&para;</a></h1>
+<p><strong>Status: accepted 2026-09-29, with these changes: k = 1.2 default (k = 1.1 only for Table II), 1-minute snapshots, the DQN state and hyperparameters as stated in Fig. 1 and Sec. V, parallel harness. PR A in progress.</strong>
+- E1 is now fixed by the paper: <code>Δx_t</code> is the state deviation, and trust is cumulative from its slot.
+- E2, E3 and E13-E15 were added or revised on the faithful re-prototype (section 3).
+- The other decisions are open (section 7).</p>
+<p>[WU26] defends against its multi-snapshot attack by making a few PMUs trusted (encrypted, so they cannot be
+tampered with), one PMU per attack snapshot. It chooses them with two solvers:
+- Solution 1, a row-transformation heuristic;
+- Solution 2, a DQN over an MDP whose reward is the rise in the attacker's eq. (12)/(28) cost.</p>
+<p>Our <code>fdia_graph.trust</code> implements something related but different: it secures meters rather than
+PMUs, on a single-snapshot linear attack cost, statically. This plan does three things:
+- extracts everything the paper states about the defense (section 1);
+- tabulates where our code differs (section 2);
+- proposes how to follow the paper so that its tables and figures can be regenerated and compared
+  (sections 3 to 6).</p>
+<p>Anything the paper does not state is marked UNSTATED, and every choice we make in its place is
+labelled ours.</p>
+<p>Source: S. Wu et al., IEEE Trans. Smart Grid 17(1), Jan. 2026, pp. 651-665. Page numbers are the
+journal's.</p>
+<h2 id="1-what-the-paper-states">1. What the paper states<a class="headerlink" href="#1-what-the-paper-states" title="Permanent link">&para;</a></h2>
+<h3 id="11-the-trusted-pmu-and-the-secure-set-sec-iv-a-to-iv-c-pp-655-656">1.1 The trusted PMU and the secure set (Sec. IV-A to IV-C, pp. 655-656)<a class="headerlink" href="#11-the-trusted-pmu-and-the-secure-set-sec-iv-a-to-iv-c-pp-655-656" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>What trusted means.</strong> A trusted PMU cannot be tampered with (p. 655, and Sec. V, p. 658: "all
+  configured PMUs ... can be converted into trusted PMUs through dynamic encryption ... thereby
+  preventing tampering").</li>
+<li><strong>The secure set.</strong> The secure set <code>h^S</code> holds the trusted PMUs' data: "voltage, phase angle, and
+  branch current measurements, which are processed through the branch measurement conversion method
+  to estimate neighboring node voltages" (p. 655). <code>h^S'</code> holds the non-trusted PMUs and all SCADA
+  (eqs. 26-27). In eq. (27), <code>h^S</code> is the PMU voltage rows <code>-[H_P3 0; 0 H_P4]</code>: angle and
+  <code>V^-1 dV</code> of the secured PMU nodes. Adopted (E2): a trusted PMU pins those two rows, its own |V| and
+  θ, and its branch currents stay untrusted; the p. 655 reading, in which the currents also pin the
+  converted voltages of its neighbours, is run as a sensitivity.</li>
+<li><strong>What Δx_t is.</strong> Eq. (26), p. 655, is the SE linearization
+  <code>[ΔP; ΔQ; (Δδ_PMU)_S'; (V^-1 ΔV_PMU)_S'; (Δδ_PMU)_S; (V^-1 ΔV_PMU)_S] = -H [Δδ; ΔV/V]</code>. So
+  <code>Δx_t = [Δδ_t; ΔV_t/V_t]</code>. Eqs. (17)-(18) (<code>V_i,t + ΔV^a_i,t = V^a_i,t</code>,
+  <code>δ_i,t + Δδ^a_i,t = δ^a_i,t</code>) and the nomenclature (p. 651) make it the attack's state deviation
+  <code>x^a_t - x_t</code> at snapshot t. It is not an increment between snapshots.</li>
+<li><strong>The attack with a defense in place,</strong> eqs. (28)-(32):</li>
+<li>(28) <code>min || sum_{t=κ}^{κ+T} h^S'_t Δx_t ||_0</code>: the l0 norm of the attack over the window, with
+    the sum inside the norm, as the Algorithm 1 image on p. 658 also shows.</li>
+<li>(29) <code>h^S_t Δx_t = 0</code>: the secure rows are untouched exactly at snapshot t, with no noise
+    threshold.</li>
+<li>(30) <code>h^S'_t = h_{t-1} - h^S_t</code> and (31) <code>h^S_t = h^S_{t-1} + Δh^S_t</code>: trust accumulates. At
+    snapshot t, every PMU trusted at or before t is pinned, and a PMU trusted later is still
+    tamperable at t.</li>
+<li>(32) <code>Δh^S_t = -[∂z^S_t/∂δ 0; 0 ∂z^S_t/∂(ΔV/V)]</code>: the new trusted PMU's rows, one angle row and
+    one magnitude row.</li>
+<li>The other constraints are (13)-(25), unchanged.</li>
+<li><strong>What a trusted PMU pins.</strong> The paper supports two readings:</li>
+<li>Eq. (27) is <code>h^S = -[H_P3 0; 0 H_P4]</code>, the <code>(Δδ_PMU)_S</code> and <code>(V^-1 ΔV_PMU)_S</code> rows only.</li>
+<li>p. 656 says, verbatim, "In the n-th time period, the rank of hS becomes 2n × 2."</li>
+<li>p. 655 says, verbatim, the elements of <code>h^S</code> are "voltage, phase angle, and branch current
+    measurements, which are processed through the branch measurement conversion method to estimate
+    neighboring node voltages".</li>
+<li>Eq. (27), eq. (32) and the rank statement read as two rows per trusted PMU: its own |V| and θ.
+    The p. 655 sentence reads as its currents also pinning the converted voltages of its neighbours.
+    See E2.</li>
+<li><strong>Defense objective,</strong> eq. (33): <code>max_S ( min ||Σ h^S'_t Δx_t||_0 - min ||Σ (z^a_t - h_A(x^a_t))||_0 )</code>.
+  That is the rise in the attacker's minimum l0 cost, counted in measurements (rows of <code>h^S'</code>), that
+  the trusted schedule buys against the undefended eq. (12) cost. It is the reward (p. 657) and the
+  unit of "attack cost increasing" in Table II and Fig. 12.</li>
+<li><strong>Security level.</strong> Configuration continues "until <code>h^S</code> is of full rank" (p. 656). In the
+  experiments the budget is the PMU count: 4 on IEEE-14, 11 on IEEE-118.</li>
+<li><strong>Cost unit.</strong> Eq. (33) is an l0 count over measurements, so the % is over channels. The results
+  report extra devices alongside it ("extra-tampered SCADA", Table II; the histogram in Fig. 12).
+  Table II's % cannot be devices. With his own counts:</li>
+<li>Scenario 1: 7 devices plus 3 extra is +42.9%, where he reports 25.6% and 23.9%.</li>
+<li>Scenario 2, Solution 1: 9 plus 5 is +55.6%, where he reports 35.2%.</li>
+<li>Scenario 2, Solution 2: 9 plus 3 is +33.3%, where he reports 27.0%.</li>
+</ul>
+<p>This is consistent with channels, but his channel counts are not given, so it cannot be checked
+  exactly.
+- <strong>The goal over the window,</strong> eqs. (24)-(25):
+  - (24) <code>sqrt((P_l,t+ΔP)^2 + (Q_l,t+ΔQ)^2) = S_l,t-1 + ΔS_l,t</code> defines the reported flow snapshot
+    by snapshot.
+  - (25) <code>S_l,κ + Σ_{t=κ+1}^{κ+T} ΔS_l,t ≥ S^max_l</code> requires only the accumulated flow at the
+    window's end to reach the rating.
+  - No per-snapshot path is required. Our linear ramp to the rating (D9) is ours.
+  - On IEEE-14 all four PMUs are trusted by snapshot 8 of 20, so the overload must be reached with
+    all four pinned.
+- <strong>Noise exclusion.</strong> Sub-noise tampering is excluded from the l0 count (p. 659), as in our D8/D11.</p>
+<h3 id="12-solution-1-row-transformation-sec-iv-d1-pp-656-657">1.2 Solution 1: row transformation (Sec. IV-D1, pp. 656-657)<a class="headerlink" href="#12-solution-1-row-transformation-sec-iv-d1-pp-656-657" title="Permanent link">&para;</a></h3>
+<p>Per dynamic attack interval:
+1. Compute the Jacobian <code>h</code> and transform it to a full-row-rank <code>h_T</code>.
+2. Reduce <code>h_T</code> to RREF by row swap, scaling and row addition.
+3. Find the RREF row with the fewest nonzeros. Move its nonzeros to the end by column exchanges,
+   keeping a tracking matrix of the exchanges.
+4. Repeat 2 and 3 until that row and its nonzero count stop changing.
+5. Multiply the sparsest row by the inverse of the tracking matrix. The result is the approximate
+   sparsest attack.
+6. Secure the PMUs of that attack's measurements (add them to <code>h^S</code>), and repeat on <code>h^S'</code> "until the
+   desired security level".</p>
+<p>The text uses the transpose of <code>h</code> [25] (p. 655). "Mathematical optimization" and "determinant
+transformation" are named in the results (pp. 660, 663), but no formula is given for them: UNSTATED.
+Step 5 secures "the PMUs corresponding to these measurements" (p. 657), so every PMU on the sparsest attack's support; with one configuration per slot in the case studies, which of several goes first is UNSTATED.</p>
+<h3 id="13-solution-2-the-mdp-and-the-dqn-sec-iv-d2-pp-657-658-sec-v-p-658-appendix-p-663">1.3 Solution 2: the MDP and the DQN (Sec. IV-D2, pp. 657-658; Sec. V, p. 658; Appendix, p. 663)<a class="headerlink" href="#13-solution-2-the-mdp-and-the-dqn-sec-iv-d2-pp-657-658-sec-v-p-658-appendix-p-663" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>item</th>
+<th>stated value</th>
+<th>where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MDP</td>
+<td>tuple (O, U, P, R, γ)</td>
+<td>p. 657</td>
+</tr>
+<tr>
+<td>state O_t</td>
+<td>STATED in Fig. 1: the measurements (P_i,t, Q_i,t, P_ij,t, Q_ij,t, V_i,t, θ_i,t), the load rate of the target line S_ij, and the PMU/trusted-PMU configuration on the graph ("different states of the measurement matrix, varied h^S and h^S'"); only its tensor layout is not given</td>
+<td>p. 657, Fig. 1</td>
+</tr>
+<tr>
+<td>action U_t</td>
+<td>"selects one PMU per step for the trusted configuration"</td>
+<td>p. 657</td>
+</tr>
+<tr>
+<td>transition</td>
+<td>P(O_t+1 | O_t, U_t), no model given; the loop "iterates over time snapshots"</td>
+<td>p. 657</td>
+</tr>
+<tr>
+<td>reward R</td>
+<td>"the increase in attack cost before and after adding trusted PMUs", i.e. eq. (33) per step</td>
+<td>p. 657</td>
+</tr>
+<tr>
+<td>episode</td>
+<td>Algorithm 1: for each iteration, initialize the state and generate attack vectors, then run steps t = 1..K. Break when defended cost &lt; undefended cost (line 8, verbatim; see E6), otherwise store the reward</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>policy</td>
+<td>u_t = argmax_u Q_θ(o_t, u) (34), (38); ε-greedy exploration</td>
+<td>pp. 657-658</td>
+</tr>
+<tr>
+<td>loss</td>
+<td>MSE to target (35); target y = r + γ max Q_θ'(o', u') (36); gradient step (37)</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>replay</td>
+<td>experience replay, buffer D; Algorithm 1 line 15 "Select the smallest buffer sample from replay buffer D" (read as minibatch sampling)</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>target net</td>
+<td>updated "every 20 iterations" (Alg. 1 lines 17-18: "if t mod d")</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>framework</td>
+<td>TensorFlow 2.5, Adam</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>γ</td>
+<td>0.9 (sensitivity range 0.85-0.98 reasoned in the Appendix)</td>
+<td>pp. 658, 663</td>
+</tr>
+<tr>
+<td>learning rate η</td>
+<td>0.005, chosen from {0.0005, 0.001, 0.005, 0.01} by Fig. 13</td>
+<td>pp. 658, 663</td>
+</tr>
+<tr>
+<td>buffer |D|</td>
+<td>2,500</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>minibatch |B|</td>
+<td>25</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>exploration</td>
+<td>ε = e^(-0.002·ep)</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>episodes</td>
+<td>about 250 (Fig. 13's x axis)</td>
+<td>p. 663</td>
+</tr>
+<tr>
+<td>network architecture</td>
+<td>UNSTATED: Fig. 1 draws a fully connected net but gives no sizes or activations</td>
+<td>Fig. 1</td>
+</tr>
+<tr>
+<td>offline/online</td>
+<td>trained offline on "dynamic grid scenarios", then deployed to new scenarios (Fig. 2)</td>
+<td>p. 658</td>
+</tr>
+<tr>
+<td>"100 tests"</td>
+<td>14-bus: the time distributions (Figs. 5, 8). 118-bus: "each training session via Solution 2 is not identical", so the 100 tests are 100 training sessions (Figs. 11-12)</td>
+<td>pp. 659, 662</td>
+</tr>
+</tbody>
+</table>
+<h3 id="14-the-case-studies-and-every-number-sec-v-pp-658-663">1.4 The case studies and every number (Sec. V, pp. 658-663)<a class="headerlink" href="#14-the-case-studies-and-every-number-sec-v-pp-658-663" title="Permanent link">&para;</a></h3>
+<p><strong>Setup.</strong>
+- SE runs every 5 min, and attack snapshots are 30 s apart (p. 658).
+- IEEE-14:
+  - "10 minutes of power flow", i.e. 20 attack intervals (Fig. 4, p. 659);
+  - PMUs at 1, 4, 6, 13;
+  - loads scaled by U[0.9, 1] with per-load N(0, 0.03);
+  - noise 0.03 pu SCADA and 0.01 pu PMU.
+- IEEE-118:
+  - "a 10-minute interval";
+  - Fig. 10 numbers 10 configurations and Fig. 11 shows 10 snapshots, although 30 s snapshots over
+    10 min would give 20 (UNSTATED which);
+  - 11 PMUs: 76, 78, 80, 83, 89, 92, 94, 100, 105, 106, 110 (Fig. 9, Fig. 11 axis);
+  - one trusted PMU per snapshot (p. 662).
+- IEEE-14 trusted schedule: "one trusted PMU configuration operation at snapshots 2, 4, 6, and 8"
+  (p. 659).</p>
+<p><strong>Results.</strong></p>
+<table>
+<thead>
+<tr>
+<th>item</th>
+<th>value</th>
+<th>where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>attack, S1 lines 3-4 &amp; 6-11</td>
+<td>SCADA 3,4,5,6,11 + PMU 4,6 (7 devices), max 0.22 pu</td>
+<td>p. 659, Fig. 4</td>
+</tr>
+<tr>
+<td>attack, S2 lines 1-2 &amp; 4-5</td>
+<td>SCADA 1,2,3,4,5,9 + PMU 1,4,6 (9 devices), max 0.17 pu</td>
+<td>p. 659, Fig. 4</td>
+</tr>
+<tr>
+<td>attack time 14-bus</td>
+<td>S1 3.8 s mean (1.1-5.3); S2 4.6 s (1.2-7.5); 100 tests per snapshot</td>
+<td>p. 659, Fig. 5</td>
+</tr>
+<tr>
+<td>trusted sequence 14-bus (both solutions)</td>
+<td>S1: 1→4→6→13; S2: 4→6→1→13</td>
+<td>p. 660, Fig. 6</td>
+</tr>
+<tr>
+<td>attack after defense</td>
+<td>per-device boxplots over the 20 intervals; PMU channels still tampered before each is trusted</td>
+<td>Fig. 7</td>
+</tr>
+<tr>
+<td>Table II extra SCADA</td>
+<td>S1: Sol 1 {1,9,13}, Sol 2 {1,9,13}; S2: Sol 1 {7,11,12,13,14}, Sol 2 {7,13,14}</td>
+<td>p. 660</td>
+</tr>
+<tr>
+<td>Table II cost increase</td>
+<td>S1: Sol 1 25.6%, Sol 2 23.9%; S2: Sol 1 35.2%, Sol 2 27.0%</td>
+<td>p. 660</td>
+</tr>
+<tr>
+<td>defense time 14-bus</td>
+<td>S1: Sol 1 7.5 s (4.1-9.9), Sol 2 5.8 s (2.5-10.1); S2: Sol 1 7.3 s (2.4-12.7), Sol 2 6.3 s (2.3-10.5)</td>
+<td>p. 660, Fig. 8</td>
+</tr>
+<tr>
+<td>Table III (detection method: detection rate / second column / extra time)</td>
+<td>residual WLS, no PMU support: 37.4 / 22.1 / none; matrix-based: 88.6 / 7.1 / 7.4 s; DRL-based: 94.2 / 4.6 / 6.1 s. Both columns are headed "Detection rate (%)"; the second is read as the false-positive rate. The detector that uses the trusted PMUs is UNSTATED</td>
+<td>p. 661</td>
+</tr>
+<tr>
+<td>Table IV attack solve time 118</td>
+<td>single snapshot 1.1 s (0.8-2.2); MS 6.2 s (4.7-8.0)</td>
+<td>p. 661</td>
+</tr>
+<tr>
+<td>Table V attack effect 118</td>
+<td>single: SCADA 75,83,84,85,89,92,99,100,104,107,110 and PMU 83,89,92,94,100,105,110; DR 92.3%, FPR 11.9%. MS: SCADA 84,85,89,94,99,100,101,103,105 and PMU 83,89,100,105,106,110; DR 21.6%, FPR 37.6%</td>
+<td>p. 661</td>
+</tr>
+<tr>
+<td>Fig. 10 sequence 118 (Sol 1)</td>
+<td>read from the figure: 100 → 83 → 80 → 94 → 89 → 92 → 105 → 110 → 106 → 78. The labels at 92/94 (steps 4 and 6) are hard to separate; 76 is never chosen</td>
+<td>p. 661</td>
+</tr>
+<tr>
+<td>Fig. 11 selection probability 118 (Sol 2, 100 tests)</td>
+<td>snapshot 1: diffuse (100 ≈ 0.2, 83 ≈ 0.15). Snapshots 2-3: 80, 83, 100 at 0.25-0.28. Snapshots 4-6: 89, 92, 94 ≈ 0.22. Snapshots 7-8: 105, 110 ≈ 0.30. Snapshots 9-10: 76, 78 ≈ 0.30 and 106 ≈ 0.27</td>
+<td>p. 661</td>
+</tr>
+<tr>
+<td>Fig. 12 118 (Sol 2, 100 tests)</td>
+<td>cost increase mean 16.4%, most 10-20%. Extra devices histogram, read from the figure: 0: ~3, 1: ~9, 2: ~21, 3: ~38, 4: ~24, 5: ~7; median 3 ("3-5 additional")</td>
+<td>p. 662</td>
+</tr>
+<tr>
+<td>defense time 118</td>
+<td>Sol 1 16.5 s (11.3-22.4); Sol 2 8.7 s (6.9-13.6); Sol 2 47.3% faster</td>
+<td>p. 662</td>
+</tr>
+<tr>
+<td>Table VI mean time</td>
+<td>matrix: 1354-bus 43.9 s, 118-bus 16.5 s, 14-bus 7.4 s; DRL: 11.4, 8.7, 6.1 s</td>
+<td>p. 662</td>
+</tr>
+<tr>
+<td>Table VII</td>
+<td>qualitative comparison</td>
+<td>p. 663</td>
+</tr>
+<tr>
+<td>Fig. 13</td>
+<td>reward vs episode (0-250) for 4 learning rates; 0.005 converges to about 4.7</td>
+<td>p. 663</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-our-implementation-against-the-paper">2. Our implementation against the paper<a class="headerlink" href="#2-our-implementation-against-the-paper" title="Permanent link">&para;</a></h2>
+<p>State of <code>origin/main</code> at df53f90:
+- <code>trust/base.py</code>: <code>TrustSelector</code>, <code>TrustedMeters</code>;
+- <code>trust/dqn.py</code>: <code>TrustedMetersDQN</code>;
+- <code>formulas/trust.py</code>: <code>attack_cost</code>, <code>greedy_trusted_meters</code>;
+- <code>trust/secured.py</code>.</p>
+<table>
+<thead>
+<tr>
+<th>aspect</th>
+<th>[WU26]</th>
+<th>ours</th>
+<th>gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>what is trusted</td>
+<td>a PMU's own |V| and θ rows (eqs. 27, 32; its branch currents stay in <code>h^S'</code>), the neighbour reading of p. 655 as a sensitivity (E2)</td>
+<td>any single metered channel (a row of H, SCADA included)</td>
+<td>wrong unit</td>
+</tr>
+<tr>
+<td>candidates</td>
+<td>the PMU buses (4 on 14, 11 on 118)</td>
+<td>every metered channel (m ≈ 80-500)</td>
+<td>wrong action space</td>
+</tr>
+<tr>
+<td>attack cost</td>
+<td>eq. (28): AC multi-snapshot l0 with the overload goal (24)-(25) and (13)-(23)</td>
+<td>sparsest RREF row of the linear single-snapshot attack subspace {H c : H_S c = 0} at the benign mean, with no goal</td>
+<td>different problem</td>
+</tr>
+<tr>
+<td>time</td>
+<td>secure set grows one PMU per snapshot inside the attack window (eqs. 30-31)</td>
+<td>one static k-set for the whole dataset</td>
+<td>no schedule</td>
+</tr>
+<tr>
+<td>reward</td>
+<td>rise in the eq. (33) cost per added PMU</td>
+<td>rise in the linear cost, plus a bonus of m when the subspace closes</td>
+<td>different cost</td>
+</tr>
+<tr>
+<td>state</td>
+<td>Fig. 1: P_i, Q_i, P_ij, Q_ij, V_i, θ_i, target-line load rate S_ij, trusted configuration on the graph</td>
+<td>binary secured-channel vector</td>
+<td>missing features</td>
+</tr>
+<tr>
+<td>network</td>
+<td>UNSTATED</td>
+<td>MLP m→128→128→m, ReLU, masked Q</td>
+<td>ours is an assumption either way</td>
+</tr>
+<tr>
+<td>hyperparameters</td>
+<td>γ 0.9, η 0.005, |D| 2500, |B| 25, target every 20 iterations, ε = e^(-0.002 ep), MSE, ~250 episodes</td>
+<td>γ 0.95, lr 1e-3, buffer 5000, batch 64, target every 10 episodes, ε linear to 0.05 over 60%, smooth-L1, 200 episodes</td>
+<td>all differ</td>
+</tr>
+<tr>
+<td>training data</td>
+<td>offline over dynamic grid scenarios, deployed to new ones; 100 training sessions on 118</td>
+<td>one Jacobian at the benign mean of one dataset</td>
+<td>no scenario variation</td>
+</tr>
+<tr>
+<td>Solution 1</td>
+<td>RREF of h_T, column exchanges with a tracking matrix iterated to a fixed point, secure the attack's PMUs, per interval</td>
+<td>RREF of the attack subspace, secure the channel on the sparsest row's support that maximizes the next cost (greedy lookahead), static</td>
+<td>related, not the same</td>
+</tr>
+<tr>
+<td>evaluation</td>
+<td>cost increase %, extra devices, sequences, times, detection/false-positive rates</td>
+<td>residual detection before and after securing</td>
+<td>different metrics</td>
+</tr>
+<tr>
+<td>Jacobian</td>
+<td>hybrid linear model with branch-current conversion (eqs. 1-3, 26)</td>
+<td>WLS H in [V, P, Q, θ, Pf, Qf]</td>
+<td>eq. (3) exists as <code>pmu_pseudo</code> since D10</td>
+</tr>
+</tbody>
+</table>
+<p>The existing classes answer a different, useful question: which meters to secure against any
+single-snapshot stealthy attack. The plan keeps them (E11) and adds the paper's defense beside them.</p>
+<h2 id="3-the-attackers-cost-with-trusted-pmus-the-minimizer-as-the-reward">3. The attacker's cost with trusted PMUs: the minimizer as the reward<a class="headerlink" href="#3-the-attackers-cost-with-trusted-pmus-the-minimizer-as-the-reward" title="Permanent link">&para;</a></h2>
+<p>The reward needs the eq. (28) minimum under a trusted schedule. The fewest-tamper search already
+solves eq. (12) (<code>engine/attacks/minimize.py: min_tamper</code>). What it lacks is constraint (29).</p>
+<p><strong>How (29) enters our false-state model.</strong> A false state moves only the voltages of its support S,
+and <code>Δx_t = x^a_t - x_t</code>. Under E2's own-bus reading, pinning PMU b's |V| and θ at snapshot t means
+b is held at its true voltage at t. So at each snapshot the free set is S minus the buses of the
+PMUs trusted at or before t (eqs. 30-31). Under the neighbour reading, b's neighbours are held too.</p>
+<p><strong>Measured with a prototype</strong> of this constraint, then reproduced by PR A's implementation
+(<code>tests/test_trusted_pmus.py</code> pins the counts).
+- <strong>Setup:</strong> IEEE-14 on Wu's metering; 20 snapshots (the paper's 10 min at 30 s, here 20 pool
+  frames); Wu's schedule 1→4→6→13 (Scenario 1) and 4→6→1→13 (Scenario 2) at snapshots 2, 4, 6, 8;
+  ratings k × peak flow; the D16 bounds.
+- <strong>Exhaustive search:</strong> budget 4096 exceeds IEEE-14's candidate count (1174 for Scenario 1, 454 for
+  Scenario 2), so every search is exhaustive.
+- <strong>Not proven:</strong> some candidate solves failed to converge ("unsolved"), so no result is proven
+  minimal. An "infeasible" below means no candidate converged, not a proof.</p>
+<table>
+<thead>
+<tr>
+<th>scenario, k</th>
+<th>undefended: devices / channels</th>
+<th>Wu's schedule, own bus: devices / channels</th>
+<th>increase: devices / channels</th>
+<th>Table II (Sol 1 / Sol 2)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1 (3-4, 6-11), 1.1</td>
+<td>5 / 8</td>
+<td>6 / 11</td>
+<td>+20.0% / +37.5%</td>
+<td>25.6% / 23.9%</td>
+</tr>
+<tr>
+<td>S2 (1-2, 4-5), 1.1</td>
+<td>7 / 23</td>
+<td>9 / 28</td>
+<td>+28.6% / +21.7%</td>
+<td>35.2% / 27.0%</td>
+</tr>
+<tr>
+<td>S1, 1.2</td>
+<td>8 / 26</td>
+<td>none converged (1174/1174 unsolved)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>S2, 1.2</td>
+<td>10 / 40</td>
+<td>none converged (454/454 unsolved)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>S1, 1.2, no load cap</td>
+<td>8 / 23</td>
+<td>9 / 37</td>
+<td>+12.5% / +60.9%</td>
+<td></td>
+</tr>
+<tr>
+<td>S2, 1.2, no load cap</td>
+<td>9 / 32</td>
+<td>none converged (454/454 unsolved)</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Range:</strong> at k = 1.1 both scenarios survive the defense, and the increases are in Table II's
+  range.</li>
+<li><strong>k = 1.2 with a support per segment:</strong> PR A's per-slot search also seeds a plan segment by segment
+  when no held support is feasible. It finds none on either scenario: the last segment, with all four
+  PMUs trusted, has no feasible support.</li>
+<li><strong>Scenario 1 devices (k = 1.1):</strong></li>
+<li>undefended: SCADA 2, 3, 4, 5 and PMU 4;</li>
+<li>defended: SCADA 1, 2, 4, 5 and PMU 1, 4;</li>
+<li>extra: SCADA 1 and PMU 1.</li>
+</ul>
+<p>The paper's extra devices are SCADA 1, 9, 13.
+- <strong>Scenario 2 devices (k = 1.1):</strong>
+  - undefended: SCADA 1-5 and PMU 1, 4;
+  - defended: adds SCADA 6 and PMU 6.</p>
+<p>The paper's extra devices are SCADA 7, 11, 12, 13, 14 (Solution 1) or 7, 13, 14 (Solution 2).
+- <strong>Largest change:</strong> 0.25 pu (Scenario 1) and 0.35 pu (Scenario 2) with the defense, against
+  0.19 pu and 0.24 pu undefended.
+- <strong>Why k = 1.2 fails (the last snapshot solved alone with all four PMUs pinned on the largest possible support):</strong>
+  - The failure is at the window's end, where (25) itself binds, so it is not our ramp.
+  - Scenario 1 converges once the load cap (ours, D16 [YUA11]) is removed.
+  - Scenario 2 needs the generator and voltage limits (21)-(23), which are Wu's, removed as well.
+  - So at k = 1.2 the defense does stop the attack under Wu's own operating limits. The ratings, and
+    so k, are ours, since the paper states none.
+- <strong>The neighbour reading of E2</strong> makes both scenarios infeasible at k = 1.1 (all 1174 and 444 of
+  454 unsolved).
+- <strong>Order does not matter under a held support:</strong> Wu's order and the swapped order give identical
+  results. The defended optimal supports (2 3 5 11 and 2 5 6 11) avoid every PMU bus for the whole
+  window, so the schedule acts only through its final set. Wu's attack chooses <code>Δx_t</code> per snapshot
+  (the sum is inside (28)), and his Fig. 4 narrative has the tampered set shrink over the window.
+  Our search holds one support for the window, which is ours (E13).
+- <strong>PMU 4 still counts as tampered</strong> in the Scenario 1 defense under the own-bus reading. Its
+  |V| and θ are pinned, but its branch-current channels at bus 4's end move when buses 3 and 5 move.
+  Under eq. (27), those currents are not in <code>h^S</code>.</p>
+<p><strong>Per-call time:</strong> 16-35 s per 20-snapshot IEEE-14 search, exhaustive at budget 4096. IEEE-118 took
+42-43 s at budget 4096 for a 10-snapshot window in the first prototype,
+and about 3.1 s at budget 256 (#164's table).</p>
+<p><strong>Caching.</strong> The cost depends only on the window (its states and goal) and the trusted schedule, so
+the key is (window id, tuple of (snapshot, PMU)).
+- A DQN episode revisits prefixes constantly.
+- IEEE-14's whole space is 4 PMUs over 4 slots: 64 schedule prefixes, so 64 solves per window.
+- On 118, 11 PMUs over 10 snapshots is too many to enumerate, but a training run visits at most
+  episodes × steps = 2,500 transitions.</p>
+<p>The cache lives in the environment, not the minimizer.</p>
+<h2 id="4-what-changes">4. What changes<a class="headerlink" href="#4-what-changes" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong><code>min_tamper</code> takes a trusted schedule.</strong> This is a new validated model, <code>TrustSchedule</code>: the
+   PMU buses trusted per snapshot slot.</li>
+<li>At snapshot t the free set is S minus the buses (E2) of the PMUs trusted at or before t, and
+     those buses are held at their true voltage (<code>Δx_t = 0</code> there; eqs. 29-31).</li>
+<li>E13 decides whether the support stays held for the window or is chosen per snapshot.</li>
+<li><code>MinimizerResult</code> already reports devices and channels, the latter the l0 of eq. (28) (E3).</li>
+<li><strong><code>trust.WuDefenseEnv</code>, the MDP.</strong></li>
+<li>State: the paper's three feature groups, plus the secured pattern (E7).</li>
+<li>Action: an untrusted PMU.</li>
+<li>Reward: <code>cost(schedule + u_t) - cost(schedule)</code>, from the cached minimizer (eq. 33 per step).</li>
+<li>The steps are the configuration slots (E5).</li>
+<li><strong><code>trust.TrustedPMUs</code>, Solution 1</strong> as Sec. IV-D1 states it. It runs RREF on <code>h_T</code>, then
+   column exchanges with a tracking matrix iterated to a fixed point. It recovers the sparsest
+   attack, secures its PMUs, and repeats per slot. Where the paper is UNSTATED (which of several PMUs
+   goes first when a slot takes one, and how <code>h</code> is made full-row-rank), the choice is ours and labelled.</li>
+<li><strong><code>trust.TrustedPMUsDQN</code>, Solution 2</strong> as Algorithm 1 states it: MSE loss, the Sec. V
+   hyperparameters, ε = e^(-0.002 ep), replay 2,500, batch 25, target every 20 iterations, about 250
+   episodes, trained over scenario windows (E8). The network architecture is ours (E9).</li>
+<li><strong>Scoring as the paper does:</strong></li>
+<li>cost increase % (devices and channels);</li>
+<li>extra-tampered devices;</li>
+<li>the sequence;</li>
+<li>solve time;</li>
+<li>detection rate and false-positive rate. The residual test with the trusted PMUs reading truth
+     is what <code>TrustSelector.score</code> does today (E10).</li>
+</ol>
+<h2 id="5-the-reproduction-harness-docswu26-generated-csv-sidecars">5. The reproduction harness (docs/wu26/, generated, CSV sidecars)<a class="headerlink" href="#5-the-reproduction-harness-docswu26-generated-csv-sidecars" title="Permanent link">&para;</a></h2>
+<p><strong>Scenarios:</strong>
+- IEEE-14 S1 (3-4, 6-11) and S2 (1-2, 4-5), PMUs 1, 4, 6, 13, 20 snapshots, trust slots 2, 4, 6, 8;
+- IEEE-118 (84-85, 99-100) on <code>WU26_ATTACK_AREA[118]</code>, its 11 PMUs, 10 snapshots, one slot each (E5).</p>
+<p>Ratings are k × each target line's peak true flow (the paper states none; ours). Default k = 1.2 for
+everything; k = 1.1 is run only for the Table II comparison on the two IEEE-14 scenarios (E14).
+Attack snapshots are 1 minute, interpolated from the 5-minute pool (E4).</p>
+<table>
+<thead>
+<tr>
+<th>paper item</th>
+<th>regenerated as</th>
+<th>figure form (Ben's rules: no legend, no in-plot text, caption carries keys)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fig. 4 / Fig. 7</td>
+<td>per-device attack magnitude over the window, before and after the schedule</td>
+<td>device × snapshot heatmap per scenario, small multiples before/after</td>
+</tr>
+<tr>
+<td>Fig. 5, Fig. 8, Table VI</td>
+<td>attack and defense solve times, 100 windows</td>
+<td>dumbbell of min-mean-max per method and system</td>
+</tr>
+<tr>
+<td>Fig. 6, Fig. 10</td>
+<td>the trusted sequence</td>
+<td>numbered overlay on the system diagram (the paper's own form)</td>
+</tr>
+<tr>
+<td>Table II</td>
+<td>extra-tampered SCADA, cost increase % (devices and channels), Sol 1 vs Sol 2</td>
+<td>table</td>
+</tr>
+<tr>
+<td>Table III, Table V</td>
+<td>detection rate and false-positive rate of the residual WLS test: undefended, Sol 1, Sol 2; single snapshot (legacy recipe) vs MS</td>
+<td>table</td>
+</tr>
+<tr>
+<td>Table IV</td>
+<td>single vs MS attack solve time on 118</td>
+<td>table</td>
+</tr>
+<tr>
+<td>Fig. 11</td>
+<td>selection probability, PMU × snapshot over the DQN tests</td>
+<td>heatmap</td>
+</tr>
+<tr>
+<td>Fig. 12</td>
+<td>cost increase % per test and the extra-devices histogram</td>
+<td>ranked dot strip with the 10-20% band shaded, plus the histogram</td>
+</tr>
+<tr>
+<td>Fig. 13</td>
+<td 0.0005_="0.0005," 0.001_="0.001," 0.005_="0.005," 0.01="0.01">reward vs episode for η ∈</td>
+<td>small multiples, one per η</td>
+</tr>
+</tbody>
+</table>
+<p>Every table also gets a "paper" column with the section 1 value, and each figure's caption states the
+paper's value.</p>
+<h2 id="6-sequence">6. Sequence<a class="headerlink" href="#6-sequence" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>PR A:</strong> <code>TrustSchedule</code> in <code>min_tamper</code> (E1-E3, E13), with tests:</li>
+<li>at k = 1.1, the IEEE-14 scenarios stay feasible under 1→4→6→13 and 4→6→1→13 at slots 2, 4, 6, 8;</li>
+<li>a trusted PMU's |V| and θ are exactly true from its slot on;</li>
+<li>the prototype's device and channel counts are reproduced.</li>
+<li><strong>PR B:</strong> <code>WuDefenseEnv</code> with the cached cost oracle and the state features (E5, E7). Tests check
+   reward equals the cost difference and cache hits are identical.</li>
+<li><strong>PR C:</strong> <code>TrustedPMUs</code> (Solution 1). Test: IEEE-14 sequence reported against the paper's.</li>
+<li><strong>PR D:</strong> <code>TrustedPMUsDQN</code> (Solution 2, Algorithm 1), with tests: seeded determinism, and a tiny
+   case where the optimum is known.</li>
+<li><strong>PR E:</strong> the harness and figures in docs/wu26/, run at both rating margins.</li>
+<li><strong>PR F:</strong> docs.</li>
+<li>The guides say which trust classes answer which question.</li>
+<li>Update the existing <code>TrustedMeters*</code> docs so they no longer claim to be [WU26]'s defense.</li>
+<li>They are its single-snapshot linear analogue.</li>
+</ol>
+<h2 id="7-decisions">7. Decisions<a class="headerlink" href="#7-decisions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>E1. Meaning of (29) over the window.</strong> This is defined by the paper, so it is not a choice.</li>
+<li><code>Δx_t = x^a_t - x_t</code> (eq. 26 with eqs. 17-18).</li>
+<li>Trust accumulates (eqs. 30-31): at snapshot t every PMU trusted at or before t is pinned, and a
+    later one is still tamperable.</li>
+<li>Implement exactly that. (An earlier draft recommended a "staged increment" reading. It is wrong
+    and withdrawn.)</li>
+<li><strong>E2. What a trusted PMU pins.</strong></li>
+<li>Own |V| and θ only: eq. (27) <code>h^S = -[H_P3 0; 0 H_P4]</code>, eq. (32) (one angle row, one magnitude
+    row) and p. 656 "the rank of hS becomes 2n × 2".</li>
+<li>Also its neighbours, through the currents: p. 655, trusted data "including voltage, phase angle,
+    and branch current measurements, which are processed through the branch measurement conversion
+    method to estimate neighboring node voltages".</li>
+<li>Measured on IEEE-14 at k = 1.1: the own-bus reading leaves Wu's scenarios feasible, at +20% and
+    +29% devices (+38% and +22% channels). The neighbour reading makes both infeasible, against
+    Table II.</li>
+<li>Recommend: own bus (eqs. 27, 32 and the rank statement), with the neighbour reading reported as
+    a sensitivity.</li>
+<li><strong>E3. Cost unit.</strong> Eq. (33) defines the defense effect as the rise in the l0 of eq. (28), which is
+  over measurements (rows of <code>h^S'</code>).</li>
+<li>Report the % in channels, and the extra devices separately as Table II and Fig. 12 do.</li>
+<li>His own device counts give +42.9%, +55.6% and +33.3%, not his 25.6%, 35.2% and 27.0%. So the %
+    is not over devices, which is consistent with channels.</li>
+<li><strong>E4. Snapshot cadence. DECIDED (Ben):</strong> 1-minute attack snapshots interpolated from the 5-minute
+  pool. Wu's SE/SCADA interval is also 5 minutes, but his attack snapshots are 30 s (p. 658); ours are
+  twice as long, so a 20-snapshot IEEE-14 window spans 20 minutes against his 10. Stated in the harness.</li>
+<li><strong>E5. Slots on IEEE-118.</strong> Fig. 10 and Fig. 11 show 10 configurations; 10 min at 30 s is 20
+  snapshots.</li>
+<li>Recommend: 10 snapshots with one slot each, matching the figures. At our 1-minute snapshots (E4)
+    that is 10 minutes, which also matches the paper's "10-minute interval" for IEEE-118.</li>
+<li><strong>E6. Algorithm 1 line 8</strong> breaks the episode when the defended cost is below the undefended cost,
+  verbatim.</li>
+<li>Read literally, that can only happen through solver non-optimality.</li>
+<li>Recommend: implement it as written (end the episode, no reward) and log how often it fires.</li>
+<li><strong>E7. State. Wu's, STATED in Fig. 1 (p. 657):</strong> the measurements P_i,t, Q_i,t, P_ij,t, Q_ij,t,
+  V_i,t, θ_i,t, the load rate of the target lines S_ij, and the PMU/trusted configuration on the graph.
+  Implement exactly those; only the flattening into the network's input is ours (per bus and branch
+  in a fixed order, the trusted mask as a 0/1 per PMU).</li>
+<li><strong>E8. The 100 tests on 118</strong> read as 100 training sessions. At about 2,500 cost calls × 3.1 s per
+  training run, that is about 2 h each, so about 200 h in total.</li>
+<li>Option 1: 100 sessions on 100 load windows at budget 256.</li>
+<li>Option 2: 10 sessions × 10 test windows, about 20 h.</li>
+<li>Option 3: one policy trained on many windows and 100 test windows, about 5 h.</li>
+<li>Recommend Option 2, stated as a departure.</li>
+<li><strong>E9. Network architecture</strong> is UNSTATED (Fig. 1 draws a fully connected net, no sizes). The
+  hyperparameters are STATED and used as given: TensorFlow v2.5, Adam, γ 0.9, η 0.005, |D| 2,500,
+  |B| 25, target update every 20, ε = e^(-0.002·ep) (p. 658).</li>
+<li>Recommend, ours: an MLP state → 128 → 128 → |PMUs| with ReLU, masked Q, in torch (the paper
+    used TensorFlow; the framework does not matter).</li>
+<li><strong>E10. Table III's "detection with PMU support"</strong> is UNSTATED.</li>
+<li>Recommend: the residual WLS test with the trusted PMUs reading truth, as <code>TrustSelector.score</code>
+    does. Label it ours.</li>
+<li><strong>E11. Keep the existing classes?</strong></li>
+<li>Recommend: keep <code>TrustedMeters</code> and <code>TrustedMetersDQN</code> as the single-snapshot linear analogue,
+    renamed in the docs so nothing claims they are [WU26]'s defense.</li>
+<li>Add <code>TrustedPMUs</code> and <code>TrustedPMUsDQN</code> as the paper's, mirroring the legacy-recipe decision.</li>
+<li><strong>E12. IEEE-1354 (Table VI).</strong> It is not on our ladder.</li>
+<li>Recommend: omit it, and say so in the harness.</li>
+<li><strong>E13. One support for the window, or one per snapshot.</strong></li>
+<li>Eq. (28) sums <code>Δx_t</code> per snapshot inside one l0, and Fig. 4's narrative has the attacker narrow
+    the tampered set over the window. The paper does not require one support for the window.</li>
+<li>Our search holds one support (ours, from the attack plan). Under it the trust order does not
+    matter: Wu's and the swapped schedule gave identical results, because the defended support
+    avoids every PMU bus.</li>
+<li>Recommend: allow the support to change at the trusted slots, while still counting the window's
+    union of devices as eq. (28) does. Measure whether order then matters, as Table II and Fig. 6
+    imply.</li>
+<li>The cost is a search over a support per slot segment (5 segments on IEEE-14), which is more
+    expensive. Prototype before committing.</li>
+<li><strong>E14. Rating margin for the defense harness.</strong></li>
+<li>At k = 1.2 the defended attack does not converge on either scenario under Wu's limits (21)-(23),
+    and it needs our load cap off even for Scenario 1.</li>
+<li>At k = 1.1 both survive with increases in Table II's range.</li>
+<li>DECIDED (Ben): k = 1.2 is the default for everything; k = 1.1 is run only for the Table II
+    comparison on the two IEEE-14 scenarios. The k = 1.2 infeasibility is reported as a finding.</li>
+<li><strong>E15. Our linear ramp (D9)</strong> is not in (24)-(25), which only require the rating at the window's
+  end.</li>
+<li>The k = 1.2 failures sit at the end snapshot, so dropping the ramp would not change them.</li>
+<li>Keep D9 for generation, and note it in the harness.</li>
+</ul>
+<h2 id="8-compute-estimate">8. Compute estimate<a class="headerlink" href="#8-compute-estimate" title="Permanent link">&para;</a></h2>
+<p>The harness runs as parallel processes (the searches are single-threaded since #164), about 26 of the
+machine's 52 cores, with the cost cached per (window, trusted schedule). At search budget 256, per core:
+- <strong>IEEE-14:</strong>
+  - Solution 1: about 10 cost calls per window, under 1 min.
+  - DQN: 64 cached schedules per window. 100 windows is 2-3 h in total, or about 17 h at budget
+    4096.
+- <strong>IEEE-118:</strong>
+  - Solution 1: about 65 calls per window, about 3.5 min; 100 windows about 6 h.
+  - DQN: about 20 h under E8 option 2, or about 5 h under option 3.
+- <strong>k = 1.1</strong> only adds the two IEEE-14 Table II runs (minutes).
+- <strong>Total</strong>: about 25-30 core-hours, so roughly 1-2 hours of wall time on 26 processes, with CSVs
+  written as it goes so figures can be restyled without rerunning.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
