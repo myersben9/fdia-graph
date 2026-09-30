@@ -29,7 +29,7 @@ import numpy as np
 
 from ..engine.attacks.minimize import _Window
 from ..formulas.attacks import tampered_devices
-from ..models.choices import CostUnit
+from ..models.choices import CostUnit, SupportMethod
 from ..models.config import TrustSchedule, WuDefenseConfig
 from ..models.frames import FlowGoal, FrameKnobs, MinimizerResult
 from ..models.inputs import ChosenAction, TrustablePmus, WindowSlots
@@ -53,8 +53,9 @@ class WuDefenseEnv:
     ) -> None:
         TrustablePmus(config.pmus, frozenset(g.meters.pmu), g.C)  # every candidate is a PMU of the plan
         WindowSlots(config.slots, len(states))  # every step falls in the window
-        # the search minimizes the unit the reward counts (eq. 33's measurements, or devices)
-        self.k = k._replace(objective=config.unit)
+        # the oracle is the fewest-tamper search whatever the knobs asked of the overload attack (the
+        # row reduction matched Table II worse), minimizing the unit the reward counts (eq. 33)
+        self.k = k._replace(objective=config.unit, support_method=SupportMethod.SEARCH.value)
         self.g, self.states, self.goal, self.config = g, states, goal, config
         self.cache: dict[_Schedule, MinimizerResult] = {}
         self.solves = 0  # searches run (cache misses)

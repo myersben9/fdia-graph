@@ -166,3 +166,15 @@ def test_window_slots_are_whole_indices_in_the_window(slots):
 
     with pytest.raises(ConfigError):
         WindowSlots(slots, 3)
+
+
+def test_the_oracle_is_the_search_even_from_rref_knobs(env):
+    """Knobs of an overload run that picks supports by row reduction still give the search's cost."""
+    rref = WuDefenseEnv(env.g, env.states, env.goal, env.k._replace(support_method="rref"), env.config)
+    assert rref.k.support_method == "search"
+    got, want = rref.result_of(()), env.result_of(())
+    assert (got.devices, got.channels, got.support.tolist()) == (
+        want.devices,
+        want.channels,
+        want.support.tolist(),
+    )
