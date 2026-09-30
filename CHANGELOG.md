@@ -21,6 +21,10 @@ the public API, the generated files and the numbers are the same as the previous
   both ratings with the four PMUs trusted, held or with a support per segment. When no held support is
   feasible, the per-slot search seeds a plan with each segment's own cheapest support before calling
   the window infeasible (`_segment_seed`); on these scenarios no segment after the last slot has one.
+  Segments are seeded in order, each from the attack vector its predecessor leaves, so an `At` window's
+  stealth bound measures a segment's first step from where the previous one ended; the seed is greedy
+  (a None from it is not a proof), and every plan the per-slot search returns is checked over the whole
+  window.
   Per slot and held give the same answer, and so do the paper's trust order and the swapped one.
 
 - Development only, no user-visible change: the test suite runs in parallel. pytest-xdist joins the

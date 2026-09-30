@@ -177,19 +177,22 @@ def test_a_trusted_bus_must_carry_a_pmu(bus):
 
 
 class _TableWindow:
-    """A window whose cost is a table over plans: the per-slot search sees only `segments` and
-    `cost_plan`, so a constructed table isolates its logic from the physics."""
+    """A window whose cost is a table over plans: the per-slot search sees only `segments`, `prev`,
+    `cost_plan` and `segment_cost`, so a constructed table isolates its logic from the physics. `alone`
+    maps (segment, support, the attack vector the segment starts from) to (its cost on the segment, the
+    attack vector it leaves); attack vectors are names, "start" the frame before the window."""
 
     def __init__(self, costs: dict, alone: dict = {}) -> None:  # noqa: B006  read only
-        self.segments = [(0, 1), (1, 2)]
-        self.costs, self.alone = costs, alone  # plan -> cost; (segment, support) -> cost on the segment
+        self.segments, self.prev = [(0, 1), (1, 2)], "start"
+        self.costs, self.alone = costs, alone
         self.converged, self.unsolved, self.last_tried = True, 0, 0
 
     def cost_plan(self, plan, beat):
         return _beats(self.costs.get(tuple(tuple(int(b) for b in S) for S in plan)), beat)
 
-    def segment_cost(self, j, S, beat):
-        return _beats(self.alone.get((j, tuple(int(b) for b in S))), beat)
+    def segment_cost(self, j, S, beat, prev):
+        found = self.alone.get((j, tuple(int(b) for b in S), prev))
+        return found if found is not None and _beats(found[0], beat) is not None else None
 
 
 def _beats(cost, beat):
@@ -223,10 +226,32 @@ def test_a_plan_can_be_feasible_when_no_held_support_is():
     A, B = np.array([1, 2]), np.array([3])
     k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
     area = np.arange(4)
-    window = _TableWindow({((1, 2), (3,)): (4, 7, 3)}, {(0, (1, 2)): (2, 4, 2), (1, (3,)): (3, 5, 1)})
+    alone = {(0, (1, 2), "start"): ((2, 4, 2), "A"), (1, (3,), "A"): ((3, 5, 1), "B")}
+    window = _TableWindow({((1, 2), (3,)): (4, 7, 3)}, alone)
     r = MinimizeMixin._per_slot_result(window, None, lambda: iter([A, B]), (1, 0, area), k)
     assert [S.tolist() for S in r.plan] == [[1, 2], [3]]
     assert r.support.tolist() == [1, 2, 3] and (r.devices, r.channels) == (4, 7)
-    stuck = _TableWindow({}, {(0, (1, 2)): (2, 4, 2)})  # nothing works after the slot
+    stuck = _TableWindow({}, {(0, (1, 2), "start"): ((2, 4, 2), "A")})  # nothing works after the slot
     r = MinimizeMixin._per_slot_result(stuck, None, lambda: iter([A, B]), (1, 0, area), k)
     assert r.devices == -1 and r.support.tolist() == area.tolist() and r.plan == ()
+
+
+def test_a_segment_starts_from_where_the_one_before_ended():
+    """A load goal's stealth bound (At) caps each step between snapshots, so segment 1 can be reachable
+    only from the attack vector segment 0 leaves: here B after the slot works from A's end ("A") but not
+    from the frame before the window ("start"). The seed carries A's end into segment 1 and finds (A, B);
+    measured from "start", segment 1 would have nothing and the window would read infeasible."""
+    from fdia_graph.engine.attacks.minimize import MinimizeMixin
+
+    A, B = np.array([1, 2]), np.array([3])
+    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True)
+    area = np.arange(4)
+    ramp = {(0, (1, 2), "start"): ((2, 4, 2), "A"), (1, (3,), "A"): ((3, 5, 1), "B")}
+    window = _TableWindow({((1, 2), (3,)): (4, 7, 3)}, ramp)
+    r = MinimizeMixin._per_slot_result(window, None, lambda: iter([A, B]), (1, 0, area), k)
+    assert [S.tolist() for S in r.plan] == [[1, 2], [3]] and r.devices == 4
+    unprepared = {(0, (1, 2), "start"): ((2, 4, 2), "A"), (1, (3,), "start"): ((3, 5, 1), "B")}
+    r = MinimizeMixin._per_slot_result(
+        _TableWindow({}, unprepared), None, lambda: iter([A, B]), (1, 0, area), k
+    )
+    assert r.devices == -1

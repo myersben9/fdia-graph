@@ -344,18 +344,24 @@ def _segment_seed(
     """A plan from each segment's cheapest support over the segment's own snapshots
     (`_Window.segment_cost`), joined and costed over the window by the union count [WU26, eq. 28], or
     None when some segment has no feasible support or the joined plan is not an attack; and the
-    candidates solved."""
-    plan, evaluated = [], 0
+    candidates solved. The segments are seeded in order, each from the attack vector its predecessor's
+    chosen support leaves at the segment's first snapshot, so a load goal's stealth bound (At) measures
+    a segment's first step from where the previous segment ended, as the whole window does. The seed is
+    greedy: an earlier segment's cheapest support can leave a later segment nothing a costlier one would
+    have left it, so a None here is "none found", not a proof (the result is never `proven` then). Every
+    plan it returns is checked over the whole window by `cost_plan`."""
+    plan, evaluated, prev = [], 0, window.prev
     for j in range(len(window.segments)):
-        best: Optional[_Best] = None
+        best: Optional[tuple[_Cost, np.ndarray, AttackVector]] = None
         for S in itertools.islice(candidates(), k.min_budget):
-            found = window.segment_cost(j, S, None if best is None else best[0])
+            found = window.segment_cost(j, S, None if best is None else best[0], prev)
             evaluated += 1
             window.unsolved += 0 if window.converged else 1
-            best = best if found is None else (found, S)
+            best = best if found is None else (found[0], S, found[1])
         if best is None:
             return None, evaluated
         plan.append(best[1])
+        prev = best[2]
     cost = window.cost_plan(tuple(plan), None)
     return (None if cost is None else (cost, tuple(plan))), evaluated
 
@@ -574,23 +580,29 @@ class _Window:
         tampered = self._tampered(plan, beat)
         if tampered is None:
             return None
-        union, devices = tampered
+        union, devices, _ = tampered
         if not devices:
             return None  # within noise at every snapshot: no effect, so not an attack [the sub-noise rule]
         cost = (devices, _channel_count(union), _plan_size(plan))
         return cost if beat is None or cost < beat else None
 
-    def segment_cost(self, j: int, S: np.ndarray, beat: Optional[_Cost]) -> Optional[_Cost]:
-        """The cost of support S over segment j's snapshots alone (a flow goal's snapshot needs nothing
-        from the one before), or None when S fails there or cannot beat `beat`. A segment may move no
-        device beyond noise: only the joined plan must be an attack."""
+    def segment_cost(
+        self, j: int, S: np.ndarray, beat: Optional[_Cost], prev: AttackVector
+    ) -> Optional[tuple[_Cost, AttackVector]]:
+        """The cost of support S over segment j's snapshots alone and the attack vector it leaves at the
+        segment's last snapshot, or None when S fails there or cannot beat `beat`. `prev` is the attack
+        vector the segment starts from (the preceding segment's last, or the frame before the window's
+        for the first): a load goal's stealth bound measures the segment's first step from it, and a flow
+        goal ignores it. A segment may move no device beyond noise: only the joined plan must be an
+        attack."""
         a, b = self.segments[j]
         self.converged = True
-        tampered = self._tampered(tuple(S for _ in self.segments), beat, range(a, b))
+        tampered = self._tampered(tuple(S for _ in self.segments), beat, (range(a, b), prev))
         if tampered is None:
             return None
-        cost = (tampered[1], _channel_count(tampered[0]), len(S))
-        return cost if beat is None or cost < beat else None
+        union, devices, last = tampered
+        cost = (devices, _channel_count(union), len(S))
+        return (cost, last) if beat is None or cost < beat else None
 
     def support_at(self, t: int, plan: _Plan) -> np.ndarray:
         """The buses free at snapshot t under `plan`: its segment's support less the buses of the PMUs
@@ -600,15 +612,17 @@ class _Window:
         return S if not pinned else S[~np.isin(S, sorted(pinned))]
 
     def _tampered(
-        self, plan: _Plan, beat: Optional[_Cost], snapshots: Optional[range] = None
-    ) -> Optional[tuple[_Channels, int]]:
+        self, plan: _Plan, beat: Optional[_Cost], span: Optional[tuple[range, AttackVector]] = None
+    ) -> Optional[tuple[_Channels, int, AttackVector]]:
         """The union of tampered channels (node, flow, PMU current masks) under `plan` over the window's
-        snapshots (or `snapshots`) and its device count, or None when it fails at a snapshot or its
-        devices so far exceed `beat`'s."""
+        snapshots, its device count and the attack vector of the last snapshot, or None when it fails at
+        a snapshot or its devices so far exceed `beat`'s. `span` = (snapshots, the attack vector before
+        the first) evaluates part of the window; by default the whole window from the frame before it."""
         union: _Channels = (np.zeros(self.node_m.shape, bool), np.zeros(self.edge_m.shape, bool), None)
         devices = 0
-        prev = self.prev  # the frame before the window: its attack vector, zero when benign
-        for t in range(len(self.states)) if snapshots is None else snapshots:
+        # the frame before the window (its attack vector, zero when benign), or the given span's start
+        snapshots, prev = (range(len(self.states)), self.prev) if span is None else span
+        for t in snapshots:
             moved = self._free_snapshot(t, self.support_at(t, plan), prev)
             if moved is None:
                 return None
@@ -617,7 +631,7 @@ class _Window:
             devices = self._devices(union)
             if beat is not None and devices > beat[0]:
                 return None
-        return union, devices
+        return union, devices, prev
 
     def _devices(self, union: _Channels) -> int:
         """How many devices hold a channel of the union (a PMU branch current joins the PMU of the
