@@ -709,3 +709,25 @@ class CertifiableLimits(Validated):
     def given(self) -> OperatingLimits:
         """The limits, once the model has accepted them."""
         return cast(OperatingLimits, self.limits)
+
+
+@dataclass(frozen=True)
+class TrustablePmus(Validated):
+    """A trusted-PMU schedule's buses against the generator's grid and meter plan
+    (`MinimizeMixin.min_tamper`'s `trust`): every trusted bus is a bus of the grid with a PMU, since a
+    trusted PMU pins its own |V| and angle [WU26, eqs. 27, 29] and a bus without one has nothing to
+    trust. Built from the schedule and the plan, since `TrustSchedule` alone does not know the grid."""
+
+    buses: Annotated[Sequence[int], AsTuple()]  # the schedule's buses (`TrustSchedule.buses`)
+    pmu: frozenset[int]  # the buses with a PMU in the meter plan
+    n_bus: Annotated[int, Integer(), AtLeast(1)]  # buses of the grid
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            all(0 <= int(b) < self.n_bus for b in self.buses),
+            f"trusted buses must be buses of the {self.n_bus}-bus grid, got {self.buses!r}",
+        )
+        yield (
+            set(int(b) for b in self.buses) <= set(self.pmu),
+            f"trusted buses must carry a PMU in the meter plan {sorted(self.pmu)}, got {self.buses!r}",
+        )

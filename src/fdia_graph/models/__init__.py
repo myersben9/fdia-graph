@@ -38,6 +38,7 @@ from .config import (
     TimelineKnobs,
     TrainerConfig,
     TrustConfig,
+    TrustSchedule,
     WindowSpec,
 )
 from .data import (
@@ -138,6 +139,7 @@ from .inputs import (
     SupportedSystem,
     SystemRef,
     TauSearch,
+    TrustablePmus,
 )
 from .scores import (
     BenignMetrics,
@@ -243,6 +245,7 @@ __all__ = [
     "Halo",
     "AdmissibleTargets",
     "CertifiableLimits",
+    "TrustablePmus",
     "DatasetName",
     "DateSpan",
     "ProfileSource",
@@ -278,6 +281,7 @@ __all__ = [
     "GeneratorOptions",
     "MeterSettings",
     "OverloadSettings",
+    "TrustSchedule",
     "ShardRun",
     "SplitFractions",
     "IsoExport",

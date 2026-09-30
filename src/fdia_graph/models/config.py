@@ -13,6 +13,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Annotated, Optional, Union
 
+import numpy as np
+
 from .choices import (
     AmAttack,
     AmDirection,
@@ -34,7 +36,18 @@ from .choices import (
     Split,
     Units,
 )
-from .validation import AtLeast, Finite, InRange, Integer, NonEmpty, OneOf, Parses, Positive, Validated
+from .validation import (
+    AsTuple,
+    AtLeast,
+    Finite,
+    InRange,
+    Integer,
+    NonEmpty,
+    OneOf,
+    Parses,
+    Positive,
+    Validated,
+)
 
 Fraction = Annotated[float, InRange(0.0, 1.0)]  # (0, 1), a false-alarm target or a split share
 Share = Annotated[float, InRange(0.0, 1.0, hi_closed=True)]  # (0, 1]
@@ -293,6 +306,40 @@ class OverloadSettings(Validated):
 
 
 @dataclass(frozen=True)
+class TrustSchedule(Validated):
+    """[WU26]'s dynamic trusted-PMU configuration (eqs. 26-32) as a constraint on the attack window: the
+    PMU at bus `buses[i]` (the generator's bus index) is trusted from snapshot `slots[i]` of the window
+    on. Trust accumulates (eqs. 30-31: h^S_t = h^S_t-1 + dh^S_t), so at snapshot t every PMU trusted at
+    a slot <= t is pinned and a PMU trusted later can still be tampered with. A trusted PMU pins its
+    own |V| and angle rows (eqs. 27, 32: two rows per trusted PMU, "the rank of hS becomes 2n x 2"),
+    so the attack's state deviation is zero there (eq. 29); its branch currents stay in the nonsecure
+    set h^S' (eq. 27). `per_slot` lets the attack's support change at the trusted slots, since eq. (28)
+    takes the deviation of each snapshot on its own (the plan's E13); off, one support is held for the
+    window and a trusted bus only drops out of it."""
+
+    buses: Annotated[Sequence[int], AsTuple()]
+    slots: Annotated[Sequence[int], AsTuple()]
+    per_slot: bool = True
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        buses, slots = np.asarray(self.buses), np.asarray(self.slots)
+        yield len(buses) == len(slots), "needs one slot per trusted bus"
+        yield _indices(buses), "buses must be non-negative bus indices"
+        yield len(set(self.buses)) == len(self.buses), "trusts each PMU once"
+        yield _indices(slots), "slots must be non-negative snapshot indices"
+
+    def pinned(self, t: int) -> frozenset[int]:
+        """The buses whose PMU is trusted at snapshot t (every slot at or before t)."""
+        return frozenset(int(b) for b, s in zip(self.buses, self.slots) if s <= t)
+
+    def segments(self, T: int) -> list[tuple[int, int]]:
+        """The window's snapshots [0, T) cut at every slot inside it: within a segment the pinned set is
+        fixed, so a support chosen per segment is a support that changes only at a trusted slot."""
+        cuts = sorted({0, T} | {int(s) for s in self.slots if 0 < s < T})
+        return list(zip(cuts[:-1], cuts[1:]))
+
+
+@dataclass(frozen=True)
 class MeterSettings(Validated):
     """The meter plan a timeline walks, as `generate_timeline(redundancy=...)` takes it: the coverage
     fractions of the voltage meters, the PMUs and the flow meters, and what the meters measure (the
@@ -426,3 +473,8 @@ class CertifyOptions(Validated):
             self.window is None or self.snapshots is None or max(self.snapshots) < self.window,
             f"snapshots must lie in the window of {self.window} snapshots, got {self.snapshots!r}",
         )
+
+
+def _indices(a: np.ndarray) -> bool:
+    """Whether `a` holds only non-negative integers (an empty sequence does)."""
+    return a.size == 0 or (np.issubdtype(a.dtype, np.integer) and bool((a >= 0).all()))

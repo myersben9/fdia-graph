@@ -40,10 +40,11 @@ already exceeds the best. When no held support meets every constraint, the resul
 from __future__ import annotations
 
 import contextlib
+import functools
 import heapq
 import itertools
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
 import numpy as np
@@ -57,8 +58,10 @@ from ...formulas.noise import (
     paper_current_sigma,
     paper_sigma,
 )
+from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
+from ...models.inputs import TrustablePmus
 from ..base import POWER_NOISE_FLOOR_MW
 from .false_state import FalseStateMixin
 
@@ -69,7 +72,11 @@ _Cost = tuple[int, int, int]  # (devices, channels, support size): the objective
 _Best = tuple[_Cost, np.ndarray]  # a solved support and its cost
 # the tampered node, flow and PMU current channels (masks; no currents without them in the plan)
 _Channels = tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]
+# one snapshot on a support: the node, flow and PMU current channels moved beyond noise, and its attack vector
+_Snapshot = tuple[np.ndarray, np.ndarray, Optional[np.ndarray], AttackVector]
 Goal = Union[LoadGoal, FlowGoal]  # what a window must realize: the loads of At, the flow of Am
+_Plan = tuple[np.ndarray, ...]  # one support per segment of the window (`TrustSchedule.segments`)
+PER_SLOT_PASSES = 2  # rounds of the per-slot search over the segments (it stops once a round gains nothing)
 
 
 _BLAS: list[Optional[ThreadpoolController]] = []  # the process's BLAS pools, found on the first search
@@ -116,19 +123,33 @@ class MinimizeMixin(FalseStateMixin):
     """Find the support of an attack window that tampers the fewest devices [WU26, eq. 12]."""
 
     def min_tamper(
-        self, states: list[np.ndarray], goal: Goal, k: FrameKnobs, prev: Optional[AttackVector] = None
+        self,
+        states: list[np.ndarray],
+        goal: Goal,
+        k: FrameKnobs,
+        prev: Optional[AttackVector] = None,
+        trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
         """The fewest-tamper support for the window of `states` (one [N, 4] true state per snapshot)
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (node [N, 4], flow [E, 2]; None or zeros
         when that frame is benign): At's stealth bound measures its first increment from it, since
-        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11). The search runs
-        with BLAS on one thread (`_one_blas_thread`)."""
+        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11). `trust` is the
+        defender's trusted-PMU schedule [WU26, eqs. 26-32]: from its slot on, a trusted PMU's bus keeps
+        its true voltage whatever the support (eq. 29), and with `trust.per_slot` the support may change
+        at each slot (`_per_slot`). The search runs with BLAS on one thread (`_one_blas_thread`)."""
+        if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
+            TrustablePmus(trust.buses, frozenset(self.meters.pmu), self.C)
         with _one_blas_thread():
-            return self._min_tamper(states, goal, k, prev)
+            return self._min_tamper(states, goal, k, prev, trust)
 
     def _min_tamper(
-        self, states: list[np.ndarray], goal: Goal, k: FrameKnobs, prev: Optional[AttackVector]
+        self,
+        states: list[np.ndarray],
+        goal: Goal,
+        k: FrameKnobs,
+        prev: Optional[AttackVector],
+        trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
         """`min_tamper`'s search, on whatever BLAS threads the caller set."""
         seeds, starts, must_hold = self._goal_seeds(goal)
@@ -136,7 +157,7 @@ class MinimizeMixin(FalseStateMixin):
         if area is None:
             return None
         starts = _starts_in_area(starts, area, must_hold)
-        window = _Window(self, states, goal, k, prev=prev)
+        window = _Window(self, states, goal, k, prev=prev, trust=trust)
         region = window.cost(np.asarray(area), None)
         best = None if region is None else (region, np.asarray(area))
         lower = window.lower_bound()
@@ -144,12 +165,43 @@ class MinimizeMixin(FalseStateMixin):
         best, evaluated, exhausted = self._search(
             window, self._supports(starts, area, must_hold), (best, lower), area, k
         )
+        if trust is not None and trust.per_slot:
+            candidates = functools.partial(self._supports, starts, area, must_hold)
+            return self._per_slot_result(window, best, candidates, (evaluated, lower, np.asarray(area)), k)
         if best is None:  # no support held for the window meets every constraint: say so, keep the region
             return MinimizerResult(np.asarray(area), -1, -1, False, evaluated, lower, window.unsolved)
         (devices, channels, _), support = best
         # optimal among supports whose solves converged, and only when none that failed could have beaten it
         proven = devices <= lower or (exhausted and window.unsolved == 0)
         return MinimizerResult(support, devices, channels, proven, evaluated, lower, window.unsolved)
+
+    @staticmethod
+    def _per_slot_result(
+        window: _Window,
+        best: Optional[_Best],
+        candidates: Callable[[], Iterator[np.ndarray]],
+        counts: tuple[int, int, np.ndarray],
+        k: FrameKnobs,
+    ) -> MinimizerResult:
+        """The per-slot search's result (`_per_slot`) from the held search's `best` and its `counts`
+        (candidates solved, the goal-forced bound, the area): the plan, the support the union of its
+        supports, proven only at the bound (a search one segment at a time is not exhaustive over
+        plans). When no held support is feasible, a plan can still be (a PMU trusted mid-window can
+        rule out every support that works before its slot and after it): each segment's own cheapest
+        support seeds the plan (`_segment_seed`), and only when some segment has none is the window
+        infeasible."""
+        evaluated, lower, area = counts
+        start = None if best is None else (best[0], tuple(best[1] for _ in window.segments))
+        if start is None:
+            start, seeded = _segment_seed(window, candidates, k)
+            evaluated += seeded
+        if start is None:
+            return MinimizerResult(area, -1, -1, False, evaluated, lower, window.unsolved)
+        (devices, channels, _), plan, more = _per_slot(window, start, candidates, k)
+        support = np.array(sorted({int(b) for S in plan for b in S}), dtype=np.int64)
+        return MinimizerResult(
+            support, devices, channels, devices <= lower, evaluated + more, lower, window.unsolved, plan
+        )
 
     @staticmethod
     def _search(
@@ -286,6 +338,76 @@ class MinimizeMixin(FalseStateMixin):
         return frozenset(int(b) for b in grown)
 
 
+def _segment_seed(
+    window: _Window, candidates: Callable[[], Iterator[np.ndarray]], k: FrameKnobs
+) -> tuple[Optional[tuple[_Cost, _Plan]], int]:
+    """A plan from each segment's cheapest support over the segment's own snapshots
+    (`_Window.segment_cost`), joined and costed over the window by the union count [WU26, eq. 28], or
+    None when some segment has no feasible support or the joined plan is not an attack; and the
+    candidates solved. The segments are seeded in order, each from the attack vector its predecessor's
+    chosen support leaves at the segment's first snapshot, so a load goal's stealth bound (At) measures
+    a segment's first step from where the previous segment ended, as the whole window does. The seed is
+    greedy: an earlier segment's cheapest support can leave a later segment nothing a costlier one would
+    have left it, so a None here is "none found", not a proof (the result is never `proven` then). Every
+    plan it returns is checked over the whole window by `cost_plan`."""
+    plan, evaluated, prev = [], 0, window.prev
+    for j in range(len(window.segments)):
+        best: Optional[tuple[_Cost, np.ndarray, AttackVector]] = None
+        for S in itertools.islice(candidates(), k.min_budget):
+            found = window.segment_cost(j, S, None if best is None else best[0], prev)
+            evaluated += 1
+            window.unsolved += 0 if window.converged else 1
+            best = best if found is None else (found[0], S, found[1])
+        if best is None:
+            return None, evaluated
+        plan.append(best[1])
+        prev = best[2]
+    cost = window.cost_plan(tuple(plan), None)
+    return (None if cost is None else (cost, tuple(plan))), evaluated
+
+
+def _per_slot(
+    window: _Window, start: tuple[_Cost, _Plan], candidates: Callable[[], Iterator[np.ndarray]], k: FrameKnobs
+) -> tuple[_Cost, _Plan, int]:
+    """A support per segment of the trusted schedule (the plan's E13): [WU26, eq. 28] counts the window's
+    tampered measurements with each snapshot's deviation taken on its own, so the attacker may move a
+    different set of buses once a PMU becomes trusted. From the held support, each segment in turn takes
+    the candidate that lowers the window's cost most with the other segments fixed, until a round over
+    the segments gains nothing (at most `PER_SLOT_PASSES` rounds, `k.min_budget` candidates per
+    segment). `start` is the held support as a plan, or `_segment_seed`'s plan when no held support is
+    feasible. Returns (the cost, the plan, candidates solved)."""
+    cost, plan = start
+    evaluated = 0
+    for _ in range(PER_SLOT_PASSES):
+        before = cost
+        for j in range(len(plan)):
+            cost, plan = _best_for_segment(
+                window, (cost, plan), j, itertools.islice(candidates(), k.min_budget)
+            )
+            evaluated += min(k.min_budget, window.last_tried)
+        if cost == before:
+            break
+    return cost, plan, evaluated
+
+
+def _best_for_segment(
+    window: _Window, incumbent: tuple[_Cost, _Plan], j: int, candidates: Iterator[np.ndarray]
+) -> tuple[_Cost, _Plan]:
+    """The plan with segment j's support the candidate that lowers the window's cost most, the other
+    segments as in `incumbent` (kept when no candidate beats it); `window.last_tried` counts the
+    candidates solved."""
+    cost, plan = incumbent
+    window.last_tried = 0
+    for S in candidates:
+        trial = plan[:j] + (S,) + plan[j + 1 :]
+        found = window.cost_plan(trial, cost)
+        window.last_tried += 1
+        window.unsolved += 0 if window.converged else 1
+        if found is not None:
+            cost, plan = found, trial
+    return cost, plan
+
+
 def _push(heap: list[tuple[int, tuple[int, ...]]], seen: set[frozenset[int]], S: frozenset[int]) -> None:
     """Queue support S by size, once."""
     if S not in seen:
@@ -339,6 +461,7 @@ class _Window:
         k: FrameKnobs,
         stealth_bound: bool = True,
         prev: Optional[AttackVector] = None,
+        trust: Optional[TrustSchedule] = None,
     ) -> None:
         # The between-snapshot stealth bound is At's alone (a sub-noise ramp is what At is). [WU26]'s
         # model, eqs. (12)-(25), has no increment constraint: its noise only decides which changes the
@@ -349,6 +472,13 @@ class _Window:
         self.converged = True  # whether every local solve of the last `cost` call converged
         self._near: Optional[tuple[bytes, _Near]] = None  # the last support's branches (`near`)
         self.unsolved = 0  # candidates of the search whose solve failed to converge
+        # the trusted-PMU schedule [WU26, eqs. 29-31]: the buses pinned at each snapshot, the window's
+        # segments (a support per segment is a plan), and a cache of snapshot results for the per-slot
+        # search, which re-solves one segment while the others repeat (a flow goal's snapshot does not
+        # depend on the one before, so its result is a function of its free buses alone)
+        self.pinned, self.segments, self._segment_of = _schedule_of(trust, len(states))
+        self._cache = _snapshot_cache(trust, goal)
+        self.last_tried = 0  # candidates the last per-slot segment search solved (`_best_for_segment`)
         self.node_m, self.edge_m = g.meter_masks()
         self.pmu = np.zeros(g.C, bool)
         self.pmu[sorted(g.meters.pmu)] = True
@@ -436,29 +566,64 @@ class _Window:
         return len(tampered_devices(node, np.zeros(self.edge_m.shape, bool), self.pmu, g.ei[0]))
 
     def cost(self, S: np.ndarray, beat: Optional[_Cost]) -> Optional[_Cost]:
-        """The cost of support S over the window, or None when S is infeasible at a snapshot, moves no
-        device beyond its accuracy sigma over the window (not an attack), or cannot beat `beat` (stopped
-        as soon as its devices so far exceed it)."""
+        """The cost of support S held for the window, or None when S is infeasible at a snapshot, moves
+        no device beyond its accuracy sigma over the window (not an attack), or cannot beat `beat`
+        (stopped as soon as its devices so far exceed it)."""
+        return self.cost_plan(tuple(S for _ in self.segments), beat)
+
+    def cost_plan(self, plan: _Plan, beat: Optional[_Cost]) -> Optional[_Cost]:
+        """`cost` of a plan, one support per segment of the window: the union of the tampered devices
+        over every snapshot [WU26, eq. 28], the support size the number of the plan's buses."""
         self.converged = True
-        if self._zero_on_boundary(S):
+        if any(self._zero_on_boundary(S) for S in plan):
             return None  # never for a candidate of `_supports`, which takes such a bus in; a guard for others
-        tampered = self._tampered(S, beat)
+        tampered = self._tampered(plan, beat)
         if tampered is None:
             return None
-        union, devices = tampered
+        union, devices, _ = tampered
         if not devices:
             return None  # within noise at every snapshot: no effect, so not an attack [the sub-noise rule]
-        cost = (devices, sum(int(m.sum()) for m in union if m is not None), len(S))
+        cost = (devices, _channel_count(union), _plan_size(plan))
         return cost if beat is None or cost < beat else None
 
-    def _tampered(self, S: np.ndarray, beat: Optional[_Cost]) -> Optional[tuple[_Channels, int]]:
-        """The window's union of tampered channels (node, flow, PMU current masks) on support S and
-        its device count, or None when S fails at a snapshot or its devices so far exceed `beat`'s."""
+    def segment_cost(
+        self, j: int, S: np.ndarray, beat: Optional[_Cost], prev: AttackVector
+    ) -> Optional[tuple[_Cost, AttackVector]]:
+        """The cost of support S over segment j's snapshots alone and the attack vector it leaves at the
+        segment's last snapshot, or None when S fails there or cannot beat `beat`. `prev` is the attack
+        vector the segment starts from (the preceding segment's last, or the frame before the window's
+        for the first): a load goal's stealth bound measures the segment's first step from it, and a flow
+        goal ignores it. A segment may move no device beyond noise: only the joined plan must be an
+        attack."""
+        a, b = self.segments[j]
+        self.converged = True
+        tampered = self._tampered(tuple(S for _ in self.segments), beat, (range(a, b), prev))
+        if tampered is None:
+            return None
+        union, devices, last = tampered
+        cost = (devices, _channel_count(union), len(S))
+        return (cost, last) if beat is None or cost < beat else None
+
+    def support_at(self, t: int, plan: _Plan) -> np.ndarray:
+        """The buses free at snapshot t under `plan`: its segment's support less the buses of the PMUs
+        trusted by then (eq. 29 holds their deviation at zero, so they keep their true voltage)."""
+        S = plan[self._segment_of[t]]
+        pinned = self.pinned[t]
+        return S if not pinned else S[~np.isin(S, sorted(pinned))]
+
+    def _tampered(
+        self, plan: _Plan, beat: Optional[_Cost], span: Optional[tuple[range, AttackVector]] = None
+    ) -> Optional[tuple[_Channels, int, AttackVector]]:
+        """The union of tampered channels (node, flow, PMU current masks) under `plan` over the window's
+        snapshots, its device count and the attack vector of the last snapshot, or None when it fails at
+        a snapshot or its devices so far exceed `beat`'s. `span` = (snapshots, the attack vector before
+        the first) evaluates part of the window; by default the whole window from the frame before it."""
         union: _Channels = (np.zeros(self.node_m.shape, bool), np.zeros(self.edge_m.shape, bool), None)
         devices = 0
-        prev = self.prev  # the frame before the window: its attack vector, zero when benign
-        for t in range(len(self.states)):
-            moved = self._snapshot(t, S, prev)
+        # the frame before the window (its attack vector, zero when benign), or the given span's start
+        snapshots, prev = (range(len(self.states)), self.prev) if span is None else span
+        for t in snapshots:
+            moved = self._free_snapshot(t, self.support_at(t, plan), prev)
             if moved is None:
                 return None
             node, edge, current, prev = moved
@@ -466,7 +631,7 @@ class _Window:
             devices = self._devices(union)
             if beat is not None and devices > beat[0]:
                 return None
-        return union, devices
+        return union, devices, prev
 
     def _devices(self, union: _Channels) -> int:
         """How many devices hold a channel of the union (a PMU branch current joins the PMU of the
@@ -479,9 +644,25 @@ class _Window:
         """Whether a zero-injection bus sits on S's boundary (it could not absorb the changed power)."""
         return bool(np.isin(self.g._boundary(S)[1], self.zero).any())
 
-    def _snapshot(
-        self, t: int, S: np.ndarray, prev: AttackVector
-    ) -> Optional[tuple[np.ndarray, np.ndarray, Optional[np.ndarray], AttackVector]]:
+    def _free_snapshot(self, t: int, S: np.ndarray, prev: AttackVector) -> Optional[_Snapshot]:
+        """`_snapshot` on the buses S free at snapshot t: none free is no attack there, a zero-injection
+        bus that a trusted PMU leaves on S's boundary cannot absorb the change, and under a trusted
+        schedule a flow goal's result is cached by (t, S)."""
+        if not len(S) or (self.pinned[t] and self._zero_on_boundary(S)):
+            return None
+        if self._cache is None:
+            return self._snapshot(t, S, prev)
+        key = (t, S.tobytes())
+        if key not in self._cache:
+            self.converged = True
+            out = self._snapshot(t, S, prev)
+            self._cache[key] = (self.converged, out)
+        converged, out = self._cache[key]
+        if out is None:
+            self.converged = converged
+        return out
+
+    def _snapshot(self, t: int, S: np.ndarray, prev: AttackVector) -> Optional[_Snapshot]:
         """Snapshot t on support S: (the channels moved beyond their noise, node, flow and PMU branch
         current, and this snapshot's attack vector), or None when S has no false state here or (At)
         breaks the stealth bound against the previous snapshot's attack vector `prev`."""
@@ -559,6 +740,35 @@ class _Window:
             return False
         over = self._over(t, a_cur - prev.current, scale)
         return bool(over is not None and over.any())
+
+
+def _schedule_of(
+    trust: Optional[TrustSchedule], T: int
+) -> tuple[list[frozenset[int]], list[tuple[int, int]], list[int]]:
+    """(The buses pinned at each of the T snapshots, the window's segments, each snapshot's segment)
+    under a trusted-PMU schedule; without one nothing is pinned and the window is one segment."""
+    pinned = [frozenset[int]() if trust is None else trust.pinned(t) for t in range(T)]
+    segments = [(0, T)] if trust is None else trust.segments(T)
+    return pinned, segments, [j for j, (a, b) in enumerate(segments) for _ in range(a, b)]
+
+
+def _snapshot_cache(
+    trust: Optional[TrustSchedule], goal: Goal
+) -> Optional[dict[tuple[int, bytes], tuple[bool, Optional[_Snapshot]]]]:
+    """An empty cache of snapshot results under a trusted schedule and a flow goal, else None: a flow
+    goal's snapshot does not depend on the one before (no stealth bound), so its result is a function of
+    its free buses alone, and the per-slot search repeats every segment but the one it changes."""
+    return {} if trust is not None and goal.kind == "flow" else None
+
+
+def _channel_count(union: _Channels) -> int:
+    """How many channels (node, flow, PMU current) the union holds."""
+    return sum(int(m.sum()) for m in union if m is not None)
+
+
+def _plan_size(plan: _Plan) -> int:
+    """How many buses the plan's supports hold together (a held support: its size)."""
+    return len({int(b) for S in plan for b in S})
 
 
 def _union(a: _Channels, b: _Channels) -> _Channels:
