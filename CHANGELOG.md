@@ -5,6 +5,20 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- [WU26]'s trusted-PMU configuration as a Markov decision process (docs/plans/WU_DEFENSE_PLAN.md, PR B):
+  `trust.WuDefenseEnv(g, states, goal, k, WuDefenseConfig(pmus, slots))` on one overload window, with
+  `reset`, `step` and `valid`. An action trusts one more PMU at the next configuration step (Sec. IV-D2,
+  "one PMU per step"); the reward is the rise in the fewest-tamper search's cost under the schedule so
+  far (eq. 33 per step, eqs. 28-32), in measurements by default or devices (`WuDefenseConfig.unit`,
+  new choice `CostUnit`, the plan's E3); the state is what Fig. 1 lists, the node and flow readings at
+  the step's snapshot, the target lines' load rate and the trusted mask. Every schedule's answer is
+  cached (`solves` counts the searches), since a training run revisits the same schedules. Ours, where
+  the paper is silent: the readings are those of the attack under the schedule so far without noise, an
+  attack the schedule makes infeasible costs every attackable channel or device, and Algorithm 1's line
+  8 (a defended cost below the undefended one ends the episode without a reward) is kept and counted in
+  `breaks`. The search is the cost oracle rather than the row reduction (`support_method="rref"`), which
+  matched Table II and Fig. 12 worse (the plan's section 3). New validated model `WuDefenseConfig`.
+
 - [WU26]'s own attack construction as the overload attack's support method (`OverloadSettings.support_method`, "search" by default or "rref"; new choice `SupportMethod`, `FrameKnobs.support_method`, file attribute `support_method`). The paper states it twice: the attacker "can utilize the transpose of the measurement matrix h, applying multiple elementary row transformations and column exchanges to find the optimal attack vector solution [25]" (p. 655, [YAN17]), and Solution 1's steps 1-5 (p. 657). New `formulas.trust.sparsest_rows` (the reduction, the column exchanges with their tracking order, the rows mapped back) and `engine.attacks.rref.RrefMixin.rref_support`: at each snapshot the Jacobian of the attack area's attackable channels (scaled by [WU26]'s noise, a trusted PMU's bus left out, eqs. 27 and 29) with respect to |V| and angle, for each target line the sparsest row whose state change moves its flow, the window's support the union over the snapshots (eq. 28), the magnitudes from the AC local flow solve so the goal, the limits and the D16 bounds hold. Ours: the chase starts from the transpose's own rows (the single-variable attacks), it chases the sparsest goal-moving row rather than the sparsest outright, and a support that cannot reach the goal grows by the next sparsest rows. On [WU26]'s scenarios the search matches Table II better: at k = 1.1 the trust schedule raises the search's devices 20% and 29% (the paper 24% to 35%) and the reduction's -14% and +13%; on IEEE-118 the search's devices rise 20% (the paper 16.4% mean) and the reduction's fall. The reduction is 0.5 to 0.8 s per 20-snapshot IEEE-14 window against the exhaustive search's 16 to 33 s, and 2.4 to 3.2 s per 10-snapshot IEEE-118 window against 2.8 to 9.6 s at budget 256. [WU26]'s reference now lists the paper's authors and pages (S. Wu, Q. Wang, J. Hu, Y. Ye, Y. Tang; pp. 651-665).
 
 - [WU26]'s trusted-PMU defense as a constraint on the fewest-tamper search (docs/plans/WU_DEFENSE_PLAN.md,

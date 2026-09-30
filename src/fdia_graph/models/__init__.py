@@ -40,6 +40,7 @@ from .config import (
     TrustConfig,
     TrustSchedule,
     WindowSpec,
+    WuDefenseConfig,
 )
 from .data import (
     ArraysBundle,
@@ -282,6 +283,7 @@ __all__ = [
     "MeterSettings",
     "OverloadSettings",
     "TrustSchedule",
+    "WuDefenseConfig",
     "ShardRun",
     "SplitFractions",
     "IsoExport",

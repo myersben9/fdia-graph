@@ -4,6 +4,7 @@
 - E1 is now fixed by the paper: `Δx_t` is the state deviation, and trust is cumulative from its slot.
 - E2, E3 and E13-E15 were added or revised on the faithful re-prototype (section 3).
 - The other decisions are open (section 7).
+- PR A (#168) and the row-reduction attack (#169) are merged; PR B is `trust.WuDefenseEnv`.
 
 [WU26] defends against its multi-snapshot attack by making a few PMUs trusted (encrypted, so they cannot be
 tampered with), one PMU per attack snapshot. It chooses them with two solvers:
