@@ -53,6 +53,16 @@ the public API, the generated files and the numbers are the same as the previous
   - Known behaviour made visible by the new test timeline, unchanged here: an overload `Am` whose
     window has no stealthy design falls back to benign for the whole episode (`fallback_benign`), and
     its first snapshot can tamper nothing, its drift-free goal there being the true flow (D9).
+- [WU26]'s Solution 1, the trusted PMUs by row reduction (Sec. IV-D1, p. 657 steps 1-5;
+  docs/plans/WU_DEFENSE_PLAN.md, PR C): `trust.TrustedPMUs(env).fit()` on a `WuDefenseEnv` trusts one
+  PMU per configuration step, a PMU reading the sparsest attack the column-exchange reduction finds on
+  the attack area's Jacobian at the step's snapshot (the trusted buses left out), and records the order,
+  the rewards, the costs and the reductions' own time. Ours: the chase is restricted to attacks that
+  move a target line and that a PMU on offer reads, the PMU reading most of the attack's channels is
+  trusted, and the first PMU on offer when no open attack touches one. `RrefMixin.area_jacobian` now also
+  names the device of every row (`channel_devices`). On [WU26]'s IEEE-14 scenarios (20 pool frames, k =
+  1.1) the order is 4, 6, 13, 1 and 4, 1, 6, 13 against the paper's 1, 4, 6, 13 and 4, 6, 1, 13; the
+  reductions take 0.03 to 0.04 s per episode.
 
 - [WU26]'s trusted-PMU configuration as a Markov decision process (docs/plans/WU_DEFENSE_PLAN.md, PR B):
   `trust.WuDefenseEnv(g, states, goal, k, WuDefenseConfig(pmus, slots))` on one overload window, with
