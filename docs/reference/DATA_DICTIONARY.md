@@ -311,9 +311,9 @@ Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphF
 
 ### `Stream` (`fdia_graph.models.data`)
 
-A continuous attacked time series as `generate_stream` and `load_stream` return it, leading axis T: three aligned measurement layers per frame (observed `node_x`, `benign`, `clean`), the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list. `stealthy`, `seq_id` and `edge_clean_full` are not part of a stream. A dict as well, so `windows`, `pyg_stream` and every `s["node_x"]` keep working.
+A continuous attacked time series as `generate_stream` and `load_stream` return it, leading axis T: three aligned measurement layers per frame (observed `node_x`, `benign`, `clean`), the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list; on a hybrid-meter file also the PMU branch currents (`pmu_i`, `pmu_i_benign` per frame, the static mask `pmu_i_m`). `stealthy`, `seq_id` and `edge_clean_full` are not part of a stream. A dict as well, so `windows` and every `s["node_x"]` keep working.
 
-Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
+Field groups: `PmuCurrentFields`, `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
 
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
@@ -335,6 +335,9 @@ Field groups: `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `R
 | `episodes` | `episodes` | list[EpisodeRow] | yes | list of {onset, length, family, buses} |
 | `system` | `system` | int |  | bus count (generate_stream and load_stream both set it) |
 | `attacked_frac` | `attacked_frac` | float |  | fraction of frames with at least one attacked bus (both set it) |
+| `pmu_i` | `pmu_i` | Array |  | [..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields) |
+| `pmu_i_m` | `pmu_i_m` | Array |  | [..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields) |
+| `pmu_i_benign` | `pmu_i_benign` | Array |  | [..., E, 4] attack removed, noise kept (PmuCurrentFields) |
 | `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
 | `seq_id` | `seq_id` | Scalars |  | [...] episode index of the frame's attack (every family), -1 benign (RecordIds) |
 | `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |

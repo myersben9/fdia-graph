@@ -109,7 +109,10 @@ def stream_of(ds: FdiaGraph) -> Stream:
     static graph and masks, and the episode list. A random order or a family subset is refused,
     since the frames of a stream are consecutive."""
     ds._check_timeline("stream_of")
-    a = ds.export(_STREAM_FIELDS)  # only what the dict carries; edge_clean_full would cost a Yf pass
+    currents = ("pmu_i", "pmu_i_m", "pmu_i_benign") if ds.has_currents else ()  # hybrid meters
+    a = ds.export(
+        [*_STREAM_FIELDS, *currents]
+    )  # only what the dict carries; edge_clean_full would cost a Yf pass
     ep = ds.episodes
     assert a.node_m is not None and a.edge_m is not None, "the export was asked for the meter masks"
     return Stream(
@@ -132,6 +135,9 @@ def stream_of(ds: FdiaGraph) -> Stream:
             EpisodeRow(onset=int(o), length=int(n), family=int(f), buses=b.tolist())
             for o, n, f, b in zip(ep.onset, ep.length, ep.family, ep.buses)
         ],
+        pmu_i=a.pmu_i,
+        pmu_i_m=None if a.pmu_i_m is None else a.pmu_i_m[0],  # static, like the meter masks
+        pmu_i_benign=a.pmu_i_benign,
         **stream_summary(a),
     )
 

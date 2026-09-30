@@ -147,6 +147,7 @@ EXPECTED = {
             "episodes",
             "system",
             "attacked_frac",
+            *_PMU_I,  # a hybrid-meter stream's branch currents (0.21), after the fields it had before
             "stealthy",
             "seq_id",
             "edge_clean_full",

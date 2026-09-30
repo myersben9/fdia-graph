@@ -120,7 +120,7 @@ Full reference: [`docs/reference/DATA_DICTIONARY.md`](docs/reference/DATA_DICTIO
 
 | family | attack | classical BDD | plausibility |
 |---|---|---|---|
-| `At` | slow load ramp, re-solved locally every frame, on the support that tampers the fewest devices | evades | peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames |
+| `At` | slow load ramp, re-solved locally every frame; by default (`min_tamper=True`) on the support that tampers the fewest devices, else on the region within `hops` | evades | peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames |
 | `Am` | the overload attack of [WU26]: a line's reported flow driven to its rating (1.25 times its peak pool flow, or PGLib-OPF's) over the episode on the fewest-tamper support | evades | the rating reached at the last scan; every scan one AC state, the fewest devices beyond [WU26]'s noise |
 
 The generator makes these two multi-snapshot families. The single-snapshot families of data
@@ -132,10 +132,14 @@ that generates them.
 Every stealthy family is a local false state: the attacker solves the power flow of a subnetwork
 around the attack with the boundary voltages held true, writes only that subnetwork's meters, and
 the measurement vector stays consistent with an AC state, so the residual test sees noise. The
-meters written are the tamper masks in the file's `attack/` group. They satisfy equations (13)-(25)
-of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles and branch currents, the
-operating limits and the line-overload goal) and its objective, eq. (12): each episode is held on
-the support that tampers the fewest devices (`docs/plans/WU_MSFDIA_PLAN.md`).
+meters written are the tamper masks in the file's `attack/` group. The generated `At` and `Am`
+satisfy equations (13)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes, angles
+and branch currents, and the operating limits); `Am` also meets the line-overload goal, eqs.
+(24)-(25), and both are held on the support that tampers the fewest devices, eq. (12), when
+`min_tamper=True` (the default for `At`; `Am` always picks its support that way, by the search or by
+[WU26]'s row reduction, `am_attack={"support_method": "rref"}`). The single-snapshot families and the
+redistribution `Am` of the older releases were drawn at random targets, on meters without branch
+currents, and drove no line to its limit (`docs/plans/WU_MSFDIA_PLAN.md`).
 
 ![BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
 

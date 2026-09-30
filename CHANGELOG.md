@@ -45,6 +45,10 @@ the public API, the generated files and the numbers are the same as the previous
     `node_m`, `edge_m`) that 0.18 stopped attaching is attached again; the tests read a slice of the
     published IEEE-118 stream with its sidecar, and one timeline of each of v0.8.0, v0.8.1 and
     v0.8.3 written by the SDK that built it.
+  - `Stream` carries the PMU branch currents of a hybrid-meter file (`pmu_i`, `pmu_i_benign`, the
+    static mask `pmu_i_m`), so `generate_stream` and `stream_of` no longer drop them. The benchmark
+    table records the fixture recipe per row and `tools/bench.py --check` compares only rows of the
+    same machine and recipe.
   - Known behaviour made visible by the new test timeline, unchanged here: an overload `Am` whose
     window has no stealthy design falls back to benign for the whole episode (`fallback_benign`), and
     its first snapshot can tamper nothing, its drift-free goal there being the true flow (D9).

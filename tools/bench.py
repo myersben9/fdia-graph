@@ -36,6 +36,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tests"))
 from conftest import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
 
 SLOW_FACTOR = 3.0
+# the fixture recipe a row was measured on: rows of another recipe time other frames and meters, so
+# `--check` compares only rows of this one (a new recipe starts a new table and a new baseline)
+RECIPE = ",".join(f"{k}={v}" for k, v in sorted(TIMELINE_KW.items())) + ",families=At+Am,meters=hybrid"
 
 
 def _timings() -> dict[str, float]:
@@ -72,17 +75,23 @@ def _machine() -> str:
     return f"{platform.machine()} {platform.processor() or platform.system()}, numpy {np.__version__}, {torch_state}"
 
 
+def _rows(text: str) -> list[dict[str, str]]:
+    """Every timing row, keyed by the header of the table it sits in."""
+    header: list[str] = []
+    rows = []
+    for ln in text.splitlines():
+        if ln.startswith("| date"):
+            header = [c.strip() for c in ln.strip("|").split("|")]
+        elif ln.startswith("| 20") and header:
+            rows.append(dict(zip(header, [c.strip() for c in ln.strip("|").split("|")])))
+    return rows
+
+
 def _last_row(text: str, machine: str) -> dict[str, float]:
-    """The timings of the most recent row measured on `machine`; empty when there is none, since
-    rows from different machines are not comparable."""
-    lines = text.splitlines()
-    heads = [ln for ln in lines if ln.startswith("| date")]
-    if not heads:
-        return {}
-    header = [c.strip() for c in heads[0].strip("|").split("|")]
-    for ln in reversed([ln for ln in lines if ln.startswith("| 20")]):
-        row = dict(zip(header, [c.strip() for c in ln.strip("|").split("|")]))
-        if row.get("machine") == machine:
+    """The timings of the most recent row measured on `machine` with this fixture recipe; empty when
+    there is none, since rows from different machines or recipes are not comparable."""
+    for row in reversed(_rows(text)):
+        if row.get("machine") == machine and row.get("recipe") == RECIPE:
             return {
                 h: float(v) for h, v in row.items() if h.endswith("ms/record") and re.fullmatch(r"[0-9.]+", v)
             }
@@ -100,7 +109,8 @@ def main(check: bool) -> int:
     if check:
         if not last:
             print(
-                f"no earlier row from this machine ({machine}); nothing to compare, run without --check first"
+                f"no earlier row from this machine ({machine}) on this fixture recipe; nothing to compare, "
+                "run without --check first"
             )
             return 0
         if slow:
@@ -108,15 +118,17 @@ def main(check: bool) -> int:
             return 1
         print("no timing regression")
         return 0
-    cols = ["date", *t.keys(), "version", "machine"]
+    cols = ["date", *t.keys(), "version", "machine", "recipe"]
+    table = "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols) + "\n"
     if not text:
         text = (
             "# Benchmarks\n\nPer-record timings on the tiny IEEE-14 timeline, appended by `python tools/bench.py`; "
-            "`--check` fails when a timing is more than 3x slower than the last row. One machine's rows are "
-            "comparable with each other, not with another machine's.\n\n"
-            "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols) + "\n"
+            "`--check` fails when a timing is more than 3x slower than the last row of the same machine and "
+            "fixture recipe.\n\n" + table
         )
-    row = [dt.date.today().isoformat(), *(f"{v:.3f}" for v in t.values()), fg.__version__, machine]
+    elif not any(row.get("recipe") == RECIPE for row in _rows(text)):  # a new recipe: a new table
+        text = text.rstrip("\n") + f"\n\n## Recipe `{RECIPE}`\n\n" + table
+    row = [dt.date.today().isoformat(), *(f"{v:.3f}" for v in t.values()), fg.__version__, machine, RECIPE]
     text = text.rstrip("\n") + "\n| " + " | ".join(row) + " |\n"
     open(DOC, "w", encoding="utf8", newline="\n").write(text)
     print("appended to", DOC)

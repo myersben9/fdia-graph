@@ -159,6 +159,16 @@ def test_stream_of_refuses_a_shuffled_or_filtered_view(timeline):
         stream_of(fg.load(timeline, families=["Am"]))
     s = stream_of(fg.load(timeline, split="test"))
     assert s.node_x.shape[0] == len(fg.load(timeline, split="test"))
+    # a hybrid-meter timeline's stream carries its PMU branch currents; an old release's has none
+    E = s.edge_x.shape[1]
+    assert s.pmu_i.shape == (len(s.node_x), E, 4) and s.pmu_i_benign.shape == s.pmu_i.shape
+    assert s.pmu_i_m.shape == (E, 4) and s.pmu_i_m.any()
+    from test_old_releases import TIMELINE_V083
+
+    from fdia_graph.dataset import FdiaGraph
+
+    old = stream_of(FdiaGraph(TIMELINE_V083, split="test"))
+    assert old.pmu_i is None and "pmu_i" not in old
 
 
 def test_per_bus_windows_come_from_the_view_itself(timeline):
