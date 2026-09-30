@@ -503,6 +503,25 @@ class WuDefenseConfig(Validated):
         yield len(slots) <= len(pmus), "cannot have more steps than PMUs to trust"
 
 
+@dataclass(frozen=True)
+class WuDqnConfig(Validated):
+    """[WU26]'s DQN (Sec. IV-D2, Algorithm 1, Sec. V and the Appendix; `trust.TrustedPMUsDQN`): the
+    stated hyperparameters by default, the discount gamma 0.9, the learning rate 0.005 (Adam), the
+    replay buffer of 2,500 transitions, minibatches of 25, the target network updated every 20
+    iterations, the exploration rate e^(-0.002 ep) and about 250 episodes (Fig. 13). The network's
+    width is ours (the paper gives none): two hidden layers of `hidden` units."""
+
+    episodes: Count = 250
+    gamma: Share = 0.9
+    lr: Scale = 0.005
+    buffer: Count = 2500
+    batch: Count = 25
+    target_every: Count = 20
+    epsilon_decay: Scale = 0.002
+    hidden: Count = 128
+    seed: Annotated[int, Integer(), AtLeast(0)] = 123
+
+
 def _indices(a: np.ndarray) -> bool:
     """Whether `a` holds only non-negative integers (an empty sequence does)."""
     return a.size == 0 or (np.issubdtype(a.dtype, np.integer) and bool((a >= 0).all()))

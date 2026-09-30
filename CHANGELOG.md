@@ -5,6 +5,18 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- [WU26]'s Solution 2, the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2;
+  docs/plans/WU_DEFENSE_PLAN.md, PR D): `trust.TrustedPMUsDQN(envs, WuDqnConfig()).fit()` over one or more
+  `WuDefenseEnv` windows, `order(env)` the trained policy's greedy sequence (eq. 38). The loop is
+  Algorithm 1's: epsilon-greedy actions (eq. 34), line 8's break without a stored transition, one
+  minibatch update per iteration by the squared loss to r + gamma max Q_target (eqs. 35-37), the target
+  network copied every 20 iterations; new validated `WuDqnConfig` with the stated hyperparameters as
+  defaults (gamma 0.9, Adam at 0.005, buffer 2,500, minibatch 25, target every 20, epsilon
+  e^(-0.002 ep), 250 episodes). Ours: the network (two hidden layers of 128 ReLU units, torch), masking
+  PMUs already trusted, terminal transitions bootstrapping nothing, and the state scaled by its largest
+  magnitude over the training environments' first states. New input model `SameDefense` (the training
+  environments offer as many PMUs and take as many steps).
+
 - [WU26]'s trusted-PMU configuration as a Markov decision process (docs/plans/WU_DEFENSE_PLAN.md, PR B):
   `trust.WuDefenseEnv(g, states, goal, k, WuDefenseConfig(pmus, slots))` on one overload window, with
   `reset`, `step` and `valid`. An action trusts one more PMU at the next configuration step (Sec. IV-D2,

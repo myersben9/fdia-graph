@@ -745,6 +745,19 @@ class ChosenAction(Validated):
 
 
 @dataclass(frozen=True)
+class SameDefense(Validated):
+    """The training environments of one trusted-PMU DQN (`trust.TrustedPMUsDQN`): at least one, and the
+    same number of candidate PMUs and of configuration steps in each, since one network scores them all."""
+
+    actions: Annotated[Sequence[int], AsTuple(), NonEmpty()]  # each environment's candidate PMUs
+    steps: Annotated[Sequence[int], AsTuple(), NonEmpty()]  # each environment's configuration steps
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield len(set(self.actions)) == 1, f"the environments must offer as many PMUs, got {self.actions!r}"
+        yield len(set(self.steps)) == 1, f"the environments must take as many steps, got {self.steps!r}"
+
+
+@dataclass(frozen=True)
 class TrustablePmus(Validated):
     """A trusted-PMU schedule's buses against the generator's grid and meter plan
     (`MinimizeMixin.min_tamper`'s `trust`): every trusted bus is a bus of the grid with a PMU, since a
