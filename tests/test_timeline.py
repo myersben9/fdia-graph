@@ -156,8 +156,10 @@ def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
 
     with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
         s = fg.generate_stream(
-            14, pool[:60], 0.5, ("At",), 0.002, 10, None, SEED, str(tmp_path / "s.h5"), min_tamper=False
+            14, pool[:60], 0.5, ("At",), ramp_len=10, seed=SEED, out=str(tmp_path / "s.h5"), min_tamper=False
         )
+    with pytest.raises(TypeError):  # a 0.20 positional call: attack_intensity sat where ramp_rate is now
+        fg.generate_stream(14, pool[:60], 0.5, ("At",), 0.2, 0.002)
     assert s.system == 14 and s.node_x.shape == (60, 14, 4) and s.node_m.shape == (14, 4)
     assert set(np.unique(s.family).tolist()) <= {0, 5} and len(s.episodes) > 0
     assert os.path.exists(tmp_path / "s.h5")

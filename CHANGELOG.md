@@ -18,7 +18,8 @@ the public API, the generated files and the numbers are the same as the previous
     `am_attack="redistribution"` (with `AmDirection`, `LEGACY_FAMILIES`, `DEPRECATED_FOR_GENERATION`,
     `ONE_FRAME_FAMILIES`, `generation.NOISE_FLOOR` and the models `Band`, `TamperTarget`,
     `Redistribution`, `AmDesign`). `FrameKnobs` keeps the fields new generation uses, all with
-    defaults. `generate_stream` keeps its entry point with new generation's families and defaults.
+    defaults. `generate_stream` keeps its entry point with new generation's families and defaults; its
+    arguments after `families` are keyword-only, so a 0.20 positional call raises instead of shifting.
   - The v0.8.3 meter model: `meter_model` accepts `"hybrid"` only, now also the engine's default.
     Files written with the old meters load unchanged.
   - Dead or retired code: the full pandapower re-solve (`PhysicsMixin.resolve_states`, `solve`,

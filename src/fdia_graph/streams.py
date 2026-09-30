@@ -50,6 +50,7 @@ def generate_stream(
     states: Optional[Union[str, np.ndarray]] = None,
     attacked_frac: float = 0.5,
     families: Sequence[str] = GENERATED_FAMILIES,
+    *,  # keyword-only from here: the 0.20 positions after `families` held knobs that no longer exist
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
     redundancy: Optional[dict] = None,
@@ -60,7 +61,9 @@ def generate_stream(
     """Deprecated: `fg.generate` writes the timeline and `fg.load(name, order="time")` reads it.
     Builds one timeline file for `system` (`out`, default `stream_ieee{N}.h5` under the cache
     directory) and returns it as the stream dict, with new generation's families and defaults (At and
-    the overload Am); every other knob of `timeline.generate_timeline` passes through `knobs`."""
+    the overload Am); every other knob of `timeline.generate_timeline` passes through `knobs`. The
+    arguments after `families` are keyword-only, so a 0.20 positional call (whose later slots were
+    `attack_intensity` and `replay_tau`) fails instead of generating other data."""
     from .dataset import FdiaGraph
     from .registry import CACHE_DIR, system_id
     from .timeline import generate_timeline
