@@ -97,6 +97,9 @@ classDiagram
     class Redistribution {
         <<models>>
     }
+    class RrefMixin {
+        <<engine>>
+    }
     class Scan {
         <<models>>
     }
@@ -116,10 +119,10 @@ classDiagram
     FalseStateMixin <|-- RedistributionMixin
     GridBase <|-- AreaMixin
     GridBase <|-- CorruptMixin
-    MinimizeMixin <|-- OverloadMixin
     OverloadMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- EpisodeDesignMixin
     RedistributionMixin <|-- StealthyMixin
+    RrefMixin <|-- OverloadMixin
     StealthyMixin <|-- AttackMixin
     AttackMixin ..> AttackDesign : uses
     AttackMixin ..> Frame : uses

@@ -11,6 +11,7 @@ rows shrinks the null space, and once H_S has full column rank no stealthy attac
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Optional
 
 import numpy as np
@@ -124,4 +125,60 @@ def greedy_trusted_meters(H: np.ndarray, k: int, tol: float = _TOL) -> tuple[lis
     return order, costs
 
 
-__all__ = ["rref", "attack_subspace", "sparse_basis", "attack_cost", "greedy_trusted_meters"]
+def sparsest_rows(
+    M: np.ndarray,
+    tol: float = _TOL,
+    rounds: int = 50,
+    eligible: Optional[Callable[[np.ndarray], bool]] = None,
+) -> np.ndarray:
+    """The rows of M's row space in the sparsest reduced echelon form row reduction with column
+    exchanges reaches [WU26, Sec. IV-D1 steps 2-5; after YAN17]: reduce M to RREF, take the row with the
+    fewest nonzeros, move its nonzero columns to the end (the column order is the tracking matrix),
+    reduce again, and repeat until the fewest nonzeros stops falling; the rows come back in M's own
+    column order (the inverse of the tracking matrix), sparsest first. With M the transpose of an
+    attack-area Jacobian, each row is an attack vector h c, the first the sparsest found. The first
+    exchange moves the sparsest row of M itself to the end (step 1's transpose, whose rows are the
+    single-variable attacks; a choice of ours, the paper starts from the first reduction). `eligible`
+    restricts the row the exchanges chase to rows it accepts (an attack that reaches a goal); the
+    eligible rows then come first, sparsest first.
+
+    M        : [n, m] (rows: a basis of the space; columns: the measurements)
+    eligible : which rows count, or None for every row
+    returns  : [r, m] the rows of the last improving reduction, r the rank of M
+    """
+    M = np.asarray(M, np.float64)
+    ok = eligible if eligible is not None else (lambda row: True)
+    # step 1 is the transpose itself, whose rows are attacks too (one state variable each): the chase
+    # starts with the sparsest of them that `ok` accepts moved to the end, the first exchange
+    perm = np.arange(M.shape[1])
+    seed = _chased_row(M, tol, ok)
+    if seed is not None:
+        moved = np.abs(M[seed[1]]) > tol
+        perm = np.concatenate([perm[~moved], perm[moved]])
+    fewest, rows = np.inf, np.zeros((0, M.shape[1]))
+    for _ in range(rounds):
+        Rp, pivots = rref(M[:, perm], tol)
+        Rp = Rp[: len(pivots)]
+        R = np.zeros_like(Rp)
+        R[:, perm] = Rp  # back to M's column order
+        found = _chased_row(R, tol, ok)
+        if found is None or found[0] >= fewest:
+            break
+        fewest, rows = found[0], R
+        moved = np.abs(Rp[found[1]]) > tol
+        perm = np.concatenate([perm[~moved], perm[moved]])  # the chased row's columns to the end
+    nnz = (np.abs(rows) > tol).sum(axis=1)
+    first = np.array([not ok(r) for r in rows], dtype=bool)
+    return rows[np.lexsort((nnz, first))]
+
+
+def _chased_row(R: np.ndarray, tol: float, ok: Callable[[np.ndarray], bool]) -> Optional[tuple[int, int]]:
+    """(The nonzero count, the index) of the sparsest row of R that `ok` accepts, or None."""
+    nnz = (np.abs(R) > tol).sum(axis=1)
+    for i in np.argsort(nnz, kind="stable"):
+        if ok(R[i]):
+            return int(nnz[i]), int(i)
+    return None
+
+
+__all__ = ["rref", "attack_subspace", "sparse_basis", "attack_cost", "greedy_trusted_meters", "sparsest_rows"]

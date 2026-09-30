@@ -136,6 +136,8 @@ class FrameKnobs(NamedTuple):
     # the overload attack's load-plausibility cap tau (D16): None leaves the load changes unbounded
     load_cap: Optional[float] = None
     n_lines: int = 1  # the lines an overload episode drives at once (D17; new generation: 2)
+    # the overload attack's support method (`OverloadSettings.support_method`): "search" or "rref"
+    support_method: str = "search"
 
     @property
     def band(self) -> Band:

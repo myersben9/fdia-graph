@@ -264,6 +264,22 @@ PMUs trusted at or before t (eqs. 30-31). Under the neighbour reading, b's neigh
 42-43 s at budget 4096 for a 10-snapshot window in the first prototype,
 and about 3.1 s at budget 256 (#164's table).
 
+**The attack method: search or [WU26]'s row reduction.** The paper builds its attack by row reduction of the transposed Jacobian with column exchanges (p. 655, after [YAN17]; `support_method="rref"`). Measured on its scenarios (IEEE-14: 20 pool frames, slots 2, 4, 6, 8; IEEE-118: 10 pool frames, one PMU per snapshot in Fig. 9's order, budget 256):
+
+| Scenario, k | Trusted PMUs | Search: devices / channels | RREF: devices / channels | Paper |
+|---|---|---|---|---|
+| Lines 3-4 and 6-11, 1.1 | none | 5 / 8 | 7 / 14 | 7 devices |
+| Lines 3-4 and 6-11, 1.1 | 1, 4, 6, 13 | 6 / 11 (+20.0% / +37.5%) | 6 / 11 (-14.3% / -21.4%) | +25.6% (Sol 1), +23.9% (Sol 2) |
+| Lines 1-2 and 4-5, 1.1 | none | 7 / 23 | 8 / 24 | 9 devices |
+| Lines 1-2 and 4-5, 1.1 | 4, 6, 1, 13 | 9 / 28 (+28.6% / +21.7%) | 9 / 28 (+12.5% / +16.7%) | +35.2% (Sol 1), +27.0% (Sol 2) |
+| Lines 3-4 and 6-11, 1.2 | none | 8 / 26 | 12 / 37 | |
+| Lines 1-2 and 4-5, 1.2 | none | 10 / 40 | 11 / 46 | |
+| both IEEE-14 scenarios, 1.2 | the paper's | no support reaches both ratings | no support reaches both ratings | |
+| IEEE-118 lines 84-85 and 99-100, 1.2 | none | 10 / 25 | 31 / 93 | |
+| IEEE-118, 1.2 | the 11 PMUs, one per snapshot | 12 / 26 (+20.0% / +4.0%) | 20 / 48 | +16.4% mean, 3-5 extra devices |
+
+The search matches Table II and Fig. 12 better, so PR B's cost oracle uses it. The reduction names the right buses first (3 and 11 for lines 3-4 and 6-11) but that pair cannot reach both ratings under the limits, and growing it by the next sparsest rows reaches the whole area, which costs more devices; with the PMUs trusted its columns shrink, so its device count can fall.
+
 **Caching.** The cost depends only on the window (its states and goal) and the trusted schedule, so
 the key is (window id, tuple of (snapshot, PMU)).
 - A DQN episode revisits prefixes constantly.

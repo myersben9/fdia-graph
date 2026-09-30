@@ -34,6 +34,7 @@ from .choices import (
     RecordFormat,
     Reweight,
     Split,
+    SupportMethod,
     Units,
 )
 from .validation import (
@@ -295,6 +296,8 @@ class OverloadSettings(Validated):
     # the lines each episode overloads at once (D17): [WU26]'s case studies always drive two; 1 or 2,
     # since every added line multiplies the target sets an episode tries and the paper uses no more
     n_lines: Annotated[int, Integer(), InRange(1, 2, lo_closed=True, hi_closed=True)] = 2
+    # how an episode's support is chosen: the fewest-tamper search, or [WU26]'s row reduction ("rref")
+    support_method: Annotated[str, OneOf(SupportMethod)] = "search"
 
     @staticmethod
     def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:
