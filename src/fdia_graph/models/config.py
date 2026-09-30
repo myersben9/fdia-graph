@@ -20,6 +20,7 @@ from .choices import (
     AmDirection,
     Buses,
     Calibrate,
+    CostUnit,
     CutFamily,
     Features,
     Format,
@@ -476,6 +477,30 @@ class CertifyOptions(Validated):
             self.window is None or self.snapshots is None or max(self.snapshots) < self.window,
             f"snapshots must lie in the window of {self.window} snapshots, got {self.snapshots!r}",
         )
+
+
+@dataclass(frozen=True)
+class WuDefenseConfig(Validated):
+    """[WU26]'s trusted-PMU MDP (Sec. IV-D2, Fig. 1; `trust.WuDefenseEnv`): the candidate PMU buses (the
+    generator's bus indices), the snapshot of the window at which each configuration step trusts one of
+    them ("one PMU per step"; IEEE-14's steps at snapshots 2, 4, 6 and 8, IEEE-118's one per snapshot),
+    the unit the attack cost counts (E3) and whether the attack's support may change at a slot (E13)."""
+
+    pmus: Annotated[Sequence[int], AsTuple(), NonEmpty()]
+    slots: Annotated[Sequence[int], AsTuple(), NonEmpty()]
+    unit: Annotated[str, OneOf(CostUnit)] = "channels"
+    per_slot: bool = True
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        pmus, slots = np.asarray(self.pmus), np.asarray(self.slots)
+        yield _indices(pmus), "pmus must be non-negative bus indices"
+        yield len(set(self.pmus)) == len(self.pmus), "lists each PMU once"
+        yield _indices(slots), "slots must be non-negative snapshot indices"
+        yield (
+            bool((np.diff(slots) >= 0).all()),
+            "slots must not decrease: each step trusts at or after the last",
+        )
+        yield len(slots) <= len(pmus), "cannot have more steps than PMUs to trust"
 
 
 def _indices(a: np.ndarray) -> bool:

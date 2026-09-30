@@ -89,8 +89,9 @@ class RrefMixin(MinimizeMixin):
             cost = window.cost(S, None)
             window.unsolved += 0 if window.converged else 1
             if cost is not None:
+                devices, channels = window.counts(cost)
                 return MinimizerResult(
-                    S, cost[0], cost[1], False, len(tried), window.lower_bound(), window.unsolved
+                    S, devices, channels, False, len(tried), window.lower_bound(), window.unsolved
                 )
         return MinimizerResult(area, -1, -1, False, len(tried), window.lower_bound(), window.unsolved)
 

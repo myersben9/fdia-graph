@@ -185,6 +185,15 @@ class AmAttack(Choice):
     REDISTRIBUTION = "redistribution"
 
 
+class CostUnit(Choice):
+    """What the attack cost of [WU26]'s defense counts (the plan's E3): the tampered measurements, the
+    l0 of eqs. (28) and (33) and the unit of Table II's percentages, or the tampered devices, the unit
+    of its extra-device counts (Table II, Fig. 12)."""
+
+    CHANNELS = "channels"
+    DEVICES = "devices"
+
+
 class SupportMethod(Choice):
     """How the overload attack picks the buses its false state moves [WU26, eq. 12]: the fewest-tamper
     search over the area's supports (`MinimizeMixin.min_tamper`), or the paper's row reduction of the

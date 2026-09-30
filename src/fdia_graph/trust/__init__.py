@@ -16,10 +16,14 @@ space, and the selection is which meter to secure next. Both classes share the a
 kernel (`formulas.trust`) and the scoring: the secured meters are set back to their un-attacked
 reading on every attacked record and the residual test of a WLS estimator says whether the attack
 now shows. Needs the [se] extra; the DQN the [torch] extra.
+
+`WuDefenseEnv` is [WU26]'s own MDP on the overload attack: the agent trusts one PMU per configuration
+step, and the reward is the rise in the fewest-tamper search's cost under the schedule (eq. 33).
 """
 
 from .base import TrustedMeters, TrustSelector
+from .defense import WuDefenseEnv
 from .dqn import TrustedMetersDQN
 from .secured import secured_copy
 
-__all__ = ["TrustSelector", "TrustedMeters", "TrustedMetersDQN", "secured_copy"]
+__all__ = ["TrustSelector", "TrustedMeters", "TrustedMetersDQN", "WuDefenseEnv", "secured_copy"]

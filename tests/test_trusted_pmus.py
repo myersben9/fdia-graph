@@ -184,11 +184,18 @@ class _TableWindow:
 
     def __init__(self, costs: dict, alone: dict = {}) -> None:  # noqa: B006  read only
         self.segments, self.prev = [(0, 1), (1, 2)], "start"
+        self.channels_first = False
         self.costs, self.alone = costs, alone
         self.converged, self.unsolved, self.last_tried = True, 0, 0
 
     def cost_plan(self, plan, beat):
         return _beats(self.costs.get(tuple(tuple(int(b) for b in S) for S in plan)), beat)
+
+    def prune_bound(self, lower):
+        return lower  # device-first, as the search's default
+
+    def counts(self, cost):
+        return cost[0], cost[1]  # the table's costs are device-first
 
     def segment_cost(self, j, S, beat, prev):
         found = self.alone.get((j, tuple(int(b) for b in S), prev))

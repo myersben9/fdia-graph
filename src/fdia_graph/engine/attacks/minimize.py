@@ -58,6 +58,7 @@ from ...formulas.noise import (
     paper_current_sigma,
     paper_sigma,
 )
+from ...models.choices import CostUnit
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
@@ -68,7 +69,9 @@ from .false_state import FalseStateMixin
 if TYPE_CHECKING:
     from threadpoolctl import ThreadpoolController
 
-_Cost = tuple[int, int, int]  # (devices, channels, support size): the objective, then its tie-breaks
+# (devices, channels, support size): the objective, then its tie-breaks; with `FrameKnobs.objective`
+# "channels" the first two swap (`_Window.rank`)
+_Cost = tuple[int, int, int]
 _Best = tuple[_Cost, np.ndarray]  # a solved support and its cost
 # the tampered node, flow and PMU current channels (masks; no currents without them in the plan)
 _Channels = tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]
@@ -163,16 +166,16 @@ class MinimizeMixin(FalseStateMixin):
         lower = window.lower_bound()
         window.unsolved = 0 if window.converged else 1  # the region's own solve
         best, evaluated, exhausted = self._search(
-            window, self._supports(starts, area, must_hold), (best, lower), area, k
+            window, self._supports(starts, area, must_hold), (best, window.prune_bound(lower)), area, k
         )
         if trust is not None and trust.per_slot:
             candidates = functools.partial(self._supports, starts, area, must_hold)
             return self._per_slot_result(window, best, candidates, (evaluated, lower, np.asarray(area)), k)
         if best is None:  # no support held for the window meets every constraint: say so, keep the region
             return MinimizerResult(np.asarray(area), -1, -1, False, evaluated, lower, window.unsolved)
-        (devices, channels, _), support = best
+        (devices, channels), support = window.counts(best[0]), best[1]
         # optimal among supports whose solves converged, and only when none that failed could have beaten it
-        proven = devices <= lower or (exhausted and window.unsolved == 0)
+        proven = window.prune_bound(lower) >= best[0][0] or (exhausted and window.unsolved == 0)
         return MinimizerResult(support, devices, channels, proven, evaluated, lower, window.unsolved)
 
     @staticmethod
@@ -197,10 +200,12 @@ class MinimizeMixin(FalseStateMixin):
             evaluated += seeded
         if start is None:
             return MinimizerResult(area, -1, -1, False, evaluated, lower, window.unsolved)
-        (devices, channels, _), plan, more = _per_slot(window, start, candidates, k)
+        cost, plan, more = _per_slot(window, start, candidates, k)
+        devices, channels = window.counts(cost)
         support = np.array(sorted({int(b) for S in plan for b in S}), dtype=np.int64)
+        proven = window.prune_bound(lower) >= cost[0]
         return MinimizerResult(
-            support, devices, channels, devices <= lower, evaluated + more, lower, window.unsolved, plan
+            support, devices, channels, proven, evaluated + more, lower, window.unsolved, plan
         )
 
     @staticmethod
@@ -469,6 +474,7 @@ class _Window:
         # is for analysis only.
         self.g, self.states, self.goal, self.k = g, states, goal, k
         self.stealth_bound = stealth_bound and goal.kind == "load"
+        self.channels_first = k.objective == CostUnit.CHANNELS.value  # what the cost minimizes first
         self.converged = True  # whether every local solve of the last `cost` call converged
         self._near: Optional[tuple[bytes, _Near]] = None  # the last support's branches (`near`)
         self.unsolved = 0  # candidates of the search whose solve failed to converge
@@ -583,7 +589,7 @@ class _Window:
         union, devices, _ = tampered
         if not devices:
             return None  # within noise at every snapshot: no effect, so not an attack [the sub-noise rule]
-        cost = (devices, _channel_count(union), _plan_size(plan))
+        cost = self.rank(devices, _channel_count(union), _plan_size(plan))
         return cost if beat is None or cost < beat else None
 
     def segment_cost(
@@ -601,7 +607,7 @@ class _Window:
         if tampered is None:
             return None
         union, devices, last = tampered
-        cost = (devices, _channel_count(union), len(S))
+        cost = self.rank(devices, _channel_count(union), len(S))
         return (cost, last) if beat is None or cost < beat else None
 
     def support_at(self, t: int, plan: _Plan) -> np.ndarray:
@@ -629,9 +635,25 @@ class _Window:
             node, edge, current, prev = moved
             union = _union(union, (node, edge, current))
             devices = self._devices(union)
-            if beat is not None and devices > beat[0]:
+            first = _channel_count(union) if self.channels_first else devices
+            if beat is not None and first > beat[0]:
                 return None
         return union, devices, prev
+
+    def rank(self, devices: int, channels: int, size: int) -> _Cost:
+        """A cost in the order the search compares it: the objective first (`FrameKnobs.objective`),
+        the other count next, the support size last."""
+        return (channels, devices, size) if self.channels_first else (devices, channels, size)
+
+    def prune_bound(self, lower: int) -> int:
+        """What the cost's first count is known to reach at least: the goal-forced devices `lower` when
+        the search minimizes devices, nothing when it minimizes channels (the forced devices bound no
+        channel count)."""
+        return 0 if self.channels_first else lower
+
+    def counts(self, cost: _Cost) -> tuple[int, int]:
+        """(devices, channels) of a cost `rank` built."""
+        return (cost[1], cost[0]) if self.channels_first else (cost[0], cost[1])
 
     def _devices(self, union: _Channels) -> int:
         """How many devices hold a channel of the union (a PMU branch current joins the PMU of the
