@@ -949,7 +949,8 @@ def generate_timeline(
         stealth_scale,
     )
     splits = SplitSettings(split)  # the train/val/test cut, checked before any work
-    fams = GeneratedFamilies(families).codes
+    # one column per family: an alias of a family already named ("ramp" beside "At") adds nothing
+    fams = tuple(dict.fromkeys(GeneratedFamilies(families).codes))
     overload = ratings if AM_FAMILY in fams else None  # the overload attack's ratings when it runs
     g, meters = _generator(system, seed, max_load_mw, redundancy)
     red = meters.coverage

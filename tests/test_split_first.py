@@ -247,6 +247,23 @@ def test_the_three_variants_carry_the_same_benign_frames(variants):
                 assert np.array_equal(f[name][:], ref[name]), (key, name)
 
 
+def test_an_alias_of_a_named_family_adds_no_column(pool, tmp_path):
+    """families=("At", "ramp") names At twice: one column, its requests and builds counted once."""
+    out = tl.generate_timeline(
+        14,
+        states=pool,
+        families=("At", "ramp"),
+        ramp_len=10,
+        seed=5,
+        min_tamper=False,
+        out=str(tmp_path / "a.h5"),
+    )
+    with h5py.File(out, "r") as f:
+        a = dict(f.attrs)
+    assert a[Attr.PLACED_FAMILIES] == "At" and (a[Attr.EPISODE_SHORTFALL] >= 0).all()
+    assert (a[Attr.EPISODES_BUILT] <= a[Attr.EPISODES_REQUESTED]).all()
+
+
 def test_the_same_seed_gives_the_same_file(variants, pool, tmp_path):
     again = tl.generate_timeline(
         14,

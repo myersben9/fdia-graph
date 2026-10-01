@@ -44,7 +44,8 @@ the public API, the generated files and the numbers are the same as the previous
   Copilot review every push or drafts (`review_on_push` and `review_draft_pull_requests` off): a
   pull request is reviewed once, when it is opened or marked ready. `tools/pr.py merge` now
   requires CI green on the head, one review from every required bot on any commit of the pull
-  request, and a reply to every bot finding (`status` and `wait` show `reviewed_commits` and
+  request, and a reply to every bot finding (inline in its thread; the findings a review lists in
+  its body, a conversation comment after that review) (`status` and `wait` show `reviewed_commits` and
   `unanswered`). `tools/pr.py create` opens a draft and the new `tools/pr.py ready` marks it ready
   (which asks for the one review). CONTRIBUTING.md, the review checklist and the pull-request flow
   diagram describe the draft, ready, one-review, one-fix-push order.

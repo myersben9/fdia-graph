@@ -110,6 +110,7 @@ def _head_state(num: int) -> dict[str, Any]:
     seen = {b for r in reviews if (b := _bot_of(r)) is not None}
     notes = api_all(f"/pulls/{num}/comments")
     answered = {c["in_reply_to_id"] for c in notes if c.get("in_reply_to_id")}
+    talk = [c for c in api_all(f"/issues/{num}/comments") if _bot_of(c) is None]
     return {
         "pr": pr,
         "sha": sha,
@@ -117,11 +118,22 @@ def _head_state(num: int) -> dict[str, Any]:
         "reviews_on_head": on_head,
         "reviewed_commits": reviewed,
         "required_bots": [b for b in REVIEW_BOTS if b == COPILOT or b in seen],
-        "unanswered": [
-            c["id"] for c in notes if not c.get("in_reply_to_id") and _bot_of(c) and c["id"] not in answered
-        ],
+        "unanswered": _missed_unanswered(reviews, talk)
+        + [c["id"] for c in notes if not c.get("in_reply_to_id") and _bot_of(c) and c["id"] not in answered],
         "n_comments": len(notes),
     }
+
+
+def _missed_unanswered(reviews: list[dict[str, Any]], talk: list[dict[str, Any]]) -> list[str]:
+    """Bot reviews whose body lists findings outside the diff ("Previously missed", read by
+    `tools/review_ledger.py`) and that no person has answered since: a conversation comment on the
+    pull request posted after the review answers all of its body's findings."""
+    out = []
+    for r in reviews:
+        if _bot_of(r) and "Previously missed" in (r.get("body") or ""):
+            if not any(c["created_at"] > r["submitted_at"] for c in talk):
+                out.append(f"review {r['id']} (previously missed)")
+    return out
 
 
 def _bot_of(review: dict[str, Any]) -> str | None:

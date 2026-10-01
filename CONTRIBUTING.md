@@ -68,7 +68,9 @@ Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (wi
 `format`, `readability`, the two installs) is a completed success on the head (a job that has not
 started yet counts as not green) and every other listed check has finished without failure.
 Reviewed means every required review bot has reviewed the pull request once and every one of its
-findings has a reply.
+findings has a reply: an inline finding a reply in its thread, and the findings a review lists in
+its body ("Previously missed", outside the diff) a conversation comment on the pull request posted
+after that review.
 
 The automated review is billed per review, so each pull request gets **one**: the repository
 ruleset's Copilot rule reviews a pull request when it is opened or marked ready, and no longer on
