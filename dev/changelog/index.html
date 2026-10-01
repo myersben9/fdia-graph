@@ -1566,11 +1566,51 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li>
-<p><strong>[WU26] reproduction harness</strong> (<code>tools/wu26_harness.py</code>, <code>docs/wu26/README.md</code>): 1-minute attack windows
+<li><strong>[WU26] reproduction harness</strong> (<code>tools/wu26_harness.py</code>, <code>docs/wu26/README.md</code>): 1-minute attack windows
   rebuilt from the 5-minute pool by AC power flow, Solution 1 and the DQN played on each window's
   trusted-PMU MDP, and Table II, the trusted orders, the decision times and Figs. 11-12 written with
-  the CSV each figure is drawn from. Tables III-V and Fig. 13 are not reproduced (see the README).</p>
+  the CSV each figure is drawn from. Tables III-V and Fig. 13 are not reproduced (see the README).</li>
+<li><strong>Split first, then attack each split (generation).</strong> <code>generate_timeline</code> cuts the timeline
+  chronologically into train, val and test before any episode is placed (<code>split=</code>, default
+  60/20/20, now validated by the new model <code>SplitSettings</code>), so every episode lies inside one split
+  and each split's numbers are known in advance. Per split, the whole number of episodes whose
+  frames come closest to <code>attacked_frac</code> of its frames is shared between the families by largest
+  remainder and placed at uniform onsets inside the split, never overlapping and never cut (no
+  episode is clipped any more, so every At episode is exactly <code>ramp_len</code> frames, 60 by default).
+  A placement that jams is retried whole 10 times, then one episode is dropped (<code>RuntimeWarning</code>).
+  An episode with no feasible design at its onset (no admissible ramp, or no line pair an overload
+  reaches stealthily) moves to a later free onset of its split, up to 20 times, instead of leaving
+  its frames benign; past that it is given up (<code>RuntimeWarning</code>). New file attributes record what
+  was asked and got: <code>split_frac</code>, <code>split_sizes</code>, <code>split_attacked_frac</code>, and per split (rows) and
+  family (columns, <code>placed_families</code>) <code>episodes_requested</code>, <code>episodes_built</code>, <code>episode_redraws</code>,
+  <code>episodes_dropped</code>, <code>episode_shortfall</code>. <code>fallback_benign</code> now counts only frames inside a built
+  episode whose scan could not be built. Gone: <code>timeline._frame_split</code> and its boundary-moving,
+  <code>_draw_episodes</code>, <code>_place_episodes</code>. On a 72,000-frame timeline with 60-frame episodes every split
+  is exactly half attacked (360, 120 and 120 episodes).</li>
+<li><strong>Every frame's meter jitter comes from its own stream</strong> keyed by (seed, timestep)
+  (<code>MeasurementMixin._jitter_stream</code>, set by the timeline walk; <code>jitter_keyed</code> attribute). The
+  benign frames, the meter plan and the split column of timelines on one seed and pool that place
+  different families (<code>("Am",)</code>, <code>("At", "Am")</code>, <code>("At",)</code>, the three release variants) are
+  therefore byte-identical, and every emission of frame t draws the same noise as its benign twin.
+  Emission outside a timeline (no key) draws from the generator's own stream as before. Generated
+  data changes for the same seed.</li>
+<li><strong>Fix: an overload <code>Am</code> window is snapshots kappa+1 ... kappa+T</strong> after the untouched reference
+  kappa [WU26, eq. 25]. The goal's share at the window's k-th snapshot is k/T (was (k-1)/(T-1)), so
+  the first labelled snapshot already carries 1/T of the way to the rating; before, its goal was
+  the true flow and that frame, labelled <code>Am</code>, tampered nothing. A new test checks that every frame
+  labelled attacked tampers at least one meter. The fewest-tamper optima of the pinned IEEE-14
+  searches and the [WU26] scenario counts are unchanged; two pinned overload searches fail one
+  candidate solve more or fewer (<code>tests/test_search_speed.py</code>).</li>
+<li>
+<p><strong>Review process: one automated review per pull request.</strong> The repository ruleset no longer has
+  Copilot review every push or drafts (<code>review_on_push</code> and <code>review_draft_pull_requests</code> off): a
+  pull request is reviewed once, when it is opened or marked ready. <code>tools/pr.py merge</code> now
+  requires CI green on the head, one review from every required bot on any commit of the pull
+  request, and a reply to every bot finding (inline in its thread; the findings a review lists in
+  its body, a conversation comment after that review) (<code>status</code> and <code>wait</code> show <code>reviewed_commits</code> and
+  <code>unanswered</code>). <code>tools/pr.py create</code> opens a draft and the new <code>tools/pr.py ready</code> marks it ready
+  (which asks for the one review). CONTRIBUTING.md, the review checklist and the pull-request flow
+  diagram describe the draft, ready, one-review, one-fix-push order.</p>
 </li>
 <li>
 <p><strong>Removed: single-snapshot generation, the v0.8.3 recipe and the frozen suite.</strong> The generator

@@ -1543,7 +1543,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>onset</td>
-<td>The first frame of an episode, drawn uniformly among the positions where the episode fits.</td>
+<td>The first frame of an episode, drawn uniformly among the positions of its split where the episode fits.</td>
 <td><code>timeline._uniform_onset</code>, <code>episodes/onset</code></td>
 </tr>
 <tr>
@@ -1568,8 +1568,8 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>split</td>
-<td>The chronological train, val and test partition (0, 1, 2), boundaries moved so no episode is cut.</td>
-<td><code>timeline._frame_split</code>, <code>data/split</code>, <code>schema.SPLIT_CODE</code></td>
+<td>The chronological train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split.</td>
+<td><code>timeline._split_bounds</code>, <code>data/split</code>, <code>schema.SPLIT_CODE</code></td>
 </tr>
 <tr>
 <td>family</td>

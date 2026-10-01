@@ -1950,7 +1950,8 @@ families as they are.</p>
   and the paper uses no more). An episode draws its pairs from one random order of the eligible
   lines: each line in turn with the first other eligible line whose ends lie inside its attack area
   (the buses within <code>hops</code> of its ends), so one held support can reach both; it tries at most
-  <code>AM_LINE_TRIES</code> pairs and otherwise stays benign and is counted. The file records <code>n_lines</code>, and
+  <code>AM_LINE_TRIES</code> pairs and otherwise stays benign and is counted (since the split-first
+  generation it moves to another onset of its split instead). The file records <code>n_lines</code>, and
   <code>episodes/am_*</code> holds one row per target line: the branch, its rating, the goal at the window's
   end (<code>am_target_mva</code>) and the noiseless and emitted flows reached. The paper's scenarios are a
   table in <code>engine/attacks/overload.py</code>, in MATPOWER bus numbers mapped to our branches by their end

@@ -1708,8 +1708,11 @@ A kind that keeps coming up becomes a checklist item or a mechanical check.</p>
 <li><code>python tools/prereview.py</code> until it passes.</li>
 <li>Work through the checklist above against the diff and every touched file, searching outward from
    every change, and fix what it finds.</li>
-<li>Only then request the automated review (<code>python tools/pr.py request-review &lt;num&gt;</code>). Batch the
-   fixes to its findings into one push, and run steps 1 and 2 again before requesting it again.</li>
+<li>Only then mark the draft ready, which asks for the one automated review (the ruleset no longer
+   reviews every push). Batch the fixes to its findings into one push, reply to each, run steps 1
+   and 2 again, and merge that push on green; request another review
+   (<code>python tools/pr.py request-review &lt;num&gt;</code>) only for a fix that changes behaviour beyond what its
+   finding asked.</li>
 <li><code>python tools/review_ledger.py &lt;num&gt;</code> after each review, so the tally stays current.</li>
 </ol>
 

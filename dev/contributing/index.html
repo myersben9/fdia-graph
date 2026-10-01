@@ -1578,37 +1578,47 @@ checks a docs change locally.</p>
 </tbody>
 </table>
 <h2 id="the-pull-request">The pull request<a class="headerlink" href="#the-pull-request" title="Permanent link">&para;</a></h2>
-<p><img alt="the pull request flow: branch, the pre-review gate and the checklist review, create, request the review, fix every finding in one push and go through the gate again, merge on green" src="../figures/diagrams/contributing_pr_flow.png" /></p>
+<p><img alt="the pull request flow: branch, the pre-review gate and the checklist review, create as a draft, mark ready for the one review, fix every finding in one push and reply to each, merge on green" src="../figures/diagrams/contributing_pr_flow.png" /></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>tools/prereview.py<span class="w">                                      </span><span class="c1"># every gate, locally, on this checkout's source</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>tools/prereview.py<span class="w"> </span>--also-python<span class="w"> </span>&lt;path-to-python3.12&gt;<span class="w">  </span><span class="c1"># and the suite on a second Python, as CI runs 3.9 and 3.12</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>create<span class="w"> </span>my-branch<span class="w"> </span><span class="s2">"One-line title"</span><span class="w"> </span>body.md<span class="w">   </span><span class="c1"># body: what, why, what you checked</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>request-review<span class="w"> </span><span class="m">80</span><span class="w">                           </span><span class="c1"># only after the gate and the checklist are clean</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span><span class="nb">wait</span><span class="w"> </span><span class="m">80</span><span class="w">                                     </span><span class="c1"># CI plus every required review bot</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>create<span class="w"> </span>my-branch<span class="w"> </span><span class="s2">"One-line title"</span><span class="w"> </span>body.md<span class="w">   </span><span class="c1"># a draft; body: what, why, what you checked</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>ready<span class="w"> </span><span class="m">80</span><span class="w">                                    </span><span class="c1"># once clean: the one review of every bot</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span><span class="nb">wait</span><span class="w"> </span><span class="m">80</span><span class="w">                                     </span><span class="c1"># CI plus the one review of every required bot</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>comments<span class="w"> </span><span class="m">80</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>reply<span class="w"> </span><span class="m">80</span><span class="w"> </span>&lt;comment-id&gt;<span class="w"> </span><span class="s2">"what changed"</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>merge<span class="w"> </span><span class="m">80</span><span class="w">                                    </span><span class="c1"># refuses unless green with every required bot's review on the head</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>merge<span class="w"> </span><span class="m">80</span><span class="w">                                    </span><span class="c1"># refuses unless green, reviewed once, every finding answered</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>python<span class="w"> </span>tools/review_ledger.py<span class="w"> </span><span class="m">80</span><span class="w">                               </span><span class="c1"># record the review's findings, print the tally by kind</span>
 </code></pre></div>
 <p>Green means: every job of the smoke workflow (<code>tests</code>, <code>tests (3.9)</code>, <code>tests (windows)</code>, <code>typecheck</code>,
 <code>format</code>, <code>readability</code>, the two installs) is a completed success on the head (a job that has not
-started yet counts as not green), every other listed check has finished without failure, and every required review bot has reviewed
-that exact head.</p>
-<p>The automated review is billed per review, so a pull request reaches it only once it is clean, and
-the fixes to its findings are batched into one push. The order:</p>
+started yet counts as not green) and every other listed check has finished without failure.
+Reviewed means every required review bot has reviewed the pull request once and every one of its
+findings has a reply: an inline finding a reply in its thread, and the findings a review lists in
+its body ("Previously missed", outside the diff) a conversation comment on the pull request posted
+after that review.</p>
+<p>The automated review is billed per review, so each pull request gets <strong>one</strong>: the repository
+ruleset's Copilot rule reviews a pull request when it is opened or marked ready, and no longer on
+every push or on drafts (<code>review_on_push</code> and <code>review_draft_pull_requests</code> off). A pull request is
+therefore opened as a draft while it is worked on and marked ready once it is clean; the fixes to
+the review's findings go in one push, answered one by one, and the pull request merges when that
+push is green, without a second review. A fix that changes behaviour beyond what its finding asked
+is the exception: request one more review for it with <code>tools/pr.py request-review</code>. Related work goes
+in one pull request per theme rather than one per step, and an open pull request is rebased only for
+a real conflict. The order:</p>
 <ol>
 <li><code>python tools/prereview.py</code> until it passes: the CI gates, the test suite, and the checks CI
    does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).</li>
 <li>The review checklist, <code>docs/reference/REVIEW_CHECKLIST.md</code>, against the diff and every touched
    file read whole, searching outward from every change (a <code>/code-review</code> in Claude Code with the
    checklist does this). Fold what it finds into the branch.</li>
-<li>Copilot, requested with <code>tools/pr.py request-review</code>, required on the head at merge. Answer its
-   findings, fix them all in one push, repeat steps 1 and 2, and only then request it again. Record
-   each review with <code>tools/review_ledger.py</code>; a kind of finding that keeps coming up becomes a
-   checklist item or a check in <code>tools/prereview.py</code>.</li>
+<li>Mark the draft ready: Copilot reviews it once. Answer every finding, fix them all in one push,
+   repeat steps 1 and 2 on that push, and merge it on green. Record the review with
+   <code>tools/review_ledger.py</code>; a kind of finding that keeps coming up becomes a checklist item or a
+   check in <code>tools/prereview.py</code>.</li>
 <li>CodeRabbit (<code>.coderabbit.yaml</code> carries the repository's review instructions) and Gemini Code Assist, both
-   GitHub apps installed on the repository; <code>tools/pr.py</code> requires a bot's review on the head as
-   soon as that bot has reviewed the pull request once, so a bot that is not installed never
-   blocks a merge and an installed one is never skipped.</li>
+   GitHub apps installed on the repository; <code>tools/pr.py</code> requires one review from a bot as soon as
+   that bot has reviewed the pull request, so a bot that is not installed never blocks a merge and
+   an installed one is never skipped.</li>
 </ol>
 <p>Bot comments are suggestions: apply the ones that are right and answer every one with what changed
 or why not. <code>tools/pr.py</code> uses the token the Git Credential Manager holds for <code>git push</code>, so it
