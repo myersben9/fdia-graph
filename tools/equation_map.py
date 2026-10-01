@@ -88,10 +88,9 @@ def _files(top: str) -> Iterable[str]:
 
 def _module(path: str) -> str:
     rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
-    if rel.startswith("src/"):
-        mod = rel[len("src/") : -len(".py")].replace("/", ".")
-        return mod[: -len(".__init__")] if mod.endswith(".__init__") else mod
-    return rel
+    mod = rel[len("src/") : -len(".py")] if rel.startswith("src/") else rel[: -len(".py")]
+    mod = mod.replace("/", ".")
+    return mod[: -len(".__init__")] if mod.endswith(".__init__") else mod
 
 
 class Citations:

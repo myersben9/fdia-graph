@@ -119,16 +119,29 @@ class AmDesigner:
         todo = [(i, s, 0) for i, s in enumerate(slots) if s[1] == AM_FAMILY]  # (slot, where, moves)
         done: dict[int, tuple[Slot, AmOverloadDesign]] = {}
         while todo:
-            tasks = [_DesignTask(X[s[0] : s[0] + s[2]], knobs, (self.seed, split, i, m)) for i, s, m in todo]
-            failed = []
-            for (i, s, m), design in zip(todo, self._run(tasks)):
-                if design is None:
-                    failed.append((i, s, m))
-                else:
-                    done[i] = (s, design)
+            failed = self._round(X, knobs, split, todo, done)
             todo = self._move(failed, (others, done, todo), split, span, rec)
         built = [s for s, _ in done.values()]
         return sorted(others + built), {s[0]: d for s, d in done.values()}
+
+    def _round(
+        self,
+        X: np.ndarray,
+        knobs: FrameKnobs,
+        split: int,
+        todo: list[tuple[int, Slot, int]],
+        done: dict[int, tuple[Slot, AmOverloadDesign]],
+    ) -> list[tuple[int, Slot, int]]:
+        """One round: every pending episode designed at its onset (in parallel), the designed ones
+        added to `done`; returns those with no design."""
+        tasks = [_DesignTask(X[s[0] : s[0] + s[2]], knobs, (self.seed, split, i, m)) for i, s, m in todo]
+        failed = []
+        for (i, s, m), design in zip(todo, self._run(tasks)):
+            if design is None:
+                failed.append((i, s, m))
+            else:
+                done[i] = (s, design)
+        return failed
 
     def _move(
         self,
