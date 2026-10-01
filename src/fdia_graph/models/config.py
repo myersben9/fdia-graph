@@ -265,7 +265,10 @@ class SplitSettings(Validated):
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield len(self.fractions) == 3, "takes three fractions: train, val and test"
-        yield all(math.isfinite(f) and 0.0 < f < 1.0 for f in self.fractions), "each fraction must be in (0, 1)"
+        yield (
+            all(math.isfinite(f) and 0.0 < f < 1.0 for f in self.fractions),
+            "each fraction must be in (0, 1)",
+        )
         yield abs(sum(self.fractions) - 1.0) < 1e-9, "the fractions must sum to 1"
 
 

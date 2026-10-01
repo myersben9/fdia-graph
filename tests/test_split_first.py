@@ -268,7 +268,9 @@ def test_the_same_seed_gives_the_same_file(variants, pool, tmp_path):
             assert np.array_equal(x, y, equal_nan=x.dtype.kind == "f"), k
 
 
-@pytest.mark.parametrize("bad", [(0.6, 0.4), (0.5, 0.3, 0.3), (0.0, 0.5, 0.5), (0.6, 0.2, float("nan")), "train"])
+@pytest.mark.parametrize(
+    "bad", [(0.6, 0.4), (0.5, 0.3, 0.3), (0.0, 0.5, 0.5), (0.6, 0.2, float("nan")), "train"]
+)
 def test_a_malformed_split_is_refused_before_any_work(bad):
     from fdia_graph.models.validation import ConfigError
 
@@ -288,7 +290,9 @@ def test_each_episode_counts_its_own_moves(monkeypatch):
     monkeypatch.setattr(tl, "_run_episode", run)
     monkeypatch.setattr(tl, "_benign_run", lambda w_, t, until: until)
     monkeypatch.setattr(
-        tl, "_relocate", lambda rng, at, pending, end: (at[0] + 1, at[1], at[2]) if at[0] + at[2] < end else None
+        tl,
+        "_relocate",
+        lambda rng, at, pending, end: (at[0] + 1, at[1], at[2]) if at[0] + at[2] < end else None,
     )
     plan = tl._Schedule.build([AT, AM], 10, 0.002, 10, 40 / 2000)  # two 10-frame episodes
     rec = tl._Placement.empty(plan.families)
