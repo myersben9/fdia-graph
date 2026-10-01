@@ -464,13 +464,30 @@ def wu_prototype(store: Store) -> str:
     exp = "wu26.prototype"
     paper = {("1", "1.1"): "25.6% / 23.9%", ("2", "1.1"): "35.2% / 27.0%"}  # [WU26] Table II, as published
     body = []
-    for s, k, cap in (("1", "1.1", "0.5"), ("2", "1.1", "0.5"), ("1", "1.2", "0.5"), ("2", "1.2", "0.5"), ("1", "1.2", "off"), ("2", "1.2", "off")):
+    for s, k, cap in (
+        ("1", "1.1", "0.5"),
+        ("2", "1.1", "0.5"),
+        ("1", "1.2", "0.5"),
+        ("2", "1.2", "0.5"),
+        ("1", "1.2", "off"),
+        ("2", "1.2", "off"),
+    ):
         keys = dict(scenario=s, k=k, load_cap=cap)
         before = _count_pair(store, exp, trust="none", **keys)
         after = _count_pair(store, exp, trust="wu", **keys)
-        label = f"S{s}{' (3-4, 6-11)' if s == '1' else ' (1-2, 4-5)'}, {k}" + (", no load cap" if cap == "off" else "")
-        body.append([label, _pair_text(before), _pair_text(after), _rise(before, after), paper.get((s, k), "")])
-    head = ["scenario, k", "undefended: devices / channels", "Wu's schedule, own bus: devices / channels", "increase: devices / channels", "Table II (Sol 1 / Sol 2)"]
+        label = f"S{s}{' (3-4, 6-11)' if s == '1' else ' (1-2, 4-5)'}, {k}" + (
+            ", no load cap" if cap == "off" else ""
+        )
+        body.append(
+            [label, _pair_text(before), _pair_text(after), _rise(before, after), paper.get((s, k), "")]
+        )
+    head = [
+        "scenario, k",
+        "undefended: devices / channels",
+        "Wu's schedule, own bus: devices / channels",
+        "increase: devices / channels",
+        "Table II (Sol 1 / Sol 2)",
+    ]
     return table(head, body, numeric_from=5)
 
 
@@ -479,11 +496,35 @@ def wu_methods(store: Store) -> str:
     """The search against [WU26]'s row reduction, undefended and under the paper's schedule."""
     exp = "wu26.method_compare"
     rows = [
-        ("ieee14", "1", "1.1", "Lines 3-4 and 6-11, 1.1", "7 devices", "+25.6% (Sol 1), +23.9% (Sol 2)", "1, 4, 6, 13"),
-        ("ieee14", "2", "1.1", "Lines 1-2 and 4-5, 1.1", "9 devices", "+35.2% (Sol 1), +27.0% (Sol 2)", "4, 6, 1, 13"),
+        (
+            "ieee14",
+            "1",
+            "1.1",
+            "Lines 3-4 and 6-11, 1.1",
+            "7 devices",
+            "+25.6% (Sol 1), +23.9% (Sol 2)",
+            "1, 4, 6, 13",
+        ),
+        (
+            "ieee14",
+            "2",
+            "1.1",
+            "Lines 1-2 and 4-5, 1.1",
+            "9 devices",
+            "+35.2% (Sol 1), +27.0% (Sol 2)",
+            "4, 6, 1, 13",
+        ),
         ("ieee14", "1", "1.2", "Lines 3-4 and 6-11, 1.2", "", "", "the paper's"),
         ("ieee14", "2", "1.2", "Lines 1-2 and 4-5, 1.2", "", "", "the paper's"),
-        ("ieee118", "1", "1.2", "IEEE-118 lines 84-85 and 99-100, 1.2", "", "+16.4% mean, 3-5 extra devices", "the 11 PMUs, one per snapshot"),
+        (
+            "ieee118",
+            "1",
+            "1.2",
+            "IEEE-118 lines 84-85 and 99-100, 1.2",
+            "",
+            "+16.4% mean, 3-5 extra devices",
+            "the 11 PMUs, one per snapshot",
+        ),
     ]  # the paper's column is [WU26]'s published numbers (Figs. 4, 12, Table II)
     body = []
     for system, s, k, label, paper_none, paper_wu, schedule in rows:
@@ -500,13 +541,17 @@ def wu_methods(store: Store) -> str:
             rise = _rise(base, wu)
             wu_cells.append(f"{text} ({rise})" if rise else text)
         body.append([label, schedule, *wu_cells, paper_wu])
-    return table(["Scenario, k", "Trusted PMUs", "Search: devices / channels", "RREF: devices / channels", "Paper"], body, numeric_from=5)
+    return table(
+        ["Scenario, k", "Trusted PMUs", "Search: devices / channels", "RREF: devices / channels", "Paper"],
+        body,
+        numeric_from=5,
+    )
 
 
 # ---- spans over many records
 @query("span")
 def span(store: Store, experiment: str, metric: str, fmt: str = "", **keys: str) -> str:
-    """"lo to hi" of `metric` over every newest record the keys select (one number when they agree)."""
+    """ "lo to hi" of `metric` over every newest record the keys select (one number when they agree)."""
     vals = sorted(r.value for r in store.latest(experiment, metric=metric, **keys))
     spec = fmt or METRICS[metric].fmt
     lo, hi = number(vals[0], spec), number(vals[-1], spec)
@@ -514,7 +559,12 @@ def span(store: Store, experiment: str, metric: str, fmt: str = "", **keys: str)
 
 
 # ---- the certifier (docs/plans/RELAX_CERTIFIER_PLAN.md)
-_CUTS = (("socp", "second-order cone"), ("bounds", "+ bounds"), ("bounds+qc", "+ qc"), ("bounds+qc+cycle", "+ cycle"))
+_CUTS = (
+    ("socp", "second-order cone"),
+    ("bounds", "+ bounds"),
+    ("bounds+qc", "+ qc"),
+    ("bounds+qc+cycle", "+ cycle"),
+)
 
 
 @query("certify.ablation")
@@ -525,10 +575,13 @@ def certify_ablation(store: Store) -> str:
     exp = "certify.ablation"
     body = []
     for cut, label in _CUTS:
+
         def rows(metric: str, family: str, cut: str = cut) -> list[Record]:
             return store.latest(exp, method=cut, family=family, metric=metric)
 
-        paper_gaps = ", ".join(str(int(r.value)) for r in sorted(rows("gap", ""), key=lambda r: r.tag("episode")))
+        paper_gaps = ", ".join(
+            str(int(r.value)) for r in sorted(rows("gap", ""), key=lambda r: r.tag("episode"))
+        )
         paper = f"{int(sum(r.value for r in rows('certified', '')))} of {len(rows('certified', ''))} certified (gaps {paper_gaps})"
         am = f"{int(sum(r.value for r in rows('certified', 'Am')))} of {len(rows('certified', 'Am'))} certified"
         at = f"{int(sum(r.value for r in rows('certified', 'At')))} certified, {int(sum(r.value for r in rows('uncertain', 'At')))} uncertain"
@@ -536,7 +589,93 @@ def certify_ablation(store: Store) -> str:
         mism = statistics.median(r.value for r in rows("mismatch_mw", "Am"))
         secs = sorted(r.value for r in store.latest(exp, method=cut, metric="seconds", stage="relax"))
         tight = sorted(r.value for r in store.latest(exp, method=cut, metric="seconds", stage="tightening"))
-        time = (f"{tight[0]:.0f} to {tight[-1]:.0f} tightening, " if tight else "") + f"{secs[0]:.0f} to {secs[-1]:.0f} solve"
-        body.append([label, paper, am, at, f"{gaps[0]:.0f} to {gaps[-1]:.0f}, median {statistics.median(gaps):.0f}", f"{mism:.0f}", time])
+        time = (
+            f"{tight[0]:.0f} to {tight[-1]:.0f} tightening, " if tight else ""
+        ) + f"{secs[0]:.0f} to {secs[-1]:.0f} solve"
+        body.append(
+            [
+                label,
+                paper,
+                am,
+                at,
+                f"{gaps[0]:.0f} to {gaps[-1]:.0f}, median {statistics.median(gaps):.0f}",
+                f"{mism:.0f}",
+                time,
+            ]
+        )
     head = ["family", "paper", "`Am`", "`At`", "`Am` gaps", "median mismatch, MW (`Am`)", "seconds"]
     return table(head, body, numeric_from=7)
+
+
+# ---- generation (docs/guides/generation.md)
+_AM_RUNS = (
+    ("1", "none", "one line, before the D16 bounds"),
+    ("1", "d16", "one line, D16 bounds"),
+    ("2", "d16", "two lines, D16 bounds (default)"),
+)
+
+
+@query("gen.am")
+def gen_am(store: Store) -> str:
+    """The overload episodes generated per system and recipe: built and fallen back, mean devices and
+    channels, the largest change on a channel (median and worst episode), proven share, time."""
+    exp = "generation.am_overload"
+    body = []
+    for system in ("ieee14", "ieee30", "ieee118"):
+        for lines, bounds, label in _AM_RUNS:
+            keys = dict(system=system, lines=lines, edge_bounds=bounds)
+            frames = _get(store, exp, metric="frames", **keys)
+            if frames is None:
+                continue
+            body.append(
+                [
+                    f"IEEE-{_short(system)}",
+                    label,
+                    cell(frames, "d"),
+                    cell(_get(store, exp, metric="episodes", stage="built", **keys), "d"),
+                    cell(_get(store, exp, metric="episodes", stage="fallen_back", **keys), "d"),
+                    cell(_get(store, exp, metric="devices", **keys), ".1f"),
+                    cell(_get(store, exp, metric="channels", **keys), ".1f"),
+                    f"{cell(_get(store, exp, metric='max_change_pu', stat='median', **keys))} / {cell(_get(store, exp, metric='max_change_pu', stat='max', **keys))}",
+                    cell(_get(store, exp, metric="proven_share", **keys), ".0%"),
+                    cell(_get(store, exp, metric="seconds_per_episode", **keys), ".0f"),
+                ]
+            )
+    head = [
+        "system",
+        "recipe",
+        "frames",
+        "episodes",
+        "fallen back",
+        "devices (mean)",
+        "channels (mean)",
+        "largest change, pu (median / max episode)",
+        "proven",
+        "s per episode",
+    ]
+    return table(head, body, numeric_from=2)
+
+
+@query("wu.smax")
+def wu_smax(store: Store) -> str:
+    """[WU26]'s IEEE-14 scenarios at ratings k times the window's peak flow: devices, channels and
+    the largest change, or no attack."""
+    exp = "wu26.smax_sensitivity"
+    ks = sorted(
+        {r.tag("k") for r in store.latest(exp)},
+        key=lambda k: (k == "pglib", float(k) if k != "pglib" else 0.0),
+    )
+    body = []
+    for s, label in (("1", "lines 3-4 and 6-11"), ("2", "lines 1-2 and 4-5")):
+        row = [label]
+        for k in ks:
+            d = _get(store, exp, scenario=s, k=k, metric="devices")
+            c = _get(store, exp, scenario=s, k=k, metric="channels")
+            m = _get(store, exp, scenario=s, k=k, metric="max_change_pu")
+            row.append(
+                "no attack"
+                if d is None or d.value < 0
+                else f"{int(d.value)} / {int(c.value) if c else ''} / {cell(m)}"
+            )
+        body.append(row)
+    return table(["scenario (devices / channels / largest change, pu)", *(f"k = {k}" for k in ks)], body)
