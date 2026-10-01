@@ -295,7 +295,7 @@ def _cheapest(
         evaluated += 1
         cost = window.cost(S, None if best is None else best[0])  # None unless S beats the best
         best = best if cost is None else (cost, S)
-        if best is not None and best[0][:2] == (1, 1) and S is not area:
+        if best is not None and best[0][:2] == (1, 1) and best[1] is not area:
             break
     return best, evaluated
 

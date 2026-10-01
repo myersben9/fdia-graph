@@ -332,3 +332,20 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
         before = AttackVector(*g._attack_vector(Xa, states[0]), g._current_attack(Xa, states[0]))
         assert _Window(g, states, held, k).cost(area, None) is None
         assert _Window(g, states, held, k, prev=before).cost(area, None) is not None
+
+
+def test_the_search_stops_early_only_once_a_smaller_support_is_the_cheapest():
+    """One device on one channel is the least an attack tampers, so the loop stops there, but not on the
+    area itself (solved first, the largest candidate): a smaller support of the same counts follows."""
+    from fdia_graph.engine.attacks.minimize import _cheapest
+
+    area, failing, small = np.arange(13), np.arange(9), np.arange(7)
+    costs = {13: (1, 1, 13), 9: None, 7: (1, 1, 7)}
+
+    class Table:
+        def cost(self, S, beat):
+            c = costs[len(S)]
+            return c if c is not None and (beat is None or c < beat) else None
+
+    best, evaluated = _cheapest(Table(), iter([area, failing, small]), area, 256)  # type: ignore[arg-type]
+    assert best is not None and len(best[1]) == 7 and evaluated == 3  # the area alone does not stop it
