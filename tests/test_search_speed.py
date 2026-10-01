@@ -26,22 +26,22 @@ from fdia_graph.models.grid import NODE  # noqa: E402
 WINDOW = 8
 MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window, as tests/test_wu_scenarios.py
 
-# (meter model, load_cap, kind, onset, target lines or ramp draw) ->
-# (support, devices, channels, proven, evaluated, unsolved), every search exhaustive (evaluated below
-# the budget), recorded by the search before the speed-ups (the unsolved counts of two overload
-# goals re-recorded when the window became kappa+1 ... kappa+T, eq. 25; the optima did not move).
-# With the load cap [D16] several goals have no false state at all (devices -1, every candidate unsolved); without it the same goals are solved.
+# (meter model, load_cap, kind, onset, target lines or ramp draw) -> (support, devices, channels,
+# evaluated), every search exhaustive (evaluated below the budget). The supports and counts are those
+# the search found before the proof machinery was removed; the two At searches stop as soon as a
+# support tampers one device on one channel, the least any attack can (60 and 78 candidates where they
+# solved 128 and 112). With the load cap [D16] one goal has no false state at all (devices -1).
 PINNED = {
-    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, False, 18, 15),
-    ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, False, 18, 18),
-    ("hybrid", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 5, 6], 7, 25, False, 18, 12),
-    ("hybrid", 0.5, "At", 20, 0): ([3, 4, 6, 7, 9, 10, 11, 12, 13], 1, 1, True, 128, 0),
-    ("hybrid", 0.5, "At", 200, 1): ([2, 3, 4, 6, 7, 8, 9, 10, 11, 13], 1, 1, True, 112, 0),
-    ("hybrid", None, "Am", 0, (0,)): ([1, 4], 7, 23, False, 18, 3),
-    ("hybrid", None, "Am", 150, (1,)): ([4], 6, 14, True, 99, 0),
-    ("hybrid", None, "Am", 300, (0,)): ([1, 4], 7, 25, False, 18, 2),
-    ("hybrid", None, "Am", 0, (1, 4)): ([1, 4], 7, 24, False, 99, 45),
-    ("hybrid", None, "Am", 150, (4, 5)): ([1, 2, 4], 7, 30, False, 707, 267),
+    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, 18),
+    ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, 18),
+    ("hybrid", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 5, 6], 7, 25, 18),
+    ("hybrid", 0.5, "At", 20, 0): ([3, 4, 6, 7, 9, 10, 11, 12, 13], 1, 1, 60),
+    ("hybrid", 0.5, "At", 200, 1): ([2, 3, 4, 6, 7, 8, 9, 10, 11, 13], 1, 1, 78),
+    ("hybrid", None, "Am", 0, (0,)): ([1, 4], 7, 23, 18),
+    ("hybrid", None, "Am", 150, (1,)): ([4], 6, 14, 99),
+    ("hybrid", None, "Am", 300, (0,)): ([1, 4], 7, 25, 18),
+    ("hybrid", None, "Am", 0, (1, 4)): ([1, 4], 7, 24, 99),
+    ("hybrid", None, "Am", 150, (4, 5)): ([1, 2, 4], 7, 30, 707),
 }
 
 
@@ -76,8 +76,8 @@ def _goal(g, pool, kind, t, which):
 
 
 def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
-    """The optimum (support, devices, channels), whether it is proven, and how many candidates were
-    solved and failed: all as before the speed-ups, the search running to completion. The overload
+    """The cheapest support (support, devices, channels) and how many candidates were solved, the search
+    running to completion. The overload
     cases cover the D16 bounds (generator limits on the support's edge, the load cap) and two-line
     goals [D17]."""
     cases = {key: want for key, want in PINNED.items() if key[0] == model}
@@ -87,7 +87,7 @@ def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
         if kind == "Am":
             assert set(which) <= set(gen.eligible_lines(window, 2).tolist())
         r = gen.min_tamper(window, goal, k)
-        got = (r.support.tolist(), r.devices, r.channels, bool(r.proven), r.evaluated, r.unsolved)
+        got = (r.support.tolist(), r.devices, r.channels, r.evaluated)
         assert got == want, (cap, kind, t, which)
         assert r.evaluated < k.min_budget  # exhaustive: the answer is the search's full optimum
 
@@ -148,7 +148,7 @@ def test_the_support_attack_vector_equals_the_full_one(gen, pool):
     window, goal = _goal(gen, pool, "Am", 150, (1,))
     win = _Window(gen, window, goal, k)
     S = np.array([4, 5])
-    Xa, _ = gen.goal_state(goal, 0, window[0], S, k)
+    Xa = gen.goal_state(goal, 0, window[0], S, k)
     assert Xa is not None
     near = win.near(S)
     a_edge, a_cur = win._branch_attack(0, Xa, near)

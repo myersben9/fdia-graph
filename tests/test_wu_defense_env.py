@@ -98,7 +98,7 @@ def test_the_state_is_what_fig_1_lists(env):
 def test_line_8_ends_the_episode_without_a_reward(env):
     # [E6]
     """Algorithm 1's line 8: a defended cost below the undefended one ends the episode, no reward."""
-    fake = MinimizerResult(np.array([1]), 1, 1, False, 1, 0, 0)
+    fake = MinimizerResult(np.array([1]), 1, 1, 1)
     env.cache[(3,)] = fake  # a schedule whose cost is below the undefended one
     env.reset()
     breaks = env.breaks
@@ -108,7 +108,7 @@ def test_line_8_ends_the_episode_without_a_reward(env):
 
 
 def test_an_infeasible_attack_costs_everything_it_could_tamper(env):
-    fake = MinimizerResult(np.array([1]), -1, -1, False, 1, 0, 0)
+    fake = MinimizerResult(np.array([1]), -1, -1, 1)
     env.cache[(0,)] = fake
     env.reset()
     _, reward, done = env.step(0)

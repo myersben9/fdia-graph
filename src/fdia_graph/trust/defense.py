@@ -122,7 +122,8 @@ class WuDefenseEnv:
         X = self._reported_state(t)
         flows = self.g.all_flows_from_states(X[None])[0]
         lines = list(self.goal.lines)
-        rate = np.abs(flows[lines]) / self.g.line_ratings()[lines]  # from the full flows, metered or not
+        rating = np.asarray(self.goal.targets_at(len(self.states) - 1))  # each line's S_max (eq. 25)
+        rate = np.abs(flows[lines]) / rating  # from the full flows, metered or not
         node = np.where(self.window.node_m > 0, X, 0.0)  # what the meters read, unmetered channels zero
         edge = np.where(self.window.edge_m > 0, np.stack([flows.real, flows.imag], axis=1), 0.0)
         mask = np.zeros(self.n_actions)
@@ -145,8 +146,7 @@ class WuDefenseEnv:
             return np.asarray(self.states[t], np.float64)
         trust = self._schedule(self.trusted)
         window = _Window(self.g, self.states, self.goal, self.k, trust=trust)  # the schedule's pins
-        plan = result.plan or tuple(result.support for _ in window.segments)
-        Xa, _ = self.g.goal_state(self.goal, t, self.states[t], window.support_at(t, plan), self.k)
+        Xa = self.g.goal_state(self.goal, t, self.states[t], window.support_at(t, result.support), self.k)
         return np.asarray(self.states[t] if Xa is None else Xa, np.float64)
 
     def _schedule(self, trusted: _Schedule) -> Optional[TrustSchedule]:
@@ -154,11 +154,7 @@ class WuDefenseEnv:
         if not trusted:
             return None
         pmus, slots = self.config.pmus, self.config.slots
-        return TrustSchedule(
-            [int(pmus[i]) for i in trusted],
-            [int(slots[j]) for j in range(len(trusted))],
-            self.config.per_slot,
-        )
+        return TrustSchedule([int(pmus[i]) for i in trusted], [int(slots[j]) for j in range(len(trusted))])
 
     def _everything(self) -> float:
         """The cost of an attack the schedule makes infeasible (ours): every channel the plan meters, or

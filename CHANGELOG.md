@@ -5,6 +5,46 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The attack search is a plain candidate loop; the certifier is gone.**
+  - `MinimizeMixin.min_tamper` solves the area, then the goal's buses grown one area bus at a time,
+    smallest first, at most `min_budget` candidates, and keeps the cheapest; it stops early only at one
+    device on one channel, the least an attack tampers. Each candidate's false state is the existing
+    least-norm Gauss-Newton solve of the AC measurement equations (`local_flow_solve`,
+    `local_ac_solve`). Replacing it with `scipy.optimize.least_squares` (trust-region reflective, or
+    Levenberg-Marquardt with least-norm rows) was tried and kept out: on the pinned IEEE-14 searches it
+    lost an attack the least-norm solve finds, found dearer ones on others and ran slower everywhere
+    (experiment `search.solver_compare`, rendered in docs/wu26/README.md).
+  - **Removed:** the convex-relaxation certifier (`engine.attacks.certify`, `relax_cuts`,
+    `formulas.relax`, the `[certify]` extra with cvxpy and pyscipopt, `Certificate`, `BoundClaim`,
+    `CertifyOptions`, `CertifiableLimits`, `CutFamily`, `CertifyVerdict`, `NoOperatingLimits`, the
+    `certify.ablation` results); the search's proof bookkeeping (`MinimizerResult.proven`,
+    `lower_bound`, `unsolved`, the goal-forced lower bound and the files' `episodes/min_proven`,
+    `min_lower_bound` and `min_unsolved`); the support per trust slot (`TrustSchedule.per_slot`,
+    `WuDefenseConfig.per_slot`, `MinimizerResult.plan`, decision E13 now "one support held"), which
+    never changed an answer in any run. `MinimizerResult` is (support, devices, channels, evaluated) and
+    `goal_state` returns the false state alone. [WU26] proves no minimum either.
+  - The pinned IEEE-14 searches find the same supports, devices and channels, and a generated timeline's
+    every data layer is byte-identical; only `episodes/min_evaluated` drops where an `At` search stops at
+    one device on one channel. The search's attack vectors are float64 throughout (float32 before the
+    comparison with noise; no answer changed).
+  - **[WU26]'s attack area** [D18]: `FrameKnobs.area` takes the paper's area bus by bus
+    (`OverloadMixin.wu26_area`: IEEE-14's every bus but the slack, p. 659; IEEE-118's Fig. 9 network,
+    `WU26_ATTACK_AREA`, which nothing used before), and `SearchSettings.area_rule` / `FrameKnobs.area_rule`
+    (new choice `AreaRule`) picks, with "rules", the region Section III-A's principles favour
+    (`AreaMixin.rule_area`: rules 1 and 2 checked, 3 and 4 a score of ours with a size charge, new model
+    `AreaScore`); "hops" (the default) is unchanged.
+  - **Delta ratings** [E14]: `OverloadSettings(rating_source="delta", rating_delta=0.10)` rates each
+    target line at its true flow at the window's last snapshot plus `rating_delta` per unit (ours, a
+    scale matched to [WU26] Fig. 4's attack magnitudes; new `RatingSource.DELTA`,
+    `OverloadMixin.window_ratings`). The generation defaults are unchanged. An Am episode's recorded
+    ratings are its goal's end targets.
+  - `tools/wu26_harness.py` takes `--ratings` ("+0.10" by default, or margins such as "1.1") and runs on
+    the paper's area; its rerun (experiment `wu26.reproduction`) and the MINLP prototype's experiments
+    (`minlp.prototype`, `minlp.region_reading`, `minlp.anchoring`, `minlp.rating_delta`,
+    `minlp.cap_trust_grid`) are rendered in docs/wu26/README.md: IEEE-118 comes closest to the paper's
+    band (the defense adds devices on its scale, the measurement count rises less), IEEE-14 does not
+    reproduce Table II, and why. New metric `feasible`; `lower_bound` is now a solver's dual bound.
+
 - **Generation in stages, typed settings, the paper mapped to the code.**
   - The timeline writer is a pipeline of stages with typed hand-offs in the new package
     `fdia_graph.generation` (the old module's `generate`, `as_v_first` and `_load_states` stay where they
@@ -207,21 +247,11 @@ the public API, the generated files and the numbers are the same as the previous
   PR A): `min_tamper(..., trust=TrustSchedule(buses, slots))`. A PMU trusted at slot s keeps its bus's
   |V| and angle true at every snapshot t >= s (eqs. 26-32: the deviation is zero on its two secure rows,
   and trust accumulates, eqs. 30-31); its branch currents stay untrusted, as eq. (27) leaves them in the
-  nonsecure set. With `per_slot` (the default) the attack's support may change at each slot, since eq.
-  (28) takes each snapshot's deviation on its own (the plan's E13): a search one segment at a time from
-  the held support, with the other segments fixed, and `MinimizerResult.plan` carries the support of each
-  segment. New model `TrustSchedule` (validated: one slot per bus, each PMU once, non-negative indices).
-  Without a schedule the search and its answers are unchanged. Measured on [WU26]'s IEEE-14 scenarios with
-  the PMUs trusted at the paper's snapshots 2, 4, 6 and 8: experiment `wu26.prototype`, rendered in
-  docs/plans/WU_DEFENSE_PLAN.md (the attack survives at k = 1.1 with increases in the range of the
-  paper's Table II; at k = 1.2 no candidate reaches both ratings). When no held support is
-  feasible, the per-slot search seeds a plan with each segment's own cheapest support before calling
-  the window infeasible (`_segment_seed`); on these scenarios no segment after the last slot has one.
-  Segments are seeded in order, each from the attack vector its predecessor leaves, so an `At` window's
-  stealth bound measures a segment's first step from where the previous one ended; the seed is greedy
-  (a None from it is not a proof), and every plan the per-slot search returns is checked over the whole
-  window.
-  Per slot and held give the same answer, and so do the paper's trust order and the swapped one.
+  nonsecure set. New model `TrustSchedule` (validated: one slot per bus, each PMU once, non-negative
+  indices). Without a schedule the search and its answers are unchanged. Measured on [WU26]'s IEEE-14
+  scenarios with the PMUs trusted at the paper's snapshots 2, 4, 6 and 8: experiment `wu26.prototype`,
+  rendered in docs/plans/WU_DEFENSE_PLAN.md. The paper's trust order and the swapped one give the same
+  answer.
 
 - Development only, no user-visible change: the test suite runs in parallel. pytest-xdist joins the
   `test` and `dev` extras, CI runs the three suites with `-n auto`, and `tools/prereview.py` does so
@@ -229,44 +259,6 @@ the public API, the generated files and the numbers are the same as the previous
   and a pull request that changes only Markdown or `docs/` (not the data dictionary, which a test
   checks) skips the suites' install and run steps, the jobs still reporting success. The malformed-input
   tests' ids no longer carry memory addresses, which differed between workers.
-
-- A certifier for the fewest-tamper search, optional and never on the generation path
-  (docs/plans/RELAX_CERTIFIER_PLAN.md): `engine.attacks.certify.certify(g, states, goal, k)` runs the
-  search and bounds its device count from below by a mixed-integer second-order-cone relaxation of
-  [WU26] eq. (12) over the same area: device binaries with big-M links, Jabr's W with cuts that tie
-  it to the voltages the PMUs pin, the goal (every line of a multi-line goal), the voltage limits,
-  the zero injections, the search's support rule, and for `Am` the D14 and D16 injection bounds
-  (generator limits (22)-(23) and `load_cap`, over the area and its edge). It returns a
-  `Certificate` (`models.frames`): both bounds, whether they meet, the solve time and how far the
-  relaxed point is from an AC state. `CertifyOptions` (`models.config`, checked on construction)
-  sets SCIP's time limits (the relaxation, and 5 s per bound-tightening solve), the kept snapshots
-  (non-empty, inside the window) and the cut families, new choice `CutFamily`, of
-  `engine/attacks/relax_cuts.py` (bound tightening of each bus's voltage move, the QC relaxation,
-  bus angles closing every cycle). A certificate is claimed only clear of SCIP's tolerances
-  (docs/plans/RELAX_CERTIFIER_PLAN.md, section 4.1): a bound b proves ceil(b - `bound_margin`)
-  devices, a would-be certificate (an infeasibility at one device fewer, or an optimum that reaches
-  the search's count) stands only when a re-solve with numerics/feastol loosened to `robust_feastol`
-  certifies it too, and a cut relaxation whose bound falls below the cone
-  relaxation's is a contradiction; `Certificate.verdict` (new choice `CertifyVerdict`: "certified",
-  "gap", "uncertain"), `reason` and `cone_lower` report it, and `models.frames.BoundClaim` is what
-  one solve proves. Solved with SCIP through cvxpy, in the new
-  optional extra `[certify]`, also part of `[all]`. Every noise threshold the relaxation reproduces
-  is widened by the float32 roundoff of the search's own classification
-  (`formulas.relax.roundoff_slack`; At's step bound by the float32 roundoff of attack values
-  as large as the box allows, `step_roundoff_slack`), so the relaxation never cuts the search's
-  attack. After bound tightening a would-be certificate is re-solved on the untightened
-  relaxation, and the search's forced-device bound is no longer a floor. Every claim comes from a solve's proven
-  bound or infeasibility: an infeasibility at cutoff c proves c + 1 devices, one without a cutoff
-  proves nothing (0, and "uncertain" when the search found an attack). The certifier refuses
-  knobs without finite voltage limits with the new named error `NoOperatingLimits` (input model
-  `models.inputs.CertifiableLimits`): its voltage box and big-M constants come from the search's own
-  limits, never from a default box. The bound is valid but loose: on IEEE-14 with new generation's
-  defaults it certifies no episode at any cut level, and the one `At` episode the relaxation met
-  without the guard is "uncertain" at the loosened tolerance (experiment `certify.ablation`, rendered
-  in docs/plans/RELAX_CERTIFIER_PLAN.md). By default `tests/test_certify.py` checks the cone
-  relaxation's validity on an IEEE-14 two-line `Am` window and on an `At` window whose stealth bound
-  starts from a non-zero previous attack vector; the cut families' cases and the full solve run with
-  `FDIA_SLOW=1`.
 
 - The fewest-tamper search (`MinimizeMixin.min_tamper`) holds BLAS to one thread while it runs and
   restores the caller's setting after, through threadpoolctl (added to the `generate` and `all`

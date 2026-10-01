@@ -61,10 +61,9 @@ def _reaches_the_goal(g, window, k, goal, result, trust=None) -> None:
     """Every snapshot has its false state on the support (the goal met inside the limits and the D16
     bounds, `goal_state`), the last one at both ratings, and a trusted PMU's bus is true from its slot."""
     w = _Window(g, window, goal, k, trust=trust)
-    plan = tuple(result.support for _ in w.segments)
     for t in range(len(window)):
-        S = w.support_at(t, plan)
-        Xa, _ = g.goal_state(goal, t, window[t], S, k)
+        S = w.support_at(t, result.support)
+        Xa = g.goal_state(goal, t, window[t], S, k)
         assert Xa is not None, f"no false state at snapshot {t}"
         for b in w.pinned[t]:
             assert np.array_equal(Xa[b, [NODE.v, NODE.theta]], window[t][b, [NODE.v, NODE.theta]])
@@ -96,7 +95,7 @@ def test_the_rref_attack_is_feasible_and_pinned(scenario, margin, trusted, count
     trust = TrustSchedule([int(b) for b in g.wu26_buses(ORDER[scenario])], SLOTS) if trusted else None
     k = k._replace(support_method="rref")
     r = g.min_tamper(window, goal, k, trust=trust)
-    assert (r.devices, r.channels) == counts and not r.proven
+    assert (r.devices, r.channels) == counts
     _reaches_the_goal(g, window, k, goal, r, trust)
 
 

@@ -36,13 +36,15 @@ RELOCATE_STREAM = 0xA3D6  # the key of the onsets an infeasible Am moves to
 @dataclass(frozen=True)
 class _GeneratorSpec:
     """What a worker process needs to rebuild the walk's generator: the case and its meter plan (both
-    fixed by the seed) and the line ratings the parent set over the whole pool."""
+    fixed by the seed) and the line ratings the parent set over the whole pool, or the step of the
+    per-window "delta" ratings (MVA)."""
 
     system: Union[int, str]
     seed: int
     max_load_mw: Optional[float]
     meters: MeterSettings
     ratings: Optional[np.ndarray]
+    rating_delta: Optional[float] = None
 
     def build(self) -> FdiaGenerator:
         g = FdiaGenerator(
@@ -55,6 +57,7 @@ class _GeneratorSpec:
             flow_frac=self.meters.flow_frac,
         )
         g._line_ratings = self.ratings
+        g._rating_delta = self.rating_delta
         return g
 
 

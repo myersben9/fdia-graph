@@ -13,7 +13,6 @@ A reader looking for how an attack is made starts here:
                        branches, the flow goal each snapshot must reach and its frames
     episodes.py        what an episode attacks: the family designers (`RampDesigner` for At,
                        `OverloadDesigner` for Am), chosen per family by `EpisodeDesignMixin.designer`
-    certify.py         the convex-relaxation lower bound on the fewest-tamper count (optional)
 
 `attack_frame` is the one entry for an attacked At scan (an Am frame comes from `overload_step`);
 the timeline decides when and where an episode runs (timeline.py) and `engine.records` emits a

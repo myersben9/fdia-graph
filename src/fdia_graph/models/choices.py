@@ -200,34 +200,24 @@ class SupportMethod(Choice):
     RREF = "rref"
 
 
+class AreaRule(Choice):
+    """How the attacker's area is chosen when no area is given [WU26] Sec. III-A: the buses within
+    `hops` of the goal, or the region the paper's four principles pick (`AreaMixin.rule_area`; rules
+    1 and 2 as checks, 3 and 4 as a score of ours)."""
+
+    HOPS = "hops"
+    RULES = "rules"
+
+
 class RatingSource(Choice):
     """Where the overload attack's line ratings S_max come from [D15]: each branch's peak
-    true flow over the operating pool times a margin (every system), or PGLib-OPF's `rate_a`
-    (IEEE-14, 118 and 300)."""
+    true flow over the operating pool times a margin (every system), PGLib-OPF's `rate_a`
+    (IEEE-14, 118 and 300), or each target's true flow at the window's end plus a fixed step
+    ("delta", ours: a rating scale matched to [WU26] Fig. 4's attack magnitudes)."""
 
     POOL = "pool"
     PGLIB = "pglib"
-
-
-class CutFamily(Choice):
-    """A family of valid cuts the certifier adds to its relaxation (`engine/attacks/relax_cuts.py`):
-    bound tightening of each bus's voltage move, the QC relaxation, and bus angles closing every
-    cycle (docs/plans/RELAX_CERTIFIER_PLAN.md, section 2.1)."""
-
-    BOUNDS = "bounds"
-    QC = "qc"
-    CYCLE = "cycle"
-
-
-class CertifyVerdict(Choice):
-    """What a certificate says (`models.frames.Certificate.verdict`): the search's count is globally
-    minimal over the area, a gap remains between the bounds, or the bound rests on a result inside
-    SCIP's numerical tolerances (a contradiction between relaxation levels, or an infeasibility the
-    loosened re-solve does not confirm), so nothing is claimed."""
-
-    CERTIFIED = "certified"
-    GAP = "gap"
-    UNCERTAIN = "uncertain"
+    DELTA = "delta"
 
 
 class MeterModel(Choice):

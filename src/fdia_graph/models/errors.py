@@ -44,12 +44,6 @@ class UnknownColumnOrder(DataConditionError):
     """A state pool whose column order cannot be read from its values."""
 
 
-class NoOperatingLimits(DataConditionError):
-    """The certifier (`engine.attacks.certify`) was given knobs without finite voltage limits: the
-    search's voltages are then unbounded, and the relaxation takes its voltage box, and every big-M
-    constant, from those limits; it invents none."""
-
-
 class NoLineRatings(DataConditionError):
     """The overload attack (`Am`, [WU26 eqs. 24-25]) needs real line ratings, and the case has none
     (only IEEE-14, 118 and 300 carry the PGLib-OPF ratings)."""

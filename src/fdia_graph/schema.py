@@ -98,13 +98,8 @@ EPISODE_ONSET, EPISODE_LENGTH, EPISODE_FAMILY = "onset", "length", "family"
 EPISODE_BUS_PTR, EPISODE_BUS_IDX = "bus_ptr", "bus_idx"
 # episodes/ with the fewest-tamper knob: one row per episode the search ran on
 EPISODE_MIN_EPISODE, EPISODE_MIN_DEVICES, EPISODE_MIN_CHANNELS = "min_episode", "min_devices", "min_channels"
-EPISODE_MIN_PROVEN, EPISODE_MIN_EVALUATED, EPISODE_MIN_LOWER = (
-    "min_proven",
-    "min_evaluated",
-    "min_lower_bound",
-)
+EPISODE_MIN_EVALUATED = "min_evaluated"
 EPISODE_MIN_SUPPORT_PTR, EPISODE_MIN_SUPPORT_IDX = "min_support_ptr", "min_support_idx"
-EPISODE_MIN_UNSOLVED = "min_unsolved"
 # episodes/ for the overload attack Am [WU26]: one row per Am episode
 EPISODE_AM_EPISODE, EPISODE_AM_LINE, EPISODE_AM_RATING = "am_episode", "am_line", "am_rating_mva"
 EPISODE_AM_REACHED, EPISODE_AM_EMITTED = "am_reached_mva", "am_emitted_mva"
@@ -299,6 +294,11 @@ DECISIONS: dict[str, Decision] = {
     "D17": Decision(
         "an overload episode drives two lines by default, as the paper's case studies", "paper", _ATTACK
     ),
+    "D18": Decision(
+        "the attacker's area: the paper's where stated, else Sec. III-A's rules (1-2 checked, 3-4 our score)",
+        "paper",
+        _ATTACK,
+    ),
     "E1": Decision(
         "dx_t is the attack's state deviation and trust accumulates (eqs. 26, 30-31)", "paper", _DEFENSE
     ),
@@ -325,7 +325,15 @@ DECISIONS: dict[str, Decision] = {
         "the single-snapshot trusted-meter classes stay as the linear analogue", "ours", _DEFENSE
     ),
     "E12": Decision("IEEE-1354 is not reproduced", "ours", _DEFENSE),
-    "E13": Decision("the attack's support may change at a trust slot", "ours", _DEFENSE),
-    "E14": Decision("ratings at 1.2 times the peak flow, 1.1 for the Table II comparison", "ours", _DEFENSE),
+    "E13": Decision(
+        "one support is held for the window (a support per trust slot never changed an answer, removed)",
+        "ours",
+        _DEFENSE,
+    ),
+    "E14": Decision(
+        "reproduction ratings: each target's last flow plus 0.10 pu (Fig. 4's scale); k times the peak as a sensitivity",
+        "ours",
+        _DEFENSE,
+    ),
     "E15": Decision("generation keeps the linear ramp of D9", "ours", _DEFENSE),
 }

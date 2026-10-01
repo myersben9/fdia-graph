@@ -115,9 +115,14 @@ class OverloadMixin(MinimizeMixin):
         branch's `rating_margin` times its peak true apparent flow over the pool X [T, N, 4], at the
         from end as the goal reads it (a static rating per line, every system); with "pglib", the
         PGLib-OPF ratings (`line_ratings`, NoLineRatings on a case without them)."""
+        self._rating_delta = None
         if settings.rating_source == "pglib":
             self._line_ratings = None
             self.line_ratings()
+            return
+        if settings.rating_source == "delta":  # set per window, from the window's own last flow
+            self._rating_delta = settings.rating_delta * self._base_mva
+            self._line_ratings = None  # `window_ratings` rates each window from its own flows
             return
         peak = np.zeros(self.E)
         for a in range(0, len(X), 4096):  # the pool in slabs: a 72k-state pool is one pass
@@ -147,8 +152,8 @@ class OverloadMixin(MinimizeMixin):
         metered, true apparent flow below the rating at every snapshot, and an area around its ends
         holding a free injection (an attackable load or a generator). An out-of-service branch (an N-1 outage) keeps its row with a zero
         admittance, so its flow reads zero and no false state can drive it to its rating."""
-        rating = self.line_ratings()
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
+        rating = self.window_ratings(flows)  # finite per window under "delta"
         S = np.hypot(flows[..., 0], flows[..., 1]).max(axis=0)  # [E] the window's largest true flow
         metered = np.asarray(self.meters.flow, bool)
         status = self.branch.status
@@ -170,11 +175,30 @@ class OverloadMixin(MinimizeMixin):
         generator's episodes pass `OverloadSettings.n_lines` targets: two by default, as the paper's
         case studies overload two lines at once, or one [D17]."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2] MW, MVAr
-        rating = self.line_ratings()
+        rating = self.window_ratings(flows)
         first = _schedule(flows[:, line], float(rating[line]))
         return FlowGoal(
             line, first, more=tuple((int(b), _schedule(flows[:, b], float(rating[b]))) for b in more)
         )
+
+    def window_ratings(self, flows: np.ndarray) -> np.ndarray:
+        """[E] the ratings a window's goal drives to, from its true flows [T, E, 2]: the static ratings
+        (`line_ratings`), or with rating_source "delta" each branch's true apparent flow at the window's
+        last snapshot plus the step (ours, a rating scale matched to [WU26] Fig. 4's attack magnitudes)."""
+        delta = getattr(self, "_rating_delta", None)
+        if delta is None:
+            return self.line_ratings()
+        return np.hypot(flows[-1, :, 0], flows[-1, :, 1]) + delta
+
+    def wu26_area(self) -> Optional[tuple[int, ...]]:
+        """The attacker's area [WU26] states for its case study, as our bus positions: IEEE-14's whole
+        system but the slack ("knowledge of the system's global generation and load forecasts", p. 659),
+        IEEE-118's local network of Fig. 9 (`WU26_ATTACK_AREA`); None on any other case."""
+        if self.C == 14:
+            return tuple(int(b) for b in range(self.C) if b != self.slack_bus)
+        if self.C in WU26_ATTACK_AREA:
+            return tuple(int(b) for b in self.wu26_buses(WU26_ATTACK_AREA[self.C]))
+        return None
 
     def _target_sets(self, order: np.ndarray, n_lines: int, hops: int) -> list[tuple[int, ...]]:
         """At most `AM_LINE_TRIES` target sets from the eligible branches in `order` [D17]: single
@@ -219,7 +243,7 @@ class OverloadMixin(MinimizeMixin):
         the goal's flow there, emitted on the true scan, labelled at the pretended loads; and the
         noiseless apparent flow it reaches on each target branch (MVA, `goal.lines` order, NaN when
         the frame could not be built)."""
-        Xa, _ = self.goal_state(design.goal, i, Xt, design.support, k)
+        Xa = self.goal_state(design.goal, i, Xt, design.support, k)
         if Xa is None:
             return None, np.full(len(design.goal.lines), np.nan)
         # the labels: the free injections of the support, the loads and generator outputs it pretends

@@ -152,15 +152,15 @@ and 2,000 frames; IEEE-30 a smoke run), before the search speed-up of #163 (expe
 `generation.am_overload`; every line of every built episode reaches its rating):
 
 <!-- results: gen.am -->
-| system | recipe | frames | episodes | fallen back | devices (mean) | channels (mean) | largest change, pu (median / max episode) | proven | s per episode |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| IEEE-14 | one line, before the D16 bounds | 3000 | 25 | 0 | 5.3 | 15.0 | 0.18 / 5.74 | 36% | 15 |
-| IEEE-14 | one line, D16 bounds | 3000 | 25 | 0 | 3.9 | 9.9 | 0.14 / 0.82 | 8% | 30 |
-| IEEE-14 | two lines, D16 bounds (default) | 3000 | 25 | 0 | 6.8 | 19.3 | 0.17 / 1.59 | 0% | 39 |
-| IEEE-30 | one line, before the D16 bounds | 600 | 5 | 0 | 3.8 | 8.8 | 0.09 / 0.29 | 0% | 20 |
-| IEEE-118 | one line, before the D16 bounds | 2000 | 17 | 0 | 6.8 | 21.4 | 1.05 / 44.94 | 24% | 43 |
-| IEEE-118 | one line, D16 bounds | 2000 | 17 | 0 | 9.6 | 30.4 | 0.40 / 3.29 | 0% | 71 |
-| IEEE-118 | two lines, D16 bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 0% | 78 |
+| system | recipe | frames | episodes | fallen back | devices (mean) | channels (mean) | largest change, pu (median / max episode) | s per episode |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| IEEE-14 | one line, before the D16 bounds | 3000 | 25 | 0 | 5.3 | 15.0 | 0.18 / 5.74 | 15 |
+| IEEE-14 | one line, D16 bounds | 3000 | 25 | 0 | 3.9 | 9.9 | 0.14 / 0.82 | 30 |
+| IEEE-14 | two lines, D16 bounds (default) | 3000 | 25 | 0 | 6.8 | 19.3 | 0.17 / 1.59 | 39 |
+| IEEE-30 | one line, before the D16 bounds | 600 | 5 | 0 | 3.8 | 8.8 | 0.09 / 0.29 | 20 |
+| IEEE-118 | one line, before the D16 bounds | 2000 | 17 | 0 | 6.8 | 21.4 | 1.05 / 44.94 | 43 |
+| IEEE-118 | one line, D16 bounds | 2000 | 17 | 0 | 9.6 | 30.4 | 0.40 / 3.29 | 71 |
+| IEEE-118 | two lines, D16 bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 78 |
 <!-- /results -->
 
 Notes on the table:
