@@ -679,3 +679,157 @@ def wu_smax(store: Store) -> str:
             )
         body.append(row)
     return table(["scenario (devices / channels / largest change, pu)", *(f"k = {k}" for k in ks)], body)
+
+
+@query("gen.split_first")
+def gen_split_first(store: Store) -> str:
+    """The full IEEE-14 split-first builds: per dataset and split, frames, the attacked fraction, the
+    episodes requested and built per family, redraws and shortfall, and the build time."""
+    exp = "generation.split_first"
+    body = []
+    for method in ("At", "Am", "At+Am"):
+        fams = method.split("+")
+        for split in ("train", "val", "test"):
+            keys = dict(method=method, split=split)
+
+            def per(metric: str, stage: str = "", keys: dict = keys, fams: list = fams) -> str:
+                extra = {"stage": stage} if stage else {}
+                return " / ".join(
+                    cell(_get(store, exp, family=f, metric=metric, **extra, **keys), "d") for f in fams
+                )
+
+            body.append(
+                [
+                    method,
+                    split,
+                    cell(_get(store, exp, metric="frames", **keys), "d"),
+                    cell(_get(store, exp, metric="attacked_frac", family="", **keys), ".3f"),
+                    per("episodes", "requested"),
+                    per("episodes", "built"),
+                    per("redraws"),
+                    per("shortfall"),
+                ]
+            )
+        body.append(
+            [
+                method,
+                "build",
+                "",
+                "",
+                "",
+                "",
+                "",
+                f"{cell(_get(store, exp, method=method, metric='minutes'), '.0f')} min",
+            ]
+        )
+    head = ["dataset", "split", "frames", "attacked", "episodes asked", "built", "redraws", "shortfall"]
+    return table(head, body, numeric_from=2)
+
+
+# ---- a data release's statistics (docs/reference/EXAMPLES.md)
+_LADDER = ("ieee14", "ieee30", "ieee57", "ieee89", "ieee118", "ieee145", "ieee200", "ieee300")
+_FAMILY_LABELS = (
+    ("benign", "benign (0)"),
+    ("Aq", "`Aq` stealthy load-scale"),
+    ("Ad", "`Ad` meter corruption"),
+    ("As", "`As` meter scaling"),
+    ("Ar", "`Ar` replay"),
+    ("At", "`At` temporal ramp"),
+    ("Al", "`Al` load redistribution"),
+    ("Am", "`Am` multi-snapshot"),
+)
+
+
+def _int(rec: Optional[Record]) -> str:
+    return "" if rec is None else f"{int(rec.value):,}"
+
+
+@query("data.sizes")
+def data_sizes(store: Store) -> str:
+    """Per system: buses, branches, frames per split and episodes."""
+    exp = "data.release_stats"
+    body = []
+    for s in _LADDER:
+        frames = [
+            _int(_get(store, exp, system=s, split=sp, family="", metric="frames"))
+            for sp in ("all", "train", "val", "test")
+        ]
+        body.append(
+            [
+                s,
+                _int(_get(store, exp, system=s, metric="buses")),
+                _int(_get(store, exp, system=s, metric="branches")),
+                *frames,
+                _int(_get(store, exp, system=s, split="all", metric="episodes")),
+            ]
+        )
+    return table(["system", "N buses", "E branches", "frames", "train", "val", "test", "episodes"], body)
+
+
+@query("data.families")
+def data_families(store: Store, system: str) -> str:
+    """Frames of each family per split on one system."""
+    exp = "data.release_stats"
+    body = []
+    for fam, label in _FAMILY_LABELS:
+        cells = [
+            _get(store, exp, system=system, split=sp, family=fam, metric="frames")
+            for sp in ("train", "val", "test")
+        ]
+        total = sum(int(c.value) for c in cells if c is not None)
+        body.append([label, *(_int(c) for c in cells), f"{total:,}"])
+    return table(["family", "train", "val", "test", "total"], body)
+
+
+@query("data.states")
+def data_states(store: Store) -> str:
+    """Per system, |V| at p1 / median / p99 and theta min / median / max over the operating pool."""
+    exp = "data.release_stats"
+
+    def q(s: str, quantity: str, which: str, fmt: str) -> str:
+        return cell(_get(store, exp, system=s, metric="quantile", quantity=quantity, q=which), fmt)
+
+    body = [
+        [
+            s,
+            " / ".join(q(s, "V_pu", w, ".3f") for w in ("p1", "p50", "p99")),
+            " / ".join(q(s, "theta_deg", w, ".0f") for w in ("min", "p50", "max")).replace("-", "−"),
+        ]
+        for s in _LADDER
+    ]
+    return table(["system", "\|V\| p1 / med / p99 (pu)", "θ min / med / max (deg)"], body)
+
+
+# ---- the fewest-tamper search's speed (docs/reference/BENCHMARKS.md)
+def _secs(x: float) -> str:
+    """Seconds to one decimal from 1 s up, two below."""
+    return f"{x:.1f}" if x >= 1 else f"{x:.2f}"
+
+
+@query("search.speed")
+def search_speed(store: Store, pr: str) -> str:
+    """Median seconds per episode, before to after one change, per system, family and thread setting."""
+    import statistics
+
+    exp = "search.speed"
+    body = []
+    for s in ("ieee14", "ieee30", "ieee118"):
+        recs = store.latest(exp, system=s, pr=pr, metric="seconds")
+        if not recs:
+            continue
+        counts = {f: len({r.tag("episode") for r in recs if r.family == f}) for f in ("Am", "At")}
+        cells = []
+        for threads in ("default", "one"):
+            for fam in ("Am", "At"):
+                med = {
+                    st: statistics.median(
+                        r.value
+                        for r in recs
+                        if r.family == fam and r.tag("threads") == threads and r.tag("stage") == st
+                    )
+                    for st in ("before", "after")
+                }
+                cells.append(f"{_secs(med['before'])} to {_secs(med['after'])}")
+        body.append([f"IEEE-{_short(s)} ({counts['Am']} Am, {counts['At']} At)", *cells])
+    head = ["system", "default threads, Am", "default threads, At", "one thread, Am", "one thread, At"]
+    return table(head, body)

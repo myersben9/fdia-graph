@@ -126,9 +126,8 @@ Each bus is described by 14 numbers:
 | `temporal_delta` | 2 | scan-to-scan change |
 | `swing` | 2 | windowed z-score of that change |
 
-On the v0.7.1 shards, a 28k-parameter MLP under the published protocol localized at **0.915
-macro-F1** in about five CPU minutes, and the tuned paper models reached 0.93–0.95 on the same
-protocol. Needs `pip install "fdia-graph[torch]"`.
+A 28k-parameter MLP under the published protocol, a few CPU minutes; the printed output below is
+an example recorded on the v0.7.1 shards, not a stored result. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import numpy as np
@@ -183,15 +182,9 @@ report(torch.tensor(p.ravel()), torch.tensor(t.ravel()))
 # DR 0.859  FA 0.0002  F1 0.916          (~5 min CPU)
 ```
 
-Per-family test DR at that operating point on the v0.7.1 shards (benign-bus FA 0.01%):
-
-| `Ad` | `Aq` | `As` (zero-shot) | `Ar` (zero-shot) |
-|---|---|---|---|
-| 0.94 | 0.90 | 0.87 | 0.73 |
-
-On the same shards, adding the excluded families back dropped the pooled all-family F1 to ~0.83,
-almost entirely because the slow ramp `At` (DR ~0.10) evades the temporal feature by construction.
-That gap is the open problem this dataset poses. The next two baselines keep it visible by
+On those shards the zero-shot families (`As`, `Ar`) were the hardest of the four trained-for
+ones, and adding the excluded families back lowered the pooled F1, almost entirely because the
+slow ramp `At` evades the temporal feature by construction. That gap is the open problem this dataset poses. The next two baselines keep it visible by
 training on every family.
 
 ### 2. Graph model: ARMAConv (PyTorch-Geometric), all families
@@ -285,23 +278,26 @@ layer (the label stays the attack target).
 
 ## Dataset statistics
 
-The tables in this section describe data release v0.8.3. Its `Aq` and `Al` episodes are one frame
-each, so a timeline holds about 24,500 episodes, against about 16,000 in v0.8.0 and v0.8.1 whose
+The tables in this section describe data release v0.8.3 (the results store's `data.release_stats`,
+written by `tools/experiments/release_stats.py`). Its `Aq` and `Al` episodes are one frame
+each, so a timeline holds more episodes than v0.8.0 and v0.8.1, whose
 `Aq` and `Al` were held over several frames; the pools, the other knobs and the seed are unchanged.
 
 **Per-system size.** One timeline of 72,000 frames per system, about half under attack, split
 chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):
 
+<!-- results: data.sizes -->
 | system | N buses | E branches | frames | train | val | test | episodes |
-|--------|--------:|-----------:|-------:|------:|----:|-----:|---------:|
-| ieee14  | 14 | 20 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
-| ieee30  | 30 | 41 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
-| ieee57  | 57 | 80 | 72,000 | 43,200 | 14,400 | 14,400 | 24,679 |
-| ieee89  | 89 | 210 | 72,000 | 43,220 | 14,380 | 14,400 | 24,495 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ieee14 | 14 | 20 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
+| ieee30 | 30 | 41 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
+| ieee57 | 57 | 80 | 72,000 | 43,200 | 14,400 | 14,400 | 24,679 |
+| ieee89 | 89 | 210 | 72,000 | 43,220 | 14,380 | 14,400 | 24,495 |
 | ieee118 | 118 | 186 | 72,000 | 43,200 | 14,408 | 14,392 | 24,469 |
 | ieee145 | 145 | 453 | 72,000 | 43,200 | 14,400 | 14,400 | 24,485 |
 | ieee200 | 200 | 245 | 72,000 | 43,200 | 14,400 | 14,400 | 24,436 |
 | ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 | 24,672 |
+<!-- /results -->
 
 Every system converges at every frame. In these releases a split boundary moved to the end of the episode it would cut; from the split-first generation the splits are cut before any episode is placed, so they are exactly 60/20/20.
 
@@ -312,8 +308,9 @@ hold a few more of one family. The one-frame families (`Aq`, `Al`, `Ad`, `As`, `
 episodes and land near their share; `At` and `Am` are about 100 sixty-frame episodes each, so one
 episode more or less moves 60 frames and their split counts vary most:
 
+<!-- results: data.families ieee118 -->
 | family | train | val | test | total |
-|--------|------:|----:|-----:|------:|
+|---|---:|---:|---:|---:|
 | benign (0) | 21,813 | 7,160 | 7,027 | 36,000 |
 | `Aq` stealthy load-scale | 2,961 | 991 | 948 | 4,900 |
 | `Ad` meter corruption | 2,948 | 941 | 945 | 4,834 |
@@ -322,22 +319,25 @@ episode more or less moves 60 frames and their split counts vary most:
 | `At` temporal ramp | 3,120 | 1,440 | 1,440 | 6,000 |
 | `Al` load redistribution | 2,806 | 934 | 982 | 4,722 |
 | `Am` multi-snapshot | 3,627 | 960 | 1,140 | 5,727 |
+<!-- /results -->
 
 The v0.7.2 release shipped a record shard and a separate stream per system; from v0.8.0 the
 timeline is the one file, and `fg.load(..., release="v0.7.2")` still reads the shards.
 
 **Operating-state distributions** (from the 72k pool per system):
 
+<!-- results: data.states -->
 | system | \|V\| p1 / med / p99 (pu) | θ min / med / max (deg) |
-|--------|--------------------------|--------------------------|
-| ieee14  | 1.010 / 1.052 / 1.090 | −21 / −14 / 0 |
-| ieee30  | 0.956 / 0.980 / 1.000 | −6 / −2 / 3 |
-| ieee57  | 0.689 / 0.880 / 1.040 | −34 / −13 / 0 |
-| ieee89  | 0.961 / 1.034 / 1.084 | −17 / −3 / 33 |
+|---|---:|---:|
+| ieee14 | 1.010 / 1.052 / 1.090 | −21 / −14 / 0 |
+| ieee30 | 0.956 / 0.980 / 1.000 | −6 / −2 / 3 |
+| ieee57 | 0.689 / 0.880 / 1.040 | −34 / −13 / 0 |
+| ieee89 | 0.961 / 1.034 / 1.084 | −17 / −3 / 33 |
 | ieee118 | 0.943 / 0.984 / 1.050 | −1 / 20 / 46 |
 | ieee145 | 0.920 / 1.064 / 1.155 | −180 / 1 / 180 |
 | ieee200 | 0.980 / 1.018 / 1.040 | −46 / −37 / −22 |
 | ieee300 | 0.870 / 0.992 / 1.065 | −108 / −15 / 71 |
+<!-- /results -->
 
 ![Operating-state distributions](../figures/fig_dataset_stats.png)
 

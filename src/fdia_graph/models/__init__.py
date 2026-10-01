@@ -140,6 +140,7 @@ from .inputs import (
     TrustablePmus,
     WindowSlots,
 )
+from .results import Leaf, Metric, Provenance, Record, RunRecords
 from .scores import (
     BenignMetrics,
     ErrorPair,
@@ -177,6 +178,11 @@ PUBLIC = (
 
 __all__ = [
     "Bundle",
+    "Leaf",
+    "Metric",
+    "Provenance",
+    "Record",
+    "RunRecords",
     "ScanFields",
     "LabelFields",
     "RecordIds",

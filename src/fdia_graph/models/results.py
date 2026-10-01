@@ -93,6 +93,16 @@ METRICS: dict[str, Metric] = {
     "ms_per_record": _m("ms", "lower", ".3f", "wall time per record (or per frame, for generation)"),
     "attacked_frac": _m("", "none", ".3f", "share of frames attacked"),
     "frames": _m("", "none", "d", "frames"),
+    "redraws": _m(
+        "", "lower", "d", "episodes moved to a new onset or line pair because their attack was infeasible"
+    ),
+    "shortfall": _m("", "lower", "d", "episodes given up after the redraw cap"),
+    "minutes": _m("min", "lower", ".1f", "wall time in minutes"),
+    "buses": _m("", "none", "d", "buses of a system"),
+    "branches": _m("", "none", "d", "branches of a system"),
+    "quantile": _m(
+        "", "none", ".3f", "a quantile of a quantity over the operating pool (the tag names which)"
+    ),
 }
 
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9_.+-]*$")
