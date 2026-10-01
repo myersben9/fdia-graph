@@ -8,6 +8,7 @@ import os
 from collections.abc import Iterable, Sequence
 from typing import Optional
 
+from ..models.errors import NoSuchResult
 from ..models.results import METRICS, Record
 
 
@@ -40,10 +41,16 @@ _FIELDS = ("system", "method", "family", "split", "metric", "run_id")
 
 
 def pivot(records: Iterable[Record], row: str, col: str) -> dict[tuple[str, str], Record]:
-    """The records indexed by (their `row` key, their `col` key); each pair must be one record."""
+    """The records indexed by (their `row` key, their `col` key). Two records on one cell mean the
+    selection left a key open (a second `k`, another split): `NoSuchResult`, never a silent pick."""
     out: dict[tuple[str, str], Record] = {}
     for r in records:
-        out[(key_of(r, row), key_of(r, col))] = r
+        cell_key = (key_of(r, row), key_of(r, col))
+        if cell_key in out:
+            raise NoSuchResult(
+                f"two records on {row}={cell_key[0]}, {col}={cell_key[1]}: narrow the selection"
+            )
+        out[cell_key] = r
     return out
 
 

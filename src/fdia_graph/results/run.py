@@ -22,6 +22,7 @@ import inspect
 import json
 import os
 import platform
+import secrets
 import subprocess
 from collections.abc import Iterable, Mapping
 from types import TracebackType
@@ -52,7 +53,7 @@ class Run:
         chash = config_hash(settings)
         sha, dirty = _git_state()
         self.provenance = Provenance(
-            run_id=run_id or f"{experiment}-{stamp.replace(':', '').replace('-', '').lower()}-{chash[:6]}",
+            run_id=run_id or _run_id(experiment, system, stamp, chash),
             experiment=experiment,
             timestamp=stamp,
             sdk_version=_sdk_version(),
@@ -135,6 +136,13 @@ class Run:
     ) -> None:
         if kind is None:  # a run that failed half way writes nothing
             self.write()
+
+
+def _run_id(experiment: str, system: str, stamp: str, chash: str) -> str:
+    """experiment-system-time-settings-random: unique even for runs of one experiment and settings
+    that finish in the same second on several systems or processes."""
+    when = stamp.replace(":", "").replace("-", "").lower()
+    return "-".join(p for p in (experiment, system, when, chash[:6], secrets.token_hex(3)) if p)
 
 
 def config_hash(settings: object) -> str:

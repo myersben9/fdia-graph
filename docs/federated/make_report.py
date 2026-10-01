@@ -18,7 +18,11 @@ from fdia_graph.results import Store, figure_data
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
 SYSTEMS = ["ieee14", "ieee118", "ieee300"]
-ROWS = [(m, k, f"{lab}, K = {k}") for m, lab in (("cnn", "1D CNN"), ("mlp", "Per-bus MLP")) for k in ("1", "2", "3")]
+ROWS = [
+    (m, k, f"{lab}, K = {k}")
+    for m, lab in (("cnn", "1D CNN"), ("mlp", "Per-bus MLP"))
+    for k in ("1", "2", "3")
+]
 FAMS = ["Aq", "Ad", "As", "Ar"]
 
 store = Store(os.path.join(HERE, "..", "..", "results"))
@@ -42,5 +46,7 @@ for s in SYSTEMS:
     fig.savefig(os.path.join(OUT, f"fig_fed_{s}.png"), dpi=200, bbox_inches="tight")
     plt.close(fig)
     ordered = [r for m, k, _ in rows for r in [fr[(m, k)], *(f1[(m, k, f)] for f in FAMS)]]
-    figure_data(ordered, os.path.join(OUT, f"fig_fed_{s}_data.csv"), row="method+clients", col="metric+family")
+    figure_data(
+        ordered, os.path.join(OUT, f"fig_fed_{s}_data.csv"), row="method+clients", col="metric+family"
+    )
     print(f"[ok] fig_fed_{s}.png + CSV sidecar")

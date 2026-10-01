@@ -85,4 +85,6 @@ settings = {"huber_c": c, "rank_frac": rank, "removal_threshold": thr, "arms": l
 release = fg.resolve(SYSTEM).release or ""
 with Run("se.estimators", system=SYSTEM, settings=settings, data_release=release, store=STORE) as out:
     n = out.add_tree(report, levels=("method", "family"))
-print(f"[ok] wrote {n} records of se.estimators for {SYSTEM}; run make_report.py and tools/results_docs.py --write")
+print(
+    f"[ok] wrote {n} records of se.estimators for {SYSTEM}; run make_report.py and tools/results_docs.py --write"
+)

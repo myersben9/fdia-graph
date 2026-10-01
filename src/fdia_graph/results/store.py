@@ -10,11 +10,15 @@ run's rows stay, so the store keeps history and `latest` picks the newest run pe
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import os
-from collections.abc import Iterable
+import tempfile
+import time
+from collections.abc import Iterable, Iterator
 from dataclasses import asdict, fields
-from typing import Optional
+from types import TracebackType
+from typing import IO, Optional
 
 from ..models.errors import NoSuchResult
 from ..models.results import KEYS, Provenance, Record, RunRecords, as_values
@@ -33,23 +37,28 @@ class Store:
 
     def __init__(self, path: Optional[str] = None) -> None:
         self.path = path or os.environ.get("FDIA_RESULTS", default_path())
-        self._cache: dict[str, tuple[float, list[Record]]] = {}  # experiment -> (file mtime, records)
+        self._cache: dict[
+            str, tuple[tuple[int, int], list[Record]]
+        ] = {}  # experiment -> ((mtime ns, size), records)
 
     # ---- writing
     def write(self, provenance: Provenance, records: Iterable[Record]) -> int:
         """Store a run's records (all of one experiment) and its provenance; returns the row count."""
         rows = list(RunRecords(provenance, tuple(records)).records)
         os.makedirs(self.path, exist_ok=True)
-        kept = [r for r in self._read(provenance.experiment) if r.run_id != provenance.run_id]
-        stamped = [Record(**{**asdict(r), "run_id": provenance.run_id}) for r in rows]
-        self._write_table(provenance.experiment, kept + stamped)
-        runs = [p for p in self.runs() if p.run_id != provenance.run_id] + [provenance]
-        self._write_runs(runs)
+        with _Lock(os.path.join(self.path, ".lock")):  # harnesses of several systems may finish together
+            self._cache.pop(provenance.experiment, None)
+            kept = [r for r in self._read(provenance.experiment) if r.run_id != provenance.run_id]
+            stamped = [Record(**{**asdict(r), "run_id": provenance.run_id}) for r in rows]
+            self._write_table(provenance.experiment, kept + stamped)
+            self._cache.pop(provenance.experiment, None)
+            runs = [p for p in self.runs() if p.run_id != provenance.run_id] + [provenance]
+            self._write_runs(runs)
         return len(stamped)
 
     def _write_table(self, experiment: str, rows: list[Record]) -> None:
         rows.sort(key=lambda r: (r.run_id, *r.key()))
-        with open(self._table(experiment), "w", newline="", encoding="utf-8") as f:
+        with _replacing(self._table(experiment)) as f:
             w = csv.writer(f, lineterminator="\n")
             w.writerow(_RECORD_COLS + _VALUE_COLS)
             for r in rows:
@@ -69,7 +78,7 @@ class Store:
 
     def _write_runs(self, runs: list[Provenance]) -> None:
         runs.sort(key=lambda p: (p.experiment, p.timestamp, p.run_id))
-        with open(os.path.join(self.path, "runs.csv"), "w", newline="", encoding="utf-8") as f:
+        with _replacing(os.path.join(self.path, "runs.csv")) as f:
             w = csv.writer(f, lineterminator="\n")
             w.writerow(_RUN_COLS)
             for p in runs:
@@ -96,11 +105,16 @@ class Store:
 
     def query(self, experiment: str, **filters: object) -> list[Record]:
         """Every record of `experiment` whose keys match `filters`. A filter on a key takes a value
-        or a collection of values; `tags` filters as "name=value" strings, all of which must hold;
-        a filter on a tag name (e.g. `k="1.2"`) is shorthand for that tag."""
+        or a collection of values (any of them); `tags` filters as "name=value" strings, all of which
+        must hold; a filter on a tag name (e.g. `k="1.2"`, or `k=["1.1", "1.2"]` for either) is
+        shorthand for that tag."""
         want = {k: as_values(v) for k, v in filters.items() if k in _KEY_FIELDS}
-        tags = [str(v) for v in as_values(filters.get("tags", ()))]
-        tags += [f"{k}={v}" for k, v in filters.items() if k not in KEYS and k != "run_id"]
+        tags = [(str(v),) for v in as_values(filters.get("tags", ()))]
+        tags += [
+            tuple(f"{k}={x}" for x in as_values(v))
+            for k, v in filters.items()
+            if k not in KEYS and k != "run_id"
+        ]
         return [r for r in self._read(experiment) if _matches(r, want, tags)]
 
     def latest(self, experiment: str, **filters: object) -> list[Record]:
@@ -112,6 +126,13 @@ class Store:
             if k not in best or when.get(r.run_id, "") > when.get(best[k].run_id, ""):
                 best[k] = r
         return list(best.values())
+
+    def newest_run(self, experiment: str, **filters: object) -> Optional[str]:
+        """The id of the newest run holding a record that matches `filters`, or None; query by that
+        `run_id=` to read one run's data whole (an order, a curve) rather than the newest per key."""
+        when = {p.run_id: p.timestamp for p in self.runs()}
+        ids = {r.run_id for r in self.query(experiment, **filters)}
+        return max(ids, key=lambda i: (when.get(i, ""), i)) if ids else None
 
     def one(self, experiment: str, **filters: object) -> Record:
         """The single newest record matching `filters`; `NoSuchResult` when none or several match."""
@@ -127,7 +148,8 @@ class Store:
         path = self._table(experiment)
         if not os.path.exists(path):
             return []
-        stamp = os.path.getmtime(path)
+        st = os.stat(path)
+        stamp = (st.st_mtime_ns, st.st_size)
         if experiment in self._cache and self._cache[experiment][0] == stamp:
             return self._cache[experiment][1]
         with open(path, newline="", encoding="utf-8") as f:
@@ -149,9 +171,12 @@ class Store:
 _KEY_FIELDS = (*(k for k in KEYS if k != "tags"), "run_id")
 
 
-def _matches(record: Record, want: dict[str, tuple[object, ...]], tags: list[str]) -> bool:
-    """Whether `record` has one of the wanted values of every key filtered and every tag asked."""
-    return all(getattr(record, k) in v for k, v in want.items()) and all(t in record.tags for t in tags)
+def _matches(record: Record, want: dict[str, tuple[object, ...]], tags: list[tuple[str, ...]]) -> bool:
+    """Whether `record` has one of the wanted values of every key filtered and, for every tag asked,
+    one of its accepted "name=value" forms."""
+    return all(getattr(record, k) in v for k, v in want.items()) and all(
+        any(t in record.tags for t in anyof) for anyof in tags
+    )
 
 
 def default_path() -> str:
@@ -167,3 +192,41 @@ def default_path() -> str:
         if parent == here:
             return os.path.join(os.getcwd(), "results")
         here = parent
+
+
+@contextlib.contextmanager
+def _replacing(path: str) -> Iterator[IO[str]]:
+    """A text file written beside `path` and moved over it when complete, so a reader never sees a
+    half-written table."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", newline="", encoding="utf-8") as f:
+            yield f
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+class _Lock:
+    """An exclusive lock file for one store write (created exclusively, retried for up to a minute,
+    then taken over from a writer that died holding it)."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def __enter__(self) -> _Lock:
+        deadline = time.monotonic() + 60.0
+        while time.monotonic() < deadline:
+            try:
+                os.close(os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+                break
+            except FileExistsError:
+                time.sleep(0.05)
+        return self
+
+    def __exit__(
+        self, kind: Optional[type[BaseException]], exc: Optional[BaseException], tb: Optional[TracebackType]
+    ) -> None:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(self.path)

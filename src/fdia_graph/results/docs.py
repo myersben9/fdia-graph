@@ -22,9 +22,10 @@ from __future__ import annotations
 import functools
 import re
 import shlex
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Optional
 
+from ..models.errors import NoSuchResult
 from . import render
 from .store import Store
 
@@ -33,7 +34,8 @@ QUERIES: dict[str, Query] = {}
 
 BLOCK = re.compile(r"<!-- results: (?P<spec>.*?) -->(?P<body>.*?)<!-- /results -->", re.DOTALL)
 _FORMAT = ("fmt", "scale", "sd")
-_FENCE = re.compile(r"(^```.*?^```)", re.DOTALL | re.MULTILINE)  # fenced code, kept as one split part
+# fenced code (``` or ~~~, indented under a list too), kept as one split part up to its closing fence
+_FENCE = re.compile(r"(^[ \t]*(?P<f>`{3,}|~{3,}).*?^[ \t]*(?P=f)[ \t]*$)", re.DOTALL | re.MULTILINE)
 
 
 def query(name: str) -> Callable[[Query], Query]:
@@ -61,9 +63,17 @@ def render_spec(spec: str, store: Store) -> str:
 def fill(text: str, store: Store) -> str:
     """`text` with every results block's body rendered afresh; a block inside a fenced code block is
     an example, not a block, and stays as written."""
-    parts = _FENCE.split(text)
     sub = functools.partial(_rendered, store=store)
-    return "".join(p if i % 2 else BLOCK.sub(sub, p) for i, p in enumerate(parts))
+    return "".join(part if code else BLOCK.sub(sub, part) for part, code in _parts(text))
+
+
+def _parts(text: str) -> list[tuple[str, bool]]:
+    """`text` split into (part, is fenced code) in order."""
+    out, at = [], 0
+    for m in _FENCE.finditer(text):
+        out += [(text[at : m.start()], False), (m.group(0), True)]
+        at = m.end()
+    return [*out, (text[at:], False)]
 
 
 def _rendered(m: re.Match[str], store: Store) -> str:
@@ -76,9 +86,11 @@ def _rendered(m: re.Match[str], store: Store) -> str:
 
 def stale(text: str, store: Store) -> list[str]:
     """The specs of the blocks of `text` whose body is not what they render now."""
-    live = "".join(_FENCE.split(text)[::2])  # the text outside fenced code
-    fresh = {m.group("spec"): m.group("body") for m in BLOCK.finditer(fill(live, store))}
-    return [m.group("spec") for m in BLOCK.finditer(live) if fresh.get(m.group("spec")) != m.group("body")]
+    live = "".join(part for part, code in _parts(text) if not code)
+    pairs = zip(
+        BLOCK.finditer(live), BLOCK.finditer(fill(live, store))
+    )  # each block against itself, by position
+    return [old.group("spec") for old, new in pairs if old.group("body") != new.group("body")]
 
 
 # ---- built-in queries
@@ -105,10 +117,21 @@ def _table(store: Store, experiment: str, rows: str, cols: str, **args: str) -> 
     order given by `order` ("a,b,c" for the rows) or the store's order."""
     spec, scale, sd = _fmt(args)
     grid = render.pivot(store.latest(experiment, **_filters(args)), rows, cols)
-    row_keys = args["order"].split(",") if "order" in args else list(dict.fromkeys(r for r, _ in grid))
+    row_keys = _row_keys(grid, args.get("order"), f"table {experiment} {args}")
     col_keys = list(dict.fromkeys(c for _, c in grid))
     body = [[r, *(render.cell(grid.get((r, c)), spec, scale, sd) for c in col_keys)] for r in row_keys]
     return render.table([rows, *col_keys], body)
+
+
+def _row_keys(grid: Mapping[tuple[str, str], object], order: Optional[str], what: str) -> list[str]:
+    """The rows of a pivot: `order`'s ("a,b,c") or the store's; an empty grid or an ordered row with
+    no record is `NoSuchResult`, so a typo in a block never renders an empty table."""
+    have = list(dict.fromkeys(r for r, _ in grid))
+    keys = order.split(",") if order else have
+    missing = [r for r in keys if r not in have]
+    if not grid or missing:
+        raise NoSuchResult(f"{what}: {'no records' if not grid else f'no rows {missing}'}")
+    return keys
 
 
 @query("reduction")

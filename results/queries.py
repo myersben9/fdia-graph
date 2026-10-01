@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from fdia_graph.errors import NoSuchResult
 from fdia_graph.results import METRICS, Record, Store, cell, query, table
 from fdia_graph.results.render import number
 
@@ -40,8 +41,12 @@ def _key(value: str) -> str:
 
 
 def _get(store: Store, experiment: str, **keys: object) -> Optional[Record]:
+    """The newest record the keys select, None when there is none (an n/a cell); several is a
+    selection that left a key open and raises, so a table never shows an arbitrary one."""
     found = store.latest(experiment, **keys)
-    return found[0] if len(found) == 1 else None
+    if len(found) > 1:
+        raise NoSuchResult(f"{experiment} {keys}: {len(found)} records match, expected at most one")
+    return found[0] if found else None
 
 
 def _systems(store: Store, experiment: str) -> list[str]:
@@ -340,23 +345,30 @@ _STEALTHY = ("Aq", "At", "Al", "Am")
 _SELECTORS = (("greedy", "greedy"), ("dqn", "DQN"))
 
 
+def _rate(store: Store, system: str, sel: str, fam: str, which: str) -> str:
+    return cell(_get(store, "trust.selection", system=system, method=sel, family=fam, metric=which), ".2f")
+
+
+def _detection_row(store: Store, system: str, sel: str, label: str) -> list[str]:
+    cells = [
+        f"{_rate(store, system, sel, f, 'detected_before')} → {_rate(store, system, sel, f, 'detected_after')}"
+        for f in _STEALTHY
+    ]
+    inplace = [
+        " / ".join(_rate(store, system, sel, f, w) for f in ("Ad", "As", "Ar"))
+        for w in ("detected_before", "detected_after")
+    ]
+    return [system, label, *cells, " → ".join(inplace)]
+
+
 @query("trust.detection")
 def trust_detection(store: Store) -> str:
     """Residual detection rate per family, before → after securing the selection."""
-    exp = "trust.selection"
-    body = []
-    for s in _systems(store, exp):
-        for sel, lab in _SELECTORS:
-
-            def rate(fam: str, which: str, s: str = s, sel: str = sel) -> str:
-                return cell(_get(store, exp, system=s, method=sel, family=fam, metric=which), ".2f")
-
-            cells = [f"{rate(f, 'detected_before')} → {rate(f, 'detected_after')}" for f in _STEALTHY]
-            inplace = [
-                " / ".join(rate(f, w) for f in ("Ad", "As", "Ar"))
-                for w in ("detected_before", "detected_after")
-            ]
-            body.append([s, lab, *cells, " → ".join(inplace)])
+    body = [
+        _detection_row(store, s, sel, lab)
+        for s in _systems(store, "trust.selection")
+        for sel, lab in _SELECTORS
+    ]
     return table(["system", "selector", *_STEALTHY, "Ad / As / Ar"], body, numeric_from=2)
 
 
@@ -567,42 +579,46 @@ _CUTS = (
 )
 
 
+def _cert_rows(store: Store, cut: str, metric: str, family: str) -> list[Record]:
+    return store.latest("certify.ablation", method=cut, family=family, metric=metric)
+
+
+def _cert_count(store: Store, cut: str, family: str, metric: str = "certified") -> int:
+    return int(sum(r.value for r in _cert_rows(store, cut, metric, family)))
+
+
+def _cert_time(store: Store, cut: str) -> str:
+    secs = sorted(
+        r.value for r in store.latest("certify.ablation", method=cut, metric="seconds", stage="relax")
+    )
+    tight = sorted(
+        r.value for r in store.latest("certify.ablation", method=cut, metric="seconds", stage="tightening")
+    )
+    lead = f"{tight[0]:.0f} to {tight[-1]:.0f} tightening, " if tight else ""
+    return lead + f"{secs[0]:.0f} to {secs[-1]:.0f} solve"
+
+
+def _cert_line(store: Store, cut: str, label: str) -> list[str]:
+    import statistics
+
+    paper = sorted(_cert_rows(store, cut, "gap", ""), key=lambda r: r.tag("episode"))
+    gaps = sorted(r.value for r in _cert_rows(store, cut, "gap", "Am"))
+    mism = statistics.median(r.value for r in _cert_rows(store, cut, "mismatch_mw", "Am"))
+    return [
+        label,
+        f"{_cert_count(store, cut, '')} of {len(paper)} certified (gaps {', '.join(str(int(r.value)) for r in paper)})",
+        f"{_cert_count(store, cut, 'Am')} of {len(_cert_rows(store, cut, 'certified', 'Am'))} certified",
+        f"{_cert_count(store, cut, 'At')} certified, {_cert_count(store, cut, 'At', 'uncertain')} uncertain",
+        f"{gaps[0]:.0f} to {gaps[-1]:.0f}, median {statistics.median(gaps):.0f}",
+        f"{mism:.0f}",
+        _cert_time(store, cut),
+    ]
+
+
 @query("certify.ablation")
 def certify_ablation(store: Store) -> str:
     """Per cut family: certificates on the paper scenarios, Am and At, Am gaps, mismatch and time."""
-    import statistics
-
-    exp = "certify.ablation"
-    body = []
-    for cut, label in _CUTS:
-
-        def rows(metric: str, family: str, cut: str = cut) -> list[Record]:
-            return store.latest(exp, method=cut, family=family, metric=metric)
-
-        paper_gaps = ", ".join(
-            str(int(r.value)) for r in sorted(rows("gap", ""), key=lambda r: r.tag("episode"))
-        )
-        paper = f"{int(sum(r.value for r in rows('certified', '')))} of {len(rows('certified', ''))} certified (gaps {paper_gaps})"
-        am = f"{int(sum(r.value for r in rows('certified', 'Am')))} of {len(rows('certified', 'Am'))} certified"
-        at = f"{int(sum(r.value for r in rows('certified', 'At')))} certified, {int(sum(r.value for r in rows('uncertain', 'At')))} uncertain"
-        gaps = sorted(r.value for r in rows("gap", "Am"))
-        mism = statistics.median(r.value for r in rows("mismatch_mw", "Am"))
-        secs = sorted(r.value for r in store.latest(exp, method=cut, metric="seconds", stage="relax"))
-        tight = sorted(r.value for r in store.latest(exp, method=cut, metric="seconds", stage="tightening"))
-        time = (
-            f"{tight[0]:.0f} to {tight[-1]:.0f} tightening, " if tight else ""
-        ) + f"{secs[0]:.0f} to {secs[-1]:.0f} solve"
-        body.append(
-            [
-                label,
-                paper,
-                am,
-                at,
-                f"{gaps[0]:.0f} to {gaps[-1]:.0f}, median {statistics.median(gaps):.0f}",
-                f"{mism:.0f}",
-                time,
-            ]
-        )
+    body = [_cert_line(store, cut, label) for cut, label in _CUTS]
     head = ["family", "paper", "`Am`", "`At`", "`Am` gaps", "median mismatch, MW (`Am`)", "seconds"]
     return table(head, body, numeric_from=7)
 
@@ -681,47 +697,43 @@ def wu_smax(store: Store) -> str:
     return table(["scenario (devices / channels / largest change, pu)", *(f"k = {k}" for k in ks)], body)
 
 
+def _per_family(store: Store, method: str, split: str, metric: str, stage: str = "") -> str:
+    extra = {"stage": stage} if stage else {}
+    fams = method.split("+")
+    return " / ".join(
+        cell(
+            _get(
+                store, "generation.split_first", method=method, split=split, family=f, metric=metric, **extra
+            ),
+            "d",
+        )
+        for f in fams
+    )
+
+
+def _split_line(store: Store, method: str, split: str) -> list[str]:
+    exp = "generation.split_first"
+    return [
+        method,
+        split,
+        cell(_get(store, exp, method=method, split=split, metric="frames"), "d"),
+        cell(_get(store, exp, method=method, split=split, metric="attacked_frac", family=""), ".3f"),
+        _per_family(store, method, split, "episodes", "requested"),
+        _per_family(store, method, split, "episodes", "built"),
+        _per_family(store, method, split, "redraws"),
+        _per_family(store, method, split, "shortfall"),
+    ]
+
+
 @query("gen.split_first")
 def gen_split_first(store: Store) -> str:
     """The full IEEE-14 split-first builds: per dataset and split, frames, the attacked fraction, the
     episodes requested and built per family, redraws and shortfall, and the build time."""
-    exp = "generation.split_first"
     body = []
     for method in ("At", "Am", "At+Am"):
-        fams = method.split("+")
-        for split in ("train", "val", "test"):
-            keys = dict(method=method, split=split)
-
-            def per(metric: str, stage: str = "", keys: dict = keys, fams: list = fams) -> str:
-                extra = {"stage": stage} if stage else {}
-                return " / ".join(
-                    cell(_get(store, exp, family=f, metric=metric, **extra, **keys), "d") for f in fams
-                )
-
-            body.append(
-                [
-                    method,
-                    split,
-                    cell(_get(store, exp, metric="frames", **keys), "d"),
-                    cell(_get(store, exp, metric="attacked_frac", family="", **keys), ".3f"),
-                    per("episodes", "requested"),
-                    per("episodes", "built"),
-                    per("redraws"),
-                    per("shortfall"),
-                ]
-            )
-        body.append(
-            [
-                method,
-                "build",
-                "",
-                "",
-                "",
-                "",
-                "",
-                f"{cell(_get(store, exp, method=method, metric='minutes'), '.0f')} min",
-            ]
-        )
+        body += [_split_line(store, method, split) for split in ("train", "val", "test")]
+        minutes = cell(_get(store, "generation.split_first", method=method, metric="minutes"), ".0f")
+        body.append([method, "build", "", "", "", "", "", f"{minutes} min"])
     head = ["dataset", "split", "frames", "attacked", "episodes asked", "built", "redraws", "shortfall"]
     return table(head, body, numeric_from=2)
 
@@ -781,23 +793,25 @@ def data_families(store: Store, system: str) -> str:
     return table(["family", "train", "val", "test", "total"], body)
 
 
+def _quantiles(store: Store, system: str, quantity: str, which: tuple[str, ...], fmt: str) -> str:
+    return " / ".join(
+        cell(_get(store, "data.release_stats", system=system, metric="quantile", quantity=quantity, q=w), fmt)
+        for w in which
+    )
+
+
 @query("data.states")
 def data_states(store: Store) -> str:
     """Per system, |V| at p1 / median / p99 and theta min / median / max over the operating pool."""
-    exp = "data.release_stats"
-
-    def q(s: str, quantity: str, which: str, fmt: str) -> str:
-        return cell(_get(store, exp, system=s, metric="quantile", quantity=quantity, q=which), fmt)
-
     body = [
         [
             s,
-            " / ".join(q(s, "V_pu", w, ".3f") for w in ("p1", "p50", "p99")),
-            " / ".join(q(s, "theta_deg", w, ".0f") for w in ("min", "p50", "max")).replace("-", "−"),
+            _quantiles(store, s, "V_pu", ("p1", "p50", "p99"), ".3f"),
+            _quantiles(store, s, "theta_deg", ("min", "p50", "max"), ".0f").replace("-", "−"),
         ]
         for s in _LADDER
     ]
-    return table(["system", "\|V\| p1 / med / p99 (pu)", "θ min / med / max (deg)"], body)
+    return table(["system", "\\|V\\| p1 / med / p99 (pu)", "θ min / med / max (deg)"], body)
 
 
 # ---- the fewest-tamper search's speed (docs/reference/BENCHMARKS.md)

@@ -187,3 +187,68 @@ def test_a_block_inside_fenced_code_is_an_example_and_stays_as_written(tmp_path:
         "```text\n<!-- results: value experiment=demo.x metric=angle_mae_deg -->?<!-- /results -->\n```\n"
     )
     assert fill(example, store) == example and stale(example, store) == []
+
+
+def test_back_to_back_writes_keep_every_run(tmp_path: object) -> None:
+    from fdia_graph.results import Provenance
+
+    store = Store(str(tmp_path))
+    for i in range(30):  # many writes inside one file-time tick
+        prov = Provenance(
+            run_id=f"demo.x-{i}", experiment="demo.x", timestamp=f"2026-01-01T00:00:{i:02d}Z", sdk_version="0"
+        )
+        store.write(prov, [Record(experiment="demo.x", metric="devices", value=float(i), method=str(i))])
+    assert len(store.query("demo.x")) == 30 and len(store.runs()) == 30
+
+
+def test_two_runs_of_one_second_and_settings_get_distinct_ids(tmp_path: object) -> None:
+    store = Store(str(tmp_path))
+    stamp = "2026-01-01T00:00:00Z"
+    a = Run("demo.x", system="ieee14", settings={"k": 1}, store=store, timestamp=stamp)
+    b = Run("demo.x", system="ieee118", settings={"k": 1}, store=store, timestamp=stamp)
+    c = Run("demo.x", system="ieee14", settings={"k": 1}, store=store, timestamp=stamp)
+    assert len({a.provenance.run_id, b.provenance.run_id, c.provenance.run_id}) == 3
+
+
+def test_a_tag_filter_takes_any_of_several_values(tmp_path: object) -> None:
+    store = Store(str(tmp_path))
+    with Run("demo.x", store=store) as run:
+        for k in ("1.1", "1.2", "1.3"):
+            run.add("devices", 5, method="s", k=k)
+    assert {r.tag("k") for r in store.query("demo.x", k=["1.1", "1.2"])} == {"1.1", "1.2"}
+    text = "<!-- results: table experiment=demo.x rows=k cols=method metric=devices k=1.1,1.2 -->\n<!-- /results -->"
+    assert "| 1.1 | 5 |" in fill(text, store) and "1.3" not in fill(text, store)
+
+
+def test_a_table_refuses_an_empty_or_ambiguous_selection(tmp_path: object) -> None:
+    store = Store(str(tmp_path))
+    with Run("demo.x", system="ieee14", store=store) as run:
+        run.add("devices", 5, method="s", k="1.1")
+        run.add("devices", 6, method="s", k="1.2")
+    for spec in (
+        "table experiment=demo.x rows=method cols=system metric=devices methd=s",  # a typo selects nothing
+        "table experiment=demo.x rows=method cols=system metric=devices",  # k left open: two on a cell
+        "table experiment=demo.x rows=method cols=system metric=devices k=1.1 order=s,t",  # no row t
+    ):
+        with pytest.raises(NoSuchResult):
+            fill(f"<!-- results: {spec} -->\n<!-- /results -->", store)
+
+
+def test_one_spec_inline_and_as_a_block_is_not_stale_after_fill(tmp_path: object) -> None:
+    store = Store(str(tmp_path))
+    with Run("demo.x", system="ieee14", store=store) as run:
+        run.add("devices", 5, method="s")
+    spec = "table experiment=demo.x rows=method cols=system metric=devices"
+    text = (
+        f"inline <!-- results: {spec} --><!-- /results -->\n\n<!-- results: {spec} -->\n<!-- /results -->\n"
+    )
+    assert stale(fill(text, store), store) == []
+
+
+def test_tilde_and_indented_fences_are_examples(tmp_path: object) -> None:
+    store = Store(str(tmp_path))
+    for fence in (
+        "~~~\n<!-- results: v x -->?<!-- /results -->\n~~~\n",
+        "- item\n\n  ```\n  <!-- results: v x -->?<!-- /results -->\n  ```\n",
+    ):
+        assert fill(fence, store) == fence and stale(fence, store) == []

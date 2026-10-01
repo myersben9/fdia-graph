@@ -97,11 +97,17 @@ zs_methods = {
 zero_shot = {name: run("zero_shot", name, m, ztr, zte, val=zva) for name, m in zs_methods.items()}
 zero_shot["swing"] = run("zero_shot", "swing", SwingThreshold(), ztr, zte)  # the feature alone, FA-calibrated
 release = fg.resolve(SYSTEM).release or ""
-with Run("localization.common", system=SYSTEM, settings=sorted(report), data_release=release, store=STORE) as out:
+with Run(
+    "localization.common", system=SYSTEM, settings=sorted(report), data_release=release, store=STORE
+) as out:
     out.add_tree(report, levels=("method", "family"))
-with Run("localization.zero_shot", system=SYSTEM, settings=sorted(zero_shot), data_release=release, store=STORE) as out:
+with Run(
+    "localization.zero_shot", system=SYSTEM, settings=sorted(zero_shot), data_release=release, store=STORE
+) as out:
     out.add_tree(zero_shot, levels=("method", "family"))
     for name, rep in zero_shot.items():
         if "tau" in rep:
             out.add("tau", rep["tau"], method=name)
-print(f"[ok] wrote localization.common and localization.zero_shot for {SYSTEM}; run make_report.py and tools/results_docs.py --write")
+print(
+    f"[ok] wrote localization.common and localization.zero_shot for {SYSTEM}; run make_report.py and tools/results_docs.py --write"
+)

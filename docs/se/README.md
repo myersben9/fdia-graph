@@ -8,11 +8,11 @@ import fdia_graph as fg
 from fdia_graph.se import WLS, AdaptiveWeighting, SubspacePrior
 
 train = fg.load("ieee14", split="train")
-test  = fg.load("ieee14", split="test")
+test = fg.load("ieee14", split="test")
 
-est  = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
-xhat = est.estimate(test)   # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
-rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
+est = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
+xhat = est.estimate(test)  # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
+rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 ```
 
 ![SEBase shared by every estimator: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop; each estimator changes one thing: WLS nothing, AdaptiveWeighting Huber weights, ResidualRemoval dropping large residuals, SubspacePrior a low-rank basis, JacobianWeighting weights from the unexplained residual, GatedPrior a localizer gating the weights](../figures/diagrams/se_estimators.png)
@@ -172,4 +172,4 @@ python tools/results_docs.py --write           # the README's results blocks fro
 | | |
 |---|---|
 | skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
-| re-runs | score from the estimate cache (`docs/se/results/cache`, not in git) in about a minute per arm |
+| re-runs | score from the estimate cache (the `cache` folder under the guide's results, not in git) in about a minute per arm |

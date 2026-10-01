@@ -14,15 +14,15 @@ a record table. Three aligned measurement layers come with every frame, for buse
 ts = fg.load("ieee118", split="train", order="time")
 
 a = ts.export()
-a["node_x"]   # [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
-a["benign"]   # the same meters with the ATTACK REMOVED (noise kept)
-a["clean"]    # NOISELESS, attack-free TRUE state (the SE target)
-a["edge_x"], a["edge_benign"], a["edge_clean"]   # [T, E, 2] the same three layers for branch flows
-a["y"], a["family"], a["seq_id"]                  # per-frame labels, family, episode index (-1 benign)
-ts.edge_index, ts.edge_attr                        # static graph; ts.export()["node_m"][0] the meter plan
+a["node_x"]  # [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
+a["benign"]  # the same meters with the ATTACK REMOVED (noise kept)
+a["clean"]  # NOISELESS, attack-free TRUE state (the SE target)
+a["edge_x"], a["edge_benign"], a["edge_clean"]  # [T, E, 2] the same three layers for branch flows
+a["y"], a["family"], a["seq_id"]  # per-frame labels, family, episode index (-1 benign)
+ts.edge_index, ts.edge_attr  # static graph; ts.export()["node_m"][0] the meter plan
 
-Xw, yw = ts.windows(W=24, stride=12)               # [n, 24, N, 4] windows + per-window labels
-ep = ts.episodes                                   # onset, length, family, buses of every episode in the view
+Xw, yw = ts.windows(W=24, stride=12)  # [n, 24, N, 4] windows + per-window labels
+ep = ts.episodes  # onset, length, family, buses of every episode in the view
 ```
 
 On the metered channels:
@@ -49,11 +49,11 @@ import numpy as np
 ts = fg.load("ieee118", split="train", order="time")
 
 W, stride = 24, 12
-Xw, yw = ts.windows(W, stride)                   # Xw [n,W,N,4] attacked measurements, yw [n,N] attack label
-Cw, _ = ts.windows(W, stride, layer="clean")     # [n,W,N,4] the clean state, windowed the same way
+Xw, yw = ts.windows(W, stride)  # Xw [n,W,N,4] attacked measurements, yw [n,N] attack label
+Cw, _ = ts.windows(W, stride, layer="clean")  # [n,W,N,4] the clean state, windowed the same way
 
 # column order is [|V|, Pinj, Qinj, angle]; the SE target is clean |V| and angle:
-target = Cw[..., [0, 3]]                         # [n,W,N,2] clean V and theta
+target = Cw[..., [0, 3]]  # [n,W,N,2] clean V and theta
 
 # training loop (sketch):
 #   pred = model(Xw)                             # your LSTM/TGN: [n,W,N,2] estimated V, theta
@@ -88,6 +88,7 @@ release, and its numbers there differ. Current localization results are in
 # shared helpers, used by all three examples
 import torch
 
+
 def pick_tau(logits, y):
     """Decision threshold with the best F1 on the VALIDATION split (never tune on test)."""
     best, tau = 0.0, 0.0
@@ -95,21 +96,29 @@ def pick_tau(logits, y):
         c = torch.quantile(logits, q)
         p = logits > c
         f1 = 2 * (p & y).sum() / (p.sum() + y.sum()).clamp(min=1)
-        if f1 > best: best, tau = float(f1), float(c)
+        if f1 > best:
+            best, tau = float(f1), float(c)
     return tau
 
+
 def report(p, t):
-    dr = (p & t).sum() / t.sum(); fa = (p & ~t).sum() / (~t).sum()
+    dr = (p & t).sum() / t.sum()
+    fa = (p & ~t).sum() / (~t).sum()
     prec = (p & t).sum() / p.sum().clamp(min=1)
-    print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2*prec*dr/(prec+dr):.3f}")
+    print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2 * prec * dr / (prec + dr):.3f}")
+
 
 def macro_f1(p, t):
     """Per-bus F1 averaged over the buses attacked in t (the papers' localization metric)."""
     f1s = []
     for b in range(t.shape[1]):
-        if not t[:, b].any(): continue
-        tp = (p[:, b] & t[:, b]).sum(); fp = (p[:, b] & ~t[:, b]).sum(); fn = (~p[:, b] & t[:, b]).sum()
-        pr = tp / max(tp + fp, 1); dr = tp / max(tp + fn, 1)
+        if not t[:, b].any():
+            continue
+        tp = (p[:, b] & t[:, b]).sum()
+        fp = (p[:, b] & ~t[:, b]).sum()
+        fn = (~p[:, b] & t[:, b]).sum()
+        pr = tp / max(tp + fp, 1)
+        dr = tp / max(tp + fn, 1)
         f1s.append(2 * pr * dr / max(pr + dr, 1e-12))
     return sum(f1s) / len(f1s)
 ```
@@ -136,47 +145,66 @@ import fdia_graph as fg
 
 torch.manual_seed(0)
 FIELDS = ["node_x", "node_m", "edge_x", "temporal_delta", "swing", "y", "family"]
-splits = {"train": fg.load("ieee118", split="train", families=[0, 1, 2]).export(FIELDS),
-          "val":   fg.load("ieee118", split="val",   families=[0, 1, 2]).export(FIELDS),
-          "test":  fg.load("ieee118", split="test",  families=[0, 1, 2, 3, 4]).export(FIELDS)}
+splits = {
+    "train": fg.load("ieee118", split="train", families=[0, 1, 2]).export(FIELDS),
+    "val": fg.load("ieee118", split="val", families=[0, 1, 2]).export(FIELDS),
+    "test": fg.load("ieee118", split="test", families=[0, 1, 2, 3, 4]).export(FIELDS),
+}
 ei = fg.load("ieee118", split="train").edge_index_np
 N = splits["train"]["node_x"].shape[1]
+
 
 def kcl(d):
     """Partial nodal power balance: injection minus incident metered branch flows (a true balance only
     where all incident branches are metered; the meter-mask channels flag the rest)."""
-    r = np.array(d["node_x"][:, :, 1:3], np.float32)   # start from [P_inj, Q_inj]
-    np.subtract.at(r, (slice(None), ei[0]), d["edge_x"])   # flows leaving the from-bus
-    np.add.at(r, (slice(None), ei[1]), d["edge_x"])        # arriving at the to-bus
+    r = np.array(d["node_x"][:, :, 1:3], np.float32)  # start from [P_inj, Q_inj]
+    np.subtract.at(r, (slice(None), ei[0]), d["edge_x"])  # flows leaving the from-bus
+    np.add.at(r, (slice(None), ei[1]), d["edge_x"])  # arriving at the to-bus
     return r
+
 
 def feats(d, stats=None):
     """The papers' 14-dim per-bus vector: measurements(4) + meter mask(4) + KCL(2) + delta(2) + swing(2)."""
     raw = np.concatenate([d["node_x"], kcl(d), d["temporal_delta"]], -1)
-    if stats is None: stats = (raw.mean((0, 1)), raw.std((0, 1)) + 1e-9)   # train statistics only
+    if stats is None:
+        stats = (raw.mean((0, 1)), raw.std((0, 1)) + 1e-9)  # train statistics only
     z = (raw - stats[0]) / stats[1]
     return np.concatenate([z, d["node_m"], d["swing"]], -1).astype(np.float32), stats
 
+
 Ftr, st = feats(splits["train"])
 X = {"train": torch.tensor(Ftr).reshape(-1, 14)}
-for s in ("val", "test"): X[s] = torch.tensor(feats(splits[s], st)[0]).reshape(-1, 14)
+for s in ("val", "test"):
+    X[s] = torch.tensor(feats(splits[s], st)[0]).reshape(-1, 14)
 Y = {s: torch.tensor(d["y"], dtype=torch.float32).reshape(-1) for s, d in splits.items()}
 
-m = nn.Sequential(nn.Linear(14, 160), nn.ReLU(), nn.Dropout(0.1),
-                  nn.Linear(160, 160), nn.ReLU(), nn.Dropout(0.1), nn.Linear(160, 1))
+m = nn.Sequential(
+    nn.Linear(14, 160),
+    nn.ReLU(),
+    nn.Dropout(0.1),
+    nn.Linear(160, 160),
+    nn.ReLU(),
+    nn.Dropout(0.1),
+    nn.Linear(160, 1),
+)
 opt = torch.optim.AdamW(m.parameters(), 1e-3)
-pw = (1 - Y["train"].mean()) / Y["train"].mean()          # class weight from the TRAIN base rate
+pw = (1 - Y["train"].mean()) / Y["train"].mean()  # class weight from the TRAIN base rate
 for step in range(12000):
     j = torch.randint(0, len(X["train"]), (4096,))
     opt.zero_grad()
-    F.binary_cross_entropy_with_logits(m(X["train"][j]).squeeze(-1), Y["train"][j], pos_weight=pw).backward(); opt.step()
+    F.binary_cross_entropy_with_logits(m(X["train"][j]).squeeze(-1), Y["train"][j], pos_weight=pw).backward()
+    opt.step()
 m.eval()
 
 with torch.no_grad():
-    lo = {s: torch.cat([m(X[s][i:i + 65536]).squeeze(-1) for i in range(0, len(X[s]), 65536)]) for s in ("val", "test")}
-tau = pick_tau(lo["val"], Y["val"] > 0)                    # threshold tuned on VAL ...
-p = (lo["test"] > tau).reshape(-1, N).numpy(); t = (Y["test"] > 0).reshape(-1, N).numpy()
-print(f"localization macro-F1: {macro_f1(p, t):.3f}")      # ... reported on TEST
+    lo = {
+        s: torch.cat([m(X[s][i : i + 65536]).squeeze(-1) for i in range(0, len(X[s]), 65536)])
+        for s in ("val", "test")
+    }
+tau = pick_tau(lo["val"], Y["val"] > 0)  # threshold tuned on VAL ...
+p = (lo["test"] > tau).reshape(-1, N).numpy()
+t = (Y["test"] > 0).reshape(-1, N).numpy()
+print(f"localization macro-F1: {macro_f1(p, t):.3f}")  # ... reported on TEST
 report(torch.tensor(p.ravel()), torch.tensor(t.ravel()))
 # localization macro-F1: 0.915
 # DR 0.859  FA 0.0002  F1 0.916          (~5 min CPU)
@@ -202,24 +230,36 @@ import fdia_graph as fg
 
 ds = {s: fg.load("ieee118", split=s, format="pyg", preload=True) for s in ("train", "val", "test")}
 stats = fg.load("ieee118", split="train").export(["node_x"])["node_x"]
-MU = torch.tensor(stats.mean((0, 1))); SD = torch.tensor(stats.std((0, 1)) + 1e-9)
+MU = torch.tensor(stats.mean((0, 1)))
+SD = torch.tensor(stats.std((0, 1)) + 1e-9)
+
 
 class GNN(torch.nn.Module):
     def __init__(self, c=6, h=32):
-        super().__init__(); self.a = ARMAConv(c, h); self.b = ARMAConv(h, 1)
+        super().__init__()
+        self.a = ARMAConv(c, h)
+        self.b = ARMAConv(h, 1)
+
     def forward(self, g):
-        x = torch.cat([(g.x - MU) / SD, g.swing], -1)      # measurements + the swing feature
+        x = torch.cat([(g.x - MU) / SD, g.swing], -1)  # measurements + the swing feature
         return self.b(F.relu(self.a(x, g.edge_index)), g.edge_index).squeeze(-1)
 
-net = GNN(); opt = torch.optim.Adam(net.parameters(), 1e-3); pw = torch.tensor(43.0)
+
+net = GNN()
+opt = torch.optim.Adam(net.parameters(), 1e-3)
+pw = torch.tensor(43.0)
 for epoch in range(8):
     for batch in ds["train"].loader(batch_size=64):
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(net(batch), batch.y, pos_weight=pw).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(net(batch), batch.y, pos_weight=pw).backward()
+        opt.step()
 
 with torch.no_grad():
-    ev = {s: [(net(b), b.y > 0) for b in ds[s].loader(batch_size=256, shuffle=False)] for s in ("val", "test")}
-lo = {s: torch.cat([x for x, _ in ev[s]]) for s in ev}; yy = {s: torch.cat([y for _, y in ev[s]]) for s in ev}
+    ev = {
+        s: [(net(b), b.y > 0) for b in ds[s].loader(batch_size=256, shuffle=False)] for s in ("val", "test")
+    }
+lo = {s: torch.cat([x for x, _ in ev[s]]) for s in ev}
+yy = {s: torch.cat([y for _, y in ev[s]]) for s in ev}
 tau = pick_tau(lo["val"], yy["val"])
 report(lo["test"] > tau, yy["test"])
 # DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1, saturated)
@@ -243,30 +283,46 @@ research target, not a given.
 import torch, torch.nn as nn, torch.nn.functional as F
 import fdia_graph as fg
 
+
 def seqs(split):  # one sequence per bus from the file's chronological split, as tensors
     X, y = fg.load("ieee118", split=split, order="time").windows(W=16, stride=8, label="last", per_bus=True)
     return torch.as_tensor(X), torch.as_tensor(y, dtype=torch.float32)
+
+
 (Xtr, ytr), (Xva, yva), (Xte, yte) = seqs("train"), seqs("val"), seqs("test")
-mu = Xtr.mean((0, 1)); sd = Xtr.std((0, 1)) + 1e-9
-def feats(X):     # measurements (train-normalized) + per-window z-score (the temporal spike feature)
+mu = Xtr.mean((0, 1))
+sd = Xtr.std((0, 1)) + 1e-9
+
+
+def feats(X):  # measurements (train-normalized) + per-window z-score (the temporal spike feature)
     return torch.cat([(X - mu) / sd, (X - X.mean(1, keepdim=True)) / (X.std(1, keepdim=True) + 1e-6)], -1)
+
+
 Xtr, Xva, Xte = feats(Xtr), feats(Xva), feats(Xte)
+
 
 class LSTMDet(nn.Module):
     def __init__(self, c=8, h=32):
-        super().__init__(); self.lstm = nn.LSTM(c, h, batch_first=True); self.fc = nn.Linear(h, 1)
-    def forward(self, x): return self.fc(self.lstm(x)[0][:, -1]).squeeze(-1)
+        super().__init__()
+        self.lstm = nn.LSTM(c, h, batch_first=True)
+        self.fc = nn.Linear(h, 1)
 
-m = LSTMDet(); opt = torch.optim.Adam(m.parameters(), 1e-3)
+    def forward(self, x):
+        return self.fc(self.lstm(x)[0][:, -1]).squeeze(-1)
+
+
+m = LSTMDet()
+opt = torch.optim.Adam(m.parameters(), 1e-3)
 pw = (1 - ytr.mean()) / ytr.mean()
 for epoch in range(10):
     for i in range(0, len(Xtr), 256):
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(m(Xtr[i:i + 256]), ytr[i:i + 256], pos_weight=pw).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(m(Xtr[i : i + 256]), ytr[i : i + 256], pos_weight=pw).backward()
+        opt.step()
 
 with torch.no_grad():
-    lova = torch.cat([m(Xva[i:i + 4096]) for i in range(0, len(Xva), 4096)])
-    lote = torch.cat([m(Xte[i:i + 4096]) for i in range(0, len(Xte), 4096)])
+    lova = torch.cat([m(Xva[i : i + 4096]) for i in range(0, len(Xva), 4096)])
+    lote = torch.cat([m(Xte[i : i + 4096]) for i in range(0, len(Xte), 4096)])
 tau = pick_tau(lova, yva > 0)
 report(lote > tau, yte > 0)
 # DR 0.372  FA 0.0055  F1 0.463          (~3.5 min CPU; val F1 0.39 -> 0.47 from 5 to 10 epochs, headroom left)

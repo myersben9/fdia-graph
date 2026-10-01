@@ -41,7 +41,14 @@ for name, tm in arms.items():
         )
     )
 release = fg.resolve(SYSTEM).release or ""
-with Run("trust.selection", system=SYSTEM, settings={"k": K, "episodes": EPISODES}, data_release=release, seed=0, store=STORE) as out:
+with Run(
+    "trust.selection",
+    system=SYSTEM,
+    settings={"k": K, "episodes": EPISODES},
+    data_release=release,
+    seed=0,
+    store=STORE,
+) as out:
     for sel, v in report.items():
         for i, meter in enumerate(v["order"]):
             out.add("selected_meter", meter, method=sel, step=i)

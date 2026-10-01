@@ -276,7 +276,8 @@ estimators themselves default to `calibrate="truth"`, the estimation benchmark's
 
 ```python
 import fdia_graph as fg
-fg.generate("ieee118", name="my_run", frames=10_000, attacked_frac=0.5)   # needs [generate]
+
+fg.generate("ieee118", name="my_run", frames=10_000, attacked_frac=0.5)  # needs [generate]
 ds = fg.load("my_run", order="time")
 ```
 

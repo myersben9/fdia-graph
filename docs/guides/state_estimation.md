@@ -13,8 +13,8 @@ from fdia_graph.se import WLS
 
 train, test = fg.load("ieee14", split="train"), fg.load("ieee14", split="test")
 wls = WLS().fit(train)
-xhat = wls.estimate(test)              # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
-print(wls.score(test).geo)             # angle_mae_deg, voltage_mae_pu (docs/se/README.md has the table)
+xhat = wls.estimate(test)  # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
+print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/se/README.md has the table)
 ```
 
 | `fit()` learns | `estimate()` returns |
@@ -28,7 +28,7 @@ print(wls.score(test).geo)             # angle_mae_deg, voltage_mae_pu (docs/se/
 from fdia_graph.se import SubspacePrior
 
 est = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
-print(est.score(test).geo)             # about half WLS's angle error on IEEE-14 (the table below)
+print(est.score(test).geo)  # about half WLS's angle error on IEEE-14 (the table below)
 ```
 
 | piece | does | why it helps |

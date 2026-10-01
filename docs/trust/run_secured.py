@@ -43,8 +43,11 @@ def selections(train):
     else a greedy fit."""
     tm = TrustedMeters(k=K).fit(train)  # its estimator gives every copy the meter layout
     stored = {}
-    for name in ("greedy", "dqn"):
-        steps = STORE.latest("trust.selection", system=SYSTEM, method=name, metric="selected_meter")
+    run = STORE.newest_run("trust.selection", system=SYSTEM, metric="selected_meter")
+    for name in ("greedy", "dqn"):  # one run's orders whole, never steps mixed from two runs
+        steps = STORE.query(
+            "trust.selection", run_id=run, system=SYSTEM, method=name, metric="selected_meter"
+        )
         if steps:
             stored[name] = [int(r.value) for r in sorted(steps, key=lambda r: int(r.tag("step")))][:K]
     return (stored, tm) if stored else ({"greedy": [int(i) for i in tm.select()]}, tm)
@@ -133,8 +136,18 @@ for tag, (name, meters, fp) in arms.items():
         report[tag]["estimation"][arm] = cached(tag, fp, "se_" + arm, fn)
 
 release = fg.resolve(SYSTEM).release or ""
-for part, experiment in (("localization", "trust.secured_localization"), ("estimation", "trust.secured_estimation")):
-    with Run(experiment, system=SYSTEM, settings={"k": K, "orders": report["orders"]}, data_release=release, seed=0, store=STORE) as out:
+for part, experiment in (
+    ("localization", "trust.secured_localization"),
+    ("estimation", "trust.secured_estimation"),
+):
+    with Run(
+        experiment,
+        system=SYSTEM,
+        settings={"k": K, "orders": report["orders"]},
+        data_release=release,
+        seed=0,
+        store=STORE,
+    ) as out:
         for tag in arms:
             out.add_tree(report[tag][part], levels=("method", "family"), secured=tag, k=K)
 

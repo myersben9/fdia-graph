@@ -7,11 +7,11 @@ import fdia_graph as fg
 from fdia_graph.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN, BusMLP
 
 train = fg.load("ieee14", split="train")
-test  = fg.load("ieee14", split="test")
+test = fg.load("ieee14", split="test")
 
-loc  = SwingThreshold(fa_target=0.01).fit(train)   # thresholds set on benign records only
-flag = loc.localize(test)                          # [n, N] bool: which buses are called attacked
-rep  = loc.score(test)                             # per-family metrics + benign false alarms
+loc = SwingThreshold(fa_target=0.01).fit(train)  # thresholds set on benign records only
+flag = loc.localize(test)  # [n, N] bool: which buses are called attacked
+rep = loc.score(test)  # per-family metrics + benign false alarms
 ```
 
 ![loc.fit calibrates threshold arms on benign records and trains the learned arms on every record; loc.localize flags buses above the per-bus threshold; loc.score reports per-family metrics](../figures/diagrams/localization_flow.png)

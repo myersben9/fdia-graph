@@ -107,9 +107,18 @@ def aggregate(runs):
 
 
 settings = {"models": list(MODELS), "clients": list(CLIENTS), "seeds": list(SEEDS), "release": RELEASE}
-with Run("federated.localization", system=SYSTEM, settings=settings, data_release=RELEASE, store=STORE) as out:
+with Run(
+    "federated.localization", system=SYSTEM, settings=settings, data_release=RELEASE, store=STORE
+) as out:
     for name in MODELS:
         for K in CLIENTS:
             agg = aggregate([run_one(name, K, s) for s in SEEDS])
-            out.add_tree({k: v for k, v in agg.items() if k != "tau"}, levels=("pool", "family"), method=name, clients=K)
-print(f"[ok] wrote federated.localization for {SYSTEM} ({len(glob.glob(os.path.join(RUNS, SYSTEM + '_*.json')))} runs)")
+            out.add_tree(
+                {k: v for k, v in agg.items() if k != "tau"},
+                levels=("pool", "family"),
+                method=name,
+                clients=K,
+            )
+print(
+    f"[ok] wrote federated.localization for {SYSTEM} ({len(glob.glob(os.path.join(RUNS, SYSTEM + '_*.json')))} runs)"
+)
