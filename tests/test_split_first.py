@@ -12,6 +12,7 @@ import pytest
 
 from fdia_graph import schema
 from fdia_graph import timeline as tl
+from fdia_graph.generation import plan as plan_stage
 from fdia_graph.models.choices import FAMILY_CODE
 from fdia_graph.schema import Attr
 
@@ -19,28 +20,28 @@ AT, AM = FAMILY_CODE["At"], FAMILY_CODE["Am"]
 
 
 def _plan(fams=(AT, AM), length=60, frac=0.5):
-    return tl._Schedule.build(list(fams), length, 0.002, length, frac)
+    return plan_stage._Schedule.build(list(fams), length, 0.002, length, frac)
 
 
 # ---- 1. the splits ------------------------------------------------------------------------------
 @pytest.mark.parametrize("T", [7, 100, 999, 1000, 72000])
 def test_the_splits_are_cut_to_their_fractions_and_cover_the_timeline(T):
-    bounds = tl._split_bounds(T, (0.6, 0.2, 0.2))
+    bounds = plan_stage.split_bounds(T, (0.6, 0.2, 0.2))
     assert bounds[0][0] == 0 and bounds[-1][1] == T
     assert all(b0[1] == b1[0] for b0, b1 in zip(bounds, bounds[1:]))
     assert bounds[0][1] == round(0.6 * T) and bounds[1][1] - bounds[1][0] == round(0.2 * T)
-    split = tl._split_column(bounds, T)
+    split = plan_stage.split_column(bounds, T)
     assert [int((split == c).sum()) for c in range(3)] == [b - a for a, b in bounds]
 
 
 # ---- 2 and 3. the counts ------------------------------------------------------------------------
 def test_largest_remainder_shares_whole_units():
-    assert tl._largest_remainder(5, np.array([1.0, 1.0])).tolist() == [3, 2]  # a tie goes to the first
-    assert tl._largest_remainder(7, np.array([0.5, 0.3, 0.2])).tolist() == [4, 2, 1]
-    assert tl._largest_remainder(1, np.array([0.2, 0.8])).tolist() == [0, 1]
-    assert tl._largest_remainder(0, np.array([0.5, 0.5])).tolist() == [0, 0]
+    assert plan_stage.largest_remainder(5, np.array([1.0, 1.0])).tolist() == [3, 2]  # a tie goes to the first
+    assert plan_stage.largest_remainder(7, np.array([0.5, 0.3, 0.2])).tolist() == [4, 2, 1]
+    assert plan_stage.largest_remainder(1, np.array([0.2, 0.8])).tolist() == [0, 1]
+    assert plan_stage.largest_remainder(0, np.array([0.5, 0.5])).tolist() == [0, 0]
     for total in range(50):
-        assert tl._largest_remainder(total, np.array([0.25, 0.5, 0.25])).sum() == total
+        assert plan_stage.largest_remainder(total, np.array([0.25, 0.5, 0.25])).sum() == total
 
 
 @pytest.mark.parametrize(
@@ -48,7 +49,7 @@ def test_largest_remainder_shares_whole_units():
 )
 def test_each_split_gets_the_whole_episodes_closest_to_half(n, want):
     """At 72,000 frames every split is exactly 50%; a short split rounds to the nearest whole episode."""
-    counts = tl._episode_counts(_plan(), n)
+    counts = plan_stage.episode_counts(_plan(), n)
     assert counts.tolist() == want
     frames = 60 * counts.sum()
     assert all(abs(frames - 0.5 * n) <= abs(60 * k - 0.5 * n) for k in range(n // 60 + 1))
@@ -66,9 +67,9 @@ def _occupancy(placed, a, b):
 def test_episodes_lie_whole_inside_their_split_and_never_overlap():
     rng = np.random.default_rng(0)
     plan = _plan()
-    for bounds in tl._split_bounds(2000, (0.6, 0.2, 0.2)):
-        rec = tl._Placement.empty(plan.families)
-        placed = tl._place_split(rng, plan, 0, bounds, rec)
+    for bounds in plan_stage.split_bounds(2000, (0.6, 0.2, 0.2)):
+        rec = plan_stage._Placement.empty(plan.families)
+        placed = plan_stage.place_split(rng, plan, 0, bounds, rec)
         assert len(placed) == rec.requested[0].sum()
         assert all(L == 60 for _, _, L in placed)  # full length, none clipped
         assert _occupancy(placed, *bounds).max() <= 1
@@ -78,7 +79,6 @@ def test_a_jammed_split_retries_then_drops_one_episode_and_records_it(monkeypatc
     """A placement that jams is retried whole PLACE_TRIES times, then one episode of the family with
     the most is dropped, recorded and warned about, and the rest are placed."""
     from fdia_graph.errors import NoRoomForEpisode
-    from fdia_graph.generation import plan as plan_stage
 
     calls = []
     real = plan_stage.place_once
@@ -91,11 +91,11 @@ def test_a_jammed_split_retries_then_drops_one_episode_and_records_it(monkeypatc
 
     monkeypatch.setattr(plan_stage, "place_once", jam_while_four)
     plan = _plan()
-    rec = tl._Placement.empty(plan.families)
+    rec = plan_stage._Placement.empty(plan.families)
     with pytest.warns(RuntimeWarning, match="dropped"):
-        placed = tl._place_split(np.random.default_rng(1), plan, 0, (0, 480), rec)
+        placed = plan_stage.place_split(np.random.default_rng(1), plan, 0, (0, 480), rec)
     assert rec.requested[0].tolist() == [2, 2] and rec.dropped[0].tolist() == [1, 0]  # the tie: At first
-    assert calls == [4] * tl.PLACE_TRIES + [3] and len(placed) == 3
+    assert calls == [4] * plan_stage.PLACE_TRIES + [3] and len(placed) == 3
     assert _occupancy(placed, 0, 480).max() <= 1
 
 
@@ -105,20 +105,20 @@ def test_the_full_sized_splits_never_jam():
         warnings.simplefilter("error", RuntimeWarning)
         for seed in range(100):
             rng = np.random.default_rng(seed)
-            for split, bounds in enumerate(tl._split_bounds(72000, (0.6, 0.2, 0.2))):
-                rec = tl._Placement.empty(plan.families)
-                placed = tl._place_split(rng, plan, split, bounds, rec)
+            for split, bounds in enumerate(plan_stage.split_bounds(72000, (0.6, 0.2, 0.2))):
+                rec = plan_stage._Placement.empty(plan.families)
+                placed = plan_stage.place_split(rng, plan, split, bounds, rec)
                 assert len(placed) == rec.requested[split].sum() and not rec.dropped.any()
 
 
 def test_onsets_are_uniform_over_the_split():
     """One episode in a 600-frame split: its onset is uniform over the 541 valid onsets (chi-square)."""
-    plan = tl._Schedule.build([AT], 60, 0.002, 60, 0.1)
+    plan = plan_stage._Schedule.build([AT], 60, 0.002, 60, 0.1)
     rng = np.random.default_rng(7)
     onsets = []
     for _ in range(4000):
-        rec = tl._Placement.empty(plan.families)
-        onsets += [o for o, _, _ in tl._place_split(rng, plan, 0, (0, 600), rec)]
+        rec = plan_stage._Placement.empty(plan.families)
+        onsets += [o for o, _, _ in plan_stage.place_split(rng, plan, 0, (0, 600), rec)]
     hist, _ = np.histogram(onsets, bins=10, range=(0, 541))
     expected = len(onsets) / 10
     chi2 = float(((hist - expected) ** 2 / expected).sum())
@@ -149,8 +149,8 @@ class _Design:
 
     def split(self, slots, span=(0, 600)):
         X = np.arange(span[1], dtype=float)[:, None, None] * np.ones((1, 1, 4))  # X[t] carries t
-        plan = tl._Schedule.build([AT, AM], 10, 0.002, 10, 0.1)
-        rec = tl._Placement.empty(plan.families)
+        plan = plan_stage._Schedule.build([AT, AM], 10, 0.002, 10, 0.1)
+        rec = plan_stage._Placement.empty(plan.families)
         placed, designs = self.designer.design_split(X, None, 0, (slots, span), rec)
         return placed, designs, rec
 
@@ -173,8 +173,8 @@ def test_an_am_infeasible_everywhere_is_given_up_after_the_cap(monkeypatch):
     d = _Design(monkeypatch, lambda i, move: True)
     with pytest.warns(RuntimeWarning, match="no feasible design"):
         placed, designs, rec = d.split([(500, AM, 10)])
-    assert not designs and not placed and rec.redraws[0].tolist() == [0, tl.REDRAWS]
-    assert len(d.tried) == tl.REDRAWS + 1
+    assert not designs and not placed and rec.redraws[0].tolist() == [0, plan_stage.REDRAWS]
+    assert len(d.tried) == plan_stage.REDRAWS + 1
 
 
 def test_each_am_counts_its_own_moves(monkeypatch):
@@ -183,7 +183,7 @@ def test_each_am_counts_its_own_moves(monkeypatch):
     d = _Design(monkeypatch, lambda i, move: i == 1)
     with pytest.warns(RuntimeWarning, match="no feasible design"):
         placed, designs, rec = d.split([(50, AM, 10), (300, AM, 10)])
-    assert list(designs) == [50] and rec.redraws[0].tolist() == [0, tl.REDRAWS]
+    assert list(designs) == [50] and rec.redraws[0].tolist() == [0, plan_stage.REDRAWS]
 
 
 def test_the_moves_do_not_depend_on_the_workers(monkeypatch):
@@ -212,9 +212,9 @@ def _walk_ramp(monkeypatch, fails: int, bounds=(0, 600)):
 
     monkeypatch.setattr(emit, "ramp_episode", ramp)
     monkeypatch.setattr(emit, "benign_run", lambda w_, t, until: until)
-    plan = tl._Schedule.build([AT], 10, 0.002, 10, 10 / 600)  # one 10-frame episode
-    rec = tl._Placement.empty(plan.families)
-    slots = tl._place_split(np.random.default_rng(1), plan, 0, bounds, rec)
+    plan = plan_stage._Schedule.build([AT], 10, 0.002, 10, 10 / 600)  # one 10-frame episode
+    rec = plan_stage._Placement.empty(plan.families)
+    slots = plan_stage.place_split(np.random.default_rng(1), plan, 0, bounds, rec)
     emit.walk_split(w, plan, 0, (slots, {}), (bounds, rec))
     return rec, tries
 
@@ -233,8 +233,8 @@ def test_a_ramp_infeasible_everywhere_is_given_up_after_the_cap(monkeypatch):
     monkeypatch.setattr(emit, "relocate_later", lambda rng, at, pending, end: (at[0] + 1, at[1], at[2]))
     with pytest.warns(RuntimeWarning, match="no feasible design"):
         rec, tries = _walk_ramp(monkeypatch, fails=10**6)
-    assert rec.built[0].tolist() == [0] and rec.redraws[0].tolist() == [tl.REDRAWS]
-    assert len(tries) == tl.REDRAWS + 1
+    assert rec.built[0].tolist() == [0] and rec.redraws[0].tolist() == [plan_stage.REDRAWS]
+    assert len(tries) == plan_stage.REDRAWS + 1
 
 
 # ---- the generated files ------------------------------------------------------------------------
@@ -380,9 +380,7 @@ def test_the_file_is_the_same_for_any_number_of_workers(pool, tmp_path):
             out=out,
         )
         with h5py.File(out, "r") as f:
-            data = {}
-            f.visititems(
-                lambda n, o: data.__setitem__(n, o[()].tobytes()) if isinstance(o, h5py.Dataset) else None
-            )
-            files.append((data, f.attrs[Attr.SETTINGS_HASH], f.attrs[Attr.EPISODES_BUILT].sum()))
-    assert files[0] == files[1] and files[0][2] > 0
+            assert f.attrs[Attr.EPISODES_BUILT].sum() > 0
+        with open(out, "rb") as f:
+            files.append(f.read())
+    assert files[0] == files[1]

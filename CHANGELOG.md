@@ -10,8 +10,10 @@ the public API, the generated files and the numbers are the same as the previous
     `fdia_graph.generation` (the old module's `generate`, `as_v_first` and `_load_states` stay where they
     were): `plan` (splits, episode counts and onsets), `design` (the overload Am of each split),
     `emit` (the frames in time order) and `write` (the datasets, episodes, attributes and
-    `write_temporal_layers`); `timeline.generate_timeline` orchestrates them, and `timeline`'s old
-    private names keep working. The engine's two branch points are strategy objects instead of base
+    `write_temporal_layers`); `timeline.generate_timeline` orchestrates them. `timeline`'s old
+    private names whose signature did not change (`_split_bounds`, `_place_split`, `_TimelineBuffers`,
+    `_block_scale`, ...) still resolve, with a DeprecationWarning naming their new home, until 0.22;
+    `_walk_split`, `_finish_timeline` and `_run_episode` changed shape and are gone. The engine's two branch points are strategy objects instead of base
     classes (decision B4): the support of an attack window comes from `SearchSupport` (the
     fewest-tamper search) or `RrefSupport` ([WU26]'s row reduction, formerly `RrefMixin`; its
     `area_jacobian` and `ladder` now take the generator through the strategy), chosen by
@@ -45,7 +47,8 @@ the public API, the generated files and the numbers are the same as the previous
     and, with `--check` in the pre-review and CI, fails on a stale doc, an unknown or old-form tag, or
     an equation with no implementing function or no test.
   - **A rerun with an arm skipped leaves no stale number**: `Run(..., replaces=True)` (and
-    `Store.write(..., replaces=True)`) drops the experiment's earlier records on the run's systems;
+    `Store.write(..., replaces=(system,))`) drops the experiment's earlier records on the run's system,
+    even when the rerun wrote none there;
     the SE, localization and federated docs harnesses pass it.
 
 - **Results as data** (`fdia_graph.results`, the results store `results/`): measured numbers are records

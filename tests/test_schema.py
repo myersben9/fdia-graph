@@ -168,3 +168,25 @@ def test_the_any_rule_finds_every_kind_of_annotation(tmp_path):
         "Bare",
         "Union604",
     ]
+
+
+def test_the_equation_map_refuses_a_malformed_wu26_tag(tmp_path):
+    """Any [WU26 ...] citation that is neither the bare reference nor a full tag is reported."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "equation_map",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "equation_map.py"),
+    )
+    em = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(em)
+    src = tmp_path / "x.py"
+    src.write_text(
+        'def f():\n    """[WU26] [WU26 eq. 12] [WU26 eq 12] [WU26 eq. (12)] [WU26, eq. 3]"""\n',
+        encoding="utf-8",
+    )
+    c = em.Citations()
+    c.scan(str(src))
+    bad = [p for p in c.problems if "is not a tag" in p]
+    assert len(bad) == 3 and c.code["12"]  # the valid tag still counts
+    assert em.numbers("21-23, 27") == ["21", "22", "23", "27"]

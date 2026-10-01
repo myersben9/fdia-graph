@@ -30,13 +30,10 @@ from fdia_graph.timeline import generate_timeline  # noqa: E402
 SEED = 123
 
 
-def _datasets(path: str) -> dict[str, bytes]:
-    out: dict[str, bytes] = {}
-    with h5py.File(path, "r") as f:
-        f.visititems(
-            lambda n, o: out.__setitem__(n, o[()].tobytes()) if isinstance(o, h5py.Dataset) else None
-        )
-    return out
+def _bytes(path: str) -> bytes:
+    """The whole file, so `identical` measures what the docs claim: the same file, byte for byte."""
+    with open(path, "rb") as f:
+        return f.read()
 
 
 def main() -> None:
@@ -57,7 +54,7 @@ def main() -> None:
             run.add("seconds", time.time() - t0, method=f"workers={w}", frames=args.frames)
             with h5py.File(out, "r") as f:
                 run.add("episodes", int(np.sum(f.attrs[schema.Attr.EPISODES_BUILT])), method=f"workers={w}")
-            data = _datasets(out)
+            data = _bytes(out)
             first = first or data
             run.add("identical", float(data == first), method=f"workers={w}")
             print(

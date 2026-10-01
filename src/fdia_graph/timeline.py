@@ -61,15 +61,13 @@ from .engine.records import (  # noqa: F401  AttackDesign, is_feasible re-export
     is_feasible,
 )
 from .formulas.attacks import ramp_profile  # noqa: F401  re-exported as before
-from .generation import _FrameContext, _load_states, _write_graph
+from .generation import _FrameContext, _load_states, _write_graph, emit, plan, write
 from .generation.design import AmDesigner, _GeneratorSpec
-from .generation.emit import TimelineBuffers, _Walk, clean_slice, walk_split
-from .generation.plan import (  # noqa: F401  the plan stage, re-exported under its old private names below
+from .generation.emit import TimelineBuffers, clean_slice, walk_split
+from .generation.plan import (  # noqa: F401  the plan stage's names the walk uses, and its constants
     PLACE_TRIES,
     REDRAWS,
     SPLITS,
-    _Placement,
-    _Schedule,
     episode_counts,
     largest_remainder,
     place_split,
@@ -116,17 +114,44 @@ _MOVED: dict[str, tuple[str, object]] = {
         ],  # its old (targets, direction, rise, hold)
     ),
 }
+# the stages' names moved to the generation package; those kept with their old signature resolve here
+# for one minor release, with a warning
+_PLAN, _EMIT, _WRITE = "generation.plan", "generation.emit", "generation.write"
+_MOVED.update(
+    {
+        "_Schedule": (f"{_PLAN}._Schedule", plan._Schedule),
+        "_Placement": (f"{_PLAN}._Placement", plan._Placement),
+        "_split_bounds": (f"{_PLAN}.split_bounds", plan.split_bounds),
+        "_largest_remainder": (f"{_PLAN}.largest_remainder", plan.largest_remainder),
+        "_episode_counts": (f"{_PLAN}.episode_counts", plan.episode_counts),
+        "_uniform_onset": (f"{_PLAN}.uniform_onset", plan.uniform_onset),
+        "_place_once": (f"{_PLAN}.place_once", plan.place_once),
+        "_place_split": (f"{_PLAN}.place_split", plan.place_split),
+        "_split_column": (f"{_PLAN}.split_column", plan.split_column),
+        "_give_up": (f"{_PLAN}.give_up", plan.give_up),
+        "_TimelineBuffers": (f"{_EMIT}.TimelineBuffers", emit.TimelineBuffers),
+        "_Walk": (f"{_EMIT}._Walk", emit._Walk),
+        "_emit_benign": (f"{_EMIT}.emit_benign", emit.emit_benign),
+        "_benign_run": (f"{_EMIT}.benign_run", emit.benign_run),
+        "_ramp_episode": (f"{_EMIT}.ramp_episode", emit.ramp_episode),
+        "_relocate": (f"{_EMIT}.relocate_later", emit.relocate_later),
+        "_clean_slice": (f"{_EMIT}.clean_slice", emit.clean_slice),
+        "_layers": (f"{_EMIT}.layers", emit.layers),
+        "_create_layers": (f"{_WRITE}.create_layers", write.create_layers),
+        "_ragged": (f"{_WRITE}.ragged", write.ragged),
+        "_write_masks": (f"{_WRITE}._write_masks", write._write_masks),
+        "_write_episodes": (f"{_WRITE}._write_episodes", write._write_episodes),
+        "_write_min_rows": (f"{_WRITE}._write_min_rows", write._write_min_rows),
+        "_write_am_rows": (f"{_WRITE}._write_am_rows", write._write_am_rows),
+        "_placement_attrs": (f"{_WRITE}.placement_attrs", write.placement_attrs),
+        "_timeline_attrs": (f"{_WRITE}._timeline_attrs", write._timeline_attrs),
+        "_block_scale": (f"{_WRITE}._block_scale", write._block_scale),
+    }
+)
 
 
 def __getattr__(name: str) -> object:
     return moved(__name__, name, _MOVED)
-
-
-# the plan stage's names as the tests and older code knew them here
-
-_split_bounds, _largest_remainder, _episode_counts = split_bounds, largest_remainder, episode_counts
-_place_split, _split_column = place_split, split_column
-_TimelineBuffers, _walk_split = TimelineBuffers, walk_split
 
 
 def _generator(system: Union[int, str], seed: int, s: TimelineSettings) -> FdiaGenerator:
@@ -183,14 +208,16 @@ def _knobs(s: TimelineSettings, limits: OperatingLimits, am_runs: bool) -> Frame
     )
 
 
-def _walk(w: _Walk, plan: _Schedule, bounds: list[tuple[int, int]], designer: AmDesigner) -> _Placement:
-    """_Walk the timeline split by split (the splits are cut first): place the split's episodes, design
+def _walk(
+    w: emit._Walk, schedule: plan._Schedule, bounds: list[tuple[int, int]], designer: AmDesigner
+) -> plan._Placement:
+    """Walk the timeline split by split (the splits are cut first): place the split's episodes, design
     its overload Am episodes, then emit its frames."""
-    rec = _Placement.empty(list(plan.families))
+    rec = plan._Placement.empty(list(schedule.families))
     for split, span in enumerate(bounds):
-        slots = place_split(w.rng, plan, split, span, rec)
+        slots = place_split(w.rng, schedule, split, span, rec)
         placed = designer.design_split(w.ctx.X, w.ctx.knobs, split, (slots, span), rec)
-        walk_split(w, plan, split, placed, (span, rec))
+        walk_split(w, schedule, split, placed, (span, rec))
     return rec
 
 
@@ -202,7 +229,7 @@ def generate_timeline(
     out: Optional[str] = None,
     **knobs: object,
 ) -> str:
-    """_Walk one attacked timeline over the operating-point pool of `system` and write it as one
+    """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
 
     The walk is set by `settings` (`TimelineSettings`, nested by subject) and any flat keyword over
@@ -279,14 +306,14 @@ def generate_timeline(
             g.use_line_ratings(s.overload, X)
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26 eqs. 21-23]
     frame_knobs = _knobs(s, limits, am_runs)
-    plan = _Schedule.build(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
+    schedule = plan._Schedule.build(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = _recorded(s, g, limits, am_runs)
     spec = _GeneratorSpec(system, seed, s.max_load_mw, s.meters, getattr(g, "_line_ratings", None))
     designer = AmDesigner(g, spec, s.workers if am_runs else 1)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     try:
-        _write(out, (g, X, frame_knobs), (plan, designer), (s.split.fractions, seed, recorded))
+        _write(out, (g, X, frame_knobs), (schedule, designer), (s.split.fractions, seed, recorded))
     finally:
         designer.close()
     return out
@@ -295,12 +322,12 @@ def generate_timeline(
 def _write(
     out: str,
     run: tuple[FdiaGenerator, np.ndarray, FrameKnobs],
-    stages: tuple[_Schedule, AmDesigner],
+    stages: tuple[plan._Schedule, AmDesigner],
     meta: tuple[Sequence[float], int, dict[str, object]],
 ) -> None:
     """The file: the graph, the per-frame layers filled by the walk, then everything after it."""
     g, X, knobs = run
-    plan, designer = stages
+    schedule, designer = stages
     fractions, seed, recorded = meta
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)
@@ -308,7 +335,7 @@ def _write(
         sink = create_layers(f, len(X), g.C, g.E, currents)
         buf = TimelineBuffers((len(X), g.C, g.E), partial(clean_slice, g, X), sink=sink, currents=currents)
         bounds = split_bounds(len(X), fractions)
-        rec = _walk(_Walk(_FrameContext(g, X, knobs), buf), plan, bounds, designer)
+        rec = _walk(emit._Walk(_FrameContext(g, X, knobs), buf), schedule, bounds, designer)
         g.scan_key = None
         finish_timeline(f, g, buf, (rec, bounds, fractions), (seed, recorded))
         write_temporal_layers(f)

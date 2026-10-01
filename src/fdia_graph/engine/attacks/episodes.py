@@ -174,8 +174,9 @@ class EpisodeDesignMixin(GridBase):
         k: FrameKnobs,
         prev: Optional[AttackVector] = None,
     ) -> Optional[RampDesign]:
-        """`RampDesigner.design` on this generator."""
-        return RampDesigner().design(cast("AttackMixin", self), X, t, shape, k, prev)
+        """The At designer's design on this generator (`designer`)."""
+        ramp = cast(RampDesigner, self.designer(RAMP_CODE))
+        return ramp.design(cast("AttackMixin", self), X, t, shape, k, prev)
 
     def am_overload_design(
         self,
@@ -185,5 +186,6 @@ class EpisodeDesignMixin(GridBase):
         k: FrameKnobs,
         rng: Optional[np.random.Generator] = None,
     ) -> Optional[AmOverloadDesign]:
-        """`OverloadDesigner.design` on this generator."""
-        return OverloadDesigner().design(cast("OverloadMixin", self), X, t, length, k, rng)
+        """The Am designer's design on this generator (`designer`)."""
+        overload = cast(OverloadDesigner, self.designer(AM_CODE))
+        return overload.design(cast("OverloadMixin", self), X, t, length, k, rng)

@@ -53,7 +53,7 @@ def generate_stream(
     *,  # keyword-only from here: the 0.20 positions after `families` held knobs that no longer exist
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
-    redundancy: Optional[MeterSettings] = None,
+    redundancy: Optional[Union[MeterSettings, dict[str, object]]] = None,  # a dict warns, goes in 0.22
     seed: int = 123,
     out: Optional[str] = None,
     **knobs: Any,

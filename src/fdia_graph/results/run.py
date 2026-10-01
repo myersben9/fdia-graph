@@ -129,8 +129,10 @@ class Run:
 
     def write(self) -> int:
         """Write the records collected so far (also done on leaving the `with` block); a run made with
-        `replaces=True` drops the experiment's earlier records on its system (`Store.write`)."""
-        return self.store.write(self.provenance, self.records, replaces=self.replaces)
+        `replaces=True` drops the experiment's earlier records on its system (`Store.write`), whatever it wrote."""
+        return self.store.write(
+            self.provenance, self.records, replaces=(self.system,) if self.replaces else ()
+        )
 
     def __enter__(self) -> Run:
         return self

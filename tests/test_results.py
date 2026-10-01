@@ -304,3 +304,14 @@ def test_a_whole_system_rerun_with_an_arm_skipped_leaves_no_stale_number(tmp_pat
     assert [r.value for r in store.latest("demo.x", system="ieee14")] == [0.05]
     assert not store.latest("demo.x", system="ieee14", method="removal")
     assert len(store.latest("demo.x", system="ieee118")) == 2
+
+
+def test_a_whole_system_rerun_that_wrote_nothing_still_replaces(tmp_path: object) -> None:
+    """The scope of `replaces=True` is the run's system, not the systems its rows happen to cover:
+    a rerun that wrote nothing on its system still drops the old records there."""
+    store = Store(str(tmp_path))
+    with Run("demo.x", system="ieee14", store=store, replaces=True) as run:
+        run.add("angle_mae_deg", 0.1, method="wls", family="geo")
+    with Run("demo.x", system="ieee14", store=store, replaces=True):
+        pass  # every arm skipped
+    assert not store.latest("demo.x", system="ieee14")

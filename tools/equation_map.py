@@ -35,7 +35,7 @@ from fdia_graph.schema import DECISIONS, WU26_EQUATIONS  # noqa: E402
 
 TAG = re.compile(r"\[WU26 (?:eqs?\. ([0-9][0-9 ,\-]*)|(Alg\. 1))\]")
 DECISION = re.compile(r"\[([DE](?:1[0-9]|[1-9]))\]")
-MALFORMED = re.compile(r"\[WU26,")  # the old "[WU26, eq. 12]" form
+CITATION = re.compile(r"\[WU26[^\]]*\]")  # any [WU26 ...]: the bare reference, a valid tag, or malformed
 TEST_NAME = re.compile(r"test_wu26_eqs?(\d+)(?:_(\d+))?")
 SKIP = {os.path.join(SRC, "schema.py")}  # the registries: their examples are not citations
 
@@ -78,12 +78,18 @@ def _owner(owners: list[tuple[int, int, str]], line: int, module: str) -> str:
 
 
 def _files(top: str) -> Iterable[str]:
-    for d, _, names in os.walk(top):
-        if "__pycache__" in d:
-            continue
-        for n in sorted(names):
-            if n.endswith(".py") and os.path.join(d, n) not in SKIP:
-                yield os.path.join(d, n)
+    """Every .py file under `top`, in sorted path order (os.walk's own order differs between
+    filesystems, and the generated tables must not)."""
+    found = [
+        os.path.join(d, n)
+        for d, _, names in os.walk(top)
+        if "__pycache__" not in d
+        for n in names
+        if n.endswith(".py")
+    ]
+    return sorted(
+        (p for p in found if p not in SKIP), key=lambda p: os.path.relpath(p, top).replace(os.sep, "/")
+    )
 
 
 def _module(path: str) -> str:
@@ -114,8 +120,11 @@ class Citations:
         is_test = path.startswith(TESTS)
         for i, line in enumerate(text.splitlines(), 1):
             where, owner = f"{os.path.relpath(path, ROOT)}:{i}", _owner(owners, i, module)
-            if MALFORMED.search(line):
-                self.problems.append(f"{where}: write [WU26 eq. N], not [WU26, ...]")
+            for m in CITATION.finditer(line):
+                if m.group(0) != "[WU26]" and not TAG.fullmatch(m.group(0)):
+                    self.problems.append(
+                        f"{where}: {m.group(0)} is not a tag: write [WU26 eq. N], [WU26 eqs. A-B, C] or [WU26 Alg. 1]"
+                    )
             for m in TAG.finditer(line):
                 for key in [m.group(2)] if m.group(2) else numbers(m.group(1)):
                     self.add(key, owner, is_test, where)

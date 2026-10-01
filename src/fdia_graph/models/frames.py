@@ -133,7 +133,7 @@ class FlowGoal(NamedTuple):
     loads and generators) move; the fewest-tamper search holds one support for all snapshots. A goal
     drives one or more lines at once on the same support: `line` is the first target and `more` the
     others. Generated episodes drive `OverloadSettings.n_lines` lines, two by default as the paper's
-    case studies do, or one ([D14], D17)."""
+    case studies do, or one [D17]."""
 
     line: int  # the first target branch (position in the edge index)
     targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order

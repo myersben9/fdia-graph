@@ -1,4 +1,4 @@
-"""Names that moved to engine.attacks stay importable from their old modules for one minor release,
+"""Names that moved to engine.attacks or generation stay importable from their old modules for one minor release,
 with a DeprecationWarning that says where they live now."""
 
 from __future__ import annotations
@@ -19,7 +19,9 @@ def _moved_names():
 @pytest.mark.parametrize("module, name", _moved_names())
 def test_an_old_path_still_resolves_and_warns(module, name):
     mod = importlib.import_module(module)
-    with pytest.warns(DeprecationWarning, match=rf"{name} moved to engine\.attacks\..* retires in 0\.22"):
+    with pytest.warns(
+        DeprecationWarning, match=rf"{name} moved to (engine\.attacks|generation)\..* retires in 0\.22"
+    ):
         value = getattr(mod, name)
     assert value is mod._MOVED[name][1]
 

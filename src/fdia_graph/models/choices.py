@@ -193,7 +193,7 @@ class CostUnit(Choice):
 class SupportMethod(Choice):
     """How the overload attack picks the buses its false state moves [WU26 eq. 12]: the fewest-tamper
     search over the area's supports (`MinimizeMixin.min_tamper`), or the paper's row reduction of the
-    transposed attack-area Jacobian with column exchanges (`RrefMixin.rref_support`, Sec. IV-D1 after
+    transposed attack-area Jacobian with column exchanges (`engine.attacks.rref.RrefSupport`, Sec. IV-D1 after
     [YAN17])."""
 
     SEARCH = "search"

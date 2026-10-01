@@ -26,12 +26,6 @@ timelines; the rest load and serve data. The table is generated from each module
 |---|---|
 | `fdia_graph` | fdia-graph — load & generate ML-only dangerous FDIA localization datasets (realistic measurement graphs). |
 | `_moved` | Names that moved to another module and stay importable from the old one for one minor release. |
-| `download` | Fetch built-in shards from the GitHub Release and cache them under ~/.cache/fdia_graph. |
-| `errors` | Every error the package raises on purpose, in one place. |
-| `profiles` | Load-profile ingestion + operating-state generation — the FRONT of the pipeline. |
-| `registry` | Dataset registry: built-in (downloadable) datasets + locally generated ones. |
-| `streams` | The deprecated stream entry points, to be removed in a future release: `generate_stream` writes a timeline file through `fdia_graph.timeline` and returns it as the stream dict, `load_stream` reads the v0.7.2 stream files, and `windows` slides over a stream dict. The timeline file is the dataset now: `fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`. `load_stream` and `windows` stay for reading the v0.7.x stream files, which a timeline loader does not open. |
-| `timeline` | One continuous attacked timeline per system, written as one HDF5 file. |
 | `dataset` | FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (0.18+, one row per frame in time order, `kind="timeline"`) or a record shard (the v0.7.2 release). |
 | `dataset.base` | The loader's shared state and the constants its concerns read. |
 | `dataset.export` | A whole split at once: `summary`, and the arrays/tensors/frames of every kept record. |
@@ -39,13 +33,8 @@ timelines; the rest load and serve data. The table is generated from each module
 | `dataset.physics` | The admittance matrices built from the static graph, and the clean power flow on every branch derived from the clean state through them. |
 | `dataset.records` | One record at a time: unit conversion, `__getitem__` in dict/PyG form, `collate`, and a ready DataLoader. |
 | `dataset.sequence` | The timeline as sequences: sliding windows over a time-ordered view, and the episode table. |
+| `download` | Fetch built-in shards from the GitHub Release and cache them under ~/.cache/fdia_graph. |
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
-| `engine.base` | Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only. |
-| `engine.core` | Dataset generation engine (attack simulation + realistic measurement emission). |
-| `engine.measurement` | Measurement emission: turn a grid state into meter readings (the measurement function h(x)). |
-| `engine.physics` | A scan's load and generation, read from its stored state. |
-| `engine.pp_types` | The pandapower objects the engine reads, as types. |
-| `engine.records` | One scan of the timeline writer: a benign scan, or an attacked At scan built by `engine.attacks`. |
 | `engine.attacks` | Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator. |
 | `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
 | `engine.attacks.certify` | Certifying the fewest-tamper attack [WU26 eq. 12] by convex relaxation (docs/plans/RELAX_CERTIFIER_PLAN.md). |
@@ -56,6 +45,13 @@ timelines; the rest load and serve data. The table is generated from each module
 | `engine.attacks.relax_cuts` | The valid cuts that tighten the certifier's relaxation (docs/plans/RELAX_CERTIFIER_PLAN.md, section 2.1), each family a function of the relaxation it tightens: |
 | `engine.attacks.rref` | [WU26]'s own construction of the attack's support: row reduction of the transposed attack-area Jacobian with column exchanges. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
+| `engine.base` | Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only. |
+| `engine.core` | Dataset generation engine (attack simulation + realistic measurement emission). |
+| `engine.measurement` | Measurement emission: turn a grid state into meter readings (the measurement function h(x)). |
+| `engine.physics` | A scan's load and generation, read from its stored state. |
+| `engine.pp_types` | The pandapower objects the engine reads, as types. |
+| `engine.records` | One scan of the timeline writer: a benign scan, or an attacked At scan built by `engine.attacks`. |
+| `errors` | Every error the package raises on purpose, in one place. |
 | `federated` | Federated training over K clients (utilities) that never pool their records [FED26]. |
 | `federated.aggregate` | Averaging torch state dicts across clients with `formulas.federated.fedavg` [MCM17]. |
 | `federated.localizer` | Federated per-bus localizers: the paper's BusMLP and BusCNN trained by FedAvg over K clients [MCM17], [FED26], with records never leaving a client. |
@@ -98,7 +94,9 @@ timelines; the rest load and serve data. The table is generated from each module
 | `models.scores` | The result tables: an estimator's error pair per record class, a localizer's metric rows per class, and the Jacobian feature outputs. Each is a Bundle, indexable by family name as before. |
 | `models.training` | What the learned localizers pass between their fitting pieces (a centralized fit and a federated client share them). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
+| `profiles` | Load-profile ingestion + operating-state generation — the FRONT of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
+| `registry` | Dataset registry: built-in (downloadable) datasets + locally generated ones. |
 | `results` | Measured results as data: typed records with their provenance, one tidy store, and the renderers that put the numbers into docs and figures, so no measured number is typed by hand. |
 | `results.docs` | Measured numbers in markdown come from the store, never from a keyboard. |
 | `results.render` | Turning records into what a reader sees: a formatted cell, a markdown table, a pivot of records by two keys, and the CSV sidecar a figure is drawn from. Nothing here measures or stores anything. |
@@ -108,6 +106,8 @@ timelines; the rest load and serve data. The table is generated from each module
 | `se.base` | State estimation on fdia-graph datasets — the shared machinery behind every method class. |
 | `se.jacobian` | Jacobian-informed features (Abdulin & Narimani): the measurement Jacobian as a physics transform of the scan-to-scan measurement change, not as raw model input. |
 | `se.methods` | The estimator method classes. Each changes exactly one thing about SEBase, so a difference between two arms is a difference between estimators rather than between implementations. |
+| `streams` | The deprecated stream entry points, to be removed in a future release: `generate_stream` writes a timeline file through `fdia_graph.timeline` and returns it as the stream dict, `load_stream` reads the v0.7.2 stream files, and `windows` slides over a stream dict. The timeline file is the dataset now: `fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`. `load_stream` and `windows` stay for reading the v0.7.x stream files, which a timeline loader does not open. |
+| `timeline` | One continuous attacked timeline per system, written as one HDF5 file. |
 | `trust` | Which meters to trust so that stealthy attacks stop being stealthy [WU26], sklearn style. |
 | `trust.base` | The shared machinery of the trusted-meter selectors: the measurement Jacobian at the benign mean (from a WLS estimator of `fdia_graph.se`), the attack-cost kernel, and the scoring that pins the secured meters and asks the residual test whether the attack shows. |
 | `trust.defense` | [WU26]'s trusted-PMU configuration as a Markov decision process (Sec. IV-D2, Fig. 1, Algorithm 1), on the overload attack of one window (docs/plans/WU_DEFENSE_PLAN.md, PR B). |
