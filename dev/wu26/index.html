@@ -1199,34 +1199,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Relaxation certifier
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1326,6 +1298,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-ieee-14-does-not-reproduce-table-ii" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why IEEE-14 does not reproduce Table II
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#figures" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1387,9 +1392,335 @@ source any number on this page is rendered from.</p>
 <li><strong>Windows:</strong> 1-minute attack snapshots, interpolated from the 5-minute operating pool and re-solved by AC power flow.</li>
 <li>IEEE-14 uses 20 snapshots; IEEE-118 uses 10.</li>
 <li>Wu's attack snapshots are 30 s. Ours are twice as long, so an IEEE-14 window spans 20 minutes against his 10.</li>
-<li><strong>Ratings:</strong> k times each target line's peak flow over the window. k = 1.2 is the default, and k = 1.1 is used only for the Table II comparison.</li>
-<li><strong>Cost oracle:</strong> the fewest-tamper search, minimizing tampered measurements (eq. 33).</li>
+<li><strong>Attack area:</strong> the paper's own (<code>OverloadMixin.wu26_area</code>, decision D18): IEEE-14's every bus but the
+  slack ("knowledge of the system's global generation and load forecasts", p. 659), IEEE-118's local
+  network of Fig. 9.</li>
+<li><strong>Ratings:</strong> each target line's true flow at the window's last snapshot plus 0.10 pu (<code>--ratings +0.10</code>,
+  decision E14, ours): the paper states no ratings, and this scale makes the attack's magnitudes match
+  its Fig. 4. Margins on the peak flow (<code>--ratings 1.1 1.2</code>) remain as a sensitivity.</li>
+<li><strong>Attack:</strong> the candidate search with the paper's noise as the l0 threshold (D8), the load cap (D16),
+  a trusted PMU securing its own |V| and angle (E2, eq. 27). It is the cost oracle of both defenses.</li>
 </ul>
+<h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
+<!-- results: wu26.reproduction -->
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>rating</th>
+<th>method</th>
+<th style="text-align: right;">windows</th>
+<th style="text-align: right;">attacked / survives</th>
+<th style="text-align: right;">undefended (devices / channels)</th>
+<th style="text-align: right;">defended</th>
+<th style="text-align: right;">rise (channels)</th>
+<th style="text-align: right;">extra devices</th>
+<th style="text-align: right;">[WU26]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-118, scenario 1</td>
+<td>+0.10</td>
+<td>dqn</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">100 / 100</td>
+<td style="text-align: right;">10 / 27</td>
+<td style="text-align: right;">13 / 29</td>
+<td style="text-align: right;">7.1%</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">16.4% mean, mostly 10% to 20%</td>
+</tr>
+<tr>
+<td>IEEE-118, scenario 1</td>
+<td>+0.10</td>
+<td>solution1</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">100 / 100</td>
+<td style="text-align: right;">10 / 27</td>
+<td style="text-align: right;">13 / 29</td>
+<td style="text-align: right;">7.1%</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">16.4% mean, mostly 10% to 20%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 1</td>
+<td>+0.10</td>
+<td>dqn</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">9 / 0</td>
+<td style="text-align: right;">17 / 81</td>
+<td style="text-align: right;">none survives</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">25.6% / 23.9%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 1</td>
+<td>+0.10</td>
+<td>solution1</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">9 / 0</td>
+<td style="text-align: right;">17 / 81</td>
+<td style="text-align: right;">none survives</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">25.6% / 23.9%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 2</td>
+<td>+0.10</td>
+<td>dqn</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">20 / 20</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">0.0%</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">35.2% / 27.0%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 2</td>
+<td>+0.10</td>
+<td>solution1</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">20 / 20</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">0.0%</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">35.2% / 27.0%</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<ul>
+<li><strong>IEEE-118 comes closest.</strong> Every window's attack survives the schedule, and the trusted PMUs add
+  tampered devices on the scale of the paper's 3 to 5, but the cost rise counted in measurements stays
+  below the paper's band in most windows (<code>fig12_ieee118.png</code>). The extra devices count every device in
+  the defended attack that the undefended one did not tamper, swaps included, so they exceed the net rise.</li>
+<li><strong>IEEE-14 does not reproduce Table II.</strong> On lines 3-4 and 6-11 no defended attack survives where an
+  undefended one exists; on lines 1-2 and 4-5 the defended attack costs what the undefended one does. The
+  next section says why.</li>
+</ul>
+<h2 id="why-ieee-14-does-not-reproduce-table-ii">Why IEEE-14 does not reproduce Table II<a class="headerlink" href="#why-ieee-14-does-not-reproduce-table-ii" title="Permanent link">&para;</a></h2>
+<p>The paper states neither its line ratings nor its limits, and the gap follows them. With the ratings set
+at each target's last flow plus a step, the paper's area, our load cap and its own-bus trust, the
+prototype of the attack as one mixed-integer program (written from eqs. 12-25 and 29, solved by SCIP)
+gives (experiment <code>minlp.rating_delta</code>):</p>
+<!-- results: minlp.rating_delta -->
+<table>
+<thead>
+<tr>
+<th>case (undefended → trusted, devices / channels)</th>
+<th style="text-align: right;">+0.10 pu</th>
+<th style="text-align: right;">+0.15 pu</th>
+<th style="text-align: right;">+0.20 pu</th>
+<th style="text-align: right;">+0.30 pu</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">none → none</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5</td>
+<td style="text-align: right;">8 / 23 → 8 / 23</td>
+<td style="text-align: right;">9 / 29 → 9 / 29</td>
+<td style="text-align: right;">9 / 31 → 9 / 32</td>
+<td style="text-align: right;">14 / 52 → none</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100</td>
+<td style="text-align: right;">10 / 25 → 13 / 29</td>
+<td style="text-align: right;">10 / 29 → 13 / 31</td>
+<td style="text-align: right;">13 / 35 → 13 / 35</td>
+<td style="text-align: right;">14 / 40 → 14 / 40</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<ul>
+<li><strong>IEEE-118</strong> rises under the schedule at the smallest steps, the closest to the paper's band.</li>
+<li><strong>IEEE-14, lines 3-4 and 6-11</strong> has no attack at any step under our load cap and the paper's limits
+  (21)-(23), while the paper attacks it at about 0.22 pu.</li>
+<li><strong>IEEE-14, lines 1-2 and 4-5</strong> routes around the trusted PMUs: its attack moves no PMU bus's |V| or
+  angle, so trusting them costs nothing; a trusted PMU's branch currents stay attackable (eq. 27).</li>
+</ul>
+<p>Dropping the load cap, or securing a trusted PMU's branch currents too (the other reading of p. 655),
+moves IEEE-14 into the band only with attacks far larger than the paper's figures, or makes every
+defended attack infeasible (experiment <code>minlp.cap_trust_grid</code>):</p>
+<!-- results: minlp.cap_trust -->
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th style="text-align: right;">neighbour trust, cap off</th>
+<th style="text-align: right;">neighbour trust, cap on</th>
+<th style="text-align: right;">own trust, cap off</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11, +0.10 pu</td>
+<td style="text-align: right;">11 / 37 → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">11 / 37 → 11 / 50</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11, +0.15 pu</td>
+<td style="text-align: right;">12 / 45 → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">12 / 45 → 11 / 52</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11, +0.20 pu</td>
+<td style="text-align: right;">13 / 49 → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">13 / 49 → 14 / 63</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5, +0.10 pu</td>
+<td style="text-align: right;">7 / 15 → none</td>
+<td style="text-align: right;">8 / 23 → none</td>
+<td style="text-align: right;">7 / 15 → 7 / 17</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5, +0.15 pu</td>
+<td style="text-align: right;">7 / 21 → none</td>
+<td style="text-align: right;">9 / 29 → none</td>
+<td style="text-align: right;">7 / 21 → 9 / 23</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5, +0.20 pu</td>
+<td style="text-align: right;">8 / 24 → none</td>
+<td style="text-align: right;">9 / 31 → none</td>
+<td style="text-align: right;">8 / 24 → 9 / 30</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100, +0.10 pu</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">10 / 25 → none</td>
+<td style="text-align: right;">9 / 18 → 9 / 18</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100, +0.15 pu</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">9 / 19 → 9 / 19</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100, +0.20 pu</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">9 / 21 → 9 / 21</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>Further readings checked and rejected: tampering every meter of the moved region instead of those
+beyond noise (<code>minlp.region_reading</code>; the paper's Fig. 4 leaves sub-noise changes out of its list),
+anchoring the attack on the target lines' end buses (<code>minlp.anchoring</code>), and the cold mixed-integer
+solve as the attack generator (<code>minlp.prototype</code>: SCIP found no attack within its time limit where the
+search finds one). The cost definition (noise-thresholded l0) and the own-bus trust reading are the ones
+consistent with the paper's figures; whether trust bites depends on ratings and limits it does not state.</p>
+<h2 id="the-search">The search<a class="headerlink" href="#the-search" title="Permanent link">&para;</a></h2>
+<p>The attack's false state is the least-norm Gauss-Newton solve of the AC measurement equations.
+<code>scipy.optimize.least_squares</code> was tried in its place on the pinned IEEE-14 searches (experiment
+<code>search.solver_compare</code>) and kept out:</p>
+<!-- results: search.solvers -->
+<table>
+<thead>
+<tr>
+<th>search</th>
+<th style="text-align: right;">Gauss-Newton (devices / channels)</th>
+<th style="text-align: right;">s</th>
+<th style="text-align: right;">least squares (devices / channels)</th>
+<th style="text-align: right;">s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Am</code> onset 0, lines 0, cap 0.5</td>
+<td style="text-align: right;">8 / 43</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">none</td>
+<td style="text-align: right;">0.6</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 150, lines 0, cap 0.5</td>
+<td style="text-align: right;">none</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">none</td>
+<td style="text-align: right;">0.6</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 300, lines 0, cap 0.5</td>
+<td style="text-align: right;">7 / 25</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">7 / 24</td>
+<td style="text-align: right;">0.6</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 0, lines 0, cap None</td>
+<td style="text-align: right;">7 / 23</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">7 / 28</td>
+<td style="text-align: right;">0.5</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 0, lines 1+4, cap None</td>
+<td style="text-align: right;">7 / 24</td>
+<td style="text-align: right;">0.7</td>
+<td style="text-align: right;">7 / 21</td>
+<td style="text-align: right;">1.9</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 150, lines 1, cap None</td>
+<td style="text-align: right;">6 / 14</td>
+<td style="text-align: right;">0.9</td>
+<td style="text-align: right;">6 / 14</td>
+<td style="text-align: right;">2.7</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 150, lines 4+5, cap None</td>
+<td style="text-align: right;">7 / 30</td>
+<td style="text-align: right;">4.6</td>
+<td style="text-align: right;">8 / 28</td>
+<td style="text-align: right;">28.8</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 300, lines 0, cap None</td>
+<td style="text-align: right;">7 / 25</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">7 / 25</td>
+<td style="text-align: right;">0.5</td>
+</tr>
+<tr>
+<td><code>At</code> onset 20, ramp draw 0, cap 0.5</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.3</td>
+</tr>
+<tr>
+<td><code>At</code> onset 200, ramp draw 1, cap 0.5</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.3</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
 <h2 id="figures">Figures<a class="headerlink" href="#figures" title="Permanent link">&para;</a></h2>
 <p><strong>Fig. 11 (<code>fig11_ieee{N}.png</code>).</strong> Solution 2's selection probability over its test windows. Each cell is one configuration step (rows) and one PMU bus (columns); the colour scale is the probability.</p>
 <p><strong>Fig. 12 (<code>fig12_ieee{N}.png</code>).</strong>

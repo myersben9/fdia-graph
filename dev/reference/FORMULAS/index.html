@@ -1279,34 +1279,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Relaxation certifier
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1896,86 +1868,86 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>eq. 12</td>
 <td>the attack: fewest tampered measurements over the window (l0)</td>
-<td><code>engine.attacks</code><br><code>engine.attacks.certify</code><br><code>engine.attacks.episodes.RampDesigner.design</code><br><code>engine.attacks.minimize</code><br><code>engine.attacks.minimize.MinimizeMixin</code><br><code>engine.attacks.minimize.SearchSupport</code><br><code>formulas.attacks.tampered_channels</code><br><code>models.choices.SupportMethod</code><br><code>models.config.SearchSettings</code><br><code>models.config.TimelineKnobs</code><br><code>models.frames.Certificate</code><br><code>models.frames.FrameKnobs</code><br><code>models.frames.MinimizerResult</code><br><code>timeline.generate_timeline</code></td>
-<td><code>tests.test_minimize</code><br><code>tests.test_overload.test_the_search_on_a_flow_goal_equals_brute_force</code><br><code>tests.test_trusted_pmus.test_an_empty_schedule_costs_what_no_schedule_costs</code></td>
+<td><code>engine.attacks</code><br><code>engine.attacks.episodes.RampDesigner.design</code><br><code>engine.attacks.minimize</code><br><code>engine.attacks.minimize.MinimizeMixin</code><br><code>engine.attacks.minimize.SearchSupport</code><br><code>formulas.attacks.tampered_channels</code><br><code>models.choices.SupportMethod</code><br><code>models.config.SearchSettings</code><br><code>models.config.TimelineKnobs</code><br><code>models.frames.FrameKnobs</code><br><code>models.frames.MinimizerResult</code><br><code>timeline.generate_timeline</code></td>
+<td><code>tests.test_attack_area.test_every_attack_the_search_returns_is_valid</code><br><code>tests.test_minimize</code><br><code>tests.test_overload.test_the_search_on_a_flow_goal_equals_brute_force</code><br><code>tests.test_trusted_pmus.test_an_empty_schedule_costs_what_no_schedule_costs</code></td>
 </tr>
 <tr>
 <td>eq. 13</td>
 <td>SCADA active injection under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.false_state.FalseStateMixin.generator_buses</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.false_state.FalseStateMixin.generator_buses</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code></td>
 <td><code>tests.test_overload.test_a_generator_only_support_is_valid_and_its_output_stays_in_limits</code><br><code>tests.test_search_speed.test_the_support_attack_vector_equals_the_full_one</code><br><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code></td>
 </tr>
 <tr>
 <td>eq. 14</td>
 <td>SCADA reactive injection under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.false_state.FalseStateMixin.generator_buses</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.false_state.FalseStateMixin.generator_buses</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code></td>
 <td><code>tests.test_overload.test_a_generator_only_support_is_valid_and_its_output_stays_in_limits</code><br><code>tests.test_search_speed.test_the_support_attack_vector_equals_the_full_one</code><br><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code></td>
 </tr>
 <tr>
 <td>eq. 15</td>
 <td>SCADA active branch flow under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code></td>
 <td><code>tests.test_search_speed.test_the_support_attack_vector_equals_the_full_one</code><br><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code></td>
 </tr>
 <tr>
 <td>eq. 16</td>
 <td>SCADA reactive branch flow under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code></td>
 <td><code>tests.test_search_speed.test_the_support_attack_vector_equals_the_full_one</code><br><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code></td>
 </tr>
 <tr>
 <td>eq. 17</td>
 <td>PMU voltage magnitude under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>models.choices.MeterModel</code><br><code>timeline.generate_timeline</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>models.choices.MeterModel</code><br><code>timeline.generate_timeline</code></td>
 <td><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code><br><code>tests.test_trusted_pmus.test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on</code></td>
 </tr>
 <tr>
 <td>eq. 18</td>
 <td>PMU voltage angle under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>models.choices.MeterModel</code><br><code>timeline.generate_timeline</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._attack_vector</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>models.choices.MeterModel</code><br><code>timeline.generate_timeline</code></td>
 <td><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code><br><code>tests.test_trusted_pmus.test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on</code></td>
 </tr>
 <tr>
 <td>eq. 19</td>
 <td>PMU branch current, real part, under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._current_attack</code><br><code>engine.attacks.false_state.FalseStateMixin._currents_with_attack</code><br><code>engine.attacks.minimize._Window.__init__</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>engine.measurement.MeasurementMixin.current_mask</code><br><code>formulas.attacks.tampered_devices</code><br><code>formulas.network.branch_currents</code><br><code>formulas.noise.jitter_sigma</code><br><code>models.choices.MeterModel</code><br><code>models.fields.PmuCurrentFields</code><br><code>models.grid.CurrentColumns</code><br><code>models.grid.MeterPlan</code><br><code>timeline.generate_timeline</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._current_attack</code><br><code>engine.attacks.false_state.FalseStateMixin._currents_with_attack</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.attacks.minimize._Window.__init__</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>engine.measurement.MeasurementMixin.current_mask</code><br><code>formulas.attacks.tampered_devices</code><br><code>formulas.network.branch_currents</code><br><code>formulas.noise.jitter_sigma</code><br><code>models.choices.MeterModel</code><br><code>models.fields.PmuCurrentFields</code><br><code>models.grid.CurrentColumns</code><br><code>models.grid.MeterPlan</code><br><code>timeline.generate_timeline</code></td>
 <td><code>tests.test_pmu_channels</code><br><code>tests.test_pmu_channels.test_a_false_state_writes_its_currents</code><br><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code></td>
 </tr>
 <tr>
 <td>eq. 20</td>
 <td>PMU branch current, imaginary part, under attack</td>
-<td><code>engine.attacks.false_state.FalseStateMixin._current_attack</code><br><code>engine.attacks.false_state.FalseStateMixin._currents_with_attack</code><br><code>engine.attacks.minimize._Window.__init__</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>engine.measurement.MeasurementMixin.current_mask</code><br><code>formulas.attacks.tampered_devices</code><br><code>formulas.network.branch_currents</code><br><code>formulas.noise.jitter_sigma</code><br><code>models.choices.MeterModel</code><br><code>models.fields.PmuCurrentFields</code><br><code>models.grid.CurrentColumns</code><br><code>models.grid.MeterPlan</code><br><code>timeline.generate_timeline</code></td>
+<td><code>engine.attacks.false_state.FalseStateMixin._current_attack</code><br><code>engine.attacks.false_state.FalseStateMixin._currents_with_attack</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.attacks.minimize._Window.__init__</code><br><code>engine.core.FdiaGenerator.__init__</code><br><code>engine.measurement.MeasurementMixin.current_mask</code><br><code>formulas.attacks.tampered_devices</code><br><code>formulas.network.branch_currents</code><br><code>formulas.noise.jitter_sigma</code><br><code>models.choices.MeterModel</code><br><code>models.fields.PmuCurrentFields</code><br><code>models.grid.CurrentColumns</code><br><code>models.grid.MeterPlan</code><br><code>timeline.generate_timeline</code></td>
 <td><code>tests.test_pmu_channels</code><br><code>tests.test_pmu_channels.test_a_false_state_writes_its_currents</code><br><code>tests.test_timeline.test_stealthy_families_pass_the_residual_test</code></td>
 </tr>
 <tr>
 <td>eq. 21</td>
 <td>bus voltage limits</td>
-<td><code>engine.attacks.certify._Relaxation._box</code><br><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin._within_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.operating_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.stealthy_state</code><br><code>engine.core.FdiaGenerator._case_limits</code><br><code>formulas.attacks.operating_limits</code><br><code>formulas.attacks.within_limits</code><br><code>formulas.relax.voltage_box</code><br><code>models.frames.OperatingLimits</code><br><code>models.inputs.CertifiableLimits</code><br><code>timeline._knobs</code><br><code>timeline.generate_timeline</code></td>
+<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin._within_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.operating_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.stealthy_state</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.core.FdiaGenerator._case_limits</code><br><code>formulas.attacks.operating_limits</code><br><code>formulas.attacks.within_limits</code><br><code>models.frames.OperatingLimits</code><br><code>timeline._knobs</code><br><code>timeline.generate_timeline</code></td>
 <td><code>tests.test_overload.test_a_voltage_is_held_at_its_limit_while_the_goal_is_met</code></td>
 </tr>
 <tr>
 <td>eq. 22</td>
 <td>generator active output limits</td>
-<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin._within_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.operating_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.stealthy_state</code><br><code>engine.attacks.false_state._clip_generator</code><br><code>engine.core.FdiaGenerator._case_limits</code><br><code>formulas.attacks.operating_limits</code><br><code>formulas.attacks.within_limits</code><br><code>models.frames.OperatingLimits</code><br><code>timeline._knobs</code><br><code>timeline.generate_timeline</code></td>
+<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin._within_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.operating_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.stealthy_state</code><br><code>engine.attacks.false_state._clip_generator</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.core.FdiaGenerator._case_limits</code><br><code>formulas.attacks.operating_limits</code><br><code>formulas.attacks.within_limits</code><br><code>models.frames.OperatingLimits</code><br><code>timeline._knobs</code><br><code>timeline.generate_timeline</code></td>
 <td><code>tests.test_overload.test_a_generator_at_its_p_limit_keeps_its_q_free</code><br><code>tests.test_overload.test_a_generator_only_support_is_valid_and_its_output_stays_in_limits</code></td>
 </tr>
 <tr>
 <td>eq. 23</td>
 <td>generator reactive output limits</td>
-<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin._within_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.operating_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.stealthy_state</code><br><code>engine.attacks.false_state._clip_generator</code><br><code>engine.core.FdiaGenerator._case_limits</code><br><code>formulas.attacks.operating_limits</code><br><code>formulas.attacks.within_limits</code><br><code>models.frames.OperatingLimits</code><br><code>timeline._knobs</code><br><code>timeline.generate_timeline</code></td>
+<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin._within_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.operating_limits</code><br><code>engine.attacks.false_state.FalseStateMixin.stealthy_state</code><br><code>engine.attacks.false_state._clip_generator</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.core.FdiaGenerator._case_limits</code><br><code>formulas.attacks.operating_limits</code><br><code>formulas.attacks.within_limits</code><br><code>models.frames.OperatingLimits</code><br><code>timeline._knobs</code><br><code>timeline.generate_timeline</code></td>
 <td><code>tests.test_overload.test_a_generator_at_its_p_limit_keeps_its_q_free</code><br><code>tests.test_overload.test_a_generator_only_support_is_valid_and_its_output_stays_in_limits</code></td>
 </tr>
 <tr>
 <td>eq. 24</td>
 <td>the target flow grows snapshot by snapshot</td>
-<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin.solve_flow_local</code><br><code>engine.attacks.overload</code><br><code>formulas.network.local_flow_solve</code><br><code>models.errors.NoLineRatings</code><br><code>models.frames.FlowGoal</code><br><code>models.frames.LoadGoal</code></td>
-<td><code>tests.test_overload.test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating</code></td>
+<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin.solve_flow_local</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.attacks.overload</code><br><code>formulas.network.local_flow_solve</code><br><code>models.errors.NoLineRatings</code><br><code>models.frames.FlowGoal</code><br><code>models.frames.LoadGoal</code></td>
+<td><code>tests.test_attack_area.test_delta_ratings_end_each_goal_at_its_flow_plus_the_step</code><br><code>tests.test_attack_area.test_every_attack_the_search_returns_is_valid</code><br><code>tests.test_overload.test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating</code></td>
 </tr>
 <tr>
 <td>eq. 25</td>
 <td>the target flow reaches its rating S_max over the window</td>
-<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin.solve_flow_local</code><br><code>engine.attacks.overload</code><br><code>engine.attacks.overload._schedule</code><br><code>formulas.attacks.branch_ratings</code><br><code>formulas.network.local_flow_solve</code><br><code>models.errors.NoLineRatings</code><br><code>models.frames.FlowGoal</code><br><code>models.frames.LoadGoal</code></td>
-<td><code>tests.test_overload.test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating</code><br><code>tests.test_split_first.test_every_frame_labelled_attacked_carries_an_attack</code><br><code>tests.test_timeline.test_layers_and_tamper_masks_agree</code></td>
+<td><code>engine.attacks.episodes.OverloadDesigner.design</code><br><code>engine.attacks.false_state.FalseStateMixin.solve_flow_local</code><br><code>engine.attacks.minimize.MinimizeMixin.goal_state</code><br><code>engine.attacks.overload</code><br><code>engine.attacks.overload._schedule</code><br><code>formulas.attacks.branch_ratings</code><br><code>formulas.network.local_flow_solve</code><br><code>models.errors.NoLineRatings</code><br><code>models.frames.FlowGoal</code><br><code>models.frames.LoadGoal</code></td>
+<td><code>tests.test_attack_area.test_delta_ratings_end_each_goal_at_its_flow_plus_the_step</code><br><code>tests.test_attack_area.test_every_attack_the_search_returns_is_valid</code><br><code>tests.test_overload.test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating</code><br><code>tests.test_split_first.test_every_frame_labelled_attacked_carries_an_attack</code><br><code>tests.test_timeline.test_layers_and_tamper_masks_agree</code></td>
 </tr>
 <tr>
 <td>eq. 26</td>
@@ -1992,26 +1964,26 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <tr>
 <td>eq. 28</td>
 <td>the attack under defense: fewest nonsecure measurements</td>
-<td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code><br><code>engine.attacks.minimize._Window.cost_plan</code><br><code>engine.attacks.minimize._per_slot</code><br><code>engine.attacks.minimize._segment_seed</code><br><code>engine.attacks.rref</code></td>
+<td><code>engine.attacks.minimize</code><br><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code><br><code>engine.attacks.minimize._Window.cost</code><br><code>engine.attacks.rref</code></td>
 <td><code>tests.test_trusted_pmus.test_an_empty_schedule_costs_what_no_schedule_costs</code></td>
 </tr>
 <tr>
 <td>eq. 29</td>
 <td>the trusted rows' state deviation is zero</td>
-<td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code><br><code>engine.attacks.minimize._Window.__init__</code><br><code>models.inputs.TrustablePmus</code></td>
-<td><code>tests.test_trusted_pmus.test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on</code></td>
+<td><code>engine.attacks.minimize</code><br><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code><br><code>engine.attacks.minimize._Window.__init__</code><br><code>models.inputs.TrustablePmus</code></td>
+<td><code>tests.test_attack_area.test_every_attack_the_search_returns_is_valid</code><br><code>tests.test_trusted_pmus.test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on</code></td>
 </tr>
 <tr>
 <td>eq. 30</td>
 <td>the nonsecure set at t</td>
 <td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code><br><code>engine.attacks.minimize._Window.__init__</code></td>
-<td><code>tests.test_trusted_pmus.test_trust_accumulates_from_its_slot_and_cuts_the_window</code></td>
+<td><code>tests.test_trusted_pmus.test_trust_accumulates_from_its_slot</code></td>
 </tr>
 <tr>
 <td>eq. 31</td>
 <td>trust accumulates: h^S_t = h^S_t-1 + dh^S_t</td>
 <td><code>engine.attacks.minimize.MinimizeMixin.min_tamper</code><br><code>engine.attacks.minimize._Window.__init__</code></td>
-<td><code>tests.test_trusted_pmus.test_trust_accumulates_from_its_slot_and_cuts_the_window</code></td>
+<td><code>tests.test_trusted_pmus.test_trust_accumulates_from_its_slot</code></td>
 </tr>
 <tr>
 <td>eq. 32</td>

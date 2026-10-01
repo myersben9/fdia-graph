@@ -1334,34 +1334,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Relaxation certifier
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1624,10 +1596,6 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true.</td>
 </tr>
 <tr>
-<td><code>engine.attacks.certify</code></td>
-<td>Certifying the fewest-tamper attack [WU26 eq. 12] by convex relaxation (docs/plans/RELAX_CERTIFIER_PLAN.md).</td>
-</tr>
-<tr>
 <td><code>engine.attacks.episodes</code></td>
 <td>What one episode attacks: its design, drawn at onset by the family's designer.</td>
 </tr>
@@ -1637,15 +1605,11 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>engine.attacks.minimize</code></td>
-<td>The fewest-tamper support of an attack window [WU26 eq. 12].</td>
+<td>The cheapest support of an attack window [WU26 eq. 12].</td>
 </tr>
 <tr>
 <td><code>engine.attacks.overload</code></td>
 <td><code>Am</code>, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two by default, as the paper's case studies overload two lines at once, or one; <code>OverloadSettings.n_lines</code>, [D17]) driven to their ratings over the window, with the fewest devices tampered.</td>
-</tr>
-<tr>
-<td><code>engine.attacks.relax_cuts</code></td>
-<td>The valid cuts that tighten the certifier's relaxation (docs/plans/RELAX_CERTIFIER_PLAN.md, section 2.1), each family a function of the relaxation it tightens:</td>
 </tr>
 <tr>
 <td><code>engine.attacks.rref</code></td>
@@ -1740,10 +1704,6 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>Projections through the measurement Jacobian: the explained and unexplained parts of a measurement change, leverage, the weak directions, and the meter-to-bus aggregation of the Jacobian-informed features [JAC26], [HAN75].</td>
 </tr>
 <tr>
-<td><code>formulas.relax</code></td>
-<td>The pieces of the convex relaxation that certifies the fewest-tamper attack (docs/plans/RELAX_CERTIFIER_PLAN.md): the voltage box, the big-M constants derived from it, the sectors that outer-approximate the exterior of a circle, the cone gap that says how tight a relaxed point's pairwise cones are, and the roundoff slack that keeps the search's float32 noise thresholds reproduced conservatively. numpy only; the model itself is built in <code>engine/attacks/certify.py</code>.</td>
-</tr>
-<tr>
 <td><code>formulas.temporal</code></td>
 <td>The temporal features of a scan [FED26]: the one-step injection change and its z-score against the bus's typical recent change, and the recent-change scale itself.</td>
 </tr>
@@ -1825,7 +1785,7 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>models.frames</code></td>
-<td>What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search and the certifier return.</td>
+<td>What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns.</td>
 </tr>
 <tr>
 <td><code>models.grid</code></td>

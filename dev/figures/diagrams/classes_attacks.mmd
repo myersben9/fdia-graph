@@ -1,6 +1,10 @@
 classDiagram
     class AreaMixin {
         +local_region()
+        +attack_area()
+        +explicit_area()
+        +rule_area()
+        +area_score()
     }
     class FalseStateMixin {
         +operating_limits()
@@ -22,6 +26,7 @@ classDiagram
     class MinimizeMixin {
         +min_tamper()
         +support_strategy()
+        +window_area()
         +goal_state()
     }
     class OverloadMixin {
@@ -29,11 +34,11 @@ classDiagram
         +line_ratings()
         +eligible_lines()
         +overload_goal()
+        +window_ratings()
+        +wu26_area()
         +wu26_branch()
         +wu26_buses()
-        +overload_step()
-        +pretended_change()
-        ... and 1 more
+        ... and 3 more
     }
     class StealthyMixin {
     }
@@ -54,6 +59,9 @@ classDiagram
         +attack_frame()
     }
     class AmOverloadDesign {
+        <<models>>
+    }
+    class AreaScore {
         <<models>>
     }
     class AttackDesign {
@@ -116,6 +124,7 @@ classDiagram
     MinimizeMixin <|-- OverloadMixin
     OverloadMixin <|-- AttackMixin
     StealthyMixin <|-- AttackMixin
+    AreaMixin ..> AreaScore : uses
     AttackMixin ..> AttackDesign : uses
     AttackMixin ..> Frame : uses
     AttackMixin ..> FrameKnobs : uses
