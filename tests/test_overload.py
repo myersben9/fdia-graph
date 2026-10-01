@@ -212,8 +212,10 @@ def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, 
 
 
 def test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating(g, pool):
-    """D9: S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}): the attack's own
-    share grows linearly from zero, the natural drift is left in, and the last target is the rating."""
+    """D9: S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}) for t = kappa+1 ...
+    kappa+T [WU26, eq. 25]: the window's first snapshot already carries 1/T of the way to the rating
+    (kappa, the reference, is the frame before), the share grows linearly, the natural drift is left
+    in, and the last target is the rating."""
     window = [pool[u] for u in range(12)]
     line = int(g.eligible_lines(window, 2)[0])
     goal = g.overload_goal(window, line)
@@ -221,8 +223,9 @@ def test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating(g, pool):
     true = np.hypot(flows[:, 0], flows[:, 1])
     added = np.array(goal.targets) - true
     rating = float(g.line_ratings()[line])
-    assert added[0] == pytest.approx(0.0, abs=1e-9)
-    assert np.allclose(np.diff(added), (rating - true[-1]) / 11)
+    step = (rating - true[-1]) / 12
+    assert added[0] == pytest.approx(step) and step > 0  # every snapshot of the window moves the flow
+    assert np.allclose(np.diff(added), step)
     assert goal.targets[-1] == pytest.approx(rating)
 
 

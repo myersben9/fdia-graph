@@ -50,41 +50,48 @@ checks a docs change locally.
 
 ## The pull request
 
-![the pull request flow: branch, the pre-review gate and the checklist review, create, request the review, fix every finding in one push and go through the gate again, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
+![the pull request flow: branch, the pre-review gate and the checklist review, create as a draft, mark ready for the one review, fix every finding in one push and reply to each, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
 
 ```bash
 python tools/prereview.py                                      # every gate, locally, on this checkout's source
 python tools/prereview.py --also-python <path-to-python3.12>  # and the suite on a second Python, as CI runs 3.9 and 3.12
-python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked
-python tools/pr.py request-review 80                           # only after the gate and the checklist are clean
-python tools/pr.py wait 80                                     # CI plus every required review bot
+python tools/pr.py create my-branch "One-line title" body.md   # body: what, why, what you checked; open as a draft while iterating
+python tools/pr.py wait 80                                     # CI plus the one review of every required bot
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
-python tools/pr.py merge 80                                    # refuses unless green with every required bot's review on the head
+python tools/pr.py merge 80                                    # refuses unless green, reviewed once, every finding answered
 python tools/review_ledger.py 80                               # record the review's findings, print the tally by kind
 ```
 
 Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (windows)`, `typecheck`,
 `format`, `readability`, the two installs) is a completed success on the head (a job that has not
-started yet counts as not green), every other listed check has finished without failure, and every required review bot has reviewed
-that exact head.
+started yet counts as not green) and every other listed check has finished without failure.
+Reviewed means every required review bot has reviewed the pull request once and every one of its
+findings has a reply.
 
-The automated review is billed per review, so a pull request reaches it only once it is clean, and
-the fixes to its findings are batched into one push. The order:
+The automated review is billed per review, so each pull request gets **one**: the repository
+ruleset's Copilot rule reviews a pull request when it is opened or marked ready, and no longer on
+every push or on drafts (`review_on_push` and `review_draft_pull_requests` off). A pull request is
+therefore opened as a draft while it is worked on and marked ready once it is clean; the fixes to
+the review's findings go in one push, answered one by one, and the pull request merges when that
+push is green, without a second review. A fix that changes behaviour beyond what its finding asked
+is the exception: request one more review for it with `tools/pr.py request-review`. Related work goes
+in one pull request per theme rather than one per step, and an open pull request is rebased only for
+a real conflict. The order:
 
 1. `python tools/prereview.py` until it passes: the CI gates, the test suite, and the checks CI
    does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).
 2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff and every touched
    file read whole, searching outward from every change (a `/code-review` in Claude Code with the
    checklist does this). Fold what it finds into the branch.
-3. Copilot, requested with `tools/pr.py request-review`, required on the head at merge. Answer its
-   findings, fix them all in one push, repeat steps 1 and 2, and only then request it again. Record
-   each review with `tools/review_ledger.py`; a kind of finding that keeps coming up becomes a
-   checklist item or a check in `tools/prereview.py`.
+3. Mark the draft ready: Copilot reviews it once. Answer every finding, fix them all in one push,
+   repeat steps 1 and 2 on that push, and merge it on green. Record the review with
+   `tools/review_ledger.py`; a kind of finding that keeps coming up becomes a checklist item or a
+   check in `tools/prereview.py`.
 4. CodeRabbit (`.coderabbit.yaml` carries the repository's review instructions) and Gemini Code Assist, both
-   GitHub apps installed on the repository; `tools/pr.py` requires a bot's review on the head as
-   soon as that bot has reviewed the pull request once, so a bot that is not installed never
-   blocks a merge and an installed one is never skipped.
+   GitHub apps installed on the repository; `tools/pr.py` requires one review from a bot as soon as
+   that bot has reviewed the pull request, so a bot that is not installed never blocks a merge and
+   an installed one is never skipped.
 
 Bot comments are suggestions: apply the ones that are right and answer every one with what changed
 or why not. `tools/pr.py` uses the token the Git Credential Manager holds for `git push`, so it

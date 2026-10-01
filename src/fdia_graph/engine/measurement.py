@@ -12,6 +12,9 @@ from ..models.grid import CURRENT, EDGE, NODE
 from .base import POWER_NOISE_FLOOR_MW, GridBase
 from .records import Scan
 
+# the jitter stream's key beside (seed, t): one stream per timeline frame, apart from every other draw
+JITTER_STREAM = 0x4A17
+
 if TYPE_CHECKING:
     pass
 
@@ -21,7 +24,17 @@ class MeasurementMixin(GridBase):
 
     # Draw one zero-mean Gaussian noise sample with std `s` (the meter-noise primitive).
     def _draw_noise(self, s: float) -> float:
-        return self.rng.normal(0, s)
+        return self._jitter.normal(0, s)
+
+    def _jitter_stream(self) -> np.random.Generator:
+        """The stream an emission draws its jitter from. With a `scan_key` t (set by the timeline walk),
+        its own stream seeded by (seed, t): frame t's noise is then the same whatever was drawn
+        before it, so the benign frames of two timelines on one seed and pool that place different
+        attacks are identical, and every emission of t (an attacked frame's true scan, any retry)
+        draws the same noise as its benign twin. Without a key, the generator's own stream."""
+        if self.scan_key is None:
+            return self.rng
+        return np.random.default_rng([self.seed, JITTER_STREAM, self.scan_key])
 
     def meter_masks(self) -> tuple[np.ndarray, np.ndarray]:
         """The meter masks of every scan, drawn from the plan with no random draw: node [N, 4] (|V| at
@@ -60,6 +73,7 @@ class MeasurementMixin(GridBase):
         # Emit a measurement graph DIRECTLY from a stored state X (no re-solve): exact 0-error flows before
         # meter noise. X columns = [|V|, Pinj, Qinj, angle], the one column order used everywhere.
         C, bias = self.C, self.bias
+        self._jitter = self._jitter_stream()
         V, Pi, Qi, TH = (X[..., i] for i in NODE)  # numpy views of the four columns, no copy
         # The complex bus-voltage phasors in ppc ordering, then the exact from-end flows in MW and MVAr:
         # one physics primitive (formulas.network) shared with the loader and the estimator.

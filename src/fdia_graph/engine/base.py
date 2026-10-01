@@ -42,6 +42,11 @@ class GridBase:
     E: int
     n_lines: int
     rng: np.random.Generator
+    seed: int
+    # the timestep whose jitter the next emission draws (a timeline walk sets it), or None: the jitter
+    # then comes from `rng` like every other draw
+    scan_key: Optional[int]
+    _jitter: np.random.Generator  # the stream the current emission draws its jitter from
     # noise model
     SD: dict[str, float]
     SDj: dict[str, float]

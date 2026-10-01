@@ -8,9 +8,11 @@ branch's peak true flow over the operating pool (the plan's D15, `use_line_ratin
 branch's PGLib-OPF `rate_a` (`fdia_graph.ratings`; the IEEE cases pandapower ships rate every branch
 9,900 MVA, which no flow comes near). A branch is a target for a window only when it is rated, its flow is metered
 (the goal is what the operator sees) and its true flow stays below the rating at every snapshot of
-the window (otherwise the goal is met with no attack). The goal at snapshot t (the plan's D9) is
+the window (otherwise the goal is met with no attack). The window's T snapshots are kappa+1 ... kappa+T, kappa the untouched reference
+snapshot before it (eq. 25 sums the increments from kappa+1), and the goal at snapshot t (the plan's
+D9) is
 
-    S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})
+    S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}),   t = kappa+1 ... kappa+T
 
 on the noiseless reading of the false state: the true flow plus a share of what separates the last
 snapshot's true flow from the rating, so the attack adds a steady ramp on top of the load's own
@@ -95,10 +97,12 @@ WU26_ATTACK_AREA: dict[int, tuple[int, ...]] = {
 
 def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
     """One branch's goal over a window from its true flows [T, 2] (MW, MVAr): the true flow plus a
-    linear share of what separates the last true flow from the rating (the plan's D9)."""
+    linear share of what separates the last true flow from the rating (the plan's D9). The window's
+    snapshots are kappa+1 ... kappa+T after the untouched reference kappa [WU26, eq. 25], so snapshot
+    k of the window (k = 1 ... T) carries the share k/T: every snapshot moves the flow and the last
+    reaches the rating."""
     true = np.hypot(flows[:, 0], flows[:, 1])
-    T = len(true) - 1
-    share = np.arange(len(true)) / T if T > 0 else np.ones(1)
+    share = np.arange(1, len(true) + 1) / len(true)
     return tuple(float(x) for x in true + share * (rating - true[-1]))
 
 

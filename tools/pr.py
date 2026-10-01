@@ -4,14 +4,16 @@
     python tools/pr.py status <num>                          # checks on the head, reviews, comment count
     python tools/pr.py comments <num>                        # every review comment (path, line, body)
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
-    python tools/pr.py wait <num> [minutes]                  # block until CI has finished and every required bot reviewed
+    python tools/pr.py wait <num> [minutes]                  # block until CI has finished and every required bot has reviewed once
     python tools/pr.py merge <num>                           # squash-merge on green, delete the branch
     python tools/pr.py request-review <num>                  # ask the automated reviewer, once the pre-review is clean
 
 The token comes from the Git Credential Manager (`git credential fill`), the same one `git push`
-uses, so nothing is stored in the repo. `merge` refuses while a check is failing or still running
-and while any required review bot (Copilot, and every installed app that has reviewed the pull
-request) has no review on the head, which is the repo's merge rule.
+uses, so nothing is stored in the repo. `merge` refuses while a check on the head is failing or
+still running, while a required review bot (Copilot, and every installed app that has reviewed the
+pull request) has not reviewed the pull request once, and while any of its findings has no reply:
+the repo's merge rule (CONTRIBUTING.md, "The pull request"). The automated review runs once per pull
+request (the ruleset no longer reviews every push), so a fix pushed after it does not wait for another.
 """
 
 from __future__ import annotations
@@ -103,14 +105,21 @@ def _head_state(num: int) -> dict[str, Any]:
         bot: [(r["state"], r["submitted_at"]) for r in reviews if _bot_of(r) == bot and r["commit_id"] == sha]
         for bot in REVIEW_BOTS
     }
+    reviewed = {bot: [r["commit_id"][:8] for r in reviews if _bot_of(r) == bot] for bot in REVIEW_BOTS}
     seen = {b for r in reviews if (b := _bot_of(r)) is not None}
+    notes = api_all(f"/pulls/{num}/comments")
+    answered = {c["in_reply_to_id"] for c in notes if c.get("in_reply_to_id")}
     return {
         "pr": pr,
         "sha": sha,
         "checks": _latest_runs(checks),
         "reviews_on_head": on_head,
+        "reviewed_commits": reviewed,
         "required_bots": [b for b in REVIEW_BOTS if b == COPILOT or b in seen],
-        "n_comments": len(api_all(f"/pulls/{num}/comments")),
+        "unanswered": [
+            c["id"] for c in notes if not c.get("in_reply_to_id") and _bot_of(c) and c["id"] not in answered
+        ],
+        "n_comments": len(notes),
     }
 
 
@@ -125,12 +134,12 @@ def _bot_of(review: dict[str, Any]) -> str | None:
 
 
 def _reviewed(state: dict[str, Any]) -> bool:
-    """Every required bot has a review on the head."""
-    return all(state["reviews_on_head"][b] for b in state["required_bots"])
+    """Every required bot has reviewed the pull request once, on any of its commits."""
+    return all(state["reviewed_commits"][b] for b in state["required_bots"])
 
 
 def _missing_reviews(state: dict[str, Any]) -> list[str]:
-    return [b for b in state["required_bots"] if not state["reviews_on_head"][b]]
+    return [b for b in state["required_bots"] if not state["reviewed_commits"][b]]
 
 
 def _not_green(state: dict[str, Any]) -> list[str]:
@@ -169,6 +178,8 @@ def status(num: int) -> None:
                 "green": _green(s),
                 "checks": s["checks"],
                 "reviews_on_head": s["reviews_on_head"],
+                "reviewed_commits": s["reviewed_commits"],
+                "unanswered": s["unanswered"],
                 "required_bots": s["required_bots"],
                 "n_comments": s["n_comments"],
             },
@@ -209,6 +220,8 @@ def wait(num: int, minutes: float = 25) -> None:
                         "green": _green(s),
                         "checks": {k: v[1] for k, v in s["checks"].items()},
                         "reviews_on_head": s["reviews_on_head"],
+                        "reviewed_commits": s["reviewed_commits"],
+                        "unanswered": s["unanswered"],
                         "required_bots": s["required_bots"],
                         "n_comments": s["n_comments"],
                     },
@@ -226,7 +239,9 @@ def merge(num: int) -> None:
         raise SystemExit(f"not green on {s['sha'][:8]}: " + "; ".join(why))
     if not _reviewed(s):
         missing = ", ".join(_missing_reviews(s))
-        raise SystemExit(f"no review on {s['sha'][:8]} yet from {missing}; run `wait {num}` first")
+        raise SystemExit(f"no review of #{num} yet from {missing}; run `wait {num}` first")
+    if s["unanswered"]:
+        raise SystemExit(f"review findings without a reply: {s['unanswered']}; answer each with `reply`")
     pr = s["pr"]
     # `sha` binds the merge to the head that was checked: GitHub refuses if a push moved it meanwhile.
     r = api(
@@ -241,8 +256,10 @@ def merge(num: int) -> None:
 
 
 def request_review(num: int) -> None:
-    """Ask the automated reviewer for one review of the current head. Run `tools/prereview.py` and the
-    checklist in docs/reference/REVIEW_CHECKLIST.md first: each request is a billed review."""
+    """Ask the automated reviewer for one more review of the current head: only when a fix changed
+    behaviour beyond the findings it answers. Opening a pull request (or marking a draft ready) asks
+    for the one review; run `tools/prereview.py` and the checklist in
+    docs/reference/REVIEW_CHECKLIST.md first: each request is a billed review."""
     api(
         "POST",
         f"/pulls/{num}/requested_reviewers",

@@ -103,16 +103,20 @@ def test_episodes_index_the_frames(timeline):
 
 
 def test_episodes_are_placed_at_random_without_overlap(timeline):
-    """No episode overlaps another, the attacked fraction lands near the target, and the onsets
-    spread over the whole timeline (no scheduler decides where an episode goes)."""
+    """No episode overlaps another or crosses a split, the attacked fraction lands on the target, and
+    the onsets spread over the whole timeline (no scheduler decides where an episode goes)."""
     a, attrs = _read(timeline)
     onset, length = a["episodes/onset"], a["episodes/length"]
     order = np.argsort(onset)
     assert (onset[order][1:] >= (onset + length)[order][:-1]).all()
-    # the placed frames are exactly the set fraction; an Am episode with no stealthy overload design
-    # at its window stays benign and is counted in fallback_benign (whole episodes here)
-    assert int(length.sum()) + attrs["fallback_benign"] == round(0.5 * attrs["T"])
+    # each split's whole episodes come to half its frames (600/200/200 frames, 20-frame episodes:
+    # 15/5/5 episodes), an infeasible episode moved rather than left benign; no frame of a built
+    # episode falls back on this fixture
+    assert int(length.sum()) == round(0.5 * attrs["T"]) and attrs["fallback_benign"] == 0
     assert round(attrs["attacked_frac"] * attrs["T"]) == int(length.sum())
+    assert (attrs["episode_shortfall"] == 0).all() and np.allclose(attrs["split_attacked_frac"], 0.5)
+    split = a["data/split"]
+    assert all(split[o] == split[o + L - 1] for o, L in zip(onset, length))
     thirds = np.bincount(np.minimum(onset * 3 // attrs["T"], 2), minlength=3) / len(onset)
     assert thirds.min() > 0.2, thirds
 
@@ -315,11 +319,11 @@ def test_operating_limits_are_the_case_limits_widened_to_the_pool():
     assert within_limits(bad, X0, gen, none, lim, outside)
 
 
-def test_the_fixture_falls_back_only_whole_am_episodes(timeline):
+def test_the_fixture_records_its_limits(timeline):
     _, attrs = _read(timeline)
-    # every fallback is a whole Am episode with no stealthy overload design at its window (redrawn from
-    # the split-first generation on); no placed frame falls back on its own
-    assert attrs["fallback_benign"] % 20 == 0 and attrs["max_load_mw"] == 2000.0
+    # an episode with no feasible design moves to another onset instead of falling back (the
+    # split-first generation), and no frame of a built episode falls back here
+    assert attrs["fallback_benign"] == 0 and attrs["max_load_mw"] == 2000.0
     assert attrs["v_lo"] <= 0.94 and attrs["v_hi"] >= 1.06
 
 
@@ -337,16 +341,6 @@ def test_local_region_keeps_a_boundary_and_the_slack_fixed():
         np.arange(g.C), 0
     )  # every bus as a seed: the slack alone is left to balance against
     assert whole is not None and sorted(whole.tolist()) == sorted(set(range(g.C)) - {g.slack_bus})
-
-
-def test_split_boundaries_settle_in_order():
-    from fdia_graph.timeline import _frame_split
-
-    ep = [dict(onset=50, length=40), dict(onset=90, length=5)]  # 50..89 crosses both 60 and 80 of 100
-    split = _frame_split(100, ep, (0.6, 0.2, 0.2))
-    assert (split[:90] == 0).all() and (split[90:] == 2).all()  # the middle split is empty, nothing is cut
-    split = _frame_split(100, [dict(onset=55, length=10)], (0.6, 0.2, 0.2))
-    assert (split[:65] == 0).all() and (split[65:80] == 1).all() and (split[80:] == 2).all()
 
 
 def test_attacked_frac_zero_is_all_benign(tmp_path, pool):

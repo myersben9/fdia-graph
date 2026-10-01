@@ -90,6 +90,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         opts = GeneratorOptions(max_load_mw, meter_model)
         self.max_load_mw, hybrid = opts.max_load_mw, opts.meter_model == "hybrid"
         self.rng = np.random.default_rng(seed)
+        self.seed, self.scan_key, self._jitter = seed, None, self.rng
         # Measurement noise stds, the accuracy classes (ACCURACY_CLASS), split into a per-scan jitter
         # and a per-meter bias (see formulas.noise).
         self.SD = dict(ACCURACY_CLASS)

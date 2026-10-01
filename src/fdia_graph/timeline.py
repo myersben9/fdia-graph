@@ -1,9 +1,12 @@
 """One continuous attacked timeline per system, written as one HDF5 file.
 
-The timeline is the dataset. Attack episodes are placed at uniform random onsets over the
-operating-point pool, without overlap, their frames summing to exactly the attacked fraction;
-whether two episodes touch or a long quiet stretch separates them is a property of that draw, not
-of any rule.
+The timeline is the dataset. It is first cut chronologically into train, val and test (60/20/20
+by default); then each split gets its own attack episodes, as many whole episodes as come closest
+to the attacked fraction of its frames, shared between the families by largest remainder and placed
+at uniform random onsets inside the split, never overlapping and never cut. Whether two episodes
+touch or a long quiet stretch separates them is a property of that draw, not of any rule. Every
+frame's meter jitter is drawn from its own stream keyed by (seed, timestep), so two timelines on one
+seed and pool that place different attacks carry the same benign frames.
 The walk then emits every frame in time order, a scan of the grid at one pool timestep with the
 attack of its episode applied (or none), and the file carries everything a user reads afterwards:
 
@@ -26,6 +29,7 @@ small per-step change and a spike as an abrupt jump (the signal the dataset is b
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -69,7 +73,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
     FAMILY_CODE,
     GENERATED_FAMILIES,
 )
-from .models.config import MeterSettings, OverloadSettings, TimelineKnobs
+from .models.config import MeterSettings, OverloadSettings, SplitSettings, TimelineKnobs
 from .models.data import EpisodeRow
 from .models.frames import AmOverloadDesign, AttackVector, MinimizerResult
 from .models.inputs import AdmissibleTargets, GeneratedFamilies
@@ -257,7 +261,8 @@ class _TimelineBuffers:
 
 
 def _emit_benign(ctx: _FrameContext, t: int) -> Frame:
-    """The benign scan of timestep t (also remembered for the replay families)."""
+    """The benign scan of timestep t, its jitter from frame t's own stream."""
+    ctx.g.scan_key = t
     frame = attack_frame(ctx.g, ctx.X[t], 0, None, ctx.knobs)
     assert frame is not None  # a benign emission cannot fail
     return frame
@@ -318,42 +323,43 @@ def _episode(w: _Walk, fid: int, t: int) -> _Episode:
     return _Episode(len(w.buf.episodes), fid, t, np.zeros(w.ctx.g.C, np.uint8))
 
 
-def _ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> int:
+def _ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> Optional[int]:
     """One slow-ramp episode on a fixed bus set (rise, hold, return), its design from the generator
-    (`AttackMixin.ramp_design`); returns the next free timestep."""
-    ctx, T = w.ctx, w.T
+    (`AttackMixin.ramp_design`); returns the next free timestep, or None with no frame emitted when
+    no admissible ramp exists at this onset (the walk then moves the episode, `_relocate`)."""
+    ctx = w.ctx
     design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs, w.buf.last_attack)
-    if design is None:  # no admissible ramp at this operating point: the placed frames stay benign, counted
-        return _benign_run(w, t, min(t + ramp_len, T))
+    if design is None:
+        return None
     ep = _episode(w, RAMP_FAMILY, t)
     if design.tamper is not None:  # the fewest-tamper search ran on this episode
         w.buf.min_rows.append((ep.sid, design.tamper))
-    for i in range(ramp_len):
-        if t >= T:
-            break
+    for i in range(ramp_len):  # placement keeps every episode inside its split
         step = ctx.g.ramp_step(design, i, ramp_rate)
+        ctx.g.scan_key = t
         ep.store(w, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, step, ctx.knobs))
         t += 1
     return ep.close(w, t)
 
 
-def _am_overload_episode(w: _Walk, t: int, length: int) -> int:
+def _am_overload_episode(w: _Walk, t: int, length: int) -> Optional[int]:
     """One `Am` episode as the overload attack of [WU26] (`AttackMixin.am_overload_design`,
     `overload_step`): a target branch's reported flow driven to its rating over the window, on the
-    support that tampers the fewest devices. Returns the next free timestep."""
-    ctx, T = w.ctx, w.T
+    support that tampers the fewest devices. Returns the next free timestep, or None with no frame
+    emitted when no eligible branch reaches its rating stealthily at this onset (the walk then moves
+    the episode, `_relocate`)."""
+    ctx = w.ctx
     design: Optional[AmOverloadDesign] = ctx.g.am_overload_design(
         ctx.X, t, length, ctx.knobs, w.buf.last_attack
     )
-    if design is None:  # no eligible branch reaches its rating stealthily here: the frames stay benign
-        return _benign_run(w, t, min(t + length, T))
+    if design is None:
+        return None
     ep = _episode(w, AM_FAMILY, t)
     w.buf.min_rows.append((ep.sid, design.tamper))
     lines = list(design.goal.lines)
     reached = emitted = np.full(len(lines), np.nan)
-    for i in range(length):
-        if t >= T:
-            break
+    for i in range(length):  # placement keeps every episode inside its split
+        ctx.g.scan_key = t
         frame, reached = ctx.g.overload_step(design, ctx.X[t], i, ctx.knobs)
         ep.store(w, t, frame)
         if frame is not None:
@@ -391,83 +397,204 @@ class _Schedule:
         return self.ramp_len if fid == RAMP_FAMILY else self.am_len
 
 
-def _draw_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[tuple[int, int]]:
-    """The episodes as (length, family), drawn by the schedule's weights until their frames sum to
-    exactly round(attacked_frac * T); the last one is clipped to the remainder."""
-    drawn: list[tuple[int, int]] = []
-    frames, target = 0, int(round(plan.attacked_frac * T))
-    while frames < target:
-        fid = int(rng.choice(plan.families, p=plan.weights))
-        length = min(plan.length_of(fid), target - frames)
-        drawn.append((length, fid))
-        frames += length
-    return drawn
+SPLITS = ("train", "val", "test")  # the order of the per-split attributes and of data/split's codes
+PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped (D7)
+REDRAWS = 20  # onsets an episode with no feasible design is moved to before it is given up (D4)
 
 
-def _uniform_onset(occupied: np.ndarray, length: int, rng: np.random.Generator) -> int:
-    """An onset drawn uniformly among every position where `length` consecutive frames are free."""
+def _split_bounds(T: int, frac: Sequence[float]) -> list[tuple[int, int]]:
+    """The three chronological splits [a, b) of T frames, cut before anything is placed: train
+    round(frac[0] T) frames, val round(frac[1] T), test the rest."""
+    n_train = min(T, int(round(frac[0] * T)))
+    n_val = min(T - n_train, int(round(frac[1] * T)))
+    cuts = (0, n_train, n_train + n_val, T)
+    return [(cuts[i], cuts[i + 1]) for i in range(3)]
+
+
+def _largest_remainder(total: int, weights: np.ndarray) -> np.ndarray:
+    """`total` whole units shared in proportion to `weights` by largest remainder: each gets the floor
+    of its quota and the units left go to the largest fractional parts (ties to the earlier one)."""
+    if total == 0 or len(weights) == 0:
+        return np.zeros(len(weights), int)
+    quota = total * np.asarray(weights, float) / float(np.sum(weights))
+    counts = np.floor(quota).astype(int)
+    order = np.argsort(-(quota - counts), kind="stable")
+    counts[order[: total - int(counts.sum())]] += 1
+    return counts
+
+
+def _episode_counts(plan: _Schedule, n: int) -> np.ndarray:
+    """Episodes per family for a split of n frames: the number of whole episodes whose frames come
+    closest to `attacked_frac * n`, shared by largest remainder over the schedule's weights (so every
+    family gets about the same share of attacked frames), never more frames than the split holds."""
+    lengths = np.array([plan.length_of(f) for f in plan.families], int)
+    best = np.zeros(len(lengths), int)
+    if not len(lengths) or plan.attacked_frac <= 0:
+        return best
+    target = plan.attacked_frac * n
+    best_err = target
+    for k in range(1, n // int(lengths.min()) + 1):
+        counts = _largest_remainder(k, plan.weights)
+        frames = int(counts @ lengths)
+        if frames > n:
+            break
+        if abs(frames - target) < best_err:
+            best, best_err = counts, abs(frames - target)
+    return best
+
+
+def _uniform_onset(occupied: np.ndarray, length: int, rng: np.random.Generator, first: int = 0) -> int:
+    """An onset drawn uniformly among every position, at or after `first`, where `length` consecutive
+    frames are free."""
     free = np.concatenate([[0], np.cumsum(~occupied)])
     T = len(occupied)
     feasible = np.flatnonzero(free[length : T + 1] - free[: T - length + 1] == length)
+    feasible = feasible[feasible >= first]
     if len(feasible) == 0:
-        raise NoRoomForEpisode(
-            f"no room for a {length}-frame episode: the attacked fraction cannot be placed"
-        )
+        raise NoRoomForEpisode(f"no room for a {length}-frame episode")
     return int(feasible[rng.integers(len(feasible))])
 
 
-def _place_episodes(rng: np.random.Generator, plan: _Schedule, T: int) -> list[tuple[int, int, int]]:
-    """Where the episodes go: (onset, family, length), sorted by onset.
-
-    The episodes are drawn first so their frames sum to exactly the attacked fraction, then placed
-    longest first, each at an onset drawn uniformly among the onsets where it fits, so every
-    episode is placed (longest first so a long episode is never squeezed out by the many one-frame
-    ones). The gaps between episodes, and the episodes that touch, are what that draw gives, not
-    a rule."""
-    if not plan.families or plan.attacked_frac <= 0:
-        return []
-    occupied = np.zeros(T, bool)
+def _place_once(
+    rng: np.random.Generator, episodes: list[tuple[int, int]], n: int
+) -> list[tuple[int, int, int]]:
+    """One placement of (length, family) episodes in a split of n frames: longest first, each at an
+    onset uniform among those where it fits without touching another (NoRoomForEpisode when one
+    does not fit). Returns (onset within the split, family, length)."""
+    occupied = np.zeros(n, bool)
     placed: list[tuple[int, int, int]] = []
-    for length, fid in sorted(_draw_episodes(rng, plan, T), key=lambda x: -x[0]):
+    for length, fid in sorted(episodes, key=lambda x: -x[0]):
         onset = _uniform_onset(occupied, length, rng)
         occupied[onset : onset + length] = True
         placed.append((onset, fid, length))
-    return sorted(placed)
+    return placed
 
 
-def _run_episode(w: _Walk, at: tuple[int, int, int], plan: _Schedule) -> int:
-    """Build one placed episode; returns the next free timestep."""
+@dataclass
+class _Placement:
+    """What the placement asked for and got, per split (rows, `SPLITS`) and family (columns, the
+    schedule's families): episodes requested, dropped because they would not fit (D7), moved to
+    another onset because no design was feasible (D4), and built."""
+
+    families: list[int]
+    requested: np.ndarray
+    dropped: np.ndarray
+    redraws: np.ndarray
+    built: np.ndarray
+
+    @classmethod
+    def empty(cls, families: list[int]) -> _Placement:
+        shape = (len(SPLITS), len(families))
+        return cls(
+            families, np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int)
+        )
+
+    def col(self, fid: int) -> int:
+        return self.families.index(fid)
+
+
+def _place_split(
+    rng: np.random.Generator, plan: _Schedule, split: int, bounds: tuple[int, int], rec: _Placement
+) -> list[tuple[int, int, int]]:
+    """The episodes of one split as (onset, family, length) in timeline frames, sorted by onset. A
+    placement that jams is retried whole up to PLACE_TRIES times; past that one episode of the family
+    with the most is dropped, recorded and warned about, and the placement starts over (bounded: at
+    most one drop per episode)."""
+    a, b = bounds
+    counts = _episode_counts(plan, b - a)
+    rec.requested[split] = counts
+    episodes = [(plan.length_of(f), f) for f, c in zip(plan.families, counts) for _ in range(c)]
+    while episodes:
+        for _ in range(PLACE_TRIES):
+            try:
+                return sorted((a + o, f, L) for o, f, L in _place_once(rng, episodes, b - a))
+            except NoRoomForEpisode:
+                pass
+        fams = [f for _, f in episodes]
+        drop = max(set(fams), key=lambda f: (fams.count(f), -plan.families.index(f)))
+        episodes.remove(next(e for e in episodes if e[1] == drop))
+        rec.dropped[split, rec.col(drop)] += 1
+        warnings.warn(
+            f"split {SPLITS[split]}: {PLACE_TRIES} placements jammed, one {FAMILIES[drop]} episode dropped",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    return []
+
+
+def _run_episode(w: _Walk, at: tuple[int, int, int], plan: _Schedule) -> Optional[int]:
+    """Build one placed episode; returns the next free timestep, or None when its design is
+    infeasible at this onset (nothing emitted)."""
     onset, fid, length = at
     if fid == RAMP_FAMILY:
         return _ramp_episode(w, onset, length, plan.ramp_rate)
     return _am_overload_episode(w, onset, length)
 
 
-def _walk(w: _Walk, plan: _Schedule) -> None:
-    """Place the episodes, then emit every frame in time order: benign runs between them, the
-    episodes where they were placed."""
-    t = 0
-    for at in _place_episodes(w.rng, plan, w.T):
+def _relocate(
+    rng: np.random.Generator, at: tuple[int, int, int], pending: list[tuple[int, int, int]], end: int
+) -> Optional[tuple[int, int, int]]:
+    """A new onset for an episode whose design failed at `at`: uniform among the onsets after the
+    failed one, inside the split (before `end`), where the episode fits without touching a pending
+    episode. Frames before the failed onset are already written, so a moved episode can only move
+    later. None when no such onset is left."""
+    onset, fid, length = at
+    occupied = np.zeros(end - onset, bool)
+    for o, _, L in pending:
+        occupied[o - onset : o - onset + L] = True
+    try:
+        return (onset + _uniform_onset(occupied, length, rng, first=1), fid, length)
+    except NoRoomForEpisode:
+        return None
+
+
+def _give_up(split: int, fid: int, moves: int) -> None:
+    warnings.warn(
+        f"split {SPLITS[split]}: one {FAMILIES[fid]} episode found no feasible design after {moves} moves",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+
+
+def _walk_split(w: _Walk, plan: _Schedule, split: int, bounds: tuple[int, int], rec: _Placement) -> None:
+    """Emit one split's frames in time order: benign runs between its episodes, each episode where it
+    was placed. An episode whose design is infeasible at its onset moves to a later free onset of
+    the split, up to REDRAWS times; past that it is given up (the shortfall, `rec`) and warned about."""
+    a, b = bounds
+    pending = _place_split(w.rng, plan, split, bounds, rec)
+    t, moves = a, 0
+    while pending:
+        at = pending.pop(0)
         t = _benign_run(w, t, at[0])
-        t = _run_episode(w, at, plan)
-    _benign_run(w, t, w.T)
+        nxt = _run_episode(w, at, plan)
+        if nxt is not None:
+            rec.built[split, rec.col(at[1])] += 1
+            t, moves = nxt, 0
+            continue
+        moved = _relocate(w.rng, at, pending, b) if moves < REDRAWS else None
+        if moved is None:
+            _give_up(split, at[1], moves)
+            moves = 0
+            continue
+        rec.redraws[split, rec.col(at[1])] += 1
+        moves += 1
+        pending = sorted([*pending, moved])
+    _benign_run(w, t, b)
 
 
-def _frame_split(T: int, episodes: list[EpisodeRow], frac: Sequence[float]) -> np.ndarray:
-    """train(0)/val(1)/test(2) by chronological order, each boundary moved to the end of the episode
-    it would cut, so no episode straddles a split. Boundaries are settled in order and a later one
-    never falls before an earlier one, so one long episode across both leaves an empty middle
-    split rather than a cut episode (episodes are in onset order, so one pass settles a boundary)."""
-    bounds: list[int] = []
-    for f in (frac[0], frac[0] + frac[1]):
-        b = max(int(f * T), bounds[-1] if bounds else 0)
-        for e in episodes:
-            if e["onset"] < b < e["onset"] + e["length"]:
-                b = e["onset"] + e["length"]
-        bounds.append(b)
+def _walk(w: _Walk, plan: _Schedule, bounds: list[tuple[int, int]]) -> _Placement:
+    """Walk the timeline split by split (the splits are cut first, `_split_bounds`)."""
+    rec = _Placement.empty(list(plan.families))
+    for split, span in enumerate(bounds):
+        _walk_split(w, plan, split, span, rec)
+    return rec
+
+
+def _split_column(bounds: list[tuple[int, int]], T: int) -> np.ndarray:
+    """data/split: train 0, val 1, test 2 by the cut bounds."""
     split = np.zeros(T, np.int8)
-    split[bounds[0] :] = 1
-    split[bounds[1] :] = 2
+    for code, (a, b) in enumerate(bounds):
+        split[a:b] = code
     return split
 
 
@@ -573,15 +700,39 @@ def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, f
         eg.create_dataset(name, data=np.array(column, dtype))
 
 
+def _placement_attrs(
+    rec: _Placement, bounds: list[tuple[int, int]], frac: Sequence[float], seq_id: np.ndarray
+) -> dict[str, object]:
+    """What the split-first placement asked for and got: the fractions and sizes of the splits, the
+    attacked fraction each reached, and per split (rows) and family (columns, `placed_families`) the
+    episodes requested, built, moved for want of a feasible design, dropped because they did not
+    fit, and short of the request (dropped or given up)."""
+    sizes = np.array([b - a for a, b in bounds], int)
+    attacked = np.array([int((seq_id[a:b] >= 0).sum()) for a, b in bounds], float)
+    return {
+        Attr.SPLIT_FRAC: np.asarray(frac, float),
+        Attr.SPLIT_SIZES: sizes,
+        Attr.SPLIT_ATTACKED_FRAC: attacked / np.maximum(1, sizes),
+        Attr.PLACED_FAMILIES: ",".join(FAMILIES[f] for f in rec.families),
+        Attr.EPISODES_REQUESTED: rec.requested,
+        Attr.EPISODES_BUILT: rec.built,
+        Attr.EPISODE_REDRAWS: rec.redraws,
+        Attr.EPISODES_DROPPED: rec.dropped,
+        Attr.EPISODE_SHORTFALL: rec.requested - rec.built,
+        Attr.JITTER_KEYED: 1,
+    }
+
+
 def _timeline_attrs(
     g: FdiaGenerator,
     T: int,
     seed: int,
     buf: _TimelineBuffers,
     knobs: dict[str, Any],  # the recorded knobs, each its own type, written as file attributes
-) -> dict[str, Union[int, float, str]]:
+) -> dict[str, object]:
     """The attributes every file carries (dims, units, provenance) plus what makes this one a timeline."""
-    attrs = _base_attrs(g, T, seed)
+    attrs: dict[str, object] = dict(_base_attrs(g, T, seed))
+    in_episodes = sum(e["length"] for e in buf.episodes)
     attrs.update(
         {
             Attr.KIND: KIND,
@@ -589,8 +740,8 @@ def _timeline_attrs(
             Attr.FAMILIES: ",".join(f"{k}{v}" for k, v in FAMILIES.items()),
             Attr.ATTACKED_FRAC: float(buf.attacked / max(1, T)),
             Attr.N_EPISODES: len(buf.episodes),
-            Attr.FALLBACK_BENIGN: int(round(knobs[Attr.TARGET_ATTACKED_FRAC] * T))
-            - int((buf.seq_id >= 0).sum()),
+            # frames inside a built episode whose own scan could not be built, stored benign
+            Attr.FALLBACK_BENIGN: int(in_episodes) - int((buf.seq_id >= 0).sum()),
         }
     )
     attrs.update({k: (-1 if v is None else v) for k, v in knobs.items()})
@@ -598,7 +749,12 @@ def _timeline_attrs(
 
 
 def _finish_timeline(
-    f: h5py.File, g: FdiaGenerator, buf: _TimelineBuffers, split: Sequence[float], seed: int, knobs: dict
+    f: h5py.File,
+    g: FdiaGenerator,
+    buf: _TimelineBuffers,
+    placed: tuple[_Placement, list[tuple[int, int]], Sequence[float]],
+    seed: int,
+    knobs: dict,
 ) -> None:
     """After the walk: the last batch, the masks, the small per-frame columns (family, stealthy,
     seq_id, timestep, the split), the episodes, the ragged magnitudes and the attributes."""
@@ -610,11 +766,12 @@ def _finish_timeline(
         (schema.STEALTHY, np.isin(buf.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8)),
         (schema.SEQ_ID, buf.seq_id),
         (schema.TIMESTEP, np.arange(T, dtype=np.int32)),
-        (schema.SPLIT, _frame_split(T, buf.episodes, split)),
+        (schema.SPLIT, _split_column(placed[1], T)),
     ):
         f.create_dataset(name, data=arr)
     _write_episodes(f, buf)
     f.attrs.update(_timeline_attrs(g, T, seed, buf, knobs))
+    f.attrs.update(_placement_attrs(*placed, buf.seq_id))
 
 
 def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:
@@ -728,12 +885,16 @@ def generate_timeline(
     """Walk one attacked timeline over the operating-point pool of `system` and write it as one
     HDF5 file. Returns the path (default: `timeline_ieee{N}.h5` under the cache directory).
 
-    attacked_frac    fraction of frames under an attack episode (0.5 = balanced): the episodes drawn
-                     sum to exactly round(attacked_frac * T) frames and every one is placed, at an
-                     onset uniform among those where it fits, so adjacency and gaps are properties
-                     of the draw; a frame whose local power flow has no solution at any halving
-                     of its step stays benign and is counted in the file's `fallback_benign`
-                     attribute (zero on every released file)
+    attacked_frac    fraction of each split's frames under an attack episode (0.5 = balanced): per
+                     split, the whole number of episodes whose frames come closest to it (whole
+                     episodes, so it can be off by one episode or two), each placed at an onset
+                     uniform among those where it fits in the split, never overlapping or cut, so
+                     adjacency and gaps are properties of the draw. An episode with no feasible
+                     design at its onset moves to a later free onset of its split (up to 20 times);
+                     the attributes record per split the requested, built, moved and dropped
+                     episodes and the attacked fraction reached. A frame whose local power flow has
+                     no solution at any halving of its step stays benign and is counted in
+                     `fallback_benign`
     families         the families in rotation, each getting about the same share of attacked frames:
                      the ramp At and the overload Am (the default, both). The single-snapshot
                      families of data releases v0.8.3 and earlier (Aq, Ad, As, Ar, Al) are refused
@@ -756,7 +917,8 @@ def generate_timeline(
                      is a PMU channel, and every PMU reads the current phasor of each in-service
                      branch at its bus, stored as data/pmu_i with benign/pmu_i_benign and
                      attack/pmu_i_tamper [WU26, eqs. 17-20]
-    split            chronological train/val/test fractions by frame, episodes never cut
+    split            chronological train/val/test fractions (`SplitSettings`), cut before any
+                     episode is placed: every episode lies inside one split
     min_tamper       [WU26, eq. 12]: hold each At episode on the support (the buses the false state
                      moves) that tampers the fewest devices over the episode, a change under a
                      meter's noise not counted (default on); off: the region within `hops`. The
@@ -832,7 +994,10 @@ def generate_timeline(
         _write_graph(f, g)
         sink = _create_layers(f, T, C, g.E, currents)
         buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink, currents=currents)
-        _walk(_Walk(ctx, buf), plan)
-        _finish_timeline(f, g, buf, split, seed, recorded)
+        frac = SplitSettings(*split)
+        bounds = _split_bounds(T, frac.fractions)
+        rec = _walk(_Walk(ctx, buf), plan, bounds)
+        g.scan_key = None
+        _finish_timeline(f, g, buf, (rec, bounds, frac.fractions), seed, recorded)
         write_temporal_layers(f)
     return out

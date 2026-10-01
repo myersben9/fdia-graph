@@ -163,6 +163,18 @@ class Attr:
     ATTACKED_FRAC = "attacked_frac"
     N_EPISODES = "n_episodes"
     FALLBACK_BENIGN = "fallback_benign"
+    # the split-first placement: the splits, the attacked fraction each reached, and per split (rows) and
+    # family (columns, placed_families) the episodes requested, built, moved, dropped and short
+    SPLIT_FRAC = "split_frac"
+    SPLIT_SIZES = "split_sizes"
+    SPLIT_ATTACKED_FRAC = "split_attacked_frac"
+    PLACED_FAMILIES = "placed_families"
+    EPISODES_REQUESTED = "episodes_requested"
+    EPISODES_BUILT = "episodes_built"
+    EPISODE_REDRAWS = "episode_redraws"
+    EPISODES_DROPPED = "episodes_dropped"
+    EPISODE_SHORTFALL = "episode_shortfall"
+    JITTER_KEYED = "jitter_keyed"  # 1: every frame's jitter from its own (seed, timestep) stream
     # the generation knobs a timeline records
     TARGET_ATTACKED_FRAC = "target_attacked_frac"
     RAMP_RATE = "ramp_rate"
