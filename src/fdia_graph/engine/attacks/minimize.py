@@ -183,17 +183,8 @@ class MinimizeMixin(FalseStateMixin):
         _, starts, must_hold = self._goal_seeds(goal)
         starts = _starts_in_area(starts, area, must_hold)
         window = _Window(self, states, goal, k, prev=prev, trust=trust)
-        candidates = itertools.chain(
-            [area], (S for S in self._supports(starts, area, must_hold) if not np.array_equal(S, area))
-        )
-        best: Optional[tuple[_Cost, np.ndarray]] = None
-        evaluated = 0
-        for S in itertools.islice(candidates, k.min_budget):
-            evaluated += 1
-            cost = window.cost(S, None if best is None else best[0])  # None unless S beats the best
-            best = best if cost is None else (cost, S)
-            if best is not None and best[0][:2] == (1, 1) and S is not area:
-                break  # one device and one channel is the least an attack tampers; later candidates are no smaller
+        later = (S for S in self._supports(starts, area, must_hold) if not np.array_equal(S, area))
+        best, evaluated = _cheapest(window, itertools.chain([area], later), area, k.min_budget)
         if best is None:  # no candidate meets every constraint: say so, keep the area
             return MinimizerResult(area, -1, -1, evaluated)
         devices, channels = window.counts(best[0])
@@ -292,6 +283,23 @@ class MinimizeMixin(FalseStateMixin):
         return frozenset(int(b) for b in grown)
 
 
+def _cheapest(
+    window: _Window, candidates: Iterator[np.ndarray], area: np.ndarray, budget: int
+) -> tuple[Optional[tuple[_Cost, np.ndarray]], int]:
+    """(The cheapest of at most `budget` candidates with its cost, or None; the candidates solved). It
+    stops early at one device on one channel, the least an attack tampers: the candidates after the area
+    come smallest first, so none later beats it."""
+    best: Optional[tuple[_Cost, np.ndarray]] = None
+    evaluated = 0
+    for S in itertools.islice(candidates, budget):
+        evaluated += 1
+        cost = window.cost(S, None if best is None else best[0])  # None unless S beats the best
+        best = best if cost is None else (cost, S)
+        if best is not None and best[0][:2] == (1, 1) and S is not area:
+            break
+    return best, evaluated
+
+
 def _push(heap: list[tuple[int, tuple[int, ...]]], seen: set[frozenset[int]], S: frozenset[int]) -> None:
     """Queue support S by size, once."""
     if S not in seen:
@@ -366,24 +374,30 @@ class _Window:
         # the PMU branch-current channels [WU26 eqs. 19-20]: their mask and noise scale (None without)
         self.i_m = g.current_mask()
         self.currents, self.i_sigma = self._currents(g, states, goal)
-        # what a change must exceed to count as tampering, and for At also the most a channel may move
-        # between snapshots
-        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise, the l0 threshold only [D8] [D11]
-            paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
-            self.sigma = [paper for _ in states]
-        else:  # At: the meters' rated accuracy [D7]
-            self.sigma = [
-                accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, self.flows)
-            ]
+        self.sigma = self._sigmas(g, states, goal)
         self.zero = np.array(sorted({int(b) for b in g.zero_inj} - {g.slack_bus}), dtype=np.int64)
-        # the attack vector of the frame before the window: zero when it is benign
+        self.prev = self._before(prev)
+
+    def _sigmas(
+        self, g: MinimizeMixin, states: list[np.ndarray], goal: Goal
+    ) -> list[tuple[np.ndarray, np.ndarray]]:
+        """What a change must exceed to count as tampering at each snapshot, and for At also the most a
+        channel may move between snapshots: [WU26]'s own noise for the overload attack, the l0 threshold
+        only [D8] [D11]; the meters' rated accuracy for At [D7]."""
+        if goal.kind == "flow":
+            paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
+            return [paper for _ in states]
+        return [accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, self.flows)]
+
+    def _before(self, prev: Optional[AttackVector]) -> AttackVector:
+        """The attack vector of the frame before the window: zero when it is benign; a bare (node, edge)
+        pair is an attack vector without currents."""
         no_i = None if self.i_m is None else np.zeros(self.i_m.shape)
         if prev is None:
-            self.prev = AttackVector(np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape), no_i)
-        else:  # a bare (node, edge) pair is an attack vector without currents
-            p = AttackVector(*prev)
-            cur = no_i if p.current is None else np.asarray(p.current, float)
-            self.prev = AttackVector(np.asarray(p.node, float), np.asarray(p.edge, float), cur)
+            return AttackVector(np.zeros(self.node_m.shape), np.zeros(self.edge_m.shape), no_i)
+        p = AttackVector(*prev)
+        cur = no_i if p.current is None else np.asarray(p.current, float)
+        return AttackVector(np.asarray(p.node, float), np.asarray(p.edge, float), cur)
 
     @staticmethod
     def _currents(
