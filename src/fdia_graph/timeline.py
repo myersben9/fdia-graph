@@ -561,24 +561,24 @@ def _walk_split(w: _Walk, plan: _Schedule, split: int, bounds: tuple[int, int], 
     was placed. An episode whose design is infeasible at its onset moves to a later free onset of
     the split, up to REDRAWS times; past that it is given up (the shortfall, `rec`) and warned about."""
     a, b = bounds
-    pending = _place_split(w.rng, plan, split, bounds, rec)
-    t, moves = a, 0
+    # (onset, family, length, moves so far): the move count belongs to its episode
+    pending = [(*at, 0) for at in _place_split(w.rng, plan, split, bounds, rec)]
+    t = a
     while pending:
-        at = pending.pop(0)
+        *head, moves = pending.pop(0)
+        at = (head[0], head[1], head[2])
         t = _benign_run(w, t, at[0])
         nxt = _run_episode(w, at, plan)
         if nxt is not None:
             rec.built[split, rec.col(at[1])] += 1
-            t, moves = nxt, 0
+            t = nxt
             continue
-        moved = _relocate(w.rng, at, pending, b) if moves < REDRAWS else None
+        moved = _relocate(w.rng, at, [p[:3] for p in pending], b) if moves < REDRAWS else None
         if moved is None:
             _give_up(split, at[1], moves)
-            moves = 0
             continue
         rec.redraws[split, rec.col(at[1])] += 1
-        moves += 1
-        pending = sorted([*pending, moved])
+        pending = sorted([*pending, (*moved, moves + 1)])
     _benign_run(w, t, b)
 
 
@@ -948,6 +948,7 @@ def generate_timeline(
         am_kind,
         stealth_scale,
     )
+    splits = SplitSettings(split)  # the train/val/test cut, checked before any work
     fams = GeneratedFamilies(families).codes
     overload = ratings if AM_FAMILY in fams else None  # the overload attack's ratings when it runs
     g, meters = _generator(system, seed, max_load_mw, redundancy)
@@ -994,10 +995,9 @@ def generate_timeline(
         _write_graph(f, g)
         sink = _create_layers(f, T, C, g.E, currents)
         buf = _TimelineBuffers((T, C, g.E), partial(_clean_slice, g, X), sink=sink, currents=currents)
-        frac = SplitSettings(*split)
-        bounds = _split_bounds(T, frac.fractions)
+        bounds = _split_bounds(T, splits.fractions)
         rec = _walk(_Walk(ctx, buf), plan, bounds)
         g.scan_key = None
-        _finish_timeline(f, g, buf, (rec, bounds, frac.fractions), seed, recorded)
+        _finish_timeline(f, g, buf, (rec, bounds, splits.fractions), seed, recorded)
         write_temporal_layers(f)
     return out

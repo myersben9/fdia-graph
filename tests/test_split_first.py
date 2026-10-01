@@ -266,3 +266,33 @@ def test_the_same_seed_gives_the_same_file(variants, pool, tmp_path):
         for k in a.attrs:
             x, y = np.asarray(a.attrs[k]), np.asarray(b.attrs[k])
             assert np.array_equal(x, y, equal_nan=x.dtype.kind == "f"), k
+
+
+@pytest.mark.parametrize("bad", [(0.6, 0.4), (0.5, 0.3, 0.3), (0.0, 0.5, 0.5), (0.6, 0.2, float("nan")), "train"])
+def test_a_malformed_split_is_refused_before_any_work(bad):
+    from fdia_graph.models.validation import ConfigError
+
+    with pytest.raises(ConfigError, match="SplitSettings"):
+        tl.generate_timeline(14, states=np.zeros((5, 14, 4)), split=bad, out="never_written.h5")
+
+
+def test_each_episode_counts_its_own_moves(monkeypatch):
+    """Two episodes in one split: the one that fails is moved and given up on its own count, however
+    the other fares."""
+    w, tries = _FakeWalk(), []
+
+    def run(w_, at, plan):
+        tries.append(at)
+        return None if at[1] == AM else at[0] + at[2]
+
+    monkeypatch.setattr(tl, "_run_episode", run)
+    monkeypatch.setattr(tl, "_benign_run", lambda w_, t, until: until)
+    monkeypatch.setattr(
+        tl, "_relocate", lambda rng, at, pending, end: (at[0] + 1, at[1], at[2]) if at[0] + at[2] < end else None
+    )
+    plan = tl._Schedule.build([AT, AM], 10, 0.002, 10, 40 / 2000)  # two 10-frame episodes
+    rec = tl._Placement.empty(plan.families)
+    with pytest.warns(RuntimeWarning, match="no feasible design"):
+        tl._walk_split(w, plan, 0, (0, 2000), rec)
+    assert rec.requested[0].tolist() == [2, 2] and rec.built[0].tolist() == [2, 0]
+    assert rec.redraws[0].tolist() == [0, 2 * tl.REDRAWS]  # each Am moved REDRAWS times, on its own count

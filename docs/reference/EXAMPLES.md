@@ -303,7 +303,7 @@ chronologically 60/20/20 by frame with no episode cut (so the split sizes differ
 | ieee200 | 200 | 245 | 72,000 | 43,200 | 14,400 | 14,400 | 24,436 |
 | ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 | 24,672 |
 
-Every system converges at every frame; a split boundary moves to the end of the episode it would cut.
+Every system converges at every frame. In these releases a split boundary moved to the end of the episode it would cut; from the split-first generation the splits are cut before any episode is placed, so they are exactly 60/20/20.
 
 **Attacks per split** (ieee118 shown; every system uses the same recipe). Families are drawn with
 weights inversely proportional to their episode length, so each gets about the same share of

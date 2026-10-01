@@ -147,8 +147,10 @@ def test_layers_and_tamper_masks_agree(timeline):
     assert (nt[stealthy] <= nm[stealthy]).all()
     share = nt[stealthy].sum(axis=(1, 2)) / nm[stealthy].sum(axis=(1, 2))
     assert share.max() < 1 and (share[fam[stealthy] == 5] > 0).all()
-    # an overload Am's first snapshot may tamper nothing: its drift-free goal there is the true flow (D9)
-    assert (share[fam[stealthy] == 7] > 0).mean() > 0.9
+    # every Am frame tampers a meter, its first snapshot included (kappa+1 carries 1/T of the way to
+    # the rating, [WU26, eq. 25]); a flow-only attack can leave the node meters untouched
+    touched = nt[stealthy].any(axis=(1, 2)) | et[stealthy].any(axis=(1, 2))
+    assert touched.all()
     # the benign layer is the clean truth plus a small meter error on metered voltages
     v = nm[:, :, 0] > 0
     assert np.abs(bn[:, :, 0] - cl[:, :, 0])[v].max() < 0.02

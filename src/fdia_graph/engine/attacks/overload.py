@@ -44,7 +44,8 @@ from .rref import RrefMixin
 # How many target sets (one line, or two, D17) an Am episode tries, drawn from one random order of the
 # eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
 # a full fewest-tamper search (about 13 s on IEEE-118), so an episode whose first eight sets admit no
-# attack stays benign and is counted even if a later set would have.
+# attack is moved to another onset by the walk (`timeline._relocate`) even if a later set would have
+# served.
 AM_LINE_TRIES = 8
 
 # [WU26]'s case studies, in MATPOWER bus numbers (`wu26_branch` maps a pair to our branch by its end
@@ -182,7 +183,7 @@ class OverloadMixin(RrefMixin):
         eligible branches, in a random order (one draw, only when there is one), each tried until the fewest-tamper search
         finds a support that meets the goal at every snapshot, inside the operating limits, and
         moves at least one device beyond noise. None when no branch has one (the
-        span then stays benign and is counted)."""
+        walk then moves the episode to another onset, `timeline._relocate`)."""
         frames = range(t, min(t + length, len(X)))
         window = [X[u] for u in frames]
         lines = self.eligible_lines(window, k.hops)

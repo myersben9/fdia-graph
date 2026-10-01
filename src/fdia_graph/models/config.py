@@ -259,18 +259,14 @@ class FederatedSettings(Validated):
 @dataclass(frozen=True)
 class SplitSettings(Validated):
     """The chronological train/val/test fractions a timeline is cut into before any episode is placed
-    (`generate_timeline(split=...)`): each in (0, 1), summing to 1."""
+    (`generate_timeline(split=...)`): three, each finite in (0, 1), summing to 1."""
 
-    train: Fraction = 0.6
-    val: Fraction = 0.2
-    test: Fraction = 0.2
+    fractions: Annotated[Sequence[float], AsTuple()] = (0.6, 0.2, 0.2)
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield abs(self.train + self.val + self.test - 1.0) < 1e-9, "the split fractions must sum to 1"
-
-    @property
-    def fractions(self) -> tuple[float, float, float]:
-        return (self.train, self.val, self.test)
+        yield len(self.fractions) == 3, "takes three fractions: train, val and test"
+        yield all(math.isfinite(f) and 0.0 < f < 1.0 for f in self.fractions), "each fraction must be in (0, 1)"
+        yield abs(sum(self.fractions) - 1.0) < 1e-9, "the fractions must sum to 1"
 
 
 @dataclass(frozen=True)
