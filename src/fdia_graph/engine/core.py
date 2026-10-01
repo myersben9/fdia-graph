@@ -265,6 +265,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self._base_mva = ppc["baseMVA"]
         self._ppc_row = self.base._pd2ppc_lookups["bus"]
         self._from_bus_ppc = ppc["branch"][:, 0].real.astype(int)
+        self._ppc_branch = ppc["branch"]  # the ppc branch matrix, for the flow derivatives
         self._n_ppc_buses = ppc["bus"].shape[0]
 
     def _meter_bias(self) -> None:

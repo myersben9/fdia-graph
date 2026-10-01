@@ -97,3 +97,41 @@ def test_shunt_draws_leave_the_injections_like_the_loop():
             want[pos[b], 2] -= qs
     _remove_shunt_injections(z, base, pos)  # type: ignore[arg-type]
     np.testing.assert_array_equal(z, want)
+
+
+def _bfs_subnetwork(edge_index, seeds, hops, n_bus):
+    """The hand-written breadth-first search `formulas.subnetwork` used before csgraph."""
+    adj = [set() for _ in range(n_bus)]
+    for a, b in zip(edge_index[0], edge_index[1]):
+        adj[int(a)].add(int(b))
+        adj[int(b)].add(int(a))
+    interior = {int(b) for b in seeds}
+    frontier = set(interior)
+    for _ in range(hops):
+        frontier = {j for i in frontier for j in adj[i]} - interior
+        interior |= frontier
+    boundary = {j for i in interior for j in adj[i]} - interior
+    return sorted(interior), sorted(boundary)
+
+
+def test_subnetwork_and_hop_distance_match_breadth_first_search():
+    """`subnetwork` and `hop_distance` (scipy's shortest path) give the breadth-first search's
+    interiors, boundaries and hop counts, unreachable buses included."""
+    pytest.importorskip("scipy")
+    from fdia_graph.formulas import hop_distance, subnetwork
+
+    rng = np.random.default_rng(4)
+    n = 30
+    edges = np.array([(i, i + 1) for i in range(24)] + [(3, 17), (5, 20), (26, 27)]).T  # 28, 29 isolated
+    A = np.zeros((n, n))
+    A[edges[0], edges[1]] = A[edges[1], edges[0]] = 1
+    for _ in range(100):
+        seeds = rng.choice(n, int(rng.integers(1, 4)), replace=False)
+        hops = int(rng.integers(0, 5))
+        interior, boundary = subnetwork(edges, seeds, hops, n)
+        assert (interior.tolist(), boundary.tolist()) == _bfs_subnetwork(edges, seeds, hops, n)
+        want = np.full(n, -1)
+        for h in range(n):
+            reach = _bfs_subnetwork(edges, seeds, h, n)[0]
+            want[[b for b in reach if want[b] < 0]] = h
+        np.testing.assert_array_equal(hop_distance(A, seeds), want)

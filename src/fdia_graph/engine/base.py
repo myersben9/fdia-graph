@@ -88,6 +88,7 @@ class GridBase:
     _base_mva: float
     _ppc_row: np.ndarray
     _from_bus_ppc: np.ndarray
+    _ppc_branch: np.ndarray  # the ppc branch matrix (from and to bus columns), for the flow derivatives
     _n_ppc_buses: int
     # contingency
     contingency: Outage

@@ -185,9 +185,7 @@ def _irls_support(g, states, goal, area, iters=20):
     Xt = states[0]
     N = g.C
     lut = g._ppc_row[np.arange(N)]
-    H = ac_jacobian(
-        Xt[:, NODE.v], np.radians(Xt[:, NODE.theta]), g._Ybus, g._Yf, g._from_bus_ppc, lut, g._n_ppc_buses
-    )
+    H = ac_jacobian(Xt[:, NODE.v], np.radians(Xt[:, NODE.theta]), g._Ybus, g._Yf, g._Yt, g._ppc_branch, lut)
     P, Q = H[N * NODE.p_inj : N * (NODE.p_inj + 1)], H[N * NODE.q_inj : N * (NODE.q_inj + 1)]
     cols = np.r_[area, N + area]  # theta and |V| of the area buses
     design = goal.designs[0]

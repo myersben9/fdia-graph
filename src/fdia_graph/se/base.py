@@ -135,6 +135,7 @@ class SEBase:
         self._fb = ppc["branch"][:, 0].real.astype(np.int64)
         self._Ybus_np = np.asarray(Yb.todense())
         self._Yf_np = np.asarray(Yf.todense())
+        self._Y_sparse = (Yb, Yf, Yt, ppc["branch"])  # what the Jacobian's derivatives take
         torch = _torch_or_none()
         if torch is not None:  # the torch twin of h, kept for callers that differentiate through it
             self._Ybus = torch.tensor(self._Ybus_np, dtype=torch.complex128)
@@ -230,7 +231,8 @@ class SEBase:
         (`formulas.network.ac_jacobian`); the slack angle column is dropped."""
         ns, N = len(self.keep), self.N
         th = self._angles(x[None], np.array([thsl]))[0]
-        J = ac_jacobian(x[ns:], th, self._Ybus_np, self._Yf_np, self._fb, self._lut, self._nppc)
+        Yb, Yf, Yt, branch = self._Y_sparse
+        J = ac_jacobian(x[ns:], th, Yb, Yf, Yt, branch, self._lut)
         cols = np.concatenate([self.keep, N + np.arange(N)])
         return J[:, cols][self.mask]
 

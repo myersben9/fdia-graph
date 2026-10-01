@@ -121,14 +121,9 @@ def hop_distance(A: np.ndarray, sources: np.ndarray) -> np.ndarray:
     sources : bus indices at distance 0
     returns : [N] int
     """
-    dist = np.full(len(A), -1, np.int64)
-    dist[sources] = 0
-    frontier, hop = np.asarray(sources), 0
-    while len(frontier):
-        hop += 1
-        frontier = np.flatnonzero((A[frontier] > 0).any(axis=0) & (dist < 0))
-        dist[frontier] = hop
-    return dist
+    from .network import hop_distances
+
+    return hop_distances(np.asarray(A) > 0, sources)
 
 
 def halo_nodes(assignment: np.ndarray, A: np.ndarray, k: int, depth: int) -> tuple[np.ndarray, int]:
