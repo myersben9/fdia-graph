@@ -1530,11 +1530,11 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.localization</span><span class="w"> </span><span class="kn">import</span> <span class="n">SwingThreshold</span><span class="p">,</span> <span class="n">DeltaThreshold</span><span class="p">,</span> <span class="n">ResidualLocalizer</span><span class="p">,</span> <span class="n">BusCNN</span><span class="p">,</span> <span class="n">BusMLP</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">train</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">test</span>  <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">loc</span>  <span class="o">=</span> <span class="n">SwingThreshold</span><span class="p">(</span><span class="n">fa_target</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>   <span class="c1"># thresholds set on benign records only</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">flag</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">localize</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>                          <span class="c1"># [n, N] bool: which buses are called attacked</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">rep</span>  <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>                             <span class="c1"># per-family metrics + benign false alarms</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">loc</span> <span class="o">=</span> <span class="n">SwingThreshold</span><span class="p">(</span><span class="n">fa_target</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>  <span class="c1"># thresholds set on benign records only</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">flag</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">localize</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># [n, N] bool: which buses are called attacked</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">rep</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># per-family metrics + benign false alarms</span>
 </code></pre></div>
 <p><img alt="loc.fit calibrates threshold arms on benign records and trains the learned arms on every record; loc.localize flags buses above the per-bus threshold; loc.score reports per-family metrics" src="../figures/diagrams/localization_flow.png" /></p>
 <table>
@@ -1680,8 +1680,9 @@ against the previous frame's estimate, so both read the previous frame and need 
 </table>
 <p>F1, DR and FR are the paper's per-bus macro scores, averaged over the buses attacked somewhere in the
 test split (F1 and recall over every test record, FR the per-bus alarm rate on benign records); full metrics in
-<code>results/loc_ieee{14,118,300}.json</code>. Bold marks the papers' headline localizer, not the best cell.</p>
+the results store, experiments <code>localization.zero_shot</code> and <code>localization.common</code> (<code>results/</code>). Bold marks the papers' headline localizer, not the best cell.</p>
 <p><strong>Zero-shot protocol</strong></p>
+<!-- results: loc.table zero_shot -->
 <table>
 <thead>
 <tr>
@@ -1748,6 +1749,8 @@ test split (F1 and recall over every test record, FR the per-bus alarm rate on b
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <p>Data release v0.8.3. The paper reports 0.9634 / 0.9625 / 0.9524 for the CNN and 0.9626 / 0.9570 /
 0.9327 for the MLP on v0.4.1 data, and the SDK classes reproduce them on the v0.7.2 record shards.
 The timeline columns are lower for the same detectors because a timeline's temporal features compare
@@ -1757,6 +1760,7 @@ calibration set on purpose: an operator's detector sees them too, so leaving the
 lower thresholds and let the realized false-alarm rate exceed <code>fa_target</code>. The previous frame's
 swing (<code>full14+prev</code>) is what tells an echo from an onset, and it recovers most of the gap.</p>
 <p><strong>Common protocol</strong></p>
+<!-- results: loc.table common -->
 <table>
 <thead>
 <tr>
@@ -1871,6 +1875,8 @@ swing (<code>full14+prev</code>) is what tells an echo from an onset, and it rec
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <p>Per-bus F1 by attack family, common protocol. Row labels carry each method's FR.</p>
 <table>
 <thead>
@@ -1888,8 +1894,8 @@ swing (<code>full14+prev</code>) is what tells an echo from an onset, and it rec
 </tr>
 </tbody>
 </table>
-<p>The pooled score on 118 and 300 is set by the two sustained families. Per family, the CNN reads
-0.64 to 0.94 on <code>Aq</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code> and <code>Al</code> there, and 0.03 to 0.22 on <code>At</code> and <code>Am</code>, whose
+<p>The pooled score on 118 and 300 is set by the two sustained families: per family (the figures),
+the CNN reads well on <code>Aq</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code> and <code>Al</code> there and poorly on <code>At</code> and <code>Am</code>, whose
 episodes are long and so carry many of the scored frames.</p>
 <h2 id="feature-ablation">Feature ablation<a class="headerlink" href="#feature-ablation" title="Permanent link">&para;</a></h2>
 <p><code>fdia_graph.se.JacobianFeatures</code> transforms the measurement change through the estimator's Jacobian
@@ -1938,6 +1944,7 @@ set below reads observed data only.</p>
 </tr>
 </tbody>
 </table>
+<!-- results: loc.table ablation -->
 <table>
 <thead>
 <tr>
@@ -2011,7 +2018,7 @@ set below reads observed data only.</p>
 <td style="text-align: right;">0.852</td>
 <td style="text-align: right;">0.0000</td>
 <td style="text-align: right;">0.883</td>
-<td style="text-align: right;">0.823</td>
+<td style="text-align: right;">0.822</td>
 <td style="text-align: right;">0.0000</td>
 </tr>
 <tr>
@@ -2028,6 +2035,8 @@ set below reads observed data only.</p>
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <table>
 <thead>
 <tr>
@@ -2038,19 +2047,19 @@ set below reads observed data only.</p>
 <tbody>
 <tr>
 <td>the previous swing and the Jacobian block fix different things</td>
-<td>E lifts the family the echo hurts most, <code>Aq</code>, from 0.84 to 0.95 on 118 and 0.84 to 0.89 on 300. C lifts the unseen in-place families, <code>Ar</code> from 0.68 to 0.82 on 300. F keeps both and is the best set on every system</td>
+<td>E lifts the family the echo hurts most, <code>Aq</code>, from <!-- results: v zs ieee118 cnn Aq macro_f1 fmt=.2f -->0.84<!-- /results --> to <!-- results: v zs ieee118 cnn+prev Aq macro_f1 fmt=.2f -->0.95<!-- /results --> on 118 and <!-- results: v zs ieee300 cnn Aq macro_f1 fmt=.2f -->0.84<!-- /results --> to <!-- results: v zs ieee300 cnn+prev Aq macro_f1 fmt=.2f -->0.89<!-- /results --> on 300. C lifts the unseen in-place families, <code>Ar</code> from <!-- results: v zs ieee300 cnn Ar macro_f1 fmt=.2f -->0.68<!-- /results --> to <!-- results: v zs ieee300 cnn+jac Ar macro_f1 fmt=.2f -->0.82<!-- /results --> on 300. F keeps both and is the best set on every system</td>
 </tr>
 <tr>
 <td>measurements alone do not localize at scale</td>
-<td>A reads 0.62 on 14 and collapses to 0 on 118 and 300 at the validation-best threshold; the temporal channels are what make the vector work</td>
+<td>A reads <!-- results: v zs ieee14 cnn_meas all macro_f1 fmt=.2f -->0.62<!-- /results --> on 14 and collapses to <!-- results: v zs ieee118 cnn_meas all macro_f1 fmt=.2f -->0.00<!-- /results --> on 118 and <!-- results: v zs ieee300 cnn_meas all macro_f1 fmt=.2f -->0.00<!-- /results --> on 300 at the validation-best threshold; the temporal channels are what make the vector work</td>
 </tr>
 <tr>
 <td>the Jacobian block alone is not enough</td>
-<td>D trails B on every system, and on 300 its <code>Aq</code> F1 is 0.59 against 0.84</td>
+<td>D trails B on every system, and on 300 its <code>Aq</code> F1 is <!-- results: v zs ieee300 cnn_jac Aq macro_f1 fmt=.2f -->0.59<!-- /results --> against <!-- results: v zs ieee300 cnn Aq macro_f1 fmt=.2f -->0.84<!-- /results --></td>
 </tr>
 <tr>
 <td>in the common protocol the Jacobian block costs precision</td>
-<td>C and F have the highest detection rate on 118 and 300 (0.79 and 0.80 against the CNN's 0.74 on 118) and lose pooled F1 (0.36 and 0.37 against 0.50): they flag the buses around a local false state as well as the labelled ones</td>
+<td>C and F have the highest detection rate on 118 and 300 (<!-- results: v loc ieee118 cnn+jac all macro_dr fmt=.2f -->0.79<!-- /results --> and <!-- results: v loc ieee118 cnn+prev+jac all macro_dr fmt=.2f -->0.80<!-- /results --> against the CNN's <!-- results: v loc ieee118 cnn all macro_dr fmt=.2f -->0.74<!-- /results --> on 118) and lose pooled F1 (<!-- results: v loc ieee118 cnn+jac all macro_f1 fmt=.2f -->0.36<!-- /results --> and <!-- results: v loc ieee118 cnn+prev+jac all macro_f1 fmt=.2f -->0.37<!-- /results --> against <!-- results: v loc ieee118 cnn all macro_f1 fmt=.2f -->0.50<!-- /results -->): they flag the buses around a local false state as well as the labelled ones</td>
 </tr>
 </tbody>
 </table>
@@ -2066,30 +2075,31 @@ set below reads observed data only.</p>
 <tbody>
 <tr>
 <td>the temporal spike is an onset signal</td>
-<td>the swing threshold alone reads 0.16, 0.43 and 0.39 macro-F1 in the common protocol on 14, 118 and 300, and 0.00 on <code>At</code> and <code>Am</code> everywhere: it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame before it</td>
+<td>the swing threshold alone reads <!-- results: v loc ieee14 swing all macro_f1 fmt=.2f -->0.16<!-- /results -->, <!-- results: v loc ieee118 swing all macro_f1 fmt=.2f -->0.43<!-- /results --> and <!-- results: v loc ieee300 swing all macro_f1 fmt=.2f -->0.39<!-- /results --> macro-F1 in the common protocol on 14, 118 and 300, and close to nothing on <code>At</code> and <code>Am</code> everywhere (the figures): it catches the one-frame families and the first frame of an episode, then the feature fades because each frame is compared with the frame before it</td>
 <td>the slow ramp <code>At</code> and the held redistribution <code>Am</code> inside an episode</td>
 </tr>
 <tr>
 <td>the classical arm misses every stealthy family</td>
-<td><code>ResidualLocalizer</code> finds in-place corruption and smears it over neighbours; on <code>Aq</code>, <code>At</code>, <code>Al</code> and <code>Am</code> its node-F1 is 0.014 or less, there is no residual</td>
+<td><code>ResidualLocalizer</code> finds in-place corruption and smears it over neighbours; on <code>Aq</code>, <code>At</code>, <code>Al</code> and <code>Am</code> its node-F1 is near zero (IEEE-14 <code>Aq</code>: <!-- results: v loc ieee14 residual Aq node_f1 fmt=.3f -->0.003<!-- /results -->), there is no residual</td>
 <td>it opens with a trusted set of meters, <a href="../trust/"><code>../trust/README.md</code></a></td>
 </tr>
 <tr>
 <td>learning plus physics holds with size</td>
-<td>zero-shot CNN with the previous swing and the Jacobian block reads 0.860, 0.920 and 0.923 from 14 to 300 buses at FR 0.0002 or below</td>
-<td>the common protocol, with <code>At</code> and <code>Am</code> in distribution, falls to 0.37 and 0.39 on 118 and 300: the per-frame localization of a sustained local false state is the frontier</td>
+<td>zero-shot CNN with the previous swing and the Jacobian block reads <!-- results: v zs ieee14 cnn+prev+jac all macro_f1 fmt=.3f -->0.860<!-- /results -->, <!-- results: v zs ieee118 cnn+prev+jac all macro_f1 fmt=.3f -->0.920<!-- /results --> and <!-- results: v zs ieee300 cnn+prev+jac all macro_f1 fmt=.3f -->0.923<!-- /results --> from 14 to 300 buses (the ablation table)</td>
+<td>the common protocol, with <code>At</code> and <code>Am</code> in distribution, falls to <!-- results: v loc ieee118 cnn+prev+jac all macro_f1 fmt=.2f -->0.37<!-- /results --> and <!-- results: v loc ieee300 cnn+prev+jac all macro_f1 fmt=.2f -->0.39<!-- /results --> on 118 and 300: the per-frame localization of a sustained local false state is the frontier</td>
 </tr>
 </tbody>
 </table>
 <p>The same papers' protocol trained federated across K utilities, with the Jacobian block, is in
 <a href="../federated/"><code>../federated/README.md</code></a>.</p>
 <h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/localization/run_localization.py<span class="w">    </span><span class="c1"># fits, writes results/loc_ieee14.json</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/localization/run_localization.py<span class="w">    </span><span class="c1"># fits, writes runs of localization.* to results/</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>docs/localization/run_localization.py
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>docs/localization/run_localization.py
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>docs/localization/make_report.py<span class="w">                          </span><span class="c1"># tables (markdown) + figures + CSV from the JSON</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>docs/localization/make_report.py<span class="w">                          </span><span class="c1"># figures + CSV sidecars from the store</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/results_docs.py<span class="w"> </span>--write<span class="w">                             </span><span class="c1"># the README's results blocks</span>
 </code></pre></div>
-<p>Minutes for IEEE-14 on a GPU laptop; about half an hour for 300, mostly the residual arm's solves.</p>
+<p>IEEE-300 takes the longest, mostly the residual arm's solves.</p>
 
 
 

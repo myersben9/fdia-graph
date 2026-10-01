@@ -1001,6 +1001,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1017,6 +1035,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-fewest-tamper-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fewest-tamper search
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1329,6 +1377,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-fewest-tamper-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The fewest-tamper search
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1348,33 +1415,118 @@
 
 
 <h1 id="benchmarks">Benchmarks<a class="headerlink" href="#benchmarks" title="Permanent link">&para;</a></h1>
-<p>Per-record timings on the tiny IEEE-14 timeline, appended by <code>python tools/bench.py</code>; <code>--check</code> fails when a timing is more than 3x slower than the last row. One machine's rows are comparable with each other, not with another machine's.</p>
+<p>Per-record timings on the tiny IEEE-14 timeline, stored by <code>python tools/bench.py</code> as a run of the results store's <code>bench</code> experiment (<code>results/bench.csv</code>) and rendered below by <code>tools/results_docs.py</code>; <code>--check</code> fails when a timing is more than 3x slower than the last run. One machine's rows are comparable with each other, not with another machine's.</p>
 <p>From 0.18 the generate column is milliseconds per timeline frame of the test suite's tiny timeline (<code>TIMELINE_KW</code> in <code>tests/conftest.py</code>, 1000 frames); earlier rows timed the record-shard writer per record and are not comparable to it.</p>
 <p>From 0.20 that timeline has one-frame Aq and Al episodes, and its seed moved with them, so a later row's generate column times a different episode mix from the rows above it. From 0.21 it holds At and the overload Am only on the hybrid meters (seed 2, the search capped at 16 supports): other frames and another meter plan, so none of its columns, the estimators' included, compares with the rows above. <code>tools/bench.py</code> records the fixture recipe with each row, starts a new table for a new recipe, and <code>--check</code> compares only rows of the same machine and recipe; the first run on this recipe starts its baseline.</p>
+<!-- results: bench.table -->
 <table>
 <thead>
 <tr>
 <th>date</th>
-<th>generate ms/record</th>
-<th>wls ms/record</th>
-<th>huber ms/record</th>
-<th>prior+huber ms/record</th>
-<th>version</th>
-<th>machine</th>
+<th style="text-align: right;">generate ms/record</th>
+<th style="text-align: right;">wls ms/record</th>
+<th style="text-align: right;">huber ms/record</th>
+<th style="text-align: right;">prior+huber ms/record</th>
+<th style="text-align: right;">version</th>
+<th style="text-align: right;">machine</th>
+<th style="text-align: right;">recipe</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>2026-09-16</td>
-<td>79.839</td>
-<td>0.110</td>
-<td>2.824</td>
-<td>1.885</td>
-<td>0.17.0</td>
-<td>AMD64 Intel64 Family 6 Model 143 Stepping 8, GenuineIntel, numpy 1.26.4, torch 2.12.0.dev20260314+cu128</td>
+<td style="text-align: right;">79.839</td>
+<td style="text-align: right;">0.110</td>
+<td style="text-align: right;">2.824</td>
+<td style="text-align: right;">1.885</td>
+<td style="text-align: right;">0.17.0</td>
+<td style="text-align: right;">AMD64 Intel64 Family 6 Model 143 Stepping 8, GenuineIntel, numpy 1.26.4, torch 2.12.0.dev20260314+cu128</td>
+<td style="text-align: right;">shards</td>
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
+<h2 id="the-fewest-tamper-search">The fewest-tamper search<a class="headerlink" href="#the-fewest-tamper-search" title="Permanent link">&para;</a></h2>
+<p>Median seconds per episode of the overload (<code>Am</code>) and ramp (<code>At</code>) search, before and after a change,
+run side by side on the same fixed episodes (seed 1, hybrid meters, pool ratings, the D16 bounds,
+two-line <code>Am</code>, budget 256, 20-snapshot windows; experiment <code>search.speed</code>). Every episode returned
+the same answer before and after.</p>
+<p>The search speed-up (#163):</p>
+<!-- results: search.speed 163 -->
+<table>
+<thead>
+<tr>
+<th>system</th>
+<th style="text-align: right;">default threads, Am</th>
+<th style="text-align: right;">default threads, At</th>
+<th style="text-align: right;">one thread, Am</th>
+<th style="text-align: right;">one thread, At</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14 (10 Am, 4 At)</td>
+<td style="text-align: right;">4.5 to 3.0</td>
+<td style="text-align: right;">0.84 to 0.66</td>
+<td style="text-align: right;">4.5 to 2.9</td>
+<td style="text-align: right;">0.36 to 0.21</td>
+</tr>
+<tr>
+<td>IEEE-30 (5 Am, 3 At)</td>
+<td style="text-align: right;">8.5 to 4.8</td>
+<td style="text-align: right;">1.1 to 0.98</td>
+<td style="text-align: right;">8.4 to 5.1</td>
+<td style="text-align: right;">0.54 to 0.41</td>
+</tr>
+<tr>
+<td>IEEE-118 (4 Am, 3 At)</td>
+<td style="text-align: right;">14.5 to 9.5</td>
+<td style="text-align: right;">1.8 to 0.98</td>
+<td style="text-align: right;">5.2 to 3.3</td>
+<td style="text-align: right;">1.1 to 0.44</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>BLAS held to one thread during the search (#164):</p>
+<!-- results: search.speed 164 -->
+<table>
+<thead>
+<tr>
+<th>system</th>
+<th style="text-align: right;">default threads, Am</th>
+<th style="text-align: right;">default threads, At</th>
+<th style="text-align: right;">one thread, Am</th>
+<th style="text-align: right;">one thread, At</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14 (10 Am, 4 At)</td>
+<td style="text-align: right;">3.1 to 3.1</td>
+<td style="text-align: right;">0.58 to 0.28</td>
+<td style="text-align: right;">3.0 to 2.7</td>
+<td style="text-align: right;">0.31 to 0.31</td>
+</tr>
+<tr>
+<td>IEEE-30 (5 Am, 3 At)</td>
+<td style="text-align: right;">5.5 to 5.6</td>
+<td style="text-align: right;">0.81 to 0.33</td>
+<td style="text-align: right;">5.5 to 5.1</td>
+<td style="text-align: right;">0.32 to 0.26</td>
+</tr>
+<tr>
+<td>IEEE-118 (4 Am, 3 At)</td>
+<td style="text-align: right;">7.2 to 3.1</td>
+<td style="text-align: right;">0.89 to 0.44</td>
+<td style="text-align: right;">3.3 to 3.3</td>
+<td style="text-align: right;">0.38 to 0.51</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
 
 
 

@@ -1507,333 +1507,353 @@ set back to their benign reading (the attacker cannot write them) and a WLS resi
 benign false-alarm level says whether the attack now shows. <code>detected_before</code> is the residual test
 with every meter writable, <code>detected_after</code> with the trust in place.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
-<p><code>python docs/trust/run_trust.py</code> (set <code>FG_SYSTEM</code>) writes <code>results/trust_&lt;system&gt;.json</code>: the
-selection, the attack-cost curve, and the detection table. Read the detection table first. The
-attack cost is the sparsest row of an echelon basis of the open subspace, an upper bound on the
-true sparsest attack, so it is not monotone in the secured set. On IEEE-14 the greedy cost
-plateaus at 54 and 55 from the second meter to the twentieth. The DQN selection's cost after each
-of its twenty meters is 3 for the first nine, then 45, 49, 11, 11, 11, 11, 4, 7, 7, 7 and 16, yet
-its detection of Aq, Al and Am rises from 0.00 to 0.86, 0.64 and 0.72.</p>
+<p><code>python docs/trust/run_trust.py</code> (set <code>FG_SYSTEM</code>) writes a run of <code>trust.selection</code> to the
+results store: the selection, the attack-cost curve, and the detection table. Read the detection
+table first. The attack cost is the sparsest row of an echelon basis of the open subspace, an upper
+bound on the true sparsest attack, so it is not monotone in the secured set: on IEEE-14 the greedy
+cost plateaus after its second meter, while the DQN selection's cost jumps up and down along its
+twenty meters (the <code>attack_cost</code> rows of <code>results/trust.selection.csv</code>), yet its detection of Aq,
+Al and Am rises from <!-- results: v trust ieee14 dqn Aq detected_before fmt=.2f -->0.00<!-- /results --> to <!-- results: v trust ieee14 dqn Aq detected_after fmt=.2f -->0.86<!-- /results -->, <!-- results: v trust ieee14 dqn Al detected_after fmt=.2f -->0.64<!-- /results --> and <!-- results: v trust ieee14 dqn Am detected_after fmt=.2f -->0.72<!-- /results -->.</p>
 <p>WLS residual detection rate per family at a 1% benign alarm level, before and after securing 20
 meters (data release v0.8.3, test split). The residual test's estimator is calibrated from
 measurements only (<code>calibrate="measured"</code>):</p>
+<!-- results: trust.detection -->
 <table>
 <thead>
 <tr>
 <th>system</th>
 <th>selector</th>
-<th>Aq</th>
-<th>At</th>
-<th>Al</th>
-<th>Am</th>
-<th>Ad / As / Ar</th>
+<th style="text-align: right;">Aq</th>
+<th style="text-align: right;">At</th>
+<th style="text-align: right;">Al</th>
+<th style="text-align: right;">Am</th>
+<th style="text-align: right;">Ad / As / Ar</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>ieee14</td>
 <td>greedy</td>
-<td>0.00 → 0.76</td>
-<td>0.00 → 0.00</td>
-<td>0.00 → 0.72</td>
-<td>0.00 → 0.55</td>
-<td>1.00 / 1.00 / 0.81 → 1.00 / 1.00 / 0.75</td>
+<td style="text-align: right;">0.00 → 0.76</td>
+<td style="text-align: right;">0.00 → 0.00</td>
+<td style="text-align: right;">0.00 → 0.72</td>
+<td style="text-align: right;">0.00 → 0.55</td>
+<td style="text-align: right;">1.00 / 1.00 / 0.81 → 1.00 / 1.00 / 0.75</td>
 </tr>
 <tr>
 <td>ieee14</td>
 <td>DQN</td>
-<td>0.00 → 0.86</td>
-<td>0.00 → 0.23</td>
-<td>0.00 → 0.64</td>
-<td>0.00 → 0.72</td>
-<td>1.00 / 1.00 / 0.81 → 1.00 / 1.00 / 0.77</td>
+<td style="text-align: right;">0.00 → 0.86</td>
+<td style="text-align: right;">0.00 → 0.23</td>
+<td style="text-align: right;">0.00 → 0.64</td>
+<td style="text-align: right;">0.00 → 0.72</td>
+<td style="text-align: right;">1.00 / 1.00 / 0.81 → 1.00 / 1.00 / 0.77</td>
 </tr>
 <tr>
 <td>ieee118</td>
 <td>greedy</td>
-<td>0.01 → 0.01</td>
-<td>0.01 → 0.01</td>
-<td>0.00 → 0.00</td>
-<td>0.01 → 0.01</td>
-<td>1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98</td>
+<td style="text-align: right;">0.01 → 0.01</td>
+<td style="text-align: right;">0.01 → 0.01</td>
+<td style="text-align: right;">0.00 → 0.00</td>
+<td style="text-align: right;">0.01 → 0.01</td>
+<td style="text-align: right;">1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98</td>
 </tr>
 <tr>
 <td>ieee118</td>
 <td>DQN</td>
-<td>0.01 → 0.09</td>
-<td>0.01 → 0.01</td>
-<td>0.00 → 0.09</td>
-<td>0.01 → 0.14</td>
-<td>1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98</td>
+<td style="text-align: right;">0.01 → 0.09</td>
+<td style="text-align: right;">0.01 → 0.01</td>
+<td style="text-align: right;">0.00 → 0.09</td>
+<td style="text-align: right;">0.01 → 0.14</td>
+<td style="text-align: right;">1.00 / 1.00 / 0.98 → 1.00 / 1.00 / 0.98</td>
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <h2 id="what-the-secured-meters-do-for-estimation-and-localization">What the secured meters do for estimation and localization<a class="headerlink" href="#what-the-secured-meters-do-for-estimation-and-localization" title="Permanent link">&para;</a></h2>
 <p>The residual test is one consumer of a trusted set. <code>tm.secured_copy(ds, out, name)</code> writes a copy
 of the timeline in which the selected meters read their benign value on every frame (the attacker
 locked out of them, the tamper masks and the stored temporal features following), so every
 estimator and localizer of the other two guides can be scored with the set secured;
 <code>python docs/trust/run_secured.py</code> (set <code>FG_SYSTEM</code>, <code>FG_K</code>) does that for the greedy and the DQN
-selections of <code>run_trust.py</code> and writes <code>results/secured_&lt;system&gt;.json</code>.</p>
+selections of <code>run_trust.py</code> and writes runs of <code>trust.secured_localization</code> and
+<code>trust.secured_estimation</code> to the results store.</p>
 <p>Rule: a localization gate never down-weights a secured meter.
 <code>GatedPrior</code> scales every meter of a flagged bus by a thousandth. On a secured copy those meters
 include the secured ones, the only true readings inside the attacked region, so a plain gate throws
 away the evidence the trusted set provides. <code>GatedPrior(secured=tm.select())</code> keeps the secured
 meters at full weight, and that arm wins on IEEE-14.</p>
 <p>IEEE-14, 20 secured meters, test split, node-F1 with the detection rate in parentheses:</p>
+<!-- results: trust.secured_loc ieee14 -->
 <table>
 <thead>
 <tr>
 <th>localizer</th>
 <th>copy</th>
-<th>Aq</th>
-<th>At</th>
-<th>Al</th>
-<th>Am</th>
-<th>macro-F1 / benign FA</th>
+<th style="text-align: right;">Aq</th>
+<th style="text-align: right;">At</th>
+<th style="text-align: right;">Al</th>
+<th style="text-align: right;">Am</th>
+<th style="text-align: right;">macro-F1 / benign FA</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>residual</td>
 <td>plain</td>
-<td>0.00 (0.03)</td>
-<td>0.00 (0.03)</td>
-<td>0.00 (0.03)</td>
-<td>0.01 (0.04)</td>
-<td>0.376 / 0.0017</td>
+<td style="text-align: right;">0.00 (0.03)</td>
+<td style="text-align: right;">0.00 (0.03)</td>
+<td style="text-align: right;">0.00 (0.03)</td>
+<td style="text-align: right;">0.01 (0.04)</td>
+<td style="text-align: right;">0.376 / 0.0017</td>
 </tr>
 <tr>
 <td>residual</td>
 <td>greedy</td>
-<td>0.57 (0.94)</td>
-<td>0.13 (0.31)</td>
-<td>0.68 (1.00)</td>
-<td>0.60 (0.93)</td>
-<td>0.555 / 0.0017</td>
+<td style="text-align: right;">0.57 (0.94)</td>
+<td style="text-align: right;">0.13 (0.31)</td>
+<td style="text-align: right;">0.68 (1.00)</td>
+<td style="text-align: right;">0.60 (0.93)</td>
+<td style="text-align: right;">0.555 / 0.0017</td>
 </tr>
 <tr>
 <td>residual</td>
 <td>DQN</td>
-<td>0.49 (0.95)</td>
-<td>0.11 (0.46)</td>
-<td>0.41 (0.77)</td>
-<td>0.35 (0.88)</td>
-<td>0.497 / 0.0017</td>
+<td style="text-align: right;">0.49 (0.95)</td>
+<td style="text-align: right;">0.11 (0.46)</td>
+<td style="text-align: right;">0.41 (0.77)</td>
+<td style="text-align: right;">0.35 (0.88)</td>
+<td style="text-align: right;">0.497 / 0.0017</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>plain</td>
-<td>0.89 (0.88)</td>
-<td>0.60 (0.71)</td>
-<td>0.98 (0.99)</td>
-<td>0.81 (0.77)</td>
-<td>0.835 / 0.0167</td>
+<td style="text-align: right;">0.89 (0.88)</td>
+<td style="text-align: right;">0.60 (0.71)</td>
+<td style="text-align: right;">0.98 (0.99)</td>
+<td style="text-align: right;">0.81 (0.77)</td>
+<td style="text-align: right;">0.835 / 0.0167</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>greedy</td>
-<td>0.87 (0.96)</td>
-<td>0.67 (0.73)</td>
-<td>1.00 (1.00)</td>
-<td>0.98 (0.98)</td>
-<td>0.826 / 0.0139</td>
+<td style="text-align: right;">0.87 (0.96)</td>
+<td style="text-align: right;">0.67 (0.73)</td>
+<td style="text-align: right;">1.00 (1.00)</td>
+<td style="text-align: right;">0.98 (0.98)</td>
+<td style="text-align: right;">0.826 / 0.0139</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>DQN</td>
-<td>0.87 (0.97)</td>
-<td>0.67 (0.75)</td>
-<td>0.99 (1.00)</td>
-<td>0.96 (0.96)</td>
-<td>0.854 / 0.0155</td>
+<td style="text-align: right;">0.87 (0.97)</td>
+<td style="text-align: right;">0.67 (0.75)</td>
+<td style="text-align: right;">0.99 (1.00)</td>
+<td style="text-align: right;">0.96 (0.96)</td>
+<td style="text-align: right;">0.854 / 0.0155</td>
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <p>The trusted set opens the residual localizer on the stealthy families, the greedy set more than the
-DQN's on <code>Aq</code>, <code>Al</code> and <code>Am</code> (macro-F1 0.376 to 0.555 and 0.497). The learned localizer already
-finds the one-frame <code>Aq</code> without it; the trusted set lifts the sustained families, <code>Am</code> node-F1 from
-0.81 to 0.98 and 0.96 and <code>At</code> from 0.60 to 0.67.</p>
+DQN's on <code>Aq</code>, <code>Al</code> and <code>Am</code> (macro-F1 <!-- results: v sloc ieee14 residual all macro_f1 fmt=.3f secured=plain -->0.376<!-- /results --> to <!-- results: v sloc ieee14 residual all macro_f1 fmt=.3f secured=greedy -->0.555<!-- /results --> and <!-- results: v sloc ieee14 residual all macro_f1 fmt=.3f secured=dqn -->0.497<!-- /results -->). The learned localizer already
+finds the one-frame <code>Aq</code> without it; the trusted set lifts the sustained families, <code>Am</code> node-F1 from</p>
+<!-- results: v sloc ieee14 cnn+jac Am node_f1 fmt=.2f secured=plain -->
+<p>0.81 to 0.98 and 0.96 and <code>At</code> from 0.60 to 0.67.</p>
 <p>Angle mean absolute error in degrees, geometric mean over the eight record classes:</p>
+<!-- results: trust.secured_est ieee14 -->
 <table>
 <thead>
 <tr>
 <th>estimator</th>
-<th>plain</th>
-<th>greedy</th>
-<th>DQN</th>
+<th style="text-align: right;">plain</th>
+<th style="text-align: right;">greedy</th>
+<th style="text-align: right;">DQN</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>prior + Huber</td>
-<td>0.050</td>
-<td>0.040</td>
-<td>0.031</td>
+<td style="text-align: right;">0.050</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">0.031</td>
 </tr>
 <tr>
 <td>prior + Huber + CNN gate</td>
-<td>0.044</td>
-<td>0.041</td>
-<td>0.033</td>
+<td style="text-align: right;">0.044</td>
+<td style="text-align: right;">0.041</td>
+<td style="text-align: right;">0.033</td>
 </tr>
 <tr>
 <td>prior + Huber + CNN gate, secured meters exempt</td>
-<td></td>
-<td>0.026</td>
-<td>0.017</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.017</td>
 </tr>
 <tr>
 <td>prior + Huber + residual gate, secured meters exempt</td>
-<td></td>
-<td>0.030</td>
-<td>0.023</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.023</td>
 </tr>
 <tr>
 <td>prior + Huber + oracle gate</td>
-<td>0.041</td>
-<td>0.038</td>
-<td>0.030</td>
+<td style="text-align: right;">0.041</td>
+<td style="text-align: right;">0.038</td>
+<td style="text-align: right;">0.030</td>
 </tr>
 <tr>
 <td>prior + Huber + oracle gate, secured meters exempt</td>
-<td></td>
-<td>0.026</td>
-<td>0.017</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.017</td>
 </tr>
 </tbody>
 </table>
-<p>The DQN's 20 meters take the proposed estimator from 0.050 to 0.031 degrees with no gate and to
-0.017 with the exempting CNN gate, which matches the oracle gate. The stealthy families lose 65 to
-91 percent of their error (Aq 0.355 to 0.033, At 0.066 to 0.019, Al 0.048 to 0.017, Am 0.046 to
-0.016) with the benign error unchanged (0.0129 to 0.0130). The residual gate, which needs no
-learned model, reaches 0.023 there because the secured meters made the residual see those families.</p>
+<!-- /results -->
+
+<p>The DQN's 20 meters take the proposed estimator from <!-- results: v sest ieee14 prior+huber geo angle_mae_deg fmt=.3f secured=plain -->0.050<!-- /results --> to <!-- results: v sest ieee14 prior+huber geo angle_mae_deg fmt=.3f secured=dqn -->0.031<!-- /results --> degrees with no gate and to</p>
+<!-- results: v sest ieee14 prior+huber+cnn+trust geo angle_mae_deg fmt=.3f secured=dqn -->
+<p>0.017 with the exempting CNN gate, which matches the oracle gate. The stealthy families lose most of
+their error (Aq <!-- results: v sest ieee14 prior+huber Aq angle_mae_deg fmt=.3f secured=plain -->0.355<!-- /results --> to <!-- results: v sest ieee14 prior+huber+cnn+trust Aq angle_mae_deg fmt=.3f secured=dqn -->0.033<!-- /results -->, At <!-- results: v sest ieee14 prior+huber At angle_mae_deg fmt=.3f secured=plain -->0.066<!-- /results --> to <!-- results: v sest ieee14 prior+huber+cnn+trust At angle_mae_deg fmt=.3f secured=dqn -->0.019<!-- /results -->, Al <!-- results: v sest ieee14 prior+huber Al angle_mae_deg fmt=.3f secured=plain -->0.048<!-- /results --> to <!-- results: v sest ieee14 prior+huber+cnn+trust Al angle_mae_deg fmt=.3f secured=dqn -->0.017<!-- /results -->, Am <!-- results: v sest ieee14 prior+huber Am angle_mae_deg fmt=.3f secured=plain -->0.046<!-- /results --> to</p>
+<!-- results: v sest ieee14 prior+huber+cnn+trust Am angle_mae_deg fmt=.3f secured=dqn -->
+<p>0.016) with the benign error unchanged (0.0129 to 0.0130). The residual gate, which needs no
+learned model, reaches <!-- results: v sest ieee14 prior+huber+residual+trust geo angle_mae_deg fmt=.3f secured=dqn -->0.023<!-- /results --> there because the secured meters made the residual see those families.</p>
 <p>IEEE-118, the same budget of 20 meters (20 of its 720 metered channels, under 3 percent, where they
 were 20 of IEEE-14's 82, 24 percent):</p>
+<!-- results: trust.secured_loc ieee118 -->
 <table>
 <thead>
 <tr>
 <th>localizer</th>
 <th>copy</th>
-<th>Aq</th>
-<th>At</th>
-<th>Al</th>
-<th>Am</th>
-<th>macro-F1 / benign FA</th>
+<th style="text-align: right;">Aq</th>
+<th style="text-align: right;">At</th>
+<th style="text-align: right;">Al</th>
+<th style="text-align: right;">Am</th>
+<th style="text-align: right;">macro-F1 / benign FA</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>residual</td>
 <td>plain</td>
-<td>0.01 (0.47)</td>
-<td>0.01 (0.54)</td>
-<td>0.01 (0.50)</td>
-<td>0.01 (0.53)</td>
-<td>0.231 / 0.0072</td>
+<td style="text-align: right;">0.01 (0.47)</td>
+<td style="text-align: right;">0.01 (0.54)</td>
+<td style="text-align: right;">0.01 (0.50)</td>
+<td style="text-align: right;">0.01 (0.53)</td>
+<td style="text-align: right;">0.231 / 0.0072</td>
 </tr>
 <tr>
 <td>residual</td>
 <td>greedy</td>
-<td>0.02 (0.50)</td>
-<td>0.01 (0.54)</td>
-<td>0.02 (0.52)</td>
-<td>0.02 (0.55)</td>
-<td>0.233 / 0.0072</td>
+<td style="text-align: right;">0.02 (0.50)</td>
+<td style="text-align: right;">0.01 (0.54)</td>
+<td style="text-align: right;">0.02 (0.52)</td>
+<td style="text-align: right;">0.02 (0.55)</td>
+<td style="text-align: right;">0.233 / 0.0072</td>
 </tr>
 <tr>
 <td>residual</td>
 <td>DQN</td>
-<td>0.07 (0.58)</td>
-<td>0.02 (0.56)</td>
-<td>0.05 (0.61)</td>
-<td>0.07 (0.64)</td>
-<td>0.238 / 0.0072</td>
+<td style="text-align: right;">0.07 (0.58)</td>
+<td style="text-align: right;">0.02 (0.56)</td>
+<td style="text-align: right;">0.05 (0.61)</td>
+<td style="text-align: right;">0.07 (0.64)</td>
+<td style="text-align: right;">0.238 / 0.0072</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>plain</td>
-<td>0.64 (0.98)</td>
-<td>0.13 (0.83)</td>
-<td>0.80 (1.00)</td>
-<td>0.15 (0.69)</td>
-<td>0.360 / 0.0116</td>
+<td style="text-align: right;">0.64 (0.98)</td>
+<td style="text-align: right;">0.13 (0.83)</td>
+<td style="text-align: right;">0.80 (1.00)</td>
+<td style="text-align: right;">0.15 (0.69)</td>
+<td style="text-align: right;">0.360 / 0.0116</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>greedy</td>
-<td>0.66 (0.97)</td>
-<td>0.12 (0.82)</td>
-<td>0.82 (1.00)</td>
-<td>0.23 (0.66)</td>
-<td>0.355 / 0.0119</td>
+<td style="text-align: right;">0.66 (0.97)</td>
+<td style="text-align: right;">0.12 (0.82)</td>
+<td style="text-align: right;">0.82 (1.00)</td>
+<td style="text-align: right;">0.23 (0.66)</td>
+<td style="text-align: right;">0.355 / 0.0119</td>
 </tr>
 <tr>
 <td>1D CNN + Jacobian</td>
 <td>DQN</td>
-<td>0.57 (0.95)</td>
-<td>0.10 (0.78)</td>
-<td>0.79 (1.00)</td>
-<td>0.32 (0.81)</td>
-<td>0.370 / 0.0130</td>
+<td style="text-align: right;">0.57 (0.95)</td>
+<td style="text-align: right;">0.10 (0.78)</td>
+<td style="text-align: right;">0.79 (1.00)</td>
+<td style="text-align: right;">0.32 (0.81)</td>
+<td style="text-align: right;">0.370 / 0.0130</td>
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
+<!-- results: trust.secured_est ieee118 fmt=.4f -->
 <table>
 <thead>
 <tr>
 <th>estimator</th>
-<th>plain</th>
-<th>greedy</th>
-<th>DQN</th>
+<th style="text-align: right;">plain</th>
+<th style="text-align: right;">greedy</th>
+<th style="text-align: right;">DQN</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>prior + Huber</td>
-<td>0.0102</td>
-<td>0.0102</td>
-<td>0.0101</td>
+<td style="text-align: right;">0.0102</td>
+<td style="text-align: right;">0.0102</td>
+<td style="text-align: right;">0.0101</td>
 </tr>
 <tr>
 <td>prior + Huber + CNN gate</td>
-<td>0.0103</td>
-<td>0.0103</td>
-<td>0.0103</td>
+<td style="text-align: right;">0.0103</td>
+<td style="text-align: right;">0.0103</td>
+<td style="text-align: right;">0.0103</td>
 </tr>
 <tr>
 <td>prior + Huber + CNN gate, secured meters exempt</td>
-<td></td>
-<td>0.0101</td>
-<td>0.0101</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.0101</td>
+<td style="text-align: right;">0.0101</td>
 </tr>
 <tr>
 <td>prior + Huber + residual gate, secured meters exempt</td>
-<td></td>
-<td>0.0156</td>
-<td>0.0153</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.0156</td>
+<td style="text-align: right;">0.0153</td>
 </tr>
 <tr>
 <td>prior + Huber + oracle gate</td>
-<td>0.0100</td>
-<td>0.0100</td>
-<td>0.0100</td>
+<td style="text-align: right;">0.0100</td>
+<td style="text-align: right;">0.0100</td>
+<td style="text-align: right;">0.0100</td>
 </tr>
 <tr>
 <td>prior + Huber + oracle gate, secured meters exempt</td>
-<td></td>
-<td>0.0095</td>
-<td>0.0097</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.0095</td>
+<td style="text-align: right;">0.0097</td>
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <p>On IEEE-118 twenty meters barely move anything. The DQN set raises the residual localizer's
-stealthy detection rates by 2 to 11 points and its macro-F1 from 0.231 to 0.238, the learned
-localizer's <code>Am</code> node-F1 rises from 0.15 to 0.32 while its <code>Aq</code> falls from 0.64 to 0.57, and the
-estimator gains 1 percent with no gate (0.0102 to 0.0101). Twenty meters were a quarter of
+stealthy detection rates a few points and its macro-F1 from <!-- results: v sloc ieee118 residual all macro_f1 fmt=.3f secured=plain -->0.231<!-- /results --> to <!-- results: v sloc ieee118 residual all macro_f1 fmt=.3f secured=dqn -->0.238<!-- /results -->, the learned
+localizer's <code>Am</code> node-F1 rises from <!-- results: v sloc ieee118 cnn+jac Am node_f1 fmt=.2f secured=plain -->0.15<!-- /results --> to <!-- results: v sloc ieee118 cnn+jac Am node_f1 fmt=.2f secured=dqn -->0.32<!-- /results --> while its <code>Aq</code> falls from <!-- results: v sloc ieee118 cnn+jac Aq node_f1 fmt=.2f secured=plain -->0.64<!-- /results --> to <!-- results: v sloc ieee118 cnn+jac Aq node_f1 fmt=.2f secured=dqn -->0.57<!-- /results -->, and the
+estimator barely moves with no gate (<!-- results: v sest ieee118 prior+huber geo angle_mae_deg fmt=.4f secured=plain -->0.0102<!-- /results --> to <!-- results: v sest ieee118 prior+huber geo angle_mae_deg fmt=.4f secured=dqn -->0.0101<!-- /results -->). Twenty meters were a quarter of
 IEEE-14's channels and are under 3 percent of IEEE-118's; the budget has to scale with the system
 for the gains to follow.</p>
 <p>Source: the multi-snapshot attack and the trusted-PMU defence of [WU26] (<code>docs/reference/REFERENCES.md</code>).</p>
+<!-- /results --><!-- results: v sloc ieee14 cnn+jac Am node_f1 fmt=.2f secured=greedy --><!-- /results --><!-- results: v sloc ieee14 cnn+jac Am node_f1 fmt=.2f secured=dqn --><!-- /results --><!-- results: v sloc ieee14 cnn+jac At node_f1 fmt=.2f secured=plain --><!-- /results --><!-- results: v sloc ieee14 cnn+jac At node_f1 fmt=.2f secured=greedy --><!-- /results --><!-- /results --><!-- /results --><!-- results: v sest ieee14 prior+huber benign angle_mae_deg fmt=.4f secured=plain --><!-- /results --><!-- results: v sest ieee14 prior+huber+cnn+trust benign angle_mae_deg fmt=.4f secured=dqn --><!-- /results -->
 
 
 

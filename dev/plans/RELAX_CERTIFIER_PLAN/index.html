@@ -1772,7 +1772,9 @@ window, each family on top of the previous one, every verdict through the tolera
 4.1, <code>bound_margin</code> 0.01, <code>robust_feastol</code> 1e-4). The paper scenarios run on [WU26]'s metering
 (PMUs at buses 1, 4, 6 and 13, lines 3-4 and 6-11, then 1-2 and 4-5) at ratings 1.2 times the
 window's peak flow, as <code>tests/test_wu_scenarios.py</code> sets them up. A gap is the search's count minus
-the bound; the last row is <code>certify</code>'s default.</p>
+the bound; the last row is <code>certify</code>'s default. Source: the results store, experiment
+<code>certify.ablation</code>.</p>
+<!-- results: certify.ablation -->
 <table>
 <thead>
 <tr>
@@ -1788,7 +1790,7 @@ the bound; the last row is <code>certify</code>'s default.</p>
 <tbody>
 <tr>
 <td>second-order cone</td>
-<td>0 of 2 certified (gaps 7, 6)</td>
+<td>0 of 2 certified (gaps 6, 7)</td>
 <td>0 of 10 certified</td>
 <td>0 certified, 1 uncertain</td>
 <td>3 to 11, median 4</td>
@@ -1797,38 +1799,40 @@ the bound; the last row is <code>certify</code>'s default.</p>
 </tr>
 <tr>
 <td>+ bounds</td>
-<td>0 of 2 (7, 6)</td>
-<td>0 of 10</td>
+<td>0 of 2 certified (gaps 6, 7)</td>
+<td>0 of 10 certified</td>
 <td>0 certified, 1 uncertain</td>
 <td>3 to 11, median 4</td>
 <td>18</td>
-<td>400 to 637 tightening, 7 to 52 solve</td>
+<td>400 to 634 tightening, 7 to 52 solve</td>
 </tr>
 <tr>
 <td>+ qc</td>
-<td>0 of 2 (7, 6)</td>
-<td>0 of 10</td>
+<td>0 of 2 certified (gaps 6, 7)</td>
+<td>0 of 10 certified</td>
 <td>0 certified, 1 uncertain</td>
 <td>3 to 11, median 4</td>
 <td>20</td>
-<td>9 to 68 solve</td>
+<td>400 to 634 tightening, 9 to 68 solve</td>
 </tr>
 <tr>
 <td>+ cycle</td>
-<td>0 of 2 (7, 6)</td>
-<td>0 of 10</td>
+<td>0 of 2 certified (gaps 6, 7)</td>
+<td>0 of 10 certified</td>
 <td>0 certified, 1 uncertain</td>
 <td>3 to 11, median 4</td>
 <td>18</td>
-<td>9 to 57 solve</td>
+<td>400 to 634 tightening, 9 to 56 solve</td>
 </tr>
 </tbody>
 </table>
-<p>The search takes 6 to 29 seconds per <code>Am</code> window and under 1 per <code>At</code> window. No cut family moves an
-<code>Am</code> bound: bound tightening at one device fewer than the search leaves the median voltage move at
-0.7 to 2.1 pu, and only 1 to 7 of the area buses get an angle bound, so the QC and cycle envelopes
-seldom bind. The D16 bounds bring the relaxed <code>Am</code> points much closer to an AC state than before
-them (median mismatch 18 to 24 MW, against about 320 MW on the earlier recipe), but not close enough
+<!-- /results -->
+
+<p>The search takes <!-- results: span certify.ablation seconds fmt=.0f family=Am stage=search -->6 to 29<!-- /results --> seconds per <code>Am</code> window and <!-- results: span certify.ablation seconds fmt=.1f family=At stage=search -->0.4 to 1.0<!-- /results --> per <code>At</code> window. No cut
+family moves an <code>Am</code> bound: bound tightening at one device fewer than the search leaves the median
+voltage move at <!-- results: span certify.ablation voltage_move_pu family=Am method=bounds -->0.7 to 2.1<!-- /results --> pu, and only <!-- results: span certify.ablation angle_bounded_buses family=Am method=bounds -->2 to 7<!-- /results --> of the area buses get an angle bound, so the QC and
+cycle envelopes seldom bind. The D16 bounds bring the relaxed <code>Am</code> points much closer to an AC state than before
+them (the median mismatch column, against about 320 MW on the earlier recipe), but not close enough
 to certify. Every <code>Am</code> and paper verdict is a plain gap: no claim there sits at the tolerances.</p>
 <p>The guard changes the <code>At</code> column, and nowhere else:</p>
 <ul>

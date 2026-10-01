@@ -1515,9 +1515,10 @@ state. The block now reads observed data only (the previous frame's estimate), a
 await a rerun on it.</p>
 <p>Zero-shot: train and val hold benign, <code>Aq</code> and <code>Ad</code>; test adds <code>As</code> and <code>Ar</code>, never seen in
 training. F1, DR and FR are the paper's per-bus macro scores over the attackable buses, mean and
-standard deviation over seeds 123, 124 and 125. Every run is in <code>results/runs/</code>, the aggregates in
-<code>results/fed_ieee{14,118,300}.json</code>.</p>
+standard deviation over seeds 123, 124 and 125. Every run is in <code>docs/federated/results/runs/</code>, the aggregates in
+the results store, experiment <code>federated.localization</code> (<code>results/</code>).</p>
 <p><strong>Table IV layout</strong> (FR over every test record, the paper's convention)</p>
+<!-- results: fed.table table4 -->
 <table>
 <thead>
 <tr>
@@ -1608,7 +1609,10 @@ standard deviation over seeds 123, 124 and 125. Every run is in <code>results/ru
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <p><strong>FR over benign records only</strong> (the budget the localization guide reports)</p>
+<!-- results: fed.table benign -->
 <table>
 <thead>
 <tr>
@@ -1657,7 +1661,10 @@ standard deviation over seeds 123, 124 and 125. Every run is in <code>results/ru
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <p><strong>Per-family node F1</strong> (that family plus benign, mean over seeds)</p>
+<!-- results: fed.table families -->
 <table>
 <thead>
 <tr>
@@ -1769,6 +1776,8 @@ standard deviation over seeds 123, 124 and 125. Every run is in <code>results/ru
 </tr>
 </tbody>
 </table>
+<!-- /results -->
+
 <p>Per-bus F1 by attack family, row labels carrying each row's FR over every record.</p>
 <table>
 <thead>
@@ -1798,17 +1807,17 @@ standard deviation over seeds 123, 124 and 125. Every run is in <code>results/ru
 <tbody>
 <tr>
 <td>federating costs little</td>
-<td>from one client to three the CNN moves 0.878 to 0.850 on IEEE-14 and holds 0.899 to 0.904 on 118 and 0.847 to 0.861 on 300</td>
-<td>the MLP loses 1 to 3 points on 118 and 300 as K grows</td>
+<td>from one client to three the CNN moves <!-- results: v fed ieee14 cnn all macro_f1 fmt=.3f clients=1 pool=all -->0.878<!-- /results --> to <!-- results: v fed ieee14 cnn all macro_f1 fmt=.3f clients=3 pool=all -->0.850<!-- /results --> on IEEE-14 and holds <!-- results: v fed ieee118 cnn all macro_f1 fmt=.3f clients=1 pool=all -->0.899<!-- /results --> to <!-- results: v fed ieee118 cnn all macro_f1 fmt=.3f clients=3 pool=all -->0.904<!-- /results --> on 118 and <!-- results: v fed ieee300 cnn all macro_f1 fmt=.3f clients=1 pool=all -->0.847<!-- /results --> to <!-- results: v fed ieee300 cnn all macro_f1 fmt=.3f clients=3 pool=all -->0.861<!-- /results --> on 300</td>
+<td>the MLP loses a few points on 118 and 300 as K grows</td>
 </tr>
 <tr>
 <td>the CNN is the arm to deploy</td>
-<td>its macro F1 leads the per-bus MLP's at every K on every system, at FR below 0.001 on 118 and 300</td>
-<td>the MLP is a third of the parameters (52k against 154k) for 1 to 5 points of F1, and matches the CNN on <code>Aq</code> at K = 1 on 300</td>
+<td>its macro F1 leads the per-bus MLP's at every K on every system, at a false-positive rate of the same small order (the Table IV layout)</td>
+<td>the MLP is a third of the parameters (52k against 154k) for a few points of F1, and matches the CNN on <code>Aq</code> at K = 1 on 300</td>
 </tr>
 <tr>
 <td>the stealthy re-solve falls with size</td>
-<td><code>Aq</code> node F1 is about 0.65, 0.39 and 0.20 on 14, 118 and 300 while <code>Ad</code>, <code>As</code> and <code>Ar</code> stay at or above 0.53</td>
+<td>the CNN's <code>Aq</code> node F1 at K = 1 is <!-- results: v fed ieee14 cnn Aq macro_f1 fmt=.3f clients=1 pool=all -->0.671<!-- /results -->, <!-- results: v fed ieee118 cnn Aq macro_f1 fmt=.3f clients=1 pool=all -->0.391<!-- /results --> and <!-- results: v fed ieee300 cnn Aq macro_f1 fmt=.3f clients=1 pool=all -->0.173<!-- /results --> on 14, 118 and 300 while <code>Ad</code>, <code>As</code> and <code>Ar</code> stay far higher (the per-family table)</td>
 <td>a sustained local false state inside an episode, the same frontier as in <a href="../localization/"><code>../localization/README.md</code></a>; the v0.8.1 timelines hold <code>Aq</code> over multi-frame episodes, while the generator in this package makes every <code>Aq</code> episode one frame</td>
 </tr>
 </tbody>
@@ -1821,13 +1830,13 @@ physics instead of its history, which recovers most of that drop on 118 and 300 
 it on 14; the centralized comparison with and without the block is in
 <a href="../localization/"><code>../localization/README.md</code></a>.</p>
 <h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/federated/run_federated.py<span class="w">     </span><span class="c1"># 18 runs, writes results/runs/ + fed_ieee14.json</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/federated/run_federated.py<span class="w">     </span><span class="c1"># 18 runs, writes docs/federated/results/runs/ + a run of federated.localization</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>docs/federated/run_federated.py
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>docs/federated/run_federated.py
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>docs/federated/make_report.py<span class="w">                        </span><span class="c1"># tables (markdown) + figures + CSV from the JSON</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>docs/federated/make_report.py<span class="w">                        </span><span class="c1"># figures + CSV sidecars from the store</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/results_docs.py<span class="w"> </span>--write<span class="w">                        </span><span class="c1"># the README's results blocks</span>
 </code></pre></div>
-<p>Five to twelve minutes a run on one GPU, about three hours a system with the three systems sharing
-the GPU; saved runs are skipped, so a re-run only aggregates.</p>
+<p>Saved runs are skipped, so a re-run only aggregates.</p>
 
 
 

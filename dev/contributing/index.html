@@ -1571,6 +1571,11 @@ checks a docs change locally.</p>
 <td><code>python tools/class_diagrams.py --check</code>, <code>python tools/models_doc.py --check</code></td>
 </tr>
 <tr>
+<td>no measured number is typed into markdown</td>
+<td>a harness writes what it measures through <code>fdia_graph.results.Run</code> into the results store (<code>results/</code>, see its README); a doc shows a number or a table through a results block (<code>&lt;!-- results: &lt;query&gt; ... --&gt;</code>, queries in <code>results/queries.py</code>), a CHANGELOG entry names the experiment; settings and published values from papers stay as text</td>
+<td><code>python tools/results_docs.py --write</code>, <code>--check</code>; <code>--lint</code> lists typed decimals</td>
+</tr>
+<tr>
 <td>speed is tracked</td>
 <td>per-record timings against the last row from this machine, 3x tolerance</td>
 <td><code>python tools/bench.py --check</code> before a release, <code>python tools/bench.py</code> after</td>
