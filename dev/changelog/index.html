@@ -1538,7 +1538,36 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The attack search is a plain candidate loop; the certifier is gone.</strong></li>
+<li><strong>Hand-written loops and formulas replaced by library calls and array operations.</strong> Generated
+  files are byte-identical to the previous release at the same seed; every replacement is pinned to
+  the code it replaced (<code>tests/test_package_equivalence.py</code>).</li>
+<li>Generation: the temporal-feature pass, the meter-noise draw (one vector draw per layer in the
+    same order as the per-channel draws), the meter masks, the per-bus scale factors, the case
+    limits (<code>np.add.at</code>) and the swing scale run as array operations instead of Python loops.</li>
+<li>Metrics: new <code>formulas.micro_prf</code>, <code>formulas.sample_f1</code>, <code>formulas.strict_accuracy</code> and
+    <code>formulas.metrics.perbus_counts_at</code> (every candidate threshold at once); the localizers' and the
+    federated localizer's threshold searches and score blocks use them (checked against
+    scikit-learn in the tests).</li>
+<li><code>formulas.leverage</code> takes the hat-matrix diagonal without forming the matrix;
+    <code>guarded_inverse</code> inverts through its Cholesky factor; the SE <code>geo</code> score uses
+    <code>scipy.stats.gmean</code>; the DQN replay buffer is a <code>collections.deque</code>; both DQN selectors build
+    their network with <code>trust.dqn.q_network</code>; <code>trust.secured_copy</code> restores secured meters in one
+    indexing step; the dataset's derived series admittance uses <code>formulas.series_admittance</code>;
+    <code>profiles</code> removes shunt draws with <code>np.subtract.at</code> and the CSV export concatenates once.</li>
+<li>Docstrings that promised bit-for-bit reproduction against the removed frozen suite now name
+    what pins the behaviour.</li>
+<li><code>formulas.ac_jacobian</code> is built from pandapower's <code>dSbus_dV</code> and <code>dSbr_dV</code> (the [se] extra)
+    instead of by hand; its signature is now <code>(vm, theta, Ybus, Yf, Yt, branch, lut)</code>, taking the
+    ppc branch matrix and <code>Yt</code> in place of <code>from_bus</code> and <code>n_ppc</code>. It equals the previous kernel to
+    within floating-point rounding on all eight systems, and the estimators' fitted Jacobian with it.</li>
+<li>
+<p><code>formulas.subnetwork</code> and <code>formulas.hop_distance</code> use scipy's unweighted shortest path through
+    the new <code>formulas.hop_distances</code> and <code>formulas.edge_adjacency</code>; the interiors, boundaries and hop
+    counts equal the breadth-first search they replace.</p>
+</li>
+<li>
+<p><strong>The attack search is a plain candidate loop; the certifier is gone.</strong></p>
+</li>
 <li><code>MinimizeMixin.min_tamper</code> solves the area, then the goal's buses grown one area bus at a time,
     smallest first, at most <code>min_budget</code> candidates, and keeps the cheapest; it stops early only at one
     device on one channel, the least an attack tampers. Each candidate's false state is the existing
