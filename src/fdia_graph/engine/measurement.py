@@ -19,13 +19,14 @@ if TYPE_CHECKING:
     pass
 
 
+# the order of a bus's node draws: |V|, the angle, then P and Q
+_NODE_DRAW_ORDER = (NODE.v, NODE.theta, NODE.p_inj, NODE.q_inj)
+
+
 class MeasurementMixin(GridBase):
     """Emit measurement graphs from a state or a solved net. Mixed into FdiaGenerator."""
 
     # Draw one zero-mean Gaussian noise sample with std `s` (the meter-noise primitive).
-    def _draw_noise(self, s: float) -> float:
-        return self._jitter.normal(0, s)
-
     def _jitter_stream(self) -> np.random.Generator:
         """The stream an emission draws its jitter from. With a `scan_key` t (set by the timeline walk),
         its own stream seeded by (seed, t): frame t's noise is then the same whatever was drawn
@@ -42,14 +43,16 @@ class MeasurementMixin(GridBase):
         at every voltage-meter bus under the v0.8.3 one, P and Q at the injection and zero-injection
         buses) and flow [E, 2] (both channels of a metered branch)."""
         C, plan = self.C, self.meters
+        buses = np.arange(C)
+        pmu = np.isin(buses, list(plan.pmu))
+        volt = pmu | np.isin(buses, list(plan.vbus))
         nm = np.zeros((C, 4), np.uint8)
-        for b in range(C):
-            if b in plan.vbus or b in plan.pmu:
-                nm[b, NODE.v] = 1
-                # a SCADA voltmeter cannot read an angle; the v0.8.3 plan wrote one at every voltmeter bus
-                nm[b, NODE.theta] = int(b in plan.pmu or not plan.angle_at_pmu_only)
-            if b in plan.inj or b in self.zero_inj:
-                nm[b, NODE.p_inj : NODE.q_inj + 1] = 1
+        nm[volt, NODE.v] = 1
+        # a SCADA voltmeter cannot read an angle; the v0.8.3 plan wrote one at every voltmeter bus
+        nm[volt, NODE.theta] = pmu[volt] | (not plan.angle_at_pmu_only)
+        nm[
+            np.isin(buses, list(plan.inj)) | np.isin(buses, list(self.zero_inj)), NODE.p_inj : NODE.q_inj + 1
+        ] = 1
         em = np.zeros((self.E, 2), np.uint8)
         em[np.asarray(plan.flow, bool)] = 1
         return nm, em
@@ -86,23 +89,26 @@ class MeasurementMixin(GridBase):
         # match TH. The draw order (bus by bus, then branch by branch) is the released files' order.
         sig, sig_f = jitter_sigma(X, np.stack([Sf.real, Sf.imag], axis=1), self.SDj, POWER_NOISE_FLOOR_MW)
         nm, em = self.meter_masks()
+        # node readings: within a bus the draws go |V|, angle, P, Q (the released files' order)
+        jit = self._jitter_in_order(nm, sig, _NODE_DRAW_ORDER)
+        on = nm.astype(bool)
         nx = np.zeros((C, 4), np.float32)
-        for b in range(C):
-            if nm[b, NODE.v]:
-                nx[b, NODE.v] = V[b] + bias.v[b] + self._draw_noise(sig[b, NODE.v])
-            if nm[b, NODE.theta]:  # the v0.8.3 plan meters |V| and the angle at the same buses: same draws
-                nx[b, NODE.theta] = TH[b] + np.degrees(bias.va[b]) + self._draw_noise(sig[b, NODE.theta])
-            # Injection/zero-injection buses emit P/Q: relative bias + jitter (+small floor so ~0 injection
-            # still gets a nonzero std).
-            if nm[b, NODE.p_inj]:
-                nx[b, NODE.p_inj] = Pi[b] * (1.0 + bias.pi[b]) + self._draw_noise(sig[b, NODE.p_inj])
-                nx[b, NODE.q_inj] = Qi[b] * (1.0 + bias.qi[b]) + self._draw_noise(sig[b, NODE.q_inj])
-        # Edge buffers: cols [P_from, Q_from], zero where no flow meter.
+        nx[:, NODE.v] = np.where(on[:, NODE.v], V + bias.v + jit[:, NODE.v], 0.0)
+        nx[:, NODE.theta] = np.where(on[:, NODE.theta], TH + np.degrees(bias.va) + jit[:, NODE.theta], 0.0)
+        # Injection/zero-injection buses emit P/Q: relative bias + jitter (+small floor so ~0 injection
+        # still gets a nonzero std).
+        nx[:, NODE.p_inj] = np.where(on[:, NODE.p_inj], Pi * (1.0 + bias.pi) + jit[:, NODE.p_inj], 0.0)
+        nx[:, NODE.q_inj] = np.where(on[:, NODE.q_inj], Qi * (1.0 + bias.qi) + jit[:, NODE.q_inj], 0.0)
+        # Edge buffers: cols [P_from, Q_from], zero where no flow meter; relative bias + jitter on P and Q.
+        jit_f = self._jitter_in_order(em, sig_f, (EDGE.p_from, EDGE.q_from))
+        fon = em.astype(bool)
         ex = np.zeros((self.E, 2), np.float32)
-        for e in range(self.E):
-            if em[e, EDGE.p_from]:  # metered branch flow: relative bias + jitter on P and Q
-                ex[e, EDGE.p_from] = Sf.real[e] * (1.0 + bias.pf[e]) + self._draw_noise(sig_f[e, EDGE.p_from])
-                ex[e, EDGE.q_from] = Sf.imag[e] * (1.0 + bias.qf[e]) + self._draw_noise(sig_f[e, EDGE.q_from])
+        ex[:, EDGE.p_from] = np.where(
+            fon[:, EDGE.p_from], Sf.real * (1.0 + bias.pf) + jit_f[:, EDGE.p_from], 0.0
+        )
+        ex[:, EDGE.q_from] = np.where(
+            fon[:, EDGE.q_from], Sf.imag * (1.0 + bias.qf) + jit_f[:, EDGE.q_from], 0.0
+        )
         cm = self.current_mask()
         if cm is None:  # the v0.8.3 meter model: no currents, and no draw after the flows
             return Scan(nx, nm, ex, em)
@@ -118,12 +124,20 @@ class MeasurementMixin(GridBase):
         bias = self.bias.i
         assert bias is not None, "a hybrid-meter generator draws the current biases at construction"
         biased = biased_current(true, bias)
-        ix = np.zeros((self.E, 4), np.float32)
-        for e in range(self.E):
-            for c in CURRENT:
-                if cm[e, c]:
-                    ix[e, c] = biased[e, c] + self._draw_noise(sig[e, c])
-        return ix
+        jit = self._jitter_in_order(cm, sig, tuple(CURRENT))
+        return np.where(cm.astype(bool), biased + jit, 0.0).astype(np.float32)
+
+    def _jitter_in_order(self, mask: np.ndarray, sig: np.ndarray, order: tuple[int, ...]) -> np.ndarray:
+        """Per-scan jitter for every metered channel of `mask` [K, c], zero elsewhere: one vector draw
+        from the emission's stream, row by row and, within a row, in the column `order`, the same
+        sequence of normals the per-channel draws took."""
+        cols = list(order)
+        on = mask[:, cols].astype(bool)
+        draws = np.zeros(on.shape)
+        draws[on] = self._jitter.normal(0.0, sig[:, cols][on])
+        out = np.zeros(mask.shape)
+        out[:, cols] = draws
+        return out
 
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray:
         # Batched, noiseless sibling of emit_from_state's Sf: exact from-end branch flows for a whole stack of

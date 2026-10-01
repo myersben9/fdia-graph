@@ -3,8 +3,8 @@ measurement change, leverage, the weak directions, and the meter-to-bus aggregat
 Jacobian-informed features [JAC26], [HAN75].
 
 Shapes: m measurements, k state coordinates, n records. `Hw = W^{1/2} H` is the whitened
-Jacobian and `Ai = (HᵀWH)⁻¹` the inverse normal matrix, both from a fitted estimator. Every
-function keeps the exact expression `se.jacobian.JacobianFeatures` used before it existed.
+Jacobian and `Ai = (HᵀWH)⁻¹` the inverse normal matrix, both from a fitted estimator; the
+tests pin each function to tolerance.
 """
 
 from __future__ import annotations
@@ -55,8 +55,8 @@ def leverage(Hw: np.ndarray, Ai: np.ndarray) -> np.ndarray:
     Ai      : [k, k]
     returns : [m] clipped to [0, 1]
     """
-    P = Hw @ Ai @ Hw.T
-    return np.clip(np.diag(P), 0.0, 1.0)
+    # the diagonal alone, row by row (h_i Ai h_iᵀ), without forming the [m, m] matrix
+    return np.clip(np.einsum("ij,ij->i", Hw @ Ai, Hw), 0.0, 1.0)
 
 
 def weak_directions(Hw: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

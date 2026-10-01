@@ -191,47 +191,83 @@ def ac_jacobian(
     theta: np.ndarray,
     Ybus: Admittance,
     Yf: Admittance,
-    from_bus: np.ndarray,
+    Yt: Admittance,
+    branch: np.ndarray,
     lut: np.ndarray,
-    n_ppc: int,
 ) -> np.ndarray:
-    """The measurement Jacobian H = ∂h/∂[θ, |V|] of `ac_measurement` at one state, in closed
-    form [AE04, ch. 2], written with the complex bus-voltage derivatives of [MP19, dSbus_dV and
-    dSbr_dV]:
+    """The measurement Jacobian H = ∂h/∂[θ, |V|] of `ac_measurement` at one state, from MATPOWER's
+    complex derivatives [MP19, dSbus_dV and dSbr_dV] as pandapower ships them [AE04, ch. 2]:
 
         ∂S/∂θ   = j diag(V) conj(diag(I) − Y diag(V)),      I = Y V
         ∂S/∂|V| = diag(V) conj(Y diag(V/|V|)) + conj(diag(I)) diag(V/|V|)
         ∂S_f/∂θ   = j (conj(diag(I_f)) C_f diag(V) − diag(V_f) conj(Y_f diag(V))),   I_f = Y_f V
         ∂S_f/∂|V| = diag(V_f) conj(Y_f diag(V/|V|)) + conj(diag(I_f)) C_f diag(V/|V|)
 
-    vm, theta : [N] one state, pandapower bus order
-    returns   : [4N + 2E, 2N] rows in the order of `ac_measurement`, columns [θ (all N) | |V| (all N)];
-                the estimator drops the slack angle column
+    vm, theta     : [N] one state, pandapower bus order
+    Ybus, Yf, Yt  : admittances in ppc bus order (makeYbus), sparse or dense
+    branch        : the ppc branch matrix (its from and to bus columns)
+    lut           : [N] the ppc index of every pandapower bus; unmapped ppc buses sit at zero voltage
+    returns       : [4N + 2E, 2N] rows in the order of `ac_measurement`, columns [θ (all N) | |V| (all N)];
+                    the estimator drops the slack angle column
+
+    Both derivatives are generation positive; the estimator's injections are load positive, so
+    the P and Q rows are negated. A bus at zero voltage has an undefined V/|V|; its columns are
+    never kept, so the invalid-value warning is silenced.
     """
-    N, E = len(lut), len(from_bus)
-    V = np.zeros(n_ppc, np.complex128)
+    from pandapower.pypower.dSbr_dV import dSbr_dV  # the [se] extra
+    from pandapower.pypower.dSbus_dV import dSbus_dV
+    from scipy.sparse import csr_matrix
+
+    N = len(lut)
+    V = np.zeros(np.shape(Ybus)[0], np.complex128)
     V[lut] = vm * np.exp(1j * theta)
-    Yb, Yff = _dense(Ybus), _dense(Yf)
-    Vnorm = np.where(np.abs(V) > 0, V / np.where(np.abs(V) > 0, np.abs(V), 1.0), 0.0)
-    I = Yb @ V
-    dS_dVa = 1j * (V[:, None] * np.conj(np.diag(I) - Yb * V[None, :]))
-    dS_dVm = V[:, None] * np.conj(Yb * Vnorm[None, :]) + np.conj(I)[:, None] * np.diag(Vnorm)
-    If = Yff @ V
-    Cf = np.zeros((E, n_ppc))
-    Cf[np.arange(E), from_bus] = 1.0
-    Vf = V[from_bus]
-    dSf_dVa = 1j * (np.conj(If)[:, None] * (Cf * V[None, :]) - Vf[:, None] * np.conj(Yff * V[None, :]))
-    dSf_dVm = Vf[:, None] * np.conj(Yff * Vnorm[None, :]) + np.conj(If)[:, None] * (Cf * Vnorm[None, :])
+    with np.errstate(invalid="ignore", divide="ignore"):
+        # dSbus_dV returns (∂/∂|V|, ∂/∂θ) and dSbr_dV the from end as (∂/∂θ, ∂/∂|V|)
+        dVm, dVa = dSbus_dV(csr_matrix(Ybus), V)
+        dfa, dfm = dSbr_dV(branch, csr_matrix(Yf), csr_matrix(Yt), V)[:2]
+    dS_dVm, dS_dVa, dSf_dVa, dSf_dVm = (np.asarray(d.toarray(), np.complex128) for d in (dVm, dVa, dfa, dfm))
+    ix = np.ix_(lut, lut)
     eye, zero = np.eye(N), np.zeros((N, N))
     rows = [
         np.concatenate([zero, eye], axis=1),  # |V|
-        np.concatenate([-dS_dVa.real[np.ix_(lut, lut)], -dS_dVm.real[np.ix_(lut, lut)]], axis=1),  # −P
-        np.concatenate([-dS_dVa.imag[np.ix_(lut, lut)], -dS_dVm.imag[np.ix_(lut, lut)]], axis=1),  # −Q
+        np.concatenate([-dS_dVa.real[ix], -dS_dVm.real[ix]], axis=1),  # −P
+        np.concatenate([-dS_dVa.imag[ix], -dS_dVm.imag[ix]], axis=1),  # −Q
         np.concatenate([eye, zero], axis=1),  # θ
         np.concatenate([dSf_dVa.real[:, lut], dSf_dVm.real[:, lut]], axis=1),  # P_f
         np.concatenate([dSf_dVa.imag[:, lut], dSf_dVm.imag[:, lut]], axis=1),  # Q_f
     ]
     return np.concatenate(rows, axis=0)
+
+
+def hop_distances(adjacency: Admittance, sources: np.ndarray) -> np.ndarray:
+    """Branches from the nearest source bus to every bus, by an unweighted shortest-path search
+    (`scipy.sparse.csgraph.shortest_path`); -1 where no path exists [VLX07].
+
+    adjacency : [N, N] nonzero where a branch joins two buses, dense or sparse
+    sources   : the bus indices at distance 0
+    returns   : [N] int64
+    """
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import shortest_path
+
+    src = np.unique(np.asarray(sources, np.int64))
+    n = np.shape(adjacency)[0]
+    if not len(src):
+        return np.full(n, -1, np.int64)
+    d = shortest_path(csr_matrix(adjacency), unweighted=True, directed=False, indices=src).min(axis=0)
+    return np.where(np.isfinite(d), d, -1).astype(np.int64)
+
+
+def edge_adjacency(edge_index: np.ndarray, n_bus: int) -> Admittance:
+    """The [n_bus, n_bus] symmetric 0/1 sparse adjacency of the branches in `edge_index` [2, E]:
+    both directions of every branch, and 1 where parallel branches join the same two buses."""
+    from scipy.sparse import coo_matrix
+
+    a, b = np.asarray(edge_index[0], np.int64), np.asarray(edge_index[1], np.int64)
+    rows, cols = np.r_[a, b], np.r_[b, a]
+    A = coo_matrix((np.ones(len(rows)), (rows, cols)), shape=(n_bus, n_bus)).tocsr()
+    A.data[:] = 1.0  # the CSR conversion summed parallel branches
+    return A
 
 
 def subnetwork(
@@ -245,17 +281,9 @@ def subnetwork(
     hops       : how many branches the interior reaches from a seed
     returns    : (interior [k] sorted, boundary [b] sorted), disjoint
     """
-    adj: list[set[int]] = [set() for _ in range(n_bus)]
-    for a, b in zip(edge_index[0], edge_index[1]):
-        adj[int(a)].add(int(b))
-        adj[int(b)].add(int(a))
-    interior = {int(b) for b in seeds}
-    frontier = set(interior)
-    for _ in range(hops):
-        frontier = {j for i in frontier for j in adj[i]} - interior
-        interior |= frontier
-    boundary = {j for i in interior for j in adj[i]} - interior
-    return np.array(sorted(interior), int), np.array(sorted(boundary), int)
+    dist = hop_distances(edge_adjacency(edge_index, n_bus), seeds)
+    reached = dist >= 0
+    return np.flatnonzero(reached & (dist <= hops)), np.flatnonzero(dist == hops + 1)
 
 
 def _local_mismatch(

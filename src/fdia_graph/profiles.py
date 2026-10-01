@@ -175,13 +175,15 @@ def _solve_states_chunk(key: int, sf_chunk: np.ndarray) -> list[np.ndarray]:
     load_buses = base.load["bus"].to_numpy()
     gen_buses = base.gen["bus"].to_numpy()
     all_buses = np.unique(np.concatenate([load_buses, gen_buses]))
+    # each load's and generator's column in a scale-factor row (all_buses is sorted and unique)
+    at_load, at_gen = np.searchsorted(all_buses, load_buses), np.searchsorted(all_buses, gen_buses)
     pos = {int(b): i for i, b in enumerate(nodelist)}
     out = []
     for sf in sf_chunk:  # sf: [nbus] scale factor per bus for this timestep
-        b2s = dict(zip(all_buses.tolist(), sf.tolist()))
-        base.load["p_mw"] = base_load_p * np.array([b2s[int(b)] for b in load_buses])
-        base.load["q_mvar"] = base_load_q * np.array([b2s[int(b)] for b in load_buses])
-        base.gen["p_mw"] = base_gen_p * np.array([b2s[int(b)] for b in gen_buses])
+        sf = np.asarray(sf, np.float64)
+        base.load["p_mw"] = base_load_p * sf[at_load]
+        base.load["q_mvar"] = base_load_q * sf[at_load]
+        base.gen["p_mw"] = base_gen_p * sf[at_gen]
         try:
             pp.runpp(base, init="flat", max_iteration=50, tolerance_mva=1e-6)
         except Exception:
@@ -199,12 +201,11 @@ def _remove_shunt_injections(z: np.ndarray, base: PandapowerNet, pos: dict[int, 
     bad-data-clean."""
     if not len(base.res_shunt):
         return
-    for b, ps, qs in zip(
-        base.shunt.bus.to_numpy(), base.res_shunt.p_mw.to_numpy(), base.res_shunt.q_mvar.to_numpy()
-    ):
-        if int(b) in pos:
-            z[pos[int(b)], 1] -= ps
-            z[pos[int(b)], 2] -= qs
+    keep = np.array([int(b) in pos for b in base.shunt.bus.to_numpy()], bool)
+    rows = np.array([pos[int(b)] for b in base.shunt.bus.to_numpy()[keep]], int)
+    # unbuffered, in shunt order: two shunts on one bus both subtract, as the loop did
+    np.subtract.at(z[:, 1], rows, base.res_shunt.p_mw.to_numpy()[keep])
+    np.subtract.at(z[:, 2], rows, base.res_shunt.q_mvar.to_numpy()[keep])
 
 
 def _ar1_scale(

@@ -89,11 +89,17 @@ def test_the_search_equals_brute_force(case):
 def test_the_emitter_draws_with_the_shared_noise_rule(case):
     g, X, _ = case
     drawn = []
-    g._draw_noise = lambda s: drawn.append(float(s)) or 0.0  # record every std the emitter draws with
+
+    class _Recorder:  # stands in for the emission's stream: records every std, in draw order
+        def normal(self, loc, scale):
+            drawn.extend(float(s) for s in np.ravel(scale))
+            return np.zeros(np.shape(scale))
+
+    g._jitter_stream = lambda: _Recorder()
     try:
         scan = g.emit_from_state(X[0])
     finally:
-        del g._draw_noise
+        del g._jitter_stream
     from fdia_graph.formulas.network import branch_flows, complex_voltages
 
     Vc = np.zeros(g._n_ppc_buses, complex)  # the emitter's own float64 flows
@@ -179,9 +185,7 @@ def _irls_support(g, states, goal, area, iters=20):
     Xt = states[0]
     N = g.C
     lut = g._ppc_row[np.arange(N)]
-    H = ac_jacobian(
-        Xt[:, NODE.v], np.radians(Xt[:, NODE.theta]), g._Ybus, g._Yf, g._from_bus_ppc, lut, g._n_ppc_buses
-    )
+    H = ac_jacobian(Xt[:, NODE.v], np.radians(Xt[:, NODE.theta]), g._Ybus, g._Yf, g._Yt, g._ppc_branch, lut)
     P, Q = H[N * NODE.p_inj : N * (NODE.p_inj + 1)], H[N * NODE.q_inj : N * (NODE.q_inj + 1)]
     cols = np.r_[area, N + area]  # theta and |V| of the area buses
     design = goal.designs[0]

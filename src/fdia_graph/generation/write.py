@@ -16,7 +16,7 @@ import numpy as np
 from .. import schema
 from ..dataset.base import FAMILIES, STEALTHY_FAMILIES
 from ..engine import FdiaGenerator
-from ..formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
+from ..formulas.temporal import SWING_WINDOW, recent_change_scale
 from ..models.config import OverloadSettings, TimelineSettings
 from ..models.frames import MinimizerResult
 from ..schema import Attr
@@ -210,22 +210,21 @@ def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:
     frames with bounded memory: each block's scale comes from the kernel over the block and the
     SWING_WINDOW + 1 frames before it, which covers every window the block's frames use."""
     nx = f[schema.NODE_X]
-    T, N = nx.shape[0], nx.shape[1]
-    every = np.ones(N, bool)
+    T = nx.shape[0]
     delta, swing = f[schema.TEMPORAL_DELTA], f[schema.SWING]
     prev = None
     for a in range(0, T, block):
         b = min(a + block, T)
         scale = _block_scale(nx, a, b)
         rows = np.asarray(nx[a:b], np.float32)
-        d = np.zeros(rows.shape[:2] + (2,), np.float32)
-        s = np.zeros_like(d)
-        for j in range(len(rows)):
-            before = rows[j] if prev is None else prev
-            d[j] = temporal_delta(rows[j], before, every)
-            s[j] = swing_zscore(rows[j], before, scale[j], every)
-            prev = rows[j]
-        delta[a:b], swing[a:b] = d, s
+        # each frame's previous scan: the one before it in the block, the first frame's from the
+        # last block (the very first frame is its own previous, so its change is zero); every bus,
+        # the same element-wise arithmetic as temporal_delta and swing_zscore
+        before = np.concatenate([rows[:1] if prev is None else prev[None], rows[:-1]])
+        change = rows[:, :, 1:3] - before[:, :, 1:3]
+        delta[a:b] = change.astype(np.float32)
+        swing[a:b] = (change / scale).astype(np.float32)
+        prev = rows[-1]
 
 
 def _block_scale(nx: h5py.Dataset, a: int, b: int) -> np.ndarray:

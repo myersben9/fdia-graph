@@ -69,7 +69,7 @@ def _pin(f: h5py.File, nodes: list[tuple[int, int]], edges: list[tuple[int, int]
             if not positions:
                 continue
             x, bx, tm = observed[a:b], benign[a:b], tamper[a:b]
-            for i, col in positions:
-                x[:, i, col] = bx[:, i, col]
-                tm[:, i, col] = False
+            rows, cols = (list(c) for c in zip(*positions))
+            x[:, rows, cols] = bx[:, rows, cols]
+            tm[:, rows, cols] = False
             observed[a:b], tamper[a:b] = x, tm

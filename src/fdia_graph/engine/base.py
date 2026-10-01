@@ -88,12 +88,12 @@ class GridBase:
     _base_mva: float
     _ppc_row: np.ndarray
     _from_bus_ppc: np.ndarray
+    _ppc_branch: np.ndarray  # the ppc branch matrix (from and to bus columns), for the flow derivatives
     _n_ppc_buses: int
     # contingency
     contingency: Outage
 
     # cross-mixin methods (defined in the concern mixins)
-    def _draw_noise(self, s: float) -> float: ...
     def emit_from_state(self, X: np.ndarray) -> Scan: ...
     def meter_masks(self) -> tuple[np.ndarray, np.ndarray]: ...
     def current_mask(self) -> Optional[np.ndarray]: ...

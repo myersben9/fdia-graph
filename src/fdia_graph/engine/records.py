@@ -3,9 +3,9 @@
 Every attack is built in `engine.attacks` (the `AttackMixin` of FdiaGenerator); this module emits
 a benign scan and hands an attacked ramp frame to the mixin.
 
-RNG-order invariant: a file is reproduced bit for bit from its seed, so the order of random draws
-is fixed: one emission per scan, the true one; a stealthy frame adds its attack vector to it
-without a draw.
+RNG-order invariant: a file is reproduced bit for bit from its seed (tests/test_split_first.py
+writes one twice and compares), so the order of random draws is fixed: one emission per scan, the
+true one; a stealthy frame adds its attack vector to it without a draw.
 """
 
 from __future__ import annotations

@@ -5,6 +5,32 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Hand-written loops and formulas replaced by library calls and array operations.** Generated
+  files are byte-identical to the previous release at the same seed; every replacement is pinned to
+  the code it replaced (`tests/test_package_equivalence.py`).
+  - Generation: the temporal-feature pass, the meter-noise draw (one vector draw per layer in the
+    same order as the per-channel draws), the meter masks, the per-bus scale factors, the case
+    limits (`np.add.at`) and the swing scale run as array operations instead of Python loops.
+  - Metrics: new `formulas.micro_prf`, `formulas.sample_f1`, `formulas.strict_accuracy` and
+    `formulas.metrics.perbus_counts_at` (every candidate threshold at once); the localizers' and the
+    federated localizer's threshold searches and score blocks use them (checked against
+    scikit-learn in the tests).
+  - `formulas.leverage` takes the hat-matrix diagonal without forming the matrix;
+    `guarded_inverse` inverts through its Cholesky factor; the SE `geo` score uses
+    `scipy.stats.gmean`; the DQN replay buffer is a `collections.deque`; both DQN selectors build
+    their network with `trust.dqn.q_network`; `trust.secured_copy` restores secured meters in one
+    indexing step; the dataset's derived series admittance uses `formulas.series_admittance`;
+    `profiles` removes shunt draws with `np.subtract.at` and the CSV export concatenates once.
+  - Docstrings that promised bit-for-bit reproduction against the removed frozen suite now name
+    what pins the behaviour.
+  - `formulas.ac_jacobian` is built from pandapower's `dSbus_dV` and `dSbr_dV` (the [se] extra)
+    instead of by hand; its signature is now `(vm, theta, Ybus, Yf, Yt, branch, lut)`, taking the
+    ppc branch matrix and `Yt` in place of `from_bus` and `n_ppc`. It equals the previous kernel to
+    within floating-point rounding on all eight systems, and the estimators' fitted Jacobian with it.
+  - `formulas.subnetwork` and `formulas.hop_distance` use scipy's unweighted shortest path through
+    the new `formulas.hop_distances` and `formulas.edge_adjacency`; the interiors, boundaries and hop
+    counts equal the breadth-first search they replace.
+
 - **The attack search is a plain candidate loop; the certifier is gone.**
   - `MinimizeMixin.min_tamper` solves the area, then the goal's buses grown one area bus at a time,
     smallest first, at most `min_budget` candidates, and keeps the cheapest; it stops early only at one

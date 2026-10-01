@@ -22,6 +22,21 @@ def perbus_counts(pred: np.ndarray, truth: np.ndarray) -> tuple[np.ndarray, np.n
     return tp, fp, fn
 
 
+def perbus_counts_at(
+    score: np.ndarray, truth: np.ndarray, taus: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """`perbus_counts` of `score > tau` at every candidate threshold at once.
+
+    score : [n, N] float;  truth : [n, N] bool;  taus : [K]
+    returns : (tp, fp, fn), each [K, N] float64
+    """
+    score = np.asarray(score)
+    # one [n, N] comparison per tau: a full [K, n, N] mask would hold 19 copies of a timeline's labels
+    counts = [perbus_counts(score > tau, truth) for tau in np.asarray(taus, np.float64)]
+    tp, fp, fn = (np.stack(c) for c in zip(*counts))
+    return tp, fp, fn
+
+
 def perbus_f1_from_counts(tp: np.ndarray, fp: np.ndarray, fn: np.ndarray) -> np.ndarray:
     """F1 per bus from its counts [KEC25]:  F1 = 2 TP / (2 TP + FP + FN), with 1e-9 in the
     denominator so a bus never attacked nor flagged scores 0.
@@ -62,6 +77,41 @@ def perbus_rates(pred: np.ndarray, truth: np.ndarray) -> tuple[np.ndarray, np.nd
     tp, fp, fn = perbus_counts(pred, truth)
     tn = (~np.asarray(pred, bool) & ~np.asarray(truth, bool)).sum(axis=0).astype(np.float64)
     return perbus_f1_from_counts(tp, fp, fn), tp / np.maximum(tp + fn, 1.0), fp / np.maximum(fp + tn, 1.0)
+
+
+def micro_prf(pred: np.ndarray, truth: np.ndarray) -> tuple[float, float, float]:
+    """Micro precision, recall and F1 over every (record, bus) call, each 0 when its denominator is
+    0 (scikit-learn's precision_recall_fscore_support with average="micro", zero_division=0).
+
+    pred, truth : [n, N] bool
+    """
+    g = LabelGrids(pred, truth)
+    tp = float((g.pred & g.truth).sum())
+    prec = tp / max(float(g.pred.sum()), 1e-12)
+    rec = tp / max(float(g.truth.sum()), 1e-12)
+    return prec, rec, 2 * prec * rec / max(prec + rec, 1e-12)
+
+
+def sample_f1(pred: np.ndarray, truth: np.ndarray) -> float:
+    """Per-sample F1 averaged over the records, 0 for a record with nothing predicted nor true
+    (scikit-learn's f1_score with average="samples", zero_division=0).
+
+    pred, truth : [n, N] bool
+    """
+    g = LabelGrids(pred, truth)
+    inter = (g.pred & g.truth).sum(axis=1).astype(np.float64)
+    denom = np.maximum(g.pred.sum(axis=1) + g.truth.sum(axis=1), 1e-12)
+    return float((2 * inter / denom).mean())
+
+
+def strict_accuracy(pred: np.ndarray, truth: np.ndarray) -> float:
+    """Strict localization accuracy: the share of records whose predicted set equals the true set
+    exactly (scikit-learn's accuracy_score on multilabel rows).
+
+    pred, truth : [n, N] bool
+    """
+    g = LabelGrids(pred, truth)
+    return float((g.pred == g.truth).all(axis=1).mean())
 
 
 def average_precision(score: np.ndarray, truth: np.ndarray) -> float:

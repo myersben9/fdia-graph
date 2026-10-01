@@ -13,6 +13,7 @@ greedy selection re-evaluates the attack cost on every candidate at every step.
 
 from __future__ import annotations
 
+from collections import deque
 from types import ModuleType
 from typing import TYPE_CHECKING
 
@@ -26,13 +27,26 @@ if TYPE_CHECKING:
     from torch import nn
 
 
-def _torch() -> ModuleType:
+def _torch(who: str = "TrustedMetersDQN") -> ModuleType:
     try:
         import torch
 
         return torch
     except ImportError as e:
-        raise ImportError("TrustedMetersDQN needs torch: pip install 'fdia-graph[torch]'") from e
+        raise ImportError(f"{who} needs torch: pip install 'fdia-graph[torch]'") from e
+
+
+def q_network(n_in: int, width: int, n_out: int, who: str = "TrustedMetersDQN") -> nn.Module:
+    """The Q-network both DQN selectors use: two hidden ReLU layers of `width`. Its size is ours
+    [E9]; Fig. 1 of [WU26] only sketches the agent."""
+    torch = _torch(who)
+    return torch.nn.Sequential(
+        torch.nn.Linear(n_in, width),
+        torch.nn.ReLU(),
+        torch.nn.Linear(width, width),
+        torch.nn.ReLU(),
+        torch.nn.Linear(width, n_out),
+    )
 
 
 class TrustedMetersDQN(TrustSelector):
@@ -73,14 +87,7 @@ class TrustedMetersDQN(TrustSelector):
 
     # ---- the network ----------------------------------------------------------------------------
     def _net(self) -> nn.Module:
-        torch = _torch()
-        return torch.nn.Sequential(
-            torch.nn.Linear(self.m, self.hidden),
-            torch.nn.ReLU(),
-            torch.nn.Linear(self.hidden, self.hidden),
-            torch.nn.ReLU(),
-            torch.nn.Linear(self.hidden, self.m),
-        )
+        return q_network(self.m, self.hidden, self.m)
 
     def _q(self, net: nn.Module, states: np.ndarray) -> torch.Tensor:
         """Q-values with the secured meters masked out (they cannot be secured twice)."""
@@ -154,26 +161,13 @@ class TrustedMetersDQN(TrustSelector):
         return order, cost
 
 
-class _Replay:
-    """A bounded replay buffer in arrival order, oldest first: the last `cap` transitions, kept in
-    a ring so an append is O(1) instead of re-slicing a list every step. Index i is the i-th oldest,
-    so sampling by index draws exactly what the sliced list drew."""
+class _Replay(deque):
+    """A bounded replay buffer in arrival order, oldest first: the last `cap` transitions
+    (`collections.deque` with `maxlen`, so an append past the cap drops the oldest). Index i is the
+    i-th oldest, so sampling by index draws exactly what a sliced list would."""
 
     def __init__(self, cap: int) -> None:
-        self.cap = cap
-        self._buf: list[tuple] = []
-        self._head = 0  # physical index of the oldest item once the ring is full
-
-    def __len__(self) -> int:
-        return len(self._buf)
-
-    def append(self, item: tuple) -> None:
-        if len(self._buf) < self.cap:
-            self._buf.append(item)
-        else:
-            self._buf[self._head] = item
-            self._head = (self._head + 1) % self.cap
+        super().__init__(maxlen=cap)
 
     def sample(self, idx: np.ndarray) -> list[tuple]:
-        n = len(self._buf)
-        return [self._buf[(self._head + int(i)) % n] for i in idx]
+        return [self[int(i)] for i in idx]
