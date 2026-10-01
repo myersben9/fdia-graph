@@ -38,4 +38,5 @@ trust.selection-ieee14-migrated,trust.selection,2026-09-26T09:53:36Z,0.20.0,7902
 wu26.method_compare-migrated,wu26.method_compare,2026-09-30T00:00:00Z,0.20.0,,False,,,,,"migrated from scratchpad/wu_defense/rref_compare.jsonl (scratchpad/wu_defense/rref_compare.py, not in the repo)"
 wu26.prototype-migrated,wu26.prototype,2026-09-29T00:00:00Z,0.20.0,,False,,,,,"migrated from scratchpad/wu_defense/proto2_faithful_14.csv (scratchpad/wu_defense/proto2.py, not in the repo)"
 wu26.reproduction-ieee14-20261001t182633z-f9d4ef-26b42f,wu26.reproduction,2026-10-01T18:26:33Z,0.20.0,51b5b6ae9a086288bb12365ad4e61cfb1608e351,False,,,f9d4ef17989c,Windows-10,
+wu26.reproduction-ieee118-20261001t200605z-5faa19-778d1b,wu26.reproduction,2026-10-01T20:06:05Z,0.20.0,c592c07fbb52a0e629e0c83037c789f5c62fd789,False,,,5faa19659261,Windows-10,
 wu26.smax_sensitivity-migrated,wu26.smax_sensitivity,2026-09-28T12:00:00Z,0.20.0,,False,,,,,migrated from scratchpad/wu_smax_sensitivity.csv (rerun on PR #162's code; script not in the repo)

@@ -23,13 +23,21 @@ source any number on this page is rendered from.
 <!-- results: wu26.reproduction -->
 | case | rating | method | windows | attacked / survives | undefended (devices / channels) | defended | rise (channels) | extra devices | [WU26] |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| IEEE-118, scenario 1 | +0.10 | dqn | 100 | 100 / 100 | 10 / 27 | 13 / 29 | 7.1% | 8 | 16.4% mean, mostly 10% to 20% |
+| IEEE-118, scenario 1 | +0.10 | solution1 | 100 | 100 / 100 | 10 / 27 | 13 / 29 | 7.1% | 8 | 16.4% mean, mostly 10% to 20% |
 | IEEE-14, scenario 1 | +0.10 | dqn | 20 | 9 / 0 | 17 / 81 | none survives |  |  | 25.6% / 23.9% |
 | IEEE-14, scenario 1 | +0.10 | solution1 | 20 | 9 / 0 | 17 / 81 | none survives |  |  | 25.6% / 23.9% |
 | IEEE-14, scenario 2 | +0.10 | dqn | 20 | 20 / 20 | 8 / 23 | 8 / 23 | 0.0% | 2 | 35.2% / 27.0% |
 | IEEE-14, scenario 2 | +0.10 | solution1 | 20 | 20 / 20 | 8 / 23 | 8 / 23 | 0.0% | 2 | 35.2% / 27.0% |
 <!-- /results -->
 
-IEEE-118 lands in the paper's band; IEEE-14 does not. The next section says why.
+- **IEEE-118 comes closest.** Every window's attack survives the schedule, and the trusted PMUs add
+  tampered devices on the scale of the paper's 3 to 5, but the cost rise counted in measurements stays
+  below the paper's band in most windows (`fig12_ieee118.png`). The extra devices count every device in
+  the defended attack that the undefended one did not tamper, swaps included, so they exceed the net rise.
+- **IEEE-14 does not reproduce Table II.** On lines 3-4 and 6-11 no defended attack survives where an
+  undefended one exists; on lines 1-2 and 4-5 the defended attack costs what the undefended one does. The
+  next section says why.
 
 ## Why IEEE-14 does not reproduce Table II
 
@@ -46,7 +54,7 @@ gives (experiment `minlp.rating_delta`):
 | IEEE-118, lines 84-85 and 99-100 | 10 / 25 → 13 / 29 | 10 / 29 → 13 / 31 | 13 / 35 → 13 / 35 | 14 / 40 → 14 / 40 |
 <!-- /results -->
 
-- **IEEE-118** reaches the paper's band at the smallest steps.
+- **IEEE-118** rises under the schedule at the smallest steps, the closest to the paper's band.
 - **IEEE-14, lines 3-4 and 6-11** has no attack at any step under our load cap and the paper's limits
   (21)-(23), while the paper attacks it at about 0.22 pu.
 - **IEEE-14, lines 1-2 and 4-5** routes around the trusted PMUs: its attack moves no PMU bus's |V| or

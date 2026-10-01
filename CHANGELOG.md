@@ -41,8 +41,9 @@ the public API, the generated files and the numbers are the same as the previous
   - `tools/wu26_harness.py` takes `--ratings` ("+0.10" by default, or margins such as "1.1") and runs on
     the paper's area; its rerun (experiment `wu26.reproduction`) and the MINLP prototype's experiments
     (`minlp.prototype`, `minlp.region_reading`, `minlp.anchoring`, `minlp.rating_delta`,
-    `minlp.cap_trust_grid`) are rendered in docs/wu26/README.md, with why IEEE-14 does not reproduce
-    the paper's Table II. New metric `feasible`; `lower_bound` is now a solver's dual bound.
+    `minlp.cap_trust_grid`) are rendered in docs/wu26/README.md: IEEE-118 comes closest to the paper's
+    band (the defense adds devices on its scale, the measurement count rises less), IEEE-14 does not
+    reproduce Table II, and why. New metric `feasible`; `lower_bound` is now a solver's dual bound.
 
 - **Generation in stages, typed settings, the paper mapped to the code.**
   - The timeline writer is a pipeline of stages with typed hand-offs in the new package
