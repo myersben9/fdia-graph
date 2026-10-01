@@ -947,7 +947,11 @@ def wu26_reproduction(store: Store) -> str:
                 f"{len(before)}",
                 f"{len(attacked)} / {len(rise)}",
                 f"{med([b for b in before if b > 0], '.0f')} / {med([c for c in ch_before if c > 0], '.0f')}",
-                f"{med([a for a in after if a > 0], '.0f')} / {med([c for c in ch_after if c > 0], '.0f')}",
+                (
+                    f"{med([a for a in after if a > 0], '.0f')} / {med([c for c in ch_after if c > 0], '.0f')}"
+                    if any(a > 0 for a in after)
+                    else "none survives"
+                ),
                 f"{med(rise, '.1f')}%" if rise else "",
                 med(extra, ".0f"),
                 _WU_TABLE2.get((system, scenario), ""),

@@ -23,6 +23,10 @@ source any number on this page is rendered from.
 <!-- results: wu26.reproduction -->
 | case | rating | method | windows | attacked / survives | undefended (devices / channels) | defended | rise (channels) | extra devices | [WU26] |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| IEEE-14, scenario 1 | +0.10 | dqn | 20 | 9 / 0 | 17 / 81 | none survives |  |  | 25.6% / 23.9% |
+| IEEE-14, scenario 1 | +0.10 | solution1 | 20 | 9 / 0 | 17 / 81 | none survives |  |  | 25.6% / 23.9% |
+| IEEE-14, scenario 2 | +0.10 | dqn | 20 | 20 / 20 | 8 / 23 | 8 / 23 | 0.0% | 2 | 35.2% / 27.0% |
+| IEEE-14, scenario 2 | +0.10 | solution1 | 20 | 20 / 20 | 8 / 23 | 8 / 23 | 0.0% | 2 | 35.2% / 27.0% |
 <!-- /results -->
 
 IEEE-118 lands in the paper's band; IEEE-14 does not. The next section says why.
