@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **[WU26] reproduction harness** (`tools/wu26_harness.py`, `docs/wu26/README.md`): 1-minute attack windows
+  rebuilt from the 5-minute pool by AC power flow, Solution 1 and the DQN played on each window's
+  trusted-PMU MDP, and Table II, the trusted orders, the decision times and Figs. 11-12 written with
+  the CSV each figure is drawn from. Tables III-V and Fig. 13 are not reproduced (see the README).
+
 - **Removed: single-snapshot generation, the v0.8.3 recipe and the frozen suite.** The generator
   makes the multi-snapshot families `At` and `Am` only, on the hybrid meters; every published data
   release (v0.7.1 to v0.8.3) still loads read-only, with its family names (`Aq`, `Ad`, `As`, `Ar`,

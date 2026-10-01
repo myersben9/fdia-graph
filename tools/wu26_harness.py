@@ -79,7 +79,7 @@ def build_env(system: int, scenario: int, margin: float, states: list[np.ndarray
     """The trusted-PMU MDP of one window on the paper's metering (the construction of the tests')."""
     from fdia_graph.engine.attacks.overload import WU26_PMUS, WU26_SCENARIOS
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.generation import NOISE_FLOOR, _load_states
+    from fdia_graph.generation import _load_states
     from fdia_graph.models import WuDefenseConfig
     from fdia_graph.models.config import OverloadSettings
     from fdia_graph.models.frames import FrameKnobs
@@ -94,10 +94,10 @@ def build_env(system: int, scenario: int, margin: float, states: list[np.ndarray
     g.meters = g.meters._replace(pmu=set(g.wu26_buses(WU26_PMUS[system]).tolist()), flow=flow)
     g.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(states))
     limits = g.operating_limits(_load_states(system, None))
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, limits, True, budget, 1.0, 0.5, 2)
+    k = FrameKnobs(hops=2, limits=limits, min_tamper=True, min_budget=budget, load_cap=0.5, n_lines=2)
     order = SCHEDULES[system][scenario] if system == 14 else WU26_PMUS[system]
     slots = (1, 3, 5, 7) if system == 14 else tuple(range(len(order)))
-    pmus = [int(b) for b in g.wu26_buses(list(order))]
+    pmus = [int(b) for b in g.wu26_buses(tuple(order))]
     return WuDefenseEnv(g, states, g.overload_goal(states, *lines), k, WuDefenseConfig(pmus, slots))
 
 
@@ -113,7 +113,10 @@ def devices_named(env, result) -> set[str]:
     plan = result.plan or tuple(result.support for _ in w.segments)
     prev, names = w.prev, set()
     for t in range(len(env.states)):
-        node, edge, cur, prev = w._free_snapshot(t, w.support_at(t, plan), prev)
+        snap = w._free_snapshot(t, w.support_at(t, plan), prev)
+        if snap is None:  # nothing free at this snapshot: no channel is tampered there
+            continue
+        node, edge, cur, prev = snap
         for b, c in zip(*np.nonzero(node)):
             names.add(("PMU " if c in (NODE.v, NODE.theta) and w.pmu[b] else "SCADA ") + str(number[b]))
         for e, _c in zip(*np.nonzero(edge)):
@@ -221,13 +224,18 @@ def figures(rows: list[dict], system: int, out: str) -> None:
         fig.tight_layout()
         fig.savefig(os.path.join(out, f"fig11_ieee{system}.png"), dpi=300)
         plt.close(fig)
-    rise = [
-        (r["channels_after"] - r["channels_before"]) / r["channels_before"] * 100
-        for r in rows
-        if r["method"] == "dqn" and r["devices_after"] > 0 and r["channels_before"] > 0
-    ]
-    extra = [len(r["extra"].split()) for r in rows if r["method"] == "dqn" and r["devices_after"] > 0]
+    # the test windows where an attack survives the defense, so the rise and the extra devices are defined
+    tested = [r for r in rows if r["method"] == "dqn" and r["devices_after"] > 0 and r["channels_before"] > 0]
+    rise = [(r["channels_after"] - r["channels_before"]) / r["channels_before"] * 100 for r in tested]
+    extra = [len(r["extra"].split()) for r in tested]
     if rise:
+        rank = np.argsort(rise)
+        np.savetxt(  # the figure's data beside it: each ranked test window's rise and extra devices
+            os.path.join(out, f"fig12_ieee{system}.csv"),
+            np.column_stack([np.asarray(rise)[rank], np.asarray(extra)[rank]]),
+            delimiter=",",
+            header="rise_percent,extra_devices",
+        )
         fig, (a, b) = plt.subplots(1, 2, figsize=(6.8, 2.4))
         a.plot(sorted(rise), "o", color="#1f3b73", markersize=3)
         a.axhspan(10, 20, color="#9aa7c7", alpha=0.35, linewidth=0)  # the paper's 10%-20% band
@@ -249,7 +257,7 @@ def write(rows: list[dict], path: str) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     ap.add_argument("--system", type=int, choices=(14, 118), required=True)
     ap.add_argument("--margins", type=float, nargs="+", default=[1.2])
     ap.add_argument("--windows", type=int, default=20)
