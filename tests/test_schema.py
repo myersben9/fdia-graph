@@ -171,7 +171,8 @@ def test_the_any_rule_finds_every_kind_of_annotation(tmp_path):
 
 
 def test_the_equation_map_refuses_a_malformed_wu26_tag(tmp_path):
-    """Any [WU26 ...] citation that is neither the bare reference nor a full tag is reported."""
+    """Any citation of the paper in brackets that is neither the bare reference nor a full tag is
+    reported (the citations below are assembled, so this file carries none of them)."""
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
@@ -181,10 +182,9 @@ def test_the_equation_map_refuses_a_malformed_wu26_tag(tmp_path):
     em = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(em)
     src = tmp_path / "x.py"
-    src.write_text(
-        'def f():\n    """[WU26] [WU26 eq. 12] [WU26 eq 12] [WU26 eq. (12)] [WU26, eq. 3]"""\n',
-        encoding="utf-8",
-    )
+    bodies = ("WU26", "WU26 eq. 12", "WU26 eq 12", "WU26 eq. (12)", "WU26, eq. 3")
+    cites = " ".join("[" + body + "]" for body in bodies)
+    src.write_text(f'def f():\n    """{cites}"""\n', encoding="utf-8")
     c = em.Citations()
     c.scan(str(src))
     bad = [p for p in c.problems if "is not a tag" in p]
