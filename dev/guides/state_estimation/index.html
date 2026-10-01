@@ -1263,14 +1263,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1291,14 +1291,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1319,126 +1319,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1741,14 +1629,14 @@ of 20,000 draws to within 3% (<code>tests/test_pmu_channels.py</code>).</p>
 </thead>
 <tbody>
 <tr>
-<td><code>Ad</code> bias, <code>As</code> scaling, <code>Ar</code> replay</td>
-<td>improve a lot</td>
-<td>meters corrupted in place, which robust weighting exists to reject</td>
-</tr>
-<tr>
-<td><code>Aq</code>, <code>At</code>, <code>Al</code>, <code>Am</code> (stealthy)</td>
+<td><code>At</code>, <code>Am</code> (stealthy, and <code>Aq</code>, <code>Al</code> in older releases)</td>
 <td>robust weighting sees nothing; the prior moves them part of the way</td>
 <td>a consistent AC state leaves no residual, and it sits off the benign operating subspace, so the prior pulls the estimate part of the way back</td>
+</tr>
+<tr>
+<td><code>Ad</code> bias, <code>As</code> scaling, <code>Ar</code> replay (older releases only)</td>
+<td>improve a lot</td>
+<td>meters corrupted in place, which robust weighting exists to reject</td>
 </tr>
 <tr>
 <td>benign</td>
@@ -1757,7 +1645,7 @@ of 20,000 draws to within 3% (<code>tests/test_pmu_channels.py</code>).</p>
 </tr>
 </tbody>
 </table>
-<p>Full per-family table and figures: <a href="../../se/"><code>../se/README.md</code></a>.</p>
+<p>Full per-family table and figures, on data release v0.8.x: <a href="../../se/"><code>../se/README.md</code></a>.</p>
 <h2 id="your-own-estimator">Your own estimator<a class="headerlink" href="#your-own-estimator" title="Permanent link">&para;</a></h2>
 <p>Subclass <code>SEBase</code> and override one hook; the rest is shared, so comparisons are estimator against
 estimator.</p>

@@ -1297,14 +1297,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1325,14 +1325,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1353,126 +1353,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1692,13 +1580,13 @@ order, and the view then slides windows and lists episodes; <code>order="random"
 a record table. Three aligned measurement layers come with every frame, for buses and for branches:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">ts</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"time"</span><span class="p">)</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">a</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">export</span><span class="p">()</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">a</span><span class="p">[</span><span class="s2">"node_x"</span><span class="p">]</span>   <span class="c1"># [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">a</span><span class="p">[</span><span class="s2">"benign"</span><span class="p">]</span>   <span class="c1"># the same meters with the ATTACK REMOVED (noise kept)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">a</span><span class="p">[</span><span class="s2">"clean"</span><span class="p">]</span>    <span class="c1"># NOISELESS, attack-free TRUE state (the SE target)</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">a</span><span class="p">[</span><span class="s2">"edge_x"</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="s2">"edge_benign"</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="s2">"edge_clean"</span><span class="p">]</span>   <span class="c1"># [T, E, 2] the same three layers for branch flows</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">a</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="s2">"family"</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="s2">"seq_id"</span><span class="p">]</span>                  <span class="c1"># per-frame labels, family, episode index (-1 benign)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">ts</span><span class="o">.</span><span class="n">edge_index</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">edge_attr</span>                        <span class="c1"># static graph; ts.to_numpy()["node_m"][0] the meter plan</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">ts</span><span class="o">.</span><span class="n">edge_index</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">edge_attr</span>                        <span class="c1"># static graph; ts.export()["node_m"][0] the meter plan</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">Xw</span><span class="p">,</span> <span class="n">yw</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">windows</span><span class="p">(</span><span class="n">W</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>               <span class="c1"># [n, 24, N, 4] windows + per-window labels</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">ep</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">episodes</span>                                   <span class="c1"># onset, length, family, buses of every episode in the view</span>
@@ -1750,7 +1638,7 @@ always the exact SE target.</p>
 </code></pre></div>
 <ul>
 <li><code>Xw</code> is the attacked, noisy input. <code>target</code> is the clean V/θ it should reconstruct.</li>
-<li>For a full SE measurement set, window <code>edge_x</code> the same way (<code>ts.to_numpy(["edge_x"])</code>) and feed
+<li>For a full SE measurement set, window <code>edge_x</code> the same way (<code>ts.export(["edge_x"])</code>) and feed
   node + edge together. That is exactly what a WLS/robust estimator consumes.</li>
 <li>Line physics: <code>ts.edge_attr</code> (<code>[E,8]</code>), <code>ts.ybus</code>, <code>ts.yf</code>.</li>
 <li>Custom timeline: <code>fg.generate(system, name, attacked_frac=0.5, families=[...], seed=...)</code>.</li>
@@ -1995,7 +1883,7 @@ research target, not a given.</p>
 <a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="c1"># DR 0.372  FA 0.0055  F1 0.463          (~3.5 min CPU; val F1 0.39 -&gt; 0.47 from 5 to 10 epochs, headroom left)</span>
 </code></pre></div>
 <p>These are minutes-of-CPU baselines with deliberate headroom, not the dataset's ceiling.
-<code>layer="benign"</code>/<code>"clean"</code> on <code>windows</code>, <code>torch_windows</code> and <code>pyg_stream</code> swaps the model input
+<code>layer="benign"</code>/<code>"clean"</code> on <code>windows</code> swaps the model input
 layer (the label stays the attack target).</p>
 <h2 id="dataset-statistics">Dataset statistics<a class="headerlink" href="#dataset-statistics" title="Permanent link">&para;</a></h2>
 <p>The tables in this section describe data release v0.8.3. Its <code>Aq</code> and <code>Al</code> episodes are one frame

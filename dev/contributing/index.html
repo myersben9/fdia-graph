@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://fdia.artecommercellc.com/dev/contributing/">
       
       
-        <link rel="prev" href="../plans/RESTRUCTURE_PLAN/">
+        <link rel="prev" href="../plans/RELAX_CERTIFIER_PLAN/">
       
       
         <link rel="next" href="../changelog/">
@@ -1156,14 +1156,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1184,14 +1184,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1212,126 +1212,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1654,8 +1542,8 @@ checks a docs change locally.</p>
 </tr>
 <tr>
 <td>every change is proven behaviour-free, or its effect is measured</td>
-<td>the strict frozen suite compares a tiny timeline and its state-estimation and localization scores bit for bit; an intended change re-freezes in the same PR and states the deltas</td>
-<td><code>FDIA_FROZEN_STRICT=1 pytest -W "error::DeprecationWarning:fdia_graph" tests</code>, <code>python tools/freeze_reference.py</code></td>
+<td>the tests pin the fewest-tamper search's answers (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios (<code>tests/test_wu_scenarios.py</code>) and the formulas and models; a change that moves a generated number states the delta</td>
+<td><code>pytest -W "error::DeprecationWarning:fdia_graph" tests</code></td>
 </tr>
 <tr>
 <td>code reads as its subject</td>
@@ -1665,7 +1553,7 @@ checks a docs change locally.</p>
 <tr>
 <td>an input is checked in one place</td>
 <td>a new argument is a field on its consumer's model in <code>models/config.py</code>, with its rules in the annotation (<code>Annotated[float, Positive()]</code>, <code>OneOf(&lt;Choice&gt;)</code>) and cross-field rules in <code>invariants()</code>; a dataset precondition is a <code>ds.require(...)</code> capability; a condition only the data reveals raises a named error from <code>errors.py</code>; never a <code>raise ValueError</code> in a function body</td>
-<td><code>python tools/readability.py --check</code> (refuses a new one), <code>docs/plans/VALIDATION_PLAN.md</code></td>
+<td><code>python tools/readability.py --check</code> (refuses a new one)</td>
 </tr>
 <tr>
 <td>everything is typed</td>
@@ -1708,7 +1596,7 @@ that exact head.</p>
 <p>The automated review is billed per review, so a pull request reaches it only once it is clean, and
 the fixes to its findings are batched into one push. The order:</p>
 <ol>
-<li><code>python tools/prereview.py</code> until it passes: the CI gates, the strict suite, and the checks CI
+<li><code>python tools/prereview.py</code> until it passes: the CI gates, the test suite, and the checks CI
    does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).</li>
 <li>The review checklist, <code>docs/reference/REVIEW_CHECKLIST.md</code>, against the diff and every touched
    file read whole, searching outward from every change (a <code>/code-review</code> in Claude Code with the
@@ -1816,7 +1704,7 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../plans/RESTRUCTURE_PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Restructure">
+          <a href="../plans/RELAX_CERTIFIER_PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Relaxation certifier">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1826,7 +1714,7 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
                 Previous
               </span>
               <div class="md-ellipsis">
-                Restructure
+                Relaxation certifier
               </div>
             </div>
           </a>

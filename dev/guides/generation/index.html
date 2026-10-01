@@ -1285,14 +1285,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1313,14 +1313,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1341,126 +1341,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1698,10 +1586,12 @@ each is named beside it. Terms are defined in <a href="../../reference/GLOSSARY/
 </tr>
 </tbody>
 </table>
-<p><img alt="The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; episodes are placed at uniform random onsets with an equal share of attacked frames per family; the walk emits one noisy scan per state and, inside an episode, either solves a local false state (Aq, At, Al, Am) or tampers the readings in place (Ad, As, Ar); after the walk the temporal features are written from the observed frames and the frames are split chronologically into one HDF5 file with observed, benign and clean layers" src="../../figures/diagrams/generation_flow.png" /></p>
-<p>The published default release is v0.8.3 (<code>registry._RELEASE</code>), built by this code. Releases up to
-v0.8.1 differ in two ways: they hold <code>Aq</code> for 15 to 44 frames and <code>Al</code> for 10 to 29, and they
-compute the swing scale from the noiseless pool instead of the observed frames.</p>
+<p><img alt="The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; episodes are placed at uniform random onsets with an equal share of attacked frames per family; the walk emits one noisy scan per state and, inside an episode, solves a local false state (At, Am); after the walk the temporal features are written from the observed frames and the frames are split chronologically into one HDF5 file with observed, benign and clean layers" src="../../figures/diagrams/generation_flow.png" /></p>
+<p>The published default release is v0.8.3 (<code>registry._RELEASE</code>), built by fdia-graph 0.20 with the
+seven families of that release (the single-snapshot <code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code> among them) and the
+v0.8.3 meters. This version reads every release and generates the multi-snapshot families <code>At</code> and
+<code>Am</code> on the hybrid meters, the recipe of the next data release. Releases up to v0.8.1 also hold
+<code>Aq</code> for 15 to 44 frames and <code>Al</code> for 10 to 29, and compute the swing scale from the noiseless pool.</p>
 <h2 id="1-operating-point-pools">1. Operating-point pools<a class="headerlink" href="#1-operating-point-pools" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1813,9 +1703,9 @@ timeline is pool timestep <code>t</code> (<code>data/timestep</code>).</p>
 <p>The meter model decides what a meter reads (<code>meter_model</code> in the meter plan, the plan's D10). The
 default, <code>"hybrid"</code>, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads <code>|V|</code> only, a PMU
 reads <code>|V|</code>, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
-17-20]. The released files' <code>"v083"</code> model wrote an angle at every voltmeter bus and read no
-currents; the v0.8.3 recipe asks for it explicitly, <code>generate_timeline(redundancy={"meter_model":
-"v083"})</code> (<code>models.MeterSettings</code>, the plan's D12).</p>
+17-20]. The released files up to v0.8.3 wrote an angle at every voltmeter bus and read no
+currents; the loader reads them, the generator no longer writes them (<code>models.MeterSettings</code>, the
+plan's D12).</p>
 <p>Injection buses are those with a generator, a load, the external grid, a shunt or a producing static
 generator; every other bus is zero-injection (<code>FdiaGenerator._load_tables</code>). The two sets cover every
 bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters <code>|V|</code> and <code>theta</code> at
@@ -1852,33 +1742,22 @@ bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters <
 <p>A branch current (hybrid meters) carries the PMU class of IEEE C37.118.1, a total vector error of
 at most 1% taken as three standard deviations, relative to the current's magnitude on the real and
 the imaginary part alike, plus a <code>1e-5</code> pu floor (<code>formulas.noise.current_sigma</code>,
-<code>PMU_CURRENT_CLASS</code>) [C37118]; its bias is drawn once per channel after the other meters' biases, so
-the v0.8.3 draws are unchanged.</p>
+<code>PMU_CURRENT_CLASS</code>) [C37118]; its bias is drawn once per channel after the other meters' biases.</p>
 <p><code>formulas.noise.bias_jitter_split</code> splits each total into jitter <code>0.25 SD</code> and bias
 <code>sqrt(1 - 0.25^2) SD</code>, so the two add to the class total in quadrature. The bias is drawn once per
 meter (<code>_meter_bias</code>). Power and flow jitter also carry an absolute floor of <code>1e-3</code> MW or MVAr, so a
 near-zero reading still has noise. Treating the whole class error as per-scan noise would
 over-jitter one-minute traces and hide the temporal signal (<code>bias_jitter_split</code> docstring).</p>
-<p><code>NOISE_FLOOR = 0.02</code> (<code>generation.py</code>) is the lower edge of the attack plausibility band: a change
-below 2% of the reading sits inside meter error and resolves to noise.</p>
 <h2 id="3-the-attack-families">3. The attack families<a class="headerlink" href="#3-the-attack-families" title="Permanent link">&para;</a></h2>
-<p><code>attack_intensity = 0.20</code> is the upper edge of the band for Aq, Al, Ad and As, and bounds the
-redistribution Am draws at onset (<code>generate_timeline</code>, <code>lra_delta</code>). The At ramp is set by
-<code>ramp_rate</code> and <code>ramp_len</code>, Am's steps by <code>am_rate</code> and <code>am_len</code>, and Ar records the realized change
-of its replay without bounding it. The stealthy families are local false states: the attacker
-changes loads inside a subnetwork within <code>hops = 2</code> branches, solves that subnetwork with the
-boundary voltages held true, and adds <code>a = h(x_false) - h(x_true)</code> to the true scan
-(<code>engine/attacks/stealthy._stealthy_frame</code>). Every meter keeps its own noise draw, so the residual
-test sees noise only. Every false state must also stay within the case's bus voltage limits and the
-generator P and Q limits widened to the range the pool used
-(<code>engine/attacks/false_state._within_limits</code>, <code>operating_limits</code>). They satisfy equations (13)-(18)
-and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
-operating limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation also
-solves its objective, eq. (12): each <code>At</code> and <code>Am</code> episode is held on the support that tampers the
-fewest devices, and <code>Am</code> drives a line's reported flow to its rating (eqs. 24-25; by default 1.25
-times the line's peak flow over the pool, the plan's D15).
-The released files' stealthy families drew their targets at random and drove no line to its limit;
-<code>LEGACY_FAMILIES</code> with <code>am_attack="redistribution"</code>, <code>min_tamper=False</code> and <code>redundancy={"meter_model": "v083"}</code> reproduces them
+<p>The two families are local false states: the attacker changes loads (and, for <code>Am</code>, generator
+outputs) inside a subnetwork, solves that subnetwork with the boundary voltages held true, and adds
+<code>a = h(x_false) - h(x_true)</code> to the true scan (<code>engine/attacks/stealthy._stealthy_frame</code>,
+<code>engine/attacks/overload.py</code>). Every meter keeps its own noise draw, so the residual test sees noise
+only. Every false state must also stay within the case's bus voltage limits and the generator P and
+Q limits widened to the range the pool used (<code>engine/attacks/false_state._within_limits</code>,
+<code>operating_limits</code>). They satisfy equations (13)-(25) of [WU26] (the SCADA measurements, the PMU
+voltage magnitudes, angles and branch currents, the operating limits and the line-overload goal) and
+its objective, eq. (12): each episode is held on the support that tampers the fewest devices
 (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
 <table>
 <thead>
@@ -1894,72 +1773,28 @@ The released files' stealthy families drew their targets at random and drove no 
 </thead>
 <tbody>
 <tr>
-<td><code>Aq</code></td>
-<td>1</td>
-<td>local false state: each target load scaled by its own factor, rise or drop</td>
-<td>5% to 20% (<code>single_shot_design</code>)</td>
-<td>1 frame (<code>_ONE_FRAME</code>)</td>
-<td>yes</td>
-<td>1 to 6 stealthy loads (<code>pick_targets</code>)</td>
-</tr>
-<tr>
-<td><code>Ad</code></td>
-<td>2</td>
-<td>in-place bias: additive shift on P and Q, a <code>N(0, 0.02)</code> pu shift on <code>&#124;V&#124;</code>, a shift on each incident flow</td>
-<td>2% to 20% per channel, random sign (<code>_corrupt_bias</code>)</td>
-<td><code>corrupt_len = 1</code></td>
-<td>no</td>
-<td>4 attackable loads</td>
-</tr>
-<tr>
-<td><code>As</code></td>
-<td>3</td>
-<td>in-place scaling: one gain on P and Q, one gain per incident flow</td>
-<td>gain 1.02 to 1.20 (<code>_corrupt_scaling</code>)</td>
-<td><code>corrupt_len = 1</code></td>
-<td>no</td>
-<td>4 attackable loads</td>
-</tr>
-<tr>
-<td><code>Ar</code></td>
-<td>4</td>
-<td>in-place replay: the bus's four node channels copied from an earlier benign scan, at least 20 benign scans back once that many are buffered</td>
-<td>not bounded; the realized change is recorded (<code>_corrupt_replay</code>)</td>
-<td><code>corrupt_len = 1</code></td>
-<td>no</td>
-<td>4 attackable loads</td>
-</tr>
-<tr>
 <td><code>At</code></td>
 <td>5</td>
-<td>slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state</td>
+<td>slow ramp: one load factor on a fixed bus set, rise, hold, return, each frame a local false state on the fewest-tamper support</td>
 <td>0.2% per frame (<code>ramp_rate</code>), peak 2.4% to 5.2%</td>
 <td>60 frames (<code>ramp_len</code>)</td>
 <td>yes</td>
 <td>5 stealthy loads (<code>draw_ramp</code>)</td>
 </tr>
 <tr>
-<td><code>Al</code></td>
-<td>6</td>
-<td>redistribution: load-conserving shift across the two PTDF sides of a target line, lowering its apparent flow</td>
-<td>2% to 20% (<code>_lra_for_line</code>)</td>
-<td>1 frame (<code>_ONE_FRAME</code>)</td>
-<td>yes</td>
-<td>up to 6 stealthy loads per PTDF side, inside the line's subnetwork</td>
-</tr>
-<tr>
 <td><code>Am</code></td>
 <td>7</td>
-<td>v0.8.3: multi-snapshot, an <code>Al</code> redistribution drawn at onset, reached in steps (new generation: the overload attack below)</td>
-<td>per-frame step at most <code>am_rate * NOISE_FLOOR</code> = 1.8%, peak 2% to 20% (<code>_AmShape.under_floor</code>)</td>
+<td>the overload attack of [WU26]: one or two lines' reported flow driven to their ratings over the window, on the fewest-tamper support</td>
+<td>the least-norm false state that meets the goal</td>
 <td>60 frames (<code>am_len</code> defaults to <code>ramp_len</code>)</td>
 <td>yes</td>
-<td>as <code>Al</code></td>
+<td>the rated, metered lines of the window (<code>eligible_lines</code>)</td>
 </tr>
 </tbody>
 </table>
-<p>New generation (from 0.21) makes the multi-snapshot families only, <code>At</code> and <code>Am</code>, both on the
-fewest-tamper search. <code>Am</code> is the overload attack of [WU26, eqs. 24-25]
+<p>The codes of the single-snapshot families of older releases (1 <code>Aq</code>, 2 <code>Ad</code>, 3 <code>As</code>, 4 <code>Ar</code>, 6 <code>Al</code>)
+stay in the read-only label table <code>fg.FAMILIES</code>; fdia-graph 0.20 describes and generates them.</p>
+<p>Both families run on the fewest-tamper search. <code>Am</code> is the overload attack of [WU26, eqs. 24-25]
 (<code>engine/attacks/overload.py</code>): at onset, the eligible branches (rated, flow metered, true flow
 below the rating at every snapshot of the window) are tried in a random order, and the first whose
 fewest-tamper support meets the goal at every snapshot is the episode's target. Snapshot t's goal is
@@ -1990,27 +1825,19 @@ per snapshot); the reported noiseless flow reaches the rating exactly. A window 
 overload stays benign and is counted in <code>fallback_benign</code>. With the hybrid meters the attacker also
 writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
 Only <code>At</code>'s channels are bounded between snapshots, the currents included (the PMU class, D7); <code>Am</code>'s
-current channels are only counted when they move by more than 0.01 pu (D8, D11). Measured with <code>WLS</code> on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on <code>At</code> records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (<code>At</code> and <code>Am</code>, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: <code>Am</code> 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; <code>At</code>, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: <code>Am</code> 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; <code>At</code>, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The released files are v0.8.3's recipe:
-<code>families=LEGACY_FAMILIES, am_attack="redistribution", min_tamper=False,
-redundancy={"meter_model": "v083"}</code>.</p>
+current channels are only counted when they move by more than 0.01 pu (D8, D11). Measured with <code>WLS</code> on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on <code>At</code> records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (<code>At</code> and <code>Am</code>, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: <code>Am</code> 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; <code>At</code>, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: <code>Am</code> 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; <code>At</code>, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones.</p>
 <p>Notes on the table:</p>
 <ul>
 <li>A stealthy target is an attackable load that is not on a generator bus, zero-MW condensers
   included [BOY22] (<code>_load_tables</code>, <code>stealthy_pos</code>). An attackable load has nonzero active power,
-  is not on the slack bus and is at most <code>max_load_mw = 2000</code> MW (<code>attackable_pos</code>). <code>Ad</code>, <code>As</code> and
-  <code>Ar</code> draw from the attackable set.</li>
+  is not on the slack bus and is at most <code>max_load_mw = 2000</code> MW (<code>attackable_pos</code>).</li>
 <li>The <code>At</code> rise lasts 20% to 45% of the episode and the hold 0% to 25% (<code>draw_ramp</code>). Every frame
   carries at least one <code>ramp_rate</code> of change, so every frame labelled <code>At</code> is attacked
   (<code>ramp_dev</code>).</li>
-<li><code>Al</code> picks its target line at random from the 15 lines with the largest achievable flow change
-  (<code>_pick_lra_target</code>). <code>Am</code> flips the sign per episode with <code>am_direction = "both"</code>: "mask" makes a
-  loaded line read lighter, "induce" makes a safe line read loaded (<code>am_sign</code>).</li>
-<li>A stealthy step with no local solution is halved: up to 3 times and never below the noise floor
-  for <code>Aq</code> and <code>Al</code> (<code>AQ_HALVINGS</code>), up to 6 times for a ramp frame (<code>STEP_HALVINGS</code>). <code>Aq</code>, <code>At</code>
-  and <code>Am</code> designs are tested on every frame they will occupy before they are accepted, up to 40
-  draws (<code>ONSET_DRAWS</code>).</li>
-<li><code>Ad</code>, <code>As</code> and <code>Ar</code> do not re-solve the grid, so bad-data detection can see them [DAT26].
-  Unmetered channels stay zero after corruption (<code>_corrupt_frame</code>).</li>
+<li>A ramp step with no local solution is halved, up to 6 times (<code>STEP_HALVINGS</code>). <code>At</code> designs are
+  tested on every frame they will occupy before they are accepted, up to 40 draws (<code>ONSET_DRAWS</code>).</li>
+<li>An overload <code>Am</code>'s first snapshot may tamper nothing: its drift-free goal there is the true flow
+  (the plan's D9).</li>
 </ul>
 <h2 id="4-episode-placement">4. Episode placement<a class="headerlink" href="#4-episode-placement" title="Permanent link">&para;</a></h2>
 <table>
@@ -2044,7 +1871,7 @@ redundancy={"meter_model": "v083"}</code>.</p>
 </tr>
 <tr>
 <td>fallback</td>
-<td>a frame whose attack cannot be built is emitted benign; the count is the <code>fallback_benign</code> attribute</td>
+<td>a frame whose attack cannot be built, or a whole <code>Am</code> episode with no stealthy overload design at its window, is emitted benign; the count is the <code>fallback_benign</code> attribute</td>
 <td><code>_timeline_attrs</code></td>
 </tr>
 <tr>
@@ -2055,7 +1882,7 @@ redundancy={"meter_model": "v083"}</code>.</p>
 </tbody>
 </table>
 <p>Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
-the longest episodes first keeps a 60-frame episode from being squeezed out by one-frame ones. The
+the longest episodes first keeps a long episode from being squeezed out by shorter ones. The
 default <code>attacked_frac = 0.5</code> gives a balanced file. The v0.8.1 and v0.8.3 files report <code>fallback_benign = 0</code>
 on every system (<code>generate_timeline</code> docstring).</p>
 <h2 id="5-the-per-frame-layers">5. The per-frame layers<a class="headerlink" href="#5-the-per-frame-layers" title="Permanent link">&para;</a></h2>
@@ -2090,7 +1917,7 @@ on every system (<code>generate_timeline</code> docstring).</p>
 <tr>
 <td><code>data/</code></td>
 <td><code>family</code>, <code>stealthy</code>, <code>seq_id</code>, <code>timestep</code>, <code>split [T]</code></td>
-<td>family code, 1 for <code>Aq/At/Al/Am</code>, episode index (-1 benign), pool timestep, 0/1/2</td>
+<td>family code, 1 for a stealthy family (<code>At</code>, <code>Am</code>; <code>Aq</code> and <code>Al</code> in older releases), episode index (-1 benign), pool timestep, 0/1/2</td>
 <td><code>_finish_timeline</code></td>
 </tr>
 <tr>
@@ -2270,7 +2097,7 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 <tr>
 <td><code>families</code></td>
 <td>("At", "Am")</td>
-<td>the families in rotation; the single-snapshot families are deprecated for generation</td>
+<td>the families in rotation; the single-snapshot families of older releases are refused</td>
 </tr>
 <tr>
 <td><code>min_tamper</code></td>
@@ -2280,7 +2107,7 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 <tr>
 <td><code>am_attack</code></td>
 <td>"overload"</td>
-<td><code>Am</code> as the overload attack of [WU26]; "redistribution" is v0.8.3's <code>Am</code></td>
+<td><code>Am</code> as the overload attack of [WU26], or a dict of <code>OverloadSettings</code> fields</td>
 </tr>
 <tr>
 <td><code>stealth_scale</code></td>
@@ -2290,12 +2117,7 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 <tr>
 <td><code>redundancy</code></td>
 <td><code>{}</code></td>
-<td>the meter plan (<code>MeterSettings</code>): coverage <code>vbus_frac</code> 0.6, <code>pmu_frac</code> 0.2, <code>flow_frac</code> 0.9, and <code>meter_model</code> <code>"hybrid"</code> (D10, D12); the v0.8.3 recipe passes <code>{"meter_model": "v083"}</code></td>
-</tr>
-<tr>
-<td><code>attack_intensity</code></td>
-<td>0.20</td>
-<td>upper edge of the band of Aq, Al, Ad and As</td>
+<td>the meter plan (<code>MeterSettings</code>): coverage <code>vbus_frac</code> 0.6, <code>pmu_frac</code> 0.2, <code>flow_frac</code> 0.9, and <code>meter_model</code> <code>"hybrid"</code> (D10, D12)</td>
 </tr>
 <tr>
 <td><code>ramp_rate</code></td>
@@ -2313,34 +2135,9 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 <td><code>Am</code> episode length</td>
 </tr>
 <tr>
-<td><code>am_rate</code></td>
-<td>0.9</td>
-<td><code>Am</code> largest per-frame step as a fraction of the noise floor</td>
-</tr>
-<tr>
-<td><code>am_direction</code></td>
-<td>"both"</td>
-<td>"mask", "induce" or one drawn per episode</td>
-</tr>
-<tr>
 <td><code>hops</code></td>
 <td>2</td>
 <td>the attacker's subnetwork reach in branches</td>
-</tr>
-<tr>
-<td><code>corrupt_len</code></td>
-<td>1</td>
-<td><code>Ad</code>/<code>As</code>/<code>Ar</code> episode length; None draws 5 to 24 frames</td>
-</tr>
-<tr>
-<td><code>replay_tau</code></td>
-<td>None</td>
-<td>fixed <code>Ar</code> lag in frames; None draws a lag of at least 20</td>
-</tr>
-<tr>
-<td><code>redundancy</code></td>
-<td>None</td>
-<td><code>{vbus_frac, pmu_frac, flow_frac}</code>, default 0.6/0.2/0.9</td>
 </tr>
 <tr>
 <td><code>split</code></td>
@@ -2359,7 +2156,7 @@ under <code>name</code>. Without <code>states</code>, it reads <code>$FDIA_GRAPH
 </tr>
 </tbody>
 </table>
-<p>A data release follows the build script of the latest release (<code>examples/_build_timelines_v0*.py</code>):</p>
+<p>A data release (the build scripts of v0.8.0 to v0.8.3 are in the git history at <code>aa77d0b</code>):</p>
 <ol>
 <li>Per system, copy the unchanged pool and run <code>fg.generate(C, ..., states=pool, seed=123, frames=72000)</code>
    into <code>timeline_ieee{C}.h5</code>; each system writes a manifest fragment with sha256 and size.</li>

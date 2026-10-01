@@ -1187,17 +1187,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#linecandidate-fdia_graphmodelsassets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        LineCandidate (fdia_graph.models.assets)
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1528,14 +1517,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1556,14 +1545,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1584,126 +1573,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -2108,17 +1985,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#linecandidate-fdia_graphmodelsassets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        LineCandidate (fdia_graph.models.assets)
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2393,7 +2259,7 @@ and the generator, loader and estimator index columns through <code>NODE</code> 
 <li>Bus shunts are not branch properties and are not in this table: <code>ds.bus_shunt_g</code> / <code>ds.bus_shunt_b</code> in
   MW / MVAr at 1 pu (divide by <code>ds.baseMVA</code> for per-unit admittance). <code>ds.ybus</code> already includes them on
   the diagonal, together with the halved charging and the tap / shift handling.</li>
-<li>In PyG format (<code>fg.load(..., format="pyg")</code> and <code>fg.pyg_stream</code>), <code>Data.edge_attr</code> is the <code>[E,2]</code> flows
+<li>In PyG format (<code>fg.load(..., format="pyg")</code>), <code>Data.edge_attr</code> is the <code>[E,2]</code> flows
   (also exposed as <code>Data.edge_x</code>) and this <code>[E,8]</code> table is <code>Data.edge_phys</code>. On the dataset object it is <code>ds.edge_attr</code>.</li>
 </ul>
 <h2 id="where-the-branch-flows-live-per-format">Where the branch flows live, per format<a class="headerlink" href="#where-the-branch-flows-live-per-format" title="Permanent link">&para;</a></h2>
@@ -2414,7 +2280,7 @@ and the generator, loader and estimator index columns through <code>NODE</code> 
 <td><code>["edge_attr"]</code></td>
 </tr>
 <tr>
-<td>PyG <code>Data</code> or <code>DataBatch</code> (<code>format="pyg"</code>, <code>fg.pyg_stream</code>)</td>
+<td>PyG <code>Data</code> or <code>DataBatch</code> (<code>format="pyg"</code>)</td>
 <td><code>.edge_attr</code> or <code>.edge_x</code></td>
 <td><code>.edge_mask</code></td>
 <td><code>.edge_phys</code></td>
@@ -3248,8 +3114,8 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 </tbody>
 </table>
 <h3 id="stream-fdia_graphmodelsdata"><code>Stream</code> (<code>fdia_graph.models.data</code>)<a class="headerlink" href="#stream-fdia_graphmodelsdata" title="Permanent link">&para;</a></h3>
-<p>A continuous attacked time series as <code>generate_stream</code> and <code>load_stream</code> return it, leading axis T: three aligned measurement layers per frame (observed <code>node_x</code>, <code>benign</code>, <code>clean</code>), the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list. <code>stealthy</code>, <code>seq_id</code> and <code>edge_clean_full</code> are not part of a stream. A dict as well, so <code>windows</code>, <code>pyg_stream</code> and every <code>s["node_x"]</code> keep working.</p>
-<p>Field groups: <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
+<p>A continuous attacked time series as <code>generate_stream</code> and <code>load_stream</code> return it, leading axis T: three aligned measurement layers per frame (observed <code>node_x</code>, <code>benign</code>, <code>clean</code>), the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list; on a hybrid-meter file also the PMU branch currents (<code>pmu_i</code>, <code>pmu_i_benign</code> per frame, the static mask <code>pmu_i_m</code>). <code>stealthy</code>, <code>seq_id</code> and <code>edge_clean_full</code> are not part of a stream. A dict as well, so <code>windows</code> and every <code>s["node_x"]</code> keep working.</p>
+<p>Field groups: <code>PmuCurrentFields</code>, <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3386,6 +3252,27 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td>float</td>
 <td></td>
 <td>fraction of frames with at least one attacked bus (both set it)</td>
+</tr>
+<tr>
+<td><code>pmu_i</code></td>
+<td><code>pmu_i</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_m</code></td>
+<td><code>pmu_i_m</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields)</td>
+</tr>
+<tr>
+<td><code>pmu_i_benign</code></td>
+<td><code>pmu_i_benign</code></td>
+<td>Array</td>
+<td></td>
+<td>[..., E, 4] attack removed, noise kept (PmuCurrentFields)</td>
 </tr>
 <tr>
 <td><code>stealthy</code></td>
@@ -4027,70 +3914,6 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td>dict</td>
 <td>yes</td>
 <td>detection rate per attacked family present</td>
-</tr>
-</tbody>
-</table>
-<h3 id="linecandidate-fdia_graphmodelsassets"><code>LineCandidate</code> (<code>fdia_graph.models.assets</code>)<a class="headerlink" href="#linecandidate-fdia_graphmodelsassets" title="Permanent link">&para;</a></h3>
-<p>One line of <code>line_outage_candidates</code>: its pandapower index and branch position, terminals, name, intact-case active flow, and, when rejected, the reason.</p>
-<table>
-<thead>
-<tr>
-<th>field</th>
-<th>dict key</th>
-<th>type</th>
-<th>required</th>
-<th>meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>line</code></td>
-<td><code>line</code></td>
-<td>int</td>
-<td>yes</td>
-<td>pandapower line index (N-1 timeline generation is disabled; the engine keeps <code>outage</code>)</td>
-</tr>
-<tr>
-<td><code>pos</code></td>
-<td><code>pos</code></td>
-<td>int</td>
-<td>yes</td>
-<td>branch position in edge_index</td>
-</tr>
-<tr>
-<td><code>from_bus</code></td>
-<td><code>from_bus</code></td>
-<td>int</td>
-<td>yes</td>
-<td>from-end bus</td>
-</tr>
-<tr>
-<td><code>to_bus</code></td>
-<td><code>to_bus</code></td>
-<td>int</td>
-<td>yes</td>
-<td>to-end bus</td>
-</tr>
-<tr>
-<td><code>name</code></td>
-<td><code>name</code></td>
-<td>str</td>
-<td>yes</td>
-<td>line name from the case, or line<idx></td>
-</tr>
-<tr>
-<td><code>base_flow_mw</code></td>
-<td><code>base_flow_mw</code></td>
-<td>float</td>
-<td>yes</td>
-<td>active flow in the intact case, MW</td>
-</tr>
-<tr>
-<td><code>reason</code></td>
-<td><code>reason</code></td>
-<td>str</td>
-<td></td>
-<td>why the line was rejected (islands the grid), rejected list only</td>
 </tr>
 </tbody>
 </table>

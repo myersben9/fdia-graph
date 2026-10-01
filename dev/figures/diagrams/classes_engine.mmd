@@ -6,9 +6,9 @@ classDiagram
         +clean_flows_from_states()
         +all_flows_from_states()
         +currents_from_states()
-        +state_from_net()
         +true_load()
-        ... and 4 more
+        +true_reactive_load()
+        ... and 2 more
     }
     class MeasurementMixin {
         +meter_masks()
@@ -17,32 +17,23 @@ classDiagram
         +clean_flows_from_states()
         +all_flows_from_states()
         +currents_from_states()
-        +state_from_net()
-        +emit()
     }
     class PhysicsMixin {
-        +resolve_states()
         +true_load()
         +true_reactive_load()
         +scan_reactive_generation()
         +scan_generation()
-        +solve()
     }
     class AttackMixin {
         +attack_frame()
     }
     class FdiaGenerator {
-        +nl
-        +centrality_probs()
     }
     class AttackDesign {
         <<models>>
     }
     class BranchModel {
         <<models>>
-    }
-    class CorruptMixin {
-        <<engine>>
     }
     class EpisodeDesignMixin {
         <<engine>>
@@ -54,9 +45,6 @@ classDiagram
         <<models>>
     }
     class GeneratorOptions {
-        <<models>>
-    }
-    class GridIslanded {
         <<models>>
     }
     class MeterBias {
@@ -74,9 +62,6 @@ classDiagram
     class PpcTables {
         <<engine>>
     }
-    class ResolvedPool {
-        <<models>>
-    }
     class Scan {
         <<models>>
     }
@@ -84,7 +69,6 @@ classDiagram
         <<engine>>
     }
     AttackMixin <|-- FdiaGenerator
-    CorruptMixin <|-- AttackMixin
     EpisodeDesignMixin <|-- AttackMixin
     GridBase <|-- MeasurementMixin
     GridBase <|-- PhysicsMixin
@@ -96,10 +80,8 @@ classDiagram
     AttackMixin ..> FrameKnobs : uses
     FdiaGenerator ..> BranchModel : uses
     FdiaGenerator ..> GeneratorOptions : uses
-    FdiaGenerator ..> GridIslanded : uses
     FdiaGenerator ..> MeterBias : uses
     FdiaGenerator ..> MeterPlan : uses
-    FdiaGenerator ..> Outage : uses
     FdiaGenerator ..> PandapowerNet : uses
     FdiaGenerator ..> PpcTables : uses
     GridBase ..> BranchModel : uses
@@ -108,7 +90,4 @@ classDiagram
     GridBase ..> Outage : uses
     GridBase ..> PandapowerNet : uses
     GridBase ..> Scan : uses
-    MeasurementMixin ..> PandapowerNet : uses
     MeasurementMixin ..> Scan : uses
-    PhysicsMixin ..> PandapowerNet : uses
-    PhysicsMixin ..> ResolvedPool : uses

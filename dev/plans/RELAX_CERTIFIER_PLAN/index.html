@@ -13,6 +13,10 @@
         <link rel="canonical" href="https://fdia.artecommercellc.com/dev/plans/RELAX_CERTIFIER_PLAN/">
       
       
+        <link rel="prev" href="../WU_DEFENSE_PLAN/">
+      
+      
+        <link rel="next" href="../../contributing/">
       
       
         
@@ -23,7 +27,7 @@
     
     
       
-        <title>Plan: certifying the fewest-tamper attack by convex relaxation - fdia-graph</title>
+        <title>Relaxation certifier - fdia-graph</title>
       
     
     
@@ -112,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Plan: certifying the fewest-tamper attack by convex relaxation
+              Relaxation certifier
             
           </span>
         </div>
@@ -321,10 +325,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../" class="md-tabs__link">
           
   
@@ -1069,24 +1075,29 @@
       
   
   
+    
   
   
+  
     
     
     
     
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1104,7 +1115,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1150,14 +1161,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1178,14 +1189,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1203,17 +1214,44 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../VALIDATION_PLAN/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relaxation certifier
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
+    Relaxation certifier
   
 
     
@@ -1222,118 +1260,126 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../DATA_MODELS_PLAN/" class="md-nav__link">
+      
         
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
-  <span class="md-ellipsis">
+  
     
   
-    Data models
   
-
-    
-  </span>
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-problem-the-certifier-bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The problem the certifier bounds
+      
+    </span>
+  </a>
   
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-relaxation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The relaxation
+      
+    </span>
+  </a>
   
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../FIELD_GROUPS_PLAN/" class="md-nav__link">
+    <nav class="md-nav" aria-label="2. The relaxation">
+      <ul class="md-nav__list">
         
+          <li class="md-nav__item">
+  <a href="#21-cut-families-engineattacksrelax_cutspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Cut families (engine/attacks/relax_cuts.py)
+      
+    </span>
+  </a>
   
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../READABILITY_PLAN/" class="md-nav__link">
+</li>
         
+      </ul>
+    </nav>
   
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-why-the-optimum-is-a-lower-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Why the optimum is a lower bound
+      
+    </span>
+  </a>
   
-  <span class="md-ellipsis">
-    
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-solver-and-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Solver and interface
+      
+    </span>
+  </a>
   
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../RESTRUCTURE_PLAN/" class="md-nav__link">
+    <nav class="md-nav" aria-label="4. Solver and interface">
+      <ul class="md-nav__list">
         
+          <li class="md-nav__item">
+  <a href="#41-the-tolerance-guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 The tolerance guard
+      
+    </span>
+  </a>
   
+</li>
+        
+      </ul>
+    </nav>
   
-  <span class="md-ellipsis">
-    
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-ieee-14-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. IEEE-14 runs
+      
+    </span>
+  </a>
   
-    Restructure
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-what-remains-for-am" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. What remains for Am
+      
+    </span>
+  </a>
   
-
-    
-  </span>
+</li>
+      
+    </ul>
   
-  
-
-      </a>
+</nav>
+      
     </li>
   
 
@@ -1838,6 +1884,44 @@ angles so each branch carries narrow envelopes. The bound stays over the attacke
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../WU_DEFENSE_PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wu defense">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Wu defense
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../contributing/" class="md-footer__link md-footer__link--next" aria-label="Next: Contributing">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Contributing
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
     
   
   <div class="md-footer-meta md-typeset">

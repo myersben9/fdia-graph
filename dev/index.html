@@ -1289,14 +1289,14 @@
   
   
     <li class="md-nav__item">
-      <a href="plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1317,14 +1317,14 @@
   
   
     <li class="md-nav__item">
-      <a href="plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1345,126 +1345,14 @@
   
   
     <li class="md-nav__item">
-      <a href="plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1781,7 +1669,7 @@ pins a data version (the v0.7.2 record shards still load); <code>pip install --u
 <h2 id="load">Load<a class="headerlink" href="#load" title="Permanent link">&para;</a></h2>
 <p>One file per system, one loader. <code>order</code> decides what the file is to you:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee300"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>                              <span class="c1"># 60/20/20 chronological split, episodes never cut</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">,</span> <span class="n">families</span><span class="o">=</span><span class="p">[</span><span class="s2">"Aq"</span><span class="p">,</span> <span class="s2">"At"</span><span class="p">,</span> <span class="s2">"Al"</span><span class="p">])</span>  <span class="c1"># family subset</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">,</span> <span class="n">families</span><span class="o">=</span><span class="p">[</span><span class="s2">"At"</span><span class="p">])</span>             <span class="c1"># family subset</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="s2">"pu"</span><span class="p">)</span>                                 <span class="c1"># per-unit + radians (default: physical)</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"random"</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>                     <span class="c1"># the record table: a fixed permutation</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee118"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"time"</span><span class="p">)</span>                 <span class="c1"># the time series: windows, episodes</span>
@@ -1932,52 +1820,37 @@ A shape reads "values per item": <code>[N,4]</code> is 4 numbers per bus.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>Aq</code></td>
-<td>load rescale, the subnetwork around the buses re-solved locally, one frame</td>
-<td>evades</td>
-<td>every per-bus change within a 5% to 20% band</td>
-</tr>
-<tr>
 <td><code>At</code></td>
-<td>slow load ramp, re-solved locally every frame</td>
+<td>slow load ramp, re-solved locally every frame; by default (<code>min_tamper=True</code>) on the support that tampers the fewest devices, else on the region within <code>hops</code></td>
 <td>evades</td>
 <td>peak 2.4% to 5.2% of the load (0.2% per frame over a 12 to 26 frame rise), 60 frames</td>
 </tr>
 <tr>
-<td><code>Al</code></td>
-<td>load redistribution that lightens a line's apparent loading (a real overload reads lighter), re-solved locally, one frame</td>
-<td>evades</td>
-<td>2% to 20% band, load conserved</td>
-</tr>
-<tr>
 <td><code>Am</code></td>
-<td>new generation: the overload attack of [WU26], a line's reported flow driven to its rating (1.25 times its peak pool flow, or PGLib-OPF's) over the episode on the fewest-tamper support; data release v0.8.3 holds the earlier redistribution reached in per-frame steps</td>
+<td>the overload attack of [WU26]: a line's reported flow driven to its rating (1.25 times its peak pool flow, or PGLib-OPF's) over the episode on the fewest-tamper support</td>
 <td>evades</td>
 <td>the rating reached at the last scan; every scan one AC state, the fewest devices beyond [WU26]'s noise</td>
 </tr>
-<tr>
-<td><code>Ad</code> / <code>As</code> / <code>Ar</code></td>
-<td>meter bias / scaling / replay, one frame</td>
-<td>caught</td>
-<td>Ad and As 2% to 20% band; Ar replays an earlier benign scan and records the realized change</td>
-</tr>
 </tbody>
 </table>
-<p>New generation makes the multi-snapshot families <code>At</code> and <code>Am</code> only; <code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code> and <code>Ar</code> are
-deprecated for generation (refused from 0.22) and stay in the released files, which load unchanged.</p>
+<p>The generator makes these two multi-snapshot families. The single-snapshot families of data
+releases v0.8.3 and earlier (<code>Aq</code> load rescale, <code>Al</code> load redistribution, and the in-place <code>Ad</code>
+bias, <code>As</code> scaling and <code>Ar</code> replay) stay in those files and load, filter and score by name as
+before (<code>fg.load(..., release="v0.8.3", families=["Aq"])</code>); fdia-graph 0.20 is the last version
+that generates them.</p>
 <p>Every stealthy family is a local false state: the attacker solves the power flow of a subnetwork
 around the attack with the boundary voltages held true, writes only that subnetwork's meters, and
 the measurement vector stays consistent with an AC state, so the residual test sees noise. The
-meters written are the tamper masks in the file's <code>attack/</code> group. They satisfy equations (13)-(18)
-and (21)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes and angles, and the
-operating limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation
-also solves its objective, eq. (12): each <code>At</code> and <code>Am</code> episode is held on the support that tampers
-the fewest devices, and <code>Am</code> drives a line's reported flow to its rating (eqs.
-24-25). The released files' stealthy families drew their targets at random and drove no line to its
-limit; <code>LEGACY_FAMILIES</code> with <code>am_attack="redistribution"</code>, <code>min_tamper=False</code> and <code>redundancy={"meter_model": "v083"}</code> reproduces them
-(<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
+meters written are the tamper masks in the file's <code>attack/</code> group. The generated <code>At</code> and <code>Am</code>
+satisfy equations (13)-(23) of [WU26] (the SCADA measurements, the PMU voltage magnitudes, angles
+and branch currents, and the operating limits); <code>Am</code> also meets the line-overload goal, eqs.
+(24)-(25), and both are held on the support that tampers the fewest devices, eq. (12), when
+<code>min_tamper=True</code> (the default for <code>At</code>; <code>Am</code> always picks its support that way, by the search or by
+[WU26]'s row reduction, <code>am_attack={"support_method": "rref"}</code>). The single-snapshot families and the
+redistribution <code>Am</code> of the older releases were drawn at random targets, on meters without branch
+currents, and drove no line to its limit (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</p>
 <p><img alt="BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it" src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png" /></p>
-<p><em>Bad-data statistic relative to the alarm threshold, per family. Green families are indistinguishable
+<p><em>Bad-data statistic relative to the alarm threshold, per family, on data release v0.8.3. Green families are indistinguishable
 from benign; red ones trip the alarm.</em> Meter error follows an accuracy-class model (per-meter bias
 plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, never accuracy.</p>
 <h2 id="citation">Citation<a class="headerlink" href="#citation" title="Permanent link">&para;</a></h2>

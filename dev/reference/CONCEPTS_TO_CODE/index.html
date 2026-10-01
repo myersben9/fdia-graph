@@ -1285,14 +1285,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1313,14 +1313,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1341,126 +1341,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1731,15 +1619,15 @@ serve data.</p>
 </tr>
 <tr>
 <td><code>measurement.py</code></td>
-<td><code>emit_from_state</code> (the measurement function <code>h(x)</code>), <code>clean_flows_from_states</code>, <code>emit</code>, <code>state_from_net</code></td>
+<td><code>emit_from_state</code> (the measurement function <code>h(x)</code>), <code>clean_flows_from_states</code>, <code>currents_from_states</code></td>
 </tr>
 <tr>
 <td><code>physics.py</code></td>
-<td><code>solve</code> / <code>resolve_states</code>: AC re-solve under new loads</td>
+<td><code>true_load</code>, <code>scan_generation</code>: a scan's load and generation from its stored state</td>
 </tr>
 <tr>
-<td><code>attacks.py</code></td>
-<td><code>corrupt</code> (Ad/As/Ar) and <code>lra_delta</code> (Al redistribution)</td>
+<td><code>attacks/</code></td>
+<td>the false states, the fewest-tamper search, the <code>At</code> ramp and the overload <code>Am</code></td>
 </tr>
 </tbody>
 </table>
@@ -1794,70 +1682,34 @@ and converts them on load.</p>
 </thead>
 <tbody>
 <tr>
-<td>Aq</td>
-<td><code>A_o</code></td>
-<td>scale 1 to 6 loads by 5 to 20 percent, one local false state, one frame per episode</td>
-<td><code>engine/attacks/episodes.single_shot_design</code> + <code>engine/attacks/false_state.stealthy_state</code></td>
-</tr>
-<tr>
 <td>At</td>
 <td><code>A_t</code></td>
 <td>slow ramp, 0.2 percent per frame, a local false state per frame</td>
 <td><code>engine/attacks/episodes.ramp_design</code> + <code>ramp_step</code></td>
 </tr>
 <tr>
-<td>Al</td>
-<td><code>A_l</code></td>
-<td>load-conserving redistribution around a target line, one frame per episode</td>
-<td><code>engine/attacks/redistribution.lra_delta</code> + <code>engine/attacks/stealthy._lra_frame</code></td>
-</tr>
-<tr>
 <td>Am</td>
 <td><code>A_m</code></td>
-<td>the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered (v0.8.3: a held redistribution reached in steps)</td>
-<td><code>engine/attacks/overload.am_overload_design</code> + <code>overload_step</code> (v0.8.3: <code>episodes.am_design</code> + <code>am_step</code> + <code>stealthy._am_frame</code>)</td>
-</tr>
-<tr>
-<td>Ad</td>
-<td><code>A_d</code></td>
-<td><code>z ← z(1±u)</code></td>
-<td><code>engine/attacks/corrupt.corrupt</code></td>
-</tr>
-<tr>
-<td>As</td>
-<td><code>A_s</code></td>
-<td><code>z ← βz</code></td>
-<td><code>engine/attacks/corrupt.corrupt</code></td>
-</tr>
-<tr>
-<td>Ar</td>
-<td><code>A_r</code></td>
-<td>replay <code>z(t−k)</code></td>
-<td><code>engine/attacks/corrupt.corrupt</code></td>
+<td>the overload attack of [WU26]: a line's reported flow driven to its rating over the window, the fewest devices tampered</td>
+<td><code>engine/attacks/overload.am_overload_design</code> + <code>overload_step</code></td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>Aq/At/Al/Am are local false states: the buses within two hops of the attacked loads are re-solved
-  with the boundary voltages held true, inside the case's voltage limits and the region's generator
-  limits, and the attack vector <code>h(x') − h(x)</code> is added to the benign scan. The residual test flags
-  them at the benign rate by construction. They satisfy equations (13)-(18) and (21)-(23) of [WU26]
-  (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating limits), and
-  new generation, whose PMUs read branch currents, meets the current phasors (19)-(20) as well. New generation also solves its objective,
-  eq. (12): each <code>At</code> and <code>Am</code> episode is held on the support that tampers the fewest devices, and
-  <code>Am</code> drives a line's reported flow to its rating (eqs. 24-25; by default 1.25 times its peak pool flow, D15). The released files'
-  stealthy families drew their targets at random and drove no line to its limit; <code>LEGACY_FAMILIES</code>
-  with <code>am_attack="redistribution"</code>, <code>min_tamper=False</code> and <code>redundancy={"meter_model": "v083"}</code> reproduces them
-  (<code>docs/plans/WU_MSFDIA_PLAN.md</code>).</li>
+<li>At and Am are local false states: the buses around the attack are re-solved with the boundary
+  voltages held true, inside the case's voltage limits and the region's generator limits, and the
+  attack vector <code>h(x') − h(x)</code> is added to the benign scan. The residual test flags them at the
+  benign rate by construction. Both satisfy equations (13)-(23) of [WU26] (the SCADA measurements,
+  the PMU voltage magnitudes, angles and branch currents, and the operating limits). <code>Am</code> also
+  drives a line's reported flow to its rating, eqs. (24)-(25) (by default 1.25 times its peak pool
+  flow, D15), on the support that tampers the fewest devices, eq. (12); <code>At</code> is held on that
+  support when <code>min_tamper=True</code> (the default), else on the region within <code>hops</code>
+  (<code>docs/plans/WU_MSFDIA_PLAN.md</code>). The single-snapshot families of older releases (<code>Aq</code>,
+  <code>Al</code>, and the in-place <code>Ad</code>, <code>As</code>, <code>Ar</code>) are read-only: fdia-graph 0.20 generates them.</li>
 <li>With <code>min_tamper=True</code> an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (<code>engine/attacks/minimize.MinimizeMixin.min_tamper</code>,
   called by <code>engine/attacks/episodes.ramp_design</code>).</li>
-<li>Ad/As/Ar tamper readings in place. Detectable.</li>
-<li>Every designed change sits above the noise floor and below <code>attack_intensity</code> (20 percent by
-  default). Aq draws its per-bus load change from 5 to 20 percent; Ad, As and Al use the 2 to 20
-  percent band, whose lower edge is the noise floor (<code>generation.NOISE_FLOOR</code>). The multi-snapshot
-  families are the exception, by design: the At ramp and the Am redistribution move in per-frame
-  steps under the noise floor.</li>
+<li>The At ramp moves in per-frame steps under the noise floor, by design.</li>
 </ul>
 <h2 id="temporal-feature">Temporal feature<a class="headerlink" href="#temporal-feature" title="Permanent link">&para;</a></h2>
 <table>

@@ -1252,14 +1252,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1280,14 +1280,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1308,126 +1308,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1752,7 +1640,7 @@ A kind that keeps coming up becomes a checklist item or a mechanical check.</p>
    tests README.md CHANGELOG.md CONTRIBUTING.md</code>.</li>
 <li><strong>Every claim holds end to end.</strong> When the change says "no longer needs X", "unchanged", "exact"
    or "bounded memory", trace every call path (fit, score, estimate and their helpers) and confirm
-   it. "Unchanged numbers" means the strict frozen suite passes.</li>
+   it. "Unchanged numbers" means the pinned search answers and scenario tests pass unchanged.</li>
 <li><strong>Degenerate inputs.</strong> Check 0, 1, a fraction that rounds to 0, an empty candidate list, every
    retry failing, a validation set with no attacked (or no benign) record, and a refit after tuning.
    A retry loop must never emit the last candidate it rejected.</li>
@@ -1773,7 +1661,7 @@ A kind that keeps coming up becomes a checklist item or a mechanical check.</p>
 <li><strong>Numbers in docs are recomputed</strong> from the committed results file: the right metric (macro-F1
    versus node-F1), the right denominator, the right rounding, and no placeholders left.</li>
 <li><strong>Generated files are regenerated and committed together.</strong> That means the diagram <code>.mmd</code>, <code>.svg</code>
-   and <code>.png</code>, the data dictionary, and the frozen fixture after a change to generation.</li>
+   and <code>.png</code>, and the data dictionary.</li>
 <li><strong>Backward compatibility.</strong></li>
 <li>A new parameter goes last or is keyword-only.</li>
 <li>A removed or renamed public name keeps a deprecated alias for one minor version.</li>

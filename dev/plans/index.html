@@ -16,7 +16,7 @@
         <link rel="prev" href="../reference/REFERENCES/">
       
       
-        <link rel="next" href="REFERENCE_STUDY_PLAN/">
+        <link rel="next" href="WU_MSFDIA_PLAN/">
       
       
         
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#plans-archive" class="md-skip">
+        <a href="#plans" class="md-skip">
           Skip to content
         </a>
       
@@ -1171,14 +1171,14 @@
   
   
     <li class="md-nav__item">
-      <a href="REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1199,14 +1199,14 @@
   
   
     <li class="md-nav__item">
-      <a href="ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1227,126 +1227,14 @@
   
   
     <li class="md-nav__item">
-      <a href="VALIDATION_PLAN/" class="md-nav__link">
+      <a href="RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1459,11 +1347,12 @@
   
 
 
-<h1 id="plans-archive">Plans (archive)<a class="headerlink" href="#plans-archive" title="Permanent link">&para;</a></h1>
-<p>The design documents behind the 0.16 and 0.17 refactors, kept because they record why the code
-is shaped the way it is: which measures were chosen and which rejected, what the compatibility
-promise covers, and the decisions Ben took at each step. They are history, not instructions;
-<code>CONTRIBUTING.md</code> says how to change the package today.</p>
+<h1 id="plans">Plans<a class="headerlink" href="#plans" title="Permanent link">&para;</a></h1>
+<p>The design documents of the work in progress: what was decided, what was rejected, and why.
+<code>CONTRIBUTING.md</code> says how to change the package today. Finished plans are removed once the code
+and the changelog carry their decisions; the earlier ones (the readability, restructure, data-model,
+field-group, validation, one-dataset and reference-study plans of 0.16 to 0.20) are in the git
+history at commit <code>aa77d0b</code>.</p>
 <table>
 <thead>
 <tr>
@@ -1473,36 +1362,12 @@ promise covers, and the decisions Ben took at each step. They are history, not i
 </thead>
 <tbody>
 <tr>
-<td><code>READABILITY_PLAN.md</code></td>
-<td>the six readability measures and their limits, the frozen-reference safety net, one attack frame for shards and streams, the <code>formulas/</code> kernel rule, the loader as concerns</td>
-</tr>
-<tr>
-<td><code>RESTRUCTURE_PLAN.md</code></td>
-<td>the target layout of the formula kernel and its catalogue, the closed-form Jacobian decision</td>
-</tr>
-<tr>
-<td><code>DATA_MODELS_PLAN.md</code></td>
-<td>typed models for everything a function returns, the dual-access <code>Bundle</code>, the <code>models/</code> package</td>
-</tr>
-<tr>
-<td><code>FIELD_GROUPS_PLAN.md</code></td>
-<td>field groups for the fields the data models repeat (implemented)</td>
-</tr>
-<tr>
-<td><code>VALIDATION_PLAN.md</code></td>
-<td><strong>active</strong>: every input check declared on a data model and enforced by one engine; dataset capabilities in one table; the six-step series</td>
-</tr>
-<tr>
-<td><code>REFERENCE_STUDY_PLAN.md</code></td>
-<td><strong>proposed</strong>: twelve changes taken from power-grid-model and OGB (standalone evaluators, per-record estimation status, provenance and seeds, release metadata and dataset cards, a timeline file checker, collect-all validation errors), ranked, with the open decisions and the sequence</td>
-</tr>
-<tr>
 <td><code>WU_MSFDIA_PLAN.md</code></td>
-<td><strong>accepted</strong>: generate the multi-snapshot families <code>At</code> and <code>Am</code> by solving the [WU26] optimization (fewest tampered devices, eq. 12) under its constraints and line-overload goal, deprecate the single-snapshot families for generation, and move all attack generation into the engine's attack mixin; decisions D1 to D9</td>
+<td><strong>accepted</strong>: generate the multi-snapshot families <code>At</code> and <code>Am</code> by solving the [WU26] optimization (fewest tampered devices, eq. 12) under its constraints and line-overload goal, and move all attack generation into the engine's attack mixin; decisions D1 to D17</td>
 </tr>
 <tr>
-<td><code>ONE_DATASET_PLAN.md</code></td>
-<td><strong>active</strong>: one generator, one HDF5 file, one loader with a seeded order; the seventh family <code>Am</code>; data release v0.8.0</td>
+<td><code>WU_DEFENSE_PLAN.md</code></td>
+<td><strong>accepted, in progress</strong>: [WU26]'s trusted-PMU defense as the paper defines it (the trust schedule on the fewest-tamper search, the row-reduction attack, Solution 1 and the DQN), with the reproduction harness</td>
 </tr>
 <tr>
 <td><code>RELAX_CERTIFIER_PLAN.md</code></td>
@@ -1562,13 +1427,13 @@ promise covers, and the decisions Ben took at each step. They are history, not i
         
         
           
-          <a href="REFERENCE_STUDY_PLAN/" class="md-footer__link md-footer__link--next" aria-label="Next: Reference study">
+          <a href="WU_MSFDIA_PLAN/" class="md-footer__link md-footer__link--next" aria-label="Next: Wu MS-FDIA">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Reference study
+                Wu MS-FDIA
               </div>
             </div>
             <div class="md-footer__button md-icon">

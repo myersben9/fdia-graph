@@ -1307,14 +1307,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1335,14 +1335,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1363,126 +1363,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1717,8 +1605,8 @@ lives there.</p>
 real dependencies show: <code>models/</code> (every returned record, every config model and the one validation
 engine), <code>formulas/</code> (the equations), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named
 errors). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
-same reason. <code>streams.py</code> and <code>torch_data.py</code> are deprecated and will be removed in a future release.</p>
-<p><img alt="Module diagram: torch_data and streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry" src="../../figures/diagrams/modules.png" /></p>
+same reason. <code>streams.py</code> is deprecated for generation and kept for reading the v0.7 stream files.</p>
+<p><img alt="Module diagram: streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry" src="../../figures/diagrams/modules.png" /></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics
 (<code>GraphMixin</code>), the admittance matrices (<code>AdmittanceMixin</code>), records and batches (<code>RecordsMixin</code>), the
@@ -1732,16 +1620,15 @@ provide: <code>MeasurementMixin</code> emits scans, <code>PhysicsMixin</code> re
 reads a scan's load and generation, and <code>AttackMixin</code> builds every attack (next section).
 <code>engine/records.py</code> emits a benign scan and hands an attacked family to the mixin; <code>timeline.py</code>
 decides when and where each episode runs.</p>
-<p><img alt="Class diagram of the engine package: GridBase with MeasurementMixin and PhysicsMixin under it, AttackMixin composed of EpisodeDesignMixin, StealthyMixin and CorruptMixin, and FdiaGenerator inheriting MeasurementMixin, PhysicsMixin and AttackMixin; the mixins use Scan, AttackDesign, Frame, FrameKnobs and ResolvedPool, and the generator holds a BranchModel, a MeterPlan, a MeterBias, an Outage, a PandapowerNet and its PpcTables" src="../../figures/diagrams/classes_engine.png" /></p>
+<p><img alt="Class diagram of the engine package: GridBase with MeasurementMixin and PhysicsMixin under it, AttackMixin composed of EpisodeDesignMixin and StealthyMixin, and FdiaGenerator inheriting MeasurementMixin, PhysicsMixin and AttackMixin; the mixins use Scan, AttackDesign, Frame and FrameKnobs, and the generator holds a BranchModel, a MeterPlan, a MeterBias, an Outage, a PandapowerNet and its PpcTables" src="../../figures/diagrams/classes_engine.png" /></p>
 <h2 id="the-attacks">The attacks<a class="headerlink" href="#the-attacks" title="Permanent link">&para;</a></h2>
 <p>Every attack is built in <code>engine/attacks/</code>, one module per concern, composed into <code>AttackMixin</code>:
 <code>AreaMixin</code> finds the attacker's area, <code>FalseStateMixin</code> solves and checks its false state and the
-attack vector, <code>RedistributionMixin</code> draws the load redistribution behind <code>Al</code> and <code>Am</code>,
-<code>StealthyMixin</code> builds the stealthy frames, <code>MinimizeMixin</code> finds the support that tampers the fewest
-devices over an attack window [WU26, eq. 12], <code>EpisodeDesignMixin</code> draws what an episode attacks at its
-onset, and <code>CorruptMixin</code> tampers <code>Ad</code>, <code>As</code> and <code>Ar</code> in place. <code>AttackMixin.attack_frame</code> is the one
-entry for an attacked scan.</p>
-<p><img alt="Class diagram of the attack package: GridBase with AreaMixin and CorruptMixin under it, FalseStateMixin under AreaMixin, RedistributionMixin under FalseStateMixin, StealthyMixin under RedistributionMixin, MinimizeMixin under FalseStateMixin, EpisodeDesignMixin under RedistributionMixin and MinimizeMixin, and AttackMixin inheriting EpisodeDesignMixin, StealthyMixin and CorruptMixin; the mixins use AttackDesign, RampDesign, AmDesign, LoadGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits, Redistribution, Scan, Band and TamperTarget" src="../../figures/diagrams/classes_attacks.png" /></p>
+attack vector, <code>StealthyMixin</code> builds the ramp frames, <code>MinimizeMixin</code> finds the support that tampers
+the fewest devices over an attack window [WU26, eq. 12], <code>OverloadMixin</code> builds the overload <code>Am</code>,
+and <code>EpisodeDesignMixin</code> draws what an <code>At</code> episode attacks at its onset. <code>AttackMixin.attack_frame</code>
+is the one entry for an attacked <code>At</code> scan; an <code>Am</code> frame comes from <code>overload_step</code>.</p>
+<p><img alt="Class diagram of the attack package: GridBase with AreaMixin under it, FalseStateMixin under AreaMixin, StealthyMixin and MinimizeMixin under FalseStateMixin, RrefMixin under MinimizeMixin, OverloadMixin under RrefMixin, EpisodeDesignMixin under OverloadMixin, and AttackMixin inheriting EpisodeDesignMixin and StealthyMixin; the mixins use AttackDesign, RampDesign, LoadGoal, FlowGoal, MinimizerResult, Frame, FrameKnobs, OperatingLimits and Scan" src="../../figures/diagrams/classes_attacks.png" /></p>
 <h2 id="state-estimation">State estimation<a class="headerlink" href="#state-estimation" title="Permanent link">&para;</a></h2>
 <p><code>SEBase</code> holds the shared solve: the measurement function, the chord Jacobian, the meter weights and the
 chord-Newton loop. Each estimator overrides one hook. <code>GatedPrior</code> takes a fitted localizer as its gate;
@@ -1770,9 +1657,9 @@ a stream carry the same names. An exported split adds an eighth, export-only gro
 <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code> and <code>LocalizerScores</code> for the localizers, <code>TrustScores</code>
 for the trusted meters, <code>JacobianOutputs</code> for the feature block.</p>
 <p><img alt="Class diagram of the score bundles: ErrorPair, EstimatorScores, OverallMetrics, BenignMetrics, FamilyMetrics, LocalizerScores, PerBusMetrics, PerBusScores, GridScores, TrustScores and JacobianOutputs all under Bundle" src="../../figures/diagrams/classes_scores.png" /></p>
-<p>The named tuples of <code>models/frames.py</code> (<code>Scan</code>, <code>Frame</code>, <code>OperatingLimits</code>, <code>FrameKnobs</code>,
-<code>Redistribution</code>, <code>ResolvedPool</code>), <code>models/grid.py</code> (the column indices, <code>BranchModel</code>, <code>Admittances</code>,
-<code>MeterPlan</code>, <code>MeterBias</code>, <code>Outage</code>) and <code>models/assets.py</code> (<code>AssetSpec</code>, <code>LineCandidate</code>) are plain
+<p>The named tuples of <code>models/frames.py</code> (<code>Scan</code>, <code>Frame</code>, <code>OperatingLimits</code>, <code>FrameKnobs</code>),
+<code>models/grid.py</code> (the column indices, <code>BranchModel</code>, <code>Admittances</code>, <code>MeterPlan</code>, <code>MeterBias</code>,
+<code>Outage</code>) and <code>models/assets.py</code> (<code>AssetSpec</code>) are plain
 value types with no hierarchy, so they appear only where a class above uses them.</p>
 
 

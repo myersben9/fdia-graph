@@ -1154,14 +1154,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1182,14 +1182,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1210,126 +1210,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1678,6 +1566,56 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>Removed: single-snapshot generation, the v0.8.3 recipe and the frozen suite.</strong> The generator
+  makes the multi-snapshot families <code>At</code> and <code>Am</code> only, on the hybrid meters; every published data
+  release (v0.7.1 to v0.8.3) still loads read-only, with its family names (<code>Aq</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code>,
+  <code>Al</code>), aliases, the <code>heldout=</code> protocol and per-family scores. The removed code is at commit
+  <code>aa77d0b</code>; fdia-graph 0.20 is the last version that generates the removed families.</li>
+<li>Generation: <code>families=</code> accepts <code>At</code> and <code>Am</code> (new <code>models.inputs.GeneratedFamilies</code>; an older
+    family raises before any work). Gone: the in-place <code>Ad</code>/<code>As</code>/<code>Ar</code> (<code>engine/attacks/corrupt.py</code>),
+    the load redistribution behind <code>Al</code> and the v0.8.3 <code>Am</code> (engine/attacks/redistribution.py),
+    <code>single_shot_design</code>, <code>am_design</code> / <code>am_step</code>, the <code>Aq</code>/<code>Al</code> frames, and the knobs
+    <code>attack_intensity</code>, <code>am_rate</code>, <code>am_direction</code>, <code>corrupt_len</code>, <code>replay_tau</code> and
+    <code>am_attack="redistribution"</code> (with <code>AmDirection</code>, <code>LEGACY_FAMILIES</code>, <code>DEPRECATED_FOR_GENERATION</code>,
+    <code>ONE_FRAME_FAMILIES</code>, <code>generation.NOISE_FLOOR</code> and the models <code>Band</code>, <code>TamperTarget</code>,
+    <code>Redistribution</code>, <code>AmDesign</code>). <code>FrameKnobs</code> keeps the fields new generation uses, all with
+    defaults. <code>generate_stream</code> keeps its entry point with new generation's families and defaults; its
+    arguments after <code>families</code> are keyword-only, so a 0.20 positional call raises instead of shifting.</li>
+<li>The v0.8.3 meter model: <code>meter_model</code> accepts <code>"hybrid"</code> only, now also the engine's default.
+    Files written with the old meters load unchanged.</li>
+<li>Dead or retired code: the full pandapower re-solve (<code>PhysicsMixin.resolve_states</code>, <code>solve</code>,
+    <code>_pin_generation</code>, <code>MeasurementMixin.emit</code>, <code>state_from_net</code>, <code>ResolvedPool</code>),
+    <code>FdiaGenerator.centrality_probs</code>, <code>nl</code> and <code>load_genP</code>, the N-1 line-outage screen
+    (<code>fg.line_outage_candidates</code>, <code>FdiaGenerator(outage=)</code>, <code>LineCandidate</code>, <code>OutageRef</code>,
+    <code>GridIslanded</code>), <code>fg.pyg_stream</code> and <code>fg.torch_windows</code> (torch_data.py; <code>ds.windows</code> and
+    <code>fg.load(..., format="pyg")</code> replace them), the exporters <code>ds.to_numpy</code> / <code>to_torch</code> / <code>to_tf</code> /
+    <code>to_pandas</code> (<code>ds.export(format=...)</code>), <code>dataset.check_split</code> / <code>check_units</code> / <code>check_order</code> and
+    <code>federated.check_partition</code> (the models check these), <code>SplitFractions</code>, <code>StreamSystem</code>, and the
+    private <code>SEBase._normal_matrices</code> and <code>_cond</code>. <code>load_stream</code> and <code>streams.windows</code> stay: they
+    read the v0.7 stream files. The <code>ds.edge_*</code> aliases stay (<code>edge_gs</code> and <code>edge_bs</code> are requested
+    names).</li>
+<li>Tests: the frozen suite (tests/test_frozen.py, tests/frozen/, tools/freeze_reference.py, the
+    strict mode of <code>tools/prereview.py</code>) is gone; the pinned search answers
+    (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios and the unit tests guard the generated data.
+    The shared test timeline is new generation's (<code>At</code> and <code>Am</code>); old releases are tested on
+    checked-in files (<code>tests/test_old_releases.py</code>, <code>tests/data/README.md</code>).</li>
+<li>Docs: the finished plans (data models, field groups, one dataset, readability, reference study,
+    restructure, validation), FUTURE_DATASETS.md, the v0.8.0 to v0.8.3 release build scripts and
+    five unlinked figures.</li>
+<li>Fixed: <code>load_stream</code> at v0.7.1 and v0.7.2 reads the stream files again. Those files carry the
+    frames only, and the release's graph sidecar (<code>graph_ieee{N}.npz</code>: <code>edge_index</code>, <code>edge_attr</code>,
+    <code>node_m</code>, <code>edge_m</code>) that 0.18 stopped attaching is attached again; the tests read a slice of the
+    published IEEE-118 stream with its sidecar, and one timeline of each of v0.8.0, v0.8.1 and
+    v0.8.3 written by the SDK that built it.</li>
+<li><code>Stream</code> carries the PMU branch currents of a hybrid-meter file (<code>pmu_i</code>, <code>pmu_i_benign</code>, the
+    static mask <code>pmu_i_m</code>), so <code>generate_stream</code> and <code>stream_of</code> no longer drop them. The benchmark
+    table records the fixture recipe per row and <code>tools/bench.py --check</code> compares only rows of the
+    same machine and recipe.</li>
+<li>
+<p>Known behaviour made visible by the new test timeline, unchanged here: an overload <code>Am</code> whose
+    window has no stealthy design falls back to benign for the whole episode (<code>fallback_benign</code>), and
+    its first snapshot can tamper nothing, its drift-free goal there being the true flow (D9).</p>
+</li>
 <li>
 <p>[WU26]'s trusted-PMU configuration as a Markov decision process (docs/plans/WU_DEFENSE_PLAN.md, PR B):
   <code>trust.WuDefenseEnv(g, states, goal, k, WuDefenseConfig(pmus, slots))</code> on one overload window, with
@@ -2077,7 +2015,7 @@ the public API, the generated files and the numbers are the same as the previous
   dependency) for NYISO, <code>GridstatusFeed</code> for CAISO and ERCOT, which imports <code>gridstatus</code> itself and
   names the install when it is missing; <code>models.config.ProfileFetch</code> checks the operator and
   <code>resample_min</code>. The downloaded data and the returned vector are unchanged.</li>
-<li>Every input is checked in one place (<code>docs/plans/VALIDATION_PLAN.md</code>). Each consumer's settings
+<li>Every input is checked in one place (the validation plan, in the git history at <code>aa77d0b</code>). Each consumer's settings
   are one model in <code>fdia_graph.models.config</code> (<code>LoadOptions</code>, <code>WindowSpec</code>, <code>HuberConfig</code>,
   <code>PriorConfig</code>, <code>LearnedConfig</code>, <code>FederatedSettings</code>, <code>TimelineKnobs</code> and the rest), whose fields
   declare their rules (<code>Annotated[float, Positive()]</code>, <code>OneOf(Units)</code>); one engine,

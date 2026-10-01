@@ -1258,14 +1258,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/REFERENCE_STUDY_PLAN/" class="md-nav__link">
+      <a href="../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Reference study
+    Wu MS-FDIA
   
 
     
@@ -1286,14 +1286,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/ONE_DATASET_PLAN/" class="md-nav__link">
+      <a href="../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    One dataset
+    Wu defense
   
 
     
@@ -1314,126 +1314,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../plans/VALIDATION_PLAN/" class="md-nav__link">
+      <a href="../plans/RELAX_CERTIFIER_PLAN/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Validation
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/DATA_MODELS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data models
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/FIELD_GROUPS_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Field groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/READABILITY_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Readability
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../plans/RESTRUCTURE_PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Restructure
+    Relaxation certifier
   
 
     
@@ -1643,8 +1531,8 @@ analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</cod
 <td>the timeline walker and writer; the pool, frame context and file attributes; ISO load profiles to AC operating-state pools</td>
 </tr>
 <tr>
-<td><code>torch_data.py</code>, <code>streams.py</code></td>
-<td>PyG and per-bus sequence forms of a time-ordered dataset; the deprecated stream entry points</td>
+<td><code>streams.py</code></td>
+<td>the deprecated stream entry points, kept for reading the v0.7 stream files</td>
 </tr>
 <tr>
 <td><code>se/</code></td>
@@ -1726,15 +1614,11 @@ analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</cod
 </tr>
 <tr>
 <td><code>python tools/prereview.py</code></td>
-<td>every CI gate, the strict suite and the checks CI does not run, on this checkout's source; run before a review is requested (<code>docs/reference/REVIEW_CHECKLIST.md</code>)</td>
+<td>every CI gate, the test suite and the checks CI does not run, on this checkout's source; run before a review is requested (<code>docs/reference/REVIEW_CHECKLIST.md</code>)</td>
 </tr>
 <tr>
 <td><code>pytest tests</code></td>
 <td>builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts</td>
-</tr>
-<tr>
-<td><code>FDIA_FROZEN_STRICT=1 pytest tests</code></td>
-<td>bit-identical comparison against <code>tests/frozen/</code>; run before every push</td>
 </tr>
 <tr>
 <td><code>FDIA_SLOW=1 pytest tests</code></td>
