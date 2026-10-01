@@ -238,3 +238,5 @@ class RunRecords(Validated):
             all(r.experiment == self.provenance.experiment for r in self.records),
             f"every record of a run belongs to its experiment {self.provenance.experiment!r}",
         )
+        keys = [r.key() for r in self.records]
+        yield len(set(keys)) == len(keys), "a run measures each key once (two records share every key)"

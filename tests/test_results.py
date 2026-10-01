@@ -169,13 +169,13 @@ def test_the_check_fails_on_a_hand_edited_block_and_lint_flags_a_typed_number(tm
     path = os.path.join(str(tmp_path), "README.md")
     with open(path, "w", encoding="utf-8") as f:
         f.write(edited)
-    assert _tool("--check", os.path.relpath(path, ROOT)).returncode == 1
+    assert _tool("--check", path).returncode == 1
     typed = os.path.join(str(tmp_path), "typed.md")
     with open(typed, "w", encoding="utf-8") as f:
         f.write(
             "A block <!-- results: v se ieee14 wls geo angle_mae_deg --><!-- /results --> and a typed 0.123 here.\n"
         )
-    lint = _tool("--lint", os.path.relpath(typed, ROOT)).stdout
+    lint = _tool("--lint", typed).stdout
     assert "1 number(s)" in lint and "0.123" in lint
 
 
@@ -252,3 +252,39 @@ def test_tilde_and_indented_fences_are_examples(tmp_path: object) -> None:
         "- item\n\n  ```\n  <!-- results: v x -->?<!-- /results -->\n  ```\n",
     ):
         assert fill(fence, store) == fence and stale(fence, store) == []
+
+
+def test_a_run_measures_each_key_once(tmp_path: object) -> None:
+    from fdia_graph.results import Provenance
+
+    prov = Provenance(
+        run_id="demo.x-1", experiment="demo.x", timestamp="2026-01-01T00:00:00Z", sdk_version="0"
+    )
+    twice = [Record(experiment="demo.x", metric="devices", value=v, method="s") for v in (1.0, 2.0)]
+    with pytest.raises(ConfigError):
+        Store(str(tmp_path)).write(prov, twice)
+
+
+def test_an_unterminated_block_fails_the_check(tmp_path: object) -> None:
+    text = "fine <!-- results: v se ieee14 wls geo angle_mae_deg -->0.091 and no closing marker\n"
+    assert stale(text, Store(str(tmp_path))) != []
+
+
+def test_latest_and_newest_run_agree_on_a_tie(tmp_path: object) -> None:
+    store = Store(str(tmp_path))
+    for rid, v in (("demo.x-a", 1.0), ("demo.x-b", 2.0)):
+        with Run("demo.x", store=store, run_id=rid, timestamp="2026-01-01T00:00:00Z") as run:
+            run.add("devices", v, method="s")
+    assert store.one("demo.x").run_id == store.newest_run("demo.x") == "demo.x-b"
+
+
+def test_a_writer_never_enters_a_held_lock(tmp_path: object, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fdia_graph.results import store as store_mod
+
+    monkeypatch.setattr(store_mod._Lock, "WAIT_S", 0.2)
+    lock = os.path.join(str(tmp_path), ".lock")
+    open(lock, "w").close()  # another writer holds it, freshly
+    with pytest.raises(TimeoutError):
+        with Run("demo.x", store=Store(str(tmp_path))) as run:
+            run.add("devices", 1.0)
+    assert os.path.exists(lock)  # the other writer's lock is left alone

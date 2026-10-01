@@ -43,8 +43,15 @@ def selections(train):
     else a greedy fit."""
     tm = TrustedMeters(k=K).fit(train)  # its estimator gives every copy the meter layout
     stored = {}
-    run = STORE.newest_run("trust.selection", system=SYSTEM, metric="selected_meter")
-    for name in ("greedy", "dqn"):  # one run's orders whole, never steps mixed from two runs
+    release = fg.resolve(SYSTEM).release or ""
+    same_release = [
+        p.run_id for p in STORE.runs() if p.experiment == "trust.selection" and p.data_release == release
+    ]
+    # one run's orders whole, for this budget and this release's meter layout, never steps from two runs
+    run = STORE.newest_run(
+        "trust.selection", run_id=same_release, system=SYSTEM, metric="selected_meter", k=K
+    )
+    for name in ("greedy", "dqn"):
         steps = STORE.query(
             "trust.selection", run_id=run, system=SYSTEM, method=name, metric="selected_meter"
         )

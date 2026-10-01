@@ -123,7 +123,10 @@ class Store:
         best: dict[tuple[str, ...], Record] = {}
         for r in self.query(experiment, **filters):
             k = r.key()
-            if k not in best or when.get(r.run_id, "") > when.get(best[k].run_id, ""):
+            if k not in best or (when.get(r.run_id, ""), r.run_id) > (
+                when.get(best[k].run_id, ""),
+                best[k].run_id,
+            ):
                 best[k] = r
         return list(best.values())
 
@@ -209,21 +212,34 @@ def _replacing(path: str) -> Iterator[IO[str]]:
 
 
 class _Lock:
-    """An exclusive lock file for one store write (created exclusively, retried for up to a minute,
-    then taken over from a writer that died holding it)."""
+    """An exclusive lock file for one store write. A lock file older than `STALE_S` was left by a
+    writer that died holding it and is reclaimed; otherwise the writer waits up to `WAIT_S` and then
+    raises `TimeoutError`, never writing without the lock."""
+
+    WAIT_S = 120.0
+    STALE_S = 600.0
 
     def __init__(self, path: str) -> None:
         self.path = path
 
     def __enter__(self) -> _Lock:
-        deadline = time.monotonic() + 60.0
-        while time.monotonic() < deadline:
-            try:
-                os.close(os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
-                break
-            except FileExistsError:
-                time.sleep(0.05)
+        deadline = time.monotonic() + self.WAIT_S
+        while not self._take():
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"the results store is locked by another writer ({self.path})")
+            time.sleep(0.05)
         return self
+
+    def _take(self) -> bool:
+        """Create the lock file; True when this writer now holds it."""
+        try:
+            os.close(os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            return True
+        except FileExistsError:
+            with contextlib.suppress(FileNotFoundError):
+                if time.time() - os.path.getmtime(self.path) > self.STALE_S:
+                    os.remove(self.path)  # left by a writer that died: the next try takes it
+            return False
 
     def __exit__(
         self, kind: Optional[type[BaseException]], exc: Optional[BaseException], tb: Optional[TracebackType]

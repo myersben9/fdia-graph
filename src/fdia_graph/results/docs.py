@@ -34,6 +34,8 @@ QUERIES: dict[str, Query] = {}
 
 BLOCK = re.compile(r"<!-- results: (?P<spec>.*?) -->(?P<body>.*?)<!-- /results -->", re.DOTALL)
 _FORMAT = ("fmt", "scale", "sd")
+_OPEN, _CLOSE = "<!-- results:", "<!-- /results -->"
+_INLINE_CODE = re.compile(r"`[^`\n]*`")
 # fenced code (``` or ~~~, indented under a list too), kept as one split part up to its closing fence
 _FENCE = re.compile(r"(^[ \t]*(?P<f>`{3,}|~{3,}).*?^[ \t]*(?P=f)[ \t]*$)", re.DOTALL | re.MULTILINE)
 
@@ -87,9 +89,12 @@ def _rendered(m: re.Match[str], store: Store) -> str:
 def stale(text: str, store: Store) -> list[str]:
     """The specs of the blocks of `text` whose body is not what they render now."""
     live = "".join(part for part, code in _parts(text) if not code)
-    pairs = zip(
-        BLOCK.finditer(live), BLOCK.finditer(fill(live, store))
-    )  # each block against itself, by position
+    blocks = list(BLOCK.finditer(live))
+    prose = _INLINE_CODE.sub("", BLOCK.sub("", live))  # markers quoted in `code` are not markers
+    opened, closed = prose.count(_OPEN) + len(blocks), prose.count(_CLOSE) + len(blocks)
+    if not opened == closed == len(blocks):  # an unterminated or stray marker
+        return [f"malformed results markers: {opened} opened, {closed} closed, {len(blocks)} blocks"]
+    pairs = zip(blocks, BLOCK.finditer(fill(live, store)))  # each block against itself, by position
     return [old.group("spec") for old, new in pairs if old.group("body") != new.group("body")]
 
 

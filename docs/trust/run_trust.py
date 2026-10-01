@@ -51,7 +51,7 @@ with Run(
 ) as out:
     for sel, v in report.items():
         for i, meter in enumerate(v["order"]):
-            out.add("selected_meter", meter, method=sel, step=i)
+            out.add("selected_meter", meter, method=sel, step=i, k=K)
         for i, cost in enumerate(v["cost"]):
             out.add("attack_cost", cost, method=sel, step=i)
         for which in ("detected_before", "detected_after"):
