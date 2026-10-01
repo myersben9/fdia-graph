@@ -310,7 +310,14 @@ def generate_timeline(
     schedule = plan._Schedule.build(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = _recorded(s, g, limits, am_runs)
-    spec = _GeneratorSpec(system, seed, s.max_load_mw, s.meters, getattr(g, "_line_ratings", None))
+    spec = _GeneratorSpec(
+        system,
+        seed,
+        s.max_load_mw,
+        s.meters,
+        getattr(g, "_line_ratings", None),
+        getattr(g, "_rating_delta", None),
+    )
     designer = AmDesigner(g, spec, s.workers if am_runs else 1)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     try:

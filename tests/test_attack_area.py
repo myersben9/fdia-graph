@@ -119,3 +119,23 @@ def test_every_attack_the_search_returns_is_valid():
         quiet_e = (~edge) & (w.edge_m > 0)
         assert (np.abs(now.edge)[quiet_e] <= sig_edge[quiet_e] + 1e-12).all()
         prev = now
+
+
+def test_delta_ratings_generate_am_episodes(tmp_path):
+    # [E14]
+    """The timeline path takes the delta ratings: every eligible line is rated per window, so Am
+    episodes are built (and the workers' generator carries the step)."""
+    import h5py
+
+    import fdia_graph as fg
+    from fdia_graph import schema
+    from fdia_graph.generation.design import _GeneratorSpec
+    from fdia_graph.models.config import MeterSettings
+
+    out = tmp_path / "delta.h5"
+    am = OverloadSettings(rating_source="delta", rating_delta=0.1)
+    fg.generate("ieee14", "delta", out=str(out), frames=300, families=["Am"], seed=3, am_attack=am)
+    with h5py.File(out, "r") as f:
+        assert len(f[schema.Group.EPISODES][schema.EPISODE_AM_EPISODE]) >= 1
+    g = _GeneratorSpec(14, 3, None, MeterSettings(), None, 10.0).build()
+    assert g._rating_delta == 10.0

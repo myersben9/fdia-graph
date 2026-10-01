@@ -37,5 +37,5 @@ open. The plans hold the reasoning behind each.
 | E11 | the single-snapshot trusted-meter classes stay as the linear analogue | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
 | E12 | IEEE-1354 is not reproduced | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
 | E13 | one support is held for the window (a support per trust slot never changed an answer, removed) | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
-| E14 | reproduction ratings: each target's last flow plus 0.10 pu (Fig. 4's scale); k times the peak as a sensitivity | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
+| E14 | reproduction ratings: each target's last flow plus 0.10 pu (Fig. 4's scale); k times the peak as a sensitivity | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | `tests.test_attack_area.test_delta_ratings_generate_am_episodes` |
 | E15 | generation keeps the linear ramp of D9 | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |

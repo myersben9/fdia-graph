@@ -122,7 +122,7 @@ class OverloadMixin(MinimizeMixin):
             return
         if settings.rating_source == "delta":  # set per window, from the window's own last flow
             self._rating_delta = settings.rating_delta * self._base_mva
-            self._line_ratings = np.full(self.E, np.inf)  # every branch rated for eligibility
+            self._line_ratings = None  # `window_ratings` rates each window from its own flows
             return
         peak = np.zeros(self.E)
         for a in range(0, len(X), 4096):  # the pool in slabs: a 72k-state pool is one pass
@@ -152,8 +152,8 @@ class OverloadMixin(MinimizeMixin):
         metered, true apparent flow below the rating at every snapshot, and an area around its ends
         holding a free injection (an attackable load or a generator). An out-of-service branch (an N-1 outage) keeps its row with a zero
         admittance, so its flow reads zero and no false state can drive it to its rating."""
-        rating = self.line_ratings()
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2], unmetered zeroed
+        rating = self.window_ratings(flows)  # finite per window under "delta"
         S = np.hypot(flows[..., 0], flows[..., 1]).max(axis=0)  # [E] the window's largest true flow
         metered = np.asarray(self.meters.flow, bool)
         status = self.branch.status
