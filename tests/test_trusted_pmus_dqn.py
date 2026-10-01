@@ -96,3 +96,10 @@ def test_the_environments_must_share_their_pmus_and_steps():
         TrustedPMUsDQN([_Chain(), other])
     with pytest.raises(ConfigError):
         TrustedPMUsDQN([])
+
+
+def test_a_minibatch_larger_than_the_buffer_is_refused():
+    """Training samples a minibatch only once the buffer holds one, so a batch over the buffer would
+    leave the network untrained."""
+    with pytest.raises(ConfigError):
+        WuDqnConfig(buffer=10, batch=25)

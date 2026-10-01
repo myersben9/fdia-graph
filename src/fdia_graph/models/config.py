@@ -499,6 +499,10 @@ class WuDqnConfig(Validated):
     hidden: Count = 128
     seed: Annotated[int, Integer(), AtLeast(0)] = 123
 
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        # a minibatch larger than the buffer is never drawn, so training would make no update
+        yield self.batch <= self.buffer, f"batch {self.batch} cannot exceed the replay buffer {self.buffer}"
+
 
 def _indices(a: np.ndarray) -> bool:
     """Whether `a` holds only non-negative integers (an empty sequence does)."""

@@ -23,7 +23,9 @@ Each figure's numbers are in the CSV of the same name (`fig11_ieee{N}.csv`, `fig
 ## Tables
 
 - **Table II (`table2_ieee{N}.csv`):** per window and method, the devices and channels before and after the defense, and the extra devices named as the paper names them.
-- **Trusted orders (`orders_ieee{N}.csv`):** each method's sequence per window, as in Figs. 6 and 10.
+- **Trusted orders (`orders_ieee{N}.csv`):** each method's sequence per window, as in Figs. 6 and 10, with the
+  paper's Fig. 6 order beside it on IEEE-14 (`paper_order`). Every window offers the PMUs in the meter plan's
+  order (`WU26_PMUS`), never the paper's result order, so neither method is steered toward it.
 - **Decision times (`times_ieee{N}.csv`):** each method's time per window, as in Fig. 8 and Table VI.
 
 ## Not reproduced here

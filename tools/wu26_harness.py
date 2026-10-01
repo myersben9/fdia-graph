@@ -34,7 +34,9 @@ from typing import Optional
 
 import numpy as np
 
-SCHEDULES = {14: ((1, 4, 6, 13), (4, 6, 1, 13))}  # the paper's orders per IEEE-14 scenario (Fig. 6)
+# the paper's trusted orders per IEEE-14 scenario (Fig. 6), a reference for the output only: every
+# environment offers the meter plan's PMUs in their canonical order, so no method is steered to them
+PAPER_ORDERS = {14: ((1, 4, 6, 13), (4, 6, 1, 13))}
 SNAPSHOTS = {14: 20, 118: 10}  # 10 minutes of 30 s snapshots on IEEE-14 is 20; Figs. 10-11 show 10 on 118
 POOL_MINUTES = 5  # the pool's cadence
 ATTACK_MINUTES = 1  # the attack snapshots' (the plan's E4)
@@ -74,6 +76,12 @@ def pool_base(system: int) -> np.ndarray:
     return p[_case_buses(system)]
 
 
+def paper_order(system: int, scenario: int) -> str:
+    """The paper's trusted order for the scenario (Fig. 6), written beside ours for comparison."""
+    orders = PAPER_ORDERS.get(system)
+    return " ".join(map(str, orders[scenario])) if orders else ""
+
+
 # ---- one window ------------------------------------------------------------------------------------
 def build_env(system: int, scenario: int, margin: float, states: list[np.ndarray], budget: int):
     """The trusted-PMU MDP of one window on the paper's metering (the construction of the tests')."""
@@ -95,7 +103,7 @@ def build_env(system: int, scenario: int, margin: float, states: list[np.ndarray
     g.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(states))
     limits = g.operating_limits(_load_states(system, None))
     k = FrameKnobs(hops=2, limits=limits, min_tamper=True, min_budget=budget, load_cap=0.5, n_lines=2)
-    order = SCHEDULES[system][scenario] if system == 14 else WU26_PMUS[system]
+    order = WU26_PMUS[system]
     slots = (1, 3, 5, 7) if system == 14 else tuple(range(len(order)))
     pmus = [int(b) for b in g.wu26_buses(tuple(order))]
     return WuDefenseEnv(g, states, g.overload_goal(states, *lines), k, WuDefenseConfig(pmus, slots))
@@ -146,6 +154,7 @@ def run_solution1(job: tuple) -> dict:
         window=start,
         method="solution1",
         order=" ".join(str(number[env.config.pmus[i]]) for i in sol.order),
+        paper_order=paper_order(system, scenario),
         devices_before=base.devices,
         channels_before=base.channels,
         devices_after=result.devices,
@@ -183,6 +192,7 @@ def run_dqn_session(job: tuple) -> list[dict]:
                 window=s,
                 method="dqn",
                 order=" ".join(str(number[env.config.pmus[i]]) for i in order),
+                paper_order=paper_order(system, scenario),
                 devices_before=base.devices,
                 channels_before=base.channels,
                 devices_after=result.devices,
@@ -270,7 +280,11 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--out", default="docs/wu26")
     args = ap.parse_args(argv)
     os.makedirs(args.out, exist_ok=True)
-    scenarios = range(len(SCHEDULES.get(args.system, ((),)))) if args.system == 14 else (0,)
+    from fdia_graph.engine.attacks.overload import WU26_SCENARIOS
+
+    if args.sessions < 2 or args.windows < args.sessions:  # each session trains on the other folds
+        ap.error("--sessions must be at least 2 and at most --windows")
+    scenarios = range(len(WU26_SCENARIOS[args.system]))
     starts = [i * args.stride for i in range(args.windows)]
     sol1 = [(args.system, s, m, w, args.budget) for s in scenarios for m in args.margins for w in starts]
     folds = np.array_split(np.array(starts), args.sessions)
@@ -294,7 +308,7 @@ def main(argv: Optional[list[str]] = None) -> None:
             rows.extend(part)
     write(rows, os.path.join(args.out, f"table2_ieee{args.system}.csv"))
     write(
-        [{k: r[k] for k in ("scenario", "margin", "window", "method", "order")} for r in rows],
+        [{k: r[k] for k in ("scenario", "margin", "window", "method", "order", "paper_order")} for r in rows],
         os.path.join(args.out, f"orders_ieee{args.system}.csv"),
     )
     write(
