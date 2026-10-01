@@ -1,8 +1,10 @@
-"""Fit the fdia_graph.se estimators on one system and write results/se_<system>.json.
+"""Fit the fdia_graph.se estimators on one system and write a run of `se.estimators` to the
+results store (`results/`).
 
 Set FG_SYSTEM (default ieee14; the README covers ieee14, ieee118, ieee300). Hyperparameters are
-the estimation paper's validation-selected values per system. Tables and figures come from
-make_report.py, which reads the JSON, so plots can be restyled without re-running. Needs the [se]
+the estimation paper's validation-selected values per system. The README's tables are results
+blocks (`tools/results_docs.py --write`) and make_report.py draws the figures, both from the store,
+so nothing is re-run to restyle them. Needs the [se]
 extra (torch + pandapower).
 
 The expensive part is estimate() over the test split (one chord-Newton solve per record, hours on
@@ -12,7 +14,6 @@ estimator. fit() is cheap and always runs, so hyperparameter changes still take 
 uncached arms.
 """
 
-import json
 import os
 import time
 
@@ -20,6 +21,7 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.localization import BusCNN
+from fdia_graph.results import Run, Store
 from fdia_graph.se import (
     WLS,
     AdaptiveWeighting,
@@ -37,6 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
 CACHE = os.path.join(OUT, "cache")
 os.makedirs(CACHE, exist_ok=True)
+STORE = Store(os.path.join(HERE, "..", "..", "results"))  # the repository's results store
 
 train = fg.load(SYSTEM, split="train")
 test = fg.load(SYSTEM, split="test")
@@ -78,6 +81,8 @@ for name, m in methods.items():
         f"  {name:12s} {how:17s} {time.time() - t0:6.0f}s  geo angle MAE {report[name]['geo']['angle_mae_deg']:.4f} deg"
     )
 
-with open(os.path.join(OUT, f"se_{SYSTEM}.json"), "w") as fh:
-    json.dump(report, fh, indent=1)
-print(f"[ok] wrote se_{SYSTEM}.json to {OUT}; run make_report.py for tables and figures")
+settings = {"huber_c": c, "rank_frac": rank, "removal_threshold": thr, "arms": list(methods)}
+release = fg.resolve(SYSTEM).release or ""
+with Run("se.estimators", system=SYSTEM, settings=settings, data_release=release, store=STORE) as out:
+    n = out.add_tree(report, levels=("method", "family"))
+print(f"[ok] wrote {n} records of se.estimators for {SYSTEM}; run make_report.py and tools/results_docs.py --write")

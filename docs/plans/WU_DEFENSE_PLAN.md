@@ -217,14 +217,16 @@ PMUs trusted at or before t (eqs. 30-31). Under the neighbour reading, b's neigh
 - **Not proven:** some candidate solves failed to converge ("unsolved"), so no result is proven
   minimal. An "infeasible" below means no candidate converged, not a proof.
 
+<!-- results: wu.prototype -->
 | scenario, k | undefended: devices / channels | Wu's schedule, own bus: devices / channels | increase: devices / channels | Table II (Sol 1 / Sol 2) |
 |---|---|---|---|---|
 | S1 (3-4, 6-11), 1.1 | 5 / 8 | 6 / 11 | +20.0% / +37.5% | 25.6% / 23.9% |
 | S2 (1-2, 4-5), 1.1 | 7 / 23 | 9 / 28 | +28.6% / +21.7% | 35.2% / 27.0% |
-| S1, 1.2 | 8 / 26 | none converged (1174/1174 unsolved) | | |
-| S2, 1.2 | 10 / 40 | none converged (454/454 unsolved) | | |
-| S1, 1.2, no load cap | 8 / 23 | 9 / 37 | +12.5% / +60.9% | |
-| S2, 1.2, no load cap | 9 / 32 | none converged (454/454 unsolved) | | |
+| S1 (3-4, 6-11), 1.2 | 8 / 26 | none converged |  |  |
+| S2 (1-2, 4-5), 1.2 | 10 / 40 | none converged |  |  |
+| S1 (3-4, 6-11), 1.2, no load cap | 8 / 23 | 9 / 37 | +12.5% / +60.9% |  |
+| S2 (1-2, 4-5), 1.2, no load cap | 9 / 32 | none converged |  |  |
+<!-- /results -->
 
 - **Range:** at k = 1.1 both scenarios survive the defense, and the increases are in Table II's
   range.
@@ -242,16 +244,16 @@ PMUs trusted at or before t (eqs. 30-31). Under the neighbour reading, b's neigh
   - defended: adds SCADA 6 and PMU 6.
 
   The paper's extra devices are SCADA 7, 11, 12, 13, 14 (Solution 1) or 7, 13, 14 (Solution 2).
-- **Largest change:** 0.25 pu (Scenario 1) and 0.35 pu (Scenario 2) with the defense, against
-  0.19 pu and 0.24 pu undefended.
+- **Largest change (pu):** <!-- results: value experiment=wu26.prototype scenario=1 k=1.1 trust=wu load_cap=0.5 metric=max_change_pu fmt=.2f -->0.25<!-- /results --> (Scenario 1) and <!-- results: value experiment=wu26.prototype scenario=2 k=1.1 trust=wu load_cap=0.5 metric=max_change_pu fmt=.2f -->0.35<!-- /results --> (Scenario 2) with the defense, against
+  <!-- results: value experiment=wu26.prototype scenario=1 k=1.1 trust=none load_cap=0.5 metric=max_change_pu fmt=.2f -->0.19<!-- /results --> and <!-- results: value experiment=wu26.prototype scenario=2 k=1.1 trust=none load_cap=0.5 metric=max_change_pu fmt=.2f -->0.24<!-- /results --> undefended.
 - **Why k = 1.2 fails (the last snapshot solved alone with all four PMUs pinned on the largest possible support):**
   - The failure is at the window's end, where (25) itself binds, so it is not our ramp.
   - Scenario 1 converges once the load cap (ours, D16 [YUA11]) is removed.
   - Scenario 2 needs the generator and voltage limits (21)-(23), which are Wu's, removed as well.
   - So at k = 1.2 the defense does stop the attack under Wu's own operating limits. The ratings, and
     so k, are ours, since the paper states none.
-- **The neighbour reading of E2** makes both scenarios infeasible at k = 1.1 (all 1174 and 444 of
-  454 unsolved).
+- **The neighbour reading of E2** makes both scenarios infeasible at k = 1.1 (no candidate solve
+  converges).
 - **Order does not matter under a held support:** Wu's order and the swapped order give identical
   results. The defended optimal supports (2 3 5 11 and 2 5 6 11) avoid every PMU bus for the whole
   window, so the schedule acts only through its final set. Wu's attack chooses `Δx_t` per snapshot
@@ -261,23 +263,25 @@ PMUs trusted at or before t (eqs. 30-31). Under the neighbour reading, b's neigh
   |V| and θ are pinned, but its branch-current channels at bus 4's end move when buses 3 and 5 move.
   Under eq. (27), those currents are not in `h^S`.
 
-**Per-call time:** 16-35 s per 20-snapshot IEEE-14 search, exhaustive at budget 4096. IEEE-118 took
-42-43 s at budget 4096 for a 10-snapshot window in the first prototype,
-and about 3.1 s at budget 256 (#164's table).
+**Per-call time:** tens of seconds per exhaustive 20-snapshot IEEE-14 search at budget 4096, and a
+few seconds per 10-snapshot IEEE-118 window at budget 256 (the speed table of #164).
 
 **The attack method: search or [WU26]'s row reduction.** The paper builds its attack by row reduction of the transposed Jacobian with column exchanges (p. 655, after [YAN17]; `support_method="rref"`). Measured on its scenarios (IEEE-14: 20 pool frames, slots 2, 4, 6, 8; IEEE-118: 10 pool frames, one PMU per snapshot in Fig. 9's order, budget 256):
 
+<!-- results: wu.methods -->
 | Scenario, k | Trusted PMUs | Search: devices / channels | RREF: devices / channels | Paper |
 |---|---|---|---|---|
 | Lines 3-4 and 6-11, 1.1 | none | 5 / 8 | 7 / 14 | 7 devices |
 | Lines 3-4 and 6-11, 1.1 | 1, 4, 6, 13 | 6 / 11 (+20.0% / +37.5%) | 6 / 11 (-14.3% / -21.4%) | +25.6% (Sol 1), +23.9% (Sol 2) |
 | Lines 1-2 and 4-5, 1.1 | none | 7 / 23 | 8 / 24 | 9 devices |
 | Lines 1-2 and 4-5, 1.1 | 4, 6, 1, 13 | 9 / 28 (+28.6% / +21.7%) | 9 / 28 (+12.5% / +16.7%) | +35.2% (Sol 1), +27.0% (Sol 2) |
-| Lines 3-4 and 6-11, 1.2 | none | 8 / 26 | 12 / 37 | |
-| Lines 1-2 and 4-5, 1.2 | none | 10 / 40 | 11 / 46 | |
-| both IEEE-14 scenarios, 1.2 | the paper's | no support reaches both ratings | no support reaches both ratings | |
-| IEEE-118 lines 84-85 and 99-100, 1.2 | none | 10 / 25 | 31 / 93 | |
-| IEEE-118, 1.2 | the 11 PMUs, one per snapshot | 12 / 26 (+20.0% / +4.0%) | 20 / 48 | +16.4% mean, 3-5 extra devices |
+| Lines 3-4 and 6-11, 1.2 | none | 8 / 26 | 12 / 37 |  |
+| Lines 3-4 and 6-11, 1.2 | the paper's | no support reaches both ratings | no support reaches both ratings |  |
+| Lines 1-2 and 4-5, 1.2 | none | 10 / 40 | 11 / 46 |  |
+| Lines 1-2 and 4-5, 1.2 | the paper's | no support reaches both ratings | no support reaches both ratings |  |
+| IEEE-118 lines 84-85 and 99-100, 1.2 | none | 10 / 25 | 31 / 93 |  |
+| IEEE-118 lines 84-85 and 99-100, 1.2 | the 11 PMUs, one per snapshot | 12 / 26 (+20.0% / +4.0%) | 20 / 48 (-35.5% / -48.4%) | +16.4% mean, 3-5 extra devices |
+<!-- /results -->
 
 The search matches Table II and Fig. 12 better, so PR B's cost oracle uses it. The reduction names the right buses first (3 and 11 for lines 3-4 and 6-11) but that pair cannot reach both ratings under the limits, and growing it by the next sparsest rows reaches the whole area, which costs more devices; with the PMUs trusted its columns shrink, so its device count can fall.
 

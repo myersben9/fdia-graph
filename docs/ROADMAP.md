@@ -35,7 +35,7 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 |---|---|
 | `reference/` | data dictionary, glossary, concepts to code, formulas, examples, benchmarks |
 | `guides/` | task walkthroughs: `generation.md` (how a timeline is built), `state_estimation.md` |
-| `se/`, `localization/`, `trust/`, `federated/` | `run_*.py` fits one system and writes `results/*.json`; `make_report.py` (where present) renders the README tables and figures |
+| `se/`, `localization/`, `trust/`, `federated/` | `run_*.py` fits one system and writes runs to the results store (`results/`); `make_report.py` (where present) draws the figures from it and `tools/results_docs.py` fills the README tables |
 | `figures/` | shared images with their data sidecars |
 | `plans/` | the design documents behind the 0.16 and 0.17 refactors (history, not instructions) |
 

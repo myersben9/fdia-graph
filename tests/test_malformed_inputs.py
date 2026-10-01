@@ -16,6 +16,7 @@ import pytest
 
 from fdia_graph.errors import ConfigError
 from fdia_graph.models import config, inputs
+from fdia_graph.models import results as result_models
 from fdia_graph.models.frames import OperatingLimits
 from fdia_graph.models.validation import Validated
 
@@ -79,11 +80,21 @@ VALID = {
     inputs.Aggregation: dict(reduce="sum"),
     inputs.Requirement: dict(capabilities=("timeline",), by="a test"),
     inputs.LoadValues: dict(values=[1.0, 2.0, 3.0]),
+    result_models.Record: dict(experiment="demo.x", metric="angle_mae_deg", value=0.1),
+    result_models.Provenance: dict(
+        run_id="demo.x-1", experiment="demo.x", timestamp="2026-01-01T00:00:00Z", sdk_version="0"
+    ),
+    result_models.RunRecords: dict(
+        provenance=result_models.Provenance(
+            run_id="demo.x-1", experiment="demo.x", timestamp="2026-01-01T00:00:00Z", sdk_version="0"
+        ),
+        records=(),
+    ),
 }
 
 
 def _models():
-    for mod in (config, inputs):
+    for mod in (config, inputs, result_models):
         for _, cls in inspect.getmembers(mod, inspect.isclass):
             if issubclass(cls, Validated) and cls is not Validated and cls.__module__ == mod.__name__:
                 yield cls

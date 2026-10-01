@@ -1,4 +1,5 @@
-"""Run the federated localization papers' protocol on one system and write results/fed_<system>.json.
+"""Run the federated localization papers' protocol on one system and write a run of
+`federated.localization` to the results store (`results/`).
 
 The protocol behind the federated papers' headline table, on the v0.8.1 timelines (pinned):
 
@@ -16,8 +17,8 @@ Scores are the papers' per-bus macro F1, DR and FR over the attackable buses (`s
 with FR over every test record (the paper's Table IV) and over benign records only, overall and
 per family (that family plus benign). Set FG_SYSTEM (default ieee14). Each run is saved to
 results/runs/ as soon as it finishes and skipped on a re-run; delete a file to recompute it.
-Tables and figures come from make_report.py. Needs the [federated] and [se] extras; uses the GPU
-when visible. About ten minutes a run on one GPU for every system here.
+The README's tables are results blocks (`tools/results_docs.py --write`); make_report.py draws the
+figures from the store. Needs the [federated] and [se] extras; uses the GPU when visible.
 """
 
 import glob
@@ -29,11 +30,13 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.federated import FedBusCNN, FedBusMLP
+from fdia_graph.results import Run, Store
 
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
 RELEASE = "v0.8.1"  # pinned: the committed runs are this release's, whatever FDIA_GRAPH_RELEASE says
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
+STORE = Store(os.path.join(HERE, "..", "..", "results"))  # the repository's results store
 RUNS = os.path.join(OUT, "runs")
 os.makedirs(RUNS, exist_ok=True)
 MODELS = {"cnn": FedBusCNN, "mlp": FedBusMLP}
@@ -103,10 +106,10 @@ def aggregate(runs):
     return out
 
 
-res = {"system": SYSTEM}
-for name in MODELS:
-    for K in CLIENTS:
-        res[f"{name}_K{K}"] = aggregate([run_one(name, K, s) for s in SEEDS])
-with open(os.path.join(OUT, f"fed_{SYSTEM}.json"), "w") as fh:
-    json.dump(res, fh, indent=1)
-print(f"[ok] wrote fed_{SYSTEM}.json ({len(glob.glob(os.path.join(RUNS, SYSTEM + '_*.json')))} runs)")
+settings = {"models": list(MODELS), "clients": list(CLIENTS), "seeds": list(SEEDS), "release": RELEASE}
+with Run("federated.localization", system=SYSTEM, settings=settings, data_release=RELEASE, store=STORE) as out:
+    for name in MODELS:
+        for K in CLIENTS:
+            agg = aggregate([run_one(name, K, s) for s in SEEDS])
+            out.add_tree({k: v for k, v in agg.items() if k != "tau"}, levels=("pool", "family"), method=name, clients=K)
+print(f"[ok] wrote federated.localization for {SYSTEM} ({len(glob.glob(os.path.join(RUNS, SYSTEM + '_*.json')))} runs)")

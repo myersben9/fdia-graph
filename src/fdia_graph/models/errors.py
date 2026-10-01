@@ -53,3 +53,7 @@ class NoOperatingLimits(DataConditionError):
 class NoLineRatings(DataConditionError):
     """The overload attack (`Am`, [WU26, eqs. 24-25]) needs real line ratings, and the case has none
     (only IEEE-14, 118 and 300 carry the PGLib-OPF ratings)."""
+
+
+class NoSuchResult(DataConditionError, LookupError):
+    """A results query that must find one record found none, or several."""

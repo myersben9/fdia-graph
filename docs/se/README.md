@@ -39,14 +39,16 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 |---|---|
 | partition | test split, hyperparameters validation-selected in the estimation paper |
 | Huber `c` / rank fraction | 1.5 / 0.20 (14), 2.5 / 0.50 (118), 6.0 / 0.50 (300) |
-| removal threshold | 4.0 (14), 5.0 (118), 5.0 (300); on IEEE-300 it runs 2.4 hours (the per-record observability guard) and cuts the WLS angle error 28% |
-| cell | geometric mean of the MAE over the eight record classes (benign and the seven families); full metrics in `results/se_ieee{14,118,300}.json` |
+| removal threshold | 4.0 (14), 5.0 (118), 5.0 (300) |
+| cell | geometric mean of the MAE over the eight record classes (benign and the seven families) |
+| source | the results store, experiment `se.estimators` (`results/se.estimators.csv`, data release v0.8.3) |
 
 **Estimator comparison** (bold marks the proposed rows, not the best cell)
 
+<!-- results: se.comparison angle_mae_deg -->
 | Estimator | IEEE 14 | IEEE 118 | IEEE 300 |
 |---|---:|---:|---:|
-| *Angle MAE (deg)* | | | |
+| *Angle MAE (deg)* |  |  |  |
 | WLS baseline | 0.091 | 0.020 | 0.027 |
 | Residual removal | 0.052 | 0.014 | 0.019 |
 | Adaptive weighting | 0.057 | 0.014 | 0.020 |
@@ -55,10 +57,12 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | **Prior + Huber + CNN gate** | **0.044** | **0.010** | **0.015** |
 | Prior + Huber + oracle gate (ceiling) | 0.041 | 0.010 | 0.015 |
 | WLS error reduction | 45% | 50% | 40% |
+<!-- /results -->
 
+<!-- results: se.comparison voltage_mae_pu -->
 | Estimator | IEEE 14 | IEEE 118 | IEEE 300 |
 |---|---:|---:|---:|
-| *Voltage MAE (10^-3 pu)* | | | |
+| *Voltage MAE (10^-3 pu)* |  |  |  |
 | WLS baseline | 0.839 | 0.177 | 0.219 |
 | Residual removal | 0.513 | 0.121 | 0.171 |
 | Adaptive weighting | 0.540 | 0.122 | 0.177 |
@@ -67,19 +71,18 @@ rep  = est.score(test)      # per-family angle/voltage MAE vs the clean truth
 | **Prior + Huber + CNN gate** | **0.239** | **0.032** | **0.063** |
 | Prior + Huber + oracle gate (ceiling) | 0.212 | 0.034 | 0.059 |
 | WLS error reduction | 81% | 84% | 71% |
-
-| paper (v0.4.1 data) | 14 | 118 | 300 |
-|---|---:|---:|---:|
-| angle, WLS → proposed | 0.164 → 0.068 | 0.075 → 0.033 | 0.129 → 0.068 |
-| voltage reduction | 57% | 85% | 68% |
+<!-- /results -->
 
 The timelines carry the accuracy-class meter model (since v0.7.2), so absolute errors are lower
-than the paper's; the ordering holds and the reductions stay of the same size (angle 45, 50 and 40%
-here against 59, 56 and 47%).
+than the estimation paper's on v0.4.1 data (as published, WLS to proposed angle 0.164 → 0.068,
+0.075 → 0.033 and 0.129 → 0.068 on 14, 118 and 300); the ordering holds and the reductions stay of
+the same size (angle <!-- results: red se ieee14 geo angle_mae_deg wls prior+huber -->45<!-- /results -->, <!-- results: red se ieee118 geo angle_mae_deg wls prior+huber -->50<!-- /results --> and <!-- results: red se ieee300 geo angle_mae_deg wls prior+huber -->40<!-- /results -->% here against
+the paper's 59, 56 and 47%).
 
 **Per-family results of the proposed estimator.** Baseline cells are the WLS error, reduction is
 the proposed estimator's percent reduction over that baseline.
 
+<!-- results: se.families -->
 | Family | Base angle (deg) 14 | Base angle (deg) 118 | Base angle (deg) 300 | Base volt (10^-3) 14 | Base volt (10^-3) 118 | Base volt (10^-3) 300 | Angle red. (%) 14 | Angle red. (%) 118 | Angle red. (%) 300 | Volt red. (%) 14 | Volt red. (%) 118 | Volt red. (%) 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | Benign | 0.008 | 0.009 | 0.015 | 0.15 | 0.09 | 0.15 | -56 | 27 | 23 | 58 | 81 | 68 |
@@ -90,6 +93,7 @@ the proposed estimator's percent reduction over that baseline.
 | Slow ramp (At) | 0.085 | 0.011 | 0.017 | 0.75 | 0.10 | 0.16 | 23 | 26 | 20 | 76 | 80 | 66 |
 | Load redistribution (Al) | 0.051 | 0.020 | 0.023 | 0.41 | 0.16 | 0.17 | 6 | 27 | 14 | 54 | 65 | 60 |
 | Multi-snapshot (Am) | 0.046 | 0.014 | 0.022 | 0.35 | 0.12 | 0.17 | 0 | 25 | 12 | 51 | 65 | 61 |
+<!-- /results -->
 
 Angle MAE per estimator and family (degrees, lower is better, `geo` is the summary column):
 
@@ -97,14 +101,15 @@ Angle MAE per estimator and family (degrees, lower is better, `geo` is the summa
 |---|---|---|
 | ![](results/fig_se_ieee14.png) | ![](results/fig_se_ieee118.png) | ![](results/fig_se_ieee300.png) |
 
-| families | what happens | angle reduction | why |
-|---|---|---|---|
-| `Ad` `As` `Ar` (in place) | robustness cleans up what it can see | 69 to 86% on 14, 65 to 85% on 118, 37 to 89% on 300; voltage 73 to 97% everywhere | corrupted meters leave large residuals for removal, Huber and the prior to reject |
-| `Aq` `At` `Al` `Am` (stealthy) | move part of the way, through the prior alone | 0 to 23% on 14, 23 to 27% on 118, 12 to 20% on 300; voltage 51 to 80% | the local false state is a consistent AC state, so no residual exists and Huber sees nothing; it also sits off the benign operating subspace, so the prior pulls the estimate back part of the way; the rest needs temporal information ([`../localization/README.md`](../localization/README.md)) |
+| families | what happens | why |
+|---|---|---|
+| `Ad` `As` `Ar` (in place) | robustness cleans up what it can see: the largest angle reductions of the table, and the voltage error falls on every system | corrupted meters leave large residuals for removal, Huber and the prior to reject |
+| `Aq` `At` `Al` `Am` (stealthy) | move part of the way, through the prior alone | the local false state is a consistent AC state, so no residual exists and Huber sees nothing; it also sits off the benign operating subspace, so the prior pulls the estimate back part of the way; the rest needs temporal information ([`../localization/README.md`](../localization/README.md)) |
 
-On IEEE-14 the benign angle error rises (0.008 to 0.013 degrees, the -56% cell): the rank-0.20
-prior is tuned for the attacked records and costs the clean ones a little, while the voltage error
-still falls 58%.
+On IEEE-14 the benign angle error rises (<!-- results: v se ieee14 wls benign angle_mae_deg -->0.008<!-- /results --> to
+<!-- results: v se ieee14 prior+huber benign angle_mae_deg -->0.013<!-- /results --> degrees): the rank-0.20 prior is tuned for the attacked
+records and costs the clean ones a little, while the benign voltage error still falls
+<!-- results: red se ieee14 benign voltage_mae_pu wls prior+huber -->58<!-- /results -->%.
 
 ## Jacobian-informed weighting
 
@@ -112,57 +117,59 @@ still falls 58%.
 
 | result | 14 | 118 | 300 |
 |---|---:|---:|---:|
-| WLS angle error reduction | 17% | 23% | 21% |
-| where it comes from | `Ad` 0.124 → 0.078, `As` 0.232 → 0.161, `Ar` 0.231 → 0.123 | in-place families only | `Ar` 0.128 → 0.031 |
-| stealthy families | untouched, as `(I − P_H)a = 0` predicts: `Aq` 0.413, `At` 0.085, `Al` 0.051, `Am` 0.046 on both | same | same |
-| against iterated Huber | 0.076 vs 0.057 | 0.016 vs 0.014 | 0.021 vs 0.020 |
+| WLS angle error reduction (%) | <!-- results: red se ieee14 geo angle_mae_deg wls jacobian -->17<!-- /results --> | <!-- results: red se ieee118 geo angle_mae_deg wls jacobian -->23<!-- /results --> | <!-- results: red se ieee300 geo angle_mae_deg wls jacobian -->21<!-- /results --> |
+| `Ar`, WLS → Jacobian weighting (deg) | <!-- results: v se ieee14 wls Ar angle_mae_deg -->0.231<!-- /results --> → <!-- results: v se ieee14 jacobian Ar angle_mae_deg -->0.123<!-- /results --> | <!-- results: v se ieee118 wls Ar angle_mae_deg fmt=.4f -->0.0516<!-- /results --> → <!-- results: v se ieee118 jacobian Ar angle_mae_deg fmt=.4f -->0.0155<!-- /results --> | <!-- results: v se ieee300 wls Ar angle_mae_deg -->0.128<!-- /results --> → <!-- results: v se ieee300 jacobian Ar angle_mae_deg -->0.031<!-- /results --> |
+| `Aq`, WLS → Jacobian weighting (deg) | <!-- results: v se ieee14 wls Aq angle_mae_deg -->0.413<!-- /results --> → <!-- results: v se ieee14 jacobian Aq angle_mae_deg -->0.413<!-- /results --> | <!-- results: v se ieee118 wls Aq angle_mae_deg fmt=.4f -->0.0235<!-- /results --> → <!-- results: v se ieee118 jacobian Aq angle_mae_deg fmt=.4f -->0.0235<!-- /results --> | <!-- results: v se ieee300 wls Aq angle_mae_deg fmt=.4f -->0.0274<!-- /results --> → <!-- results: v se ieee300 jacobian Aq angle_mae_deg fmt=.4f -->0.0274<!-- /results --> |
+| against iterated Huber (deg, geometric mean) | <!-- results: v se ieee14 jacobian geo angle_mae_deg -->0.076<!-- /results --> vs <!-- results: v se ieee14 huber geo angle_mae_deg -->0.057<!-- /results --> | <!-- results: v se ieee118 jacobian geo angle_mae_deg fmt=.4f -->0.0156<!-- /results --> vs <!-- results: v se ieee118 huber geo angle_mae_deg fmt=.4f -->0.0139<!-- /results --> | <!-- results: v se ieee300 jacobian geo angle_mae_deg fmt=.4f -->0.0213<!-- /results --> vs <!-- results: v se ieee300 huber geo angle_mae_deg fmt=.4f -->0.0198<!-- /results --> |
 
-The temporal unexplained residual carries what Huber already recovers from the estimate's own
-residual, so this route cannot move the proposed estimator. The routes that can are a localizer gate
-and, ahead of it, a trusted set of meters.
+The gain comes from the in-place families; the stealthy families are untouched, as `(I − P_H)a = 0`
+predicts. The temporal unexplained residual carries what Huber already recovers from the estimate's
+own residual, so this route cannot move the proposed estimator. The routes that can are a localizer
+gate and, ahead of it, a trusted set of meters.
 
 ## Localization-gated estimation
 
 ![a localizer flags buses; the weights of every meter of a flagged bus and its branches are scaled by a thousandth; the prior plus Huber solve fills the gap from the benign prior](../figures/diagrams/se_gated_prior.png)
 
 Angle mean absolute error in degrees, the proposed estimator alone, with the CNN localizer as the
-gate, and with the true labels as the gate (the ceiling for any gate). IEEE-14 to three decimals,
-118 and 300 to four:
+gate, and with the true labels as the gate (the ceiling for any gate):
 
-| | IEEE 14 | | | IEEE 118 | | | IEEE 300 | | |
+<!-- results: se.gated -->
+| angle MAE (deg) | proposed 14 | + CNN gate 14 | + oracle 14 | proposed 118 | + CNN gate 118 | + oracle 118 | proposed 300 | + CNN gate 300 | + oracle 300 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| angle MAE (deg) | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle | proposed | + CNN gate | + oracle |
 | Aq stealthy re-solve | 0.355 | 0.300 | 0.301 | 0.0181 | 0.0176 | 0.0168 | 0.0241 | 0.0239 | 0.0234 |
 | Ad / As / Ar in place | 0.026 / 0.071 / 0.032 | 0.022 / 0.021 / 0.022 | 0.020 / 0.020 / 0.020 | 0.0094 / 0.0103 / 0.0080 | 0.0082 / 0.0082 / 0.0083 | 0.0074 / 0.0075 / 0.0073 | 0.0146 / 0.0154 / 0.0140 | 0.0128 / 0.0128 / 0.0129 | 0.0122 / 0.0122 / 0.0122 |
 | At slow ramp | 0.066 | 0.070 | 0.060 | 0.0084 | 0.0092 | 0.0085 | 0.0136 | 0.0144 | 0.0137 |
 | Al redistribution | 0.048 | 0.076 | 0.075 | 0.0147 | 0.0182 | 0.0178 | 0.0196 | 0.0187 | 0.0185 |
 | Am multi-snapshot | 0.046 | 0.062 | 0.059 | 0.0106 | 0.0115 | 0.0148 | 0.0194 | 0.0205 | 0.0175 |
-| geometric mean | 0.050 | **0.044** | 0.041 | **0.0102** | 0.0103 | 0.0100 | 0.0161 | **0.0155** | 0.0147 |
+| geometric mean | 0.050 | 0.044 | 0.041 | 0.0102 | 0.0103 | 0.0100 | 0.0161 | 0.0155 | 0.0147 |
+<!-- /results -->
 
 | families | what the gate does | why |
 |---|---|---|
-| `Ad` `As` `Ar` (in place) | finishes the job at every size: the CNN gate takes them to 0.021 to 0.022 on 14, 0.0082 to 0.0083 on 118 and 0.0128 to 0.0129 on 300, next to the oracle's 0.020, 0.0073 to 0.0075 and 0.0122 | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
-| `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse on 14 and 118, with the true labels too: `Al` 0.048 → 0.076 on 14, 0.0147 → 0.0182 on 118; on 300 it improves `Al` (0.0196 → 0.0187) and makes `At` (0.0136 → 0.0144) and `Am` (0.0194 → 0.0205) slightly worse; it improves `Aq` on 14 (0.355 → 0.300) | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
+| `Ad` `As` `Ar` (in place) | finishes the job at every size, the CNN gate close to the oracle's | the flagged bus's meters are the corrupted ones, the prior fills a hole that held nothing true |
+| `Aq` `At` `Al` `Am` (stealthy) | makes `Al` and `Am` worse on 14 and 118, with the true labels too; mixed on 300; it improves `Aq` on 14 | a local false state is a consistent AC state, so the flagged bus's meters are the evidence the prior was using; pulled out, the prior guesses from the neighbours, which describe the false state |
 
-The CNN gate lowers the geometric mean 12% on IEEE-14 (0.050 to 0.044) and 4% on 300 (0.0161 to
-0.0155) and costs 1% on 118 (0.0102 to 0.0103): the in-place families (and `Aq` on 14) gain, and the stealthy-family losses (`Al` and
-`Am` most) offset that gain on 118. The gate pays most when it has something true to leave in: with
-20 meters secured by the DQN selector of [`../trust/README.md`](../trust/README.md) and exempt from
-the gate, IEEE-14 goes from 0.050 degrees to 0.031 with the secured meters alone and to 0.017 with
-the same CNN gate added. Recovering a stealthy false state from one scan otherwise needs the
-previous scan, the temporal direction.
+The CNN gate changes the geometric mean by <!-- results: red se ieee14 geo angle_mae_deg prior+huber prior+huber+gate -->12<!-- /results -->% on IEEE-14,
+<!-- results: red se ieee118 geo angle_mae_deg prior+huber prior+huber+gate -->-1<!-- /results -->% on 118 and <!-- results: red se ieee300 geo angle_mae_deg prior+huber prior+huber+gate -->4<!-- /results -->% on 300 (a reduction when positive): the in-place
+families (and `Aq` on 14) gain, and the stealthy-family losses (`Al` and `Am` most) offset that gain
+on 118. The gate pays most when it has something true to leave in: with 20 meters secured by the
+DQN selector of [`../trust/README.md`](../trust/README.md) and exempt from the gate, IEEE-14 goes
+from <!-- results: v sest ieee14 prior+huber geo angle_mae_deg secured=plain -->0.050<!-- /results --> degrees to <!-- results: v sest ieee14 prior+huber geo angle_mae_deg secured=dqn -->0.031<!-- /results --> with the secured meters alone and to
+<!-- results: v sest ieee14 prior+huber+cnn+trust geo angle_mae_deg secured=dqn -->0.017<!-- /results --> with the same CNN gate added. Recovering a stealthy false state from one scan
+otherwise needs the previous scan, the temporal direction.
 
 ## Regenerate
 
 ```bash
-FG_SYSTEM=ieee14 python docs/se/run_se.py      # fits, writes results/se_ieee14.json (estimates cached per arm)
+FG_SYSTEM=ieee14 python docs/se/run_se.py      # fits, writes a run of se.estimators to results/ (estimates cached per arm)
 FG_SYSTEM=ieee118 python docs/se/run_se.py
 OMP_NUM_THREADS=1 FG_SYSTEM=ieee300 python docs/se/run_se.py   # single-threaded: multi-threaded, the gated arms hung in the OpenMP runtime
-python docs/se/make_report.py                  # tables (markdown) + figures + CSV from the JSON
+python docs/se/make_report.py                  # figures + CSV sidecars from the store
+python tools/results_docs.py --write           # the README's results blocks from the store
 ```
 
 | | |
 |---|---|
 | skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
-| wall time, CPU, IEEE-300 (v0.8.3 run, sharing the CPU with two other guide jobs) | WLS 24 s, residual removal 2.4 h, Huber 2.7 h, prior + Huber 53 min, Jacobian weighting 4 min; each gated arm 1.6 h run single-threaded (`OMP_NUM_THREADS=1`), after a multi-threaded run hung inside the OpenMP runtime |
 | re-runs | score from `results/cache/` in about a minute per arm |

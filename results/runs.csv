@@ -1,0 +1,23 @@
+run_id,experiment,timestamp,sdk_version,git_sha,dirty,data_release,seed,config_hash,platform,note
+bench-20260916-migrated,bench,2026-09-16T00:00:00Z,0.17.0,,False,,,,,"AMD64 Intel64 Family 6 Model 143 Stepping 8, GenuineIntel, numpy 1.26.4, torch 2.12.0.dev20260314+cu128"
+certify.ablation-migrated,certify.ablation,2026-09-30T00:00:00Z,0.20.0,bf22fa11fb2c8da92b4a0f640b24b9d7900084a4,True,,,74234e98afe7,Windows-10,"migrated from scratchpad/relax6_certify_14.csv (the ablation of #165, scratchpad script not in the repo)"
+federated.localization-ieee118-migrated,federated.localization,2026-09-24T07:56:46Z,0.19.0,fe6951e82a2612d2970d4c8d55f9ff77b303007f,False,v0.8.1,,,,migrated from docs/federated/results/fed_ieee118.json
+federated.localization-ieee14-migrated,federated.localization,2026-09-24T07:56:46Z,0.19.0,fe6951e82a2612d2970d4c8d55f9ff77b303007f,False,v0.8.1,,,,migrated from docs/federated/results/fed_ieee14.json
+federated.localization-ieee300-migrated,federated.localization,2026-09-24T07:56:46Z,0.19.0,fe6951e82a2612d2970d4c8d55f9ff77b303007f,False,v0.8.1,,,,migrated from docs/federated/results/fed_ieee300.json
+localization.common-ieee118-migrated,localization.common,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/localization/results/loc_ieee118.json
+localization.common-ieee14-migrated,localization.common,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/localization/results/loc_ieee14.json
+localization.common-ieee300-migrated,localization.common,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/localization/results/loc_ieee300.json
+localization.zero_shot-ieee118-migrated,localization.zero_shot,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/localization/results/loc_ieee118.json
+localization.zero_shot-ieee14-migrated,localization.zero_shot,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/localization/results/loc_ieee14.json
+localization.zero_shot-ieee300-migrated,localization.zero_shot,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/localization/results/loc_ieee300.json
+se.estimators-ieee118-migrated,se.estimators,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/se/results/se_ieee118.json
+se.estimators-ieee14-migrated,se.estimators,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,,,,migrated from docs/se/results/se_ieee14.json
+se.estimators-ieee300-migrated,se.estimators,2026-09-27T20:49:32Z,0.20.0,81ed46ebd41188cc389bf54b362bca336cb87bd8,False,v0.8.3,,,,migrated from docs/se/results/se_ieee300.json
+trust.secured_estimation-ieee118-migrated,trust.secured_estimation,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,0,,,migrated from docs/trust/results/secured_ieee118.json
+trust.secured_estimation-ieee14-migrated,trust.secured_estimation,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,0,,,migrated from docs/trust/results/secured_ieee14.json
+trust.secured_localization-ieee118-migrated,trust.secured_localization,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,0,,,migrated from docs/trust/results/secured_ieee118.json
+trust.secured_localization-ieee14-migrated,trust.secured_localization,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,0,,,migrated from docs/trust/results/secured_ieee14.json
+trust.selection-ieee118-migrated,trust.selection,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,0,,,migrated from docs/trust/results/trust_ieee118.json
+trust.selection-ieee14-migrated,trust.selection,2026-09-26T09:53:36Z,0.20.0,7902e7db5489044b01fee5c90b13a42c4e44cdcf,False,v0.8.3,0,,,migrated from docs/trust/results/trust_ieee14.json
+wu26.method_compare-migrated,wu26.method_compare,2026-09-30T00:00:00Z,0.20.0,bf22fa11fb2c8da92b4a0f640b24b9d7900084a4,True,,,74234e98afe7,Windows-10,"migrated from scratchpad/wu_defense/rref_compare.jsonl (scratchpad/wu_defense/rref_compare.py, not in the repo)"
+wu26.prototype-migrated,wu26.prototype,2026-09-29T00:00:00Z,0.20.0,bf22fa11fb2c8da92b4a0f640b24b9d7900084a4,True,,,74234e98afe7,Windows-10,"migrated from scratchpad/wu_defense/proto2_faithful_14.csv (scratchpad/wu_defense/proto2.py, not in the repo)"
