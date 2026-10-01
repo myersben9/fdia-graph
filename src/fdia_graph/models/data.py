@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Optional, TypedDict, Union
+from typing import NamedTuple, Optional, TypedDict, Union
 
 import numpy as np
 
@@ -211,3 +211,12 @@ class TrueState(Bundle):
 # What a stream consumer accepts: the `Stream` that `load_stream` and `generate_stream` return
 # (arrays plus the episode list and scalars), or a plain dict of the stream's arrays.
 StreamLike = Union[Stream, Mapping[str, np.ndarray]]
+
+
+class Decision(NamedTuple):
+    """One decision of ours on how the package reads [WU26]: the rule, whether it is the paper's own
+    reading ("paper") or a choice the paper leaves open ("ours"), and the plan that records it."""
+
+    rule: str
+    source: str
+    plan: str

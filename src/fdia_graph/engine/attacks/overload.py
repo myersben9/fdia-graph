@@ -1,10 +1,10 @@
 """`Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two
 by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`,
-the plan's D17) driven to their ratings over the window, with the fewest devices tampered.
+[D17]) driven to their ratings over the window, with the fewest devices tampered.
 
-[WU26, eqs. 24-25] asks that the apparent flow the tampered measurements carry on a target line grow
+[WU26 eqs. 24-25] asks that the apparent flow the tampered measurements carry on a target line grow
 snapshot by snapshot until it reaches the line's rating S_max. The rating is by default 1.25 times the
-branch's peak true flow over the operating pool (the plan's D15, `use_line_ratings`), or on request the
+branch's peak true flow over the operating pool ([D15], `use_line_ratings`), or on request the
 branch's PGLib-OPF `rate_a` (`fdia_graph.ratings`; the IEEE cases pandapower ships rate every branch
 9,900 MVA, which no flow comes near). A branch is a target for a window only when it is rated, its flow is metered
 (the goal is what the operator sees) and its true flow stays below the rating at every snapshot of
@@ -18,7 +18,7 @@ on the noiseless reading of the false state: the true flow plus a share of what 
 snapshot's true flow from the rating, so the attack adds a steady ramp on top of the load's own
 drift instead of cancelling it, and reaches S_max at the window's last snapshot (eq. 25). As in
 [WU26], nothing bounds how far the attack moves between snapshots: the paper's noise only decides
-which changes its tamper count ignores (`formulas.noise.paper_sigma`, the plan's D8 and D11), and the
+which changes its tamper count ignores (`formulas.noise.paper_sigma`, [D8] and D11), and the
 attack is stealthy because every snapshot's readings are those of one AC state. Each snapshot's false
 state frees the attackable loads and the generators of the support (the latter within their limits,
 eqs. 22-23) and holds every other bus's injection
@@ -36,10 +36,10 @@ import numpy as np
 from ...formulas.attacks import branch_ratings, generator_output
 from ...models.config import OverloadSettings
 from ...models.errors import NoLineRatings
-from ...models.frames import AmOverloadDesign, AttackVector, FlowGoal, Frame, FrameKnobs
+from ...models.frames import AmOverloadDesign, FlowGoal, Frame, FrameKnobs
 from ...models.grid import NODE
 from ...ratings import pglib_branches
-from .rref import RrefMixin
+from .minimize import MinimizeMixin
 
 # How many target sets (one line, or two, D17) an Am episode tries, drawn from one random order of the
 # eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
@@ -98,8 +98,8 @@ WU26_ATTACK_AREA: dict[int, tuple[int, ...]] = {
 
 def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
     """One branch's goal over a window from its true flows [T, 2] (MW, MVAr): the true flow plus a
-    linear share of what separates the last true flow from the rating (the plan's D9). The window's
-    snapshots are kappa+1 ... kappa+T after the untouched reference kappa [WU26, eq. 25], so snapshot
+    linear share of what separates the last true flow from the rating [D9]. The window's
+    snapshots are kappa+1 ... kappa+T after the untouched reference kappa [WU26 eq. 25], so snapshot
     k of the window (k = 1 ... T) carries the share k/T: every snapshot moves the flow and the last
     reaches the rating."""
     true = np.hypot(flows[:, 0], flows[:, 1])
@@ -107,11 +107,11 @@ def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
     return tuple(float(x) for x in true + share * (rating - true[-1]))
 
 
-class OverloadMixin(RrefMixin):
+class OverloadMixin(MinimizeMixin):
     """Design and step the overload attack of [WU26] on a rated, metered target branch."""
 
     def use_line_ratings(self, settings: OverloadSettings, X: np.ndarray) -> None:
-        """Set the ratings the overload attack drives its lines to (the plan's D15): with "pool", each
+        """Set the ratings the overload attack drives its lines to [D15]: with "pool", each
         branch's `rating_margin` times its peak true apparent flow over the pool X [T, N, 4], at the
         from end as the goal reads it (a static rating per line, every system); with "pglib", the
         PGLib-OPF ratings (`line_ratings`, NoLineRatings on a case without them)."""
@@ -168,7 +168,7 @@ class OverloadMixin(RrefMixin):
         """The per-snapshot flow the attack must reach on `line`, the first target, over `window`
         (module docstring), and on each branch of `more` at once, each toward its own rating. The
         generator's episodes pass `OverloadSettings.n_lines` targets: two by default, as the paper's
-        case studies overload two lines at once, or one (the plan's D17)."""
+        case studies overload two lines at once, or one [D17]."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2] MW, MVAr
         rating = self.line_ratings()
         first = _schedule(flows[:, line], float(rating[line]))
@@ -176,29 +176,8 @@ class OverloadMixin(RrefMixin):
             line, first, more=tuple((int(b), _schedule(flows[:, b], float(rating[b]))) for b in more)
         )
 
-    def am_overload_design(
-        self, X: np.ndarray, t: int, length: int, k: FrameKnobs, prev: Optional[AttackVector] = None
-    ) -> Optional[AmOverloadDesign]:
-        """One `Am` episode starting at t as the overload attack of [WU26]: at most `AM_LINE_TRIES` of the
-        eligible branches, in a random order (one draw, only when there is one), each tried until the fewest-tamper search
-        finds a support that meets the goal at every snapshot, inside the operating limits, and
-        moves at least one device beyond noise. None when no branch has one (the
-        walk then moves the episode to another onset, `timeline._relocate`)."""
-        frames = range(t, min(t + length, len(X)))
-        window = [X[u] for u in frames]
-        lines = self.eligible_lines(window, k.hops)
-        if len(lines) == 0:
-            return None
-        for targets in self._target_sets(self.rng.permutation(lines), k.n_lines, k.hops):
-            goal = self.overload_goal(window, *targets)
-            result = self.min_tamper(window, goal, k, prev)
-            if result is not None and result.devices >= 1:
-                ratings = tuple(float(self.line_ratings()[b]) for b in targets)
-                return AmOverloadDesign(goal, ratings, result.support, result)
-        return None
-
     def _target_sets(self, order: np.ndarray, n_lines: int, hops: int) -> list[tuple[int, ...]]:
-        """At most `AM_LINE_TRIES` target sets from the eligible branches in `order` (D17): single
+        """At most `AM_LINE_TRIES` target sets from the eligible branches in `order` [D17]: single
         branches, or pairs one held support can reach, each first branch taken in order with the
         first other branch whose ends lie inside the first one's attack area (the buses within
         `hops` of its ends), each pair once."""

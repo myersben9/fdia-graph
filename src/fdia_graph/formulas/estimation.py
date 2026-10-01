@@ -180,7 +180,7 @@ def pmu_pseudo_links(
     Yf: np.ndarray,
     Yt: np.ndarray,
 ) -> PseudoLinks:
-    """The branch ends where [WU26, eq. (3)] places a pseudo voltage phasor: a PMU at the metered end
+    """The branch ends where [WU26 eq. 3] places a pseudo voltage phasor: a PMU at the metered end
     reads the bus voltage and the branch current, which fix the voltage at the far end when the far
     bus has no PMU of its own.
 
@@ -209,7 +209,7 @@ def pmu_pseudo_links(
 def pmu_pseudo_phasors(
     links: PseudoLinks, n_bus: int, v: np.ndarray, theta: np.ndarray, current: np.ndarray
 ) -> np.ndarray:
-    """The pseudo voltage phasors of [WU26, eq. (3)] alone [n, N] (complex, NaN where no link reaches),
+    """The pseudo voltage phasors of [WU26 eq. 3] alone [n, N] (complex, NaN where no link reaches),
     the values `pmu_pseudo_voltages` propagates the noise of: V_f = (I_n - y_nn V_n) / y_nf, the mean
     over the links reaching f. The estimator's solve reads only these, so it builds no covariance.
 
@@ -243,7 +243,7 @@ def pmu_pseudo_voltages(
     sigma_theta: Union[float, np.ndarray],
     sigma_i: Union[float, np.ndarray],
 ) -> PseudoVoltages:
-    """The pseudo voltage phasors of [WU26, eq. (3)] at the far end of every PMU-metered branch,
+    """The pseudo voltage phasors of [WU26 eq. 3] at the far end of every PMU-metered branch,
     averaged over the links that reach a bus, with their first-order propagated noise.
 
     From the metered end n of a branch to its far end f (pi model, taps and shifts included):

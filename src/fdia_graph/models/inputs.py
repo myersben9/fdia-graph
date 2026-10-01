@@ -657,7 +657,7 @@ class Requirement(Validated):
 
 @dataclass(frozen=True)
 class CertifiableLimits(Validated):
-    """The operating limits the certifier's relaxation takes its voltage box from ([WU26, eq. 21] as
+    """The operating limits the certifier's relaxation takes its voltage box from ([WU26 eq. 21] as
     the search applies it, `formulas.attacks.within_limits`): present, with a finite |V| bound at
     every bus. Without them the search's voltages are unbounded, and any box the relaxation added
     would bound a smaller problem than the search's, so the lower bound would not hold; the
@@ -735,7 +735,7 @@ class SameDefense(Validated):
 class TrustablePmus(Validated):
     """A trusted-PMU schedule's buses against the generator's grid and meter plan
     (`MinimizeMixin.min_tamper`'s `trust`): every trusted bus is a bus of the grid with a PMU, since a
-    trusted PMU pins its own |V| and angle [WU26, eqs. 27, 29] and a bus without one has nothing to
+    trusted PMU pins its own |V| and angle [WU26 eqs. 27, 29] and a bus without one has nothing to
     trust. Built from the schedule and the plan, since `TrustSchedule` alone does not know the grid."""
 
     buses: Annotated[Sequence[int], AsTuple()]  # the schedule's buses (`TrustSchedule.buses`)

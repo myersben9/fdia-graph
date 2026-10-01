@@ -102,7 +102,7 @@ _BATCH_SCALARS = ("family", "stealthy", "seq_id", "timestep")
 _CLEAN_LAYERS = ("clean", "edge_clean", "edge_clean_full")
 # The attack-removed layer of a timeline file: record field -> dataset path, one row per frame.
 _BENIGN_LAYERS = {k: schema.FIELD_PATH[k] for k in ("benign", "edge_benign")}
-# The PMU branch-current layers of a hybrid-meter timeline (D10): record field -> dataset path, one row
+# The PMU branch-current layers of a hybrid-meter timeline [D10]: record field -> dataset path, one row
 # per frame, per unit on every view (a current has no MW form to convert from).
 _CURRENT_LAYERS = {k: schema.FIELD_PATH[k] for k in ("pmu_i", "pmu_i_m", "pmu_i_benign")}
 # The previous frame's readings on a timeline (the row emitted just before each record, whatever

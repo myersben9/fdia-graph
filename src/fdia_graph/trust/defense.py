@@ -6,9 +6,9 @@ the overload attack of one window (docs/plans/WU_DEFENSE_PLAN.md, PR B).
     obs, reward, done = env.step(env.valid().nonzero()[0][0])
 
 Action: trust one more PMU at the next configuration step ("selects one PMU per step", p. 657). Reward:
-the rise in the attacker's minimum cost that the trusted PMU buys [WU26, eq. 33 per step], the cost being
+the rise in the attacker's minimum cost that the trusted PMU buys [WU26 eq. 33], per step, the cost being
 the fewest-tamper search's answer (`MinimizeMixin.min_tamper`) under the schedule so far (eqs. 28-32),
-counted in measurements (eq. 33's unit) or devices (`WuDefenseConfig.unit`, the plan's E3). State: what
+counted in measurements (eq. 33's unit) or devices (`WuDefenseConfig.unit`, [E3]). State: what
 Fig. 1 lists, the SCADA/PMU measurements P_i, Q_i, P_ij, Q_ij, V_i and theta_i the operator receives at
 the step's snapshot, the load rate S_ij / S_max of the target lines, and the trusted configuration.
 

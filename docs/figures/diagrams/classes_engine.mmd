@@ -56,6 +56,9 @@ classDiagram
     class Outage {
         <<models>>
     }
+    class OverloadMixin {
+        <<engine>>
+    }
     class PandapowerNet {
         <<engine>>
     }
@@ -73,6 +76,7 @@ classDiagram
     GridBase <|-- MeasurementMixin
     GridBase <|-- PhysicsMixin
     MeasurementMixin <|-- FdiaGenerator
+    OverloadMixin <|-- AttackMixin
     PhysicsMixin <|-- FdiaGenerator
     StealthyMixin <|-- AttackMixin
     AttackMixin ..> AttackDesign : uses

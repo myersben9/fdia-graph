@@ -83,7 +83,9 @@ for name, m in methods.items():
 
 settings = {"huber_c": c, "rank_frac": rank, "removal_threshold": thr, "arms": list(methods)}
 release = fg.resolve(SYSTEM).release or ""
-with Run("se.estimators", system=SYSTEM, settings=settings, data_release=release, store=STORE) as out:
+with Run(
+    "se.estimators", system=SYSTEM, settings=settings, data_release=release, store=STORE, replaces=True
+) as out:
     n = out.add_tree(report, levels=("method", "family"))
 print(
     f"[ok] wrote {n} records of se.estimators for {SYSTEM}; run make_report.py and tools/results_docs.py --write"

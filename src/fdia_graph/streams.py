@@ -21,7 +21,7 @@ import numpy as np
 
 from .dataset.sequence import window_labels
 from .models.choices import GENERATED_FAMILIES
-from .models.config import WindowSpec
+from .models.config import MeterSettings, WindowSpec
 from .models.data import (
     EpisodeRow,
     Stream,  # noqa: F401  re-exported: defined here before the models package
@@ -53,7 +53,7 @@ def generate_stream(
     *,  # keyword-only from here: the 0.20 positions after `families` held knobs that no longer exist
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
-    redundancy: Optional[dict] = None,
+    redundancy: Optional[Union[MeterSettings, dict[str, object]]] = None,  # a dict warns, goes in 0.22
     seed: int = 123,
     out: Optional[str] = None,
     **knobs: Any,

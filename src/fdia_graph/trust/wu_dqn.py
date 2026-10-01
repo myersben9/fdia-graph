@@ -59,7 +59,7 @@ class TrustedPMUsDQN:
         self.scale = np.where(np.abs(first).max(axis=0) > 0, np.abs(first).max(axis=0), 1.0)
 
     def fit(self) -> TrustedPMUsDQN:
-        """Train the Q-network by Algorithm 1 for `config.episodes` iterations."""
+        """Train the Q-network by [WU26 Alg. 1] for `config.episodes` iterations."""
         torch, cfg = _torch(), self.config
         torch.manual_seed(cfg.seed)
         rng = np.random.default_rng(cfg.seed)
@@ -101,7 +101,7 @@ class TrustedPMUsDQN:
         return total
 
     def _act(self, obs: np.ndarray, valid: np.ndarray, eps: float, rng: np.random.Generator) -> int:
-        """Epsilon-greedy over the PMUs still on offer (line 6, eq. 34)."""
+        """Epsilon-greedy over the PMUs still on offer (line 6, [WU26 eq. 34])."""
         if rng.random() < eps:
             return int(rng.choice(np.flatnonzero(valid)))
         torch = _torch()
@@ -110,7 +110,7 @@ class TrustedPMUsDQN:
         return int(q.argmax())
 
     def _learn(self, target: nn.Module, opt: torch.optim.Optimizer, batch: list[tuple]) -> None:
-        """One minibatch update of eqs. (35)-(37): the squared error to r + gamma max Q_target(o', u')."""
+        """One minibatch update of [WU26 eqs. 35-37]: the squared error to r + gamma max Q_target(o', u')."""
         torch = _torch()
         s, a, r, s2, done, valid2 = (np.array(x) for x in zip(*batch))
         q = self._q(self.net, s, np.ones((len(s), self._actions()), bool)).gather(

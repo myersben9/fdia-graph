@@ -70,7 +70,7 @@ class Frame(NamedTuple):
 
 
 class OperatingLimits(NamedTuple):
-    """The security and operational constraints a false state must satisfy [WU26, eqs. 21-23]:
+    """The security and operational constraints a false state must satisfy [WU26 eqs. 21-23]:
     every bus voltage magnitude within the case's limits (a bus the true state already holds
     outside a limit may not be made worse) and every generator's implied output within its P and
     Q limits widened to the range the benign pool ran it over (the slack, whose output is the
@@ -91,13 +91,13 @@ class FrameKnobs(NamedTuple):
     # branches of the attacked buses (or the target lines) with the boundary voltages held true
     hops: int = 2
     limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected (then halved)
-    # [WU26, eq. 12]: an episode's support is the one that tampers the fewest devices (off: the region
+    # [WU26 eq. 12]: an episode's support is the one that tampers the fewest devices (off: the region
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
     min_budget: int = 256
-    # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has none (D11)
+    # a multiplier on At's stealth bound, whose unit is the rated accuracy [D7]; Am has none [D11]
     stealth_scale: float = 1.0
-    # the overload attack's load-plausibility cap tau (D16): None leaves the load changes unbounded
+    # the overload attack's load-plausibility cap tau [D16]: None leaves the load changes unbounded
     load_cap: Optional[float] = None
     n_lines: int = 1  # the lines an overload episode drives at once (D17; new generation: 2)
     # the overload attack's support method (`OverloadSettings.support_method`): "search" or "rref"
@@ -118,7 +118,7 @@ class AttackVector(NamedTuple):
 class LoadGoal(NamedTuple):
     """What a load-changing attack must realize at each snapshot of its window: the attack design of
     each snapshot (the loads it moves and their multipliers). The goal of At; the fewest-tamper
-    search holds one support for all of them. The Am overload goal of [WU26, eqs. 24-25], a target
+    search holds one support for all of them. The Am overload goal of [WU26 eqs. 24-25], a target
     line's reported flow reaching its rating, is its own goal type."""
 
     designs: tuple[AttackDesign, ...]  # one per snapshot, in window order
@@ -126,14 +126,14 @@ class LoadGoal(NamedTuple):
 
 
 class FlowGoal(NamedTuple):
-    """What the overload attack of [WU26, eqs. 24-25] must realize at each snapshot of its window: the
+    """What the overload attack of [WU26 eqs. 24-25] must realize at each snapshot of its window: the
     apparent flow (MVA) that the tampered measurements carry before noise on each target branch,
-    `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free, the plan's D9),
+    `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free, [D9]),
     reaching the branch's rating at the window's end. The free injections of the support (attackable
     loads and generators) move; the fewest-tamper search holds one support for all snapshots. A goal
     drives one or more lines at once on the same support: `line` is the first target and `more` the
     others. Generated episodes drive `OverloadSettings.n_lines` lines, two by default as the paper's
-    case studies do, or one (the plan's D14, D17)."""
+    case studies do, or one [D17]."""
 
     line: int  # the first target branch (position in the edge index)
     targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order
@@ -162,7 +162,7 @@ class AmOverloadDesign(NamedTuple):
 
 
 class MinimizerResult(NamedTuple):
-    """The fewest-tamper support of one attack window [WU26, eq. 12] and how it was found."""
+    """The fewest-tamper support of one attack window [WU26 eq. 12] and how it was found."""
 
     support: np.ndarray  # the buses whose voltages the false state moves (sorted)
     devices: int  # devices with a channel moved beyond its noise at some snapshot (the objective); -1 when
@@ -181,7 +181,7 @@ class MinimizerResult(NamedTuple):
 
 
 class Certificate(NamedTuple):
-    """How close the fewest-tamper search's attack is to the global optimum of [WU26, eq. 12] over the
+    """How close the fewest-tamper search's attack is to the global optimum of [WU26 eq. 12] over the
     attacker's area: the search's device count (an upper bound) against the optimum of a convex
     relaxation of the same problem (a lower bound; docs/plans/RELAX_CERTIFIER_PLAN.md)."""
 

@@ -1,11 +1,11 @@
-"""Certifying the fewest-tamper attack [WU26, eq. 12] by convex relaxation
+"""Certifying the fewest-tamper attack [WU26 eq. 12] by convex relaxation
 (docs/plans/RELAX_CERTIFIER_PLAN.md).
 
 The fewest-tamper search returns a feasible exact-AC attack, so its device count is an upper bound
 on the optimum. `certify` also solves a mixed-integer second-order-cone relaxation of the same
 problem over the same area: one binary per device, Jabr's W = V V^H with the rank-one condition
 dropped, the goal, the voltage limits and the zero injections, and for an overload goal the bounds
-the search holds its flow solve to (the plan's D14 and D16): every generator the attack can move
+the search holds its flow solve to ([D14] and D16): every generator the attack can move
 inside its limits (22)-(23) and every load bus it can move within `load_cap` of its true load. Every attack the search can return
 is a point of the relaxation, so the relaxation's optimum is a lower bound; when it meets the
 search's count, the search's attack is globally optimal over the area.
@@ -259,7 +259,7 @@ class _Relaxation:
         return V
 
     def _box(self, t: int) -> tuple[np.ndarray, np.ndarray]:
-        """The W_ii bounds of the area buses at snapshot t ([WU26, eq. 21] as the search applies it)."""
+        """The W_ii bounds of the area buses at snapshot t ([WU26 eq. 21] as the search applies it)."""
         v = self.window.states[t][self.area, NODE.v]
         return voltage_box(v, self.limits.v_lo[self.area], self.limits.v_hi[self.area], LIMIT_TOL_V)
 
@@ -348,7 +348,7 @@ class _Relaxation:
     def _flow_bounds(self, x, t: int) -> list:
         """An overload goal's bounds on the injections the attack moves, as the search's flow solve
         holds them (`FalseStateMixin.solve_flow_local`, `_out_of_bounds`): the generator limits
-        (22)-(23) and the load cap (D16), both over the area and its edge, every bus whose injection
+        (22)-(23) and the load cap [D16], both over the area and its edge, every bus whose injection
         a support in the area can change; a bus the attack leaves alone meets them at its true
         value, so they hold for every support."""
         if self.window.goal.kind != "flow":
@@ -373,7 +373,7 @@ class _Relaxation:
 
     def _load_cap_bounds(self, x, t: int, buses: np.ndarray) -> list:
         """Each load bus among `buses` (no generator, not the slack) showing an active change of at
-        most `load_cap` times its true load [YUA11] (D16)."""
+        most `load_cap` times its true load [YUA11] [D16]."""
         import cvxpy as cp
 
         g, cap = self.g, self.window.k.load_cap

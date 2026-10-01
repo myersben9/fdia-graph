@@ -264,10 +264,10 @@ _STAGE = "a record's staging dict: tensors and scalar provenance, each key its o
 _BUNDLE = "a bundle's fields as a dict: arrays, tensors, scalars and lists, each key its own type"
 ANY_ALLOWED: dict[str, str] = {
     "__init__.py:__getattr__:return": "a lazily imported public name: any of the package's functions or classes",
-    "generation.py:generate:**knobs": _KW,
+    "generation/__init__.py:generate:**knobs": _KW,
     "streams.py:generate_stream:**knobs": _KW,
     "streams.py:load_stream.out": "a stream file's contents: arrays and the pickled episode list, each key its own type",
-    "timeline.py:_timeline_attrs:knobs": "the recorded generation knobs, each key its own type, written as file attributes",
+    "generation/write.py:_timeline_attrs:knobs": "the recorded generation knobs, each key its own type, written as file attributes",
     "dataset/records.py:RecordsMixin._add_benign:item": _STAGE,
     "dataset/records.py:RecordsMixin._add_currents:item": _STAGE,
     "dataset/records.py:RecordsMixin._base_item:return": _STAGE,

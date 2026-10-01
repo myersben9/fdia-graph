@@ -23,15 +23,15 @@ from typing import Any, Optional, Union
 import h5py
 import numpy as np
 
-from . import schema
-from .engine import FdiaGenerator
-from .engine.records import FrameKnobs
-from .errors import UnknownColumnOrder
-from .models.config import ShardRun
-from .models.grid import NODE
-from .models.inputs import StatePool, StateSource
-from .registry import CACHE_DIR, register_local
-from .schema import KIND_TIMELINE, Attr, Group, Static
+from .. import schema
+from ..engine import FdiaGenerator
+from ..engine.records import FrameKnobs
+from ..errors import UnknownColumnOrder
+from ..models.config import ShardRun, TimelineSettings
+from ..models.grid import NODE
+from ..models.inputs import StatePool, StateSource
+from ..registry import CACHE_DIR, register_local
+from ..schema import KIND_TIMELINE, Attr, Group, Static
 
 
 def as_v_first(X: np.ndarray) -> np.ndarray:
@@ -90,8 +90,8 @@ def _read_states(
             return np.asarray(f["X"], np.float64)
     # fall back to the downloadable operating-point pool for this system, at the pinned data release
     # (which carries all eight ladder pools; a hardcoded old tag here once 404'd newer systems)
-    from .download import ensure_local
-    from .registry import pool_spec
+    from ..download import ensure_local
+    from ..registry import pool_spec
 
     return _read_states(system, ensure_local(pool_spec(system)), pool_cap)
 
@@ -112,23 +112,26 @@ def generate(
     states: Optional[Union[str, np.ndarray]] = None,
     out: Optional[str] = None,
     seed: int = 123,
+    settings: Optional[TimelineSettings] = None,
     **knobs: Any,
 ) -> str:
     """Walk one attacked timeline over the operating-point pool of `system`, write it as one HDF5
     file and register it as `name`; returns the path. `frames` caps the pool timesteps walked;
-    every other knob is `timeline.generate_timeline`'s (families, attacked_frac, ramp_rate, ramp_len,
-    am_len, hops, max_load_mw, redundancy, split, min_tamper, min_budget, am_attack, stealth_scale)."""
-    from .timeline import generate_timeline
+    `settings` and every other knob are `timeline.generate_timeline`'s (a `TimelineSettings`, and the
+    flat keywords families, attacked_frac, ramp_rate, ramp_len, am_len, hops, max_load_mw, redundancy,
+    split, min_tamper, min_budget, am_attack, stealth_scale, workers). The registry records the
+    settings as nested plain values."""
+    from ..timeline import generate_timeline
 
     frames = ShardRun(frames).frames
+    s = TimelineSettings.of(settings, **knobs)
     X = _load_states(system, states)
     if frames is not None:
         X = X[:frames]
     out = out or os.path.join(CACHE_DIR, f"{name}.h5")
-    path = generate_timeline(system, states=X, seed=seed, out=out, **knobs)
-    register_local(
-        name, path, meta=dict(system=system, kind=KIND_TIMELINE, frames=len(X), seed=seed, **knobs)
-    )
+    path = generate_timeline(system, states=X, settings=s, seed=seed, out=out)
+    meta = dict(system=system, kind=KIND_TIMELINE, frames=len(X), seed=seed, settings=s.as_record())
+    register_local(name, path, meta=meta)
     return path
 
 

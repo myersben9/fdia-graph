@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import math
 import os
+import warnings
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
-from typing import Annotated, Optional, Union
+from dataclasses import asdict, dataclass, field, replace
+from typing import Annotated, Optional, Union, cast
 
 import numpy as np
 
 from .choices import (
+    GENERATED_FAMILIES,
     AmAttack,
     Buses,
     Calibrate,
@@ -40,6 +42,7 @@ from .choices import (
 from .validation import (
     AsTuple,
     AtLeast,
+    ConfigError,
     Finite,
     InRange,
     Integer,
@@ -117,7 +120,7 @@ class SolveConfig(Validated):
 
     npass: Annotated[int, Integer(), AtLeast(1)] = 40  # reweighting passes
     iters: Annotated[int, Integer(), AtLeast(1)] = 8  # chord-Newton steps inside each solve
-    # [WU26, eq. (3)] pseudo voltage phasors at the far ends of PMU-metered branches (hybrid-meter files)
+    # [WU26 eq. 3] pseudo voltage phasors at the far ends of PMU-metered branches (hybrid-meter files)
     pmu_pseudo: bool = False
 
 
@@ -280,10 +283,10 @@ class TimelineKnobs(Validated):
     hops: Count = 2
     ramp_len: Annotated[int, Integer(), AtLeast(1)] = 60
     am_len: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # None: as long as a ramp
-    min_tamper: bool = True  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
+    min_tamper: bool = True  # [WU26 eq. 12]: each At episode on the support tampering the fewest devices
     min_budget: Count = 256  # candidate supports the search solves per episode before it settles
     am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload attack
-    # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has no bound (D11)
+    # a multiplier on At's stealth bound, whose unit is the rated accuracy [D7]; Am has no bound [D11]
     stealth_scale: Scale = 1.0
 
     @property
@@ -295,18 +298,18 @@ class TimelineKnobs(Validated):
 @dataclass(frozen=True)
 class OverloadSettings(Validated):
     """The overload attack's settings, as `generate_timeline(am_attack=...)` takes them in a dict of
-    these fields (the string "overload" is these defaults): the line ratings (the plan's D15), S_max
+    these fields (the string "overload" is these defaults): the line ratings [D15], S_max
     of each branch `rating_margin` times its peak true apparent flow over the operating pool
     ("pool", every system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300); the
-    load-plausibility cap `load_cap` on every load bus the attack moves (D16); and `n_lines`, the
-    lines one episode overloads at once (D17)."""
+    load-plausibility cap `load_cap` on every load bus the attack moves [D16]; and `n_lines`, the
+    lines one episode overloads at once [D17]."""
 
     rating_source: Annotated[str, OneOf(RatingSource)] = "pool"
     rating_margin: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.25  # > 1
     # the load-plausibility cap tau: no load bus the attack moves shows a change beyond tau times its
-    # true load [YUA11] (the plan's D16; a rule of ours, Yuan's 20% to 50%, the upper end by default)
+    # true load [YUA11] ([D16]; a rule of ours, Yuan's 20% to 50%, the upper end by default)
     load_cap: Annotated[float, Finite(), InRange(0.0, 1.0, hi_closed=True)] = 0.5
-    # the lines each episode overloads at once (D17): [WU26]'s case studies always drive two; 1 or 2,
+    # the lines each episode overloads at once [D17]: [WU26]'s case studies always drive two; 1 or 2,
     # since every added line multiplies the target sets an episode tries and the paper uses no more
     n_lines: Annotated[int, Integer(), InRange(1, 2, lo_closed=True, hi_closed=True)] = 2
     # how an episode's support is chosen: the fewest-tamper search, or [WU26]'s row reduction ("rref")
@@ -330,7 +333,7 @@ class TrustSchedule(Validated):
     own |V| and angle rows (eqs. 27, 32: two rows per trusted PMU, "the rank of hS becomes 2n x 2"),
     so the attack's state deviation is zero there (eq. 29); its branch currents stay in the nonsecure
     set h^S' (eq. 27). `per_slot` lets the attack's support change at the trusted slots, since eq. (28)
-    takes the deviation of each snapshot on its own (the plan's E13); off, one support is held for the
+    takes the deviation of each snapshot on its own [E13]; off, one support is held for the
     window and a trusted bus only drops out of it."""
 
     buses: Annotated[Sequence[int], AsTuple()]
@@ -370,6 +373,145 @@ class MeterSettings(Validated):
     def coverage(self) -> dict[str, float]:
         """The coverage fractions as the generator takes them."""
         return {"vbus_frac": self.vbus_frac, "pmu_frac": self.pmu_frac, "flow_frac": self.flow_frac}
+
+
+@dataclass(frozen=True)
+class RampSettings(Validated):
+    """The slow ramp At: its per-frame growth `rate`, the episode `length` in frames and `stealth_scale`,
+    a multiplier on its stealth bound whose unit is the meters' rated accuracy ([D7]; the
+    overload Am has no such bound, D11)."""
+
+    rate: Scale = 0.002
+    length: Annotated[int, Integer(), AtLeast(1)] = 60
+    stealth_scale: Scale = 1.0
+
+
+@dataclass(frozen=True)
+class SearchSettings(Validated):
+    """The attacker's subnetwork and the fewest-tamper search [WU26 eq. 12]: `hops`, the buses within
+    this many branches of the attacked loads (At) or target lines (Am); `min_tamper`, hold each At
+    episode on the support tampering the fewest devices (off: the whole subnetwork); `min_budget`,
+    the candidate supports solved per episode before the search settles."""
+
+    hops: Count = 2
+    min_tamper: bool = True
+    min_budget: Count = 256
+
+
+# the flat keywords `generate_timeline` takes, by the settings field each one sets (section, field)
+_FLAT: dict[str, tuple[str, str]] = {
+    "ramp_rate": ("ramp", "rate"),
+    "ramp_len": ("ramp", "length"),
+    "stealth_scale": ("ramp", "stealth_scale"),
+    "hops": ("search", "hops"),
+    "min_tamper": ("search", "min_tamper"),
+    "min_budget": ("search", "min_budget"),
+}
+_TOP = ("attacked_frac", "families", "am_len", "max_load_mw", "workers")
+
+
+@dataclass(frozen=True)
+class TimelineSettings(Validated):
+    """Everything one timeline walk is built from, nested by subject (the plan's S2 item 4):
+    `attacked_frac` of each split's frames under an episode, the `families` generated (At and Am),
+    the ramp (`RampSettings`), the overload Am's length `am_len` (None: the ramp's) and settings
+    (`OverloadSettings`), the meter plan (`MeterSettings`), the train/val/test cut (`SplitSettings`),
+    the search (`SearchSettings`), the load cap `max_load_mw` (None: off) and the processes the Am
+    designs run on (`workers`, the result does not depend on it). `generate_timeline` also takes every
+    field as a flat keyword (`TimelineSettings.of`)."""
+
+    attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.5
+    families: Annotated[Sequence[str], AsTuple()] = GENERATED_FAMILIES
+    ramp: RampSettings = field(default_factory=RampSettings)
+    am_len: Annotated[Optional[int], Integer(), AtLeast(1)] = None
+    overload: OverloadSettings = field(default_factory=OverloadSettings)
+    meters: MeterSettings = field(default_factory=MeterSettings)
+    split: SplitSettings = field(default_factory=SplitSettings)
+    search: SearchSettings = field(default_factory=SearchSettings)
+    max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
+    workers: Count = 1
+    am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload attack, the one kind
+
+    @property
+    def am_frames(self) -> int:
+        """The Am episode length: `am_len`, or the ramp's length when none is given."""
+        return self.ramp.length if self.am_len is None else self.am_len
+
+    def as_record(self) -> dict[str, object]:
+        """The settings as nested plain values (JSON-ready), what a file and the results store record;
+        `workers` is left out, since the timeline does not depend on it."""
+        record = asdict(self)
+        del record["workers"]
+        return cast("dict[str, object]", _plain(record))
+
+    @classmethod
+    def of(cls, settings: Optional[TimelineSettings] = None, **knobs: object) -> TimelineSettings:
+        """The settings `generate_timeline` walks: `settings` (default the defaults) with each flat
+        keyword applied over it, every name `generate_timeline` has always taken: attacked_frac,
+        families, ramp_rate, ramp_len, am_len, hops, redundancy (a `MeterSettings`), split (fractions or
+        a `SplitSettings`), max_load_mw, min_tamper, min_budget, am_attack ("overload" or an
+        `OverloadSettings`), stealth_scale, workers. A dict for `am_attack` or `redundancy` still works
+        and warns: dicts go in 0.22."""
+        base = settings or cls()
+        unknown = sorted(set(knobs) - set(_FLAT) - set(_TOP) - {"redundancy", "split", "am_attack"})
+        if unknown:
+            raise ConfigError(f"generate_timeline got unknown settings: {', '.join(unknown)}")
+        sections = {name: {} for name in ("ramp", "search")}
+        for key, (section, name) in _FLAT.items():
+            if key in knobs:
+                sections[section][name] = knobs[key]
+        top = {k: knobs[k] for k in _TOP if k in knobs}
+        top.update(_section_knobs(knobs))
+        return replace(
+            base,
+            ramp=replace(base.ramp, **sections["ramp"]),
+            search=replace(base.search, **sections["search"]),
+            **top,
+        )
+
+
+def _section_knobs(knobs: dict[str, object]) -> dict[str, object]:
+    """The settings the flat `redundancy`, `split` and `am_attack` keywords stand for."""
+    out: dict[str, object] = {}
+    if "redundancy" in knobs:
+        out["meters"] = _model(MeterSettings, knobs["redundancy"], "redundancy")
+    if "split" in knobs:
+        split = knobs["split"]
+        out["split"] = (
+            split if isinstance(split, SplitSettings) else SplitSettings(cast(Sequence[float], split))
+        )
+    if "am_attack" in knobs:
+        am = knobs["am_attack"]
+        if isinstance(am, str):
+            out["am_attack"] = am
+        else:
+            out["overload"] = _model(OverloadSettings, am, "am_attack")
+    return out
+
+
+def _model(model: type, value: object, name: str) -> object:
+    """A settings model from its instance, None (the defaults) or a dict (deprecated, warned)."""
+    if value is None:
+        return model()
+    if isinstance(value, dict):
+        warnings.warn(
+            f"generate_timeline({name}=dict) is deprecated and goes in 0.22: pass a {model.__name__}",
+            DeprecationWarning,
+            stacklevel=5,  # the caller of generate_timeline or generate
+        )
+        return model(**value)
+    if not isinstance(value, model):
+        raise ConfigError(f"{name} must be a {model.__name__}")
+    return value
+
+
+def _plain(value: object) -> object:
+    """Nested settings as JSON-ready values (tuples as lists)."""
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    return value
 
 
 @dataclass(frozen=True)
@@ -478,7 +620,7 @@ class WuDefenseConfig(Validated):
     """[WU26]'s trusted-PMU MDP (Sec. IV-D2, Fig. 1; `trust.WuDefenseEnv`): the candidate PMU buses (the
     generator's bus indices), the snapshot of the window at which each configuration step trusts one of
     them ("one PMU per step"; IEEE-14's steps at snapshots 2, 4, 6 and 8, IEEE-118's one per snapshot),
-    the unit the attack cost counts (E3) and whether the attack's support may change at a slot (E13)."""
+    the unit the attack cost counts [E3] and whether the attack's support may change at a slot [E13]."""
 
     pmus: Annotated[Sequence[int], AsTuple(), NonEmpty()]
     slots: Annotated[Sequence[int], AsTuple(), NonEmpty()]

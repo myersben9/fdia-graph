@@ -167,6 +167,8 @@ jobs:
         run: python tools/class_diagrams.py --check
       - name: Results blocks match the results store
         run: python tools/results_docs.py --check
+      - name: Paper-to-code equation map is current
+        run: python tools/equation_map.py --check
       - name: Readability gate on touched functions
         if: github.event_name == 'pull_request'
         run: python tools/readability.py --check --base origin/${{ github.base_ref }}

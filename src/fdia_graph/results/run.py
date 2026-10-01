@@ -33,7 +33,9 @@ from .store import Store
 
 
 class Run:
-    """One run of one experiment: collects records, then writes them with a `Provenance`."""
+    """One run of one experiment: collects records, then writes them with a `Provenance`. A harness
+    whose every run covers its system whole (every arm of a table) passes `replaces=True`, so a rerun
+    with an arm skipped never leaves that arm's older number in the table."""
 
     def __init__(
         self,
@@ -47,8 +49,9 @@ class Run:
         store: Optional[Store] = None,
         run_id: Optional[str] = None,
         timestamp: Optional[str] = None,
+        replaces: bool = False,
     ) -> None:
-        self.system, self.store = system, store or Store()
+        self.system, self.store, self.replaces = system, store or Store(), replaces
         stamp = timestamp or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         chash = config_hash(settings)
         sha, dirty = _git_state()
@@ -125,8 +128,11 @@ class Run:
         return len(self.records) - before
 
     def write(self) -> int:
-        """Write the records collected so far (also done on leaving the `with` block)."""
-        return self.store.write(self.provenance, self.records)
+        """Write the records collected so far (also done on leaving the `with` block); a run made with
+        `replaces=True` drops the experiment's earlier records on its system (`Store.write`), whatever it wrote."""
+        return self.store.write(
+            self.provenance, self.records, replaces=(self.system,) if self.replaces else ()
+        )
 
     def __enter__(self) -> Run:
         return self

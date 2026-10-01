@@ -847,3 +847,37 @@ def search_speed(store: Store, pr: str) -> str:
         body.append([f"IEEE-{_short(s)} ({counts['Am']} Am, {counts['At']} At)", *cells])
     head = ["system", "default threads, Am", "default threads, At", "one thread, Am", "one thread, At"]
     return table(head, body)
+
+
+# ---- the parallel Am design stage (docs/guides/generation.md)
+@query("gen.workers")
+def gen_workers(store: Store) -> str:
+    """Am-only IEEE-14 generation per worker count: wall time, the speed-up over one worker, the
+    episodes built and whether the file equals the one-worker file byte for byte."""
+    exp = "generation.parallel_design"
+    rows = sorted({r.method for r in store.latest(exp)}, key=lambda m: int(m.split("=")[1]))
+    one = _get(store, exp, method="workers=1", metric="seconds")
+    body = []
+    for method in rows:
+        sec = _get(store, exp, method=method, metric="seconds")
+        speed = number(one.value / sec.value, ".1f") + "x" if one and sec else "n/a"
+        same = _get(store, exp, method=method, metric="identical")
+        body.append(
+            [
+                method.split("=")[1],
+                cell(sec, ".0f"),
+                speed,
+                cell(_get(store, exp, method=method, metric="episodes"), "d"),
+                "yes" if same and same.value == 1.0 else "no",
+            ]
+        )
+    frames = next(
+        (
+            t.split("=")[1]
+            for r in store.latest(exp, metric="seconds")
+            for t in r.tags
+            if t.startswith("frames=")
+        ),
+        "",
+    )
+    return table([f"workers ({frames} frames)", "seconds", "speed-up", "Am episodes", "same file"], body)

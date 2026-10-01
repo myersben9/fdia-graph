@@ -45,7 +45,7 @@ def _clip_generator(
     pins: tuple[tuple[dict[int, float], dict[int, float]], tuple[dict[int, float], dict[int, float]]],
 ) -> None:
     """Record in `pins`[1] each of generator b's components (P, Q) that the change dS drives outside
-    its limits `box` [WU26, eqs. 22-23] and that `pins`[0] has not pinned yet, with the change that
+    its limits `box` [WU26 eqs. 22-23] and that `pins`[0] has not pinned yet, with the change that
     puts it at the nearest limit (generation positive)."""
     pinned, out = pins
     for c, moved in enumerate((np.real(dS), np.imag(dS))):
@@ -78,7 +78,7 @@ class FalseStateMixin(AreaMixin):
     """Solve and check the false state an attack design implies, and the meters it moves."""
 
     def operating_limits(self, X: np.ndarray) -> OperatingLimits:
-        """The constraints every false state of this system must satisfy [WU26, eqs. 21-23]: the
+        """The constraints every false state of this system must satisfy [WU26 eqs. 21-23]: the
         case's bus voltage limits verbatim and its generator limits widened to what the pool X ran
         each generator over (formulas.attacks.operating_limits)."""
         return operating_limits(self.v_case, self.p_lim, self.q_lim, X, (self.load_base, self.gen_base))
@@ -124,7 +124,7 @@ class FalseStateMixin(AreaMixin):
 
     def generator_buses(self) -> np.ndarray:
         """The buses with a generator (zero-MW condensers included), the slack excluded: their output
-        is an injection measurement the overload attacker may tamper [WU26, eqs. 13-14], bounded by
+        is an injection measurement the overload attacker may tamper [WU26 eqs. 13-14], bounded by
         the generator limits (22)-(23)."""
         cached = getattr(self, "_generator_buses", None)
         if cached is None:  # asked once per candidate solve: built once, read-only
@@ -135,7 +135,7 @@ class FalseStateMixin(AreaMixin):
 
     def free_injection_buses(self) -> np.ndarray:
         """The buses whose injection a flow-goal attacker may change: the attackable loads and the
-        generators (the plan's D14). A zero-injection bus is held at zero: nothing is connected there
+        generators [D14]. A zero-injection bus is held at zero: nothing is connected there
         (a rule of ours, not the paper's)."""
         cached = getattr(self, "_free_injection_buses", None)
         if cached is None:  # asked once per candidate solve: built once, read-only
@@ -153,7 +153,7 @@ class FalseStateMixin(AreaMixin):
         limits: Optional[OperatingLimits] = None,
         load_cap: Optional[float] = None,
     ) -> tuple[Optional[np.ndarray], bool, np.ndarray]:
-        """The false state of a flow goal on support S [WU26, eqs. 24-25]: the voltages of S move, the
+        """The false state of a flow goal on support S [WU26 eqs. 24-25]: the voltages of S move, the
         free injections of S (attackable loads and generators, `free_injection_buses`) move, every
         other bus of S keeps its true injection (a zero-injection bus at zero), and each goal branch's
         from-end apparent flow reaches its target (`line` and `target_mva` one each, or one per
@@ -161,7 +161,7 @@ class FalseStateMixin(AreaMixin):
         false voltages. With `limits`, every generator whose reported output the attack changes, in
         S or on its edge, stays inside its limits (22)-(23), and every voltage of S inside (21); with
         `load_cap` tau, every load bus whose reported injection it changes shows at most tau times
-        its true load (D16). A component (P or Q) the solve drives past its bound is pinned at the
+        its true load [D16]. A component (P or Q) the solve drives past its bound is pinned at the
         bound, the other left free, and the solve repeated (an active set), so the least-norm state
         is sought among those that keep every bound. Returns (the false state [N, 4] with the
         injections of S and its edge moved by exactly the change the false voltages cause, whether
@@ -304,7 +304,7 @@ class FalseStateMixin(AreaMixin):
         """The components of a solve past their bounds, each with the change that puts it at the
         bound (MW or MVAr, generation positive): a generator's P or Q outside its limits (22)-(23),
         in S or on its edge (the slack excluded, its output the balance); a load bus's active change
-        beyond `load_cap` times its true load (D16), both over the region's support and its edge
+        beyond `load_cap` times its true load [D16], both over the region's support and its edge
         (`region.touched`). `bounds` = (limits, load_cap), either None."""
         limits, load_cap = bounds
         out: tuple[dict[int, float], dict[int, float]] = ({}, {})
@@ -379,7 +379,7 @@ class FalseStateMixin(AreaMixin):
     def _currents_with_attack(
         self, scan: Scan, Xa: np.ndarray, Xt: np.ndarray
     ) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-        """The PMU branch-current readings of a stealthy frame [WU26, eqs. 19-20]: the true scan's
+        """The PMU branch-current readings of a stealthy frame [WU26 eqs. 19-20]: the true scan's
         currents plus the attack vector on them, and the current channels written; (None, None)
         without currents in the meter plan."""
         a = self._current_attack(Xa, Xt)
@@ -393,7 +393,7 @@ class FalseStateMixin(AreaMixin):
     def stealthy_state(self, Xt: np.ndarray, design: AttackDesign, k: FrameKnobs) -> Optional[np.ndarray]:
         """The local false state of the design (its targets scaled by its multiplier, re-solved on its
         interior), or None when the local power flow has no solution or the state breaks the operating
-        limits [WU26, eqs. 21-23]. A design without an interior is solved on the region around its
+        limits [WU26 eqs. 21-23]. A design without an interior is solved on the region around its
         targets. Spends no random draw, so an episode can test its design at onset and redraw."""
         placed = self.with_region(design, k)
         if placed is None or placed.interior is None:
@@ -431,7 +431,7 @@ class FalseStateMixin(AreaMixin):
         limits: OperatingLimits,
         interior: np.ndarray,
     ) -> bool:
-        """[WU26, eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
+        """[WU26 eqs. 21-23] on a false state: `load_delta_pos` is the pretended load change per
         load-table position (MW), summed per bus for buses carrying several loads; the generator
         limits apply to the generators of `interior`, the attacked subnetwork."""
         dload = np.zeros(self.C)
@@ -440,7 +440,7 @@ class FalseStateMixin(AreaMixin):
         return within_limits(Xa, Xt, gen, dload, limits, interior)
 
     def _attack_vector(self, Xa: np.ndarray, Xt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """The attack vector a = h(x_false) - h(x_true) [WU26] per node channel [N, 4] and per flow
+        """The attack vector a = h(x_false) - h(x_true) [WU26 eqs. 13-18] per node channel [N, 4] and per flow
         channel [E, 2], in the scan's physical units: the noiseless reading of the false state minus
         that of the true state (unmetered flows zero on both sides)."""
         flows = self.clean_flows_from_states(np.stack([Xa, Xt]))  # [2, E, 2], unmetered zeroed
@@ -449,7 +449,7 @@ class FalseStateMixin(AreaMixin):
     def _current_attack(self, Xa: np.ndarray, Xt: np.ndarray) -> Optional[np.ndarray]:
         """The attack vector on the PMU branch-current channels [E, 4] (per unit), zero where no PMU
         reads that end; None without currents in the meter plan. The currents of a false state follow
-        from its voltages, so the attacker must write them too [WU26, eqs. 19-20]."""
+        from its voltages, so the attacker must write them too [WU26 eqs. 19-20]."""
         if self.current_mask() is None:
             return None
         cur = self.currents_from_states(np.stack([Xa, Xt]))

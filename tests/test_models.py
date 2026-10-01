@@ -98,7 +98,7 @@ _PMU_I = [
     "pmu_i",
     "pmu_i_m",
     "pmu_i_benign",
-]  # hybrid-meter timelines (D10), last so older keys keep their order
+]  # hybrid-meter timelines [D10], last so older keys keep their order
 EXPECTED = {
     # benign / edge_benign (0.18, timeline files) come after the layers a shard record carries
     "RecordBundle": (

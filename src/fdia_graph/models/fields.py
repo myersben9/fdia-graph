@@ -104,7 +104,7 @@ class GraphFields:
 
 @dataclass(frozen=True, eq=False)
 class PmuCurrentFields:
-    """The PMU branch-current phasors of a hybrid-meter timeline [WU26, eqs. 19-20] (the plan's D10):
+    """The PMU branch-current phasors of a hybrid-meter timeline [WU26 eqs. 19-20] [D10]:
     per branch the real and imaginary current at each end (`CURRENT` columns), per unit on the base
     current, zero where no PMU sits at that end. Absent from a v0.8.3-meter file."""
 

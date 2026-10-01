@@ -47,6 +47,7 @@ checks a docs change locally.
 | typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src`, `ruff check src tests tools` |
 | generated docs match the code | the class and module diagram sources and the data dictionary's Models section | `python tools/class_diagrams.py --check`, `python tools/models_doc.py --check` |
 | no measured number is typed into markdown | a harness writes what it measures through `fdia_graph.results.Run` into the results store (`results/`, see its README); a doc shows a number or a table through a results block (`<!-- results: <query> ... -->`, queries in `results/queries.py`), a CHANGELOG entry names the experiment; settings and published values from papers stay as text | `python tools/results_docs.py --write`, `--check`; `--lint` lists typed decimals |
+| the paper maps to the code | an equation of [WU26] is cited as `[WU26 eq. 28]` (`[WU26 eqs. 21-23]`, `[WU26 Alg. 1]`) and one of our decisions as `[D9]` or `[E13]`, in the docstring or a comment of the function that implements it and of the test that checks it (or the test is named `test_wu26_eq28_...`); every equation in `schema.WU26_EQUATIONS` has a function and a test, every decision is listed in `schema.DECISIONS` as the paper's reading or ours | `python tools/equation_map.py` writes `docs/reference/DECISIONS.md` and the generated sections of `FORMULAS.md` and `CONCEPTS_TO_CODE.md`; `--check` in the pre-review and CI |
 | speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python tools/bench.py --check` before a release, `python tools/bench.py` after |
 
 ## The pull request
@@ -117,7 +118,8 @@ registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 | you want to change | look in |
 |---|---|
 | an attack family, the plausibility band, the meter model | `engine/`, `formulas/attacks.py`, `formulas/noise.py` |
-| what a timeline file contains | `timeline.py` (the walk and the file), `generation.py` (the pool and `generate`), then `docs/reference/DATA_DICTIONARY.md` |
+| what a timeline file contains | `generation/` by stage: `plan.py` (splits and placement), `design.py` (the overload Am, in parallel), `emit.py` (the frames), `write.py` (the file); `generation/__init__.py` (the pool and `generate`); `timeline.py` orchestrates them; then `docs/reference/DATA_DICTIONARY.md` |
+| a generation setting | its model in `models/config.py` (`TimelineSettings` and the nested `RampSettings`, `SearchSettings`, `OverloadSettings`, `MeterSettings`, `SplitSettings`); `generate_timeline` takes every field as a flat keyword too |
 | how a timeline is loaded or exported | `dataset/`, one concern per file |
 | an estimator | `se/methods.py`, its algebra in `formulas/estimation.py` |
 | a localizer | `localization/methods.py` or `learned.py` |

@@ -182,7 +182,7 @@ class AmAttack(Choice):
 
 
 class CostUnit(Choice):
-    """What the attack cost of [WU26]'s defense counts (the plan's E3): the tampered measurements, the
+    """What the attack cost of [WU26]'s defense counts [E3]: the tampered measurements, the
     l0 of eqs. (28) and (33) and the unit of Table II's percentages, or the tampered devices, the unit
     of its extra-device counts (Table II, Fig. 12)."""
 
@@ -191,9 +191,9 @@ class CostUnit(Choice):
 
 
 class SupportMethod(Choice):
-    """How the overload attack picks the buses its false state moves [WU26, eq. 12]: the fewest-tamper
+    """How the overload attack picks the buses its false state moves [WU26 eq. 12]: the fewest-tamper
     search over the area's supports (`MinimizeMixin.min_tamper`), or the paper's row reduction of the
-    transposed attack-area Jacobian with column exchanges (`RrefMixin.rref_support`, Sec. IV-D1 after
+    transposed attack-area Jacobian with column exchanges (`engine.attacks.rref.RrefSupport`, Sec. IV-D1 after
     [YAN17])."""
 
     SEARCH = "search"
@@ -201,7 +201,7 @@ class SupportMethod(Choice):
 
 
 class RatingSource(Choice):
-    """Where the overload attack's line ratings S_max come from (the plan's D15): each branch's peak
+    """Where the overload attack's line ratings S_max come from [D15]: each branch's peak
     true flow over the operating pool times a margin (every system), or PGLib-OPF's `rate_a`
     (IEEE-14, 118 and 300)."""
 
@@ -231,9 +231,9 @@ class CertifyVerdict(Choice):
 
 
 class MeterModel(Choice):
-    """What the meters of a generated file measure (the plan's D10). "hybrid": a SCADA voltmeter reads
+    """What the meters of a generated file measure [D10]. "hybrid": a SCADA voltmeter reads
     the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the
-    current phasor of each in-service branch at its bus [WU26, eqs. 17-20]. Data releases v0.8.3
+    current phasor of each in-service branch at its bus [WU26 eqs. 17-20]. Data releases v0.8.3
     and earlier read an angle at every voltmeter bus and no branch currents; the loader still reads
     them, the generator no longer makes them."""
 

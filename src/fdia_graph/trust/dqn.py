@@ -1,5 +1,5 @@
-"""The trusted-meter selection as a Markov decision process solved by a deep Q-network [WU26,
-the learned selection].
+"""The trusted-meter selection as a Markov decision process solved by a deep Q-network (the learned
+selection of [WU26]).
 
 State: which meters are secured (a binary vector over the m metered channels). Action: secure
 one more meter. Reward: the rise in the attack cost that meter buys, the same kernel the greedy

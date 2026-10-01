@@ -42,6 +42,7 @@ class _Chain:
 
 
 def test_the_stated_hyperparameters_are_the_defaults():
+    # [E9]
     c = WuDqnConfig()
     assert (c.gamma, c.lr, c.buffer, c.batch, c.target_every, c.epsilon_decay, c.episodes) == (
         0.9,
@@ -57,6 +58,7 @@ def test_the_stated_hyperparameters_are_the_defaults():
 
 
 def test_algorithm_1_learns_the_pmu_that_pays():
+    # [WU26 Alg. 1] [WU26 eqs. 34-37]
     dqn = TrustedPMUsDQN([_Chain()]).fit()
     assert dqn.order(_Chain())[0] == 2
     assert len(dqn.history) == 250 and dqn.breaks == 0

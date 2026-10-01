@@ -61,7 +61,7 @@ def step_roundoff_slack(
 def voltage_box(
     v_true: np.ndarray, v_lo: np.ndarray, v_hi: np.ndarray, tol: float
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Bounds (lo, hi) on W_ii = |V_i|^2 from [WU26, eq. 21] as the search applies it
+    """Bounds (lo, hi) on W_ii = |V_i|^2 from [WU26 eq. 21] as the search applies it
     (`formulas.attacks.within_limits`): the case limits widened to the true value and by `tol`.
 
         W_ii in [(min(v_lo, |V_true|) - tol)^2, (max(v_hi, |V_true|) + tol)^2]

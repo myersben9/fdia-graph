@@ -56,7 +56,7 @@ class MeasurementMixin(GridBase):
 
     def current_mask(self) -> Optional[np.ndarray]:
         """The PMU branch-current channels [E, 4] (`CURRENT` columns), 1 where a PMU sits at that end
-        of an in-service branch [WU26, eqs. 19-20]; None when the meter plan has no currents."""
+        of an in-service branch [WU26 eqs. 19-20]; None when the meter plan has no currents."""
         plan = self.meters
         if not plan.pmu_currents:
             return None

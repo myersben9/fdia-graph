@@ -96,8 +96,8 @@ def attack_cost(H: np.ndarray, secured: np.ndarray, tol: float = _TOL) -> tuple[
 
 
 def greedy_trusted_meters(H: np.ndarray, k: int, tol: float = _TOL) -> tuple[list[int], list[float]]:
-    """Secure meters one at a time, each the meter that raises the attack cost most [WU26, the
-    row-reduction selection]: at every step take the cheapest open attack and secure the meter
+    """Secure meters one at a time, each the meter that raises the attack cost most (the
+    row-reduction selection of [WU26]): at every step take the cheapest open attack and secure the meter
     on its support whose protection leaves the attacker the costliest cheapest attack; among
     meters that tie, the one the most attacks of the open basis pass through.
 
@@ -132,7 +132,7 @@ def sparsest_rows(
     eligible: Optional[Callable[[np.ndarray], bool]] = None,
 ) -> np.ndarray:
     """The rows of M's row space in the sparsest reduced echelon form row reduction with column
-    exchanges reaches [WU26, Sec. IV-D1 steps 2-5; after YAN17]: reduce M to RREF, take the row with the
+    exchanges reaches ([WU26] Sec. IV-D1 steps 2-5, after [YAN17]): reduce M to RREF, take the row with the
     fewest nonzeros, move its nonzero columns to the end (the column order is the tracking matrix),
     reduce again, and repeat until the fewest nonzeros stops falling; the rows come back in M's own
     column order (the inverse of the tracking matrix), sparsest first. With M the transpose of an

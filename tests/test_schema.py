@@ -20,7 +20,7 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         f.visititems(lambda n, o: names.append(n) if isinstance(o, h5py.Dataset) else None)
         groups = {n for n in f}
         attrs = dict(f.attrs)
-    # the fixture is a hybrid-meter file (D10): it carries the PMU current layers
+    # the fixture is a hybrid-meter file [D10]: it carries the PMU current layers
     per_frame = (
         set(schema.FIELD_PATH.values())
         | set(schema.CURRENT_LAYERS)
@@ -168,3 +168,25 @@ def test_the_any_rule_finds_every_kind_of_annotation(tmp_path):
         "Bare",
         "Union604",
     ]
+
+
+def test_the_equation_map_refuses_a_malformed_wu26_tag(tmp_path):
+    """Any citation of the paper in brackets that is neither the bare reference nor a full tag is
+    reported (the citations below are assembled, so this file carries none of them)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "equation_map",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "equation_map.py"),
+    )
+    em = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(em)
+    src = tmp_path / "x.py"
+    bodies = ("WU26", "WU26 eq. 12", "WU26 eq 12", "WU26 eq. (12)", "WU26, eq. 3")
+    cites = " ".join("[" + body + "]" for body in bodies)
+    src.write_text(f'def f():\n    """{cites}"""\n', encoding="utf-8")
+    c = em.Citations()
+    c.scan(str(src))
+    bad = [p for p in c.problems if "is not a tag" in p]
+    assert len(bad) == 3 and c.code["12"]  # the valid tag still counts
+    assert em.numbers("21-23, 27") == ["21", "22", "23", "27"]
