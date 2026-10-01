@@ -9,10 +9,10 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 | 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
 | 2. meter plan and noise | `engine/core.py` (`FdiaGenerator.__init__`), `engine/measurement.py` | which channels are metered, one noisy scan per state |
 | 3. attack families | `engine/attacks/` (the `AttackMixin`), `engine/records.py`, `timeline.py` | the attacked scan of each family |
-| 4. episode placement | `timeline._place_episodes`, `timeline._frame_split` | onsets, lengths, the split |
+| 4. split and episode placement | `timeline._split_bounds`, `timeline._place_split`, `timeline._walk_split` | the split, onsets, lengths |
 | 5. per-frame layers | `timeline._TimelineBuffers`, `timeline.write_temporal_layers` | the HDF5 file |
 
-![The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; episodes are placed at uniform random onsets with an equal share of attacked frames per family; the walk emits one noisy scan per state and, inside an episode, solves a local false state (At, Am); after the walk the temporal features are written from the observed frames and the frames are split chronologically into one HDF5 file with observed, benign and clean layers](../figures/diagrams/generation_flow.png)
+![The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; the frames are split chronologically first, then each split gets the whole episodes closest to its attacked fraction, shared between the families and placed at uniform random onsets inside it; the walk emits one noisy scan per state, its jitter keyed by the seed and the timestep, and, inside an episode, solves a local false state (At, Am); after the walk the temporal features are written from the observed frames into one HDF5 file with observed, benign and clean layers](../figures/diagrams/generation_flow.png)
 
 The published default release is v0.8.3 (`registry._RELEASE`), built by fdia-graph 0.20 with the
 seven families of that release (the single-snapshot `Aq`, `Al`, `Ad`, `As`, `Ar` among them) and the
@@ -139,7 +139,8 @@ several times that change, beyond the rated accuracy of the small loads there. M
 D9 on 60-snapshot windows at the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the
 search not proven within its budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s
 per snapshot); the reported noiseless flow reaches the rating exactly. A window with no stealthy
-overload stays benign and is counted in `fallback_benign`. With the hybrid meters the attacker also
+overload moves the episode to a later free onset of its split, up to 20 times (`_relocate`); past
+that it is given up and counted in `episode_shortfall`. With the hybrid meters the attacker also
 writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
 Only `At`'s channels are bounded between snapshots, the currents included (the PMU class, D7); `Am`'s
 current channels are only counted when they move by more than 0.01 pu (D8, D11). Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones.
@@ -154,24 +155,30 @@ Notes on the table:
   (`ramp_dev`).
 - A ramp step with no local solution is halved, up to 6 times (`STEP_HALVINGS`). `At` designs are
   tested on every frame they will occupy before they are accepted, up to 40 draws (`ONSET_DRAWS`).
-- An overload `Am`'s first snapshot may tamper nothing: its drift-free goal there is the true flow
-  (the plan's D9).
+- An overload `Am` window's snapshots are kappa+1 ... kappa+T after the untouched reference kappa
+  [WU26, eq. 25], so its first snapshot already carries 1/T of the way to the rating and every frame
+  labelled `Am` is attacked (the plan's D9). Before this fix the first snapshot's goal was the true
+  flow and that frame tampered nothing.
 
 ## 4. Episode placement
 
 | step | rule | source |
 |---|---|---|
-| weights | each family is drawn with weight `1 / expected length`, so every family gets about the same share of attacked frames | `_Schedule.build` |
-| draw | episodes are drawn until their frames sum to exactly `round(attacked_frac * T)`; the last one is clipped to the remainder | `_draw_episodes` |
-| place | longest first, each at an onset drawn uniformly among the positions where it fits, never overlapping | `_place_episodes`, `_uniform_onset` |
-| walk | every frame emitted in time order: benign runs between episodes, each episode where it was placed | `_walk` |
-| fallback | a frame whose attack cannot be built, or a whole `Am` episode with no stealthy overload design at its window, is emitted benign; the count is the `fallback_benign` attribute | `_timeline_attrs` |
-| split | chronological `split = (0.6, 0.2, 0.2)`; each boundary moves to the end of an episode it would cut | `_frame_split` |
+| split | chronological, cut before anything is placed: train `round(0.6 T)` frames, val `round(0.2 T)`, test the rest (`split=`, validated by `SplitSettings`) | `_split_bounds` |
+| count | per split, the whole number of episodes whose frames come closest to `attacked_frac` of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights `1 / length`, so every family gets about the same share of attacked frames | `_episode_counts`, `_largest_remainder` |
+| place | per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family with the most is dropped and recorded (`RuntimeWarning`) | `_place_split`, `_uniform_onset` |
+| walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `_walk_split`, `MeasurementMixin._jitter_stream` |
+| move | an episode with no feasible design at its onset (no admissible ramp, or no line pair an overload reaches stealthily) moves to an onset drawn uniformly among the later free ones of its split, up to 20 times, then is given up and recorded (`RuntimeWarning`); frames before the failed onset are written, so a move is always later | `_relocate` |
+| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `_timeline_attrs` |
+| record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `_placement_attrs` |
 
 Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
 the longest episodes first keeps a long episode from being squeezed out by shorter ones. The
-default `attacked_frac = 0.5` gives a balanced file. The v0.8.1 and v0.8.3 files report `fallback_benign = 0`
-on every system (`generate_timeline` docstring).
+default `attacked_frac = 0.5` gives a balanced file: on a 72,000-frame timeline with 60-frame
+episodes every split is exactly half attacked (train 360 episodes, val and test 120 each). Because
+the jitter of frame t depends only on the seed and t, the files of one seed and pool that place
+different families (`families=("Am",)`, `("At", "Am")`, `("At",)`) carry byte-identical benign
+frames; only the attacks differ.
 
 ## 5. The per-frame layers
 

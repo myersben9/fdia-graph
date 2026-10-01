@@ -128,6 +128,9 @@ The kinds, most frequent first; `python tools/review_ledger.py` prints the curre
 1. `python tools/prereview.py` until it passes.
 2. Work through the checklist above against the diff and every touched file, searching outward from
    every change, and fix what it finds.
-3. Only then request the automated review (`python tools/pr.py request-review <num>`). Batch the
-   fixes to its findings into one push, and run steps 1 and 2 again before requesting it again.
+3. Only then mark the draft ready, which asks for the one automated review (the ruleset no longer
+   reviews every push). Batch the fixes to its findings into one push, reply to each, run steps 1
+   and 2 again, and merge that push on green; request another review
+   (`python tools/pr.py request-review <num>`) only for a fix that changes behaviour beyond what its
+   finding asked.
 4. `python tools/review_ledger.py <num>` after each review, so the tally stays current.

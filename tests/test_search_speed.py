@@ -28,15 +28,16 @@ MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window, a
 
 # (meter model, load_cap, kind, onset, target lines or ramp draw) ->
 # (support, devices, channels, proven, evaluated, unsolved), every search exhaustive (evaluated below
-# the budget), recorded by the search before the speed-ups. With the load cap (D16) several goals have
-# no false state at all (devices -1, every candidate unsolved); without it the same goals are solved.
+# the budget), recorded by the search before the speed-ups (the unsolved counts of two overload
+# goals re-recorded when the window became kappa+1 ... kappa+T, eq. 25; the optima did not move).
+# With the load cap (D16) several goals have no false state at all (devices -1, every candidate unsolved); without it the same goals are solved.
 PINNED = {
-    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, False, 18, 14),
+    ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, False, 18, 15),
     ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, False, 18, 18),
     ("hybrid", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 5, 6], 7, 25, False, 18, 12),
     ("hybrid", 0.5, "At", 20, 0): ([3, 4, 6, 7, 9, 10, 11, 12, 13], 1, 1, True, 128, 0),
     ("hybrid", 0.5, "At", 200, 1): ([2, 3, 4, 6, 7, 8, 9, 10, 11, 13], 1, 1, True, 112, 0),
-    ("hybrid", None, "Am", 0, (0,)): ([1, 4], 7, 23, False, 18, 4),
+    ("hybrid", None, "Am", 0, (0,)): ([1, 4], 7, 23, False, 18, 3),
     ("hybrid", None, "Am", 150, (1,)): ([4], 6, 14, True, 99, 0),
     ("hybrid", None, "Am", 300, (0,)): ([1, 4], 7, 25, False, 18, 2),
     ("hybrid", None, "Am", 0, (1, 4)): ([1, 4], 7, 24, False, 99, 45),

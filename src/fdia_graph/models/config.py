@@ -257,6 +257,22 @@ class FederatedSettings(Validated):
 
 # ---- generation --------------------------------------------------------------------------------------
 @dataclass(frozen=True)
+class SplitSettings(Validated):
+    """The chronological train/val/test fractions a timeline is cut into before any episode is placed
+    (`generate_timeline(split=...)`): three, each finite in (0, 1), summing to 1."""
+
+    fractions: Annotated[Sequence[float], AsTuple()] = (0.6, 0.2, 0.2)
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield len(self.fractions) == 3, "takes three fractions: train, val and test"
+        yield (
+            all(math.isfinite(f) and 0.0 < f < 1.0 for f in self.fractions),
+            "each fraction must be in (0, 1)",
+        )
+        yield abs(sum(self.fractions) - 1.0) < 1e-9, "the fractions must sum to 1"
+
+
+@dataclass(frozen=True)
 class TimelineKnobs(Validated):
     """The knobs of one timeline walk that the walk cannot recover from."""
 

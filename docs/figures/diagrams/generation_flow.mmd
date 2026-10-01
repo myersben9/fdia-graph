@@ -3,16 +3,17 @@ flowchart LR
         p1["ISO load, 5-min"] --> p2["resample to 1-min,<br/>per-bus AR(1) jitter, clip"]
         p2 --> p3["AC power flow per state<br/>72,000 converged states"]
     end
-    subgraph plan["2. placement"]
-        s1["family weights:<br/>equal share of attacked frames"] --> s2["uniform random onsets,<br/>no overlap, exact fraction"]
+    subgraph plan["2. split, then placement"]
+        s0["chronological split<br/>0.6 / 0.2 / 0.2"] --> s1["per split: whole episodes<br/>closest to the fraction,<br/>families by largest remainder"]
+        s1 --> s2["uniform random onsets<br/>inside the split,<br/>no overlap, never cut"]
     end
     subgraph walk["3. walk, one frame per state"]
-        w1["emit the scan:<br/>meter plan, bias + jitter"] --> w2{"frame in<br/>an episode?"}
+        w1["emit the scan:<br/>meter plan, bias +<br/>jitter keyed by (seed, t)"] --> w2{"frame in<br/>an episode?"}
         w2 -- "At Am" --> w3["local false state<br/>fewest-tamper support"]
         w2 -- no --> w5[benign scan]
     end
     subgraph after["4. after the walk"]
-        a1["temporal_delta, swing<br/>from observed frames only"] --> a2["chronological split<br/>0.6 / 0.2 / 0.2"]
+        a1["temporal_delta, swing<br/>from observed frames only"] --> a2["placement attributes:<br/>requested, built, moved"]
     end
     pool --> plan --> walk --> after
     after --> f[("timeline_ieeeN.h5<br/>observed · benign · clean")]

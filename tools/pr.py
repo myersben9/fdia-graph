@@ -1,17 +1,20 @@
 """Pull requests from the command line, without the gh CLI (CONTRIBUTING.md, "The pull request").
 
-    python tools/pr.py create <branch> "<title>" <body.md>   # open a PR against main
+    python tools/pr.py create <branch> "<title>" <body.md>   # open a PR against main, as a draft
+    python tools/pr.py ready <num>                           # mark the draft ready: the one automated review
     python tools/pr.py status <num>                          # checks on the head, reviews, comment count
     python tools/pr.py comments <num>                        # every review comment (path, line, body)
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
-    python tools/pr.py wait <num> [minutes]                  # block until CI has finished and every required bot reviewed
+    python tools/pr.py wait <num> [minutes]                  # block until CI has finished and every required bot has reviewed once
     python tools/pr.py merge <num>                           # squash-merge on green, delete the branch
     python tools/pr.py request-review <num>                  # ask the automated reviewer, once the pre-review is clean
 
 The token comes from the Git Credential Manager (`git credential fill`), the same one `git push`
-uses, so nothing is stored in the repo. `merge` refuses while a check is failing or still running
-and while any required review bot (Copilot, and every installed app that has reviewed the pull
-request) has no review on the head, which is the repo's merge rule.
+uses, so nothing is stored in the repo. `merge` refuses while a check on the head is failing or
+still running, while a required review bot (Copilot, and every installed app that has reviewed the
+pull request) has not reviewed the pull request once, and while any of its findings has no reply:
+the repo's merge rule (CONTRIBUTING.md, "The pull request"). The automated review runs once per pull
+request (the ruleset no longer reviews every push), so a fix pushed after it does not wait for another.
 """
 
 from __future__ import annotations
@@ -103,15 +106,34 @@ def _head_state(num: int) -> dict[str, Any]:
         bot: [(r["state"], r["submitted_at"]) for r in reviews if _bot_of(r) == bot and r["commit_id"] == sha]
         for bot in REVIEW_BOTS
     }
+    reviewed = {bot: [r["commit_id"][:8] for r in reviews if _bot_of(r) == bot] for bot in REVIEW_BOTS}
     seen = {b for r in reviews if (b := _bot_of(r)) is not None}
+    notes = api_all(f"/pulls/{num}/comments")
+    answered = {c["in_reply_to_id"] for c in notes if c.get("in_reply_to_id")}
+    talk = [c for c in api_all(f"/issues/{num}/comments") if _bot_of(c) is None]
     return {
         "pr": pr,
         "sha": sha,
         "checks": _latest_runs(checks),
         "reviews_on_head": on_head,
+        "reviewed_commits": reviewed,
         "required_bots": [b for b in REVIEW_BOTS if b == COPILOT or b in seen],
-        "n_comments": len(api_all(f"/pulls/{num}/comments")),
+        "unanswered": _missed_unanswered(reviews, talk)
+        + [c["id"] for c in notes if not c.get("in_reply_to_id") and _bot_of(c) and c["id"] not in answered],
+        "n_comments": len(notes),
     }
+
+
+def _missed_unanswered(reviews: list[dict[str, Any]], talk: list[dict[str, Any]]) -> list[str]:
+    """Bot reviews whose body lists findings outside the diff ("Previously missed", read by
+    `tools/review_ledger.py`) and that no person has answered since: a conversation comment on the
+    pull request posted after the review answers all of its body's findings."""
+    out = []
+    for r in reviews:
+        if _bot_of(r) and "Previously missed" in (r.get("body") or ""):
+            if not any(c["created_at"] > r["submitted_at"] for c in talk):
+                out.append(f"review {r['id']} (previously missed)")
+    return out
 
 
 def _bot_of(review: dict[str, Any]) -> str | None:
@@ -125,12 +147,12 @@ def _bot_of(review: dict[str, Any]) -> str | None:
 
 
 def _reviewed(state: dict[str, Any]) -> bool:
-    """Every required bot has a review on the head."""
-    return all(state["reviews_on_head"][b] for b in state["required_bots"])
+    """Every required bot has reviewed the pull request once, on any of its commits."""
+    return all(state["reviewed_commits"][b] for b in state["required_bots"])
 
 
 def _missing_reviews(state: dict[str, Any]) -> list[str]:
-    return [b for b in state["required_bots"] if not state["reviews_on_head"][b]]
+    return [b for b in state["required_bots"] if not state["reviewed_commits"][b]]
 
 
 def _not_green(state: dict[str, Any]) -> list[str]:
@@ -153,9 +175,27 @@ def _green(state: dict[str, Any]) -> bool:
 
 
 def create(branch: str, title: str, body_file: str) -> None:
+    """Open the pull request as a draft: the ruleset reviews it once, when it is marked `ready`."""
     body = open(body_file, encoding="utf8").read()
-    pr = api("POST", "/pulls", json={"title": title, "head": branch, "base": "main", "body": body})
-    print(json.dumps({"number": pr["number"], "url": pr["html_url"]}))
+    pr = api(
+        "POST", "/pulls", json={"title": title, "head": branch, "base": "main", "body": body, "draft": True}
+    )
+    print(json.dumps({"number": pr["number"], "url": pr["html_url"], "draft": pr.get("draft")}))
+
+
+def ready(num: int) -> None:
+    """Mark a draft ready for review (GraphQL: the REST API cannot), which asks for the one review."""
+    node = api("GET", f"/pulls/{num}")["node_id"]
+    query = "mutation($id: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $id}) { pullRequest { isDraft } } }"
+    r = requests.post(
+        "https://api.github.com/graphql",
+        headers={"Authorization": f"Bearer {token()}"},
+        json={"query": query, "variables": {"id": node}},
+        timeout=60,
+    )
+    if r.status_code >= 300 or r.json().get("errors"):
+        raise SystemExit(f"ready #{num} -> {r.status_code}: {r.text[:500]}")
+    print(f"#{num} marked ready for review")
 
 
 def status(num: int) -> None:
@@ -169,6 +209,8 @@ def status(num: int) -> None:
                 "green": _green(s),
                 "checks": s["checks"],
                 "reviews_on_head": s["reviews_on_head"],
+                "reviewed_commits": s["reviewed_commits"],
+                "unanswered": s["unanswered"],
                 "required_bots": s["required_bots"],
                 "n_comments": s["n_comments"],
             },
@@ -209,6 +251,8 @@ def wait(num: int, minutes: float = 25) -> None:
                         "green": _green(s),
                         "checks": {k: v[1] for k, v in s["checks"].items()},
                         "reviews_on_head": s["reviews_on_head"],
+                        "reviewed_commits": s["reviewed_commits"],
+                        "unanswered": s["unanswered"],
                         "required_bots": s["required_bots"],
                         "n_comments": s["n_comments"],
                     },
@@ -226,7 +270,9 @@ def merge(num: int) -> None:
         raise SystemExit(f"not green on {s['sha'][:8]}: " + "; ".join(why))
     if not _reviewed(s):
         missing = ", ".join(_missing_reviews(s))
-        raise SystemExit(f"no review on {s['sha'][:8]} yet from {missing}; run `wait {num}` first")
+        raise SystemExit(f"no review of #{num} yet from {missing}; run `wait {num}` first")
+    if s["unanswered"]:
+        raise SystemExit(f"review findings without a reply: {s['unanswered']}; answer each with `reply`")
     pr = s["pr"]
     # `sha` binds the merge to the head that was checked: GitHub refuses if a push moved it meanwhile.
     r = api(
@@ -241,8 +287,10 @@ def merge(num: int) -> None:
 
 
 def request_review(num: int) -> None:
-    """Ask the automated reviewer for one review of the current head. Run `tools/prereview.py` and the
-    checklist in docs/reference/REVIEW_CHECKLIST.md first: each request is a billed review."""
+    """Ask the automated reviewer for one more review of the current head: only when a fix changed
+    behaviour beyond the findings it answers. Opening a pull request (or marking a draft ready) asks
+    for the one review; run `tools/prereview.py` and the checklist in
+    docs/reference/REVIEW_CHECKLIST.md first: each request is a billed review."""
     api(
         "POST",
         f"/pulls/{num}/requested_reviewers",
@@ -261,6 +309,8 @@ def main(argv: list[str]) -> None:
     cmd, args = argv[0], argv[1:]
     if cmd == "create":
         create(args[0], args[1], args[2])
+    elif cmd == "ready":
+        ready(int(args[0]))
     elif cmd == "status":
         status(int(args[0]))
     elif cmd == "comments":

@@ -9,6 +9,46 @@ the public API, the generated files and the numbers are the same as the previous
   rebuilt from the 5-minute pool by AC power flow, Solution 1 and the DQN played on each window's
   trusted-PMU MDP, and Table II, the trusted orders, the decision times and Figs. 11-12 written with
   the CSV each figure is drawn from. Tables III-V and Fig. 13 are not reproduced (see the README).
+- **Split first, then attack each split (generation).** `generate_timeline` cuts the timeline
+  chronologically into train, val and test before any episode is placed (`split=`, default
+  60/20/20, now validated by the new model `SplitSettings`), so every episode lies inside one split
+  and each split's numbers are known in advance. Per split, the whole number of episodes whose
+  frames come closest to `attacked_frac` of its frames is shared between the families by largest
+  remainder and placed at uniform onsets inside the split, never overlapping and never cut (no
+  episode is clipped any more, so every At episode is exactly `ramp_len` frames, 60 by default).
+  A placement that jams is retried whole 10 times, then one episode is dropped (`RuntimeWarning`).
+  An episode with no feasible design at its onset (no admissible ramp, or no line pair an overload
+  reaches stealthily) moves to a later free onset of its split, up to 20 times, instead of leaving
+  its frames benign; past that it is given up (`RuntimeWarning`). New file attributes record what
+  was asked and got: `split_frac`, `split_sizes`, `split_attacked_frac`, and per split (rows) and
+  family (columns, `placed_families`) `episodes_requested`, `episodes_built`, `episode_redraws`,
+  `episodes_dropped`, `episode_shortfall`. `fallback_benign` now counts only frames inside a built
+  episode whose scan could not be built. Gone: `timeline._frame_split` and its boundary-moving,
+  `_draw_episodes`, `_place_episodes`. On a 72,000-frame timeline with 60-frame episodes every split
+  is exactly half attacked (360, 120 and 120 episodes).
+- **Every frame's meter jitter comes from its own stream** keyed by (seed, timestep)
+  (`MeasurementMixin._jitter_stream`, set by the timeline walk; `jitter_keyed` attribute). The
+  benign frames, the meter plan and the split column of timelines on one seed and pool that place
+  different families (`("Am",)`, `("At", "Am")`, `("At",)`, the three release variants) are
+  therefore byte-identical, and every emission of frame t draws the same noise as its benign twin.
+  Emission outside a timeline (no key) draws from the generator's own stream as before. Generated
+  data changes for the same seed.
+- **Fix: an overload `Am` window is snapshots kappa+1 ... kappa+T** after the untouched reference
+  kappa [WU26, eq. 25]. The goal's share at the window's k-th snapshot is k/T (was (k-1)/(T-1)), so
+  the first labelled snapshot already carries 1/T of the way to the rating; before, its goal was
+  the true flow and that frame, labelled `Am`, tampered nothing. A new test checks that every frame
+  labelled attacked tampers at least one meter. The fewest-tamper optima of the pinned IEEE-14
+  searches and the [WU26] scenario counts are unchanged; two pinned overload searches fail one
+  candidate solve more or fewer (`tests/test_search_speed.py`).
+- **Review process: one automated review per pull request.** The repository ruleset no longer has
+  Copilot review every push or drafts (`review_on_push` and `review_draft_pull_requests` off): a
+  pull request is reviewed once, when it is opened or marked ready. `tools/pr.py merge` now
+  requires CI green on the head, one review from every required bot on any commit of the pull
+  request, and a reply to every bot finding (inline in its thread; the findings a review lists in
+  its body, a conversation comment after that review) (`status` and `wait` show `reviewed_commits` and
+  `unanswered`). `tools/pr.py create` opens a draft and the new `tools/pr.py ready` marks it ready
+  (which asks for the one review). CONTRIBUTING.md, the review checklist and the pull-request flow
+  diagram describe the draft, ready, one-review, one-fix-push order.
 
 - **Removed: single-snapshot generation, the v0.8.3 recipe and the frozen suite.** The generator
   makes the multi-snapshot families `At` and `Am` only, on the hybrid meters; every published data
