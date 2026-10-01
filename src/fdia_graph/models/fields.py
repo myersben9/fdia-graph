@@ -1,4 +1,4 @@
-"""The field groups the data bundles share (docs/plans/FIELD_GROUPS_PLAN.md).
+"""The field groups the data bundles share.
 
 Each group is a frozen dataclass mixin (the only behaviour is `ScanFields.node()` / `edge()`, the
 named column views): every field defaults to `None` so any

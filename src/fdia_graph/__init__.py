@@ -9,7 +9,7 @@ Quickstart
         batch["node_x"], batch["edge_x"], batch["y"], batch["family"], ...
 
     # custom dataset with research knobs, then load it by name:
-    fg.generate("ieee118", name="my_run", attacked_frac=0.5, attack_intensity=0.20, ramp_rate=0.003)
+    fg.generate("ieee118", name="my_run", attacked_frac=0.5, ramp_rate=0.003)
     ds = fg.load("my_run", split="train")
 """
 
@@ -19,11 +19,9 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:  # the lazy names below, with their real signatures for type checkers
-    from .engine import line_outage_candidates
     from .generation import generate
     from .profiles import fetch_profile, generate_states, load_profile
     from .streams import generate_stream, load_stream, windows
-    from .torch_data import pyg_stream, torch_windows
 
 # Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
 # FdiaGraph: torch Dataset over one .h5 shard; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
@@ -46,12 +44,9 @@ __all__ = [
     "generate_stream",
     "load_stream",
     "windows",
-    "pyg_stream",
-    "torch_windows",
     "load_profile",
     "fetch_profile",
     "generate_states",
-    "line_outage_candidates",
     "list_datasets",
     "FdiaGraph",
     "FAMILIES",
@@ -76,7 +71,7 @@ def load(
 
     name        : "ieee14/30/57/89/118/145/200/300" (transmission ladder), or a locally-generated name.
     split       : None (all) | "train" | "val" | "test"  (chronological 60/20/20).
-    families    : optional subset, e.g. ["Aq","At","Al"] or [1,5,6].
+    families    : optional subset, e.g. ["At","Am"] or [5,7] (an old release also carries Aq, Ad, As, Ar, Al).
     include_gaps: keep physics non-convergence NA rows of a v0.7.2 shard (default False; timelines have none).
     heldout     : unseen-attack protocol — exclude As/Ar from train/val (Boyaci et al. 2022).
     format      : "torch" (dict batches) | "pyg" (torch_geometric Data).
@@ -126,12 +121,9 @@ _LAZY = {
     "generate_stream": ".streams",
     "load_stream": ".streams",
     "windows": ".streams",
-    "pyg_stream": ".torch_data",
-    "torch_windows": ".torch_data",
     "load_profile": ".profiles",
     "fetch_profile": ".profiles",
     "generate_states": ".profiles",
-    "line_outage_candidates": ".engine",
 }
 
 

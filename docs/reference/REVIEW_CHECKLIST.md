@@ -64,7 +64,7 @@ The kinds, most frequent first; `python tools/review_ledger.py` prints the curre
    tests README.md CHANGELOG.md CONTRIBUTING.md`.
 2. **Every claim holds end to end.** When the change says "no longer needs X", "unchanged", "exact"
    or "bounded memory", trace every call path (fit, score, estimate and their helpers) and confirm
-   it. "Unchanged numbers" means the strict frozen suite passes.
+   it. "Unchanged numbers" means the pinned search answers and scenario tests pass unchanged.
 3. **Degenerate inputs.** Check 0, 1, a fraction that rounds to 0, an empty candidate list, every
    retry failing, a validation set with no attacked (or no benign) record, and a refit after tuning.
    A retry loop must never emit the last candidate it rejected.
@@ -85,7 +85,7 @@ The kinds, most frequent first; `python tools/review_ledger.py` prints the curre
 6. **Numbers in docs are recomputed** from the committed results file: the right metric (macro-F1
    versus node-F1), the right denominator, the right rounding, and no placeholders left.
 7. **Generated files are regenerated and committed together.** That means the diagram `.mmd`, `.svg`
-   and `.png`, the data dictionary, and the frozen fixture after a change to generation.
+   and `.png`, and the data dictionary.
 8. **Backward compatibility.**
    - A new parameter goes last or is keyword-only.
    - A removed or renamed public name keeps a deprecated alias for one minor version.

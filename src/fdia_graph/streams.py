@@ -1,7 +1,8 @@
 """The deprecated stream entry points, to be removed in a future release: `generate_stream` writes a timeline file
 through `fdia_graph.timeline` and returns it as the stream dict, `load_stream` reads the v0.7.2
 stream files, and `windows` slides over a stream dict. The timeline file is the dataset now:
-`fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`.
+`fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`. `load_stream`
+and `windows` stay for reading the v0.7.x stream files, which a timeline loader does not open.
 
 A stream dict has, per frame, three aligned measurement layers ([|V|, Pinj, Qinj, angle] columns):
 node_x (observed), benign (attack removed, noise kept), clean (noiseless truth), the same three for
@@ -19,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import numpy as np
 
 from .dataset.sequence import window_labels
-from .models.choices import LEGACY_FAMILIES
+from .models.choices import GENERATED_FAMILIES
 from .models.config import WindowSpec
 from .models.data import (
     EpisodeRow,
@@ -48,11 +49,10 @@ def generate_stream(
     system: Union[int, str],
     states: Optional[Union[str, np.ndarray]] = None,
     attacked_frac: float = 0.5,
-    families: Sequence[str] = LEGACY_FAMILIES,
-    attack_intensity: float = 0.20,
+    families: Sequence[str] = GENERATED_FAMILIES,
+    *,  # keyword-only from here: the 0.20 positions after `families` held knobs that no longer exist
     ramp_rate: float = 0.002,
     ramp_len: int = 60,
-    replay_tau: Optional[int] = None,
     redundancy: Optional[dict] = None,
     seed: int = 123,
     out: Optional[str] = None,
@@ -60,8 +60,10 @@ def generate_stream(
 ) -> Stream:
     """Deprecated: `fg.generate` writes the timeline and `fg.load(name, order="time")` reads it.
     Builds one timeline file for `system` (`out`, default `stream_ieee{N}.h5` under the cache
-    directory) and returns it as the stream dict. The parameters keep their pre-0.18 positions;
-    the Am knobs and `corrupt_len` of `timeline.generate_timeline` pass through `knobs`."""
+    directory) and returns it as the stream dict, with new generation's families and defaults (At and
+    the overload Am); every other knob of `timeline.generate_timeline` passes through `knobs`. The
+    arguments after `families` are keyword-only, so a 0.20 positional call (whose later slots were
+    `attack_intensity` and `replay_tau`) fails instead of generating other data."""
     from .dataset import FdiaGraph
     from .registry import CACHE_DIR, system_id
     from .timeline import generate_timeline
@@ -73,20 +75,13 @@ def generate_stream(
         stacklevel=2,
     )
     out = out or os.path.join(CACHE_DIR, f"stream_ieee{system_id(system)}.h5")
-    # the deprecated stream keeps the recipe it always had (every family, the redistribution Am, no
-    # fewest-tamper search), which runs on every supported system; the overload Am needs line ratings
-    knobs.setdefault("am_attack", "redistribution")
-    knobs.setdefault("min_tamper", False)
-    redundancy = {"meter_model": "v083", **(redundancy or {})}
     path = generate_timeline(
         system,
         states=states,
         attacked_frac=attacked_frac,
         families=families,
-        attack_intensity=attack_intensity,
         ramp_rate=ramp_rate,
         ramp_len=ramp_len,
-        replay_tau=replay_tau,
         redundancy=redundancy,
         seed=seed,
         out=out,
@@ -117,7 +112,10 @@ def stream_of(ds: FdiaGraph) -> Stream:
     static graph and masks, and the episode list. A random order or a family subset is refused,
     since the frames of a stream are consecutive."""
     ds._check_timeline("stream_of")
-    a = ds.export(_STREAM_FIELDS)  # only what the dict carries; edge_clean_full would cost a Yf pass
+    currents = ("pmu_i", "pmu_i_benign") if ds.has_currents else ()  # hybrid meters, per frame
+    a = ds.export(
+        [*_STREAM_FIELDS, *currents]
+    )  # only what the dict carries; edge_clean_full would cost a Yf pass
     ep = ds.episodes
     assert a.node_m is not None and a.edge_m is not None, "the export was asked for the meter masks"
     return Stream(
@@ -140,8 +138,15 @@ def stream_of(ds: FdiaGraph) -> Stream:
             EpisodeRow(onset=int(o), length=int(n), family=int(f), buses=b.tolist())
             for o, n, f, b in zip(ep.onset, ep.length, ep.family, ep.buses)
         ],
+        pmu_i=a.pmu_i,
+        # static, like the meter masks: one frame's row, not the whole [T, E, 4] copy
+        pmu_i_m=np.asarray(ds[0]["pmu_i_m"], np.uint8) if ds.has_currents else None,
+        pmu_i_benign=a.pmu_i_benign,
         **stream_summary(a),
     )
+
+
+_GRAPH_KEYS = ("edge_index", "edge_attr", "node_m", "edge_m")  # a stream's graph and static meter masks
 
 
 def _asset_spec(name: str, file: str, release: str) -> AssetSpec:
@@ -173,6 +178,12 @@ def load_stream(system: Union[int, str], release: Optional[str] = None) -> Strea
     tag = release_tag(rel)  # the GitHub tag that carries the stream file
     z = np.load(ensure_local(_asset_spec(f"stream{C}", f"stream_ieee{C}.npz", tag)), allow_pickle=True)
     out: dict[str, Any] = {k: z[k] for k in z.files}  # whatever the file holds, arrays and the episode list
+    # the stream files of v0.7.1 and v0.7.2 carry the frames only; the graph and the meter masks are the
+    # release's per-system sidecar (dropped in 0.18 with the writer, restored so those files read again)
+    missing = [k for k in _GRAPH_KEYS if k not in out]
+    if missing:
+        side = np.load(ensure_local(_asset_spec(f"graph{C}", f"graph_ieee{C}.npz", tag)))
+        out.update({k: side[k] for k in missing})
     out["edge_index"] = np.asarray(out["edge_index"], dtype=np.int64)  # torch.long
     out["edge_attr"] = np.asarray(out["edge_attr"], dtype=np.float32)
     for m in ("node_m", "edge_m"):

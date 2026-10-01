@@ -1,6 +1,6 @@
-"""`fg.load` on a timeline file (docs/plans/ONE_DATASET_PLAN.md step 2): the record table and the
-timeline from one file, `order`, the benign layer on records, batches and exports, `ds.windows`,
-`ds.episodes`, and the torch helpers on a dataset. Uses the `timeline` fixture of conftest."""
+"""`fg.load` on a timeline file: the record table and the timeline from one file, `order`, the
+benign layer on records, batches and exports, `ds.windows` and `ds.episodes`. Uses the `timeline`
+fixture of conftest."""
 
 import numpy as np
 import pytest
@@ -24,7 +24,7 @@ def test_generate_registers_a_timeline_that_load_reads(timeline):
     assert len(ds) == 1000 and ds.system == 14 and ds.N == 14 and ds.E == 20
     assert np.array_equal(ds.idx, np.arange(1000))
     summ = ds.summary()
-    assert summ.n == 1000 and set(summ.families) == {fg.FAMILIES[k] for k in range(8)}
+    assert summ.n == 1000 and set(summ.families) == {"benign", "At", "Am"}
 
 
 def test_record_batch_and_export_carry_the_benign_layer(timeline):
@@ -33,7 +33,8 @@ def test_record_batch_and_export_carry_the_benign_layer(timeline):
     ds = fg.load(timeline)
     rec = ds[0]
     assert tuple(rec["benign"].shape) == (14, 4) and tuple(rec["edge_benign"].shape) == (20, 2)
-    assert list(rec)[-2:] == ["benign", "edge_benign"]
+    keys = list(rec)  # the benign layers follow the observed ones (PMU currents come after them)
+    assert keys.index("edge_benign") == keys.index("benign") + 1
     batch = ds.collate([ds[i] for i in range(3)])
     assert tuple(batch["benign"].shape) == (3, 14, 4) and tuple(batch["edge_benign"].shape) == (3, 20, 2)
     a = ds.export()
@@ -90,7 +91,7 @@ def test_windows_on_the_time_ordered_view(timeline):
     with pytest.raises(ValueError, match="order='time'"):
         fg.load(timeline, order="random").windows(8)
     with pytest.raises(ValueError, match="consecutive frames"):
-        fg.load(timeline, families=["Aq"]).windows(8)
+        fg.load(timeline, families=["Am"]).windows(8)
     with pytest.raises(ValueError, match="layer must be"):
         ds.windows(8, layer="swing")
     with pytest.raises(ValueError, match="need integers"):
@@ -155,33 +156,26 @@ def test_stream_of_refuses_a_shuffled_or_filtered_view(timeline):
     with pytest.raises(ValueError, match="order='time'"):
         stream_of(fg.load(timeline, order="random"))
     with pytest.raises(ValueError, match="consecutive frames"):
-        stream_of(fg.load(timeline, families=["Aq"]))
+        stream_of(fg.load(timeline, families=["Am"]))
     s = stream_of(fg.load(timeline, split="test"))
     assert s.node_x.shape[0] == len(fg.load(timeline, split="test"))
+    # a hybrid-meter timeline's stream carries its PMU branch currents; an old release's has none
+    E = s.edge_x.shape[1]
+    assert s.pmu_i.shape == (len(s.node_x), E, 4) and s.pmu_i_benign.shape == s.pmu_i.shape
+    assert s.pmu_i_m.shape == (E, 4) and s.pmu_i_m.any()
+    from test_old_releases import TIMELINE_V083
+
+    from fdia_graph.dataset import FdiaGraph
+
+    old = stream_of(FdiaGraph(TIMELINE_V083, split="test"))
+    assert old.pmu_i is None and "pmu_i" not in old
 
 
-def test_torch_helpers_take_a_dataset(timeline):
-    import torch
-
+def test_per_bus_windows_come_from_the_view_itself(timeline):
+    """Per-bus sequences from a time-ordered view, the file's split as the split (what the torch
+    helpers of 0.17 built from a stream)."""
     ds = fg.load(timeline, split="test")
-    with pytest.warns(DeprecationWarning, match="torch_windows is deprecated"):
-        (Xtr, ytr), (Xte, yte) = fg.torch_windows(dataset=ds, W=8, stride=4, train_frac=0.5)
     T = len(ds)
-    assert Xtr.shape[1:] == (8, 4) and Xtr.shape[0] % 14 == 0 and ytr.shape == (Xtr.shape[0],)
-    assert Xtr.shape[0] // 14 + Xte.shape[0] // 14 <= (T - 8) // 4 + 1
-    a = ds.export(["node_x"])
-    assert torch.equal(Xtr[0], torch.as_tensor(a["node_x"][:8, 0], dtype=torch.float32))
-    torch_geometric = pytest.importorskip("torch_geometric")
-    with pytest.warns(DeprecationWarning, match="pyg_stream is deprecated"):
-        tr, te = fg.pyg_stream(dataset=ds, train_frac=0.5, layer="benign")
-    assert len(tr) + len(te) == T and isinstance(tr[0], torch_geometric.data.Data)
-    assert tuple(tr[0].edge_phys.shape) == (20, 8) and tuple(tr[0].node_mask.shape) == (14, 4)
-    assert torch.equal(tr[0].x, ds[0]["benign"])
-    with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="order='time'"):
-        fg.torch_windows(dataset=fg.load(timeline, order="random"), W=8)
-    with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="dataset="):
-        fg.torch_windows(W=8)
-    # the replacement: per-bus sequences from the view itself, the file's split as the split
     Xb, yb = ds.windows(8, stride=4, label="last", per_bus=True)
     assert Xb.shape[1:] == (8, 4) and Xb.shape[0] == ((T - 8) // 4 + 1) * 14 and yb.shape == (Xb.shape[0],)
     assert np.array_equal(Xb[0], ds.export(["node_x"])["node_x"][:8, 0])

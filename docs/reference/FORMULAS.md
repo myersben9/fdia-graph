@@ -5,9 +5,8 @@ even when it is called once, so a reader can go from an equation to the code and
 catalogue is the index: one row per formula, the function that implements it, the equation in
 plain text, the source with a key from [`REFERENCES.md`](REFERENCES.md), and where it is used.
 
-The rules come from [`READABILITY_PLAN.md`](../plans/READABILITY_PLAN.md) (rule 3) and
-[`RESTRUCTURE_PLAN.md`](../plans/RESTRUCTURE_PLAN.md) (the `formulas/` kernel). A new formula
-function gets its row here in the same change.
+A formula is a pure function in `formulas/`, cited here once, and the rest of the package calls it
+rather than repeating the expression. A new formula function gets its row here in the same change.
 
 ## How a formula function is written
 
@@ -45,7 +44,6 @@ objects); one test checks it on a case small enough to verify by hand.
 | per-bus confusion counts and the papers' threshold | `formulas.metrics.perbus_counts`, `perbus_f1_from_counts`, `tau_from_counts`, through `LearnedLocalizer.tune_threshold` | F1 = 2TP / (2TP + FP + FN); tau = argmax over the grid of the mean per-bus F1 on the active buses | [KEC25], [FED26] | the learned localizers' validation threshold, summable across clients |
 | swing z-score and temporal delta | `formulas.temporal.temporal_delta`, `formulas.temporal.swing_zscore`, through `timeline.write_temporal_layers` (each observed frame against the previous emitted frame, after the walk) | delta_t = z_t − z_{t−1} at injection-metered buses; swing = delta_t / scale_t | [FED26] | the swing and temporal_delta features, `SwingThreshold`, `DeltaThreshold` |
 | recent-change scale | `formulas.temporal.recent_change_scale` (over the observed frames, through `timeline.write_temporal_layers`) | scale_t = std over [t − W, t) of the one-step change, plus 1e-3 | [FED26] | the swing feature |
-| replay policy | `engine.attacks.corrupt.replay_frame` | fixed lag tau, else a random lag of at least 20 scans, else the oldest scan | [DAT26] | the Ar family (the draw is made for every in-place family to keep the random stream fixed; only Ar uses it) |
 | bus voltage phasors | `formulas.network.complex_voltages` | V = \|V\| e^{jθ} | [AE04, eq. 2.1] | every AC evaluation |
 | bus injections | `formulas.network.bus_injections` (numpy); `se.base.SEBase._h_t` is its torch twin, kept for callers that differentiate through it and pinned by `tests/test_formulas.py` | S = V ∘ conj(Y V) | [AE04, eq. 2.6] | the estimator's h(x) |
 | AC measurement function | `formulas.network.ac_measurement`, called by `SEBase._h` | h = [\|V\|, −Re S, −Im S, θ, Re S_f, Im S_f] | [AE04, eqs. 2.6, 2.8] | every estimator, `JacobianFeatures.delta_z` |
@@ -54,10 +52,9 @@ objects); one test checks it on a case small enough to verify by hand.
 | branch admittances | `formulas.network.branch_admittances`; called by `dataset._admittances` (`ybus`, `yf`, `yt`) | y_tt = y_s + (g + jb)/2, y_ff = y_tt / (t conj t), y_ft = −y_s / conj t, y_tf = −y_s / t; shunts on the diagonal | [MP19, makeYbus] | the loader's admittance matrices |
 | series admittance | `formulas.network.series_admittance`, called by `FdiaGenerator._branch_physics` and `branch_admittances` | y_s = 1 / (r + jx), zero when the branch has no impedance | [MP19, branch model] | the static edge physics |
 | accuracy-class error split | `formulas.noise.bias_jitter_split`, called by `FdiaGenerator.__init__` | bias² + jitter² = SD², jitter = 0.25 SD | [ASP14], the jitter fraction set in this package | every emitted measurement |
-| ramp profile | `formulas.attacks.ramp_profile`, through `engine.attacks.episodes.ramp_dev` and `engine.attacks.episodes._AmShape` | dev(i) = rate_up·i for i < rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after | [DAT26] | the At and Am families |
+| ramp profile | `formulas.attacks.ramp_profile`, through `engine.attacks.episodes.ramp_dev` | dev(i) = rate_up·i for i < rise; peak on the hold; max(0, peak − rate_down·(i − rise − hold)) after | [DAT26] | the At family (the overload Am follows its own goal, `overload.overload_goal`) |
 | attacker's subnetwork | `formulas.network.subnetwork`, `engine.attacks.area.AreaMixin.local_region` | the buses within `hops` branches of the seeds (never the slack, grown over zero-injection boundary buses) and their boundary | [WU26] | every stealthy family |
 | local false state | `formulas.network.local_ac_solve`, `engine.attacks.false_state.FalseStateMixin.solve_local` | S_i(V) = V_i conj(Σ_j Y_ij V_j) = S_target_i on the interior, every other V held true; Newton on [θ_I, \|V\|_I], each step halved until the mismatch drops (the full step first, so a plain-Newton iteration is unchanged) | [WU26], [AE04, ch. 2] | Aq, At, Al, Am |
-| Am schedule | `engine.attacks.episodes._AmShape.under_floor`, the ramp of one Am episode | rate = am_rate · floor / max_b \|δ_b\| / \|L_b\|, rise = ⌈1 / rate⌉, the ramp profile above clipped at 1, so no bus's load moves by more than am_rate of the noise floor in one frame | [WU26], closed form derived here | the Am family |
 | a scan's load at a generator bus | `formulas.attacks.bus_load`, through `engine.physics.PhysicsMixin.true_load` and `scan_generation` | P_load = P_inj + s P_gen,base = s P_load,base with s = P_inj / (P_load,base − P_gen,base), the pools scaling a bus's load and generation by one factor | [DAT26] | Aq, At, Al, Am, contingency re-solves |
 | a bus's scan load over its load elements | `formulas.attacks.element_loads`, through `true_load` | P_e = P_bus(e) · P0_e / Σ P0 over the bus's elements, the pools scaling every load at a bus by one factor | [DAT26] | Aq, At, Al, Am, contingency re-solves |
 | operating limits of a false state | `formulas.attacks.operating_limits`, `generator_output`, `within_limits`, checked by `FalseStateMixin.stealthy_state` | per bus V_i^min, V_i^max and the generator limits from the case; every generator's implied output P_gen − (ΔP_inj − ΔP_load), Q_gen − ΔQ_inj within its limits, the true output recovered from the pool's common load and generation scale, ΔP_load the load change the attacker pretends; a true value already outside a limit is its own bound (the false state may not make it worse); a false state outside is rejected and its step halved | [WU26, eqs. 21-23] | Aq, At, Al, Am |

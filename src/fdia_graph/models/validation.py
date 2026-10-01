@@ -1,4 +1,4 @@
-"""The one place inputs are checked (docs/plans/VALIDATION_PLAN.md).
+"""The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place").
 
 A model declares what each field may be in the field's annotation, and `Validated` checks every
 field when the model is built:

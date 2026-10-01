@@ -79,7 +79,7 @@ def load_split(system: str, split: str, W: int, release: Optional[str]
                ) -> Tuple[Dict[str, np.ndarray], np.ndarray, int, int, np.ndarray]:
     """Return timestep-ordered windows (X tensors) + the LAST-step label/family for a split."""
     ds = fg.load(system, split=split, release=release)
-    a = ds.to_numpy()
+    a = ds.export()
     order = np.argsort(a["timestep"])                                # chronological
     for k in ("node_x", "node_m", "edge_x", "edge_m", "y", "family"):
         a[k] = a[k][order]

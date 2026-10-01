@@ -17,7 +17,6 @@ import numpy as np
 
 from .choices import (
     AmAttack,
-    AmDirection,
     Buses,
     Calibrate,
     CostUnit,
@@ -262,15 +261,12 @@ class TimelineKnobs(Validated):
     """The knobs of one timeline walk that the walk cannot recover from."""
 
     attacked_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True, hi_closed=True)] = 0.5
-    am_rate: Scale = 0.9
     hops: Count = 2
-    am_direction: Annotated[str, OneOf(AmDirection)] = "both"
     ramp_len: Annotated[int, Integer(), AtLeast(1)] = 60
     am_len: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # None: as long as a ramp
-    corrupt_len: Annotated[Optional[int], Integer(), AtLeast(1)] = 1
     min_tamper: bool = True  # [WU26, eq. 12]: each At episode on the support tampering the fewest devices
     min_budget: Count = 256  # candidate supports the search solves per episode before it settles
-    am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload, or the v0.8.3 redistribution
+    am_attack: Annotated[str, OneOf(AmAttack)] = "overload"  # [WU26]'s overload attack
     # a multiplier on At's stealth bound, whose unit is the rated accuracy (D7); Am has no bound (D11)
     stealth_scale: Scale = 1.0
 
@@ -302,8 +298,8 @@ class OverloadSettings(Validated):
 
     @staticmethod
     def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:
-        """(the Am attack's kind, its rating settings or None for the redistribution): a dict of these
-        fields means the overload attack with them."""
+        """(the Am attack's kind, its settings): a dict of these fields means the overload attack with
+        them; a string names the kind (checked by `TimelineKnobs`), None settings for an unknown one."""
         if isinstance(am_attack, dict):
             return AmAttack.OVERLOAD.value, OverloadSettings(**am_attack)
         return am_attack, OverloadSettings() if am_attack == AmAttack.OVERLOAD.value else None
@@ -347,8 +343,7 @@ class TrustSchedule(Validated):
 class MeterSettings(Validated):
     """The meter plan a timeline walks, as `generate_timeline(redundancy=...)` takes it: the coverage
     fractions of the voltage meters, the PMUs and the flow meters, and what the meters measure (the
-    plan's D10, D12): "hybrid", new generation's (angles at the PMUs only, PMU branch currents), or
-    "v083", the plan of data release v0.8.3, which its recipe passes."""
+    plan's D10, D12): "hybrid" (angles at the PMUs only, PMU branch currents)."""
 
     vbus_frac: float = 0.6
     pmu_frac: float = 0.2
@@ -364,10 +359,10 @@ class MeterSettings(Validated):
 @dataclass(frozen=True)
 class GeneratorOptions(Validated):
     """The generator's cap on what counts as a single load (MW, None disables it) and the meter model
-    its plan follows (the engine's default is the v0.8.3 plan; new generation asks for "hybrid")."""
+    its plan follows."""
 
     max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
-    meter_model: Annotated[str, OneOf(MeterModel)] = "v083"
+    meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
 
 
 @dataclass(frozen=True)
@@ -375,23 +370,6 @@ class ShardRun(Validated):
     """How many pool timesteps a shard generation walks; None walks them all."""
 
     frames: Annotated[Optional[int], Integer(), AtLeast(1)] = None
-
-
-@dataclass(frozen=True)
-class SplitFractions(Validated):
-    """A train / validation share of a stream, the rest the test, and the measurement layer read (the
-    deprecated torch_data helpers); checked before the stream loads."""
-
-    train_frac: Fraction = 0.6
-    val_frac: Annotated[float, InRange(0.0, 1.0, lo_closed=True)] = 0.2
-    max_test: Annotated[Optional[int], Integer(), AtLeast(0)] = None
-    layer: Annotated[str, OneOf(Layer)] = "node_x"
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield (
-            self.train_frac + self.val_frac < 1.0,
-            f"need train_frac + val_frac < 1, got {self.train_frac} + {self.val_frac}",
-        )
 
 
 # How each operator's downloadable CSV export names its (timestamp, load) columns.

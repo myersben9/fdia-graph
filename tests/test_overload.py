@@ -14,10 +14,10 @@ from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.errors import NoLineRatings  # noqa: E402
 from fdia_graph.formulas.attacks import branch_ratings  # noqa: E402
 from fdia_graph.formulas.network import bus_injections, complex_voltages, local_flow_solve  # noqa: E402
-from fdia_graph.generation import NOISE_FLOOR, _load_states  # noqa: E402
+from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import NODE  # noqa: E402
-from fdia_graph.timeline import DEFAULT_FAMILIES, LEGACY_FAMILIES, generate_timeline  # noqa: E402
+from fdia_graph.timeline import DEFAULT_FAMILIES, generate_timeline  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +31,7 @@ def pool():
 
 
 def _knobs(g, pool, scale=1.0):
-    return FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(pool), True, 256, scale)
+    return FrameKnobs(2, g.operating_limits(pool), True, 256, scale)
 
 
 def test_ratings_match_by_end_buses_in_either_order():
@@ -226,25 +226,13 @@ def test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating(g, pool):
     assert goal.targets[-1] == pytest.approx(rating)
 
 
-def test_new_generation_makes_the_multi_snapshot_families_and_the_old_ones_warn(tmp_path, pool):
+def test_new_generation_makes_the_multi_snapshot_families(tmp_path, pool):
+    """The generator makes At and Am; an older family is refused before any frame is walked."""
     assert DEFAULT_FAMILIES == ("At", "Am")
-    assert LEGACY_FAMILIES == ("Aq", "Ad", "As", "Ar", "At", "Al", "Am")
-    with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
-        generate_timeline(
-            14, states=pool[:40], seed=1, families=("At",), ramp_len=10, out=str(tmp_path / "a.h5")
-        )
-    assert not any("refused from 0.22" in str(w.message) for w in seen)
+    generate_timeline(14, states=pool[:40], seed=1, families=("At",), ramp_len=10, out=str(tmp_path / "a.h5"))
     for old in ("Aq", "Ad", "As", "Ar", "Al"):
-        with pytest.warns(DeprecationWarning, match=f"generating {old} is deprecated and refused from 0.22"):
-            generate_timeline(
-                14,
-                states=pool[:40],
-                seed=1,
-                families=(old,),
-                min_tamper=False,
-                out=str(tmp_path / f"{old}.h5"),
-            )
+        with pytest.raises(ValueError, match=f"{old} are single-snapshot"):
+            generate_timeline(14, states=pool[:40], seed=1, families=(old,), out=str(tmp_path / f"{old}.h5"))
 
 
 def test_the_pglib_ratings_are_refused_on_a_case_without_them(tmp_path):
@@ -289,7 +277,7 @@ def test_the_rating_margin_must_exceed_one():
             OverloadSettings(load_cap=bad)
     assert OverloadSettings(load_cap=1.0).load_cap == 1.0
     assert OverloadSettings.of("overload")[1] == OverloadSettings()
-    assert OverloadSettings.of("redistribution") == ("redistribution", None)
+    assert OverloadSettings.of("redistribution") == ("redistribution", None)  # TimelineKnobs refuses it
     assert OverloadSettings.of({"rating_margin": 1.5}) == ("overload", OverloadSettings(rating_margin=1.5))
 
 
@@ -321,19 +309,17 @@ def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
 
     window = [pool[u] for u in range(3)]
     line = int(g.eligible_lines(window, 2)[0])
-    w = _Window(g, window, g.overload_goal(window, line), FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True))
+    w = _Window(g, window, g.overload_goal(window, line), FrameKnobs())
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
     assert not w.node_m[~pmu, NODE.theta].any()
 
 
-def test_the_deprecated_stream_keeps_its_recipe(monkeypatch):
-    """generate_stream is deprecated and keeps what it always generated: every family, the
-    redistribution Am and no fewest-tamper search, so it still runs on systems without line ratings."""
-    import warnings
+def test_the_deprecated_stream_makes_new_generation(monkeypatch):
+    """generate_stream is deprecated and passes new generation's families and defaults through."""
 
     from fdia_graph import streams, timeline
-    from fdia_graph.models.choices import LEGACY_FAMILIES
+    from fdia_graph.models.choices import GENERATED_FAMILIES
 
     seen = {}
 
@@ -346,32 +332,26 @@ def test_the_deprecated_stream_keeps_its_recipe(monkeypatch):
         warnings.simplefilter("ignore", DeprecationWarning)
         with pytest.raises(RuntimeError, match="stop before any work"):
             streams.generate_stream(30)
-    assert tuple(seen["families"]) == tuple(LEGACY_FAMILIES)
-    assert seen["am_attack"] == "redistribution" and seen["min_tamper"] is False
+    assert tuple(seen["families"]) == tuple(GENERATED_FAMILIES)
+    assert "am_attack" not in seen and "min_tamper" not in seen  # generate_timeline's own defaults
 
 
-def test_the_overload_am_is_not_held_to_the_redistribution_pool(monkeypatch):
-    """The overload Am picks its lines per window; an empty redistribution pool must not refuse it."""
+def test_the_overload_am_is_not_checked_against_a_target_count(monkeypatch):
+    """The overload Am picks its lines per window, so the admissibility check before the walk asks
+    only for At's targets."""
     from fdia_graph import timeline
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.models.choices import FAMILY_CODE
 
     seen = {}
-    real = FdiaGenerator.target_counts
-
-    def counts(self):
-        out = dict(real(self))
-        out[FAMILY_CODE["Am"]] = 0  # no line admits a redistribution
-        return out
 
     def stop(*a, **k):
         seen["reached"] = True
         raise RuntimeError("stop after the admissibility check")
 
-    monkeypatch.setattr(FdiaGenerator, "target_counts", counts)
+    monkeypatch.setattr(FdiaGenerator, "target_counts", lambda self: {})  # no At target at all
     monkeypatch.setattr(FdiaGenerator, "operating_limits", stop)
     with pytest.raises(RuntimeError, match="after the admissibility check"):
-        timeline.generate_timeline(14, families=("At", "Am"), am_attack="overload")
+        timeline.generate_timeline(14, families=("Am",), am_attack="overload")
     assert seen["reached"]
 
 

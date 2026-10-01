@@ -76,11 +76,11 @@ Measured with `WLS` on the test split, same seed and pool, only the meter model 
 
 | records | behaviour | why |
 |---|---|---|
-| `Ad` bias, `As` scaling, `Ar` replay | improve a lot | meters corrupted in place, which robust weighting exists to reject |
-| `Aq`, `At`, `Al`, `Am` (stealthy) | robust weighting sees nothing; the prior moves them part of the way | a consistent AC state leaves no residual, and it sits off the benign operating subspace, so the prior pulls the estimate part of the way back |
+| `At`, `Am` (stealthy, and `Aq`, `Al` in older releases) | robust weighting sees nothing; the prior moves them part of the way | a consistent AC state leaves no residual, and it sits off the benign operating subspace, so the prior pulls the estimate part of the way back |
+| `Ad` bias, `As` scaling, `Ar` replay (older releases only) | improve a lot | meters corrupted in place, which robust weighting exists to reject |
 | benign | improves on the larger systems, can lose slightly on ieee14 | the baseline is already at the noise floor there |
 
-Full per-family table and figures: [`../se/README.md`](../se/README.md).
+Full per-family table and figures, on data release v0.8.x: [`../se/README.md`](../se/README.md).
 
 ## Your own estimator
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -224,30 +223,3 @@ class ExportMixin(DatasetBase):
             )
         labels = pd.DataFrame(a["y"].astype(int), columns=[f"attacked_b{b}" for b in range(N)])
         return pd.concat([df, labels], axis=1)
-
-    # The four exporters of 0.17 and earlier, one `export(format=...)` since 0.18; retire in 0.19.
-    def to_numpy(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
-        _retiring("to_numpy", "export(fields)")
-        return self._arrays(fields)
-
-    def to_torch(
-        self, fields: Optional[Sequence[str]] = None, device: Optional[Union[str, torch.device]] = None
-    ) -> ArraysBundle:
-        _retiring("to_torch", "export(fields, format='torch', device=device)")
-        return self._as_torch(self._arrays(fields), device)
-
-    def to_tf(self, fields: Optional[Sequence[str]] = None) -> ArraysBundle:
-        _retiring("to_tf", "export(fields, format='tf')")
-        return self._as_tf(self._arrays(fields))
-
-    def to_pandas(self, flatten_features: bool = True) -> pd.DataFrame:
-        _retiring("to_pandas", "export(format='pandas', flatten_features=...)")
-        return self._as_pandas(self._arrays(None), flatten_features)
-
-
-def _retiring(name: str, replacement: str) -> None:
-    warnings.warn(
-        f"{name} is deprecated and retires in 0.19: use ds.{replacement}, the one export of a split",
-        DeprecationWarning,
-        stacklevel=3,
-    )

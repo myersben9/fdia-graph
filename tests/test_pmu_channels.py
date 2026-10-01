@@ -19,7 +19,7 @@ pytest.importorskip("pandapower")
 def gens():
     from fdia_graph.engine.core import FdiaGenerator
 
-    return FdiaGenerator(14, seed=1), FdiaGenerator(14, seed=1, meter_model="hybrid")
+    return FdiaGenerator(14, seed=1)  # the hybrid meters, the only model the generator makes
 
 
 @pytest.fixture(scope="module")
@@ -31,30 +31,28 @@ def pool():
 
 @pytest.fixture(scope="module")
 def files(tmp_path_factory, pool):
+    from test_old_releases import TIMELINE_V083
+
     from fdia_graph.timeline import generate_timeline
 
     d = tmp_path_factory.mktemp("pmu")
     kw = dict(states=pool, seed=1, families=("At",), ramp_len=10, min_budget=32)
-    return (
-        generate_timeline(14, out=str(d / "v083.h5"), redundancy={"meter_model": "v083"}, **kw),
-        generate_timeline(14, out=str(d / "hybrid.h5"), **kw),
-    )
+    # (a v0.8.3-meter file of the old release, read only; a hybrid-meter file generated now)
+    return TIMELINE_V083, generate_timeline(14, out=str(d / "hybrid.h5"), **kw)
 
 
 def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
-    old, new = gens
-    nm_old, _ = old.meter_masks()
-    nm_new, _ = new.meter_masks()
-    pmu = np.zeros(new.C, bool)
-    pmu[sorted(new.meters.pmu)] = True
-    assert (nm_old[:, NODE.theta] == nm_old[:, NODE.v]).all()  # v0.8.3: an angle at every voltmeter bus
-    assert (nm_new[:, NODE.theta].astype(bool) == pmu).all()
-    assert (nm_new[:, NODE.v] == nm_old[:, NODE.v]).all()  # the plan's draws are the same
-    assert old.current_mask() is None and new.current_mask() is not None
+    g = gens
+    nm, _ = g.meter_masks()
+    pmu = np.zeros(g.C, bool)
+    pmu[sorted(g.meters.pmu)] = True
+    assert (nm[:, NODE.theta].astype(bool) == pmu).all()  # the angle is a PMU channel
+    assert (nm[:, NODE.v].astype(bool) >= pmu).all() and nm[:, NODE.v].sum() > pmu.sum()  # SCADA reads |V|
+    assert g.current_mask() is not None
 
 
 def test_the_current_mask_follows_the_pmus(gens):
-    _, g = gens
+    g = gens
     cm = g.current_mask()
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
@@ -63,7 +61,7 @@ def test_the_current_mask_follows_the_pmus(gens):
 
 
 def test_emitted_currents_sit_within_their_accuracy_class(gens, pool):
-    _, g = gens
+    g = gens
     scan = g.emit_from_state(pool[0])
     true = g.currents_from_states(pool[:1])[0]
     assert scan.i_x is not None and scan.i_m is not None
@@ -75,7 +73,7 @@ def test_emitted_currents_sit_within_their_accuracy_class(gens, pool):
 
 def test_the_exact_currents_carry_the_exact_flows(gens, pool):
     """S_from = V_from conj(I_from): the current channels agree with the flows of the same state."""
-    _, g = gens
+    g = gens
     X = pool[:3]
     cur = g.currents_from_states(X)
     flows = g.clean_flows_from_states(X)  # [T, E, 2] MW/MVAr, unmetered zeroed
@@ -90,7 +88,7 @@ def test_the_exact_currents_carry_the_exact_flows(gens, pool):
 
 def test_a_false_state_writes_its_currents(gens, pool):
     """a = h(x^a) - h(x) on the current channels, on exactly the PMU-read ends."""
-    _, g = gens
+    g = gens
     Xt = np.asarray(pool[5], float)
     Xa = Xt.copy()
     Xa[3, NODE.theta] += 0.05
@@ -117,11 +115,10 @@ def test_a_tampered_current_counts_in_its_ends_pmu():
 
 def test_the_search_counts_the_current_channels(gens, pool):
     from fdia_graph.engine.attacks.minimize import _Window
-    from fdia_graph.generation import NOISE_FLOOR
     from fdia_graph.models.frames import AttackDesign, FrameKnobs, LoadGoal
 
-    _, g = gens
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(pool), True, 256)
+    g = gens
+    k = FrameKnobs(2, g.operating_limits(pool), True, 256)
     pmu = sorted(g.meters.pmu)
     target = next(
         i for i, b in enumerate(g.load_bus) if b in pmu or any(n in pmu for n in g.local_region([b], 1))
@@ -143,7 +140,7 @@ def test_the_hybrid_file_carries_the_current_layers_and_the_old_one_does_not(fil
     from fdia_graph import schema
 
     old, new = files
-    with h5py.File(old) as f:
+    with h5py.File(old) as f:  # the v0.8.3 release: no current layers
         assert not any(p in f for p in schema.CURRENT_LAYERS)
         assert "meter_model" not in f.attrs
     with h5py.File(new) as f:
@@ -242,10 +239,8 @@ def test_pmu_pseudo_fills_only_unmetered_slots_and_needs_currents(files):
     assert np.isfinite(x).all()
 
 
-def test_new_generation_is_hybrid_and_the_legacy_recipe_pins_v083():
+def test_new_generation_is_hybrid_only():
     import inspect
-
-    from frozen_spec import TIMELINE_KW
 
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.models.config import MeterSettings
@@ -253,10 +248,10 @@ def test_new_generation_is_hybrid_and_the_legacy_recipe_pins_v083():
 
     assert MeterSettings().meter_model == "hybrid"  # its own knob (D12), in the meter plan
     assert "meter_model" not in inspect.signature(generate_timeline).parameters  # no new top-level knob
-    assert inspect.signature(FdiaGenerator).parameters["meter_model"].default == "v083"
-    assert TIMELINE_KW["redundancy"] == {"meter_model": "v083"}  # the v0.8.3 recipe pins it
-    with pytest.raises(ValueError):
-        MeterSettings(meter_model="scada")
+    assert inspect.signature(FdiaGenerator).parameters["meter_model"].default == "hybrid"
+    for old in ("v083", "scada"):  # the v0.8.3 meters stay readable in old releases, not generated
+        with pytest.raises(ValueError):
+            MeterSettings(meter_model=old)
 
 
 def test_the_previous_frame_carries_its_currents(files):

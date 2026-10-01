@@ -34,10 +34,6 @@ examples/reproduce_report.ipynb
 examples/add_bus_attrs_v050.py
 examples/upgrade_to_v050.py
 examples/*.txt
-# ...except the script that built the v0.8.0 timelines, the release's provenance
-!examples/_build_timelines_v080.py
-!examples/_build_timelines_v081.py
-!examples/_build_timelines_v083.py
 # never track dataset binaries (they live in GitHub releases)
 *.h5
 *.npz
@@ -53,4 +49,8 @@ docs/*/results/cache/
 
 # the binaries the tests read: the v0.7.2 record shard (156 KB) and the frozen reference timeline
 !tests/data/tiny_shard_v072.h5
-!tests/frozen/tiny_ieee14_timeline.npz
+!tests/data/tiny_timeline_v080.h5
+!tests/data/tiny_timeline_v081.h5
+!tests/data/tiny_timeline_v083.h5
+!tests/data/tiny_stream_v071.npz
+!tests/data/graph_ieee118_v071.npz

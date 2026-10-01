@@ -87,7 +87,7 @@ def test_pickle_restores_fields_and_key_order():
 
 
 # The dict-key order and the required fields of every shard-shaped bundle, as they were before the
-# field groups (docs/plans/FIELD_GROUPS_PLAN.md): the groups must not change what a user sees.
+# field groups: the groups must not change what a user sees.
 _SCAN = ["node_x", "node_m", "edge_x", "edge_m"]
 _IDS = ["family", "stealthy", "seq_id", "timestep"]
 _BENIGN = ["benign", "edge_benign"]
@@ -147,6 +147,7 @@ EXPECTED = {
             "episodes",
             "system",
             "attacked_frac",
+            *_PMU_I,  # a hybrid-meter stream's branch currents (0.21), after the fields it had before
             "stealthy",
             "seq_id",
             "edge_clean_full",

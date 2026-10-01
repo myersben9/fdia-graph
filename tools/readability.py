@@ -1,8 +1,8 @@
-"""Readability measures for src/fdia_graph, the limits from docs/plans/READABILITY_PLAN.md rule 1,
+"""Readability measures for src/fdia_graph, the limits below (`LIMITS`),
 and the file-protocol rule: a dataset path ("data/...", "graph/...", any group of `schema.Group`)
 or a group name used as one (`f.create_group("data")`, `f["attack"]`, `"episodes" in f`) may be
 spelled only in src/fdia_graph/schema.py; every other module goes through `schema`. And the
-validation rule (docs/plans/VALIDATION_PLAN.md): `raise ValueError` / `raise TypeError` and
+validation rule (CONTRIBUTING.md, "an input is checked in one place"): `raise ValueError` / `raise TypeError` and
 `isinstance(...)` only inside `fdia_graph.models`, where the one engine checks every input and the
 parser models read loose input by its type; everywhere else an input is checked or parsed by
 building its model, and a condition only the data reveals raises a named error from `errors`. And

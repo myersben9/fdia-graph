@@ -8,8 +8,7 @@ flowchart LR
     end
     subgraph walk["3. walk, one frame per state"]
         w1["emit the scan:<br/>meter plan, bias + jitter"] --> w2{"frame in<br/>an episode?"}
-        w2 -- "Aq At Al Am" --> w3["local false state<br/>re-solved subnetwork"]
-        w2 -- "Ad As Ar" --> w4["tamper readings<br/>in place"]
+        w2 -- "At Am" --> w3["local false state<br/>fewest-tamper support"]
         w2 -- no --> w5[benign scan]
     end
     subgraph after["4. after the walk"]

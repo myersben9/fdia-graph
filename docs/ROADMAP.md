@@ -19,7 +19,7 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 | `dataset/` | `FdiaGraph` from `graph` (static graph), `physics` (admittances, clean flows), `records` (items, collate, DataLoader), `export` (whole-split arrays), `sequence` (windows, episodes) over `base` (shared state) |
 | `registry.py`, `download.py` | `(name, release)` to a download spec with that release's file layout; fetch to `~/.cache/fdia_graph`, sha256-verified |
 | `timeline.py`, `generation.py`, `profiles.py` | the timeline walker and writer; the pool, frame context and file attributes; ISO load profiles to AC operating-state pools |
-| `torch_data.py`, `streams.py` | PyG and per-bus sequence forms of a time-ordered dataset; the deprecated stream entry points |
+| `streams.py` | the deprecated stream entry points, kept for reading the v0.7 stream files |
 | `se/` | `SEBase` (measurement model, chord-Newton, calibration) plus one class per estimator |
 | `localization/` | `LocalizerBase` (false-alarm calibration, metrics) plus threshold and learned classes |
 | `trust/` | `TrustSelector` plus the greedy row-reduction (`TrustedMeters`) and deep Q-network (`TrustedMetersDQN`) meter selections, and `secured_copy` of a timeline with the chosen meters pinned |
@@ -44,9 +44,8 @@ analysis packages `fdia_graph.se`, `fdia_graph.localization`, `fdia_graph.trust`
 | | |
 |---|---|
 | `python tools/review_ledger.py <num>` | records the automated reviewer's findings per pull request in `docs/reference/review_ledger.csv` and prints the tally by kind, so a recurring kind becomes a check |
-| `python tools/prereview.py` | every CI gate, the strict suite and the checks CI does not run, on this checkout's source; run before a review is requested (`docs/reference/REVIEW_CHECKLIST.md`) |
+| `python tools/prereview.py` | every CI gate, the test suite and the checks CI does not run, on this checkout's source; run before a review is requested (`docs/reference/REVIEW_CHECKLIST.md`) |
 | `pytest tests` | builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts |
-| `FDIA_FROZEN_STRICT=1 pytest tests` | bit-identical comparison against `tests/frozen/`; run before every push |
 | `FDIA_SLOW=1 pytest tests` | adds a sanity test on the published IEEE-118 file |
 | CI | tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the class-diagram check, install on 3.9 and 3.12 |
 | release | bump PR, then `python tools/release.py vX.Y.Z notes.md` (tag, GitHub release, PyPI); see `CONTRIBUTING.md` |

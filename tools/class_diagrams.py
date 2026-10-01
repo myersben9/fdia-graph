@@ -45,10 +45,8 @@ GROUPS = {
         "engine/attacks/false_state",
         "engine/attacks/minimize",
         "engine/attacks/overload",
-        "engine/attacks/redistribution",
         "engine/attacks/stealthy",
         "engine/attacks/episodes",
-        "engine/attacks/corrupt",
         "engine/attacks/__init__",
     ],
     "estimation": ["se/base", "se/methods", "se/jacobian"],
@@ -259,7 +257,6 @@ def module_diagram(mods: dict[str, ast.Module]) -> str:
         "generation": "generation.py",
         "profiles": "profiles.py",
         "streams": "streams.py<br/>(deprecated)",
-        "torch_data": "torch_data.py<br/>(deprecated)",
     }
     drawn = {(a, b) for (a, b) in edges if a not in OMIT | FOUNDATION and b not in FOUNDATION}
     lines = ["flowchart TB"]

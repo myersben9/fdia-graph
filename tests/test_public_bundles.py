@@ -2,14 +2,11 @@
 same keys in the same order, and its attribute view agrees with the dict view."""
 
 import json
-import os
 
 import numpy as np
 import pytest
 
 from fdia_graph.models import Bundle
-
-FROZEN = os.path.join(os.path.dirname(__file__), "frozen")
 
 
 def _agree(b: Bundle) -> None:
@@ -64,13 +61,8 @@ def test_record_batch_and_arrays(splits):
         ds.export(format="polars")
     with pytest.raises(ValueError, match="every field"):
         ds.export(fields=["nope"], format="pandas")
-    # the four exporters of 0.17 still answer, with the retirement notice
-    with pytest.warns(DeprecationWarning, match="to_numpy is deprecated"):
-        assert list(ds.to_numpy(["y"])) == list(ds.export(["y"]))
-    with pytest.warns(DeprecationWarning, match="to_torch is deprecated"):
-        assert torch.equal(ds.to_torch(["node_x"]).node_x, tens.node_x)
-    with pytest.warns(DeprecationWarning, match="to_pandas is deprecated"):
-        assert len(ds.to_pandas(flatten_features=False)) == len(df)
+    for gone in ("to_numpy", "to_torch", "to_tf", "to_pandas"):  # the exporters of 0.17, retired
+        assert not hasattr(ds, gone)
 
     summ = ds.summary()
     assert isinstance(summ, Summary) and summ.n == len(ds) == summ["n"]
@@ -90,15 +82,25 @@ def test_estimator_and_localizer_scores(timeline):
     _agree(se)
     assert se["geo"]["angle_mae_deg"] == se.geo.angle_mae_deg
     assert list(se)[-1] == "geo" and list(se)[0] == "benign"
-    ref = json.load(open(os.path.join(FROZEN, "tiny_ieee14_se.json")))["wls"]
-    assert set(se) == set(ref) and all(set(se[k]) == set(ref[k]) for k in se)  # the reference is key-sorted
+    # one block per family present in the view, and the geometric mean
+    assert set(se) == {"benign", "At", "Am", "geo"} and all(
+        set(se[k]) == {"angle_mae_deg", "voltage_mae_pu"} for k in se
+    )
 
     loc = SwingThreshold(fa_target=0.01).fit(train).score(test)
     assert isinstance(loc, LocalizerScores) and isinstance(loc.all, OverallMetrics)
     _agree(loc)
     assert loc["all"]["macro_f1"] == loc.all.macro_f1
-    ref = json.load(open(os.path.join(FROZEN, "tiny_ieee14_localization.json")))["swing"]
-    assert set(loc) == set(ref) and all(set(loc[k]) == set(ref[k]) for k in loc)
+    assert set(loc) == {"all", "benign", "At", "Am"}
+    assert set(loc["At"]) == {
+        "strict_acc",
+        "node_precision",
+        "node_recall",
+        "node_f1",
+        "macro_f1",
+        "sample_f1",
+        "detection_rate",
+    }
     json.dumps(loc)
 
 

@@ -13,7 +13,7 @@ from .base import POWER_NOISE_FLOOR_MW, GridBase
 from .records import Scan
 
 if TYPE_CHECKING:
-    from .pp_types import PandapowerNet
+    pass
 
 
 class MeasurementMixin(GridBase):
@@ -142,24 +142,3 @@ class MeasurementMixin(GridBase):
         Vc = np.zeros((len(X), self._n_ppc_buses), complex)
         Vc[:, self._ppc_row[np.arange(X.shape[1])]] = complex_voltages(X[:, :, NODE.v], X[:, :, NODE.theta])
         return branch_currents(Vc, self._Yf, self._Yt) * cm
-
-    def state_from_net(self, net: PandapowerNet) -> np.ndarray:
-        # Pull operating state [N,4]=[|V|, Pinj, Qinj, theta] from a SOLVED net, matching the stored pool.
-        Pi = net.res_bus.p_mw.values.copy()
-        Qi = net.res_bus.q_mvar.values.copy()
-        # Shunts live in res_bus; subtract shunt draw so Pi/Qi reflect gen/load injection only (matching the
-        # stored states and emit_from_state).
-        for i in net.shunt.index:
-            b = net.shunt.at[i, "bus"]
-            Pi[b] -= net.res_shunt.p_mw[i]
-            Qi[b] -= net.res_shunt.q_mvar[i]
-        V = net.res_bus.vm_pu.values
-        TH = net.res_bus.va_degree.values
-        return np.column_stack([V, Pi, Qi, TH])  # [N,4] = [|V|, Pinj, Qinj, theta]
-
-    def emit(self, net: PandapowerNet) -> Scan:
-        # Emit from a SOLVED net (re-solving attacks) by routing its state through emit_from_state, so
-        # attacked and benign samples use the IDENTICAL measurement path. Emitting flows from res_line here
-        # (while benign uses the Ybus identity) left a ~7 MW systematic benign-vs-attack offset; sharing one
-        # path removes it, so an alpha=1 no-op re-solve matches benign.
-        return self.emit_from_state(self.state_from_net(net))

@@ -1,6 +1,6 @@
 """What the generator passes around per scan: a measurement scan, the emitted frame with its labels,
-the run's attack knobs, the design and target of one attack (and of a ramp or Am episode), and the
-two intermediate results of the physics (a load redistribution, a re-solved pool)."""
+the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the
+fewest-tamper search and the certifier return."""
 
 from __future__ import annotations
 
@@ -20,23 +20,6 @@ class Scan(NamedTuple):
     # meter plan has no currents (the v0.8.3 meter model)
     i_x: Optional[np.ndarray] = None
     i_m: Optional[np.ndarray] = None
-
-
-class Band(NamedTuple):
-    """The plausibility band of an in-place tamper: each realized |change| / |reading| lies in
-    [floor, cap], above the meter noise floor (a smaller change resolves to noise) and below the
-    largest change the literature treats as credible."""
-
-    floor: float  # lower edge, the noise floor (generation.NOISE_FLOOR)
-    cap: float  # upper edge, the attack intensity
-
-
-class TamperTarget(NamedTuple):
-    """Where an in-place attack (Ad, As, Ar) writes: the attacked buses and every branch incident to
-    one of them, whose flows the attacker corrupts to match."""
-
-    buses: np.ndarray  # attacked bus indices
-    branches: list[int]  # branch positions with an attacked bus at either end
 
 
 class AttackDesign(NamedTuple):
@@ -62,18 +45,6 @@ class RampDesign(NamedTuple):
     tamper: Optional[MinimizerResult] = None
 
 
-class AmDesign(NamedTuple):
-    """One Am episode, drawn at onset: a load redistribution held over the episode and the ramp that
-    reaches it (engine.attacks, `am_design`); frame i applies `am_step(design, Xt, i)`."""
-
-    targets: np.ndarray  # positions in the generator's load table
-    delta: np.ndarray  # MW per target at full strength (load-conserving)
-    interior: Optional[np.ndarray]  # the attacker's subnetwork around the target line
-    rate: float  # fraction of the full redistribution added per frame on the rise and the fall
-    rise: int
-    hold: int
-
-
 class Frame(NamedTuple):
     """One emitted scan. Measurement arrays are in the shard's physical units and column order."""
 
@@ -87,9 +58,8 @@ class Frame(NamedTuple):
     mag: np.ndarray  # designed |change| / |base| per entry of mag_bus, the plausibility-band record
     benign_node_x: Optional[np.ndarray]  # un-attacked node measurement of the same scan (with_benign)
     benign_edge_x: Optional[np.ndarray]  # un-attacked branch flows of the same scan (with_benign)
-    # The meters the attacker wrote: ([N, 4], [E, 2]) boolean masks. For the stealthy families the
-    # meters whose true value the local false state moves; None for the in-place families, whose
-    # tamper set is the meters that differ from the benign twin.
+    # The meters the attacker wrote: ([N, 4], [E, 2]) boolean masks, the meters whose true value
+    # the local false state moves.
     tamper: Optional[tuple[np.ndarray, np.ndarray]] = None
     # the PMU branch-current channels, observed and un-attacked [E, 4] (per unit), their mask and the
     # current channels the attacker wrote; None without currents in the meter plan
@@ -117,14 +87,8 @@ class OperatingLimits(NamedTuple):
 class FrameKnobs(NamedTuple):
     """The attack settings of one generation run, fixed for every scan."""
 
-    intensity: float  # attack_intensity: load-shift bound of Aq/Al and the plausibility cap of Ad/As/Ar
-    floor: float  # lower edge of the plausibility band (NOISE_FLOOR)
-    lra_k: int  # most buses an LRA redistribution may touch
-    replay_tau: Optional[int]  # Ar replay depth in scans, None = random lag of at least REPLAY_MIN_LAG
-    reject_below_floor: bool  # shards: reject a within-noise scan so the draw loop redraws
-    with_benign: bool  # streams: also emit the un-attacked twin of the scan
-    # the stealthy families are local false states [WU26]: the attacker solves the subnetwork within
-    # `hops` branches of the attacked buses (or the target line) with the boundary voltages held true
+    # the attacks are local false states [WU26]: the attacker solves the subnetwork within `hops`
+    # branches of the attacked buses (or the target lines) with the boundary voltages held true
     hops: int = 2
     limits: Optional[OperatingLimits] = None  # a false state outside the box is rejected (then halved)
     # [WU26, eq. 12]: an episode's support is the one that tampers the fewest devices (off: the region
@@ -141,31 +105,6 @@ class FrameKnobs(NamedTuple):
     # what the search minimizes first (`CostUnit`): the tampered devices, or the tampered measurements
     # (the l0 of [WU26]'s eqs. 12, 28 and 33 taken literally); the other count breaks ties
     objective: str = "devices"
-
-    @property
-    def band(self) -> Band:
-        """The plausibility band of the in-place families: [floor, intensity]."""
-        return Band(self.floor, self.intensity)
-
-
-class Redistribution(NamedTuple):
-    """A load-redistribution attack: the per-load-bus delta (MW), the attacked load-table positions,
-    the flow change it induces on the target line (MW), the target line, and the attacker's
-    interior buses (the subnetwork the false state is solved on)."""
-
-    delta: np.ndarray
-    buses: np.ndarray
-    line_flow_change: float
-    line: int = -1
-    interior: Optional[np.ndarray] = None
-
-
-class ResolvedPool(NamedTuple):
-    """A pool re-solved under this generator's topology: the states [T', N, 4] and the boolean mask
-    of the pool timesteps that converged (T' = mask.sum())."""
-
-    states: np.ndarray
-    converged: np.ndarray
 
 
 class AttackVector(NamedTuple):

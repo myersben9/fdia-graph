@@ -13,7 +13,6 @@ from __future__ import annotations
 from .models.errors import (
     CountOverflow,
     DataConditionError,
-    GridIslanded,
     NoAdmissibleTarget,
     NoAttackedRecords,
     NoBenignRecords,
@@ -36,7 +35,6 @@ __all__ = [
     "NotFitted",
     "NoAdmissibleTarget",
     "NoRoomForEpisode",
-    "GridIslanded",
     "SlackMismatch",
     "VaryingReference",
     "CountOverflow",

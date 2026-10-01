@@ -55,7 +55,6 @@ class GridBase:
     _injection_buses: list[int]
     # buses / loads / attackability
     load_bus: np.ndarray
-    load_genP: np.ndarray
     load_p0: np.ndarray  # [n_loads] base active load per element (MW)
     load_q0: np.ndarray  # [n_loads] base reactive load per element (MVAr)
     attackable_pos: np.ndarray
@@ -85,17 +84,8 @@ class GridBase:
     _ppc_row: np.ndarray
     _from_bus_ppc: np.ndarray
     _n_ppc_buses: int
-    _ptdf: np.ndarray
-    _ptdf_load_buses: np.ndarray
-    _solve_net: PandapowerNet
     # contingency
     contingency: Outage
-    # LRA target pool (set in _pick_lra_target)
-    _target_lines: list[int]
-    _line_flow_sign: dict[int, float]
-    _primary_target_line: int
-    # replay buffer
-    benign_buf: list[np.ndarray]
 
     # cross-mixin methods (defined in the concern mixins)
     def _draw_noise(self, s: float) -> float: ...
@@ -105,16 +95,7 @@ class GridBase:
     def clean_flows_from_states(self, X: np.ndarray) -> np.ndarray: ...
     def all_flows_from_states(self, X: np.ndarray) -> np.ndarray: ...
     def currents_from_states(self, X: np.ndarray) -> np.ndarray: ...
-    def state_from_net(self, net: PandapowerNet) -> np.ndarray: ...
     def true_load(self, Xt: np.ndarray) -> np.ndarray: ...
     def true_reactive_load(self, Xt: np.ndarray) -> np.ndarray: ...
     def scan_generation(self, Xt: np.ndarray) -> np.ndarray: ...
     def scan_reactive_generation(self, Xt: np.ndarray) -> np.ndarray: ...
-
-    def solve(
-        self,
-        Lp: np.ndarray,
-        Lq: np.ndarray,
-        Xt: Optional[np.ndarray] = ...,
-        Lp_true: Optional[np.ndarray] = ...,
-    ) -> Optional[PandapowerNet]: ...

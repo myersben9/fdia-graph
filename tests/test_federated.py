@@ -176,11 +176,12 @@ def test_hop_distance_and_the_halo_agree_with_a_hand_count():
 def zs(timeline):
     import fdia_graph as fg
 
-    z = dict(families=[0, 1, 2])
+    # zero-shot: train and val hold benign and the ramp At, the test split adds the unseen Am
+    z = dict(families=[0, 5])
     return (
         fg.load(timeline, split="train", **z),
         fg.load(timeline, split="val", **z),
-        fg.load(timeline, split="test", families=[0, 1, 2, 3, 4]),
+        fg.load(timeline, split="test"),
     )
 
 
@@ -221,7 +222,7 @@ def test_two_clients_train_score_and_log_their_rounds(zs):
     s = loc.scores(te)
     assert s.shape == (len(te), te.N) and np.all((s >= 0) & (s <= 1))
     rep = loc.score(te)
-    assert "As" in rep and "Ar" in rep and loc.tau is not None
+    assert "Am" in rep and loc.tau is not None  # the unseen family is scored
 
 
 def test_local_power_balance_changes_only_buses_on_foreign_metered_branches(zs):
@@ -380,21 +381,6 @@ def test_a_regional_prior_refuses_a_partition_with_gaps(splits):
         RegionalPrior(gap).fit(splits["train"])
 
 
-def test_check_partition_wants_integer_labels(splits):
-    from fdia_graph.federated import check_partition
-    from fdia_graph.models.federated import Partition
-    from fdia_graph.models.inputs import PartitionOnGrid
-
-    N = splits["train"].N
-    z = np.zeros((2, N), bool)
-    for a in (np.r_[np.zeros(N - 1), 1.0], np.zeros((1, N), int)):
-        with pytest.raises(ValueError, match="1-D integer array"):
-            PartitionOnGrid(a, 2, N)
-        with pytest.warns(DeprecationWarning, match="check_partition is deprecated"):
-            with pytest.raises(ValueError, match="1-D integer array"):
-                check_partition(Partition(2, a, z, z, 0), N)
-
-
 def test_the_jacobian_feature_set_federates_with_one_central_block(zs):
     """full14+jac: the 14 channels stay per client (local KCL), the Jacobian block is the central
     estimator's, identical for every client; one client equals the centralized CNN."""
@@ -416,7 +402,7 @@ def test_the_jacobian_feature_set_federates_with_one_central_block(zs):
         d = te.export(two._fields())
         a, b = two._client_features(d, 0), two._client_features(d, 1)
         assert a.shape[-1] == 22 and np.array_equal(a[..., 14:], b[..., 14:])  # one Jacobian block
-        assert "As" in two.score(te)
+        assert "Am" in two.score(te)
     finally:
         torch.use_deterministic_algorithms(was)
 
@@ -433,7 +419,7 @@ def test_the_jacobian_only_set_federates_and_refuses_per_unit(zs, timeline):
     d = te.export(m._fields())
     a, b = m._client_features(d, 0), m._client_features(d, 1)
     assert a.shape[-1] == 8 and np.array_equal(a, b)
-    assert "As" in m.score(te)
+    assert "Am" in m.score(te)
     assert np.array_equal(m._client_features(d, 0, m._central(d)), a)  # handed in = computed in place
     with pytest.raises(ValueError, match="physical"):
         m.score(fg.load(timeline, split="test", units="pu"))
@@ -456,6 +442,6 @@ def test_the_previous_swing_set_federates_client_locally(zs):
         ).fit(tr, val=va)
         assert np.array_equal(c.scores(te), f.scores(te))
         two = FedBusCNN(K=2, rounds=1, local_epochs=1, features="full14+prev", device="cpu").fit(tr, val=va)
-        assert two._client_features(two._pull(te), 0).shape[-1] == 16 and "As" in two.score(te)
+        assert two._client_features(two._pull(te), 0).shape[-1] == 16 and "Am" in two.score(te)
     finally:
         torch.use_deterministic_algorithms(was)

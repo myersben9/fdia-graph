@@ -35,17 +35,15 @@ def test_an_old_path_keeps_its_old_signature():
     """Each alias takes the arguments the old private function took, and gives what the new home gives."""
     import fdia_graph.engine.records as records
     import fdia_graph.timeline as timeline
-    from fdia_graph.engine.attacks.episodes import EpisodeDesignMixin, am_sign, draw_ramp, ramp_dev
+    from fdia_graph.engine.attacks.episodes import EpisodeDesignMixin, draw_ramp, ramp_dev
 
     with pytest.warns(DeprecationWarning):
         ramp = timeline._ramp_dev
-        sign = timeline._am_sign
         counts = timeline._target_counts
         draw = timeline._draw_ramp
         changed = records._changed_meters
     assert ramp(3, 5, 2, 0.01) == ramp_dev(3, 5, 2, 0.01)
-    assert sign("mask", None) == am_sign("mask", None)
-    case = SimpleNamespace(stealthy_pos=np.arange(4), _target_lines=[1], attackable_pos=np.arange(6))
+    case = SimpleNamespace(stealthy_pos=np.arange(4))
     assert counts(case) == EpisodeDesignMixin.target_counts(case)
     ctx = SimpleNamespace(g=SimpleNamespace(stealthy_pos=np.arange(8)))
     old = draw(ctx, np.random.default_rng(3), 60)
@@ -54,24 +52,3 @@ def test_an_old_path_keeps_its_old_signature():
     scan = SimpleNamespace(node_m=np.ones((2, 4)), edge_m=np.ones((1, 2)))
     node, edge = changed(np.eye(2, 4), np.zeros((1, 2)), scan)
     assert node.sum() == 2 and not edge.any()
-
-
-def test_the_single_shot_alias_draws_from_the_generator_it_is_given():
-    """`timeline._draw_single_shot(ctx, rng, ...)` drew from `rng`; the alias still does, and leaves
-    the generator's own stream where it was."""
-    import fdia_graph.timeline as timeline
-    from fdia_graph.engine.attacks.episodes import EpisodeDesignMixin
-    from fdia_graph.models.choices import FAMILY_CODE
-
-    fid = FAMILY_CODE["Ad"]  # a corrupt-in-place family: no feasibility probe, only the draws
-    own = np.random.default_rng(1)
-    g = SimpleNamespace(rng=own, stealthy_pos=np.arange(8), attackable_pos=np.arange(8))
-    g.single_shot_design = lambda *a, **kw: EpisodeDesignMixin.single_shot_design(g, *a, **kw)
-    ctx = SimpleNamespace(g=g, X=np.zeros((10, 14, 4)), knobs=SimpleNamespace(intensity=0.2))
-    before = own.bit_generator.state
-    with pytest.warns(DeprecationWarning):
-        draw = timeline._draw_single_shot
-    got = draw(ctx, np.random.default_rng(5), 0, fid, 1)
-    want = EpisodeDesignMixin.single_shot_design(g, ctx.X, 0, fid, 1, ctx.knobs, rng=np.random.default_rng(5))
-    assert own.bit_generator.state == before
-    assert np.array_equal(got[0], want.targets) and np.allclose(got[1], want.mult)

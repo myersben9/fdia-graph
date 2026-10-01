@@ -67,13 +67,9 @@ nav:
       - References: reference/REFERENCES.md
   - Plans:
       - Overview: plans/README.md
-      - Reference study: plans/REFERENCE_STUDY_PLAN.md
-      - One dataset: plans/ONE_DATASET_PLAN.md
-      - Validation: plans/VALIDATION_PLAN.md
-      - Data models: plans/DATA_MODELS_PLAN.md
-      - Field groups: plans/FIELD_GROUPS_PLAN.md
-      - Readability: plans/READABILITY_PLAN.md
-      - Restructure: plans/RESTRUCTURE_PLAN.md
+      - Wu MS-FDIA: plans/WU_MSFDIA_PLAN.md
+      - Wu defense: plans/WU_DEFENSE_PLAN.md
+      - Relaxation certifier: plans/RELAX_CERTIFIER_PLAN.md
   - Contributing: contributing.md
   - Changelog: changelog.md
 

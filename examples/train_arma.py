@@ -94,7 +94,7 @@ def main() -> None:
     def gpu(split: str) -> Tuple[Dict[str, torch.Tensor], torch.Tensor, Any]:
         # local shard (v0.4.0 regen) takes precedence over the downloadable release when --shard is given
         ds = FdiaGraph(args.shard, split=split, units=args.units) if args.shard else fg.load(args.system, split=split, release=args.release, units=args.units)
-        a = ds.to_numpy()
+        a = ds.export()
         keys = ["node_x", "node_m", "edge_x", "edge_m", "y"] + (["temporal_delta"] if ds.has_temporal else []) \
                + (["swing"] if getattr(ds, "has_swing", False) else [])
         g = {k: torch.as_tensor(a[k], device=dev, dtype=torch.float32) for k in keys}

@@ -50,14 +50,14 @@ def window():
     ratings, the D16 bounds, two lines) and the search's attack on it."""
     pytest.importorskip("pandapower")
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.generation import NOISE_FLOOR, _load_states
+    from fdia_graph.generation import _load_states
     from fdia_graph.models.config import OverloadSettings
     from fdia_graph.models.frames import FrameKnobs
 
     g = FdiaGenerator(14, seed=1, meter_model="hybrid")
     X = _load_states(14, None)
     g.use_line_ratings(OverloadSettings(), X)
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(X), True, 256, 1.0, 0.5, 2)
+    k = FrameKnobs(2, g.operating_limits(X), True, 256, 1.0, 0.5, 2)
     for t in range(0, len(X) - WINDOW, 37):
         design = g.am_overload_design(X, t, WINDOW, k)
         if design is not None and design.tamper is not None and design.tamper.devices > 0:
@@ -96,12 +96,12 @@ def ramp_window():
     pytest.importorskip("pandapower")
     from fdia_graph.engine.attacks.minimize import _Window
     from fdia_graph.engine.core import FdiaGenerator
-    from fdia_graph.generation import NOISE_FLOOR, _load_states
+    from fdia_graph.generation import _load_states
     from fdia_graph.models.frames import FrameKnobs, LoadGoal
 
     g = FdiaGenerator(14, seed=1, meter_model="hybrid")
     X = _load_states(14, None)
-    k = FrameKnobs(0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(X), True, 256, 1.0, 0.5, 2)
+    k = FrameKnobs(2, g.operating_limits(X), True, 256, 1.0, 0.5, 2)
     for t in range(0, len(X) - 3, 53):
         design = g.ramp_design(X, t, (3, RAMP_RATE), k)
         if design is None or design.tamper is None or design.tamper.devices < 1:

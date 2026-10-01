@@ -145,13 +145,22 @@ class StreamSummary(TypedDict):
 
 @dataclass(frozen=True, eq=False)
 class Stream(
-    StreamLayers, GraphFields, CleanFields, TemporalFields, RecordIds, LabelFields, ScanFields, Bundle
+    PmuCurrentFields,
+    StreamLayers,
+    GraphFields,
+    CleanFields,
+    TemporalFields,
+    RecordIds,
+    LabelFields,
+    ScanFields,
+    Bundle,
 ):
     """A continuous attacked time series as `generate_stream` and `load_stream` return it, leading
     axis T: three aligned measurement layers per frame (observed `node_x`, `benign`, `clean`), the
     same three for branch flows, the static graph and meter masks, labels, the two temporal
-    features, and the episode list. `stealthy`, `seq_id` and `edge_clean_full` are not part of a
-    stream. A dict as well, so `windows`, `pyg_stream` and every `s["node_x"]` keep working."""
+    features, and the episode list; on a hybrid-meter file also the PMU branch currents (`pmu_i`,
+    `pmu_i_benign` per frame, the static mask `pmu_i_m`). `stealthy`, `seq_id` and `edge_clean_full`
+    are not part of a stream. A dict as well, so `windows` and every `s["node_x"]` keep working."""
 
     episodes: Optional[list[EpisodeRow]] = None  # list of {onset, length, family, buses}
     system: Optional[int] = None  # bus count (generate_stream and load_stream both set it)
@@ -176,7 +185,7 @@ class Stream(
         "episodes",
     )
     # the three group fields a stream never fills come last: None, so absent from the dict
-    _order = (*_required, "system", "attacked_frac", "stealthy", "seq_id", "edge_clean_full")
+    _order = (*_required, "system", "attacked_frac", *_PMU_I, "stealthy", "seq_id", "edge_clean_full")
 
 
 @dataclass(frozen=True, eq=False)

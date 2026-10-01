@@ -88,7 +88,7 @@ def main() -> None:
 
     # Pre-load whole splits onto the GPU once so batches are pure GPU gathers (train.loader() streams if VRAM is tight).
     def gpu(ds: Any) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
-        a = ds.to_numpy()
+        a = ds.export()
         return ({k: torch.as_tensor(a[k], device=dev, dtype=torch.float32) for k in ("node_x", "node_m", "edge_x", "edge_m", "y")},
                 torch.as_tensor(a["family"], device=dev))
     trG, _ = gpu(train); teG, teFam = gpu(test); n = trG["y"].shape[0]

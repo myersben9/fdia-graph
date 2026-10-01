@@ -5,6 +5,55 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Removed: single-snapshot generation, the v0.8.3 recipe and the frozen suite.** The generator
+  makes the multi-snapshot families `At` and `Am` only, on the hybrid meters; every published data
+  release (v0.7.1 to v0.8.3) still loads read-only, with its family names (`Aq`, `Ad`, `As`, `Ar`,
+  `Al`), aliases, the `heldout=` protocol and per-family scores. The removed code is at commit
+  `aa77d0b`; fdia-graph 0.20 is the last version that generates the removed families.
+  - Generation: `families=` accepts `At` and `Am` (new `models.inputs.GeneratedFamilies`; an older
+    family raises before any work). Gone: the in-place `Ad`/`As`/`Ar` (`engine/attacks/corrupt.py`),
+    the load redistribution behind `Al` and the v0.8.3 `Am` (engine/attacks/redistribution.py),
+    `single_shot_design`, `am_design` / `am_step`, the `Aq`/`Al` frames, and the knobs
+    `attack_intensity`, `am_rate`, `am_direction`, `corrupt_len`, `replay_tau` and
+    `am_attack="redistribution"` (with `AmDirection`, `LEGACY_FAMILIES`, `DEPRECATED_FOR_GENERATION`,
+    `ONE_FRAME_FAMILIES`, `generation.NOISE_FLOOR` and the models `Band`, `TamperTarget`,
+    `Redistribution`, `AmDesign`). `FrameKnobs` keeps the fields new generation uses, all with
+    defaults. `generate_stream` keeps its entry point with new generation's families and defaults; its
+    arguments after `families` are keyword-only, so a 0.20 positional call raises instead of shifting.
+  - The v0.8.3 meter model: `meter_model` accepts `"hybrid"` only, now also the engine's default.
+    Files written with the old meters load unchanged.
+  - Dead or retired code: the full pandapower re-solve (`PhysicsMixin.resolve_states`, `solve`,
+    `_pin_generation`, `MeasurementMixin.emit`, `state_from_net`, `ResolvedPool`),
+    `FdiaGenerator.centrality_probs`, `nl` and `load_genP`, the N-1 line-outage screen
+    (`fg.line_outage_candidates`, `FdiaGenerator(outage=)`, `LineCandidate`, `OutageRef`,
+    `GridIslanded`), `fg.pyg_stream` and `fg.torch_windows` (torch_data.py; `ds.windows` and
+    `fg.load(..., format="pyg")` replace them), the exporters `ds.to_numpy` / `to_torch` / `to_tf` /
+    `to_pandas` (`ds.export(format=...)`), `dataset.check_split` / `check_units` / `check_order` and
+    `federated.check_partition` (the models check these), `SplitFractions`, `StreamSystem`, and the
+    private `SEBase._normal_matrices` and `_cond`. `load_stream` and `streams.windows` stay: they
+    read the v0.7 stream files. The `ds.edge_*` aliases stay (`edge_gs` and `edge_bs` are requested
+    names).
+  - Tests: the frozen suite (tests/test_frozen.py, tests/frozen/, tools/freeze_reference.py, the
+    strict mode of `tools/prereview.py`) is gone; the pinned search answers
+    (`tests/test_search_speed.py`), [WU26]'s scenarios and the unit tests guard the generated data.
+    The shared test timeline is new generation's (`At` and `Am`); old releases are tested on
+    checked-in files (`tests/test_old_releases.py`, `tests/data/README.md`).
+  - Docs: the finished plans (data models, field groups, one dataset, readability, reference study,
+    restructure, validation), FUTURE_DATASETS.md, the v0.8.0 to v0.8.3 release build scripts and
+    five unlinked figures.
+  - Fixed: `load_stream` at v0.7.1 and v0.7.2 reads the stream files again. Those files carry the
+    frames only, and the release's graph sidecar (`graph_ieee{N}.npz`: `edge_index`, `edge_attr`,
+    `node_m`, `edge_m`) that 0.18 stopped attaching is attached again; the tests read a slice of the
+    published IEEE-118 stream with its sidecar, and one timeline of each of v0.8.0, v0.8.1 and
+    v0.8.3 written by the SDK that built it.
+  - `Stream` carries the PMU branch currents of a hybrid-meter file (`pmu_i`, `pmu_i_benign`, the
+    static mask `pmu_i_m`), so `generate_stream` and `stream_of` no longer drop them. The benchmark
+    table records the fixture recipe per row and `tools/bench.py --check` compares only rows of the
+    same machine and recipe.
+  - Known behaviour made visible by the new test timeline, unchanged here: an overload `Am` whose
+    window has no stealthy design falls back to benign for the whole episode (`fallback_benign`), and
+    its first snapshot can tamper nothing, its drift-free goal there being the true flow (D9).
+
 - [WU26]'s trusted-PMU configuration as a Markov decision process (docs/plans/WU_DEFENSE_PLAN.md, PR B):
   `trust.WuDefenseEnv(g, states, goal, k, WuDefenseConfig(pmus, slots))` on one overload window, with
   `reset`, `step` and `valid`. An action trusts one more PMU at the next configuration step (Sec. IV-D2,
@@ -330,7 +379,7 @@ the public API, the generated files and the numbers are the same as the previous
   dependency) for NYISO, `GridstatusFeed` for CAISO and ERCOT, which imports `gridstatus` itself and
   names the install when it is missing; `models.config.ProfileFetch` checks the operator and
   `resample_min`. The downloaded data and the returned vector are unchanged.
-- Every input is checked in one place (`docs/plans/VALIDATION_PLAN.md`). Each consumer's settings
+- Every input is checked in one place (the validation plan, in the git history at `aa77d0b`). Each consumer's settings
   are one model in `fdia_graph.models.config` (`LoadOptions`, `WindowSpec`, `HuberConfig`,
   `PriorConfig`, `LearnedConfig`, `FederatedSettings`, `TimelineKnobs` and the rest), whose fields
   declare their rules (`Annotated[float, Positive()]`, `OneOf(Units)`); one engine,

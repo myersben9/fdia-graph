@@ -1,33 +1,26 @@
 """Dataset generation engine (attack simulation + realistic measurement emission).
 
 Requires pandapower ('fdia-graph[generate]'). Benign records emit EXACTLY from a stored state (0-error AC
-flows, no re-solve); only attacks re-solve. Attack families:
-  Aq   stealthy load scaling: bounded per-bus rescale + AGC-balanced AC re-solve (cf. Boyaci 2022 "Ao")
-  At   (ramp) temporal creeping load surge up then down (Haghshenas/Hasnat/Naeini ISGT 2023)
-  Al   (LRA) targeted masked-overload (Yuan/Li/Ren IEEE T-SG 2011)
-  Ad/As/Ar  measurement-level corruption (BDD-detectable contrast set)
+flows, no re-solve); only attacks re-solve, locally. Attack families [WU26]:
+  At   the slow ramp: a load set scaled along a rise, a hold and a return, on the fewest-tamper support
+  Am   the overload attack: a target branch's reported flow driven to its rating over the window
 
 FdiaGenerator is split by concern across three mixins: state setup lives here (__init__), while
-  measurement.py (MeasurementMixin)   emit meter readings from a state / net
-  physics.py     (PhysicsMixin)      AC re-solve under new loads, a scan's load and generation
-  attacks/       (AttackMixin)       every attack: the stealthy false states, their episode designs,
-                                     the load redistribution and the in-place corruption
+  measurement.py (MeasurementMixin)   emit meter readings from a state
+  physics.py     (PhysicsMixin)      a scan's load and generation
+  attacks/       (AttackMixin)       every attack: the stealthy false states, the fewest-tamper
+                                     search, the ramp and overload episode designs
 """
 
 from __future__ import annotations
 
-import warnings
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
-from ..errors import GridIslanded
 from ..formulas.network import BranchModel, series_admittance
 from ..formulas.noise import PMU_CURRENT_CLASS, bias_jitter_split
-from ..models.assets import LineCandidate  # noqa: F401  re-exported: defined here before the models package
 from ..models.config import GeneratorOptions
-from ..models.inputs import OutageRef
 from ..registry import system_id
 from .attacks import AttackMixin
 from .base import (  # noqa: F401  ACCURACY_CLASS, POWER_NOISE_FLOOR_MW re-exported
@@ -44,22 +37,9 @@ from .physics import PhysicsMixin
 if TYPE_CHECKING:
     from .pp_types import PandapowerNet, PpcTables
 
-# Integer family label written into the per-bus label tensor `y` (0=clean, >0=attacked of that family).
-# "Ao"/"SLS" are back-compat aliases for Aq (id 1); "ramp"=At, "LRA"=Al.
-FAM_ID = {
-    "benign": 0,
-    "Aq": 1,
-    "SLS": 1,
-    "Ao": 1,
-    "Ad": 2,
-    "As": 3,
-    "Ar": 4,
-    "At": 5,
-    "ramp": 5,
-    "Al": 6,
-    "LRA": 6,
-    "Am": 7,
-}
+# Integer family label written into the per-bus label tensor `y` (0=clean, >0=attacked of that family);
+# the generator makes At and Am (the codes of every released family are in models.choices.FAMILIES).
+FAM_ID = {"benign": 0, "At": 5, "Am": 7}
 # Bus-count knob (14/118/300) -> pandapower.networks factory name.
 # Bus-count -> pandapower.networks builder. Transmission systems only (>=110 kV, meshed). A system is
 # load()-able only once its pool + registry entry ship; listing it here just lets the generator build it.
@@ -75,104 +55,6 @@ _CASE = {
 }
 
 
-# N-1 LINE OUTAGE SUPPORT. The branch must be taken out BEFORE anything derived (Ybus, PTDF, base
-# operating point, measurements) is computed — a post-hoc mask on an intact-network dataset won't do.
-def _line_id(net: PandapowerNet, outage: Union[str, int]) -> int:
-    """Map a line NAME or index to the pandapower line index, with a clear error if it names nothing."""
-    names = tuple(net.line["name"].astype(str))
-    return OutageRef(outage, names, tuple(int(i) for i in net.line.index)).index
-
-
-def _n_islands(net: PandapowerNet) -> int:
-    """Number of connected components over the IN-SERVICE network (1 == still one connected grid).
-
-    Cheap islanding screen to run BEFORE generating: pandapower "converges" on an islanded case by
-    silently marking stranded buses isolated (bus type 4), so solver failure is NOT the infeasibility signal.
-    """
-    import networkx as nx
-    from pandapower import topology as top
-
-    return int(nx.number_connected_components(top.create_nxgraph(net)))
-
-
-def line_outage_candidates(
-    system: Union[int, str], top_n: int = 5, seed_flow_from: Optional[PandapowerNet] = None
-) -> tuple[list[LineCandidate], list[LineCandidate]]:
-    """Rank single-line N-1 contingencies by base-case active power flow, keeping the network connected.
-
-    Returns (accepted, rejected). `accepted` = the `top_n` highest-flow lines whose removal leaves one
-    connected, solvable, PTDF-well-posed network (dict: line index, terminal buses, name, signed from-end
-    MW flow). `rejected` = higher-flow lines screened out, with reason. Highest-flow ranking is the standard
-    N-1 screening choice (Moshtagh et al.). A screening aid only: N-1 timeline generation is disabled
-    (`fg.generate` and `generate_timeline` take no outage; `FdiaGenerator(outage=)` stays for engine use).
-    """
-    import pandapower as pp
-    import pandapower.networks as pn
-
-    NET = getattr(pn, _CASE[system_id(system)])
-    base = seed_flow_from if seed_flow_from is not None else NET()
-    if "p_from_mw" not in base.res_line or base.res_line.empty:
-        pp.runpp(base)
-    flow = base.res_line["p_from_mw"].to_numpy()
-    lut0 = base._pd2ppc_lookups["bus"]
-    order = np.argsort(-np.abs(np.nan_to_num(flow)))  # highest |MW| first
-    accepted, rejected = [], []
-    for pos in order:
-        if len(accepted) >= top_n:
-            break
-        idx = int(base.line.index[pos])
-        if not bool(base.line.at[idx, "in_service"]):
-            continue  # already open: not a contingency
-        why = _screen_line(NET, idx, lut0)
-        rec = _line_record(base, idx, int(pos), float(flow[pos]))
-        if why:
-            rejected.append(LineCandidate(**rec, reason=why))
-        else:
-            accepted.append(rec)
-    return accepted, rejected
-
-
-def _screen_line(NET: Callable[[], PandapowerNet], idx: int, lut0: np.ndarray) -> Optional[str]:
-    """Why opening line `idx` is not an acceptable contingency, or None when it is: the grid must stay
-    one island, the post-contingency power flow must converge with no isolated bus, the ppc bus
-    ordering must not change (or the shard is not comparable to the base shard), and the DC PTDF
-    must be well posed."""
-    import pandapower as pp
-    from pandapower.pypower.makePTDF import makePTDF
-
-    net = NET()
-    net.line.at[idx, "in_service"] = False
-    if _n_islands(net) != 1:
-        return f"removing it splits the grid into {_n_islands(net)} islands"
-    try:
-        pp.runpp(net)
-    except Exception as e:
-        return f"post-contingency AC power flow does not converge ({type(e).__name__})"
-    n_iso = int((net._ppc["bus"][:, 1].real == 4).sum())
-    if n_iso:
-        return f"leaves {n_iso} isolated bus(es)"
-    if not np.array_equal(lut0, net._pd2ppc_lookups["bus"]):
-        return "changes the ppc bus ordering (not comparable to the base shard)"
-    try:
-        makePTDF(net._ppc["baseMVA"], net._ppc["bus"], net._ppc["branch"])
-    except Exception:
-        return "PTDF is singular (the DC network is islanded)"
-    return None
-
-
-def _line_record(base: PandapowerNet, idx: int, pos: int, base_flow_mw: float) -> LineCandidate:
-    """One candidate line as the caller reports it: index, position, terminals, name, base flow."""
-    _nm = base.line.at[idx, "name"]
-    return LineCandidate(
-        line=idx,
-        pos=pos,
-        from_bus=int(base.line.at[idx, "from_bus"]),
-        to_bus=int(base.line.at[idx, "to_bus"]),
-        name=(f"line{idx}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)),
-        base_flow_mw=base_flow_mw,
-    )
-
-
 class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
     def __init__(
         self,
@@ -181,12 +63,11 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         vbus_frac: float = 0.6,
         pmu_frac: float = 0.2,
         flow_frac: float = 0.90,
-        outage: Optional[Union[int, str]] = None,
         max_load_mw: Optional[float] = 2000.0,
-        meter_model: str = "v083",
+        meter_model: str = "hybrid",
     ) -> None:
-        """Load the IEEE case, apply the optional N-1 contingency, solve the base power flow, and
-        draw the meter plan and the per-meter biases from `seed`.
+        """Load the IEEE case, solve the base power flow, and draw the meter plan and the per-meter
+        biases from `seed`.
 
         `max_load_mw` keeps a load above it out of the attack targets: such a load is an area
         equivalent (IEEE-145 lumps whole regions into single loads of 4 to 58 GW), not a substation
@@ -194,14 +75,11 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         cap. No load of the other seven ladder systems exceeds 1.1 GW.
 
         The random draws happen in a fixed order, the meter plan (voltage buses, PMU buses, flow
-        meters) and then the six per-meter bias vectors, so a shard's meter plan and biases are
-        identical across topologies at a given seed; the contingency consumes no randomness.
+        meters), then the six per-meter bias vectors, then the branch-current channels' biases.
 
-        `meter_model` is what the meters measure (the plan's D10): "v083" (the default, the plan of
-        data release v0.8.3: an angle at every voltmeter bus, no branch currents) or "hybrid" (a
-        SCADA voltmeter reads |V| only, the angle is a PMU channel, and every PMU reads the current
-        phasor of each in-service branch at its bus [WU26, eqs. 17-20]). The hybrid model draws the
-        current channels' biases after the six, so the v0.8.3 draws are unchanged.
+        `meter_model` is what the meters measure (the plan's D10): "hybrid", a SCADA voltmeter reads
+        |V| only, the angle is a PMU channel, and every PMU reads the current phasor of each
+        in-service branch at its bus [WU26, eqs. 17-20].
         """
         # pandapower is heavy/optional: import lazily so it's only needed when actually generating.
         import pandapower as pp
@@ -217,70 +95,22 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.SD = dict(ACCURACY_CLASS)
         self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=0.25)
         self.NET = getattr(pn, _CASE[self.C])
-        self.base = self._open_case(outage)
+        self.base = self._open_case()
         self._load_tables(self.base)
         self._meter_plan(self.base, vbus_frac, pmu_frac, flow_frac, hybrid)
         self._edge_index(self.base)
         self._branch_physics(self.base._ppc)
         self._admittances(self.base._ppc)
-        # Reusable net for re-solving under attacked loads. Apply the contingency here too, else attacked
-        # records solve on the INTACT network while benign came from the post-contingency one.
-        self._solve_net = self.NET()
-        if self.contingency.line is not None:
-            self._solve_net.line.at[self.contingency.line, "in_service"] = False
         self._meter_bias()
         if hybrid:
             self._current_bias()
-        # Buffer of recent benign records: replay attacks (Ar) copy an earlier clean snapshot from here.
-        self.benign_buf = []
 
-    @property
-    def nl(self) -> int:
-        """The line count under its 0.17 name; retires in 0.19, use `n_lines`."""
-        warnings.warn("nl is deprecated and retires in 0.19: use n_lines", DeprecationWarning, stacklevel=2)
-        return self.n_lines
-
-    def _open_case(self, outage: Optional[Union[int, str]]) -> PandapowerNet:
-        """The pandapower case with the contingency applied and its base power flow solved; sets
-        self.contingency (an Outage, INTACT when no line is opened).
-
-        `outage` (line index or name, None = intact) opens the line BEFORE the base power flow, so every
-        derived quantity (Ybus, Yf/Yt, PTDF, edge_status, base state, all measurements) is
-        post-contingency. The branch ROW is kept in ppc with status 0, so edge_index, E and the meter
-        plan match the intact case: exactly one thing changed, and shards are directly comparable.
-        An islanding contingency is refused up front (pandapower would "converge" on a non-solution and
-        makePTDF would hit a singular matrix mid-build).
-        """
-        pp = self.pp
+    def _open_case(self) -> PandapowerNet:
+        """The pandapower case with its base power flow solved; the generator is the intact grid
+        (self.contingency = INTACT, which the file attributes record)."""
         base = self.NET()
         self.contingency = INTACT
-        if outage is not None:
-            line = _line_id(base, outage)
-            # Record the INTACT flow on the line to be opened, so the shard reports the contingency's size.
-            intact = self.NET()
-            pp.runpp(intact)
-            # IEEE cases carry no line names (None), so fall back to a "line<idx>" tag.
-            _nm = base.line.at[line, "name"]
-            self.contingency = Outage(
-                line=line,
-                pos=int(base.line.index.get_loc(line)),
-                name=(f"line{line}" if _nm is None or str(_nm) in ("None", "nan", "") else str(_nm)),
-                from_bus=int(base.line.at[line, "from_bus"]),
-                to_bus=int(base.line.at[line, "to_bus"]),
-                base_flow_mw=float(intact.res_line.at[line, "p_from_mw"]),
-            )
-            base.line.at[line, "in_service"] = False
-            if _n_islands(base) != 1:
-                raise GridIslanded(
-                    f"line {line} outage splits the grid into {_n_islands(base)} islands; "
-                    f"screen with line_outage_candidates() before generating"
-                )
-        # Solve the (possibly post-contingency) AC power flow for the base operating point.
-        pp.runpp(base)
-        if self.contingency.line is not None:
-            n_iso = int((base._ppc["bus"][:, 1].real == 4).sum())
-            if n_iso:
-                raise GridIslanded(f"line {self.contingency.line} outage leaves {n_iso} isolated bus(es)")
+        self.pp.runpp(base)
         return base
 
     def _load_tables(self, base: PandapowerNet) -> None:
@@ -332,13 +162,6 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         )
         self.zero_inj = [b for b in range(C) if b not in set(inj)]
         self._injection_buses = sorted(set(inj.tolist()))
-        # Base-case generator MW per bus (summing co-located gens), aligned to load-bus ordering. The
-        # pools scale generation with load, so a scan's load and dispatch come from `true_load` and
-        # `scan_generation`, not from this constant.
-        genP: dict[int, float] = {}
-        for r in base.gen.itertuples():
-            genP[int(r.bus)] = genP.get(int(r.bus), 0.0) + r.p_mw
-        self.load_genP = np.array([genP.get(int(b), 0.0) for b in self.load_bus])
         self._case_limits(base)
 
     def _case_limits(self, base: PandapowerNet) -> None:
@@ -428,25 +251,19 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.bus_shunt_b = ppc["bus"][:, 5].real.astype(np.float64)
 
     def _admittances(self, ppc: PpcTables) -> None:
-        """Ybus and the from/to branch-admittance matrices (from-end flow Sf = V_from * conj(Yf @ V)),
-        the ppc bus lookup, and the DC PTDF that steers the load-redistribution attack.
+        """Ybus and the from/to branch-admittance matrices (from-end flow Sf = V_from * conj(Yf @ V))
+        and the ppc bus lookup.
 
         _ppc_row maps pandapower bus index -> ppc row index (the orderings differ, a classic footgun);
         _from_bus_ppc is the from-bus (ppc index) per branch; Vc is built in ppc ordering.
         """
-        from pandapower.pypower.makePTDF import makePTDF
         from pandapower.pypower.makeYbus import makeYbus
 
-        C = self.C
         self._Ybus, self._Yf, self._Yt = makeYbus(ppc["baseMVA"], ppc["bus"], ppc["branch"])
         self._base_mva = ppc["baseMVA"]
         self._ppc_row = self.base._pd2ppc_lookups["bus"]
         self._from_bus_ppc = ppc["branch"][:, 0].real.astype(int)
         self._n_ppc_buses = ppc["bus"].shape[0]
-        # PTDF (branches x buses): DC sensitivity of each branch's MW flow to a bus injection; sliced to
-        # (branches x load-buses) by reindexing ppc -> pandapower via _ppc_row and keeping the load-bus columns.
-        self._ptdf = makePTDF(self._base_mva, ppc["bus"], ppc["branch"])
-        self._ptdf_load_buses = self._ptdf[:, [self._ppc_row[b] for b in range(C)]][:, self.load_bus]
 
     def _meter_bias(self) -> None:
         """The per-meter SYSTEMATIC bias, drawn ONCE (self.bias, a MeterBias): constant across scans,
@@ -471,42 +288,3 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         jit, bias = bias_jitter_split({"i": PMU_CURRENT_CLASS}, jitter_frac=0.25)
         self._i_jitter = jit["i"]
         self.bias = self.bias._replace(i=self.rng.normal(0, bias["i"], (self.E, 4)))
-
-    def centrality_probs(self, strength: float = 1.5) -> np.ndarray:
-        """Sampling probability over attackable positions, biased toward structurally CRITICAL buses.
-
-        Combines z-scored degree, closeness and betweenness centrality into one composite criticality score
-        (Doostinia et al. IEEE T-IA 2025). `strength` is the exponential tilt: strength=0 recovers the uniform
-        draw exactly, larger values concentrate attacks on central load buses. Aligned to self.attackable_pos,
-        cached per strength.
-        """
-        key = round(float(strength), 4)
-        cache = getattr(self, "_centrality_cache", None)
-        if cache is None:
-            cache = self._centrality_cache = {}
-        if key in cache:
-            return cache[key]
-        import networkx as nx
-
-        G = nx.Graph()
-        G.add_nodes_from(range(self.C))
-        G.add_edges_from(zip(self.ei[0].tolist(), self.ei[1].tolist()))
-        dc = nx.degree_centrality(G)
-        cc = nx.closeness_centrality(G)
-        bc = nx.betweenness_centrality(G, normalized=True)
-
-        def _z(dct: dict) -> np.ndarray:
-            v = np.array([dct[b] for b in range(self.C)], float)
-            sd = v.std()
-            return (v - v.mean()) / (sd if sd > 1e-12 else 1.0)
-
-        comp = _z(dc) + _z(cc) + _z(bc)  # composite criticality per bus (higher = more central)
-        score = comp[self.load_bus[self.attackable_pos]]  # criticality of each attackable load bus
-        # Rank-normalize to [0,1] before the exp tilt so the bias is BOUNDED: a raw exp of the z-score explodes
-        # on hubs (one bus takes ~all mass). rank in [0,1] gives a most-vs-least ratio of exactly e^strength.
-        r = score.argsort().argsort().astype(float)
-        rank = r / max(1, len(r) - 1)
-        p = np.exp(strength * rank)
-        p = p / p.sum()
-        cache[key] = p
-        return p

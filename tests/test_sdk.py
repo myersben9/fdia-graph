@@ -78,8 +78,6 @@ def test_ybus_matches_engine_and_clean_injections(timeline):
     ds = fg.load(timeline)
     Y = ds.ybus_np
     g = FdiaGenerator(14, seed=1)
-    with pytest.warns(DeprecationWarning, match="nl is deprecated"):
-        assert g.nl == g.n_lines  # the 0.17 name still answers
     lut = np.asarray(g._ppc_row)  # timeline bus i -> ppc row lut[i]
     ref = g._Ybus.toarray()[np.ix_(lut, lut)]
     assert Y.shape == (ds.N, ds.N) and np.allclose(Y, ref, atol=1e-9)
@@ -166,29 +164,6 @@ def test_pyg_data_matches_dict_record(timeline):
     assert tuple(batch.edge_x.shape) == (3 * dict_ds.E, 2)
     assert tuple(batch.edge_phys.shape) == (3 * dict_ds.E, 8)
     assert batch.slack.tolist() == [dict_ds.slack] * 3
-
-
-def test_pyg_stream_matches_dataset_pyg_contract(timeline):
-    """The stream PyG helper and fg.load(format='pyg') expose the same attribute names."""
-    pytest.importorskip("torch_geometric")
-    import torch
-
-    from fdia_graph.generation import _load_states
-
-    X = _load_states(14, None)[:60]  # a short pool slice keeps the stream build to seconds
-    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
-        s = fg.generate_stream(14, states=X, seed=1)
-    with pytest.warns(DeprecationWarning, match="pyg_stream is deprecated"):
-        tr, te = fg.pyg_stream(stream=s, train_frac=0.5)
-    d = tr[0]
-    assert tuple(d.x.shape) == (14, 4) and tuple(d.edge_attr.shape) == (20, 2)
-    assert torch.equal(d.edge_attr, d.edge_x)
-    assert tuple(d.edge_phys.shape) == (20, 8)
-    assert tuple(d.node_mask.shape) == (14, 4) and tuple(d.edge_mask.shape) == (20, 2)
-    assert torch.equal(d.edge_x, torch.as_tensor(s["edge_x"][0], dtype=torch.float32))
-    with pytest.warns(DeprecationWarning):
-        (trc, tec) = fg.pyg_stream(stream=s, train_frac=0.5, layer="clean")
-    assert torch.equal(trc[0].edge_x, torch.as_tensor(s["edge_clean"][0], dtype=torch.float32))
 
 
 def test_branch_physics_names(timeline):
@@ -308,18 +283,20 @@ def test_wls_estimates_the_classical_state(splits):
 # ---- Jacobian-informed features ----------------------------------------------------------------
 
 
-def test_jacobian_features_split_stealthy_from_corruption(timeline, splits):
+def test_jacobian_features_split_stealthy_from_corruption():
     """Unexplained energy fires on in-place corruption (Ad) and not on the stealthy re-solve (Aq);
     the explained energy fires on an Aq episode's first frame, where the previous frame's estimate
     is still benign (later frames of the episode are measured against an estimate the false state
-    already moved). The digest's central claims, with only observed data in the feature.
-    Transformed over the whole timeline so every family has frames (the test split of the tiny
-    timeline can miss a long-episode family)."""
+    already moved). The digest's central claims, with only observed data in the feature, checked on
+    the v0.8.3 release that carries both families (the generator no longer makes them)."""
     pytest.importorskip("torch")
+    from test_old_releases import TIMELINE_V083
+
+    from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se.jacobian import JacobianFeatures
 
-    jf = JacobianFeatures().fit(splits["train"])
-    d = fg.load(timeline).export(
+    jf = JacobianFeatures().fit(FdiaGraph(TIMELINE_V083, split="train"))
+    d = FdiaGraph(TIMELINE_V083).export(
         ["node_x", "edge_x", "prev_node_x", "prev_edge_x", "prev_timestep", "family", "y"]
     )
     F = jf.transform(d)
@@ -350,10 +327,16 @@ def test_learned_localizer_feature_sets(splits):
         BusMLP(features="nope")
 
 
-def test_jacobian_weighting_estimator(splits):
+def test_jacobian_weighting_estimator():
+    """On the v0.8.3 release, which carries the in-place bias Ad: the weights never raise a meter,
+    and the estimate is never worse than WLS on the bias."""
     pytest.importorskip("torch")
+    from test_old_releases import TIMELINE_V083
+
+    from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se import WLS, JacobianWeighting
 
+    splits = {s: FdiaGraph(TIMELINE_V083, split=s) for s in ("train", "test")}
     est = JacobianWeighting(c=3.0).fit(splits["train"])
     w = est.weights(splits["test"])
     assert w.shape == (len(splits["test"]), est.m) and np.all(w <= est.Wk[None, :] + 1e-12)

@@ -1,5 +1,5 @@
 """The public edges: wrong arguments fail early with a message naming what is allowed, and the
-filters mean what the docs say. The frozen suite proves the happy path; this file is the rest."""
+filters mean what the docs say. The other test files prove the happy path; this file is the rest."""
 
 import os
 
@@ -64,14 +64,24 @@ def test_load_rejects_bad_units_split_and_family(timeline):
 
 
 def test_family_filter_aliases_and_heldout_protocol(timeline):
-    by_alias = fg.load(timeline, families=["Ao"])
-    by_code = fg.load(timeline, families=[1])
+    """On an old release that carries them, the old family names, aliases and the unseen-attack
+    protocol (As and Ar held out of train and val) still select as documented."""
+    from test_old_releases import TIMELINE_V083
+
+    from fdia_graph.dataset import FdiaGraph
+
+    by_alias = FdiaGraph(TIMELINE_V083, families=["Ao"])
+    by_code = FdiaGraph(TIMELINE_V083, families=[1])
     assert len(by_alias) == len(by_code) > 0 and np.array_equal(by_alias.idx, by_code.idx)
     for split in ("train", "val"):
-        fams = set(fg.load(timeline, split=split, heldout=True).export(["family"])["family"].tolist())
+        fams = set(FdiaGraph(TIMELINE_V083, split=split, heldout=True).export(["family"])["family"].tolist())
         assert not fams & {3, 4}, f"As/Ar must be held out of {split}"
-    test_fams = set(fg.load(timeline, split="test", heldout=True).export(["family"])["family"].tolist())
+    test_fams = set(
+        FdiaGraph(TIMELINE_V083, split="test", heldout=True).export(["family"])["family"].tolist()
+    )
     assert test_fams & {3, 4}, "the test split keeps As/Ar"
+    ramp = fg.load(timeline, families=["ramp"])  # an alias of the generated families on a new file
+    assert len(ramp) == len(fg.load(timeline, families=["At"])) > 0
     assert len(fg.load(timeline, include_gaps=True)) >= len(fg.load(timeline))
 
 
@@ -191,7 +201,7 @@ def test_estimator_fit_and_score_input_checks(timeline, splits):
     with pytest.raises(ValueError, match="units='physical'"):
         WLS().fit(fg.load(timeline, split="train", units="pu"))
     with pytest.raises(ValueError, match="benign records"):
-        WLS().fit(fg.load(timeline, split="train", families=["Aq"]))
+        WLS().fit(fg.load(timeline, split="train", families=["At"]))
     est = WLS().fit(splits["train"])
     with pytest.raises(ValueError, match="xhat must be"):
         est.score(splits["test"], xhat=np.zeros((3, est.SD)))
@@ -203,7 +213,7 @@ def test_localizer_input_checks(timeline, splits):
     with pytest.raises(ValueError, match="fa_target"):
         SwingThreshold(fa_target=1.5)
     with pytest.raises(ValueError, match="benign records"):
-        SwingThreshold().fit(fg.load(timeline, split="train", families=["Aq"]))
+        SwingThreshold().fit(fg.load(timeline, split="train", families=["At"]))
     loc = SwingThreshold().fit(splits["train"])
     with pytest.raises(ValueError, match="scores must be"):
         loc.score(splits["test"], scores=np.zeros((2, 2)))

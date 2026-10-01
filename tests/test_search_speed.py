@@ -18,7 +18,7 @@ from fdia_graph.formulas.network import (  # noqa: E402
     local_flow_solve,
     subnetwork,
 )
-from fdia_graph.generation import NOISE_FLOOR, _load_states  # noqa: E402
+from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs, LoadGoal  # noqa: E402
 from fdia_graph.models.grid import NODE  # noqa: E402
@@ -31,11 +31,6 @@ MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window, a
 # the budget), recorded by the search before the speed-ups. With the load cap (D16) several goals have
 # no false state at all (devices -1, every candidate unsolved); without it the same goals are solved.
 PINNED = {
-    ("v083", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 33, False, 18, 14),
-    ("v083", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, False, 18, 18),
-    ("v083", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 5, 6], 6, 19, False, 18, 12),
-    ("v083", 0.5, "At", 20, 0): ([3, 4, 6, 7, 9, 10, 12, 13], 1, 1, True, 128, 0),
-    ("v083", 0.5, "At", 200, 1): ([4, 6, 7, 8, 10, 11, 13], 1, 1, True, 112, 0),
     ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, False, 18, 14),
     ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, False, 18, 18),
     ("hybrid", 0.5, "Am", 300, (0,)): ([1, 2, 3, 4, 5, 6], 7, 25, False, 18, 12),
@@ -54,7 +49,7 @@ def pool():
     return _load_states(14, None)[:400]
 
 
-@pytest.fixture(scope="module", params=["v083", "hybrid"])
+@pytest.fixture(scope="module", params=["hybrid"])
 def model(request):
     return request.param
 
@@ -65,9 +60,7 @@ def gen(model):
 
 
 def _knobs(g, pool, load_cap=0.5, budget=100000):
-    return FrameKnobs(
-        0.2, NOISE_FLOOR, 6, None, False, True, 2, g.operating_limits(pool), True, budget, 1.0, load_cap
-    )
+    return FrameKnobs(2, g.operating_limits(pool), True, budget, 1.0, load_cap)
 
 
 def _goal(g, pool, kind, t, which):
