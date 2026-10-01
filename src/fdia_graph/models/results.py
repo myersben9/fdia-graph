@@ -90,6 +90,7 @@ METRICS: dict[str, Metric] = {
     "voltage_move_pu": _m("pu", "none", ".1f", "median bound on a bus voltage move after tightening"),
     # ---- generation and benchmarks
     "seconds": _m("s", "lower", ".2f", "wall time"),
+    "identical": _m("", "higher", ".0f", "1 when a file equals the reference file byte for byte, else 0"),
     "ms_per_record": _m("ms", "lower", ".3f", "wall time per record (or per frame, for generation)"),
     "attacked_frac": _m("", "none", ".3f", "share of frames attacked"),
     "frames": _m("", "none", "d", "frames"),

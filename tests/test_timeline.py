@@ -148,7 +148,7 @@ def test_layers_and_tamper_masks_agree(timeline):
     share = nt[stealthy].sum(axis=(1, 2)) / nm[stealthy].sum(axis=(1, 2))
     assert share.max() < 1 and (share[fam[stealthy] == 5] > 0).all()
     # every Am frame tampers a meter, its first snapshot included (kappa+1 carries 1/T of the way to
-    # the rating, [WU26, eq. 25]); a flow-only attack can leave the node meters untouched
+    # the rating, [WU26 eq. 25]); a flow-only attack can leave the node meters untouched
     touched = nt[stealthy].any(axis=(1, 2)) | et[stealthy].any(axis=(1, 2))
     assert touched.all()
     # the benign layer is the clean truth plus a small meter error on metered voltages
@@ -172,6 +172,7 @@ def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
+    # [WU26 eqs. 13-20]
     """Every stealthy frame is an exact local AC state plus the true scan's own meter noise: a WLS
     residual test at the 1% benign alarm level flags a stealthy frame no more often than it flags
     that frame's own benign twin (a noisy stretch of true states raises both alike)."""
@@ -355,7 +356,7 @@ def test_attacked_frac_zero_is_all_benign(tmp_path, pool):
 
 def test_empty_episode_lengths_are_refused(tmp_path, pool):
     for bad in (dict(ramp_len=0), dict(am_len=0)):
-        with pytest.raises(ValueError, match="TimelineKnobs.(ramp_len|am_len) must be >= 1"):
+        with pytest.raises(ValueError, match="(RampSettings.length|TimelineSettings.am_len) must be >= 1"):
             generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), **bad)
     with pytest.raises(ValueError, match="hops"):
         generate_timeline(14, states=pool[:20], out=str(tmp_path / "x.h5"), hops=0)
@@ -487,7 +488,7 @@ def test_block_scale_matches_the_whole_series_kernel(timeline):
 
     from fdia_graph import schema
     from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale
-    from fdia_graph.timeline import _block_scale
+    from fdia_graph.generation.write import _block_scale
 
     with h5py.File(timeline, "r") as f:
         nx = f[schema.NODE_X]
@@ -498,3 +499,53 @@ def test_block_scale_matches_the_whole_series_kernel(timeline):
         for block in (7, 250):
             parts = np.concatenate([_block_scale(nx, a, min(a + block, T)) for a in range(0, T, block)])
             assert np.allclose(parts, whole, rtol=1e-6, atol=1e-9)
+
+
+def test_the_settings_take_a_model_flat_keywords_or_a_deprecated_dict():
+    """`generate_timeline`'s settings: a nested `TimelineSettings`, any flat keyword over it, and for
+    one minor version the old dicts, which warn; an unknown keyword is refused."""
+    from fdia_graph.models.config import (
+        MeterSettings,
+        OverloadSettings,
+        RampSettings,
+        SearchSettings,
+        TimelineSettings,
+    )
+
+    nested = TimelineSettings(
+        ramp=RampSettings(length=10),
+        search=SearchSettings(hops=3),
+        meters=MeterSettings(pmu_frac=0.3),
+        overload=OverloadSettings(rating_margin=1.5),
+    )
+    flat = TimelineSettings.of(
+        ramp_len=10,
+        hops=3,
+        redundancy=MeterSettings(pmu_frac=0.3),
+        am_attack=OverloadSettings(rating_margin=1.5),
+    )
+    assert flat == nested
+    with pytest.warns(DeprecationWarning, match="goes in 0.22"):
+        old = TimelineSettings.of(
+            ramp_len=10, hops=3, redundancy={"pmu_frac": 0.3}, am_attack={"rating_margin": 1.5}
+        )
+    assert old == nested
+    assert TimelineSettings.of(nested, hops=4).search.hops == 4  # a keyword over a model
+    with pytest.raises(ValueError, match="unknown settings: bogus"):
+        TimelineSettings.of(bogus=1)
+    assert "workers" not in nested.as_record()  # the file does not depend on it
+
+
+def test_the_file_records_its_settings(timeline):
+    """A timeline carries the settings it was walked with, as JSON, and their hash."""
+    import json
+
+    from fdia_graph.results.run import config_hash
+
+    with h5py.File(timeline, "r") as f:
+        record = json.loads(f.attrs["settings"])
+        assert f.attrs["settings_hash"] == config_hash(record)
+        assert (
+            record["ramp"]["length"] == int(f.attrs["ramp_len"])
+            and record["search"]["hops"] == f.attrs["hops"]
+        )

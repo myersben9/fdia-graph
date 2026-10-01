@@ -6,10 +6,13 @@ A reader looking for how an attack is made starts here:
     false_state.py     the local false state of a design, its operating limits, the attack vector
                        a = h(x_false) - h(x_true) and the meters it moves
     stealthy.py        the frames of the ramp At, and the halving of a step that does not solve
-    minimize.py        the fewest-tamper support of an attack window [WU26, eq. 12], behind `min_tamper`
+    minimize.py        the fewest-tamper support of an attack window [WU26 eq. 12], behind `min_tamper`,
+                       and the support strategies (`SearchSupport`, `rref.RrefSupport`) it dispatches to
+    rref.py            [WU26]'s row reduction as a support strategy (`RrefSupport`)
     overload.py        Am as the overload attack of [WU26]: the line ratings, the eligible target
                        branches, the flow goal each snapshot must reach and its frames
-    episodes.py        what an At episode attacks, drawn at its onset, and the step each frame applies
+    episodes.py        what an episode attacks: the family designers (`RampDesigner` for At,
+                       `OverloadDesigner` for Am), chosen per family by `EpisodeDesignMixin.designer`
     certify.py         the convex-relaxation lower bound on the fewest-tamper count (optional)
 
 `attack_frame` is the one entry for an attacked At scan (an Am frame comes from `overload_step`);
@@ -30,10 +33,11 @@ from ...models.frames import (  # noqa: F401  re-exported: engine.attacks named 
     Scan,
 )
 from .episodes import EpisodeDesignMixin
+from .overload import OverloadMixin
 from .stealthy import RAMP_FAMILY, StealthyMixin
 
 
-class AttackMixin(EpisodeDesignMixin, StealthyMixin):
+class AttackMixin(EpisodeDesignMixin, OverloadMixin, StealthyMixin):
     """Build the attacks that re-solve the grid under false loads."""
 
     def attack_frame(

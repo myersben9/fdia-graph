@@ -98,11 +98,21 @@ zero_shot = {name: run("zero_shot", name, m, ztr, zte, val=zva) for name, m in z
 zero_shot["swing"] = run("zero_shot", "swing", SwingThreshold(), ztr, zte)  # the feature alone, FA-calibrated
 release = fg.resolve(SYSTEM).release or ""
 with Run(
-    "localization.common", system=SYSTEM, settings=sorted(report), data_release=release, store=STORE
+    "localization.common",
+    system=SYSTEM,
+    settings=sorted(report),
+    data_release=release,
+    store=STORE,
+    replaces=True,
 ) as out:
     out.add_tree(report, levels=("method", "family"))
 with Run(
-    "localization.zero_shot", system=SYSTEM, settings=sorted(zero_shot), data_release=release, store=STORE
+    "localization.zero_shot",
+    system=SYSTEM,
+    settings=sorted(zero_shot),
+    data_release=release,
+    store=STORE,
+    replaces=True,
 ) as out:
     out.add_tree(zero_shot, levels=("method", "family"))
     for name, rep in zero_shot.items():

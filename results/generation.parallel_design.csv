@@ -1,0 +1,7 @@
+run_id,experiment,system,method,family,split,metric,tags,value,sd,ci_lo,ci_hi
+generation.parallel_design-ieee14-20261001t105045z-589020-c10fae,generation.parallel_design,ieee14,workers=1,,,episodes,,25.0,,,
+generation.parallel_design-ieee14-20261001t105045z-589020-c10fae,generation.parallel_design,ieee14,workers=1,,,identical,,1.0,,,
+generation.parallel_design-ieee14-20261001t105045z-589020-c10fae,generation.parallel_design,ieee14,workers=1,,,seconds,frames=3000,754.5,,,
+generation.parallel_design-ieee14-20261001t105045z-589020-c10fae,generation.parallel_design,ieee14,workers=16,,,episodes,,25.0,,,
+generation.parallel_design-ieee14-20261001t105045z-589020-c10fae,generation.parallel_design,ieee14,workers=16,,,identical,,1.0,,,
+generation.parallel_design-ieee14-20261001t105045z-589020-c10fae,generation.parallel_design,ieee14,workers=16,,,seconds,frames=3000,253.2,,,

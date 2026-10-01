@@ -1,5 +1,5 @@
-"""The hybrid meter model (the plan's D10): angles at the PMU buses only, the PMU branch-current
-phasors [WU26, eqs. 19-20] emitted, stored, loaded and attacked, and the eq. (3) pseudo-measurements
+"""The hybrid meter model [D10]: angles at the PMU buses only, the PMU branch-current
+phasors [WU26 eqs. 19-20] emitted, stored, loaded and attacked, and the eq. (3) pseudo-measurements
 an estimator can derive from them. The v0.8.3 meter model stays the default and writes none of it."""
 
 import h5py
@@ -42,6 +42,7 @@ def files(tmp_path_factory, pool):
 
 
 def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
+    # [D10]
     g = gens
     nm, _ = g.meter_masks()
     pmu = np.zeros(g.C, bool)
@@ -87,6 +88,7 @@ def test_the_exact_currents_carry_the_exact_flows(gens, pool):
 
 
 def test_a_false_state_writes_its_currents(gens, pool):
+    # [WU26 eqs. 19-20]
     """a = h(x^a) - h(x) on the current channels, on exactly the PMU-read ends."""
     g = gens
     Xt = np.asarray(pool[5], float)
@@ -194,6 +196,7 @@ def _case14():
 
 
 def test_eq3_is_exact_without_noise():
+    # [WU26 eq. 3]
     V, Yf, Yt, f, t, pmu, cm = _case14()
     links = pmu_pseudo_links(pmu, cm, f, t, Yf, Yt)
     pv = pmu_pseudo_voltages(
@@ -246,7 +249,7 @@ def test_new_generation_is_hybrid_only():
     from fdia_graph.models.config import MeterSettings
     from fdia_graph.timeline import generate_timeline
 
-    assert MeterSettings().meter_model == "hybrid"  # its own knob (D12), in the meter plan
+    assert MeterSettings().meter_model == "hybrid"  # its own knob [D12], in the meter plan
     assert "meter_model" not in inspect.signature(generate_timeline).parameters  # no new top-level knob
     assert inspect.signature(FdiaGenerator).parameters["meter_model"].default == "hybrid"
     for old in ("v083", "scada"):  # the v0.8.3 meters stay readable in old releases, not generated

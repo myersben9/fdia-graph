@@ -42,7 +42,7 @@ def jitter_sigma(
         P, Q inj : |P_true| jitter["pi"] + floor_mw, |Q_true| jitter["qi"] + floor_mw   (MW, MVAr)
         P, Q flow: |P_true| jitter["pf"] + floor_mw, |Q_true| jitter["qf"] + floor_mw   (MW, MVAr)
 
-    A new channel kind (the PMU branch-current phasors of [WU26, eqs. 19-20]) gets its rule here and
+    A new channel kind (the PMU branch-current phasors of [WU26 eqs. 19-20]) gets its rule here and
     in `accuracy_sigma`, beside the others.
 
     node_true : [N, 4] true |V|, P_inj, Q_inj, theta of the scan
@@ -163,7 +163,7 @@ def paper_sigma(
     node_shape: tuple[int, ...], edge_shape: tuple[int, ...], pmu_bus: np.ndarray, base_mva: float
 ) -> tuple[np.ndarray, np.ndarray]:
     """The noise standard deviation of every channel as [WU26]'s case studies state it (0.03 pu for
-    SCADA, 0.01 pu for PMU), in the stored units: the plan's D8, the scale of the overload attack's
+    SCADA, 0.01 pu for PMU), in the stored units: [D8], the scale of the overload attack's
     stealth bound and of its tamper count, since the paper excludes from its l0 count the changes
     smaller than its own noise.
 

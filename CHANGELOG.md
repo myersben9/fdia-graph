@@ -5,6 +5,49 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Generation in stages, typed settings, the paper mapped to the code.**
+  - The timeline writer is a pipeline of stages with typed hand-offs in the new package
+    `fdia_graph.generation` (the old module's `generate`, `as_v_first` and `_load_states` stay where they
+    were): `plan` (splits, episode counts and onsets), `design` (the overload Am of each split),
+    `emit` (the frames in time order) and `write` (the datasets, episodes, attributes and
+    `write_temporal_layers`); `timeline.generate_timeline` orchestrates them, and `timeline`'s old
+    private names keep working. The engine's two branch points are strategy objects instead of base
+    classes (decision B4): the support of an attack window comes from `SearchSupport` (the
+    fewest-tamper search) or `RrefSupport` ([WU26]'s row reduction, formerly `RrefMixin`; its
+    `area_jacobian` and `ladder` now take the generator through the strategy), chosen by
+    `MinimizeMixin.support_strategy`; an episode's design comes from `RampDesigner` (At) or
+    `OverloadDesigner` (Am), chosen by `EpisodeDesignMixin.designer`. `OverloadMixin` no longer
+    inherits the row reduction, and `am_overload_design` takes an optional `rng` instead of `prev`
+    (a flow goal has no stealth bound, [D11]).
+  - **The overload Am designs run in parallel** (`workers=N`): a split's Am episodes are designed
+    before it is walked, each drawing its line order from a stream keyed by the seed, the split, the
+    episode and the move, so the file is byte-identical for any number of workers (experiment
+    `generation.parallel_design`, `tools/experiments/design_speed.py`). A script passing `workers`
+    above 1 on Windows must start under `if __name__ == "__main__":`. Because the Am draws no longer
+    come from the walk's stream, a timeline with Am differs from one written by the previous version
+    at the same seed; At-only timelines, the benign frames, the clean truth and the splits are
+    unchanged byte for byte.
+  - **An infeasible Am moves anywhere in its split**: earlier or later, uniform among every free onset
+    (a ramp At, whose design reads the frame before it, still moves later). Before, a move could only
+    go later, which gave up an Am episode that had no later room left.
+  - **Typed settings**: `TimelineSettings` nests `RampSettings`, `SearchSettings`, `OverloadSettings`,
+    `MeterSettings` and `SplitSettings`; `generate_timeline(system, states, settings=None, seed,
+    out, **knobs)` and `generate(..., settings=None, **knobs)` take it and every old flat keyword over
+    it (`TimelineSettings.of`), and refuse an unknown one. A dict for `am_attack` or `redundancy`
+    still works and raises a `DeprecationWarning`: dicts go in 0.22; pass an `OverloadSettings` or a
+    `MeterSettings`. A new `workers` knob. The file records the settings as JSON (attribute
+    `settings`) with their hash (`settings_hash`); the registry records them as nested values.
+    `TimelineKnobs` stays for one minor version.
+  - **The paper-to-code map**: one tag form for [WU26]'s equations (`[WU26 eq. 28]`) and our decisions
+    (`[D9]`, `[E13]`), the registries `schema.WU26_EQUATIONS` and `schema.DECISIONS` (the new model
+    `Decision`), and `tools/equation_map.py`, which writes `docs/reference/DECISIONS.md`, the
+    "[WU26] equations to code" section of `FORMULAS.md` and the module table of `CONCEPTS_TO_CODE.md`
+    and, with `--check` in the pre-review and CI, fails on a stale doc, an unknown or old-form tag, or
+    an equation with no implementing function or no test.
+  - **A rerun with an arm skipped leaves no stale number**: `Run(..., replaces=True)` (and
+    `Store.write(..., replaces=True)`) drops the experiment's earlier records on the run's systems;
+    the SE, localization and federated docs harnesses pass it.
+
 - **Results as data** (`fdia_graph.results`, the results store `results/`): measured numbers are records
   with their provenance, not text. New models `Record`, `Provenance`, `RunRecords`, `Metric` and `Leaf`
   (`fdia_graph.models.results`, with the metric registry `METRICS`), each checked on construction; `Run`

@@ -288,3 +288,19 @@ def test_a_writer_never_enters_a_held_lock(tmp_path: object, monkeypatch: pytest
         with Run("demo.x", store=Store(str(tmp_path))) as run:
             run.add("devices", 1.0)
     assert os.path.exists(lock)  # the other writer's lock is left alone
+
+
+def test_a_whole_system_rerun_with_an_arm_skipped_leaves_no_stale_number(tmp_path: object) -> None:
+    """A harness run that covers its system whole (`replaces=True`) drops the experiment's earlier
+    records on that system: an arm the rerun skipped reads as missing, never as its old number, and
+    the other systems' records stay."""
+    store = Store(str(tmp_path))
+    for system in ("ieee14", "ieee118"):
+        with Run("demo.x", system=system, store=store, replaces=True) as run:
+            run.add("angle_mae_deg", 0.1, method="wls", family="geo")
+            run.add("angle_mae_deg", 0.2, method="removal", family="geo")
+    with Run("demo.x", system="ieee14", store=store, replaces=True) as run:  # removal skipped this time
+        run.add("angle_mae_deg", 0.05, method="wls", family="geo")
+    assert [r.value for r in store.latest("demo.x", system="ieee14")] == [0.05]
+    assert not store.latest("demo.x", system="ieee14", method="removal")
+    assert len(store.latest("demo.x", system="ieee118")) == 2

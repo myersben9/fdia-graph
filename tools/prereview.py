@@ -81,6 +81,7 @@ def gates(base: str, also: list[str]) -> list[Gate]:
         Gate("class diagrams", [py, "tools/class_diagrams.py", "--check"]),
         Gate("data dictionary", [py, "tools/models_doc.py", "--check"]),
         Gate("results docs", [py, "tools/results_docs.py", "--check"]),
+        Gate("equation map", [py, "tools/equation_map.py", "--check"]),
         Gate(f"tests ({_version(py)})", _suite(py), slow=True),
         *(Gate(f"tests ({_version(other)})", _suite(other), slow=True) for other in also),
     ]

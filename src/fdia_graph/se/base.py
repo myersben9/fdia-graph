@@ -110,7 +110,7 @@ class SEBase:
         solve = SolveConfig(npass, iters, pmu_pseudo)
         self.npass = solve.npass  # reweighting passes (run to convergence per the paper protocol)
         self.iters = solve.iters  # chord-Newton steps inside each solve
-        # [WU26, eq. (3)]: the PMU currents place pseudo |V| and angle readings at the far end of every
+        # [WU26 eq. 3]: the PMU currents place pseudo |V| and angle readings at the far end of every
         # PMU-metered branch, in the slots no meter fills (`_build_pseudo`); needs a hybrid-meter file
         self.pmu_pseudo = solve.pmu_pseudo
 
@@ -165,7 +165,7 @@ class SEBase:
         self.m = int(self.mask.sum())
 
     def _build_pseudo(self, ds: FdiaGraph, nm: np.ndarray, Yt_ppc: np.ndarray, branch: np.ndarray) -> None:
-        """The [WU26, eq. (3)] preprocessing: the PMU-metered branch ends (`pmu_pseudo_links`, in the
+        """The [WU26 eq. 3] preprocessing: the PMU-metered branch ends (`pmu_pseudo_links`, in the
         dataset's bus order) and the slots their pseudo readings fill, the |V| and angle slots of the
         reached buses that no meter reads (a SCADA |V| reading is kept where one exists)."""
         ds.require("pmu_currents", by="pmu_pseudo")

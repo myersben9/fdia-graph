@@ -1,4 +1,4 @@
-"""[WU26]'s case studies on our overload attack (the plan's D17): the paper's PMU placement, its two
+"""[WU26]'s case studies on our overload attack [D17]: the paper's PMU placement, its two
 lines overloaded at once, the ratings 1.2 times each line's peak true flow over the window (the level
 at which our device counts matched the paper's in the S_max sensitivity study), and the D16 bounds.
 The paper states no line limits, so the ratings are ours and the comparison is of kind, not of value:

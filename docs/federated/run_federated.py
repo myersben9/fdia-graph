@@ -108,7 +108,12 @@ def aggregate(runs):
 
 settings = {"models": list(MODELS), "clients": list(CLIENTS), "seeds": list(SEEDS), "release": RELEASE}
 with Run(
-    "federated.localization", system=SYSTEM, settings=settings, data_release=RELEASE, store=STORE
+    "federated.localization",
+    system=SYSTEM,
+    settings=settings,
+    data_release=RELEASE,
+    store=STORE,
+    replaces=True,
 ) as out:
     for name in MODELS:
         for K in CLIENTS:

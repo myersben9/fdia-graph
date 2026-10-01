@@ -42,13 +42,21 @@ class Store:
         ] = {}  # experiment -> ((mtime ns, size), records)
 
     # ---- writing
-    def write(self, provenance: Provenance, records: Iterable[Record]) -> int:
-        """Store a run's records (all of one experiment) and its provenance; returns the row count."""
+    def write(self, provenance: Provenance, records: Iterable[Record], replaces: bool = False) -> int:
+        """Store a run's records (all of one experiment) and its provenance; returns the row count.
+        With `replaces` the run stands for its systems whole: every earlier record of the experiment on
+        a system the run covers is dropped (git keeps them), so a rerun that leaves an arm out shows
+        that arm missing rather than its old number."""
         rows = list(RunRecords(provenance, tuple(records)).records)
+        systems = {r.system for r in rows} if replaces else set()
         os.makedirs(self.path, exist_ok=True)
         with _Lock(os.path.join(self.path, ".lock")):  # harnesses of several systems may finish together
             self._cache.pop(provenance.experiment, None)
-            kept = [r for r in self._read(provenance.experiment) if r.run_id != provenance.run_id]
+            kept = [
+                r
+                for r in self._read(provenance.experiment)
+                if r.run_id != provenance.run_id and r.system not in systems
+            ]
             stamped = [Record(**{**asdict(r), "run_id": provenance.run_id}) for r in rows]
             self._write_table(provenance.experiment, kept + stamped)
             self._cache.pop(provenance.experiment, None)

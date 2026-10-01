@@ -72,6 +72,7 @@ def test_the_schedule_refuses_what_it_cannot_mean(bad):
 
 
 def test_trust_accumulates_from_its_slot_and_cuts_the_window():
+    # [WU26 eqs. 30-31] [E1]
     s = TrustSchedule([0, 3, 5, 12], [1, 3, 5, 7])
     assert s.pinned(0) == frozenset()
     assert s.pinned(1) == {0} and s.pinned(4) == {0, 3} and s.pinned(19) == {0, 3, 5, 12}
@@ -81,6 +82,7 @@ def test_trust_accumulates_from_its_slot_and_cuts_the_window():
 
 # ---- the constraint --------------------------------------------------------------------------------
 def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
+    # [WU26 eqs. 17-18, 27, 29, 32] [E2]
     """Eq. (29): from its slot, a trusted PMU's |V| and angle are exactly true, even when the support
     holds its bus; before its slot the bus may still move."""
     g, window, k, goal = _setup(0, 1.1)
@@ -98,6 +100,7 @@ def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
 
 
 def test_an_empty_schedule_costs_what_no_schedule_costs():
+    # [WU26 eqs. 12, 28]
     """No trusted PMU is the search without a schedule: the same cost for every support tried."""
     g, window, k, goal = _setup(1, 1.1)
     bare, empty = _Window(g, window, goal, k), _Window(g, window, goal, k, trust=TrustSchedule([], []))
@@ -207,6 +210,7 @@ def _beats(cost, beat):
 
 
 def test_the_support_changes_at_a_slot_when_that_is_cheaper():
+    # [E13]
     """A constructed window of two segments where A = {1, 2} is the cheapest held support (5 devices) but
     A before the slot and B = {3} after it costs 3: the per-slot search finds the changed plan, and the
     result's support is the union of its segments. The IEEE-14 case studies have no such window (the

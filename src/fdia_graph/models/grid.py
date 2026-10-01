@@ -59,7 +59,7 @@ class EdgeIndex(NamedTuple):
 
 class CurrentColumns(NamedTuple):
     """The four columns of `pmu_i` and `pmu_i_m`: the branch-current phasor a PMU reads at each end of
-    a branch [WU26, eqs. 19-20], the real and imaginary part, per unit on the base current. At the
+    a branch [WU26 eqs. 19-20], the real and imaginary part, per unit on the base current. At the
     from end the current leaving the from bus into the branch (`Yf V`), at the to end the current
     leaving the to bus into the branch (`Yt V`); a column is metered only where a PMU sits at that end."""
 
@@ -141,7 +141,7 @@ class Admittances(NamedTuple):
 class MeterPlan(NamedTuple):
     """The sparse metering plan, sampled once per generator: which buses carry a voltage-magnitude
     meter, which carry a PMU (|V| and angle), which carry P/Q injection meters, and which branches
-    carry a flow meter. Under the hybrid meter model (the plan's D10) a voltmeter bus reads |V| only
+    carry a flow meter. Under the hybrid meter model [D10] a voltmeter bus reads |V| only
     and each PMU also reads the current phasor of every in-service branch at its bus; the v0.8.3
     model (both flags off) writes an angle at every voltmeter bus and no currents."""
 
@@ -150,7 +150,7 @@ class MeterPlan(NamedTuple):
     inj: list[int]
     flow: np.ndarray  # [E] bool
     angle_at_pmu_only: bool = False  # hybrid: the voltage angle is a PMU channel
-    pmu_currents: bool = False  # hybrid: branch-current phasors at every PMU bus [WU26, eqs. 19-20]
+    pmu_currents: bool = False  # hybrid: branch-current phasors at every PMU bus [WU26 eqs. 19-20]
 
 
 class MeterBias(NamedTuple):
@@ -183,7 +183,7 @@ INTACT = Outage(None, -1, "", -1, -1, float("nan"))
 
 
 class PseudoLinks(NamedTuple):
-    """Where [WU26, eq. (3)] can place a pseudo voltage phasor: one row per metered branch end whose
+    """Where [WU26 eq. 3] can place a pseudo voltage phasor: one row per metered branch end whose
     bus has a PMU and whose far bus does not (`formulas.estimation.pmu_pseudo_links`). The
     admittances are the branch's pi-model entries seen from the metered end, taps and shifts
     included: I_near = y_nn V_near + y_nf V_far."""
@@ -197,7 +197,7 @@ class PseudoLinks(NamedTuple):
 
 
 class PseudoVoltages(NamedTuple):
-    """The pseudo voltage phasors of [WU26, eq. (3)] and their first-order propagated noise
+    """The pseudo voltage phasors of [WU26 eq. 3] and their first-order propagated noise
     (`formulas.estimation.pmu_pseudo_voltages`), NaN at the buses no link reaches."""
 
     v: np.ndarray  # [..., N] |V| pu

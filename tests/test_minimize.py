@@ -1,4 +1,4 @@
-"""The fewest-tamper support search [WU26, eq. 12]: exact against brute force on IEEE-14, a lower
+"""The fewest-tamper support search [WU26 eq. 12]: exact against brute force on IEEE-14, a lower
 bound that never exceeds a cost, the two sigmas (the emitter's per-scan jitter, the meters'
 accuracy class the search counts against), and a continuous reweighted-l1 cross-check the search is
 never beaten by."""
@@ -241,7 +241,7 @@ def test_reweighted_l1_never_beats_the_search(case):
 
 
 def test_new_generation_searches_by_default():
-    """New generation holds every At episode on its fewest-tamper support (the plan's D2); the frame
+    """New generation holds every At episode on its fewest-tamper support [D2]; the frame
     knobs default off, so a walk with min_tamper=False holds the region within `hops`."""
     from fdia_graph.models.config import TimelineKnobs
     from fdia_graph.models.frames import FrameKnobs, RampDesign

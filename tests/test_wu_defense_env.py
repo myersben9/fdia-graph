@@ -54,6 +54,7 @@ def test_a_candidate_must_carry_a_pmu(env):
 
 
 def test_the_reward_is_the_rise_in_the_search_cost(env):
+    # [WU26 eq. 33] [E3]
     """Each step's reward is the search's channel count under the longer schedule less the one before
     (eq. 33 per step), and the rewards of an episode sum to the defended cost less the undefended one."""
     env.reset()
@@ -82,6 +83,7 @@ def test_a_schedule_is_searched_once(env):
 
 
 def test_the_state_is_what_fig_1_lists(env):
+    # [E7]
     """The node readings, the flows, the target lines' load rate, the trusted mask and the step index."""
     obs = env.reset()
     N, E, L, P = env.g.C, env.g.E, len(env.goal.lines), env.n_actions
@@ -94,6 +96,7 @@ def test_the_state_is_what_fig_1_lists(env):
 
 
 def test_line_8_ends_the_episode_without_a_reward(env):
+    # [E6]
     """Algorithm 1's line 8: a defended cost below the undefended one ends the episode, no reward."""
     fake = MinimizerResult(np.array([1]), 1, 1, False, 1, 0, 0)
     env.cache[(3,)] = fake  # a schedule whose cost is below the undefended one

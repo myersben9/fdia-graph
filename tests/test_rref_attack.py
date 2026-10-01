@@ -10,6 +10,8 @@ rows (our fallback) to the whole area, where the AC solve tampers 7 devices agai
 import numpy as np
 import pytest
 
+from fdia_graph.engine.attacks.rref import RrefSupport
+
 pytest.importorskip("pandapower")
 
 from test_trusted_pmus import ORDER, SLOTS, _setup  # noqa: E402
@@ -80,7 +82,7 @@ def test_the_reduction_names_buses_3_and_11_for_lines_3_4_and_6_11():
     area = np.asarray(g.local_region(seeds, k.hops))
     w = _Window(g, window, goal, k)
     for t in (0, 7, 19):
-        assert sorted(int(number[b]) for b in g._rref_ladder(w, t, area)[0]) == [3, 11]
+        assert sorted(int(number[b]) for b in RrefSupport(g).ladder(w, t, area)[0]) == [3, 11]
 
 
 @pytest.mark.parametrize(
@@ -118,5 +120,5 @@ def test_a_line_no_free_bus_moves_leaves_the_snapshot_nothing_to_rank(monkeypatc
     g, window, k, goal = _setup(0, 1.1)
     seeds, _, _ = g._goal_seeds(goal)
     area = np.asarray(g.local_region(seeds, k.hops))
-    assert g._rref_ladder(_Window(g, window, goal, k), 0, area) == []
+    assert RrefSupport(g).ladder(_Window(g, window, goal, k), 0, area) == []
     assert g.min_tamper(window, goal, k._replace(support_method="rref")).devices == -1

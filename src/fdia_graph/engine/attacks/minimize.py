@@ -1,4 +1,4 @@
-"""The fewest-tamper support of an attack window [WU26, eq. 12].
+"""The fewest-tamper support of an attack window [WU26 eq. 12].
 
 [WU26] builds its attack as the solution of a minimization: the fewest tampered measurements, a
 change under a meter's noise not counted, subject to the AC measurement model (satisfied here by
@@ -17,7 +17,7 @@ S is feasible when the local false state with only S free exists at every snapsh
 meets the goal there on its noiseless readings h(x^a), stays inside the operating limits, and, for
 a load goal (At), moves no metered channel by more than its accuracy-class sigma from one snapshot
 to the next (the stealth bound, the first snapshot measured from the frame before). A flow goal (Am)
-has no stealth bound: [WU26]'s model has none, its noise only thresholds the count (the plan's D11). Its cost is the number
+has no stealth bound: [WU26]'s model has none, its noise only thresholds the count [D11]. Its cost is the number
 of devices (`formulas.attacks.tampered_devices`) with a channel moved beyond its accuracy-class
 sigma (`formulas.noise.accuracy_sigma`) at some
 snapshot of the window, the union [WU26] counts over its window. A support that moves no device beyond its sigma
@@ -45,7 +45,7 @@ import heapq
 import itertools
 import threading
 from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
+from typing import TYPE_CHECKING, NamedTuple, Optional, Protocol, Union, cast
 
 import numpy as np
 
@@ -58,7 +58,7 @@ from ...formulas.noise import (
     paper_current_sigma,
     paper_sigma,
 )
-from ...models.choices import CostUnit
+from ...models.choices import CostUnit, SupportMethod
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
@@ -122,8 +122,40 @@ def _one_blas_thread() -> Iterator[None]:
                 _BLAS_HELD.pop().__exit__(None, None, None)
 
 
+class SupportStrategy(Protocol):
+    """How an attack window's support is chosen (decision B4: a strategy held by the generator, not a
+    base class): the fewest-tamper search (`SearchSupport`) or [WU26]'s row reduction
+    (`rref.RrefSupport`). `find` returns the support and its counts, None when the goal has no area."""
+
+    def find(
+        self,
+        states: list[np.ndarray],
+        goal: Goal,
+        k: FrameKnobs,
+        prev: Optional[AttackVector],
+        trust: Optional[TrustSchedule] = None,
+    ) -> Optional[MinimizerResult]: ...
+
+
+class SearchSupport:
+    """The fewest-tamper search [WU26 eq. 12] as a support strategy (`MinimizeMixin._min_tamper`)."""
+
+    def __init__(self, g: MinimizeMixin) -> None:
+        self.g = g
+
+    def find(
+        self,
+        states: list[np.ndarray],
+        goal: Goal,
+        k: FrameKnobs,
+        prev: Optional[AttackVector],
+        trust: Optional[TrustSchedule] = None,
+    ) -> Optional[MinimizerResult]:
+        return self.g._min_tamper(states, goal, k, prev, trust)
+
+
 class MinimizeMixin(FalseStateMixin):
-    """Find the support of an attack window that tampers the fewest devices [WU26, eq. 12]."""
+    """Find the support of an attack window that tampers the fewest devices [WU26 eq. 12]."""
 
     def min_tamper(
         self,
@@ -137,14 +169,24 @@ class MinimizeMixin(FalseStateMixin):
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (node [N, 4], flow [E, 2]; None or zeros
         when that frame is benign): At's stealth bound measures its first increment from it, since
-        episodes may be adjacent (a flow goal has no stealth bound, the plan's D11). `trust` is the
-        defender's trusted-PMU schedule [WU26, eqs. 26-32]: from its slot on, a trusted PMU's bus keeps
+        episodes may be adjacent (a flow goal has no stealth bound, [D11]). `trust` is the
+        defender's trusted-PMU schedule [WU26 eqs. 26-32]: from its slot on, a trusted PMU's bus keeps
         its true voltage whatever the support (eq. 29), and with `trust.per_slot` the support may change
         at each slot (`_per_slot`). The search runs with BLAS on one thread (`_one_blas_thread`)."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
             TrustablePmus(trust.buses, frozenset(self.meters.pmu), self.C)
         with _one_blas_thread():
-            return self._min_tamper(states, goal, k, prev, trust)
+            return self.support_strategy(goal, k).find(states, goal, k, prev, trust)
+
+    def support_strategy(self, goal: Optional[Goal], k: Optional[FrameKnobs]) -> SupportStrategy:
+        """How the window's support is chosen: [WU26]'s row reduction (`rref.RrefSupport`) for a flow
+        goal when `k.support_method` asks for it, else the fewest-tamper search (`SearchSupport`)."""
+        rref = getattr(k, "support_method", None) == SupportMethod.RREF.value
+        if rref and getattr(goal, "kind", None) == "flow":
+            from .rref import RrefSupport
+
+            return RrefSupport(self)
+        return SearchSupport(self)
 
     def _min_tamper(
         self,
@@ -272,7 +314,7 @@ class MinimizeMixin(FalseStateMixin):
         )
         if Xa is None:
             return None, converged
-        if k.limits is not None:  # every generator the attack moves, on S's edge too (D16)
+        if k.limits is not None:  # every generator the attack moves, on S's edge too [D16]
             gen = generator_output(Xt, self.load_base, self.gen_base)
             if not within_limits(Xa, Xt, gen, dload, k.limits, self.touched_buses(S)):
                 return None, True
@@ -347,7 +389,7 @@ def _segment_seed(
     window: _Window, candidates: Callable[[], Iterator[np.ndarray]], k: FrameKnobs
 ) -> tuple[Optional[tuple[_Cost, _Plan]], int]:
     """A plan from each segment's cheapest support over the segment's own snapshots
-    (`_Window.segment_cost`), joined and costed over the window by the union count [WU26, eq. 28], or
+    (`_Window.segment_cost`), joined and costed over the window by the union count [WU26 eq. 28], or
     None when some segment has no feasible support or the joined plan is not an attack; and the
     candidates solved. The segments are seeded in order, each from the attack vector its predecessor's
     chosen support leaves at the segment's first snapshot, so a load goal's stealth bound (At) measures
@@ -374,7 +416,7 @@ def _segment_seed(
 def _per_slot(
     window: _Window, start: tuple[_Cost, _Plan], candidates: Callable[[], Iterator[np.ndarray]], k: FrameKnobs
 ) -> tuple[_Cost, _Plan, int]:
-    """A support per segment of the trusted schedule (the plan's E13): [WU26, eq. 28] counts the window's
+    """A support per segment of the trusted schedule [E13]: [WU26 eq. 28] counts the window's
     tampered measurements with each snapshot's deviation taken on its own, so the attacker may move a
     different set of buses once a PMU becomes trusted. From the held support, each segment in turn takes
     the candidate that lowers the window's cost most with the other segments fixed, until a round over
@@ -470,7 +512,7 @@ class _Window:
     ) -> None:
         # The between-snapshot stealth bound is At's alone (a sub-noise ramp is what At is). [WU26]'s
         # model, eqs. (12)-(25), has no increment constraint: its noise only decides which changes the
-        # l0 count ignores, so a flow goal (Am) is never bounded (the plan's D11). `stealth_bound` off
+        # l0 count ignores, so a flow goal (Am) is never bounded [D11]. `stealth_bound` off
         # is for analysis only.
         self.g, self.states, self.goal, self.k = g, states, goal, k
         self.stealth_bound = stealth_bound and goal.kind == "load"
@@ -478,7 +520,7 @@ class _Window:
         self.converged = True  # whether every local solve of the last `cost` call converged
         self._near: Optional[tuple[bytes, _Near]] = None  # the last support's branches (`near`)
         self.unsolved = 0  # candidates of the search whose solve failed to converge
-        # the trusted-PMU schedule [WU26, eqs. 29-31]: the buses pinned at each snapshot, the window's
+        # the trusted-PMU schedule [WU26 eqs. 29-31]: the buses pinned at each snapshot, the window's
         # segments (a support per segment is a plan), and a cache of snapshot results for the per-slot
         # search, which re-solves one segment while the others repeat (a flow goal's snapshot does not
         # depend on the one before, so its result is a function of its free buses alone)
@@ -490,20 +532,20 @@ class _Window:
         self.pmu[sorted(g.meters.pmu)] = True
         # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only, so the attack's tamper count
         # and stealth bound see an angle only where a PMU is. The hybrid meter plan already masks it
-        # there (the plan's D10); a v0.8.3-plan generator still writes one at every voltmeter bus.
+        # there [D10]; a v0.8.3-plan generator still writes one at every voltmeter bus.
         self.node_m = self.node_m.copy()
         self.node_m[~self.pmu, NODE.theta] = 0
         flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
         self.flows = flows
-        # the PMU branch-current channels [WU26, eqs. 19-20]: their mask and noise scale (None without)
+        # the PMU branch-current channels [WU26 eqs. 19-20]: their mask and noise scale (None without)
         self.i_m = g.current_mask()
         self.currents, self.i_sigma = self._currents(g, states, goal)
         # what a change must exceed to count as tampering, and for At also the most a channel may move
         # between snapshots (the emitter's per-scan jitter is smaller, and is not a detection threshold)
-        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise, the l0 threshold only (D8, D11)
+        if goal.kind == "flow":  # the overload attack: [WU26]'s own noise, the l0 threshold only [D8] [D11]
             paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
             self.sigma = [paper for _ in states]
-        else:  # At: the meters' rated accuracy (D7)
+        else:  # At: the meters' rated accuracy [D7]
             self.sigma = [accuracy_sigma(X, F, g.SD, POWER_NOISE_FLOOR_MW) for X, F in zip(states, flows)]
         zero = {int(b) for b in g.zero_inj} - {g.slack_bus}
         self.zero = np.array(sorted(zero), dtype=np.int64)
@@ -522,8 +564,8 @@ class _Window:
     ) -> tuple[Optional[np.ndarray], Optional[list[np.ndarray]]]:
         """(The true PMU branch currents per snapshot [T, E, 4], computed once since every candidate's
         attack vector subtracts them, as it subtracts `flows`; their scale per snapshot: [WU26]'s
-        0.01 pu for the overload attack (D8), the PMU accuracy class at the true currents for At
-        (D7)), both None without currents in the meter plan."""
+        0.01 pu for the overload attack [D8], the PMU accuracy class at the true currents for At
+        [D7]), both None without currents in the meter plan."""
         if g.current_mask() is None:
             return None, None
         true = g.currents_from_states(np.stack(states))
@@ -579,7 +621,7 @@ class _Window:
 
     def cost_plan(self, plan: _Plan, beat: Optional[_Cost]) -> Optional[_Cost]:
         """`cost` of a plan, one support per segment of the window: the union of the tampered devices
-        over every snapshot [WU26, eq. 28], the support size the number of the plan's buses."""
+        over every snapshot [WU26 eq. 28], the support size the number of the plan's buses."""
         self.converged = True
         if any(self._zero_on_boundary(S) for S in plan):
             return None  # never for a candidate of `_supports`, which takes such a bus in; a guard for others
@@ -697,7 +739,7 @@ class _Window:
         a_edge, a_cur = self._branch_attack(t, Xa, self.near(S))
         sig_node, sig_edge = self.sigma[t]
         # At's stealth bound: no metered channel moves more than its rated accuracy between snapshots
-        scale = self.k.stealth_scale  # the bound's step in multiples of the rated accuracy (D7: 1)
+        scale = self.k.stealth_scale  # the bound's step in multiples of the rated accuracy [D7], 1 by default
         step = tampered_channels(
             a_node - prev.node,
             a_edge - prev.edge,

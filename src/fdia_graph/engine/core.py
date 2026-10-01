@@ -77,9 +77,9 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         The random draws happen in a fixed order, the meter plan (voltage buses, PMU buses, flow
         meters), then the six per-meter bias vectors, then the branch-current channels' biases.
 
-        `meter_model` is what the meters measure (the plan's D10): "hybrid", a SCADA voltmeter reads
+        `meter_model` is what the meters measure [D10]: "hybrid", a SCADA voltmeter reads
         |V| only, the angle is a PMU channel, and every PMU reads the current phasor of each
-        in-service branch at its bus [WU26, eqs. 17-20].
+        in-service branch at its bus [WU26 eqs. 17-20].
         """
         # pandapower is heavy/optional: import lazily so it's only needed when actually generating.
         import pandapower as pp
@@ -166,7 +166,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self._case_limits(base)
 
     def _case_limits(self, base: PandapowerNet) -> None:
-        """Per-bus base load and generation [N, 2] (P, Q) and the case's limits [WU26, eqs. 21-23]:
+        """Per-bus base load and generation [N, 2] (P, Q) and the case's limits [WU26 eqs. 21-23]:
         bus voltage limits [N, 2] and generator P and Q limits [N, 2] summed over co-located
         generators, unbounded (±inf) where a bus has none; the slack (ext_grid) is unbounded, its
         output is the balance of every state and its limits are the pool's own."""

@@ -13,8 +13,15 @@ classDiagram
         +frame_from_state()
         ... and 3 more
     }
+    class SupportStrategy {
+        +find()
+    }
+    class SearchSupport {
+        +find()
+    }
     class MinimizeMixin {
         +min_tamper()
+        +support_strategy()
         +goal_state()
     }
     class OverloadMixin {
@@ -22,18 +29,26 @@ classDiagram
         +line_ratings()
         +eligible_lines()
         +overload_goal()
-        +am_overload_design()
         +wu26_branch()
         +wu26_buses()
         +overload_step()
-        ... and 2 more
+        +pretended_change()
+        ... and 1 more
     }
     class StealthyMixin {
     }
+    class RampDesigner {
+        +design()
+    }
+    class OverloadDesigner {
+        +design()
+    }
     class EpisodeDesignMixin {
+        +designer()
         +target_counts()
         +ramp_step()
         +ramp_design()
+        +am_overload_design()
     }
     class AttackMixin {
         +attack_frame()
@@ -77,10 +92,13 @@ classDiagram
     class RampDesign {
         <<models>>
     }
-    class RrefMixin {
+    class RrefSupport {
         <<engine>>
     }
     class Scan {
+        <<models>>
+    }
+    class SupportMethod {
         <<models>>
     }
     class TrustSchedule {
@@ -94,16 +112,17 @@ classDiagram
     FalseStateMixin <|-- MinimizeMixin
     FalseStateMixin <|-- StealthyMixin
     GridBase <|-- AreaMixin
-    OverloadMixin <|-- EpisodeDesignMixin
-    RrefMixin <|-- OverloadMixin
+    GridBase <|-- EpisodeDesignMixin
+    MinimizeMixin <|-- OverloadMixin
+    OverloadMixin <|-- AttackMixin
     StealthyMixin <|-- AttackMixin
     AttackMixin ..> AttackDesign : uses
     AttackMixin ..> Frame : uses
     AttackMixin ..> FrameKnobs : uses
+    EpisodeDesignMixin ..> AmOverloadDesign : uses
     EpisodeDesignMixin ..> AttackDesign : uses
     EpisodeDesignMixin ..> AttackVector : uses
     EpisodeDesignMixin ..> FrameKnobs : uses
-    EpisodeDesignMixin ..> LoadGoal : uses
     EpisodeDesignMixin ..> RampDesign : uses
     FalseStateMixin ..> AttackDesign : uses
     FalseStateMixin ..> Frame : uses
@@ -115,15 +134,32 @@ classDiagram
     MinimizeMixin ..> FrameKnobs : uses
     MinimizeMixin ..> LoadGoal : uses
     MinimizeMixin ..> MinimizerResult : uses
+    MinimizeMixin ..> RrefSupport : uses
+    MinimizeMixin ..> SupportMethod : uses
     MinimizeMixin ..> TrustSchedule : uses
     MinimizeMixin ..> TrustablePmus : uses
+    OverloadDesigner ..> AmOverloadDesign : uses
+    OverloadDesigner ..> FrameKnobs : uses
+    OverloadDesigner ..> OverloadMixin : uses
     OverloadMixin ..> AmOverloadDesign : uses
-    OverloadMixin ..> AttackVector : uses
     OverloadMixin ..> FlowGoal : uses
     OverloadMixin ..> Frame : uses
     OverloadMixin ..> FrameKnobs : uses
     OverloadMixin ..> NoLineRatings : uses
     OverloadMixin ..> OverloadSettings : uses
+    RampDesigner ..> AttackMixin : uses
+    RampDesigner ..> AttackVector : uses
+    RampDesigner ..> FrameKnobs : uses
+    RampDesigner ..> LoadGoal : uses
+    RampDesigner ..> RampDesign : uses
+    SearchSupport ..> AttackVector : uses
+    SearchSupport ..> FrameKnobs : uses
+    SearchSupport ..> MinimizerResult : uses
+    SearchSupport ..> TrustSchedule : uses
     StealthyMixin ..> AttackDesign : uses
     StealthyMixin ..> Frame : uses
     StealthyMixin ..> FrameKnobs : uses
+    SupportStrategy ..> AttackVector : uses
+    SupportStrategy ..> FrameKnobs : uses
+    SupportStrategy ..> MinimizerResult : uses
+    SupportStrategy ..> TrustSchedule : uses

@@ -13,7 +13,7 @@ trusted encryption, which adds them to the secure set h^S. The process is repeat
 nonsecure subset h^S' until the desired security level is achieved."
 
 Here each configuration step reduces the Jacobian of the attack area's attackable channels at the step's
-snapshot, over the buses the PMUs trusted so far leave free (`RrefMixin.area_jacobian`, the same matrix
+snapshot, over the buses the PMUs trusted so far leave free (`RrefSupport.area_jacobian`, the same matrix
 the row-reduction attack uses), with the column exchanges of `formulas.trust.sparsest_rows`, and trusts
 a PMU of the sparsest attack it finds. Ours, where the paper is silent: the chase is restricted to attacks
 that move a target line and that a PMU still on offer reads (Solution 1 defends against the overload
@@ -32,7 +32,7 @@ import time
 
 import numpy as np
 
-from ..engine.attacks.rref import _moved_lines, _state_change
+from ..engine.attacks.rref import RrefSupport, _moved_lines, _state_change
 from ..formulas.trust import sparsest_rows
 from .defense import WuDefenseEnv
 
@@ -83,7 +83,7 @@ class TrustedPMUs:
         )
         if not len(free):
             return int(offered[0])
-        H, G, devices = g.area_jacobian(env.window, t, free)
+        H, G, devices = RrefSupport(g).area_jacobian(env.window, t, free)
         offer = {g.C + int(pmus[i]): int(i) for i in offered}  # a PMU's device id: N + its bus
         tol = ZERO * float(np.abs(H).max()) if H.size else ZERO
 

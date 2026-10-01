@@ -48,6 +48,7 @@ def test_solution_1_trusts_each_pmu_once_and_the_rewards_add_up():
 
 
 def test_the_first_pmu_reads_the_sparsest_attack_on_a_target_line():
+    # [WU26 eq. 26]
     """At the first step no PMU is trusted, and bus 4's PMU reads the sparsest attack that moves line 1-2
     or 4-5 (MATPOWER numbers)."""
     env = _env(1, 8)

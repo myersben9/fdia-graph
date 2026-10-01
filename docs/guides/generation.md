@@ -8,9 +8,13 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 |---|---|---|
 | 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
 | 2. meter plan and noise | `engine/core.py` (`FdiaGenerator.__init__`), `engine/measurement.py` | which channels are metered, one noisy scan per state |
-| 3. attack families | `engine/attacks/` (the `AttackMixin`), `engine/records.py`, `timeline.py` | the attacked scan of each family |
-| 4. split and episode placement | `timeline._split_bounds`, `timeline._place_split`, `timeline._walk_split` | the split, onsets, lengths |
-| 5. per-frame layers | `timeline._TimelineBuffers`, `timeline.write_temporal_layers` | the HDF5 file |
+| 3. attack families | `engine/attacks/` (the `AttackMixin`, the family designers and support strategies), `engine/records.py` | the attacked scan of each family |
+| 4. plan: split and episode placement | `generation/plan.py` (`split_bounds`, `place_split`) | the split, onsets, lengths |
+| 5. design: the overload Am of each split | `generation/design.py` (`AmDesigner`, in parallel over `workers` processes) | each Am's design, or its move |
+| 6. emit and write: the per-frame layers | `generation/emit.py` (`walk_split`, `TimelineBuffers`), `generation/write.py` (`write_temporal_layers`) | the HDF5 file |
+
+`timeline.generate_timeline` orchestrates the stages; each hands the next a typed value (the slots, the
+designs, the buffers).
 
 ![The generation pipeline: an ISO load profile is resampled to one minute with per-bus AR(1) jitter and solved into 72,000 AC states; the frames are split chronologically first, then each split gets the whole episodes closest to its attacked fraction, shared between the families and placed at uniform random onsets inside it; the walk emits one noisy scan per state, its jitter keyed by the seed and the timestep, and, inside an episode, solves a local false state (At, Am); after the walk the temporal features are written from the observed frames into one HDF5 file with observed, benign and clean layers](../figures/diagrams/generation_flow.png)
 
@@ -120,14 +124,14 @@ the true flow plus a linear share of what separates the window's last true flow 
 the false state, reaching the rating `S_max` at the last snapshot; the attackable loads of the
 support are free, every other bus keeps its injection, and the false state is the least-norm voltage
 change that meets the flow. The ratings are by default 1.25 times each branch's peak true apparent flow
-over the operating pool (`am_attack={"rating_margin": ...}`, the plan's D15), which works on every system; the
-PGLib-OPF ratings are the alternative, `am_attack={"rating_source": "pglib"}` (IEEE-14, 118 and 300;
+over the operating pool (`am_attack=OverloadSettings(rating_margin=...)`, the plan's D15), which works on every system; the
+PGLib-OPF ratings are the alternative, `am_attack=OverloadSettings(rating_source="pglib")` (IEEE-14, 118 and 300;
 other cases raise `NoLineRatings`). The generators of the support are free inside their limits, like its attackable loads, and the
 flow solve enforces the voltage and generator limits by an active set (the plan's D14); the limits
 bind every generator the attack moves, on the support's edge too, and every load bus it moves shows
-at most `load_cap` (0.5, `am_attack={"load_cap": ...}`) times its true load [YUA11] (D16). Each
+at most `load_cap` (0.5, `OverloadSettings(load_cap=...)`) times its true load [YUA11] (D16). Each
 episode overloads two lines at once, as [WU26]'s case studies do, drawn so one held support reaches
-both (`am_attack={"n_lines": 1}` for one; D17); `episodes/am_*` holds one row per target line. `am_attack={"support_method": "rref"}` picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; `engine/attacks/rref.py`), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is much faster on IEEE-14 and tampers more devices than the search (experiment `wu26.method_compare`, docs/plans/WU_DEFENSE_PLAN.md, section 3). As in
+both (`OverloadSettings(n_lines=1)` for one; D17); `episodes/am_*` holds one row per target line. `OverloadSettings(support_method="rref")` picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; `engine/attacks/rref.py`), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is much faster on IEEE-14 and tampers more devices than the search (experiment `wu26.method_compare`, docs/plans/WU_DEFENSE_PLAN.md, section 3). As in
 [WU26], nothing bounds how far `Am` moves a channel between snapshots: a
 device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the
 current channels included; `formulas.noise.paper_sigma`, the plan's D8 and D11), and the attack is
@@ -135,8 +139,9 @@ stealthy because every snapshot is one AC state. `At` keeps its bound, each step
 rated accuracy (D7). Before D11 `Am` carried a between-snapshot bound as well, under which no overload window was
 stealthy: moving one line's flow moves the injections and flows around its ends by several times
 that change, beyond the rated accuracy of the small loads there. A window with no stealthy
-overload moves the episode to a later free onset of its split, up to 20 times (`_relocate`); past
-that it is given up and counted in `episode_shortfall`. With the hybrid meters the attacker also
+overload moves the episode to another free onset of its split, earlier or later, up to 20 times
+(`generation.design.AmDesigner`: the Am of a split are designed before it is walked); past that it is
+given up and counted in `episode_shortfall`. With the hybrid meters the attacker also
 writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
 Only `At`'s channels are bounded between snapshots, the currents included (the PMU class, D7); `Am`'s
 current channels are only counted when they move by more than 0.01 pu (D8, D11).
@@ -177,13 +182,13 @@ Notes on the table:
 
 | step | rule | source |
 |---|---|---|
-| split | chronological, cut before anything is placed: train `round(0.6 T)` frames, val `round(0.2 T)`, test the rest (`split=`, validated by `SplitSettings`) | `_split_bounds` |
-| count | per split, the whole number of episodes whose frames come closest to `attacked_frac` of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights `1 / length`, so every family gets about the same share of attacked frames | `_episode_counts`, `_largest_remainder` |
-| place | per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family with the most is dropped and recorded (`RuntimeWarning`) | `_place_split`, `_uniform_onset` |
-| walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `_walk_split`, `MeasurementMixin._jitter_stream` |
-| move | an episode with no feasible design at its onset (no admissible ramp, or no line pair an overload reaches stealthily) moves to an onset drawn uniformly among the later free ones of its split, up to 20 times, then is given up and recorded (`RuntimeWarning`); frames before the failed onset are written, so a move is always later | `_relocate` |
-| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `_timeline_attrs` |
-| record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `_placement_attrs` |
+| split | chronological, cut before anything is placed: train `round(0.6 T)` frames, val `round(0.2 T)`, test the rest (`split=`, validated by `SplitSettings`) | `plan.split_bounds` |
+| count | per split, the whole number of episodes whose frames come closest to `attacked_frac` of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights `1 / length`, so every family gets about the same share of attacked frames | `plan.episode_counts`, `plan.largest_remainder` |
+| place | per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family with the most is dropped and recorded (`RuntimeWarning`) | `plan.place_split`, `plan.uniform_onset` |
+| walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `emit.walk_split`, `MeasurementMixin._jitter_stream` |
+| move | an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (`RuntimeWarning`): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound, D11); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers | `design.AmDesigner`, `emit.relocate_later` |
+| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `write._timeline_attrs` |
+| record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `write.placement_attrs` |
 
 Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
 the longest episodes first keeps a long episode from being squeezed out by shorter ones. The
@@ -213,6 +218,23 @@ Because
 the jitter of frame t depends only on the seed and t, the files of one seed and pool that place
 different families (`families=("Am",)`, `("At", "Am")`, `("At",)`) carry byte-identical benign
 frames; only the attacks differ.
+
+### Designing in parallel
+
+The overload Am dominates generation time: each episode runs the fewest-tamper search on up to
+`AM_LINE_TRIES` line pairs. A split's Am episodes are independent (a flow goal reads only its own
+window, and each design draws its line order from a stream keyed by the seed, the split, the episode
+and the move), so `workers=N` designs them in N processes and the file is byte-identical for any N.
+On Windows a script that passes `workers` above 1 must start under `if __name__ == "__main__":`, as
+any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experiment
+`generation.parallel_design`, `tools/experiments/design_speed.py`):
+
+<!-- results: gen.workers -->
+| workers (3000 frames) | seconds | speed-up | Am episodes | same file |
+|---|---:|---:|---:|---:|
+| 1 | 754 | 1.0x | 25 | yes |
+| 16 | 253 | 3.0x | 25 | yes |
+<!-- /results -->
 
 ## 5. The per-frame layers
 
@@ -281,7 +303,7 @@ fg.generate("ieee118", name="my_run", frames=10_000, attacked_frac=0.5)  # needs
 ds = fg.load("my_run", order="time")
 ```
 
-`generation.generate(system, name, frames=None, states=None, out=None, seed=123, **knobs)` loads the
+`generation.generate(system, name, frames=None, states=None, out=None, seed=123, settings=None, **knobs)` loads the
 pool, keeps the first `frames` timesteps, calls `timeline.generate_timeline` and registers the file
 under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the system's pool.
 
@@ -290,9 +312,9 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `attacked_frac` | 0.5 | fraction of frames under an episode |
 | `families` | ("At", "Am") | the families in rotation; the single-snapshot families of older releases are refused |
 | `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12] |
-| `am_attack` | "overload" | `Am` as the overload attack of [WU26], or a dict of `OverloadSettings` fields |
+| `am_attack` | "overload" | `Am` as the overload attack of [WU26], or an `OverloadSettings` (a dict still works and warns; dicts go in 0.22) |
 | `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none, D11) |
-| `redundancy` | `{}` | the meter plan (`MeterSettings`): coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` (D10, D12) |
+| `redundancy` | `MeterSettings()` | the meter plan, a `MeterSettings` (a dict warns, as above): coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` (D10, D12) |
 | `ramp_rate` | 0.002 | `At` growth per frame |
 | `ramp_len` | 60 | `At` episode length |
 | `am_len` | `ramp_len` | `Am` episode length |
@@ -300,6 +322,12 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `split` | (0.6, 0.2, 0.2) | chronological train/val/test fractions |
 | `max_load_mw` | 2000.0 | a larger load is never a target; None disables |
 | `seed` | 123 | the meter plan, the biases and every attack draw |
+| `workers` | 1 | processes the overload Am designs run on; the file does not depend on it |
+
+Every knob is also a field of `TimelineSettings`, nested by subject (`ramp`, `search`, `overload`,
+`meters`, `split`): `generate(..., settings=TimelineSettings(ramp=RampSettings(length=30)))`, with any
+flat knob applied over it. The file records the settings it ran as JSON (attribute `settings`) with
+their hash (`settings_hash`).
 
 A data release (the build scripts of v0.8.0 to v0.8.3 are in the git history at `aa77d0b`):
 

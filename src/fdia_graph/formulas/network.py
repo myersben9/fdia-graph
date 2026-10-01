@@ -145,7 +145,7 @@ def branch_flows(V: np.ndarray, Yf: Admittance, from_bus: np.ndarray, base_mva: 
 
 
 def branch_currents(V: np.ndarray, Yf: Admittance, Yt: Admittance) -> np.ndarray:
-    """The branch-current phasors at both ends of every branch [WU26, eqs. 19-20], the channels a PMU
+    """The branch-current phasors at both ends of every branch [WU26 eqs. 19-20], the channels a PMU
     reads: I_f = Yf V (leaving the from bus into the branch) and I_t = Yt V (leaving the to bus),
     in the `CURRENT` column order.
 
@@ -547,7 +547,7 @@ def local_flow_solve(
     blocks: Optional[_FlowBlocks] = None,
 ) -> Optional[np.ndarray]:
     """The false state of a local attacker who drives one or more branches' apparent flows to their
-    targets [WU26, eqs. 24-25]: the interior voltages move, the buses of `fixed` keep their
+    targets [WU26 eqs. 24-25]: the interior voltages move, the buses of `fixed` keep their
     injections, the others of the interior (the free injections: the loads the attacker pretends and
     the generators whose output it pretends) are free, and every bus outside the interior keeps its
     true voltage.

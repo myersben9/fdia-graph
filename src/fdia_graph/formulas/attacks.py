@@ -23,7 +23,7 @@ def operating_limits(
     X: np.ndarray,
     base: tuple[np.ndarray, np.ndarray],
 ) -> OperatingLimits:
-    """The constraints of [WU26, eqs. 21-23] for one system: the case's per-bus voltage limits
+    """The constraints of [WU26 eqs. 21-23] for one system: the case's per-bus voltage limits
     `v_case` [N, 2] verbatim, and the generator limits `p_lim`, `q_lim` [N, 2] widened per bus to
     the range the benign pool X [T, N, 4] spans. The pools were built with generation scaled by the
     load factor and nameplate never enforced, so a generator's benign output is the range the grid
@@ -97,7 +97,7 @@ def within_limits(
     limits: OperatingLimits,
     interior: np.ndarray,
 ) -> bool:
-    """Whether the false state Xa [N, 4] satisfies [WU26, eqs. 21-23] given the true state Xt, the
+    """Whether the false state Xa [N, 4] satisfies [WU26 eqs. 21-23] given the true state Xt, the
     true generator output [N, 2], the load change the attacker pretends per bus `load_delta` [N]
     (MW) and the attacker's `interior`: every |V| inside its bus limits, where a bus the true state
     already holds outside a limit may not be made worse (the bound there is the true value), and,
@@ -149,8 +149,8 @@ def tampered_channels(
     node_m: np.ndarray,
     edge_m: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """The metered channels an attack vector moves by more than their noise [WU26, the l0 count of
-    eq. 12 with sub-noise changes excluded, as the paper's experiments do]:
+    """The metered channels an attack vector moves by more than their noise, the l0 count of
+    [WU26 eq. 12] with sub-noise changes excluded, as the paper's experiments do:
 
         tampered_m = metered_m  and  |a_m| > sigma_m
 
@@ -180,7 +180,7 @@ def tampered_devices(
                                   (a flow is metered at its from end), |V| and angle at b when b has
                                   no PMU (a voltage-magnitude meter)
         PMU of bus b            : |V| and angle at b when b has a PMU, and the branch-current
-                                  channels it reads at b's end of each branch [WU26, eqs. 19-20]
+                                  channels it reads at b's end of each branch [WU26 eqs. 19-20]
 
     Ids: the SCADA terminal of bus b is b, the PMU of bus b is N + b.
 
@@ -212,7 +212,7 @@ UNRATED_MVA = 9900.0  # MATPOWER's "no limit" rating, which PGLib-OPF keeps on a
 
 def branch_ratings(ends: list[tuple[int, int]], rows: list[tuple[int, int, float]]) -> np.ndarray:
     """Each branch's thermal rating (MVA) from a table of (from bus, to bus, rate_a) rows, matched by
-    the branch's two end buses in either order [WU26, the S_max of eq. 25; PGLib-OPF for the values].
+    the branch's two end buses in either order (the S_max of [WU26 eq. 25]; PGLib-OPF for the values).
     Parallel rows between the same buses give the smallest rating (the binding one); a branch with no
     matching row, or one the table leaves at MATPOWER's 9,900 MVA placeholder, is unrated (NaN).
 

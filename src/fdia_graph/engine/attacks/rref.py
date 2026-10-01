@@ -17,7 +17,7 @@ true voltage). Its rows are scaled by [WU26]'s noise so a channel's size is in u
 Each row of the reduction is an attack vector h c; its state change c, found by least squares, names the
 buses it moves. The support of a snapshot is the sparsest rows that together move every target line's
 flow (a row moves a line when the linearized flow change is not zero), and the window's support is the
-union over the snapshots [WU26, eq. 28]. The magnitudes come from the AC local flow solve on that support
+union over the snapshots [WU26 eq. 28]. The magnitudes come from the AC local flow solve on that support
 (`FalseStateMixin.solve_flow_local`), so the goal, the operating limits (21)-(23) and the D16 bounds hold
 as in the search. When the support cannot reach the goal, it grows by the next sparsest rows of each
 snapshot until it can: a fallback of ours, since the paper gives the row reduction only for the sparsest
@@ -32,7 +32,6 @@ import numpy as np
 
 from ...formulas.network import branch_currents, branch_flows, bus_injections, complex_voltages
 from ...formulas.trust import sparsest_rows
-from ...models.choices import SupportMethod
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, MinimizerResult
 from ...models.grid import CURRENT, NODE
@@ -43,11 +42,15 @@ THETA_STEP = 1e-5  # degrees: the step of the angle
 ZERO = 1e-9  # a Jacobian entry or state change this small relative to the largest is structurally zero
 
 
-class RrefMixin(MinimizeMixin):
+class RrefSupport:
     """The overload attack's support by [WU26]'s row reduction (`OverloadSettings.support_method`
-    "rref"), beside the fewest-tamper search."""
+    "rref"): a support strategy beside the fewest-tamper search (`minimize.SearchSupport`), chosen by
+    `MinimizeMixin.support_strategy` for a flow goal. It holds the generator it reads the grid from."""
 
-    def _min_tamper(
+    def __init__(self, g: MinimizeMixin) -> None:
+        self.g = g
+
+    def find(
         self,
         states: list[np.ndarray],
         goal: Goal,
@@ -55,10 +58,8 @@ class RrefMixin(MinimizeMixin):
         prev: Optional[AttackVector],
         trust: Optional[TrustSchedule] = None,
     ) -> Optional[MinimizerResult]:
-        """The row reduction for a flow goal when `k.support_method` asks for it, else the search."""
-        if goal.kind == "flow" and k.support_method == SupportMethod.RREF.value:
-            return self.rref_support(states, cast(FlowGoal, goal), k, prev, trust)
-        return super()._min_tamper(states, goal, k, prev, trust)
+        """The row reduction's support for the flow `goal` (`rref_support`)."""
+        return self.rref_support(states, cast(FlowGoal, goal), k, prev, trust)
 
     def rref_support(
         self,
@@ -72,17 +73,17 @@ class RrefMixin(MinimizeMixin):
         of each snapshot's sparsest goal-moving rows, grown by the next sparsest until the AC solve
         reaches the goal), costed as the search costs a support; None when the goal has no area.
         `evaluated` counts the supports solved, and `devices` is -1 when none reaches the goal."""
-        seeds, _, _ = self._goal_seeds(goal)
-        region = self.local_region(seeds, k.hops)
+        seeds, _, _ = self.g._goal_seeds(goal)
+        region = self.g.local_region(seeds, k.hops)
         if region is None:
             return None
         area = np.asarray(region)
-        window = _Window(self, states, goal, k, prev=prev, trust=trust)
-        ladders = [self._rref_ladder(window, t, area) for t in range(len(states))]
+        window = _Window(self.g, states, goal, k, prev=prev, trust=trust)
+        ladders = [self.ladder(window, t, area) for t in range(len(states))]
         levels = max((len(ladder) for ladder in ladders), default=0)
         tried: set[bytes] = set()
         for level in range(levels):
-            S = self._rref_level(ladders, level, area)
+            S = self.level(ladders, level, area)
             if S.tobytes() in tried:
                 continue
             tried.add(S.tobytes())
@@ -95,14 +96,14 @@ class RrefMixin(MinimizeMixin):
                 )
         return MinimizerResult(area, -1, -1, False, len(tried), window.lower_bound(), window.unsolved)
 
-    def _rref_level(self, ladders: list[list[np.ndarray]], level: int, area: np.ndarray) -> np.ndarray:
+    def level(self, ladders: list[list[np.ndarray]], level: int, area: np.ndarray) -> np.ndarray:
         """The window's support at a growth level: every snapshot's first `level + 1` rungs joined,
         closed over the zero-injection buses of its boundary as a search candidate is, kept in the area."""
         buses = {int(b) for ladder in ladders for rung in ladder[: level + 1] for b in rung}
-        closed = self._zero_closed(frozenset(buses)) if buses else frozenset()
+        closed = self.g._zero_closed(frozenset(buses)) if buses else frozenset()
         return np.array(sorted(closed & {int(b) for b in area}), dtype=np.int64)
 
-    def _rref_ladder(self, window: _Window, t: int, area: np.ndarray) -> list[np.ndarray]:
+    def ladder(self, window: _Window, t: int, area: np.ndarray) -> list[np.ndarray]:
         """Snapshot t's supports in the order the row reduction ranks them: first the buses of the
         sparsest attack that moves each target line (the column exchanges chase, for each line, the
         sparsest row whose state change moves its flow; restricting the chased row to the goal is ours,
@@ -149,7 +150,7 @@ class RrefMixin(MinimizeMixin):
         z = self._scaled_channels(window, t, batch)
         H = ((z[1:] - z[0]) / steps[:, None]).T
         kept = np.abs(H).max(axis=1) > 0
-        flows = np.abs(self.all_flows_from_states(batch)[:, list(cast(FlowGoal, window.goal).lines)])
+        flows = np.abs(self.g.all_flows_from_states(batch)[:, list(cast(FlowGoal, window.goal).lines)])
         G = ((flows[1:] - flows[0]) / steps[:, None]).T
         return H[kept], G, self.channel_devices(window)[kept]
 
@@ -158,7 +159,7 @@ class RrefMixin(MinimizeMixin):
         the SCADA terminal of bus b is b, its PMU N + b): a node's |V| and angle belong to its PMU when it
         has one, its injections and the flows metered at it to its SCADA terminal, a branch current to the
         PMU at that end."""
-        N, pmu, ei = self.C, window.pmu, self.ei
+        N, pmu, ei = self.g.C, window.pmu, self.g.ei
         b, c = np.nonzero(window.node_m > 0)
         at_pmu = np.isin(c, (NODE.v, NODE.theta)) & pmu[b]
         parts = [np.where(at_pmu, N + b, b), ei[0, np.nonzero(window.edge_m > 0)[0]]]
@@ -170,13 +171,13 @@ class RrefMixin(MinimizeMixin):
     def _scaled_channels(self, window: _Window, t: int, batch: np.ndarray) -> np.ndarray:
         """Every attackable channel of each state in `batch` [B, N, 4] over its [WU26] noise, [B, m]:
         the metered node channels (an angle only at a PMU), the metered flows, the PMU branch currents."""
-        lut = self._ppc_row[np.arange(batch.shape[1])]
-        Vc = np.zeros((len(batch), self._n_ppc_buses), complex)
+        lut = self.g._ppc_row[np.arange(batch.shape[1])]
+        Vc = np.zeros((len(batch), self.g._n_ppc_buses), complex)
         Vc[:, lut] = complex_voltages(batch[:, :, NODE.v], batch[:, :, NODE.theta])
-        S = bus_injections(Vc, self._Ybus, self._base_mva)[:, lut]
+        S = bus_injections(Vc, self.g._Ybus, self.g._base_mva)[:, lut]
         node = batch.copy()
         node[:, :, NODE.p_inj], node[:, :, NODE.q_inj] = S.real, S.imag
-        Sf = branch_flows(Vc, self._Yf, self._from_bus_ppc, self._base_mva)
+        Sf = branch_flows(Vc, self.g._Yf, self.g._from_bus_ppc, self.g._base_mva)
         edge = np.stack([Sf.real, Sf.imag], axis=2)
         sig_node, sig_edge = window.sigma[t]
         parts = [
@@ -184,7 +185,7 @@ class RrefMixin(MinimizeMixin):
             (edge / _positive(sig_edge))[:, window.edge_m > 0],
         ]
         if window.i_m is not None and window.i_sigma is not None:
-            cur = branch_currents(Vc, self._Yf, self._Yt) / _positive(window.i_sigma[t])
+            cur = branch_currents(Vc, self.g._Yf, self.g._Yt) / _positive(window.i_sigma[t])
             parts.append(cur[:, window.i_m > 0])
         return np.concatenate(parts, axis=1)
 

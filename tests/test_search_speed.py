@@ -30,7 +30,7 @@ MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window, a
 # (support, devices, channels, proven, evaluated, unsolved), every search exhaustive (evaluated below
 # the budget), recorded by the search before the speed-ups (the unsolved counts of two overload
 # goals re-recorded when the window became kappa+1 ... kappa+T, eq. 25; the optima did not move).
-# With the load cap (D16) several goals have no false state at all (devices -1, every candidate unsolved); without it the same goals are solved.
+# With the load cap [D16] several goals have no false state at all (devices -1, every candidate unsolved); without it the same goals are solved.
 PINNED = {
     ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, False, 18, 15),
     ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, False, 18, 18),
@@ -79,7 +79,7 @@ def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
     """The optimum (support, devices, channels), whether it is proven, and how many candidates were
     solved and failed: all as before the speed-ups, the search running to completion. The overload
     cases cover the D16 bounds (generator limits on the support's edge, the load cap) and two-line
-    goals (D17)."""
+    goals [D17]."""
     cases = {key: want for key, want in PINNED.items() if key[0] == model}
     for (_, cap, kind, t, which), want in cases.items():
         k = _knobs(gen, pool, cap)
@@ -139,6 +139,7 @@ def test_the_reused_blocks_solve_as_the_fresh_ones(gen, pool):
 
 
 def test_the_support_attack_vector_equals_the_full_one(gen, pool):
+    # [WU26 eqs. 13-16]
     """The search's attack vector over the support's branches equals `_attack_vector` and
     `_current_attack` over every branch (float32 flows: to their rounding)."""
     from fdia_graph.engine.attacks.minimize import _Window
