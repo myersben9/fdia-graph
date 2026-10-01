@@ -6,9 +6,6 @@ the validation rule, so a store never holds an unknown metric, a non-finite valu
 
 from __future__ import annotations
 
-import dataclasses
-import hashlib
-import json
 import numbers
 import re
 from collections.abc import Iterable, Iterator, Mapping
@@ -217,14 +214,6 @@ def _is_number(value: object) -> bool:
 def as_values(value: object) -> tuple[object, ...]:
     """A query filter as the values it accepts: a collection is any of its members, else the value."""
     return tuple(value) if isinstance(value, (list, tuple, set, frozenset)) else (value,)
-
-
-def config_hash(settings: object) -> str:
-    """A stable hash of a run's settings: a model's fields, a mapping, or any value's repr."""
-    if dataclasses.is_dataclass(settings) and not isinstance(settings, type):
-        settings = dataclasses.asdict(settings)
-    blob = json.dumps(settings, sort_keys=True, default=repr)
-    return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
 
 @dataclass(frozen=True)

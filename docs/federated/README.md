@@ -39,7 +39,7 @@ await a rerun on it.
 
 Zero-shot: train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in
 training. F1, DR and FR are the paper's per-bus macro scores over the attackable buses, mean and
-standard deviation over seeds 123, 124 and 125. Every run is in `results/runs/`, the aggregates in
+standard deviation over seeds 123, 124 and 125. Every run is in `docs/federated/results/runs/`, the aggregates in
 the results store, experiment `federated.localization` (`results/`).
 
 **Table IV layout** (FR over every test record, the paper's convention)
@@ -106,7 +106,7 @@ it on 14; the centralized comparison with and without the block is in
 ## Regenerate
 
 ```bash
-FG_SYSTEM=ieee14 python docs/federated/run_federated.py     # 18 runs, writes results/runs/ + a run of federated.localization
+FG_SYSTEM=ieee14 python docs/federated/run_federated.py     # 18 runs, writes docs/federated/results/runs/ + a run of federated.localization
 FG_SYSTEM=ieee118 python docs/federated/run_federated.py
 FG_SYSTEM=ieee300 python docs/federated/run_federated.py
 python docs/federated/make_report.py                        # figures + CSV sidecars from the store

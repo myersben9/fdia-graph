@@ -172,4 +172,4 @@ python tools/results_docs.py --write           # the README's results blocks fro
 | | |
 |---|---|
 | skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
-| re-runs | score from `results/cache/` in about a minute per arm |
+| re-runs | score from the estimate cache (`docs/se/results/cache`, not in git) in about a minute per arm |

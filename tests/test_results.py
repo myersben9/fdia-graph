@@ -12,8 +12,8 @@ import sys
 import pytest
 
 from fdia_graph.errors import ConfigError, NoSuchResult
-from fdia_graph.models.results import config_hash
 from fdia_graph.results import METRICS, Record, Run, Store, fill, stale
+from fdia_graph.results.run import config_hash
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

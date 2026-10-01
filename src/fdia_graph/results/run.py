@@ -15,7 +15,11 @@ spread. A list fills a `step` tag, one record per element.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
+import hashlib
+import inspect
+import json
 import os
 import platform
 import subprocess
@@ -23,7 +27,7 @@ from collections.abc import Iterable, Mapping
 from types import TracebackType
 from typing import Optional
 
-from ..models.results import Provenance, Record, config_hash, leaves
+from ..models.results import Provenance, Record, leaves
 from .store import Store
 
 
@@ -131,6 +135,14 @@ class Run:
     ) -> None:
         if kind is None:  # a run that failed half way writes nothing
             self.write()
+
+
+def config_hash(settings: object) -> str:
+    """A stable hash of a run's settings: a model's fields, a mapping, or any value's repr."""
+    if dataclasses.is_dataclass(settings) and not inspect.isclass(settings):
+        settings = dataclasses.asdict(settings)
+    blob = json.dumps(settings, sort_keys=True, default=repr)
+    return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
 
 def _sdk_version() -> str:
