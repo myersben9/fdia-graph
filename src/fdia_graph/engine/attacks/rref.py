@@ -21,7 +21,7 @@ union over the snapshots [WU26 eq. 28]. The magnitudes come from the AC local fl
 (`FalseStateMixin.solve_flow_local`), so the goal, the operating limits (21)-(23) and the D16 bounds hold
 as in the search. When the support cannot reach the goal, it grows by the next sparsest rows of each
 snapshot until it can: a fallback of ours, since the paper gives the row reduction only for the sparsest
-attack. The result is never `proven`: row reduction finds a sparse attack, not the sparsest.
+attack. Row reduction finds a sparse attack, not necessarily the sparsest.
 """
 
 from __future__ import annotations
@@ -73,8 +73,7 @@ class RrefSupport:
         of each snapshot's sparsest goal-moving rows, grown by the next sparsest until the AC solve
         reaches the goal), costed as the search costs a support; None when the goal has no area.
         `evaluated` counts the supports solved, and `devices` is -1 when none reaches the goal."""
-        seeds, _, _ = self.g._goal_seeds(goal)
-        region = self.g.local_region(seeds, k.hops)
+        region = self.g.window_area(states, goal, k)
         if region is None:
             return None
         area = np.asarray(region)
@@ -88,13 +87,10 @@ class RrefSupport:
                 continue
             tried.add(S.tobytes())
             cost = window.cost(S, None)
-            window.unsolved += 0 if window.converged else 1
             if cost is not None:
                 devices, channels = window.counts(cost)
-                return MinimizerResult(
-                    S, devices, channels, False, len(tried), window.lower_bound(), window.unsolved
-                )
-        return MinimizerResult(area, -1, -1, False, len(tried), window.lower_bound(), window.unsolved)
+                return MinimizerResult(S, devices, channels, len(tried))
+        return MinimizerResult(area, -1, -1, len(tried))
 
     def level(self, ladders: list[list[np.ndarray]], level: int, area: np.ndarray) -> np.ndarray:
         """The window's support at a growth level: every snapshot's first `level + 1` rungs joined,

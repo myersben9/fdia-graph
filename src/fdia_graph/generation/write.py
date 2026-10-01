@@ -88,7 +88,7 @@ def _write_episodes(f: h5py.File, buf: TimelineBuffers) -> None:
     f.create_dataset(schema.MAG_PTR, data=ptr)
     f.create_dataset(schema.MAG_BUS, data=bus)
     f.create_dataset(schema.MAG, data=mag)
-    if buf.min_rows:  # the fewest-tamper knob: what the search chose per episode and whether it is proven
+    if buf.min_rows:  # the fewest-tamper knob: what the search chose per episode
         _write_min_rows(eg, buf.min_rows)
     if buf.am_rows:  # the overload attack: its target branch, rating and the flow it reached
         _write_am_rows(eg, buf.am_rows)
@@ -104,10 +104,7 @@ def _write_min_rows(eg: h5py.Group, min_rows: list[tuple[int, MinimizerResult]])
     eg.create_dataset(schema.EPISODE_MIN_EPISODE, data=np.array([s for s, _ in min_rows], np.int32))
     eg.create_dataset(schema.EPISODE_MIN_DEVICES, data=np.array([r.devices for r in rows], np.int32))
     eg.create_dataset(schema.EPISODE_MIN_CHANNELS, data=np.array([r.channels for r in rows], np.int32))
-    eg.create_dataset(schema.EPISODE_MIN_PROVEN, data=np.array([r.proven for r in rows], np.uint8))
     eg.create_dataset(schema.EPISODE_MIN_EVALUATED, data=np.array([r.evaluated for r in rows], np.int32))
-    eg.create_dataset(schema.EPISODE_MIN_LOWER, data=np.array([r.lower_bound for r in rows], np.int32))
-    eg.create_dataset(schema.EPISODE_MIN_UNSOLVED, data=np.array([r.unsolved for r in rows], np.int32))
     ptr, idx = ragged([np.asarray(r.support) for r in rows], np.int32)
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_PTR, data=ptr)
     eg.create_dataset(schema.EPISODE_MIN_SUPPORT_IDX, data=idx)

@@ -69,7 +69,6 @@ nav:
       - Overview: plans/README.md
       - Wu MS-FDIA: plans/WU_MSFDIA_PLAN.md
       - Wu defense: plans/WU_DEFENSE_PLAN.md
-      - Relaxation certifier: plans/RELAX_CERTIFIER_PLAN.md
   - Contributing: contributing.md
   - Changelog: changelog.md
 

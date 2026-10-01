@@ -17,7 +17,6 @@ from .models.errors import (
     NoAttackedRecords,
     NoBenignRecords,
     NoLineRatings,
-    NoOperatingLimits,
     NoRoomForEpisode,
     NoSuchResult,
     NotFitted,
@@ -42,5 +41,4 @@ __all__ = [
     "CountOverflow",
     "UnknownColumnOrder",
     "NoLineRatings",
-    "NoOperatingLimits",
 ]

@@ -37,12 +37,10 @@ timelines; the rest load and serve data. The table is generated from each module
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
 | `engine.attacks` | Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator. |
 | `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
-| `engine.attacks.certify` | Certifying the fewest-tamper attack [WU26 eq. 12] by convex relaxation (docs/plans/RELAX_CERTIFIER_PLAN.md). |
 | `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset by the family's designer. |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes. |
-| `engine.attacks.minimize` | The fewest-tamper support of an attack window [WU26 eq. 12]. |
+| `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
 | `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`, [D17]) driven to their ratings over the window, with the fewest devices tampered. |
-| `engine.attacks.relax_cuts` | The valid cuts that tighten the certifier's relaxation (docs/plans/RELAX_CERTIFIER_PLAN.md, section 2.1), each family a function of the relaxation it tightens: |
 | `engine.attacks.rref` | [WU26]'s own construction of the attack's support: row reduction of the transposed attack-area Jacobian with column exchanges. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
 | `engine.base` | Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only. |
@@ -66,7 +64,6 @@ timelines; the rest load and serve data. The table is generated from each module
 | `formulas.network` | The AC network model: branch admittances, bus injections and branch flows [AE04, ch. 2], [MP19]. |
 | `formulas.noise` | The meter error model: accuracy-class standard deviations split into a constant per-meter bias and a per-scan jitter [ASP14], our split. |
 | `formulas.projection` | Projections through the measurement Jacobian: the explained and unexplained parts of a measurement change, leverage, the weak directions, and the meter-to-bus aggregation of the Jacobian-informed features [JAC26], [HAN75]. |
-| `formulas.relax` | The pieces of the convex relaxation that certifies the fewest-tamper attack (docs/plans/RELAX_CERTIFIER_PLAN.md): the voltage box, the big-M constants derived from it, the sectors that outer-approximate the exterior of a circle, the cone gap that says how tight a relaxed point's pairwise cones are, and the roundoff slack that keeps the search's float32 noise thresholds reproduced conservatively. numpy only; the model itself is built in `engine/attacks/certify.py`. |
 | `formulas.temporal` | The temporal features of a scan [FED26]: the one-step injection change and its z-score against the bus's typical recent change, and the recent-change scale itself. |
 | `formulas.trust` | Trusted-meter selection against stealthy attacks [WU26]: the attack subspace a secured set leaves open, the cost of the cheapest attack in it, and the greedy selection that closes it. |
 | `generation` | generate(system, name, **knobs) — build a custom dataset and register it as `name`. |
@@ -87,7 +84,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `models.errors` | The named errors of conditions only the data reveals, beside `ConfigError` so a model can raise one (`Validated.error`). `fdia_graph.errors` re-exports every one. |
 | `models.federated` | What the federated layer passes around: how the buses split into clients. |
 | `models.fields` | The field groups the data bundles share. |
-| `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search and the certifier return. |
+| `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
 | `models.grid` | The static description of a system: the per-branch pi model and the admittance matrices built from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was built with. Nothing here changes from one scan to the next. |
 | `models.inputs` | What the formulas and the parsers accept, one model each, checked when built (`models.validation`). |
 | `models.results` | The models of a results table: the metric registry, a `Record` (one measured value with the keys that say what it is) and a `Provenance` (which run made it), plus the parsers that read loose input (a nested score report, a filter value, a run's settings) by its type. Every check lives here, per the validation rule, so a store never holds an unknown metric, a non-finite value or a malformed key; `fdia_graph.results` builds these models and never checks its input itself. |

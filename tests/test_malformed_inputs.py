@@ -47,7 +47,6 @@ VALID = {
     inputs.ProfileSource: dict(source=[1.0, 2.0]),
     inputs.DatasetName: dict(name="ieee14", local=frozenset(), builtin=frozenset({"ieee14"})),
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
-    inputs.CertifiableLimits: dict(limits=_LIMITS),
     inputs.TrustablePmus: dict(buses=[0], pmu=frozenset({0}), n_bus=3),
     inputs.WindowSlots: dict(slots=[1], snapshots=3),
     inputs.SameDefense: dict(actions=[4, 4], steps=[2, 2]),

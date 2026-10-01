@@ -205,6 +205,7 @@ def _knobs(s: TimelineSettings, limits: OperatingLimits, am_runs: bool) -> Frame
         getattr(o, "load_cap", None),  # the overload attack's cap; none without it
         getattr(o, "n_lines", 1),  # the lines an overload episode drives [D17]
         getattr(o, "support_method", "search"),  # how its support is chosen
+        area_rule=s.search.area_rule,  # how the attacker's area is chosen [WU26] Sec. III-A
     )
 
 

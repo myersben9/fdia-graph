@@ -5,8 +5,10 @@
 
 For each of the paper's scenarios (IEEE-14: lines 3-4 and 6-11, lines 1-2 and 4-5, PMUs 1, 4, 6, 13
 trusted at snapshots 2, 4, 6, 8; IEEE-118: lines 84-85 and 99-100, its 11 PMUs, one per snapshot) and
-each rating margin k (ratings k times each target line's peak true flow over the window; 1.2 by default,
-1.1 for the Table II comparison on IEEE-14), windows of 1-minute attack snapshots are built from the
+each rating (`--ratings`: "+0.10", each target line's true flow at the window's last snapshot plus
+0.10 pu, matched to the paper's Fig. 4 attack magnitudes, the default [E14]; or a margin k such as "1.1",
+k times each target line's peak true flow over the window), on the paper's attack area (`wu26_area`:
+IEEE-14's every bus but the slack, IEEE-118's Fig. 9 network [D18]), windows of 1-minute attack snapshots are built from the
 5-minute operating pool (ours: each bus's load and generation scale recovered from two consecutive pool
 states, interpolated linearly in time and re-solved by AC power flow, so every snapshot is a power-flow
 solution). On each window the trusted-PMU MDP (`trust.WuDefenseEnv`, the search as the cost oracle) is
@@ -85,13 +87,23 @@ def paper_order(system: int, scenario: int) -> str:
 
 
 # ---- one window ------------------------------------------------------------------------------------
-def build_env(system: int, scenario: int, margin: float, states: list[np.ndarray], budget: int):
-    """The trusted-PMU MDP of one window on the paper's metering (the construction of the tests')."""
+def rating_settings(rating: str):
+    """The overload settings of a `--ratings` token: "+d" the delta ratings (true flow at the window's end
+    plus d pu), anything else a margin k on each line's peak flow over the window."""
+    from fdia_graph.models.config import OverloadSettings
+
+    if rating.startswith("+"):
+        return OverloadSettings(rating_source="delta", rating_delta=float(rating[1:]))
+    return OverloadSettings(rating_margin=float(rating))
+
+
+def build_env(system: int, scenario: int, margin: str, states: list[np.ndarray], budget: int):
+    """The trusted-PMU MDP of one window on the paper's metering and attack area (the construction of the
+    tests'), its ratings from the `--ratings` token `margin`."""
     from fdia_graph.engine.attacks.overload import WU26_PMUS, WU26_SCENARIOS
     from fdia_graph.engine.core import FdiaGenerator
     from fdia_graph.generation import _load_states
     from fdia_graph.models import WuDefenseConfig
-    from fdia_graph.models.config import OverloadSettings
     from fdia_graph.models.frames import FrameKnobs
     from fdia_graph.trust import WuDefenseEnv
 
@@ -102,9 +114,11 @@ def build_env(system: int, scenario: int, margin: float, states: list[np.ndarray
     if system == 14:
         flow[g.wu26_branch(6, 11)] = True  # the paper meters line 6-11
     g.meters = g.meters._replace(pmu=set(g.wu26_buses(WU26_PMUS[system]).tolist()), flow=flow)
-    g.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(states))
+    g.use_line_ratings(rating_settings(margin), np.stack(states))
     limits = g.operating_limits(_load_states(system, None))
-    k = FrameKnobs(hops=2, limits=limits, min_tamper=True, min_budget=budget, load_cap=0.5, n_lines=2)
+    k = FrameKnobs(
+        hops=2, limits=limits, min_tamper=True, min_budget=budget, load_cap=0.5, n_lines=2, area=g.wu26_area()
+    )
     order = WU26_PMUS[system]
     slots = (
         (1, 3, 5, 7) if system == 14 else tuple(range(SNAPSHOTS[system]))
@@ -122,10 +136,10 @@ def devices_named(env, result) -> set[str]:
     if result.devices < 0:
         return set()
     w = _Window(g, env.states, env.goal, env.k, trust=env._schedule(env.trusted))
-    plan = result.plan or tuple(result.support for _ in w.segments)
     prev, names = w.prev, set()
     for t in range(len(env.states)):
-        snap = w._free_snapshot(t, w.support_at(t, plan), prev)
+        free = w.support_at(t, result.support)
+        snap = w._snapshot(t, free, prev) if len(free) else None
         if snap is None:  # nothing free at this snapshot: no channel is tampered there
             continue
         node, edge, cur, prev = snap
@@ -273,7 +287,12 @@ def write(rows: list[dict], path: str) -> None:
 def main(argv: Optional[list[str]] = None) -> None:
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     ap.add_argument("--system", type=int, choices=(14, 118), required=True)
-    ap.add_argument("--margins", type=float, nargs="+", default=[1.2])
+    ap.add_argument(
+        "--ratings",
+        nargs="+",
+        default=["+0.10"],
+        help='"+d": each line true flow at the window end plus d pu [E14]; "k": k times its peak flow',
+    )
     ap.add_argument("--windows", type=int, default=20)
     ap.add_argument(
         "--sessions", type=int, default=2, help="DQN sessions; each trains on the others' windows"
@@ -291,7 +310,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         ap.error("--sessions must be at least 2 and at most --windows")
     scenarios = range(len(WU26_SCENARIOS[args.system]))
     starts = [i * args.stride for i in range(args.windows)]
-    sol1 = [(args.system, s, m, w, args.budget) for s in scenarios for m in args.margins for w in starts]
+    sol1 = [(args.system, s, m, w, args.budget) for s in scenarios for m in args.ratings for w in starts]
     folds = np.array_split(np.array(starts), args.sessions)
     dqn = [
         (
@@ -304,7 +323,7 @@ def main(argv: Optional[list[str]] = None) -> None:
             123 + i,
         )
         for s in scenarios
-        for m in args.margins
+        for m in args.ratings
         for i, fold in enumerate(folds)
     ]
     with ProcessPoolExecutor(args.workers) as pool:
@@ -330,7 +349,7 @@ def record(rows: list[dict], args: argparse.Namespace) -> None:
     decision time and the trusted order, keyed by method, scenario, k and window."""
     from fdia_graph.results import Run, Store
 
-    settings = {k: getattr(args, k) for k in ("margins", "windows", "sessions", "budget", "stride")}
+    settings = {k: getattr(args, k) for k in ("ratings", "windows", "sessions", "budget", "stride")}
     run = Run("wu26.reproduction", system=f"ieee{args.system}", settings=settings, store=Store(args.store))
     for r in rows:
         keys = dict(method=r["method"], scenario=r["scenario"], k=r["margin"], window=r["window"])

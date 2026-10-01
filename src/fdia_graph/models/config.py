@@ -19,10 +19,10 @@ import numpy as np
 from .choices import (
     GENERATED_FAMILIES,
     AmAttack,
+    AreaRule,
     Buses,
     Calibrate,
     CostUnit,
-    CutFamily,
     Features,
     Format,
     FrOver,
@@ -314,6 +314,10 @@ class OverloadSettings(Validated):
     n_lines: Annotated[int, Integer(), InRange(1, 2, lo_closed=True, hi_closed=True)] = 2
     # how an episode's support is chosen: the fewest-tamper search, or [WU26]'s row reduction ("rref")
     support_method: Annotated[str, OneOf(SupportMethod)] = "search"
+    # with rating_source "delta": each target's S_max is its true flow at the window's end plus this
+    # many per unit of the system base (ours, matched to [WU26] Fig. 4's 0.10 to 0.22 pu attacks;
+    # experiment `minlp.rating_delta`)
+    rating_delta: Annotated[float, Finite(), InRange(0.0, math.inf)] = 0.10
 
     @staticmethod
     def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:
@@ -332,13 +336,11 @@ class TrustSchedule(Validated):
     a slot <= t is pinned and a PMU trusted later can still be tampered with. A trusted PMU pins its
     own |V| and angle rows (eqs. 27, 32: two rows per trusted PMU, "the rank of hS becomes 2n x 2"),
     so the attack's state deviation is zero there (eq. 29); its branch currents stay in the nonsecure
-    set h^S' (eq. 27). `per_slot` lets the attack's support change at the trusted slots, since eq. (28)
-    takes the deviation of each snapshot on its own [E13]; off, one support is held for the
-    window and a trusted bus only drops out of it."""
+    set h^S' (eq. 27). One support is held for the window, a trusted bus dropping out of it from its
+    slot (E13's support per slot never changed an answer in any run and was removed)."""
 
     buses: Annotated[Sequence[int], AsTuple()]
     slots: Annotated[Sequence[int], AsTuple()]
-    per_slot: bool = True
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         buses, slots = np.asarray(self.buses), np.asarray(self.slots)
@@ -350,12 +352,6 @@ class TrustSchedule(Validated):
     def pinned(self, t: int) -> frozenset[int]:
         """The buses whose PMU is trusted at snapshot t (every slot at or before t)."""
         return frozenset(int(b) for b, s in zip(self.buses, self.slots) if s <= t)
-
-    def segments(self, T: int) -> list[tuple[int, int]]:
-        """The window's snapshots [0, T) cut at every slot inside it: within a segment the pinned set is
-        fixed, so a support chosen per segment is a support that changes only at a trusted slot."""
-        cuts = sorted({0, T} | {int(s) for s in self.slots if 0 < s < T})
-        return list(zip(cuts[:-1], cuts[1:]))
 
 
 @dataclass(frozen=True)
@@ -391,11 +387,13 @@ class SearchSettings(Validated):
     """The attacker's subnetwork and the fewest-tamper search [WU26 eq. 12]: `hops`, the buses within
     this many branches of the attacked loads (At) or target lines (Am); `min_tamper`, hold each At
     episode on the support tampering the fewest devices (off: the whole subnetwork); `min_budget`,
-    the candidate supports solved per episode before the search settles."""
+    the candidate supports solved per episode before the search settles; `area_rule`, how the
+    attacker's area is chosen (`AreaRule`: the buses within `hops`, or [WU26] Sec. III-A's principles)."""
 
     hops: Count = 2
     min_tamper: bool = True
     min_budget: Count = 256
+    area_rule: Annotated[str, OneOf(AreaRule)] = "hops"
 
 
 # the flat keywords `generate_timeline` takes, by the settings field each one sets (section, field)
@@ -560,72 +558,16 @@ class ProfileFetch(Validated):
     resample_min: Annotated[Optional[int], Integer(), AtLeast(1)] = None
 
 
-# ---- the certifier -----------------------------------------------------------------------------------
-def cut_families(cuts: object) -> tuple[str, ...]:
-    """A list or tuple of cut family names (`CutFamily`) as a tuple of their canonical strings, each
-    once, in the given order. A lone string is refused rather than split into letters."""
-    if not isinstance(cuts, (list, tuple)):
-        raise TypeError(cuts)
-    return tuple(dict.fromkeys(CutFamily(c).value for c in cuts))
-
-
-def snapshot_indices(snapshots: object) -> tuple[int, ...]:
-    """A list or tuple of non-negative whole snapshot indices as a sorted tuple, each once."""
-    if not isinstance(snapshots, (list, tuple)):
-        raise TypeError(snapshots)
-    if not all(isinstance(t, int) and not isinstance(t, bool) and t >= 0 for t in snapshots):
-        raise ValueError(snapshots)
-    return tuple(sorted(set(snapshots)))
-
-
-@dataclass(frozen=True)
-class CertifyOptions(Validated):
-    """How `engine.attacks.certify.certify` bounds the fewest-tamper search
-    (docs/plans/RELAX_CERTIFIER_PLAN.md): SCIP's time limit on the mixed-integer relaxation and on
-    each bound-tightening solve, the snapshots kept (None: the one where the goal moves furthest),
-    the cut families, and the window's length, which `certify` fills in so a kept snapshot outside
-    the window is refused."""
-
-    time_limit: Annotated[float, Finite(), Positive()] = 300.0  # seconds, the mixed-integer relaxation
-    # seconds per bound-tightening solve; SCIP's dual bound at the stop is valid, so a short limit
-    # only weakens the bounds (the plan's section 2.1)
-    tighten_limit: Annotated[float, Finite(), Positive()] = 5.0
-    snapshots: Annotated[
-        Optional[tuple[int, ...]],
-        Parses(snapshot_indices, "must be a list or tuple of snapshot indices >= 0"),
-        NonEmpty(),
-    ] = None
-    cuts: Annotated[
-        tuple[str, ...], Parses(cut_families, f"must be a list or tuple of {CutFamily.values()}")
-    ] = (CutFamily.BOUNDS.value, CutFamily.QC.value, CutFamily.CYCLE.value)
-    window: Annotated[Optional[int], Integer(), AtLeast(1)] = None  # snapshots in the window
-    # the count is an integer, so a bound b proves ceil(b - bound_margin) devices: a relaxed optimum
-    # that lands just above an integer by SCIP's tolerances is not rounded up past it
-    bound_margin: Annotated[float, InRange(0.0, 0.5)] = 0.01
-    # an infeasibility is accepted only when it survives a re-solve with SCIP's feasibility (and
-    # integrality) tolerance numerics/feastol loosened to this, 100 times SCIP's default 1e-6: a
-    # problem that stays infeasible with every constraint relaxed by more than the solver's own
-    # tolerance was not made infeasible by rounding
-    robust_feastol: Annotated[float, InRange(1e-6, 0.1)] = 1e-4
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield (
-            self.window is None or self.snapshots is None or max(self.snapshots) < self.window,
-            f"snapshots must lie in the window of {self.window} snapshots, got {self.snapshots!r}",
-        )
-
-
 @dataclass(frozen=True)
 class WuDefenseConfig(Validated):
     """[WU26]'s trusted-PMU MDP (Sec. IV-D2, Fig. 1; `trust.WuDefenseEnv`): the candidate PMU buses (the
     generator's bus indices), the snapshot of the window at which each configuration step trusts one of
     them ("one PMU per step"; IEEE-14's steps at snapshots 2, 4, 6 and 8, IEEE-118's one per snapshot),
-    the unit the attack cost counts [E3] and whether the attack's support may change at a slot [E13]."""
+    and the unit the attack cost counts [E3]."""
 
     pmus: Annotated[Sequence[int], AsTuple(), NonEmpty()]
     slots: Annotated[Sequence[int], AsTuple(), NonEmpty()]
     unit: Annotated[str, OneOf(CostUnit)] = "channels"
-    per_slot: bool = True
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         pmus, slots = np.asarray(self.pmus), np.asarray(self.slots)

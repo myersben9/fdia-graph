@@ -140,7 +140,9 @@ class OverloadDesigner:
             goal = g.overload_goal(window, *targets)
             result = g.min_tamper(window, goal, k)
             if result is not None and result.devices >= 1:
-                ratings = tuple(float(g.line_ratings()[b]) for b in targets)
+                ratings = tuple(
+                    float(s) for s in goal.targets_at(len(window) - 1)
+                )  # eq. 25: S_max at the end
                 return AmOverloadDesign(goal, ratings, result.support, result)
         return None
 

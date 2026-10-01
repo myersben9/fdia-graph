@@ -76,18 +76,11 @@ METRICS: dict[str, Metric] = {
     "decision_seconds": _m("s", "lower", ".2f", "wall time of one defense decision"),
     "selection_share": _m("", "none", ".2f", "share of tests in which a PMU is trusted at a step"),
     "max_change_pu": _m("pu", "none", ".2f", "largest change the attack makes on one channel"),
-    "proven_share": _m("", "higher", ".2f", "searches that proved their support the fewest"),
+    "proven_share": _m("", "higher", ".2f", "searches that proved their support the fewest (before 0.21)"),
     "episodes": _m("", "none", "d", "attack episodes"),
     "seconds_per_episode": _m("s", "lower", ".1f", "generation wall time per episode"),
-    "lower_bound": _m("", "none", "d", "the certifier's lower bound on the devices"),
-    "gap": _m("", "lower", "d", "devices between the search's count and the certifier's bound"),
-    "mismatch_mw": _m("MW", "lower", ".1f", "the relaxed point's distance from an AC power flow"),
-    "certified": _m("", "higher", "d", "1 when the certifier proves the search's count minimal, else 0"),
-    "uncertain": _m(
-        "", "lower", "d", "1 when the certifier's verdict sits at the solver's tolerances, else 0"
-    ),
-    "angle_bounded_buses": _m("", "none", "d", "area buses whose angle move bound tightening bounds"),
-    "voltage_move_pu": _m("pu", "none", ".1f", "median bound on a bus voltage move after tightening"),
+    "lower_bound": _m("", "none", ".1f", "a solver's proven lower bound on the devices (dual bound)"),
+    "feasible": _m("", "none", "d", "1 when an attack meets every constraint, else 0"),
     # ---- generation and benchmarks
     "seconds": _m("s", "lower", ".2f", "wall time"),
     "identical": _m("", "higher", ".0f", "1 when a file equals the reference file byte for byte, else 0"),

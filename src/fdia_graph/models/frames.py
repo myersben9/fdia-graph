@@ -1,6 +1,6 @@
 """What the generator passes around per scan: a measurement scan, the emitted frame with its labels,
 the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the
-fewest-tamper search and the certifier return."""
+fewest-tamper search returns."""
 
 from __future__ import annotations
 
@@ -105,6 +105,11 @@ class FrameKnobs(NamedTuple):
     # what the search minimizes first (`CostUnit`): the tampered devices, or the tampered measurements
     # (the l0 of [WU26]'s eqs. 12, 28 and 33 taken literally); the other count breaks ties
     objective: str = "devices"
+    # the attacker's area [WU26] Sec. III-A: its buses when the caller knows them (the paper's own area,
+    # `OverloadMixin.wu26_area`), else chosen by `area_rule` (`AreaRule`): "hops", the buses within `hops`
+    # of the goal, or "rules", the region the paper's four principles pick (`AreaMixin.rule_area`, ours)
+    area: Optional[tuple[int, ...]] = None
+    area_rule: str = "hops"
 
 
 class AttackVector(NamedTuple):
@@ -162,51 +167,26 @@ class AmOverloadDesign(NamedTuple):
 
 
 class MinimizerResult(NamedTuple):
-    """The fewest-tamper support of one attack window [WU26 eq. 12] and how it was found."""
+    """The cheapest support found for one attack window [WU26 eq. 12] (the search holds no claim of
+    optimality: [WU26] does not prove its minimum either)."""
 
     support: np.ndarray  # the buses whose voltages the false state moves (sorted)
-    devices: int  # devices with a channel moved beyond its noise at some snapshot (the objective); -1 when
-    # no support held for the window meets every constraint and moves at least one device beyond its
-    # accuracy sigma (the episode then runs on the region)
-    channels: int  # channels moved beyond their noise at some snapshot, for analysis
-    proven: (
-        bool  # True: no other support in the area tampers fewer devices (search exhausted or at the bound)
-    )
+    devices: int  # devices with a channel moved beyond its noise at some snapshot; -1 when no candidate
+    # support meets every constraint and moves at least one device beyond its noise (the episode then
+    # runs on the region)
+    channels: int  # channels moved beyond their noise at some snapshot
     evaluated: int  # candidate supports solved
-    lower_bound: int  # devices every support must tamper (the target buses' own changed meters)
-    unsolved: int = 0  # candidates whose local solve did not converge (their feasibility unknown)
-    # under a trusted-PMU schedule with a support per slot (`TrustSchedule.per_slot`): the support of each
-    # segment of the window, `support` their union; empty when one support is held for the window
-    plan: tuple[np.ndarray, ...] = ()
 
 
-class Certificate(NamedTuple):
-    """How close the fewest-tamper search's attack is to the global optimum of [WU26 eq. 12] over the
-    attacker's area: the search's device count (an upper bound) against the optimum of a convex
-    relaxation of the same problem (a lower bound; docs/plans/RELAX_CERTIFIER_PLAN.md)."""
+class AreaScore(NamedTuple):
+    """How a candidate area meets [WU26]'s Section III-A principles: rules 1 and 2 as checks, rules 3
+    and 4 as terms in [0, 1] (ours), and the size the score is charged for."""
 
-    upper: int  # the search's devices; -1 when it found no attack
-    lower: int  # devices every attack in the area must tamper (the relaxation's bound, rounded with a margin)
-    certified: bool  # verdict "certified": the bounds meet, clear of SCIP's tolerances
-    status: str  # the solver's status of the mixed-integer relaxation ("optimal", or the limit it hit)
-    seconds: float  # the relaxation's solve time
-    cone_gap: float  # largest relative slack of the relaxed point's cones (0: every cone tight)
-    mismatch: float  # largest injection mismatch, MW, between the relaxed W and its voltages (0: an AC state)
-    area: np.ndarray  # the attacker's area both bounds range over
-    support: np.ndarray  # the search's support (empty without an attack)
-    devices: np.ndarray  # the devices the relaxation's optimum tampers
-    verdict: str  # `CertifyVerdict`: "certified", "gap" or "uncertain"
-    reason: str  # why the verdict is "uncertain" (empty otherwise)
-    cone_lower: int  # the bound of the cone relaxation alone, which the cut families may only raise
-
-
-class BoundClaim(NamedTuple):
-    """What one relaxation solve proves for `certify`: a lower bound on the device count, SCIP's
-    status, the relaxed point and device binaries (None and zeros when infeasible), and a doubt,
-    empty when the claim is clear of SCIP's tolerances."""
-
-    lower: int  # devices every attack must tamper, per this solve
-    status: str  # SCIP's status ("optimal", "infeasible", or the limit it hit)
-    x: Optional[np.ndarray]  # the relaxed variables per snapshot [T, n], None without a point
-    binaries: np.ndarray  # the device binaries of the relaxed point
-    doubt: str  # why the claim is not clear of the tolerances (empty when it is)
+    buses: np.ndarray
+    observable: bool  # rule 1: a metered voltage or injection channel in the area
+    connected: bool  # rule 2: one connected region over live branches
+    load_share: float  # rule 3: the area's share of the system's active load over the window
+    spread: float  # rule 3: mean |DC PTDF| of the goal lines to the area's injections (0 for a load goal)
+    stability: float  # rule 4: 1 / (1 + the mean coefficient of variation of the area's loads)
+    observability: float  # rule 4: metered channels per area bus against the system's, capped at 1
+    size: float  # the area's buses as a share of the system's

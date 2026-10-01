@@ -1,6 +1,5 @@
 run_id,experiment,timestamp,sdk_version,git_sha,dirty,data_release,seed,config_hash,platform,note
 bench-20260916-migrated,bench,2026-09-16T00:00:00Z,0.17.0,,False,,,,,"AMD64 Intel64 Family 6 Model 143 Stepping 8, GenuineIntel, numpy 1.26.4, torch 2.12.0.dev20260314+cu128"
-certify.ablation-migrated,certify.ablation,2026-09-30T00:00:00Z,0.20.0,,False,,,,,"migrated from scratchpad/relax6_certify_14.csv (the ablation of #165, scratchpad script not in the repo)"
 data.release_stats-20261001t092307z-557289,data.release_stats,2026-10-01T09:23:07Z,0.20.0,2db24a1819aad84e542e3aee8eb2aac8e19ed578,True,v0.8.3,,5572891fa8f2,Windows-10,
 federated.localization-ieee118-migrated,federated.localization,2026-09-24T07:56:46Z,0.19.0,fe6951e82a2612d2970d4c8d55f9ff77b303007f,False,v0.8.1,,,,migrated from docs/federated/results/fed_ieee118.json
 federated.localization-ieee14-migrated,federated.localization,2026-09-24T07:56:46Z,0.19.0,fe6951e82a2612d2970d4c8d55f9ff77b303007f,False,v0.8.1,,,,migrated from docs/federated/results/fed_ieee14.json

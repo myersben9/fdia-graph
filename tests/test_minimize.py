@@ -68,7 +68,7 @@ def test_a_window_with_no_held_support_says_so(case):
         assert (result.devices < 0) == (not feasible and window.cost(area, None) is None)
 
 
-def test_the_search_equals_brute_force_and_its_bound_holds(case):
+def test_the_search_equals_brute_force(case):
     from fdia_graph.engine.attacks.minimize import _Window
 
     g, _, k = case
@@ -77,17 +77,13 @@ def test_the_search_equals_brute_force_and_its_bound_holds(case):
         buses = np.unique(g.load_bus[d.targets])
         area = g.local_region(buses, k.hops)
         window = _Window(g, states, goal, k)
-        feasible, unsolved = [], 0
+        feasible = []
         for S in [*g._supports([frozenset(int(b) for b in buses)], area), np.asarray(area)]:
             c = window.cost(S, None)
-            unsolved += 0 if window.converged else 1
             if c is not None:
                 feasible.append(c)
-        # like with like: the best among supports whose solves converged, and the proof scoped by them
+        # every candidate solved within the budget: the search's answer is the cheapest of them
         assert (result.devices, result.channels, len(result.support)) == min(feasible)
-        assert all(result.lower_bound <= c[0] for c in feasible)
-        assert result.proven == (result.unsolved == 0 or result.devices <= result.lower_bound)
-        assert result.unsolved <= unsolved
 
 
 def test_the_emitter_draws_with_the_shared_noise_rule(case):
@@ -280,10 +276,9 @@ def test_generate_with_the_knob_records_each_ramp_search(tmp_path):
     with h5py.File(out, "r") as f:
         eg = f[schema.Group.EPISODES]
         n = len(eg[schema.EPISODE_MIN_EPISODE])
-        assert n >= 1 and n == len(eg[schema.EPISODE_MIN_DEVICES]) == len(eg[schema.EPISODE_MIN_PROVEN])
-        devices, lower = eg[schema.EPISODE_MIN_DEVICES][()], eg[schema.EPISODE_MIN_LOWER][()]
-        held = devices >= 0  # -1: no held support met the constraints, the episode ran on its region
-        assert (devices[held] >= lower[held]).all()
+        assert n >= 1 and n == len(eg[schema.EPISODE_MIN_DEVICES]) == len(eg[schema.EPISODE_MIN_EVALUATED])
+        devices = eg[schema.EPISODE_MIN_DEVICES][()]
+        assert ((devices >= 1) | (devices == -1)).all()  # an attack tampers a device, or none was found
         assert f.attrs[schema.Attr.MIN_TAMPER] == 1
         assert f.attrs[schema.Attr.STEALTH_SCALE] == 1.0  # an At-only timeline records its bound too
 
@@ -329,8 +324,8 @@ def test_the_onset_is_bounded_against_the_frame_before(case):
     for states, _, d in _windows(case, 1, held=False):
         area = np.asarray(g.local_region(np.unique(g.load_bus[d.targets]), k.hops))
         held = LoadGoal(tuple(AttackDesign(d.targets, 1.15) for _ in states))
-        Xa, converged = g.goal_state(held, 0, states[0], area, k)
-        assert converged and Xa is not None
+        Xa = g.goal_state(held, 0, states[0], area, k)
+        assert Xa is not None
         # the frame before carried the same step, its branch currents included (hybrid meters)
         from fdia_graph.models.frames import AttackVector
 

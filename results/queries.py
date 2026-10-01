@@ -570,59 +570,6 @@ def span(store: Store, experiment: str, metric: str, fmt: str = "", **keys: str)
     return lo if lo == hi else f"{lo} to {hi}"
 
 
-# ---- the certifier (docs/plans/RELAX_CERTIFIER_PLAN.md)
-_CUTS = (
-    ("socp", "second-order cone"),
-    ("bounds", "+ bounds"),
-    ("bounds+qc", "+ qc"),
-    ("bounds+qc+cycle", "+ cycle"),
-)
-
-
-def _cert_rows(store: Store, cut: str, metric: str, family: str) -> list[Record]:
-    return store.latest("certify.ablation", method=cut, family=family, metric=metric)
-
-
-def _cert_count(store: Store, cut: str, family: str, metric: str = "certified") -> int:
-    return int(sum(r.value for r in _cert_rows(store, cut, metric, family)))
-
-
-def _cert_time(store: Store, cut: str) -> str:
-    secs = sorted(
-        r.value for r in store.latest("certify.ablation", method=cut, metric="seconds", stage="relax")
-    )
-    tight = sorted(
-        r.value for r in store.latest("certify.ablation", method=cut, metric="seconds", stage="tightening")
-    )
-    lead = f"{tight[0]:.0f} to {tight[-1]:.0f} tightening, " if tight else ""
-    return lead + f"{secs[0]:.0f} to {secs[-1]:.0f} solve"
-
-
-def _cert_line(store: Store, cut: str, label: str) -> list[str]:
-    import statistics
-
-    paper = sorted(_cert_rows(store, cut, "gap", ""), key=lambda r: r.tag("episode"))
-    gaps = sorted(r.value for r in _cert_rows(store, cut, "gap", "Am"))
-    mism = statistics.median(r.value for r in _cert_rows(store, cut, "mismatch_mw", "Am"))
-    return [
-        label,
-        f"{_cert_count(store, cut, '')} of {len(paper)} certified (gaps {', '.join(str(int(r.value)) for r in paper)})",
-        f"{_cert_count(store, cut, 'Am')} of {len(_cert_rows(store, cut, 'certified', 'Am'))} certified",
-        f"{_cert_count(store, cut, 'At')} certified, {_cert_count(store, cut, 'At', 'uncertain')} uncertain",
-        f"{gaps[0]:.0f} to {gaps[-1]:.0f}, median {statistics.median(gaps):.0f}",
-        f"{mism:.0f}",
-        _cert_time(store, cut),
-    ]
-
-
-@query("certify.ablation")
-def certify_ablation(store: Store) -> str:
-    """Per cut family: certificates on the paper scenarios, Am and At, Am gaps, mismatch and time."""
-    body = [_cert_line(store, cut, label) for cut, label in _CUTS]
-    head = ["family", "paper", "`Am`", "`At`", "`Am` gaps", "median mismatch, MW (`Am`)", "seconds"]
-    return table(head, body, numeric_from=7)
-
-
 # ---- generation (docs/guides/generation.md)
 _AM_RUNS = (
     ("1", "none", "one line, before the D16 bounds"),
@@ -634,7 +581,8 @@ _AM_RUNS = (
 @query("gen.am")
 def gen_am(store: Store) -> str:
     """The overload episodes generated per system and recipe: built and fallen back, mean devices and
-    channels, the largest change on a channel (median and worst episode), proven share, time."""
+    channels, the largest change on a channel (median and worst episode), time (these runs predate the removal of
+    the search's proof bookkeeping; its proven share is no longer shown)."""
     exp = "generation.am_overload"
     body = []
     for system in ("ieee14", "ieee30", "ieee118"):
@@ -653,7 +601,6 @@ def gen_am(store: Store) -> str:
                     cell(_get(store, exp, metric="devices", **keys), ".1f"),
                     cell(_get(store, exp, metric="channels", **keys), ".1f"),
                     f"{cell(_get(store, exp, metric='max_change_pu', stat='median', **keys))} / {cell(_get(store, exp, metric='max_change_pu', stat='max', **keys))}",
-                    cell(_get(store, exp, metric="proven_share", **keys), ".0%"),
                     cell(_get(store, exp, metric="seconds_per_episode", **keys), ".0f"),
                 ]
             )
@@ -666,7 +613,6 @@ def gen_am(store: Store) -> str:
         "devices (mean)",
         "channels (mean)",
         "largest change, pu (median / max episode)",
-        "proven",
         "s per episode",
     ]
     return table(head, body, numeric_from=2)
