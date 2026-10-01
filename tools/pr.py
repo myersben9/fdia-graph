@@ -1,6 +1,7 @@
 """Pull requests from the command line, without the gh CLI (CONTRIBUTING.md, "The pull request").
 
-    python tools/pr.py create <branch> "<title>" <body.md>   # open a PR against main
+    python tools/pr.py create <branch> "<title>" <body.md>   # open a PR against main, as a draft
+    python tools/pr.py ready <num>                           # mark the draft ready: the one automated review
     python tools/pr.py status <num>                          # checks on the head, reviews, comment count
     python tools/pr.py comments <num>                        # every review comment (path, line, body)
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
@@ -162,9 +163,27 @@ def _green(state: dict[str, Any]) -> bool:
 
 
 def create(branch: str, title: str, body_file: str) -> None:
+    """Open the pull request as a draft: the ruleset reviews it once, when it is marked `ready`."""
     body = open(body_file, encoding="utf8").read()
-    pr = api("POST", "/pulls", json={"title": title, "head": branch, "base": "main", "body": body})
-    print(json.dumps({"number": pr["number"], "url": pr["html_url"]}))
+    pr = api(
+        "POST", "/pulls", json={"title": title, "head": branch, "base": "main", "body": body, "draft": True}
+    )
+    print(json.dumps({"number": pr["number"], "url": pr["html_url"], "draft": pr.get("draft")}))
+
+
+def ready(num: int) -> None:
+    """Mark a draft ready for review (GraphQL: the REST API cannot), which asks for the one review."""
+    node = api("GET", f"/pulls/{num}")["node_id"]
+    query = "mutation($id: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $id}) { pullRequest { isDraft } } }"
+    r = requests.post(
+        "https://api.github.com/graphql",
+        headers={"Authorization": f"Bearer {token()}"},
+        json={"query": query, "variables": {"id": node}},
+        timeout=60,
+    )
+    if r.status_code >= 300 or r.json().get("errors"):
+        raise SystemExit(f"ready #{num} -> {r.status_code}: {r.text[:500]}")
+    print(f"#{num} marked ready for review")
 
 
 def status(num: int) -> None:
@@ -278,6 +297,8 @@ def main(argv: list[str]) -> None:
     cmd, args = argv[0], argv[1:]
     if cmd == "create":
         create(args[0], args[1], args[2])
+    elif cmd == "ready":
+        ready(int(args[0]))
     elif cmd == "status":
         status(int(args[0]))
     elif cmd == "comments":
