@@ -135,3 +135,37 @@ def test_subnetwork_and_hop_distance_match_breadth_first_search():
             reach = _bfs_subnetwork(edges, seeds, h, n)[0]
             want[[b for b in reach if want[b] < 0]] = h
         np.testing.assert_array_equal(hop_distance(A, seeds), want)
+
+
+def test_edge_adjacency_is_symmetric_zero_one():
+    pytest.importorskip("scipy")
+    from fdia_graph.formulas import edge_adjacency
+
+    A = edge_adjacency(np.array([[0, 0, 1, 2], [1, 1, 2, 0]]), 4).toarray()  # a parallel pair on 0-1
+    np.testing.assert_array_equal(A, A.T)
+    np.testing.assert_array_equal(A, [[0, 1, 1, 0], [1, 0, 1, 0], [1, 1, 0, 0], [0, 0, 0, 0]])
+
+
+def test_temporal_layers_equal_the_per_frame_kernels(tmp_path):
+    """`write_temporal_layers` over small blocks equals `temporal_delta` and `swing_zscore` frame by
+    frame, the first frame (its own previous) and the frames across a block boundary included."""
+    h5py = pytest.importorskip("h5py")
+    from fdia_graph import schema
+    from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
+    from fdia_graph.generation.write import write_temporal_layers
+
+    rng = np.random.default_rng(5)
+    T, N = 23, 6
+    nx = (rng.standard_normal((T, N, 4)) * 40).astype(np.float32)
+    with h5py.File(tmp_path / "t.h5", "w") as f:
+        f[schema.NODE_X] = nx
+        f.create_dataset(schema.TEMPORAL_DELTA, (T, N, 2), np.float32)
+        f.create_dataset(schema.SWING, (T, N, 2), np.float32)
+        write_temporal_layers(f, block=5)  # boundaries at frames 5, 10, 15, 20
+        got_d, got_s = f[schema.TEMPORAL_DELTA][()], f[schema.SWING][()]
+    scale = recent_change_scale(nx.astype(np.float64), SWING_WINDOW, N)  # the writer runs it in float64
+    every = np.ones(N, bool)
+    for t in range(T):
+        before = nx[t] if t == 0 else nx[t - 1]
+        np.testing.assert_array_equal(got_d[t], temporal_delta(nx[t], before, every))
+        np.testing.assert_array_equal(got_s[t], swing_zscore(nx[t], before, scale[t], every))

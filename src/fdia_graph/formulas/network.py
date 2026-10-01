@@ -259,11 +259,15 @@ def hop_distances(adjacency: Admittance, sources: np.ndarray) -> np.ndarray:
 
 
 def edge_adjacency(edge_index: np.ndarray, n_bus: int) -> Admittance:
-    """The [n_bus, n_bus] 0/1 sparse adjacency of the branches in `edge_index` [2, E]."""
+    """The [n_bus, n_bus] symmetric 0/1 sparse adjacency of the branches in `edge_index` [2, E]:
+    both directions of every branch, and 1 where parallel branches join the same two buses."""
     from scipy.sparse import coo_matrix
 
     a, b = np.asarray(edge_index[0], np.int64), np.asarray(edge_index[1], np.int64)
-    return coo_matrix((np.ones(len(a)), (a, b)), shape=(n_bus, n_bus)).tocsr()
+    rows, cols = np.r_[a, b], np.r_[b, a]
+    A = coo_matrix((np.ones(len(rows)), (rows, cols)), shape=(n_bus, n_bus)).tocsr()
+    A.data[:] = 1.0  # the CSR conversion summed parallel branches
+    return A
 
 
 def subnetwork(
