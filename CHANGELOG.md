@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **[WU26] reproduction harness** (`tools/wu26_harness.py`, `docs/wu26/README.md`): 1-minute attack windows
+  rebuilt from the 5-minute pool by AC power flow, Solution 1 and the DQN played on each window's
+  trusted-PMU MDP, and Table II, the trusted orders, the decision times and Figs. 11-12 written with
+  the CSV each figure is drawn from. Tables III-V and Fig. 13 are not reproduced (see the README).
+
 - **Removed: single-snapshot generation, the v0.8.3 recipe and the frozen suite.** The generator
   makes the multi-snapshot families `At` and `Am` only, on the hybrid meters; every published data
   release (v0.7.1 to v0.8.3) still loads read-only, with its family names (`Aq`, `Ad`, `As`, `Ar`,
@@ -53,6 +58,27 @@ the public API, the generated files and the numbers are the same as the previous
   - Known behaviour made visible by the new test timeline, unchanged here: an overload `Am` whose
     window has no stealthy design falls back to benign for the whole episode (`fallback_benign`), and
     its first snapshot can tamper nothing, its drift-free goal there being the true flow (D9).
+- [WU26]'s Solution 1, the trusted PMUs by row reduction (Sec. IV-D1, p. 657 steps 1-5;
+  docs/plans/WU_DEFENSE_PLAN.md, PR C): `trust.TrustedPMUs(env).fit()` on a `WuDefenseEnv` trusts one
+  PMU per configuration step, a PMU reading the sparsest attack the column-exchange reduction finds on
+  the attack area's Jacobian at the step's snapshot (the trusted buses left out), and records the order,
+  the rewards, the costs and the reductions' own time. Ours: the chase is restricted to attacks that
+  move a target line and that a PMU on offer reads, the PMU reading most of the attack's channels is
+  trusted, and the first PMU on offer when no open attack touches one. `RrefMixin.area_jacobian` now also
+  names the device of every row (`channel_devices`). On [WU26]'s IEEE-14 scenarios (20 pool frames, k =
+  1.1) the order is 4, 6, 13, 1 and 4, 1, 6, 13 against the paper's 1, 4, 6, 13 and 4, 6, 1, 13; the
+  reductions take 0.03 to 0.04 s per episode.
+- [WU26]'s Solution 2, the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2;
+  docs/plans/WU_DEFENSE_PLAN.md, PR D): `trust.TrustedPMUsDQN(envs, WuDqnConfig()).fit()` over one or more
+  `WuDefenseEnv` windows, `order(env)` the trained policy's greedy sequence (eq. 38). The loop is
+  Algorithm 1's: epsilon-greedy actions (eq. 34), line 8's break without a stored transition, one
+  minibatch update per iteration by the squared loss to r + gamma max Q_target (eqs. 35-37), the target
+  network copied every 20 iterations; new validated `WuDqnConfig` with the stated hyperparameters as
+  defaults (gamma 0.9, Adam at 0.005, buffer 2,500, minibatch 25, target every 20, epsilon
+  e^(-0.002 ep), 250 episodes). Ours: the network (two hidden layers of 128 ReLU units, torch), masking
+  PMUs already trusted, terminal transitions bootstrapping nothing, and the state scaled by its largest
+  magnitude over the training environments' first states. New input model `SameDefense` (the training
+  environments offer as many PMUs and take as many steps).
 
 - [WU26]'s trusted-PMU configuration as a Markov decision process (docs/plans/WU_DEFENSE_PLAN.md, PR B):
   `trust.WuDefenseEnv(g, states, goal, k, WuDefenseConfig(pmus, slots))` on one overload window, with

@@ -40,6 +40,7 @@ from .config import (
     TrustSchedule,
     WindowSpec,
     WuDefenseConfig,
+    WuDqnConfig,
 )
 from .data import (
     ArraysBundle,
@@ -126,6 +127,7 @@ from .inputs import (
     RankedLabels,
     ReleaseName,
     Requirement,
+    SameDefense,
     ShapedArray,
     StateBlocks,
     StatePool,
@@ -237,6 +239,7 @@ __all__ = [
     "AdmissibleTargets",
     "CertifiableLimits",
     "ChosenAction",
+    "SameDefense",
     "TrustablePmus",
     "WindowSlots",
     "DatasetName",
@@ -276,6 +279,7 @@ __all__ = [
     "OverloadSettings",
     "TrustSchedule",
     "WuDefenseConfig",
+    "WuDqnConfig",
     "ShardRun",
     "IsoExport",
     "ProfileFetch",

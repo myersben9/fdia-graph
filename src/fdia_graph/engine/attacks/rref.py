@@ -35,7 +35,7 @@ from ...formulas.trust import sparsest_rows
 from ...models.choices import SupportMethod
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, MinimizerResult
-from ...models.grid import NODE
+from ...models.grid import CURRENT, NODE
 from .minimize import Goal, MinimizeMixin, _Window
 
 V_STEP = 1e-6  # pu: the finite-difference step of |V| in the attack-area Jacobian
@@ -129,9 +129,17 @@ class RrefMixin(MinimizeMixin):
         return [np.array(sorted(first), dtype=np.int64), *rest]
 
     def _area_jacobian(self, window: _Window, t: int, free: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """(H [m, 2F], G [L, 2F]) at snapshot t by forward differences in |V| and angle of the `free` buses
-        (columns: every free bus's |V|, then its angle): H the attackable channels each over its noise,
-        the rows no free bus moves dropped; G the apparent from-end flow (MVA) of every target line."""
+        """(H, G) of `area_jacobian`, without the rows' devices."""
+        H, G, _ = self.area_jacobian(window, t, free)
+        return H, G
+
+    def area_jacobian(
+        self, window: _Window, t: int, free: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """(H [m, 2F], G [L, 2F], devices [m]) at snapshot t by forward differences in |V| and angle of
+        the `free` buses (columns: every free bus's |V|, then its angle): H the attackable channels each
+        over its noise, the rows no free bus moves dropped; G the apparent from-end flow (MVA) of every
+        target line; the device holding each row's channel (`channel_devices`)."""
         X = np.asarray(window.states[t], np.float64)
         F = len(free)
         batch = np.repeat(X[None], 1 + 2 * F, axis=0)
@@ -140,10 +148,24 @@ class RrefMixin(MinimizeMixin):
         steps = np.r_[np.full(F, V_STEP), np.full(F, THETA_STEP)]
         z = self._scaled_channels(window, t, batch)
         H = ((z[1:] - z[0]) / steps[:, None]).T
-        H = H[np.abs(H).max(axis=1) > 0]
+        kept = np.abs(H).max(axis=1) > 0
         flows = np.abs(self.all_flows_from_states(batch)[:, list(cast(FlowGoal, window.goal).lines)])
         G = ((flows[1:] - flows[0]) / steps[:, None]).T
-        return H, G
+        return H[kept], G, self.channel_devices(window)[kept]
+
+    def channel_devices(self, window: _Window) -> np.ndarray:
+        """The device of every channel `_scaled_channels` lists, in its order (`tampered_devices`' ids:
+        the SCADA terminal of bus b is b, its PMU N + b): a node's |V| and angle belong to its PMU when it
+        has one, its injections and the flows metered at it to its SCADA terminal, a branch current to the
+        PMU at that end."""
+        N, pmu, ei = self.C, window.pmu, self.ei
+        b, c = np.nonzero(window.node_m > 0)
+        at_pmu = np.isin(c, (NODE.v, NODE.theta)) & pmu[b]
+        parts = [np.where(at_pmu, N + b, b), ei[0, np.nonzero(window.edge_m > 0)[0]]]
+        if window.i_m is not None and window.i_sigma is not None:
+            e, ce = np.nonzero(window.i_m > 0)
+            parts.append(N + np.where(np.isin(ce, (CURRENT.re_from, CURRENT.im_from)), ei[0, e], ei[1, e]))
+        return np.concatenate(parts).astype(np.int64)
 
     def _scaled_channels(self, window: _Window, t: int, batch: np.ndarray) -> np.ndarray:
         """Every attackable channel of each state in `batch` [B, N, 4] over its [WU26] noise, [B, m]:
