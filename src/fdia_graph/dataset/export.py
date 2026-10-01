@@ -213,13 +213,10 @@ class ExportMixin(DatasetBase):
         if not flatten_features:
             return df
         N, E = self.N, self.E
+        blocks = [df]
         for ci, nm in enumerate(["V", "Pinj", "Qinj", "theta"]):  # node_x[:, :, ci] is [n, N]
-            df = pd.concat(
-                [df, pd.DataFrame(a["node_x"][:, :, ci], columns=[f"{nm}_b{b}" for b in range(N)])], axis=1
-            )
+            blocks.append(pd.DataFrame(a["node_x"][:, :, ci], columns=[f"{nm}_b{b}" for b in range(N)]))
         for ci, nm in enumerate(["Pflow", "Qflow"]):  # edge_x[:, :, ci] is [n, E]
-            df = pd.concat(
-                [df, pd.DataFrame(a["edge_x"][:, :, ci], columns=[f"{nm}_e{e}" for e in range(E)])], axis=1
-            )
-        labels = pd.DataFrame(a["y"].astype(int), columns=[f"attacked_b{b}" for b in range(N)])
-        return pd.concat([df, labels], axis=1)
+            blocks.append(pd.DataFrame(a["edge_x"][:, :, ci], columns=[f"{nm}_e{e}" for e in range(E)]))
+        blocks.append(pd.DataFrame(a["y"].astype(int), columns=[f"attacked_b{b}" for b in range(N)]))
+        return pd.concat(blocks, axis=1)

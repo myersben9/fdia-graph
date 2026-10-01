@@ -34,7 +34,16 @@ from .federated import (
     pool_moments,
 )
 from .linalg import batched_normal_matrices, condition_number, guarded_inverse
-from .metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates, tau_from_counts
+from .metrics import (
+    average_precision,
+    micro_prf,
+    perbus_counts,
+    perbus_f1_from_counts,
+    perbus_rates,
+    sample_f1,
+    strict_accuracy,
+    tau_from_counts,
+)
 from .network import (
     Admittances,
     BranchModel,
@@ -118,6 +127,7 @@ __all__ = [
     "pmu_pseudo_links",
     "pmu_pseudo_phasors",
     "pmu_pseudo_voltages",
+    "micro_prf",
     "perbus_counts",
     "perbus_f1_from_counts",
     "perbus_rates",
@@ -126,9 +136,11 @@ __all__ = [
     "recent_change_scale",
     "residual_covariance_diag",
     "rref",
+    "sample_f1",
     "series_admittance",
     "sparse_basis",
     "subnetwork",
+    "strict_accuracy",
     "swing_zscore",
     "tampered_channels",
     "tampered_devices",

@@ -32,7 +32,7 @@ open. The plans hold the reasoning behind each.
 | E6 | Algorithm 1 line 8 ends an episode with no reward, as written | paper | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | `tests.test_wu_defense_env.test_line_8_ends_the_episode_without_a_reward` |
 | E7 | the DQN's state is Fig. 1's: the readings, the target lines' loading, the trusted set | paper | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | `tests.test_wu_defense_env.test_the_state_is_what_fig_1_lists` |
 | E8 | IEEE-118's 100 tests run as 10 training sessions of 10 test windows | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
-| E9 | the Q network is ours (two hidden layers of 128); its hyperparameters are the paper's | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | `tests.test_trusted_pmus_dqn.test_the_stated_hyperparameters_are_the_defaults` |
+| E9 | the Q network is ours (two hidden layers of 128); its hyperparameters are the paper's | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | `trust.dqn.q_network` | `tests.test_trusted_pmus_dqn.test_the_stated_hyperparameters_are_the_defaults` |
 | E10 | detection with PMU support is the residual test with trusted PMUs reading truth | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
 | E11 | the single-snapshot trusted-meter classes stay as the linear analogue | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
 | E12 | IEEE-1354 is not reproduced | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |

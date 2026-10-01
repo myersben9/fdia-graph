@@ -44,7 +44,8 @@ def guarded_inverse(A: np.ndarray) -> np.ndarray:
         L = np.linalg.cholesky(S)
         rcond = _triangular_rcond(L, lapack)
         if rcond**2 > 100 * eps:  # cond(A) ~ cond(L)^2; the same 1e-14 relative floor as before
-            return np.linalg.inv(S)
+            # the inverse from the factor already computed, instead of factoring S again
+            return _scipy_linalg().cho_solve((L, True), np.eye(len(S)), check_finite=False)
     except np.linalg.LinAlgError:
         pass
     return np.linalg.pinv(S, rcond=100 * eps)

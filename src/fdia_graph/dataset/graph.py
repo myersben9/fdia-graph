@@ -11,6 +11,7 @@ import warnings
 
 import numpy as np
 
+from ..formulas.network import series_admittance
 from .base import (
     DatasetBase,
     _torch,
@@ -83,12 +84,9 @@ class GraphMixin(DatasetBase):
         v = self._phys.get(key)
         if v is None:
             r, x = self._phys.get("edge_r"), self._phys.get("edge_x")
-            if r is None:
+            if r is None or x is None:
                 return self._p(key)  # no physics at all -> standard "needs v0.5.0+" error
-            z = np.asarray(r) + 1j * np.asarray(x)
-            ys = np.zeros_like(z, complex)
-            nz = np.abs(z) > 1e-12
-            ys[nz] = 1.0 / z[nz]
+            ys = series_admittance(r, x)
             v = np.imag(ys) if imag else np.real(ys)
         return _torch().as_tensor(v)
 

@@ -23,7 +23,7 @@ import numpy as np
 
 from ..errors import NoAttackedRecords, NotFitted
 from ..formulas.federated import Moments, channel_moments, pool_moments
-from ..formulas.metrics import perbus_counts, tau_from_counts
+from ..formulas.metrics import perbus_counts_at, tau_from_counts
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
     BENIGN_CODE,
     Features,
@@ -231,7 +231,7 @@ class LearnedLocalizer(LocalizerBase):
         if not active.any():
             raise NoAttackedRecords("tune_threshold needs attacked records in val")
         taus = np.linspace(0.05, 0.95, 19)
-        tp, fp, fn = (np.stack(c) for c in zip(*(perbus_counts(p > tau, t) for tau in taus)))
+        tp, fp, fn = perbus_counts_at(p, t, taus)
         self.tau = tau_from_counts(tp, fp, fn, np.asarray(active), taus)
         self.thr = np.full(p.shape[1], self.tau)
         if self.attackable_only:
@@ -251,9 +251,7 @@ class LearnedLocalizer(LocalizerBase):
         if attacked.all() or not attacked.any():
             raise NoAttackedRecords("tune_grid_threshold needs both attacked and benign records in val")
         taus = np.linspace(0.05, 0.95, 19)
-        tp, fp, fn = (
-            np.stack(c) for c in zip(*(perbus_counts((g > t)[:, None], attacked[:, None]) for t in taus))
-        )
+        tp, fp, fn = perbus_counts_at(g[:, None], attacked[:, None], taus)
         self.grid_tau = tau_from_counts(tp, fp, fn, np.ones(1, bool), taus)
         return self
 

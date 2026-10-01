@@ -29,7 +29,8 @@ import numpy as np
 from ..models.config import WuDqnConfig
 from ..models.inputs import SameDefense
 from .defense import WuDefenseEnv
-from .dqn import _Replay
+from .dqn import _Replay, q_network
+from .dqn import _torch as _dqn_torch
 
 if TYPE_CHECKING:
     import torch
@@ -37,12 +38,7 @@ if TYPE_CHECKING:
 
 
 def _torch() -> ModuleType:
-    try:
-        import torch
-
-        return torch
-    except ImportError as e:
-        raise ImportError("TrustedPMUsDQN needs torch: pip install 'fdia-graph[torch]'") from e
+    return _dqn_torch("TrustedPMUsDQN")
 
 
 class TrustedPMUsDQN:
@@ -132,14 +128,7 @@ class TrustedPMUsDQN:
         return self.envs[0].n_actions
 
     def _net(self) -> nn.Module:
-        torch, width = _torch(), self.config.hidden
-        return torch.nn.Sequential(
-            torch.nn.Linear(len(self.scale), width),
-            torch.nn.ReLU(),
-            torch.nn.Linear(width, width),
-            torch.nn.ReLU(),
-            torch.nn.Linear(width, self._actions()),
-        )
+        return q_network(len(self.scale), self.config.hidden, self._actions(), "TrustedPMUsDQN")
 
     def _q(self, net: nn.Module, states: np.ndarray, valid: np.ndarray) -> torch.Tensor:
         """Q-values with the PMUs no longer on offer masked out."""

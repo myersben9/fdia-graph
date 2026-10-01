@@ -3,8 +3,7 @@
 
 The estimator classes in `fdia_graph.se` own the measurement function h(x), the chord Jacobian,
 the iteration loops and their divergence guard; every algebraic step inside those loops is one
-of the functions here. Each keeps the exact floating-point expression the estimator used before
-it existed, so cached results reproduce bit for bit.
+of the functions here. The SE tests pin the estimators to tolerance, not to the last bit.
 
 Shapes: m measurements, k state (or basis) coordinates, n records. `w` is a weight vector
 (1/σ²) per measurement, `H` the m×k Jacobian, `Ai` the inverse normal matrix (HᵀWH)⁻¹.

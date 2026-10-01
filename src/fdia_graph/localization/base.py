@@ -19,7 +19,15 @@ from typing import TYPE_CHECKING, Any, Optional
 import numpy as np
 
 from ..errors import ConfigError, NoBenignRecords
-from ..formulas.metrics import average_precision, perbus_counts, perbus_f1_from_counts, perbus_rates
+from ..formulas.metrics import (
+    average_precision,
+    micro_prf,
+    perbus_counts,
+    perbus_f1_from_counts,
+    perbus_rates,
+    sample_f1,
+    strict_accuracy,
+)
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
     BENIGN_CODE,
     Buses,
@@ -232,13 +240,12 @@ def _overall_metrics(pred: np.ndarray, y: np.ndarray, ben: np.ndarray) -> Overal
     active set, the buses attacked somewhere in these records (F1 and recall accumulate over every
     record, the false-positive rate over benign records only) and the micro node F1. macro_f1 reads 0.0 when no bus is ever attacked."""
     act = y.any(axis=0)
-    tp = (pred & y).sum(axis=0).astype(np.float64)
-    fn = (~pred & y).sum(axis=0).astype(np.float64)
+    f1, dr, _ = perbus_rates(pred, y)
     return OverallMetrics(
-        macro_f1=float(_perbus_f1(pred, y)[act].mean()) if act.any() else 0.0,
-        macro_dr=float((tp / np.maximum(tp + fn, 1e-9))[act].mean()) if act.any() else 0.0,
+        macro_f1=float(f1[act].mean()) if act.any() else 0.0,
+        macro_dr=float(dr[act].mean()) if act.any() else 0.0,
         macro_fr=float(pred[ben][:, act].mean()) if act.any() and ben.any() else 0.0,
-        node_f1=_micro_f1(pred, y),
+        node_f1=micro_prf(pred, y)[2],
     )
 
 
@@ -252,19 +259,15 @@ def _family_metrics(p: np.ndarray, t: np.ndarray) -> FamilyMetrics:
     """On one attacked family: strict localization accuracy (predicted set equals the true set),
     micro node precision/recall/F1 over bus calls, per-bus macro-F1 over the buses the family
     attacks, per-sample macro-F1, and the record-level detection rate (any bus flagged)."""
-    tp = float((p & t).sum())
-    prec = tp / max(float(p.sum()), 1e-12)
-    rec = tp / max(float(t.sum()), 1e-12)
-    inter = (p & t).sum(axis=1).astype(np.float64)
-    denom = np.maximum(p.sum(axis=1) + t.sum(axis=1), 1e-12)
+    prec, rec, f1 = micro_prf(p, t)
     act = t.any(axis=0)
     return FamilyMetrics(
-        strict_acc=float((p == t).all(axis=1).mean()),
+        strict_acc=strict_accuracy(p, t),
         node_precision=prec,
         node_recall=rec,
-        node_f1=2 * prec * rec / max(prec + rec, 1e-12),
+        node_f1=f1,
         macro_f1=float(_perbus_f1(p, t)[act].mean()),
-        sample_f1=float((2 * inter / denom).mean()),
+        sample_f1=sample_f1(p, t),
         detection_rate=float(p.any(axis=1).mean()),
     )
 
@@ -273,11 +276,3 @@ def _perbus_f1(pred: np.ndarray, truth: np.ndarray) -> np.ndarray:
     """F1 per bus [N] over the record axis (`formulas.metrics`). Its mean over the active buses is
     the papers' localization macro-F1."""
     return perbus_f1_from_counts(*perbus_counts(pred, truth))
-
-
-def _micro_f1(pred: np.ndarray, truth: np.ndarray) -> float:
-    """One F1 over every (record, bus) call."""
-    tp = float((pred & truth).sum())
-    prec = tp / max(float(pred.sum()), 1e-12)
-    rec = tp / max(float(truth.sum()), 1e-12)
-    return 2 * prec * rec / max(prec + rec, 1e-12)

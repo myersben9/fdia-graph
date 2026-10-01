@@ -175,16 +175,17 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self.gen_base = np.zeros((C, 2))
         self.p_lim = np.tile([-np.inf, np.inf], (C, 1))
         self.q_lim = np.tile([-np.inf, np.inf], (C, 1))
-        for r in base.load.itertuples():
-            self.load_base[int(r.bus)] += (r.p_mw, r.q_mvar)
+        # per-bus sums over co-located loads and generators, in row order (np.add.at is unbuffered)
+        np.add.at(self.load_base, base.load.bus.to_numpy(int), base.load[["p_mw", "q_mvar"]].to_numpy(float))
         gens = base.gen
+        at = gens.bus.to_numpy(int)
         self.has_gen = np.zeros(C, bool)  # a generator on the bus, zero-MW condensers included
-        self.has_gen[np.unique(gens.bus.values).astype(int)] = True
-        for b in np.unique(gens.bus.values):
-            rows = gens[gens.bus == b]
-            self.gen_base[int(b), 0] = rows.p_mw.sum()
-            self.p_lim[int(b)] = (rows.min_p_mw.sum(), rows.max_p_mw.sum())
-            self.q_lim[int(b)] = (rows.min_q_mvar.sum(), rows.max_q_mvar.sum())
+        self.has_gen[at] = True
+        np.add.at(self.gen_base[:, 0], at, gens.p_mw.to_numpy(float))
+        if len(at):
+            self.p_lim[at] = self.q_lim[at] = 0.0  # summed over the bus's generators below
+            np.add.at(self.p_lim, at, gens[["min_p_mw", "max_p_mw"]].to_numpy(float))
+            np.add.at(self.q_lim, at, gens[["min_q_mvar", "max_q_mvar"]].to_numpy(float))
         self.v_case = np.stack([base.bus.min_vm_pu.values, base.bus.max_vm_pu.values], axis=1).astype(float)
 
     def _meter_plan(

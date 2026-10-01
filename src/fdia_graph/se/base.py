@@ -573,8 +573,7 @@ class SEBase:
             out[name] = {"angle_mae_deg": float(ang[m].mean()), "voltage_mae_pu": float(volt[m].mean())}
             geo_a.append(max(float(ang[m].mean()), 1e-30))  # guard log(0) on degenerate slices
             geo_v.append(max(float(volt[m].mean()), 1e-30))
-        out["geo"] = {
-            "angle_mae_deg": float(np.exp(np.mean(np.log(geo_a)))),
-            "voltage_mae_pu": float(np.exp(np.mean(np.log(geo_v)))),
-        }
+        from scipy.stats import gmean  # the [se] extra brings scipy
+
+        out["geo"] = {"angle_mae_deg": float(gmean(geo_a)), "voltage_mae_pu": float(gmean(geo_v))}
         return EstimatorScores(**{k: ErrorPair(**v) for k, v in out.items()})

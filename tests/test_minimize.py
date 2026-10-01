@@ -89,11 +89,17 @@ def test_the_search_equals_brute_force(case):
 def test_the_emitter_draws_with_the_shared_noise_rule(case):
     g, X, _ = case
     drawn = []
-    g._draw_noise = lambda s: drawn.append(float(s)) or 0.0  # record every std the emitter draws with
+
+    class _Recorder:  # stands in for the emission's stream: records every std, in draw order
+        def normal(self, loc, scale):
+            drawn.extend(float(s) for s in np.ravel(scale))
+            return np.zeros(np.shape(scale))
+
+    g._jitter_stream = lambda: _Recorder()
     try:
         scan = g.emit_from_state(X[0])
     finally:
-        del g._draw_noise
+        del g._jitter_stream
     from fdia_graph.formulas.network import branch_flows, complex_voltages
 
     Vc = np.zeros(g._n_ppc_buses, complex)  # the emitter's own float64 flows

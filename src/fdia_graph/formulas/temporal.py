@@ -25,14 +25,14 @@ def recent_change_scale(X: np.ndarray, window: int, n_bus: int) -> np.ndarray:
     c1 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D, 0)], 0)  # prefix sum
     c2 = np.concatenate([np.zeros((1,) + D.shape[1:]), np.cumsum(D**2, 0)], 0)  # prefix sum of squares
     scale = np.full((T, n_bus, 2), 1e-3, np.float32)
-    for t in range(2, T):  # window covers D[max(0, t-W) .. t-2]
-        s = max(0, t - window)
-        e = t - 1
-        n = e - s
-        if n >= 3:
-            su = c1[e] - c1[s]
-            sq = c2[e] - c2[s]
-            scale[t] = np.sqrt(np.maximum(sq / n - (su / n) ** 2, 0.0)) + 1e-3
+    # every t at once: the window covers D[max(0, t-W) .. t-2], used where it holds >= 3 changes
+    t = np.arange(2, T)
+    s, e = np.maximum(0, t - window), t - 1
+    n = e - s
+    ok = n >= 3
+    s, e, t, n = s[ok], e[ok], t[ok], n[ok].astype(np.float64)[:, None, None]
+    su, sq = c1[e] - c1[s], c2[e] - c2[s]
+    scale[t] = np.sqrt(np.maximum(sq / n - (su / n) ** 2, 0.0)) + 1e-3
     return scale
 
 
@@ -57,8 +57,8 @@ def swing_zscore(nx: np.ndarray, prev: np.ndarray, scale_t: np.ndarray, metered:
 
         swing[b] = ([P_inj, Q_inj](t) - [P_inj, Q_inj](t-1)) / scale_t[b]
 
-    The float64 difference is divided, not the float32 delta, so shards stay bit-identical to
-    older releases.
+    The difference is divided before it is rounded to float32 (the writer does the same over a block
+    of frames at once, `generation.write`).
     nx, prev : [N, 4] current and previous scan; scale_t : [N, 2] from recent_change_scale
     metered  : [N] bool, buses with an injection meter
     returns  : [N, 2] float32, dimensionless

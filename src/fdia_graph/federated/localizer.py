@@ -31,7 +31,7 @@ import numpy as np
 
 from ..errors import NoAttackedRecords
 from ..formulas.federated import channel_moments
-from ..formulas.metrics import perbus_counts, tau_from_counts
+from ..formulas.metrics import perbus_counts_at, tau_from_counts
 from ..localization.learned import (
     BusCNN,
     BusMLP,
@@ -289,8 +289,7 @@ class FederatedLocalizer(LearnedLocalizer):
         active, jac = np.zeros(self.N, bool), self._central(d)
         for k, c in enumerate(self._clients):
             p, t = self._client_scores(d, k, jac), d["y"][:, c.own].astype(bool)
-            for i, tau in enumerate(taus):
-                tp[i, c.own], fp[i, c.own], fn[i, c.own] = perbus_counts(p > tau, t)
+            tp[:, c.own], fp[:, c.own], fn[:, c.own] = perbus_counts_at(p, t, taus)
             active[c.own] = t.any(axis=0)
         if not active.any():
             raise NoAttackedRecords("tune_threshold needs attacked records in val")
