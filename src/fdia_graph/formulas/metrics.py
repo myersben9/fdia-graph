@@ -30,12 +30,10 @@ def perbus_counts_at(
     score : [n, N] float;  truth : [n, N] bool;  taus : [K]
     returns : (tp, fp, fn), each [K, N] float64
     """
-    g = LabelGrids(np.zeros(np.shape(score), bool), truth)
-    pred = np.asarray(score)[None] > np.asarray(taus, np.float64)[:, None, None]  # [K, n, N]
-    t = g.truth[None]
-    tp = (pred & t).sum(axis=1).astype(np.float64)
-    fp = (pred & ~t).sum(axis=1).astype(np.float64)
-    fn = (~pred & t).sum(axis=1).astype(np.float64)
+    score = np.asarray(score)
+    # one [n, N] comparison per tau: a full [K, n, N] mask would hold 19 copies of a timeline's labels
+    counts = [perbus_counts(score > tau, truth) for tau in np.asarray(taus, np.float64)]
+    tp, fp, fn = (np.stack(c) for c in zip(*counts))
     return tp, fp, fn
 
 
