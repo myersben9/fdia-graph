@@ -11,9 +11,9 @@ the public API, the generated files and the numbers are the same as the previous
     device on one channel, the least an attack tampers. Each candidate's false state is the existing
     least-norm Gauss-Newton solve of the AC measurement equations (`local_flow_solve`,
     `local_ac_solve`). Replacing it with `scipy.optimize.least_squares` (trust-region reflective, or
-    Levenberg-Marquardt with least-norm rows) was tried and kept out: it found no attack on one pinned
-    overload window the solve finds, a dearer one on two, and ran 2 to 25 times slower
-    (scratchpad comparison on the ten pinned IEEE-14 searches).
+    Levenberg-Marquardt with least-norm rows) was tried and kept out: on the pinned IEEE-14 searches it
+    lost an attack the least-norm solve finds, found dearer ones on others and ran slower everywhere
+    (experiment `search.solver_compare`, rendered in docs/wu26/README.md).
   - **Removed:** the convex-relaxation certifier (`engine.attacks.certify`, `relax_cuts`,
     `formulas.relax`, the `[certify]` extra with cvxpy and pyscipopt, `Certificate`, `BoundClaim`,
     `CertifyOptions`, `CertifiableLimits`, `CutFamily`, `CertifyVerdict`, `NoOperatingLimits`, the
@@ -23,9 +23,10 @@ the public API, the generated files and the numbers are the same as the previous
     `WuDefenseConfig.per_slot`, `MinimizerResult.plan`, decision E13 now "one support held"), which
     never changed an answer in any run. `MinimizerResult` is (support, devices, channels, evaluated) and
     `goal_state` returns the false state alone. [WU26] proves no minimum either.
-  - The ten pinned IEEE-14 searches find the same supports, devices and channels; the two `At` searches
-    stop at one device after 60 and 78 candidates instead of 128 and 112. The search's attack vectors are
-    float64 throughout (they were float32 before the comparison with noise; no answer changed).
+  - The pinned IEEE-14 searches find the same supports, devices and channels, and a generated timeline's
+    every data layer is byte-identical; only `episodes/min_evaluated` drops where an `At` search stops at
+    one device on one channel. The search's attack vectors are float64 throughout (float32 before the
+    comparison with noise; no answer changed).
   - **[WU26]'s attack area** [D18]: `FrameKnobs.area` takes the paper's area bus by bus
     (`OverloadMixin.wu26_area`: IEEE-14's every bus but the slack, p. 659; IEEE-118's Fig. 9 network,
     `WU26_ATTACK_AREA`, which nothing used before), and `SearchSettings.area_rule` / `FrameKnobs.area_rule`
@@ -38,7 +39,10 @@ the public API, the generated files and the numbers are the same as the previous
     `OverloadMixin.window_ratings`). The generation defaults are unchanged. An Am episode's recorded
     ratings are its goal's end targets.
   - `tools/wu26_harness.py` takes `--ratings` ("+0.10" by default, or margins such as "1.1") and runs on
-    the paper's area.
+    the paper's area; its rerun (experiment `wu26.reproduction`) and the MINLP prototype's experiments
+    (`minlp.prototype`, `minlp.region_reading`, `minlp.anchoring`, `minlp.rating_delta`,
+    `minlp.cap_trust_grid`) are rendered in docs/wu26/README.md, with why IEEE-14 does not reproduce
+    the paper's Table II. New metric `feasible`; `lower_bound` is now a solver's dual bound.
 
 - **Generation in stages, typed settings, the paper mapped to the code.**
   - The timeline writer is a pipeline of stages with typed hand-offs in the new package

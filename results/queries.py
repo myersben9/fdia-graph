@@ -827,3 +827,142 @@ def gen_workers(store: Store) -> str:
         "",
     )
     return table([f"workers ({frames} frames)", "seconds", "speed-up", "Am episodes", "same file"], body)
+
+
+# ---- the attack search and the [WU26] reproduction (docs/wu26/README.md)
+@query("search.solvers")
+def search_solvers(store: Store) -> str:
+    """The pinned IEEE-14 searches with the least-norm Gauss-Newton solve against scipy's least squares:
+    devices, channels and seconds per search."""
+    exp = "search.solver_compare"
+    cases = sorted({(r.family, r.tag("load_cap"), r.tag("onset"), r.tag("lines")) for r in store.latest(exp)})
+    body = []
+    for fam, cap, onset, lines in cases:
+        keys = dict(family=fam, load_cap=cap, onset=onset, lines=lines)
+        what = f"lines {lines}" if fam == "Am" else f"ramp draw {lines}"
+        row = [f"`{fam}` onset {onset}, {what}, cap {cap}"]
+        for method in ("gauss_newton", "least_squares"):
+            d = _get(store, exp, method=method, metric="devices", **keys)
+            c = _get(store, exp, method=method, metric="channels", **keys)
+            s = _get(store, exp, method=method, metric="seconds", **keys)
+            attack = "none" if d is None or d.value < 0 else f"{cell(d, 'd')} / {cell(c, 'd')}"
+            row += [attack, cell(s, ".1f")]
+        body.append(row)
+    head = ["search", "Gauss-Newton (devices / channels)", "s", "least squares (devices / channels)", "s"]
+    return table(head, body)
+
+
+def _defense_cell(store: Store, exp: str, **keys: str) -> str:
+    """ "undefended -> trusted" devices / channels of one case, "none" where no attack meets the goal."""
+    out = []
+    for defense in ("undefended", "trust"):
+        feasible = _get(store, exp, metric="feasible", defense=defense, **keys)
+        d = _get(store, exp, metric="devices", defense=defense, **keys)
+        c = _get(store, exp, metric="channels", defense=defense, **keys)
+        no = d is None or (feasible is not None and feasible.value == 0)
+        out.append("none" if no else f"{cell(d, 'd')} / {cell(c, 'd')}")
+    return " → ".join(out)
+
+
+@query("minlp.rating_delta")
+def minlp_rating_delta(store: Store) -> str:
+    """[WU26]'s scenarios with ratings at the window's last flow plus delta: devices / channels without
+    and with the paper's trust schedule (load cap on, the paper's area)."""
+    exp = "minlp.rating_delta"
+    deltas = sorted({r.tag("delta_pu") for r in store.latest(exp)}, key=float)
+    cases = (
+        ("ieee14", "0", "IEEE-14, lines 3-4 and 6-11"),
+        ("ieee14", "1", "IEEE-14, lines 1-2 and 4-5"),
+        ("ieee118", "0", "IEEE-118, lines 84-85 and 99-100"),
+    )
+    body = [
+        [label, *(_defense_cell(store, exp, system=s, scenario=sc, delta_pu=d) for d in deltas)]
+        for s, sc, label in cases
+    ]
+    return table(["case (undefended → trusted, devices / channels)", *(f"+{d} pu" for d in deltas)], body)
+
+
+@query("minlp.cap_trust")
+def minlp_cap_trust(store: Store) -> str:
+    """The same scenarios without the load cap and with the neighbour reading of trust (a trusted PMU's
+    branch currents secured too), against the defaults."""
+    exp = "minlp.cap_trust_grid"
+    cases = (
+        ("ieee14", "0", "IEEE-14, lines 3-4 and 6-11"),
+        ("ieee14", "1", "IEEE-14, lines 1-2 and 4-5"),
+        ("ieee118", "0", "IEEE-118, lines 84-85 and 99-100"),
+    )
+    combos = sorted({(r.method, r.tag("load_cap")) for r in store.latest(exp)})
+    deltas = sorted({r.tag("delta_pu") for r in store.latest(exp)}, key=float)
+    body = []
+    for s, sc, label in cases:
+        for d in deltas:
+            row = [f"{label}, +{d} pu"]
+            for method, cap in combos:
+                has = store.latest(exp, system=s, method=method, scenario=sc, delta_pu=d, load_cap=cap)
+                row.append(
+                    _defense_cell(store, exp, system=s, method=method, scenario=sc, delta_pu=d, load_cap=cap)
+                    if has
+                    else ""
+                )
+            body.append(row)
+    head = ["case", *(f"{m} trust, cap {c}" for m, c in combos)]
+    return table(head, body)
+
+
+_WU_TABLE2 = {
+    ("ieee14", "0"): "25.6% / 23.9%",
+    ("ieee14", "1"): "35.2% / 27.0%",
+    ("ieee118", "0"): "16.4% mean, mostly 10% to 20%",
+}
+
+
+@query("wu26.reproduction")
+def wu26_reproduction(store: Store) -> str:
+    """Per case, rating and method: windows run, windows whose attack survives the trust schedule, the
+    median devices and channels undefended and defended, the median cost rise (channels, eq. 33) and
+    extra devices over the surviving windows, beside the paper's figure."""
+    import statistics
+
+    exp = "wu26.reproduction"
+    rows = store.latest(exp)
+    groups = sorted({(r.system, r.tag("scenario"), r.tag("k"), r.method) for r in rows})
+    body = []
+    for system, scenario, k, method in groups:
+        keys = dict(system=system, scenario=scenario, k=k, method=method)
+
+        def values(metric: str, **more: str) -> list[float]:
+            return [r.value for r in store.latest(exp, metric=metric, **keys, **more)]
+
+        before, after = values("devices", stage="undefended"), values("devices", stage="defended")
+        ch_before, ch_after = values("channels", stage="undefended"), values("channels", stage="defended")
+        rise, extra = values("cost_increase_pct"), values("extra_devices")
+        attacked = [b for b in before if b > 0]
+        med = lambda v, spec: number(statistics.median(v), spec) if v else ""  # noqa: E731
+        body.append(
+            [
+                f"IEEE-{_short(system)}, scenario {int(scenario) + 1}",
+                k,
+                method,
+                f"{len(before)}",
+                f"{len(attacked)} / {len(rise)}",
+                f"{med([b for b in before if b > 0], '.0f')} / {med([c for c in ch_before if c > 0], '.0f')}",
+                f"{med([a for a in after if a > 0], '.0f')} / {med([c for c in ch_after if c > 0], '.0f')}",
+                f"{med(rise, '.1f')}%" if rise else "",
+                med(extra, ".0f"),
+                _WU_TABLE2.get((system, scenario), ""),
+            ]
+        )
+    head = [
+        "case",
+        "rating",
+        "method",
+        "windows",
+        "attacked / survives",
+        "undefended (devices / channels)",
+        "defended",
+        "rise (channels)",
+        "extra devices",
+        "[WU26]",
+    ]
+    return table(head, body, numeric_from=3)

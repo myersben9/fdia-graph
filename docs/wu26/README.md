@@ -9,8 +9,90 @@ source any number on this page is rendered from.
 - **Windows:** 1-minute attack snapshots, interpolated from the 5-minute operating pool and re-solved by AC power flow.
   - IEEE-14 uses 20 snapshots; IEEE-118 uses 10.
   - Wu's attack snapshots are 30 s. Ours are twice as long, so an IEEE-14 window spans 20 minutes against his 10.
-- **Ratings:** k times each target line's peak flow over the window. k = 1.2 is the default, and k = 1.1 is used only for the Table II comparison.
-- **Cost oracle:** the fewest-tamper search, minimizing tampered measurements (eq. 33).
+- **Attack area:** the paper's own (`OverloadMixin.wu26_area`, decision D18): IEEE-14's every bus but the
+  slack ("knowledge of the system's global generation and load forecasts", p. 659), IEEE-118's local
+  network of Fig. 9.
+- **Ratings:** each target line's true flow at the window's last snapshot plus 0.10 pu (`--ratings +0.10`,
+  decision E14, ours): the paper states no ratings, and this scale makes the attack's magnitudes match
+  its Fig. 4. Margins on the peak flow (`--ratings 1.1 1.2`) remain as a sensitivity.
+- **Attack:** the candidate search with the paper's noise as the l0 threshold (D8), the load cap (D16),
+  a trusted PMU securing its own |V| and angle (E2, eq. 27). It is the cost oracle of both defenses.
+
+## Results
+
+<!-- results: wu26.reproduction -->
+| case | rating | method | windows | attacked / survives | undefended (devices / channels) | defended | rise (channels) | extra devices | [WU26] |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+<!-- /results -->
+
+IEEE-118 lands in the paper's band; IEEE-14 does not. The next section says why.
+
+## Why IEEE-14 does not reproduce Table II
+
+The paper states neither its line ratings nor its limits, and the gap follows them. With the ratings set
+at each target's last flow plus a step, the paper's area, our load cap and its own-bus trust, the
+prototype of the attack as one mixed-integer program (written from eqs. 12-25 and 29, solved by SCIP)
+gives (experiment `minlp.rating_delta`):
+
+<!-- results: minlp.rating_delta -->
+| case (undefended → trusted, devices / channels) | +0.10 pu | +0.15 pu | +0.20 pu | +0.30 pu |
+|---|---:|---:|---:|---:|
+| IEEE-14, lines 3-4 and 6-11 | none → none | none → none | none → none | none → none |
+| IEEE-14, lines 1-2 and 4-5 | 8 / 23 → 8 / 23 | 9 / 29 → 9 / 29 | 9 / 31 → 9 / 32 | 14 / 52 → none |
+| IEEE-118, lines 84-85 and 99-100 | 10 / 25 → 13 / 29 | 10 / 29 → 13 / 31 | 13 / 35 → 13 / 35 | 14 / 40 → 14 / 40 |
+<!-- /results -->
+
+- **IEEE-118** reaches the paper's band at the smallest steps.
+- **IEEE-14, lines 3-4 and 6-11** has no attack at any step under our load cap and the paper's limits
+  (21)-(23), while the paper attacks it at about 0.22 pu.
+- **IEEE-14, lines 1-2 and 4-5** routes around the trusted PMUs: its attack moves no PMU bus's |V| or
+  angle, so trusting them costs nothing; a trusted PMU's branch currents stay attackable (eq. 27).
+
+Dropping the load cap, or securing a trusted PMU's branch currents too (the other reading of p. 655),
+moves IEEE-14 into the band only with attacks far larger than the paper's figures, or makes every
+defended attack infeasible (experiment `minlp.cap_trust_grid`):
+
+<!-- results: minlp.cap_trust -->
+| case | neighbour trust, cap off | neighbour trust, cap on | own trust, cap off |
+|---|---:|---:|---:|
+| IEEE-14, lines 3-4 and 6-11, +0.10 pu | 11 / 37 → none | none → none | 11 / 37 → 11 / 50 |
+| IEEE-14, lines 3-4 and 6-11, +0.15 pu | 12 / 45 → none | none → none | 12 / 45 → 11 / 52 |
+| IEEE-14, lines 3-4 and 6-11, +0.20 pu | 13 / 49 → none | none → none | 13 / 49 → 14 / 63 |
+| IEEE-14, lines 1-2 and 4-5, +0.10 pu | 7 / 15 → none | 8 / 23 → none | 7 / 15 → 7 / 17 |
+| IEEE-14, lines 1-2 and 4-5, +0.15 pu | 7 / 21 → none | 9 / 29 → none | 7 / 21 → 9 / 23 |
+| IEEE-14, lines 1-2 and 4-5, +0.20 pu | 8 / 24 → none | 9 / 31 → none | 8 / 24 → 9 / 30 |
+| IEEE-118, lines 84-85 and 99-100, +0.10 pu |  | 10 / 25 → none | 9 / 18 → 9 / 18 |
+| IEEE-118, lines 84-85 and 99-100, +0.15 pu |  |  | 9 / 19 → 9 / 19 |
+| IEEE-118, lines 84-85 and 99-100, +0.20 pu |  |  | 9 / 21 → 9 / 21 |
+<!-- /results -->
+
+Further readings checked and rejected: tampering every meter of the moved region instead of those
+beyond noise (`minlp.region_reading`; the paper's Fig. 4 leaves sub-noise changes out of its list),
+anchoring the attack on the target lines' end buses (`minlp.anchoring`), and the cold mixed-integer
+solve as the attack generator (`minlp.prototype`: SCIP found no attack within its time limit where the
+search finds one). The cost definition (noise-thresholded l0) and the own-bus trust reading are the ones
+consistent with the paper's figures; whether trust bites depends on ratings and limits it does not state.
+
+## The search
+
+The attack's false state is the least-norm Gauss-Newton solve of the AC measurement equations.
+`scipy.optimize.least_squares` was tried in its place on the pinned IEEE-14 searches (experiment
+`search.solver_compare`) and kept out:
+
+<!-- results: search.solvers -->
+| search | Gauss-Newton (devices / channels) | s | least squares (devices / channels) | s |
+|---|---:|---:|---:|---:|
+| `Am` onset 0, lines 0, cap 0.5 | 8 / 43 | 0.3 | none | 0.6 |
+| `Am` onset 150, lines 0, cap 0.5 | none | 0.3 | none | 0.6 |
+| `Am` onset 300, lines 0, cap 0.5 | 7 / 25 | 0.2 | 7 / 24 | 0.6 |
+| `Am` onset 0, lines 0, cap None | 7 / 23 | 0.2 | 7 / 28 | 0.5 |
+| `Am` onset 0, lines 1+4, cap None | 7 / 24 | 0.7 | 7 / 21 | 1.9 |
+| `Am` onset 150, lines 1, cap None | 6 / 14 | 0.9 | 6 / 14 | 2.7 |
+| `Am` onset 150, lines 4+5, cap None | 7 / 30 | 4.6 | 8 / 28 | 28.8 |
+| `Am` onset 300, lines 0, cap None | 7 / 25 | 0.3 | 7 / 25 | 0.5 |
+| `At` onset 20, ramp draw 0, cap 0.5 | 1 / 1 | 0.2 | 1 / 1 | 0.3 |
+| `At` onset 200, ramp draw 1, cap 0.5 | 1 / 1 | 0.2 | 1 / 1 | 0.3 |
+<!-- /results -->
 
 ## Figures
 
