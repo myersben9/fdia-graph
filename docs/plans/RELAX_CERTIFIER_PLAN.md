@@ -191,20 +191,23 @@ window, each family on top of the previous one, every verdict through the tolera
 4.1, `bound_margin` 0.01, `robust_feastol` 1e-4). The paper scenarios run on [WU26]'s metering
 (PMUs at buses 1, 4, 6 and 13, lines 3-4 and 6-11, then 1-2 and 4-5) at ratings 1.2 times the
 window's peak flow, as `tests/test_wu_scenarios.py` sets them up. A gap is the search's count minus
-the bound; the last row is `certify`'s default.
+the bound; the last row is `certify`'s default. Source: the results store, experiment
+`certify.ablation`.
 
+<!-- results: certify.ablation -->
 | family | paper | `Am` | `At` | `Am` gaps | median mismatch, MW (`Am`) | seconds |
 |---|---|---|---|---|---|---|
-| second-order cone | 0 of 2 certified (gaps 7, 6) | 0 of 10 certified | 0 certified, 1 uncertain | 3 to 11, median 4 | 24 | 5 to 35 solve |
-| + bounds | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 18 | 400 to 637 tightening, 7 to 52 solve |
-| + qc | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 20 | 9 to 68 solve |
-| + cycle | 0 of 2 (7, 6) | 0 of 10 | 0 certified, 1 uncertain | 3 to 11, median 4 | 18 | 9 to 57 solve |
+| second-order cone | 0 of 2 certified (gaps 6, 7) | 0 of 10 certified | 0 certified, 1 uncertain | 3 to 11, median 4 | 24 | 5 to 35 solve |
+| + bounds | 0 of 2 certified (gaps 6, 7) | 0 of 10 certified | 0 certified, 1 uncertain | 3 to 11, median 4 | 18 | 400 to 634 tightening, 7 to 52 solve |
+| + qc | 0 of 2 certified (gaps 6, 7) | 0 of 10 certified | 0 certified, 1 uncertain | 3 to 11, median 4 | 20 | 400 to 634 tightening, 9 to 68 solve |
+| + cycle | 0 of 2 certified (gaps 6, 7) | 0 of 10 certified | 0 certified, 1 uncertain | 3 to 11, median 4 | 18 | 400 to 634 tightening, 9 to 56 solve |
+<!-- /results -->
 
-The search takes 6 to 29 seconds per `Am` window and under 1 per `At` window. No cut family moves an
-`Am` bound: bound tightening at one device fewer than the search leaves the median voltage move at
-0.7 to 2.1 pu, and only 1 to 7 of the area buses get an angle bound, so the QC and cycle envelopes
-seldom bind. The D16 bounds bring the relaxed `Am` points much closer to an AC state than before
-them (median mismatch 18 to 24 MW, against about 320 MW on the earlier recipe), but not close enough
+The search takes <!-- results: span certify.ablation seconds fmt=.0f family=Am stage=search -->6 to 29<!-- /results --> seconds per `Am` window and <!-- results: span certify.ablation seconds fmt=.1f family=At stage=search -->0.4 to 1.0<!-- /results --> per `At` window. No cut
+family moves an `Am` bound: bound tightening at one device fewer than the search leaves the median
+voltage move at <!-- results: span certify.ablation voltage_move_pu family=Am method=bounds -->0.7 to 2.1<!-- /results --> pu, and only <!-- results: span certify.ablation angle_bounded_buses family=Am method=bounds -->2 to 7<!-- /results --> of the area buses get an angle bound, so the QC and
+cycle envelopes seldom bind. The D16 bounds bring the relaxed `Am` points much closer to an AC state than before
+them (the median mismatch column, against about 320 MW on the earlier recipe), but not close enough
 to certify. Every `Am` and paper verdict is a plain gap: no claim there sits at the tolerances.
 
 The guard changes the `At` column, and nowhere else:

@@ -275,22 +275,17 @@ families as they are.
   (`Aq`, `Al`, `Ad`, `As`, `Ar`) are deprecated for generation and remain loadable from released
   files.
 - **D7, the noise scale of the bound and the objective:** the meter's rated accuracy (the
-  accuracy-class σ), not the per-scan jitter. Measured with the jitter σ, whose power floor is
-  0.001 MVAr on near-zero reactive flows, today's attack area met the between-snapshot bound in
-  0 of 20 IEEE-14 `At` windows and 0 of 8 on IEEE-118, and a feasible held support existed in only
-  4 of 20 and 3 of 8: the jitter floor is far tighter than any real meter's resolution.
+  accuracy-class σ), not the per-scan jitter. The jitter σ, whose power floor is 0.001 MVAr on near-zero reactive flows, is far tighter than
+  any real meter's resolution: under it almost no attack window met the between-snapshot bound.
 - **D8, `Am`'s noise scale:** [WU26]'s own case-study noise, 0.03 pu on SCADA channels (P and Q
   injections and flows on the case base, in MW and MVAr as stored) and 0.01 pu on PMU channels (|V|
   in pu, the angle 0.01 rad in degrees), for the tamper count, since the paper excludes from its
   l0 count the changes smaller than its noise (narrowed by D11: at first also the scale of a
   between-snapshot stealth bound, which the paper does not have)
   (`formulas.noise.paper_sigma`). `At` keeps D7. Under the meters' rated accuracy (D7) no overload
-  window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118 60-snapshot windows, since moving one
+  window was stealthy, since moving one
   line's flow moves the injections and flows around its ends by several times that change, beyond
-  the rated accuracy of the small loads there. Measured under D8 and D9 on 60-snapshot windows at
-  the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the search not proven within its
-  budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s per snapshot); the reported
-  noiseless flow reaches the rating exactly.
+  the rated accuracy of the small loads there.
 - **D9, the goal schedule:** `S_{l,t} = S_true_{l,t} + (t - κ)/T (S_max - S_true_{l,κ+T})` on the
   noiseless reading, replacing the onset-anchored `S_{l,κ} + (t - κ)/T (S_max - S_{l,κ})` and its
   floor at the true flow: the anchored form made the attack cancel the load's natural drift (a flow
@@ -306,7 +301,7 @@ families as they are.
   channels included). The rest of eqs. (12)-(25) is kept: (13)-(20) by construction, currents
   included; the limits (21)-(23); the goal (24)-(25) with the D9 schedule on the noiseless reading.
   `At`, which is not [WU26]'s attack, keeps its rated-accuracy bound: a sub-noise ramp is what `At`
-  is. `stealth_scale` is `At`'s alone. Measured with the recipe of the time (one line per episode; `At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The comparison with the paper's case studies and the audit of the rest of the `Am` path are D14.
+  is. `stealth_scale` is `At`'s alone. The comparison with the paper's case studies and the audit of the rest of the `Am` path are D14.
 - **D12, `meter_model` is its own knob:** a field of the meter plan (`models.MeterSettings`, passed
   as `generate_timeline(redundancy=...)` beside the coverage fractions, so the entry point takes no
   new parameter); new generation defaults to `"hybrid"`; the v0.8.3 recipe (the frozen test
@@ -340,9 +335,9 @@ families as they are.
   PMUs with two-line goals and ratings 1.2 times each line's peak flow over a 10-snapshot window:
   on IEEE-14 both are feasible, reach both ratings, tamper every device of the paper's sets but one
   (SCADA 11 in lines 3-4 and 6-11: our 6-11 flow meter sits at its from end, bus 6, and the
-  least-norm state leaves bus 11's injection within noise), with a largest per-device change inside
-  0.05 to 1.0 pu (0.81 and 0.37 pu against the paper's 0.22 and 0.17); on IEEE-118 (with
-  `FDIA_SLOW`) the scenario is feasible and reaches both ratings (10 devices, 0.19 pu). The S_max sensitivity study rerun on this code (two-line goals, the D16 bounds; `wu_smax_sensitivity.csv` and `.png` in the working notes, the earlier run kept beside them as `_pre162`) finds both scenarios feasible for k up to 1.3 and 1.3 and infeasible above, the PGLib-OPF ratings included, since the generator limits and the load cap now bound what the attack can move; the paper's scale of about 0.2 pu falls between k = 1.1 and 1.2 on lines 3-4 and 6-11 and between 1.05 and 1.1 on lines 1-2 and 4-5. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, pool ratings, the D16 bounds, two lines): IEEE-14 (3000 frames) 25 two-line episodes built and 0 fallen back to benign, 6.8 devices and 19.3 channels on average, the largest change on a channel 0.17 pu at the median episode and 1.59 pu at most, 0% of the searches proven, 39 s of generation per episode; IEEE-118 (2000 frames) 17 two-line episodes built and 0 fallen back to benign, 17.8 devices and 72.0 channels on average, the largest change on a channel 1.33 pu at the median episode and 3.39 pu at most, 0% of the searches proven, 78 s of generation per episode; every line of every episode reaches its rating.
+  least-norm state leaves bus 11's injection within noise), with a largest per-device change bounded in the test (the paper reports 0.22 and 0.17 pu); on
+  IEEE-118 (with `FDIA_SLOW`) the scenario is feasible and reaches both ratings. The S_max sensitivity study rerun on this code (two-line goals, the D16 bounds; experiment
+  `wu26.smax_sensitivity`) is the table under D15. The episodes the two-line default builds are in the `gen.am` table under D15.
 - **D16, the edge of the support is bounded:** the injections of the buses on the support's edge
   move with the false voltages, and nothing bounded them: under D15 the heaviest lines' least-norm
   false states moved them by up to 5.7 pu on IEEE-14 and 45 pu on IEEE-118. Two bounds, both enforced
@@ -359,19 +354,38 @@ families as they are.
   times its peak true apparent flow over the operating pool the timeline walks (static per line,
   like a thermal rating, computed once from the pool's noiseless from-end flows, the magnitude the
   goal reads), with `rating_margin = 1.25` by default. Ben's advisor's guidance is that limits sit
-  20% to 30% above a line's flow. The sensitivity study on [WU26]'s IEEE-14 case-study metering
-  (the working notes' `wu_smax_sensitivity.csv` and `wu_smax_sensitivity.png`: S_max = k times each
-  goal line's peak flow over the window, k from 1.05 to 2) puts the paper's reported scale of about
-  0.2 pu at k between 1.05 and 1.2, where our device counts are 4 to 10 against the paper's 7 and 9.
-  The PGLib-OPF ratings sit 3 to 19 times above those lines' flows: before D16 they asked changes of
-  about 10 pu, and with D16's edge bounds no attack reaches them (nor k = 1.5 or 2) on these scenarios.
+  20% to 30% above a line's flow. The sensitivity study on [WU26]'s IEEE-14 case-study metering (S_max = k times each goal
+  line's peak flow over the window; experiment `wu26.smax_sensitivity`) puts the paper's reported
+  scale of about 0.2 pu at the small k; the PGLib-OPF ratings sit several times above those lines'
+  flows, and with D16's edge bounds no attack reaches them:
+
+<!-- results: wu.smax -->
+| scenario (devices / channels / largest change, pu) | k = 1.05 | k = 1.1 | k = 1.2 | k = 1.3 | k = 1.5 | k = 2.0 | k = pglib |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| lines 3-4 and 6-11 | 4 / 6 / 0.13 | 4 / 6 / 0.18 | 9 / 36 / 0.81 | 14 / 64 / 1.67 | no attack | no attack | no attack |
+| lines 1-2 and 4-5 | 6 / 13 / 0.14 | 8 / 22 / 0.23 | 10 / 43 / 0.37 | 17 / 69 / 0.50 | no attack | no attack | no attack |
+<!-- /results -->
+
   The pool ratings work on every system of the ladder (no `NoLineRatings`); the PGLib-OPF ratings
   stay available as the robustness alternative (`am_attack={"rating_source": "pglib"}`, IEEE-14,
   118 and 300 only) and are reported alongside in the papers. Both knobs live in
   `models.OverloadSettings`, passed as a dict through `am_attack` (no new top-level parameter), and
   are recorded in the file's attributes (`rating_source`, `rating_margin`) when the overload attack
   runs. Eligibility is unchanged: a line whose true flow reaches its rating at any snapshot of the
-  window is not a target. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, the pool ratings computed over the frames walked, the bounds of D16): IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 3.9 devices and 9.9 channels on average, the largest change on a channel 0.14 pu at the median episode and 0.82 pu at most, 8% of the searches proven, 30 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 9.6 devices and 30.4 channels on average, the largest change on a channel 0.40 pu at the median episode and 3.29 pu at most, 0% of the searches proven, 71 s of generation per episode; every episode's noiseless flow reaches its rating. Before D16 bounded the edge of the support the same runs gave IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 5.3 devices and 15.0 channels on average, the largest change on a channel 0.18 pu at the median episode and 5.74 pu at most, 36% of the searches proven, 15 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 6.8 devices and 21.4 channels on average, the largest change on a channel 1.05 pu at the median episode and 44.94 pu at most, 24% of the searches proven, 43 s of generation per episode, and IEEE-30 (600 frames, a smoke run) 5 episodes of 3.8 devices.
+  window is not a target. The overload episodes each recipe builds (experiment `generation.am_overload`):
+
+<!-- results: gen.am -->
+| system | recipe | frames | episodes | fallen back | devices (mean) | channels (mean) | largest change, pu (median / max episode) | proven | s per episode |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| IEEE-14 | one line, before the D16 bounds | 3000 | 25 | 0 | 5.3 | 15.0 | 0.18 / 5.74 | 36% | 15 |
+| IEEE-14 | one line, D16 bounds | 3000 | 25 | 0 | 3.9 | 9.9 | 0.14 / 0.82 | 8% | 30 |
+| IEEE-14 | two lines, D16 bounds (default) | 3000 | 25 | 0 | 6.8 | 19.3 | 0.17 / 1.59 | 0% | 39 |
+| IEEE-30 | one line, before the D16 bounds | 600 | 5 | 0 | 3.8 | 8.8 | 0.09 / 0.29 | 0% | 20 |
+| IEEE-118 | one line, before the D16 bounds | 2000 | 17 | 0 | 6.8 | 21.4 | 1.05 / 44.94 | 24% | 43 |
+| IEEE-118 | one line, D16 bounds | 2000 | 17 | 0 | 9.6 | 30.4 | 0.40 / 3.29 | 0% | 71 |
+| IEEE-118 | two lines, D16 bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 0% | 78 |
+<!-- /results -->
+
 - **D14, the rest of the `Am` path against eqs. (12)-(25):** generator injections are free, as
   [WU26, eqs. 13-14] let every injection measurement be tampered and (22)-(23) bound only the
   generator output: a generator bus of the support has free P and Q injection like an attackable
@@ -383,20 +397,10 @@ families as they are.
   each line's noiseless flow reaching its own rating by the window's end on the D9 schedule, the l0
   count over the union. At D14 the generator's episodes drove one line (two by default since D17); the multi-line goal is what the
   paper's case studies use and is available as an option. S_max is the PGLib-OPF rating only:
-  [WU26] does not state its line limits, so no assumed limit is compared with it. Measured on the hybrid meters with the recipe of the time (one line per episode; `At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000): `Am` 12 stealthy overload episodes on IEEE-14 (6.5 devices, 23.9 channels on average) and 7 on IEEE-118 (7.0 devices, 27.3 channels), no frame falling back to benign; `At` 10.3 and 12.5 devices (the At episodes differ from the previous run because the Am designs draw from the same random stream). On the paper's IEEE-14 metering (PMUs at 1, 4, 6 and 13, line 6-11 metered, everything else
-  the hybrid plan), each scenario one two-line goal on the PGLib-OPF ratings, a 10-snapshot window
-  (`wu_scenarios.py` in the working notes):
-
-  | scenario (lines) | S_max, MVA (PGLib-OPF) | our devices | our largest, pu | [WU26]'s devices | its largest, pu |
-  |---|---|---|---|---|---|
-  | 3-4 and 6-11 | 160 / 134 | PMU 4 PMU 6 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 SCADA 10 SCADA 11 (12), support 4 7 8 11 | 10.32 | SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 11 PMU 4 PMU 6 (7) | 0.22 |
-  | 1-2 and 4-5 | 472 / 664 | PMU 1 PMU 4 PMU 6 SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 6 SCADA 7 SCADA 8 SCADA 9 SCADA 10 SCADA 14 (14), support 2 3 4 5 7 9 | 11.27 | SCADA 1 SCADA 2 SCADA 3 SCADA 4 SCADA 5 SCADA 9 PMU 1 PMU 4 PMU 6 (9) | 0.17 |
-
-  The PGLib-OPF ratings are 3 to 19 times the lines' true flows in these windows (3-4 carries about
-  21 MVA against 160, 6-11 about 7 against 134, 4-5 about 59 against 664), so reaching them takes
-  changes of several pu at the generators and loads around the lines; the paper's 0.22 and 0.17 pu
-  imply limits much closer to the flows, which it does not state. Every device of the paper's
-  sets is in ours, in both scenarios, but ours are larger, as the larger goal moves more of the neighbourhood above noise. The constraints this
+  [WU26] does not state its line limits, so no assumed limit is compared with it. On the paper's IEEE-14 metering with the PGLib-OPF ratings, which sit several times above the
+  scenario lines' true flows, every device of the paper's sets is in ours but ours are larger, with
+  changes of several pu at the generators and loads around the lines, against the paper's 0.22 and
+  0.17 pu (its limits must sit much closer to the flows, which it does not state). The constraints this
   package adds that the paper does not state:
 
   | constraint we add | ours, because |
@@ -422,4 +426,6 @@ families as they are.
   `meter_model` defaults to `"hybrid"` and the v0.8.3 recipe pins `"v083"` through the meter plan,
   `redundancy={"meter_model": "v083"}` (D12). The estimators may add [WU26, eq. (3)]'s pseudo voltage phasors at the far ends of the
   PMU-metered branches (`pmu_pseudo`, off by default), weighted by their propagated variance.
-  Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the recipe of the time (one line per episode; `At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. (D11 applies.)
+  Taking the angles away from the voltmeters raises the benign angle error, and the eq. (3)
+  pseudo-measurements win part of it back; the comparison is rerun into the results store with the
+  v0.9.0 data.

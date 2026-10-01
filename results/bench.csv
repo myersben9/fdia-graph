@@ -1,0 +1,5 @@
+run_id,experiment,system,method,family,split,metric,tags,value,sd,ci_lo,ci_hi
+bench-20260916-migrated,bench,ieee14,generate,,,ms_per_record,recipe=shards,79.839,,,
+bench-20260916-migrated,bench,ieee14,huber,,,ms_per_record,recipe=shards,2.824,,,
+bench-20260916-migrated,bench,ieee14,prior+huber,,,ms_per_record,recipe=shards,1.885,,,
+bench-20260916-migrated,bench,ieee14,wls,,,ms_per_record,recipe=shards,0.11,,,

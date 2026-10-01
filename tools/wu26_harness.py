@@ -20,7 +20,9 @@ Written to --out, each table and figure beside the CSV its numbers come from:
     fig11_ieee{N}.png    Solution 2's selection probability, PMU by step, over its test windows (Fig. 11)
     fig12_ieee{N}.png    the rise per test window and the extra devices (Fig. 12)
 Figures follow the project's rules: no legend and no text inside the plot area; the caption in
-docs/wu26/README.md carries the keys.
+docs/wu26/README.md carries the keys. Every row also goes to the results store as a run of
+`wu26.reproduction` (`--store`, the repository's `results/` by default), so the docs cite it
+through results blocks rather than typed numbers.
 """
 
 from __future__ import annotations
@@ -104,7 +106,9 @@ def build_env(system: int, scenario: int, margin: float, states: list[np.ndarray
     limits = g.operating_limits(_load_states(system, None))
     k = FrameKnobs(hops=2, limits=limits, min_tamper=True, min_budget=budget, load_cap=0.5, n_lines=2)
     order = WU26_PMUS[system]
-    slots = (1, 3, 5, 7) if system == 14 else tuple(range(len(order)))
+    slots = (
+        (1, 3, 5, 7) if system == 14 else tuple(range(SNAPSHOTS[system]))
+    )  # Figs. 10-11: one step per snapshot
     pmus = [int(b) for b in g.wu26_buses(tuple(order))]
     return WuDefenseEnv(g, states, g.overload_goal(states, *lines), k, WuDefenseConfig(pmus, slots))
 
@@ -278,6 +282,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     ap.add_argument("--workers", type=int, default=26)
     ap.add_argument("--stride", type=int, default=12, help="pool frames between window starts")
     ap.add_argument("--out", default="docs/wu26")
+    ap.add_argument("--store", default=None, help="results store folder (default: the repository's results/)")
     args = ap.parse_args(argv)
     os.makedirs(args.out, exist_ok=True)
     from fdia_graph.engine.attacks.overload import WU26_SCENARIOS
@@ -316,6 +321,41 @@ def main(argv: Optional[list[str]] = None) -> None:
         os.path.join(args.out, f"times_ieee{args.system}.csv"),
     )
     figures(rows, args.system, args.out)
+    record(rows, args)
+
+
+def record(rows: list[dict], args: argparse.Namespace) -> None:
+    """Every row as records of the run's `wu26.reproduction` experiment in the results store: the
+    counts undefended and defended, the cost rise (eq. 33, over channels), the extra devices, the
+    decision time and the trusted order, keyed by method, scenario, k and window."""
+    from fdia_graph.results import Run, Store
+
+    settings = {k: getattr(args, k) for k in ("margins", "windows", "sessions", "budget", "stride")}
+    run = Run("wu26.reproduction", system=f"ieee{args.system}", settings=settings, store=Store(args.store))
+    for r in rows:
+        keys = dict(method=r["method"], scenario=r["scenario"], k=r["margin"], window=r["window"])
+        for stage in ("before", "after"):
+            run.add(
+                "devices",
+                r[f"devices_{stage}"],
+                stage="defended" if stage == "after" else "undefended",
+                **keys,
+            )
+            run.add(
+                "channels",
+                r[f"channels_{stage}"],
+                stage="defended" if stage == "after" else "undefended",
+                **keys,
+            )
+        if (
+            r["channels_before"] > 0 and r["channels_after"] > 0
+        ):  # -1 is an attack the search found infeasible
+            run.add("cost_increase_pct", 100.0 * (r["channels_after"] / r["channels_before"] - 1.0), **keys)
+            run.add("extra_devices", len(r["extra"].split()), **keys)
+        run.add("decision_seconds", r["seconds"], **keys)
+        for step, bus in enumerate(r["order"].split()):
+            run.add("trusted_pmu", int(bus), step=step, **keys)
+    run.write()
 
 
 if __name__ == "__main__":

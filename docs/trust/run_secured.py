@@ -1,13 +1,14 @@
 """What a trusted-meter selection does for state estimation and localization, not only for the
 residual test: the estimators and localizers of the other two guides scored on the plain timeline
 and on secured copies of it (`TrustSelector.secured_copy`, the selected meters reading their benign
-value on every frame). Writes results/secured_<system>.json.
+value on every frame). Writes runs of `trust.secured_localization` and `trust.secured_estimation`
+to the results store (`results/`).
 
 Set FG_SYSTEM (default ieee14) and FG_K (the budget, default 20); the copies and the score caches
 are keyed by the secured meters and the source file, so a new selection or budget never reuses a
 stale entry. The selections come from
-results/trust_<system>.json when `run_trust.py` has written it (its greedy and DQN orders), else the
-greedy selector is fitted here. Needs the [se] and [torch] extras; the copies and the per-arm caches go
+the store's `trust.selection` run when `run_trust.py` has written one (its greedy and DQN orders), else
+the greedy selector is fitted here. Needs the [se] and [torch] extras; the copies and the per-arm caches go
 under results/cache/. The gated estimators run twice on a secured copy: as they are, and with the
 secured meters exempt from the gate (`GatedPrior(secured=...)`), which is the arm that wins.
 """
@@ -22,6 +23,7 @@ import numpy as np
 import fdia_graph as fg
 from fdia_graph.localization import BusCNN, ResidualLocalizer
 from fdia_graph.registry import register_local
+from fdia_graph.results import Run, Store
 from fdia_graph.se import GatedPrior, SubspacePrior
 from fdia_graph.trust import TrustedMeters
 
@@ -33,17 +35,29 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
 CACHE = os.path.join(OUT, "cache")
 os.makedirs(CACHE, exist_ok=True)
+STORE = Store(os.path.join(HERE, "..", "..", "results"))  # the repository's results store
 
 
 def selections(train):
     """{arm: (secured meter indices, the fitted selector or None)}: the orders run_trust.py stored,
     else a greedy fit."""
-    path = os.path.join(OUT, f"trust_{SYSTEM}.json")
     tm = TrustedMeters(k=K).fit(train)  # its estimator gives every copy the meter layout
-    if os.path.exists(path):
-        stored = json.load(open(path))
-        return {name: stored[name]["order"][:K] for name in ("greedy", "dqn") if name in stored}, tm
-    return {"greedy": [int(i) for i in tm.select()]}, tm
+    stored = {}
+    release = fg.resolve(SYSTEM).release or ""
+    same_release = [
+        p.run_id for p in STORE.runs() if p.experiment == "trust.selection" and p.data_release == release
+    ]
+    # one run's orders whole, for this budget and this release's meter layout, never steps from two runs
+    run = STORE.newest_run(
+        "trust.selection", run_id=same_release, system=SYSTEM, metric="selected_meter", k=K
+    )
+    for name in ("greedy", "dqn"):
+        steps = STORE.query(
+            "trust.selection", run_id=run, system=SYSTEM, method=name, metric="selected_meter"
+        )
+        if steps:
+            stored[name] = [int(r.value) for r in sorted(steps, key=lambda r: int(r.tag("step")))][:K]
+    return (stored, tm) if stored else ({"greedy": [int(i) for i in tm.select()]}, tm)
 
 
 def fingerprint(meters, source):
@@ -128,8 +142,21 @@ for tag, (name, meters, fp) in arms.items():
     for arm, fn in estimation(train, test, np.asarray(meters, int)).items():
         report[tag]["estimation"][arm] = cached(tag, fp, "se_" + arm, fn)
 
-with open(os.path.join(OUT, f"secured_{SYSTEM}.json"), "w") as fh:
-    json.dump(report, fh, indent=1)
+release = fg.resolve(SYSTEM).release or ""
+for part, experiment in (
+    ("localization", "trust.secured_localization"),
+    ("estimation", "trust.secured_estimation"),
+):
+    with Run(
+        experiment,
+        system=SYSTEM,
+        settings={"k": K, "orders": report["orders"]},
+        data_release=release,
+        seed=0,
+        store=STORE,
+    ) as out:
+        for tag in arms:
+            out.add_tree(report[tag][part], levels=("method", "family"), secured=tag, k=K)
 
 fams = ["Aq", "At", "Al", "Am", "Ad", "As", "Ar"]
 print(f"\n{SYSTEM}, {K} secured meters; node-F1 (detection rate) per family, then macro-F1 / benign FA")
@@ -147,4 +174,4 @@ for arm in report["plain"]["estimation"] | {a: None for t in arms for a in repor
         if r:
             per = " ".join(f"{f} {r[f]['angle_mae_deg']:.3f}" for f in fams if f in r)
             print(f"  {tag:7s} geo {r['geo']['angle_mae_deg']:.4f}   {per}")
-print(f"[ok] wrote secured_{SYSTEM}.json to {OUT}")
+print(f"[ok] wrote trust.secured_localization and trust.secured_estimation for {SYSTEM}")

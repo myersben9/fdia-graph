@@ -5,6 +5,21 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Results as data** (`fdia_graph.results`, the results store `results/`): measured numbers are records
+  with their provenance, not text. New models `Record`, `Provenance`, `RunRecords`, `Metric` and `Leaf`
+  (`fdia_graph.models.results`, with the metric registry `METRICS`), each checked on construction; `Run`
+  (a harness's run, written on exit with the SDK version, git commit, data release, seed and settings
+  hash; a failed run writes nothing), `Store` (one tidy CSV per experiment plus `runs.csv`; `query`,
+  `latest`, `one`, which raises the new named error `NoSuchResult`), renderers (`table`, `cell`,
+  `pivot`, `figure_data` for a figure's CSV sidecar) and results blocks in markdown
+  (`<!-- results: ... -->`), filled by `tools/results_docs.py --write` and checked by its `--check` in
+  the pre-review and CI. The docs harnesses (`docs/se`, `docs/localization`, `docs/federated`,
+  `docs/trust`), `tools/wu26_harness.py` and `tools/bench.py` write through `Run`; the harness JSONs
+  are migrated into the store and removed, and the guides, READMEs, plan tables and this section cite
+  experiments (`results/README.md`). `tools/experiments/release_stats.py` records a data release's
+  statistics. `tools/wu26_harness.py` now gives IEEE-118 one configuration step per snapshot
+  (10 steps, not its 11 PMUs).
+
 - **[WU26] reproduction harness** (`tools/wu26_harness.py`, `docs/wu26/README.md`): 1-minute attack windows
   rebuilt from the 5-minute pool by AC power flow, Solution 1 and the DQN played on each window's
   trusted-PMU MDP, and Table II, the trusted orders, the decision times and Figs. 11-12 written with
@@ -105,9 +120,9 @@ the public API, the generated files and the numbers are the same as the previous
   the rewards, the costs and the reductions' own time. Ours: the chase is restricted to attacks that
   move a target line and that a PMU on offer reads, the PMU reading most of the attack's channels is
   trusted, and the first PMU on offer when no open attack touches one. `RrefMixin.area_jacobian` now also
-  names the device of every row (`channel_devices`). On [WU26]'s IEEE-14 scenarios (20 pool frames, k =
-  1.1) the order is 4, 6, 13, 1 and 4, 1, 6, 13 against the paper's 1, 4, 6, 13 and 4, 6, 1, 13; the
-  reductions take 0.03 to 0.04 s per episode.
+  names the device of every row (`channel_devices`). On [WU26]'s IEEE-14 scenarios the order differs from
+  the paper's Fig. 6 while the final trusted set and the defended cost match (experiment
+  `wu26.reproduction`, docs/wu26/README.md).
 - [WU26]'s Solution 2, the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2;
   docs/plans/WU_DEFENSE_PLAN.md, PR D): `trust.TrustedPMUsDQN(envs, WuDqnConfig()).fit()` over one or more
   `WuDefenseEnv` windows, `order(env)` the trained policy's greedy sequence (eq. 38). The loop is
@@ -150,12 +165,10 @@ the public API, the generated files and the numbers are the same as the previous
   (28) takes each snapshot's deviation on its own (the plan's E13): a search one segment at a time from
   the held support, with the other segments fixed, and `MinimizerResult.plan` carries the support of each
   segment. New model `TrustSchedule` (validated: one slot per bus, each PMU once, non-negative indices).
-  Without a schedule the search and its answers are unchanged. Measured on [WU26]'s IEEE-14 scenarios,
-  20 pool frames, the PMUs trusted at the paper's snapshots 2, 4, 6 and 8, ratings k times each target
-  line's peak flow: at k = 1.1 the attack survives with 5 to 6 devices and 8 to 11 channels (lines 3-4
-  and 6-11) and 7 to 9 devices and 23 to 28 channels (lines 1-2 and 4-5), +20% and +29% in devices and
-  +38% and +22% in channels against the paper's Table II 24% to 35%; at k = 1.2 no candidate reaches
-  both ratings with the four PMUs trusted, held or with a support per segment. When no held support is
+  Without a schedule the search and its answers are unchanged. Measured on [WU26]'s IEEE-14 scenarios with
+  the PMUs trusted at the paper's snapshots 2, 4, 6 and 8: experiment `wu26.prototype`, rendered in
+  docs/plans/WU_DEFENSE_PLAN.md (the attack survives at k = 1.1 with increases in the range of the
+  paper's Table II; at k = 1.2 no candidate reaches both ratings). When no held support is
   feasible, the per-slot search seeds a plan with each segment's own cheapest support before calling
   the window infeasible (`_segment_seed`); on these scenarios no segment after the last slot has one.
   Segments are seeded in order, each from the attack vector its predecessor leaves, so an `At` window's
@@ -202,10 +215,9 @@ the public API, the generated files and the numbers are the same as the previous
   knobs without finite voltage limits with the new named error `NoOperatingLimits` (input model
   `models.inputs.CertifiableLimits`): its voltage box and big-M constants come from the search's own
   limits, never from a default box. The bound is valid but loose: on IEEE-14 with new generation's
-  defaults it certifies 0 of 10 two-line `Am` episodes (gaps of 3 to 11 devices, median 4) and 0 of
-  [WU26]'s two scenarios (gaps 7 and 6) at every cut level, and 0 of 4 `At` episodes: the one
-  the relaxation met without the guard (the cone relaxation's optimum at 9, the search's count) bounds
-  5 to 6 at the loosened tolerance and is "uncertain". By default `tests/test_certify.py` checks the cone
+  defaults it certifies no episode at any cut level, and the one `At` episode the relaxation met
+  without the guard is "uncertain" at the loosened tolerance (experiment `certify.ablation`, rendered
+  in docs/plans/RELAX_CERTIFIER_PLAN.md). By default `tests/test_certify.py` checks the cone
   relaxation's validity on an IEEE-14 two-line `Am` window and on an `At` window whose stealth bound
   starts from a non-zero previous attack vector; the cut families' cases and the full solve run with
   `FDIA_SLOW=1`.
@@ -215,22 +227,12 @@ the public API, the generated files and the numbers are the same as the previous
   extras; without it the search runs on whatever BLAS is set to). Its products are too small for
   threads to pay: on a many-core machine starting them cost more than the arithmetic. The limit is process-wide:
   while any search runs, other BLAS work in the process is on one thread too, and overlapping searches
-  share one limit, so the caller's setting comes back when the last of them leaves. No knob is added. Measured on the same fixed episodes as the entry below
-  (seed 1, hybrid meters, pool ratings, the D16 bounds with `load_cap` 0.5, two-line `Am`, budget
-  256, 20-snapshot windows), before and after side by side on the same shared machine. Median seconds
-  per episode, before to after:
-
-  | System | Default threads, Am | Default threads, At | `OPENBLAS_NUM_THREADS=1`, Am | `OPENBLAS_NUM_THREADS=1`, At |
-  |---|---|---|---|---|
-  | IEEE-14 (10 Am, 4 At) | 3.1 to 3.1 | 0.58 to 0.28 | 3.0 to 2.7 | 0.31 to 0.31 |
-  | IEEE-30 (5 Am, 3 At) | 5.5 to 5.6 | 0.81 to 0.33 | 5.5 to 5.1 | 0.32 to 0.26 |
-  | IEEE-118 (4 Am, 3 At) | 7.2 to 3.1 | 0.89 to 0.44 | 3.3 to 3.3 | 0.38 to 0.51 |
-
-  With the default threads the search now runs as fast as it did with the whole process on one
-  thread; with the process already on one thread nothing changes but timing noise. Every one of the
-  29 episodes, in all four runs, returns the same target lines, support, device and channel counts,
-  proof, candidates solved and failed solves, and the pinned searches of tests/test_search_speed.py
-  are unchanged.
+  share one limit, so the caller's setting comes back when the last of them leaves. No knob is added. Measured on the same fixed episodes as the entry below, before and after side by side: median
+  seconds per episode in docs/reference/BENCHMARKS.md (experiment `search.speed`, `pr=164`). With the
+  default threads the search now runs as fast as it did with the whole process on one thread. Every
+  episode, in all four runs, returns the same target lines, support, device and channel counts, proof,
+  candidates solved and failed solves, and the pinned searches of tests/test_search_speed.py are
+  unchanged.
 
 - The fewest-tamper search is faster and finds the same supports, bit for bit. The flow solve keeps
   the full Ybus products of the released solve, since a search's answer can turn on the last bit of a
@@ -246,22 +248,11 @@ the public API, the generated files and the numbers are the same as the previous
     evaluated on the support's branches only; every other branch reads the same on both sides.
   - The tamper count is a union of boolean masks instead of Python sets.
 
-  Measured on a fixed set of episodes (seed 1, hybrid meters, pool ratings, the D16 bounds with
-  `load_cap` 0.5, two-line `Am`, budget 256, 20-snapshot windows), before and after side by side on
-  the same shared machine. Median seconds per episode, before to after:
-
-  | System | Default threads, Am | Default threads, At | One thread, Am | One thread, At |
-  |---|---|---|---|---|
-  | IEEE-14 (10 Am, 4 At) | 4.5 to 3.0 | 0.84 to 0.66 | 4.5 to 2.9 | 0.36 to 0.21 |
-  | IEEE-30 (5 Am, 3 At) | 8.5 to 4.8 | 1.1 to 1.0 | 8.4 to 5.1 | 0.54 to 0.41 |
-  | IEEE-118 (4 Am, 3 At) | 14.5 to 9.5 | 1.8 to 1.0 | 5.2 to 3.3 | 1.1 to 0.4 |
-
-  Every one of the 29 episodes, in both thread settings, returns the same target lines, support,
-  device and channel counts, proof, candidates solved and failed solves as before, and 160 flow
-  solves on IEEE-14 and 118 (with and without the load cap) return the same false states bit for bit.
-  On IEEE-118 most of what remains is the full Ybus product's BLAS thread start-up: the same search
-  runs about three times faster with BLAS held to one thread (`OPENBLAS_NUM_THREADS=1`), with the same
-  answers.
+  Measured on a fixed set of episodes, before and after side by side: median seconds per episode in
+  docs/reference/BENCHMARKS.md (experiment `search.speed`, `pr=163`). Every episode, in both thread
+  settings, returns the same target lines, support, device and channel counts, proof, candidates
+  solved and failed solves as before, and the flow solves on IEEE-14 and 118 (with and without the
+  load cap) return the same false states bit for bit.
   Exhaustive searches on fixed IEEE-14 windows, with and without the load cap and with two-line goals,
   are pinned to their earlier answers (tests/test_search_speed.py).
 
@@ -278,7 +269,7 @@ the public API, the generated files and the numbers are the same as the previous
   `am_target_mva` (the goal at the window's end); `AmOverloadDesign.rating` became `ratings`, and
   `overload_step` returns the flow reached on every target line. New tables `WU26_SCENARIOS`,
   `WU26_PMUS` (IEEE-118's from the paper's Fig. 9) and `WU26_ATTACK_AREA`, with
-  `OverloadMixin.wu26_branch` and `wu26_buses`; new tests `tests/test_wu_scenarios.py`. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, pool ratings, the D16 bounds, two lines): IEEE-14 (3000 frames) 25 two-line episodes built and 0 fallen back to benign, 6.8 devices and 19.3 channels on average, the largest change on a channel 0.17 pu at the median episode and 1.59 pu at most, 0% of the searches proven, 39 s of generation per episode; IEEE-118 (2000 frames) 17 two-line episodes built and 0 fallen back to benign, 17.8 devices and 72.0 channels on average, the largest change on a channel 1.33 pu at the median episode and 3.39 pu at most, 0% of the searches proven, 78 s of generation per episode; every line of every episode reaches its rating.
+  `OverloadMixin.wu26_branch` and `wu26_buses`; new tests `tests/test_wu_scenarios.py`. Measured: experiment `generation.am_overload`, rendered in docs/guides/generation.md.
 
 - The overload attack bounds the edge of its support (docs/plans/WU_MSFDIA_PLAN.md, D16): the
   generator limits (22)-(23) apply to every generator whose reported output the attack changes, the
@@ -296,7 +287,7 @@ the public API, the generated files and the numbers are the same as the previous
   elsewhere). New model `OverloadSettings` (`rating_source` "pool" or "pglib", `rating_margin` > 1),
   passed as a dict through `am_attack`; new choice `RatingSource`;
   `OverloadMixin.use_line_ratings`, `MeasurementMixin.all_flows_from_states`; new file attributes
-  `rating_source` and `rating_margin` when the overload attack runs. Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, the pool ratings computed over the frames walked, the bounds of D16): IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 3.9 devices and 9.9 channels on average, the largest change on a channel 0.14 pu at the median episode and 0.82 pu at most, 8% of the searches proven, 30 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 9.6 devices and 30.4 channels on average, the largest change on a channel 0.40 pu at the median episode and 3.29 pu at most, 0% of the searches proven, 71 s of generation per episode; every episode's noiseless flow reaches its rating. Before D16 bounded the edge of the support the same runs gave IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 5.3 devices and 15.0 channels on average, the largest change on a channel 0.18 pu at the median episode and 5.74 pu at most, 36% of the searches proven, 15 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 6.8 devices and 21.4 channels on average, the largest change on a channel 1.05 pu at the median episode and 44.94 pu at most, 24% of the searches proven, 43 s of generation per episode, and IEEE-30 (600 frames, a smoke run) 5 episodes of 3.8 devices.
+  `rating_source` and `rating_margin` when the overload attack runs. Measured: experiment `generation.am_overload`, rendered in docs/guides/generation.md.
 
 - Review fixes to the hybrid meters and the overload attack: a generator pinned at one limit keeps
   its other component free (the active set pins P and Q apart); an overload frame's magnitude at a
@@ -309,7 +300,7 @@ the public API, the generated files and the numbers are the same as the previous
   bound on how far the attack moves between snapshots, which the paper does not have; its noise
   (0.03 pu SCADA, 0.01 pu PMU, currents included) only decides which changes the tamper count
   ignores. The bound was what made the overload attack infeasible on IEEE-14. `At` keeps its
-  rated-accuracy bound, and `stealth_scale` is now `At`'s alone. Measured with the recipe of the time (one line per episode; `At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The rest of the `Am` path follows the paper too (D14, below).
+  rated-accuracy bound, and `stealth_scale` is now `At`'s alone. The rest of the `Am` path follows the paper too (D14, below).
 - `Am`'s generators are free (D14): [WU26, eqs. 13-14] let every injection be tampered and (22)-(23)
   bound only the generator output, so a generator bus in the support has free P and Q injection
   inside its limits, like an attackable load (`FalseStateMixin.free_injection_buses`,
@@ -320,7 +311,7 @@ the public API, the generated files and the numbers are the same as the previous
   (`FlowGoal.more`, `lines`, `targets_at`; `overload_goal(window, line, *more)`,
   `solve_flow_local(line=[...])`): one held support, each line to its own rating. Generated episodes
   drive two lines by default since D17 (`OverloadSettings.n_lines`, one line when set to 1). A zero-injection bus stays held at zero, a rule of ours. The labels of an
-  overload frame are the free-injection buses of the support. Measured on the hybrid meters with the recipe of the time (one line per episode; `At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000): `Am` 12 stealthy overload episodes on IEEE-14 (6.5 devices, 23.9 channels on average) and 7 on IEEE-118 (7.0 devices, 27.3 channels), no frame falling back to benign; `At` 10.3 and 12.5 devices (the At episodes differ from the previous run because the Am designs draw from the same random stream). On [WU26]'s IEEE-14 metering and two-line scenarios with the PGLib-OPF ratings (the paper
+  overload frame are the free-injection buses of the support. On [WU26]'s IEEE-14 metering and two-line scenarios with the PGLib-OPF ratings (the paper
   does not state its limits) the attack is feasible and tampers more devices than the paper's, with
   changes of several pu, since the ratings are 3 to 19 times the true flows (the plan's D14 table).
 - `meter_model` is its own knob (D12), a field of the new meter-plan model `MeterSettings` that
@@ -353,7 +344,7 @@ the public API, the generated files and the numbers are the same as the previous
   slots no meter reads, weighted in the measured calibration by their first-order propagated
   variance (`formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages`). New models
   `MeterModel`, `CurrentColumns`, `CurrentIndex`, `CURRENT`, `PmuCurrentFields`, `PseudoLinks` and
-  `PseudoVoltages`; `AttackVector` is a named tuple with an optional `current`. Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the recipe of the time (one line per episode; `At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones. The v0.8.3 recipe and the strict frozen suite are bit-exact.
+  `PseudoVoltages`; `AttackVector` is a named tuple with an optional `current`. The v0.8.3 recipe and the strict frozen suite are bit-exact.
 - The documentation states what the stealthy families take from [WU26]: its constraints (13)-(18)
   and (21)-(23) (the SCADA measurements, the PMU voltage magnitudes and angles, and the operating
   limits; and, in new generation, whose PMUs read branch currents, the current phasors (19)-(20) as well). New generation also solves
@@ -386,12 +377,9 @@ the public API, the generated files and the numbers are the same as the previous
   them load unchanged. `timeline.LEGACY_FAMILIES` with `am_attack="redistribution"` and
   `min_tamper=False` reproduces data release v0.8.3 (its build script and the frozen test timeline
   use it; the strict frozen suite is bit-exact). Under the meters' rated accuracy (D7) no overload
-  window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118 60-snapshot windows, since moving one
+  window was stealthy, since moving one
   line's flow moves the injections and flows around its ends by several times that change, beyond
-  the rated accuracy of the small loads there. Measured under D8 and D9 on 60-snapshot windows at
-  the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the search not proven within its
-  budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s per snapshot); the reported
-  noiseless flow reaches the rating exactly.
+  the rated accuracy of the small loads there. The reported noiseless flow reaches the rating exactly.
 - The fewest-tamper search of [WU26, eq. 12], behind `generate_timeline(min_tamper=True)` (on for
   new generation; `min_tamper=False` walks the released files' recipe). Each At episode is held on the support (the buses
   its false state moves) that tampers the fewest devices over the episode, a device being one SCADA
@@ -523,9 +511,7 @@ the public API, the generated files and the numbers are the same as the previous
   scans, and reads no clean layer. The Jacobian feature sets, `ResidualLocalizer` and
   `TrustSelector` fit their estimator this way; the state estimators keep `calibrate="truth"` as the
   benchmark default. Residual-based sigmas were tried first and rejected: a meter's constant bias
-  is absorbed into the state, so they shrink on the biased meters and collapse the fit. On the
-  v0.8.3 test splits plain WLS with the class calibration scores 0.086, 0.028 and 0.034 degrees
-  against 0.091, 0.020 and 0.027 truth-calibrated on IEEE-14, 118 and 300. The frozen
+  is absorbed into the state, so they shrink on the biased meters and collapse the fit. The frozen
   localization reference moves for the residual arm.
 ## 0.20.0
 

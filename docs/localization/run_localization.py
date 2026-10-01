@@ -1,6 +1,7 @@
-"""Fit the fdia_graph.localization methods on one system and write results/loc_<system>.json.
+"""Fit the fdia_graph.localization methods on one system and write runs of
+`localization.common` and `localization.zero_shot` to the results store (`results/`).
 
-Two protocols, one results file:
+Two protocols:
 
 1. Common protocol: every method fits on the unfiltered train split and is calibrated on benign
    records at the same false-alarm budget, then scores the full test split. The learned arms train
@@ -9,8 +10,9 @@ Two protocols, one results file:
    threshold is the validation-best global tau. This is the protocol behind the federated
    localization paper's headline numbers.
 
-Set FG_SYSTEM (default ieee14; the README covers ieee14, ieee118, ieee300). Tables and figures come
-from make_report.py, which reads the JSON, so plots can be restyled without re-running.
+Set FG_SYSTEM (default ieee14; the README covers ieee14, ieee118, ieee300). The README's tables are
+results blocks (`tools/results_docs.py --write`) and make_report.py draws the figures, both from
+the store, so nothing is re-run to restyle them.
 ResidualLocalizer and the Jacobian feature arms need the [se] extra; BusCNN/BusMLP need [torch] and
 use the GPU when visible.
 
@@ -19,7 +21,6 @@ finishes (the residual arm's state-estimation solves and the learned arms' train
 parts), so a re-run scores from the cache in seconds. Delete a cache file to recompute that arm.
 """
 
-import json
 import os
 import time
 
@@ -27,12 +28,14 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.localization import BusCNN, BusMLP, DeltaThreshold, ResidualLocalizer, SwingThreshold
+from fdia_graph.results import Run, Store
 
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
 CACHE = os.path.join(OUT, "cache")
 os.makedirs(CACHE, exist_ok=True)
+STORE = Store(os.path.join(HERE, "..", "..", "results"))  # the repository's results store
 
 
 def run(protocol, name, m, train, test, val=None):
@@ -93,8 +96,18 @@ zs_methods = {
 }
 zero_shot = {name: run("zero_shot", name, m, ztr, zte, val=zva) for name, m in zs_methods.items()}
 zero_shot["swing"] = run("zero_shot", "swing", SwingThreshold(), ztr, zte)  # the feature alone, FA-calibrated
-report["zero_shot"] = zero_shot
-
-with open(os.path.join(OUT, f"loc_{SYSTEM}.json"), "w") as fh:
-    json.dump(report, fh, indent=1)
-print(f"[ok] wrote loc_{SYSTEM}.json to {OUT}; run make_report.py for tables and figures")
+release = fg.resolve(SYSTEM).release or ""
+with Run(
+    "localization.common", system=SYSTEM, settings=sorted(report), data_release=release, store=STORE
+) as out:
+    out.add_tree(report, levels=("method", "family"))
+with Run(
+    "localization.zero_shot", system=SYSTEM, settings=sorted(zero_shot), data_release=release, store=STORE
+) as out:
+    out.add_tree(zero_shot, levels=("method", "family"))
+    for name, rep in zero_shot.items():
+        if "tau" in rep:
+            out.add("tau", rep["tau"], method=name)
+print(
+    f"[ok] wrote localization.common and localization.zero_shot for {SYSTEM}; run make_report.py and tools/results_docs.py --write"
+)

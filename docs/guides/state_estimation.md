@@ -13,8 +13,8 @@ from fdia_graph.se import WLS
 
 train, test = fg.load("ieee14", split="train"), fg.load("ieee14", split="test")
 wls = WLS().fit(train)
-xhat = wls.estimate(test)              # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
-print(wls.score(test).geo)             # angle_mae_deg 0.091, voltage_mae_pu 8.39e-4
+xhat = wls.estimate(test)  # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
+print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/se/README.md has the table)
 ```
 
 | `fit()` learns | `estimate()` returns |
@@ -28,14 +28,14 @@ print(wls.score(test).geo)             # angle_mae_deg 0.091, voltage_mae_pu 8.3
 from fdia_graph.se import SubspacePrior
 
 est = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
-print(est.score(test).geo)             # angle_mae_deg 0.050, voltage_mae_pu 1.60e-4
+print(est.score(test).geo)  # about half WLS's angle error on IEEE-14 (the table below)
 ```
 
 | piece | does | why it helps |
 |---|---|---|
 | prior | restricts the estimate to the low-rank subspace benign operation occupies (SVD of the training states) | learns generator voltage setpoints from history instead of re-estimating them from noisy meters every scan |
 | Huber | down-weights measurements the physics cannot explain | rejects in-place meter corruption |
-| together on IEEE-14 test | 45% lower angle error, 81% lower voltage error than WLS | geometric mean over the eight record classes (benign and seven families), v0.8.3 timeline |
+| together on IEEE-14 test | <!-- results: red se ieee14 geo angle_mae_deg wls prior+huber -->45<!-- /results -->% lower angle error, <!-- results: red se ieee14 geo voltage_mae_pu wls prior+huber -->81<!-- /results -->% lower voltage error than WLS | geometric mean over the eight record classes (benign and seven families), v0.8.3 timeline |
 
 Validation-selected hyperparameters from the estimation paper:
 
@@ -70,7 +70,10 @@ slots by that variance, `calibrate="truth"` by their benign residual like every 
 formula is exact without noise (to 1e-16 on IEEE-14 and 118) and its variance matches a Monte Carlo
 of 20,000 draws to within 3% (`tests/test_pmu_channels.py`).
 
-Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured when the recipe drove one line per episode on the PGLib-OPF ratings (the plan's D11, before D14 to D17; `At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones.
+Measured with `WLS` on the test split, with only the meter model changed: taking the angles away
+from the SCADA voltmeters raises the benign angle error, and the eq. (3) pseudo-measurements win part
+of it back. The comparison is rerun into the results store with the v0.9.0 data; its earlier numbers
+had no stored run behind them and are not repeated here.
 
 ## What to expect per family
 

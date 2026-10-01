@@ -14,15 +14,15 @@ a record table. Three aligned measurement layers come with every frame, for buse
 ts = fg.load("ieee118", split="train", order="time")
 
 a = ts.export()
-a["node_x"]   # [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
-a["benign"]   # the same meters with the ATTACK REMOVED (noise kept)
-a["clean"]    # NOISELESS, attack-free TRUE state (the SE target)
-a["edge_x"], a["edge_benign"], a["edge_clean"]   # [T, E, 2] the same three layers for branch flows
-a["y"], a["family"], a["seq_id"]                  # per-frame labels, family, episode index (-1 benign)
-ts.edge_index, ts.edge_attr                        # static graph; ts.export()["node_m"][0] the meter plan
+a["node_x"]  # [T, N, 4] OBSERVED: attacked+noisy where attacked, benign+noisy elsewhere (the model input)
+a["benign"]  # the same meters with the ATTACK REMOVED (noise kept)
+a["clean"]  # NOISELESS, attack-free TRUE state (the SE target)
+a["edge_x"], a["edge_benign"], a["edge_clean"]  # [T, E, 2] the same three layers for branch flows
+a["y"], a["family"], a["seq_id"]  # per-frame labels, family, episode index (-1 benign)
+ts.edge_index, ts.edge_attr  # static graph; ts.export()["node_m"][0] the meter plan
 
-Xw, yw = ts.windows(W=24, stride=12)               # [n, 24, N, 4] windows + per-window labels
-ep = ts.episodes                                   # onset, length, family, buses of every episode in the view
+Xw, yw = ts.windows(W=24, stride=12)  # [n, 24, N, 4] windows + per-window labels
+ep = ts.episodes  # onset, length, family, buses of every episode in the view
 ```
 
 On the metered channels:
@@ -49,11 +49,11 @@ import numpy as np
 ts = fg.load("ieee118", split="train", order="time")
 
 W, stride = 24, 12
-Xw, yw = ts.windows(W, stride)                   # Xw [n,W,N,4] attacked measurements, yw [n,N] attack label
-Cw, _ = ts.windows(W, stride, layer="clean")     # [n,W,N,4] the clean state, windowed the same way
+Xw, yw = ts.windows(W, stride)  # Xw [n,W,N,4] attacked measurements, yw [n,N] attack label
+Cw, _ = ts.windows(W, stride, layer="clean")  # [n,W,N,4] the clean state, windowed the same way
 
 # column order is [|V|, Pinj, Qinj, angle]; the SE target is clean |V| and angle:
-target = Cw[..., [0, 3]]                         # [n,W,N,2] clean V and theta
+target = Cw[..., [0, 3]]  # [n,W,N,2] clean V and theta
 
 # training loop (sketch):
 #   pred = model(Xw)                             # your LSTM/TGN: [n,W,N,2] estimated V, theta
@@ -88,6 +88,7 @@ release, and its numbers there differ. Current localization results are in
 # shared helpers, used by all three examples
 import torch
 
+
 def pick_tau(logits, y):
     """Decision threshold with the best F1 on the VALIDATION split (never tune on test)."""
     best, tau = 0.0, 0.0
@@ -95,21 +96,29 @@ def pick_tau(logits, y):
         c = torch.quantile(logits, q)
         p = logits > c
         f1 = 2 * (p & y).sum() / (p.sum() + y.sum()).clamp(min=1)
-        if f1 > best: best, tau = float(f1), float(c)
+        if f1 > best:
+            best, tau = float(f1), float(c)
     return tau
 
+
 def report(p, t):
-    dr = (p & t).sum() / t.sum(); fa = (p & ~t).sum() / (~t).sum()
+    dr = (p & t).sum() / t.sum()
+    fa = (p & ~t).sum() / (~t).sum()
     prec = (p & t).sum() / p.sum().clamp(min=1)
-    print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2*prec*dr/(prec+dr):.3f}")
+    print(f"DR {dr:.3f}  FA {fa:.4f}  F1 {2 * prec * dr / (prec + dr):.3f}")
+
 
 def macro_f1(p, t):
     """Per-bus F1 averaged over the buses attacked in t (the papers' localization metric)."""
     f1s = []
     for b in range(t.shape[1]):
-        if not t[:, b].any(): continue
-        tp = (p[:, b] & t[:, b]).sum(); fp = (p[:, b] & ~t[:, b]).sum(); fn = (~p[:, b] & t[:, b]).sum()
-        pr = tp / max(tp + fp, 1); dr = tp / max(tp + fn, 1)
+        if not t[:, b].any():
+            continue
+        tp = (p[:, b] & t[:, b]).sum()
+        fp = (p[:, b] & ~t[:, b]).sum()
+        fn = (~p[:, b] & t[:, b]).sum()
+        pr = tp / max(tp + fp, 1)
+        dr = tp / max(tp + fn, 1)
         f1s.append(2 * pr * dr / max(pr + dr, 1e-12))
     return sum(f1s) / len(f1s)
 ```
@@ -126,9 +135,8 @@ Each bus is described by 14 numbers:
 | `temporal_delta` | 2 | scan-to-scan change |
 | `swing` | 2 | windowed z-score of that change |
 
-On the v0.7.1 shards, a 28k-parameter MLP under the published protocol localized at **0.915
-macro-F1** in about five CPU minutes, and the tuned paper models reached 0.93–0.95 on the same
-protocol. Needs `pip install "fdia-graph[torch]"`.
+A 28k-parameter MLP under the published protocol, a few CPU minutes; the printed output below is
+an example recorded on the v0.7.1 shards, not a stored result. Needs `pip install "fdia-graph[torch]"`.
 
 ```python
 import numpy as np
@@ -137,61 +145,74 @@ import fdia_graph as fg
 
 torch.manual_seed(0)
 FIELDS = ["node_x", "node_m", "edge_x", "temporal_delta", "swing", "y", "family"]
-splits = {"train": fg.load("ieee118", split="train", families=[0, 1, 2]).export(FIELDS),
-          "val":   fg.load("ieee118", split="val",   families=[0, 1, 2]).export(FIELDS),
-          "test":  fg.load("ieee118", split="test",  families=[0, 1, 2, 3, 4]).export(FIELDS)}
+splits = {
+    "train": fg.load("ieee118", split="train", families=[0, 1, 2]).export(FIELDS),
+    "val": fg.load("ieee118", split="val", families=[0, 1, 2]).export(FIELDS),
+    "test": fg.load("ieee118", split="test", families=[0, 1, 2, 3, 4]).export(FIELDS),
+}
 ei = fg.load("ieee118", split="train").edge_index_np
 N = splits["train"]["node_x"].shape[1]
+
 
 def kcl(d):
     """Partial nodal power balance: injection minus incident metered branch flows (a true balance only
     where all incident branches are metered; the meter-mask channels flag the rest)."""
-    r = np.array(d["node_x"][:, :, 1:3], np.float32)   # start from [P_inj, Q_inj]
-    np.subtract.at(r, (slice(None), ei[0]), d["edge_x"])   # flows leaving the from-bus
-    np.add.at(r, (slice(None), ei[1]), d["edge_x"])        # arriving at the to-bus
+    r = np.array(d["node_x"][:, :, 1:3], np.float32)  # start from [P_inj, Q_inj]
+    np.subtract.at(r, (slice(None), ei[0]), d["edge_x"])  # flows leaving the from-bus
+    np.add.at(r, (slice(None), ei[1]), d["edge_x"])  # arriving at the to-bus
     return r
+
 
 def feats(d, stats=None):
     """The papers' 14-dim per-bus vector: measurements(4) + meter mask(4) + KCL(2) + delta(2) + swing(2)."""
     raw = np.concatenate([d["node_x"], kcl(d), d["temporal_delta"]], -1)
-    if stats is None: stats = (raw.mean((0, 1)), raw.std((0, 1)) + 1e-9)   # train statistics only
+    if stats is None:
+        stats = (raw.mean((0, 1)), raw.std((0, 1)) + 1e-9)  # train statistics only
     z = (raw - stats[0]) / stats[1]
     return np.concatenate([z, d["node_m"], d["swing"]], -1).astype(np.float32), stats
 
+
 Ftr, st = feats(splits["train"])
 X = {"train": torch.tensor(Ftr).reshape(-1, 14)}
-for s in ("val", "test"): X[s] = torch.tensor(feats(splits[s], st)[0]).reshape(-1, 14)
+for s in ("val", "test"):
+    X[s] = torch.tensor(feats(splits[s], st)[0]).reshape(-1, 14)
 Y = {s: torch.tensor(d["y"], dtype=torch.float32).reshape(-1) for s, d in splits.items()}
 
-m = nn.Sequential(nn.Linear(14, 160), nn.ReLU(), nn.Dropout(0.1),
-                  nn.Linear(160, 160), nn.ReLU(), nn.Dropout(0.1), nn.Linear(160, 1))
+m = nn.Sequential(
+    nn.Linear(14, 160),
+    nn.ReLU(),
+    nn.Dropout(0.1),
+    nn.Linear(160, 160),
+    nn.ReLU(),
+    nn.Dropout(0.1),
+    nn.Linear(160, 1),
+)
 opt = torch.optim.AdamW(m.parameters(), 1e-3)
-pw = (1 - Y["train"].mean()) / Y["train"].mean()          # class weight from the TRAIN base rate
+pw = (1 - Y["train"].mean()) / Y["train"].mean()  # class weight from the TRAIN base rate
 for step in range(12000):
     j = torch.randint(0, len(X["train"]), (4096,))
     opt.zero_grad()
-    F.binary_cross_entropy_with_logits(m(X["train"][j]).squeeze(-1), Y["train"][j], pos_weight=pw).backward(); opt.step()
+    F.binary_cross_entropy_with_logits(m(X["train"][j]).squeeze(-1), Y["train"][j], pos_weight=pw).backward()
+    opt.step()
 m.eval()
 
 with torch.no_grad():
-    lo = {s: torch.cat([m(X[s][i:i + 65536]).squeeze(-1) for i in range(0, len(X[s]), 65536)]) for s in ("val", "test")}
-tau = pick_tau(lo["val"], Y["val"] > 0)                    # threshold tuned on VAL ...
-p = (lo["test"] > tau).reshape(-1, N).numpy(); t = (Y["test"] > 0).reshape(-1, N).numpy()
-print(f"localization macro-F1: {macro_f1(p, t):.3f}")      # ... reported on TEST
+    lo = {
+        s: torch.cat([m(X[s][i : i + 65536]).squeeze(-1) for i in range(0, len(X[s]), 65536)])
+        for s in ("val", "test")
+    }
+tau = pick_tau(lo["val"], Y["val"] > 0)  # threshold tuned on VAL ...
+p = (lo["test"] > tau).reshape(-1, N).numpy()
+t = (Y["test"] > 0).reshape(-1, N).numpy()
+print(f"localization macro-F1: {macro_f1(p, t):.3f}")  # ... reported on TEST
 report(torch.tensor(p.ravel()), torch.tensor(t.ravel()))
 # localization macro-F1: 0.915
 # DR 0.859  FA 0.0002  F1 0.916          (~5 min CPU)
 ```
 
-Per-family test DR at that operating point on the v0.7.1 shards (benign-bus FA 0.01%):
-
-| `Ad` | `Aq` | `As` (zero-shot) | `Ar` (zero-shot) |
-|---|---|---|---|
-| 0.94 | 0.90 | 0.87 | 0.73 |
-
-On the same shards, adding the excluded families back dropped the pooled all-family F1 to ~0.83,
-almost entirely because the slow ramp `At` (DR ~0.10) evades the temporal feature by construction.
-That gap is the open problem this dataset poses. The next two baselines keep it visible by
+On those shards the zero-shot families (`As`, `Ar`) were the hardest of the four trained-for
+ones, and adding the excluded families back lowered the pooled F1, almost entirely because the
+slow ramp `At` evades the temporal feature by construction. That gap is the open problem this dataset poses. The next two baselines keep it visible by
 training on every family.
 
 ### 2. Graph model: ARMAConv (PyTorch-Geometric), all families
@@ -209,24 +230,36 @@ import fdia_graph as fg
 
 ds = {s: fg.load("ieee118", split=s, format="pyg", preload=True) for s in ("train", "val", "test")}
 stats = fg.load("ieee118", split="train").export(["node_x"])["node_x"]
-MU = torch.tensor(stats.mean((0, 1))); SD = torch.tensor(stats.std((0, 1)) + 1e-9)
+MU = torch.tensor(stats.mean((0, 1)))
+SD = torch.tensor(stats.std((0, 1)) + 1e-9)
+
 
 class GNN(torch.nn.Module):
     def __init__(self, c=6, h=32):
-        super().__init__(); self.a = ARMAConv(c, h); self.b = ARMAConv(h, 1)
+        super().__init__()
+        self.a = ARMAConv(c, h)
+        self.b = ARMAConv(h, 1)
+
     def forward(self, g):
-        x = torch.cat([(g.x - MU) / SD, g.swing], -1)      # measurements + the swing feature
+        x = torch.cat([(g.x - MU) / SD, g.swing], -1)  # measurements + the swing feature
         return self.b(F.relu(self.a(x, g.edge_index)), g.edge_index).squeeze(-1)
 
-net = GNN(); opt = torch.optim.Adam(net.parameters(), 1e-3); pw = torch.tensor(43.0)
+
+net = GNN()
+opt = torch.optim.Adam(net.parameters(), 1e-3)
+pw = torch.tensor(43.0)
 for epoch in range(8):
     for batch in ds["train"].loader(batch_size=64):
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(net(batch), batch.y, pos_weight=pw).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(net(batch), batch.y, pos_weight=pw).backward()
+        opt.step()
 
 with torch.no_grad():
-    ev = {s: [(net(b), b.y > 0) for b in ds[s].loader(batch_size=256, shuffle=False)] for s in ("val", "test")}
-lo = {s: torch.cat([x for x, _ in ev[s]]) for s in ev}; yy = {s: torch.cat([y for _, y in ev[s]]) for s in ev}
+    ev = {
+        s: [(net(b), b.y > 0) for b in ds[s].loader(batch_size=256, shuffle=False)] for s in ("val", "test")
+    }
+lo = {s: torch.cat([x for x, _ in ev[s]]) for s in ev}
+yy = {s: torch.cat([y for _, y in ev[s]]) for s in ev}
 tau = pick_tau(lo["val"], yy["val"])
 report(lo["test"] > tau, yy["test"])
 # DR 0.455  FA 0.0009  F1 0.609          (~2.5 min CPU; val F1 is flat from epoch 1, saturated)
@@ -250,30 +283,46 @@ research target, not a given.
 import torch, torch.nn as nn, torch.nn.functional as F
 import fdia_graph as fg
 
+
 def seqs(split):  # one sequence per bus from the file's chronological split, as tensors
     X, y = fg.load("ieee118", split=split, order="time").windows(W=16, stride=8, label="last", per_bus=True)
     return torch.as_tensor(X), torch.as_tensor(y, dtype=torch.float32)
+
+
 (Xtr, ytr), (Xva, yva), (Xte, yte) = seqs("train"), seqs("val"), seqs("test")
-mu = Xtr.mean((0, 1)); sd = Xtr.std((0, 1)) + 1e-9
-def feats(X):     # measurements (train-normalized) + per-window z-score (the temporal spike feature)
+mu = Xtr.mean((0, 1))
+sd = Xtr.std((0, 1)) + 1e-9
+
+
+def feats(X):  # measurements (train-normalized) + per-window z-score (the temporal spike feature)
     return torch.cat([(X - mu) / sd, (X - X.mean(1, keepdim=True)) / (X.std(1, keepdim=True) + 1e-6)], -1)
+
+
 Xtr, Xva, Xte = feats(Xtr), feats(Xva), feats(Xte)
+
 
 class LSTMDet(nn.Module):
     def __init__(self, c=8, h=32):
-        super().__init__(); self.lstm = nn.LSTM(c, h, batch_first=True); self.fc = nn.Linear(h, 1)
-    def forward(self, x): return self.fc(self.lstm(x)[0][:, -1]).squeeze(-1)
+        super().__init__()
+        self.lstm = nn.LSTM(c, h, batch_first=True)
+        self.fc = nn.Linear(h, 1)
 
-m = LSTMDet(); opt = torch.optim.Adam(m.parameters(), 1e-3)
+    def forward(self, x):
+        return self.fc(self.lstm(x)[0][:, -1]).squeeze(-1)
+
+
+m = LSTMDet()
+opt = torch.optim.Adam(m.parameters(), 1e-3)
 pw = (1 - ytr.mean()) / ytr.mean()
 for epoch in range(10):
     for i in range(0, len(Xtr), 256):
         opt.zero_grad()
-        F.binary_cross_entropy_with_logits(m(Xtr[i:i + 256]), ytr[i:i + 256], pos_weight=pw).backward(); opt.step()
+        F.binary_cross_entropy_with_logits(m(Xtr[i : i + 256]), ytr[i : i + 256], pos_weight=pw).backward()
+        opt.step()
 
 with torch.no_grad():
-    lova = torch.cat([m(Xva[i:i + 4096]) for i in range(0, len(Xva), 4096)])
-    lote = torch.cat([m(Xte[i:i + 4096]) for i in range(0, len(Xte), 4096)])
+    lova = torch.cat([m(Xva[i : i + 4096]) for i in range(0, len(Xva), 4096)])
+    lote = torch.cat([m(Xte[i : i + 4096]) for i in range(0, len(Xte), 4096)])
 tau = pick_tau(lova, yva > 0)
 report(lote > tau, yte > 0)
 # DR 0.372  FA 0.0055  F1 0.463          (~3.5 min CPU; val F1 0.39 -> 0.47 from 5 to 10 epochs, headroom left)
@@ -285,23 +334,26 @@ layer (the label stays the attack target).
 
 ## Dataset statistics
 
-The tables in this section describe data release v0.8.3. Its `Aq` and `Al` episodes are one frame
-each, so a timeline holds about 24,500 episodes, against about 16,000 in v0.8.0 and v0.8.1 whose
+The tables in this section describe data release v0.8.3 (the results store's `data.release_stats`,
+written by `tools/experiments/release_stats.py`). Its `Aq` and `Al` episodes are one frame
+each, so a timeline holds more episodes than v0.8.0 and v0.8.1, whose
 `Aq` and `Al` were held over several frames; the pools, the other knobs and the seed are unchanged.
 
 **Per-system size.** One timeline of 72,000 frames per system, about half under attack, split
 chronologically 60/20/20 by frame with no episode cut (so the split sizes differ slightly per system):
 
+<!-- results: data.sizes -->
 | system | N buses | E branches | frames | train | val | test | episodes |
-|--------|--------:|-----------:|-------:|------:|----:|-----:|---------:|
-| ieee14  | 14 | 20 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
-| ieee30  | 30 | 41 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
-| ieee57  | 57 | 80 | 72,000 | 43,200 | 14,400 | 14,400 | 24,679 |
-| ieee89  | 89 | 210 | 72,000 | 43,220 | 14,380 | 14,400 | 24,495 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ieee14 | 14 | 20 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
+| ieee30 | 30 | 41 | 72,000 | 43,200 | 14,400 | 14,400 | 24,790 |
+| ieee57 | 57 | 80 | 72,000 | 43,200 | 14,400 | 14,400 | 24,679 |
+| ieee89 | 89 | 210 | 72,000 | 43,220 | 14,380 | 14,400 | 24,495 |
 | ieee118 | 118 | 186 | 72,000 | 43,200 | 14,408 | 14,392 | 24,469 |
 | ieee145 | 145 | 453 | 72,000 | 43,200 | 14,400 | 14,400 | 24,485 |
 | ieee200 | 200 | 245 | 72,000 | 43,200 | 14,400 | 14,400 | 24,436 |
 | ieee300 | 300 | 411 | 72,000 | 43,200 | 14,400 | 14,400 | 24,672 |
+<!-- /results -->
 
 Every system converges at every frame. In these releases a split boundary moved to the end of the episode it would cut; from the split-first generation the splits are cut before any episode is placed, so they are exactly 60/20/20.
 
@@ -312,8 +364,9 @@ hold a few more of one family. The one-frame families (`Aq`, `Al`, `Ad`, `As`, `
 episodes and land near their share; `At` and `Am` are about 100 sixty-frame episodes each, so one
 episode more or less moves 60 frames and their split counts vary most:
 
+<!-- results: data.families ieee118 -->
 | family | train | val | test | total |
-|--------|------:|----:|-----:|------:|
+|---|---:|---:|---:|---:|
 | benign (0) | 21,813 | 7,160 | 7,027 | 36,000 |
 | `Aq` stealthy load-scale | 2,961 | 991 | 948 | 4,900 |
 | `Ad` meter corruption | 2,948 | 941 | 945 | 4,834 |
@@ -322,22 +375,25 @@ episode more or less moves 60 frames and their split counts vary most:
 | `At` temporal ramp | 3,120 | 1,440 | 1,440 | 6,000 |
 | `Al` load redistribution | 2,806 | 934 | 982 | 4,722 |
 | `Am` multi-snapshot | 3,627 | 960 | 1,140 | 5,727 |
+<!-- /results -->
 
 The v0.7.2 release shipped a record shard and a separate stream per system; from v0.8.0 the
 timeline is the one file, and `fg.load(..., release="v0.7.2")` still reads the shards.
 
 **Operating-state distributions** (from the 72k pool per system):
 
+<!-- results: data.states -->
 | system | \|V\| p1 / med / p99 (pu) | θ min / med / max (deg) |
-|--------|--------------------------|--------------------------|
-| ieee14  | 1.010 / 1.052 / 1.090 | −21 / −14 / 0 |
-| ieee30  | 0.956 / 0.980 / 1.000 | −6 / −2 / 3 |
-| ieee57  | 0.689 / 0.880 / 1.040 | −34 / −13 / 0 |
-| ieee89  | 0.961 / 1.034 / 1.084 | −17 / −3 / 33 |
+|---|---:|---:|
+| ieee14 | 1.010 / 1.052 / 1.090 | −21 / −14 / 0 |
+| ieee30 | 0.956 / 0.980 / 1.000 | −6 / −2 / 3 |
+| ieee57 | 0.689 / 0.880 / 1.040 | −34 / −13 / 0 |
+| ieee89 | 0.961 / 1.034 / 1.084 | −17 / −3 / 33 |
 | ieee118 | 0.943 / 0.984 / 1.050 | −1 / 20 / 46 |
 | ieee145 | 0.920 / 1.064 / 1.155 | −180 / 1 / 180 |
 | ieee200 | 0.980 / 1.018 / 1.040 | −46 / −37 / −22 |
 | ieee300 | 0.870 / 0.992 / 1.065 | −108 / −15 / 71 |
+<!-- /results -->
 
 ![Operating-state distributions](../figures/fig_dataset_stats.png)
 

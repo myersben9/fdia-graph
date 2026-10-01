@@ -1,22 +1,23 @@
-"""Time the estimators and the generator on the tiny timeline, and write the numbers where a reader
-can compare them with the last run (docs/reference/BENCHMARKS.md).
+"""Time the estimators and the generator on the tiny timeline, and store the timings as a run of the
+`bench` experiment in the results store (`results/bench.csv`), where docs/reference/BENCHMARKS.md
+renders them from (a results block).
 
-    python tools/bench.py            # append this machine's row to the table
-    python tools/bench.py --check    # exit 1 if any timing is more than 3x slower than the last row
+    python tools/bench.py            # store this machine's run
+    python tools/bench.py --check    # exit 1 if any timing is more than 3x slower than the last run
 
 Timings are per record for the estimators (fit excluded) and per frame for timeline generation,
 in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, At and Am,
 20-frame episodes, the settings of tests/conftest.TIMELINE_KW). They are for spotting a regression on one machine, not for comparing
-machines: the table carries the CPU and the torch state with every row for that reason.
+machines: every run carries the CPU and the torch state (its provenance note) for that reason, and
+the fixture recipe (a tag, its hash) so a new recipe starts a new baseline.
 """
 
 from __future__ import annotations
 
 import atexit
-import datetime as dt
+import hashlib
 import os
 import platform
-import re
 import shutil
 import sys
 import tempfile
@@ -31,7 +32,6 @@ import numpy as np
 import fdia_graph as fg
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DOC = os.path.join(os.path.dirname(HERE), "docs", "reference", "BENCHMARKS.md")
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tests"))
 from conftest import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
 
@@ -39,6 +39,7 @@ SLOW_FACTOR = 3.0
 # the fixture recipe a row was measured on: rows of another recipe time other frames and meters, so
 # `--check` compares only rows of this one (a new recipe starts a new table and a new baseline)
 RECIPE = ",".join(f"{k}={v}" for k, v in sorted(TIMELINE_KW.items())) + ",families=At+Am,meters=hybrid"
+RECIPE_TAG = hashlib.sha256(RECIPE.encode()).hexdigest()[:8]  # a tag value carries no "=" or ";"
 
 
 def _timings() -> dict[str, float]:
@@ -49,7 +50,7 @@ def _timings() -> dict[str, float]:
     t0 = time.perf_counter()
     fg.generate("ieee14", "tiny", out=path, **TIMELINE_KW)
     gen_s = time.perf_counter() - t0  # generation alone; the load below only supplies the frame count
-    out["generate ms/record"] = 1e3 * gen_s / len(fg.load("tiny"))
+    out["generate"] = 1e3 * gen_s / len(fg.load("tiny"))
     train, test = fg.load("tiny", split="train"), fg.load("tiny", split="test")
     for name, est in (
         ("wls", WLS()),
@@ -61,7 +62,7 @@ def _timings() -> dict[str, float]:
         t0 = time.perf_counter()
         for _ in range(3):
             est.estimate(test)
-        out[f"{name} ms/record"] = 1e3 * (time.perf_counter() - t0) / (3 * len(test))
+        out[name] = 1e3 * (time.perf_counter() - t0) / (3 * len(test))
     return out
 
 
@@ -75,63 +76,50 @@ def _machine() -> str:
     return f"{platform.machine()} {platform.processor() or platform.system()}, numpy {np.__version__}, {torch_state}"
 
 
-def _rows(text: str) -> list[dict[str, str]]:
-    """Every timing row, keyed by the header of the table it sits in."""
-    header: list[str] = []
-    rows = []
-    for ln in text.splitlines():
-        if ln.startswith("| date"):
-            header = [c.strip() for c in ln.strip("|").split("|")]
-        elif ln.startswith("| 20") and header:
-            rows.append(dict(zip(header, [c.strip() for c in ln.strip("|").split("|")])))
-    return rows
+def _last_run(machine: str) -> dict[str, float]:
+    """The timings of the most recent stored run on `machine` with this fixture recipe; empty when
+    there is none, since runs from different machines or recipes are not comparable."""
+    from fdia_graph.results import Store
 
-
-def _last_row(text: str, machine: str) -> dict[str, float]:
-    """The timings of the most recent row measured on `machine` with this fixture recipe; empty when
-    there is none, since rows from different machines or recipes are not comparable."""
-    for row in reversed(_rows(text)):
-        if row.get("machine") == machine and row.get("recipe") == RECIPE:
-            return {
-                h: float(v) for h, v in row.items() if h.endswith("ms/record") and re.fullmatch(r"[0-9.]+", v)
-            }
+    store = Store(os.path.join(os.path.dirname(HERE), "results"))
+    runs = sorted(
+        (p for p in store.runs() if p.experiment == "bench" and p.note == machine), key=lambda p: p.timestamp
+    )
+    for prov in reversed(runs):
+        recs = store.query("bench", run_id=prov.run_id, recipe=RECIPE_TAG)
+        if recs:
+            return {r.method: r.value for r in recs}
     return {}
 
 
 def main(check: bool) -> int:
+    from fdia_graph.results import Run, Store
+
     t = _timings()
-    text = open(DOC, encoding="utf8").read() if os.path.exists(DOC) else ""
     machine = _machine()
-    last = _last_row(text, machine)
+    last = _last_run(machine)
     slow = {k: (last[k], v) for k, v in t.items() if k in last and v > SLOW_FACTOR * last[k]}
     for k, v in t.items():
-        print(f"{k:24} {v:8.3f}" + (f"   (last {last[k]:.3f})" if k in last else ""))
+        print(f"{k:16} {v:8.3f} ms/record" + (f"   (last {last[k]:.3f})" if k in last else ""))
     if check:
         if not last:
             print(
-                f"no earlier row from this machine ({machine}) on this fixture recipe; nothing to compare, "
+                f"no earlier run from this machine ({machine}) on this fixture recipe; nothing to compare, "
                 "run without --check first"
             )
             return 0
         if slow:
-            print("slower than 3x the last row from this machine:", slow)
+            print("slower than 3x the last run from this machine:", slow)
             return 1
         print("no timing regression")
         return 0
-    cols = ["date", *t.keys(), "version", "machine", "recipe"]
-    table = "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols) + "\n"
-    if not text:
-        text = (
-            "# Benchmarks\n\nPer-record timings on the tiny IEEE-14 timeline, appended by `python tools/bench.py`; "
-            "`--check` fails when a timing is more than 3x slower than the last row of the same machine and "
-            "fixture recipe.\n\n" + table
-        )
-    elif (_rows(text) or [{}])[-1].get("recipe") != RECIPE:  # the last table is another recipe's
-        text = text.rstrip("\n") + f"\n\n## Recipe `{RECIPE}`\n\n" + table
-    row = [dt.date.today().isoformat(), *(f"{v:.3f}" for v in t.values()), fg.__version__, machine, RECIPE]
-    text = text.rstrip("\n") + "\n| " + " | ".join(row) + " |\n"
-    open(DOC, "w", encoding="utf8", newline="\n").write(text)
-    print("appended to", DOC)
+    store = Store(os.path.join(os.path.dirname(HERE), "results"))
+    with Run("bench", system="ieee14", settings={"recipe": RECIPE}, note=machine, store=store) as run:
+        for name, ms in t.items():
+            run.add("ms_per_record", ms, method=name, recipe=RECIPE_TAG)
+    print(
+        "stored a run of `bench`; run tools/results_docs.py --write to refresh docs/reference/BENCHMARKS.md"
+    )
     return 0
 
 

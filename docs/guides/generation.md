@@ -122,28 +122,41 @@ support are free, every other bus keeps its injection, and the false state is th
 change that meets the flow. The ratings are by default 1.25 times each branch's peak true apparent flow
 over the operating pool (`am_attack={"rating_margin": ...}`, the plan's D15), which works on every system; the
 PGLib-OPF ratings are the alternative, `am_attack={"rating_source": "pglib"}` (IEEE-14, 118 and 300;
-other cases raise `NoLineRatings`). Measured with one line per episode (`am_attack={"n_lines": 1}`, otherwise new generation's defaults: hybrid meters, `families=("Am",)`, seed 1, the pool ratings computed over the frames walked, the bounds of D16): IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 3.9 devices and 9.9 channels on average, the largest change on a channel 0.14 pu at the median episode and 0.82 pu at most, 8% of the searches proven, 30 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 9.6 devices and 30.4 channels on average, the largest change on a channel 0.40 pu at the median episode and 3.29 pu at most, 0% of the searches proven, 71 s of generation per episode; every episode's noiseless flow reaches its rating. Before D16 bounded the edge of the support the same runs gave IEEE-14 (3000 frames) 25 episodes built and 0 fallen back to benign, 5.3 devices and 15.0 channels on average, the largest change on a channel 0.18 pu at the median episode and 5.74 pu at most, 36% of the searches proven, 15 s of generation per episode; IEEE-118 (2000 frames) 17 episodes built and 0 fallen back to benign, 6.8 devices and 21.4 channels on average, the largest change on a channel 1.05 pu at the median episode and 44.94 pu at most, 24% of the searches proven, 43 s of generation per episode, and IEEE-30 (600 frames, a smoke run) 5 episodes of 3.8 devices. The generators of the support are free inside their limits, like its attackable loads, and the
+other cases raise `NoLineRatings`). The generators of the support are free inside their limits, like its attackable loads, and the
 flow solve enforces the voltage and generator limits by an active set (the plan's D14); the limits
 bind every generator the attack moves, on the support's edge too, and every load bus it moves shows
 at most `load_cap` (0.5, `am_attack={"load_cap": ...}`) times its true load [YUA11] (D16). Each
 episode overloads two lines at once, as [WU26]'s case studies do, drawn so one held support reaches
-both (`am_attack={"n_lines": 1}` for one; D17); `episodes/am_*` holds one row per target line. `am_attack={"support_method": "rref"}` picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; `engine/attacks/rref.py`), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is 20 to 60 times faster on IEEE-14 and tampers more devices than the search (docs/plans/WU_DEFENSE_PLAN.md, section 3). Measured with new generation's defaults (hybrid meters, `families=("Am",)`, seed 1, pool ratings, the D16 bounds, two lines): IEEE-14 (3000 frames) 25 two-line episodes built and 0 fallen back to benign, 6.8 devices and 19.3 channels on average, the largest change on a channel 0.17 pu at the median episode and 1.59 pu at most, 0% of the searches proven, 39 s of generation per episode; IEEE-118 (2000 frames) 17 two-line episodes built and 0 fallen back to benign, 17.8 devices and 72.0 channels on average, the largest change on a channel 1.33 pu at the median episode and 3.39 pu at most, 0% of the searches proven, 78 s of generation per episode; every line of every episode reaches its rating. The generation times in this section were measured before the search speed-up of the changelog's Unreleased notes, which returns the same attacks in less time (about a third less for two-line `Am` on IEEE-14 and IEEE-118). As in
+both (`am_attack={"n_lines": 1}` for one; D17); `episodes/am_*` holds one row per target line. `am_attack={"support_method": "rref"}` picks the support by [WU26]'s own method instead of the search: row reduction of the transposed attack-area Jacobian with column exchanges (p. 655 and Sec. IV-D1, after [YAN17]; `engine/attacks/rref.py`), the sparsest attack that moves each target line at every snapshot joined over the window, grown by the next sparsest rows when the AC solve cannot reach the goal on it (ours). It is much faster on IEEE-14 and tampers more devices than the search (experiment `wu26.method_compare`, docs/plans/WU_DEFENSE_PLAN.md, section 3). As in
 [WU26], nothing bounds how far `Am` moves a channel between snapshots: a
 device counts as tampered beyond [WU26]'s own case-study noise (0.03 pu SCADA, 0.01 pu PMU, the
 current channels included; `formulas.noise.paper_sigma`, the plan's D8 and D11), and the attack is
 stealthy because every snapshot is one AC state. `At` keeps its bound, each step within the meters'
-rated accuracy (D7). Before D11 `Am` carried a between-snapshot bound as well: under the meters'
-rated accuracy (D7) no overload window was stealthy: 0 of 10 IEEE-14 and 0 of 5 IEEE-118
-60-snapshot windows, since moving one line's flow moves the injections and flows around its ends by
-several times that change, beyond the rated accuracy of the small loads there. Measured under D8 and
-D9 on 60-snapshot windows at the 5-minute pool cadence: IEEE-14 2 of 10 windows (8 devices, the
-search not proven within its budget), IEEE-118 4 of 5 (3 to 11 devices, median 7, 2 proven, 0.22 s
-per snapshot); the reported noiseless flow reaches the rating exactly. A window with no stealthy
+rated accuracy (D7). Before D11 `Am` carried a between-snapshot bound as well, under which no overload window was
+stealthy: moving one line's flow moves the injections and flows around its ends by several times
+that change, beyond the rated accuracy of the small loads there. A window with no stealthy
 overload moves the episode to a later free onset of its split, up to 20 times (`_relocate`); past
 that it is given up and counted in `episode_shortfall`. With the hybrid meters the attacker also
 writes the PMU branch currents its false state moves, which counts in the PMU of the bus at that end.
 Only `At`'s channels are bounded between snapshots, the currents included (the PMU class, D7); `Am`'s
-current channels are only counted when they move by more than 0.01 pu (D8, D11). Measured with `WLS` on the test split, same seed and pool, only the meter model changed (IEEE-14 3,000 frames, IEEE-118 2,000): benign angle MAE with an angle at every voltmeter 0.0097 and 0.0105 degrees, with angles at the PMUs only 0.0113 and 0.0118 (17% and 12% higher), and with the eq. (3) pseudo-measurements added 0.0113 and 0.0096 (level with PMUs only on IEEE-14, 18% lower on IEEE-118); on `At` records 0.063, 0.079 and 0.075 degrees on IEEE-14 and 0.0103, 0.0125 and 0.0120 on IEEE-118. The two meter models draw different noise and different episodes, so the attacked rows compare different attacks. Measured with the default recipe (`At` and `Am`, seed 1; IEEE-14 3,000 frames, IEEE-118 2,000), IEEE-14: `Am` 12 stealthy overload episodes on the hybrid meters (6.7 devices, 23.6 channels on average) and 14 on the v0.8.3 meters (5.6 devices), against 0 under the bound; 0 frames fell back to benign instead of 720; `At`, still bounded, 10.3 devices on the hybrid meters and 8.5 on the v0.8.3 ones; IEEE-118: `Am` 7 stealthy overload episodes on the hybrid meters (7.3 devices, 23.7 channels on average) and 8 on the v0.8.3 meters (4.4 devices), against 3 under the bound; 0 frames fell back to benign instead of 220; `At`, still bounded, 11.7 devices on the hybrid meters and 8.8 on the v0.8.3 ones.
+current channels are only counted when they move by more than 0.01 pu (D8, D11).
+
+The overload episodes these recipes build, measured on the hybrid meters with `families=("Am",)`,
+seed 1, the pool ratings computed over the frames walked (IEEE-14 and IEEE-118 timelines of 3,000
+and 2,000 frames; IEEE-30 a smoke run), before the search speed-up of #163 (experiment
+`generation.am_overload`; every line of every built episode reaches its rating):
+
+<!-- results: gen.am -->
+| system | recipe | frames | episodes | fallen back | devices (mean) | channels (mean) | largest change, pu (median / max episode) | proven | s per episode |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| IEEE-14 | one line, before the D16 bounds | 3000 | 25 | 0 | 5.3 | 15.0 | 0.18 / 5.74 | 36% | 15 |
+| IEEE-14 | one line, D16 bounds | 3000 | 25 | 0 | 3.9 | 9.9 | 0.14 / 0.82 | 8% | 30 |
+| IEEE-14 | two lines, D16 bounds (default) | 3000 | 25 | 0 | 6.8 | 19.3 | 0.17 / 1.59 | 0% | 39 |
+| IEEE-30 | one line, before the D16 bounds | 600 | 5 | 0 | 3.8 | 8.8 | 0.09 / 0.29 | 0% | 20 |
+| IEEE-118 | one line, before the D16 bounds | 2000 | 17 | 0 | 6.8 | 21.4 | 1.05 / 44.94 | 24% | 43 |
+| IEEE-118 | one line, D16 bounds | 2000 | 17 | 0 | 9.6 | 30.4 | 0.40 / 3.29 | 0% | 71 |
+| IEEE-118 | two lines, D16 bounds (default) | 2000 | 17 | 0 | 17.8 | 72.0 | 1.33 / 3.39 | 0% | 78 |
+<!-- /results -->
 
 Notes on the table:
 
@@ -175,7 +188,28 @@ Notes on the table:
 Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
 the longest episodes first keeps a long episode from being squeezed out by shorter ones. The
 default `attacked_frac = 0.5` gives a balanced file: on a 72,000-frame timeline with 60-frame
-episodes every split is exactly half attacked (train 360 episodes, val and test 120 each). Because
+episodes every split is half attacked, up to an overload window that stays infeasible after its 20
+moves. The full IEEE-14 builds of the three release datasets (seed 123, experiment
+`generation.split_first`; episodes and redraws per family, `At / Am`):
+
+<!-- results: gen.split_first -->
+| dataset | split | frames | attacked | episodes asked | built | redraws | shortfall |
+|---|---|---:|---:|---:|---:|---:|---:|
+| At | train | 43200 | 0.500 | 360 | 360 | 0 | 0 |
+| At | val | 14400 | 0.500 | 120 | 120 | 0 | 0 |
+| At | test | 14400 | 0.500 | 120 | 120 | 0 | 0 |
+| At | build |  |  |  |  |  | 10 min |
+| Am | train | 43200 | 0.500 | 360 | 360 | 88 | 0 |
+| Am | val | 14400 | 0.496 | 120 | 119 | 32 | 1 |
+| Am | test | 14400 | 0.500 | 120 | 120 | 26 | 0 |
+| Am | build |  |  |  |  |  | 413 min |
+| At+Am | train | 43200 | 0.500 | 180 / 180 | 180 / 180 | 0 / 32 | 0 / 0 |
+| At+Am | val | 14400 | 0.500 | 60 / 60 | 60 / 60 | 0 / 18 | 0 / 0 |
+| At+Am | test | 14400 | 0.500 | 60 / 60 | 60 / 60 | 0 / 15 | 0 / 0 |
+| At+Am | build |  |  |  |  |  | 234 min |
+<!-- /results -->
+
+Because
 the jitter of frame t depends only on the seed and t, the files of one seed and pool that place
 different families (`families=("Am",)`, `("At", "Am")`, `("At",)`) carry byte-identical benign
 frames; only the attacks differ.
@@ -242,7 +276,8 @@ estimators themselves default to `calibrate="truth"`, the estimation benchmark's
 
 ```python
 import fdia_graph as fg
-fg.generate("ieee118", name="my_run", frames=10_000, attacked_frac=0.5)   # needs [generate]
+
+fg.generate("ieee118", name="my_run", frames=10_000, attacked_frac=0.5)  # needs [generate]
 ds = fg.load("my_run", order="time")
 ```
 

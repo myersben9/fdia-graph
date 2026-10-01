@@ -1,0 +1,849 @@
+"""The repository's results queries: what each results block in the docs renders from the store.
+
+`tools/results_docs.py` imports this file, which registers every query below with
+`fdia_graph.results.query`. A block names a query and its arguments:
+
+    <!-- results: se.comparison angle_mae_deg -->          a whole table
+    <!-- results: v se ieee14 prior+huber geo angle_mae_deg -->   one number
+    <!-- results: red se ieee14 geo angle_mae_deg wls prior+huber -->   a percent error reduction
+
+`v` and `red` name the experiment by a short alias (ALIASES); a "-" stands for an empty key.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from fdia_graph.errors import NoSuchResult
+from fdia_graph.results import METRICS, Record, Store, cell, query, table
+from fdia_graph.results.render import number
+
+ALIASES = {
+    "se": "se.estimators",
+    "loc": "localization.common",
+    "zs": "localization.zero_shot",
+    "fed": "federated.localization",
+    "trust": "trust.selection",
+    "sloc": "trust.secured_localization",
+    "sest": "trust.secured_estimation",
+    "wu": "wu26.reproduction",
+    "bench": "bench",
+}
+SYSTEMS = ("ieee14", "ieee118", "ieee300")
+
+
+def _short(system: str) -> str:
+    return system.replace("ieee", "")
+
+
+def _key(value: str) -> str:
+    return "" if value == "-" else value
+
+
+def _get(store: Store, experiment: str, **keys: object) -> Optional[Record]:
+    """The newest record the keys select, None when there is none (an n/a cell); several is a
+    selection that left a key open and raises, so a table never shows an arbitrary one."""
+    found = store.latest(experiment, **keys)
+    if len(found) > 1:
+        raise NoSuchResult(f"{experiment} {keys}: {len(found)} records match, expected at most one")
+    return found[0] if found else None
+
+
+def _systems(store: Store, experiment: str) -> list[str]:
+    have = {r.system for r in store.latest(experiment)}
+    return [s for s in SYSTEMS if s in have]
+
+
+# ---- one number
+@query("v")
+def value(
+    store: Store,
+    alias: str,
+    system: str,
+    method: str,
+    family: str,
+    metric: str,
+    fmt: str = "",
+    scale: str = "1",
+    **tags: str,
+) -> str:
+    """One cell: experiment alias, system, method, family, metric; tags by name (`sd=1` adds the spread)."""
+    sd = tags.pop("sd", "") == "1"
+    rec = store.one(
+        ALIASES[alias], system=_key(system), method=_key(method), family=_key(family), metric=metric, **tags
+    )
+    return cell(rec, fmt or None, float(scale), sd=sd)
+
+
+@query("red")
+def reduction(
+    store: Store,
+    alias: str,
+    system: str,
+    family: str,
+    metric: str,
+    base: str,
+    new: str,
+    fmt: str = ".0f",
+    **tags: str,
+) -> str:
+    """The percent error reduction of method `new` over `base` (negative when worse)."""
+    keys = dict(system=_key(system), family=_key(family), metric=metric, **tags)
+    b = store.one(ALIASES[alias], method=_key(base), **keys).value
+    n = store.one(ALIASES[alias], method=_key(new), **keys).value
+    return format(100.0 * (1.0 - n / b), fmt)
+
+
+# ---- state estimation (docs/se)
+SE_ROWS = [
+    ("wls", "WLS baseline"),
+    ("removal", "Residual removal"),
+    ("huber", "Adaptive weighting"),
+    ("prior+huber", "**Prior + Huber (proposed)**"),
+    ("jacobian", "Jacobian weighting"),
+    ("prior+huber+gate", "**Prior + Huber + CNN gate**"),
+    ("prior+huber+oracle", "Prior + Huber + oracle gate (ceiling)"),
+]
+SE_FAMILIES = [
+    ("benign", "Benign"),
+    ("Ad", "Bias (Ad)"),
+    ("As", "Scaling (As)"),
+    ("Ar", "Replay (Ar)"),
+    ("Aq", "Stealthy re-solve (Aq)"),
+    ("At", "Slow ramp (At)"),
+    ("Al", "Load redistribution (Al)"),
+    ("Am", "Multi-snapshot (Am)"),
+]
+_SE_UNITS = {
+    "angle_mae_deg": ("Angle MAE (deg)", 1.0, ".3f"),
+    "voltage_mae_pu": ("Voltage MAE (10^-3 pu)", 1e3, ".3f"),
+}
+
+
+def _red(
+    store: Store, exp: str, system: str, family: str, metric: str, base: str, new: str, **tags: str
+) -> Optional[float]:
+    b = _get(store, exp, system=system, family=family, metric=metric, method=base, **tags)
+    n = _get(store, exp, system=system, family=family, metric=metric, method=new, **tags)
+    return None if b is None or n is None else 100.0 * (1.0 - n.value / b.value)
+
+
+@query("se.comparison")
+def se_comparison(store: Store, metric: str) -> str:
+    """Estimator x system, the geometric-mean cell, closed by the proposed estimator's reduction."""
+    exp, systems = "se.estimators", _systems(store, "se.estimators")
+    label, scale, fmt = _SE_UNITS[metric]
+    rows = [[f"*{label}*", *("" for _ in systems)]]
+    for m, lab in SE_ROWS:
+        cells = [
+            cell(_get(store, exp, system=s, method=m, family="geo", metric=metric), fmt, scale)
+            for s in systems
+        ]
+        if lab.startswith("**"):
+            cells = [f"**{c}**" if c else c for c in cells]
+        rows.append([lab, *cells])
+    reds = [_red(store, exp, s, "geo", metric, "wls", "prior+huber") for s in systems]
+    rows.append(["WLS error reduction", *("" if r is None else f"{r:.0f}%" for r in reds)])
+    return table(["Estimator", *(f"IEEE {_short(s)}" for s in systems)], rows)
+
+
+@query("se.families")
+def se_families(store: Store) -> str:
+    """Per family: the WLS error and the proposed estimator's percent reduction, every system."""
+    exp, systems = "se.estimators", _systems(store, "se.estimators")
+    blocks = [
+        ("Base angle (deg)", "angle_mae_deg", 1.0, ".3f"),
+        ("Base volt (10^-3)", "voltage_mae_pu", 1e3, ".2f"),
+        ("Angle red. (%)", "angle_mae_deg", None, ".0f"),
+        ("Volt red. (%)", "voltage_mae_pu", None, ".0f"),
+    ]
+    rows = []
+    for fam, lab in SE_FAMILIES:
+        cells = []
+        for _, metric, scale, fmt in blocks:
+            for s in systems:
+                base = _get(store, exp, system=s, method="wls", family=fam, metric=metric)
+                if base is None:
+                    cells.append("n/a")
+                elif scale is None:
+                    cells.append(format(_red(store, exp, s, fam, metric, "wls", "prior+huber"), fmt))
+                else:
+                    cells.append(cell(base, fmt, scale))
+        rows.append([lab, *cells])
+    return table(["Family", *(f"{b} {_short(s)}" for b, *_ in blocks for s in systems)], rows)
+
+
+@query("se.gated")
+def se_gated(store: Store) -> str:
+    """Angle MAE of the proposed estimator alone, with the CNN gate and with the oracle gate."""
+    exp, systems = "se.estimators", _systems(store, "se.estimators")
+    arms = ("prior+huber", "prior+huber+gate", "prior+huber+oracle")
+    groups = [
+        ("Aq stealthy re-solve", ("Aq",)),
+        ("Ad / As / Ar in place", ("Ad", "As", "Ar")),
+        ("At slow ramp", ("At",)),
+        ("Al redistribution", ("Al",)),
+        ("Am multi-snapshot", ("Am",)),
+        ("geometric mean", ("geo",)),
+    ]
+    rows = []
+    for lab, fams in groups:
+        cells = []
+        for s in systems:
+            fmt = ".3f" if s == "ieee14" else ".4f"
+            for a in arms:
+                vals = [
+                    cell(_get(store, exp, system=s, method=a, family=f, metric="angle_mae_deg"), fmt)
+                    for f in fams
+                ]
+                cells.append(" / ".join(vals))
+        rows.append([lab, *cells])
+    head = [
+        "angle MAE (deg)",
+        *(f"{a} {_short(s)}" for s in systems for a in ("proposed", "+ CNN gate", "+ oracle")),
+    ]
+    return table(head, rows)
+
+
+# ---- localization (docs/localization)
+LOC_COMMON = [
+    ("swing", "Swing threshold"),
+    ("delta", "Delta threshold"),
+    ("residual", "Residual (LNR)"),
+    ("mlp", "Per-bus MLP"),
+    ("cnn", "**1D CNN**"),
+    ("cnn+jac", "1D CNN + Jacobian (C)"),
+    ("cnn+prev", "1D CNN + previous swing"),
+    ("cnn+prev+jac", "1D CNN + previous swing + Jacobian"),
+]
+LOC_ZERO_SHOT = [
+    ("mlp", "Per-bus MLP"),
+    ("cnn", "**1D CNN**"),
+    ("cnn+prev", "1D CNN + previous swing"),
+    ("swing", "Swing threshold"),
+]
+LOC_ABLATION = [
+    ("cnn_meas", "A: measurements only"),
+    ("cnn", "B: measurements + temporal (the papers' 14)"),
+    ("cnn+jac", "C: B + Jacobian features"),
+    ("cnn_jac", "D: Jacobian features only"),
+    ("cnn+prev", "E: B + the previous frame's swing"),
+    ("cnn+prev+jac", "F: E + Jacobian features"),
+]
+
+
+def _f1_dr_fr(
+    store: Store,
+    exp: str,
+    rows: list[tuple[str, str]],
+    fmts: tuple[str, str, str],
+    first: str,
+    bold_best: bool = False,
+) -> str:
+    """F1 / DR / FR per system; `bold_best` marks each system's best F1."""
+    systems = _systems(store, exp)
+    best = {
+        s: max(
+            (
+                r.value
+                for m, _ in rows
+                for r in store.latest(exp, system=s, method=m, family="all", metric="macro_f1")
+            ),
+            default=None,
+        )
+        for s in systems
+    }
+    body = []
+    for m, lab in rows:
+        cells = []
+        for s in systems:
+            for metric, fmt in zip(("macro_f1", "macro_dr", "macro_fr"), fmts):
+                rec = _get(store, exp, system=s, method=m, family="all", metric=metric)
+                text = cell(rec, fmt)
+                if bold_best and rec is not None and metric == "macro_f1" and rec.value == best[s]:
+                    text = f"**{text}**"
+                cells.append(text)
+        body.append([lab, *cells])
+    head = [first, *(f"{k} {_short(s)}" for s in systems for k in ("F1", "DR", "FR"))]
+    return table(head, body)
+
+
+@query("loc.table")
+def loc_table(store: Store, protocol: str) -> str:
+    """F1 / DR / FR per system for one protocol: common, zero_shot or ablation."""
+    if protocol == "common":
+        return _f1_dr_fr(store, "localization.common", LOC_COMMON, (".4f", ".4f", ".4f"), "Method")
+    if protocol == "zero_shot":
+        return _f1_dr_fr(store, "localization.zero_shot", LOC_ZERO_SHOT, (".4f", ".4f", ".4f"), "Method")
+    return _f1_dr_fr(
+        store,
+        "localization.zero_shot",
+        LOC_ABLATION,
+        (".3f", ".3f", ".4f"),
+        "Model (1D CNN, zero-shot)",
+        True,
+    )
+
+
+# ---- federated localization (docs/federated)
+FED_ROWS = [
+    (m, k, f"{lab}, K = {k}")
+    for m, lab in (("cnn", "1D CNN"), ("mlp", "Per-bus MLP"))
+    for k in ("1", "2", "3")
+]
+
+
+@query("fed.table")
+def fed_table(store: Store, kind: str) -> str:
+    """The federated tables: `table4` (F1 / DR / FR over every record), `benign` (FR over benign
+    records) or `families` (per-family node F1), mean ± sd over seeds."""
+    exp = "federated.localization"
+    systems = _systems(store, exp)
+    if kind == "families":
+        fams = ("Aq", "Ad", "As", "Ar")
+        body = [
+            [
+                lab,
+                *(
+                    cell(
+                        _get(
+                            store, exp, system=s, method=m, family=f, metric="macro_f1", clients=k, pool="all"
+                        ),
+                        ".3f",
+                    )
+                    for s in systems
+                    for f in fams
+                ),
+            ]
+            for m, k, lab in FED_ROWS
+        ]
+        return table(["Model", *(f"{f} {_short(s)}" for s in systems for f in fams)], body)
+    cols = [("macro_f1", "F1", ".3f"), ("macro_dr", "DR", ".3f"), ("macro_fr", "FR", ".4f")]
+    pool = "all"
+    if kind == "benign":
+        cols, pool = [("macro_fr", "FR", ".5f")], "benign"
+    body = [
+        [
+            lab,
+            *(
+                cell(
+                    _get(store, exp, system=s, method=m, family="all", metric=metric, clients=k, pool=pool),
+                    fmt,
+                    sd=True,
+                )
+                for s in systems
+                for metric, _, fmt in cols
+            ),
+        ]
+        for m, k, lab in FED_ROWS
+    ]
+    return table(["Model", *(f"{name} {_short(s)}" for s in systems for _, name, _ in cols)], body)
+
+
+# ---- trusted meters (docs/trust)
+_STEALTHY = ("Aq", "At", "Al", "Am")
+_SELECTORS = (("greedy", "greedy"), ("dqn", "DQN"))
+
+
+def _rate(store: Store, system: str, sel: str, fam: str, which: str) -> str:
+    return cell(_get(store, "trust.selection", system=system, method=sel, family=fam, metric=which), ".2f")
+
+
+def _detection_row(store: Store, system: str, sel: str, label: str) -> list[str]:
+    cells = [
+        f"{_rate(store, system, sel, f, 'detected_before')} → {_rate(store, system, sel, f, 'detected_after')}"
+        for f in _STEALTHY
+    ]
+    inplace = [
+        " / ".join(_rate(store, system, sel, f, w) for f in ("Ad", "As", "Ar"))
+        for w in ("detected_before", "detected_after")
+    ]
+    return [system, label, *cells, " → ".join(inplace)]
+
+
+@query("trust.detection")
+def trust_detection(store: Store) -> str:
+    """Residual detection rate per family, before → after securing the selection."""
+    body = [
+        _detection_row(store, s, sel, lab)
+        for s in _systems(store, "trust.selection")
+        for sel, lab in _SELECTORS
+    ]
+    return table(["system", "selector", *_STEALTHY, "Ad / As / Ar"], body, numeric_from=2)
+
+
+_COPIES = (("plain", "plain"), ("greedy", "greedy"), ("dqn", "DQN"))
+
+
+@query("trust.secured_loc")
+def trust_secured_loc(store: Store, system: str) -> str:
+    """Node F1 (detection rate) per stealthy family on the plain and secured copies."""
+    exp = "trust.secured_localization"
+    body = []
+    for m, mlab in (("residual", "residual"), ("cnn+jac", "1D CNN + Jacobian")):
+        for copy, clab in _COPIES:
+            keys = dict(system=system, method=m, secured=copy)
+            cells = [
+                f"{cell(_get(store, exp, family=f, metric='node_f1', **keys), '.2f')} "
+                f"({cell(_get(store, exp, family=f, metric='detection_rate', **keys), '.2f')})"
+                for f in _STEALTHY
+            ]
+            tail = f"{cell(_get(store, exp, family='all', metric='macro_f1', **keys), '.3f')} / " + cell(
+                _get(store, exp, family="all", metric="macro_fr", **keys), ".4f"
+            )
+            body.append([mlab, clab, *cells, tail])
+    return table(["localizer", "copy", *_STEALTHY, "macro-F1 / benign FA"], body, numeric_from=2)
+
+
+_SECURED_EST = [
+    ("prior+huber", "prior + Huber"),
+    ("prior+huber+cnn", "prior + Huber + CNN gate"),
+    ("prior+huber+cnn+trust", "prior + Huber + CNN gate, secured meters exempt"),
+    ("prior+huber+residual+trust", "prior + Huber + residual gate, secured meters exempt"),
+    ("prior+huber+oracle", "prior + Huber + oracle gate"),
+    ("prior+huber+oracle+trust", "prior + Huber + oracle gate, secured meters exempt"),
+]
+
+
+@query("trust.secured_est")
+def trust_secured_est(store: Store, system: str, fmt: str = ".3f") -> str:
+    """Geometric-mean angle MAE per estimator on the plain and secured copies."""
+    exp = "trust.secured_estimation"
+    body = [
+        [
+            lab,
+            *(
+                cell(
+                    _get(
+                        store, exp, system=system, method=m, family="geo", metric="angle_mae_deg", secured=c
+                    ),
+                    fmt,
+                )
+                for c, _ in _COPIES
+            ),
+        ]
+        for m, lab in _SECURED_EST
+    ]
+    return table(["estimator", *(lab for _, lab in _COPIES)], body)
+
+
+# ---- benchmarks (docs/reference/BENCHMARKS.md)
+_BENCH = ("generate", "wls", "huber", "prior+huber")
+
+
+@query("bench.table")
+def bench_table(store: Store) -> str:
+    """One line per stored `bench` run: its date, the ms per record of each timed step, the SDK version,
+    the machine and the fixture recipe's tag."""
+    body = []
+    for prov in sorted((p for p in store.runs() if p.experiment == "bench"), key=lambda p: p.timestamp):
+        recs = {r.method: r for r in store.query("bench", run_id=prov.run_id)}
+        recipe = next((r.tag("recipe") for r in recs.values()), "")
+        body.append(
+            [
+                prov.timestamp[:10],
+                *(cell(recs.get(m), ".3f") for m in _BENCH),
+                prov.sdk_version,
+                prov.note,
+                recipe,
+            ]
+        )
+    head = ["date", *(f"{m} ms/record" for m in _BENCH), "version", "machine", "recipe"]
+    return table(head, body)
+
+
+# ---- [WU26] defense plan (docs/plans/WU_DEFENSE_PLAN.md)
+def _count_pair(store: Store, exp: str, **keys: str) -> Optional[tuple[int, int]]:
+    d, c = (_get(store, exp, metric=m, **keys) for m in ("devices", "channels"))
+    return None if d is None or c is None else (int(d.value), int(c.value))
+
+
+def _pair_text(pair: Optional[tuple[int, int]]) -> str:
+    if pair is None:
+        return ""
+    return "none converged" if pair[0] < 0 else f"{pair[0]} / {pair[1]}"
+
+
+def _rise(before: Optional[tuple[int, int]], after: Optional[tuple[int, int]]) -> str:
+    if before is None or after is None or min(*before, *after) < 0:
+        return ""
+    return " / ".join(f"{100.0 * (a / b - 1.0):+.1f}%" for a, b in zip(after, before))
+
+
+@query("wu.prototype")
+def wu_prototype(store: Store) -> str:
+    """The plan's IEEE-14 prototype: undefended, Wu's schedule (own bus), the rise, Table II beside it."""
+    exp = "wu26.prototype"
+    paper = {("1", "1.1"): "25.6% / 23.9%", ("2", "1.1"): "35.2% / 27.0%"}  # [WU26] Table II, as published
+    body = []
+    for s, k, cap in (
+        ("1", "1.1", "0.5"),
+        ("2", "1.1", "0.5"),
+        ("1", "1.2", "0.5"),
+        ("2", "1.2", "0.5"),
+        ("1", "1.2", "off"),
+        ("2", "1.2", "off"),
+    ):
+        keys = dict(scenario=s, k=k, load_cap=cap)
+        before = _count_pair(store, exp, trust="none", **keys)
+        after = _count_pair(store, exp, trust="wu", **keys)
+        label = f"S{s}{' (3-4, 6-11)' if s == '1' else ' (1-2, 4-5)'}, {k}" + (
+            ", no load cap" if cap == "off" else ""
+        )
+        body.append(
+            [label, _pair_text(before), _pair_text(after), _rise(before, after), paper.get((s, k), "")]
+        )
+    head = [
+        "scenario, k",
+        "undefended: devices / channels",
+        "Wu's schedule, own bus: devices / channels",
+        "increase: devices / channels",
+        "Table II (Sol 1 / Sol 2)",
+    ]
+    return table(head, body, numeric_from=5)
+
+
+@query("wu.methods")
+def wu_methods(store: Store) -> str:
+    """The search against [WU26]'s row reduction, undefended and under the paper's schedule."""
+    exp = "wu26.method_compare"
+    rows = [
+        (
+            "ieee14",
+            "1",
+            "1.1",
+            "Lines 3-4 and 6-11, 1.1",
+            "7 devices",
+            "+25.6% (Sol 1), +23.9% (Sol 2)",
+            "1, 4, 6, 13",
+        ),
+        (
+            "ieee14",
+            "2",
+            "1.1",
+            "Lines 1-2 and 4-5, 1.1",
+            "9 devices",
+            "+35.2% (Sol 1), +27.0% (Sol 2)",
+            "4, 6, 1, 13",
+        ),
+        ("ieee14", "1", "1.2", "Lines 3-4 and 6-11, 1.2", "", "", "the paper's"),
+        ("ieee14", "2", "1.2", "Lines 1-2 and 4-5, 1.2", "", "", "the paper's"),
+        (
+            "ieee118",
+            "1",
+            "1.2",
+            "IEEE-118 lines 84-85 and 99-100, 1.2",
+            "",
+            "+16.4% mean, 3-5 extra devices",
+            "the 11 PMUs, one per snapshot",
+        ),
+    ]  # the paper's column is [WU26]'s published numbers (Figs. 4, 12, Table II)
+    body = []
+    for system, s, k, label, paper_none, paper_wu, schedule in rows:
+        cells = {}
+        for method in ("search", "rref"):
+            base = _count_pair(store, exp, system=system, method=method, scenario=s, k=k, trust="none")
+            wu = _count_pair(store, exp, system=system, method=method, scenario=s, k=k, trust="wu")
+            cells[method] = (base, wu)
+        body.append([label, "none", *(_pair_text(cells[m][0]) for m in ("search", "rref")), paper_none])
+        wu_cells = []
+        for m in ("search", "rref"):
+            base, wu = cells[m]
+            text = "no support reaches both ratings" if wu is not None and wu[0] < 0 else _pair_text(wu)
+            rise = _rise(base, wu)
+            wu_cells.append(f"{text} ({rise})" if rise else text)
+        body.append([label, schedule, *wu_cells, paper_wu])
+    return table(
+        ["Scenario, k", "Trusted PMUs", "Search: devices / channels", "RREF: devices / channels", "Paper"],
+        body,
+        numeric_from=5,
+    )
+
+
+# ---- spans over many records
+@query("span")
+def span(store: Store, experiment: str, metric: str, fmt: str = "", **keys: str) -> str:
+    """ "lo to hi" of `metric` over every newest record the keys select (one number when they agree)."""
+    vals = sorted(r.value for r in store.latest(experiment, metric=metric, **keys))
+    spec = fmt or METRICS[metric].fmt
+    lo, hi = number(vals[0], spec), number(vals[-1], spec)
+    return lo if lo == hi else f"{lo} to {hi}"
+
+
+# ---- the certifier (docs/plans/RELAX_CERTIFIER_PLAN.md)
+_CUTS = (
+    ("socp", "second-order cone"),
+    ("bounds", "+ bounds"),
+    ("bounds+qc", "+ qc"),
+    ("bounds+qc+cycle", "+ cycle"),
+)
+
+
+def _cert_rows(store: Store, cut: str, metric: str, family: str) -> list[Record]:
+    return store.latest("certify.ablation", method=cut, family=family, metric=metric)
+
+
+def _cert_count(store: Store, cut: str, family: str, metric: str = "certified") -> int:
+    return int(sum(r.value for r in _cert_rows(store, cut, metric, family)))
+
+
+def _cert_time(store: Store, cut: str) -> str:
+    secs = sorted(
+        r.value for r in store.latest("certify.ablation", method=cut, metric="seconds", stage="relax")
+    )
+    tight = sorted(
+        r.value for r in store.latest("certify.ablation", method=cut, metric="seconds", stage="tightening")
+    )
+    lead = f"{tight[0]:.0f} to {tight[-1]:.0f} tightening, " if tight else ""
+    return lead + f"{secs[0]:.0f} to {secs[-1]:.0f} solve"
+
+
+def _cert_line(store: Store, cut: str, label: str) -> list[str]:
+    import statistics
+
+    paper = sorted(_cert_rows(store, cut, "gap", ""), key=lambda r: r.tag("episode"))
+    gaps = sorted(r.value for r in _cert_rows(store, cut, "gap", "Am"))
+    mism = statistics.median(r.value for r in _cert_rows(store, cut, "mismatch_mw", "Am"))
+    return [
+        label,
+        f"{_cert_count(store, cut, '')} of {len(paper)} certified (gaps {', '.join(str(int(r.value)) for r in paper)})",
+        f"{_cert_count(store, cut, 'Am')} of {len(_cert_rows(store, cut, 'certified', 'Am'))} certified",
+        f"{_cert_count(store, cut, 'At')} certified, {_cert_count(store, cut, 'At', 'uncertain')} uncertain",
+        f"{gaps[0]:.0f} to {gaps[-1]:.0f}, median {statistics.median(gaps):.0f}",
+        f"{mism:.0f}",
+        _cert_time(store, cut),
+    ]
+
+
+@query("certify.ablation")
+def certify_ablation(store: Store) -> str:
+    """Per cut family: certificates on the paper scenarios, Am and At, Am gaps, mismatch and time."""
+    body = [_cert_line(store, cut, label) for cut, label in _CUTS]
+    head = ["family", "paper", "`Am`", "`At`", "`Am` gaps", "median mismatch, MW (`Am`)", "seconds"]
+    return table(head, body, numeric_from=7)
+
+
+# ---- generation (docs/guides/generation.md)
+_AM_RUNS = (
+    ("1", "none", "one line, before the D16 bounds"),
+    ("1", "d16", "one line, D16 bounds"),
+    ("2", "d16", "two lines, D16 bounds (default)"),
+)
+
+
+@query("gen.am")
+def gen_am(store: Store) -> str:
+    """The overload episodes generated per system and recipe: built and fallen back, mean devices and
+    channels, the largest change on a channel (median and worst episode), proven share, time."""
+    exp = "generation.am_overload"
+    body = []
+    for system in ("ieee14", "ieee30", "ieee118"):
+        for lines, bounds, label in _AM_RUNS:
+            keys = dict(system=system, lines=lines, edge_bounds=bounds)
+            frames = _get(store, exp, metric="frames", **keys)
+            if frames is None:
+                continue
+            body.append(
+                [
+                    f"IEEE-{_short(system)}",
+                    label,
+                    cell(frames, "d"),
+                    cell(_get(store, exp, metric="episodes", stage="built", **keys), "d"),
+                    cell(_get(store, exp, metric="episodes", stage="fallen_back", **keys), "d"),
+                    cell(_get(store, exp, metric="devices", **keys), ".1f"),
+                    cell(_get(store, exp, metric="channels", **keys), ".1f"),
+                    f"{cell(_get(store, exp, metric='max_change_pu', stat='median', **keys))} / {cell(_get(store, exp, metric='max_change_pu', stat='max', **keys))}",
+                    cell(_get(store, exp, metric="proven_share", **keys), ".0%"),
+                    cell(_get(store, exp, metric="seconds_per_episode", **keys), ".0f"),
+                ]
+            )
+    head = [
+        "system",
+        "recipe",
+        "frames",
+        "episodes",
+        "fallen back",
+        "devices (mean)",
+        "channels (mean)",
+        "largest change, pu (median / max episode)",
+        "proven",
+        "s per episode",
+    ]
+    return table(head, body, numeric_from=2)
+
+
+@query("wu.smax")
+def wu_smax(store: Store) -> str:
+    """[WU26]'s IEEE-14 scenarios at ratings k times the window's peak flow: devices, channels and
+    the largest change, or no attack."""
+    exp = "wu26.smax_sensitivity"
+    ks = sorted(
+        {r.tag("k") for r in store.latest(exp)},
+        key=lambda k: (k == "pglib", float(k) if k != "pglib" else 0.0),
+    )
+    body = []
+    for s, label in (("1", "lines 3-4 and 6-11"), ("2", "lines 1-2 and 4-5")):
+        row = [label]
+        for k in ks:
+            d = _get(store, exp, scenario=s, k=k, metric="devices")
+            c = _get(store, exp, scenario=s, k=k, metric="channels")
+            m = _get(store, exp, scenario=s, k=k, metric="max_change_pu")
+            row.append(
+                "no attack"
+                if d is None or d.value < 0
+                else f"{int(d.value)} / {int(c.value) if c else ''} / {cell(m)}"
+            )
+        body.append(row)
+    return table(["scenario (devices / channels / largest change, pu)", *(f"k = {k}" for k in ks)], body)
+
+
+def _per_family(store: Store, method: str, split: str, metric: str, stage: str = "") -> str:
+    extra = {"stage": stage} if stage else {}
+    fams = method.split("+")
+    return " / ".join(
+        cell(
+            _get(
+                store, "generation.split_first", method=method, split=split, family=f, metric=metric, **extra
+            ),
+            "d",
+        )
+        for f in fams
+    )
+
+
+def _split_line(store: Store, method: str, split: str) -> list[str]:
+    exp = "generation.split_first"
+    return [
+        method,
+        split,
+        cell(_get(store, exp, method=method, split=split, metric="frames"), "d"),
+        cell(_get(store, exp, method=method, split=split, metric="attacked_frac", family=""), ".3f"),
+        _per_family(store, method, split, "episodes", "requested"),
+        _per_family(store, method, split, "episodes", "built"),
+        _per_family(store, method, split, "redraws"),
+        _per_family(store, method, split, "shortfall"),
+    ]
+
+
+@query("gen.split_first")
+def gen_split_first(store: Store) -> str:
+    """The full IEEE-14 split-first builds: per dataset and split, frames, the attacked fraction, the
+    episodes requested and built per family, redraws and shortfall, and the build time."""
+    body = []
+    for method in ("At", "Am", "At+Am"):
+        body += [_split_line(store, method, split) for split in ("train", "val", "test")]
+        minutes = cell(_get(store, "generation.split_first", method=method, metric="minutes"), ".0f")
+        body.append([method, "build", "", "", "", "", "", f"{minutes} min"])
+    head = ["dataset", "split", "frames", "attacked", "episodes asked", "built", "redraws", "shortfall"]
+    return table(head, body, numeric_from=2)
+
+
+# ---- a data release's statistics (docs/reference/EXAMPLES.md)
+_LADDER = ("ieee14", "ieee30", "ieee57", "ieee89", "ieee118", "ieee145", "ieee200", "ieee300")
+_FAMILY_LABELS = (
+    ("benign", "benign (0)"),
+    ("Aq", "`Aq` stealthy load-scale"),
+    ("Ad", "`Ad` meter corruption"),
+    ("As", "`As` meter scaling"),
+    ("Ar", "`Ar` replay"),
+    ("At", "`At` temporal ramp"),
+    ("Al", "`Al` load redistribution"),
+    ("Am", "`Am` multi-snapshot"),
+)
+
+
+def _int(rec: Optional[Record]) -> str:
+    return "" if rec is None else f"{int(rec.value):,}"
+
+
+@query("data.sizes")
+def data_sizes(store: Store) -> str:
+    """Per system: buses, branches, frames per split and episodes."""
+    exp = "data.release_stats"
+    body = []
+    for s in _LADDER:
+        frames = [
+            _int(_get(store, exp, system=s, split=sp, family="", metric="frames"))
+            for sp in ("all", "train", "val", "test")
+        ]
+        body.append(
+            [
+                s,
+                _int(_get(store, exp, system=s, metric="buses")),
+                _int(_get(store, exp, system=s, metric="branches")),
+                *frames,
+                _int(_get(store, exp, system=s, split="all", metric="episodes")),
+            ]
+        )
+    return table(["system", "N buses", "E branches", "frames", "train", "val", "test", "episodes"], body)
+
+
+@query("data.families")
+def data_families(store: Store, system: str) -> str:
+    """Frames of each family per split on one system."""
+    exp = "data.release_stats"
+    body = []
+    for fam, label in _FAMILY_LABELS:
+        cells = [
+            _get(store, exp, system=system, split=sp, family=fam, metric="frames")
+            for sp in ("train", "val", "test")
+        ]
+        total = sum(int(c.value) for c in cells if c is not None)
+        body.append([label, *(_int(c) for c in cells), f"{total:,}"])
+    return table(["family", "train", "val", "test", "total"], body)
+
+
+def _quantiles(store: Store, system: str, quantity: str, which: tuple[str, ...], fmt: str) -> str:
+    return " / ".join(
+        cell(_get(store, "data.release_stats", system=system, metric="quantile", quantity=quantity, q=w), fmt)
+        for w in which
+    )
+
+
+@query("data.states")
+def data_states(store: Store) -> str:
+    """Per system, |V| at p1 / median / p99 and theta min / median / max over the operating pool."""
+    body = [
+        [
+            s,
+            _quantiles(store, s, "V_pu", ("p1", "p50", "p99"), ".3f"),
+            _quantiles(store, s, "theta_deg", ("min", "p50", "max"), ".0f").replace("-", "−"),
+        ]
+        for s in _LADDER
+    ]
+    return table(["system", "\\|V\\| p1 / med / p99 (pu)", "θ min / med / max (deg)"], body)
+
+
+# ---- the fewest-tamper search's speed (docs/reference/BENCHMARKS.md)
+def _secs(x: float) -> str:
+    """Seconds to one decimal from 1 s up, two below."""
+    return f"{x:.1f}" if x >= 1 else f"{x:.2f}"
+
+
+@query("search.speed")
+def search_speed(store: Store, pr: str) -> str:
+    """Median seconds per episode, before to after one change, per system, family and thread setting."""
+    import statistics
+
+    exp = "search.speed"
+    body = []
+    for s in ("ieee14", "ieee30", "ieee118"):
+        recs = store.latest(exp, system=s, pr=pr, metric="seconds")
+        if not recs:
+            continue
+        counts = {f: len({r.tag("episode") for r in recs if r.family == f}) for f in ("Am", "At")}
+        cells = []
+        for threads in ("default", "one"):
+            for fam in ("Am", "At"):
+                med = {
+                    st: statistics.median(
+                        r.value
+                        for r in recs
+                        if r.family == fam and r.tag("threads") == threads and r.tag("stage") == st
+                    )
+                    for st in ("before", "after")
+                }
+                cells.append(f"{_secs(med['before'])} to {_secs(med['after'])}")
+        body.append([f"IEEE-{_short(s)} ({counts['Am']} Am, {counts['At']} At)", *cells])
+    head = ["system", "default threads, Am", "default threads, At", "one thread, Am", "one thread, At"]
+    return table(head, body)
