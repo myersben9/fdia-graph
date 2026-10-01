@@ -92,8 +92,17 @@ def _files(top: str) -> Iterable[str]:
     )
 
 
+def _rel(path: str) -> str:
+    """`path` relative to the repository, with "/"; a file outside it (on another drive, say) by its
+    absolute path."""
+    absolute = os.path.abspath(path)
+    inside = os.path.splitdrive(absolute)[0].lower() == os.path.splitdrive(ROOT)[0].lower()
+    rel = os.path.relpath(absolute, ROOT) if inside else absolute
+    return rel.replace(os.sep, "/")
+
+
 def _module(path: str) -> str:
-    rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
+    rel = _rel(path)
     mod = rel[len("src/") : -len(".py")] if rel.startswith("src/") else rel[: -len(".py")]
     mod = mod.replace("/", ".")
     return mod[: -len(".__init__")] if mod.endswith(".__init__") else mod
@@ -119,7 +128,7 @@ class Citations:
         owners = _owners(ast.parse(text), module)
         is_test = path.startswith(TESTS)
         for i, line in enumerate(text.splitlines(), 1):
-            where, owner = f"{os.path.relpath(path, ROOT)}:{i}", _owner(owners, i, module)
+            where, owner = f"{_rel(path)}:{i}", _owner(owners, i, module)
             for m in CITATION.finditer(line):
                 if m.group(0) != "[WU26]" and not TAG.fullmatch(m.group(0)):
                     self.problems.append(
@@ -134,7 +143,7 @@ class Citations:
             for _, _, name in owners:
                 for m in TEST_NAME.finditer(name.rsplit(".", 1)[-1]):
                     for key in numbers(f"{m.group(1)}-{m.group(2)}" if m.group(2) else m.group(1)):
-                        self.add(key, name, True, os.path.relpath(path, ROOT))
+                        self.add(key, name, True, _rel(path))
 
     def missing(self) -> list[str]:
         """Every equation the package lists with no implementing function or no test."""
