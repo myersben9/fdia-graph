@@ -970,3 +970,255 @@ def wu26_reproduction(store: Store) -> str:
         "[WU26]",
     ]
     return table(head, body, numeric_from=3)
+
+
+# ---- replication against [WU26] (docs/wu26/README.md, "Replication against [WU26]")
+def _vals(store: Store, exp: str, metric: str, **keys: str) -> list[float]:
+    return [r.value for r in store.latest(exp, metric=metric, **keys)]
+
+
+def _range(values: list[float], spec: str, unit: str = "") -> str:
+    """ "a" or "a to b" over the values, "" when there are none."""
+    if not values:
+        return ""
+    lo, hi = number(min(values), spec), number(max(values), spec)
+    return f"{lo}{unit}" if lo == hi else f"{lo}{unit} to {hi}{unit}"
+
+
+def _pair(store: Store, exp: str, method: str, before: dict, after: dict, **keys: str) -> str:
+    """ "d0 / c0 → d1 / c1" (devices / channels) of one case, "no attack" for a missing or failed side."""
+    out = []
+    for side in (before, after):
+        d = _vals(store, exp, "devices", method=method, **keys, **side)
+        c = _vals(store, exp, "channels", method=method, **keys, **side)
+        ok = bool(d) and bool(c) and d[0] >= 0
+        out.append(f"{number(d[0], '.0f')} / {number(c[0], '.0f')}" if ok else "no attack")
+    return " → ".join(out)
+
+
+def _case(tags: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(sorted(t for t in tags if not t.startswith(("defense", "case"))))
+
+
+def _found(store: Store, exp: str, method: str, **keys: str) -> str:
+    """ "a of b": cases with an attack (devices >= 0, not marked infeasible) among the cases run."""
+    recs = store.latest(exp, method=method, **keys)
+    cases = {_case(r.tags) for r in recs}
+    hit = {_case(r.tags) for r in recs if r.metric == "devices" and r.value >= 0}
+    hit -= {_case(r.tags) for r in recs if r.metric == "feasible" and r.value == 0}
+    return f"{len(hit)} of {len(cases)}"
+
+
+def _best(store: Store, exp: str, metric: str, **keys: str) -> str:
+    v = _vals(store, exp, metric, **keys)
+    return number(max(v), ".2f") if v else ""
+
+
+def _hypotheses(store: Store) -> list[list[str]]:
+    rows: list[list[str]] = []
+
+    def add(what: str, outcome: str, evidence: str, exp: str) -> None:
+        rows.append([str(len(rows) + 1), what, outcome, evidence, exp])
+
+    add(
+        "Δx_t is a per-snapshot increment (a staged reading of trust)",
+        "rejected",
+        "eq. (26) defines Δx_t as the state deviation",
+        "",
+    )
+    add(
+        "A trusted PMU also pins its neighbours through its branch currents (p. 655)",
+        "rejected, contradicts Table II",
+        "trusted attacks found: "
+        + _found(store, "minlp.cap_trust_grid", "neighbour", defense="trust")
+        + " (neighbour reading), "
+        + _found(store, "minlp.cap_trust_grid", "own", defense="trust")
+        + " (own V and θ)",
+        "minlp.cap_trust_grid",
+    )
+    add(
+        "The cost increase counts devices (Table II lists devices)",
+        "rejected",
+        "eq. (33) counts measurements; Table II's percentages do not follow from its device counts",
+        "",
+    )
+    cold = store.latest("minlp.prototype", method="minlp_scip_devices", cold="1", metric="devices")
+    add(
+        "Solve eq. (12) exactly as a mixed-integer program (SCIP)",
+        "not viable at these sizes",
+        f"cold-start attacks found: {sum(1 for r in cold if r.value >= 0)} of {len(cold)} runs",
+        "minlp.prototype",
+    )
+    region = dict(system="ieee14", scenario="0", defended="0")
+    add(
+        'Every meter in the area counts ("all measurement data ... altered simultaneously", p. 654)',
+        "rejected, Fig. 4 leaves sub-noise devices out (p. 659)",
+        "IEEE-14 lines 3-4 and 6-11, undefended devices: threshold "
+        + _range(_vals(store, "minlp.region_reading", "devices", method="threshold", **region), ".0f")
+        + ", region "
+        + _range(_vals(store, "minlp.region_reading", "devices", method="region", **region), ".0f"),
+        "minlp.region_reading",
+    )
+    add(
+        "The attack is anchored on both ends of each target line (Fig. 4)",
+        "no effect on the rise",
+        "IEEE-118: "
+        + _pair(
+            store,
+            "minlp.anchoring",
+            "both",
+            {"defense": "undefended"},
+            {"defense": "trust per_slot-False"},
+            system="ieee118",
+        ),
+        "minlp.anchoring",
+    )
+    rise = _vals(store, "wu26.reproduction", "cost_increase_pct", system="ieee118", k="+0.10")
+    add(
+        "Ratings at the true flow plus 0.10 pu, so attacks reach the Fig. 4 scale (ours)",
+        "magnitudes match; the IEEE-118 rise stays below Fig. 12",
+        "IEEE-118 channel rise over the windows: " + _range(rise, ".1f", "%"),
+        "wu26.reproduction",
+    )
+    add(
+        "Our load cap (D16) or the reading of trust separates us from [WU26]",
+        "no single setting reproduces all three cases",
+        "the cap and trust grid above",
+        "minlp.cap_trust_grid",
+    )
+    add(
+        "[WU26]'s data recipe (p. 658) in place of our operating pool",
+        "same loading levels, gap not closed",
+        "IEEE-14 lines 3-4 and 6-11, trusted attack found: "
+        + _found(store, "wu.data_recipe", "wu", system="ieee14", scenario="0", case="trust"),
+        "wu.data_recipe",
+    )
+    add(
+        "[WU26]'s IEEE-118 attack area (Fig. 9)",
+        "adopted (the table existed but was unused); no effect on the gap",
+        "",
+        "",
+    )
+    add(
+        "The row-reduction attacker (p. 655, ref. [25])",
+        "matches Table II worse than the search",
+        "IEEE-118: "
+        + _pair(store, "wu26.method_compare", "rref", {"trust": "none"}, {"trust": "wu"}, system="ieee118"),
+        "wu26.method_compare",
+    )
+    l1_14 = dict(system="ieee14", scenario="1", rating="+0.10", source="pool", weights="sigma")
+    add(
+        "ℓ1 relaxation, then a count beyond noise ([37] p. 1898), solved with IPOPT",
+        "reproduces IEEE-14 lines 1-2 and 4-5, not the others",
+        "IEEE-14 lines 1-2 and 4-5: "
+        + _pair(store, "wu.l1_attack", "ipopt", {"trust": "0"}, {"trust": "1"}, **l1_14)
+        + "; IEEE-118: "
+        + _pair(
+            store, "wu.l1_attack", "ipopt", {"trust": "0"}, {"trust": "1"}, system="ieee118", rating="+0.10"
+        ),
+        "wu.l1_attack",
+    )
+    t5 = dict(system="ieee118", phase="undefended")
+    add(
+        "Table V factorial: solver, goal form, load curve, PMU measurement vector (eqs. 1 to 3)",
+        "Table V's set not reached",
+        "best overlap with Table V: SCADA "
+        + _best(store, "wu.table5_search", "jaccard_scada", **t5)
+        + ", PMU "
+        + _best(store, "wu.table5_search", "jaccard_pmu", **t5),
+        "wu.table5_search",
+    )
+    add(
+        "The attacker builds on its own estimate from forecast loads (pp. 654, 659; forecast error ours)",
+        "set and residual unchanged",
+        "IEEE-118 detection "
+        + _range(_vals(store, "wu.attacker_estimate", "bdd_detection_pct", system="ieee118"), ".1f", "%")
+        + ", false alarms "
+        + _range(_vals(store, "wu.attacker_estimate", "bdd_false_alarm_pct", system="ieee118"), ".1f", "%"),
+        "wu.attacker_estimate",
+    )
+    add(
+        "SCADA held between 5-min scans, PMUs every snapshot (p. 658; [29] Sec. 2.2)",
+        "benign false alarms far below Table V's",
+        "IEEE-118 benign false alarms "
+        + _range(_vals(store, "wu.multirate", "bdd_false_alarm_pct", system="ieee118"), ".1f", "%"),
+        "wu.multirate",
+    )
+    add(
+        "Every snapshot an independent sample of the p. 658 recipe, SCADA held (ours)",
+        "false alarms reach Table V's range; the set and detection pattern do not",
+        "IEEE-118 benign false alarms "
+        + _range(
+            _vals(store, "wu.independent_samples", "bdd_false_alarm_pct", scada="stale", se_mode="every"),
+            ".1f",
+            "%",
+        )
+        + " with held SCADA, "
+        + _range(
+            _vals(store, "wu.independent_samples", "bdd_false_alarm_pct", scada="fresh", se_mode="every"),
+            ".1f",
+            "%",
+        )
+        + " with fresh SCADA",
+        "wu.independent_samples",
+    )
+    opf = dict(system="ieee118", rating="+0.10", method="search")
+    add(
+        'The attacker\'s base state is a local optimal power flow ("local optimal power flow", p. 655)',
+        "closest PMU overlap, but a goal set on the estimate is not a true overload",
+        "IEEE-118: "
+        + _range(_vals(store, "wu.local_opf", "devices", **opf), ".0f")
+        + " devices, overlap SCADA "
+        + _range(_vals(store, "wu.local_opf", "jaccard_scada", **opf), ".2f")
+        + ", PMU "
+        + _range(_vals(store, "wu.local_opf", "jaccard_pmu", **opf), ".2f"),
+        "wu.local_opf",
+    )
+    return rows
+
+
+@query("wu.hypotheses")
+def wu_hypotheses(store: Store) -> str:
+    """Every replication hypothesis against [WU26], its outcome and the evidence from its experiment."""
+    head = ["#", "hypothesis", "outcome", "evidence (ours)", "experiment"]
+    return table(head, _hypotheses(store), numeric_from=5)
+
+
+@query("wu.table5")
+def wu_table5(store: Store) -> str:
+    """IEEE-118 undefended attacks of the Table V factorial: the set of PMUs each attack tampers, and the
+    overlap of its devices with [WU26] Table V's multi-snapshot attack."""
+    exp = "wu.table5_search"
+    recs = store.latest(exp, system="ieee118", phase="undefended", metric="devices")
+    body = []
+    for r in sorted(
+        recs, key=lambda r: (r.tag("pmu"), r.tag("rating"), r.method, r.tag("goal"), r.tag("load"))
+    ):
+        keys = {t.split("=", 1)[0]: t.split("=", 1)[1] for t in r.tags}
+        js = _get(store, exp, system="ieee118", method=r.method, metric="jaccard_scada", **keys)
+        jp = _get(store, exp, system="ieee118", method=r.method, metric="jaccard_pmu", **keys)
+        body.append(
+            [
+                r.method,
+                r.tag("goal"),
+                r.tag("load"),
+                r.tag("pmu"),
+                r.tag("rating"),
+                cell(r, "d") if r.value >= 0 else "no solve",
+                r.tag("pmu_set"),
+                cell(js, ".2f"),
+                cell(jp, ".2f"),
+            ]
+        )
+    head = [
+        "solver",
+        "goal",
+        "load",
+        "PMU vector",
+        "rating",
+        "devices",
+        "PMUs",
+        "overlap SCADA",
+        "overlap PMU",
+    ]
+    return table(head, body, numeric_from=5)
