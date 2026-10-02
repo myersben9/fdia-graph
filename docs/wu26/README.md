@@ -85,6 +85,139 @@ solve as the attack generator (`minlp.prototype`: SCIP found no attack within it
 search finds one). The cost definition (noise-thresholded l0) and the own-bus trust reading are the ones
 consistent with the paper's figures; whether trust bites depends on ratings and limits it does not state.
 
+## Replication against [WU26]
+
+This section records how far [WU26] reproduces from what its text states, and what it leaves open.
+Page numbers are the journal's. [29] is S. Wu et al., Applied Energy 397 (2025) 126330, and [37] is
+T. Wu et al., IEEE TII 17(3) (2021) 1892-1904, the two sources [WU26] cites for its IEEE-118 setup.
+
+### Implemented as stated
+
+- **Attack model:** the l0 objective over the window, eq. (12), under the measurement, limit and goal
+  constraints (13)-(25). A channel counts as tampered only beyond the paper's noise: the nonzero
+  elements "should exclude tampering values smaller than the noise magnitude" (p. 659; noise 0.03 pu
+  SCADA, 0.01 pu WAMS, p. 658).
+- **Trust:** Δx_t is the deviation of the false from the true state, eq. (26). A trusted PMU secures its
+  own voltage magnitude and angle rows, eqs. (27) and (32), and trust accumulates over the window,
+  eqs. (30)-(31).
+- **Defense effect:** the cost increase of eq. (33), counted in measurements, with the devices reported
+  beside it.
+- **Defenses:** Solution 1 (pp. 656-657) and the DQN of Algorithm 1 with the stated hyperparameters
+  (p. 658).
+- **Attack areas:** the IEEE-118 local network of Fig. 9, and the four area rules of p. 654 for other
+  systems.
+
+Where the paper is silent, the choice is ours and is recorded in
+[DECISIONS.md](../reference/DECISIONS.md) (ratings at the last flow plus a step, the load cap, the
+snapshot spacing, the DQN's network).
+
+### What agrees
+
+- **IEEE-14, lines 1-2 and 4-5:** the undefended search tampers SCADA 1 to 5 and PMU 1, 4 and 6, the
+  paper's Fig. 4 set without SCADA 9, and the rise under the paper's trust schedule falls close to
+  Table II (row 12 below).
+- **Attack magnitudes** sit on the scale of Fig. 4 with ratings at the last flow plus 0.10 pu.
+- **Trusted PMUs** remain tampered through their branch currents, as Fig. 7 shows, since eq. (27) leaves
+  the currents outside the secure set.
+- **Solution 1 on IEEE-118** places all six PMUs of Table V's multi-snapshot attack (83, 89, 100, 105,
+  106, 110) among its first seven picks.
+
+### What does not
+
+- **IEEE-14, lines 3-4 and 6-11:** no setting gives the paper's seven-device attack at its scale together
+  with a positive rise under trust.
+- **IEEE-118, the defense rise:** below the band of Fig. 12 in most windows (the Results table above).
+- **IEEE-118, Table V:** the paper's multi-snapshot attack tampers SCADA 84, 85, 89, 94, 99, 100, 101,
+  103, 105 and PMU 83, 89, 100, 105, 106, 110. Ours stays on PMUs 80, 83 and 100 under every
+  combination tried (the factorial below), and every residual test we ran detects at or above its false
+  alarm rate, where Table V reports detection below false alarms.
+
+### What the paper does not specify
+
+- the line ratings S_max of eq. (25); MATPOWER's case14 and case118, which [37] cites as its data source
+  (p. 1898), carry none;
+- the generator and voltage limit values of eqs. (21)-(23);
+- the IEEE-118 daily load curves (Dongguan dispatch center 2016, [37] p. 1898);
+- how the snapshot samples of p. 658 relate in time (independent draws or a trajectory);
+- how each snapshot's flow target is set; eqs. (24)-(25) constrain only the window's end, while Fig. 4
+  shows tampering in every interval;
+- the residual test and its threshold behind Tables III and V;
+- whether the sub-noise elements [37] treats as zeros are dropped from the injected vector or only from
+  the count;
+- the local optimal power flow of p. 655: its objective and how the boundary is held;
+- the DQN's network size and activations.
+
+### Hypotheses tested
+
+Every row is an experiment of the results store; the scripts were scratchpad prototypes and are not part
+of the package.
+
+<!-- results: wu.hypotheses -->
+| # | hypothesis | outcome | evidence (ours) | experiment |
+|---|---|---|---|---|
+| 1 | Δx_t is a per-snapshot increment (a staged reading of trust) | rejected | eq. (26) defines Δx_t as the state deviation |  |
+| 2 | A trusted PMU also pins its neighbours through its branch currents (p. 655) | rejected, contradicts Table II | trusted attacks found: 0 of 12 (neighbour reading), 6 of 6 (own V and θ) | minlp.cap_trust_grid |
+| 3 | The cost increase counts devices (Table II lists devices) | rejected | eq. (33) counts measurements; Table II's percentages do not follow from its device counts |  |
+| 4 | Solve eq. (12) exactly as a mixed-integer program (SCIP) | not viable at these sizes | cold-start attacks found: 0 of 9 runs | minlp.prototype |
+| 5 | Every meter in the area counts ("all measurement data ... altered simultaneously", p. 654) | rejected, Fig. 4 leaves sub-noise devices out (p. 659) | IEEE-14 lines 3-4 and 6-11, undefended devices: threshold 6, region 11 | minlp.region_reading |
+| 6 | The attack is anchored on both ends of each target line (Fig. 4) | no effect on the rise | IEEE-118: 10 / 22 → 10 / 22 | minlp.anchoring |
+| 7 | Ratings at the true flow plus 0.10 pu, so attacks reach the Fig. 4 scale (ours) | magnitudes match; the IEEE-118 rise stays below Fig. 12 | IEEE-118 channel rise over the windows: 0.0% to 16.0% | wu26.reproduction |
+| 8 | Our load cap (D16) or the reading of trust separates us from [WU26] | no single setting reproduces all three cases | the cap and trust grid above | minlp.cap_trust_grid |
+| 9 | [WU26]'s data recipe (p. 658) in place of our operating pool | same loading levels, gap not closed | IEEE-14 lines 3-4 and 6-11, trusted attack found: 4 of 12 | wu.data_recipe |
+| 10 | [WU26]'s IEEE-118 attack area (Fig. 9) | adopted (the table existed but was unused); no effect on the gap |  |  |
+| 11 | The row-reduction attacker (p. 655, ref. [25]) | matches Table II worse than the search | IEEE-118: 31 / 93 → 20 / 48 | wu26.method_compare |
+| 12 | ℓ1 relaxation, then a count beyond noise ([37] p. 1898), solved with IPOPT | reproduces IEEE-14 lines 1-2 and 4-5, not the others | IEEE-14 lines 1-2 and 4-5: 6 / 15 → 8 / 24; IEEE-118: 10 / 20 → 10 / 20 | wu.l1_attack |
+| 13 | Table V factorial: solver, goal form, load curve, PMU measurement vector (eqs. 1 to 3) | Table V's set not reached | best overlap with Table V: SCADA 0.46, PMU 0.29 | wu.table5_search |
+| 14 | The attacker builds on its own estimate from forecast loads (pp. 654, 659; forecast error ours) | set and residual unchanged | IEEE-118 detection 3.0% to 6.0%, false alarms 3.0% to 6.0% | wu.attacker_estimate |
+| 15 | SCADA held between 5-min scans, PMUs every snapshot (p. 658; [29] Sec. 2.2) | benign false alarms far below Table V's | IEEE-118 benign false alarms 0.0% to 7.5% | wu.multirate |
+| 16 | Every snapshot an independent sample of the p. 658 recipe, SCADA held (ours) | false alarms reach Table V's range; the set and detection pattern do not | IEEE-118 benign false alarms 50.0% to 62.5% with held SCADA, 3.5% with fresh SCADA | wu.independent_samples |
+| 17 | The attacker's base state is a local optimal power flow ("local optimal power flow", p. 655) | closest PMU overlap, but a goal set on the estimate is not a true overload | IEEE-118: 13 devices, overlap SCADA 0.39, PMU 0.43 | wu.local_opf |
+<!-- /results -->
+
+The Table V factorial on IEEE-118, undefended (experiment `wu.table5_search`; "conv" is the branch
+current conversion of eqs. 1-3, "current" the raw current channels):
+
+<!-- results: wu.table5 -->
+| solver | goal | load | PMU vector | rating | devices | PMUs | overlap SCADA | overlap PMU |
+|---|---|---|---|---|---:|---:|---:|---:|
+| l1 | end | daily | conv | +0.10 | 9 | 80 100 | 0.33 | 0.14 |
+| l1 | end | pool | conv | +0.10 | 8 | 80 100 | 0.36 | 0.14 |
+| l1 | ramp | daily | conv | +0.10 | 10 | 80 100 | 0.42 | 0.14 |
+| l1 | ramp | pool | conv | +0.10 | 9 | 80 100 | 0.46 | 0.14 |
+| l2 | ramp | pool | conv | +0.10 | 9 | 80 100 | 0.33 | 0.14 |
+| search | end | daily | conv | +0.10 | 10 | 80 100 | 0.31 | 0.14 |
+| search | end | pool | conv | +0.10 | 9 | 80 100 | 0.33 | 0.14 |
+| search | ramp | daily | conv | +0.10 | 9 | 80 100 | 0.33 | 0.14 |
+| search | ramp | pool | conv | +0.10 | 9 | 80 100 | 0.33 | 0.14 |
+| l1 | end | daily | conv | 1.2 | 6 |  | 0.36 | 0.00 |
+| l1 | end | pool | conv | 1.2 | 6 |  | 0.36 | 0.00 |
+| l1 | ramp | daily | conv | 1.2 | 7 |  | 0.46 | 0.00 |
+| l1 | ramp | pool | conv | 1.2 | 7 |  | 0.46 | 0.00 |
+| l2 | ramp | pool | conv | 1.2 | 6 |  | 0.36 | 0.00 |
+| search | end | daily | conv | 1.2 | 6 |  | 0.36 | 0.00 |
+| search | end | pool | conv | 1.2 | 6 |  | 0.36 | 0.00 |
+| search | ramp | daily | conv | 1.2 | 6 |  | 0.36 | 0.00 |
+| search | ramp | pool | conv | 1.2 | 6 |  | 0.36 | 0.00 |
+| l1 | end | daily | current | +0.10 | 10 | 80 83 100 | 0.33 | 0.29 |
+| l1 | end | pool | current | +0.10 | 10 | 80 83 100 | 0.33 | 0.29 |
+| l1 | ramp | daily | current | +0.10 | 10 | 80 83 100 | 0.33 | 0.29 |
+| l1 | ramp | pool | current | +0.10 | 10 | 80 83 100 | 0.33 | 0.29 |
+| l2 | ramp | pool | current | +0.10 | 17 | 80 83 94 100 | 0.29 | 0.25 |
+| search | end | daily | current | +0.10 | 11 | 80 83 100 | 0.31 | 0.29 |
+| search | end | pool | current | +0.10 | 10 | 80 83 100 | 0.33 | 0.29 |
+| search | ramp | daily | current | +0.10 | 10 | 80 83 100 | 0.33 | 0.29 |
+| search | ramp | pool | current | +0.10 | 10 | 80 83 100 | 0.33 | 0.29 |
+| l1 | end | daily | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+| l1 | end | pool | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+| l1 | ramp | daily | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+| l1 | ramp | pool | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+| l2 | ramp | pool | current | 1.2 | 13 | 80 83 94 100 | 0.29 | 0.25 |
+| search | end | daily | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+| search | end | pool | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+| search | ramp | daily | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+| search | ramp | pool | current | 1.2 | 9 | 80 83 100 | 0.36 | 0.29 |
+<!-- /results -->
+
 ## The search
 
 The attack's false state is the least-norm Gauss-Newton solve of the AC measurement equations.
@@ -127,5 +260,5 @@ Each figure's numbers are in the CSV of the same name (`fig11_ieee{N}.csv`, `fig
 ## Not reproduced here
 
 - **Table III:** "detection with PMU support" is not specified by the paper.
-- **Tables IV and V:** these compare against the single-snapshot attack, which this version no longer generates (fdia-graph 0.20 does).
+- **Tables IV and V, single-snapshot rows:** this version no longer generates the single-snapshot attack (fdia-graph 0.20 does). Table V's multi-snapshot attack is compared above.
 - **Fig. 13:** it needs the residual detector run over the defended windows; it is a follow-up.

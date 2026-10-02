@@ -76,6 +76,23 @@ METRICS: dict[str, Metric] = {
     "decision_seconds": _m("s", "lower", ".2f", "wall time of one defense decision"),
     "selection_share": _m("", "none", ".2f", "share of tests in which a PMU is trusted at a step"),
     "max_change_pu": _m("pu", "none", ".2f", "largest change the attack makes on one channel"),
+    "pmu_devices": _m("", "none", "d", "PMUs among the devices the attack tampers"),
+    "jaccard_scada": _m(
+        "", "higher", ".2f", "overlap of the attack's SCADA devices with a reference set (Jaccard)"
+    ),
+    "jaccard_pmu": _m("", "higher", ".2f", "overlap of the attack's PMUs with a reference set (Jaccard)"),
+    "bdd_false_alarm_pct": _m("%", "lower", ".1f", "benign snapshots the residual test flags, percent"),
+    "bdd_detection_pct": _m("%", "higher", ".1f", "attacked snapshots the residual test flags, percent"),
+    "bdd_detection_matched_pct": _m(
+        "%",
+        "higher",
+        ".1f",
+        "attacked snapshots flagged at the threshold matching a reference false-alarm rate",
+    ),
+    "state_dev_pu": _m(
+        "pu", "none", ".3f", "largest voltage-magnitude gap between an estimated and the true state"
+    ),
+    "state_dev_deg": _m("deg", "none", ".2f", "largest angle gap between an estimated and the true state"),
     "proven_share": _m("", "higher", ".2f", "searches that proved their support the fewest (before 0.21)"),
     "episodes": _m("", "none", "d", "attack episodes"),
     "seconds_per_episode": _m("s", "lower", ".1f", "generation wall time per episode"),

@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Replication against [WU26] recorded.** `docs/wu26/README.md` gains a section stating what the
+  package implements as the paper states it, what agrees, what does not, and what the paper leaves
+  unspecified, with every hypothesis tested rendered from the results store (queries `wu.hypotheses`
+  and `wu.table5`). Seven scratchpad experiments are added to the store: `wu.data_recipe`,
+  `wu.l1_attack`, `wu.table5_search`, `wu.attacker_estimate`, `wu.multirate`,
+  `wu.independent_samples` and `wu.local_opf`. Their scripts were prototypes and are not part of the
+  package. New metrics in `models.results.METRICS`: `pmu_devices`, `jaccard_scada`, `jaccard_pmu`,
+  `bdd_false_alarm_pct`, `bdd_detection_pct`, `bdd_detection_matched_pct`, `state_dev_pu` and
+  `state_dev_deg`.
+
 - **Hand-written loops and formulas replaced by library calls and array operations.** Generated
   files are byte-identical to the previous release at the same seed; every replacement is pinned to
   the code it replaced (`tests/test_package_equivalence.py`).
