@@ -1538,9 +1538,22 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Hand-written loops and formulas replaced by library calls and array operations.</strong> Generated
+<li>
+<p><strong>Replication against [WU26] recorded.</strong> <code>docs/wu26/README.md</code> gains a section stating what the
+  package implements as the paper states it, what agrees, what does not, and what the paper leaves
+  unspecified, with every hypothesis tested rendered from the results store (queries <code>wu.hypotheses</code>
+  and <code>wu.table5</code>). Seven scratchpad experiments are added to the store: <code>wu.data_recipe</code>,
+  <code>wu.l1_attack</code>, <code>wu.table5_search</code>, <code>wu.attacker_estimate</code>, <code>wu.multirate</code>,
+  <code>wu.independent_samples</code> and <code>wu.local_opf</code>. Their scripts were prototypes and are not part of the
+  package. New metrics in <code>models.results.METRICS</code>: <code>pmu_devices</code>, <code>jaccard_scada</code>, <code>jaccard_pmu</code>,
+  <code>bdd_false_alarm_pct</code>, <code>bdd_detection_pct</code>, <code>bdd_detection_matched_pct</code>, <code>state_dev_pu</code> and
+  <code>state_dev_deg</code>.</p>
+</li>
+<li>
+<p><strong>Hand-written loops and formulas replaced by library calls and array operations.</strong> Generated
   files are byte-identical to the previous release at the same seed; every replacement is pinned to
-  the code it replaced (<code>tests/test_package_equivalence.py</code>).</li>
+  the code it replaced (<code>tests/test_package_equivalence.py</code>).</p>
+</li>
 <li>Generation: the temporal-feature pass, the meter-noise draw (one vector draw per layer in the
     same order as the per-channel draws), the meter masks, the per-bus scale factors, the case
     limits (<code>np.add.at</code>) and the swing scale run as array operations instead of Python loops.</li>

@@ -1320,6 +1320,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#replication-against-wu26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replication against [WU26]
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Replication against [WU26]">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implemented-as-stated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implemented as stated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-agrees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What agrees
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-does-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What does not
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-paper-does-not-specify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the paper does not specify
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hypotheses-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypotheses tested
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-search" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1631,6 +1703,622 @@ anchoring the attack on the target lines' end buses (<code>minlp.anchoring</code
 solve as the attack generator (<code>minlp.prototype</code>: SCIP found no attack within its time limit where the
 search finds one). The cost definition (noise-thresholded l0) and the own-bus trust reading are the ones
 consistent with the paper's figures; whether trust bites depends on ratings and limits it does not state.</p>
+<h2 id="replication-against-wu26">Replication against [WU26]<a class="headerlink" href="#replication-against-wu26" title="Permanent link">&para;</a></h2>
+<p>This section records how far [WU26] reproduces from what its text states, and what it leaves open.
+Page numbers are the journal's. [29] is S. Wu et al., Applied Energy 397 (2025) 126330, and [37] is
+T. Wu et al., IEEE TII 17(3) (2021) 1892-1904, the two sources [WU26] cites for its IEEE-118 setup.</p>
+<h3 id="implemented-as-stated">Implemented as stated<a class="headerlink" href="#implemented-as-stated" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Attack model:</strong> the l0 objective over the window, eq. (12), under the measurement, limit and goal
+  constraints (13)-(25). A channel counts as tampered only beyond the paper's noise: the nonzero
+  elements "should exclude tampering values smaller than the noise magnitude" (p. 659; noise 0.03 pu
+  SCADA, 0.01 pu WAMS, p. 658).</li>
+<li><strong>Trust:</strong> Δx_t is the deviation of the false from the true state, eq. (26). A trusted PMU secures its
+  own voltage magnitude and angle rows, eqs. (27) and (32), and trust accumulates over the window,
+  eqs. (30)-(31).</li>
+<li><strong>Defense effect:</strong> the cost increase of eq. (33), counted in measurements, with the devices reported
+  beside it.</li>
+<li><strong>Defenses:</strong> Solution 1 (pp. 656-657) and the DQN of Algorithm 1 with the stated hyperparameters
+  (p. 658).</li>
+<li><strong>Attack areas:</strong> the IEEE-118 local network of Fig. 9, and the four area rules of p. 654 for other
+  systems.</li>
+</ul>
+<p>Where the paper is silent, the choice is ours and is recorded in
+<a href="../reference/DECISIONS/">DECISIONS.md</a> (ratings at the last flow plus a step, the load cap, the
+snapshot spacing, the DQN's network).</p>
+<h3 id="what-agrees">What agrees<a class="headerlink" href="#what-agrees" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>IEEE-14, lines 1-2 and 4-5:</strong> the undefended search tampers SCADA 1 to 5 and PMU 1, 4 and 6, the
+  paper's Fig. 4 set without SCADA 9, and the rise under the paper's trust schedule falls close to
+  Table II (row 12 below).</li>
+<li><strong>Attack magnitudes</strong> sit on the scale of Fig. 4 with ratings at the last flow plus 0.10 pu.</li>
+<li><strong>Trusted PMUs</strong> remain tampered through their branch currents, as Fig. 7 shows, since eq. (27) leaves
+  the currents outside the secure set.</li>
+<li><strong>Solution 1 on IEEE-118</strong> places all six PMUs of Table V's multi-snapshot attack (83, 89, 100, 105,
+  106, 110) among its first seven picks.</li>
+</ul>
+<h3 id="what-does-not">What does not<a class="headerlink" href="#what-does-not" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>IEEE-14, lines 3-4 and 6-11:</strong> no setting gives the paper's seven-device attack at its scale together
+  with a positive rise under trust.</li>
+<li><strong>IEEE-118, the defense rise:</strong> below the band of Fig. 12 in most windows (the Results table above).</li>
+<li><strong>IEEE-118, Table V:</strong> the paper's multi-snapshot attack tampers SCADA 84, 85, 89, 94, 99, 100, 101,
+  103, 105 and PMU 83, 89, 100, 105, 106, 110. Ours stays on PMUs 80, 83 and 100 under every
+  combination tried (the factorial below). No residual test we ran reproduces Table V's detection well
+  below its false alarms: ours detect at about their false-alarm rate, slightly above or below it.</li>
+</ul>
+<h3 id="what-the-paper-does-not-specify">What the paper does not specify<a class="headerlink" href="#what-the-paper-does-not-specify" title="Permanent link">&para;</a></h3>
+<ul>
+<li>the line ratings S_max of eq. (25); MATPOWER's case14 and case118, which [37] cites as its data source
+  (p. 1898), carry none;</li>
+<li>the generator and voltage limit values of eqs. (21)-(23);</li>
+<li>the IEEE-118 daily load curves (Dongguan dispatch center 2016, [37] p. 1898);</li>
+<li>how the snapshot samples of p. 658 relate in time (independent draws or a trajectory);</li>
+<li>how each snapshot's flow target is set; eqs. (24)-(25) constrain only the window's end, while Fig. 4
+  shows tampering in every interval;</li>
+<li>the residual test and its threshold behind Tables III and V;</li>
+<li>whether the sub-noise elements [37] treats as zeros are dropped from the injected vector or only from
+  the count;</li>
+<li>the local optimal power flow of p. 655: its objective and how the boundary is held;</li>
+<li>the DQN's network size and activations.</li>
+</ul>
+<h3 id="hypotheses-tested">Hypotheses tested<a class="headerlink" href="#hypotheses-tested" title="Permanent link">&para;</a></h3>
+<p>Rows naming an experiment are measured and render from the results store; their scripts were scratchpad
+prototypes and are not part of the package. Rows 1, 3 and 10 are readings of the paper or a code fix
+and have no experiment.</p>
+<!-- results: wu.hypotheses -->
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>hypothesis</th>
+<th>outcome</th>
+<th>evidence (ours)</th>
+<th>experiment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Δx_t is a per-snapshot increment (a staged reading of trust)</td>
+<td>rejected</td>
+<td>eq. (26) defines Δx_t as the state deviation</td>
+<td></td>
+</tr>
+<tr>
+<td>2</td>
+<td>A trusted PMU also pins its neighbours through its branch currents (p. 655)</td>
+<td>rejected, contradicts Table II</td>
+<td>trusted attacks found: 0 of 12 (neighbour reading), 6 of 6 (own V and θ)</td>
+<td>minlp.cap_trust_grid</td>
+</tr>
+<tr>
+<td>3</td>
+<td>The cost increase counts devices (Table II lists devices)</td>
+<td>rejected</td>
+<td>eq. (33) counts measurements; Table II's percentages do not follow from its device counts</td>
+<td></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Solve eq. (12) exactly as a mixed-integer program (SCIP)</td>
+<td>not viable at these sizes</td>
+<td>cold-start attacks found: 0 of 9 runs</td>
+<td>minlp.prototype</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Every meter in the area counts ("all measurement data ... altered simultaneously", p. 654)</td>
+<td>rejected, Fig. 4 leaves sub-noise devices out (p. 659)</td>
+<td>IEEE-14 lines 3-4 and 6-11, undefended devices: threshold 6, region 11</td>
+<td>minlp.region_reading</td>
+</tr>
+<tr>
+<td>6</td>
+<td>The attack is anchored on both ends of each target line (Fig. 4)</td>
+<td>no effect on the rise</td>
+<td>IEEE-118: 10 / 22 → 10 / 22</td>
+<td>minlp.anchoring</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Ratings at the true flow plus 0.10 pu, so attacks reach the Fig. 4 scale (ours)</td>
+<td>magnitudes match; the IEEE-118 rise stays below Fig. 12</td>
+<td>IEEE-118 channel rise over the windows: 0.0% to 16.0%</td>
+<td>wu26.reproduction</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Our load cap (D16) or the reading of trust separates us from [WU26]</td>
+<td>no single setting reproduces all three cases</td>
+<td>the cap and trust grid above</td>
+<td>minlp.cap_trust_grid</td>
+</tr>
+<tr>
+<td>9</td>
+<td>[WU26]'s data recipe (p. 658) in place of our operating pool</td>
+<td>same loading levels, gap not closed</td>
+<td>IEEE-14 lines 3-4 and 6-11, trusted attack found: 4 of 12</td>
+<td>wu.data_recipe</td>
+</tr>
+<tr>
+<td>10</td>
+<td>[WU26]'s IEEE-118 attack area (Fig. 9)</td>
+<td>adopted (the table existed but was unused); no effect on the gap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>11</td>
+<td>The row-reduction attacker (p. 655, ref. [25])</td>
+<td>matches Table II worse than the search</td>
+<td>IEEE-118: 31 / 93 → 20 / 48</td>
+<td>wu26.method_compare</td>
+</tr>
+<tr>
+<td>12</td>
+<td>ℓ1 relaxation, then a count beyond noise ([37] p. 1898), solved with IPOPT</td>
+<td>reproduces IEEE-14 lines 1-2 and 4-5, not the others</td>
+<td>IEEE-14 lines 1-2 and 4-5: 6 / 15 → 8 / 24; IEEE-118: 10 / 20 → 10 / 20</td>
+<td>wu.l1_attack</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Table V factorial: solver, goal form, load curve, PMU measurement vector (eqs. 1 to 3)</td>
+<td>Table V's set not reached</td>
+<td>best overlap with Table V: SCADA 0.46, PMU 0.29</td>
+<td>wu.table5_search</td>
+</tr>
+<tr>
+<td>14</td>
+<td>The attacker builds on its own estimate from forecast loads (pp. 654, 659; forecast error ours)</td>
+<td>set and residual unchanged</td>
+<td>IEEE-118 detection 3.0% to 6.0%, false alarms 3.0% to 6.0%</td>
+<td>wu.attacker_estimate</td>
+</tr>
+<tr>
+<td>15</td>
+<td>SCADA held between 5-min scans, PMUs every snapshot (p. 658; [29] Sec. 2.2)</td>
+<td>benign false alarms far below Table V's</td>
+<td>IEEE-118 benign false alarms 0.0% to 7.5%</td>
+<td>wu.multirate</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Every snapshot an independent sample of the p. 658 recipe, SCADA held (ours)</td>
+<td>false alarms reach Table V's range; the set and detection pattern do not</td>
+<td>IEEE-118 benign false alarms 50.0% to 62.5% with held SCADA, 3.5% with fresh SCADA</td>
+<td>wu.independent_samples</td>
+</tr>
+<tr>
+<td>17</td>
+<td>The attacker's base state is a local optimal power flow ("local optimal power flow", p. 655)</td>
+<td>closest PMU overlap, but a goal set on the estimate is not a true overload</td>
+<td>IEEE-118: 13 devices, overlap SCADA 0.39, PMU 0.43</td>
+<td>wu.local_opf</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>The Table V factorial on IEEE-118, undefended (experiment <code>wu.table5_search</code>; "conv" is the branch
+current conversion of eqs. 1-3, "current" the raw current channels):</p>
+<!-- results: wu.table5 -->
+<table>
+<thead>
+<tr>
+<th>solver</th>
+<th>goal</th>
+<th>load</th>
+<th>PMU vector</th>
+<th>rating</th>
+<th style="text-align: right;">devices</th>
+<th style="text-align: right;">PMUs</th>
+<th style="text-align: right;">overlap SCADA</th>
+<th style="text-align: right;">overlap PMU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.42</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.31</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">80 83 94 100</td>
+<td style="text-align: right;">0.29</td>
+<td style="text-align: right;">0.25</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.31</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">80 83 94 100</td>
+<td style="text-align: right;">0.29</td>
+<td style="text-align: right;">0.25</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
 <h2 id="the-search">The search<a class="headerlink" href="#the-search" title="Permanent link">&para;</a></h2>
 <p>The attack's false state is the least-norm Gauss-Newton solve of the AC measurement equations.
 <code>scipy.optimize.least_squares</code> was tried in its place on the pinned IEEE-14 searches (experiment
@@ -1738,7 +2426,7 @@ consistent with the paper's figures; whether trust bites depends on ratings and 
 <h2 id="not-reproduced-here">Not reproduced here<a class="headerlink" href="#not-reproduced-here" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Table III:</strong> "detection with PMU support" is not specified by the paper.</li>
-<li><strong>Tables IV and V:</strong> these compare against the single-snapshot attack, which this version no longer generates (fdia-graph 0.20 does).</li>
+<li><strong>Tables IV and V, single-snapshot rows:</strong> this version no longer generates the single-snapshot attack (fdia-graph 0.20 does). Table V's multi-snapshot attack is compared above.</li>
 <li><strong>Fig. 13:</strong> it needs the residual detector run over the defended windows; it is a follow-up.</li>
 </ul>
 
