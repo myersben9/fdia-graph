@@ -129,8 +129,8 @@ snapshot spacing, the DQN's network).
 - **IEEE-118, the defense rise:** below the band of Fig. 12 in most windows (the Results table above).
 - **IEEE-118, Table V:** the paper's multi-snapshot attack tampers SCADA 84, 85, 89, 94, 99, 100, 101,
   103, 105 and PMU 83, 89, 100, 105, 106, 110. Ours stays on PMUs 80, 83 and 100 under every
-  combination tried (the factorial below), and every residual test we ran detects at or above its false
-  alarm rate, where Table V reports detection below false alarms.
+  combination tried (the factorial below). No residual test we ran reproduces Table V's detection well
+  below its false alarms: ours detect at about their false-alarm rate, slightly above or below it.
 
 ### What the paper does not specify
 
@@ -149,8 +149,9 @@ snapshot spacing, the DQN's network).
 
 ### Hypotheses tested
 
-Every row is an experiment of the results store; the scripts were scratchpad prototypes and are not part
-of the package.
+Rows naming an experiment are measured and render from the results store; their scripts were scratchpad
+prototypes and are not part of the package. Rows 1, 3 and 10 are readings of the paper or a code fix
+and have no experiment.
 
 <!-- results: wu.hypotheses -->
 | # | hypothesis | outcome | evidence (ours) | experiment |

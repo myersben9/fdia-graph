@@ -1186,8 +1186,8 @@ def wu_hypotheses(store: Store) -> str:
 
 @query("wu.table5")
 def wu_table5(store: Store) -> str:
-    """IEEE-118 undefended attacks of the Table V factorial: the PMUs each tampers and the overlap of its
-    devices with [WU26] Table V's multi-snapshot attack."""
+    """IEEE-118 undefended attacks of the Table V factorial: the set of PMUs each attack tampers, and the
+    overlap of its devices with [WU26] Table V's multi-snapshot attack."""
     exp = "wu.table5_search"
     recs = store.latest(exp, system="ieee118", phase="undefended", metric="devices")
     body = []
