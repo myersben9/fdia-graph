@@ -1460,10 +1460,10 @@ open. The plans hold the reasoning behind each.</p>
 </tr>
 <tr>
 <td>E1</td>
-<td>dx_t is the attack's state deviation and trust accumulates (eqs. 26, 30-31)</td>
+<td>trust is incremental: a trusted PMU keeps the offset its bus had before its slot (eqs. 29-30)</td>
 <td>paper</td>
 <td>docs/plans/WU_DEFENSE_PLAN.md, Decisions</td>
-<td>none</td>
+<td><code>trust.wu26</code></td>
 <td><code>tests.test_trusted_pmus.test_trust_accumulates_from_its_slot</code></td>
 </tr>
 <tr>
@@ -1476,10 +1476,10 @@ open. The plans hold the reasoning behind each.</p>
 </tr>
 <tr>
 <td>E3</td>
-<td>the defense effect counts measurements (eq. 33)</td>
+<td>the defense's cost is the devices tampered at any snapshot (Fig. 12); eq. (33)'s net l0 also reported</td>
 <td>paper</td>
 <td>docs/plans/WU_DEFENSE_PLAN.md, Decisions</td>
-<td><code>models.choices.CostUnit</code><br><code>models.config.WuDefenseConfig</code><br><code>trust.defense</code></td>
+<td><code>models.choices.CostUnit</code><br><code>models.config.WuDefenseConfig</code><br><code>trust.defense</code><br><code>trust.wu26</code></td>
 <td><code>tests.test_wu_defense_env.test_the_reward_is_the_rise_in_the_search_cost</code></td>
 </tr>
 <tr>
@@ -1576,6 +1576,38 @@ open. The plans hold the reasoning behind each.</p>
 <td>ours</td>
 <td>docs/plans/WU_DEFENSE_PLAN.md, Decisions</td>
 <td>none</td>
+<td>none</td>
+</tr>
+<tr>
+<td>E16</td>
+<td>the attack minimizes the l1 of the window's summed attack, eq. (12) read literally ([37]'s l1)</td>
+<td>paper</td>
+<td>docs/plans/WU_DEFENSE_PLAN.md, Decisions</td>
+<td><code>trust.wu26</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td>E17</td>
+<td>the reproduction meters every branch at both ends, each node's SCADA its incident flows ([29])</td>
+<td>paper</td>
+<td>docs/plans/WU_DEFENSE_PLAN.md, Decisions</td>
+<td><code>trust.wu26</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td>E19</td>
+<td>the faithful attack's goal is (24)-(25) as written: the end at S_max, the flow never falling; D9's ramp stays for generation</td>
+<td>paper</td>
+<td>docs/plans/WU_DEFENSE_PLAN.md, Decisions</td>
+<td><code>trust.wu26</code><br><code>trust.wu26._WindowProblem.constraints</code></td>
+<td><code>tests.test_wu26_faithful.test_the_goal_is_eqs_24_25_as_written</code></td>
+</tr>
+<tr>
+<td>E18</td>
+<td>the reproduction's overload rho, per-snapshot l1 weight tau and trust region are ours</td>
+<td>ours</td>
+<td>docs/plans/WU_DEFENSE_PLAN.md, Decisions</td>
+<td><code>trust.wu26</code></td>
 <td>none</td>
 </tr>
 </tbody>

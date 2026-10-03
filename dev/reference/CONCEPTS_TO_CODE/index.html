@@ -1892,6 +1892,14 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>[WU26]'s Solution 1: the trusted PMUs by row reduction of the measurement matrix (Sec. IV-D1, p. 657), on the trusted-PMU MDP of one overload window (<code>trust.WuDefenseEnv</code>; docs/plans/WU_DEFENSE_PLAN.md, PR C).</td>
 </tr>
 <tr>
+<td><code>trust.wu26</code></td>
+<td>[WU26]'s attack and defense as the paper states them (docs/wu26/README.md, "Faithful reproduction"): the meter plan, the multi-snapshot attack and the incremental trusted-PMU defense, on a pandapower case.</td>
+</tr>
+<tr>
+<td><code>trust.wu26_defense</code></td>
+<td>[WU26]'s trusted-PMU defense on the faithful attack (<code>trust.wu26</code>): the MDP (Sec. IV-D2, Fig. 1, Algorithm 1) and Solution 1's row reduction (Sec. IV-D1, p. 657).</td>
+</tr>
+<tr>
 <td><code>trust.wu_dqn</code></td>
 <td>[WU26]'s Solution 2: the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2, p. 658) on trusted-PMU MDPs (<code>trust.WuDefenseEnv</code>; docs/plans/WU_DEFENSE_PLAN.md, PR D).</td>
 </tr>

@@ -1538,6 +1538,31 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>[WU26] reproduced as the paper states it (<code>trust.wu26</code>, the <code>[wu]</code> extra).</strong> A faithful attack and
+  defense beside the dataset generator's:</li>
+<li><code>wu26_network(case, pmus)</code>: the paper's meter plan ([29] Sec. 2.2), every bus's SCADA reading its
+    injection and the flow of each incident branch at its end, so every branch metered at both ends;
+    PMUs read |V|, the angle and their incident branch currents; no SCADA voltmeter (new
+    <code>MeterModel</code> value <code>"wu26"</code>, refused by the generator's <code>MeterSettings</code> and <code>GeneratorOptions</code>).</li>
+<li><code>solve_window</code>: eq. (12) read literally, the l1 of the window's summed attack ([37] p. 1898's l1)
+    plus <code>tau</code> times the per-snapshot l1, as one IPOPT problem per window, with the boundary held,
+    the voltage band, the goal of eqs. (24)-(25) as written ([E19]: each target at <code>rho</code> times its true
+    flow by the window's end, the flow never falling between snapshots, no per-snapshot target; the
+    generator's D9 ramp is unchanged), and changes below the
+    paper's noise counted as untampered (new <code>SupportMethod</code> value <code>"wu_l1"</code>, refused by the
+    generator's <code>OverloadSettings</code>). Settings: the validated <code>Wu26Attack</code> (<code>rho</code>, <code>tau</code>, the trust
+    region <code>dv</code>/<code>da</code>, the voltage band, <code>max_iter</code>; all ours where the paper is silent, [E18]).</li>
+<li><code>incremental_freeze</code>: trust read incrementally (eqs. 29-30, [E1] revised): a trusted PMU keeps the
+    offset its bus had at the snapshot before its slot.</li>
+<li><code>Wu26DefenseEnv</code>: the trusted-PMU MDP on this attack, the cost the devices tampered at any snapshot
+    (Fig. 12's count, unit "devices") or eq. (33)'s net l0 over channels (unit "channels") ([E3]
+    revised); <code>wu26_solution1</code>: Solution 1's row reduction on this meter plan. <code>TrustedPMUsDQN</code> now
+    trains on any <code>trust.DefenseEnv</code> (<code>WuDefenseEnv</code> or <code>Wu26DefenseEnv</code>).</li>
+<li>
+<p><code>tools/wu26_faithful.py</code> runs the paper's scenarios at its scale into the results store
+    (<code>wu26.faithful</code>, query <code>wu26.faithful</code>); new metric <code>reference_hits</code>. Decisions E16 to E19
+    added; new named error <code>NoSuchBranch</code>; <code>WindowAttack</code> in <code>fdia_graph.models</code>.</p>
+</li>
 <li>
 <p><strong>Replication against [WU26] recorded.</strong> <code>docs/wu26/README.md</code> gains a section stating what the
   package implements as the paper states it, what agrees, what does not, and what the paper leaves
