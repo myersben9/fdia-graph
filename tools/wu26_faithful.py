@@ -68,17 +68,17 @@ SCENARIOS: dict[str, dict] = {
 }
 
 
-def run_window(job: tuple[str, int, list[int]]) -> dict:
+def run_window(job: tuple[str, int, list[int], Optional[float]]) -> dict:
     """One window: the undefended attack, then the attack under Solution 1's order and under the order
     the paper reports (Fig. 6 on IEEE-14, p. 662's account on IEEE-118)."""
-    name, seed, order = job
+    name, seed, order, tau = job
     sc = SCENARIOS[name]
     net = wu26_network(sc["case"], sc["pmus"])
     states = wu26_snapshots(net.case, sc["snapshots"], seed)
     pmus = [b - 1 for b in sc["pmus"]]
     config = WuDefenseConfig(pmus=pmus, slots=sc["slots"], unit="devices")
     t0 = time.time()
-    attack = Wu26Attack(**sc["attack"])
+    attack = Wu26Attack(**{**sc["attack"], **({} if tau is None else {"tau": tau})})
     env = Wu26DefenseEnv(net, states, [b - 1 for b in sc["area"]], sc["targets"], attack, config)
     base = env.base.devices_any
     row = dict(
@@ -131,7 +131,9 @@ def _print(r: dict) -> None:
     )
 
 
-def store(rows: list[dict], name: str, order: list[int], store_dir: Optional[str]) -> int:
+def store(
+    rows: list[dict], name: str, order: list[int], store_dir: Optional[str], tau: Optional[float] = None
+) -> int:
     """Every window as records of `wu26.faithful`: the undefended attack (defended=0) and each trust
     order's (defended=1, method solution1 or described), plus Solution 1's order (Fig. 10 / Fig. 6)."""
     from fdia_graph.results import Run, Store
@@ -139,13 +141,20 @@ def store(rows: list[dict], name: str, order: list[int], store_dir: Optional[str
     sc = SCENARIOS[name]
     system = "ieee118" if name == "118" else "ieee14"
     settings = {k: sc[k] for k in ("attack", "slots", "pmus", "area")}
+    if tau is not None:
+        settings["attack"] = {**sc["attack"], "tau": tau}
+    tau_used = settings["attack"]["tau"]
     with Run(
-        "wu26.faithful", system=system, settings=settings, store=Store(store_dir), note=f"scenario {name}"
+        "wu26.faithful",
+        system=system,
+        settings=settings,
+        store=Store(store_dir),
+        note=f"scenario {name}, tau={tau_used}",
     ) as run:
         for step, bus in enumerate(order[: len(sc["slots"])]):
-            run.add("trusted_pmu", bus, method="solution1", scenario=name, step=step + 1)
+            run.add("trusted_pmu", bus, method="solution1", scenario=name, step=step + 1, tau=tau_used)
         for r in rows:
-            base = dict(scenario=name, window=r["seed"], defended=0)
+            base = dict(scenario=name, window=r["seed"], defended=0, tau=tau_used)
             for metric, key in (
                 ("devices", "devices"),
                 ("channels", "channels"),
@@ -158,7 +167,7 @@ def store(rows: list[dict], name: str, order: list[int], store_dir: Optional[str
                 run.add(metric, r[key], **base)
             run.add("reference_hits", r["hits_scada"] + r["hits_pmu"], **base)
             for method, a in r["arms"].items():
-                keys = dict(method=method, scenario=name, window=r["seed"], defended=1)
+                keys = dict(method=method, scenario=name, window=r["seed"], defended=1, tau=tau_used)
                 run.add("devices", a["devices"], **keys)
                 run.add("channels", a["channels"], **keys)
                 run.add("cost_increase_pct", a["rise"], **keys)
@@ -177,6 +186,12 @@ def main(argv: Optional[list[str]] = None) -> None:
         "--seeds", default="", help="comma-separated window seeds, in place of --seed and --windows"
     )
     ap.add_argument("--workers", type=int, default=1)
+    ap.add_argument(
+        "--tau",
+        type=float,
+        default=None,
+        help="the per-snapshot l1 weight, in place of the scenario's (Wu26Attack.tau)",
+    )
     ap.add_argument("--store", default=None, help="results store folder (default: the repository's results/)")
     ap.add_argument("--dry", action="store_true", help="print only; write nothing to the store")
     args = ap.parse_args(argv)
@@ -188,7 +203,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         if args.seeds
         else [args.seed + i for i in range(args.windows)]
     )
-    jobs = [(args.system, seed, order) for seed in seeds]
+    jobs = [(args.system, seed, order, args.tau) for seed in seeds]
     rows = []
     with Pool(args.workers) as pool:
         for r in pool.imap_unordered(run_window, jobs):
@@ -203,7 +218,7 @@ def main(argv: Optional[list[str]] = None) -> None:
             flush=True,
         )
     if not args.dry:
-        print(f"stored {store(rows, args.system, order, args.store)} records", flush=True)
+        print(f"stored {store(rows, args.system, order, args.store, args.tau)} records", flush=True)
 
 
 if __name__ == "__main__":
