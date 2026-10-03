@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- `tools/wu26_faithful.py --tau` runs a scenario at another per-snapshot weight; the records carry a
+  `tau` tag and the `wu26.faithful` table shows one row set per weight. New `tools/wu26_dqn.py` trains
+  [WU26]'s DQN over `Wu26DefenseEnv` in parallel sessions and tests each on fresh windows, stored as
+  `wu26.dqn` (docs/wu26, "Solution 2").
+
 - **[WU26] reproduced as the paper states it (`trust.wu26`, the `[wu]` extra).** A faithful attack and
   defense beside the dataset generator's:
   - `wu26_network(case, pmus)`: the paper's meter plan ([29] Sec. 2.2), every bus's SCADA reading its

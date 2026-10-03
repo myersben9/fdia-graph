@@ -1225,6 +1225,8 @@ def wu_table5(store: Store) -> str:
 
 
 # ---- the faithful reproduction of [WU26] (docs/wu26/README.md, "Faithful reproduction")
+# the per-snapshot weight each scenario was calibrated at (`Wu26Attack.tau`), for runs stored untagged
+_WU_FAITHFUL_TAU = {"118": "0.05", "14-1": "0.1", "14-2": "0.1"}
 _WU_FAITHFUL = {
     "118": "Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices",
     "14-1": "Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu",
@@ -1244,8 +1246,14 @@ def wu26_faithful(store: Store) -> str:
 
     exp = "wu26.faithful"
     body = []
-    for name in sorted({r.tag("scenario") for r in store.query(exp)}):
-        run = store.newest_run(exp, scenario=name)  # one run whole: a rerun never mixes with older windows
+    when = {p.run_id: p.timestamp for p in store.runs()}
+    keyed: dict[tuple[str, str], set[str]] = {}
+    for r in store.query(exp):
+        # runs before the tau tag used the scenario's calibrated weight (tools/wu26_faithful.py)
+        tau = r.tag("tau", _WU_FAITHFUL_TAU.get(r.tag("scenario"), ""))
+        keyed.setdefault((r.tag("scenario"), tau), set()).add(r.run_id)
+    for (name, tau), ids in sorted(keyed.items()):
+        run = max(ids, key=lambda i: (when.get(i, ""), i))  # one run whole: never mixed with older windows
 
         def vals(metric: str, **more: str) -> list[float]:
             return [r.value for r in store.query(exp, metric=metric, scenario=name, run_id=run, **more)]
@@ -1261,6 +1269,7 @@ def wu26_faithful(store: Store) -> str:
             body.append(
                 [
                     name,
+                    tau,
                     order,
                     f"{len(rise)}",
                     number(statistics.median(vals("devices", defended="0")), ".0f"),
@@ -1275,6 +1284,7 @@ def wu26_faithful(store: Store) -> str:
             )
     head = [
         "scenario",
+        "tau",
         "trust order",
         "windows",
         "devices undefended",
@@ -1286,4 +1296,58 @@ def wu26_faithful(store: Store) -> str:
         "largest change (pu)",
         "[WU26]",
     ]
-    return table(head, body, numeric_from=2)
+    return table(head, body, numeric_from=3)
+
+
+@query("wu26.dqn")
+def wu26_dqn(store: Store) -> str:
+    """[WU26]'s Solution 2 on the faithful attack (`tools/wu26_dqn.py`), the newest run whole: the
+    sessions and tests, the training episodes per session, the mean and median rise in the devices
+    tampered at any snapshot (Fig. 12's cost), the share of tests in Fig. 12's 10% to 20% band, the mean
+    new devices, the PMU each step picks most often with its share (Fig. 11), and the mean training and
+    decision times, beside the paper's figures."""
+    import statistics
+
+    exp = "wu26.dqn"
+    run = store.newest_run(exp)
+    if run is None:
+        raise NoSuchResult(f"no run of {exp}")
+
+    def vals(metric: str, **more: str) -> list[float]:
+        return [r.value for r in store.query(exp, metric=metric, run_id=run, **more)]
+
+    rise = vals("cost_increase_pct")
+    shares = store.query(exp, metric="selection_share", run_id=run)
+    steps = sorted({int(r.tag("step")) for r in shares})
+    top = []
+    for s in steps:
+        best = max((r for r in shares if int(r.tag("step")) == s), key=lambda r: r.value)
+        top.append(f"{s}: {best.tag('pmu')} ({number(best.value, '.2f')})")
+    sessions = len({r.tag("session") for r in store.query(exp, metric="seconds", run_id=run, phase="train")})
+    setup = next((p.note for p in store.runs() if p.run_id == run), "")
+    body = [
+        [
+            f"{sessions}",
+            f"{len(rise)}",
+            setup,
+            f"{number(statistics.mean(rise), '.1f')}% / {number(statistics.median(rise), '.1f')}%",
+            f"{number(100 * sum(10.0 <= v <= 20.0 for v in rise) / len(rise), '.0f')}%",
+            number(statistics.mean(vals("extra_devices")), ".1f"),
+            "; ".join(top),
+            f"{number(statistics.mean(vals('seconds', phase='train')) / 3600, '.1f')} h / "
+            f"{number(1e3 * statistics.mean(vals('seconds', phase='decide')), '.1f')} ms",
+            "Fig. 12: 16.4% mean, mostly 10% to 20%; 3 to 5 new devices; DQN decision 8.7 s, Solution 1 16.5 s",
+        ]
+    ]
+    head = [
+        "sessions",
+        "tests",
+        "setup",
+        "rise mean / median",
+        "tests in 10-20%",
+        "new devices",
+        "most picked PMU per step (share)",
+        "training / decision time",
+        "[WU26]",
+    ]
+    return table(head, body, numeric_from=0)
