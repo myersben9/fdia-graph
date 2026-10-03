@@ -2,7 +2,7 @@
 training sessions of Algorithm 1 run in parallel, each tested on fresh windows, the paper's "100 tests"
 as sessions x test windows (the plan's E8 option 2). Records go to the results store as `wu26.dqn`
 (docs/wu26): every test window's cost without and with the trained policy's schedule (Fig. 12), each
-step's choice (Fig. 11's selection probabilities) and the decision and training times (p. 663).
+step's choice (Fig. 11's selection probabilities) and the decision and training times (p. 662).
 
     python tools/wu26_dqn.py --sessions 10 --test 10 --workers 10            # the run
     python tools/wu26_dqn.py --sessions 1 --episodes 3 --train 2 --test 1 --dry  # a timing check

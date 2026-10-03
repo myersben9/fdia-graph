@@ -1309,9 +1309,9 @@ def wu26_dqn(store: Store) -> str:
     import statistics
 
     exp = "wu26.dqn"
-    run = store.newest_run(exp)
+    run = store.newest_run(exp, scenario="118")  # the table compares IEEE-118 with Fig. 12
     if run is None:
-        raise NoSuchResult(f"no run of {exp}")
+        raise NoSuchResult(f"no IEEE-118 run of {exp}")
 
     def vals(metric: str, **more: str) -> list[float]:
         return [r.value for r in store.query(exp, metric=metric, run_id=run, **more)]
