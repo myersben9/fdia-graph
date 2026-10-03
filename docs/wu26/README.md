@@ -96,6 +96,9 @@ consistent with the paper's figures; whether trust bites depends on ratings and 
 - **Attack** ([E16]; eq. 12 read literally): the l1 of the window's summed attack ([37] p. 1898
   relaxes the l0 to l1), plus `tau` times the per-snapshot l1, solved as one IPOPT problem per window
   with the boundary held ([37] eq. 12). Changes below the paper's noise count as untampered (p. 659).
+- **Goal** ([E19]; eqs. 24-25 as written): each target's flow reaches its S_max at the window's end and
+  never falls between snapshots; there is no per-snapshot target, unlike the generator's ramp (D9). The
+  per-snapshot ramp forced oversized attacks on IEEE-14.
 - **Trust** ([E1]; eqs. 29-30, "accumulating attack vectors", p. 659): a trusted PMU keeps the attack
   offset its bus had at the snapshot before its slot; its currents stay untrusted (eq. 27).
 - **Cost** ([E3]): the devices tampered at any snapshot, the count of Fig. 4 and Fig. 12; eq. (33)'s l0
@@ -110,23 +113,26 @@ IEEE-118):
 <!-- results: wu26.faithful -->
 | scenario | trust order | windows | devices undefended | defended | rise mean / median | windows in 10-20% | new devices | overlap SCADA / PMU | largest change (pu) | [WU26] |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 118 | 110 105 106 100 80 78 94 92 89 83 | 100 | 16 | 24 | 53.3% / 46.9% | 7% | 9.3 | 0.47 / 0.42 | 0.35 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
-| 118 | the paper's | 100 | 16 | 21 | 37.3% / 32.3% | 12% | 7.3 | 0.47 / 0.42 | 0.35 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
-| 14-1 | 1 4 6 13 | 20 | 10 | 10 | 3.0% / 0.0% | 10% | 0.3 | 0.71 / 0.67 | 0.21 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
-| 14-1 | the paper's | 20 | 10 | 10 | 3.0% / 0.0% | 10% | 0.3 | 0.71 / 0.67 | 0.21 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
-| 14-2 | 1 4 13 6 | 20 | 12 | 13 | 8.2% / 8.3% | 5% | 1.1 | 0.42 / 0.75 | 0.20 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
-| 14-2 | the paper's | 20 | 12 | 12 | 0.4% / 0.0% | 0% | 0.1 | 0.42 / 0.75 | 0.20 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
+| 118 | 110 105 106 100 80 78 94 92 89 83 | 100 | 22 | 20 | -6.2% / -4.7% | 10% | 1.4 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 118 | the paper's | 100 | 22 | 23 | 10.8% / 9.1% | 19% | 2.9 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 14-1 | 1 4 6 13 | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
+| 14-1 | the paper's | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
+| 14-2 | 1 4 13 6 | 20 | 14 | 15 | 5.1% / 7.1% | 20% | 0.9 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
+| 14-2 | the paper's | 20 | 14 | 15 | 6.1% / 7.4% | 10% | 0.9 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
 <!-- /results -->
 
 What this shows:
 
-- **The attack's mechanism reproduces.** The summed-window objective is what spreads the attack across
-  the area the way Fig. 4 and Table V show; minimizing each snapshot's attack instead keeps it sparse.
-  On IEEE-14 scenario 1 Solution 1 derives the paper's own trust order (Fig. 6).
-- **The defense's size does not.** On IEEE-118 the rise in tampered devices and the new devices run well
-  above Fig. 12's band, for both trust orders; on IEEE-14 trust barely raises the cost, well below Table
-  II. The size of the rise depends on how far the solver spreads the attack before and after trust,
-  which the paper's unstated ratings and solver settings decide (the hypotheses below).
+- **The attack largely reproduces.** The summed-window objective with the literal goal spreads the attack
+  across the area the way Fig. 4 and Table V show: on IEEE-118 it overlaps Table V's tampered SCADA and
+  PMUs more than any earlier variant (the hypotheses below), with an undefended size near Table V's; on
+  IEEE-14 scenario 1 it holds Fig. 4's set at Fig. 4's scale, and scenario 2 comes out larger than
+  Fig. 4's. Minimizing each snapshot's attack instead keeps it sparse, and a per-snapshot ramp inflates
+  it. On IEEE-14 scenario 1 Solution 1 derives the paper's own trust order (Fig. 6).
+- **The defense's size does not, yet.** The rise under trust is small or negative on IEEE-14 and below
+  Fig. 12's band on IEEE-118 with the order the paper reports; Solution 1's derived order often lowers the
+  count (Algorithm 1's line 8 case). The rise depends on how far the solver spreads the attack before
+  and after trust, which `tau` and the paper's unstated ratings decide (the hypotheses below).
 
 ## Replication against [WU26]
 

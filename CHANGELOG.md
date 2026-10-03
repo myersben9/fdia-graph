@@ -13,7 +13,9 @@ the public API, the generated files and the numbers are the same as the previous
     `MeterModel` value `"wu26"`, refused by the generator's `MeterSettings` and `GeneratorOptions`).
   - `solve_window`: eq. (12) read literally, the l1 of the window's summed attack ([37] p. 1898's l1)
     plus `tau` times the per-snapshot l1, as one IPOPT problem per window, with the boundary held,
-    the voltage band, each target flow ramped to `rho` times its true value, and changes below the
+    the voltage band, the goal of eqs. (24)-(25) as written ([E19]: each target at `rho` times its true
+    flow by the window's end, the flow never falling between snapshots, no per-snapshot target; the
+    generator's D9 ramp is unchanged), and changes below the
     paper's noise counted as untampered (new `SupportMethod` value `"wu_l1"`, refused by the
     generator's `OverloadSettings`). Settings: the validated `Wu26Attack` (`rho`, `tau`, the trust
     region `dv`/`da`, the voltage band, `max_iter`; all ours where the paper is silent, [E18]).
@@ -24,7 +26,8 @@ the public API, the generated files and the numbers are the same as the previous
     revised); `wu26_solution1`: Solution 1's row reduction on this meter plan. `TrustedPMUsDQN` now
     trains on any `trust.DefenseEnv` (`WuDefenseEnv` or `Wu26DefenseEnv`).
   - `tools/wu26_faithful.py` runs the paper's scenarios at its scale into the results store
-    (`wu26.faithful`, query `wu26.faithful`); new metric `reference_hits`. Decisions E16 to E18 added.
+    (`wu26.faithful`, query `wu26.faithful`); new metric `reference_hits`. Decisions E16 to E19
+    added; new named error `NoSuchBranch`; `WindowAttack` in `fdia_graph.models`.
 
 - **Replication against [WU26] recorded.** `docs/wu26/README.md` gains a section stating what the
   package implements as the paper states it, what agrees, what does not, and what the paper leaves
