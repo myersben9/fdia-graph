@@ -111,14 +111,16 @@ derives on this meter plan and with the order the paper reports (Fig. 6 on IEEE-
 IEEE-118):
 
 <!-- results: wu26.faithful -->
-| scenario | trust order | windows | devices undefended | defended | rise mean / median | windows in 10-20% | new devices | overlap SCADA / PMU | largest change (pu) | [WU26] |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 118 | 110 105 106 100 80 78 89 92 94 83 | 100 | 22 | 21 | -5.2% / 0.0% | 14% | 1.7 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
-| 118 | the paper's | 100 | 22 | 23 | 10.8% / 9.1% | 19% | 2.9 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
-| 14-1 | 1 4 6 13 | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
-| 14-1 | the paper's | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
-| 14-2 | 1 4 6 13 | 20 | 14 | 15 | 6.6% / 7.4% | 25% | 1.1 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
-| 14-2 | the paper's | 20 | 14 | 15 | 6.1% / 7.4% | 10% | 0.9 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
+| scenario | tau | trust order | windows | devices undefended | defended | rise mean / median | windows in 10-20% | new devices | overlap SCADA / PMU | largest change (pu) | [WU26] |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 118 | 0.05 | 110 105 106 100 80 78 89 92 94 83 | 100 | 22 | 21 | -5.2% / 0.0% | 14% | 1.7 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 118 | 0.05 | the paper's | 100 | 22 | 23 | 10.8% / 9.1% | 19% | 2.9 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 118 | 0.1 | 110 105 106 100 80 78 89 92 94 83 | 100 | 21 | 17 | -13.8% / -17.9% | 9% | 1.4 | 0.55 / 0.44 | 0.57 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 118 | 0.1 | the paper's | 100 | 21 | 23 | 8.7% / 10.0% | 22% | 3.2 | 0.55 / 0.44 | 0.57 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 14-1 | 0.1 | 1 4 6 13 | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
+| 14-1 | 0.1 | the paper's | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
+| 14-2 | 0.1 | 1 4 6 13 | 20 | 14 | 15 | 6.6% / 7.4% | 25% | 1.1 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
+| 14-2 | 0.1 | the paper's | 20 | 14 | 15 | 6.1% / 7.4% | 10% | 0.9 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
 <!-- /results -->
 
 What this shows:
@@ -129,10 +131,31 @@ What this shows:
   IEEE-14 scenario 1 it holds Fig. 4's set at Fig. 4's scale, and scenario 2 comes out larger than
   Fig. 4's. Minimizing each snapshot's attack instead keeps it sparse, and a per-snapshot ramp inflates
   it. On IEEE-14 scenario 1 Solution 1 derives the paper's own trust order (Fig. 6).
+- **One weight for both systems.** IEEE-118 also runs at IEEE-14's per-snapshot weight (the `tau`
+  column): the undefended attack keeps its overlap with Table V, and the rise under the paper's order
+  stays below Fig. 12's band.
 - **The defense's size does not, yet.** The rise under trust is small or negative on IEEE-14 and below
   Fig. 12's band on IEEE-118 with the order the paper reports; Solution 1's derived order often lowers the
   count (Algorithm 1's line 8 case). The rise depends on how far the solver spreads the attack before
   and after trust, which `tau` and the paper's unstated ratings decide (the hypotheses below).
+
+### Solution 2 (the DQN) on the faithful attack
+
+`tools/wu26_dqn.py` trains [WU26]'s DQN (Algorithm 1, the stated hyperparameters) over
+`Wu26DefenseEnv` on IEEE-118 and tests each trained policy on fresh windows: training sessions in
+parallel, each tested on its own windows, in place of the paper's 100 independent tests (each training
+session costs hours of attack solves). The policy's schedule is greedy over its learned values (eq. 38),
+stopping early where Algorithm 1's line 8 ends the episode.
+
+<!-- results: wu26.dqn -->
+| sessions | tests | setup | rise mean / median | tests in 10-20% | new devices | most picked PMU per step (share) | training / decision time | [WU26] |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 10 | 100 | scenario 118, 250 episodes on 4 windows per session, tau=0.1 | -12.8% / -14.3% | 7% | 1.2 | 1: 100 (0.34); 2: 100 (0.20); 3: 76 (0.09); 4: 89 (0.08); 5: 110 (0.06); 6: 105 (0.12); 7: 83 (0.06); 8: 94 (0.05); 9: 106 (0.05); 10: 92 (0.07) | 5.2 h / 5.1 ms | Fig. 12: 16.4% mean, mostly 10% to 20%; 3 to 5 new devices; DQN decision 8.7 s, Solution 1 16.5 s |
+<!-- /results -->
+
+Most training episodes end at line 8: trusting a PMU lowers the any-snapshot count below the undefended
+attack, which ends the episode with no reward, so the policy learns little and often stops after one or
+two steps.
 
 ## Replication against [WU26]
 
