@@ -352,6 +352,12 @@ DECISIONS: dict[str, Decision] = {
         "paper",
         _DEFENSE,
     ),
+    "E19": Decision(
+        "the faithful attack's goal is (24)-(25) as written: the end at S_max, the flow never falling; "
+        "D9's ramp stays for generation",
+        "paper",
+        _DEFENSE,
+    ),
     "E18": Decision(
         "the reproduction's overload rho, per-snapshot l1 weight tau and trust region are ours",
         "ours",

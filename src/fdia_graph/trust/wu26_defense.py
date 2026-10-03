@@ -22,8 +22,9 @@ import numpy as np
 from ..formulas.trust import rref
 from ..models.choices import CostUnit
 from ..models.config import Wu26Attack, WuDefenseConfig
+from ..models.frames import WindowAttack
 from ..models.inputs import ChosenAction, TrustablePmus, WindowSlots
-from .wu26 import _PF, _QF, WindowAttack, Wu26Network, incremental_freeze, solve_window
+from .wu26 import Wu26Network, incremental_freeze, solve_window
 
 _Schedule = tuple[int, ...]  # the actions taken so far: indices into `WuDefenseConfig.pmus`, in order
 
@@ -111,9 +112,8 @@ class Wu26DefenseEnv:
         rate = []
         for a, b in self.targets:
             k, e = self.net.branch_of(a, b)
-            rows = np.flatnonzero((self.net.br == k) & (self.net.end == e) & (self.net.dev_type == 0))
-            p = readings[rows[self.net.kind[rows] == _PF][0]]
-            q = readings[rows[self.net.kind[rows] == _QF][0]]
+            p_row, q_row = self.net.flow_rows(k, e)
+            p, q = readings[p_row], readings[q_row]
             rate.append(np.hypot(p, q) / (abs(self.net.flow(Vm, Va, k, e)) * self.attack.rho))
         mask = np.zeros(self.n_actions)
         mask[list(self.trusted)] = 1.0
@@ -156,15 +156,20 @@ def _pmu_weights(
     """Each open PMU's weight in the sparsest attack row that moves a target line, or, with none, its
     weight summed over every row."""
     open_pmus = [b for b in net.pmus if b not in trusted]
-    total: dict[int, float] = {b: 0.0 for b in open_pmus}
+    total: dict[int, float] = dict.fromkeys(open_pmus, 0.0)
     for row in sorted(rows, key=lambda r: int((np.abs(r) > tol).sum())):
-        supp = cols[np.abs(row) > tol]
-        w = {
-            b: float(np.abs(row[np.abs(row) > tol])[(net.dev_type[supp] == 1) & (net.bus[supp] == b)].sum())
-            for b in open_pmus
-        }
+        supp = np.abs(row) > tol
+        w = _row_weights(net, row[supp], cols[supp], open_pmus)
         for b in open_pmus:
             total[b] += w[b]
-        if np.isin(net.br[supp], list(lines)).any() and max(w.values(), default=0.0) > 0:
+        if np.isin(net.br[cols[supp]], list(lines)).any() and max(w.values(), default=0.0) > 0:
             return {b: v for b, v in w.items() if v > 0}
     return total
+
+
+def _row_weights(
+    net: Wu26Network, values: np.ndarray, meters: np.ndarray, pmus: list[int]
+) -> dict[int, float]:
+    """Each PMU's share of an attack row: the absolute entries on its meters."""
+    on_pmu = net.dev_type[meters] == 1
+    return {b: float(np.abs(values[on_pmu & (net.bus[meters] == b)]).sum()) for b in pmus}

@@ -15,8 +15,9 @@ The pieces, each from the paper or labelled ours:
   is metered at both ends; a PMU at a PMU bus reads |V|, the angle and the current of every incident
   branch at its end [WU26 eqs. 17-20]; no SCADA voltmeter. A device is everything of one type at a node.
 - The attack [WU26 eqs. 12-25] [E16]: a false state of the area's buses per snapshot, its boundary held at the
-  true state ([37] eq. 12), each target line's apparent flow ramped to its overload (eqs. 24-25), the
-  voltages within limits (eq. 21). The objective is eq. (12) read literally, the norm of the SUM over
+  true state ([37] eq. 12), each target line's apparent flow at its overload by the window's end and never
+  falling between snapshots (eqs. 24-25 as written [E19]; no per-snapshot target, unlike the generator's
+  D9 ramp), the voltages within limits (eq. 21). The objective is eq. (12) read literally, the norm of the SUM over
   the window, ||sum_t a_t||, with the l0 relaxed to l1 ([37] p. 1898), plus `tau` times the per-snapshot
   l1 so the intermediate snapshots stay bounded (ours). The whole window is one IPOPT problem, since the
   sum couples the snapshots. Changes below the paper's noise (0.03 pu SCADA, 0.01 pu PMU, p. 658) count
@@ -37,12 +38,14 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Optional, cast
+from functools import partial
+from typing import TYPE_CHECKING, Optional, cast
 
 import numpy as np
 
 from ..models.config import Wu26Attack
+from ..models.errors import NoSuchBranch
+from ..models.frames import WindowAttack
 
 if TYPE_CHECKING:
     from scipy.sparse import csr_matrix
@@ -59,26 +62,29 @@ _P, _Q, _PF, _QF, _V, _TH, _IR, _II = range(8)
 Freeze = dict[int, dict[int, tuple[float, float]]]  # snapshot -> {bus: (dVm, dVa)} held offsets
 
 
-@dataclass(frozen=True)
 class Wu26Network:
-    """A case's network and its [WU26] meter plan. Buses and branches in pandapower's (ppc) order; each
-    meter row has a kind, the bus it sits at, the branch and end it reads (-1 for a node meter), its
-    device (type 0 SCADA, 1 PMU, at a bus) and its noise sigma."""
+    """A case's network and its [WU26] meter plan (`wu26_network`). Buses and branches in pandapower's
+    (ppc) order; each meter row has a kind, the bus it sits at, the branch and end it reads (-1 for a
+    node meter), its device (type 0 SCADA, 1 PMU, at a bus) and its noise sigma."""
 
-    case: PandapowerNet  # the solved pandapower net
-    Ybus: csr_matrix
-    Yf: csr_matrix
-    Yt: csr_matrix
-    branch: np.ndarray
-    f: np.ndarray
-    t: np.ndarray
-    pmus: tuple[int, ...]
-    kind: np.ndarray
-    bus: np.ndarray
-    br: np.ndarray
-    end: np.ndarray  # 0 from end, 1 to end, -1 none
-    dev_type: np.ndarray
-    sigma: np.ndarray
+    def __init__(
+        self,
+        case: PandapowerNet,
+        admittance: tuple[csr_matrix, csr_matrix, csr_matrix],
+        branch: np.ndarray,
+        pmus: tuple[int, ...],
+        rows: list[tuple[int, ...]],
+    ) -> None:
+        from pandapower.pypower.idx_brch import F_BUS, T_BUS
+
+        self.case = case  # the solved pandapower net
+        self.Ybus, self.Yf, self.Yt = admittance
+        self.branch = branch
+        self.f = branch[:, F_BUS].real.astype(int)
+        self.t = branch[:, T_BUS].real.astype(int)
+        self.pmus = pmus
+        self.kind, self.bus, self.br, self.end, self.dev_type = (np.array(c) for c in zip(*rows))
+        self.sigma = np.where(self.dev_type == 0, SIGMA_SCADA, SIGMA_PMU)
 
     @property
     def n(self) -> int:
@@ -96,7 +102,7 @@ class Wu26Network:
                 return k, 0
             if (self.f[k], self.t[k]) == (b - 1, a - 1):
                 return k, 1
-        raise ValueError(f"no branch {a}-{b}")
+        raise NoSuchBranch(f"no branch joins buses {a} and {b}")
 
     def measure(self, Vm: np.ndarray, Va: np.ndarray) -> np.ndarray:
         """Every meter's reading at the state (per unit; angles in radians)."""
@@ -129,15 +135,13 @@ class Wu26Network:
         dSf_dVa, dSf_dVm, dSt_dVa, dSt_dVm, _, _ = dSbr_dV(self.branch, self.Yf, self.Yt, V)
         dIf_dVa, dIf_dVm, dIt_dVa, dIt_dVm, _, _ = dIbr_dV(self.branch, self.Yf, self.Yt, V)
 
-        def sub(M: csr_matrix) -> np.ndarray:
-            return np.asarray(M[:, cols].toarray())
-
+        sub = partial(_columns, cols=cols)
         inj = np.hstack([sub(dS_dVm), sub(dS_dVa)])
         sbr = np.stack([np.hstack([sub(dSf_dVm), sub(dSf_dVa)]), np.hstack([sub(dSt_dVm), sub(dSt_dVa)])])
         ibr = np.stack([np.hstack([sub(dIf_dVm), sub(dIf_dVa)]), np.hstack([sub(dIt_dVm), sub(dIt_dVa)])])
         J = np.zeros((len(self.kind), 2 * len(cols)))
         k = self.kind
-        J[k == _P], J[k == _Q] = inj.real[self.bus[k == _P]], inj.imag[self.bus[k == _Q]]
+        J[k == _P], J[k == _Q] = np.real(inj)[self.bus[k == _P]], np.imag(inj)[self.bus[k == _Q]]
         for code, part, src in (
             (_PF, np.real, sbr),
             (_QF, np.imag, sbr),
@@ -160,6 +164,16 @@ class Wu26Network:
         Y = self.Yf if end == 0 else self.Yt
         return complex(V[bus] * np.conj((Y[k] @ V).item()))
 
+    def flow_rows(self, k: int, end: int) -> tuple[int, int]:
+        """The SCADA meter rows of branch k's P and Q flow at its end `end`."""
+        rows = np.flatnonzero((self.br == k) & (self.end == end) & (self.dev_type == 0))
+        return int(rows[self.kind[rows] == _PF][0]), int(rows[self.kind[rows] == _QF][0])
+
+
+def _columns(M: csr_matrix, cols: np.ndarray) -> np.ndarray:
+    """The columns `cols` of a sparse derivative matrix, dense."""
+    return np.asarray(M[:, cols].toarray())
+
 
 def wu26_network(case: str, pmus: Sequence[int]) -> Wu26Network:
     """The pandapower case `case` (e.g. "case14", "case118") with the [WU26] meter plan and PMUs at the
@@ -176,11 +190,8 @@ def wu26_network(case: str, pmus: Sequence[int]) -> Wu26Network:
     branch = ppc["branch"]
     f, t = branch[:, F_BUS].real.astype(int), branch[:, T_BUS].real.astype(int)
     pmu = tuple(sorted(int(b) - 1 for b in pmus))
-    rows = _meter_rows(Ybus.shape[0], f, t, pmu)
-    kind, bus, br, end, dev = (np.array(c) for c in zip(*rows))
-    sigma = np.where(dev == 0, SIGMA_SCADA, SIGMA_PMU)
     return Wu26Network(
-        net, Ybus.tocsr(), Yf.tocsr(), Yt.tocsr(), branch, f, t, pmu, kind, bus, br, end, dev, sigma
+        net, (Ybus.tocsr(), Yf.tocsr(), Yt.tocsr()), branch, pmu, _meter_rows(Ybus.shape[0], f, t, pmu)
     )
 
 
@@ -221,41 +232,6 @@ def wu26_snapshots(case: PandapowerNet, count: int, seed: int) -> list[tuple[np.
             continue
         states.append((net.res_bus.vm_pu.values.copy(), np.radians(net.res_bus.va_degree.values)))
     return states
-
-
-@dataclass(frozen=True)
-class WindowAttack:
-    """One window's attack: each snapshot's change of every meter (`dz`, snapshots x meters), the
-    area buses' state offsets per snapshot (`offsets`, snapshots x buses x [dVm, dVa]), whether every
-    snapshot met its goal, and IPOPT's status."""
-
-    net: Wu26Network
-    area: tuple[int, ...]
-    dz: np.ndarray
-    offsets: np.ndarray
-    feasible: bool
-    status: int
-
-    @property
-    def total(self) -> np.ndarray:
-        """The net attack vector, the sum over the window (eq. 12's argument)."""
-        return self.dz.sum(axis=0)
-
-    @property
-    def devices_any(self) -> set[tuple[str, int]]:
-        """The devices tampered beyond noise at any snapshot (Fig. 4, Fig. 12)."""
-        rows = np.flatnonzero((np.abs(self.dz) > self.net.sigma).any(axis=0))
-        return self.net.devices(rows)
-
-    @property
-    def channels_net(self) -> int:
-        """Eq. (33)'s cost: the channels of the net vector beyond noise."""
-        return int((np.abs(self.total) > self.net.sigma).sum())
-
-    @property
-    def max_magnitude(self) -> float:
-        """The largest change of any meter at any snapshot (Fig. 4's scale)."""
-        return float(np.abs(self.dz).max())
 
 
 def solve_window(
@@ -304,11 +280,11 @@ class _WindowProblem:
         self.net, self.states, self.area, self.attack, self.freeze = net, states, area, attack, freeze
         self.T, self.nb = len(states), len(area)
         self.lines = [net.branch_of(a, b) for a, b in targets]
+        self.flow_rows = [net.flow_rows(k, e) for k, e in self.lines]
         self.z_true = [net.measure(Vm, Va) for Vm, Va in states]
-        self.goal = [  # eqs. 24-25: the flow ramps to rho times its true value by the window's end (ours)
-            [abs(net.flow(Vm, Va, k, e)) * (1 + (t + 1) / self.T * (attack.rho - 1)) for k, e in self.lines]
-            for t, (Vm, Va) in enumerate(states)
-        ]
+        # eq. (25)'s S_max: rho times each line's true flow at the window's end (ours; no rating is stated)
+        end_Vm, end_Va = states[-1]
+        self.smax = [abs(net.flow(end_Vm, end_Va, k, e)) * attack.rho for k, e in self.lines]
         self.bounds, self.x0 = self._bounds()
         self._cache: dict[int, tuple[tuple[int, bytes], np.ndarray, Optional[np.ndarray]]] = {}
 
@@ -375,35 +351,49 @@ class _WindowProblem:
         return g
 
     def constraints(self) -> list[dict[str, object]]:
-        """Each snapshot's target flows at their goal: |S_l|^2 - goal^2 = 0 (eqs. 24-25)."""
-        return [
-            {"type": "eq", "fun": self._goal_fun(t, i), "jac": self._goal_jac(t, i)}
-            for t in range(self.T)
-            for i in range(len(self.lines))
+        """Eqs. (24)-(25) as written [E19]: each target's flow at the window's end at least its S_max, and
+        the displayed flow never falling from one snapshot to the next (S_t = S_t-1 + dS_t, dS_t >= 0);
+        no per-snapshot target. Squared magnitudes, as IPOPT's inequalities (>= 0)."""
+        lines = range(len(self.lines))
+        end = [
+            {"type": "ineq", "fun": partial(self._end, i), "jac": partial(self._end_grad, i)} for i in lines
         ]
+        rise = [
+            {"type": "ineq", "fun": partial(self._rise, t, i), "jac": partial(self._rise_grad, t, i)}
+            for t in range(1, self.T)
+            for i in lines
+        ]
+        return end + rise
 
-    def _goal_fun(self, t: int, i: int) -> Callable[[np.ndarray], float]:
-        k, e = self.lines[i]
+    def _flow2(self, t: int, i: int, x: np.ndarray) -> float:
+        """Snapshot t's squared apparent flow on target line i, as its SCADA meter reads it."""
+        p_row, q_row = self.flow_rows[i]
+        z = self._eval(x, t)[0]
+        return float(z[p_row] ** 2 + z[q_row] ** 2)
 
-        def fun(x: np.ndarray) -> float:
-            return abs(self.net.flow(*self._state(x, t), k, e)) ** 2 - self.goal[t][i] ** 2
+    def _flow2_grad(self, t: int, i: int, x: np.ndarray) -> np.ndarray:
+        """The gradient of `_flow2` on snapshot t's block."""
+        p_row, q_row = self.flow_rows[i]
+        z, J = self._eval(x, t, jac=True)
+        J = cast(np.ndarray, J)
+        return 2 * z[p_row] * J[p_row] + 2 * z[q_row] * J[q_row]
 
-        return fun
+    def _end(self, i: int, x: np.ndarray) -> float:
+        return self._flow2(self.T - 1, i, x) - self.smax[i] ** 2
 
-    def _goal_jac(self, t: int, i: int) -> Callable[[np.ndarray], np.ndarray]:
-        k, e = self.lines[i]
-        rows = np.flatnonzero((self.net.br == k) & (self.net.end == e) & (self.net.dev_type == 0))
-        p_row = rows[self.net.kind[rows] == _PF][0]
-        q_row = rows[self.net.kind[rows] == _QF][0]
+    def _end_grad(self, i: int, x: np.ndarray) -> np.ndarray:
+        out = np.zeros_like(x)
+        out[self._slice(self.T - 1)] = self._flow2_grad(self.T - 1, i, x)
+        return out
 
-        def jac(x: np.ndarray) -> np.ndarray:
-            z, J = self._eval(x, t, jac=True)
-            J = cast(np.ndarray, J)
-            out = np.zeros_like(x)
-            out[self._slice(t)] = 2 * z[p_row] * J[p_row] + 2 * z[q_row] * J[q_row]
-            return out
+    def _rise(self, t: int, i: int, x: np.ndarray) -> float:
+        return self._flow2(t, i, x) - self._flow2(t - 1, i, x)
 
-        return jac
+    def _rise_grad(self, t: int, i: int, x: np.ndarray) -> np.ndarray:
+        out = np.zeros_like(x)
+        out[self._slice(t)] = self._flow2_grad(t, i, x)
+        out[self._slice(t - 1)] = -self._flow2_grad(t - 1, i, x)
+        return out
 
     def result(self, x: np.ndarray, status: int) -> WindowAttack:
         dz = self._dz(x)
@@ -412,10 +402,13 @@ class _WindowProblem:
             xt = x[self._slice(t)]
             offsets[t, :, 0] = xt[: self.nb] - self.states[t][0][self.area]
             offsets[t, :, 1] = xt[self.nb :] - self.states[t][1][self.area]
-        feasible = all(
-            abs(self._goal_fun(t, i)(x)) < 1e-4 for t in range(self.T) for i in range(len(self.lines))
+        lines = range(len(self.lines))
+        feasible = all(self._end(i, x) > -1e-4 for i in lines) and all(
+            self._rise(t, i, x) > -1e-4 for t in range(1, self.T) for i in lines
         )
-        return WindowAttack(self.net, tuple(int(b) for b in self.area), dz, offsets, feasible, status)
+        net = self.net
+        area = tuple(int(b) for b in self.area)
+        return WindowAttack(dz, offsets, net.sigma, net.dev_type, net.bus, area, feasible, status)
 
 
 def incremental_freeze(order: Sequence[int], slots: Sequence[int], undefended: WindowAttack) -> Freeze:
@@ -425,11 +418,9 @@ def incremental_freeze(order: Sequence[int], slots: Sequence[int], undefended: W
     pos = {b: i for i, b in enumerate(undefended.area)}
     freeze: Freeze = {t: {} for t in range(len(undefended.dz))}
     for b, s in zip(order, slots):
-        held = (
-            (0.0, 0.0)
-            if s == 0 or b not in pos
-            else tuple(float(v) for v in undefended.offsets[s - 1, pos[b]])
-        )
+        held: tuple[float, float] = (0.0, 0.0)
+        if s > 0 and b in pos:
+            held = (float(undefended.offsets[s - 1, pos[b], 0]), float(undefended.offsets[s - 1, pos[b], 1]))
         for t in range(s, len(undefended.dz)):
-            freeze[t][int(b)] = held  # type: ignore[assignment]
+            freeze[t][int(b)] = held
     return freeze

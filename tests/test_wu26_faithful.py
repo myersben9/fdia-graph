@@ -11,9 +11,9 @@ from fdia_graph.models.validation import ConfigError
 
 pp = pytest.importorskip("pandapower")
 
+from fdia_graph.models.frames import WindowAttack  # noqa: E402
 from fdia_graph.trust.wu26 import (  # noqa: E402
     _PF,
-    WindowAttack,
     _WindowProblem,
     incremental_freeze,
     wu26_network,
@@ -87,7 +87,8 @@ def test_the_objective_scores_the_net_attack_of_the_window(net14):
 
 def test_a_trusted_pmu_keeps_the_offset_it_had_before_its_slot():
     offsets = np.arange(3 * 2 * 2, dtype=float).reshape(3, 2, 2)
-    attack = WindowAttack(None, (3, 5), np.zeros((3, 4)), offsets, True, 0)  # type: ignore[arg-type]
+    none = np.zeros(4)
+    attack = WindowAttack(np.zeros((3, 4)), offsets, none, none, none, (3, 5), True, 0)
     freeze = incremental_freeze([5, 3], [0, 2], attack)
     assert freeze[0] == {5: (0.0, 0.0)}
     assert freeze[2] == {5: (0.0, 0.0), 3: tuple(offsets[1, 0])}
@@ -116,9 +117,24 @@ def test_scenario1_attack_reaches_fig4(net14):
 
     states = wu26_snapshots(net14.case, 20, seed=123)
     area = [b - 1 for b in (2, 3, 4, 5, 6, 11, 12, 13)]
-    attack = Wu26Attack(rho=1.5, tau=0.5, dv=0.03, da=0.1)
+    attack = Wu26Attack(rho=1.5, tau=0.1, dv=0.03, da=0.1)
     result = solve_window(net14, states, area, [(3, 4), (6, 11)], attack)
     assert result.feasible
     fig4 = {("SCADA", b) for b in (3, 4, 5, 6, 11)} | {("PMU", 4), ("PMU", 6)}
     assert fig4 <= result.devices_any
     assert result.max_magnitude < 0.5
+
+
+def test_the_goal_is_eqs_24_25_as_written(net14):
+    """[E19]: only the window's end must reach S_max and the displayed flow may not fall between
+    snapshots; no per-snapshot target (the generator's D9 ramp)."""
+    case = net14.case
+    state = (case.res_bus.vm_pu.values.copy(), np.radians(case.res_bus.va_degree.values))
+    problem = _WindowProblem(
+        net14, [state, state, state], np.array([3, 4, 5]), [(4, 5)], Wu26Attack(rho=1.2), {}
+    )
+    cons = problem.constraints()
+    assert [c["type"] for c in cons] == ["ineq"] * 3  # one end goal, two non-decreasing steps
+    x = problem.x0
+    assert cons[0]["fun"](x) < 0  # the true flow is below S_max = 1.2 times itself
+    assert abs(cons[1]["fun"](x)) < 1e-12  # an unchanged flow does not fall

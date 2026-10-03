@@ -41,4 +41,5 @@ open. The plans hold the reasoning behind each.
 | E15 | generation keeps the linear ramp of D9 | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | none | none |
 | E16 | the attack minimizes the l1 of the window's summed attack, eq. (12) read literally ([37]'s l1) | paper | docs/plans/WU_DEFENSE_PLAN.md, Decisions | `trust.wu26` | none |
 | E17 | the reproduction meters every branch at both ends, each node's SCADA its incident flows ([29]) | paper | docs/plans/WU_DEFENSE_PLAN.md, Decisions | `trust.wu26` | none |
+| E19 | the faithful attack's goal is (24)-(25) as written: the end at S_max, the flow never falling; D9's ramp stays for generation | paper | docs/plans/WU_DEFENSE_PLAN.md, Decisions | `trust.wu26`<br>`trust.wu26._WindowProblem.constraints` | `tests.test_wu26_faithful.test_the_goal_is_eqs_24_25_as_written` |
 | E18 | the reproduction's overload rho, per-snapshot l1 weight tau and trust region are ours | ours | docs/plans/WU_DEFENSE_PLAN.md, Decisions | `trust.wu26` | none |

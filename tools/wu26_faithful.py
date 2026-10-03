@@ -52,7 +52,7 @@ SCENARIOS: dict[str, dict] = {
         slots=[1, 3, 5, 7],  # snapshots 2, 4, 6, 8 (p. 659)
         described=[1, 4, 6, 13],  # Fig. 6
         reference={"SCADA": {3, 4, 5, 6, 11}, "PMU": {4, 6}},  # Fig. 4, scenario 1
-        attack=dict(rho=1.5, tau=0.5, dv=0.03, da=0.1),
+        attack=dict(rho=1.5, tau=0.1, dv=0.03, da=0.1),
     ),
     "14-2": dict(
         case="case14",
@@ -63,7 +63,7 @@ SCENARIOS: dict[str, dict] = {
         slots=[1, 3, 5, 7],
         described=[4, 6, 1, 13],  # Fig. 6
         reference={"SCADA": {1, 2, 3, 4, 5, 9}, "PMU": {1, 4, 6}},  # Fig. 4, scenario 2
-        attack=dict(rho=1.08, tau=0.5, dv=0.03, da=0.1),
+        attack=dict(rho=1.08, tau=0.1, dv=0.03, da=0.1),
     ),
 }
 

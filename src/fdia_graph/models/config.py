@@ -605,7 +605,7 @@ class Wu26Attack(Validated):
     read literally, the l1 of the window's summed attack), with the settings the paper leaves open, all
     ours: the overload `rho` (each target's flow ramps to rho times its true value by the window's end;
     no rating is stated), the weight `tau` of the per-snapshot l1 that bounds the intermediate snapshots
-    (0.5 on IEEE-14, 0.05 on IEEE-118, calibrated to Fig. 4's magnitude and Table V's set), the
+    (0.1 on IEEE-14, 0.05 on IEEE-118, calibrated to Fig. 4's magnitude and Table V's set), the
     per-snapshot trust region of `dv` pu and `da` radians around the true state, and the voltage band
     [`vmin`, `vmax`] of eq. (21)."""
 

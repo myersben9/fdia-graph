@@ -42,6 +42,7 @@ from .config import (
     TrustConfig,
     TrustSchedule,
     WindowSpec,
+    Wu26Attack,
     WuDefenseConfig,
     WuDqnConfig,
 )
@@ -80,6 +81,7 @@ from .frames import (
     OperatingLimits,
     RampDesign,
     Scan,
+    WindowAttack,
 )
 from .grid import (
     BRANCH,
@@ -289,6 +291,8 @@ __all__ = [
     "OverloadSettings",
     "TrustSchedule",
     "WuDefenseConfig",
+    "WindowAttack",
+    "Wu26Attack",
     "WuDqnConfig",
     "ShardRun",
     "IsoExport",

@@ -51,3 +51,7 @@ class NoLineRatings(DataConditionError):
 
 class NoSuchResult(DataConditionError, LookupError):
     """A results query that must find one record found none, or several."""
+
+
+class NoSuchBranch(DataConditionError):
+    """No branch joins the two buses named (a [WU26] target line not in the case)."""
