@@ -51,6 +51,9 @@ wu.table5_search-ieee14-20261002t093929z-bdf57c-7b391c,wu.table5_search,2026-10-
 wu26.faithful-ieee118-20261003t081612z-cc2010-d8cc0d,wu26.faithful,2026-10-03T08:16:12Z,0.20.0,507fcc4cba1e90a13b776ff60d2f949fb9111bf9,True,,,cc2010b32163,Windows-10,scenario 118
 wu26.faithful-ieee14-20261003t081835z-2fc626-578f93,wu26.faithful,2026-10-03T08:18:35Z,0.20.0,507fcc4cba1e90a13b776ff60d2f949fb9111bf9,True,,,2fc62650d6bf,Windows-10,scenario 14-1
 wu26.faithful-ieee14-20261003t082150z-4ea120-f7e8f8,wu26.faithful,2026-10-03T08:21:50Z,0.20.0,507fcc4cba1e90a13b776ff60d2f949fb9111bf9,True,,,4ea1206b13fe,Windows-10,scenario 14-2
+wu26.faithful-ieee118-20261003t085049z-cc2010-f98eb7,wu26.faithful,2026-10-03T08:50:49Z,0.20.0,3b12931fd850af23522ab23f335c03104298c0f0,False,,,cc2010b32163,Windows-10,scenario 118
+wu26.faithful-ieee14-20261003t085407z-4ea120-b1b9c0,wu26.faithful,2026-10-03T08:54:07Z,0.20.0,3b12931fd850af23522ab23f335c03104298c0f0,True,,,4ea1206b13fe,Windows-10,scenario 14-2
+wu26.faithful-ieee14-20261003t085634z-2fc626-3d6659,wu26.faithful,2026-10-03T08:56:34Z,0.20.0,3b12931fd850af23522ab23f335c03104298c0f0,True,,,2fc62650d6bf,Windows-10,scenario 14-1
 wu26.method_compare-migrated,wu26.method_compare,2026-09-30T00:00:00Z,0.20.0,,False,,,,,"migrated from scratchpad/wu_defense/rref_compare.jsonl (scratchpad/wu_defense/rref_compare.py, not in the repo)"
 wu26.prototype-migrated,wu26.prototype,2026-09-29T00:00:00Z,0.20.0,,False,,,,,"migrated from scratchpad/wu_defense/proto2_faithful_14.csv (scratchpad/wu_defense/proto2.py, not in the repo)"
 wu26.reproduction-ieee14-20261001t182633z-f9d4ef-26b42f,wu26.reproduction,2026-10-01T18:26:33Z,0.20.0,51b5b6ae9a086288bb12365ad4e61cfb1608e351,False,,,f9d4ef17989c,Windows-10,

@@ -113,11 +113,11 @@ IEEE-118):
 <!-- results: wu26.faithful -->
 | scenario | trust order | windows | devices undefended | defended | rise mean / median | windows in 10-20% | new devices | overlap SCADA / PMU | largest change (pu) | [WU26] |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 118 | 110 105 106 100 80 78 94 92 89 83 | 100 | 22 | 20 | -6.2% / -4.7% | 10% | 1.4 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 118 | 110 105 106 100 80 78 89 92 94 83 | 100 | 22 | 21 | -5.2% / 0.0% | 14% | 1.7 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
 | 118 | the paper's | 100 | 22 | 23 | 10.8% / 9.1% | 19% | 2.9 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
 | 14-1 | 1 4 6 13 | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
 | 14-1 | the paper's | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
-| 14-2 | 1 4 13 6 | 20 | 14 | 15 | 5.1% / 7.1% | 20% | 0.9 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
+| 14-2 | 1 4 6 13 | 20 | 14 | 15 | 6.6% / 7.4% | 25% | 1.1 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
 | 14-2 | the paper's | 20 | 14 | 15 | 6.1% / 7.4% | 10% | 0.9 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
 <!-- /results -->
 
