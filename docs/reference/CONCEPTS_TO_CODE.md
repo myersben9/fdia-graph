@@ -111,6 +111,8 @@ timelines; the rest load and serve data. The table is generated from each module
 | `trust.dqn` | The trusted-meter selection as a Markov decision process solved by a deep Q-network (the learned selection of [WU26]). |
 | `trust.secured` | A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (`timeline.write_temporal_layers`). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (`TrustSelector.score`). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory. |
 | `trust.solution1` | [WU26]'s Solution 1: the trusted PMUs by row reduction of the measurement matrix (Sec. IV-D1, p. 657), on the trusted-PMU MDP of one overload window (`trust.WuDefenseEnv`; docs/plans/WU_DEFENSE_PLAN.md, PR C). |
+| `trust.wu26` | [WU26]'s attack and defense as the paper states them (docs/wu26/README.md, "Faithful reproduction"): the meter plan, the multi-snapshot attack and the incremental trusted-PMU defense, on a pandapower case. |
+| `trust.wu26_defense` | [WU26]'s trusted-PMU defense on the faithful attack (`trust.wu26`): the MDP (Sec. IV-D2, Fig. 1, Algorithm 1) and Solution 1's row reduction (Sec. IV-D1, p. 657). |
 | `trust.wu_dqn` | [WU26]'s Solution 2: the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2, p. 658) on trusted-PMU MDPs (`trust.WuDefenseEnv`; docs/plans/WU_DEFENSE_PLAN.md, PR D). |
 <!-- /module-table -->
 

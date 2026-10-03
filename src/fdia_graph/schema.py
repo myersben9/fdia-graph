@@ -300,10 +300,16 @@ DECISIONS: dict[str, Decision] = {
         _ATTACK,
     ),
     "E1": Decision(
-        "dx_t is the attack's state deviation and trust accumulates (eqs. 26, 30-31)", "paper", _DEFENSE
+        "trust is incremental: a trusted PMU keeps the offset its bus had before its slot (eqs. 29-30)",
+        "paper",
+        _DEFENSE,
     ),
     "E2": Decision("a trusted PMU pins its own |V| and angle only (eqs. 27, 32)", "paper", _DEFENSE),
-    "E3": Decision("the defense effect counts measurements (eq. 33)", "paper", _DEFENSE),
+    "E3": Decision(
+        "the defense's cost is the devices tampered at any snapshot (Fig. 12); eq. (33)'s net l0 also reported",
+        "paper",
+        _DEFENSE,
+    ),
     "E4": Decision("1-minute attack snapshots interpolated from the 5-minute pool", "ours", _DEFENSE),
     "E5": Decision("IEEE-118: 10 snapshots, one trust slot each (Figs. 10-11)", "paper", _DEFENSE),
     "E6": Decision("Algorithm 1 line 8 ends an episode with no reward, as written", "paper", _DEFENSE),
@@ -336,4 +342,25 @@ DECISIONS: dict[str, Decision] = {
         _DEFENSE,
     ),
     "E15": Decision("generation keeps the linear ramp of D9", "ours", _DEFENSE),
+    "E16": Decision(
+        "the attack minimizes the l1 of the window's summed attack, eq. (12) read literally ([37]'s l1)",
+        "paper",
+        _DEFENSE,
+    ),
+    "E17": Decision(
+        "the reproduction meters every branch at both ends, each node's SCADA its incident flows ([29])",
+        "paper",
+        _DEFENSE,
+    ),
+    "E19": Decision(
+        "the faithful attack's goal is (24)-(25) as written: the end at S_max, the flow never falling; "
+        "D9's ramp stays for generation",
+        "paper",
+        _DEFENSE,
+    ),
+    "E18": Decision(
+        "the reproduction's overload rho, per-snapshot l1 weight tau and trust region are ours",
+        "ours",
+        _DEFENSE,
+    ),
 }

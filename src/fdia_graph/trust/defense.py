@@ -23,7 +23,7 @@ only fire through the search's own suboptimality.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Protocol
 
 import numpy as np
 
@@ -38,6 +38,23 @@ if TYPE_CHECKING:
     from ..engine.core import FdiaGenerator
 
 _Schedule = tuple[int, ...]  # the actions taken so far: indices into `WuDefenseConfig.pmus`, in order
+
+
+class DefenseEnv(Protocol):
+    """What a trusted-PMU MDP offers its agents (`TrustedPMUsDQN`): `WuDefenseEnv` on the search's attack,
+    `Wu26DefenseEnv` on the faithful one."""
+
+    config: WuDefenseConfig
+    breaks: int
+
+    @property
+    def n_actions(self) -> int: ...
+
+    def reset(self) -> np.ndarray: ...
+
+    def valid(self) -> np.ndarray: ...
+
+    def step(self, action: int) -> tuple[np.ndarray, float, bool]: ...
 
 
 class WuDefenseEnv:

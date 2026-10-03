@@ -85,6 +85,55 @@ solve as the attack generator (`minlp.prototype`: SCIP found no attack within it
 search finds one). The cost definition (noise-thresholded l0) and the own-bus trust reading are the ones
 consistent with the paper's figures; whether trust bites depends on ratings and limits it does not state.
 
+## Faithful reproduction
+
+`trust.wu26` implements [WU26] as the paper states it, separately from the dataset generator's attack
+(`tools/wu26_faithful.py`; experiment `wu26.faithful`):
+
+- **Meter plan** ([E17]; [29] Sec. 2.2): every bus's SCADA reads its injection and the flow of each
+  incident branch at its own end, so every branch is metered at both ends; the PMUs read their voltage,
+  angle and incident branch currents; there is no SCADA voltmeter.
+- **Attack** ([E16]; eq. 12 read literally): the l1 of the window's summed attack ([37] p. 1898
+  relaxes the l0 to l1), plus `tau` times the per-snapshot l1, solved as one IPOPT problem per window
+  with the boundary held ([37] eq. 12). Changes below the paper's noise count as untampered (p. 659).
+- **Goal** ([E19]; eqs. 24-25 as written): each target's flow reaches its S_max at the window's end and
+  never falls between snapshots; there is no per-snapshot target, unlike the generator's ramp (D9). The
+  per-snapshot ramp forced oversized attacks on IEEE-14.
+- **Trust** ([E1]; eqs. 29-30, "accumulating attack vectors", p. 659): a trusted PMU keeps the attack
+  offset its bus had at the snapshot before its slot; its currents stay untrusted (eq. 27).
+- **Cost** ([E3]): the devices tampered at any snapshot, the count of Fig. 4 and Fig. 12; eq. (33)'s l0
+  of the net vector over channels moves the other way under this defense and is stored beside it.
+- **Ours** ([E18]): the overload `rho`, the per-snapshot weight `tau`, the per-snapshot trust region and
+  the iteration cap (`Wu26Attack`).
+
+Each scenario runs windows drawn by the paper's data recipe (p. 658), with the trust order Solution 1
+derives on this meter plan and with the order the paper reports (Fig. 6 on IEEE-14, p. 662's account on
+IEEE-118):
+
+<!-- results: wu26.faithful -->
+| scenario | trust order | windows | devices undefended | defended | rise mean / median | windows in 10-20% | new devices | overlap SCADA / PMU | largest change (pu) | [WU26] |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 118 | 110 105 106 100 80 78 89 92 94 83 | 100 | 22 | 21 | -5.2% / 0.0% | 14% | 1.7 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 118 | the paper's | 100 | 22 | 23 | 10.8% / 9.1% | 19% | 2.9 | 0.52 / 0.44 | 0.66 | Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices |
+| 14-1 | 1 4 6 13 | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
+| 14-1 | the paper's | 20 | 13 | 12 | -8.7% / -11.2% | 15% | 0.5 | 0.57 / 0.50 | 0.23 | Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu |
+| 14-2 | 1 4 6 13 | 20 | 14 | 15 | 6.6% / 7.4% | 25% | 1.1 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
+| 14-2 | the paper's | 20 | 14 | 15 | 6.1% / 7.4% | 10% | 0.9 | 0.49 / 0.75 | 0.36 | Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu |
+<!-- /results -->
+
+What this shows:
+
+- **The attack largely reproduces.** The summed-window objective with the literal goal spreads the attack
+  across the area the way Fig. 4 and Table V show: on IEEE-118 it overlaps Table V's tampered SCADA and
+  PMUs more than any earlier variant (the hypotheses below), with an undefended size near Table V's; on
+  IEEE-14 scenario 1 it holds Fig. 4's set at Fig. 4's scale, and scenario 2 comes out larger than
+  Fig. 4's. Minimizing each snapshot's attack instead keeps it sparse, and a per-snapshot ramp inflates
+  it. On IEEE-14 scenario 1 Solution 1 derives the paper's own trust order (Fig. 6).
+- **The defense's size does not, yet.** The rise under trust is small or negative on IEEE-14 and below
+  Fig. 12's band on IEEE-118 with the order the paper reports; Solution 1's derived order often lowers the
+  count (Algorithm 1's line 8 case). The rise depends on how far the solver spreads the attack before
+  and after trust, which `tau` and the paper's unstated ratings decide (the hypotheses below).
+
 ## Replication against [WU26]
 
 This section records how far [WU26] reproduces from what its text states, and what it leaves open.
@@ -97,11 +146,12 @@ T. Wu et al., IEEE TII 17(3) (2021) 1892-1904, the two sources [WU26] cites for 
   constraints (13)-(25). A channel counts as tampered only beyond the paper's noise: the nonzero
   elements "should exclude tampering values smaller than the noise magnitude" (p. 659; noise 0.03 pu
   SCADA, 0.01 pu WAMS, p. 658).
-- **Trust:** Δx_t is the deviation of the false from the true state, eq. (26). A trusted PMU secures its
-  own voltage magnitude and angle rows, eqs. (27) and (32), and trust accumulates over the window,
-  eqs. (30)-(31).
-- **Defense effect:** the cost increase of eq. (33), counted in measurements, with the devices reported
-  beside it.
+- **Trust:** a trusted PMU secures its own voltage magnitude and angle rows, eqs. (27) and (32), and
+  trust accumulates over the window, eqs. (30)-(31). The search's reproduction pins them at the true
+  state; the faithful one (above) keeps the offset the bus had before its slot, the incremental
+  reading of eqs. (29)-(30) that two independent builds found the defense needs.
+- **Defense effect:** the search's reproduction counts eq. (33)'s measurements; the faithful one counts
+  the devices tampered at any snapshot, the count Fig. 12 plots.
 - **Defenses:** Solution 1 (pp. 656-657) and the DQN of Algorithm 1 with the stated hyperparameters
   (p. 658).
 - **Attack areas:** the IEEE-118 local network of Fig. 9, and the four area rules of p. 654 for other

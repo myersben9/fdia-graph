@@ -319,6 +319,12 @@ class OverloadSettings(Validated):
     # experiment `minlp.rating_delta`)
     rating_delta: Annotated[float, Finite(), InRange(0.0, math.inf)] = 0.10
 
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.support_method != SupportMethod.WU_L1.value,
+            ("the wu_l1 attack is the [WU26] reproduction's (trust.wu26), not the generator's"),
+        )
+
     @staticmethod
     def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:
         """(the Am attack's kind, its settings): a dict of these fields means the overload attack with
@@ -364,6 +370,12 @@ class MeterSettings(Validated):
     pmu_frac: float = 0.2
     flow_frac: float = 0.9
     meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.meter_model != MeterModel.WU26.value,
+            ("the wu26 meter plan is the [WU26] reproduction's (trust.wu26), not a generator plan"),
+        )
 
     @property
     def coverage(self) -> dict[str, float]:
@@ -520,6 +532,12 @@ class GeneratorOptions(Validated):
     max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
     meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
 
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.meter_model != MeterModel.WU26.value,
+            ("the wu26 meter plan is the [WU26] reproduction's (trust.wu26), not a generator plan"),
+        )
+
 
 @dataclass(frozen=True)
 class ShardRun(Validated):
@@ -579,6 +597,34 @@ class WuDefenseConfig(Validated):
             "slots must not decrease: each step trusts at or after the last",
         )
         yield len(slots) <= len(pmus), "cannot have more steps than PMUs to trust"
+
+
+@dataclass(frozen=True)
+class Wu26Attack(Validated):
+    """[WU26]'s attack as `trust.wu26` reproduces it: the meter plan "wu26" and the solver "wu_l1" (eq. 12
+    read literally, the l1 of the window's summed attack), with the settings the paper leaves open, all
+    ours: the overload `rho` (each target's flow ramps to rho times its true value by the window's end;
+    no rating is stated), the weight `tau` of the per-snapshot l1 that bounds the intermediate snapshots
+    (0.1 on IEEE-14, 0.05 on IEEE-118, calibrated to Fig. 4's magnitude and Table V's set), the
+    per-snapshot trust region of `dv` pu and `da` radians around the true state, and the voltage band
+    [`vmin`, `vmax`] of eq. (21)."""
+
+    rho: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.5
+    tau: Annotated[float, Finite(), InRange(0.0, math.inf, lo_closed=True)] = 0.05
+    dv: Annotated[float, Finite(), Positive()] = 0.04
+    da: Annotated[float, Finite(), Positive()] = 0.12
+    vmin: Annotated[float, Finite(), Positive()] = 0.94
+    vmax: Annotated[float, Finite(), Positive()] = 1.06
+    # IPOPT's iteration cap per window (ours): the reproduction's numbers were measured at 400, where a
+    # 40-bus IEEE-118 window often stops at the cap with every goal met
+    max_iter: Annotated[int, Integer(), AtLeast(1)] = 400
+    meter_model: Annotated[str, OneOf(MeterModel)] = "wu26"
+    support_method: Annotated[str, OneOf(SupportMethod)] = "wu_l1"
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield self.vmin < self.vmax, f"vmin {self.vmin} must be below vmax {self.vmax}"
+        yield self.meter_model == MeterModel.WU26.value, "the reproduction reads the wu26 meter plan"
+        yield self.support_method == SupportMethod.WU_L1.value, "the reproduction solves with wu_l1"
 
 
 @dataclass(frozen=True)

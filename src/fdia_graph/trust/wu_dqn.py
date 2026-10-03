@@ -28,7 +28,7 @@ import numpy as np
 
 from ..models.config import WuDqnConfig
 from ..models.inputs import SameDefense
-from .defense import WuDefenseEnv
+from .defense import DefenseEnv
 from .dqn import _Replay, q_network
 from .dqn import _torch as _dqn_torch
 
@@ -46,7 +46,7 @@ class TrustedPMUsDQN:
     `history` (each iteration's return) and `breaks` (iterations line 8 ended); `order(env)` is the
     trained policy's greedy sequence on an environment, the actions as indices into its PMUs."""
 
-    def __init__(self, envs: Sequence[WuDefenseEnv], config: WuDqnConfig = WuDqnConfig()) -> None:
+    def __init__(self, envs: Sequence[DefenseEnv], config: WuDqnConfig = WuDqnConfig()) -> None:
         SameDefense([env.n_actions for env in envs], [len(env.config.slots) for env in envs])
         self.envs, self.config = list(envs), config
         self.history: list[float] = []
@@ -72,7 +72,7 @@ class TrustedPMUsDQN:
                 target.load_state_dict(self.net.state_dict())
         return self
 
-    def order(self, env: WuDefenseEnv) -> list[int]:
+    def order(self, env: DefenseEnv) -> list[int]:
         """The trained policy's greedy sequence on `env` (eq. 38), until the episode ends."""
         obs, taken, done = env.reset(), [], False
         while not done and env.valid().any():
@@ -82,7 +82,7 @@ class TrustedPMUsDQN:
         return taken
 
     # ---- Algorithm 1 --------------------------------------------------------------------------------
-    def _episode(self, env: WuDefenseEnv, eps: float, rng: np.random.Generator, replay: _Replay) -> float:
+    def _episode(self, env: DefenseEnv, eps: float, rng: np.random.Generator, replay: _Replay) -> float:
         """One iteration's steps on `env` (lines 4-14), storing the transitions; returns the return."""
         obs, total, breaks = env.reset(), 0.0, env.breaks
         done = False

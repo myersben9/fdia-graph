@@ -190,3 +190,42 @@ class AreaScore(NamedTuple):
     stability: float  # rule 4: 1 / (1 + the mean coefficient of variation of the area's loads)
     observability: float  # rule 4: metered channels per area bus against the system's, capped at 1
     size: float  # the area's buses as a share of the system's
+
+
+class WindowAttack(NamedTuple):
+    """One window of [WU26]'s attack as `trust.wu26` solves it: each snapshot's change of every meter
+    (`dz`, snapshots x meters), the area buses' state offsets per snapshot (`offsets`, snapshots x
+    buses x [dVm, dVa]), the meters' noise `sigma` and devices (`dev_type` 0 SCADA, 1 PMU, at `dev_bus`,
+    0-based), the `area` buses, whether every snapshot met its goal, and IPOPT's status."""
+
+    dz: np.ndarray
+    offsets: np.ndarray
+    sigma: np.ndarray
+    dev_type: np.ndarray
+    dev_bus: np.ndarray
+    area: tuple[int, ...]
+    feasible: bool
+    status: int
+
+    @property
+    def total(self) -> np.ndarray:
+        """The net attack vector, the sum over the window (eq. 12's argument)."""
+        return self.dz.sum(axis=0)
+
+    @property
+    def devices_any(self) -> set[tuple[str, int]]:
+        """The devices ("SCADA"/"PMU", bus as the paper numbers it) tampered beyond noise at any snapshot
+        (Fig. 4, Fig. 12)."""
+        rows = np.flatnonzero((np.abs(self.dz) > self.sigma).any(axis=0))
+        names = ("SCADA", "PMU")
+        return {(names[int(self.dev_type[r])], int(self.dev_bus[r]) + 1) for r in rows}
+
+    @property
+    def channels_net(self) -> int:
+        """Eq. (33)'s cost: the channels of the net vector beyond noise."""
+        return int((np.abs(self.total) > self.sigma).sum())
+
+    @property
+    def max_magnitude(self) -> float:
+        """The largest change of any meter at any snapshot (Fig. 4's scale)."""
+        return float(np.abs(self.dz).max())
