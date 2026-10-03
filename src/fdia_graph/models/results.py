@@ -77,6 +77,7 @@ METRICS: dict[str, Metric] = {
     "selection_share": _m("", "none", ".2f", "share of tests in which a PMU is trusted at a step"),
     "max_change_pu": _m("pu", "none", ".2f", "largest change the attack makes on one channel"),
     "pmu_devices": _m("", "none", "d", "PMUs among the devices the attack tampers"),
+    "reference_hits": _m("", "higher", "d", "devices of a reference set (a paper's table) the attack tampers"),
     "jaccard_scada": _m(
         "", "higher", ".2f", "overlap of the attack's SCADA devices with a reference set (Jaccard)"
     ),

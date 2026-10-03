@@ -1222,3 +1222,67 @@ def wu_table5(store: Store) -> str:
         "overlap PMU",
     ]
     return table(head, body, numeric_from=5)
+
+
+# ---- the faithful reproduction of [WU26] (docs/wu26/README.md, "Faithful reproduction")
+_WU_FAITHFUL = {
+    "118": "Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices",
+    "14-1": "Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu",
+    "14-2": "Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu",
+}
+
+
+@query("wu26.faithful")
+def wu26_faithful(store: Store) -> str:
+    """Per scenario and trust order of the faithful reproduction (`tools/wu26_faithful.py`): the
+    windows, the order (Solution 1's, derived, or the paper's), the median devices undefended and
+    defended, the mean and median rise in the devices tampered at any snapshot (Fig. 12's cost), the
+    share of windows in Fig. 12's 10% to 20% band, the mean new devices, the mean overlap of the
+    undefended attack with the paper's tampered set (Table V or Fig. 4) and the median largest change,
+    beside the paper's figures."""
+    import statistics
+
+    exp = "wu26.faithful"
+    body = []
+    for name in sorted({r.tag("scenario") for r in store.latest(exp)}):
+
+        def vals(metric: str, **more: str) -> list[float]:
+            return [r.value for r in store.latest(exp, metric=metric, scenario=name, **more)]
+
+        steps = store.latest(exp, metric="trusted_pmu", scenario=name)
+        derived = " ".join(f"{int(r.value)}" for r in sorted(steps, key=lambda r: int(r.tag("step"))))
+        for method, order in (("solution1", derived), ("described", "the paper's")):
+            rise = vals("cost_increase_pct", method=method)
+            if not rise:
+                continue
+            band = sum(10.0 <= v <= 20.0 for v in rise) / len(rise)
+            overlap = f"{number(statistics.mean(vals('jaccard_scada')), '.2f')} / {number(statistics.mean(vals('jaccard_pmu')), '.2f')}"
+            body.append(
+                [
+                    name,
+                    order,
+                    f"{len(rise)}",
+                    number(statistics.median(vals("devices", defended="0")), ".0f"),
+                    number(statistics.median(vals("devices", defended="1", method=method)), ".0f"),
+                    f"{number(statistics.mean(rise), '.1f')}% / {number(statistics.median(rise), '.1f')}%",
+                    f"{number(100 * band, '.0f')}%",
+                    number(statistics.mean(vals("extra_devices", method=method)), ".1f"),
+                    overlap,
+                    number(statistics.median(vals("max_change_pu")), ".2f"),
+                    _WU_FAITHFUL.get(name, ""),
+                ]
+            )
+    head = [
+        "scenario",
+        "trust order",
+        "windows",
+        "devices undefended",
+        "defended",
+        "rise mean / median",
+        "windows in 10-20%",
+        "new devices",
+        "overlap SCADA / PMU",
+        "largest change (pu)",
+        "[WU26]",
+    ]
+    return table(head, body, numeric_from=2)

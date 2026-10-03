@@ -198,6 +198,9 @@ class SupportMethod(Choice):
 
     SEARCH = "search"
     RREF = "rref"
+    # [WU26] eq. (12) read literally, the l1 of the window's summed attack, one IPOPT problem per window
+    # (`trust.wu26.solve_window`); the reproduction's, not the generator's
+    WU_L1 = "wu_l1"
 
 
 class AreaRule(Choice):
@@ -225,9 +228,13 @@ class MeterModel(Choice):
     the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the
     current phasor of each in-service branch at its bus [WU26 eqs. 17-20]. Data releases v0.8.3
     and earlier read an angle at every voltmeter bus and no branch currents; the loader still reads
-    them, the generator no longer makes them."""
+    them, the generator no longer makes them. "wu26": [WU26]'s own plan ([29] Sec. 2.2), every bus's SCADA
+    reading its injection and the flow of each incident branch at its end, so every branch metered at both
+    ends, PMUs at the given buses, no SCADA voltmeter; it is the reproduction's (`trust.wu26`), not a
+    generator plan."""
 
     HYBRID = "hybrid"
+    WU26 = "wu26"
 
 
 class Iso(Choice):

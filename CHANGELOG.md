@@ -5,6 +5,27 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **[WU26] reproduced as the paper states it (`trust.wu26`, the `[wu]` extra).** A faithful attack and
+  defense beside the dataset generator's:
+  - `wu26_network(case, pmus)`: the paper's meter plan ([29] Sec. 2.2), every bus's SCADA reading its
+    injection and the flow of each incident branch at its end, so every branch metered at both ends;
+    PMUs read |V|, the angle and their incident branch currents; no SCADA voltmeter (new
+    `MeterModel` value `"wu26"`, refused by the generator's `MeterSettings` and `GeneratorOptions`).
+  - `solve_window`: eq. (12) read literally, the l1 of the window's summed attack ([37] p. 1898's l1)
+    plus `tau` times the per-snapshot l1, as one IPOPT problem per window, with the boundary held,
+    the voltage band, each target flow ramped to `rho` times its true value, and changes below the
+    paper's noise counted as untampered (new `SupportMethod` value `"wu_l1"`, refused by the
+    generator's `OverloadSettings`). Settings: the validated `Wu26Attack` (`rho`, `tau`, the trust
+    region `dv`/`da`, the voltage band, `max_iter`; all ours where the paper is silent, [E18]).
+  - `incremental_freeze`: trust read incrementally (eqs. 29-30, [E1] revised): a trusted PMU keeps the
+    offset its bus had at the snapshot before its slot.
+  - `Wu26DefenseEnv`: the trusted-PMU MDP on this attack, the cost the devices tampered at any snapshot
+    (Fig. 12's count, unit "devices") or eq. (33)'s net l0 over channels (unit "channels") ([E3]
+    revised); `wu26_solution1`: Solution 1's row reduction on this meter plan. `TrustedPMUsDQN` now
+    trains on any `trust.DefenseEnv` (`WuDefenseEnv` or `Wu26DefenseEnv`).
+  - `tools/wu26_faithful.py` runs the paper's scenarios at its scale into the results store
+    (`wu26.faithful`, query `wu26.faithful`); new metric `reference_hits`. Decisions E16 to E18 added.
+
 - **Replication against [WU26] recorded.** `docs/wu26/README.md` gains a section stating what the
   package implements as the paper states it, what agrees, what does not, and what the paper leaves
   unspecified, with every hypothesis tested rendered from the results store (queries `wu.hypotheses`

@@ -40,6 +40,7 @@ VALID = {
     config.TrustSchedule: dict(buses=[0], slots=[1]),
     config.WuDefenseConfig: dict(pmus=[0], slots=[1]),
     config.WuDqnConfig: dict(),
+    config.Wu26Attack: dict(),
     config.ProfileFetch: dict(iso="nyiso"),
     config.GateConfig: dict(gate="oracle"),
     config.IsoExport: dict(iso="nyiso"),
