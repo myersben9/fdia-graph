@@ -1328,6 +1328,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Faithful reproduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#solution-2-the-dqn-on-the-faithful-attack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solution 2 (the DQN) on the faithful attack
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1742,6 +1759,7 @@ IEEE-118):</p>
 <thead>
 <tr>
 <th>scenario</th>
+<th>tau</th>
 <th>trust order</th>
 <th style="text-align: right;">windows</th>
 <th style="text-align: right;">devices undefended</th>
@@ -1757,6 +1775,7 @@ IEEE-118):</p>
 <tbody>
 <tr>
 <td>118</td>
+<td>0.05</td>
 <td>110 105 106 100 80 78 89 92 94 83</td>
 <td style="text-align: right;">100</td>
 <td style="text-align: right;">22</td>
@@ -1770,6 +1789,7 @@ IEEE-118):</p>
 </tr>
 <tr>
 <td>118</td>
+<td>0.05</td>
 <td>the paper's</td>
 <td style="text-align: right;">100</td>
 <td style="text-align: right;">22</td>
@@ -1782,7 +1802,36 @@ IEEE-118):</p>
 <td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices</td>
 </tr>
 <tr>
+<td>118</td>
+<td>0.1</td>
+<td>110 105 106 100 80 78 89 92 94 83</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">-13.8% / -17.9%</td>
+<td style="text-align: right;">9%</td>
+<td style="text-align: right;">1.4</td>
+<td style="text-align: right;">0.55 / 0.44</td>
+<td style="text-align: right;">0.57</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices</td>
+</tr>
+<tr>
+<td>118</td>
+<td>0.1</td>
+<td>the paper's</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">8.7% / 10.0%</td>
+<td style="text-align: right;">22%</td>
+<td style="text-align: right;">3.2</td>
+<td style="text-align: right;">0.55 / 0.44</td>
+<td style="text-align: right;">0.57</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices</td>
+</tr>
+<tr>
 <td>14-1</td>
+<td>0.1</td>
 <td>1 4 6 13</td>
 <td style="text-align: right;">20</td>
 <td style="text-align: right;">13</td>
@@ -1796,6 +1845,7 @@ IEEE-118):</p>
 </tr>
 <tr>
 <td>14-1</td>
+<td>0.1</td>
 <td>the paper's</td>
 <td style="text-align: right;">20</td>
 <td style="text-align: right;">13</td>
@@ -1809,6 +1859,7 @@ IEEE-118):</p>
 </tr>
 <tr>
 <td>14-2</td>
+<td>0.1</td>
 <td>1 4 6 13</td>
 <td style="text-align: right;">20</td>
 <td style="text-align: right;">14</td>
@@ -1822,6 +1873,7 @@ IEEE-118):</p>
 </tr>
 <tr>
 <td>14-2</td>
+<td>0.1</td>
 <td>the paper's</td>
 <td style="text-align: right;">20</td>
 <td style="text-align: right;">14</td>
@@ -1845,11 +1897,54 @@ IEEE-118):</p>
   IEEE-14 scenario 1 it holds Fig. 4's set at Fig. 4's scale, and scenario 2 comes out larger than
   Fig. 4's. Minimizing each snapshot's attack instead keeps it sparse, and a per-snapshot ramp inflates
   it. On IEEE-14 scenario 1 Solution 1 derives the paper's own trust order (Fig. 6).</li>
+<li><strong>One weight for both systems.</strong> IEEE-118 also runs at IEEE-14's per-snapshot weight (the <code>tau</code>
+  column): the undefended attack keeps its overlap with Table V, and the rise under the paper's order
+  stays below Fig. 12's band.</li>
 <li><strong>The defense's size does not, yet.</strong> The rise under trust is small or negative on IEEE-14 and below
   Fig. 12's band on IEEE-118 with the order the paper reports; Solution 1's derived order often lowers the
   count (Algorithm 1's line 8 case). The rise depends on how far the solver spreads the attack before
   and after trust, which <code>tau</code> and the paper's unstated ratings decide (the hypotheses below).</li>
 </ul>
+<h3 id="solution-2-the-dqn-on-the-faithful-attack">Solution 2 (the DQN) on the faithful attack<a class="headerlink" href="#solution-2-the-dqn-on-the-faithful-attack" title="Permanent link">&para;</a></h3>
+<p><code>tools/wu26_dqn.py</code> trains [WU26]'s DQN (Algorithm 1, the stated hyperparameters) over
+<code>Wu26DefenseEnv</code> on IEEE-118 and tests each trained policy on fresh windows: training sessions in
+parallel, each tested on its own windows, in place of the paper's 100 independent tests (each training
+session costs hours of attack solves). The policy's schedule is greedy over its learned values (eq. 38),
+stopping early where Algorithm 1's line 8 ends the episode.</p>
+<!-- results: wu26.dqn -->
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">sessions</th>
+<th style="text-align: right;">tests</th>
+<th style="text-align: right;">setup</th>
+<th style="text-align: right;">rise mean / median</th>
+<th style="text-align: right;">tests in 10-20%</th>
+<th style="text-align: right;">new devices</th>
+<th style="text-align: right;">most picked PMU per step (share)</th>
+<th style="text-align: right;">training / decision time</th>
+<th style="text-align: right;">[WU26]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">scenario 118, 250 episodes on 4 windows per session, tau=0.1</td>
+<td style="text-align: right;">-12.8% / -14.3%</td>
+<td style="text-align: right;">7%</td>
+<td style="text-align: right;">1.2</td>
+<td style="text-align: right;">1: 100 (0.34); 2: 100 (0.20); 3: 76 (0.09); 4: 89 (0.08); 5: 110 (0.06); 6: 105 (0.12); 7: 83 (0.06); 8: 94 (0.05); 9: 106 (0.05); 10: 92 (0.07)</td>
+<td style="text-align: right;">5.2 h / 5.1 ms</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; 3 to 5 new devices; DQN decision 8.7 s, Solution 1 16.5 s</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>Most training episodes end at line 8: trusting a PMU lowers the any-snapshot count below the undefended
+attack, which ends the episode with no reward, so the policy learns little and often stops after one or
+two steps.</p>
 <h2 id="replication-against-wu26">Replication against [WU26]<a class="headerlink" href="#replication-against-wu26" title="Permanent link">&para;</a></h2>
 <p>This section records how far [WU26] reproduces from what its text states, and what it leaves open.
 Page numbers are the journal's. [29] is S. Wu et al., Applied Energy 397 (2025) 126330, and [37] is

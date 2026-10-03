@@ -1538,8 +1538,16 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>[WU26] reproduced as the paper states it (<code>trust.wu26</code>, the <code>[wu]</code> extra).</strong> A faithful attack and
-  defense beside the dataset generator's:</li>
+<li>
+<p><code>tools/wu26_faithful.py --tau</code> runs a scenario at another per-snapshot weight; the records carry a
+  <code>tau</code> tag and the <code>wu26.faithful</code> table shows one row set per weight. New <code>tools/wu26_dqn.py</code> trains
+  [WU26]'s DQN over <code>Wu26DefenseEnv</code> in parallel sessions and tests each on fresh windows, stored as
+  <code>wu26.dqn</code> (docs/wu26, "Solution 2").</p>
+</li>
+<li>
+<p><strong>[WU26] reproduced as the paper states it (<code>trust.wu26</code>, the <code>[wu]</code> extra).</strong> A faithful attack and
+  defense beside the dataset generator's:</p>
+</li>
 <li><code>wu26_network(case, pmus)</code>: the paper's meter plan ([29] Sec. 2.2), every bus's SCADA reading its
     injection and the flow of each incident branch at its end, so every branch metered at both ends;
     PMUs read |V|, the angle and their incident branch currents; no SCADA voltmeter (new
