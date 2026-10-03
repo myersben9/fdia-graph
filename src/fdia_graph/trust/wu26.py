@@ -14,7 +14,7 @@ The pieces, each from the paper or labelled ours:
   at every bus reads its injection and the flow of every incident branch at its own end, so every branch
   is metered at both ends; a PMU at a PMU bus reads |V|, the angle and the current of every incident
   branch at its end [WU26 eqs. 17-20]; no SCADA voltmeter. A device is everything of one type at a node.
-- The attack [WU26 eqs. 12-25] [E16]: a false state of the area's buses per snapshot, its boundary held at the
+- The attack [WU26 eqs. 12-21, 24-25] [E16]: a false state of the area's buses per snapshot, its boundary held at the
   true state ([37] eq. 12), each target line's apparent flow at its overload by the window's end and never
   falling between snapshots (eqs. 24-25 as written [E19]; no per-snapshot target, unlike the generator's
   D9 ramp), the voltages within limits (eq. 21). The objective is eq. (12) read literally, the norm of the SUM over
@@ -44,7 +44,7 @@ from typing import TYPE_CHECKING, Optional, cast
 import numpy as np
 
 from ..models.config import Wu26Attack
-from ..models.errors import NoSuchBranch
+from ..models.errors import NoSuchBranch, SnapshotDrawFailed
 from ..models.frames import WindowAttack
 
 if TYPE_CHECKING:
@@ -213,16 +213,21 @@ def _meter_rows(n: int, f: np.ndarray, t: np.ndarray, pmus: tuple[int, ...]) -> 
     return rows
 
 
-def wu26_snapshots(case: PandapowerNet, count: int, seed: int) -> list[tuple[np.ndarray, np.ndarray]]:
+def wu26_snapshots(
+    case: PandapowerNet, count: int, seed: int, tries: int = 10
+) -> list[tuple[np.ndarray, np.ndarray]]:
     """[WU26] p. 658's steady-state samples: each snapshot scales every load by a system level drawn from
     U[0.9, 1] times (1 + N(0, 0.03)) per load, and solves the power flow; (|V|, angle in radians) per
-    snapshot, a non-converging draw skipped."""
+    snapshot. A non-converging draw is redrawn, up to `tries` times `count` draws in all
+    (`SnapshotDrawFailed` past that)."""
     import pandapower as pp
 
     rng = np.random.default_rng(seed)
     p0, q0 = case.load.p_mw.values.copy(), case.load.q_mvar.values.copy()
-    states = []
-    for _ in range(count):
+    states: list[tuple[np.ndarray, np.ndarray]] = []
+    for _ in range(tries * count):
+        if len(states) == count:
+            return states
         net = copy.deepcopy(case)
         scale = rng.uniform(0.9, 1.0) * (1.0 + rng.normal(0.0, 0.03, size=len(p0)))
         net.load.p_mw, net.load.q_mvar = p0 * scale, q0 * scale
@@ -231,6 +236,8 @@ def wu26_snapshots(case: PandapowerNet, count: int, seed: int) -> list[tuple[np.
         except Exception:  # noqa: BLE001 (pandapower raises its own convergence errors)
             continue
         states.append((net.res_bus.vm_pu.values.copy(), np.radians(net.res_bus.va_degree.values)))
+    if len(states) < count:
+        raise SnapshotDrawFailed(f"{len(states)} of {count} snapshots converged in {tries * count} draws")
     return states
 
 

@@ -24,7 +24,7 @@ from ..models.choices import CostUnit
 from ..models.config import Wu26Attack, WuDefenseConfig
 from ..models.frames import WindowAttack
 from ..models.inputs import ChosenAction, TrustablePmus, WindowSlots
-from .wu26 import Wu26Network, incremental_freeze, solve_window
+from .wu26 import _TH, _V, Wu26Network, incremental_freeze, solve_window
 
 _Schedule = tuple[int, ...]  # the actions taken so far: indices into `WuDefenseConfig.pmus`, in order
 
@@ -133,7 +133,8 @@ def wu26_solution1(
     net: Wu26Network, targets: Sequence[tuple[int, int]], n: int, tol: float = 1e-6
 ) -> list[int]:
     """Solution 1's trusted PMUs, in order (buses as the paper numbers them), at the case's own state: each
-    round row-reduces the transposed Jacobian of the channels the trusted PMUs leave attackable (steps 1-2),
+    round row-reduces the transposed Jacobian of the channels the trusted PMUs leave attackable, everything
+    but their |V| and angle (eq. 27; steps 1-2),
     takes the sparsest attack that moves a target line (steps 3-5; target-aware, ours) and trusts the PMU
     carrying most of its weight (ours, as `TrustedPMUs`); with no such attack, the PMU with most weight
     over every attack."""
@@ -143,7 +144,8 @@ def wu26_solution1(
     lines = {net.branch_of(a, b)[0] for a, b in targets}
     trusted: list[int] = []
     for _ in range(min(n, len(net.pmus))):
-        open_rows = np.flatnonzero(~((net.dev_type == 1) & np.isin(net.bus, trusted)))
+        secured = (net.dev_type == 1) & np.isin(net.bus, trusted) & np.isin(net.kind, (_V, _TH))
+        open_rows = np.flatnonzero(~secured)  # a trusted PMU's currents stay attackable (eq. 27)
         R, pivots = rref(H[open_rows].T)
         weights = _pmu_weights(net, R[: len(pivots)], open_rows, lines, trusted, tol)
         trusted.append(max(weights, key=lambda b: weights[b]))

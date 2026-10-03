@@ -1244,12 +1244,13 @@ def wu26_faithful(store: Store) -> str:
 
     exp = "wu26.faithful"
     body = []
-    for name in sorted({r.tag("scenario") for r in store.latest(exp)}):
+    for name in sorted({r.tag("scenario") for r in store.query(exp)}):
+        run = store.newest_run(exp, scenario=name)  # one run whole: a rerun never mixes with older windows
 
         def vals(metric: str, **more: str) -> list[float]:
-            return [r.value for r in store.latest(exp, metric=metric, scenario=name, **more)]
+            return [r.value for r in store.query(exp, metric=metric, scenario=name, run_id=run, **more)]
 
-        steps = store.latest(exp, metric="trusted_pmu", scenario=name)
+        steps = store.query(exp, metric="trusted_pmu", scenario=name, run_id=run)
         derived = " ".join(f"{int(r.value)}" for r in sorted(steps, key=lambda r: int(r.tag("step"))))
         for method, order in (("solution1", derived), ("described", "the paper's")):
             rise = vals("cost_increase_pct", method=method)

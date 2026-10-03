@@ -55,3 +55,7 @@ class NoSuchResult(DataConditionError, LookupError):
 
 class NoSuchBranch(DataConditionError):
     """No branch joins the two buses named (a [WU26] target line not in the case)."""
+
+
+class SnapshotDrawFailed(DataConditionError):
+    """Too few of [WU26]'s steady-state draws converged to fill a window (`trust.wu26_snapshots`)."""

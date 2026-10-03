@@ -105,8 +105,10 @@ def test_the_reproduction_settings_are_validated():
         OverloadSettings(support_method="wu_l1")
 
 
-def test_solution1_trusts_the_four_ieee14_pmus(net14):
-    assert sorted(wu26_solution1(net14, [(3, 4), (6, 11)], n=4)) == [1, 4, 6, 13]
+def test_solution1_derives_fig6_order_for_scenario1(net14):
+    """Solution 1 on the wu26 plan trusts PMU 1, 4, 6, 13 in that order for lines 3-4 and 6-11, Fig. 6's
+    sequence for scenario 1."""
+    assert wu26_solution1(net14, [(3, 4), (6, 11)], n=4) == [1, 4, 6, 13]
 
 
 @pytest.mark.skipif(not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: a 20-snapshot IPOPT solve")
@@ -138,3 +140,20 @@ def test_the_goal_is_eqs_24_25_as_written(net14):
     x = problem.x0
     assert cons[0]["fun"](x) < 0  # the true flow is below S_max = 1.2 times itself
     assert abs(cons[1]["fun"](x)) < 1e-12  # an unchanged flow does not fall
+
+
+def test_a_window_keeps_drawing_until_it_is_full(net14, monkeypatch):
+    """A draw whose power flow fails is redrawn, so the window has every snapshot asked for."""
+    calls = {"n": 0}
+    real = pp.runpp
+
+    def flaky(net, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("no convergence")
+        return real(net, *args, **kwargs)
+
+    monkeypatch.setattr(pp, "runpp", flaky)
+    from fdia_graph.trust.wu26 import wu26_snapshots
+
+    assert len(wu26_snapshots(net14.case, 3, seed=1)) == 3

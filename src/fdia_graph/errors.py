@@ -22,6 +22,7 @@ from .models.errors import (
     NoSuchResult,
     NotFitted,
     SlackMismatch,
+    SnapshotDrawFailed,
     UnknownColumnOrder,
     VaryingReference,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "NoAdmissibleTarget",
     "NoRoomForEpisode",
     "NoSuchBranch",
+    "SnapshotDrawFailed",
     "NoSuchResult",
     "SlackMismatch",
     "VaryingReference",
