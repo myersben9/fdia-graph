@@ -4,9 +4,20 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 7 * * *"  # nightly: the full matrix, whatever pull requests skipped
+
+# A new push to a pull request cancels its run still in progress; runs on main always finish.
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Pull requests run the fast set (tests on 3.12, typecheck, format, readability). The clean
+  # installs, Python 3.9 and Windows run on main, nightly, and on a pull request labelled `full-ci`.
   install-and-import:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -79,6 +90,7 @@ jobs:
   # alone let a 3.9-only or Windows-only failure through.
   tests-py39:
     name: tests (3.9)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: changes
     runs-on: ubuntu-latest
     steps:
@@ -99,6 +111,7 @@ jobs:
 
   tests-windows:
     name: tests (windows)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     needs: changes
     runs-on: windows-latest
     steps:
@@ -162,6 +175,7 @@ jobs:
       # The gate fails only when a function this change touched is
       # outside a limit and not on the exceptions list in tools/readability.py.
       - name: Readability report
+        if: github.event_name != 'pull_request'
         run: python tools/readability.py --report
       - name: Class and module diagram sources match the code
         run: python tools/class_diagrams.py --check

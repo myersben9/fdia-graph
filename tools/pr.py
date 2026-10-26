@@ -11,10 +11,9 @@
 
 The token comes from the Git Credential Manager (`git credential fill`), the same one `git push`
 uses, so nothing is stored in the repo. `merge` refuses while a check on the head is failing or
-still running, while a required review bot (Copilot, and every installed app that has reviewed the
-pull request) has not reviewed the pull request once, and while any of its findings has no reply:
-the repo's merge rule (CONTRIBUTING.md, "The pull request"). The automated review runs once per pull
-request (the ruleset no longer reviews every push), so a fix pushed after it does not wait for another.
+still running, while a required review bot (Copilot when the pull request carries the `copilot`
+label, and every installed app that has reviewed the pull request) has not reviewed it once, and while
+any of its findings has no reply: the repo's merge rule (CONTRIBUTING.md, "The pull request").
 """
 
 from __future__ import annotations
@@ -30,22 +29,16 @@ import requests
 OWNER, REPO = "myersben9", "fdia-graph"
 BASE = f"https://api.github.com/repos/{OWNER}/{REPO}"
 COPILOT = "copilot"
-# The review bots, by login fragment. Copilot is always required on the head; another bot becomes
-# required for a pull request as soon as it has reviewed that request once (it is installed), so an
-# uninstalled bot never blocks and an installed one is never skipped.
+COPILOT_LABEL = "copilot"
+# The review bots, by login fragment. Copilot is required only on a pull request labelled `copilot`
+# (the review is billed, so it is asked for on risky changes); any bot becomes required for a pull
+# request as soon as it has reviewed that request once, so its findings are never skipped.
 REVIEW_BOTS = (COPILOT, "coderabbitai", "gemini-code-assist")
-# The smoke workflow's jobs, every one required green on the head before a merge; a job that has
+# The smoke workflow's fast jobs, each required green on the head before a merge; a job that has
 # not registered yet counts as not green (so a merge cannot slip in while CI is still starting).
-REQUIRED = (
-    "tests",
-    "tests (3.9)",
-    "tests (windows)",
-    "typecheck",
-    "format",
-    "readability",
-    "install-and-import (3.9)",
-    "install-and-import (3.12)",
-)
+# Python 3.9, Windows and the clean installs run on main, nightly and on pull requests labelled
+# `full-ci`; on other pull requests they are skipped, which OK_OTHER accepts.
+REQUIRED = ("tests", "typecheck", "format", "readability")
 OK_OTHER = ("success", "neutral", "skipped")  # what any other listed check may end with
 
 
@@ -117,7 +110,11 @@ def _head_state(num: int) -> dict[str, Any]:
         "checks": _latest_runs(checks),
         "reviews_on_head": on_head,
         "reviewed_commits": reviewed,
-        "required_bots": [b for b in REVIEW_BOTS if b == COPILOT or b in seen],
+        "required_bots": [
+            b
+            for b in REVIEW_BOTS
+            if b in seen or (b == COPILOT and COPILOT_LABEL in {lab["name"] for lab in pr.get("labels", [])})
+        ],
         "unanswered": _missed_unanswered(reviews, talk)
         + [c["id"] for c in notes if not c.get("in_reply_to_id") and _bot_of(c) and c["id"] not in answered],
         "n_comments": len(notes),
