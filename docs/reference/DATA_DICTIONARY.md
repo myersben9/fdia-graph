@@ -484,3 +484,19 @@ One block of per-bus localization metrics at the localizer's thresholds, the fed
 | `detection_rate` | `detection_rate` | float | yes | attacked records flagged (every family) |
 | `by_family` | `by_family` | dict | yes | detection rate per attacked family present |
 <!-- models:end -->
+
+## Hops Knob
+
+<!-- hops-sweep:start -->
+
++------+----------+-----------------+---------------+---------------------------+
+| hops | time (s) | fallback_benign | attacked frac | tampered / stealthy frame |
++------+----------+-----------------+---------------+---------------------------+
+|    1 |      8.7 |               0 |         0.500 |                     48.52 |
+|    2 |      3.7 |               0 |         0.500 |                     58.69 |
+|    3 |      3.8 |               0 |         0.500 |                     59.88 |
++------+----------+-----------------+---------------+---------------------------+
+
+Trend: On ieee14 with 3000 frames, the mean number of tampered meters per stealthy frame rises from 48.52 at hops=1 to 59.88 at hops=3.
+
+<!-- hops-sweep:end -->
