@@ -159,7 +159,8 @@ def seen_interfaces(plan: MeterPlan, interfaces: list[Interface], z: np.ndarray)
 class Twin:
     """One run of the operator over the frames [T]: `dev`, `reg [T, G]` the dispatch's change from the
     basepoint and the regulation (MW), `unrelieved [T, I]` and `unmatched [T]` what the dispatch could not
-    cover as the operator sees it (MW), `iface_change [T, I]` the true interface flow change from the
+    cover as the operator sees it (MW), `uncovered [T]` the true imbalance regulation had no room for
+    (MW, positive short), `iface_change [T, I]` the true interface flow change from the
     basepoint's (AC, MW), `n1_change [T]` the change in the worst single-outage interface flow (MW),
     `fuel [T]` the production cost change and `settled [T]` the energy change at the zonal LBMP ($ per
     scan)."""
@@ -168,6 +169,7 @@ class Twin:
     reg: np.ndarray
     unrelieved: np.ndarray
     unmatched: np.ndarray
+    uncovered: np.ndarray
     iface_change: np.ndarray
     n1_change: np.ndarray
     fuel: np.ndarray
@@ -199,7 +201,7 @@ class _TrueGrid:
             self.pd[t],
             self.qd[t],
             units,
-            units > 0.01,
+            np.ones(len(units), bool),  # every unit in service for Q, as the pool solves it
             d.vm[t, d.case.unit_bus],
             np.zeros(len(d.case.dc_f)),
             start=(d.vm[t], d.va[t]),
@@ -226,17 +228,41 @@ class _TrueGrid:
         return iface - self._base[t][0], worst - self._base[t][1]
 
 
-def _regulation(day: OperatorDay, t: int, imbalance: float) -> np.ndarray:
+def _regulation(
+    day: OperatorDay, t: int, imbalance: float, dispatched: np.ndarray, before: np.ndarray | None
+) -> tuple[np.ndarray, float]:
     """The imbalance (MW, positive when the units produce too little) spread over the online free units
-    in proportion to their five-minute ramp, as automatic generation control picks it up."""
+    in proportion to their five-minute ramp, as automatic generation control picks it up, each capped by
+    its room after the dispatch: its limits, and its ramp from its true output `before` (the scan
+    before, None at the first). A unit at its cap passes its share on to the others. Returns the
+    regulation [G] and what no unit had room for (MW, positive short)."""
     c = day.case
     on = (
         ~np.isin(c.fuel.astype(str), ("Nuclear", "Hydro", "Import"))
         & (day.unit_p[t] > 0.5)
         & np.isfinite(c.ramp)
     )
-    share = np.where(on, c.ramp, 0.0)
-    return imbalance * share / share.sum()
+    up = imbalance > 0
+    if up:
+        room = np.maximum(c.pmax, day.unit_p[t]) - dispatched
+        if before is not None:
+            room = np.minimum(room, before + c.ramp * 5.0 - dispatched)
+    else:
+        room = dispatched - np.minimum(c.pmin, day.unit_p[t])
+        if before is not None:
+            room = np.minimum(room, dispatched - (before - c.ramp * 5.0))
+    room = np.where(on, np.clip(np.nan_to_num(room), 0.0, None), 0.0)
+    reg, need = np.zeros(len(room)), abs(imbalance)
+    while need > 1e-9:
+        open_ = room - reg > 1e-9
+        if not open_.any():
+            break
+        share = np.where(open_, c.ramp, 0.0)
+        add = np.minimum(need * share / share.sum(), room - reg)
+        reg += add
+        need -= float(add.sum())
+    sign = 1.0 if up else -1.0
+    return sign * reg, sign * need
 
 
 def _run(day: OperatorDay, seen: np.ndarray, load_change: np.ndarray, delay: int, grid: _TrueGrid) -> Twin:
@@ -252,22 +278,25 @@ def _run(day: OperatorDay, seen: np.ndarray, load_change: np.ndarray, delay: int
         "reg": np.zeros((T, G)),
         "unrelieved": np.full((T, I), np.nan),
         "unmatched": np.full(T, np.nan),
+        "uncovered": np.zeros(T),
         "iface_change": np.zeros((T, I)),
         "n1_change": np.zeros(T),
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
     }
-    prev = None
+    prev, before = None, None
     for t in range(T):
         if not (day.solved[t] and (t == 0 or day.solved[t - 1])):
             out["iface_change"][t], out["n1_change"][t] = np.nan, np.nan
-            prev = None if not day.solved[t] else prev
+            prev, before = (None, None) if not day.solved[t] else (prev, before)
             continue
         s = max(t - delay, 0)  # the operator acts on the scan `delay` scans back
         # a scan the operator has no reading of (an unsolved frame) shows it no change
         step = sced.step(t, seen[s], limit[t], float(np.nan_to_num(load_change[s])), prev)
-        reg = _regulation(day, t, -float(step.dev.sum()))
-        prev = step.dev
+        dispatched = day.unit_p[t] + step.dev
+        reg, uncovered = _regulation(day, t, -float(step.dev.sum()), dispatched, before)
+        prev, before = step.dev, dispatched + reg
+        out["uncovered"][t] = uncovered
         out["dev"][t], out["reg"][t] = step.dev, reg
         out["unrelieved"][t], out["unmatched"][t] = step.unrelieved, step.unmatched
         moved = step.dev + reg
@@ -320,20 +349,27 @@ def respond(day: OperatorDay, delay: int = 0, over: float = 0.0) -> Response:
 
 
 def summarize(r: Response) -> dict:
-    """The attack's consequence over the day, attacked less benign: the most dispatch moved and regulation
-    called (MW), the regulation energy (MWh), the most interface flow left unrelieved (MW), the largest true
-    interface and N-1 changes (MW, both signs), the production cost and LBMP settlement changes ($), and
-    the regulation energy and its settlement by utility."""
+    """The attack's consequence over the day, attacked less benign scan by scan, so what the benign twin
+    already shows (a lagged reading over its limit, load the units cannot follow) is not counted: the
+    most dispatch moved and regulation called (MW), the regulation energy (MWh, upward, in total and by the
+    utility whose territory holds each unit), the most interface flow left unrelieved, load unmatched and
+    imbalance uncovered (MW), the largest true interface drop and rise and N-1 rise (MW), and the
+    production cost and LBMP settlement changes ($)."""
     a, b = r.attacked, r.benign
-    reg_a = np.clip(a.reg, 0, None) * FRAME_HOURS  # MWh each unit produced for regulation, upward
+
+    def peak(x: np.ndarray) -> float:
+        return float(np.nanmax(x)) if np.isfinite(x).any() else 0.0
+
+    reg_up = (np.clip(a.reg, 0, None) - np.clip(b.reg, 0, None)) * FRAME_HOURS  # [T, G] MWh, attack only
     out = {
         "delay": r.delay,
         "over_mw": r.over,
-        "dispatch_moved_mw": float(np.abs(a.dev).sum(axis=1).max() - np.abs(b.dev).sum(axis=1).max()),
-        "regulation_mw": float(a.reg.sum(axis=1).max()),
-        "regulation_mwh": float(reg_a.sum() - np.clip(b.reg, 0, None).sum() * FRAME_HOURS),
-        "unrelieved_mw": float(np.nanmax(a.unrelieved)) if np.isfinite(a.unrelieved).any() else 0.0,
-        "unmatched_mw": float(np.nanmax(np.abs(a.unmatched))),
+        "dispatch_moved_mw": peak(np.abs(a.dev).sum(axis=1) - np.abs(b.dev).sum(axis=1)),
+        "regulation_mw": peak(np.abs(a.reg).sum(axis=1) - np.abs(b.reg).sum(axis=1)),
+        "regulation_mwh": float(reg_up.sum()),
+        "unrelieved_mw": peak(np.nan_to_num(a.unrelieved) - np.nan_to_num(b.unrelieved)),
+        "unmatched_mw": peak(np.abs(np.nan_to_num(a.unmatched)) - np.abs(np.nan_to_num(b.unmatched))),
+        "uncovered_mw": peak(np.abs(a.uncovered) - np.abs(b.uncovered)),
         "iface_down_mw": float(np.nanmin(a.iface_change - b.iface_change)),
         "iface_up_mw": float(np.nanmax(a.iface_change - b.iface_change)),
         "n1_up_mw": float(np.nanmax(a.n1_change - b.n1_change)),
@@ -341,6 +377,5 @@ def summarize(r: Response) -> dict:
         "settled_usd": float(a.settled.sum() - b.settled.sum()),
     }
     for c, name in enumerate(r.client_names):
-        mine = r.unit_client == c
-        out[f"regulation_mwh_{name}"] = float(reg_a[:, mine].sum())
+        out[f"regulation_mwh_{name}"] = float(reg_up[:, r.unit_client == c].sum())
     return out

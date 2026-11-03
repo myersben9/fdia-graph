@@ -6,7 +6,8 @@ it reads (generation must follow it) and each interface's flow against its limit
 (not nuclear, hydro or imports, which follow their schedules as in the pool, N39) within their limits and
 five-minute ramps from its own previous dispatch. A corrective operator moves as little as it must: the
 dispatch solves for the least total movement first, then for the least cost at that movement, so a scan
-that needs nothing moves nothing and the benign basepoint stays as the pool dispatched it. What the units
+that needs nothing moves nothing beyond what the ramps force, and the benign basepoint stays as the pool
+dispatched it. What the units
 cannot cover (an interface still over, load still unmatched) is left as a slack, priced far above any
 unit so it is used only when nothing else can.
 """
@@ -75,8 +76,10 @@ class DcSced:
         self.ramp = np.where(np.isfinite(case.ramp), case.ramp * 5.0, np.inf)  # MW per scan
 
     def _bounds(self, t: int, prev: np.ndarray | None, g: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Each unit's room down and up from its basepoint: its limits, and the ramp from the operator's
-        previous dispatch. The basepoint itself always stays inside (the pool met the same ramps)."""
+        """Each unit's reachable change from its basepoint, signed: its limits, and the ramp from the
+        operator's previous dispatch. After an attack the interval can exclude the basepoint (a unit moved
+        far cannot return in one scan), so recovery is ramp limited. Where the ramp and the limits do not
+        meet, the unit goes as far toward its limits as the ramp allows."""
         c, p0 = self.case, self.unit_p[t, g]
         lo = np.minimum(c.pmin[g], p0) - p0
         hi = np.maximum(c.pmax[g], p0) - p0
@@ -84,7 +87,7 @@ class DcSced:
             was = self.unit_p[t - 1, g] + prev[g]
             lo = np.maximum(lo, was - self.ramp[g] - p0)
             hi = np.minimum(hi, was + self.ramp[g] - p0)
-        return np.minimum(lo, 0.0), np.maximum(hi, 0.0)
+        return np.minimum(lo, hi), hi
 
     def step(
         self, t: int, seen: np.ndarray, limit: np.ndarray, load_change: float, prev: np.ndarray | None
@@ -102,7 +105,12 @@ class DcSced:
         a_ub = np.hstack([a_if, -a_if, -np.eye(k), np.zeros((k, 2))])
         b_ub = (limit - seen)[on]
         a_eq = np.r_[np.ones(n), -np.ones(n), np.zeros(k), 1.0, -1.0][None, :]
-        bounds = [(0.0, h) for h in hi] + [(0.0, -lo_) for lo_ in lo] + [(0.0, None)] * (k + 2)
+        # up and down carry the signed interval: a mandatory move is a lower bound on one of them
+        bounds = (
+            [(max(a, 0.0), max(b, 0.0)) for a, b in zip(lo, hi)]
+            + [(max(-b, 0.0), max(-a, 0.0)) for a, b in zip(lo, hi)]
+            + [(0.0, None)] * (k + 2)
+        )
         slack = np.r_[np.zeros(2 * n), np.full(k + 2, SLACK_WEIGHT)]
         first = linprog(
             np.r_[np.ones(2 * n), np.zeros(k + 2)] + slack,

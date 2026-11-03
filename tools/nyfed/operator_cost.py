@@ -81,7 +81,8 @@ def main() -> None:
                 if delay == 0 and over == 0:
                     traces.append(_trace(name, day, r))
     pd.DataFrame(rows).to_csv(out / "nygrid.operator_cost.csv", index=False)
-    pd.concat(traces).to_csv(out / "nygrid.operator_trace.csv", index=False)
+    if traces:  # the trace is the baseline run (delay 0, no overshoot), when the sweep includes it
+        pd.concat(traces).to_csv(out / "nygrid.operator_trace.csv", index=False)
     (out / "nygrid.operator_cost.json").write_text(
         json.dumps(
             {

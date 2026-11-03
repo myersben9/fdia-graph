@@ -81,10 +81,22 @@ def test_the_operator_follows_the_load_it_sees(sced):
     assert abs(s.dev.sum() + 100.0) < 1e-6 and abs(s.unmatched) < 1e-6
 
 
+def test_recovery_after_an_attack_is_ramp_limited(sced):
+    """A unit the operator moved 40 MW up cannot return to its basepoint in one scan: its deviation at the
+    next scan stays within one five-minute ramp of where it was, even with nothing seen wrong."""
+    c = sced.case
+    room = (c.pmax - sced.unit_p[1]) > 60
+    g = int(np.flatnonzero(sced.free & (sced.unit_p[1] > 0.5) & room & (c.ramp * 5 < 30))[0])
+    prev = np.zeros(len(sced.free))
+    prev[g] = 40.0
+    s = sced.step(1, np.array([1000.0]), np.array([1500.0]), 40.0, prev)
+    assert s.dev[g] >= 40.0 - c.ramp[g] * 5.0 - 1e-6
+
+
 @pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
 def test_a_day_under_attack_against_its_benign_twin():
     """On the 5 July file the benign twin needs nothing, while the attacked run follows the pretended load
-    drop and regulation covers exactly the generation the dispatch left out."""
+    drop and regulation covers the generation the dispatch left out, up to the room its units have."""
     from fdia_graph.nyfed.operator.response import operator_day, respond
 
     r = respond(operator_day(DAY, POOL, DATA))
@@ -92,4 +104,5 @@ def test_a_day_under_attack_against_its_benign_twin():
     assert np.abs(b.dev).max() < 1e-3 and np.abs(b.reg).max() < 1e-3
     w = slice(r.onset, r.onset + r.length)
     assert -a.dev[w].sum(axis=1).min() > 300  # the pretended drop reaches about 370 MW
-    np.testing.assert_allclose(a.reg.sum(axis=1), -a.dev.sum(axis=1), atol=1e-6)
+    # regulation, and what no unit had room for, together make up the generation the dispatch removed
+    np.testing.assert_allclose(a.reg.sum(axis=1) + a.uncovered, -a.dev.sum(axis=1), atol=1e-6)
