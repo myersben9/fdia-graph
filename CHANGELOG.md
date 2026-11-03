@@ -5,6 +5,15 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The damaging attack and the operator's escalation (New York grid).** `InterfaceFdia(overshoot=...)`
+  takes the reported interface flow past its limit, designed under every bound as a real attack, and
+  `max_overshoot` finds the largest overshoot an onset allows by bisection (N58). The operator now
+  escalates as NYISO's emergency procedures do (N59): redispatch first, the flow it cannot relieve priced
+  at the 2019 transmission shortage curve (`shortage_usd`, N60), and load relief after 15 minutes over the
+  limit at the buses where shedding relieves the interface. `Step` carries the shed load and the cost of
+  relieving the interface. `tools/nyfed/damage_study.py` runs both forms of the attack through the operator
+  on near-limit onsets drawn at random. Results: `results/nygrid.damage.csv`.
+
 - **The grid operator under attack (`fdia_graph.nyfed.operator`).** `DcSced` is the operator's real-time
   dispatch on what it sees: a DC dispatch on shift factors around the pool basepoint, with unit limits,
   five-minute ramps from its previous dispatch and the interface limit (the benign model flow plus the

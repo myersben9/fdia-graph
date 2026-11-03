@@ -7,6 +7,10 @@ the reported interface flow at the last rise scan is the model's true flow plus 
 (the real limit minus the real flow): the attack adds exactly what the real grid had left. The goal rises
 to it in equal steps and, with the exit (N30), falls back to the true flow.
 
+Overshoot (N58, ours). With `overshoot` (MW) above zero the goal is the limit plus that much, so the operator
+reads an interface over its limit and has to act: the damaging variant. `max_overshoot` finds the most an
+onset allows under every bound, by bisection on the overshoot. At zero the goal is N49's exactly.
+
 Onsets (N48). A window may start where the last rise scan falls in an hour whose real 2019 flow on some
 interface is at least `near` of its real limit.
 
@@ -62,13 +66,14 @@ class InterfaceFdia(OpfFdia):
         *,
         near: float = 0.9,
         windows_solved: int = 6,
+        overshoot: float = 0.0,
         **kwargs,
     ):
         kwargs.setdefault("family", "Am")
         super().__init__(
             attacker, np.zeros(len(attacker.net.case.f)), windows_solved=windows_solved, **kwargs
         )
-        self.interfaces, self.near = interfaces, near
+        self.interfaces, self.near, self.overshoot = interfaces, near, overshoot
         self._yt = attacker.net.yt.toarray()
         self._meter_obj = True
 
@@ -107,6 +112,31 @@ class InterfaceFdia(OpfFdia):
             if ep is not None:
                 return ep
         return None
+
+    def max_overshoot(
+        self, window: Window, rng: np.random.Generator, high: float = 800.0, tol: float = 25.0
+    ) -> tuple[Episode | None, float]:
+        """The damaging variant at its most (N58): the largest overshoot (MW, within `tol`, at most `high`)
+        for which the window still has an attack under every bound, with that attack. Bisection, so about
+        log2(high / tol) designs. Returns (None, 0.0) where even the limit itself is out of reach."""
+        keep = self.overshoot
+        try:
+            self.overshoot = 0.0
+            best = self.design(window, rng)
+            if best is None:
+                return None, 0.0
+            lo, hi, best_mw = 0.0, high, 0.0
+            while hi - lo > tol:
+                mid = 0.5 * (lo + hi)
+                self.overshoot = mid
+                ep = self.design(window, rng)
+                if ep is None:
+                    hi = mid
+                else:
+                    lo, best, best_mw = mid, ep, mid
+            return best, best_mw
+        finally:
+            self.overshoot = keep
 
     def _attack_interface(self, onset: int, vm: np.ndarray, va: np.ndarray, it: Interface) -> Episode | None:
         att = self.att
@@ -169,7 +199,7 @@ class InterfaceFdia(OpfFdia):
         share = np.r_[
             np.arange(1, rise + 1) / rise, 1 - np.arange(1, self.exit_scans + 1) / max(self.exit_scans, 1)
         ]
-        goal = total + share * headroom
+        goal = total + share * (headroom + self.overshoot)
         p, q = att.net.injections(vm, va)
         hours = None if self.frame_hour is None else self.frame_hour[onset : onset + L]
         gen = None if self.gen_output is None else self.gen_output[onset : onset + L]
