@@ -67,6 +67,7 @@ def main() -> None:
     ap.add_argument("--delay", default="0,1,3")
     ap.add_argument("--over", default="0,50,100,200")
     ap.add_argument("--out", default="results")
+    ap.add_argument("--closed-loop", action="store_true", help="the operator reads the true flows (N76)")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -79,7 +80,7 @@ def main() -> None:
             for over in (float(x) for x in args.over.split(",")):
                 if delay and over:
                     continue  # the delays at the attack as built, the overshoots on time
-                r = respond(day, delay, over)
+                r = respond(day, delay, over, closed_loop=args.closed_loop)
                 rows.append({"day": name, **summarize(r)})
                 print(json.dumps(rows[-1]), f"[{time.perf_counter() - t0:.0f}s]", flush=True)
                 if delay == 0 and over == 0:

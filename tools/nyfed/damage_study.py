@@ -76,7 +76,14 @@ def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | No
 
 
 def _job(
-    onset: int, out: str, pool: str, data: str, interface: str, voll: float | None, calib: tuple | None
+    onset: int,
+    out: str,
+    pool: str,
+    data: str,
+    interface: str,
+    voll: float | None,
+    calib: tuple | None,
+    closed_loop: bool = False,
 ) -> list[dict]:
     b = _B
     assert b is not None
@@ -102,7 +109,7 @@ def _job(
         path, info = made
         day = operator_day(path, pool, data)
         for mode in MODES:  # the trusting, the accounting and the oracle operator (N66)
-            s = summarize(respond(day, mode=mode, calib=calib), voll)
+            s = summarize(respond(day, mode=mode, calib=calib, closed_loop=closed_loop), voll)
             rows.append(
                 {
                     "onset": onset,
@@ -139,6 +146,11 @@ def main() -> None:
         type=float,
         default=0.0,
         help="p.u. the attacker's bus voltage limits are widened by (N71)",
+    )
+    ap.add_argument(
+        "--closed-loop",
+        action="store_true",
+        help="the operator reads the true flows after its dispatch (N76)",
     )
     ap.add_argument(
         "--gen-v-tol",
@@ -178,7 +190,10 @@ def main() -> None:
         cal = json.loads(Path(args.calib).read_text()) if args.calib else None
         calib = (cal["mean_mw"], cal["sd_mw"]) if cal else None
         futs = [
-            ex.submit(_job, o, str(out), args.pool, args.data, args.interface, args.voll, calib) for o in todo
+            ex.submit(
+                _job, o, str(out), args.pool, args.data, args.interface, args.voll, calib, args.closed_loop
+            )
+            for o in todo
         ]
         for k, f in enumerate(as_completed(futs), 1):
             rows += f.result()

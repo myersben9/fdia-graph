@@ -408,6 +408,7 @@ def _run(
     alarm: int | None,
     seen_benign: np.ndarray,
     entry: str = "capacity",
+    closed_loop: bool = False,
 ) -> Twin:
     """One run of the operator over the day (N66). `gap [T]` is the interchange it reads at the New York
     ends of the ties less the true one (zero in the benign twin). A trusting operator dispatches on the
@@ -449,6 +450,9 @@ def _run(
     }
     prev, before = None, None
     over = np.zeros(I, int)  # scans in a row each interface has been over its limit
+    # N76: with `closed_loop` the operator reads each interface as it truly flows after its last dispatch, so
+    # the gap between that true change and what its shift factors predicted enters its next reading
+    mismatch = np.zeros(I)
     for t in range(T):
         if not (day.solved[t] and (t == 0 or day.solved[t - 1])):
             out["iface_change"][t], out["n1_change"][t] = np.nan, np.nan
@@ -456,7 +460,7 @@ def _run(
             continue
         s = max(t - delay, 0)  # the operator acts on the scan `delay` scans back
         fallback = mode == "oracle" and alarm is not None and t >= alarm  # decided at scan t, whatever s is
-        view = seen_benign[s] if fallback else seen[s]
+        view = (seen_benign[s] if fallback else seen[s]) + (mismatch if closed_loop else 0.0)
         dload = 0.0 if fallback else float(np.nan_to_num(load_change[s]))
         if mode == "accounting":  # load from generation plus the agreed interchange: the false part drops out
             dload += float(np.nan_to_num(gap[s]))  # the read export the attack added hides as much load
@@ -491,6 +495,8 @@ def _run(
             out["iface_change"][t], out["n1_change"][t] = grid.change(
                 t, day.unit_p[t] + moved + lent, step.shed
             )
+        if closed_loop:  # what the next scan reads beyond the operator's own model of its dispatch
+            mismatch = np.nan_to_num(out["iface_change"][t] - sf_units @ step.dev)
         # the tightest true margin of any interface to its limit (MW, negative over it)
         # unknown (NaN) where the AC power flow of either run failed, never the benign margin
         change = out["iface_change"][t]
@@ -546,10 +552,11 @@ def respond(
     mode: str = "trusting",
     calib: tuple[float, float] | None = None,
     entry: str = "capacity",
+    closed_loop: bool = False,
 ) -> Response:
     """Run the operator on `day` in one of `MODES` (N66), acting `delay` scans late (O5). `over` (MW) is a
     what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
-    to the push over the episode. `entry` is where the inadvertent interchange enters (`ENTRY`, N72). `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
+    to the push over the episode. `entry` is where the inadvertent interchange enters (`ENTRY`, N72). With `closed_loop` the operator reads each interface as it truly flows after its own last dispatch (N76). `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
     tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
@@ -567,8 +574,8 @@ def respond(
     grid = _TrueGrid(day)
     zero = np.zeros(len(day.time))
     return Response(
-        attacked=_run(day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b, entry),
-        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b, entry),
+        attacked=_run(day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b, entry, closed_loop),
+        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b, entry, closed_loop),
         unit_client=day.own.bus_client[day.case.unit_bus],
         bus_client=day.own.bus_client,
         client_names=[str(n) for n in day.own.names],

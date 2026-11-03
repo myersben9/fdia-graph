@@ -29,13 +29,18 @@ from fdia_graph.nyfed.operator.response import ENTRY, operator_day, respond, sum
 
 
 def _job(
-    path: str, pool: str, data: str, calib: tuple[float, float] | None, entries: list[str]
+    path: str,
+    pool: str,
+    data: str,
+    calib: tuple[float, float] | None,
+    entries: list[str],
+    closed_loop: bool = False,
 ) -> list[dict]:
     day = operator_day(Path(path), pool, data)
     onset, overshoot = Path(path).stem.split("_")[1:3]
     rows = []
     for entry in entries:
-        s = summarize(respond(day, mode="trusting", calib=calib, entry=entry))
+        s = summarize(respond(day, mode="trusting", calib=calib, entry=entry, closed_loop=closed_loop))
         rows.append(
             {
                 "file": Path(path).name,
@@ -57,6 +62,7 @@ def main() -> None:
     ap.add_argument("--data", default="data/NYgrid/Data")
     ap.add_argument("--calib", default="results/nygrid.tie_check.json")
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--closed-loop", action="store_true", help="the operator reads the true flows (N76)")
     ap.add_argument("--entries", nargs="*", default=list(ENTRY), help="the patterns of `ENTRY` to run")
     args = ap.parse_args()
     cal = json.loads(Path(args.calib).read_text())
@@ -66,7 +72,9 @@ def main() -> None:
     rows: list[dict] = []
     t0 = time.perf_counter()
     with ProcessPoolExecutor(args.workers) as ex:
-        futs = [ex.submit(_job, f, args.pool, args.data, calib, args.entries) for f in files]
+        futs = [
+            ex.submit(_job, f, args.pool, args.data, calib, args.entries, args.closed_loop) for f in files
+        ]
         for k, fut in enumerate(as_completed(futs), 1):
             rows += fut.result()
             if k % 10 == 0 or k == len(files):

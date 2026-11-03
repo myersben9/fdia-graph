@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The closed loop (New York grid).** `respond(closed_loop=True)` has the operator read the true flows after its
+  dispatch, with `--closed-loop` on the damage, entry and trace tools, and `tools/nyfed/closed_loop_bdd.py` tests
+  whether a precomputed attack stays stealthy once the operator acts (N76).
+
 - **Voltage checks and the overload record (New York grid).** `tools/nyfed/voltage_check.py` evaluates a voltage-limit
   alarm as a detector (N74), `damage_study.py --gen-v-tol` holds generator voltages near their schedule (N75),
   `tie_check.py --attacks` measures detection over the meter draws, and `summarize` reports how long an interface
