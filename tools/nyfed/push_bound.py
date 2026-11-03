@@ -46,8 +46,8 @@ from fdia_graph.nyfed.operator.sced import shift_factors
 from fdia_graph.nyfed.scenario.pool import SOLVED
 
 NAMES = ["SPR/DUN-SOUTH", "UPNY CONED", "CENTRAL EAST - VC", "MOSES SOUTH"]
-TAUS = (0.05, 0.1, 0.2, 0.3)
-BANDS = (0.03, 0.035, 0.04, 0.045, 0.05, 0.06, 0.08, 0.1)
+TAUS = (0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.1, 0.15, 0.2, 0.3)
+BANDS = (0.02, 0.03, 0.05, 0.1)
 FORMS = ("net", "net_ties", "net55", "net_local")
 HOPS = 3  # the attacker's subnetwork, as in the search
 RISE = 16
