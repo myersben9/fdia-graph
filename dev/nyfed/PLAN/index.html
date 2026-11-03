@@ -1393,6 +1393,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#o-operator-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        O. Operator response
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1638,6 +1649,17 @@
     <span class="md-ellipsis">
       
         D. Dataset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#o-operator-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        O. Operator response
       
     </span>
   </a>
@@ -2074,6 +2096,39 @@ loaded target line first. Built Am 166/45/61 (v6 125/33/25), Ap 30/6/6 (15/5/4),
 <code>out/timeline_2019_v7_aptest.h5</code> (102 s), built as v6's: 123 Ap slots, 102 episodes (v6 49). v7 is the
 training timeline. The five tests on the March window <code>AP_ONSET</code> pin <code>target_order="random"</code>, the order
 the window was chosen under, and a new test checks N26's order.</p>
+<h3 id="o-operator-response">O. Operator response<a class="headerlink" href="#o-operator-response" title="Permanent link">&para;</a></h3>
+<p>The grid operator under attack: what it does on what it sees, and what that costs on the true grid. Sources
+and the full reasoning in the nyfed repository (docs/OPERATOR_COST_LITERATURE.md there) (18 references, verified
+by DOI). Decisions N50 to N57.</p>
+<table>
+<thead>
+<tr>
+<th>block</th>
+<th>what</th>
+<th>source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>O1</td>
+<td>real-time dispatch on the falsified view: a DC dispatch on shift factors around the pool basepoint, unit limits and five-minute ramps from its own previous dispatch, the interface limit, least movement then least cost</td>
+<td>corrective dispatch [4]</td>
+</tr>
+<tr>
+<td>O2</td>
+<td>the N-1 consequence: the worst single outage of a New York 345 kV branch, the interface flow after it on the true grid</td>
+<td>[5] (an N-1 dispatch makes physical consequences of FDIA rare)</td>
+</tr>
+<tr>
+<td>O5</td>
+<td>O1 acting 1 or 3 scans late</td>
+<td>none (a gap in the literature)</td>
+</tr>
+</tbody>
+</table>
+<p>Status: built (<code>operator/sced.py</code>, <code>operator/response.py</code>, <code>tools/nyfed/operator_cost.py</code>,
+<code>tests/nyfed/test_nyfed_operator.py</code>), run on the four single-episode days (<code>results/nygrid.operator_cost.csv</code>,
+<code>results/nygrid.operator_trace.csv</code>).</p>
 <h2 id="order">Order<a class="headerlink" href="#order" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>F1, F2 -&gt; G1 -&gt; G2 -&gt; G3 -&gt; G4 -&gt; G5 -&gt; M1 -&gt; M2 -&gt; A1 -&gt; A2, A3, A4 -&gt; D1 -&gt; D2 -&gt; D3
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                       \-&gt; P1 -&gt; P3 -&gt; P4 -&gt; P5 ----------^
@@ -2334,12 +2389,54 @@ the window was chosen under, and a new test checks N26's order.</p>
 <td>where the overload attacker strikes</td>
 <td>decided (Ben, 2026-11-02, "realistically the attacker would target a line that is already close to his rating because he could change it by above the noise but a small amount each time to get to that rating easier, I think it's ok if we just have 1 or 2 places like that"): the attack bounds (N27 to N35) and the attacker's area stay as they are, and Am strikes only an interface already close to its limit, closing the last gap in above-noise steps over the rise. Under those bounds the reachable places are few: the largest push found is Sprain Brook/Dunwoodie South 400 MW, Moses South 25 MW, Central East-VC 5 MW, UPNY-ConEd none (N48), while the real 2019 grid never came within 50 MW of any internal interface limit (hours with at most 100 MW of headroom: Central East-VC 11, Moses South 7, the others 0). Proposed implementation, to confirm: since the model's flows differ from the real ones (N48), the goal is the model's interface flow plus that hour's real 2019 headroom (limit minus real flow), so the attacker adds what the real grid had left. Measured with that goal (<code>out/scratch_iface_headroom.csv</code>, 20 random onsets per interface among those whose last rise scan falls in a real 2019 hour at 90 percent of the limit or more): Sprain Brook/Dunwoodie South 19 of 20 (pushes 150 to 433 MW, 3 or 4 attacked buses, 17 to 32 tampered meters, from 1,380 such onsets in June to August), Moses South 0 of 20, Central East-VC 0 of 20 (real headroom 100 to 262 MW). Built as <code>attacks/interface_attack.InterfaceFdia</code> with <code>grid/interfaces.py</code> (2026-11-02). Two fixes to the minimization, after Ben asked whether 17 to 32 tampered meters was minimal: on 30 Jul 12:55 every support of 1 to 3 area buses (534) gives at best 18, with two buses' voltages moved (79, 82), where the search had kept 20, because it grew every support from all three of the interface's end buses and solved only 3 windows; supports now grow from one interface branch's ends at a time (6 windows each), and each window is solved with a meter objective, every P and Q flow meter and voltage meter around the interior counted beyond its noise as eq. 12 counts meters (the injection terms alone cover only part), falling back to OpfFdia's objective where Ipopt finds no point. Meters on four onsets, old search to new: 20 to 15, 18 to 18, 32 to 29, 19 to 20</td>
 </tr>
+<tr>
+<td>N50</td>
+<td>the operators (D1)</td>
+<td>decided (Ben delegated, 2026-11-03, "make all the decisions for me", toward the Transactions paper): O1 the real-time dispatch on the falsified view, O2 the N-1 consequence of O1's outcome, O5 O1 acting 1 or 3 scans late. A separate corrective operator (O3) is O1 itself once the interface limit binds. Load shedding (O4) waits until O1 leaves a true violation it cannot clear. O2 measures and does not dispatch, since NYISO's interface limits are themselves set from contingency studies, so a second N-1 dispatch against the same limit would count the contingencies twice</td>
+</tr>
+<tr>
+<td>N51</td>
+<td>the operator's model (D2)</td>
+<td>decided (delegated): a DC dispatch on shift factors around the pool basepoint (NYISO's real-time dispatch is a DC dispatch on shift factors), checked on the true grid with an AC power flow at the true loads</td>
+</tr>
+<tr>
+<td>N52</td>
+<td>the operator's interface limit (D3)</td>
+<td>decided (delegated): the benign model flow plus that hour's real 2019 headroom, the quantity Am pushes toward (N49). The pool is not rebuilt</td>
+</tr>
+<tr>
+<td>N53</td>
+<td>how the operator moves (ours)</td>
+<td>decided (delegated): least total movement first, then least cost at that movement, so a scan that needs nothing moves nothing and the benign basepoint stays as the pool dispatched it. A least-cost dispatch from the basepoint would instead reshuffle units wherever the DC costs disagree with the AC pool dispatch, in the benign twin as much as in the attacked one</td>
+</tr>
+<tr>
+<td>N54</td>
+<td>the true load and regulation (ours)</td>
+<td>decided (delegated): the attack changes what the operator reads, never the true load, so the generation its dispatch removes or adds is picked up by regulation, the online free units in proportion to their five-minute ramp (automatic generation control)</td>
+</tr>
+<tr>
+<td>N55</td>
+<td>the cost terms (D4, D5)</td>
+<td>decided (delegated): physical first, the dispatch moved, the regulation called (MW, MWh), the interface flow the operator could not relieve, the true interface change and the N-1 change (MW). Then money, the production cost change at the units' costs and the energy change settled at the real 2019 hourly zonal LBMP (NYgrid's <code>priceHourly_2019.csv</code>). No value of lost load. Regulation energy is split by the utility whose territory holds each unit</td>
+</tr>
+<tr>
+<td>N56</td>
+<td>closed loop (D6)</td>
+<td>decided (delegated): closed loop on the dispatch (each scan from the operator's previous one, in the attacked and the benign twin alike), open loop on the data (the released scans are not changed). The attack was designed against the benign path, a limitation stated in the paper</td>
+</tr>
+<tr>
+<td>N57</td>
+<td>overshoot what-if (ours)</td>
+<td>decided (delegated): the attacked interface reading pushed 50, 100 or 200 MW past what the attack reached, in proportion to its push, to show how the consequence grows if an attacker overshoots the limit. A what-if on the reading, not a new attack design</td>
+</tr>
 </tbody>
 </table>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <p>[1] S. Wu et al., "Dynamic PMU configuration for stealthy multi-snapshot FDIA mitigation," IEEE Trans. Smart Grid, vol. 17, no. 1, 2026. <a href="https://doi.org/10.1109/TSG.2025.3615645">doi:10.1109/TSG.2025.3615645</a>
 [2] H. Li et al., "The creation and validation of load time series for synthetic electric power systems," IEEE Trans. Power Syst., vol. 36, no. 2, 2021.
-[3] M. V. Liu et al., "An open source representation for the NYS electric grid," IEEE Trans. Power Syst., vol. 38, no. 4, 2023. <a href="https://arxiv.org/abs/2112.06756">arXiv:2112.06756</a></p>
+[3] M. V. Liu et al., "An open source representation for the NYS electric grid," IEEE Trans. Power Syst., vol. 38, no. 4, 2023. <a href="https://arxiv.org/abs/2112.06756">arXiv:2112.06756</a>
+[4] L. Che, X. Liu, Z. Li, "Mitigating false data attacks induced overloads using a corrective dispatch scheme," IEEE Trans. Smart Grid, vol. 10, no. 3, 2019. <a href="https://doi.org/10.1109/TSG.2018.2817515">doi:10.1109/TSG.2018.2817515</a>
+[5] Z. Chu, J. Zhang, O. Kosut, L. Sankar, "N-1 reliability makes it difficult for false data injection attacks to cause physical consequences," IEEE Trans. Power Syst., vol. 36, no. 5, 2021. <a href="https://doi.org/10.1109/TPWRS.2021.3061480">doi:10.1109/TPWRS.2021.3061480</a></p>
 
 
 

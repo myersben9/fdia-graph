@@ -1643,6 +1643,18 @@
 <p>Every release lists what a user of the package can see change. "No user-visible change" means
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>The grid operator under attack (<code>fdia_graph.nyfed.operator</code>).</strong> <code>DcSced</code> is the operator's real-time
+  dispatch on what it sees: a DC dispatch on shift factors around the pool basepoint, with unit limits,
+  five-minute ramps from its previous dispatch and the interface limit (the benign model flow plus the
+  hour's real 2019 headroom). It moves as little as it must, then at least cost. <code>respond(day, delay,
+  over)</code> runs it on a day's attacked scans and on their benign twin, in closed loop on the dispatch. The
+  true load never changed, so regulation picks up the generation the dispatch removed, and an AC power
+  flow gives the true interface flow and the worst single 345 kV outage. <code>summarize</code> reports the attack's
+  consequence, attacked less benign: dispatch moved, regulation (MW, MWh, by utility), unrelieved flow,
+  the true interface and N-1 changes, production cost and the energy settled at the real zonal LBMP.
+  <code>tools/nyfed/operator_cost.py</code> runs it on the single-episode days. Plan rows N50 to N57.</li>
+</ul>
 <h2 id="0210">0.21.0<a class="headerlink" href="#0210" title="Permanent link">&para;</a></h2>
 <ul>
 <li>

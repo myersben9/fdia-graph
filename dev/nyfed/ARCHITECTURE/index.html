@@ -1673,17 +1673,22 @@
 <a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    __init__.py        package docstring only
 <a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    schedule.py        Slot, place_episodes, split_weeks, split_frames, week_index
 <a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    builder.py         TimelineBuilder
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>tools/nyfed/
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>  nygrid_ac_summary.py summaries of those runs
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>results/
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>tests/nyfed/
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>  operator/
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    __init__.py        package docstring only
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    sced.py            DcSced, Step, shift_factors, outage_factors
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    response.py        OperatorDay, Twin, Response, operator_day, seen_interfaces, respond, summarize
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>tools/nyfed/
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>  operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  nygrid_ac_summary.py summaries of those runs
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>results/
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>tests/nyfed/
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -1863,6 +1868,30 @@ copies them as they are.</p>
 <td><code>timeline/builder.py</code></td>
 <td>built as <code>TimelineBuilder(pool, meas, noise, attacker, families, own, settings, *, length=16 or {family: frames} (Am, At 16, Ap 96, N23), attacked_frac=0.2, split_frac=(0.7, 0.15, 0.15), split_by="week" (N41) or "time", workers=1, block=2016, verbose=False, survey=0, survey_cache=None)</code>: the pool, the <code>Measurement</code>, the <code>NoiseModel</code>, the <code>Attacker</code>, the families by name (<code>{"Am": MsFdia, "Ap": MsFdia(step_bound=...), "At": Ramp}</code>), the <code>Ownership</code> and <code>Settings</code> (whose seed keys every draw: <code>place</code>, <code>noise</code>, and <code>design/{family}/{onset}</code> per episode, so the result does not depend on <code>workers</code>)</td>
 <td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or <code>split_frames</code> with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code>, over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
+</tr>
+<tr>
+<td><code>DcSced</code></td>
+<td><code>operator/sced.py</code></td>
+<td>built as <code>DcSced(case, unit_p [T, G], cost [T, G], interfaces)</code>: the pool basepoint, the units' costs, the interfaces it enforces</td>
+<td><code>step(t, seen [I], limit [I], load_change, prev) -&gt; Step</code>: the scan's dispatch, least movement then least cost (N53), free units only (not nuclear, hydro or imports), within limits and five-minute ramps from <code>prev</code>, the unrelieved interface flow and unmatched load as slacks</td>
+</tr>
+<tr>
+<td><code>Step</code></td>
+<td><code>operator/sced.py</code></td>
+<td><code>dev [G]</code> (MW from the basepoint), <code>unrelieved [I]</code>, <code>unmatched</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>OperatorDay</code></td>
+<td><code>operator/response.py</code></td>
+<td>one timeline file's frames with the pool basepoint, the interpolated unit costs, the real zonal LBMP and the interfaces</td>
+<td></td>
+</tr>
+<tr>
+<td><code>Twin</code>, <code>Response</code></td>
+<td><code>operator/response.py</code></td>
+<td>the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan</td>
+<td></td>
 </tr>
 <tr>
 <td><code>TimelineWriter</code></td>
@@ -2046,6 +2075,30 @@ copies them as they are.</p>
 <td>reading differences <code>[..., M]</code>, meter kinds</td>
 <td>the differences with angle readings (va, ia) wrapped to (-180, 180]</td>
 </tr>
+<tr>
+<td><code>shift_factors(case)</code>, <code>outage_factors(case, ptdf, outages)</code></td>
+<td><code>operator/sced.py</code></td>
+<td><code>Case</code></td>
+<td><code>[L, N]</code> DC shift factors (reference bus out), <code>[L, K]</code> line outage distribution factors</td>
+</tr>
+<tr>
+<td><code>operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))</code></td>
+<td><code>operator/response.py</code></td>
+<td>a timeline file, its pool, NYgrid's <code>Data/</code></td>
+<td><code>OperatorDay</code></td>
+</tr>
+<tr>
+<td><code>seen_interfaces(plan, interfaces, z)</code></td>
+<td><code>operator/response.py</code></td>
+<td>the meter plan, the interfaces, scans <code>[T, M]</code></td>
+<td><code>[T, I]</code> each interface's flow as the operator reads it from its branches' P-flow meters</td>
+</tr>
+<tr>
+<td><code>respond(day, delay=0, over=0.0)</code>, <code>summarize(response)</code></td>
+<td><code>operator/response.py</code></td>
+<td><code>OperatorDay</code></td>
+<td><code>Response</code> (O1, O2, O5, N50 to N57), and its day totals, attacked less benign, with regulation by utility</td>
+</tr>
 </tbody>
 </table>
 <h2 id="the-timeline-file">The timeline file<a class="headerlink" href="#the-timeline-file" title="Permanent link">&para;</a></h2>
@@ -2186,6 +2239,10 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 <tr>
 <td>D3</td>
 <td><code>build.py</code> (<code>fetch_inputs</code>, <code>production_builder</code>), <code>tools/nyfed/build_timeline.py</code>, <code>tools/nyfed/build_single_episodes.py</code></td>
+</tr>
+<tr>
+<td>O1, O2, O5</td>
+<td><code>operator/sced.py</code>, <code>operator/response.py</code>, <code>tools/nyfed/operator_cost.py</code></td>
 </tr>
 </tbody>
 </table>

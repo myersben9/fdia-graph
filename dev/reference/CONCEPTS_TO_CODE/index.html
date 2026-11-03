@@ -1972,6 +1972,18 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>HDF5 files of the build. The only module that imports h5py.</td>
 </tr>
 <tr>
+<td><code>nyfed.operator</code></td>
+<td>The grid operator under attack: its real-time dispatch on what it sees (<code>sced</code>), and what that dispatch does and costs on the true grid (<code>response</code>).</td>
+</tr>
+<tr>
+<td><code>nyfed.operator.response</code></td>
+<td>What the operator does under an attack, and what it costs on the true grid (D1 to D6).</td>
+</tr>
+<tr>
+<td><code>nyfed.operator.sced</code></td>
+<td>The operator's real-time dispatch: a DC security-constrained dispatch around the current basepoint, as NYISO's real-time dispatch is a DC dispatch on shift factors (D2).</td>
+</tr>
+<tr>
 <td><code>nyfed.scenario.dispatch</code></td>
 <td>Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list.</td>
 </tr>
