@@ -49,7 +49,7 @@ def _trace(name: str, day, r) -> pd.DataFrame:
         rows[f"{tag}_dispatch_mw"] = tw.dev.sum(axis=1)
         rows[f"{tag}_moved_mw"] = np.abs(tw.dev).sum(axis=1)
         rows[f"{tag}_regulation_mw"] = tw.reg.sum(axis=1)
-        rows[f"{tag}_ace_mw"] = tw.uncovered
+        rows[f"{tag}_inadvertent_mw"] = tw.uncovered
         rows[f"{tag}_shed_mw"] = tw.shed.sum(axis=1)
         rows[f"{tag}_shortage_usd"] = tw.shortage
         rows[f"{tag}_iface_change_mw"] = tw.iface_change[:, 0]

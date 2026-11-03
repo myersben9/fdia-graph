@@ -233,7 +233,9 @@ class Attacker:
     ):
         self.net, self.meas = net, meas
         # N62: every bus outside New York keeps its true injection, so the change lands on New York's own
-        # loads and units and the net interchange (metered at both ends of every tie) stays true
+        # loads and units and the net interchange stays true up to losses (each tie on its own may still
+        # move where one external bus meets several New York buses, so this is a relaxation of holding
+        # every tie, and an attack it rules out is ruled out for the stricter form too)
         self.hold_external = hold_external
         # a generator's pretended reactive change stays within this share of its units' Q range (N27,
         # Ben 2026-10-27): without it the cheapest stealthy overload is fake reactive output
@@ -339,6 +341,8 @@ class Attacker:
         for h in range(hops, 0, -1):
             interior = self.net.neighbors([center], h)
             interior = interior[interior != self.slack]
+            if self.hold_external:  # N62: no bus outside New York in the area
+                interior = interior[self.owner[interior] >= 0]
             if len(interior) and len(self.boundary(interior)):
                 return interior
         return None

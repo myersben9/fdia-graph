@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore")
 
 from fdia_graph.nyfed.build import production_builder
 from fdia_graph.nyfed.config import Settings, rng
-from fdia_graph.nyfed.operator.response import operator_day, respond, summarize
+from fdia_graph.nyfed.operator.response import MODES, operator_day, respond, summarize
 from fdia_graph.nyfed.scenario.pool import SOLVED
 
 DAY = 288  # five-minute scans
@@ -68,7 +68,9 @@ def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | No
         fam.overshoot = 0.0
 
 
-def _job(onset: int, out: str, pool: str, data: str, interface: str, voll: float | None) -> list[dict]:
+def _job(
+    onset: int, out: str, pool: str, data: str, interface: str, voll: float | None, calib: tuple | None
+) -> list[dict]:
     b = _B
     assert b is not None
     days = Path(out) / "days"
@@ -92,8 +94,8 @@ def _job(onset: int, out: str, pool: str, data: str, interface: str, voll: float
             continue
         path, info = made
         day = operator_day(path, pool, data)
-        for defended in (False, True):  # the operator as it is, and with the interchange check (N65)
-            s = summarize(respond(day, defended=defended), voll)
+        for mode in MODES:  # the trusting, the accounting and the oracle operator (N66)
+            s = summarize(respond(day, mode=mode, calib=calib), voll)
             rows.append(
                 {
                     "onset": onset,
@@ -118,6 +120,7 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--voll", type=float, default=None, help="$/MWh for the shed energy (a cited value)")
     ap.add_argument("--consistent", action="store_true", help="the interchange-consistent attacker (N62)")
+    ap.add_argument("--calib", default=None, help="tie_check.py's json: the alarm calibrated on other months")
     ap.add_argument(
         "--seed-key", default="damage", help="the stream of the draw (another key draws other onsets)"
     )
@@ -127,6 +130,11 @@ def main() -> None:
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    # the designs cached here belong to one attacker form: never mix the consistent and the plain one
+    marker = out / "attacker.json"
+    if marker.exists() and json.loads(marker.read_text()) != {"consistent": args.consistent}:
+        raise SystemExit(f"{out} holds the other attacker form's designs; use another folder")
+    marker.write_text(json.dumps({"consistent": args.consistent}))
     _init(args.pool, args.interface, args.consistent)
     b = _B
     assert b is not None
@@ -143,7 +151,11 @@ def main() -> None:
     t0 = time.perf_counter()
     init = (args.pool, args.interface, args.consistent)
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=init) as ex:
-        futs = [ex.submit(_job, o, str(out), args.pool, args.data, args.interface, args.voll) for o in todo]
+        cal = json.loads(Path(args.calib).read_text()) if args.calib else None
+        calib = (cal["mean_mw"], cal["sd_mw"]) if cal else None
+        futs = [
+            ex.submit(_job, o, str(out), args.pool, args.data, args.interface, args.voll, calib) for o in todo
+        ]
         for k, f in enumerate(as_completed(futs), 1):
             rows += f.result()
             pd.DataFrame(rows).to_csv(done, index=False)

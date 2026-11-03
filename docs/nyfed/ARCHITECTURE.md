@@ -57,6 +57,7 @@ src/fdia_graph/nyfed/
     response.py        OperatorDay, Twin, Response, operator_day, seen_interfaces, respond, summarize
 tools/nyfed/
   operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
+  tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
   damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
   build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
@@ -181,9 +182,10 @@ Stateless steps, each called once in the build.
 | `shortage_usd(mw)` | `operator/sced.py` | MW over an interface limit for one scan | $ at the 2019 transmission shortage curve (N60) |
 | `shift_factors(case)`, `outage_factors(case, ptdf, outages)` | `operator/sced.py` | `Case` | `[L, N]` DC shift factors (reference bus out), `[L, K]` line outage distribution factors |
 | `operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))` | `operator/response.py` | a timeline file, its pool, NYgrid's `Data/` | `OperatorDay` |
+| `tie_meters(case, plan)`, `neighbour_reads(plan, rows, far, rng)` | `operator/response.py` | the case and plan, the far-end flows | the ties with a New York-end P-flow meter, and the neighbours' readings of them through meters of the same class (N67) |
 | `tie_gap(day, z)` | `operator/response.py` | `OperatorDay`, scans `[T, M]` | `[T]` the net interchange read at the New York ends of the ties less what the neighbours meter at their ends (the true flow there), the interchange check of N62 |
 | `seen_interfaces(plan, interfaces, z)` | `operator/response.py` | the meter plan, the interfaces, scans `[T, M]` | `[T, I]` each interface's flow as the operator reads it from its branches' P-flow meters |
-| `respond(day, delay=0, over=0.0, defended=False)`, `summarize(response, voll=None)` | `operator/response.py` | `OperatorDay` | `Response` (O1, O2, O5, N50 to N65: every interface of `INTERFACES` enforced, quick-start units, regulation capped at `REG_CAP` with the rest an ACE excursion, the interchange alarm, and with `defended` the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility |
+| `respond(day, delay=0, over=0.0, mode="trusting", calib=None)`, `summarize(response, voll=None)` | `operator/response.py` | `OperatorDay` | `Response` (O1, O2, O5, N50 to N65: every interface of `INTERFACES` enforced, quick-start units, regulation capped at `REG_CAP` with the rest an ACE excursion, the interchange alarm, and with `defended` the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility |
 
 ## The timeline file
 

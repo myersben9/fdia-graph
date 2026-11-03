@@ -119,7 +119,7 @@ def test_the_operator_sheds_load_only_when_redispatch_cannot_relieve(case, sced)
 @pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
 def test_a_day_under_attack_against_its_benign_twin():
     """On the 5 July file the benign twin needs nothing, while the attacked run follows the pretended load
-    drop and regulation covers the generation the dispatch left out, up to the room its units have."""
+    drop, and regulation with what the neighbours supply makes up the generation the dispatch left out."""
     from fdia_graph.nyfed.operator.response import operator_day, respond
 
     r = respond(operator_day(DAY, POOL, DATA))
@@ -127,7 +127,7 @@ def test_a_day_under_attack_against_its_benign_twin():
     assert np.abs(b.dev).max() < 1e-3 and np.abs(b.reg).max() < 1e-3
     w = slice(r.onset, r.onset + r.length)
     assert -a.dev[w].sum(axis=1).min() > 300  # the pretended drop reaches about 370 MW
-    # regulation, and what no unit had room for, together make up the generation the dispatch removed
+    # regulation and the inadvertent interchange together make up the generation the dispatch removed
     # beyond the load actually shed
     np.testing.assert_allclose(
         a.reg.sum(axis=1) + a.uncovered, -(a.dev.sum(axis=1) + a.shed.sum(axis=1)), atol=1e-6
@@ -135,13 +135,19 @@ def test_a_day_under_attack_against_its_benign_twin():
 
 
 @pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
-def test_the_interchange_check_finds_the_attack_and_the_defense_saves_regulation():
+def test_the_three_operators_on_a_day_under_attack():
     """The 5 July attack moves New York's net interchange (its change is taken up outside New York), so the
-    read interchange leaves the neighbours' meters beyond their noise during the window (N62). The defended
-    operator, which stops acting on the tampered scans from that alarm, calls less regulation (N65)."""
+    read interchange leaves the neighbours' meters beyond their noise inside the window (N62). The trusting
+    operator follows the false load drop and its AGC, reading the same falsified ties, hides the shortfall,
+    which the neighbours supply as inadvertent interchange. The accounting operator takes its load from
+    generation plus the agreed interchange, so it does not follow the false load (N66)."""
     from fdia_graph.nyfed.operator.response import operator_day, respond
 
     day = operator_day(DAY, POOL, DATA)
-    plain, defended = respond(day), respond(day, defended=True)
-    assert np.isfinite(plain.alarm) and 0 <= plain.alarm < plain.length
-    assert np.abs(defended.attacked.reg).sum() < np.abs(plain.attacked.reg).sum()
+    trusting, accounting = respond(day), respond(day, mode="accounting")
+    assert np.isfinite(trusting.alarm) and 0 <= trusting.alarm < trusting.length
+    w = slice(trusting.onset, trusting.onset + trusting.length)
+    assert -trusting.attacked.dev[w].sum(axis=1).min() > 300  # it cuts generation for the false drop
+    assert np.abs(trusting.attacked.uncovered[w]).max() > 200  # left to the neighbours
+    assert np.abs(accounting.attacked.dev[w].sum(axis=1)).max() < 50  # no false load followed
+    assert np.abs(accounting.attacked.uncovered).sum() < np.abs(trusting.attacked.uncovered).sum()
