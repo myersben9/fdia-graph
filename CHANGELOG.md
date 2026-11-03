@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The interchange-consistent attacker and the interchange check (New York grid).** `Attacker(hold_external=True)`
+  (and `production_builder(..., hold_external=True)`) keeps every bus outside New York at its true injection, so
+  the attack cannot move New York's net interchange (N62). On the 60 drawn onsets this form reaches the limit at
+  one onset and never overshoots it. The operator gets the matching check, `tie_gap`: the interchange read at the
+  New York ends of the ties less what the neighbours meter. `respond(..., defended=True)` stops acting on the
+  tampered scans from the first alarm (N65). The operator now enforces all four mapped interfaces, each with its
+  own 15-minute clock and shortage price. It may start the quick-start units of zones J and K, and it caps
+  regulation at 275 MW, reporting the rest as an ACE excursion (N63, N64). Shed load takes its reactive demand
+  with it, and a reused day keeps its meter count. `damage_study.py` gains `--consistent` and `--seed-key`.
+
 - **The damaging attack and the operator's escalation (New York grid).** `InterfaceFdia(overshoot=...)`
   takes the reported interface flow past its limit, designed under every bound as a real attack, and
   `max_overshoot` finds the largest overshoot an onset allows by bisection (N58). The operator now

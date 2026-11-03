@@ -96,6 +96,7 @@ def production_builder(
     root: str | Path = ".",
     survey: int = 12,
     survey_cache: str | Path | None = None,
+    hold_external: bool = False,
 ) -> TimelineBuilder:
     """The `TimelineBuilder` of the release: the case, clients, meters and the pool at `pool_path`
     (relative to `root`, whose `data/` holds `fetch_inputs`'s files), with the `families` named. Am targets
@@ -113,7 +114,7 @@ def production_builder(
     net = Network(case)
     plan = plan_meters(net, own, rng(settings, "meters"))
     meas = Measurement(net, plan)
-    att = Attacker(net, meas)
+    att = Attacker(net, meas, hold_external=hold_external)  # N62: True keeps the interchange true
     # Ap: each bus's natural five-minute step by hour over the whole pool (what the attacker knows),
     # generator buses bounded by their units' five-minute ramp (nuclear 0, hydro and imports inf)
     steps = natural_steps(pool.time, pool.p, pool.solve_kind == SOLVED)

@@ -181,8 +181,9 @@ Stateless steps, each called once in the build.
 | `shortage_usd(mw)` | `operator/sced.py` | MW over an interface limit for one scan | $ at the 2019 transmission shortage curve (N60) |
 | `shift_factors(case)`, `outage_factors(case, ptdf, outages)` | `operator/sced.py` | `Case` | `[L, N]` DC shift factors (reference bus out), `[L, K]` line outage distribution factors |
 | `operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))` | `operator/response.py` | a timeline file, its pool, NYgrid's `Data/` | `OperatorDay` |
+| `tie_gap(day, z)` | `operator/response.py` | `OperatorDay`, scans `[T, M]` | `[T]` the net interchange read at the New York ends of the ties less what the neighbours meter at their ends (the true flow there), the interchange check of N62 |
 | `seen_interfaces(plan, interfaces, z)` | `operator/response.py` | the meter plan, the interfaces, scans `[T, M]` | `[T, I]` each interface's flow as the operator reads it from its branches' P-flow meters |
-| `respond(day, delay=0, over=0.0)`, `summarize(response)` | `operator/response.py` | `OperatorDay` | `Response` (O1, O2, O5, N50 to N57), and its day totals, attacked less benign, with regulation by utility |
+| `respond(day, delay=0, over=0.0, defended=False)`, `summarize(response, voll=None)` | `operator/response.py` | `OperatorDay` | `Response` (O1, O2, O5, N50 to N65: every interface of `INTERFACES` enforced, quick-start units, regulation capped at `REG_CAP` with the rest an ACE excursion, the interchange alarm, and with `defended` the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility |
 
 ## The timeline file
 

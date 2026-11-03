@@ -41,12 +41,15 @@ def _trace(name: str, day, r) -> pd.DataFrame:
     rows["seen_benign_mw"] = seen_interfaces(day.plan, day.interfaces, day.z_benign)[:, 0]
     it = day.interfaces[0]
     rows["real_headroom_mw"] = it.limit - it.flow
+    rows["tie_gap_mw"] = r.tie_attacked - r.tie_benign
+    rows["alarm_scans"] = r.alarm  # scans from the onset to the interchange alarm
     rows["true_mw"] = it.model_flow(Network(day.case).flows(day.vm, day.va)[0])
     rows["limit_mw"] = rows["true_mw"] + rows["real_headroom_mw"]  # the operator's limit (N52)
     for tag, tw in (("a", r.attacked), ("b", r.benign)):
         rows[f"{tag}_dispatch_mw"] = tw.dev.sum(axis=1)
         rows[f"{tag}_moved_mw"] = np.abs(tw.dev).sum(axis=1)
         rows[f"{tag}_regulation_mw"] = tw.reg.sum(axis=1)
+        rows[f"{tag}_ace_mw"] = tw.uncovered
         rows[f"{tag}_shed_mw"] = tw.shed.sum(axis=1)
         rows[f"{tag}_shortage_usd"] = tw.shortage
         rows[f"{tag}_iface_change_mw"] = tw.iface_change[:, 0]
@@ -61,7 +64,6 @@ def main() -> None:
     ap.add_argument("days", nargs="+")
     ap.add_argument("--pool", default="out/pool_2019_v3.h5")
     ap.add_argument("--data", default="data/NYgrid/Data")
-    ap.add_argument("--interface", default="SPR/DUN-SOUTH")
     ap.add_argument("--delay", default="0,1,3")
     ap.add_argument("--over", default="0,50,100,200")
     ap.add_argument("--out", default="results")
@@ -72,7 +74,7 @@ def main() -> None:
     t0 = time.perf_counter()
     for path in args.days:
         name = Path(path).stem
-        day = operator_day(path, args.pool, args.data, (args.interface,))
+        day = operator_day(path, args.pool, args.data)  # every interface enforced, the attacked one first
         for delay in (int(x) for x in args.delay.split(",")):
             for over in (float(x) for x in args.over.split(",")):
                 if delay and over:

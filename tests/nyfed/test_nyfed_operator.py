@@ -132,3 +132,16 @@ def test_a_day_under_attack_against_its_benign_twin():
     np.testing.assert_allclose(
         a.reg.sum(axis=1) + a.uncovered, -(a.dev.sum(axis=1) + a.shed.sum(axis=1)), atol=1e-6
     )
+
+
+@pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
+def test_the_interchange_check_finds_the_attack_and_the_defense_saves_regulation():
+    """The 5 July attack moves New York's net interchange (its change is taken up outside New York), so the
+    read interchange leaves the neighbours' meters beyond their noise during the window (N62). The defended
+    operator, which stops acting on the tampered scans from that alarm, calls less regulation (N65)."""
+    from fdia_graph.nyfed.operator.response import operator_day, respond
+
+    day = operator_day(DAY, POOL, DATA)
+    plain, defended = respond(day), respond(day, defended=True)
+    assert np.isfinite(plain.alarm) and 0 <= plain.alarm < plain.length
+    assert np.abs(defended.attacked.reg).sum() < np.abs(plain.attacked.reg).sum()
