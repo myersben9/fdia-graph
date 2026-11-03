@@ -5,6 +5,8 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+## 0.21.0
+
 - **New York grid build in the package.** `fdia_graph.nyfed.build`: `fetch_inputs(root)` downloads the
   inputs at their pinned versions (NYgrid at 47698b6, NYISO's 2019 five-minute load, the NYS DPS utility
   territories, and the bus locations now shipped as `grid/ny_bus_locations.csv`), and
