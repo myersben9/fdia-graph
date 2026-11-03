@@ -1644,7 +1644,18 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The grid operator under attack (<code>fdia_graph.nyfed.operator</code>).</strong> <code>DcSced</code> is the operator's real-time
+<li>
+<p><strong>The damaging attack and the operator's escalation (New York grid).</strong> <code>InterfaceFdia(overshoot=...)</code>
+  takes the reported interface flow past its limit, designed under every bound as a real attack, and
+  <code>max_overshoot</code> finds the largest overshoot an onset allows by bisection (N58). The operator now
+  escalates as NYISO's emergency procedures do (N59): redispatch first, the flow it cannot relieve priced
+  at the 2019 transmission shortage curve (<code>shortage_usd</code>, N60), and load relief after 15 minutes over the
+  limit at the buses where shedding relieves the interface. <code>Step</code> carries the shed load and the cost of
+  relieving the interface. <code>tools/nyfed/damage_study.py</code> runs both forms of the attack through the operator
+  on near-limit onsets drawn at random. Results: <code>results/nygrid.damage.csv</code>.</p>
+</li>
+<li>
+<p><strong>The grid operator under attack (<code>fdia_graph.nyfed.operator</code>).</strong> <code>DcSced</code> is the operator's real-time
   dispatch on what it sees: a DC dispatch on shift factors around the pool basepoint, with unit limits,
   five-minute ramps from its previous dispatch and the interface limit (the benign model flow plus the
   hour's real 2019 headroom). It moves as little as it must, then at least cost. <code>respond(day, delay,
@@ -1653,7 +1664,8 @@ the public API, the generated files and the numbers are the same as the previous
   flow gives the true interface flow and the worst single 345 kV outage. <code>summarize</code> reports the attack's
   consequence, attacked less benign: dispatch moved, regulation (MW, MWh, by utility), unrelieved flow,
   the true interface and N-1 changes, production cost and the energy settled at the real zonal LBMP.
-  <code>tools/nyfed/operator_cost.py</code> runs it on the single-episode days. Plan rows N50 to N57.</li>
+  <code>tools/nyfed/operator_cost.py</code> runs it on the single-episode days. Plan rows N50 to N57.</p>
+</li>
 </ul>
 <h2 id="0210">0.21.0<a class="headerlink" href="#0210" title="Permanent link">&para;</a></h2>
 <ul>

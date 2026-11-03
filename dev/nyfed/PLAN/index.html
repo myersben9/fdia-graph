@@ -2429,6 +2429,26 @@ by DOI). Decisions N50 to N57.</p>
 <td>overshoot what-if (ours)</td>
 <td>decided (delegated): the attacked interface reading pushed 50, 100 or 200 MW past what the attack reached, in proportion to its push, to show how the consequence grows if an attacker overshoots the limit. A what-if on the reading, not a new attack design</td>
 </tr>
+<tr>
+<td>N58</td>
+<td>the damaging variant (ours)</td>
+<td>decided (Ben delegated, 2026-11-03, "don't we want attacks that are damaging", option A): the overload attack also in a damaging form whose goal is the limit plus an overshoot, designed under every bound as a real attack (<code>InterfaceFdia(overshoot=...)</code>), and per onset the largest overshoot the bounds allow (<code>max_overshoot</code>, bisection from 0 to 800 MW to 25 MW, which assumes feasibility falls with the overshoot). N57's overshoot stays the what-if on the reading in <code>tools/nyfed/operator_cost.py</code>. At zero the goal is N49's exactly</td>
+</tr>
+<tr>
+<td>N59</td>
+<td>the operator's escalation</td>
+<td>decided (delegated): redispatch first. While redispatch cannot relieve an interface, the flow over the limit is priced at the 2019 transmission shortage curve. Once the interface has been over its limit for 15 minutes (3 scans), load relief at the buses where a MW shed takes at least 0.1 MW off the interface. From the NYISO Emergency Operations Manual 4.5 (interface brought back within 15 minutes, load shedding ordered within 30 minutes of the overload)</td>
+</tr>
+<tr>
+<td>N60</td>
+<td>prices and reference values</td>
+<td>decided (delegated): the 2019 shortage curve (350 $/MWh for 5 MW, 1,175 for the next 15 MW, the 4,000 cap beyond, NYISO filing of April 2017), shed energy at the LBNL-6941E values for residential and medium and large C&amp;I customers as a range (no northeast data in that study, stated), the regulation read against the 175 to 275 MW summer requirement (the table in force from September 2020, stated)</td>
+</tr>
+<tr>
+<td>N61</td>
+<td>exit length (recorded)</td>
+<td>set in the code with N30 and recorded here: an exit as long as the rise (16 scans each for Am, <code>build.RISE</code>), the pretended change unwinding to nothing at the last scan</td>
+</tr>
 </tbody>
 </table>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>

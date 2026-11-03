@@ -1667,7 +1667,7 @@
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    attacker.py        Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    msfdia.py          MsFdia (Am, and Ap with a step bound)
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    opf_attack.py      OpfFdia (Am, Ap with the false state from a local AC OPF, N35)
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    interface_attack.py InterfaceFdia (Am against a NYISO interface, N48, N49)
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    interface_attack.py InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    ramp.py            Ramp
 <a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>  timeline/
 <a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    __init__.py        package docstring only
@@ -1675,20 +1675,21 @@
 <a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    builder.py         TimelineBuilder
 <a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>  operator/
 <a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    __init__.py        package docstring only
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    sced.py            DcSced, Step, shift_factors, outage_factors
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    sced.py            DcSced, Step, shift_factors, outage_factors, shortage_usd (N59, N60)
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    response.py        OperatorDay, Twin, Response, operator_day, seen_interfaces, respond, summarize
 <a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>tools/nyfed/
 <a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>  operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  nygrid_ac_summary.py summaries of those runs
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>results/
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>tests/nyfed/
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  nygrid_ac_summary.py summaries of those runs
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>results/
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>tests/nyfed/
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -1878,7 +1879,7 @@ copies them as they are.</p>
 <tr>
 <td><code>Step</code></td>
 <td><code>operator/sced.py</code></td>
-<td><code>dev [G]</code> (MW from the basepoint), <code>unrelieved [I]</code>, <code>unmatched</code></td>
+<td><code>dev [G]</code> (MW from the basepoint), <code>shed [N]</code> (MW of load relief), <code>unrelieved [I]</code>, <code>unmatched</code>, <code>relief_usd</code> (the dispatch's cost less that of the same dispatch with no interface limit)</td>
 <td></td>
 </tr>
 <tr>
@@ -2074,6 +2075,18 @@ copies them as they are.</p>
 <td><code>attacks/attacker.py</code></td>
 <td>reading differences <code>[..., M]</code>, meter kinds</td>
 <td>the differences with angle readings (va, ia) wrapped to (-180, 180]</td>
+</tr>
+<tr>
+<td><code>InterfaceFdia.max_overshoot(window, rng, high=800.0, tol=25.0)</code></td>
+<td><code>attacks/interface_attack.py</code></td>
+<td>a window</td>
+<td><code>(Episode or None, MW)</code>: the damaging variant at the largest overshoot past the limit the bounds allow, by bisection (N58)</td>
+</tr>
+<tr>
+<td><code>shortage_usd(mw)</code></td>
+<td><code>operator/sced.py</code></td>
+<td>MW over an interface limit for one scan</td>
+<td>$ at the 2019 transmission shortage curve (N60)</td>
 </tr>
 <tr>
 <td><code>shift_factors(case)</code>, <code>outage_factors(case, ptdf, outages)</code></td>
