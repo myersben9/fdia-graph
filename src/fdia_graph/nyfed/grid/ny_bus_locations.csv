@@ -1,0 +1,47 @@
+bus_id,npcc_name,matched_name,source,lat,lon,utility,note
+37,NEW SEATHED,New Scotland Substation,OSM way/140111530,42.60902,-73.9043,,New Scotland 345 kV yard; NPCC spelling garbled
+38,GILBOA,Gilboa Substation,OSM way/135584387,42.4399,-74.44782,,Blenheim-Gilboa pumped storage switchyard (NYPA)
+39,LEEDS,Leeds Substation,OSM way/139903895,42.26476,-73.84697,,
+40,NEW SEATHED,New Scotland Substation,OSM way/140111530,42.60902,-73.9043,,New Scotland; same substation as bus 37
+41,ROTTERDAM,Rotterdam Substation,OSM way/139587105,42.82889,-73.99785,,
+42,ALBANY,Albany Steam Substation,OSM way/321933884,42.59498,-73.76233,,"generic city name; several 115 kV Albany substations, all in the same territory"
+43,EDIC,Edic Station,OSM way/107706686,43.15753,-75.22722,,
+44,PORTER,Porter Station,OSM way/168747175,43.15303,-75.22491,,
+45,PORTER,Porter Station,OSM way/168747175,43.15303,-75.22491,,same substation as bus 44
+46,COLTON,Colton Station,OSM relation/17702601,44.58411,-74.95774,,
+47,MOSES W,Moses Switching Station,OSM way/79293030,45.00401,-74.80473,,St. Lawrence-FDR project switchyard (NYPA)
+48,MOSES E,Moses Switching Station,OSM way/79293030,45.00401,-74.80473,,same substation as bus 47
+49,PLATTSBURGH,Plattsburgh Substation,OSM way/175766529,44.75923,-73.49381,,NYPA Plattsburgh 230/115 kV
+50,CLAY,Clay Station,OSM way/107706683,43.19766,-76.17144,,
+51,CLAY,Clay Station,OSM way/107706683,43.19766,-76.17144,,same substation as bus 50
+52,ROCHESTER,Station 80,OSM way/148402399,43.05383,-77.67248,,"RG&E Station 80, the Rochester 345/115 kV hub"
+53,ROCHESTER,Station 80,OSM way/148402399,43.05383,-77.67248,,same substation as bus 52
+54,NIAGARA W,Robert Moses Substation,OSM way/118097924,43.13996,-79.0279,,"Niagara project switchyard (NYPA, Lewiston)"
+55,NIAGARA E,Robert Moses Substation,OSM way/118097924,43.13996,-79.0279,,same substation as bus 54
+56,HUNTLEY,Huntley Substation,OSM way/94483111,42.9725,-78.93394,,
+57,HUNTLEY,Huntley Substation,OSM way/94483111,42.9725,-78.93394,,same substation as bus 56
+58,GARDENVILLE,Gardenville Substation,OSM way/112381234,42.85195,-78.76848,,
+59,GARDENVILLE,Gardenville Substation,OSM way/112381234,42.85195,-78.76848,,same substation as bus 58
+60,DUNKIRK,Dunkirk Substation,OSM way/525373001,42.49008,-79.34654,,
+61,DUNKIRK,Dunkirk Substation,OSM way/525373001,42.49008,-79.34654,,same substation as bus 60
+62,STOLLE RD,Stolle Road Substation,OSM way/92967236,42.83277,-78.58097,,
+63,MEYER,Meyer Substation,OSM way/140540233,42.55664,-77.70936,,
+64,MEYER,Meyer Substation,OSM way/140540233,42.55664,-77.70936,,same substation as bus 63
+65,GESONIDGE,,,,,NYSEG,"name not found; zone C (NGRID, NYSEG or RGE); its zone C neighbour MEYER is NYSEG"
+66,WATERCURE,Watercure Substation,OSM way/175784546,42.10835,-76.77138,,
+67,WRHL,,,,,NYSEG,"name not found; zone C (NGRID, NYSEG or RGE); all its zone C neighbours (WATERCURE, HILLSIDE, BINGHAMTON, MEYER) are NYSEG"
+68,HILLSIDE,Hillside Substation,OSM way/175833186,42.10229,-76.79382,,
+69,BINGHAMTON,Oakdale Substation,OSM way/175668416,42.137,-75.98239,,generic city name; Oakdale is the Binghamton 345/230/115 kV hub
+70,BINGHAMTON,Oakdale Substation,OSM way/175668416,42.137,-75.98239,,same substation as bus 69
+71,BINGHAMTON,Oakdale Substation,OSM way/175668416,42.137,-75.98239,,same substation as bus 69
+72,LAPEER,,,,,NYSEG,"name not found; zone C (NGRID, NYSEG or RGE); its neighbours CLAY (NGRID) and BINGHAMTON (NYSEG) split, and the Town of Lapeer (Cortland County) lies in NYSEG territory"
+73,PLEASANT VLY,Pleasant Valley Substation,OSM way/86251100,41.73964,-73.83417,,
+74,MILLWOOD,Millwood Substation,OSM way/73571276,41.19265,-73.80042,,
+75,RAMAPO,Ramapo Substation,OSM way/95825721,41.14966,-74.15506,,
+76,RAMAPO,Ramapo Substation,OSM way/95825721,41.14966,-74.15506,,same substation as bus 75
+77,BUCHANAN,Buchanan Substation,OSM way/86300404,41.26437,-73.94727,,
+78,CE UG,,,,,ConEd,"Con Edison underground equivalent, no single substation; zone I is ConEd"
+79,RAV A-3,Ravenswood,EIA-860 plant 2500,40.75917,-73.94611,,Ravenswood unit 3 (Queens); NYgrid labels the bus zone K
+80,NORTHPORT,Northport,EIA-860 plant 2516,40.92357,-73.34232,,
+81,GOETHALS,Goethals Substation,OSM way/383102699,40.6171,-74.19631,,
+82,AK-3,Arthur Kill Generating Station,EIA-860 plant 2490,40.59156,-74.20003,,Arthur Kill unit 3 (Staten Island)

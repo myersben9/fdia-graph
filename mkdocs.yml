@@ -55,6 +55,7 @@ nav:
   - Guides:
       - Timeline generation: guides/generation.md
       - State estimation: guides/state_estimation.md
+      - New York grid: guides/new_york.md
   - Reference:
       - Data dictionary: reference/DATA_DICTIONARY.md
       - Glossary: reference/GLOSSARY.md

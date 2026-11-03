@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pandas as pd
 
-RESULTS = Path(__file__).resolve().parents[1] / "results"
+RESULTS = Path(__file__).resolve().parents[2] / "results"
 
 
 def _pct(x: pd.Series) -> float:

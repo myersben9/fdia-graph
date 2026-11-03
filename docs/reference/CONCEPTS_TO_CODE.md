@@ -99,6 +99,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.attacks.msfdia` | Am, the multi-snapshot overload FDIA of [1] (TSG 2026, eqs. 12-25): over a window of snapshots the reported apparent flow of one or two target branches is driven to their ratings, each snapshot the reading of one AC false state so the operator's residual test stays quiet, while the true flow is below the rating. The attack tampers the fewest distinct meters (eq. 12). |
 | `nyfed.attacks.opf_attack` | The overload attacks with the attacker's false states from a local optimal power flow (N35, ours). |
 | `nyfed.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
+| `nyfed.build` | The production build: the inputs fetched at their pinned versions, and the `TimelineBuilder` with every decided bound (N8, N27 to N49) in one place. |
 | `nyfed.config` | Build settings and the one place random generators are made. |
 | `nyfed.dataset` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
 | `nyfed.grid.case` | The grid as one frozen record of arrays. |

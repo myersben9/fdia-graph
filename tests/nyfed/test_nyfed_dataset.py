@@ -16,7 +16,6 @@ from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.nyfed.io import TimelineWriter
 from fdia_graph.nyfed.sensing.meters import MeterPlan, plan_meters
-from fdia_graph.nyfed.timeline.schedule import split_frames
 
 ROOT = Path(
     os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2])
@@ -39,7 +38,9 @@ def written(tmp_path_factory):
     M, N = len(plan.kind), len(case.bus_id)
     frames = {
         "time": np.datetime64("2019-01-01T00:00") + np.arange(T) * np.timedelta64(5, "m"),
-        "split": split_frames(T, (0.7, 0.15, 0.15)),
+        # interleaved like the week split (7 train, 3 val, 7 train, 3 test in every 20 frames), so a
+        # selection that spans its first to last frame would take in the other splits
+        "split": np.tile(np.r_[[0] * 7, [1] * 3, [0] * 7, [2] * 3], T // 20).astype(np.int8),
         "family": g.integers(0, 3, T).astype(np.int8),
         "episode": g.integers(-1, 2, T).astype(np.int32),
         "z": g.normal(size=(T, M)),
@@ -116,7 +117,14 @@ def test_operator_and_split_views(written):
     sizes = []
     for split in ("train", "val", "test"):
         v = ds.client(ds.clients[0], split)
-        assert (frames["split"][v.frames] == ("train", "val", "test").index(split)).all()
+        assert np.array_equal(
+            v.frames, np.flatnonzero(frames["split"] == ("train", "val", "test").index(split))
+        )
+        mine = np.flatnonzero(plan.owner == 0)
+        np.testing.assert_allclose(v.z, frames["z"][v.frames][:, mine], rtol=1e-6)
+        assert (
+            v.temporal()[1:][np.diff(v.frames) != 1] == 0
+        ).all()  # no change across another split's frames
         sizes.append(len(v.z))
     assert sizes == [70, 15, 15]
 
@@ -128,7 +136,7 @@ def test_temporal_wraps_angle_changes(written):
     z = np.zeros((3, len(plan.kind)))
     z[:, angle] = [[179.5], [-179.5], [179.0]]  # crosses +-180 twice
     z[:, ~angle] = [[1.0], [3.0], [2.0]]
-    view = ClientView(z, np.zeros((3, 0), bool), plan, np.arange(0), slice(0, 3), kinds)
+    view = ClientView(z, np.zeros((3, 0), bool), plan, np.arange(0), np.arange(3), kinds)
     d = view.temporal()
     assert np.allclose(d[1:, angle], [[1.0], [-1.5]])  # wrapped to (-180, 180], not +-359
     assert np.allclose(d[1:, ~angle], [[2.0], [-1.0]]) and (d[0] == 0).all()

@@ -184,6 +184,8 @@ feasible in 35/68/78/58% of the windows at L = 16/32/48/96, median tampered mete
 | D2 | loader with `ds.client(name)`, which returns only that client's data | [`dataset/__init__.py#L91`](https://github.com/myersben9/fdia-graph/blob/9565688/src/fdia_graph/dataset/__init__.py#L91) |
 | D3 | first data release | [`upload_assets.py`](https://github.com/myersben9/fdia-graph/blob/9565688/tools/upload_assets.py) |
 
+Status D3: the build is in the package (`build.py`, `fetch_inputs` and `production_builder`, run by `tools/nyfed/build_timeline.py`; the single-episode files by `tools/nyfed/build_single_episodes.py`). The data release waits on the three release decisions.
+
 Status: D1, D2 built (`timeline/{schedule,builder}.py`, `TimelineWriter` and `open_timeline` in `io.py`,
 `dataset.py`, `tests/nyfed/test_nyfed_timeline.py` 4 tests, `tests/nyfed/test_nyfed_dataset.py` 3 tests). The year is split into
 three contiguous blocks in time order, train 70%, val 15%, test 15% (from Jan 1, Sep 13 12:00 and

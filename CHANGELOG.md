@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **New York grid build in the package.** `fdia_graph.nyfed.build`: `fetch_inputs(root)` downloads the
+  inputs at their pinned versions (NYgrid at 47698b6, NYISO's 2019 five-minute load, the NYS DPS utility
+  territories, and the bus locations now shipped as `grid/ny_bus_locations.csv`), and
+  `production_builder(pool_path, ...)` returns the release `TimelineBuilder` with every decided bound.
+  `tools/nyfed/build_timeline.py` and `tools/nyfed/build_single_episodes.py` run them; a single-episode
+  file rebuilt this way is identical to the one built before. New guide: docs/guides/new_york.md.
+
 - **New York grid (`fdia_graph.nyfed`, the `[ny]` extra).** The New York federated grid package, moved in
   from its own repository as written: the modified NPCC-140 of NYgrid in AC, the 2019 five-minute
   operating-point pool from a ramp-constrained AC dispatch, utility clients from the state's service

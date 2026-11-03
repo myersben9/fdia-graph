@@ -15,9 +15,10 @@ In fdia-graph since 2026-11-02 as `fdia_graph.nyfed`: the package paths below ar
 ## Files
 
 ```
-src/nyfed/
+src/fdia_graph/nyfed/
   __init__.py          load()
   config.py            Settings, rng()
+  build.py             fetch_inputs, production_builder (the release build in one place)
   io.py                TimelineWriter, open_timeline, read_pool, write_pool, SPLITS, FAMILIES
   dataset.py           Dataset, ClientView
   grid/
@@ -28,6 +29,7 @@ src/nyfed/
     ratings.py         line_ratings
     interfaces.py      Interface, hourly_interfaces, NYISO_INTERFACES (N48)
     clients.py         Ownership, assign_clients
+    ny_bus_locations.csv  each NY bus located on the territories (N12)
   scenario/
     inputs.py          ZoneLoad, NygridHour, read_nygrid, fetch_nyiso
     loads.py           LoadSeries, LoadModel
@@ -49,16 +51,16 @@ src/nyfed/
     __init__.py        package docstring only
     schedule.py        Slot, place_episodes, split_weeks, split_frames, week_index
     builder.py         TimelineBuilder
-scripts/
-  build.py             runs the stages in order from one Settings
-tools/
+tools/nyfed/
+  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
   matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
   nygrid_ac_summary.py summaries of those runs
   run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
 results/
   nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
-tests/
-  test_grid.py  test_scenario.py  test_sensing.py  test_attacks.py  test_timeline.py  test_dataset.py
+tests/nyfed/
+  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 ```
 
@@ -132,7 +134,7 @@ Frozen dataclasses of arrays, passed between classes.
 | `TimelineBuilder` | `timeline/builder.py` | built as `TimelineBuilder(pool, meas, noise, attacker, families, own, settings, *, length=16 or {family: frames} (Am, At 16, Ap 96, N23), attacked_frac=0.2, split_frac=(0.7, 0.15, 0.15), split_by="week" (N41) or "time", workers=1, block=2016, verbose=False, survey=0, survey_cache=None)`: the pool, the `Measurement`, the `NoiseModel`, the `Attacker`, the families by name (`{"Am": MsFdia, "Ap": MsFdia(step_bound=...), "At": Ramp}`), the `Ownership` and `Settings` (whose seed keys every draw: `place`, `noise`, and `design/{family}/{onset}` per episode, so the result does not depend on `workers`) | `build(path) -> dict` (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from `split_weeks` on the frames some waiting family may start at (or `split_frames` with `split_by="time"`); each split's episodes are placed by `place_episodes` inside one contiguous run of its frames and, for a family with an `onset_mask`, only where it allows; each is designed on its own window of true pool states (in `workers` spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With `survey` (frames, N42) every allowed onset of a family with an `onset_mask` whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of `HIT_STRATUM` weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of `SURVEY_CHUNK` designs saved under `survey_cache` when given so a stopped build resumes; the summary adds `survey` (tried and found per split and family). `build_episode(path, onset, family="Am", lo=None, hi=None) -> dict` writes one episode alone, designed at pool frame `onset`, over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through `_write`. Frames: `z_benign = NoiseModel.sample(h(x_true))`, `z = z_benign + a` on episode frames; `meter_tampered` is `Attacker.tampered`, `bus_attacked` is true where a tampered meter sits at the bus |
 | `TimelineWriter` | `io.py` | an open HDF5 file, built as `TimelineWriter(path)` | `write_static(case, own, plan)`, `write_frames(t0, block)` (`block` a dict of the per-frame arrays of frames `t0..`, datasets grown as written), `write_episodes(episodes)`, `close()` |
 | `Dataset` | `dataset.py` | an open timeline file (`open_timeline`) with its `case`, `own`, `plan` | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames |
-| `ClientView` | `dataset.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (a slice of the timeline) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first, angle readings wrapped to (-180, 180]; `z` stays raw) |
+| `ClientView` | `dataset.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (the indices of the selected frames, exact for the interleaved week split) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; `z` stays raw) |
 
 ## Functions
 
@@ -162,6 +164,8 @@ Stateless steps, each called once in the build.
 | `generator_ramps(case, minutes=5.0)` | `attacks/attacker.py` | `Case` | `[N]` each bus's units' ramp over `minutes` (MW) summed at the bus: NYgrid's ramp, nuclear 0, hydro 10% of nameplate per minute, imports 300 MW per 15 minutes per unit (N34), inf at a bus with no unit |
 | `generator_band(case)` | `attacks/attacker.py` | `Case` | `[N]` 3% of each bus's units' upper limit (MW), the basepoint band (N33) |
 | `generator_q_capability(case)` | `attacks/attacker.py` | `Case` | `([N], [N])` reactive capability plus or minus 0.312 Pmax per bus (MVAr, N34) |
+| `fetch_inputs(root)` | `build.py` | a folder | `root/data`: NYgrid's `Data/` at commit 47698b6, NYISO's pal archives for the year, the NYS DPS territories and the packaged `grid/ny_bus_locations.csv`, each kept when already there (the load model fetches its own sources on the first pool build) |
+| `production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None)` | `build.py` | the pool and `fetch_inputs`'s folder | the release `TimelineBuilder`: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked |
 | `wrap_angles(d, kind)` | `attacks/attacker.py` | reading differences `[..., M]`, meter kinds | the differences with angle readings (va, ia) wrapped to (-180, 180] |
 
 ## The timeline file
@@ -202,4 +206,4 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | A4 | `attacks/msfdia.py` (Ap option), `natural_steps`, `generator_ramps`, `wrap_angles` in `attacks/attacker.py`, `Case.ramp` from `nygrid_units` |
 | D1 | `timeline/schedule.py`, `timeline/builder.py`, `TimelineWriter` in `io.py` |
 | D2 | `dataset.py`, `open_timeline` in `io.py` |
-| D3 | the build tools, not yet in the package (PLAN D3) |
+| D3 | `build.py` (`fetch_inputs`, `production_builder`), `tools/nyfed/build_timeline.py`, `tools/nyfed/build_single_episodes.py` |
