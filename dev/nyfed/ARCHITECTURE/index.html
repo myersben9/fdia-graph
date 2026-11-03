@@ -1,0 +1,2321 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/nyfed/ARCHITECTURE/">
+      
+      
+        <link rel="prev" href="../PLAN/">
+      
+      
+        <link rel="next" href="../../contributing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>New York grid architecture - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              New York grid architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/generation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../plans/" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeline generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/new_york/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/GLOSSARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture (UML diagrams)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/FORMULAS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REVIEW_CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu MS-FDIA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu defense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Principles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-pieces-talk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the pieces talk
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Records
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-timeline-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The timeline file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#blocks-to-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blocks to files
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Principles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-pieces-talk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the pieces talk
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Records
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#classes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Classes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-timeline-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The timeline file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#blocks-to-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blocks to files
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
+<p>In fdia-graph since 2026-11-02 as <code>fdia_graph.nyfed</code>: the package paths below are under <code>src/fdia_graph/nyfed/</code>, the tests are <code>tests/nyfed/test_nyfed_&lt;package&gt;.py</code> (inputs under <code>NYFED_ROOT</code>), the tools <code>tools/nyfed/</code>, and the results files sit in <code>results/</code> as they were.</p>
+<h2 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h2>
+<ol>
+<li>A class owns state, cached work, or a shared interface. A plain function is stateless math.</li>
+<li>Classes are composed, not stacked. One small interface (<code>AttackFamily</code>) is the only base class.</li>
+<li>Data records are frozen dataclasses of numpy arrays.</li>
+<li>One job per file. A file stays short enough to read in one sitting.</li>
+<li>Dependencies point one way, shown in the diagram below.</li>
+<li>pandapower and Pyomo live in <code>scenario/solver.py</code>, h5py in <code>io.py</code>, random number creation in <code>config.py</code>.</li>
+<li>Measurements are one flat vector <code>z</code> per frame with a meter table beside it. A client's data is <code>z[:, meters.owner == c]</code>.</li>
+</ol>
+<h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>src/fdia_graph/nyfed/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  __init__.py          load()
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  config.py            Settings, rng()
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  build.py             fetch_inputs, production_builder (the release build in one place)
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  io.py                TimelineWriter, open_timeline, read_pool, write_pool, SPLITS, FAMILIES
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  dataset.py           Dataset, ClientView
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  grid/
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    case.py            Case
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    network.py         Network
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    nygrid.py          read_npcc, modify_mpc, nygrid_units
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    fixes.py           split_zone_j, restore_765kv, externals_at_base, hvdc_links
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    ratings.py         line_ratings
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    interfaces.py      Interface, hourly_interfaces, NYISO_INTERFACES (N48)
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    clients.py         Ownership, assign_clients
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    ny_bus_locations.csv  each NY bus located on the territories (N12)
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>  scenario/
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    inputs.py          ZoneLoad, NygridHour, read_nygrid, fetch_nyiso
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    loads.py           LoadSeries, LoadModel
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    dispatch.py        Dispatch, hourly_dispatch
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    solver.py          AcSolver
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    pool.py            Pool, PoolBuilder, peak_ratings
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  sensing/
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    meters.py          MeterPlan, plan_meters
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    measure.py         Measurement
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    noise.py           NoiseModel
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>  attacks/
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    episode.py         Episode, AttackFamily
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    attacker.py        Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    msfdia.py          MsFdia (Am, and Ap with a step bound)
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    opf_attack.py      OpfFdia (Am, Ap with the false state from a local AC OPF, N35)
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    interface_attack.py InterfaceFdia (Am against a NYISO interface, N48, N49)
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    ramp.py            Ramp
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>  timeline/
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    __init__.py        package docstring only
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    schedule.py        Slot, place_episodes, split_weeks, split_frames, week_index
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    builder.py         TimelineBuilder
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>tools/nyfed/
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>  nygrid_ac_summary.py summaries of those runs
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>results/
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>tests/nyfed/
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+</code></pre></div>
+<p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
+copies them as they are.</p>
+<h2 id="how-the-pieces-talk">How the pieces talk<a class="headerlink" href="#how-the-pieces-talk" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>                     Settings
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                        |
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>          Case ---&gt; Network          Ownership
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>            |          |                 |
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>            |     +----+-----------+     |
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>            v     v                v     v
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>          AcSolver           Measurement (MeterPlan, NoiseModel)
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>            |                      |
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>       PoolBuilder ---&gt; Pool    Attacker
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                         |         |  uses MsFdia, Ramp
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                         |         v
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>                         +--&gt; TimelineBuilder ---&gt; TimelineWriter ---&gt; timeline.h5
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>                                                                          |
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>                                                              Dataset ---&gt; ClientView
+</code></pre></div>
+<ul>
+<li><code>grid</code> imports only <code>config</code>.</li>
+<li><code>scenario</code> and <code>sensing</code> import <code>grid</code>.</li>
+<li><code>attacks</code> imports <code>grid</code> and <code>sensing</code>. Its local re-solves (the subnetwork Newton of [1], load and
+  flow goals, one least-squares solve since N18 holds the edge's non-free injections) live in
+  <code>attacks/attacker.py</code> as the module function <code>_local_flow_solve</code>, pure numpy so <code>attacks</code> never imports pandapower; they are not <code>Network</code> methods
+  (A1 decision, see PLAN.md). A family's <code>design</code> takes <code>window</code>, the tuple <code>(onset, vm [L, N],
+  va [L, N])</code> of the frames it covers. The attacker's subnetwork may span utilities, and stealth is
+  global: the attack vector is written on every meter it moves beyond noise, whoever owns it, so the
+  operator's one residual test over all meters reads one AC state; <code>Episode.clients</code> records the
+  owners of those meters, one or several.</li>
+<li><code>timeline</code> imports everything above it and <code>io</code>.</li>
+<li><code>dataset</code> imports only <code>io</code> and <code>grid/network.py</code>, so loading data never needs pandapower.</li>
+</ul>
+<h2 id="records">Records<a class="headerlink" href="#records" title="Permanent link">&para;</a></h2>
+<p>Frozen dataclasses of arrays, passed between classes.</p>
+<table>
+<thead>
+<tr>
+<th>record</th>
+<th>file</th>
+<th>fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Case</code></td>
+<td><code>grid/case.py</code></td>
+<td><code>base_mva</code>, buses (<code>bus_id</code>, <code>zone</code>, <code>area</code>, <code>kv</code>, <code>vmin</code>, <code>vmax</code>, <code>lat</code>, <code>lon</code>, <code>is_ny</code>), branches (<code>f</code>, <code>t</code>, <code>r</code>, <code>x</code>, <code>b</code>, <code>tap</code>, <code>shift</code>, <code>rating</code>), units (<code>bus</code>, <code>fuel</code>, <code>pmin</code>, <code>pmax</code>, <code>qmin</code>, <code>qmax</code>, <code>ramp</code> MW/min, NaN where unknown), HVDC links (<code>f</code>, <code>t</code>, <code>pmin</code>, <code>pmax</code>), base state</td>
+</tr>
+<tr>
+<td><code>Ownership</code></td>
+<td><code>grid/clients.py</code></td>
+<td><code>names [K]</code> (the 7 utilities), <code>bus_client [N]</code> (-1 for external buses), <code>tie_lines [L]</code></td>
+</tr>
+<tr>
+<td><code>LoadSeries</code></td>
+<td><code>scenario/loads.py</code></td>
+<td><code>time [T]</code>, <code>p [T, N]</code>, <code>q [T, N]</code></td>
+</tr>
+<tr>
+<td><code>NygridHour</code></td>
+<td><code>scenario/inputs.py</code></td>
+<td>one hour of NYgrid inputs: <code>time</code>, <code>fuel_mw [7]</code>, <code>iface_flow</code>, <code>iface_pos</code>, <code>iface_neg [17]</code>, <code>nuclear_mw [6]</code>, <code>stl_cf</code>, <code>thermal_mw [227]</code>, NYgrid's bus split <code>ny_pd</code>, <code>ny_qd [N]</code>, netted renewables <code>renew_mw [N]</code>, the thermal units' linear cost <code>thermal_cost [227]</code> ($/MWh, weekly fuel price times heat rate, allocateGen.m 'lm'), the proxy-bus LBMPs <code>ext_lbmp [4]</code> (NPX, O H, PJM, H Q)</td>
+</tr>
+<tr>
+<td><code>Dispatch</code></td>
+<td><code>scenario/dispatch.py</code></td>
+<td><code>hour [H]</code>, <code>unit_p [H, G]</code>, <code>unit_on [H, G]</code>, <code>hvdc_p [H, D]</code>, the bus loads they balance <code>pd</code>, <code>qd [H, N]</code>, and NYgrid's generation cost <code>unit_cost [H, G]</code> ($/MWh: thermal from <code>thermal_cost</code>, nuclear and hydro at NYgrid's fixed draws, external units at their area's proxy LBMP)</td>
+</tr>
+<tr>
+<td><code>Pool</code></td>
+<td><code>scenario/pool.py</code></td>
+<td><code>time [T]</code>, <code>vm [T, N]</code>, <code>va [T, N]</code>, <code>p [T, N]</code>, <code>q [T, N]</code>, <code>solve_kind [T]</code> (<code>SOLVED</code>, <code>FAILED</code>, <code>NO_HOUR</code>, <code>NO_LOAD</code>; unsolved frames keep their place with NaN state, branch flows are <code>Network.flows(vm, va)</code>), <code>unit_p [T, G]</code> each unit's real-time dispatch basepoint (N32; None for a pool written before N32)</td>
+</tr>
+<tr>
+<td><code>MeterPlan</code></td>
+<td><code>sensing/meters.py</code></td>
+<td>one row per meter: <code>kind</code> (v, va, p, q, pf, qf, i, ia), <code>bus</code>, <code>branch</code>, <code>end</code>, <code>owner</code>, <code>sigma_rel</code>, <code>sigma_abs</code>, <code>bias</code></td>
+</tr>
+<tr>
+<td><code>Episode</code></td>
+<td><code>attacks/episode.py</code></td>
+<td><code>family</code>, <code>clients</code> (owners of the tampered meters), <code>onset</code>, <code>length</code>, <code>buses</code>, <code>target_branch</code>, <code>a [length, M]</code></td>
+</tr>
+<tr>
+<td><code>Slot</code></td>
+<td><code>timeline/schedule.py</code></td>
+<td>one placed episode: <code>onset</code> (frame), <code>family</code> ("Am", "Ap" or "At"), <code>length</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="classes">Classes<a class="headerlink" href="#classes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>class</th>
+<th>file</th>
+<th>holds</th>
+<th>methods</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Network</code></td>
+<td><code>grid/network.py</code></td>
+<td>a <code>Case</code>, its <code>Ybus</code>, <code>Yf</code>, <code>Yt</code> built once, the bus adjacency</td>
+<td><code>injections(vm, va)</code>, <code>flows(vm, va)</code>, <code>currents(vm, va)</code>, <code>neighbors(buses, hops)</code></td>
+</tr>
+<tr>
+<td><code>LoadModel</code></td>
+<td><code>scenario/loads.py</code></td>
+<td>built as <code>LoadModel(case, own, nygrid_data, locations, cache_dir)</code>: each NY load bus's utility sector mix, its five nearest county prototype pools at 15 minutes (<code>building_stock_ny_15min.npz</code>), the IAC plant curves</td>
+<td><code>profiles(zone_load, rng) -&gt; LoadSeries</code> (15-minute shares, then each bus's AR(1) fluctuation and industrial switching pulses, rescaled to the zone, N31), <code>validate(held_out, series)</code> (the four Sec. IV metrics of [2] per bus against the held-out year's zone band, plus the five-minute checks <code>step_distribution</code>, <code>step_zone_corr</code>, <code>step_zone_share</code>)</td>
+</tr>
+<tr>
+<td><code>AcSolver</code></td>
+<td><code>scenario/solver.py</code></td>
+<td>the <code>Network</code>, the Pyomo AC-OPF model (two objectives: deviation, and generation cost plus a quadratic penalty holding anchored units to a schedule), one pandapower net built from the <code>Case</code>, the last solved state for warm starts</td>
+<td><code>project(pd, qd, unit_p, unit_on, hvdc_p)</code> (hourly min-deviation AC-OPF as a Pyomo model solved by Ipopt), <code>dispatch(pd, qd, cost, p_lo, p_hi, q_lo, q_hi, unit_on, hvdc_p, init=None, anchor=None, anchor_weight=1000)</code> (one five-minute least-cost AC-OPF within per-unit P and Q bounds, started from <code>init</code> = the previous (unit_p, unit_q), units with a finite <code>anchor</code> (MW) held near it at <code>anchor_weight</code> $/MW^2h, N32, N39), <code>power_flow(pd, qd, unit_p, unit_on, unit_vm, hvdc_p, start=None)</code> (pandapower, at a frame's basepoints; <code>start</code> = (vm, va) starts Newton at the dispatch's own solution)</td>
+</tr>
+<tr>
+<td><code>PoolBuilder</code></td>
+<td><code>scenario/pool.py</code></td>
+<td>built as <code>PoolBuilder(solver, loads, dispatch, renew, ramp, q_cap=None)</code>: an <code>AcSolver</code>, the 5-minute <code>LoadSeries</code>, the <code>Dispatch</code>, NYgrid's hourly netted renewables <code>renew [H, N]</code>, each unit's ramp <code>ramp [G]</code> (MW per frame, inf unbounded), its reactive cap <code>q_cap [G]</code> (None: the case's limits, as the grid uses, N38); after a build <code>final</code> = (unit_p, unit_q, vm, va) of its last solved frame and per frame <code>slack_mw</code>, <code>cost</code>, <code>ramp_bound</code>, <code>anchor_dev</code></td>
+<td><code>build(start=None) -&gt; Pool</code> (projects every hour the frames touch, then a least-cost AC-OPF per frame in order from <code>start</code> or from the first hour's AC point: thermal units within their limits and their ramp of the previous frame's basepoint, nuclear at the hourly AC points' output interpolated, hydro and external units anchored to it (N39), every unit in service for reactive power as in NYgrid's case; then a power flow at the basepoints), <code>report()</code> (solve counts, voltages, reference bus residual, cost, anchor deviation, ramp-held share, reactive fallbacks)</td>
+</tr>
+<tr>
+<td><code>Measurement</code></td>
+<td><code>sensing/measure.py</code></td>
+<td>a <code>Network</code>, a <code>MeterPlan</code></td>
+<td><code>h(vm, va) -&gt; z</code>, <code>jacobian(vm, va)</code>, <code>for_client(c)</code></td>
+</tr>
+<tr>
+<td><code>NoiseModel</code></td>
+<td><code>sensing/noise.py</code></td>
+<td>the accuracy classes, the per-meter biases</td>
+<td><code>sigmas(z)</code>, <code>sample(z, rng)</code></td>
+</tr>
+<tr>
+<td><code>AttackFamily</code></td>
+<td><code>attacks/episode.py</code></td>
+<td>interface only</td>
+<td><code>design(window, rng) -&gt; Episode</code></td>
+</tr>
+<tr>
+<td><code>Attacker</code></td>
+<td><code>attacks/attacker.py</code></td>
+<td>a <code>Network</code>, a <code>Measurement</code></td>
+<td><code>area(center, hops)</code> (the local subnetwork of [1] in PLAN.md, which may span utilities, or <code>None</code>), <code>false_state(vm, va, area, load_change)</code> (At's load goal: the pretended loads prescribed, the other free injections of the area and its edge absorbing within the same bounds and active set, every other bus held; module <code>_local_flow_solve</code> with no target line), <code>false_flow_state(vm, va, support, lines, target_mva, load_cap, step=None, start=None)</code> (Am's flow goal, module <code>_local_flow_solve</code>: the support first grows over its non-free New York edge buses (<code>_absorb</code>, N25); the free injections of the support and its edge move, every other New York bus there, zero-injection ones included, holds its injection, a bus outside New York on the edge absorbs unless it has no unit and no injection (<code>_held_bus</code>, N44, bus 140), which holds; loads capped at 0.5 of their true P and Q (D16, N24); an active set pins a free injection at a bound and releases it when the solve without the pin leaves it inside; Ap's <code>step = (centre, bound_p, bound_q)</code> adds a box around a centre; <code>start = (vm, va)</code> warm-starts the state and the active set from the previous scan's false state), <code>attack_vector(vm_t, va_t, vm_f, va_f)</code> (global, in full), <code>tampered(vm, va, a)</code> (the meters moved beyond noise, angle changes wrapped: eq. 12 count, labels, owners), <code>load_buses(vm, va, buses=None)</code>, <code>free_injection_buses(vm, va, buses)</code>, <code>boundary(interior)</code>, <code>sigma(z)</code>, <code>bus_load(vm, va)</code></td>
+</tr>
+<tr>
+<td><code>MsFdia</code></td>
+<td><code>attacks/msfdia.py</code></td>
+<td>an <code>Attacker</code>, the ratings; for Ap (ours) <code>step_bound [24, N]</code> (<code>natural_steps</code> at load buses, <code>generator_ramps</code> at generator buses, on the reported output there; a column of inf leaves that bus unbounded per step), <code>frame_hour [T]</code> the clock hour of the frames onsets index, <code>kappa</code> (1.0), <code>reactive_step</code> (False: Ap bounds only the active step, N22; True: the P+Q variant), <code>family</code> ("Am" by default, "Ap"), <code>target_order</code> ("loading" by default, the most loaded eligible line at the window's last scan first, N26; "random"), <code>bound_rise</code>, <code>exit_scans</code> (N30), <code>wait_share</code> (N36, None or <code>NEAR_LIMIT</code> 0.9)</td>
+<td><code>design(window, rng)</code>; with <code>step_bound=None</code> it is Am. Both solve a support's scans in order, each warm-started from the previous scan's false state. <code>loaded_frames(vm, va, share) -&gt; [T]</code> whether some candidate line carries <code>share</code> of its rating; <code>onset_mask(vm, va, length) -&gt; [T] or None</code> the onsets whose last rise scan is loaded (N36)</td>
+</tr>
+<tr>
+<td><code>OpfFdia</code></td>
+<td><code>attacks/opf_attack.py</code></td>
+<td><code>MsFdia</code>'s settings plus <code>gen_ramp [N]</code> (<code>generator_ramps</code>), <code>gen_band [N]</code> (<code>generator_band</code>, 3% of the upper limit, N33/N37), <code>q_lo</code>, <code>q_hi [N]</code> (<code>generator_q_capability</code>, widened to the unit's true Q, N34/N38), <code>q_ramp [N]</code> (unbounded by default, N37), <code>windows_solved</code> (3), <code>gen_output [T, N]</code> (the units' output at each bus, from the pool's <code>unit_p</code>; the generator bounds act on it and the load at the bus moves within the load cap, N42), <code>loads_only</code> (False; True pretends no generator bus, N43)</td>
+<td><code>design(window, rng)</code>: MsFdia's target choice and support search, each candidate support tested by a one-scan AC OPF at the full overload with every static bound (<code>reachable(window)</code> alone is that test), then solved scan by scan by Ipopt with the ramp, step and band bounds, each scan kept within reach of the full-overload solution and of zero at the last scan; the support whose window tampers the fewest meters is kept and an attack still tampering at the last scan does not exist</td>
+</tr>
+<tr>
+<td><code>InterfaceFdia</code></td>
+<td><code>attacks/interface_attack.py</code></td>
+<td><code>OpfFdia</code>'s settings plus <code>interfaces</code> (a list of <code>Interface</code>, built over the same frames as the pool) and <code>near</code> (0.9); <code>windows_solved</code> 6</td>
+<td><code>onset_mask(vm, va, length)</code> (last rise scan in a real 2019 hour at <code>near</code> of some interface's limit, N48), <code>design(window, rng)</code>: the goal is the model's interface flow plus that hour's real headroom (N49); supports grow from one interface branch's ends at a time; each window is solved with the meter objective (the change beyond noise on every P and Q flow meter touching the interior and every interior voltage meter, added to the injection terms) and with <code>OpfFdia</code>'s objective where that fails; the fewest tampered meters over all anchors is kept</td>
+</tr>
+<tr>
+<td><code>Ramp</code></td>
+<td><code>attacks/ramp.py</code></td>
+<td>an <code>Attacker</code>, the ramp settings</td>
+<td><code>design(window, rng)</code></td>
+</tr>
+<tr>
+<td><code>TimelineBuilder</code></td>
+<td><code>timeline/builder.py</code></td>
+<td>built as <code>TimelineBuilder(pool, meas, noise, attacker, families, own, settings, *, length=16 or {family: frames} (Am, At 16, Ap 96, N23), attacked_frac=0.2, split_frac=(0.7, 0.15, 0.15), split_by="week" (N41) or "time", workers=1, block=2016, verbose=False, survey=0, survey_cache=None)</code>: the pool, the <code>Measurement</code>, the <code>NoiseModel</code>, the <code>Attacker</code>, the families by name (<code>{"Am": MsFdia, "Ap": MsFdia(step_bound=...), "At": Ramp}</code>), the <code>Ownership</code> and <code>Settings</code> (whose seed keys every draw: <code>place</code>, <code>noise</code>, and <code>design/{family}/{onset}</code> per episode, so the result does not depend on <code>workers</code>)</td>
+<td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or <code>split_frames</code> with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code>, over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
+</tr>
+<tr>
+<td><code>TimelineWriter</code></td>
+<td><code>io.py</code></td>
+<td>an open HDF5 file, built as <code>TimelineWriter(path)</code></td>
+<td><code>write_static(case, own, plan)</code>, <code>write_frames(t0, block)</code> (<code>block</code> a dict of the per-frame arrays of frames <code>t0..</code>, datasets grown as written), <code>write_episodes(episodes)</code>, <code>close()</code></td>
+</tr>
+<tr>
+<td><code>Dataset</code></td>
+<td><code>dataset.py</code></td>
+<td>an open timeline file (<code>open_timeline</code>) with its <code>case</code>, <code>own</code>, <code>plan</code></td>
+<td><code>clients</code>, <code>client(name, split=None) -&gt; ClientView</code>, <code>operator(split=None) -&gt; ClientView</code> (every meter and bus, the operator's full scan); <code>split</code> is "train", "val", "test" or None for all frames</td>
+</tr>
+<tr>
+<td><code>ClientView</code></td>
+<td><code>dataset.py</code></td>
+<td>one client's meter, bus and frame selection, read when made, no file handle: <code>buses [N_c]</code> (bus positions it owns), <code>frames</code> (the indices of the selected frames, exact for the interleaved week split)</td>
+<td><code>z [T, M_c]</code>, <code>labels [T, N_c]</code> (<code>bus_attacked</code> of its buses), <code>meters</code> (its <code>MeterPlan</code> rows), <code>node_features()</code> (<code>[T, N_c, 4]</code> metered |V|, angle, P, Q per owned bus, NaN where not metered), <code>temporal()</code> (<code>[T, M_c]</code> change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; <code>z</code> stays raw)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h2>
+<p>Stateless steps, each called once in the build.</p>
+<table>
+<thead>
+<tr>
+<th>function</th>
+<th>file</th>
+<th>in</th>
+<th>out</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read_npcc(path)</code></td>
+<td><code>grid/nygrid.py</code></td>
+<td><code>npcc.mat</code></td>
+<td><code>Case</code></td>
+</tr>
+<tr>
+<td><code>modify_mpc(case)</code></td>
+<td><code>grid/nygrid.py</code></td>
+<td><code>Case</code></td>
+<td><code>Case</code> with every <code>modifyMPC.m</code> change</td>
+</tr>
+<tr>
+<td><code>nygrid_units(case, data_dir)</code></td>
+<td><code>grid/nygrid.py</code></td>
+<td><code>Case</code>, NYgrid <code>Data/</code></td>
+<td><code>Case</code> with the fixed unit list of NYgrid's hourly case (thermal, nuclear, hydro, external, HQ)</td>
+</tr>
+<tr>
+<td><code>split_zone_j</code>, <code>restore_765kv</code>, <code>hvdc_links</code></td>
+<td><code>grid/fixes.py</code></td>
+<td><code>Case</code></td>
+<td><code>Case</code></td>
+</tr>
+<tr>
+<td><code>externals_at_base(case, base)</code></td>
+<td><code>grid/fixes.py</code></td>
+<td>an hourly <code>Case</code>, the base <code>Case</code></td>
+<td><code>Case</code> with external load at base and external units covering the balance</td>
+</tr>
+<tr>
+<td><code>line_ratings(case)</code></td>
+<td><code>grid/ratings.py</code></td>
+<td><code>Case</code></td>
+<td><code>Case</code> with the ratings NYgrid gives (modifyMPC.m ties, fixed single-branch interface limits), 0 elsewhere; the rest are filled by <code>peak_ratings</code></td>
+</tr>
+<tr>
+<td><code>hourly_interfaces(case, time, data, names=None, year=2019)</code></td>
+<td><code>grid/interfaces.py</code></td>
+<td><code>Case</code>, the pool's frame times, NYgrid's data folder</td>
+<td>a list of <code>Interface</code> (branches and signs from <code>updateOpCond.m</code> L420-430, real hourly limit and flow per frame from <code>interflowHourly_2019.csv</code>); <code>Interface.model_flow(pf)</code> the signed sum</td>
+</tr>
+<tr>
+<td><code>peak_ratings(case, pool, factor=1.0)</code></td>
+<td><code>scenario/pool.py</code></td>
+<td><code>Case</code>, <code>Pool</code></td>
+<td><code>Case</code> with each unrated branch at <code>factor</code> times its peak apparent flow over the solved frames (N8; 1.0 by N47)</td>
+</tr>
+<tr>
+<td><code>write_pool(path, pool)</code>, <code>read_pool(path)</code></td>
+<td><code>io.py</code></td>
+<td><code>Pool</code></td>
+<td><code>pool.h5</code>: <code>time</code> (int64 seconds, NYISO local clock), <code>vm</code>, <code>va</code>, <code>p</code>, <code>q</code>, <code>solve_kind</code>, <code>unit_p</code> (when present)</td>
+</tr>
+<tr>
+<td><code>plan_meters(net, own, rng, vbus_frac=0.6)</code></td>
+<td><code>sensing/meters.py</code></td>
+<td><code>Network</code>, <code>Ownership</code>, a generator</td>
+<td><code>MeterPlan</code>: P, Q at every NY bus, P, Q flow at every branch end on a NY bus, |V| at a random 60% of NY buses, PMUs (voltage and branch-current phasors) at the smallest set that sees every NY bus (N7), each meter owned by its bus's client, accuracy class and drawn bias per meter</td>
+</tr>
+<tr>
+<td><code>assign_clients(case, territories, locations)</code></td>
+<td><code>grid/clients.py</code></td>
+<td><code>Case</code>, territory polygons, path to <code>data/territories/ny_bus_locations.csv</code> (substation location or zone-chosen utility per NY bus)</td>
+<td><code>Ownership</code>, one client per utility</td>
+</tr>
+<tr>
+<td><code>read_nygrid(data_dir, year)</code></td>
+<td><code>scenario/inputs.py</code></td>
+<td>NYgrid <code>Data/</code></td>
+<td><code>NygridHour</code> list</td>
+</tr>
+<tr>
+<td><code>fetch_nyiso(year)</code></td>
+<td><code>scenario/inputs.py</code></td>
+<td>NYISO pal archive</td>
+<td><code>ZoneLoad</code></td>
+</tr>
+<tr>
+<td><code>hourly_dispatch(case, hours)</code></td>
+<td><code>scenario/dispatch.py</code></td>
+<td></td>
+<td><code>Dispatch</code></td>
+</tr>
+<tr>
+<td><code>split_weeks(time, frac, weight, rng, stratum=STRATUM)</code></td>
+<td><code>timeline/schedule.py</code></td>
+<td>frame times, the shares, a weight per frame (the loaded onsets)</td>
+<td>split column <code>[T]</code>: whole weeks ranked by weight, cut into strata of 20, each stratum drawn into train, val, test in the shares (N41)</td>
+</tr>
+<tr>
+<td><code>split_frames(T, frac)</code></td>
+<td><code>timeline/schedule.py</code></td>
+<td></td>
+<td>split column <code>[T]</code>: train, val, test as three contiguous blocks of the year in time order (before N41)</td>
+</tr>
+<tr>
+<td><code>natural_steps(time, p, solved, pct=95.0)</code></td>
+<td><code>attacks/attacker.py</code></td>
+<td>the pool's frame times, net injections <code>p [T, N]</code> (MW), which frames are solved</td>
+<td><code>[24, N]</code> each bus's <code>pct</code> percentile of |p(t) - p(t-1)| over consecutive solved frames, by the clock hour of the later frame: the natural five-minute step Ap's attacker knows (ours)</td>
+</tr>
+<tr>
+<td><code>place_episodes(T, lengths, frac, rng, allowed=None)</code></td>
+<td><code>timeline/schedule.py</code></td>
+<td>one split's frame count, <code>{family: length}</code>, the attacked share, <code>{family: [T] allowed onsets}</code></td>
+<td><code>Slot</code> list: the whole episodes closest to <code>frac T</code> frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this)</td>
+</tr>
+<tr>
+<td><code>open_timeline(path)</code></td>
+<td><code>io.py</code></td>
+<td><code>timeline.h5</code></td>
+<td>the read-only file with its <code>Case</code>, <code>Ownership</code>, <code>MeterPlan</code> (a file written before <code>Case.ramp</code> reads it as NaN)</td>
+</tr>
+<tr>
+<td><code>generator_ramps(case, minutes=5.0)</code></td>
+<td><code>attacks/attacker.py</code></td>
+<td><code>Case</code></td>
+<td><code>[N]</code> each bus's units' ramp over <code>minutes</code> (MW) summed at the bus: NYgrid's ramp, nuclear 0, hydro 10% of nameplate per minute, imports 300 MW per 15 minutes per unit (N34), inf at a bus with no unit</td>
+</tr>
+<tr>
+<td><code>generator_band(case)</code></td>
+<td><code>attacks/attacker.py</code></td>
+<td><code>Case</code></td>
+<td><code>[N]</code> 3% of each bus's units' upper limit (MW), the basepoint band (N33)</td>
+</tr>
+<tr>
+<td><code>generator_q_capability(case)</code></td>
+<td><code>attacks/attacker.py</code></td>
+<td><code>Case</code></td>
+<td><code>([N], [N])</code> reactive capability plus or minus 0.312 Pmax per bus (MVAr, N34)</td>
+</tr>
+<tr>
+<td><code>fetch_inputs(root)</code></td>
+<td><code>build.py</code></td>
+<td>a folder</td>
+<td><code>root/data</code>: NYgrid's <code>Data/</code> at commit 47698b6, NYISO's pal archives for the year, the NYS DPS territories and the packaged <code>grid/ny_bus_locations.csv</code>, each kept when already there (the load model fetches its own sources on the first pool build)</td>
+</tr>
+<tr>
+<td><code>production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None)</code></td>
+<td><code>build.py</code></td>
+<td>the pool and <code>fetch_inputs</code>'s folder</td>
+<td>the release <code>TimelineBuilder</code>: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked</td>
+</tr>
+<tr>
+<td><code>wrap_angles(d, kind)</code></td>
+<td><code>attacks/attacker.py</code></td>
+<td>reading differences <code>[..., M]</code>, meter kinds</td>
+<td>the differences with angle readings (va, ia) wrapped to (-180, 180]</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-timeline-file">The timeline file<a class="headerlink" href="#the-timeline-file" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>group</th>
+<th>dataset</th>
+<th>shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>case/</code></td>
+<td>the <code>Case</code> arrays (strings UTF-8 bytes), <code>bus_client</code>, <code>client_names</code>, <code>tie_lines</code></td>
+<td>static</td>
+</tr>
+<tr>
+<td><code>meters/</code></td>
+<td>the <code>MeterPlan</code> table, attribute <code>kind_codes</code></td>
+<td><code>[M]</code></td>
+</tr>
+<tr>
+<td><code>frames/</code></td>
+<td><code>time</code> (int64 s), <code>split</code> (int8, attribute <code>split_codes</code>), <code>family</code> (int8, attribute <code>family_codes</code> benign, Am, At, Ap), <code>episode</code> (int32 row, -1 benign)</td>
+<td><code>[T]</code></td>
+</tr>
+<tr>
+<td><code>frames/</code></td>
+<td><code>z</code> (observed), <code>z_benign</code>, float32</td>
+<td><code>[T, M]</code></td>
+</tr>
+<tr>
+<td><code>frames/</code></td>
+<td><code>vm</code>, <code>va</code> (true state)</td>
+<td><code>[T, N]</code></td>
+</tr>
+<tr>
+<td><code>labels/</code></td>
+<td><code>bus_attacked</code></td>
+<td><code>[T, N]</code></td>
+</tr>
+<tr>
+<td><code>labels/</code></td>
+<td><code>meter_tampered</code></td>
+<td><code>[T, M]</code></td>
+</tr>
+<tr>
+<td><code>episodes/</code></td>
+<td>one row per <code>Episode</code>: <code>family</code>, <code>onset</code>, <code>length</code>, <code>target_branch</code>; ragged <code>buses</code>, <code>clients</code> as flat arrays with <code>[S + 1]</code> offsets <code>buses_ptr</code>, <code>clients_ptr</code></td>
+<td><code>[S]</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>z - z_benign</code> is the attack. Temporal features are computed at load time from each client's own <code>z</code>.
+Unsolved pool frames keep their place with NaN state and readings and no labels.</p>
+<h2 id="blocks-to-files">Blocks to files<a class="headerlink" href="#blocks-to-files" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>block</th>
+<th>files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1, F2</td>
+<td><code>pyproject.toml</code>, <code>config.py</code>, <code>io.py</code></td>
+</tr>
+<tr>
+<td>G1</td>
+<td><code>grid/case.py</code>, <code>grid/nygrid.py</code>, <code>grid/network.py</code></td>
+</tr>
+<tr>
+<td>G2</td>
+<td><code>grid/fixes.py</code></td>
+</tr>
+<tr>
+<td>G3</td>
+<td><code>grid/nygrid.py</code> (unit list)</td>
+</tr>
+<tr>
+<td>G4</td>
+<td><code>grid/ratings.py</code></td>
+</tr>
+<tr>
+<td>G5</td>
+<td><code>grid/clients.py</code>, <code>data/territories/ny_bus_locations.csv</code></td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>scenario/inputs.py</code></td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>scenario/loads.py</code></td>
+</tr>
+<tr>
+<td>P3</td>
+<td><code>scenario/dispatch.py</code></td>
+</tr>
+<tr>
+<td>P4, P5</td>
+<td><code>scenario/solver.py</code>, <code>scenario/pool.py</code></td>
+</tr>
+<tr>
+<td>M1</td>
+<td><code>sensing/meters.py</code></td>
+</tr>
+<tr>
+<td>M2</td>
+<td><code>sensing/measure.py</code>, <code>sensing/noise.py</code></td>
+</tr>
+<tr>
+<td>A1</td>
+<td><code>attacks/episode.py</code>, <code>attacks/attacker.py</code></td>
+</tr>
+<tr>
+<td>A2</td>
+<td><code>attacks/msfdia.py</code>, <code>attacks/opf_attack.py</code>, <code>attacks/interface_attack.py</code> and <code>grid/interfaces.py</code> (N48, N49)</td>
+</tr>
+<tr>
+<td>A3</td>
+<td><code>attacks/ramp.py</code></td>
+</tr>
+<tr>
+<td>A4</td>
+<td><code>attacks/msfdia.py</code> (Ap option), <code>natural_steps</code>, <code>generator_ramps</code>, <code>wrap_angles</code> in <code>attacks/attacker.py</code>, <code>Case.ramp</code> from <code>nygrid_units</code></td>
+</tr>
+<tr>
+<td>D1</td>
+<td><code>timeline/schedule.py</code>, <code>timeline/builder.py</code>, <code>TimelineWriter</code> in <code>io.py</code></td>
+</tr>
+<tr>
+<td>D2</td>
+<td><code>dataset.py</code>, <code>open_timeline</code> in <code>io.py</code></td>
+</tr>
+<tr>
+<td>D3</td>
+<td><code>build.py</code> (<code>fetch_inputs</code>, <code>production_builder</code>), <code>tools/nyfed/build_timeline.py</code>, <code>tools/nyfed/build_single_episodes.py</code></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: New York grid build">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                New York grid build
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../contributing/" class="md-footer__link md-footer__link--next" aria-label="Next: Contributing">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Contributing
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
