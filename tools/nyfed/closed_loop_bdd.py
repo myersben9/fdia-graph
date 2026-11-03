@@ -1,13 +1,20 @@
-"""Does the attack stay stealthy once the operator has acted on it (N76)? The attack vectors are designed on the
-benign trajectory, while the trusting operator's dispatch, regulation and the inadvertent interchange move the true
-state. For every attacked scan: the closed-loop true state (an AC power flow at the operator's units and the
-neighbours' supply), the scan the estimator then receives, h(x_closed) + a, and its weighted least squares fit. The
-residual that fit leaves is the attack's noncentrality in the chi-square test; with the meters' noise added the test
-fires with the probability of a noncentral chi-square past the 99th percentile of the central one.
+"""Does the attack stay stealthy once the operator has acted on it (N76, N77)? The attack vectors are designed on the
+benign trajectory, while the operator's dispatch, regulation and the inadvertent interchange move the true state.
+For every scan of the attack window, with the meters' own noise realization e (the benign scan less the benign
+readings, constant bias and jitter):
 
-    python tools/nyfed/closed_loop_bdd.py OUT.csv STUDY [STUDY ...] [--workers 8]
+- benign: the benign scan, fitted by AC weighted least squares on the full accuracy-class variance, and its
+  chi-square test at 99 percent;
+- attacked: h(x_closed) + a + e, with x_closed the AC power flow at the operator's units and the neighbours' supply,
+  fitted and tested the same way.
 
-Run from the folder whose `data/` holds the inputs.
+It then reruns the oracle operator with its fallback at the first scan the residual test fires, which gives the
+damage an operator that acts on its own residual alarm still takes.
+
+    python tools/nyfed/closed_loop_bdd.py OUT.csv STUDY [STUDY ...] [--mode trusting] [--workers 8]
+
+Run from the folder whose `data/` holds the inputs. One row per attack window: the scans the test fires on, the
+first of them, the benign firings over the same window and the damage of the residual-alarm oracle.
 """
 
 from __future__ import annotations
@@ -26,16 +33,24 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2, ncx2
+from scipy.stats import chi2
 
 warnings.filterwarnings("ignore")
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.grid.network import Network
-from fdia_graph.nyfed.operator.response import _entry_share, _TrueGrid, operator_day, respond
+from fdia_graph.nyfed.operator.response import _entry_share, _TrueGrid, operator_day, respond, summarize
 from fdia_graph.nyfed.sensing.measure import Measurement
 
 REF = 3  # bus type of the reference bus
+KEEP = (
+    "inadvertent_mw",
+    "inadvertent_mwh",
+    "iface_down_mw",
+    "iface_up_mw",
+    "other_iface_up_mw",
+    "margin_lost_mw",
+)
 
 
 def _wls(meas: Measurement, z: np.ndarray, sigma: np.ndarray, vm: np.ndarray, va: np.ndarray, ref: int):
@@ -55,23 +70,22 @@ def _wls(meas: Measurement, z: np.ndarray, sigma: np.ndarray, vm: np.ndarray, va
         if np.abs(step).max() < 1e-7:
             break
     r = wrap_angles(z - meas.h(vm, va), kind) * w
-    rank = int(np.linalg.matrix_rank(jac, tol=1e-6))
-    return float(r @ r), rank
+    return float(r @ r), int(np.linalg.matrix_rank(jac, tol=1e-6))
 
 
-def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> list[dict]:
+def _job(path: str, pool: str, data: str, calib: tuple[float, float], mode: str) -> dict | None:
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
-        return []
+        return None
     c = day.case
-    resp = respond(day, mode="trusting", calib=calib, closed_loop=True)
+    resp = respond(day, mode=mode, calib=calib, closed_loop=True)
     a = resp.attacked
     grid = _TrueGrid(day)
     share = _entry_share(c, "capacity")
     meas = Measurement(Network(c), day.plan)
     ref = int(np.flatnonzero(c.bus_type == REF)[0])
     sr, sa = day.plan.sigma_rel, day.plan.sigma_abs
-    rows = []
+    fired, benign_fired, j_att, j_ben = [], [], [], []
     for t in range(day.onset, day.onset + day.length):
         units = day.unit_p[t] + a.dev[t] + a.reg[t] + a.uncovered[t] * share
         r = grid.solver.power_flow(
@@ -84,28 +98,42 @@ def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> list[di
             start=(day.vm[t], day.va[t]),
         )
         if r is None:
+            fired.append(False)
+            benign_fired.append(False)
             continue
+        noise = wrap_angles(day.z_benign[t] - meas.h(day.vm[t], day.va[t]), day.plan.kind)
         att = day.z[t] - day.z_benign[t]
-        z_cl = meas.h(r["vm"], r["va"]) + att
-        z_ol = meas.h(day.vm[t], day.va[t]) + att
-        sigma = sr * np.abs(z_cl) + sa
-        j_cl, rank = _wls(meas, z_cl, sigma, r["vm"].copy(), r["va"].copy(), ref)
-        j_ol, _ = _wls(meas, z_ol, sigma, day.vm[t].copy(), day.va[t].copy(), ref)
-        dof = len(z_cl) - rank
-        thr = chi2.ppf(0.99, dof)
-        rows.append(
-            {
-                "file": Path(path).name,
-                "scan": t - day.onset,
-                "dof": dof,
-                "lambda_closed": j_cl,
-                "lambda_open": j_ol,
-                "p_detect_closed": float(ncx2.sf(thr, dof, j_cl)) if j_cl > 0 else 0.01,
-                "p_detect_open": float(ncx2.sf(thr, dof, j_ol)) if j_ol > 0 else 0.01,
-                "moved_mw": float(np.abs(a.dev[t] + a.reg[t]).sum()),
-            }
-        )
-    return rows
+        z_b = day.z_benign[t]
+        z_a = meas.h(r["vm"], r["va"]) + att + noise
+        sigma = sr * np.abs(z_b) + sa
+        jb, rank = _wls(meas, z_b, sigma, day.vm[t].copy(), day.va[t].copy(), ref)
+        ja, _ = _wls(meas, z_a, sigma, r["vm"].copy(), r["va"].copy(), ref)
+        thr = chi2.ppf(0.99, len(z_b) - rank)
+        fired.append(ja > thr)
+        benign_fired.append(jb > thr)
+        j_att.append(ja)
+        j_ben.append(jb)
+    fired_a, benign_a = np.array(fired), np.array(benign_fired)
+    first = int(np.argmax(fired_a)) if fired_a.any() else -1
+    row = {
+        "file": Path(path).name,
+        "mode": mode,
+        "variant": "at_limit" if Path(path).stem.endswith("_0") else "damaging",
+        "scans": len(fired_a),
+        "fired_scans": int(fired_a.sum()),
+        "first_fired": first,
+        "benign_fired_scans": int(benign_a.sum()),
+        "benign_any": bool(benign_a.any()),
+        "j_attacked_median": float(np.median(j_att)) if j_att else np.nan,
+        "j_benign_median": float(np.median(j_ben)) if j_ben else np.nan,
+        "dof": len(day.z_benign[0]) - rank if j_ben else np.nan,
+    }
+    full = summarize(resp)
+    row.update({f"full_{k}": full[k] for k in KEEP})
+    if first >= 0:  # the oracle acting on its own residual alarm
+        s = summarize(respond(day, mode="oracle", calib=calib, closed_loop=True, alarm_at=day.onset + first))
+        row.update({f"bdd_{k}": s[k] for k in KEEP})
+    return row
 
 
 def main() -> None:
@@ -115,6 +143,7 @@ def main() -> None:
     ap.add_argument("--pool", default="out/pool_2019_v3.h5")
     ap.add_argument("--data", default="data/NYgrid/Data")
     ap.add_argument("--calib", default="results/nygrid.tie_check.json")
+    ap.add_argument("--mode", default="trusting")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0, help="only the first N attack days (a quick check)")
     args = ap.parse_args()
@@ -127,9 +156,11 @@ def main() -> None:
     rows: list[dict] = []
     t0 = time.perf_counter()
     with ProcessPoolExecutor(args.workers) as ex:
-        futs = [ex.submit(_job, f, args.pool, args.data, calib) for f in files]
+        futs = [ex.submit(_job, f, args.pool, args.data, calib, args.mode) for f in files]
         for k, fut in enumerate(as_completed(futs), 1):
-            rows += fut.result()
+            r = fut.result()
+            if r is not None:
+                rows.append(r)
             pd.DataFrame(rows).to_csv(args.out, index=False)
             print(f"{k}/{len(files)} [{time.perf_counter() - t0:.0f}s]", flush=True)
 

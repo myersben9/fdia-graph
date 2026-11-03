@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The residual test with the meters' noise (New York grid).** `closed_loop_bdd.py` tests the benign twin and the
+  closed-loop attacked scans with each window's own noise and reports the damage of an operator that falls back at the
+  first residual alarm (`respond(alarm_at=...)`, N77).
+
 - **The closed loop (New York grid).** `respond(closed_loop=True)` has the operator read the true flows after its
   dispatch, with `--closed-loop` on the damage, entry and trace tools, and `tools/nyfed/closed_loop_bdd.py` tests
   whether a precomputed attack stays stealthy once the operator acts (N76).

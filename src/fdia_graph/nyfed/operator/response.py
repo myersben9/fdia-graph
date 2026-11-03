@@ -553,6 +553,7 @@ def respond(
     calib: tuple[float, float] | None = None,
     entry: str = "capacity",
     closed_loop: bool = False,
+    alarm_at: int | None = None,
 ) -> Response:
     """Run the operator on `day` in one of `MODES` (N66), acting `delay` scans late (O5). `over` (MW) is a
     what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
@@ -560,7 +561,8 @@ def respond(
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
     tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
-    alarm = _alarm_scan(day, tie_a, tie_b, calib)
+    # the oracle falls back at the interchange alarm, or at `alarm_at` (a scan of the day) when another alarm is studied
+    alarm = _alarm_scan(day, tie_a, tie_b, calib) if alarm_at is None else alarm_at
     seen_b = seen_interfaces(day.plan, day.interfaces, day.z_benign)
     seen_a = seen_interfaces(day.plan, day.interfaces, day.z)
     if over and day.onset >= 0:
