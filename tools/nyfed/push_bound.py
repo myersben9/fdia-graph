@@ -1,7 +1,9 @@
 """A bound on the interchange-consistent attacker (N68, N70): for each onset and interface, the largest push of
-the reported interface flow any attacker can make with every attackable New York load within `tau` of its
-load and every New York unit within `band` of its upper limit (zero-injection buses held), over all of New
-York with no limit on the support, in the DC model. Three forms of consistency:
+the reported interface flow any attacker can make in the DC model under the search's injection bounds. Every
+attackable New York load moves within `tau` of its load. A generator bus moves its units within `band` of their
+upper limit and inside their operating limits (widened to the true output), and the load it carries (the units'
+output less the bus injection, N42) within `tau`. Zero-injection buses and the reference bus hold their true
+injection, as in the search. Four reaches:
 
 - `net`: every bus outside New York at its true injection, so New York's net injection and the net interchange
   stay true (individual ties may still move in loops);
@@ -13,14 +15,16 @@ York with no limit on the support, in the DC model. Three forms of consistency:
   every other angle, so only the subnetwork and its edge change injection, the best anchor taken. It separates
   what the band protects from what the locality of the attacker does.
 
-In the DC model stealth and the step bounds only lower the push; the AC equations can move it either way, so
-the bound is reported with the headroom scaled by 0.8 and 0.9 as a margin for that model error. The split of
+In the DC model stealth and the step bounds only lower the push; the AC equations can move it either way (on
+the reduced network the voltage limits close it where the NYC generator buses sit at vmax, N71). The split of
 the push between loads and units shows which bound binds.
 
     python tools/nyfed/push_bound.py OUT.csv --onsets out/damage_study/damage.json [...] [--per-interface 60]
 
-Run from the folder whose `data/` holds the inputs. `--per-interface N` adds, for every interface, N onsets
-drawn among its own near-limit hours (real flow at least 90 percent of the real limit).
+Run from the folder whose `data/` holds the inputs. The onsets of `--onsets` were drawn for the attacked
+interface (Sprain Brook/Dunwoodie South, the first of `NAMES`) and are bounded on it only. `--per-interface N`
+adds, for every interface, N onsets drawn among its own near-limit hours (real flow at least 90 percent of the
+real limit).
 """
 
 from __future__ import annotations
@@ -104,17 +108,36 @@ def main() -> None:
         if not np.isfinite(vm).all():
             continue
         load = att.bus_load(vm, va)
+        # the load at a generator bus is the units' output less the bus injection (N42); the search lets it move
+        # within the load cap on top of the units' band
+        v = vm * np.exp(1j * np.deg2rad(va))
+        p_inj = (v * np.conj(att.ybus @ v)).real * att.base_mva
+        units = np.zeros(len(case.bus_id))
+        np.add.at(units, case.unit_bus, np.nan_to_num(pool.unit_p[r]))
+        gen_load = np.clip(units - p_inj, 0.0, None)
         free = np.zeros(len(case.bus_id), bool)
         free[att.free_injection_buses(vm, va, np.arange(len(case.bus_id)))] = True
+        # the search's interior grows over every edge bus whose injection may not change (a zero-injection bus,
+        # a load under the floor): its angle joins the free ones, its injection stays held
+        grown = [a_[ny[a_]] for a_ in (att._absorb(vm, va, area) for area in local[i])]
         it = ifs[i]
         H = float(it.limit[r] - it.flow[r])
         for tau in TAUS:
             for band in BANDS:
-                cap = np.where(att.gen_bus, band * pmax_bus, tau * np.clip(load, 0, None))
-                cap = np.where(free & ny, cap, 0.0)
-                cap[att.slack] = band * pmax_bus[att.slack]
+                # a generator bus moves its units within the band and inside their operating limits (widened to
+                # the true output, (7), (9)) and its load within the cap, as the search does; a load bus within the cap
+                unit_lo = np.maximum(-band * pmax_bus, np.minimum(att.p_lo, units) - units)
+                unit_hi = np.minimum(band * pmax_bus, np.maximum(att.p_hi, units) - units)
+                lo_cap = np.where(att.gen_bus, unit_lo - tau * gen_load, -tau * np.clip(load, 0, None))
+                hi_cap = np.where(att.gen_bus, unit_hi + tau * gen_load, tau * np.clip(load, 0, None))
+                keep = free & ny
+                keep[att.slack] = (
+                    False  # the reference bus holds its true injection in the search (attacker.py)
+                )
+                lo_cap, hi_cap = np.where(keep, lo_cap, 0.0), np.where(keep, hi_cap, 0.0)
+                cap = hi_cap  # kept for the net55 form's shape
                 for form in FORMS:
-                    lo, hi = -cap.copy(), cap.copy()
+                    lo, hi = lo_cap.copy(), hi_cap.copy()
                     obj, a_ub, b_ub = -sf[i], None, None
                     a_eq, b_eq = [np.ones(len(cap))], [0.0]  # DC balance over every bus
                     lo[~ny], hi[~ny] = 0.0, 0.0  # every external injection held: the net interchange is true
@@ -130,11 +153,11 @@ def main() -> None:
                         b_ub = [CHECK_MW, CHECK_MW]
                     if form == "net_local":  # angles of the interior free, every injection within its cap
                         best = None
-                        for area in local[i]:
+                        for area in grown:
                             r_ = linprog(
                                 -(it.signs @ bflow[it.branches][:, area]),
                                 A_ub=np.vstack([bbus[:, area], -bbus[:, area]]),
-                                b_ub=np.r_[cap, cap],
+                                b_ub=np.r_[hi_cap, -lo_cap],
                                 bounds=[(None, None)] * len(area),
                                 method="highs",
                             )

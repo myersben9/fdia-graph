@@ -39,11 +39,15 @@ DAY = 288  # five-minute scans
 _B = None  # each worker's builder
 
 
-def _init(pool: str, interface: str, consistent: bool = False) -> None:
+def _init(pool: str, interface: str, consistent: bool = False, v_margin: float = 0.0) -> None:
     global _B
     _B = production_builder(
         pool, ("Am",), interfaces=(interface,), workers=1, survey=0, hold_external=consistent
     )
+    if v_margin:  # N71: the attacker's voltage limits widened (the reduced network pins NYC buses at vmax)
+        case = _B.att.net.case
+        case.vmin[:] = case.vmin - v_margin
+        case.vmax[:] = case.vmax + v_margin
 
 
 def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | None:
@@ -127,15 +131,22 @@ def main() -> None:
     ap.add_argument(
         "--rerun", action="store_true", help="run the operator again on every onset (designs reused)"
     )
+    ap.add_argument(
+        "--v-margin",
+        type=float,
+        default=0.0,
+        help="p.u. the attacker's bus voltage limits are widened by (N71)",
+    )
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     # the designs cached here belong to one attacker form: never mix the consistent and the plain one
     marker = out / "attacker.json"
-    if marker.exists() and json.loads(marker.read_text()) != {"consistent": args.consistent}:
+    form = {"consistent": args.consistent, **({"v_margin": args.v_margin} if args.v_margin else {})}
+    if marker.exists() and json.loads(marker.read_text()) != form:
         raise SystemExit(f"{out} holds the other attacker form's designs; use another folder")
-    marker.write_text(json.dumps({"consistent": args.consistent}))
-    _init(args.pool, args.interface, args.consistent)
+    marker.write_text(json.dumps(form))
+    _init(args.pool, args.interface, args.consistent, args.v_margin)
     b = _B
     assert b is not None
     fam = b.families["Am"]
@@ -149,7 +160,7 @@ def main() -> None:
     rows = [] if args.rerun or not done.exists() else pd.read_csv(done).to_dict("records")
     todo = [int(o) for o in pick if int(o) not in {r["onset"] for r in rows}]
     t0 = time.perf_counter()
-    init = (args.pool, args.interface, args.consistent)
+    init = (args.pool, args.interface, args.consistent, args.v_margin)
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=init) as ex:
         cal = json.loads(Path(args.calib).read_text()) if args.calib else None
         calib = (cal["mean_mw"], cal["sd_mw"]) if cal else None

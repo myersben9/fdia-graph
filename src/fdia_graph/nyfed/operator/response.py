@@ -458,8 +458,10 @@ def _run(
                 t, day.unit_p[t] + moved + lent, step.shed
             )
         # the tightest true margin of any interface to its limit (MW, negative over it)
-        out["margin"][t] = float(
-            np.nanmin(limit[t] - (true_iface[t] + np.nan_to_num(out["iface_change"][t])))
+        # unknown (NaN) where the AC power flow of either run failed, never the benign margin
+        change = out["iface_change"][t]
+        out["margin"][t] = (
+            np.nan if np.isnan(change).any() else float(np.nanmin(limit[t] - (true_iface[t] + change)))
         )
         out["fuel"][t] = float(day.cost[t] @ moved) * FRAME_HOURS
         out["settled"][t] = float(np.nansum(price[t] * moved)) * FRAME_HOURS
