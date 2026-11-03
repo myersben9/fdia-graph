@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Voltage checks and the overload record (New York grid).** `tools/nyfed/voltage_check.py` evaluates a voltage-limit
+  alarm as a detector (N74), `damage_study.py --gen-v-tol` holds generator voltages near their schedule (N75),
+  `tie_check.py --attacks` measures detection over the meter draws, and `summarize` reports how long an interface
+  stays past its true limit.
+
 - **Entry patterns and many meter fleets (New York grid).** `respond(entry=...)` chooses where the inadvertent
   interchange enters (N72), with `tools/nyfed/entry_sensitivity.py` to rerun the operator under each, and
   `tie_check.py --draws N` repeats the check over fresh meter-bias draws (N73).

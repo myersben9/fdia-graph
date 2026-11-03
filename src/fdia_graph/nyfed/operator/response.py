@@ -241,7 +241,7 @@ class Twin:
     cover as the operator sees it (MW), `uncovered [T]` the true imbalance regulation had no room for
     (MW, positive short), `iface_change [T, I]` the true interface flow change from the
     basepoint's (AC, MW), `n1_change [T]` the change in the worst single-outage interface flow (MW), `margin [T]` the tightest
-    true margin of any interface to its limit (MW, negative over it),
+    true margin of any interface to its limit (MW, negative over it) and `margin_at [T]` that interface (-1 unknown),
     `shed [T, N]` the load the operator shed (MW), `relief [T]` what relieving the interfaces cost in
     production ($, `Step.relief_usd`), `shortage [T]` the flow left over the limit at the shortage curve ($), `fuel [T]` the production cost change and `settled [T]` the energy
     change at the zonal LBMP ($ per scan)."""
@@ -254,6 +254,7 @@ class Twin:
     iface_change: np.ndarray
     n1_change: np.ndarray
     margin: np.ndarray
+    margin_at: np.ndarray
     shed: np.ndarray
     relief: np.ndarray
     shortage: np.ndarray
@@ -442,6 +443,7 @@ def _run(
         "iface_change": np.zeros((T, I)),
         "n1_change": np.zeros(T),
         "margin": np.full(T, np.nan),
+        "margin_at": np.full(T, -1),
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
     }
@@ -492,9 +494,10 @@ def _run(
         # the tightest true margin of any interface to its limit (MW, negative over it)
         # unknown (NaN) where the AC power flow of either run failed, never the benign margin
         change = out["iface_change"][t]
-        out["margin"][t] = (
-            np.nan if np.isnan(change).any() else float(np.nanmin(limit[t] - (true_iface[t] + change)))
-        )
+        if not np.isnan(change).any():
+            room = limit[t] - (true_iface[t] + change)
+            out["margin"][t] = float(np.nanmin(room))
+            out["margin_at"][t] = int(np.nanargmin(room))
         out["fuel"][t] = float(day.cost[t] @ moved) * FRAME_HOURS
         out["settled"][t] = float(np.nansum(price[t] * moved)) * FRAME_HOURS
     return Twin(**out)
@@ -580,6 +583,24 @@ def respond(
     )
 
 
+def _over(r: Response) -> dict:
+    """Where the attacked run takes an interface past its true limit (N72): the scans over, the longest run of
+    them, the energy over (MWh) and the interface most often over (-1 none)."""
+    m = r.attacked.margin
+    over = np.nan_to_num(m, nan=1.0) < 0
+    run = best = 0
+    for o in over:
+        run = run + 1 if o else 0
+        best = max(best, run)
+    at = r.attacked.margin_at[over]
+    return {
+        "over_scans": int(over.sum()),
+        "over_run_scans": int(best),
+        "over_mwh": float(-m[over].sum() * FRAME_HOURS),
+        "over_iface": int(np.bincount(at).argmax()) if len(at) else -1,
+    }
+
+
 def summarize(r: Response, voll: float | None = None) -> dict:
     """The attack's consequence over the day, attacked less benign scan by scan, so what the benign twin
     already shows (a lagged reading over its limit, load the units cannot follow) is not counted: the
@@ -620,6 +641,7 @@ def summarize(r: Response, voll: float | None = None) -> dict:
         "n1_up_mw": float(np.nanmax(a.n1_change - b.n1_change)),
         "margin_min_mw": float(np.nanmin(a.margin)) if np.isfinite(a.margin).any() else float("nan"),
         "margin_lost_mw": peak(b.margin - a.margin),
+        **_over(r),
         "fuel_usd": float(a.fuel.sum() - b.fuel.sum()),
         "settled_usd": float(a.settled.sum() - b.settled.sum()),
         "relief_usd": float(a.relief.sum() - b.relief.sum()),

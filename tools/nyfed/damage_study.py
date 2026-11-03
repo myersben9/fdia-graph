@@ -39,7 +39,9 @@ DAY = 288  # five-minute scans
 _B = None  # each worker's builder
 
 
-def _init(pool: str, interface: str, consistent: bool = False, v_margin: float = 0.0) -> None:
+def _init(
+    pool: str, interface: str, consistent: bool = False, v_margin: float = 0.0, gen_v_tol: float | None = None
+) -> None:
     global _B
     _B = production_builder(
         pool, ("Am",), interfaces=(interface,), workers=1, survey=0, hold_external=consistent
@@ -48,6 +50,7 @@ def _init(pool: str, interface: str, consistent: bool = False, v_margin: float =
         case = _B.att.net.case
         case.vmin[:] = case.vmin - v_margin
         case.vmax[:] = case.vmax + v_margin
+    _B.families["Am"].gen_v_tol = gen_v_tol  # N75: generator voltages held near their schedule
 
 
 def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | None:
@@ -137,16 +140,26 @@ def main() -> None:
         default=0.0,
         help="p.u. the attacker's bus voltage limits are widened by (N71)",
     )
+    ap.add_argument(
+        "--gen-v-tol",
+        type=float,
+        default=None,
+        help="p.u. a generator bus's false voltage may leave its schedule (N75)",
+    )
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     # the designs cached here belong to one attacker form: never mix the consistent and the plain one
     marker = out / "attacker.json"
-    form = {"consistent": args.consistent, **({"v_margin": args.v_margin} if args.v_margin else {})}
+    form = {
+        "consistent": args.consistent,
+        **({"v_margin": args.v_margin} if args.v_margin else {}),
+        **({"gen_v_tol": args.gen_v_tol} if args.gen_v_tol is not None else {}),
+    }
     if marker.exists() and json.loads(marker.read_text()) != form:
         raise SystemExit(f"{out} holds the other attacker form's designs; use another folder")
     marker.write_text(json.dumps(form))
-    _init(args.pool, args.interface, args.consistent, args.v_margin)
+    _init(args.pool, args.interface, args.consistent, args.v_margin, args.gen_v_tol)
     b = _B
     assert b is not None
     fam = b.families["Am"]
@@ -160,7 +173,7 @@ def main() -> None:
     rows = [] if args.rerun or not done.exists() else pd.read_csv(done).to_dict("records")
     todo = [int(o) for o in pick if int(o) not in {r["onset"] for r in rows}]
     t0 = time.perf_counter()
-    init = (args.pool, args.interface, args.consistent, args.v_margin)
+    init = (args.pool, args.interface, args.consistent, args.v_margin, args.gen_v_tol)
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=init) as ex:
         cal = json.loads(Path(args.calib).read_text()) if args.calib else None
         calib = (cal["mean_mw"], cal["sd_mw"]) if cal else None

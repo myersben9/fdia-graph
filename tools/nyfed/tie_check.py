@@ -36,6 +36,9 @@ def main() -> None:
     ap.add_argument("--pool", default="out/pool_2019_v3.h5")
     ap.add_argument("--out", default="results")
     ap.add_argument("--draws", type=int, default=0)
+    ap.add_argument(
+        "--attacks", nargs="*", default=[], help="damage_study.py folders whose attacks each draw detects"
+    )
     args = ap.parse_args()
     b = production_builder(args.pool, ("Am",), workers=1, survey=0)
     case, plan, net, pool = b.att.net.case, b.att.meas.plan, b.att.net, b.pool
@@ -82,10 +85,28 @@ def main() -> None:
     (Path(args.out) / "nygrid.tie_check.json").write_text(json.dumps(out, indent=1))
     print(json.dumps(out, indent=1))
     if args.draws:
-        _draws(args, plan, rows, np.concatenate(nears), np.concatenate(fars), time, fit, test)
+        _draws(args, plan, rows, np.concatenate(nears), np.concatenate(fars), time, fit, test, _attacks(args))
 
 
-def _draws(args, plan, rows, near, far, time, fit, test) -> None:
+def _attacks(args) -> list[tuple[str, np.ndarray, np.ndarray]]:
+    """Each attack day of `--attacks`: its variant, the clock of its attacked scans and the false interchange it
+    adds there (the read interchange less the benign one, the meters' noise cancelling against the twin)."""
+    from fdia_graph.nyfed.operator.response import operator_day, tie_gap
+
+    out = []
+    for study in args.attacks:
+        for path in sorted(Path(study, "days").glob("am_*.h5")):
+            day = operator_day(path, args.pool, "data/NYgrid/Data")
+            if day.onset < 0:
+                continue
+            w = slice(day.onset, day.onset + day.length)
+            false = (tie_gap(day, day.z) - tie_gap(day, day.z_benign))[w]
+            variant = "at_limit" if path.stem.endswith("_0") else "damaging"
+            out.append((variant, np.asarray(day.time[w]).astype("datetime64[s]"), false))
+    return out
+
+
+def _draws(args, plan, rows, near, far, time, fit, test, attacks=()) -> None:
     """The check over fresh draws of both ends' constant biases (N73), the same accuracy classes and jitter."""
     sr, sa = plan.sigma_rel[rows], plan.sigma_abs[rows]
     rel = sr > 0
@@ -126,9 +147,32 @@ def _draws(args, plan, rows, near, far, time, fit, test) -> None:
         s_r = s_r * float(np.median(sd_t[test]))  # the median threshold in MW, for the record
         days_r = np.array([alarm_r[test][days == u].any() for u in uniq])
         roll_scans, roll_days, roll_thr = int(alarm_r[test].sum()), int(days_r.sum()), [4.0 * s_r]
+        detect: dict[str, list] = {"at_limit": [], "damaging": []}
+        for variant, clock, false in attacks:  # each attack against this draw's benign gap and threshold
+            idx = np.searchsorted(time, clock)
+            ok = (idx < len(time)) & (time[np.minimum(idx, len(time) - 1)] == clock)
+            hit = np.flatnonzero(ok & (np.abs(gap[np.minimum(idx, len(time) - 1)] + false - mean) > 4.0 * sd))
+            detect[variant].append(int(hit[0]) if len(hit) else -1)
         out.append(
             {
                 "draw": d,
+                "detected_at_limit_pct": round(
+                    100.0 * float(np.mean([h >= 0 for h in detect["at_limit"]])), 1
+                )
+                if detect["at_limit"]
+                else None,
+                "detected_damaging_pct": round(
+                    100.0 * float(np.mean([h >= 0 for h in detect["damaging"]])), 1
+                )
+                if detect["damaging"]
+                else None,
+                "delay_at_limit_median": float(np.median([h for h in detect["at_limit"] if h >= 0]))
+                if any(h >= 0 for h in detect["at_limit"])
+                else None,
+                "delay_damaging_median": float(np.median([h for h in detect["damaging"] if h >= 0]))
+                if any(h >= 0 for h in detect["damaging"])
+                else None,
+                "delay_max": max([h for v in detect.values() for h in v] + [-1]),
                 "threshold_mw": round(4.0 * sd, 1),
                 "false_alarm_scans": int(alarm[test].sum()),
                 "days_with_a_false_alarm": int(per_day.sum()),
