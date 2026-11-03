@@ -34,7 +34,9 @@ def test_every_public_model_is_defined_in_the_package():
     """A public Bundle or NamedTuple defined in a producer module would scatter the models again."""
     strays = {}
     for info in pkgutil.walk_packages([SRC], "fdia_graph."):
-        if info.name.startswith("fdia_graph.models"):
+        # fdia_graph.nyfed keeps its records in its own modules until it is conformed (DEFERRED in
+        # tools/readability.py)
+        if info.name.startswith(("fdia_graph.models", "fdia_graph.nyfed")):
             continue
         try:
             mod = importlib.import_module(info.name)

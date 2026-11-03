@@ -91,6 +91,35 @@ timelines; the rest load and serve data. The table is generated from each module
 | `models.scores` | The result tables: an estimator's error pair per record class, a localizer's metric rows per class, and the Jacobian feature outputs. Each is a Bundle, indexable by family name as before. |
 | `models.training` | What the learned localizers pass between their fitting pieces (a centralized fit and a federated client share them). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
+| `nyfed` | New York federated FDIA dataset. |
+| `nyfed.attacks` | Attacks: the local subnetwork an attacker re-solves, and the two families Am and At. |
+| `nyfed.attacks.attacker` | The attacker: the local subnetwork it re-solves, and the false states its two goals imply. |
+| `nyfed.attacks.episode` | What one attack occupies on the timeline, and the interface its two families share. |
+| `nyfed.attacks.interface_attack` | The overload attack on a NYISO interface (N48, N49, ours): Am with OpfFdia's false states and every one of its bounds, the goal moved from one branch's rating to the flow across an interface. |
+| `nyfed.attacks.msfdia` | Am, the multi-snapshot overload FDIA of [1] (TSG 2026, eqs. 12-25): over a window of snapshots the reported apparent flow of one or two target branches is driven to their ratings, each snapshot the reading of one AC false state so the operator's residual test stays quiet, while the true flow is below the rating. The attack tampers the fewest distinct meters (eq. 12). |
+| `nyfed.attacks.opf_attack` | The overload attacks with the attacker's false states from a local optimal power flow (N35, ours). |
+| `nyfed.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
+| `nyfed.config` | Build settings and the one place random generators are made. |
+| `nyfed.dataset` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
+| `nyfed.grid.case` | The grid as one frozen record of arrays. |
+| `nyfed.grid.clients` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
+| `nyfed.grid.fixes` | The changes that make NYgrid's operating points solvable in AC (checked in MATLAB on 8760 hours of 2019). |
+| `nyfed.grid.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
+| `nyfed.grid.network` | Admittances of a Case, built once, and the AC quantities they give for any state. |
+| `nyfed.grid.nygrid` | Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m). |
+| `nyfed.grid.ratings` | Branch ratings from the limits NYgrid itself sets. `npcc.mat` carries no branch ratings. |
+| `nyfed.io` | HDF5 files of the build. The only module that imports h5py. |
+| `nyfed.scenario.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
+| `nyfed.scenario.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load. |
+| `nyfed.scenario.loads` | Per-bus load profiles by the bottom-up method of Li et al. [2] (PLAN.md), scaled to the real zone load. |
+| `nyfed.scenario.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
+| `nyfed.scenario.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
+| `nyfed.sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
+| `nyfed.sensing.meters` | The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class. |
+| `nyfed.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
+| `nyfed.timeline` | Timeline: the time split, episode placement, and the frames and labels written to timeline.h5. |
+| `nyfed.timeline.builder` | The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled. |
+| `nyfed.timeline.schedule` | Where the timeline's splits are cut and where each split's episodes go. |
 | `profiles` | Load-profile ingestion + operating-state generation — the FRONT of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
 | `registry` | Dataset registry: built-in (downloadable) datasets + locally generated ones. |

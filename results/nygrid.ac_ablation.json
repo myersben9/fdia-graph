@@ -1,0 +1,56 @@
+{
+ "hours": 8760,
+ "hours_with_errors": 0,
+ "variants": {
+  "full": {
+   "ac_feasible": 8446,
+   "feasible_pct": 96.42,
+   "lost_vs_full": 0,
+   "gained_vs_full": 0,
+   "redispatch_ny_mw_median": 636.9,
+   "redispatch_ny_pct_of_ny_gen_median": 4.01,
+   "redispatch_ext_mw_median": 61.5,
+   "ny_vmin": 0.933
+  },
+  "noE": {
+   "ac_feasible": 2288,
+   "feasible_pct": 26.12,
+   "lost_vs_full": 6310,
+   "gained_vs_full": 152,
+   "redispatch_ny_mw_median": 967.1,
+   "redispatch_ny_pct_of_ny_gen_median": 7.35,
+   "redispatch_ext_mw_median": 761.0,
+   "ny_vmin": 0.9
+  },
+  "noJ": {
+   "ac_feasible": 6,
+   "feasible_pct": 0.07,
+   "lost_vs_full": 8440,
+   "gained_vs_full": 0,
+   "redispatch_ny_mw_median": 817.1,
+   "redispatch_ny_pct_of_ny_gen_median": 7.56,
+   "redispatch_ext_mw_median": 106.1,
+   "ny_vmin": 0.9
+  },
+  "noL": {
+   "ac_feasible": 8126,
+   "feasible_pct": 92.76,
+   "lost_vs_full": 595,
+   "gained_vs_full": 275,
+   "redispatch_ny_mw_median": 760.1,
+   "redispatch_ny_pct_of_ny_gen_median": 4.74,
+   "redispatch_ext_mw_median": 71.5,
+   "ny_vmin": 0.9
+  },
+  "projOnly": {
+   "ac_feasible": 0,
+   "feasible_pct": 0.0,
+   "lost_vs_full": 8446,
+   "gained_vs_full": 0,
+   "redispatch_ny_mw_median": null,
+   "redispatch_ny_pct_of_ny_gen_median": null,
+   "redispatch_ext_mw_median": null,
+   "ny_vmin": null
+  }
+ }
+}

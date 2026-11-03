@@ -1,0 +1,17 @@
+diff --git a/updateOpCond.m b/updateOpCond.m
+--- a/updateOpCond.m
++++ b/updateOpCond.m
+@@ -1,4 +1,4 @@
+-function mpcreduced = updateOpCond(mpc,timeStamp,savedata,verbose,usemat)
++function [mpcreduced, mpcfull] = updateOpCond(mpc,timeStamp,savedata,verbose,usemat)
+ %UPDATEOPCOND Update operation condition at a speficied timestamp
+ % 
+ %   Inputs:
+@@ -392,6 +392,7 @@ if verbose
+ end
+ fprintf("Finished updating external load and generation!\n");
+ 
++mpcfull = mpc;
+ %% Equivelent Reduction
+ 
+ % Define external buses

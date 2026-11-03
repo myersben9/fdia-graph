@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **New York grid (`fdia_graph.nyfed`, the `[ny]` extra).** The New York federated grid package, moved in
+  from its own repository as written: the modified NPCC-140 of NYgrid in AC, the 2019 five-minute
+  operating-point pool from a ramp-constrained AC dispatch, utility clients from the state's service
+  territories, the hybrid SCADA and PMU meter plan with accuracy-class noise, the overload attack built
+  on [WU26] eqs. (12)-(25) against NYISO interface limits (`InterfaceFdia`), the slow ramp, the
+  timeline builder (`TimelineBuilder.build`, `build_episode` for a single-episode file) and the loader
+  with per-client views. Its plan and architecture are docs/nyfed; its tests (tests/nyfed) read the
+  NYgrid checkout and the built pool under `NYFED_ROOT` and skip without them. The package keeps its own
+  rules until it is brought under the SDK's (`DEFERRED` in tools/readability.py). No change to the rest
+  of the package.
+
 - `tools/wu26_faithful.py --tau` runs a scenario at another per-snapshot weight; the records carry a
   `tau` tag and the `wu26.faithful` table shows one row set per weight. New `tools/wu26_dqn.py` trains
   [WU26]'s DQN over `Wu26DefenseEnv` in parallel sessions and tests each on fresh windows, stored as

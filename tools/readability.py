@@ -45,6 +45,28 @@ _SCHEMA = os.path.join(ROOT, "schema.py")  # the one module allowed to spell a d
 # "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
 EXCEPTIONS: dict[str, str] = {}
 
+# Subpackages these rules do not reach yet, with the reason. fdia_graph.nyfed came in from its own
+# repository as written (2026-11-02) and is brought under the rules one module at a time, each change
+# checked to reproduce the same output; until then its rules are src/fdia_graph/nyfed/CLAUDE.md.
+DEFERRED: dict[str, str] = {"nyfed": "moved in as written; conformed module by module"}
+
+
+def _deferred(path: str) -> bool:
+    """Whether `path` lies in a DEFERRED subpackage."""
+    try:
+        rel = os.path.relpath(os.path.abspath(path), ROOT)
+    except ValueError:  # another drive (Windows): not under the package
+        return False
+    return rel.split(os.sep)[0] in DEFERRED
+
+
+def _walk():
+    """os.walk over the package, without the DEFERRED subpackages."""
+    for dp, dirs, fs in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if not _deferred(os.path.join(dp, d))]
+        yield dp, dirs, fs
+
+
 _NEST = (ast.For, ast.While, ast.If, ast.With, ast.Try)
 _FUNC = (ast.FunctionDef, ast.AsyncFunctionDef)
 
@@ -363,7 +385,7 @@ def any_annotations(path: str) -> list[tuple[str, int]]:
 
 def any_annotations_all() -> list[tuple[str, int]]:
     out: list[tuple[str, int]] = []
-    for dp, _, fs in os.walk(ROOT):
+    for dp, _, fs in _walk():
         for f in sorted(fs):
             if f.endswith(".py"):
                 out += any_annotations(os.path.join(dp, f))
@@ -392,7 +414,7 @@ def _raised_name(n: ast.Raise) -> str:
 
 def hand_checks_all() -> list[tuple[str, int, str]]:
     out: list[tuple[str, int, str]] = []
-    for dp, _, fs in os.walk(ROOT):
+    for dp, _, fs in _walk():
         for f in sorted(fs):
             if f.endswith(".py"):
                 out += hand_checks(os.path.join(dp, f))
@@ -401,7 +423,7 @@ def hand_checks_all() -> list[tuple[str, int, str]]:
 
 def protocol_literals_all() -> list[tuple[str, int, str]]:
     out: list[tuple[str, int, str]] = []
-    for dp, _, fs in os.walk(ROOT):
+    for dp, _, fs in _walk():
         for f in sorted(fs):
             if f.endswith(".py"):
                 out += protocol_literals(os.path.join(dp, f))
@@ -417,7 +439,7 @@ def measure_file(path: str) -> list[Measure]:
 
 def measure_all() -> list[Measure]:
     out: list[Measure] = []
-    for dp, _, fs in os.walk(ROOT):
+    for dp, _, fs in _walk():
         for f in sorted(fs):
             if f.endswith(".py"):
                 out += measure_file(os.path.join(dp, f))
@@ -481,7 +503,7 @@ def _changed_lines(base: str) -> dict[str, set[int]]:
 
 
 def check(base: str) -> int:
-    changed = _changed_lines(base)
+    changed = {p: lines for p, lines in _changed_lines(base).items() if not _deferred(p)}
     failing = []
     for path, lines in changed.items():
         if not os.path.exists(path) or not path.endswith(".py"):
