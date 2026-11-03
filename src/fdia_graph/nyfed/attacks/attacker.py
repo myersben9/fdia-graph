@@ -228,8 +228,15 @@ class Attacker:
     the measurement's plan, so the attacker needs no separate `Ownership`: a bus's client is the owner
     of its meters (a bus with no meters is external, N4), used only to label an episode's owners."""
 
-    def __init__(self, net: Network, meas: Measurement, gen_q_share: float = 0.2):
+    def __init__(
+        self, net: Network, meas: Measurement, gen_q_share: float = 0.2, hold_external: bool = False
+    ):
         self.net, self.meas = net, meas
+        # N62: every bus outside New York keeps its true injection, so the change lands on New York's own
+        # loads and units and the net interchange stays true up to losses (each tie on its own may still
+        # move where one external bus meets several New York buses, so this is a relaxation of holding
+        # every tie, and an attack it rules out is ruled out for the stricter form too)
+        self.hold_external = hold_external
         # a generator's pretended reactive change stays within this share of its units' Q range (N27,
         # Ben 2026-10-27): without it the cheapest stealthy overload is fake reactive output
         self.gen_q_share = gen_q_share
@@ -270,10 +277,10 @@ class Attacker:
         bus (the operator meters P and Q there), and a bus outside New York with no unit and no injection
         at the state (N44, bus 140 radial off Dunkirk): no meter sees it, but with no load or generation
         nothing there could take up a change, so it is held like a New York zero-injection bus. Every
-        other bus outside New York absorbs."""
+        other bus outside New York absorbs, unless `hold_external` (N62) holds them all."""
         v = vm * np.exp(1j * np.deg2rad(va))
         dead = ~self.gen_bus & (np.abs(v * np.conj(self.ybus @ v)) < 1e-6)  # pu, the solver's zero
-        return (self.owner >= 0) | dead
+        return (self.owner >= 0) | dead | (self.hold_external & (self.owner < 0))
 
     def _absorb(self, vm: np.ndarray, va: np.ndarray, interior: np.ndarray) -> np.ndarray:
         """The interior grown over its edge's buses whose injection the attack may not change
@@ -289,6 +296,8 @@ class Attacker:
         while True:
             edge = self.boundary(s)
             move = edge[held[edge] & ~free[edge] & (edge != self.slack)]
+            if self.hold_external:  # N62: a bus outside New York stays on the edge, its injection held by the
+                move = move[self.owner[move] >= 0]  # solve, so every tie keeps its true flow
             if not len(move):
                 return s
             s = np.union1d(s, move)
@@ -318,6 +327,8 @@ class Attacker:
         and the generators (the slack out). A zero-injection bus is held at its true injection."""
         gens = np.asarray(buses, int)[self.gen_bus[np.asarray(buses, int)]]
         gens = gens[gens != self.slack]
+        if self.hold_external:  # N62: no unit outside New York takes up the change
+            gens = gens[self.owner[gens] >= 0]
         return np.union1d(self.load_buses(vm, va, buses), gens)
 
     def area(self, center: int, hops: int) -> np.ndarray | None:
@@ -330,6 +341,8 @@ class Attacker:
         for h in range(hops, 0, -1):
             interior = self.net.neighbors([center], h)
             interior = interior[interior != self.slack]
+            if self.hold_external:  # N62: no bus outside New York in the area
+                interior = interior[self.owner[interior] >= 0]
             if len(interior) and len(self.boundary(interior)):
                 return interior
         return None

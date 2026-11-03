@@ -530,3 +530,20 @@ def test_load_reactive_change_within_floored_cap(setup, pattern):
         assert (np.abs(ep.a[:, rq]) <= 0.5 * np.maximum(np.abs(q[:, b]), 0.2 * load) + 1e-5).all()
         checked += np.abs(ep.a[:, rq]).max() > 1e-3
     assert checked >= 1
+
+
+def test_the_interchange_consistent_attacker_holds_every_bus_outside_new_york(setup):
+    """N62: with `hold_external` every bus outside New York keeps its true injection and no unit there takes
+    up the change, and an external bus stays on the edge of the attack's interior instead of joining it,
+    so the solve holds every tie at its true flow. Without it only dead external buses are held (N44)."""
+    att, meas, (_, vms, vas) = setup[0], setup[3], setup[5]
+    net, vm, va = att.net, vms[0], vas[0]
+    case = net.case
+    held = Attacker(net, meas, hold_external=True)
+    ext = held.owner < 0
+    assert held._held_bus(vm, va)[ext].all() and not att._held_bus(vm, va)[ext].all()
+    every = np.arange(len(held.owner))
+    assert (held.owner[held.free_injection_buses(vm, va, every)] >= 0).all()
+    for b in np.flatnonzero(case.is_ny)[:40]:
+        inside = held._absorb(vm, va, np.array([b]))
+        assert (held.owner[inside] >= 0).all()  # never grown across the border

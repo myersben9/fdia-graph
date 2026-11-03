@@ -99,6 +99,7 @@ class DcSced:
         cost: np.ndarray,
         interfaces: list[Interface],
         bus_load: np.ndarray | None = None,
+        quick_start: np.ndarray | None = None,
     ):
         self.case, self.unit_p, self.cost = case, unit_p, cost
         ptdf = shift_factors(case)
@@ -106,6 +107,9 @@ class DcSced:
         self.free = ~np.isin(case.fuel.astype(str), HELD)
         self.ramp = np.where(np.isfinite(case.ramp), case.ramp * 5.0, np.inf)  # MW per scan
         self.bus_load = np.zeros((len(unit_p), len(case.bus_id))) if bus_load is None else bus_load
+        # N64: offline units the operator may start within ten minutes (half the range per scan)
+        self.quick = np.zeros(len(self.free), bool) if quick_start is None else np.asarray(quick_start, bool)
+        self.ramp = np.where(self.quick, np.maximum(self.ramp, case.pmax / 2.0), self.ramp)
 
     def _bounds(self, t: int, prev: np.ndarray | None, g: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Each unit's reachable change from its basepoint, signed: its limits, and the ramp from the
@@ -121,18 +125,20 @@ class DcSced:
             hi = np.minimum(hi, was + self.ramp[g] - p0)
         return np.minimum(lo, hi), hi
 
-    def _solve(self, t, seen, limit, load_change, prev, enforce: bool, shed_ok: bool = True):
+    def _solve(self, t, seen, limit, load_change, prev, enforce: bool, shed_ok: bool | np.ndarray = True):
         """The two-stage dispatch: least weighted movement (redispatch at 1 per MW, shedding at
         `SHED_WEIGHT`, slack at `SLACK_WEIGHT`), then least cost at no more of each. Returns the units,
         the dispatch [G], the shed [N], the interface slack [I] and the unmatched load."""
-        g = np.flatnonzero(self.free & (self.unit_p[t] > 0.5))
+        g = np.flatnonzero(self.free & ((self.unit_p[t] > 0.5) | self.quick))
         n = len(g)
         lo, hi = self._bounds(t, prev, g)
         on = np.isfinite(seen) & np.isfinite(limit) if enforce else np.zeros(len(seen), bool)
+        # each interface sheds only once it has been over its own limit for 15 minutes (N59)
+        may_shed = (np.broadcast_to(np.asarray(shed_ok, bool), on.shape) & on)[on]
         k = int(on.sum())
         sb = (
-            np.flatnonzero((self.sf[on] <= SHED_FACTOR).any(axis=0) & (self.bus_load[t] > 0))
-            if k and shed_ok
+            np.flatnonzero((self.sf[on][may_shed] <= SHED_FACTOR).any(axis=0) & (self.bus_load[t] > 0))
+            if k and may_shed.any()
             else np.zeros(0, int)
         )
         s = len(sb)
@@ -181,12 +187,13 @@ class DcSced:
         limit: np.ndarray,
         load_change: float,
         prev: np.ndarray | None,
-        shed_ok: bool = True,
+        shed_ok: bool | np.ndarray = True,
     ) -> Step:
         """Scan `t`: interface flows `seen [I]` against `limit [I]` (a NaN in either leaves that interface
         unenforced), the seen load's change from the basepoint's `load_change` (MW), and `prev [G]` the
-        operator's deviation at the scan before (None at the first scan). `shed_ok` allows load relief, which
-        the operator's procedures reach only after `SHED_AFTER` scans over the limit."""
+        operator's deviation at the scan before (None at the first scan). `shed_ok` (one flag, or one per
+        interface) allows load relief for an interface, which the procedures reach only after `SHED_AFTER`
+        scans over its limit."""
         dev, shed, slack, unmatched = self._solve(t, seen, limit, load_change, prev, True, shed_ok)
         relief = 0.0
         if np.abs(dev).sum() > 1e-6 and np.isfinite(seen).any():

@@ -39,7 +39,7 @@ from fdia_graph.nyfed.scenario.dispatch import hourly_dispatch
 from fdia_graph.nyfed.scenario.inputs import ZONES, read_nygrid
 from fdia_graph.nyfed.scenario.pool import Pool
 from fdia_graph.nyfed.scenario.solver import AcSolver
-from fdia_graph.nyfed.sensing.meters import KINDS, MeterPlan
+from fdia_graph.nyfed.sensing.meters import JITTER_FRAC, KINDS, MeterPlan
 
 # NYISO's zone names in priceHourly, by zone letter
 LBMP_ZONE = {
@@ -82,6 +82,11 @@ class OperatorDay:
     length: int
 
 
+# the interfaces the operator enforces, the attacked one first (N64)
+INTERFACES = ("SPR/DUN-SOUTH", "UPNY CONED", "CENTRAL EAST - VC", "MOSES SOUTH")
+REG_CAP = 275.0  # MW of regulation the operator holds, the summer requirement at its highest hour (N63)
+# N64: small gas, oil and kerosene units in New York City and Long Island, the quick-start fleet
+QUICK_FUELS, QUICK_ZONES, QUICK_MAX_MW = ("Natural Gas", "Kerosene", "Fuel Oil 2"), ("J", "K"), 200.0
 _POOLS: dict[str, Pool] = {}  # pools and NYgrid's hourly tables read once per process: a study runs many days
 _HOURS: dict[str, list] = {}
 
@@ -104,11 +109,18 @@ def _zonal_lbmp(data_dir: Path, time: np.ndarray, year: int = 2019) -> np.ndarra
     return table.reindex(index=hour, columns=[LBMP_ZONE[z] for z in ZONES]).to_numpy(float)
 
 
+def _target_first(interfaces: list[Interface], branch: int) -> list[Interface]:
+    """The interfaces with the one holding the attack's target branch first (the summary reads it as the
+    attacked interface), every one still enforced."""
+    k = next((i for i, it in enumerate(interfaces) if branch in set(it.branches.tolist())), 0)
+    return [interfaces[k]] + interfaces[:k] + interfaces[k + 1 :]
+
+
 def operator_day(
     timeline: str | Path,
     pool: str | Path,
     data_dir: str | Path,
-    interfaces: tuple[str, ...] = ("SPR/DUN-SOUTH",),
+    interfaces: tuple[str, ...] = INTERFACES,
 ) -> OperatorDay:
     """An `OperatorDay` from a timeline file (a single-episode file, or any timeline), the pool it was
     built from and NYgrid's `Data/` folder."""
@@ -133,6 +145,7 @@ def operator_day(
     lo, hi, w = _hour_weights(stamps, disp.hour)
     cost = (1 - w)[:, None] * disp.unit_cost[lo] + w[:, None] * disp.unit_cost[hi]
     vm, va = h["frames/vm"][:], h["frames/va"][:]
+    target = int(h["episodes/target_branch"][0]) if len(h["episodes/target_branch"]) else -1
     eps = h["episodes"]
     day = OperatorDay(
         case=case,
@@ -146,13 +159,62 @@ def operator_day(
         unit_p=p.unit_p[k],
         cost=cost,
         lbmp=_zonal_lbmp(data_dir, time),
-        interfaces=hourly_interfaces(case, time, data_dir, list(interfaces)),
+        interfaces=_target_first(hourly_interfaces(case, time, data_dir, list(interfaces)), target),
         solved=np.isfinite(vm).all(axis=1) & np.isfinite(p.unit_p[k]).all(axis=1),
         onset=int(eps["onset"][0]) if len(eps["onset"]) else -1,
         length=int(eps["length"][0]) if len(eps["length"]) else 0,
     )
     h.close()
     return day
+
+
+NEIGHBOUR_SEED = 20190101  # the neighbours' tie meters: one bias each, the same every day
+
+
+def tie_meters(case: Case, plan: MeterPlan) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The ties to a neighbour with a P-flow meter at their New York end: the branches, which end is New
+    York's (0 from, 1 to) and the row of that meter in the plan."""
+    pf_k = KINDS.index("pf")
+    ny_f, ny_t = case.is_ny[case.f], case.is_ny[case.t]
+    out = []
+    for b in np.flatnonzero(ny_f != ny_t):
+        end = 0 if ny_f[b] else 1
+        rows = np.flatnonzero((plan.kind == pf_k) & (plan.branch == b) & (plan.end == end))
+        if len(rows):
+            out.append((int(b), end, int(rows[0])))
+    a = np.array(out, int).reshape(-1, 3)
+    return a[:, 0], a[:, 1], a[:, 2]
+
+
+def neighbour_reads(
+    plan: MeterPlan, rows: np.ndarray, far: np.ndarray, rng: np.random.Generator
+) -> np.ndarray:
+    """The neighbours' readings `[T, K]` of the flows `far` at their ends of the ties, through meters of the
+    same accuracy class as the New York end (`rows` in the plan): a constant bias drawn from a fixed
+    stream, so the same every day, and a fresh jitter per scan from `rng`, split as in M2."""
+    sr, sa = plan.sigma_rel[rows], plan.sigma_abs[rows]
+    rel = sr > 0
+    bias = np.random.default_rng(NEIGHBOUR_SEED).normal(
+        0.0, np.sqrt(1.0 - JITTER_FRAC**2) * np.where(rel, sr, sa)
+    )
+    jitter = JITTER_FRAC * sr * np.abs(far) + np.where(rel, sa, JITTER_FRAC * sa)
+    biased = np.where(rel, far * (1.0 + bias), far + bias)
+    return biased + rng.normal(0.0, 1.0, far.shape) * jitter
+
+
+def tie_gap(day: OperatorDay, z: np.ndarray) -> np.ndarray:
+    """`[T]` the net interchange the operator reads (the P-flow meters at the New York end of every tie
+    to a neighbour, as flow leaving New York) less what the neighbours meter at their own end, turned to
+    the same direction (N62). Ties are metered at both ends and the readings exchanged, so a gap beyond
+    the two meters' noise shows that the reported interchange is wrong. The neighbours' jitter is drawn
+    from a stream keyed by the day, so the attacked and the benign call see the same neighbour readings."""
+    c, plan = day.case, day.plan
+    br, end, rows = tie_meters(c, plan)
+    pf, _, pt, _ = Network(c).flows(day.vm, day.va)
+    far = np.where(end == 0, -pt[:, br], -pf[:, br])  # the neighbour's end, in the New York direction
+    day_key = int(np.asarray(day.time)[0]) if len(day.time) else 0
+    neighbour = neighbour_reads(plan, rows, far, np.random.default_rng([NEIGHBOUR_SEED, day_key]))
+    return np.nan_to_num(z[:, rows]).sum(axis=1) - neighbour.sum(axis=1)
 
 
 def seen_interfaces(plan: MeterPlan, interfaces: list[Interface], z: np.ndarray) -> np.ndarray:
@@ -217,9 +279,13 @@ class _TrueGrid:
 
     def _flows(self, t: int, units: np.ndarray, shed: np.ndarray | None = None) -> np.ndarray | None:
         d = self.day
+        q = self.qd[t]
+        if shed is not None:  # a shed load takes its reactive demand with it, at its own power factor
+            pf = np.divide(self.qd[t], self.pd[t], out=np.zeros_like(self.qd[t]), where=self.pd[t] > 1e-6)
+            q = self.qd[t] - shed * pf
         r = self.solver.power_flow(
             self.pd[t] if shed is None else self.pd[t] - shed,
-            self.qd[t],
+            q,
             units,
             np.ones(len(units), bool),  # every unit in service for Q, as the pool solves it
             d.vm[t, d.case.unit_bus],
@@ -229,10 +295,13 @@ class _TrueGrid:
         return None if r is None else self.net.flows(r["vm"], r["va"])[0]
 
     def _measure(self, pf: np.ndarray) -> tuple[np.ndarray, float]:
+        """Every interface's flow, and the largest flow any of them carries after the worst single outage."""
         iface = np.array([it.model_flow(pf) for it in self.day.interfaces])
-        it = self.day.interfaces[0]
-        after = iface[0] + it.signs @ (self.lodf[it.branches] * pf[self.outages])
-        return iface, float(after.max())
+        worst = max(
+            float((iface[i] + it.signs @ (self.lodf[it.branches] * pf[self.outages])).max())
+            for i, it in enumerate(self.day.interfaces)
+        )
+        return iface, worst
 
     def change(self, t: int, units: np.ndarray, shed: np.ndarray | None = None) -> tuple[np.ndarray, float]:
         """The true interface flows' and the worst N-1 flow's change from the basepoint at scan `t`, with
@@ -273,7 +342,9 @@ def _regulation(
         if before is not None:
             room = np.minimum(room, dispatched - (before - c.ramp * 5.0))
     room = np.where(on, np.clip(np.nan_to_num(room), 0.0, None), 0.0)
-    reg, need = np.zeros(len(room)), abs(imbalance)
+    # regulation stops at what the operator holds (N63); beyond it the imbalance is an ACE excursion
+    reg, need = np.zeros(len(room)), min(abs(imbalance), REG_CAP)
+    excess = abs(imbalance) - need
     while need > 1e-9:
         open_ = room - reg > 1e-9
         if not open_.any():
@@ -283,12 +354,37 @@ def _regulation(
         reg += add
         need -= float(add.sum())
     sign = 1.0 if up else -1.0
-    return sign * reg, sign * need
+    return sign * reg, sign * (need + excess)
 
 
-def _run(day: OperatorDay, seen: np.ndarray, load_change: np.ndarray, delay: int, grid: _TrueGrid) -> Twin:
+MODES = ("trusting", "accounting", "oracle")
+
+
+def _run(
+    day: OperatorDay,
+    seen: np.ndarray,
+    load_change: np.ndarray,
+    delay: int,
+    grid: _TrueGrid,
+    gap: np.ndarray,
+    mode: str,
+    alarm: int | None,
+    seen_benign: np.ndarray,
+) -> Twin:
+    """One run of the operator over the day (N66). `gap [T]` is the interchange it reads at the New York
+    ends of the ties less the true one (zero in the benign twin). A trusting operator dispatches on the
+    metered injections and its AGC reads the area control error through those same New York-end tie
+    meters, so the false interchange hides the imbalance it causes. An accounting operator takes its load
+    as generation plus the interchange agreed with the neighbours and runs its AGC on the agreed values,
+    so neither carries the false interchange, while the interface it reads is still the attacked one. An
+    oracle operator trusts until the interchange alarm and from then on dispatches on the scans as they
+    would be without the attack, the most any defense that finds the attack at that scan can save."""
     c, T, G, I = day.case, len(day.time), len(day.case.unit_bus), len(day.interfaces)
-    sced = DcSced(c, day.unit_p, day.cost, day.interfaces, np.clip(grid.pd, 0.0, None) * day.case.is_ny)
+    fuel_kind, zone = c.fuel.astype(str), c.zone.astype(str)[c.unit_bus]
+    quick = np.isin(fuel_kind, QUICK_FUELS) & np.isin(zone, QUICK_ZONES) & (c.pmax <= QUICK_MAX_MW)
+    load = np.clip(grid.pd, 0.0, None) * day.case.is_ny
+    sced = DcSced(c, day.unit_p, day.cost, day.interfaces, load, quick_start=quick)
+    sf_units = sced.sf[:, c.unit_bus]
     pf_true = Network(c).flows(day.vm, day.va)[0]
     true_iface = np.array([it.model_flow(pf_true) for it in day.interfaces]).T
     limit = true_iface + np.array([it.limit - it.flow for it in day.interfaces]).T  # D3
@@ -308,24 +404,41 @@ def _run(day: OperatorDay, seen: np.ndarray, load_change: np.ndarray, delay: int
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
     }
-    prev, before, over = None, None, 0  # over: scans in a row the interface has been over its limit
+    prev, before = None, None
+    over = np.zeros(I, int)  # scans in a row each interface has been over its limit
     for t in range(T):
         if not (day.solved[t] and (t == 0 or day.solved[t - 1])):
             out["iface_change"][t], out["n1_change"][t] = np.nan, np.nan
             prev, before = (None, None) if not day.solved[t] else (prev, before)
             continue
         s = max(t - delay, 0)  # the operator acts on the scan `delay` scans back
-        # a scan the operator has no reading of (an unsolved frame) shows it no change
-        step = sced.step(t, seen[s], limit[t], float(np.nan_to_num(load_change[s])), prev, over >= SHED_AFTER)
-        short = float(np.nansum(step.unrelieved))
-        over = over + 1 if (short > 1e-6 or step.shed.any()) else 0
-        out["shortage"][t] = shortage_usd(short)
+        fallback = mode == "oracle" and alarm is not None and t >= alarm  # decided at scan t, whatever s is
+        view = seen_benign[s] if fallback else seen[s]
+        dload = 0.0 if fallback else float(np.nan_to_num(load_change[s]))
+        if mode == "accounting":  # load from generation plus the agreed interchange: the false part drops out
+            dload += float(np.nan_to_num(gap[s]))  # the read export the attack added hides as much load
+        step = sced.step(t, view, limit[t], dload, prev, over >= SHED_AFTER)
+        short = np.nan_to_num(step.unrelieved)
+        # an interface's clock runs while it is over its limit, or would be without the load it sheds
+        bare = np.nan_to_num(view + sf_units @ step.dev - limit[t]) > 1e-6
+        over = np.where((short > 1e-6) | ((over >= SHED_AFTER) & bare), over + 1, 0)
+        out["shortage"][t] = sum(shortage_usd(u) for u in short)  # the curve is per constraint
         dispatched = day.unit_p[t] + step.dev
         # the true load lost what was shed and nothing else, so the units' shortfall is the dispatch's
         # change plus the shed (the attack's pretended load never existed)
-        reg, uncovered = _regulation(day, t, -float(step.dev.sum() + step.shed.sum()), dispatched, before)
+        short_mw = -float(step.dev.sum() + step.shed.sum())
+        # the AGC sees the shortfall through the tie meters it reads: the trusting operator's New
+        # York-end meters carry the false interchange, the agreed ones do not
+        seen_err = (
+            float(np.nan_to_num(gap[t]))
+            if (mode == "trusting" or (mode == "oracle" and not fallback))
+            else 0.0
+        )
+        reg, _ = _regulation(day, t, short_mw - seen_err, dispatched, before)
         prev, before = step.dev, dispatched + reg
-        out["uncovered"][t] = uncovered
+        out["uncovered"][t] = short_mw - float(
+            reg.sum()
+        )  # what the neighbours supply: inadvertent interchange
         out["dev"][t], out["reg"][t] = step.dev, reg
         out["unrelieved"][t], out["unmatched"][t] = step.unrelieved, step.unmatched
         out["shed"][t], out["relief"][t] = step.shed, step.relief_usd
@@ -351,12 +464,42 @@ class Response:
     length: int
     delay: int
     over: float
+    tie_attacked: np.ndarray  # [T] the interchange read less the neighbours' meters (MW, `tie_gap`)
+    tie_benign: np.ndarray
+    alarm: float  # scans from the onset to the interchange alarm, NaN if it never fires
+    mode: str
 
 
-def respond(day: OperatorDay, delay: int = 0, over: float = 0.0) -> Response:
-    """Run the operator (O1) on `day`, acting `delay` scans late (O5). `over` (MW) is a what-if: the
-    attacked interface reading pushed that far past what the attack reached, in proportion to the push
-    over the episode, to show how the consequence grows if an attacker overshoots the limit."""
+def _alarm_scan(
+    day: OperatorDay, tie_a: np.ndarray, tie_b: np.ndarray, calib: tuple[float, float] | None = None
+) -> int | None:
+    """The first scan at or after the onset whose read interchange is off the neighbours' meters by
+    more than four standard deviations of the gap's benign noise (N62). `calib` is that noise's mean and
+    standard deviation (MW), calibrated on other days (`tools/nyfed/tie_check.py`); by default the benign
+    day's own, which is in sample."""
+    if day.onset < 0:
+        return None
+    b = tie_b[np.isfinite(tie_b)]
+    mean, sd = (float(np.mean(b)), float(np.std(b))) if calib is None else calib
+    off = np.abs(tie_a - mean) > 4.0 * sd
+    hits = np.flatnonzero(off[day.onset :])
+    return day.onset + int(hits[0]) if len(hits) else None
+
+
+def respond(
+    day: OperatorDay,
+    delay: int = 0,
+    over: float = 0.0,
+    mode: str = "trusting",
+    calib: tuple[float, float] | None = None,
+) -> Response:
+    """Run the operator on `day` in one of `MODES` (N66), acting `delay` scans late (O5). `over` (MW) is a
+    what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
+    to the push over the episode. `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
+    tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
+    alarm = _alarm_scan(day, tie_a, tie_b, calib)
     seen_b = seen_interfaces(day.plan, day.interfaces, day.z_benign)
     seen_a = seen_interfaces(day.plan, day.interfaces, day.z)
     if over and day.onset >= 0:
@@ -366,10 +509,12 @@ def respond(day: OperatorDay, delay: int = 0, over: float = 0.0) -> Response:
     p = KINDS.index("p")
     rows = np.flatnonzero(day.plan.kind == p)
     load_change = -(day.z[:, rows] - day.z_benign[:, rows]).sum(axis=1)  # the seen load's change, MW
+    gap = tie_a - tie_b  # the false interchange, the meters' own noise cancelling against the twin
     grid = _TrueGrid(day)
+    zero = np.zeros(len(day.time))
     return Response(
-        attacked=_run(day, seen_a, load_change, delay, grid),
-        benign=_run(day, seen_b, np.zeros(len(day.time)), delay, grid),
+        attacked=_run(day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b),
+        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b),
         unit_client=day.own.bus_client[day.case.unit_bus],
         bus_client=day.own.bus_client,
         client_names=[str(n) for n in day.own.names],
@@ -377,6 +522,10 @@ def respond(day: OperatorDay, delay: int = 0, over: float = 0.0) -> Response:
         length=day.length,
         delay=delay,
         over=over,
+        tie_attacked=tie_a,
+        tie_benign=tie_b,
+        alarm=float("nan") if alarm is None else float(alarm - day.onset),
+        mode=mode,
     )
 
 
@@ -405,8 +554,18 @@ def summarize(r: Response, voll: float | None = None) -> dict:
         "unrelieved_mw": peak(np.nan_to_num(a.unrelieved) - np.nan_to_num(b.unrelieved)),
         "unmatched_mw": peak(np.abs(np.nan_to_num(a.unmatched)) - np.abs(np.nan_to_num(b.unmatched))),
         "uncovered_mw": peak(np.abs(a.uncovered) - np.abs(b.uncovered)),
-        "iface_down_mw": float(np.nanmin(a.iface_change - b.iface_change)),
-        "iface_up_mw": float(np.nanmax(a.iface_change - b.iface_change)),
+        "iface_down_mw": float(np.nanmin(a.iface_change[:, 0] - b.iface_change[:, 0])),
+        "iface_up_mw": float(np.nanmax(a.iface_change[:, 0] - b.iface_change[:, 0])),
+        "other_iface_up_mw": peak(a.iface_change[:, 1:] - b.iface_change[:, 1:])
+        if a.iface_change.shape[1] > 1
+        else 0.0,
+        "inadvertent_mw": peak(np.abs(a.uncovered) - np.abs(b.uncovered)),
+        "inadvertent_mwh": float(
+            np.clip(np.abs(a.uncovered) - np.abs(b.uncovered), 0, None).sum() * FRAME_HOURS
+        ),
+        "tie_gap_mw": peak(np.abs(r.tie_attacked - r.tie_benign)),
+        "alarm_scans": r.alarm,
+        "mode": r.mode,
         "n1_up_mw": float(np.nanmax(a.n1_change - b.n1_change)),
         "fuel_usd": float(a.fuel.sum() - b.fuel.sum()),
         "settled_usd": float(a.settled.sum() - b.settled.sum()),
