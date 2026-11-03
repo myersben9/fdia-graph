@@ -26,6 +26,7 @@ from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.grid.clients import Ownership
 from fdia_graph.nyfed.grid.interfaces import Interface, hourly_interfaces
 from fdia_graph.nyfed.grid.network import Network
+from fdia_graph.nyfed.grid.nygrid import HQ_BUS
 from fdia_graph.nyfed.io import open_timeline, read_pool
 from fdia_graph.nyfed.operator.sced import (
     FRAME_HOURS,
@@ -239,7 +240,8 @@ class Twin:
     basepoint and the regulation (MW), `unrelieved [T, I]` and `unmatched [T]` what the dispatch could not
     cover as the operator sees it (MW), `uncovered [T]` the true imbalance regulation had no room for
     (MW, positive short), `iface_change [T, I]` the true interface flow change from the
-    basepoint's (AC, MW), `n1_change [T]` the change in the worst single-outage interface flow (MW),
+    basepoint's (AC, MW), `n1_change [T]` the change in the worst single-outage interface flow (MW), `margin [T]` the tightest
+    true margin of any interface to its limit (MW, negative over it),
     `shed [T, N]` the load the operator shed (MW), `relief [T]` what relieving the interfaces cost in
     production ($, `Step.relief_usd`), `shortage [T]` the flow left over the limit at the shortage curve ($), `fuel [T]` the production cost change and `settled [T]` the energy
     change at the zonal LBMP ($ per scan)."""
@@ -251,6 +253,7 @@ class Twin:
     uncovered: np.ndarray
     iface_change: np.ndarray
     n1_change: np.ndarray
+    margin: np.ndarray
     shed: np.ndarray
     relief: np.ndarray
     shortage: np.ndarray
@@ -385,6 +388,11 @@ def _run(
     load = np.clip(grid.pd, 0.0, None) * day.case.is_ny
     sced = DcSced(c, day.unit_p, day.cost, day.interfaces, load, quick_start=quick)
     sf_units = sced.sf[:, c.unit_bus]
+    # N69: the inadvertent interchange enters over the AC ties, from the synchronous units outside New York in
+    # proportion to their capacity (the HVDC import from Quebec cannot carry it), not at the reference bus
+    ext = ~c.is_ny[c.unit_bus] & (c.bus_id[c.unit_bus] != HQ_BUS) & (np.nan_to_num(c.pmax) > 0)
+    ext_share = np.where(ext, np.nan_to_num(c.pmax), 0.0)
+    ext_share = ext_share / ext_share.sum() if ext_share.sum() > 0 else ext_share
     pf_true = Network(c).flows(day.vm, day.va)[0]
     true_iface = np.array([it.model_flow(pf_true) for it in day.interfaces]).T
     limit = true_iface + np.array([it.limit - it.flow for it in day.interfaces]).T  # D3
@@ -401,6 +409,7 @@ def _run(
         "shortage": np.zeros(T),
         "iface_change": np.zeros((T, I)),
         "n1_change": np.zeros(T),
+        "margin": np.full(T, np.nan),
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
     }
@@ -443,8 +452,17 @@ def _run(
         out["unrelieved"][t], out["unmatched"][t] = step.unrelieved, step.unmatched
         out["shed"][t], out["relief"][t] = step.shed, step.relief_usd
         moved = step.dev + reg
-        if np.abs(moved).max() > 1e-3 or step.shed.any():
-            out["iface_change"][t], out["n1_change"][t] = grid.change(t, day.unit_p[t] + moved, step.shed)
+        lent = out["uncovered"][t] * ext_share  # what the neighbours supply, at their units
+        if np.abs(moved).max() > 1e-3 or step.shed.any() or np.abs(lent).max() > 1e-3:
+            out["iface_change"][t], out["n1_change"][t] = grid.change(
+                t, day.unit_p[t] + moved + lent, step.shed
+            )
+        # the tightest true margin of any interface to its limit (MW, negative over it)
+        # unknown (NaN) where the AC power flow of either run failed, never the benign margin
+        change = out["iface_change"][t]
+        out["margin"][t] = (
+            np.nan if np.isnan(change).any() else float(np.nanmin(limit[t] - (true_iface[t] + change)))
+        )
         out["fuel"][t] = float(day.cost[t] @ moved) * FRAME_HOURS
         out["settled"][t] = float(np.nansum(price[t] * moved)) * FRAME_HOURS
     return Twin(**out)
@@ -567,6 +585,8 @@ def summarize(r: Response, voll: float | None = None) -> dict:
         "alarm_scans": r.alarm,
         "mode": r.mode,
         "n1_up_mw": float(np.nanmax(a.n1_change - b.n1_change)),
+        "margin_min_mw": float(np.nanmin(a.margin)) if np.isfinite(a.margin).any() else float("nan"),
+        "margin_lost_mw": peak(b.margin - a.margin),
         "fuel_usd": float(a.fuel.sum() - b.fuel.sum()),
         "settled_usd": float(a.settled.sum() - b.settled.sum()),
         "relief_usd": float(a.relief.sum() - b.relief.sum()),
