@@ -1,0 +1,3 @@
+flowchart LR
+    loc["localizer flags buses<br/>(CNN, or the oracle labels)"] --> gate["weights × 1e-3 on every meter<br/>of a flagged bus and its branches"]
+    gate --> est["prior + Huber solve:<br/>the benign prior fills the gap"]

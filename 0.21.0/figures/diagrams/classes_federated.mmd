@@ -1,0 +1,59 @@
+classDiagram
+    class FederatedLocalizer {
+        +tune_threshold()
+    }
+    class FedBusMLP {
+    }
+    class FedBusCNN {
+    }
+    class RegionalPrior {
+        +state_columns()
+    }
+    class BusCNN {
+        <<localization>>
+    }
+    class BusMLP {
+        <<localization>>
+    }
+    class FederatedSettings {
+        <<models>>
+    }
+    class JacobianFeatures {
+        <<se>>
+    }
+    class LearnedLocalizer {
+        <<localization>>
+    }
+    class LocalTrainer {
+        <<localization>>
+    }
+    class NoAttackedRecords {
+        <<models>>
+    }
+    class Partition {
+        <<models>>
+    }
+    class PartitionOnGrid {
+        <<models>>
+    }
+    class RoundLog {
+        <<models>>
+    }
+    class SubspacePrior {
+        <<se>>
+    }
+    BusCNN <|-- FedBusCNN
+    BusMLP <|-- FedBusMLP
+    FederatedLocalizer <|-- FedBusCNN
+    FederatedLocalizer <|-- FedBusMLP
+    LearnedLocalizer <|-- FederatedLocalizer
+    SubspacePrior <|-- RegionalPrior
+    FederatedLocalizer ..> FederatedSettings : uses
+    FederatedLocalizer ..> JacobianFeatures : uses
+    FederatedLocalizer ..> LocalTrainer : uses
+    FederatedLocalizer ..> NoAttackedRecords : uses
+    FederatedLocalizer ..> Partition : uses
+    FederatedLocalizer ..> PartitionOnGrid : uses
+    FederatedLocalizer ..> RoundLog : uses
+    RegionalPrior ..> Partition : uses
+    RegionalPrior ..> PartitionOnGrid : uses

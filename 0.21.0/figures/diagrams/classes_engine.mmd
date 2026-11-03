@@ -1,0 +1,97 @@
+classDiagram
+    class GridBase {
+        +emit_from_state()
+        +meter_masks()
+        +current_mask()
+        +clean_flows_from_states()
+        +all_flows_from_states()
+        +currents_from_states()
+        +true_load()
+        +true_reactive_load()
+        ... and 2 more
+    }
+    class MeasurementMixin {
+        +meter_masks()
+        +current_mask()
+        +emit_from_state()
+        +clean_flows_from_states()
+        +all_flows_from_states()
+        +currents_from_states()
+    }
+    class PhysicsMixin {
+        +true_load()
+        +true_reactive_load()
+        +scan_reactive_generation()
+        +scan_generation()
+    }
+    class AttackMixin {
+        +attack_frame()
+    }
+    class FdiaGenerator {
+    }
+    class AttackDesign {
+        <<models>>
+    }
+    class BranchModel {
+        <<models>>
+    }
+    class EpisodeDesignMixin {
+        <<engine>>
+    }
+    class Frame {
+        <<models>>
+    }
+    class FrameKnobs {
+        <<models>>
+    }
+    class GeneratorOptions {
+        <<models>>
+    }
+    class MeterBias {
+        <<models>>
+    }
+    class MeterPlan {
+        <<models>>
+    }
+    class Outage {
+        <<models>>
+    }
+    class OverloadMixin {
+        <<engine>>
+    }
+    class PandapowerNet {
+        <<engine>>
+    }
+    class PpcTables {
+        <<engine>>
+    }
+    class Scan {
+        <<models>>
+    }
+    class StealthyMixin {
+        <<engine>>
+    }
+    AttackMixin <|-- FdiaGenerator
+    EpisodeDesignMixin <|-- AttackMixin
+    GridBase <|-- MeasurementMixin
+    GridBase <|-- PhysicsMixin
+    MeasurementMixin <|-- FdiaGenerator
+    OverloadMixin <|-- AttackMixin
+    PhysicsMixin <|-- FdiaGenerator
+    StealthyMixin <|-- AttackMixin
+    AttackMixin ..> AttackDesign : uses
+    AttackMixin ..> Frame : uses
+    AttackMixin ..> FrameKnobs : uses
+    FdiaGenerator ..> BranchModel : uses
+    FdiaGenerator ..> GeneratorOptions : uses
+    FdiaGenerator ..> MeterBias : uses
+    FdiaGenerator ..> MeterPlan : uses
+    FdiaGenerator ..> PandapowerNet : uses
+    FdiaGenerator ..> PpcTables : uses
+    GridBase ..> BranchModel : uses
+    GridBase ..> MeterBias : uses
+    GridBase ..> MeterPlan : uses
+    GridBase ..> Outage : uses
+    GridBase ..> PandapowerNet : uses
+    GridBase ..> Scan : uses
+    MeasurementMixin ..> Scan : uses

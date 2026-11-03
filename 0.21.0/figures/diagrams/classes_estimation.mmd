@@ -1,0 +1,116 @@
+classDiagram
+    class SEBase {
+        +fit()
+        +is_fitted
+        +estimate()
+        +ref_angles()
+        +score()
+    }
+    class WLS {
+    }
+    class AdaptiveWeighting {
+    }
+    class ResidualRemoval {
+    }
+    class SubspacePrior {
+    }
+    class JacobianWeighting {
+        +fit()
+        +weights()
+    }
+    class Localizes {
+        +localize()
+    }
+    class OracleGate {
+        +localize()
+    }
+    class GatedPrior {
+        +gated_weights()
+    }
+    class JacobianFeatures {
+        +fit()
+        +previous_estimate()
+        +delta_z()
+        +transform()
+    }
+    class ErrorPair {
+        <<models>>
+    }
+    class EstimatorScores {
+        <<models>>
+    }
+    class FitOptions {
+        <<models>>
+    }
+    class GateConfig {
+        <<models>>
+    }
+    class HuberConfig {
+        <<models>>
+    }
+    class JacobianOutputs {
+        <<models>>
+    }
+    class JacobianWeightingConfig {
+        <<models>>
+    }
+    class LocalizerBase {
+        <<localization>>
+    }
+    class MissingCapability {
+        <<models>>
+    }
+    class NoBenignRecords {
+        <<models>>
+    }
+    class PriorConfig {
+        <<models>>
+    }
+    class PseudoVoltages {
+        <<models>>
+    }
+    class RemovalConfig {
+        <<models>>
+    }
+    class ShapedArray {
+        <<models>>
+    }
+    class SlackMismatch {
+        <<models>>
+    }
+    class SolveConfig {
+        <<models>>
+    }
+    class TrueState {
+        <<models>>
+    }
+    class VaryingReference {
+        <<models>>
+    }
+    SEBase <|-- AdaptiveWeighting
+    SEBase <|-- JacobianWeighting
+    SEBase <|-- ResidualRemoval
+    SEBase <|-- SubspacePrior
+    SEBase <|-- WLS
+    SubspacePrior <|-- GatedPrior
+    AdaptiveWeighting ..> HuberConfig : uses
+    GatedPrior ..> GateConfig : uses
+    GatedPrior ..> LocalizerBase : gate
+    JacobianFeatures ..> JacobianOutputs : uses
+    JacobianFeatures ..> SEBase : uses
+    JacobianFeatures ..> WLS : uses
+    JacobianWeighting ..> JacobianFeatures : uses
+    JacobianWeighting ..> JacobianWeightingConfig : uses
+    ResidualRemoval ..> RemovalConfig : uses
+    SEBase ..> ErrorPair : uses
+    SEBase ..> EstimatorScores : uses
+    SEBase ..> FitOptions : uses
+    SEBase ..> MissingCapability : uses
+    SEBase ..> NoBenignRecords : uses
+    SEBase ..> PseudoVoltages : uses
+    SEBase ..> ShapedArray : uses
+    SEBase ..> SlackMismatch : uses
+    SEBase ..> SolveConfig : uses
+    SEBase ..> TrueState : uses
+    SEBase ..> VaryingReference : uses
+    SubspacePrior ..> PriorConfig : uses

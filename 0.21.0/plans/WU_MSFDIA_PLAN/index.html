@@ -1,0 +1,2459 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/0.21.0/plans/WU_MSFDIA_PLAN/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../WU_DEFENSE_PLAN/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Wu MS-FDIA - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#plan-the-wu26-attack-as-the-optimization-it-is-and-one-home-for-attack-generation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Wu MS-FDIA
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/generation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeline generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/new_york/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/GLOSSARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture (UML diagrams)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/FORMULAS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REVIEW_CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu MS-FDIA
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu MS-FDIA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-the-generator-does-today-equation-by-equation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What the generator does today, equation by equation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-problem-in-the-packages-terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The problem, in the package's terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-how-it-is-solved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. How it is solved
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-what-changes-for-each-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. What changes for each family
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-one-home-for-attack-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. One home for attack generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-how-we-know-it-is-right" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. How we know it is right
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-data-and-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Data and documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Sequence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../WU_DEFENSE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu defense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../nyfed/PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../nyfed/ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-the-generator-does-today-equation-by-equation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What the generator does today, equation by equation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-problem-in-the-packages-terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The problem, in the package's terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-how-it-is-solved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. How it is solved
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-what-changes-for-each-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. What changes for each family
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-one-home-for-attack-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. One home for attack generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-how-we-know-it-is-right" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. How we know it is right
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-data-and-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Data and documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Sequence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="plan-the-wu26-attack-as-the-optimization-it-is-and-one-home-for-attack-generation">Plan: the [WU26] attack as the optimization it is, and one home for attack generation<a class="headerlink" href="#plan-the-wu26-attack-as-the-optimization-it-is-and-one-home-for-attack-generation" title="Permanent link">&para;</a></h1>
+<p><strong>Status: accepted; decisions D1 to D17 taken (section 9).</strong></p>
+<p>[WU26] defines its multi-snapshot attack (MS-FDIA) as an optimization: eq. (12) minimizes the
+number of tampered measurements subject to the AC measurement model (13)-(20), the operating limits
+(21)-(23) and a line-overload goal reached over several snapshots (24)-(25). The attack is the
+solution of that problem.</p>
+<p>The generator does not solve it today. It builds local false states that satisfy (13)-(18) and
+(21)-(23), with targets drawn at random and no minimization, and it has no overload goal. The docs
+nevertheless cite [WU26] as the source of the stealthy families. This plan closes the gap: the
+stealthy families are generated by solving the paper's problem. It also moves every piece of attack
+generation into the engine's attack mixin, so a reader finds all of it in one place.</p>
+<h2 id="1-what-the-generator-does-today-equation-by-equation">1. What the generator does today, equation by equation<a class="headerlink" href="#1-what-the-generator-does-today-equation-by-equation" title="Permanent link">&para;</a></h2>
+<p>Paths are as of <code>main</code> before step 2 moved the attack code into <code>engine/attacks/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>[WU26]</th>
+<th>today</th>
+<th>where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(12) minimize the number of tampered measurements</td>
+<td>not solved. Targets are drawn at random and the attack area is the buses within <code>hops</code> branches of them, never the slack, grown over any zero-injection bus on its boundary and shrunk in reach until a fixed-voltage boundary exists (<code>local_region</code>); the tampered meters are the metered channels whose attack-vector entry moves by more than 1e-7 (<code>_changed_meters</code>), whatever that count is.</td>
+<td><code>engine/physics.py: local_region</code>, <code>engine/records.py: _stealthy_frame</code></td>
+</tr>
+<tr>
+<td>(13)-(16) SCADA injections and flows consistent with the false state</td>
+<td>satisfied exactly: the false state is a local AC solution, and the attack vector is <code>h(x_false) - h(x_true)</code></td>
+<td><code>formulas/network.py: local_ac_solve</code>, <code>engine/records.py: _attack_vector</code></td>
+</tr>
+<tr>
+<td>(17)-(18) PMU voltage magnitude and angle</td>
+<td>satisfied by the same attack vector; an angle was emitted at every voltmeter bus, which D10 moves to the PMU buses only</td>
+<td><code>_attack_vector</code></td>
+</tr>
+<tr>
+<td>(19)-(20) PMU branch current phasors</td>
+<td>not modeled: the meter plan has no current-phasor channels (modeled by the hybrid meter model of D10 since step 4)</td>
+<td><code>engine/core.py: _meter_plan</code></td>
+</tr>
+<tr>
+<td>(21) voltage limits, (22)-(23) generator limits</td>
+<td>checked; a false state outside them is halved or rejected</td>
+<td><code>formulas/attacks.py: within_limits</code></td>
+</tr>
+<tr>
+<td>(24)-(25) a line's flow driven to its limit over the window</td>
+<td>not modeled. <code>Al</code> steers a line the other way (a real overload reads lighter), and the IEEE cases carry no usable line ratings (D3)</td>
+<td><code>engine/attacks.py: lra_delta</code></td>
+</tr>
+<tr>
+<td>the window t = κ ... κ+T</td>
+<td><code>At</code> and <code>Am</code> hold one attack area and target set over an episode and solve each frame on its own</td>
+<td><code>timeline.py: _ramp_episode, _am_episode</code></td>
+</tr>
+</tbody>
+</table>
+<p>The random draw and the missing objective were deliberate simplifications when the local false
+states were introduced (#98). They were never stated next to the citation. Step 1 of the sequence
+fixes the wording before any code changes.</p>
+<h2 id="2-the-problem-in-the-packages-terms">2. The problem, in the package's terms<a class="headerlink" href="#2-the-problem-in-the-packages-terms" title="Permanent link">&para;</a></h2>
+<p>For one episode: an attack area A (a connected subnetwork), a target line l with limit <code>S_max</code>,
+snapshots t = κ ... κ+T, and the true states <code>x_t</code> and scans <code>z_t</code> from the timeline.</p>
+<ul>
+<li><strong>Variables:</strong> the false state <code>x^a_t</code> of each snapshot: <code>|V|</code> and <code>θ</code> of buses in A; every
+  other bus keeps its true voltage, as today.</li>
+<li><strong>Attack vector:</strong> <code>a_t = h(x^a_t) - h(x_t)</code> on the metered channels, SCADA and PMU. Constraints
+  (13)-(18) hold by construction, since they state that the tampered readings are the readings of
+  the false state; (19)-(20) hold the same way once the meter plan has current-phasor channels
+  (D4).</li>
+<li>
+<p><strong>Objective (12):</strong> the number of devices tampered over the window. Following the paper's
+  experiments section, a change smaller than the meter's noise does not count:</p>
+<p>minimize  | { d : some channel m of device d has |a_{m,t}| &gt; σ_{m,t} in some snapshot t } |</p>
+</li>
+</ul>
+<p>A device is what the paper counts: one SCADA terminal per bus, holding that bus's injection
+  meters and the flow meters of the branches metered at that bus, and one PMU per bus, holding its
+  voltage magnitude, angle and branch-current channels. A device counts once however many of its
+  channels move; the number of channels moved is recorded next to it for analysis.</p>
+<p><code>σ_{m,t}</code> is the meter's rated accuracy for that channel in that snapshot, the accuracy-class
+standard deviation the package's measured calibration already uses (D7): a change within a meter's
+rated accuracy cannot be told from noise. It is expressed in the stored scan's units, as <code>a_{m,t}</code>
+is: <code>|V|</code> in per unit, P and Q in MW and MVAr, and <code>θ</code> in degrees (the accuracy class and the
+emitter's internal angle noise are in radians, converted with <code>np.degrees</code>). The emitter keeps
+drawing its per-scan jitter from its own rule (absolute for <code>|V|</code> and <code>θ</code>, relative plus
+<code>POWER_NOISE_FLOOR_MW</code> for P and Q), so the data is unchanged; the two are separate named functions.
+The current-phasor channels of D4 (the real and imaginary part of each branch current at a PMU bus,
+per unit on the base current) get the same kind of rule: noise relative to the current's magnitude
+at the PMU accuracy class of IEEE C37.118.1 (1% total vector error, taken as three standard
+deviations) plus a small floor, added to the same function, so the objective and the stealth bound
+are defined on every channel the attack can touch.</p>
+<p>The paper writes <code>||Σ_t (z^a_t - h_A(x^a_t))||_0</code> and calls it "the number of nonzero entries
+  in the attack vector"; its results count compromised devices over the window, which is the set
+  above, grouped into devices as stated. Decision D1 confirms this reading.
+- <strong>Constraints:</strong> (21)-(23) on every snapshot, as today, and the goal (24)-(25): the flow magnitude
+  on line l that the tampered measurements carry before noise, the noiseless reading <code>h(x^a_t)</code> of
+  the false state, rides on the true flow and reaches <code>S_max</code> by κ+T (the schedule of D9). Stealth
+  bound: the attack's own increment on every channel is at most its noise scale, <code>|a_{m,t} -
+  a_{m,t-1}| &lt;= σ_{m,t}</code>, the rated accuracy for <code>At</code> (D7) and [WU26]'s own noise for <code>Am</code> (D8),
+  onset included: <code>a_{m,κ-1}</code> is the attack vector of the frame before the episode, zero when that
+  frame is benign and that frame's own vector when an episode ends there (episodes may be adjacent,
+  the placement being uniformly random). This is a rated-accuracy criterion: each step stays within
+  what the meter's accuracy class allows, the standard an operator holds a meter to. It is not a
+  guarantee against a temporal detector tuned to the per-scan jitter, which is smaller than the
+  rated accuracy, and how the swing and delta features fare against it is measured, not assumed. The
+  residual test sees noise only at any magnitude, since the tampered readings are those of an AC
+  false state. The target line's flow is metered: the goal is defined on what the operator sees, so
+  only lines whose flow is metered are eligible targets.</p>
+<h2 id="3-how-it-is-solved">3. How it is solved<a class="headerlink" href="#3-how-it-is-solved" title="Permanent link">&para;</a></h2>
+<p>The paper does not name its solver; it reports 1.1 to 7.5 s per snapshot. The plan solves the
+problem exactly where it is small and by a bounded search where it is not, and records which.</p>
+<p><strong>The structure.</strong> Every tampered reading is a reading of the false state, so a channel can change
+only when a bus it depends on moves: the injections at the moved buses and their neighbours, the
+flows on branches touching them, and the PMU readings there. The candidates are therefore supports
+S, the buses of A whose voltage the false state moves, and a support's cost is the number of devices
+with a channel moved beyond its noise (<code>σ_{m,t}</code>), counted exactly once the false state is solved.</p>
+<p><strong>The false state of one support.</strong> Two goals, two solves, both with every voltage outside S held
+at its true value:</p>
+<ul>
+<li><strong>A load goal (<code>At</code>):</strong> the targeted loads take their new values and every other bus of S keeps
+  its true injection. That is 2|S| equations in the 2|S| unknowns <code>|V|</code> and <code>θ</code> of S, today's
+  <code>local_ac_solve</code>.</li>
+<li><strong>A flow goal (<code>Am</code>):</strong> only the attackable loads of S are free, as the attacker pretends them;
+  every other bus of S keeps its true injection (a zero-injection bus stays at zero, a generator bus
+  at its true dispatch), as in the load goal. The unknowns are <code>|V|</code> and <code>θ</code> of S, the equations are
+  the fixed injections of S's non-load buses and the flow magnitude on line l at its target value,
+  and the solve takes the smallest voltage change that meets them (least-norm Gauss-Newton, the
+  false loads read off the result). A support can change the flow only when it holds an end bus of l
+  and at least one attackable load (the only free injections). With fewer equations than unknowns a
+  support has many feasible states, and the least-norm one need not cross the fewest noise
+  thresholds, so for <code>Am</code> the optimum claimed is over supports each solved by this rule, not over
+  every false state. Lowering the device count inside a support (reweighting the step toward
+  channels already over noise) is a later refinement, with no claim until it is measured.</li>
+</ul>
+<p>Both are checked against (21)-(23). The flow magnitude is <code>S_l = sqrt(P_l^2 + Q_l^2)</code> in MVA from
+the flow channels (MW and MVAr), compared with <code>rate_a</code> in MVA, or both divided by the base MVA in
+per unit.</p>
+<p><strong>The search.</strong></p>
+<ol>
+<li>Candidates are connected supports that can reach the goal (the targeted load buses for a load
+   goal, for a flow goal an end bus of l and at least one attackable load, since a support of
+   generator and zero-injection buses alone has no free injection), under the area rules of today:
+   never the slack, and a zero-injection bus on a support's boundary is taken in, since it cannot
+   absorb the change.</li>
+<li>The only lower bound used for pruning is one that holds for every remaining support: a device
+   counts only when the goal forces one of its channels above that channel's noise. For a flow goal
+   the required change δ of the magnitude on l can split between P and Q, so at least one of them
+   moves by δ/√2 and the metering device is forced only when δ/√2 exceeds the larger of the two
+   <code>σ</code>. For a load goal a targeted bus's device is forced only when the designed step exceeds its
+   injection channel's <code>σ</code>. When nothing is forced the bound is zero and nothing is pruned.</li>
+<li>On IEEE-14 and small areas every candidate is solved (exhaustive), and the cheapest feasible one
+   is the optimum among the candidates whose solve converged. A solve that fails is not proof of
+   infeasibility (Newton can stall where a solution exists), so each window records how many
+   candidates failed, and the optimum is marked proven only when no candidate that could have
+   beaten it failed. A test compares the result with a brute-force enumeration on the same terms.</li>
+<li>On IEEE-118 and 300 the search is best-first with a node budget and prunes only with the valid
+   bound above. The file records per episode whether the enumeration finished (optimal over the
+   area) or the budget ran out (the best found, no claim).</li>
+</ol>
+<p><strong>Checks on the solver.</strong> The brute-force test on IEEE-14 areas, and a continuous cross-check,
+iteratively reweighted ℓ1 on the local AC equations, that may never beat the search.</p>
+<p><strong>Rejected:</strong> a mixed-integer nonlinear program (binary per meter, big-M, nonconvex AC) handed to a
+general solver. It needs a heavy optional dependency, gives no better guarantee than exhaustive
+search on the small cases, and is slower on the large ones. It can serve as an offline validation
+if a reviewer asks.</p>
+<p><strong>The window.</strong> D1 counts the devices tampered over the whole window, so a candidate is one support
+held for the episode and solved at every snapshot: snapshot t meets its share of the goal (for <code>Am</code>,
+<code>S_{l,t} = S_true_{l,t} + (t - κ)/T · (S_max - S_true_{l,κ+T})</code> (D9), for <code>At</code> the ramp's multiplier
+at t) and keeps the attack's increment on each channel under <code>σ_{m,t}</code>, onset included. Its cost is
+the union over the window of the devices with a channel moved beyond noise. The optimum claimed is
+over supports held for the window and no more: device cost is not monotone in the support, so
+nothing is claimed about supports that change between snapshots. When the budget runs out on 118 and
+300, the fallback solves snapshot by snapshot from the previous support, and the file records which
+episodes used it.</p>
+<h2 id="4-what-changes-for-each-family">4. What changes for each family<a class="headerlink" href="#4-what-changes-for-each-family" title="Permanent link">&para;</a></h2>
+<p>New generation is multi-snapshot only (D6). The attack engine is organised around the two
+multi-snapshot families, and both are generated by the minimizer (D2):</p>
+<ul>
+<li><strong><code>Am</code> is the MS-FDIA of [WU26]:</strong> the overload goal (24)-(25) on a metered target line over the
+  window, the fewest devices tampered, SCADA and PMU (current phasors included, D4). Its meters
+  are the hybrid model of D10: angles at the PMUs only, and the PMUs' branch currents.</li>
+<li><strong><code>At</code>, the slow ramp,</strong> keeps its goal (a load ramp: rise, hold, return) and is generated by the
+  same minimizer: one support held for the episode, the fewest devices over the window, each
+  snapshot reaching the ramp's load change under the stealth bound (At's alone, D11).</li>
+<li><strong>The single-snapshot families are deprecated for new generation:</strong> <code>Aq</code> and <code>Al</code> (stealthy, one
+  frame) and <code>Ad</code>, <code>As</code>, <code>Ar</code> (in-place corruption, one frame). Asking the generator for one warns
+  (<code>DeprecationWarning</code>) for one minor release and then is refused. Released files that hold them
+  keep loading, with their family codes and labels unchanged, so every published result stays
+  reproducible.</li>
+</ul>
+<h2 id="5-one-home-for-attack-generation">5. One home for attack generation<a class="headerlink" href="#5-one-home-for-attack-generation" title="Permanent link">&para;</a></h2>
+<p>The engine's attack mixin is meant to hold how attacks are built. Today the logic is spread over
+five modules:</p>
+<table>
+<thead>
+<tr>
+<th>module</th>
+<th>attack logic in it today</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine/attacks.py</code> (<code>AttackMixin</code>)</td>
+<td>the in-place corruptions; the <code>Al</code> target line and redistribution</td>
+</tr>
+<tr>
+<td><code>engine/records.py</code></td>
+<td>every frame builder (<code>_stealthy_frame</code>, <code>_resolve_frame</code>, <code>_lra_frame</code>, <code>_am_frame</code>, <code>_corrupt_frame</code>), the false state and its limit check, the attack vector, the tamper set, the halving retries</td>
+</tr>
+<tr>
+<td><code>engine/physics.py</code> (<code>PhysicsMixin</code>)</td>
+<td>the attacker's area (<code>local_region</code>, zero-injection growth) and the local false-state solve (<code>solve_local</code>)</td>
+</tr>
+<tr>
+<td><code>timeline.py</code></td>
+<td>each episode's attack design: ramp draws, target picking, the <code>Am</code> shape, its held redistribution and its peak check</td>
+</tr>
+<tr>
+<td><code>formulas/attacks.py</code>, <code>formulas/network.py</code></td>
+<td>the pure formulas (limits, ramp profile, subnetwork, local AC solve)</td>
+</tr>
+</tbody>
+</table>
+<p>Target layout:</p>
+<ul>
+<li><strong><code>engine/attacks/</code></strong>, one package whose modules compose the one <code>AttackMixin</code>: <code>area.py</code> (the
+  attack area), <code>false_state.py</code> (the local solve, the limits, the attack vector, the tamper set),
+  <code>minimize.py</code> (the ℓ0 search), <code>stealthy.py</code> (the <code>Aq</code>/<code>At</code>/<code>Al</code>/<code>Am</code> frames and episode designs),
+  <code>corrupt.py</code> (<code>Ad</code>/<code>As</code>/<code>Ar</code>). A reader looking for how an attack is made opens this package.</li>
+<li><strong><code>engine/records.py</code></strong> keeps the benign frame and the replay memory, and asks the mixin for an
+  attacked frame.</li>
+<li><strong><code>timeline.py</code></strong> keeps when and where: the schedule, the episode placement, the storage. What
+  an episode's attack is comes from the mixin.</li>
+<li><strong><code>formulas/</code></strong> keeps the pure formulas, per the kernel rule; the mixin calls them.</li>
+</ul>
+<p>This move comes first and changes no number: the strict frozen suite stays bit-exact, so the
+minimizer lands in code already organised for it. Every name that moves stays importable from its
+old module for one minor release, as a one-line alias that emits a <code>DeprecationWarning</code>
+(private names included, per the compatibility rule), and every internal caller and test moves to
+the new path in the same change.</p>
+<h2 id="6-how-we-know-it-is-right">6. How we know it is right<a class="headerlink" href="#6-how-we-know-it-is-right" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>The paper's IEEE-14 scenarios:</strong> overloads on lines 3-4 and 6-11, and on 1-2 and 4-5. [WU26]
+  reports tampered SCADA devices at buses 3, 4, 5, 6 and 11 with PMUs at 4 and 6, and a largest
+  change near 0.22 pu, for the first. Our loads and noise differ, so the comparison is of the
+  device set and magnitude, reported side by side, not bit for bit.</li>
+<li><strong>Optimality:</strong> the brute-force test on IEEE-14 areas, and proven-versus-budget counts per system.</li>
+<li><strong>Stealth:</strong> per snapshot, the residual test at the noise level sees noise only; each meter's
+  per-snapshot change sits under the bound.</li>
+<li><strong>The goal:</strong> the noiseless reported flow on the target line reaches <code>S_max</code> by the window's end,
+  with the emitted (noisy) value recorded beside it.</li>
+<li><strong>Cost:</strong> tampered devices and channels per frame before and after (today's footprint is 3% to 45%
+  of meters), and solve time per snapshot next to the paper's 1.1 to 7.5 s.</li>
+</ul>
+<h2 id="7-data-and-documentation">7. Data and documentation<a class="headerlink" href="#7-data-and-documentation" title="Permanent link">&para;</a></h2>
+<p>The families change, so this needs a data release (v0.9.0): a timeline of <code>At</code> and <code>Am</code> with the
+hybrid meters of D10 (angles at the PMUs only, the current-phasor channels), the frozen references regenerated, and the guides' tables and the papers'
+numbers that use these families are rerun. Until the release, the documentation describes the
+families as they are.</p>
+<h2 id="8-sequence">8. Sequence<a class="headerlink" href="#8-sequence" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Documentation matches the code</strong> (docs only): wherever the docs cite [WU26] for the stealthy
+   families (<code>README.md</code>, <code>docs/guides/generation.md</code>, <code>docs/reference/CONCEPTS_TO_CODE.md</code>,
+   <code>docs/reference/GLOSSARY.md</code>, the <code>Am</code> docstrings), say they satisfy the paper's constraints
+   (13)-(18) and (21)-(23), not its objective (12) or goal (24)-(25).</li>
+<li><strong>One home for attack generation</strong> (section 5): no behaviour change, bit-exact frozen suite,
+   deprecated aliases at the old paths.</li>
+<li><strong>The ℓ0 minimizer</strong> (section 3): the support search with the emitter's noise scale, its
+   brute-force and reweighted-ℓ1 tests, behind a generator knob that is off by default.</li>
+<li><strong>The [WU26] attack:</strong> PGLib-OPF ratings (D3), current-phasor meters (D4), the overload goal on
+   a metered line and the window (D5), <code>Am</code> as the MS-FDIA and <code>At</code> on the minimizer (D2), the
+   single-snapshot families deprecated for generation (D6).
+   4b. <strong>The hybrid meter model (D10):</strong> angles at the PMU buses only, the PMU branch-current
+   channels in the emitter, the file, the loader and the attacks, and the estimators' optional
+   eq. (3) pseudo-measurements; the v0.8.3 recipe unchanged.</li>
+<li><strong>Data release v0.9.0</strong> with the IEEE-14 scenario comparison, the guides rerun and the claims
+   updated to what is then true.</li>
+</ol>
+<h2 id="9-decisions">9. Decisions<a class="headerlink" href="#9-decisions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>D1, the objective's reading:</strong> the number of devices (one SCADA terminal and one PMU per bus)
+  with any channel tampered above its noise over the window, which is what the paper counts in its
+  results; the channel count is recorded alongside (the literal norm of the summed attack vector
+  would let opposite changes cancel).</li>
+<li><strong>D2, the minimizer's reach:</strong> every family the generator makes, <code>At</code> and <code>Am</code> (D6), so the area
+  of every attack is the least a real attacker would need.</li>
+<li><strong>D3, <code>S_max</code>:</strong> (since D15 the alternative, <code>am_attack={"rating_source": "pglib"}</code>; the default
+  rating is the pool's) the branch ratings (<code>rate_a</code>) of the PGLib-OPF v23.07 versions of IEEE-14,
+  118 and 300 (CC BY 4.0), in MVA, stored with the package and matched to our branches by their end
+  buses; a branch's flow magnitude <code>sqrt(P^2 + Q^2)</code> from its MW and MVAr channels is compared with
+  it directly. Pandapower's ratings cannot serve: every line and transformer of the three cases is
+  rated 9,900 MVA, MATPOWER's placeholder for "no limit", and the base case loads the most loaded
+  line to 1.5%, 4.5% and 8.7% of it. Matched by end buses, all branches pair up (20 of 20, 186 of
+  186, 411 of 411) and the base-case loadings are realistic (median 11%, 21% and 16%; most loaded
+  59%, 121% and 148%). A branch PGLib leaves at 9,900 MVA (7 on IEEE-300) is never a target, and a
+  line whose true flow reaches its rating at any snapshot of a candidate window is not a target for
+  that window, since the loads move along the timeline and such a goal would be met with no
+  attack.</li>
+<li><strong>D4, PMU current phasors (19)-(20):</strong> added as branch current-phasor channels at PMU buses, a
+  file-format change in the same release.</li>
+<li><strong>D5, the overload's meaning:</strong> (24)-(25) as written, on the noiseless reading of the false state:
+  the flow the tampered measurements carry before noise and bias reaches the rating (the emitted
+  reading adds noise, and its realized value is recorded next to the goal), so the operator sees the
+  line at its limit. The operator's response, which the paper does not model, is out of scope and
+  said so.</li>
+<li><strong>D6, multi-snapshot only:</strong> new generation makes <code>At</code> and <code>Am</code>; the single-snapshot families
+  (<code>Aq</code>, <code>Al</code>, <code>Ad</code>, <code>As</code>, <code>Ar</code>) are deprecated for generation and remain loadable from released
+  files.</li>
+<li><strong>D7, the noise scale of the bound and the objective:</strong> the meter's rated accuracy (the
+  accuracy-class σ), not the per-scan jitter. The jitter σ, whose power floor is 0.001 MVAr on near-zero reactive flows, is far tighter than
+  any real meter's resolution: under it almost no attack window met the between-snapshot bound.</li>
+<li><strong>D8, <code>Am</code>'s noise scale:</strong> [WU26]'s own case-study noise, 0.03 pu on SCADA channels (P and Q
+  injections and flows on the case base, in MW and MVAr as stored) and 0.01 pu on PMU channels (|V|
+  in pu, the angle 0.01 rad in degrees), for the tamper count, since the paper excludes from its
+  l0 count the changes smaller than its noise (narrowed by D11: at first also the scale of a
+  between-snapshot stealth bound, which the paper does not have)
+  (<code>formulas.noise.paper_sigma</code>). <code>At</code> keeps D7. Under the meters' rated accuracy (D7) no overload
+  window was stealthy, since moving one
+  line's flow moves the injections and flows around its ends by several times that change, beyond
+  the rated accuracy of the small loads there.</li>
+<li><strong>D9, the goal schedule:</strong> <code>S_{l,t} = S_true_{l,t} + (t - κ)/T (S_max - S_true_{l,κ+T})</code> on the
+  noiseless reading, replacing the onset-anchored <code>S_{l,κ} + (t - κ)/T (S_max - S_{l,κ})</code> and its
+  floor at the true flow: the anchored form made the attack cancel the load's natural drift (a flow
+  rising on its own had to be held back, one falling had to be propped up), spending tampering on
+  the drift rather than the goal; the drift-free form still reaches the rating at κ+T (eq. 25).</li>
+<li><strong>D11, <code>Am</code> follows eqs. (12)-(25) exactly:</strong> [WU26]'s model has no between-snapshot increment
+  constraint. Its noise enters only through the l0 count: a change smaller than the noise is not
+  counted as tampering. Its IEEE-14 attack injects up to about 0.22 pu per device (its Fig. 4), about
+  seven times its 0.03 pu noise, and is stealthy because every snapshot is AC-consistent, so the
+  residual test sees noise. The between-snapshot stealth bound of D7 and D8 was this plan's
+  invention and is what made <code>Am</code> infeasible on IEEE-14. <code>Am</code> therefore has no increment bound; its
+  only use of noise is the l0 threshold (<code>paper_sigma</code>, 0.03 pu SCADA and 0.01 pu PMU, the current
+  channels included). The rest of eqs. (12)-(25) is kept: (13)-(20) by construction, currents
+  included; the limits (21)-(23); the goal (24)-(25) with the D9 schedule on the noiseless reading.
+  <code>At</code>, which is not [WU26]'s attack, keeps its rated-accuracy bound: a sub-noise ramp is what <code>At</code>
+  is. <code>stealth_scale</code> is <code>At</code>'s alone. The comparison with the paper's case studies and the audit of the rest of the <code>Am</code> path are D14.</li>
+<li><strong>D12, <code>meter_model</code> is its own knob:</strong> a field of the meter plan (<code>models.MeterSettings</code>, passed
+  as <code>generate_timeline(redundancy=...)</code> beside the coverage fractions, so the entry point takes no
+  new parameter); new generation defaults to <code>"hybrid"</code>; the v0.8.3 recipe (the frozen test
+  timeline, the legacy test recipe, the v0.8.3 build script and <code>generate_stream</code>'s defaults)
+  passes <code>redundancy={"meter_model": "v083"}</code> explicitly. <code>FdiaGenerator</code>'s own
+  default stays <code>"v083"</code>, which nothing depends on. The frozen suite is bit-exact.</li>
+<li><strong>D13, <code>prev_pmu_i</code>:</strong> the previous emitted frame's PMU branch currents, a timeline field like
+  <code>prev_node_x</code> and <code>prev_edge_x</code> (offered on a hybrid-meter file), so <code>JacobianWeighting</code> and any
+  estimator that reads the previous frame can use the eq. (3) pseudo-measurements; the refusal is
+  lifted.</li>
+<li><strong>D17, two lines at once, and [WU26]'s scenarios as a table:</strong> [WU26]'s case studies always
+  overload two lines at once, so an overload episode drives <code>n_lines</code> lines, 2 by default
+  (<code>OverloadSettings.n_lines</code>, 1 or 2: each added line multiplies the target sets an episode tries,
+  and the paper uses no more). An episode draws its pairs from one random order of the eligible
+  lines: each line in turn with the first other eligible line whose ends lie inside its attack area
+  (the buses within <code>hops</code> of its ends), so one held support can reach both; it tries at most
+  <code>AM_LINE_TRIES</code> pairs and otherwise stays benign and is counted (since the split-first
+  generation it moves to another onset of its split instead). The file records <code>n_lines</code>, and
+  <code>episodes/am_*</code> holds one row per target line: the branch, its rating, the goal at the window's
+  end (<code>am_target_mva</code>) and the noiseless and emitted flows reached. The paper's scenarios are a
+  table in <code>engine/attacks/overload.py</code>, in MATPOWER bus numbers mapped to our branches by their end
+  buses (<code>OverloadMixin.wu26_branch</code>, <code>wu26_buses</code>):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>system</th>
+<th>lines overloaded at once</th>
+<th>PMU buses</th>
+<th>source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14</td>
+<td>3-4 with 6-11; 1-2 with 4-5</td>
+<td>1, 4, 6, 13</td>
+<td>Section V-A</td>
+</tr>
+<tr>
+<td>IEEE-118</td>
+<td>84-85 with 99-100</td>
+<td>76, 78, 80, 83, 89, 92, 94, 100, 105, 106, 110</td>
+<td>Section V-B; the PMUs are the 11 buses drawn in red in Fig. 9 ("IEEE 118-bus system topology and PMU distribution", page 12 of the published PDF), read at 1,200 dpi against their bus labels; bus 94's label sits beside bus 95's bar, but the red bar is 94's</td>
+</tr>
+</tbody>
+</table>
+<p>Fig. 9's red dashed region, the attacker's local network on IEEE-118, is legible: buses 74 to
+  112 and 118 (<code>WU26_ATTACK_AREA</code>). <code>tests/test_wu_scenarios.py</code> runs each scenario on the paper's
+  PMUs with two-line goals and ratings 1.2 times each line's peak flow over a 10-snapshot window:
+  on IEEE-14 both are feasible, reach both ratings, tamper every device of the paper's sets but one
+  (SCADA 11 in lines 3-4 and 6-11: our 6-11 flow meter sits at its from end, bus 6, and the
+  least-norm state leaves bus 11's injection within noise), with a largest per-device change bounded in the test (the paper reports 0.22 and 0.17 pu); on
+  IEEE-118 (with <code>FDIA_SLOW</code>) the scenario is feasible and reaches both ratings. The S_max sensitivity study rerun on this code (two-line goals, the D16 bounds; experiment
+  <code>wu26.smax_sensitivity</code>) is the table under D15. The episodes the two-line default builds are in the <code>gen.am</code> table under D15.
+- <strong>D16, the edge of the support is bounded:</strong> the injections of the buses on the support's edge
+  move with the false voltages, and nothing bounded them: under D15 the heaviest lines' least-norm
+  false states moved them by up to 5.7 pu on IEEE-14 and 45 pu on IEEE-118. Two bounds, both enforced
+  in the flow solve by the active set that pins the generator limits (a component past its bound is
+  pinned at it and the solve repeated), P and Q apart: (22)-(23) apply to every generator whose
+  reported output the attack changes, the edge's included, and are checked by <code>within_limits</code> over
+  the support and its edge, which is closer to the paper, whose (22)-(23) bound every generator,
+  than our earlier interior-only reading; and a load bus the attack moves, in the support or on its
+  edge (no generator, not the slack), shows an active change of at most <code>load_cap</code> times its true
+  load, the load-plausibility rule of [YUA11] (tau 20% to 50%), ours and not the paper's, with tau =
+  0.5 by default (<code>OverloadSettings.load_cap</code>, in (0, 1], recorded in the file's attributes as
+  <code>load_cap</code>). The measurements are with D15 below, under the D16 bounds and before them.
+- <strong>D15, the ratings default to the operating pool:</strong> S_max of each branch is <code>rating_margin</code>
+  times its peak true apparent flow over the operating pool the timeline walks (static per line,
+  like a thermal rating, computed once from the pool's noiseless from-end flows, the magnitude the
+  goal reads), with <code>rating_margin = 1.25</code> by default. Ben's advisor's guidance is that limits sit
+  20% to 30% above a line's flow. The sensitivity study on [WU26]'s IEEE-14 case-study metering (S_max = k times each goal
+  line's peak flow over the window; experiment <code>wu26.smax_sensitivity</code>) puts the paper's reported
+  scale of about 0.2 pu at the small k; the PGLib-OPF ratings sit several times above those lines'
+  flows, and with D16's edge bounds no attack reaches them:</p>
+<!-- results: wu.smax -->
+<table>
+<thead>
+<tr>
+<th>scenario (devices / channels / largest change, pu)</th>
+<th style="text-align: right;">k = 1.05</th>
+<th style="text-align: right;">k = 1.1</th>
+<th style="text-align: right;">k = 1.2</th>
+<th style="text-align: right;">k = 1.3</th>
+<th style="text-align: right;">k = 1.5</th>
+<th style="text-align: right;">k = 2.0</th>
+<th style="text-align: right;">k = pglib</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>lines 3-4 and 6-11</td>
+<td style="text-align: right;">4 / 6 / 0.13</td>
+<td style="text-align: right;">4 / 6 / 0.18</td>
+<td style="text-align: right;">9 / 36 / 0.81</td>
+<td style="text-align: right;">14 / 64 / 1.67</td>
+<td style="text-align: right;">no attack</td>
+<td style="text-align: right;">no attack</td>
+<td style="text-align: right;">no attack</td>
+</tr>
+<tr>
+<td>lines 1-2 and 4-5</td>
+<td style="text-align: right;">6 / 13 / 0.14</td>
+<td style="text-align: right;">8 / 22 / 0.23</td>
+<td style="text-align: right;">10 / 43 / 0.37</td>
+<td style="text-align: right;">17 / 69 / 0.50</td>
+<td style="text-align: right;">no attack</td>
+<td style="text-align: right;">no attack</td>
+<td style="text-align: right;">no attack</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>The pool ratings work on every system of the ladder (no <code>NoLineRatings</code>); the PGLib-OPF ratings
+  stay available as the robustness alternative (<code>am_attack={"rating_source": "pglib"}</code>, IEEE-14,
+  118 and 300 only) and are reported alongside in the papers. Both knobs live in
+  <code>models.OverloadSettings</code>, passed as a dict through <code>am_attack</code> (no new top-level parameter), and
+  are recorded in the file's attributes (<code>rating_source</code>, <code>rating_margin</code>) when the overload attack
+  runs. Eligibility is unchanged: a line whose true flow reaches its rating at any snapshot of the
+  window is not a target. The overload episodes each recipe builds (experiment <code>generation.am_overload</code>):</p>
+<!-- results: gen.am -->
+<table>
+<thead>
+<tr>
+<th>system</th>
+<th>recipe</th>
+<th style="text-align: right;">frames</th>
+<th style="text-align: right;">episodes</th>
+<th style="text-align: right;">fallen back</th>
+<th style="text-align: right;">devices (mean)</th>
+<th style="text-align: right;">channels (mean)</th>
+<th style="text-align: right;">largest change, pu (median / max episode)</th>
+<th style="text-align: right;">s per episode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14</td>
+<td>one line, before the D16 bounds</td>
+<td style="text-align: right;">3000</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5.3</td>
+<td style="text-align: right;">15.0</td>
+<td style="text-align: right;">0.18 / 5.74</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td>IEEE-14</td>
+<td>one line, D16 bounds</td>
+<td style="text-align: right;">3000</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">3.9</td>
+<td style="text-align: right;">9.9</td>
+<td style="text-align: right;">0.14 / 0.82</td>
+<td style="text-align: right;">30</td>
+</tr>
+<tr>
+<td>IEEE-14</td>
+<td>two lines, D16 bounds (default)</td>
+<td style="text-align: right;">3000</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">6.8</td>
+<td style="text-align: right;">19.3</td>
+<td style="text-align: right;">0.17 / 1.59</td>
+<td style="text-align: right;">39</td>
+</tr>
+<tr>
+<td>IEEE-30</td>
+<td>one line, before the D16 bounds</td>
+<td style="text-align: right;">600</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">3.8</td>
+<td style="text-align: right;">8.8</td>
+<td style="text-align: right;">0.09 / 0.29</td>
+<td style="text-align: right;">20</td>
+</tr>
+<tr>
+<td>IEEE-118</td>
+<td>one line, before the D16 bounds</td>
+<td style="text-align: right;">2000</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">6.8</td>
+<td style="text-align: right;">21.4</td>
+<td style="text-align: right;">1.05 / 44.94</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr>
+<td>IEEE-118</td>
+<td>one line, D16 bounds</td>
+<td style="text-align: right;">2000</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">9.6</td>
+<td style="text-align: right;">30.4</td>
+<td style="text-align: right;">0.40 / 3.29</td>
+<td style="text-align: right;">71</td>
+</tr>
+<tr>
+<td>IEEE-118</td>
+<td>two lines, D16 bounds (default)</td>
+<td style="text-align: right;">2000</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">17.8</td>
+<td style="text-align: right;">72.0</td>
+<td style="text-align: right;">1.33 / 3.39</td>
+<td style="text-align: right;">78</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<ul>
+<li><strong>D14, the rest of the <code>Am</code> path against eqs. (12)-(25):</strong> generator injections are free, as
+  [WU26, eqs. 13-14] let every injection measurement be tampered and (22)-(23) bound only the
+  generator output: a generator bus of the support has free P and Q injection like an attackable
+  load, inside its limits. The flow solve enforces the limits (21)-(23) with an active set: a
+  generator driven outside its limits is pinned at the nearest limit, a bus voltage outside its
+  limit is held at it, and the least-norm solve is repeated. A candidate support holds an end bus of
+  each goal line and at least one free injection (an attackable load or a generator). A flow goal
+  takes one or more lines (<code>FlowGoal.more</code>, <code>overload_goal(window, line, *more)</code>): one held support,
+  each line's noiseless flow reaching its own rating by the window's end on the D9 schedule, the l0
+  count over the union. At D14 the generator's episodes drove one line (two by default since D17); the multi-line goal is what the
+  paper's case studies use and is available as an option. S_max is the PGLib-OPF rating only:
+  [WU26] does not state its line limits, so no assumed limit is compared with it. On the paper's IEEE-14 metering with the PGLib-OPF ratings, which sit several times above the
+  scenario lines' true flows, every device of the paper's sets is in ours but ours are larger, with
+  changes of several pu at the generators and loads around the lines, against the paper's 0.22 and
+  0.17 pu (its limits must sit much closer to the flows, which it does not state). The constraints this
+  package adds that the paper does not state:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>constraint we add</th>
+<th>ours, because</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a zero-injection bus is held at zero</td>
+<td>physical: nothing is connected there, so no meter there can read anything else</td>
+</tr>
+<tr>
+<td>the attacker's area is the buses within <code>hops = 2</code> of the goal lines' ends, boundary voltages held true</td>
+<td>the local attacker of the package's stealthy families; the paper's attacker also knows only a local subnetwork but states no radius</td>
+</tr>
+<tr>
+<td>one support held for the whole window</td>
+<td>the l0 count is over the window, and a support that changes between snapshots would count the union anyway; it keeps the search finite</td>
+</tr>
+<tr>
+<td>the least-norm voltage change among a support's false states, with the limits enforced by an active set</td>
+<td>the paper leaves the choice among feasible false states to its solver; the smallest change is the one nearest the true state</td>
+</tr>
+<tr>
+<td>at most <code>AM_LINE_TRIES = 8</code> eligible lines tried per episode, each rated, metered and below its rating over the window</td>
+<td>a bounded generator; the paper studies chosen lines</td>
+</tr>
+<tr>
+<td>generator limits widened to the range the pool ran each generator over, and a bus already outside its voltage limit may not be made worse</td>
+<td>the pools were built without nameplate enforcement, so the nameplate would refuse states the pool already holds</td>
+</tr>
+<tr>
+<td>the goal is the apparent flow at the from end, where the flow is metered</td>
+<td>the reading the operator sees</td>
+</tr>
+<tr>
+<td>a load bus the attack moves, in the support or on its edge, shows an active change of at most <code>load_cap</code> (tau, 0.5 by default) times its true load (D16)</td>
+<td>load plausibility: a load redistribution attack keeps each load within tau of its true value, tau 20% to 50% [YUA11]; without it the least-norm state moved edge injections by up to 45 pu</td>
+</tr>
+<tr>
+<td>- <strong>D10, the meters of new generation:</strong> the hybrid SCADA and PMU plan of [WU26]. A SCADA voltmeter</td>
+<td></td>
+</tr>
+<tr>
+<td>reads <code>|V|</code> only and the angle is a PMU channel (the released files wrote an angle at every</td>
+<td></td>
+</tr>
+<tr>
+<td>voltmeter bus); every PMU reads the current phasor of each in-service branch at its bus (19)-(20),</td>
+<td></td>
+</tr>
+<tr>
+<td>the real and imaginary part at each end in per unit, with the PMU class of IEEE C37.118.1 (1%</td>
+<td></td>
+</tr>
+<tr>
+<td>total vector error as three standard deviations of the magnitude, plus a 1e-5 pu floor), one rule</td>
+<td></td>
+</tr>
+<tr>
+<td>for the emitter and the search (<code>formulas.noise.current_sigma</code>). The stealthy families write</td>
+<td></td>
+</tr>
+<tr>
+<td><code>h(x^a) - h(x)</code> on the currents too, a tampered current counts in the PMU of its bus (D1); <code>At</code> bounds</td>
+<td></td>
+</tr>
+<tr>
+<td>its step by the class (D7), and <code>Am</code> counts it as tampered only beyond 0.01 pu, a tamper-count</td>
+<td></td>
+</tr>
+<tr>
+<td>threshold and not a step bound (D8, D11). The file stores</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pmu_i</code> with its benign twin, mask and tamper mask; a file without them loads unchanged.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>meter_model</code> defaults to <code>"hybrid"</code> and the v0.8.3 recipe pins <code>"v083"</code> through the meter plan,</td>
+<td></td>
+</tr>
+<tr>
+<td><code>redundancy={"meter_model": "v083"}</code> (D12). The estimators may add [WU26, eq. (3)]'s pseudo voltage phasors at the far ends of the</td>
+<td></td>
+</tr>
+<tr>
+<td>PMU-metered branches (<code>pmu_pseudo</code>, off by default), weighted by their propagated variance.</td>
+<td></td>
+</tr>
+<tr>
+<td>Taking the angles away from the voltmeters raises the benign angle error, and the eq. (3)</td>
+<td></td>
+</tr>
+<tr>
+<td>pseudo-measurements win part of it back; the comparison is rerun into the results store with the</td>
+<td></td>
+</tr>
+<tr>
+<td>v0.9.0 data.</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Overview
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../WU_DEFENSE_PLAN/" class="md-footer__link md-footer__link--next" aria-label="Next: Wu defense">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Wu defense
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,25 @@
+flowchart TB
+    subgraph SDK["src/fdia_graph, the base install"]
+        init["__init__.py<br/>fg.* public API"]
+        ds["dataset/<br/>FdiaGraph"]
+        st["timeline.py · torch_data.py<br/>the timeline writer, sequence forms"]
+        reg["registry.py · download.py<br/>versions, cache"]
+        se["se/<br/>state estimation"]
+        loc["localization/<br/>per-bus localization"]
+        trust["trust/<br/>trusted meters"]
+        init --> ds
+        init --> st
+        ds --> reg
+        se --> ds
+        loc --> ds
+        trust --> ds
+    end
+    subgraph GEN["the generate extra"]
+        gen["generation.py · profiles.py<br/>drivers"]
+        eng["engine/<br/>FdiaGenerator"]
+        gen --> eng
+    end
+    base["models/ and formulas/<br/>every returned record, the equations cited<br/>read by every package above"]
+    init --> gen
+    SDK --> base
+    GEN --> base

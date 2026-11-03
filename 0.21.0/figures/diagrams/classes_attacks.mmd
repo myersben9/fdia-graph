@@ -1,0 +1,174 @@
+classDiagram
+    class AreaMixin {
+        +local_region()
+        +attack_area()
+        +explicit_area()
+        +rule_area()
+        +area_score()
+    }
+    class FalseStateMixin {
+        +operating_limits()
+        +solve_local()
+        +free_load_buses()
+        +generator_buses()
+        +free_injection_buses()
+        +solve_flow_local()
+        +touched_buses()
+        +frame_from_state()
+        ... and 3 more
+    }
+    class SupportStrategy {
+        +find()
+    }
+    class SearchSupport {
+        +find()
+    }
+    class MinimizeMixin {
+        +min_tamper()
+        +support_strategy()
+        +window_area()
+        +goal_state()
+    }
+    class OverloadMixin {
+        +use_line_ratings()
+        +line_ratings()
+        +eligible_lines()
+        +overload_goal()
+        +window_ratings()
+        +wu26_area()
+        +wu26_branch()
+        +wu26_buses()
+        ... and 3 more
+    }
+    class StealthyMixin {
+    }
+    class RampDesigner {
+        +design()
+    }
+    class OverloadDesigner {
+        +design()
+    }
+    class EpisodeDesignMixin {
+        +designer()
+        +target_counts()
+        +ramp_step()
+        +ramp_design()
+        +am_overload_design()
+    }
+    class AttackMixin {
+        +attack_frame()
+    }
+    class AmOverloadDesign {
+        <<models>>
+    }
+    class AreaScore {
+        <<models>>
+    }
+    class AttackDesign {
+        <<models>>
+    }
+    class AttackVector {
+        <<models>>
+    }
+    class FlowGoal {
+        <<models>>
+    }
+    class Frame {
+        <<models>>
+    }
+    class FrameKnobs {
+        <<models>>
+    }
+    class GridBase {
+        <<engine>>
+    }
+    class LoadGoal {
+        <<models>>
+    }
+    class MinimizerResult {
+        <<models>>
+    }
+    class NoLineRatings {
+        <<models>>
+    }
+    class OperatingLimits {
+        <<models>>
+    }
+    class OverloadSettings {
+        <<models>>
+    }
+    class RampDesign {
+        <<models>>
+    }
+    class RrefSupport {
+        <<engine>>
+    }
+    class Scan {
+        <<models>>
+    }
+    class SupportMethod {
+        <<models>>
+    }
+    class TrustSchedule {
+        <<models>>
+    }
+    class TrustablePmus {
+        <<models>>
+    }
+    AreaMixin <|-- FalseStateMixin
+    EpisodeDesignMixin <|-- AttackMixin
+    FalseStateMixin <|-- MinimizeMixin
+    FalseStateMixin <|-- StealthyMixin
+    GridBase <|-- AreaMixin
+    GridBase <|-- EpisodeDesignMixin
+    MinimizeMixin <|-- OverloadMixin
+    OverloadMixin <|-- AttackMixin
+    StealthyMixin <|-- AttackMixin
+    AreaMixin ..> AreaScore : uses
+    AttackMixin ..> AttackDesign : uses
+    AttackMixin ..> Frame : uses
+    AttackMixin ..> FrameKnobs : uses
+    EpisodeDesignMixin ..> AmOverloadDesign : uses
+    EpisodeDesignMixin ..> AttackDesign : uses
+    EpisodeDesignMixin ..> AttackVector : uses
+    EpisodeDesignMixin ..> FrameKnobs : uses
+    EpisodeDesignMixin ..> RampDesign : uses
+    FalseStateMixin ..> AttackDesign : uses
+    FalseStateMixin ..> Frame : uses
+    FalseStateMixin ..> FrameKnobs : uses
+    FalseStateMixin ..> OperatingLimits : uses
+    FalseStateMixin ..> Scan : uses
+    MinimizeMixin ..> AttackVector : uses
+    MinimizeMixin ..> FlowGoal : uses
+    MinimizeMixin ..> FrameKnobs : uses
+    MinimizeMixin ..> LoadGoal : uses
+    MinimizeMixin ..> MinimizerResult : uses
+    MinimizeMixin ..> RrefSupport : uses
+    MinimizeMixin ..> SupportMethod : uses
+    MinimizeMixin ..> TrustSchedule : uses
+    MinimizeMixin ..> TrustablePmus : uses
+    OverloadDesigner ..> AmOverloadDesign : uses
+    OverloadDesigner ..> FrameKnobs : uses
+    OverloadDesigner ..> OverloadMixin : uses
+    OverloadMixin ..> AmOverloadDesign : uses
+    OverloadMixin ..> FlowGoal : uses
+    OverloadMixin ..> Frame : uses
+    OverloadMixin ..> FrameKnobs : uses
+    OverloadMixin ..> NoLineRatings : uses
+    OverloadMixin ..> OverloadSettings : uses
+    RampDesigner ..> AttackMixin : uses
+    RampDesigner ..> AttackVector : uses
+    RampDesigner ..> FrameKnobs : uses
+    RampDesigner ..> LoadGoal : uses
+    RampDesigner ..> RampDesign : uses
+    SearchSupport ..> AttackVector : uses
+    SearchSupport ..> FrameKnobs : uses
+    SearchSupport ..> MinimizerResult : uses
+    SearchSupport ..> TrustSchedule : uses
+    StealthyMixin ..> AttackDesign : uses
+    StealthyMixin ..> Frame : uses
+    StealthyMixin ..> FrameKnobs : uses
+    SupportStrategy ..> AttackVector : uses
+    SupportStrategy ..> FrameKnobs : uses
+    SupportStrategy ..> MinimizerResult : uses
+    SupportStrategy ..> TrustSchedule : uses

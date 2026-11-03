@@ -1,0 +1,5 @@
+flowchart LR
+    z["z_t"] --> dz["Δz = z_t − h(x_{t−1} clean)"]
+    dz --> split["r∥ = P_H Δz · r⊥ = (I − P_H) Δz"]
+    split --> w["Huber weights from r⊥ / σ"]
+    w --> solve["one weighted solve"]

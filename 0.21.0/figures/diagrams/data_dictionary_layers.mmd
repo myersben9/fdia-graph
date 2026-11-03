@@ -1,0 +1,3 @@
+flowchart LR
+    clean["clean / edge_clean<br/>noiseless true state"] -- "+ meter noise" --> benign["benign / edge_benign"]
+    benign -- "Ad As Ar: + the corruption<br/>Aq At Al Am: + the attack vector of the local false state<br/>(observed − benign = attack, exact)" --> obs["node_x / edge_x<br/>observed, the model input"]

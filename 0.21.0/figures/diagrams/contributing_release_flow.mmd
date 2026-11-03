@@ -1,0 +1,5 @@
+flowchart LR
+    A["bump PR:<br/>pyproject, __init__, changelog heading"] --> B[merge on green]
+    B --> C["tools/release.py vX.Y.Z notes.md"]
+    C --> D[tag on main · GitHub release]
+    D --> E[publish.yml → PyPI]

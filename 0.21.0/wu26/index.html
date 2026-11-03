@@ -1,0 +1,2850 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/0.21.0/wu26/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>[WU26] defense reproduced - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#wu26-defense-reproduced" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              [WU26] defense reproduced
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/generation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../plans/" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeline generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/new_york/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/GLOSSARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture (UML diagrams)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/FORMULAS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/REVIEW_CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu MS-FDIA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu defense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nyfed/PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nyfed/ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-ieee-14-does-not-reproduce-table-ii" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why IEEE-14 does not reproduce Table II
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#faithful-reproduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Faithful reproduction
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Faithful reproduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#solution-2-the-dqn-on-the-faithful-attack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Solution 2 (the DQN) on the faithful attack
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replication-against-wu26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replication against [WU26]
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Replication against [WU26]">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#implemented-as-stated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implemented as stated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-agrees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What agrees
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-does-not" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What does not
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-paper-does-not-specify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the paper does not specify
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hypotheses-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypotheses tested
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#figures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Figures
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-reproduced-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not reproduced here
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="wu26-defense-reproduced">[WU26] defense reproduced<a class="headerlink" href="#wu26-defense-reproduced" title="Permanent link">&para;</a></h1>
+<p>Generated by <code>tools/wu26_harness.py</code> (docs/plans/WU_DEFENSE_PLAN.md, PR E). Every figure is a PNG beside the CSV that holds its numbers.
+Every row is also a record of the results store's <code>wu26.reproduction</code> experiment (<code>results/</code>), the
+source any number on this page is rendered from.</p>
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Windows:</strong> 1-minute attack snapshots, interpolated from the 5-minute operating pool and re-solved by AC power flow.</li>
+<li>IEEE-14 uses 20 snapshots; IEEE-118 uses 10.</li>
+<li>Wu's attack snapshots are 30 s. Ours are twice as long, so an IEEE-14 window spans 20 minutes against his 10.</li>
+<li><strong>Attack area:</strong> the paper's own (<code>OverloadMixin.wu26_area</code>, decision D18): IEEE-14's every bus but the
+  slack ("knowledge of the system's global generation and load forecasts", p. 659), IEEE-118's local
+  network of Fig. 9.</li>
+<li><strong>Ratings:</strong> each target line's true flow at the window's last snapshot plus 0.10 pu (<code>--ratings +0.10</code>,
+  decision E14, ours): the paper states no ratings, and this scale makes the attack's magnitudes match
+  its Fig. 4. Margins on the peak flow (<code>--ratings 1.1 1.2</code>) remain as a sensitivity.</li>
+<li><strong>Attack:</strong> the candidate search with the paper's noise as the l0 threshold (D8), the load cap (D16),
+  a trusted PMU securing its own |V| and angle (E2, eq. 27). It is the cost oracle of both defenses.</li>
+</ul>
+<h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
+<!-- results: wu26.reproduction -->
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>rating</th>
+<th>method</th>
+<th style="text-align: right;">windows</th>
+<th style="text-align: right;">attacked / survives</th>
+<th style="text-align: right;">undefended (devices / channels)</th>
+<th style="text-align: right;">defended</th>
+<th style="text-align: right;">rise (channels)</th>
+<th style="text-align: right;">extra devices</th>
+<th style="text-align: right;">[WU26]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-118, scenario 1</td>
+<td>+0.10</td>
+<td>dqn</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">100 / 100</td>
+<td style="text-align: right;">10 / 27</td>
+<td style="text-align: right;">13 / 29</td>
+<td style="text-align: right;">7.1%</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">16.4% mean, mostly 10% to 20%</td>
+</tr>
+<tr>
+<td>IEEE-118, scenario 1</td>
+<td>+0.10</td>
+<td>solution1</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">100 / 100</td>
+<td style="text-align: right;">10 / 27</td>
+<td style="text-align: right;">13 / 29</td>
+<td style="text-align: right;">7.1%</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">16.4% mean, mostly 10% to 20%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 1</td>
+<td>+0.10</td>
+<td>dqn</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">9 / 0</td>
+<td style="text-align: right;">17 / 81</td>
+<td style="text-align: right;">none survives</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">25.6% / 23.9%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 1</td>
+<td>+0.10</td>
+<td>solution1</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">9 / 0</td>
+<td style="text-align: right;">17 / 81</td>
+<td style="text-align: right;">none survives</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">25.6% / 23.9%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 2</td>
+<td>+0.10</td>
+<td>dqn</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">20 / 20</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">0.0%</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">35.2% / 27.0%</td>
+</tr>
+<tr>
+<td>IEEE-14, scenario 2</td>
+<td>+0.10</td>
+<td>solution1</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">20 / 20</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">8 / 23</td>
+<td style="text-align: right;">0.0%</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">35.2% / 27.0%</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<ul>
+<li><strong>IEEE-118 comes closest.</strong> Every window's attack survives the schedule, and the trusted PMUs add
+  tampered devices on the scale of the paper's 3 to 5, but the cost rise counted in measurements stays
+  below the paper's band in most windows (<code>fig12_ieee118.png</code>). The extra devices count every device in
+  the defended attack that the undefended one did not tamper, swaps included, so they exceed the net rise.</li>
+<li><strong>IEEE-14 does not reproduce Table II.</strong> On lines 3-4 and 6-11 no defended attack survives where an
+  undefended one exists; on lines 1-2 and 4-5 the defended attack costs what the undefended one does. The
+  next section says why.</li>
+</ul>
+<h2 id="why-ieee-14-does-not-reproduce-table-ii">Why IEEE-14 does not reproduce Table II<a class="headerlink" href="#why-ieee-14-does-not-reproduce-table-ii" title="Permanent link">&para;</a></h2>
+<p>The paper states neither its line ratings nor its limits, and the gap follows them. With the ratings set
+at each target's last flow plus a step, the paper's area, our load cap and its own-bus trust, the
+prototype of the attack as one mixed-integer program (written from eqs. 12-25 and 29, solved by SCIP)
+gives (experiment <code>minlp.rating_delta</code>):</p>
+<!-- results: minlp.rating_delta -->
+<table>
+<thead>
+<tr>
+<th>case (undefended → trusted, devices / channels)</th>
+<th style="text-align: right;">+0.10 pu</th>
+<th style="text-align: right;">+0.15 pu</th>
+<th style="text-align: right;">+0.20 pu</th>
+<th style="text-align: right;">+0.30 pu</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">none → none</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5</td>
+<td style="text-align: right;">8 / 23 → 8 / 23</td>
+<td style="text-align: right;">9 / 29 → 9 / 29</td>
+<td style="text-align: right;">9 / 31 → 9 / 32</td>
+<td style="text-align: right;">14 / 52 → none</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100</td>
+<td style="text-align: right;">10 / 25 → 13 / 29</td>
+<td style="text-align: right;">10 / 29 → 13 / 31</td>
+<td style="text-align: right;">13 / 35 → 13 / 35</td>
+<td style="text-align: right;">14 / 40 → 14 / 40</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<ul>
+<li><strong>IEEE-118</strong> rises under the schedule at the smallest steps, the closest to the paper's band.</li>
+<li><strong>IEEE-14, lines 3-4 and 6-11</strong> has no attack at any step under our load cap and the paper's limits
+  (21)-(23), while the paper attacks it at about 0.22 pu.</li>
+<li><strong>IEEE-14, lines 1-2 and 4-5</strong> routes around the trusted PMUs: its attack moves no PMU bus's |V| or
+  angle, so trusting them costs nothing; a trusted PMU's branch currents stay attackable (eq. 27).</li>
+</ul>
+<p>Dropping the load cap, or securing a trusted PMU's branch currents too (the other reading of p. 655),
+moves IEEE-14 into the band only with attacks far larger than the paper's figures, or makes every
+defended attack infeasible (experiment <code>minlp.cap_trust_grid</code>):</p>
+<!-- results: minlp.cap_trust -->
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th style="text-align: right;">neighbour trust, cap off</th>
+<th style="text-align: right;">neighbour trust, cap on</th>
+<th style="text-align: right;">own trust, cap off</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11, +0.10 pu</td>
+<td style="text-align: right;">11 / 37 → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">11 / 37 → 11 / 50</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11, +0.15 pu</td>
+<td style="text-align: right;">12 / 45 → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">12 / 45 → 11 / 52</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 3-4 and 6-11, +0.20 pu</td>
+<td style="text-align: right;">13 / 49 → none</td>
+<td style="text-align: right;">none → none</td>
+<td style="text-align: right;">13 / 49 → 14 / 63</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5, +0.10 pu</td>
+<td style="text-align: right;">7 / 15 → none</td>
+<td style="text-align: right;">8 / 23 → none</td>
+<td style="text-align: right;">7 / 15 → 7 / 17</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5, +0.15 pu</td>
+<td style="text-align: right;">7 / 21 → none</td>
+<td style="text-align: right;">9 / 29 → none</td>
+<td style="text-align: right;">7 / 21 → 9 / 23</td>
+</tr>
+<tr>
+<td>IEEE-14, lines 1-2 and 4-5, +0.20 pu</td>
+<td style="text-align: right;">8 / 24 → none</td>
+<td style="text-align: right;">9 / 31 → none</td>
+<td style="text-align: right;">8 / 24 → 9 / 30</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100, +0.10 pu</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">10 / 25 → none</td>
+<td style="text-align: right;">9 / 18 → 9 / 18</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100, +0.15 pu</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">9 / 19 → 9 / 19</td>
+</tr>
+<tr>
+<td>IEEE-118, lines 84-85 and 99-100, +0.20 pu</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">9 / 21 → 9 / 21</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>Further readings checked and rejected: tampering every meter of the moved region instead of those
+beyond noise (<code>minlp.region_reading</code>; the paper's Fig. 4 leaves sub-noise changes out of its list),
+anchoring the attack on the target lines' end buses (<code>minlp.anchoring</code>), and the cold mixed-integer
+solve as the attack generator (<code>minlp.prototype</code>: SCIP found no attack within its time limit where the
+search finds one). The cost definition (noise-thresholded l0) and the own-bus trust reading are the ones
+consistent with the paper's figures; whether trust bites depends on ratings and limits it does not state.</p>
+<h2 id="faithful-reproduction">Faithful reproduction<a class="headerlink" href="#faithful-reproduction" title="Permanent link">&para;</a></h2>
+<p><code>trust.wu26</code> implements [WU26] as the paper states it, separately from the dataset generator's attack
+(<code>tools/wu26_faithful.py</code>; experiment <code>wu26.faithful</code>):</p>
+<ul>
+<li><strong>Meter plan</strong> ([E17]; [29] Sec. 2.2): every bus's SCADA reads its injection and the flow of each
+  incident branch at its own end, so every branch is metered at both ends; the PMUs read their voltage,
+  angle and incident branch currents; there is no SCADA voltmeter.</li>
+<li><strong>Attack</strong> ([E16]; eq. 12 read literally): the l1 of the window's summed attack ([37] p. 1898
+  relaxes the l0 to l1), plus <code>tau</code> times the per-snapshot l1, solved as one IPOPT problem per window
+  with the boundary held ([37] eq. 12). Changes below the paper's noise count as untampered (p. 659).</li>
+<li><strong>Goal</strong> ([E19]; eqs. 24-25 as written): each target's flow reaches its S_max at the window's end and
+  never falls between snapshots; there is no per-snapshot target, unlike the generator's ramp (D9). The
+  per-snapshot ramp forced oversized attacks on IEEE-14.</li>
+<li><strong>Trust</strong> ([E1]; eqs. 29-30, "accumulating attack vectors", p. 659): a trusted PMU keeps the attack
+  offset its bus had at the snapshot before its slot; its currents stay untrusted (eq. 27).</li>
+<li><strong>Cost</strong> ([E3]): the devices tampered at any snapshot, the count of Fig. 4 and Fig. 12; eq. (33)'s l0
+  of the net vector over channels moves the other way under this defense and is stored beside it.</li>
+<li><strong>Ours</strong> ([E18]): the overload <code>rho</code>, the per-snapshot weight <code>tau</code>, the per-snapshot trust region and
+  the iteration cap (<code>Wu26Attack</code>).</li>
+</ul>
+<p>Each scenario runs windows drawn by the paper's data recipe (p. 658), with the trust order Solution 1
+derives on this meter plan and with the order the paper reports (Fig. 6 on IEEE-14, p. 662's account on
+IEEE-118):</p>
+<!-- results: wu26.faithful -->
+<table>
+<thead>
+<tr>
+<th>scenario</th>
+<th>tau</th>
+<th>trust order</th>
+<th style="text-align: right;">windows</th>
+<th style="text-align: right;">devices undefended</th>
+<th style="text-align: right;">defended</th>
+<th style="text-align: right;">rise mean / median</th>
+<th style="text-align: right;">windows in 10-20%</th>
+<th style="text-align: right;">new devices</th>
+<th style="text-align: right;">overlap SCADA / PMU</th>
+<th style="text-align: right;">largest change (pu)</th>
+<th style="text-align: right;">[WU26]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>118</td>
+<td>0.05</td>
+<td>110 105 106 100 80 78 89 92 94 83</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">-5.2% / 0.0%</td>
+<td style="text-align: right;">14%</td>
+<td style="text-align: right;">1.7</td>
+<td style="text-align: right;">0.52 / 0.44</td>
+<td style="text-align: right;">0.66</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices</td>
+</tr>
+<tr>
+<td>118</td>
+<td>0.05</td>
+<td>the paper's</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">10.8% / 9.1%</td>
+<td style="text-align: right;">19%</td>
+<td style="text-align: right;">2.9</td>
+<td style="text-align: right;">0.52 / 0.44</td>
+<td style="text-align: right;">0.66</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices</td>
+</tr>
+<tr>
+<td>118</td>
+<td>0.1</td>
+<td>110 105 106 100 80 78 89 92 94 83</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">-13.8% / -17.9%</td>
+<td style="text-align: right;">9%</td>
+<td style="text-align: right;">1.4</td>
+<td style="text-align: right;">0.55 / 0.44</td>
+<td style="text-align: right;">0.57</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices</td>
+</tr>
+<tr>
+<td>118</td>
+<td>0.1</td>
+<td>the paper's</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">8.7% / 10.0%</td>
+<td style="text-align: right;">22%</td>
+<td style="text-align: right;">3.2</td>
+<td style="text-align: right;">0.55 / 0.44</td>
+<td style="text-align: right;">0.57</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; mostly 3 to 5 new devices; Table V: 15 devices</td>
+</tr>
+<tr>
+<td>14-1</td>
+<td>0.1</td>
+<td>1 4 6 13</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">-8.7% / -11.2%</td>
+<td style="text-align: right;">15%</td>
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.57 / 0.50</td>
+<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu</td>
+</tr>
+<tr>
+<td>14-1</td>
+<td>0.1</td>
+<td>the paper's</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">-8.7% / -11.2%</td>
+<td style="text-align: right;">15%</td>
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.57 / 0.50</td>
+<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">Table II: 25.6% / 23.9%; new SCADA 1, 9, 13; Fig. 4: 7 devices, 0.22 pu</td>
+</tr>
+<tr>
+<td>14-2</td>
+<td>0.1</td>
+<td>1 4 6 13</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">15</td>
+<td style="text-align: right;">6.6% / 7.4%</td>
+<td style="text-align: right;">25%</td>
+<td style="text-align: right;">1.1</td>
+<td style="text-align: right;">0.49 / 0.75</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu</td>
+</tr>
+<tr>
+<td>14-2</td>
+<td>0.1</td>
+<td>the paper's</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">15</td>
+<td style="text-align: right;">6.1% / 7.4%</td>
+<td style="text-align: right;">10%</td>
+<td style="text-align: right;">0.9</td>
+<td style="text-align: right;">0.49 / 0.75</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">Table II: 35.2% / 27.0%; new SCADA 7, 11-14; Fig. 4: 9 devices, 0.17 pu</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>What this shows:</p>
+<ul>
+<li><strong>The attack largely reproduces.</strong> The summed-window objective with the literal goal spreads the attack
+  across the area the way Fig. 4 and Table V show: on IEEE-118 it overlaps Table V's tampered SCADA and
+  PMUs more than any earlier variant (the hypotheses below), with an undefended size near Table V's; on
+  IEEE-14 scenario 1 it holds Fig. 4's set at Fig. 4's scale, and scenario 2 comes out larger than
+  Fig. 4's. Minimizing each snapshot's attack instead keeps it sparse, and a per-snapshot ramp inflates
+  it. On IEEE-14 scenario 1 Solution 1 derives the paper's own trust order (Fig. 6).</li>
+<li><strong>One weight for both systems.</strong> IEEE-118 also runs at IEEE-14's per-snapshot weight (the <code>tau</code>
+  column): the undefended attack keeps its overlap with Table V, and the rise under the paper's order
+  stays below Fig. 12's band.</li>
+<li><strong>The defense's size does not, yet.</strong> The rise under trust is small or negative on IEEE-14 and below
+  Fig. 12's band on IEEE-118 with the order the paper reports; Solution 1's derived order often lowers the
+  count (Algorithm 1's line 8 case). The rise depends on how far the solver spreads the attack before
+  and after trust, which <code>tau</code> and the paper's unstated ratings decide (the hypotheses below).</li>
+</ul>
+<h3 id="solution-2-the-dqn-on-the-faithful-attack">Solution 2 (the DQN) on the faithful attack<a class="headerlink" href="#solution-2-the-dqn-on-the-faithful-attack" title="Permanent link">&para;</a></h3>
+<p><code>tools/wu26_dqn.py</code> trains [WU26]'s DQN (Algorithm 1, the stated hyperparameters) over
+<code>Wu26DefenseEnv</code> on IEEE-118 and tests each trained policy on fresh windows: training sessions in
+parallel, each tested on its own windows, in place of the paper's 100 independent tests (each training
+session costs hours of attack solves). The policy's schedule is greedy over its learned values (eq. 38),
+stopping early where Algorithm 1's line 8 ends the episode.</p>
+<!-- results: wu26.dqn -->
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">sessions</th>
+<th style="text-align: right;">tests</th>
+<th style="text-align: right;">setup</th>
+<th style="text-align: right;">rise mean / median</th>
+<th style="text-align: right;">tests in 10-20%</th>
+<th style="text-align: right;">new devices</th>
+<th style="text-align: right;">most picked PMU per step (share)</th>
+<th style="text-align: right;">training / decision time</th>
+<th style="text-align: right;">[WU26]</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">scenario 118, 250 episodes on 4 windows per session, tau=0.1</td>
+<td style="text-align: right;">-12.8% / -14.3%</td>
+<td style="text-align: right;">7%</td>
+<td style="text-align: right;">1.2</td>
+<td style="text-align: right;">1: 100 (0.34); 2: 100 (0.20); 3: 76 (0.09); 4: 89 (0.08); 5: 110 (0.06); 6: 105 (0.12); 7: 83 (0.06); 8: 94 (0.05); 9: 106 (0.05); 10: 92 (0.07)</td>
+<td style="text-align: right;">5.2 h / 5.1 ms</td>
+<td style="text-align: right;">Fig. 12: 16.4% mean, mostly 10% to 20%; 3 to 5 new devices; DQN decision 8.7 s, Solution 1 16.5 s</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>Most training episodes end at line 8: trusting a PMU lowers the any-snapshot count below the undefended
+attack, which ends the episode with no reward, so the policy learns little and often stops after one or
+two steps.</p>
+<h2 id="replication-against-wu26">Replication against [WU26]<a class="headerlink" href="#replication-against-wu26" title="Permanent link">&para;</a></h2>
+<p>This section records how far [WU26] reproduces from what its text states, and what it leaves open.
+Page numbers are the journal's. [29] is S. Wu et al., Applied Energy 397 (2025) 126330, and [37] is
+T. Wu et al., IEEE TII 17(3) (2021) 1892-1904, the two sources [WU26] cites for its IEEE-118 setup.</p>
+<h3 id="implemented-as-stated">Implemented as stated<a class="headerlink" href="#implemented-as-stated" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Attack model:</strong> the l0 objective over the window, eq. (12), under the measurement, limit and goal
+  constraints (13)-(25). A channel counts as tampered only beyond the paper's noise: the nonzero
+  elements "should exclude tampering values smaller than the noise magnitude" (p. 659; noise 0.03 pu
+  SCADA, 0.01 pu WAMS, p. 658).</li>
+<li><strong>Trust:</strong> a trusted PMU secures its own voltage magnitude and angle rows, eqs. (27) and (32), and
+  trust accumulates over the window, eqs. (30)-(31). The search's reproduction pins them at the true
+  state; the faithful one (above) keeps the offset the bus had before its slot, the incremental
+  reading of eqs. (29)-(30) that two independent builds found the defense needs.</li>
+<li><strong>Defense effect:</strong> the search's reproduction counts eq. (33)'s measurements; the faithful one counts
+  the devices tampered at any snapshot, the count Fig. 12 plots.</li>
+<li><strong>Defenses:</strong> Solution 1 (pp. 656-657) and the DQN of Algorithm 1 with the stated hyperparameters
+  (p. 658).</li>
+<li><strong>Attack areas:</strong> the IEEE-118 local network of Fig. 9, and the four area rules of p. 654 for other
+  systems.</li>
+</ul>
+<p>Where the paper is silent, the choice is ours and is recorded in
+<a href="../reference/DECISIONS/">DECISIONS.md</a> (ratings at the last flow plus a step, the load cap, the
+snapshot spacing, the DQN's network).</p>
+<h3 id="what-agrees">What agrees<a class="headerlink" href="#what-agrees" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>IEEE-14, lines 1-2 and 4-5:</strong> the undefended search tampers SCADA 1 to 5 and PMU 1, 4 and 6, the
+  paper's Fig. 4 set without SCADA 9, and the rise under the paper's trust schedule falls close to
+  Table II (row 12 below).</li>
+<li><strong>Attack magnitudes</strong> sit on the scale of Fig. 4 with ratings at the last flow plus 0.10 pu.</li>
+<li><strong>Trusted PMUs</strong> remain tampered through their branch currents, as Fig. 7 shows, since eq. (27) leaves
+  the currents outside the secure set.</li>
+<li><strong>Solution 1 on IEEE-118</strong> places all six PMUs of Table V's multi-snapshot attack (83, 89, 100, 105,
+  106, 110) among its first seven picks.</li>
+</ul>
+<h3 id="what-does-not">What does not<a class="headerlink" href="#what-does-not" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>IEEE-14, lines 3-4 and 6-11:</strong> no setting gives the paper's seven-device attack at its scale together
+  with a positive rise under trust.</li>
+<li><strong>IEEE-118, the defense rise:</strong> below the band of Fig. 12 in most windows (the Results table above).</li>
+<li><strong>IEEE-118, Table V:</strong> the paper's multi-snapshot attack tampers SCADA 84, 85, 89, 94, 99, 100, 101,
+  103, 105 and PMU 83, 89, 100, 105, 106, 110. Ours stays on PMUs 80, 83 and 100 under every
+  combination tried (the factorial below). No residual test we ran reproduces Table V's detection well
+  below its false alarms: ours detect at about their false-alarm rate, slightly above or below it.</li>
+</ul>
+<h3 id="what-the-paper-does-not-specify">What the paper does not specify<a class="headerlink" href="#what-the-paper-does-not-specify" title="Permanent link">&para;</a></h3>
+<ul>
+<li>the line ratings S_max of eq. (25); MATPOWER's case14 and case118, which [37] cites as its data source
+  (p. 1898), carry none;</li>
+<li>the generator and voltage limit values of eqs. (21)-(23);</li>
+<li>the IEEE-118 daily load curves (Dongguan dispatch center 2016, [37] p. 1898);</li>
+<li>how the snapshot samples of p. 658 relate in time (independent draws or a trajectory);</li>
+<li>how each snapshot's flow target is set; eqs. (24)-(25) constrain only the window's end, while Fig. 4
+  shows tampering in every interval;</li>
+<li>the residual test and its threshold behind Tables III and V;</li>
+<li>whether the sub-noise elements [37] treats as zeros are dropped from the injected vector or only from
+  the count;</li>
+<li>the local optimal power flow of p. 655: its objective and how the boundary is held;</li>
+<li>the DQN's network size and activations.</li>
+</ul>
+<h3 id="hypotheses-tested">Hypotheses tested<a class="headerlink" href="#hypotheses-tested" title="Permanent link">&para;</a></h3>
+<p>Rows naming an experiment are measured and render from the results store; their scripts were scratchpad
+prototypes and are not part of the package. Rows 1, 3 and 10 are readings of the paper or a code fix
+and have no experiment.</p>
+<!-- results: wu.hypotheses -->
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>hypothesis</th>
+<th>outcome</th>
+<th>evidence (ours)</th>
+<th>experiment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Δx_t is a per-snapshot increment (a staged reading of trust)</td>
+<td>rejected</td>
+<td>eq. (26) defines Δx_t as the state deviation</td>
+<td></td>
+</tr>
+<tr>
+<td>2</td>
+<td>A trusted PMU also pins its neighbours through its branch currents (p. 655)</td>
+<td>rejected, contradicts Table II</td>
+<td>trusted attacks found: 0 of 12 (neighbour reading), 6 of 6 (own V and θ)</td>
+<td>minlp.cap_trust_grid</td>
+</tr>
+<tr>
+<td>3</td>
+<td>The cost increase counts devices (Table II lists devices)</td>
+<td>rejected</td>
+<td>eq. (33) counts measurements; Table II's percentages do not follow from its device counts</td>
+<td></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Solve eq. (12) exactly as a mixed-integer program (SCIP)</td>
+<td>not viable at these sizes</td>
+<td>cold-start attacks found: 0 of 9 runs</td>
+<td>minlp.prototype</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Every meter in the area counts ("all measurement data ... altered simultaneously", p. 654)</td>
+<td>rejected, Fig. 4 leaves sub-noise devices out (p. 659)</td>
+<td>IEEE-14 lines 3-4 and 6-11, undefended devices: threshold 6, region 11</td>
+<td>minlp.region_reading</td>
+</tr>
+<tr>
+<td>6</td>
+<td>The attack is anchored on both ends of each target line (Fig. 4)</td>
+<td>no effect on the rise</td>
+<td>IEEE-118: 10 / 22 → 10 / 22</td>
+<td>minlp.anchoring</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Ratings at the true flow plus 0.10 pu, so attacks reach the Fig. 4 scale (ours)</td>
+<td>magnitudes match; the IEEE-118 rise stays below Fig. 12</td>
+<td>IEEE-118 channel rise over the windows: 0.0% to 16.0%</td>
+<td>wu26.reproduction</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Our load cap (D16) or the reading of trust separates us from [WU26]</td>
+<td>no single setting reproduces all three cases</td>
+<td>the cap and trust grid above</td>
+<td>minlp.cap_trust_grid</td>
+</tr>
+<tr>
+<td>9</td>
+<td>[WU26]'s data recipe (p. 658) in place of our operating pool</td>
+<td>same loading levels, gap not closed</td>
+<td>IEEE-14 lines 3-4 and 6-11, trusted attack found: 4 of 12</td>
+<td>wu.data_recipe</td>
+</tr>
+<tr>
+<td>10</td>
+<td>[WU26]'s IEEE-118 attack area (Fig. 9)</td>
+<td>adopted (the table existed but was unused); no effect on the gap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>11</td>
+<td>The row-reduction attacker (p. 655, ref. [25])</td>
+<td>matches Table II worse than the search</td>
+<td>IEEE-118: 31 / 93 → 20 / 48</td>
+<td>wu26.method_compare</td>
+</tr>
+<tr>
+<td>12</td>
+<td>ℓ1 relaxation, then a count beyond noise ([37] p. 1898), solved with IPOPT</td>
+<td>reproduces IEEE-14 lines 1-2 and 4-5, not the others</td>
+<td>IEEE-14 lines 1-2 and 4-5: 6 / 15 → 8 / 24; IEEE-118: 10 / 20 → 10 / 20</td>
+<td>wu.l1_attack</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Table V factorial: solver, goal form, load curve, PMU measurement vector (eqs. 1 to 3)</td>
+<td>Table V's set not reached</td>
+<td>best overlap with Table V: SCADA 0.46, PMU 0.29</td>
+<td>wu.table5_search</td>
+</tr>
+<tr>
+<td>14</td>
+<td>The attacker builds on its own estimate from forecast loads (pp. 654, 659; forecast error ours)</td>
+<td>set and residual unchanged</td>
+<td>IEEE-118 detection 3.0% to 6.0%, false alarms 3.0% to 6.0%</td>
+<td>wu.attacker_estimate</td>
+</tr>
+<tr>
+<td>15</td>
+<td>SCADA held between 5-min scans, PMUs every snapshot (p. 658; [29] Sec. 2.2)</td>
+<td>benign false alarms far below Table V's</td>
+<td>IEEE-118 benign false alarms 0.0% to 7.5%</td>
+<td>wu.multirate</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Every snapshot an independent sample of the p. 658 recipe, SCADA held (ours)</td>
+<td>false alarms reach Table V's range; the set and detection pattern do not</td>
+<td>IEEE-118 benign false alarms 50.0% to 62.5% with held SCADA, 3.5% with fresh SCADA</td>
+<td>wu.independent_samples</td>
+</tr>
+<tr>
+<td>17</td>
+<td>The attacker's base state is a local optimal power flow ("local optimal power flow", p. 655)</td>
+<td>closest PMU overlap, but a goal set on the estimate is not a true overload</td>
+<td>IEEE-118: 13 devices, overlap SCADA 0.39, PMU 0.43</td>
+<td>wu.local_opf</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<p>The Table V factorial on IEEE-118, undefended (experiment <code>wu.table5_search</code>; "conv" is the branch
+current conversion of eqs. 1-3, "current" the raw current channels):</p>
+<!-- results: wu.table5 -->
+<table>
+<thead>
+<tr>
+<th>solver</th>
+<th>goal</th>
+<th>load</th>
+<th>PMU vector</th>
+<th>rating</th>
+<th style="text-align: right;">devices</th>
+<th style="text-align: right;">PMUs</th>
+<th style="text-align: right;">overlap SCADA</th>
+<th style="text-align: right;">overlap PMU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.42</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.31</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>+0.10</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.14</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.46</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>conv</td>
+<td>1.2</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.00</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">80 83 94 100</td>
+<td style="text-align: right;">0.29</td>
+<td style="text-align: right;">0.25</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.31</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>+0.10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.33</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l1</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>l2</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">80 83 94 100</td>
+<td style="text-align: right;">0.29</td>
+<td style="text-align: right;">0.25</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>end</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>daily</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+<tr>
+<td>search</td>
+<td>ramp</td>
+<td>pool</td>
+<td>current</td>
+<td>1.2</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">80 83 100</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.29</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<h2 id="the-search">The search<a class="headerlink" href="#the-search" title="Permanent link">&para;</a></h2>
+<p>The attack's false state is the least-norm Gauss-Newton solve of the AC measurement equations.
+<code>scipy.optimize.least_squares</code> was tried in its place on the pinned IEEE-14 searches (experiment
+<code>search.solver_compare</code>) and kept out:</p>
+<!-- results: search.solvers -->
+<table>
+<thead>
+<tr>
+<th>search</th>
+<th style="text-align: right;">Gauss-Newton (devices / channels)</th>
+<th style="text-align: right;">s</th>
+<th style="text-align: right;">least squares (devices / channels)</th>
+<th style="text-align: right;">s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Am</code> onset 0, lines 0, cap 0.5</td>
+<td style="text-align: right;">8 / 43</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">none</td>
+<td style="text-align: right;">0.6</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 150, lines 0, cap 0.5</td>
+<td style="text-align: right;">none</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">none</td>
+<td style="text-align: right;">0.6</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 300, lines 0, cap 0.5</td>
+<td style="text-align: right;">7 / 25</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">7 / 24</td>
+<td style="text-align: right;">0.6</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 0, lines 0, cap None</td>
+<td style="text-align: right;">7 / 23</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">7 / 28</td>
+<td style="text-align: right;">0.5</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 0, lines 1+4, cap None</td>
+<td style="text-align: right;">7 / 24</td>
+<td style="text-align: right;">0.7</td>
+<td style="text-align: right;">7 / 21</td>
+<td style="text-align: right;">1.9</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 150, lines 1, cap None</td>
+<td style="text-align: right;">6 / 14</td>
+<td style="text-align: right;">0.9</td>
+<td style="text-align: right;">6 / 14</td>
+<td style="text-align: right;">2.7</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 150, lines 4+5, cap None</td>
+<td style="text-align: right;">7 / 30</td>
+<td style="text-align: right;">4.6</td>
+<td style="text-align: right;">8 / 28</td>
+<td style="text-align: right;">28.8</td>
+</tr>
+<tr>
+<td><code>Am</code> onset 300, lines 0, cap None</td>
+<td style="text-align: right;">7 / 25</td>
+<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">7 / 25</td>
+<td style="text-align: right;">0.5</td>
+</tr>
+<tr>
+<td><code>At</code> onset 20, ramp draw 0, cap 0.5</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.3</td>
+</tr>
+<tr>
+<td><code>At</code> onset 200, ramp draw 1, cap 0.5</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">1 / 1</td>
+<td style="text-align: right;">0.3</td>
+</tr>
+</tbody>
+</table>
+<!-- /results -->
+
+<h2 id="figures">Figures<a class="headerlink" href="#figures" title="Permanent link">&para;</a></h2>
+<p><strong>Fig. 11 (<code>fig11_ieee{N}.png</code>).</strong> Solution 2's selection probability over its test windows. Each cell is one configuration step (rows) and one PMU bus (columns); the colour scale is the probability.</p>
+<p><strong>Fig. 12 (<code>fig12_ieee{N}.png</code>).</strong>
+- Left: the attack cost rise per test window in percent, ranked. The shaded band is the paper's 10% to 20%.
+- Right: the histogram of extra tampered devices.</p>
+<p>Each figure's numbers are in the CSV of the same name (<code>fig11_ieee{N}.csv</code>, <code>fig12_ieee{N}.csv</code>).</p>
+<h2 id="tables">Tables<a class="headerlink" href="#tables" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Table II (<code>table2_ieee{N}.csv</code>):</strong> per window and method, the devices and channels before and after the defense, and the extra devices named as the paper names them.</li>
+<li><strong>Trusted orders (<code>orders_ieee{N}.csv</code>):</strong> each method's sequence per window, as in Figs. 6 and 10, with the
+  paper's Fig. 6 order beside it on IEEE-14 (<code>paper_order</code>). Every window offers the PMUs in the meter plan's
+  order (<code>WU26_PMUS</code>), never the paper's result order, so neither method is steered toward it.</li>
+<li><strong>Decision times (<code>times_ieee{N}.csv</code>):</strong> each method's time per window, as in Fig. 8 and Table VI.</li>
+</ul>
+<h2 id="not-reproduced-here">Not reproduced here<a class="headerlink" href="#not-reproduced-here" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Table III:</strong> "detection with PMU support" is not specified by the paper.</li>
+<li><strong>Tables IV and V, single-snapshot rows:</strong> this version no longer generates the single-snapshot attack (fdia-graph 0.20 does). Table V's multi-snapshot attack is compared above.</li>
+<li><strong>Fig. 13:</strong> it needs the residual detector run over the defended windows; it is a follow-up.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

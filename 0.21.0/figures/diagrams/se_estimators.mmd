@@ -1,0 +1,11 @@
+flowchart TB
+    subgraph shared["SEBase, shared by every estimator"]
+        h["h(x): ac_measurement<br/>in formulas.network"] ~~~ w["meter weights from benign residuals"]
+        H["chord Jacobian: ac_jacobian"] ~~~ it["chord-Newton loop, divergence guard"]
+    end
+    subgraph one["each estimator changes one thing"]
+        WLS["WLS: nothing"] ~~~ SP["SubspacePrior: low-rank basis"]
+        AW["AdaptiveWeighting: Huber weights"] ~~~ JW["JacobianWeighting: weights from r⊥"]
+        RR["ResidualRemoval: drop large residuals"] ~~~ GP["GatedPrior: localizer gates the weights"]
+    end
+    shared --> one

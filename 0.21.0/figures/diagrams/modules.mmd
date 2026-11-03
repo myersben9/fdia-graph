@@ -1,0 +1,45 @@
+flowchart TB
+    dataset["dataset/"]
+    download["download.py"]
+    engine["engine/"]
+    federated["federated/"]
+    generation["generation.py"]
+    localization["localization/"]
+    profiles["profiles.py"]
+    ratings["ratings"]
+    registry["registry.py"]
+    results["results"]
+    se["se/"]
+    streams["streams.py<br/>(deprecated)"]
+    timeline["timeline.py"]
+    trust["trust/"]
+    download --> registry
+    engine --> ratings
+    engine --> registry
+    federated --> dataset
+    federated --> localization
+    federated --> se
+    generation --> dataset
+    generation --> download
+    generation --> engine
+    generation --> registry
+    generation --> timeline
+    localization --> dataset
+    localization --> se
+    profiles --> engine
+    profiles --> registry
+    se --> dataset
+    se --> engine
+    streams --> dataset
+    streams --> download
+    streams --> registry
+    streams --> timeline
+    timeline --> engine
+    timeline --> generation
+    timeline --> registry
+    timeline --> results
+    trust --> dataset
+    trust --> engine
+    trust --> registry
+    trust --> se
+    trust --> timeline

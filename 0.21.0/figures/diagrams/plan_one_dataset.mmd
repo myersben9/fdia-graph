@@ -1,0 +1,7 @@
+flowchart LR
+    P[ISO load profile] --> S[engine: operating-state pool]
+    S --> G["generate(): one timeline<br/>episodes of every family, benign gaps"]
+    G --> F[("one HDF5 file per system<br/>data/ graph/ benign/ clean/ episodes/ attrs")]
+    F --> L["fg.load(name, split=...)"]
+    L --> R["records: ds[i], loader(shuffle)"]
+    L --> W["sequences: ds.windows(W)"]
