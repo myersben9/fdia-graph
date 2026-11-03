@@ -110,6 +110,9 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.grid.nygrid` | Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m). |
 | `nyfed.grid.ratings` | Branch ratings from the limits NYgrid itself sets. `npcc.mat` carries no branch ratings. |
 | `nyfed.io` | HDF5 files of the build. The only module that imports h5py. |
+| `nyfed.operator` | The grid operator under attack: its real-time dispatch on what it sees (`sced`), and what that dispatch does and costs on the true grid (`response`). |
+| `nyfed.operator.response` | What the operator does under an attack, and what it costs on the true grid (D1 to D6). |
+| `nyfed.operator.sced` | The operator's real-time dispatch: a DC security-constrained dispatch around the current basepoint, as NYISO's real-time dispatch is a DC dispatch on shift factors (D2). |
 | `nyfed.scenario.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
 | `nyfed.scenario.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load. |
 | `nyfed.scenario.loads` | Per-bus load profiles by the bottom-up method of Li et al. [2] (PLAN.md), scaled to the real zone load. |
