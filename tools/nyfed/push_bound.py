@@ -1,18 +1,32 @@
-"""A certificate for the interchange-consistent attacker (N68). For each onset and interface, the largest
-push of the reported interface flow ANY attacker can make (any support, any area) in the DC model, with
-every bus outside New York held at its true injection and New York's net injection unchanged (so the net
-interchange stays true), each attackable New York load moved by at most tau of its load and each unit by
-at most `band` of its upper limit, zero-injection buses held. Stealth, AC, reactive and step bounds only
-shrink it, so a bound below the hour's real headroom proves no consistent attack exists. The same LP with
-the external buses free shows how much the false interchange buys.
+"""A bound on the interchange-consistent attacker (N68, N70): for each onset and interface, the largest push of
+the reported interface flow any attacker can make with every attackable New York load within `tau` of its
+load and every New York unit within `band` of its upper limit (zero-injection buses held), over all of New
+York with no limit on the support, in the DC model. Three forms of consistency:
 
-    python tools/nyfed/push_bound.py OUT.csv out/damage_study/damage.json [more onset lists ...]
+- `net`: every bus outside New York at its true injection, so New York's net injection and the net interchange
+  stay true (individual ties may still move in loops);
+- `net_ties`: as `net` and every tie's own flow unchanged, the strictest;
+- `net55`: as `net`, but up to the interchange check's threshold may enter New York, drawn from the units outside
+  in proportion to their capacity (the attacker who knows the threshold);
+- `net_local`: the DC form of the search's attacker, whose false state moves the angles of one subnetwork
+  (the New York buses within `HOPS` branches of one end of an interface branch, the slack left out) and holds
+  every other angle, so only the subnetwork and its edge change injection, the best anchor taken. It separates
+  what the band protects from what the locality of the attacker does.
 
-Run from the folder whose `data/` holds the inputs; the onsets are read from damage_study.py's json files.
+In the DC model stealth and the step bounds only lower the push; the AC equations can move it either way, so
+the bound is reported with the headroom scaled by 0.8 and 0.9 as a margin for that model error. The split of
+the push between loads and units shows which bound binds.
+
+    python tools/nyfed/push_bound.py OUT.csv --onsets out/damage_study/damage.json [...] [--per-interface 60]
+
+Run from the folder whose `data/` holds the inputs. `--per-interface N` adds, for every interface, N onsets
+drawn among its own near-limit hours (real flow at least 90 percent of the real limit).
 """
 
+from __future__ import annotations
+
+import argparse
 import json
-import sys
 import time
 import warnings
 
@@ -22,66 +36,144 @@ import pandas as pd
 from scipy.optimize import linprog
 
 from fdia_graph.nyfed.build import production_builder
+from fdia_graph.nyfed.config import Settings, rng
 from fdia_graph.nyfed.grid.interfaces import hourly_interfaces
 from fdia_graph.nyfed.operator.sced import shift_factors
+from fdia_graph.nyfed.scenario.pool import SOLVED
 
 NAMES = ["SPR/DUN-SOUTH", "UPNY CONED", "CENTRAL EAST - VC", "MOSES SOUTH"]
-TAUS, BANDS = (0.05, 0.1, 0.2, 0.3), (0.03, 0.05, 0.1)
+TAUS = (0.05, 0.1, 0.2, 0.3)
+BANDS = (0.03, 0.035, 0.04, 0.045, 0.05, 0.06, 0.08, 0.1)
+FORMS = ("net", "net_ties", "net55", "net_local")
+HOPS = 3  # the attacker's subnetwork, as in the search
 RISE = 16
+CHECK_MW = 55.0  # the interchange check's threshold (tie_check.py)
 
-t0 = time.perf_counter()
-b = production_builder("out/pool_2019_v3.h5", ("Am",), workers=1, survey=0)
-att, case, pool = b.att, b.att.net.case, b.pool
-ifs = hourly_interfaces(case, pool.time, "data/NYgrid/Data", NAMES)
-ptdf = shift_factors(case)
-sf = np.array([it.signs @ ptdf[it.branches] for it in ifs])  # [I, N]
-ny = att.owner >= 0
-pmax_bus = np.zeros(len(case.bus_id))
-np.add.at(pmax_bus, case.unit_bus, np.where(np.isfinite(case.pmax), case.pmax, 0.0))
-print(f"built [{time.perf_counter() - t0:.0f}s]", flush=True)
 
-onsets = []
-for f in sys.argv[2:]:
-    onsets += json.load(open(f))["onsets"]
-onsets = sorted(set(int(o) for o in onsets))
-rows = []
-for o in onsets:
-    r = o + RISE - 1  # the last rise scan, where the goal reaches the limit
-    vm, va = pool.vm[r], pool.va[r]
-    if not np.isfinite(vm).all():
-        continue
-    load = att.bus_load(vm, va)
-    free = np.zeros(len(case.bus_id), bool)
-    free[att.free_injection_buses(vm, va, np.arange(len(case.bus_id)))] = True
-    for i, it in enumerate(ifs):
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("out")
+    ap.add_argument("--onsets", nargs="*", default=[])
+    ap.add_argument("--per-interface", type=int, default=0)
+    args = ap.parse_args()
+    t0 = time.perf_counter()
+    b = production_builder("out/pool_2019_v3.h5", ("Am",), workers=1, survey=0)
+    att, case, pool = b.att, b.att.net.case, b.pool
+    ifs = hourly_interfaces(case, pool.time, "data/NYgrid/Data", NAMES)
+    ptdf = shift_factors(case)
+    sf = np.array([it.signs @ ptdf[it.branches] for it in ifs])  # [I, N]
+    ny = att.owner >= 0
+    ties = np.flatnonzero(case.is_ny[case.f] != case.is_ny[case.t])
+    pmax_bus = np.zeros(len(case.bus_id))
+    np.add.at(pmax_bus, case.unit_bus, np.where(np.isfinite(case.pmax), case.pmax, 0.0))
+    ext_w = np.where(~ny, pmax_bus, 0.0)  # where the threshold-aware attacker's interchange enters
+    ext_w = ext_w / ext_w.sum()
+    # the DC branch-flow and bus matrices, for the local attacker whose state moves one subnetwork only
+    bsus = 1.0 / (case.x * np.where(case.tap == 0, 1.0, case.tap))
+    inc = np.zeros((len(case.f), len(case.bus_id)))
+    inc[np.arange(len(case.f)), case.f] = 1.0
+    inc[np.arange(len(case.f)), case.t] = -1.0
+    bflow = bsus[:, None] * inc  # branch flow per radian at each bus
+    bbus = inc.T @ bflow  # injection per radian
+    local = []  # per interface, the interior of each anchor end's subnetwork
+    for it in ifs:
+        areas = []
+        for br in it.branches:
+            for end in (int(case.f[br]), int(case.t[br])):
+                area = att.area(end, HOPS)
+                if area is not None and len(area := area[ny[area]]):
+                    areas.append(area)
+        local.append(areas)
+    jobs = []  # (onset, interface index, source)
+    for f in args.onsets:
+        for o in json.load(open(f))["onsets"]:
+            jobs.append((int(o), 0, "drawn"))
+    if args.per_interface:
+        g = rng(Settings(), "push_bound")
+        solved = pool.solve_kind == SOLVED
+        for i, it in enumerate(ifs):
+            with np.errstate(invalid="ignore"):
+                near = (it.flow >= 0.9 * it.limit) & (it.limit > 0)
+            ok = np.flatnonzero(near[RISE - 1 :] & solved[RISE - 1 :])  # onsets whose last rise scan is near
+            for o in g.choice(ok, size=min(args.per_interface, len(ok)), replace=False):
+                jobs.append((int(o), i, "own"))
+    rows = []
+    for o, i, source in sorted(set(jobs)):
+        r = o + RISE - 1
+        vm, va = pool.vm[r], pool.va[r]
+        if not np.isfinite(vm).all():
+            continue
+        load = att.bus_load(vm, va)
+        free = np.zeros(len(case.bus_id), bool)
+        free[att.free_injection_buses(vm, va, np.arange(len(case.bus_id)))] = True
+        it = ifs[i]
         H = float(it.limit[r] - it.flow[r])
         for tau in TAUS:
             for band in BANDS:
                 cap = np.where(att.gen_bus, band * pmax_bus, tau * np.clip(load, 0, None))
                 cap = np.where(free & ny, cap, 0.0)
-                cap[att.slack] = (
-                    band * pmax_bus[att.slack]
-                )  # the reference bus units, metered, within the band
-                for consistent in (True, False):
+                cap[att.slack] = band * pmax_bus[att.slack]
+                for form in FORMS:
                     lo, hi = -cap.copy(), cap.copy()
-                    if not consistent:  # a bus outside New York absorbs whatever the attack needs
-                        lo[~ny], hi[~ny] = -np.inf, np.inf
-                    a_eq = (ny if consistent else np.ones_like(ny)).astype(float)[None, :]
-                    res = linprog(-sf[i], A_eq=a_eq, b_eq=[0.0], bounds=list(zip(lo, hi)), method="highs")
-                    push = -res.fun if res.status == 0 else np.nan
-                    if res.status == 3:
-                        push = np.inf
+                    obj, a_ub, b_ub = -sf[i], None, None
+                    a_eq, b_eq = [np.ones(len(cap))], [0.0]  # DC balance over every bus
+                    lo[~ny], hi[~ny] = 0.0, 0.0  # every external injection held: the net interchange is true
+                    # net_ties: every tie's own flow unchanged
+                    if form == "net_ties":
+                        a_eq += list(ptdf[ties])
+                        b_eq += [0.0] * len(ties)
+                    # net55: up to the check's threshold enters New York, drawn from the external units by capacity
+                    if form == "net55":
+                        obj = -(sf[i] - (sf[i] @ ext_w) * ny)
+                        a_eq, b_eq = None, None
+                        a_ub = np.vstack([ny.astype(float), -ny.astype(float)])
+                        b_ub = [CHECK_MW, CHECK_MW]
+                    if form == "net_local":  # angles of the interior free, every injection within its cap
+                        best = None
+                        for area in local[i]:
+                            r_ = linprog(
+                                -(it.signs @ bflow[it.branches][:, area]),
+                                A_ub=np.vstack([bbus[:, area], -bbus[:, area]]),
+                                b_ub=np.r_[cap, cap],
+                                bounds=[(None, None)] * len(area),
+                                method="highs",
+                            )
+                            if r_.status == 0 and (best is None or r_.fun < best.fun):
+                                best = r_
+                        res = best if best is not None else r_
+                    else:
+                        res = linprog(
+                            obj,
+                            A_ub=a_ub,
+                            b_ub=b_ub,
+                            A_eq=None if a_eq is None else np.array(a_eq),
+                            b_eq=b_eq,
+                            bounds=list(zip(lo, hi)),
+                            method="highs",
+                        )
+                    push = -res.fun if res.status == 0 else (np.inf if res.status == 3 else np.nan)
+                    from_units = (
+                        float(sf[i][att.gen_bus] @ res.x[att.gen_bus])
+                        if res.status == 0 and form != "net_local"
+                        else np.nan
+                    )
                     rows.append(
                         {
                             "onset": o,
                             "time": str(pool.time.astype("datetime64[s]")[o]),
                             "interface": it.name,
+                            "source": source,
                             "headroom_mw": H,
                             "tau": tau,
                             "band": band,
-                            "consistent": consistent,
+                            "form": form,
                             "push_mw": push,
+                            "push_from_units_mw": from_units,
                         }
                     )
-    print(o, f"[{time.perf_counter() - t0:.0f}s]", flush=True)
-pd.DataFrame(rows).to_csv(sys.argv[1], index=False)
+        print(o, it.name, f"[{time.perf_counter() - t0:.0f}s]", flush=True)
+    pd.DataFrame(rows).to_csv(args.out, index=False)
+
+
+if __name__ == "__main__":
+    main()
