@@ -17,6 +17,8 @@ import os
 import sys
 from collections import defaultdict
 
+from readability import DEFERRED  # tools/ is the script's own directory, so on sys.path
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src", "fdia_graph")
 OUT = os.path.join(ROOT, "docs", "figures", "diagrams")
@@ -89,7 +91,10 @@ EXTRA = {
 
 def modules() -> dict[str, ast.Module]:
     out = {}
-    for dirpath, _, files in os.walk(SRC):
+    for dirpath, dirs, files in os.walk(SRC):
+        # a subpackage not yet under the SDK's rules (DEFERRED in tools/readability.py) keeps its own
+        # architecture page, and its class names would shadow the package's in these diagrams
+        dirs[:] = [d for d in dirs if not (dirpath == SRC and d in DEFERRED)]
         for f in files:
             if f.endswith(".py"):
                 p = os.path.join(dirpath, f)

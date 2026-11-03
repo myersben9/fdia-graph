@@ -4,6 +4,7 @@ extra and the operating-point pool download) inside a throwaway cache, so it nev
 files under tests/data (tests/data/README.md)."""
 
 import atexit
+import importlib.util
 import os
 import shutil
 import tempfile
@@ -16,6 +17,13 @@ os.environ["FDIA_GRAPH_CACHE"] = _CACHE
 atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 
 import pytest  # noqa: E402
+
+# tests/nyfed needs the [ny] extra (Pyomo, pandas, pandapower, SciPy, imported when fdia_graph.nyfed's
+# modules load): without it the folder is left out of collection rather than failing on import. With it,
+# each test still skips when the NYgrid checkout or the built pool is missing under NYFED_ROOT. (The rule
+# lives here: a conftest.py in tests/nyfed would shadow this module for `from conftest import ...`.)
+if any(importlib.util.find_spec(m) is None for m in ("pyomo", "pandas", "pandapower", "scipy")):
+    collect_ignore_glob = ["nyfed/*"]
 
 TINY = "tiny_ieee14"
 # The v0.7.2 record-shard layout the loader still reads: 12 benign + 3 per family on a 200-timestep
