@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Entry patterns and many meter fleets (New York grid).** `respond(entry=...)` chooses where the inadvertent
+  interchange enters (N72), with `tools/nyfed/entry_sensitivity.py` to rerun the operator under each, and
+  `tie_check.py --draws N` repeats the check over fresh meter-bias draws (N73).
+
 - **The bound sweeps the load cap (New York grid).** `tools/nyfed/push_bound.py` now steps the load cap from 2 to 30 percent
   and keeps four bands, since the load cap, not the band, decides whether the interchange-consistent attack has room (N70).
 

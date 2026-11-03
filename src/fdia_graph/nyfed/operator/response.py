@@ -363,6 +363,39 @@ def _regulation(
 MODES = ("trusting", "accounting", "oracle")
 
 
+# N72: where the inadvertent interchange enters New York, as weights per external area of the source model (1
+# ISO-NE, 4 Ontario, 5 MISO, 6 PJM), split within an area by the units' capacity. "capacity" weights every
+# synchronous external unit by its capacity alone (N69); "peak" weights each area by its approximate 2019 peak
+# load in GW, a proxy for its frequency bias; the others put all of it in one region.
+ENTRY: dict[str, dict[int, float] | None] = {
+    "capacity": None,
+    "peak": {1: 24.4, 4: 21.8, 5: 121.6, 6: 151.3},
+    "pjm": {6: 1.0},
+    "isone": {1: 1.0},
+    "west": {4: 1.0, 5: 1.0, 6: 1.0},
+}
+
+
+def _entry_share(c: Case, entry: str) -> np.ndarray:
+    """[U] the share of the inadvertent interchange each unit supplies (N69, N72): synchronous units outside
+    New York (the HVDC import from Quebec cannot carry it), by capacity within the weights of `ENTRY[entry]`."""
+    if entry not in ENTRY:
+        raise ValueError(f"entry must be one of {tuple(ENTRY)}, not {entry!r}")
+    cap = np.nan_to_num(c.pmax)
+    ext = ~c.is_ny[c.unit_bus] & (c.bus_id[c.unit_bus] != HQ_BUS) & (cap > 0)
+    share = np.where(ext, cap, 0.0)
+    weights = ENTRY[entry]
+    if weights is not None:
+        area = c.area[c.unit_bus]
+        out = np.zeros_like(share)
+        for a, w in weights.items():
+            inside = share * (area == a)
+            if inside.sum() > 0:
+                out += w * inside / inside.sum()
+        share = out
+    return share / share.sum() if share.sum() > 0 else share
+
+
 def _run(
     day: OperatorDay,
     seen: np.ndarray,
@@ -373,6 +406,7 @@ def _run(
     mode: str,
     alarm: int | None,
     seen_benign: np.ndarray,
+    entry: str = "capacity",
 ) -> Twin:
     """One run of the operator over the day (N66). `gap [T]` is the interchange it reads at the New York
     ends of the ties less the true one (zero in the benign twin). A trusting operator dispatches on the
@@ -390,9 +424,7 @@ def _run(
     sf_units = sced.sf[:, c.unit_bus]
     # N69: the inadvertent interchange enters over the AC ties, from the synchronous units outside New York in
     # proportion to their capacity (the HVDC import from Quebec cannot carry it), not at the reference bus
-    ext = ~c.is_ny[c.unit_bus] & (c.bus_id[c.unit_bus] != HQ_BUS) & (np.nan_to_num(c.pmax) > 0)
-    ext_share = np.where(ext, np.nan_to_num(c.pmax), 0.0)
-    ext_share = ext_share / ext_share.sum() if ext_share.sum() > 0 else ext_share
+    ext_share = _entry_share(c, entry)
     pf_true = Network(c).flows(day.vm, day.va)[0]
     true_iface = np.array([it.model_flow(pf_true) for it in day.interfaces]).T
     limit = true_iface + np.array([it.limit - it.flow for it in day.interfaces]).T  # D3
@@ -510,10 +542,11 @@ def respond(
     over: float = 0.0,
     mode: str = "trusting",
     calib: tuple[float, float] | None = None,
+    entry: str = "capacity",
 ) -> Response:
     """Run the operator on `day` in one of `MODES` (N66), acting `delay` scans late (O5). `over` (MW) is a
     what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
-    to the push over the episode. `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
+    to the push over the episode. `entry` is where the inadvertent interchange enters (`ENTRY`, N72). `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
     tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
@@ -531,8 +564,8 @@ def respond(
     grid = _TrueGrid(day)
     zero = np.zeros(len(day.time))
     return Response(
-        attacked=_run(day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b),
-        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b),
+        attacked=_run(day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b, entry),
+        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b, entry),
         unit_client=day.own.bus_client[day.case.unit_bus],
         bus_client=day.own.bus_client,
         client_names=[str(n) for n in day.own.names],
