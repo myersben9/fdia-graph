@@ -1679,17 +1679,18 @@
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    response.py        OperatorDay, Twin, Response, operator_day, seen_interfaces, respond, summarize
 <a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>tools/nyfed/
 <a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>  operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  nygrid_ac_summary.py summaries of those runs
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>results/
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>tests/nyfed/
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>  tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>  nygrid_ac_summary.py summaries of those runs
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>results/
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>tests/nyfed/
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -2101,16 +2102,28 @@ copies them as they are.</p>
 <td><code>OperatorDay</code></td>
 </tr>
 <tr>
+<td><code>tie_meters(case, plan)</code>, <code>neighbour_reads(plan, rows, far, rng)</code></td>
+<td><code>operator/response.py</code></td>
+<td>the case and plan, the far-end flows</td>
+<td>the ties with a New York-end P-flow meter, and the neighbours' readings of them through meters of the same class (N67)</td>
+</tr>
+<tr>
+<td><code>tie_gap(day, z)</code></td>
+<td><code>operator/response.py</code></td>
+<td><code>OperatorDay</code>, scans <code>[T, M]</code></td>
+<td><code>[T]</code> the net interchange read at the New York ends of the ties less what the neighbours meter at their ends (the true flow there), the interchange check of N62</td>
+</tr>
+<tr>
 <td><code>seen_interfaces(plan, interfaces, z)</code></td>
 <td><code>operator/response.py</code></td>
 <td>the meter plan, the interfaces, scans <code>[T, M]</code></td>
 <td><code>[T, I]</code> each interface's flow as the operator reads it from its branches' P-flow meters</td>
 </tr>
 <tr>
-<td><code>respond(day, delay=0, over=0.0)</code>, <code>summarize(response)</code></td>
+<td><code>respond(day, delay=0, over=0.0, mode="trusting", calib=None)</code>, <code>summarize(response, voll=None)</code></td>
 <td><code>operator/response.py</code></td>
 <td><code>OperatorDay</code></td>
-<td><code>Response</code> (O1, O2, O5, N50 to N57), and its day totals, attacked less benign, with regulation by utility</td>
+<td><code>Response</code> (O1, O2, O5, N50 to N65: every interface of <code>INTERFACES</code> enforced, quick-start units, regulation capped at <code>REG_CAP</code> with the rest an ACE excursion, the interchange alarm, and with <code>defended</code> the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility</td>
 </tr>
 </tbody>
 </table>

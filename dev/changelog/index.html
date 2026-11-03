@@ -1645,6 +1645,27 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Three operators and a calibrated interchange check (New York grid).</strong> <code>respond(mode=...)</code> runs the
+  trusting operator, whose AGC reads the falsified New York-end tie meters, the accounting operator, which takes
+  its load and ACE from the agreed interchange (BAL-005), and the oracle upper bound (N66; replaces
+  <code>defended</code>). The neighbours' tie meters carry their own accuracy-class noise (<code>neighbour_reads</code>), and
+  <code>tools/nyfed/tie_check.py</code> calibrates the alarm on January to March and counts false alarms over the rest of
+  2019; <code>respond(calib=...)</code> takes that calibration (N67). The consistent attacker's area stays inside New York.
+  The target interface comes first, the shed clock runs per interface, the oracle falls back at decision time,
+  and the damage study keeps each attacker form's designs apart.</p>
+</li>
+<li>
+<p><strong>The interchange-consistent attacker and the interchange check (New York grid).</strong> <code>Attacker(hold_external=True)</code>
+  (and <code>production_builder(..., hold_external=True)</code>) keeps every bus outside New York at its true injection, so
+  the attack cannot move New York's net interchange (N62). On the 60 drawn onsets this form reaches the limit at
+  one onset and never overshoots it. The operator gets the matching check, <code>tie_gap</code>: the interchange read at the
+  New York ends of the ties less what the neighbours meter. <code>respond(..., defended=True)</code> stops acting on the
+  tampered scans from the first alarm (N65). The operator now enforces all four mapped interfaces, each with its
+  own 15-minute clock and shortage price. It may start the quick-start units of zones J and K, and it caps
+  regulation at 275 MW, reporting the rest as an ACE excursion (N63, N64). Shed load takes its reactive demand
+  with it, and a reused day keeps its meter count. <code>damage_study.py</code> gains <code>--consistent</code> and <code>--seed-key</code>.</p>
+</li>
+<li>
 <p><strong>The damaging attack and the operator's escalation (New York grid).</strong> <code>InterfaceFdia(overshoot=...)</code>
   takes the reported interface flow past its limit, designed under every bound as a real attack, and
   <code>max_overshoot</code> finds the largest overshoot an onset allows by bisection (N58). The operator now
