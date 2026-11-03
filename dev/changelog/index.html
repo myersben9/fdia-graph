@@ -1645,6 +1645,11 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Where the inadvertent interchange lands, and the certificate's reach (New York grid).</strong> The shortfall the trusting operator leaves is now taken up by the synchronous units outside New York in proportion to their capacity rather than by the reference bus, and every scan reports the tightest true interface margin (<code>margin</code>, summary <code>margin_min_mw</code> and <code>margin_lost_mw</code>) (N69). The interface numbers of the damage study change with it. <code>tools/nyfed/push_bound.py</code> bounds four attackers that keep the interchange true, from one subnetwork to all of New York, with the search's own injection bounds (a generator bus's load moves under the load
+  cap too), over a denser band grid and each interface's own near-limit hours (N70). <code>damage_study.py --v-margin</code>
+  widens the attacker's voltage limits (N71). A failed power flow now leaves the margin unknown.</p>
+</li>
+<li>
 <p><strong>Three operators and a calibrated interchange check (New York grid).</strong> <code>respond(mode=...)</code> runs the
   trusting operator, whose AGC reads the falsified New York-end tie meters, the accounting operator, which takes
   its load and ACE from the agreed interchange (BAL-005), and the oracle upper bound (N66; replaces
