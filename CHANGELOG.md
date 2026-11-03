@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The grid operator under attack (`fdia_graph.nyfed.operator`).** `DcSced` is the operator's real-time
+  dispatch on what it sees: a DC dispatch on shift factors around the pool basepoint, with unit limits,
+  five-minute ramps from its previous dispatch and the interface limit (the benign model flow plus the
+  hour's real 2019 headroom). It moves as little as it must, then at least cost. `respond(day, delay,
+  over)` runs it on a day's attacked scans and on their benign twin, in closed loop on the dispatch. The
+  true load never changed, so regulation picks up the generation the dispatch removed, and an AC power
+  flow gives the true interface flow and the worst single 345 kV outage. `summarize` reports the attack's
+  consequence, attacked less benign: dispatch moved, regulation (MW, MWh, by utility), unrelieved flow,
+  the true interface and N-1 changes, production cost and the energy settled at the real zonal LBMP.
+  `tools/nyfed/operator_cost.py` runs it on the single-episode days. Plan rows N50 to N57.
+
 ## 0.21.0
 
 - **New York grid build in the package.** `fdia_graph.nyfed.build`: `fetch_inputs(root)` downloads the
