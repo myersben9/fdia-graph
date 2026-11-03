@@ -45,7 +45,7 @@ src/fdia_graph/nyfed/
     attacker.py        Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
     msfdia.py          MsFdia (Am, and Ap with a step bound)
     opf_attack.py      OpfFdia (Am, Ap with the false state from a local AC OPF, N35)
-    interface_attack.py InterfaceFdia (Am against a NYISO interface, N48, N49)
+    interface_attack.py InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
     ramp.py            Ramp
   timeline/
     __init__.py        package docstring only
@@ -53,10 +53,11 @@ src/fdia_graph/nyfed/
     builder.py         TimelineBuilder
   operator/
     __init__.py        package docstring only
-    sced.py            DcSced, Step, shift_factors, outage_factors
+    sced.py            DcSced, Step, shift_factors, outage_factors, shortage_usd (N59, N60)
     response.py        OperatorDay, Twin, Response, operator_day, seen_interfaces, respond, summarize
 tools/nyfed/
   operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
+  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
   build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
   matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
@@ -138,7 +139,7 @@ Frozen dataclasses of arrays, passed between classes.
 | `Ramp` | `attacks/ramp.py` | an `Attacker`, the ramp settings | `design(window, rng)` |
 | `TimelineBuilder` | `timeline/builder.py` | built as `TimelineBuilder(pool, meas, noise, attacker, families, own, settings, *, length=16 or {family: frames} (Am, At 16, Ap 96, N23), attacked_frac=0.2, split_frac=(0.7, 0.15, 0.15), split_by="week" (N41) or "time", workers=1, block=2016, verbose=False, survey=0, survey_cache=None)`: the pool, the `Measurement`, the `NoiseModel`, the `Attacker`, the families by name (`{"Am": MsFdia, "Ap": MsFdia(step_bound=...), "At": Ramp}`), the `Ownership` and `Settings` (whose seed keys every draw: `place`, `noise`, and `design/{family}/{onset}` per episode, so the result does not depend on `workers`) | `build(path) -> dict` (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from `split_weeks` on the frames some waiting family may start at (or `split_frames` with `split_by="time"`); each split's episodes are placed by `place_episodes` inside one contiguous run of its frames and, for a family with an `onset_mask`, only where it allows; each is designed on its own window of true pool states (in `workers` spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With `survey` (frames, N42) every allowed onset of a family with an `onset_mask` whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of `HIT_STRATUM` weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of `SURVEY_CHUNK` designs saved under `survey_cache` when given so a stopped build resumes; the summary adds `survey` (tried and found per split and family). `build_episode(path, onset, family="Am", lo=None, hi=None) -> dict` writes one episode alone, designed at pool frame `onset`, over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through `_write`. Frames: `z_benign = NoiseModel.sample(h(x_true))`, `z = z_benign + a` on episode frames; `meter_tampered` is `Attacker.tampered`, `bus_attacked` is true where a tampered meter sits at the bus |
 | `DcSced` | `operator/sced.py` | built as `DcSced(case, unit_p [T, G], cost [T, G], interfaces)`: the pool basepoint, the units' costs, the interfaces it enforces | `step(t, seen [I], limit [I], load_change, prev) -> Step`: the scan's dispatch, least movement then least cost (N53), free units only (not nuclear, hydro or imports), within limits and five-minute ramps from `prev`, the unrelieved interface flow and unmatched load as slacks |
-| `Step` | `operator/sced.py` | `dev [G]` (MW from the basepoint), `unrelieved [I]`, `unmatched` | |
+| `Step` | `operator/sced.py` | `dev [G]` (MW from the basepoint), `shed [N]` (MW of load relief), `unrelieved [I]`, `unmatched`, `relief_usd` (the dispatch's cost less that of the same dispatch with no interface limit) | |
 | `OperatorDay` | `operator/response.py` | one timeline file's frames with the pool basepoint, the interpolated unit costs, the real zonal LBMP and the interfaces | |
 | `Twin`, `Response` | `operator/response.py` | the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan | |
 | `TimelineWriter` | `io.py` | an open HDF5 file, built as `TimelineWriter(path)` | `write_static(case, own, plan)`, `write_frames(t0, block)` (`block` a dict of the per-frame arrays of frames `t0..`, datasets grown as written), `write_episodes(episodes)`, `close()` |
@@ -176,6 +177,8 @@ Stateless steps, each called once in the build.
 | `fetch_inputs(root)` | `build.py` | a folder | `root/data`: NYgrid's `Data/` at commit 47698b6, NYISO's pal archives for the year, the NYS DPS territories and the packaged `grid/ny_bus_locations.csv`, each kept when already there (the load model fetches its own sources on the first pool build) |
 | `production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None)` | `build.py` | the pool and `fetch_inputs`'s folder | the release `TimelineBuilder`: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked |
 | `wrap_angles(d, kind)` | `attacks/attacker.py` | reading differences `[..., M]`, meter kinds | the differences with angle readings (va, ia) wrapped to (-180, 180] |
+| `InterfaceFdia.max_overshoot(window, rng, high=800.0, tol=25.0)` | `attacks/interface_attack.py` | a window | `(Episode or None, MW)`: the damaging variant at the largest overshoot past the limit the bounds allow, by bisection (N58) |
+| `shortage_usd(mw)` | `operator/sced.py` | MW over an interface limit for one scan | $ at the 2019 transmission shortage curve (N60) |
 | `shift_factors(case)`, `outage_factors(case, ptdf, outages)` | `operator/sced.py` | `Case` | `[L, N]` DC shift factors (reference bus out), `[L, K]` line outage distribution factors |
 | `operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))` | `operator/response.py` | a timeline file, its pool, NYgrid's `Data/` | `OperatorDay` |
 | `seen_interfaces(plan, interfaces, z)` | `operator/response.py` | the meter plan, the interfaces, scans `[T, M]` | `[T, I]` each interface's flow as the operator reads it from its branches' P-flow meters |

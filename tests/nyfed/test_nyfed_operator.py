@@ -9,7 +9,7 @@ from fdia_graph.nyfed.grid.case import REF
 from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
 from fdia_graph.nyfed.grid.interfaces import hourly_interfaces
 from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.operator.sced import DcSced, outage_factors, shift_factors
+from fdia_graph.nyfed.operator.sced import DcSced, outage_factors, shift_factors, shortage_usd
 
 ROOT = Path(
     os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2])
@@ -36,6 +36,13 @@ def _dc_flows(case, p):
     theta = np.zeros(n)
     theta[keep] = np.linalg.solve((inc.T @ (b[:, None] * inc))[np.ix_(keep, keep)], p[keep])
     return b * (inc @ theta)
+
+
+def test_shortage_is_priced_at_the_2019_curve():
+    """350 $/MWh for the first 5 MW over the limit, 1,175 for the next 15, 4,000 beyond, over five minutes."""
+    assert shortage_usd(0.0) == 0.0
+    assert np.isclose(shortage_usd(20.0), (5 * 350 + 15 * 1175) / 12)
+    assert np.isclose(shortage_usd(30.0), (5 * 350 + 15 * 1175 + 10 * 4000) / 12)
 
 
 def test_shift_factors_reproduce_a_dc_power_flow(case):
@@ -93,6 +100,22 @@ def test_recovery_after_an_attack_is_ramp_limited(sced):
     assert s.dev[g] >= 40.0 - c.ramp[g] * 5.0 - 1e-6
 
 
+def test_the_operator_sheds_load_only_when_redispatch_cannot_relieve(case, sced):
+    """A seen overload far beyond what redispatch can move is relieved by shedding load, only at buses where
+    a MW shed takes at least 0.1 MW off the interface; a small overload is relieved by redispatch alone."""
+    from fdia_graph.nyfed.operator.sced import SHED_FACTOR
+
+    load = np.tile(np.where(case.is_ny, 200.0, 0.0), (2, 1))
+    op = DcSced(case, sced.unit_p, sced.cost, [], load)
+    op.sf = sced.sf
+    small = op.step(1, np.array([1550.0]), np.array([1500.0]), 0.0, np.zeros(len(op.free)))
+    assert not small.shed.any() and small.unrelieved[0] < 1e-6
+    held = op.step(1, np.array([9000.0]), np.array([1500.0]), 0.0, np.zeros(len(op.free)), shed_ok=False)
+    assert not held.shed.any() and held.unrelieved[0] > 0  # before 15 minutes over the limit, no relief
+    big = op.step(1, np.array([9000.0]), np.array([1500.0]), 0.0, np.zeros(len(op.free)))
+    assert big.shed.sum() > 0 and (sced.sf[0, big.shed > 0] <= SHED_FACTOR).all()
+
+
 @pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
 def test_a_day_under_attack_against_its_benign_twin():
     """On the 5 July file the benign twin needs nothing, while the attacked run follows the pretended load
@@ -105,4 +128,7 @@ def test_a_day_under_attack_against_its_benign_twin():
     w = slice(r.onset, r.onset + r.length)
     assert -a.dev[w].sum(axis=1).min() > 300  # the pretended drop reaches about 370 MW
     # regulation, and what no unit had room for, together make up the generation the dispatch removed
-    np.testing.assert_allclose(a.reg.sum(axis=1) + a.uncovered, -a.dev.sum(axis=1), atol=1e-6)
+    # beyond the load actually shed
+    np.testing.assert_allclose(
+        a.reg.sum(axis=1) + a.uncovered, -(a.dev.sum(axis=1) + a.shed.sum(axis=1)), atol=1e-6
+    )

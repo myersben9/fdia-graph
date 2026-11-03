@@ -27,9 +27,17 @@ from fdia_graph.nyfed.grid.clients import Ownership
 from fdia_graph.nyfed.grid.interfaces import Interface, hourly_interfaces
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import open_timeline, read_pool
-from fdia_graph.nyfed.operator.sced import FRAME_HOURS, DcSced, outage_factors, shift_factors
+from fdia_graph.nyfed.operator.sced import (
+    FRAME_HOURS,
+    SHED_AFTER,
+    DcSced,
+    outage_factors,
+    shift_factors,
+    shortage_usd,
+)
 from fdia_graph.nyfed.scenario.dispatch import hourly_dispatch
 from fdia_graph.nyfed.scenario.inputs import ZONES, read_nygrid
+from fdia_graph.nyfed.scenario.pool import Pool
 from fdia_graph.nyfed.scenario.solver import AcSolver
 from fdia_graph.nyfed.sensing.meters import KINDS, MeterPlan
 
@@ -74,6 +82,10 @@ class OperatorDay:
     length: int
 
 
+_POOLS: dict[str, Pool] = {}  # pools and NYgrid's hourly tables read once per process: a study runs many days
+_HOURS: dict[str, list] = {}
+
+
 def _hour_weights(time: np.ndarray, hours: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """For each frame the hour before, the hour after and the weight of the hour after, on the hours'
     midpoints (as `PoolBuilder._brackets`)."""
@@ -104,11 +116,15 @@ def operator_day(
     h, case, own, plan = open_timeline(timeline)
     time = h["frames/time"][:]
     stamps = time.astype("datetime64[s]")
-    p = read_pool(pool)
+    if str(pool) not in _POOLS:
+        _POOLS[str(pool)] = read_pool(pool)
+    p = _POOLS[str(pool)]
     k = np.searchsorted(p.time.astype("datetime64[s]"), stamps)
     if not (p.time.astype("datetime64[s]")[k] == stamps).all() or p.unit_p is None:
         raise ValueError("the pool does not hold every frame of the timeline with its unit dispatch")
-    hours = read_nygrid(data_dir, 2019)
+    if str(data_dir) not in _HOURS:
+        _HOURS[str(data_dir)] = read_nygrid(data_dir, 2019)
+    hours = _HOURS[str(data_dir)]
     when = np.array([x.time for x in hours]).astype("datetime64[s]")
     near = np.flatnonzero(
         (when >= stamps[0] - np.timedelta64(3600, "s")) & (when <= stamps[-1] + np.timedelta64(3600, "s"))
@@ -162,8 +178,9 @@ class Twin:
     cover as the operator sees it (MW), `uncovered [T]` the true imbalance regulation had no room for
     (MW, positive short), `iface_change [T, I]` the true interface flow change from the
     basepoint's (AC, MW), `n1_change [T]` the change in the worst single-outage interface flow (MW),
-    `fuel [T]` the production cost change and `settled [T]` the energy change at the zonal LBMP ($ per
-    scan)."""
+    `shed [T, N]` the load the operator shed (MW), `relief [T]` what relieving the interfaces cost in
+    production ($, `Step.relief_usd`), `shortage [T]` the flow left over the limit at the shortage curve ($), `fuel [T]` the production cost change and `settled [T]` the energy
+    change at the zonal LBMP ($ per scan)."""
 
     dev: np.ndarray
     reg: np.ndarray
@@ -172,6 +189,9 @@ class Twin:
     uncovered: np.ndarray
     iface_change: np.ndarray
     n1_change: np.ndarray
+    shed: np.ndarray
+    relief: np.ndarray
+    shortage: np.ndarray
     fuel: np.ndarray
     settled: np.ndarray
 
@@ -195,10 +215,10 @@ class _TrueGrid:
         self.lodf = outage_factors(c, shift_factors(c), self.outages)
         self._base: dict[int, tuple[np.ndarray, float]] = {}
 
-    def _flows(self, t: int, units: np.ndarray) -> np.ndarray | None:
+    def _flows(self, t: int, units: np.ndarray, shed: np.ndarray | None = None) -> np.ndarray | None:
         d = self.day
         r = self.solver.power_flow(
-            self.pd[t],
+            self.pd[t] if shed is None else self.pd[t] - shed,
             self.qd[t],
             units,
             np.ones(len(units), bool),  # every unit in service for Q, as the pool solves it
@@ -214,14 +234,15 @@ class _TrueGrid:
         after = iface[0] + it.signs @ (self.lodf[it.branches] * pf[self.outages])
         return iface, float(after.max())
 
-    def change(self, t: int, units: np.ndarray) -> tuple[np.ndarray, float]:
-        """The true interface flows' and the worst N-1 flow's change from the basepoint at scan `t`."""
+    def change(self, t: int, units: np.ndarray, shed: np.ndarray | None = None) -> tuple[np.ndarray, float]:
+        """The true interface flows' and the worst N-1 flow's change from the basepoint at scan `t`, with
+        `shed [N]` (MW) taken off the true loads."""
         if t not in self._base:
             pf = self._flows(t, self.day.unit_p[t])
             self._base[t] = (
                 self._measure(pf) if pf is not None else (np.full(len(self.day.interfaces), np.nan), np.nan)
             )
-        pf = self._flows(t, units)
+        pf = self._flows(t, units, shed)
         if pf is None:
             return np.full(len(self.day.interfaces), np.nan), np.nan
         iface, worst = self._measure(pf)
@@ -267,7 +288,7 @@ def _regulation(
 
 def _run(day: OperatorDay, seen: np.ndarray, load_change: np.ndarray, delay: int, grid: _TrueGrid) -> Twin:
     c, T, G, I = day.case, len(day.time), len(day.case.unit_bus), len(day.interfaces)
-    sced = DcSced(c, day.unit_p, day.cost, day.interfaces)
+    sced = DcSced(c, day.unit_p, day.cost, day.interfaces, np.clip(grid.pd, 0.0, None) * day.case.is_ny)
     pf_true = Network(c).flows(day.vm, day.va)[0]
     true_iface = np.array([it.model_flow(pf_true) for it in day.interfaces]).T
     limit = true_iface + np.array([it.limit - it.flow for it in day.interfaces]).T  # D3
@@ -279,12 +300,15 @@ def _run(day: OperatorDay, seen: np.ndarray, load_change: np.ndarray, delay: int
         "unrelieved": np.full((T, I), np.nan),
         "unmatched": np.full(T, np.nan),
         "uncovered": np.zeros(T),
+        "shed": np.zeros((T, len(c.bus_id))),
+        "relief": np.zeros(T),
+        "shortage": np.zeros(T),
         "iface_change": np.zeros((T, I)),
         "n1_change": np.zeros(T),
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
     }
-    prev, before = None, None
+    prev, before, over = None, None, 0  # over: scans in a row the interface has been over its limit
     for t in range(T):
         if not (day.solved[t] and (t == 0 or day.solved[t - 1])):
             out["iface_change"][t], out["n1_change"][t] = np.nan, np.nan
@@ -292,16 +316,22 @@ def _run(day: OperatorDay, seen: np.ndarray, load_change: np.ndarray, delay: int
             continue
         s = max(t - delay, 0)  # the operator acts on the scan `delay` scans back
         # a scan the operator has no reading of (an unsolved frame) shows it no change
-        step = sced.step(t, seen[s], limit[t], float(np.nan_to_num(load_change[s])), prev)
+        step = sced.step(t, seen[s], limit[t], float(np.nan_to_num(load_change[s])), prev, over >= SHED_AFTER)
+        short = float(np.nansum(step.unrelieved))
+        over = over + 1 if (short > 1e-6 or step.shed.any()) else 0
+        out["shortage"][t] = shortage_usd(short)
         dispatched = day.unit_p[t] + step.dev
-        reg, uncovered = _regulation(day, t, -float(step.dev.sum()), dispatched, before)
+        # the true load lost what was shed and nothing else, so the units' shortfall is the dispatch's
+        # change plus the shed (the attack's pretended load never existed)
+        reg, uncovered = _regulation(day, t, -float(step.dev.sum() + step.shed.sum()), dispatched, before)
         prev, before = step.dev, dispatched + reg
         out["uncovered"][t] = uncovered
         out["dev"][t], out["reg"][t] = step.dev, reg
         out["unrelieved"][t], out["unmatched"][t] = step.unrelieved, step.unmatched
+        out["shed"][t], out["relief"][t] = step.shed, step.relief_usd
         moved = step.dev + reg
-        if np.abs(moved).max() > 1e-3:
-            out["iface_change"][t], out["n1_change"][t] = grid.change(t, day.unit_p[t] + moved)
+        if np.abs(moved).max() > 1e-3 or step.shed.any():
+            out["iface_change"][t], out["n1_change"][t] = grid.change(t, day.unit_p[t] + moved, step.shed)
         out["fuel"][t] = float(day.cost[t] @ moved) * FRAME_HOURS
         out["settled"][t] = float(np.nansum(price[t] * moved)) * FRAME_HOURS
     return Twin(**out)
@@ -315,6 +345,7 @@ class Response:
     attacked: Twin
     benign: Twin
     unit_client: np.ndarray
+    bus_client: np.ndarray
     client_names: list[str]
     onset: int
     length: int
@@ -340,6 +371,7 @@ def respond(day: OperatorDay, delay: int = 0, over: float = 0.0) -> Response:
         attacked=_run(day, seen_a, load_change, delay, grid),
         benign=_run(day, seen_b, np.zeros(len(day.time)), delay, grid),
         unit_client=day.own.bus_client[day.case.unit_bus],
+        bus_client=day.own.bus_client,
         client_names=[str(n) for n in day.own.names],
         onset=day.onset,
         length=day.length,
@@ -348,13 +380,16 @@ def respond(day: OperatorDay, delay: int = 0, over: float = 0.0) -> Response:
     )
 
 
-def summarize(r: Response) -> dict:
+def summarize(r: Response, voll: float | None = None) -> dict:
     """The attack's consequence over the day, attacked less benign scan by scan, so what the benign twin
     already shows (a lagged reading over its limit, load the units cannot follow) is not counted: the
     most dispatch moved and regulation called (MW), the regulation energy (MWh, upward, in total and by the
     utility whose territory holds each unit), the most interface flow left unrelieved, load unmatched and
     imbalance uncovered (MW), the largest true interface drop and rise and N-1 rise (MW), and the
-    production cost and LBMP settlement changes ($)."""
+    production cost and LBMP settlement changes ($). Then the escalation (N59): the most load shed (MW),
+    the energy shed (MWh, in total and by utility), what relieving the interfaces cost in production
+    ($, the fake congestion's cost), the shortage cost of the flow left over the limit ($), and with
+    `voll` ($/MWh) the shed energy at that value."""
     a, b = r.attacked, r.benign
 
     def peak(x: np.ndarray) -> float:
@@ -375,7 +410,14 @@ def summarize(r: Response) -> dict:
         "n1_up_mw": float(np.nanmax(a.n1_change - b.n1_change)),
         "fuel_usd": float(a.fuel.sum() - b.fuel.sum()),
         "settled_usd": float(a.settled.sum() - b.settled.sum()),
+        "relief_usd": float(a.relief.sum() - b.relief.sum()),
+        "shortage_usd": float(a.shortage.sum() - b.shortage.sum()),
+        "shed_mw": peak(a.shed.sum(axis=1) - b.shed.sum(axis=1)),
+        "shed_mwh": float((a.shed - b.shed).sum() * FRAME_HOURS),
     }
+    if voll is not None:
+        out["shed_usd"] = out["shed_mwh"] * voll
     for c, name in enumerate(r.client_names):
         out[f"regulation_mwh_{name}"] = float(reg_up[:, r.unit_client == c].sum())
+        out[f"shed_mwh_{name}"] = float((a.shed - b.shed)[:, r.bus_client == c].sum() * FRAME_HOURS)
     return out
