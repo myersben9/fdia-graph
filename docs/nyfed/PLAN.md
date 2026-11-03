@@ -47,7 +47,7 @@ Files, types, functions and how they connect are in [ARCHITECTURE.md](ARCHITECTU
 | P1 | 2019 historical inputs and NYISO 5-minute zonal load | [`readOpCond.m`](https://github.com/AndersonEnergyLab-Cornell/NYgrid/blob/47698b6/Utility/readOpCond.m), [`profiles.py#L290`](https://github.com/myersben9/fdia-graph/blob/9565688/src/fdia_graph/profiles.py#L290), [NYISO pal](https://mis.nyiso.com/public/P-58Blist.htm) |
 | P2 | a unique load profile per bus, summing to the real zone load | method of [2]; NREL ResStock and ComStock AMY2018 release 1 by county ([OEDI](https://oedi-data-lake.s3.amazonaws.com/nrel-pds-building-stock/end-use-load-profiles-for-us-building-stock/2021/)), EIA-861 2019 `Sales_Ult_Cust_2019.xlsx`, IAC database ([ITAC](https://itac.university/storage/ITAC_Database.zip)), ORNL/TM-2013/407 App. B curves, 2019 Census county gazetteer |
 | P3 | hourly unit dispatch | [`updateOpCond.m#L60`](https://github.com/AndersonEnergyLab-Cornell/NYgrid/blob/47698b6/updateOpCond.m#L60), [`allocateGen.m`](https://github.com/AndersonEnergyLab-Cornell/NYgrid/blob/47698b6/Utility/allocateGen.m) |
-| P4 | hourly min-deviation AC-OPF, checked against the MATLAB results for 2019 | [`tools/matlab/nygrid`](../tools/matlab/nygrid/README.md), `results/nygrid.ac_year.csv` |
+| P4 | hourly min-deviation AC-OPF, checked against the MATLAB results for 2019 | [`tools/nyfed/matlab/nygrid`](../../tools/nyfed/matlab/nygrid/README.md), `results/nygrid.ac_year.csv` |
 | P5 | 5-minute operating points from a ramp-constrained real-time AC dispatch (N32), written as the pool | [`profiles.py#L162`](https://github.com/myersben9/fdia-graph/blob/9565688/src/fdia_graph/profiles.py#L162) |
 
 Status N31 (`scenario/loads.py`, `out/loads_2019_v2.npz`): the ResStock/ComStock prototypes are cached at their native 15 minutes
@@ -72,7 +72,7 @@ D's events are divided by the model's 125 MW of industrial load there, much less
 zone D's whole 551 MW instead (rate 0.000287, size 0.05 plus GPD scale 0.0133, max 0.57), the hourly metrics stay at the AR(1)-only
 values and the switching adds almost nothing at five minutes. Open for Ben: which industrial base to calibrate on, or no switching.
 
-Status N32 (`scenario/solver.py` `AcSolver.dispatch`, `scenario/pool.py`, `tools/run_pool.py`, `out/pool_2019_v2.h5` on
+Status N32 (`scenario/solver.py` `AcSolver.dispatch`, `scenario/pool.py`, `tools/nyfed/run_pool.py`, `out/pool_2019_v2.h5` on
 `out/loads_2019_v2.npz`): each frame is a least-cost AC OPF in the same Pyomo model as the projection (a second, linear cost
 objective), solved by Ipopt from the previous frame's state; a pandapower power flow started at the OPF's own state then checks it.
 Every unit stays in service for reactive power, as in NYgrid's case (GEN_STATUS 1): switching units with a zero hourly setpoint fully
@@ -92,7 +92,7 @@ same-zone pairs): step correlation 0.977 -> 0.164, zone share of step variance 0
 and external energy limits (an economic dispatch without them departs from NYgrid's historical mix), interface limits (N16), the seams.
 That build is kept as `out/pool_2019_v2_econ.h5`; N38, N39 and N40 decided its open points.
 
-Status N39 (implemented, `out/pool_2019_v2.h5`, built by `tools/run_pool.py` in 37 min on 27 workers, 0.33 s per frame per worker):
+Status N39 (implemented, `out/pool_2019_v2.h5`, built by `tools/nyfed/run_pool.py` in 37 min on 27 workers, 0.33 s per frame per worker):
 only thermal units are re-dispatched by the five-minute least-cost OPF, within their ramps. Nuclear, hydro and every external unit follow
 NYgrid's hourly output interpolated to the frame, taken at the hourly AC points (`project`, which moves them at most about 9 MW per
 unit from NYgrid's raw setpoints, to cover losses). Nuclear holds it exactly. Hydro and external units hold it under a quadratic penalty
@@ -131,7 +131,7 @@ the economic build 4.5 and 100). Load-only buses: same-zone step correlation 0.1
 | A4 | pattern-aware overload (`Ap`, ours): Am plus a per-bus, per-scan step bound from each bus's natural five-minute step by hour | [1] eqs. 12 to 25, NYISO zone step statistics (paper Sec. III-C) |
 | A3 | slow ramp (`At`) | [`stealthy.py#L26`](https://github.com/myersben9/fdia-graph/blob/9565688/src/fdia_graph/engine/attacks/stealthy.py#L26), [`episodes.py#L43`](https://github.com/myersben9/fdia-graph/blob/9565688/src/fdia_graph/engine/attacks/episodes.py#L43) |
 
-Status: A1, A2, A3 built (`attacks/{episode,attacker,msfdia,ramp}.py`, `tests/test_attacks.py`,
+Status: A1, A2, A3 built (`attacks/{episode,attacker,msfdia,ramp}.py`, `tests/nyfed/test_nyfed_attacks.py`,
 5 tests). The attacker knows one local subnetwork that may span utilities and tampers whatever meters
 its support needs; stealth is global (one WLS over all 511 meters leaves the attacked residual at the
 benign level, verified in the test). `Episode.clients` records the owners of the tampered meters, one
@@ -185,7 +185,7 @@ feasible in 35/68/78/58% of the windows at L = 16/32/48/96, median tampered mete
 | D3 | first data release | [`upload_assets.py`](https://github.com/myersben9/fdia-graph/blob/9565688/tools/upload_assets.py) |
 
 Status: D1, D2 built (`timeline/{schedule,builder}.py`, `TimelineWriter` and `open_timeline` in `io.py`,
-`dataset.py`, `tests/test_timeline.py` 4 tests, `tests/test_dataset.py` 3 tests). The year is split into
+`dataset.py`, `tests/nyfed/test_nyfed_timeline.py` 4 tests, `tests/nyfed/test_nyfed_dataset.py` 3 tests). The year is split into
 three contiguous blocks in time order, train 70%, val 15%, test 15% (from Jan 1, Sep 13 12:00 and
 Nov 7 06:00), and each split places 16-frame episodes (80 minutes, the window of [1]) at uniform
 random onsets over 20% of its frames, Am and At equal in count; adjacency and gaps come only from that

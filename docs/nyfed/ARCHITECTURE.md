@@ -202,4 +202,4 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | A4 | `attacks/msfdia.py` (Ap option), `natural_steps`, `generator_ramps`, `wrap_angles` in `attacks/attacker.py`, `Case.ramp` from `nygrid_units` |
 | D1 | `timeline/schedule.py`, `timeline/builder.py`, `TimelineWriter` in `io.py` |
 | D2 | `dataset.py`, `open_timeline` in `io.py` |
-| D3 | `scripts/build.py` |
+| D3 | the build tools, not yet in the package (PLAN D3) |

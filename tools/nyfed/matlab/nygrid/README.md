@@ -2,7 +2,7 @@
 
 NYgrid's published 2019 operating points are DC. In AC none of the 8,760 hours converge. These scripts
 are the MATLAB reference for the changes that make them AC-feasible, and for the test of which of those
-changes are needed. The Python port in `src/nyfed/grid/fixes.py` and `scenario/solver.py` is checked
+changes are needed. The Python port in `src/fdia_graph/nyfed/grid/fixes.py` and `scenario/solver.py` is checked
 against the files they write.
 
 ## Setup
@@ -29,8 +29,8 @@ against the files they write.
 | `acproj.m` | min-deviation AC-OPF, the AC-feasible dispatch closest to NYgrid's (minimizes sum (PG - PG_hist)^2) |
 | `ac_feas.m` | first diagnosis: NYgrid's hours in DC, reduced-case AC and full-case AC, no changes |
 | `ac_year.m` | the recipe (`fixes 'JL'` + `extbase` + `acproj`) over 2019, writes `results/nygrid.ac_year.csv` |
-| `ablation.m` | drops one change at a time (`noJ`, `noL`, `noE`, `projOnly`), writes `results/ablation_parts/` |
-| `dump_hours.m` | three operating points with the recipe, the fixtures in `tests/data/matlab_ref` |
+| `ablation.m` | drops one change at a time (`noJ`, `noL`, `noE`, `projOnly`), writes `<nyfed>/results/ablation_parts/` |
+| `dump_hours.m` | three operating points with the recipe, the fixtures in `tests/nyfed/data/matlab_ref` |
 | `nygrid_full_case.patch` | the change to NYgrid's `updateOpCond.m` |
 
 ## Running
