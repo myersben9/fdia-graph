@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **What stealth buys, and detection on other meter fleets (New York grid).** `tools/nyfed/naive_tie_bias.py`
+  tests a naive bias of the New York-end tie readings alone under the persistence rule (N80), and
+  `closed_loop_bdd.py --draws N` tests every attack against N further meter fleets (N81).
+
 - **A persistence rule for the residual test (New York grid).** `tools/nyfed/bdd_benign_series.py` and
   `tools/nyfed/bdd_rule.py` calibrate a k-of-n residual alarm on whole benign days and rerun the operator's answers
   at its first alarm (N79).

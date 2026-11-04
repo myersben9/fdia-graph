@@ -14,7 +14,10 @@ first scan past the calibrated threshold the operator responds three ways (`resp
 without the attack (benign), it holds its dispatch while its AGC keeps reading the tie meters it reads (freeze), or it
 holds its dispatch with the AGC on the common-source tie values (freeze_cs).
 
-    python tools/nyfed/closed_loop_bdd.py OUT.csv STUDY [STUDY ...] [--mode trusting] [--workers 8]
+    python tools/nyfed/closed_loop_bdd.py OUT.csv STUDY [STUDY ...] [--mode trusting] [--workers 8] [--draws 5]
+
+With `--draws N` it also tests every attack against N further meter fleets (fresh constant biases of the same
+accuracy classes, as bdd_benign_series.py --draw), one `j_attacked_dK` column each, and skips the three answers.
 
 Run from the folder whose `data/` holds the inputs. One row per attack window.
 """
@@ -45,6 +48,7 @@ from fdia_graph.nyfed.io import read_pool
 from fdia_graph.nyfed.operator.response import _entry_share, _TrueGrid, operator_day, respond, summarize
 from fdia_graph.nyfed.scenario.pool import SOLVED
 from fdia_graph.nyfed.sensing.measure import Measurement
+from fdia_graph.nyfed.sensing.meters import JITTER_FRAC
 from fdia_graph.nyfed.sensing.noise import NoiseModel
 
 REF = 3  # bus type of the reference bus
@@ -102,8 +106,15 @@ def _calibrate(day_path: str, pool_path: str, data: str, frames: int, seed: int)
     return float(np.percentile(js, 99)), js
 
 
+def _fleet_bias(plan, draw: int) -> np.ndarray:
+    """The constant biases of another meter fleet, drawn exactly as bdd_benign_series.py --draw draws them."""
+    rel = plan.sigma_rel > 0
+    scale = np.sqrt(1.0 - JITTER_FRAC**2) * np.where(rel, plan.sigma_rel, plan.sigma_abs)
+    return np.random.default_rng([20190101, 4219, draw]).normal(0.0, scale)
+
+
 def _job(
-    path: str, pool: str, data: str, calib: tuple[float, float], mode: str, thr_cal: float
+    path: str, pool: str, data: str, calib: tuple[float, float], mode: str, thr_cal: float, draws: int = 0
 ) -> dict | None:
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
@@ -117,6 +128,9 @@ def _job(
     ref = int(np.flatnonzero(c.bus_type == REF)[0])
     sr, sa = day.plan.sigma_rel, day.plan.sigma_abs
     j_att, j_ben, dof = [], [], np.nan
+    rel = day.plan.sigma_rel > 0
+    fleets = [_fleet_bias(day.plan, d) for d in range(1, draws + 1)]
+    j_draw: list[list[float]] = [[] for _ in fleets]
     for t in range(day.onset, day.onset + day.length):
         units = day.unit_p[t] + a.dev[t] + a.reg[t] + a.uncovered[t] * share
         r = grid.solver.power_flow(
@@ -131,6 +145,8 @@ def _job(
         if r is None:
             j_att.append(np.nan)
             j_ben.append(np.nan)
+            for jd in j_draw:
+                jd.append(np.nan)
             continue
         noise = wrap_angles(day.z_benign[t] - meas.h(day.vm[t], day.va[t]), day.plan.kind)
         z_b = day.z_benign[t]
@@ -140,6 +156,11 @@ def _job(
         ja, _ = _wls(meas, z_a, sigma, r["vm"].copy(), r["va"].copy(), ref)
         j_att.append(ja)
         j_ben.append(jb)
+        exact = meas.h(day.vm[t], day.va[t])
+        own = np.where(rel, exact * day.plan.bias, day.plan.bias)
+        for bias, jd in zip(fleets, j_draw):  # the same jitter, the other fleet's constant bias
+            z_d = z_a - own + np.where(rel, exact * bias, bias)
+            jd.append(_wls(meas, z_d, sigma, r["vm"].copy(), r["va"].copy(), ref)[0])
         dof = len(z_b) - rank
     ja_, jb_ = np.array(j_att), np.array(j_ben)
     thr_chi = chi2.ppf(0.99, dof) if np.isfinite(dof) else np.inf
@@ -155,6 +176,8 @@ def _job(
         "j_attacked": json.dumps([round(float(x), 2) for x in ja_]),
         "j_benign": json.dumps([round(float(x), 2) for x in jb_]),
     }
+    for d, jd in enumerate(j_draw, 1):
+        row[f"j_attacked_d{d}"] = json.dumps([round(float(x), 2) for x in jd])
     for name, thr in (("chi", thr_chi), ("cal", thr_cal)):
         fa, fb = np.nan_to_num(ja_) > thr, np.nan_to_num(jb_) > thr
         row.update(
@@ -167,7 +190,7 @@ def _job(
     full = summarize(resp)
     row.update({f"full_{k}": full[k] for k in KEEP})
     first = row["cal_first"]
-    if first >= 0:  # the operator responding to its own calibrated residual alarm, three ways
+    if first >= 0 and not draws:  # the operator responding to its own calibrated residual alarm, three ways
         for after in AFTER:
             s = summarize(
                 respond(
@@ -192,6 +215,7 @@ def main() -> None:
         "--cal-frames", type=int, default=600, help="benign January to March scans for the threshold"
     )
     ap.add_argument("--cal-json", default="results/nygrid.bdd_calibration.json")
+    ap.add_argument("--draws", type=int, default=0, help="also test against N further meter fleets")
     args = ap.parse_args()
     cal = json.loads(Path(args.calib).read_text())
     calib = (cal["mean_mw"], cal["sd_mw"])
@@ -222,7 +246,9 @@ def main() -> None:
     )
     rows: list[dict] = []
     with ProcessPoolExecutor(args.workers) as ex:
-        futs = [ex.submit(_job, f, args.pool, args.data, calib, args.mode, thr_cal) for f in files]
+        futs = [
+            ex.submit(_job, f, args.pool, args.data, calib, args.mode, thr_cal, args.draws) for f in files
+        ]
         for k, fut in enumerate(as_completed(futs), 1):
             r = fut.result()
             if r is not None:
