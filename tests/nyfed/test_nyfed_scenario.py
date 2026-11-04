@@ -231,16 +231,16 @@ def test_load_profiles(case):
 def test_within_hour_calibration():
     """The N31 constants are what the fits give on the real data: the fluctuation on NYISO 2018 (zone H
     left out), the switching on zone D of 2019 with the model's industrial load there."""
-    from fdia_graph.nyfed.scenario import loads
+    from fdia_graph.nyfed.scenario import load_fit, loads
     from fdia_graph.nyfed.scenario.inputs import fetch_nyiso
 
-    fit = loads._fluctuation_fit(fetch_nyiso(2018, ROOT / "data" / "nyiso"))
+    fit = load_fit.fluctuation_fit(fetch_nyiso(2018, ROOT / "data" / "nyiso"))
     print({k: fit[k] for k in ("c", "beta", "phi", "c_residual", "r2")})
     assert np.isclose(fit["c"], loads.FLUCT_C, rtol=1e-3) and np.isclose(
         fit["beta"], loads.FLUCT_BETA, rtol=1e-3
     )
     assert np.isclose(fit["phi"], loads.FLUCT_PHI, atol=1e-3)
-    sw = loads._switching_fit(fetch_nyiso(2019, ROOT / "data" / "nyiso"), loads.SWITCH_INDUSTRIAL_MW)
+    sw = load_fit.switching_fit(fetch_nyiso(2019, ROOT / "data" / "nyiso"), loads.SWITCH_INDUSTRIAL_MW)
     print(
         {
             k: sw[k]

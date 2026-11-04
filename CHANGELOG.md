@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The load model in one module per job (New York grid).** `scenario/loads.py` (676 lines) keeps `LoadSeries`,
+  `LoadModel` and its constants; the downloads and readers of its inputs move to `load_sources.py`, the fit of its
+  within-hour constants to `load_fit.py` (public as `fluctuation_fit` and `switching_fit`, for refitting them), and
+  the validation measures to `load_metrics.py`. The code moved as it was.
+
 - **Study helpers, and the research tools as thin drivers (New York grid).** New `fdia_graph.nyfed.experiments`:
   `study_days` (a study's day files), `variant` (at the limit or damaging), `load_calib` (the interchange check's
   calibration), `add_study_arguments` (the options every tool shares) and `run_parallel` (a process pool that writes
