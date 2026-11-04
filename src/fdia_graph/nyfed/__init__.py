@@ -24,8 +24,9 @@ Studies over many attack windows run through `fdia_graph.nyfed.experiments` (the
 
 Entry points: `production_builder` builds the release timeline, `Dataset` reads one, `operator_day` and `respond`
 run the operator on an attacked day. Every public name below loads on first use. When a stage fails it raises a
-named error from `fdia_graph.errors` or records why it produced less: see docs/nyfed/TROUBLESHOOTING.md, and
-docs/nyfed/ARCHITECTURE.md for how the modules fit together.
+named error from `fdia_graph.errors` or records why it produced less. The docs under docs/nyfed/ say more:
+WALKTHROUGH.md follows one run end to end, ARCHITECTURE.md shows how the modules fit together, EXTENDING.md how to
+add an attack, a detector or an operator (examples in examples/nyfed/), and TROUBLESHOOTING.md how each stage fails.
 """
 
 from __future__ import annotations

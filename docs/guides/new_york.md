@@ -4,8 +4,9 @@
 AC, a 2019 five-minute operating-point pool from a ramp-constrained AC dispatch, one client per utility
 service territory, a hybrid SCADA and PMU meter plan, and attacks against NYISO interface limits. The
 design, its decisions (N1 onward) and their sources are in [the plan](../nyfed/PLAN.md), the modules in
-[the architecture](../nyfed/ARCHITECTURE.md), and what each stage reports when it fails in
-[the troubleshooting page](../nyfed/TROUBLESHOOTING.md). No built pool or timeline is published yet, so the steps
+[the architecture](../nyfed/ARCHITECTURE.md), one run end to end in [the walkthrough](../nyfed/WALKTHROUGH.md), how to
+add an attack, a detector or an operator in [the extending guide](../nyfed/EXTENDING.md), and what each stage reports
+when it fails in [the troubleshooting page](../nyfed/TROUBLESHOOTING.md). No built pool or timeline is published yet, so the steps
 below build them from the public inputs.
 
 ## Install
