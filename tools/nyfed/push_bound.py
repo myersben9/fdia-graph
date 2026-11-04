@@ -32,9 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
-import warnings
 
-warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
 from scipy.optimize import linprog

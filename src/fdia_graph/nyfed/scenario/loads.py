@@ -54,6 +54,7 @@ from scipy.stats import genpareto
 from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.grid.clients import Ownership
 from fdia_graph.nyfed.scenario.inputs import ZONES, ZoneLoad, _bus_weights
+from fdia_graph.nyfed.tables import read_rows
 
 HOURS = 8760
 QUARTERS = 4 * HOURS  # the native 15-minute rows of the building stock profiles
@@ -299,7 +300,7 @@ class LoadModel:
 
         # II-D pools: the five counties nearest each bus. Buses without a located substation keep the
         # NPCC coordinates.
-        rows = {int(r["bus_id"]): r for r in csv.DictReader(open(locations, encoding="utf-8"))}
+        rows = {int(r["bus_id"]): r for r in read_rows(locations)}
         centroids = _county_centroids(cache)
         names = sorted(set(self.proto_county) & set(centroids))
         cxy = np.array([centroids[c] for c in names])

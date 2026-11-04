@@ -10,6 +10,7 @@ import numpy as np
 import scipy.io
 
 from fdia_graph.nyfed.grid.case import PQ, PV, REF, Case
+from fdia_graph.nyfed.tables import read_rows
 
 NY_AREAS = (2, 3)
 
@@ -19,7 +20,7 @@ def read_npcc(path: str | Path) -> Case:
     path = Path(path)
     mpc = scipy.io.loadmat(path, squeeze_me=True, struct_as_record=False)["mpc"]
     bus, branch, gen = mpc.bus, mpc.branch, mpc.gen
-    meta = {int(r["idx"]): r for r in csv.DictReader(open(path.with_name("npcc.csv"), encoding="utf-8"))}
+    meta = {int(r["idx"]): r for r in read_rows(path.with_name("npcc.csv"))}
 
     bus_id = bus[:, 0].astype(int)
     pos = {b: i for i, b in enumerate(bus_id.tolist())}

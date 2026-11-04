@@ -18,14 +18,11 @@ import argparse
 import dataclasses
 import glob
 import time
-import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-warnings.filterwarnings("ignore")
 
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import read_pool

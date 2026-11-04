@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import csv
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 from fdia_graph.nyfed.grid.case import Case
+from fdia_graph.nyfed.tables import read_rows
 
 
 @dataclass(frozen=True)
@@ -59,7 +59,7 @@ def assign_clients(case: Case, territories: dict, locations: str | Path) -> Owne
         n: [r for f in utils if f["properties"]["comp_short"] == n for r in _rings(f["geometry"])]
         for n in names
     }
-    rows = {int(r["bus_id"]): r for r in csv.DictReader(open(locations, encoding="utf-8"))}
+    rows = {int(r["bus_id"]): r for r in read_rows(locations)}
 
     bus_client = np.full(len(case.bus_id), -1)
     for i in np.flatnonzero(case.is_ny):

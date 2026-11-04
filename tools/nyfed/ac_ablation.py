@@ -17,13 +17,10 @@ from __future__ import annotations
 
 import argparse
 import time
-import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-warnings.filterwarnings("ignore")
 
 import fdia_graph.nyfed.scenario.dispatch as dispatch
 from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j

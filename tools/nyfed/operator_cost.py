@@ -20,13 +20,10 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse
 import json
 import time
-import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-warnings.filterwarnings("ignore")
 
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.response import operator_day, respond, seen_interfaces, summarize
