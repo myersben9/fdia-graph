@@ -1897,11 +1897,15 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>nyfed</code></td>
-<td>New York federated FDIA dataset.</td>
+<td>The New York grid: stealthy attacks on NYISO interfaces and the operator that answers them.</td>
+</tr>
+<tr>
+<td><code>nyfed._lazy</code></td>
+<td>Public names that load on first use, for the nyfed packages.</td>
 </tr>
 <tr>
 <td><code>nyfed.attacks</code></td>
-<td>Attacks: the local subnetwork an attacker re-solves, and the two families Am and At.</td>
+<td>The attacker: false data that the operator's state estimator accepts.</td>
 </tr>
 <tr>
 <td><code>nyfed.attacks.attacker</code></td>
@@ -1940,6 +1944,10 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>The timeline as federated clients: each utility sees only its own meters, buses and labels.</td>
 </tr>
 <tr>
+<td><code>nyfed.grid</code></td>
+<td>The network: the case, its admittances, the NYISO interfaces and the clients.</td>
+</tr>
+<tr>
 <td><code>nyfed.grid.case</code></td>
 <td>The grid as one frozen record of arrays.</td>
 </tr>
@@ -1973,7 +1981,7 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>nyfed.operator</code></td>
-<td>The grid operator under attack: its real-time dispatch on what it sees (<code>sced</code>), and what that dispatch does and costs on the true grid (<code>response</code>).</td>
+<td>The grid operator under attack: what it does with false readings, and what that costs on the true grid.</td>
 </tr>
 <tr>
 <td><code>nyfed.operator.response</code></td>
@@ -1982,6 +1990,10 @@ timelines; the rest load and serve data. The table is generated from each module
 <tr>
 <td><code>nyfed.operator.sced</code></td>
 <td>The operator's real-time dispatch: a DC security-constrained dispatch around the current basepoint, as NYISO's real-time dispatch is a DC dispatch on shift factors (D2).</td>
+</tr>
+<tr>
+<td><code>nyfed.scenario</code></td>
+<td>The operating points: a year of true AC states at five-minute steps.</td>
 </tr>
 <tr>
 <td><code>nyfed.scenario.dispatch</code></td>
@@ -2002,6 +2014,10 @@ timelines; the rest load and serve data. The table is generated from each module
 <tr>
 <td><code>nyfed.scenario.solver</code></td>
 <td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower).</td>
+</tr>
+<tr>
+<td><code>nyfed.sensing</code></td>
+<td>The meters: what each client measures, and how wrong each meter is.</td>
 </tr>
 <tr>
 <td><code>nyfed.sensing.measure</code></td>
@@ -2025,7 +2041,7 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>nyfed.timeline</code></td>
-<td>Timeline: the time split, episode placement, and the frames and labels written to timeline.h5.</td>
+<td>The dataset: a year of noisy scans with attacks placed at random and labelled.</td>
 </tr>
 <tr>
 <td><code>nyfed.timeline.builder</code></td>

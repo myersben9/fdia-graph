@@ -1645,6 +1645,14 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>A public surface for the New York grid.</strong> Every <code>fdia_graph.nyfed</code> package (<code>grid</code>, <code>scenario</code>, <code>sensing</code>,
+  <code>attacks</code>, <code>timeline</code>, <code>operator</code>, and <code>fdia_graph.nyfed</code> itself) now has a docstring that says what its stage does,
+  what goes in and comes out, and how it fails, and an <code>__all__</code> of its public names, loaded on first use (reading a
+  dataset still never imports pandapower or Pyomo). Helpers the research tools reached into became public:
+  <code>operator.response.TrueGrid</code> and <code>entry_share</code> (the old <code>_TrueGrid</code> and <code>_entry_share</code> warn until 0.22),
+  <code>Attacker.absorb</code> and <code>TimelineBuilder.episode_lengths</code>.</p>
+</li>
+<li>
 <p><strong>Named errors and a troubleshooting page (New York grid).</strong> <code>fdia_graph.nyfed</code> raises the SDK's named errors:
   <code>ConfigError</code> for a wrong argument, <code>DataConditionError</code> (or <code>NoAdmissibleTarget</code>, <code>NotFitted</code>) for data that does
   not meet a condition, instead of bare <code>ValueError</code>s and asserts. Both subclass <code>ValueError</code>, so existing handlers
