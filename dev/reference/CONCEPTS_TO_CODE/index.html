@@ -2048,6 +2048,18 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load.</td>
 </tr>
 <tr>
+<td><code>nyfed.scenario.load_fit</code></td>
+<td>How the within-hour terms of <code>LoadModel</code> were fitted (N31): the fluctuation's spread and autocorrelation on the real zones of a held-out year (<code>fluctuation_fit</code>), and industrial switching on zone D's large steps (<code>switching_fit</code>). Their results are the FLUCT_* and SWITCH_* constants of <code>loads.py</code>; run these again to refit them on other data.</td>
+</tr>
+<tr>
+<td><code>nyfed.scenario.load_metrics</code></td>
+<td>How a load series is compared with the real one (<code>LoadModel.validate</code>): the load factor, the distribution of the load and of its five-minute steps, the hourly autocorrelation and the spectrum.</td>
+</tr>
+<tr>
+<td><code>nyfed.scenario.load_sources</code></td>
+<td>Where the bottom-up load profiles come from (Li et al. [2], PLAN.md), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
+</tr>
+<tr>
 <td><code>nyfed.scenario.loads</code></td>
 <td>Per-bus load profiles by the bottom-up method of Li et al. [2] (PLAN.md), scaled to the real zone load.</td>
 </tr>

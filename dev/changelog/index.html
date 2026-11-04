@@ -1645,6 +1645,12 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The load model in one module per job (New York grid).</strong> <code>scenario/loads.py</code> (676 lines) keeps <code>LoadSeries</code>,
+  <code>LoadModel</code> and its constants; the downloads and readers of its inputs move to <code>load_sources.py</code>, the fit of its
+  within-hour constants to <code>load_fit.py</code> (public as <code>fluctuation_fit</code> and <code>switching_fit</code>, for refitting them), and
+  the validation measures to <code>load_metrics.py</code>. The code moved as it was.</p>
+</li>
+<li>
 <p><strong>Study helpers, and the research tools as thin drivers (New York grid).</strong> New <code>fdia_graph.nyfed.experiments</code>:
   <code>study_days</code> (a study's day files), <code>variant</code> (at the limit or damaging), <code>load_calib</code> (the interchange check's
   calibration), <code>add_study_arguments</code> (the options every tool shares) and <code>run_parallel</code> (a process pool that writes
