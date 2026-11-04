@@ -54,6 +54,8 @@ docs/*/results/cache/
 !tests/data/tiny_timeline_v083.h5
 !tests/data/tiny_stream_v071.npz
 !tests/data/graph_ieee118_v071.npz
+# the New York attack days and their pool frames (6.7 MB), which CI runs the operator's golden snapshots on
+!tests/nyfed/data/days/*.h5
 
 # the results store's write lock and partial writes
 results/.lock

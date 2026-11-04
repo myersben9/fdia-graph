@@ -1,22 +1,18 @@
-import os
 from pathlib import Path
 
 import numpy as np
 import pytest
+from nyfed_inputs import DATA, ROOT, TERRITORIES, needs_data
 
 from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
 from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.nyfed.scenario.dispatch import hourly_dispatch
 from fdia_graph.nyfed.scenario.inputs import read_nygrid
 
-ROOT = Path(
-    os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2])
-)  # the nyfed inputs, data/ and out/
-DATA = ROOT / "data" / "NYgrid" / "Data"
 REF = (
     Path(__file__).resolve().parent / "data" / "matlab_ref"
 )  # operating points dumped from NYgrid's MATLAB code with the AC recipe
-pytestmark = pytest.mark.skipif(not DATA.exists(), reason="NYgrid checkout missing at data/NYgrid")
+pytestmark = needs_data
 TAGS = {"2019010100": "2019-01-01T00", "2019041514": "2019-04-15T14", "2019072017": "2019-07-20T17"}
 
 
@@ -175,7 +171,6 @@ def test_pool(case, hours, tmp_path):
 
 
 LOADS = ROOT / "data" / "loads"
-TERRITORIES = ROOT / "data" / "territories"
 
 
 @pytest.mark.skipif(

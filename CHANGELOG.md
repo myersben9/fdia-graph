@@ -5,6 +5,16 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The New York grid's tests run in CI (New York grid).** A new workflow, `nyfed.yml`, installs the `[ny]` extra
+  and Ipopt from conda-forge, downloads NYgrid's public inputs with `fetch_inputs` (cached under the pinned commit)
+  and runs `tests/nyfed` on pull requests that touch the New York grid, on main and weekly. Before it, no CI job
+  installed Pyomo, so the whole folder, the examples' test included, was left out of every run. Two damage-study days,
+  the single-episode day and the 2019 pool's frames of those days are checked in under `tests/nyfed/data/days`
+  (6.7 MB), so the operator's tests and 33 of the 35 golden snapshots run there too; the tests that need the whole
+  pool (the attack families, the builder, the timeline and the interface attack's design) still run only where it
+  is built. `tests/nyfed/nyfed_inputs.py` names every input in one place and says which tests it lets run, in place
+  of a path block repeated in nine test files. No user-visible change.
+
 - **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nyfed/WALKTHROUGH.md` follows one
   attack through every stage with the call that does each step (each snippet checked on the 2019 data);
   `docs/nyfed/EXTENDING.md` names the extension points (an attack family, an alarm rule, an operator, a study), each

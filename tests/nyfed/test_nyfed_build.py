@@ -1,21 +1,14 @@
 """The release builder's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the
-case's true voltage limits, while the attacker designs against the widened ones (N71). Runs where the NYgrid
-checkout, the territories and the 2019 pool are under NYFED_ROOT."""
+case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and
+the whole 2019 pool (nyfed_inputs.py)."""
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-
 import numpy as np
 import pytest
+from nyfed_inputs import POOL, ROOT, needs_data, needs_pool, needs_territories
 
-ROOT = Path(os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2]))
-POOL = ROOT / "out" / "pool_2019_v3.h5"
-pytestmark = pytest.mark.skipif(
-    not (POOL.exists() and (ROOT / "data" / "territories").exists() and (ROOT / "data" / "NYgrid").exists()),
-    reason="the 2019 pool, the territories or the NYgrid checkout missing under NYFED_ROOT",
-)
+pytestmark = [needs_data, needs_territories, needs_pool]
 
 
 def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path):

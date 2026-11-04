@@ -78,3 +78,8 @@ test whose input is missing:
 ```bash
 NYFED_ROOT=/path/to/nyfed pytest $FG/tests/nyfed
 ```
+
+Most tests need only the inputs of step 1, with the attack days and their pool frames checked in under
+`tests/nyfed/data/days`; the tests that rate lines or survey onsets over the year also need the pool of step 2.
+`tests/nyfed/nyfed_inputs.py` says which input each test needs. CI runs the folder on the inputs of step 1
+(`.github/workflows/nyfed.yml`).

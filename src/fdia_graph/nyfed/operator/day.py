@@ -106,7 +106,8 @@ def operator_day(
     if str(pool) not in _POOLS:
         _POOLS[str(pool)] = read_pool(pool)
     p = _POOLS[str(pool)]
-    k = np.searchsorted(p.time.astype("datetime64[s]"), stamps)
+    # a frame after the pool's last one sorts past its end, so clip to compare it with the last frame
+    k = np.minimum(np.searchsorted(p.time.astype("datetime64[s]"), stamps), len(p.time) - 1)
     if not (p.time.astype("datetime64[s]")[k] == stamps).all() or p.unit_p is None:
         raise DataConditionError("the pool does not hold every frame of the timeline with its unit dispatch")
     if str(data_dir) not in _HOURS:
