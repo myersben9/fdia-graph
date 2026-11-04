@@ -5,7 +5,8 @@ dispatch on the false reading, and the true flows follow from that dispatch with
 true load. There is no area control error, no regulation and no neighbor, so the shortfall a false load drop leaves
 is met at the reference bus. This tool solves that dispatch at the last rise scan of each attack day (`DcSced` with
 the least-cost objective and no ramp history), attacked less benign, and reports the true change of every interface
-it predicts. Beside it, the same day through the closed-loop trusting operator (`respond`) gives the largest true
+it predicts, and again with the shortfall drawn from the neighbors' units by capacity as the closed loop draws it
+(`shared_*`), which separates the slack from the loop. Beside it, the same day through the closed-loop trusting operator (`respond`) gives the largest true
 rise and drop of the attacked interface, the largest rise of any other and the inadvertent interchange, which the
 snapshot cannot see.
 
@@ -23,6 +24,7 @@ import numpy as np
 
 from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel, study_days, variant
 from fdia_graph.nyfed.grid.network import Network
+from fdia_graph.nyfed.operator.policy import entry_share
 from fdia_graph.nyfed.operator.response import operator_day, respond, seen_interfaces, summarize
 from fdia_graph.nyfed.operator.run import QUICK_FUELS, QUICK_MAX_MW, QUICK_ZONES
 from fdia_graph.nyfed.operator.sced import DcSced
@@ -32,7 +34,7 @@ from fdia_graph.nyfed.sensing.meters import KINDS
 RISE = 16  # scans of the rise; the snapshot is taken at the last of them
 
 
-def snapshot(day) -> np.ndarray:
+def snapshot(day, slack: str = "reference") -> np.ndarray:
     """`[I]` each interface's true flow change (MW) the single-snapshot operator predicts at the last rise scan:
     a least-cost DC dispatch on the false reading, attacked less benign, its injections balanced at the reference
     bus, whose shift factors are zero."""
@@ -54,6 +56,11 @@ def snapshot(day) -> np.ndarray:
     inj = np.zeros(len(c.bus_id))
     np.add.at(inj, c.unit_bus, a.dev - b.dev)
     inj += a.shed - b.shed  # shed load raises the bus's net injection
+    if (
+        slack == "neighbors"
+    ):  # the shortfall from the neighbors' units by capacity, as in the closed loop (N69)
+        share = entry_share(c, "capacity")
+        np.add.at(inj, c.unit_bus, -inj.sum() * share)
     return sced.sf @ inj
 
 
@@ -62,6 +69,7 @@ def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> dict | 
     if day.onset < 0:
         return None
     predicted = snapshot(day)
+    shared = snapshot(day, "neighbors")
     s = summarize(respond(day, mode="trusting", calib=calib, closed_loop=True))
     return {
         "file": Path(path).name,
@@ -70,6 +78,8 @@ def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> dict | 
         "variant": variant(path),
         "snapshot_attacked_mw": float(predicted[0]),
         "snapshot_other_up_mw": float(max(predicted[1:].max(), 0.0)) if len(predicted) > 1 else 0.0,
+        "shared_attacked_mw": float(shared[0]),
+        "shared_other_up_mw": float(max(shared[1:].max(), 0.0)) if len(shared) > 1 else 0.0,
         "closed_up_mw": s["iface_up_mw"],
         "closed_down_mw": -s["iface_down_mw"],
         "closed_other_up_mw": s["other_iface_up_mw"],
