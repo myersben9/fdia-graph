@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A persistence rule for the residual test (New York grid).** `tools/nyfed/bdd_benign_series.py` and
+  `tools/nyfed/bdd_rule.py` calibrate a k-of-n residual alarm on whole benign days and rerun the operator's answers
+  at its first alarm (N79).
+
 - **Answering a residual alarm (New York grid).** `respond(after=...)` models the operator's response to an alarm
   (switch to the benign scans, freeze with the AGC on the falsified ties, freeze with it on the common source), and
   `closed_loop_bdd.py` calibrates the residual test on benign winter scans (N78).
