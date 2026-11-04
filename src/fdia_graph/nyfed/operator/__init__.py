@@ -5,10 +5,10 @@ power flows on the true grid, `policy` the operator's choices, `run` the scan-by
 consequence (`response` re-exports them all).
 
 `operator_day` reads an attacked day (a timeline file) with its benign twin. `respond` runs the operator scan by
-scan in one of `MODES`: its five-minute security-constrained dispatch on what it reads (`DcSced`), its regulation
-and the interchange its neighbors supply, each checked on the true grid by an AC power flow (`TrueGrid`). It can
-answer an alarm (`AFTER`) and take the inadvertent interchange where it enters (`ENTRY`). `summarize` gives the
-attack's consequence, attacked less benign.
+scan under an `OperatorPolicy` (which operator, how late, how it answers an alarm): its five-minute security-
+constrained dispatch on what it reads (`DcSced`), its regulation and the interchange its neighbors supply, each
+checked on the true grid by an AC power flow (`TrueGrid`). It can answer an alarm (`AFTER`) and take the inadvertent
+interchange where it enters (`ENTRY`). `summarize` gives the attack's consequence, attacked less benign.
 
 A scan whose AC power flow fails is flagged (`Twin.pf_failed`) and counted, never read as within the limit.
 """
@@ -21,8 +21,8 @@ from fdia_graph.nyfed._lazy import attach
 
 if TYPE_CHECKING:  # the names below, with their real signatures for type checkers
     from .day import OperatorDay, operator_day
-    from .policy import AFTER, ENTRY, MODES, entry_share
-    from .run import Response, Twin, respond
+    from .policy import AFTER, ENTRY, MODES, AlarmAnswer, Entry, OperatorMode, OperatorPolicy, entry_share
+    from .run import NyisoOperator, Operator, Response, Twin, respond
     from .sced import DcSced, Step, outage_factors, shift_factors, shortage_usd
     from .summary import summarize
     from .ties import interchange_alarm, seen_interfaces, tie_gap, tie_meters
@@ -30,6 +30,12 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
 
 # each public name and the module that defines it, imported on first use
 _PUBLIC = {
+    "NyisoOperator": ".run",
+    "Operator": ".run",
+    "Entry": ".policy",
+    "AlarmAnswer": ".policy",
+    "OperatorMode": ".policy",
+    "OperatorPolicy": ".policy",
     "DcSced": ".sced",
     "Step": ".sced",
     "shift_factors": ".sced",
@@ -54,10 +60,16 @@ _PUBLIC = {
 
 __all__ = [
     "AFTER",
+    "AlarmAnswer",
     "DcSced",
     "ENTRY",
+    "Entry",
     "MODES",
+    "NyisoOperator",
+    "Operator",
     "OperatorDay",
+    "OperatorMode",
+    "OperatorPolicy",
     "Response",
     "Step",
     "TrueGrid",

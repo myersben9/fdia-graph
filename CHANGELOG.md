@@ -12,6 +12,12 @@ the public API, the generated files and the numbers are the same as the previous
   (`MsFdia` the target choice and support search, `OpfFdia` the solve, `InterfaceFdia` the goal and the design).
   No behavior changes.
 
+- **The operator's choices as one record, and an operator interface (New York grid).** `OperatorPolicy` holds
+  `mode`, `delay`, `over`, `entry`, `closed_loop` and `after`, each checked when the record is built (`OperatorMode`,
+  `AlarmAnswer` and `Entry` name the allowed values); `respond(day, policy=...)` takes one, and its keywords still
+  build one, so existing calls are unchanged. `Operator` is the protocol a partner's operator implements (return a
+  `Response` and `summarize` works on it), and `NyisoOperator(policy)` is this package's.
+
 - **The operator in one module per job (New York grid).** `fdia_graph.nyfed.operator.response` (730 lines) is split
   into `day` (reading an attacked day), `ties` (the interchange check), `truegrid` (the AC power flows on the true
   grid), `policy` (the operator's choices), `run` (the scan-by-scan loop) and `summary` (its consequence), the code

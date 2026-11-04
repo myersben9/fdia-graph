@@ -77,8 +77,8 @@ src/fdia_graph/nyfed/
     day.py             OperatorDay, operator_day, INTERFACES (an attacked day as the operator meets it)
     ties.py            tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
     truegrid.py        TrueGrid (state, run_state, change: AC power flows on the true grid)
-    policy.py          MODES, AFTER, ENTRY, entry_share (the operator's choices)
-    run.py             Twin, Response, respond, REG_CAP (the operator scan by scan)
+    policy.py          OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
+    run.py             Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP (the operator scan by scan)
     summary.py         summarize (the attack's consequence, attacked less benign)
     response.py        every name above, re-exported for the imports written before the split
 tools/nyfed/
