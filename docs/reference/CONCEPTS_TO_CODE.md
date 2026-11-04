@@ -128,6 +128,9 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.scenario` | The operating points: a year of true AC states at five-minute steps. |
 | `nyfed.scenario.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
 | `nyfed.scenario.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load. |
+| `nyfed.scenario.load_fit` | How the within-hour terms of `LoadModel` were fitted (N31): the fluctuation's spread and autocorrelation on the real zones of a held-out year (`fluctuation_fit`), and industrial switching on zone D's large steps (`switching_fit`). Their results are the FLUCT_* and SWITCH_* constants of `loads.py`; run these again to refit them on other data. |
+| `nyfed.scenario.load_metrics` | How a load series is compared with the real one (`LoadModel.validate`): the load factor, the distribution of the load and of its five-minute steps, the hourly autocorrelation and the spectrum. |
+| `nyfed.scenario.load_sources` | Where the bottom-up load profiles come from (Li et al. [2], PLAN.md), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
 | `nyfed.scenario.loads` | Per-bus load profiles by the bottom-up method of Li et al. [2] (PLAN.md), scaled to the real zone load. |
 | `nyfed.scenario.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
 | `nyfed.scenario.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |

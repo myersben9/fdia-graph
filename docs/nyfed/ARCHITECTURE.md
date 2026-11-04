@@ -45,7 +45,10 @@ src/fdia_graph/nyfed/
   scenario/
     __init__.py        what the stage does, and its public names
     inputs.py          ZoneLoad, NygridHour, read_nygrid, fetch_nyiso
-    loads.py           LoadSeries, LoadModel
+    loads.py           LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
+    load_sources.py    the building-stock, EIA-861, census and IAC inputs the profiles come from, downloaded once
+    load_fit.py        fluctuation_fit, switching_fit (how the within-hour constants were fitted, N31)
+    load_metrics.py    the measures LoadModel.validate compares with the real load
     dispatch.py        Dispatch, hourly_dispatch
     solver.py          AcSolver
     pool.py            Pool, PoolBuilder, peak_ratings

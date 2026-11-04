@@ -19,12 +19,15 @@ from fdia_graph.nyfed._lazy import attach
 if TYPE_CHECKING:  # the names below, with their real signatures for type checkers
     from .dispatch import Dispatch, hourly_dispatch
     from .inputs import ZONES, NygridHour, ZoneLoad, fetch_nyiso, read_nygrid
+    from .load_fit import fluctuation_fit, switching_fit
     from .loads import LoadModel, LoadSeries
     from .pool import FAILED, NO_HOUR, NO_LOAD, SOLVED, Pool, PoolBuilder, peak_ratings
     from .solver import AcSolver
 
 # each public name and the module that defines it, imported on first use
 _PUBLIC = {
+    "switching_fit": ".load_fit",
+    "fluctuation_fit": ".load_fit",
     "ZoneLoad": ".inputs",
     "NygridHour": ".inputs",
     "read_nygrid": ".inputs",
@@ -45,6 +48,8 @@ _PUBLIC = {
 }
 
 __all__ = [
+    "switching_fit",
+    "fluctuation_fit",
     "AcSolver",
     "Dispatch",
     "FAILED",

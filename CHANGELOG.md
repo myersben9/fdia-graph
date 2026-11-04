@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The load model in one module per job (New York grid).** `scenario/loads.py` (676 lines) keeps `LoadSeries`,
+  `LoadModel` and its constants; the downloads and readers of its inputs move to `load_sources.py`, the fit of its
+  within-hour constants to `load_fit.py` (public as `fluctuation_fit` and `switching_fit`, for refitting them), and
+  the validation measures to `load_metrics.py`. The code moved as it was.
+
 - **The overload attacks read plainly (New York grid).** The OPF attack's per-support model and prepared window
   are named records (`_OpfModel`, `_Prepared`) instead of tuples unpacked by position; the interface attack keeps
   its per-support state on that model rather than writing it onto the shared window; windows are built by keyword;
