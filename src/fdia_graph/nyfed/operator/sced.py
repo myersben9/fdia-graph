@@ -31,6 +31,8 @@ SHED_AFTER = 3  # scans over the limit before load relief: 15 minutes (Emergency
 # the least-cost dispatch charges this much per MW moved ($/MWh), so the benign run does not chase the small
 # differences between the AC pool's least-cost basepoint and the DC model's
 MOVE_USD = 1.0
+# the least-cost dispatch prices load it cannot match at the energy offer cap ($/MWh), not at the slack weight
+ENERGY_CAP = 1000.0
 # the 2019 transmission shortage curve ($/MWh): 350 for the first 5 MW, 1,175 for the next 15 MW, the
 # 4,000 shadow-price cap beyond (NYISO's constraint-specific shortage pricing, in force June 20, 2017)
 SHORTAGE = ((5.0, 350.0), (15.0, 1175.0), (np.inf, 4000.0))
@@ -201,11 +203,35 @@ class DcSced:
         return dev, shed, slack, float(x[-2] - x[-1]), np.where(on, 0.0, np.nan), float("nan")
 
     def _least_cost(self, t, g, n, s, k, on, sb, a_ub, b_ub, bounds, weight, kw, n_if):
-        """The least-cost dispatch of `_solve`'s problem: each unit at its cost (less on the way down) plus
-        `MOVE_USD` per MW moved, and the interface rows' shadow prices ($/MWh per MW of flow)."""
+        """The least-cost dispatch of `_solve`'s problem, priced as a market would price it: each unit at its cost
+        (less on the way down) plus `MOVE_USD` per MW moved, shedding at `SHED_WEIGHT`, the flow left over an
+        interface on the 2019 shortage curve (`SHORTAGE`, so no shadow price passes its 4,000 $/MWh cap) and load
+        left unmatched at `ENERGY_CAP`, the energy offer cap. Returns as `_solve` does, with the interface rows'
+        shadow prices ($/MWh per MW of flow) and the balance's (the energy price at the reference bus)."""
         c = self.cost[t, g]
-        price = np.r_[c + MOVE_USD, -c + MOVE_USD, weight[2 * n :]]
-        res = linprog(price, A_ub=a_ub if k else None, b_ub=b_ub if k else None, bounds=bounds, **kw)
+        seg = len(SHORTAGE)
+        units = a_ub[:, : 2 * n + s] if k else np.zeros((0, 2 * n + s))
+        # the interface slack in one column per shortage segment, each taking its own price
+        a_cost = np.hstack([units, np.tile(-np.eye(k), seg), np.zeros((k, 2))]) if k else None
+        a_eq = np.r_[np.ones(n), -np.ones(n), np.ones(s), np.zeros(seg * k), 1.0, -1.0][None, :]
+        cap_bounds = [(0.0, width if np.isfinite(width) else None) for width, _ in SHORTAGE for _ in range(k)]
+        price = np.r_[
+            c + MOVE_USD,
+            -c + MOVE_USD,
+            np.full(s, SHED_WEIGHT),
+            [p for _, p in SHORTAGE for _ in range(k)],
+            ENERGY_CAP,
+            ENERGY_CAP,
+        ]
+        res = linprog(
+            price,
+            A_ub=a_cost,
+            b_ub=b_ub if k else None,
+            A_eq=a_eq,
+            b_eq=kw["b_eq"],
+            bounds=bounds[: 2 * n + s] + cap_bounds + bounds[-2:],
+            method="highs",
+        )
         if res.status != 0:
             raise RuntimeError(f"scan {t}: {res.message}")
         x = res.x
@@ -214,7 +240,7 @@ class DcSced:
         shed = np.zeros(len(self.case.bus_id))
         shed[sb] = x[2 * n : 2 * n + s]
         slack = np.full(n_if, np.nan)
-        slack[on] = x[2 * n + s : 2 * n + s + k]
+        slack[on] = x[2 * n + s : 2 * n + s + seg * k].reshape(seg, k).sum(axis=0)
         congestion = np.where(on, 0.0, np.nan)
         if k:  # HiGHS reports d(cost)/d(limit) <= 0 for a binding upper row: the price of one more MW of room
             congestion[on] = -np.asarray(res.ineqlin.marginals)[:k]
