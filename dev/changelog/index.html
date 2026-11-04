@@ -1645,6 +1645,12 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The interchange check against the hourly checkout (New York grid).</strong> <code>tools/nyfed/hourly_checkout.py</code> runs each
+  attack day of a damage study through the trusting operator and reports when the scan-rate interchange check
+  alarms, when an hourly checkout of the same tie readings (the energy agreement balancing authorities already run
+  after every hour) would know, and the inadvertent interchange taken by each. No change to existing results.</p>
+</li>
+<li>
 <p><strong>Who bears an attack's damage (New York grid).</strong> New <code>fdia_graph.nyfed.operator.areas</code>: <code>area_damage</code> splits an
   operator run, attacked less benign, by New York zone, by utility and by neighboring area. Each zone and utility
   gets the energy its units lose, the fuel saved and the sales lost at the zone's real price, the load shed, and the
