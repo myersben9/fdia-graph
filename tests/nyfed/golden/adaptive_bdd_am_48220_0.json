@@ -1,6 +1,7 @@
 {
  "bound_excess": 0.13138373286925534,
  "dinj_max_mw": 26.746001575210926,
+ "dispatch": "movement",
  "extra_meters_max": 1,
  "file": "am_48220_0.h5",
  "first_adaptive": -1,
