@@ -43,7 +43,10 @@ class Twin:
     production ($, `Step.relief_usd`), `shortage [T]` the flow left over the limit at the shortage curve ($), `fuel [T]` the production cost change and `settled [T]` the energy
     change at the zonal LBMP ($ per scan). `pf_failed [T]` marks the scans where the AC power flow of the
     operator's dispatch on the true grid failed: their interface changes and margin are NaN, unknown rather than
-    safe, and `summarize` counts them."""
+    safe, and `summarize` counts them. `congestion [T, I]` is each interface's shadow price under the least-cost
+    dispatch ($/MWh per MW, `Step.congestion`), zero under the least-movement one and NaN where not enforced (None in
+    a run built without it), and `energy [T]` the balance's shadow price under the least-cost dispatch ($/MWh at the
+    reference bus, NaN otherwise, `Step.energy`)."""
 
     dev: np.ndarray
     reg: np.ndarray
@@ -60,6 +63,8 @@ class Twin:
     fuel: np.ndarray
     settled: np.ndarray
     pf_failed: np.ndarray
+    congestion: np.ndarray | None = None
+    energy: np.ndarray | None = None
 
 
 def _regulation(
@@ -114,6 +119,7 @@ def _run(
     entry: str = "capacity",
     closed_loop: bool = False,
     after: str | None = None,
+    dispatch: str = "movement",
 ) -> Twin:
     """One run of the operator over the day (N66). `gap [T]` is the interchange it reads at the New York
     ends of the ties less the true one (zero in the benign twin). A trusting operator dispatches on the
@@ -127,7 +133,7 @@ def _run(
     fuel_kind, zone = c.fuel.astype(str), c.zone.astype(str)[c.unit_bus]
     quick = np.isin(fuel_kind, QUICK_FUELS) & np.isin(zone, QUICK_ZONES) & (c.pmax <= QUICK_MAX_MW)
     load = np.clip(grid.pd, 0.0, None) * day.case.is_ny
-    sced = DcSced(c, day.unit_p, day.cost, day.interfaces, load, quick_start=quick)
+    sced = DcSced(c, day.unit_p, day.cost, day.interfaces, load, quick_start=quick, objective=dispatch)
     sf_units = sced.sf[:, c.unit_bus]
     # N69: the inadvertent interchange enters over the AC ties, from the synchronous units outside New York in
     # proportion to their capacity (the HVDC import from Quebec cannot carry it), not at the reference bus
@@ -153,6 +159,8 @@ def _run(
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
         "pf_failed": np.zeros(T, bool),
+        "congestion": np.full((T, I), np.nan),
+        "energy": np.full(T, np.nan),
     }
     prev, before = None, None
     over = np.zeros(I, int)  # scans in a row each interface has been over its limit
@@ -209,6 +217,9 @@ def _run(
         out["dev"][t], out["reg"][t] = step.dev, reg
         out["unrelieved"][t], out["unmatched"][t] = step.unrelieved, step.unmatched
         out["shed"][t], out["relief"][t] = step.shed, step.relief_usd
+        if step.congestion is not None:
+            out["congestion"][t] = step.congestion
+        out["energy"][t] = step.energy
         moved = step.dev + reg
         lent = out["uncovered"][t] * ext_share  # what the neighbours supply, at their units
         if np.abs(moved).max() > 1e-3 or step.shed.any() or np.abs(lent).max() > 1e-3:
@@ -260,18 +271,26 @@ def respond(
     closed_loop: bool = False,
     alarm_at: int | None = None,
     after: str | None = None,
+    dispatch: str = "movement",
     *,
     policy: OperatorPolicy | None = None,
 ) -> Response:
     """Run the operator on `day`, attacked and on its benign twin, under the choices of an `OperatorPolicy`: pass
-    one as `policy`, or its fields as keywords (`mode`, `delay`, `over`, `entry`, `closed_loop`, `after`), checked the
+    one as `policy`, or its fields as keywords (`mode`, `delay`, `over`, `entry`, `closed_loop`, `after`, `dispatch`), checked the
     same way. `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the interchange alarm is
     calibrated on, from other days (by default the benign day's own, in sample). `alarm_at` (a scan of the day) puts
     the alarm there instead, for studying another detector's alarm; `after` says how the operator answers it."""
     p = policy or OperatorPolicy(  # the choices, checked by the record before anything runs
-        mode=mode, delay=delay, over=over, entry=entry, closed_loop=closed_loop, after=after
+        mode=mode,
+        delay=delay,
+        over=over,
+        entry=entry,
+        closed_loop=closed_loop,
+        after=after,
+        dispatch=dispatch,
     )
     mode, delay, over, entry, closed_loop, after = p.mode, p.delay, p.over, p.entry, p.closed_loop, p.after
+    dispatch = p.dispatch
     tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
     # the oracle falls back at the interchange alarm, or at `alarm_at` (a scan of the day) when another alarm is studied
     alarm = interchange_alarm(day, tie_a, tie_b, calib) if alarm_at is None else alarm_at
@@ -289,9 +308,23 @@ def respond(
     zero = np.zeros(len(day.time))
     return Response(
         attacked=_run(
-            day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b, entry, closed_loop, after
+            day,
+            seen_a,
+            load_change,
+            delay,
+            grid,
+            gap,
+            mode,
+            alarm,
+            seen_b,
+            entry,
+            closed_loop,
+            after,
+            dispatch,
         ),
-        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b, entry, closed_loop),
+        benign=_run(
+            day, seen_b, zero, delay, grid, zero, mode, None, seen_b, entry, closed_loop, dispatch=dispatch
+        ),
         unit_client=day.own.bus_client[day.case.unit_bus],
         bus_client=day.own.bus_client,
         client_names=[str(n) for n in day.own.names],

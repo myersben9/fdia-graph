@@ -28,6 +28,8 @@ def idle_twin(T: int, units: int, buses: int, interfaces: int) -> Twin:
         "reg": (T, units),
         "unrelieved": (T, interfaces),
         "iface_change": (T, interfaces),
+        "congestion": (T, interfaces),
+        "energy": (T,),
         "shed": (T, buses),
     }
     arrays = {f.name: np.zeros(shapes.get(f.name, (T,))) for f in fields(Twin)}
