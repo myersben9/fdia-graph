@@ -110,3 +110,38 @@ def test_an_unknown_objective_is_a_config_error():
 
     with pytest.raises(ConfigError):
         OperatorPolicy(dispatch="cheapest")
+
+
+def _cost_sced(day):
+    from fdia_graph.nyfed.operator.sced import DcSced
+
+    load = np.zeros_like(day.vm)  # no load to shed, so only redispatch and the slack can relieve
+    return DcSced(day.case, day.unit_p, day.cost, day.interfaces, load, objective="cost")
+
+
+def test_an_overload_no_redispatch_relieves_takes_the_shortage_cap():
+    """An interface read far over its limit cannot be relieved: the flow left over it is reported, and its shadow
+    price is the 4,000 $/MWh cap of the shortage curve, never the slack weight of the least-movement dispatch."""
+    from fdia_graph.nyfed.operator.response import operator_day, seen_interfaces
+    from fdia_graph.nyfed.operator.sced import SHORTAGE
+
+    day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
+    t = day.onset
+    seen = seen_interfaces(day.plan, day.interfaces, day.z_benign[t : t + 1])[0]
+    limit = seen.copy()
+    limit[0] = seen[0] - 1e5  # a hundred gigawatts over: no dispatch reaches it
+    step = _cost_sced(day).step(t, seen, limit, 0.0, None)
+    assert step.unrelieved[0] > 1e4
+    assert np.isclose(step.congestion[0], SHORTAGE[-1][1])
+    assert np.nanmax(step.congestion) <= SHORTAGE[-1][1] + 1e-6
+
+
+def test_a_load_the_units_cannot_follow_takes_the_energy_cap():
+    from fdia_graph.nyfed.operator.response import operator_day, seen_interfaces
+    from fdia_graph.nyfed.operator.sced import ENERGY_CAP
+
+    day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
+    t = day.onset
+    seen = seen_interfaces(day.plan, day.interfaces, day.z_benign[t : t + 1])[0]
+    step = _cost_sced(day).step(t, seen, np.full_like(seen, np.nan), 1e6, None)  # a terawatt more load
+    assert step.unmatched > 1e5 and np.isclose(step.energy, ENERGY_CAP)
