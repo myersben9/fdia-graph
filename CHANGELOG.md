@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Market prices that a market could set (New York grid).** The least-cost dispatch (`DcSced(objective="cost")`)
+  now prices the flow it leaves over an interface on the 2019 transmission shortage curve (350, 1,175 and 4,000
+  $/MWh, `SHORTAGE`) and load it cannot match at the energy offer cap (`ENERGY_CAP`, 1,000 $/MWh), instead of the
+  least-movement dispatch's slack weight of 10^6. A shadow price no longer reaches the slack weight on a congested
+  day, so the load payments `area_damage` reports stay at prices a market could set. The default dispatch is
+  unchanged.
+
 - **A least-cost dispatch with prices, and the idealized operator (New York grid).** `DcSced(objective="cost")` and
   `OperatorPolicy(dispatch="cost")` dispatch as a market clears, each MW moved charged `MOVE_USD`, and report each
   interface's shadow price and the energy price (`Step.congestion`, `Step.energy`, and per scan on `Twin`). Under
