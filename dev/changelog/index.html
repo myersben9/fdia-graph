@@ -1645,6 +1645,13 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>A failed power flow reads as unknown, not safe (New York grid).</strong> The operator's <code>Twin</code> gains <code>pf_failed [T]</code>,
+  the scans whose AC power flow on the true grid failed, and <code>summarize</code> reports <code>pf_failed_scans</code> and
+  <code>pf_failed_benign_scans</code>. Before, those scans' NaN margins counted as within the limit with no trace. <code>respond</code>
+  now rejects an unknown <code>after</code> (before, a typo ran as an operator that never answers the alarm), and an unknown
+  <code>mode</code>, <code>after</code> or <code>entry</code> raises <code>fdia_graph.errors.ConfigError</code> (a ValueError, as before).</p>
+</li>
+<li>
 <p><strong>Why a design found no attack (New York grid).</strong> Every family's <code>design</code> that returns None now leaves
   <code>last_miss</code> (one of <code>fdia_graph.nyfed.attacks.episode.MISSES</code>: <code>no_target</code>, <code>infeasible</code>, <code>solver_error</code>), and
   <code>TimelineBuilder.build</code> reports <code>missed</code>, the count of each reason per family. <code>build_episode</code>'s error names the
