@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Settings are arguments, not patches (New York grid).** `production_builder` takes `v_margin` and `gen_v_tol`,
+  the attacker's voltage sensitivities (N71, N75); `v_margin` widens the limits on the attacker's own copy of the case
+  (`Case.with_voltage_margin`). Before, the damage study widened the shared case's arrays in place, so a timeline
+  written from that builder recorded the widened limits. `InterfaceFdia.with_overshoot` returns a variant as a copy,
+  and `max_overshoot` searches on one, instead of swapping `overshoot` in and out; `build_episode(using=...)` designs
+  with such a variant. `hourly_dispatch(hold_externals=False)` replaces the AC ablation's monkeypatch.
+
 - **A public surface for the New York grid.** Every `fdia_graph.nyfed` package (`grid`, `scenario`, `sensing`,
   `attacks`, `timeline`, `operator`, and `fdia_graph.nyfed` itself) now has a docstring that says what its stage does,
   what goes in and comes out, and how it fails, and an `__all__` of its public names, loaded on first use (reading a

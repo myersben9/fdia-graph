@@ -59,7 +59,7 @@ def _iface(h: NygridHour, *names: str) -> float:
     return float(sum(h.iface_flow[INTERFACES.index(n)] for n in names))
 
 
-def _hour(case: Case, base: Case, h: NygridHour) -> Case:
+def _hour(case: Case, base: Case, h: NygridHour, hold_externals: bool = True) -> Case:
     """updateOpCond.m L60-381 for one hour on the full 140-bus case, then the external fix."""
     fuel = dict(zip(FUELS, h.fuel_mw))
     kind = case.fuel
@@ -111,13 +111,14 @@ def _hour(case: Case, base: Case, h: NygridHour) -> Case:
     pd -= h.renew_mw
 
     hour = replace(case, pd=pd, qd=qd, unit_p=p, unit_on=np.ones(len(p), dtype=bool))
-    return externals_at_base(hour, base)
+    return externals_at_base(hour, base) if hold_externals else hour
 
 
-def hourly_dispatch(case: Case, hours: list[NygridHour]) -> Dispatch:
+def hourly_dispatch(case: Case, hours: list[NygridHour], hold_externals: bool = True) -> Dispatch:
     """NYgrid's hourly operating points on `case` (its base state is the NPCC base load and external
-    dispatch), with the external areas held at base load."""
-    rows = [_hour(case, case, h) for h in hours]
+    dispatch), with the external areas held at base load; `hold_externals=False` keeps NYgrid's own external
+    scaling (the ablation of tools/nyfed/ac_ablation.py)."""
+    rows = [_hour(case, case, h, hold_externals) for h in hours]
     hvdc = np.array(
         [
             [
