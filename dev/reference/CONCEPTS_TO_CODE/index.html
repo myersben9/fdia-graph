@@ -1944,6 +1944,22 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>The timeline as federated clients: each utility sees only its own meters, buses and labels.</td>
 </tr>
 <tr>
+<td><code>nyfed.detect</code></td>
+<td>Detection: what the operator's checks see, as building blocks.</td>
+</tr>
+<tr>
+<td><code>nyfed.detect.estimate</code></td>
+<td>The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic.</td>
+</tr>
+<tr>
+<td><code>nyfed.detect.fleets</code></td>
+<td>Other meter fleets: the same meters and accuracy classes with fresh constant biases.</td>
+</tr>
+<tr>
+<td><code>nyfed.detect.rules</code></td>
+<td>When a detector alarms: the rule that turns a statistic per scan into a first alarm.</td>
+</tr>
+<tr>
 <td><code>nyfed.grid</code></td>
 <td>The network: the case, its admittances, the NYISO interfaces and the clients.</td>
 </tr>
