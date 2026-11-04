@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **An attacker that follows the closed loop (New York grid).** `tools/nyfed/adaptive_bdd.py` applies the designed
+  false-state increment to the closed-loop state each scan and tests it, and the designed scans before the operator
+  acts, under the persistence rule (N82).
+
 - **What stealth buys, and detection on other meter fleets (New York grid).** `tools/nyfed/naive_tie_bias.py`
   tests a naive bias of the New York-end tie readings alone under the persistence rule (N80), and
   `closed_loop_bdd.py --draws N` tests every attack against N further meter fleets (N81).
