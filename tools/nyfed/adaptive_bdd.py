@@ -20,7 +20,7 @@ scale for that bus's bound (10 percent of its load at a load bus, 3 percent of i
 bus). The designed attack meets the attacker's exact bounds, so a small excess says the adaptive one nearly does; the
 scale is only a yardstick, not the bounds themselves.
 
-    python tools/nyfed/adaptive_bdd.py OUT.csv STUDY [STUDY ...] [--mode trusting] [--workers 8]
+    python tools/nyfed/adaptive_bdd.py OUT.csv STUDY [STUDY ...] [--mode trusting] [--dispatch cost] [--workers 8]
 
 Run from the folder whose `data/` holds the inputs. One row per attack window.
 """
@@ -47,12 +47,12 @@ from fdia_graph.nyfed.sensing.measure import Measurement
 from fdia_graph.nyfed.sensing.noise import NoiseModel
 
 
-def _job(path: str, pool: str, data: str, calib, mode: str, rule) -> dict | None:
+def _job(path: str, pool: str, data: str, calib, mode: str, rule, dispatch: str = "movement") -> dict | None:
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
         return None
     c, plan = day.case, day.plan
-    resp = respond(day, mode=mode, calib=calib, closed_loop=True)
+    resp = respond(day, mode=mode, calib=calib, closed_loop=True, dispatch=dispatch)
     a_resp = resp.attacked
     grid = TrueGrid(day)
     share = entry_share(c, "capacity")
@@ -101,6 +101,7 @@ def _job(path: str, pool: str, data: str, calib, mode: str, rule) -> dict | None
         "file": Path(path).name,
         "onset": day.onset,
         "mode": mode,
+        "dispatch": dispatch,
         "variant": variant(path),
         "first_open": rule.first_alarm(jo),
         "first_adaptive": rule.first_alarm(ja),
@@ -123,7 +124,8 @@ def main() -> None:
     args = ap.parse_args()
     calib = load_calib(args.calib)
     rule = PersistenceRule(args.theta, args.k, args.n)
-    tasks = [(f, args.pool, args.data, calib, args.mode, rule) for f in study_days(args.studies, args.limit)]
+    files = study_days(args.studies, args.limit)
+    tasks = [(f, args.pool, args.data, calib, args.mode, rule, args.dispatch) for f in files]
     run_parallel(
         _job,
         tasks,

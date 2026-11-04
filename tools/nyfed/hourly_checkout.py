@@ -9,7 +9,7 @@ scan-rate check alarms (`interchange_alarm`), the last scan of the first hour wh
 (the earliest the checkout can know), and the inadvertent interchange the trusting operator has taken before each
 (MWh, attacked less benign).
 
-    python tools/nyfed/hourly_checkout.py OUT.csv STUDY [STUDY ...] [--workers 8]
+    python tools/nyfed/hourly_checkout.py OUT.csv STUDY [STUDY ...] [--dispatch cost] [--workers 8]
 
 Run from the folder whose `data/` holds the inputs. One row per attack day.
 """
@@ -44,11 +44,13 @@ def hourly_alarm(time: np.ndarray, gap: np.ndarray, onset: int, calib: tuple[flo
     return None
 
 
-def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> dict | None:
+def _job(
+    path: str, pool: str, data: str, calib: tuple[float, float], dispatch: str = "movement"
+) -> dict | None:
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
         return None
-    r = respond(day, mode="trusting", calib=calib, closed_loop=True)
+    r = respond(day, mode="trusting", calib=calib, closed_loop=True, dispatch=dispatch)
     # [T] MWh, the inadvertent interchange the attack adds in each scan
     inadv = np.clip(np.abs(r.attacked.uncovered) - np.abs(r.benign.uncovered), 0, None) * FRAME_HOURS
     gap = tie_gap(day, day.z)
@@ -64,6 +66,7 @@ def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> dict | 
         "study": str(Path(path).parents[1]),  # two studies may hold a day of the same name
         "onset": int(Path(path).stem.split("_")[1]),
         "variant": variant(path),
+        "dispatch": dispatch,
         "scan_alarm": np.nan if scan is None else scan - day.onset,
         "hourly_alarm": np.nan if hour is None else hour - day.onset,
         "inadvertent_mwh": float(inadv.sum()),
@@ -80,9 +83,8 @@ def main() -> None:
     if not files:
         raise SystemExit(f"no attack days (days/am_*_*.h5) under {args.studies}")
     calib = load_calib(args.calib)
-    run_parallel(
-        _job, [(f, args.pool, args.data, calib) for f in files], args.out, workers=args.workers, every=10
-    )
+    tasks = [(f, args.pool, args.data, calib, args.dispatch) for f in files]
+    run_parallel(_job, tasks, args.out, workers=args.workers, every=10)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 """Who bears each attack's damage and whose grid it uses: the damage study's days split by New York zone, by
 utility and by neighboring area (`fdia_graph.nyfed.operator.areas`).
 
-    python tools/nyfed/area_damage.py OUT.csv STUDY [STUDY ...] [--modes trusting accounting oracle] [--workers 8]
+    python tools/nyfed/area_damage.py OUT.csv STUDY [STUDY ...] [--modes trusting accounting oracle] [--dispatch cost]
+                                       [--workers 8]
 
 Run from the folder whose `data/` holds the inputs. Each day of each damage study runs through each operator in
 closed loop (as the paper's damage study), under the least-movement dispatch or with `--dispatch cost` the least-cost
@@ -17,10 +18,7 @@ from pathlib import Path
 
 from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel, study_days, variant
 from fdia_graph.nyfed.operator.areas import area_damage, attack_surface, neighbor_prices, zone_levers
-from fdia_graph.nyfed.operator.policy import Dispatch
 from fdia_graph.nyfed.operator.response import MODES, operator_day, respond
-
-DISPATCHES = tuple(Dispatch.values())
 
 
 def _job(
@@ -53,12 +51,6 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_study_arguments(ap)
     ap.add_argument("--modes", nargs="+", default=list(MODES), choices=MODES)
-    ap.add_argument(
-        "--dispatch",
-        default="movement",
-        choices=DISPATCHES,
-        help="the operator's objective (least movement or cost)",
-    )
     args = ap.parse_args()
     files = study_days(args.studies, args.limit)
     if not files:
