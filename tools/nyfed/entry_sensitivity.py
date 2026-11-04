@@ -15,13 +15,9 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
     os.environ.setdefault(_var, "1")
 
 import argparse
-import json
-import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-import pandas as pd
-
+from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel, study_days, variant
 from fdia_graph.nyfed.operator.response import ENTRY, operator_day, respond, summarize
 
 
@@ -43,7 +39,7 @@ def _job(
                 "file": Path(path).name,
                 "onset": int(onset),
                 "overshoot_mw": float(overshoot),
-                "variant": "at_limit" if overshoot == "0" else "damaging",
+                "variant": variant(path),
                 "entry": entry,
                 **s,
             }
@@ -53,30 +49,15 @@ def _job(
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("out")
-    ap.add_argument("studies", nargs="+", help="damage_study.py output folders")
-    ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
-    ap.add_argument("--calib", default="results/nygrid.tie_check.json")
-    ap.add_argument("--workers", type=int, default=8)
+    add_study_arguments(ap)
     ap.add_argument("--closed-loop", action="store_true", help="the operator reads the true flows (N76)")
     ap.add_argument("--entries", nargs="*", default=list(ENTRY), help="the patterns of `ENTRY` to run")
     args = ap.parse_args()
-    cal = json.loads(Path(args.calib).read_text())
-    calib = (cal["mean_mw"], cal["sd_mw"])
-    files = sorted({str(p) for s in args.studies for p in Path(s, "days").glob("am_*_*.h5")})
-    print(f"{len(files)} attack days, {len(ENTRY)} entry patterns", flush=True)
-    rows: list[dict] = []
-    t0 = time.perf_counter()
-    with ProcessPoolExecutor(args.workers) as ex:
-        futs = [
-            ex.submit(_job, f, args.pool, args.data, calib, args.entries, args.closed_loop) for f in files
-        ]
-        for k, fut in enumerate(as_completed(futs), 1):
-            rows += fut.result()
-            if k % 10 == 0 or k == len(files):
-                pd.DataFrame(rows).to_csv(args.out, index=False)
-                print(f"{k}/{len(files)} [{time.perf_counter() - t0:.0f}s]", flush=True)
+    calib = load_calib(args.calib)
+    files = study_days(args.studies, args.limit)
+    print(f"{len(files)} attack days, {len(args.entries)} entry patterns", flush=True)
+    tasks = [(f, args.pool, args.data, calib, args.entries, args.closed_loop) for f in files]
+    run_parallel(_job, tasks, args.out, workers=args.workers, every=10)
 
 
 if __name__ == "__main__":

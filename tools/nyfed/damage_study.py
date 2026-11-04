@@ -29,6 +29,7 @@ import pandas as pd
 
 from fdia_graph.nyfed.build import production_builder
 from fdia_graph.nyfed.config import Settings, rng
+from fdia_graph.nyfed.experiments import DATA, load_calib
 from fdia_graph.nyfed.operator.response import MODES, operator_day, respond, summarize
 from fdia_graph.nyfed.scenario.pool import SOLVED
 
@@ -124,7 +125,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
+    ap.add_argument("--data", default=DATA)
     ap.add_argument("--interface", default="SPR/DUN-SOUTH")
     ap.add_argument("--onsets", type=int, default=60)
     ap.add_argument("--workers", type=int, default=8)
@@ -183,8 +184,7 @@ def main() -> None:
     t0 = time.perf_counter()
     init = (args.pool, args.interface, args.consistent, args.v_margin, args.gen_v_tol)
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=init) as ex:
-        cal = json.loads(Path(args.calib).read_text()) if args.calib else None
-        calib = (cal["mean_mw"], cal["sd_mw"]) if cal else None
+        calib = load_calib(args.calib) if args.calib else None
         futs = [
             ex.submit(
                 _job, o, str(out), args.pool, args.data, args.interface, args.voll, calib, args.closed_loop

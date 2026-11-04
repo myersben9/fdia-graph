@@ -19,6 +19,9 @@ The work runs in stages, one subpackage each, every stage reading what the one b
 7. `detect`: the operator's checks as building blocks. The residual test's estimator (`wls`), alarm rules
    (`PersistenceRule`, or any `AlarmRule`) and other meter fleets (`with_fleet`).
 
+Studies over many attack windows run through `fdia_graph.nyfed.experiments` (the research tools under
+`tools/nyfed/` are thin drivers over it).
+
 Entry points: `production_builder` builds the release timeline, `Dataset` reads one, `operator_day` and `respond`
 run the operator on an attacked day. Every public name below loads on first use. When a stage fails it raises a
 named error from `fdia_graph.errors` or records why it produced less: see docs/nyfed/TROUBLESHOOTING.md, and

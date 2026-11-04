@@ -17,6 +17,7 @@ import numpy as np
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.detect import exact_state, reference_bus
+from fdia_graph.nyfed.experiments import DATA, study_days
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, tie_meters
 from fdia_graph.nyfed.sensing.measure import Measurement
@@ -28,11 +29,11 @@ def main() -> None:
     ap.add_argument("out")
     ap.add_argument("study")
     ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
+    ap.add_argument("--data", default=DATA)
     args = ap.parse_args()
     with open(args.out, "w") as out:
         out.write("file,tie_diff_max,tie_designed_max,vmax_designed,vmax_adaptive\n")
-        for p in sorted(Path(args.study, "days").glob("am_*_*.h5")):
+        for p in map(Path, study_days([args.study])):
             day = operator_day(p, args.pool, args.data)
             c, plan = day.case, day.plan
             resp = respond(day, mode="trusting", calib=None, closed_loop=True).attacked

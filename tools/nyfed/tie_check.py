@@ -21,6 +21,7 @@ import numpy as np
 
 from fdia_graph.nyfed.build import production_builder
 from fdia_graph.nyfed.config import Settings, rng
+from fdia_graph.nyfed.experiments import DATA, POOL, study_days, variant
 from fdia_graph.nyfed.operator.response import NEIGHBOUR_SEED, neighbour_reads, tie_meters
 from fdia_graph.nyfed.scenario.pool import SOLVED
 from fdia_graph.nyfed.sensing.meters import JITTER_FRAC
@@ -30,14 +31,17 @@ CHUNK = 4032  # two weeks of frames at a time
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pool", default="out/pool_2019_v3.h5")
+    ap.add_argument("--pool", default=POOL)
+    ap.add_argument("--data", default=DATA, help="NYgrid's data tables")
     ap.add_argument("--out", default="results")
     ap.add_argument("--draws", type=int, default=0)
     ap.add_argument(
         "--attacks", nargs="*", default=[], help="damage_study.py folders whose attacks each draw detects"
     )
     args = ap.parse_args()
-    b = production_builder(args.pool, ("Am",), workers=1, survey=0)
+    # the builder reads NYgrid from <nygrid_dir>/Data, so --data names that Data folder
+    settings = Settings(nygrid_dir=Path(args.data).parent)
+    b = production_builder(args.pool, ("Am",), workers=1, survey=0, settings=settings)
     case, plan, net, pool = b.att.net.case, b.att.meas.plan, b.att.net, b.pool
     br, end, rows = tie_meters(case, plan)
     sr, sa, bias = plan.sigma_rel[rows], plan.sigma_abs[rows], plan.bias[rows]
@@ -92,14 +96,13 @@ def _attacks(args) -> list[tuple[str, np.ndarray, np.ndarray]]:
 
     out = []
     for study in args.attacks:
-        for path in sorted(Path(study, "days").glob("am_*.h5")):
-            day = operator_day(path, args.pool, "data/NYgrid/Data")
+        for path in study_days([study]):
+            day = operator_day(Path(path), args.pool, args.data)
             if day.onset < 0:
                 continue
             w = slice(day.onset, day.onset + day.length)
             false = (tie_gap(day, day.z) - tie_gap(day, day.z_benign))[w]
-            variant = "at_limit" if path.stem.endswith("_0") else "damaging"
-            out.append((variant, np.asarray(day.time[w]).astype("datetime64[s]"), false))
+            out.append((variant(path), np.asarray(day.time[w]).astype("datetime64[s]"), false))
     return out
 
 
@@ -145,11 +148,11 @@ def _draws(args, plan, rows, near, far, time, fit, test, attacks=()) -> None:
         days_r = np.array([alarm_r[test][days == u].any() for u in uniq])
         roll_scans, roll_days, roll_thr = int(alarm_r[test].sum()), int(days_r.sum()), [4.0 * s_r]
         detect: dict[str, list] = {"at_limit": [], "damaging": []}
-        for variant, clock, false in attacks:  # each attack against this draw's benign gap and threshold
+        for form, clock, false in attacks:  # each attack against this draw's benign gap and threshold
             idx = np.searchsorted(time, clock)
             ok = (idx < len(time)) & (time[np.minimum(idx, len(time) - 1)] == clock)
             hit = np.flatnonzero(ok & (np.abs(gap[np.minimum(idx, len(time) - 1)] + false - mean) > 4.0 * sd))
-            detect[variant].append(int(hit[0]) if len(hit) else -1)
+            detect[form].append(int(hit[0]) if len(hit) else -1)
         out.append(
             {
                 "draw": d,

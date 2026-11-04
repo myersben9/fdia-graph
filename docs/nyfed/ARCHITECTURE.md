@@ -31,6 +31,7 @@ src/fdia_graph/nyfed/
   io.py                TimelineWriter, open_timeline, read_pool, write_pool, SPLITS, FAMILIES
   solvers.py           ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
   tables.py            read_rows (the input CSV tables, read whole and closed)
+  experiments.py       study_days, variant, load_calib, add_study_arguments, run_parallel (what every study tool repeats)
   dataset.py           Dataset, ClientView
   grid/
     __init__.py        what the stage does, and its public names
@@ -97,7 +98,7 @@ results/
   nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
 tests/nyfed/
   test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-  test_nyfed_{solvers,choices,misses,tables}.py   checks that need no data (they run in CI)
+  test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data (they run in CI)
   test_nyfed_golden.py, golden/   snapshots of the operator, the detection tools and the interface attack
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 ```
