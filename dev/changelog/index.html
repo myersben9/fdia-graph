@@ -1645,6 +1645,14 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Settings are arguments, not patches (New York grid).</strong> <code>production_builder</code> takes <code>v_margin</code> and <code>gen_v_tol</code>,
+  the attacker's voltage sensitivities (N71, N75); <code>v_margin</code> widens the limits on the attacker's own copy of the case
+  (<code>Case.with_voltage_margin</code>). Before, the damage study widened the shared case's arrays in place, so a timeline
+  written from that builder recorded the widened limits. <code>InterfaceFdia.with_overshoot</code> returns a variant as a copy,
+  and <code>max_overshoot</code> searches on one, instead of swapping <code>overshoot</code> in and out; <code>build_episode(using=...)</code> designs
+  with such a variant. <code>hourly_dispatch(hold_externals=False)</code> replaces the AC ablation's monkeypatch.</p>
+</li>
+<li>
 <p><strong>A public surface for the New York grid.</strong> Every <code>fdia_graph.nyfed</code> package (<code>grid</code>, <code>scenario</code>, <code>sensing</code>,
   <code>attacks</code>, <code>timeline</code>, <code>operator</code>, and <code>fdia_graph.nyfed</code> itself) now has a docstring that says what its stage does,
   what goes in and comes out, and how it fails, and an <code>__all__</code> of its public names, loaded on first use (reading a

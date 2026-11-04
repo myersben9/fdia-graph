@@ -1627,6 +1627,8 @@
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
 <p>In fdia-graph since 2026-11-02 as <code>fdia_graph.nyfed</code>: the package paths below are under <code>src/fdia_graph/nyfed/</code>, the tests are <code>tests/nyfed/test_nyfed_&lt;package&gt;.py</code> (inputs under <code>NYFED_ROOT</code>), the tools <code>tools/nyfed/</code>, and the results files sit in <code>results/</code> as they were.</p>
 <h2 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h2>
+<p>A setting is an argument of the function or constructor that uses it. Code never changes a library object's
+settings, or a shared record's arrays, after it is built: a variant is a copy (<code>with_overshoot</code>, <code>with_voltage_margin</code>).</p>
 <p>Each package's <code>__init__.py</code> says what its stage does and lists its public names (<code>__all__</code>), imported on first
 use so that reading a dataset never loads pandapower or Pyomo. A name outside <code>__all__</code> is internal and may change.</p>
 <ol>
@@ -2019,10 +2021,10 @@ copies them as they are.</p>
 <td><code>ZoneLoad</code></td>
 </tr>
 <tr>
-<td><code>hourly_dispatch(case, hours)</code></td>
+<td><code>hourly_dispatch(case, hours, hold_externals=True)</code></td>
 <td><code>scenario/dispatch.py</code></td>
 <td></td>
-<td><code>Dispatch</code></td>
+<td><code>Dispatch</code>; <code>hold_externals=False</code> keeps NYgrid's own external scaling (the AC ablation)</td>
 </tr>
 <tr>
 <td><code>split_weeks(time, frac, weight, rng, stratum=STRATUM)</code></td>
@@ -2091,10 +2093,10 @@ copies them as they are.</p>
 <td><code>root/data</code>: NYgrid's <code>Data/</code> at commit 47698b6, NYISO's pal archives for the year, the NYS DPS territories and the packaged <code>grid/ny_bus_locations.csv</code>, each kept when already there (the load model fetches its own sources on the first pool build)</td>
 </tr>
 <tr>
-<td><code>production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None)</code></td>
+<td><code>production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None, hold_external=False, v_margin=0.0, gen_v_tol=None)</code></td>
 <td><code>build.py</code></td>
 <td>the pool and <code>fetch_inputs</code>'s folder</td>
-<td>the release <code>TimelineBuilder</code>: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked</td>
+<td>the release <code>TimelineBuilder</code>: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked. The attacker's sensitivities are arguments: <code>hold_external</code> (N62), <code>v_margin</code> widens the voltage limits on the attacker's own copy of the case (N71), <code>gen_v_tol</code> holds generator voltages near their schedule (N75)</td>
 </tr>
 <tr>
 <td><code>wrap_angles(d, kind)</code></td>
@@ -2106,7 +2108,25 @@ copies them as they are.</p>
 <td><code>InterfaceFdia.max_overshoot(window, rng, high=800.0, tol=25.0)</code></td>
 <td><code>attacks/interface_attack.py</code></td>
 <td>a window</td>
-<td><code>(Episode or None, MW)</code>: the damaging variant at the largest overshoot past the limit the bounds allow, by bisection (N58)</td>
+<td><code>(Episode or None, MW)</code>: the damaging variant at the largest overshoot past the limit the bounds allow, by bisection (N58), on a copy of the family</td>
+</tr>
+<tr>
+<td><code>InterfaceFdia.with_overshoot(mw)</code></td>
+<td><code>attacks/interface_attack.py</code></td>
+<td>MW past the limit</td>
+<td>a copy of the family with that goal; the original unchanged</td>
+</tr>
+<tr>
+<td><code>Case.with_voltage_margin(margin)</code></td>
+<td><code>grid/case.py</code></td>
+<td>p.u.</td>
+<td>a copy with every bus's voltage limits widened (N71); the original unchanged</td>
+</tr>
+<tr>
+<td><code>TimelineBuilder.build_episode(path, onset, family, lo, hi, using=None)</code></td>
+<td><code>timeline/builder.py</code></td>
+<td>one onset</td>
+<td>one episode alone over frames lo..hi; <code>using</code> designs it with a family variant (such as <code>with_overshoot</code>) in place of the builder's own</td>
 </tr>
 <tr>
 <td><code>shortage_usd(mw)</code></td>
