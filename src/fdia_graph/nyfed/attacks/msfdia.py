@@ -79,7 +79,15 @@ class MsFdia(AttackFamily):
     False for Am with an exit) and `exit_scans` the scans at the end of every window spent unwinding
     (N30, 0 for none). `wait_share` (N36, None for none) makes the attacker wait for a loaded grid: a
     window may start only where some candidate line carries that share of its rating at the last rise
-    scan (`onset_mask`), since under the realistic bounds an overload exists almost only there."""
+    scan (`onset_mask`), since under the realistic bounds an overload exists almost only there.
+
+    How a design runs, and what the two subclasses replace. `design` picks the eligible target lines (`_eligible`),
+    orders them (`_order`) and tries each target set (`_target_sets`) with `_attack(onset, vm, va, targets)`, which
+    grows candidate supports from the targets' ends (`_candidates`, smallest first) and keeps the one that tampers
+    the fewest meters. Here `_attack` solves each support by Gauss-Newton within `_bounds` (`_search`).
+    `OpfFdia` replaces only `_attack`, solving each support by a local AC OPF instead; `InterfaceFdia` replaces
+    `design` too, driving a NYISO interface's flow rather than one line's. The target choice, the ordering, the
+    support search and the settings are this class's in all three."""
 
     def __init__(
         self,

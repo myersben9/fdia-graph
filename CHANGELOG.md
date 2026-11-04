@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The overload attacks read plainly (New York grid).** The OPF attack's per-support model and prepared window
+  are named records (`_OpfModel`, `_Prepared`) instead of tuples unpacked by position; the interface attack keeps
+  its per-support state on that model rather than writing it onto the shared window; windows are built by keyword;
+  and the unused `OpfFdia.reachable` is gone. Each class's docstring now says which step of the search it replaces
+  (`MsFdia` the target choice and support search, `OpfFdia` the solve, `InterfaceFdia` the goal and the design).
+  No behavior changes.
+
 - **The operator in one module per job (New York grid).** `fdia_graph.nyfed.operator.response` (730 lines) is split
   into `day` (reading an attacked day), `ties` (the interchange check), `truegrid` (the AC power flows on the true
   grid), `policy` (the operator's choices), `run` (the scan-by-scan loop) and `summary` (its consequence), the code
