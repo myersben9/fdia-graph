@@ -1,0 +1,316 @@
+{
+ "alarm": 1.0,
+ "summary": {
+  "alarm_scans": 1.0,
+  "delay": 1,
+  "dispatch_moved_mw": 881.0018052950862,
+  "fuel_usd": -36494.36614140019,
+  "iface_down_mw": -239.44271026706656,
+  "iface_up_mw": 134.824337670952,
+  "inadvertent_mw": 603.0787963867188,
+  "inadvertent_mwh": 805.8433049519856,
+  "margin_lost_mw": 134.824337670952,
+  "margin_min_mw": 127.48166666666998,
+  "mode": "trusting",
+  "n1_up_mw": 197.70442959458933,
+  "other_iface_up_mw": 200.66431051814743,
+  "over_iface": -1,
+  "over_mw": 0.0,
+  "over_mwh": -0.0,
+  "over_run_scans": 0,
+  "over_scans": 0,
+  "regulation_mw": 97.09585571289053,
+  "regulation_mwh": 25.301979064941406,
+  "regulation_mwh_CHGE": 0.0,
+  "regulation_mwh_ConEd": 25.081516664013478,
+  "regulation_mwh_LIPA": 0.2204611072618074,
+  "regulation_mwh_NGRID": 1.2936661194136907e-06,
+  "regulation_mwh_NYSEG": 0.0,
+  "regulation_mwh_ORU": 0.0,
+  "regulation_mwh_RGE": 0.0,
+  "relief_usd": 11905.566596604209,
+  "settled_usd": -23755.38973660377,
+  "shed_mw": 0.0,
+  "shed_mwh": 0.0,
+  "shed_mwh_CHGE": 0.0,
+  "shed_mwh_ConEd": 0.0,
+  "shed_mwh_LIPA": 0.0,
+  "shed_mwh_NGRID": 0.0,
+  "shed_mwh_NYSEG": 0.0,
+  "shed_mwh_ORU": 0.0,
+  "shed_mwh_RGE": 0.0,
+  "shortage_usd": 0.0,
+  "tie_gap_mw": 603.0787963867188,
+  "uncovered_mw": 603.0787963867188,
+  "unmatched_mw": 0.0,
+  "unrelieved_mw": 0.0
+ },
+ "twins": {
+  "attacked": {
+   "dev": {
+    "abs": 10060.18011130302,
+    "max": 208.6257008854854,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     271
+    ],
+    "sum": -9001.921112060547
+   },
+   "fuel": {
+    "abs": 36768.90934026409,
+    "max": 1923.2334984428437,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": -36494.36728409976
+   },
+   "iface_change": {
+    "abs": 6114.762592370281,
+    "max": 239.44271026706656,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     4
+    ],
+    "sum": 4298.934484733543
+   },
+   "margin": {
+    "abs": 96790.94357766327,
+    "max": 483.79997491521544,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 96790.94357766327
+   },
+   "margin_at": {
+    "abs": 418.0,
+    "max": 2.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 418.0
+   },
+   "n1_change": {
+    "abs": 3380.100548841557,
+    "max": 197.70442959458933,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 3380.100548841557
+   },
+   "reg": {
+    "abs": 1275.4460449218757,
+    "max": 36.697137868525715,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     271
+    ],
+    "sum": -668.1985473632819
+   },
+   "relief": {
+    "abs": 11905.566606385586,
+    "max": 1267.563545999673,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 11905.566596604207
+   },
+   "settled": {
+    "abs": 23759.867170671838,
+    "max": 1703.6222775668639,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": -23755.38963538813
+   },
+   "shed": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     140
+    ],
+    "sum": 0.0
+   },
+   "shortage": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
+   },
+   "uncovered": {
+    "abs": 9670.119659423828,
+    "max": 603.0787963867188,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 9670.119659423828
+   },
+   "unmatched": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
+   },
+   "unrelieved": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     4
+    ],
+    "sum": 0.0
+   }
+  },
+  "benign": {
+   "dev": {
+    "abs": 0.0009157976586649079,
+    "max": 2.985985802838701e-05,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     271
+    ],
+    "sum": -5.293955920339377e-22
+   },
+   "fuel": {
+    "abs": 0.0012976095623609938,
+    "max": 4.716582551095144e-05,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": -0.0011426995723974641
+   },
+   "iface_change": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     4
+    ],
+    "sum": 0.0
+   },
+   "margin": {
+    "abs": 97362.74999999988,
+    "max": 448.97416666667004,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 97362.74999999988
+   },
+   "margin_at": {
+    "abs": 408.0,
+    "max": 2.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 408.0
+   },
+   "n1_change": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
+   },
+   "reg": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     271
+    ],
+    "sum": 0.0
+   },
+   "relief": {
+    "abs": 1.5846788590532263e-12,
+    "max": 1.6755479289673138e-13,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": -1.5846788590532263e-12
+   },
+   "settled": {
+    "abs": 0.00011921148415838928,
+    "max": 9.646445739797042e-06,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.00010121564427938775
+   },
+   "shed": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     140
+    ],
+    "sum": 0.0
+   },
+   "shortage": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
+   },
+   "uncovered": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
+   },
+   "unmatched": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
+   },
+   "unrelieved": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288,
+     4
+    ],
+    "sum": 0.0
+   }
+  }
+ }
+}
