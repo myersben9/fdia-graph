@@ -278,7 +278,8 @@ class TimelineBuilder:
         at_bus[np.arange(M), plan.bus] = 1  # a meter's bus: a tampered meter marks its bus attacked
 
         writer = TimelineWriter(path)
-        writer.write_static(self.att.net.case, self.own, plan)
+        # the true case, not the attacker's: a voltage margin (N71) widens only the attacker's limits
+        writer.write_static(self.meas.net.case, self.own, plan)
         noise_rng = rng(self.settings, "noise")
         for t0 in range(lo, hi, self.block):
             t1 = min(hi, t0 + self.block)
