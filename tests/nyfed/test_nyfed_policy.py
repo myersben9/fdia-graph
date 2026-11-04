@@ -14,7 +14,14 @@ def test_policy_checks_every_choice():
 
     p = OperatorPolicy(mode="accounting", delay=2, entry="west", closed_loop=True, after="freeze_cs")
     assert (p.mode, p.delay, p.entry, p.closed_loop, p.after) == ("accounting", 2, "west", True, "freeze_cs")
-    for bad in ({"mode": "trust"}, {"delay": -1}, {"delay": 1.5}, {"entry": "pjmx"}, {"after": "frozen"}):
+    for bad in (
+        {"mode": "trust"},
+        {"delay": -1},
+        {"delay": 1.5},
+        {"entry": "pjmx"},
+        {"after": "frozen"},
+        {"closed_loop": "False"},  # a truthy string would switch the closed loop on
+    ):
         with pytest.raises(ConfigError, match="OperatorPolicy"):
             OperatorPolicy(**bad)
 

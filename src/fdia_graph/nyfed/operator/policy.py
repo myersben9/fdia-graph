@@ -12,7 +12,7 @@ import numpy as np
 
 from fdia_graph.errors import ConfigError
 from fdia_graph.models.choices import Choice
-from fdia_graph.models.validation import AtLeast, Finite, Integer, OneOf, Validated
+from fdia_graph.models.validation import AtLeast, Boolean, Finite, Integer, OneOf, Validated
 from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.grid.nygrid import HQ_BUS
 
@@ -93,5 +93,5 @@ class OperatorPolicy(Validated):
     delay: Annotated[int, Integer(), AtLeast(0)] = 0
     over: Annotated[float, Finite()] = 0.0
     entry: Annotated[str, OneOf(Entry)] = "capacity"
-    closed_loop: bool = False
+    closed_loop: Annotated[bool, Boolean()] = False
     after: Annotated[Optional[str], OneOf(AlarmAnswer)] = None

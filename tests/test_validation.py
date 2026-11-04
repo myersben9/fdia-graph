@@ -9,7 +9,16 @@ import pytest
 
 from fdia_graph.models.choices import Choice, Iso
 from fdia_graph.models.config import FederatedSettings, LoadOptions, PriorConfig, WindowSpec
-from fdia_graph.models.validation import AtLeast, ConfigError, InRange, Integer, OneOf, Positive, Validated
+from fdia_graph.models.validation import (
+    AtLeast,
+    Boolean,
+    ConfigError,
+    InRange,
+    Integer,
+    OneOf,
+    Positive,
+    Validated,
+)
 
 
 class Mode(Choice):
@@ -310,3 +319,15 @@ def test_a_capability_name_and_a_fetch_are_checked_by_their_models(timeline):
         fetch_profile("nyiso", "2024-01-01", "2024-01-02", resample_min=0)
     with pytest.raises(ConfigError, match=r"^ProfileFetch\.resample_min must be an integer"):
         fetch_profile("nyiso", "2024-01-01", "2024-01-02", resample_min=1.5)  # was truncated to 1
+
+
+def test_a_boolean_field_refuses_a_truthy_string():
+    @dataclass(frozen=True)
+    class Switch(Validated):
+        on: Annotated[bool, Boolean()] = False
+
+    assert Switch(True).on is True and Switch(np.bool_(False)).on == False  # noqa: E712
+    with pytest.raises(ConfigError, match="Switch.on must be True or False"):
+        Switch("False")  # type: ignore[arg-type]
+    with pytest.raises(ConfigError, match="must be True or False"):
+        Switch(1)  # type: ignore[arg-type]

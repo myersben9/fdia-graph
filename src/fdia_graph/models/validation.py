@@ -92,6 +92,15 @@ class Finite(Rule):
         return math.isfinite(value)
 
 
+class Boolean(Rule):
+    """True or False itself, so a string such as "False" (truthy) is refused rather than read as on."""
+
+    says = "must be True or False"
+
+    def holds(self, value: Any) -> bool:
+        return isinstance(value, (bool, np.bool_))
+
+
 class Integer(Rule):
     says = "must be an integer"
 
