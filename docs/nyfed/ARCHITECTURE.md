@@ -4,6 +4,9 @@ In fdia-graph since 2026-11-02 as `fdia_graph.nyfed`: the package paths below ar
 
 ## Principles
 
+A setting is an argument of the function or constructor that uses it. Code never changes a library object's
+settings, or a shared record's arrays, after it is built: a variant is a copy (`with_overshoot`, `with_voltage_margin`).
+
 Each package's `__init__.py` says what its stage does and lists its public names (`__all__`), imported on first
 use so that reading a dataset never loads pandapower or Pyomo. A name outside `__all__` is internal and may change.
 
@@ -185,7 +188,7 @@ Stateless steps, each called once in the build.
 | `assign_clients(case, territories, locations)` | `grid/clients.py` | `Case`, territory polygons, path to `data/territories/ny_bus_locations.csv` (substation location or zone-chosen utility per NY bus) | `Ownership`, one client per utility |
 | `read_nygrid(data_dir, year)` | `scenario/inputs.py` | NYgrid `Data/` | `NygridHour` list |
 | `fetch_nyiso(year)` | `scenario/inputs.py` | NYISO pal archive | `ZoneLoad` |
-| `hourly_dispatch(case, hours)` | `scenario/dispatch.py` | | `Dispatch` |
+| `hourly_dispatch(case, hours, hold_externals=True)` | `scenario/dispatch.py` | | `Dispatch`; `hold_externals=False` keeps NYgrid's own external scaling (the AC ablation) |
 | `split_weeks(time, frac, weight, rng, stratum=STRATUM)` | `timeline/schedule.py` | frame times, the shares, a weight per frame (the loaded onsets) | split column `[T]`: whole weeks ranked by weight, cut into strata of 20, each stratum drawn into train, val, test in the shares (N41) |
 | `split_frames(T, frac)` | `timeline/schedule.py` | | split column `[T]`: train, val, test as three contiguous blocks of the year in time order (before N41) |
 | `natural_steps(time, p, solved, pct=95.0)` | `attacks/attacker.py` | the pool's frame times, net injections `p [T, N]` (MW), which frames are solved | `[24, N]` each bus's `pct` percentile of \|p(t) - p(t-1)\| over consecutive solved frames, by the clock hour of the later frame: the natural five-minute step Ap's attacker knows (ours) |
@@ -197,9 +200,12 @@ Stateless steps, each called once in the build.
 | `generator_band(case)` | `attacks/attacker.py` | `Case` | `[N]` 3% of each bus's units' upper limit (MW), the basepoint band (N33) |
 | `generator_q_capability(case)` | `attacks/attacker.py` | `Case` | `([N], [N])` reactive capability plus or minus 0.312 Pmax per bus (MVAr, N34) |
 | `fetch_inputs(root)` | `build.py` | a folder | `root/data`: NYgrid's `Data/` at commit 47698b6, NYISO's pal archives for the year, the NYS DPS territories and the packaged `grid/ny_bus_locations.csv`, each kept when already there (the load model fetches its own sources on the first pool build) |
-| `production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None)` | `build.py` | the pool and `fetch_inputs`'s folder | the release `TimelineBuilder`: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked |
+| `production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None, hold_external=False, v_margin=0.0, gen_v_tol=None)` | `build.py` | the pool and `fetch_inputs`'s folder | the release `TimelineBuilder`: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked. The attacker's sensitivities are arguments: `hold_external` (N62), `v_margin` widens the voltage limits on the attacker's own copy of the case (N71), `gen_v_tol` holds generator voltages near their schedule (N75) |
 | `wrap_angles(d, kind)` | `attacks/attacker.py` | reading differences `[..., M]`, meter kinds | the differences with angle readings (va, ia) wrapped to (-180, 180] |
-| `InterfaceFdia.max_overshoot(window, rng, high=800.0, tol=25.0)` | `attacks/interface_attack.py` | a window | `(Episode or None, MW)`: the damaging variant at the largest overshoot past the limit the bounds allow, by bisection (N58) |
+| `InterfaceFdia.max_overshoot(window, rng, high=800.0, tol=25.0)` | `attacks/interface_attack.py` | a window | `(Episode or None, MW)`: the damaging variant at the largest overshoot past the limit the bounds allow, by bisection (N58), on a copy of the family |
+| `InterfaceFdia.with_overshoot(mw)` | `attacks/interface_attack.py` | MW past the limit | a copy of the family with that goal; the original unchanged |
+| `Case.with_voltage_margin(margin)` | `grid/case.py` | p.u. | a copy with every bus's voltage limits widened (N71); the original unchanged |
+| `TimelineBuilder.build_episode(path, onset, family, lo, hi, using=None)` | `timeline/builder.py` | one onset | one episode alone over frames lo..hi; `using` designs it with a family variant (such as `with_overshoot`) in place of the builder's own |
 | `shortage_usd(mw)` | `operator/sced.py` | MW over an interface limit for one scan | $ at the 2019 transmission shortage curve (N60) |
 | `shift_factors(case)`, `outage_factors(case, ptdf, outages)` | `operator/sced.py` | `Case` | `[L, N]` DC shift factors (reference bus out), `[L, K]` line outage distribution factors |
 | `operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))` | `operator/response.py` | a timeline file, its pool, NYgrid's `Data/` | `OperatorDay` |

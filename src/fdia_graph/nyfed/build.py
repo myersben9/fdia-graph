@@ -99,12 +99,17 @@ def production_builder(
     survey: int = 12,
     survey_cache: str | Path | None = None,
     hold_external: bool = False,
+    v_margin: float = 0.0,
+    gen_v_tol: float | None = None,
 ) -> TimelineBuilder:
     """The `TimelineBuilder` of the release: the case, clients, meters and the pool at `pool_path`
     (relative to `root`, whose `data/` holds `fetch_inputs`'s files), with the `families` named. Am targets
     the NYISO `interfaces` (N48, N49; empty targets the branch ratings instead), Ap is bounded by each bus's
     natural five-minute step, and both come from the OPF attacker with the units' output (N42). `survey`
-    is the onset survey's grid in frames (0 off), saved by chunk under `survey_cache` when given."""
+    is the onset survey's grid in frames (0 off), saved by chunk under `survey_cache` when given. Two
+    sensitivities of the attacker: `v_margin` (p.u.) widens the voltage limits it must respect (N71, its own copy
+    of the case; the timeline keeps the true limits), and `gen_v_tol` (p.u.) holds each generator bus's false
+    voltage that close to its schedule (N75, the OPF attacks)."""
     root = Path(root)
     nygrid = root / settings.nygrid_dir / "Data"
     terr = root / "data" / "territories"
@@ -116,7 +121,8 @@ def production_builder(
     net = Network(case)
     plan = plan_meters(net, own, rng(settings, "meters"))
     meas = Measurement(net, plan)
-    att = Attacker(net, meas, hold_external=hold_external)  # N62: True keeps the interchange true
+    att_net = Network(case.with_voltage_margin(v_margin)) if v_margin else net  # N71: the attacker's limits
+    att = Attacker(att_net, meas, hold_external=hold_external)  # N62: True keeps the interchange true
     # Ap: each bus's natural five-minute step by hour over the whole pool (what the attacker knows),
     # generator buses bounded by their units' five-minute ramp (nuclear 0, hydro and imports inf)
     steps = natural_steps(pool.time, pool.p, pool.solve_kind == SOLVED)
@@ -137,6 +143,7 @@ def production_builder(
         wait_share=NEAR_LIMIT,
         gen_output=gen_output,
         loads_only=False,
+        gen_v_tol=gen_v_tol,
     )
 
     def am():

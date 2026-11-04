@@ -45,14 +45,12 @@ def main() -> None:
     ap.add_argument("out")
     ap.add_argument("--hours", type=int, default=0)
     a = ap.parse_args()
-    if a.variant in ("noE", "projOnly"):
-        # NYgrid's own external scaling: skip the fix that holds the external areas at base load.
-        dispatch.externals_at_base = lambda hour, base: hour
     case = case_for(a.variant)
     hours = read_nygrid(DATA, 2019)
     if a.hours:
         hours = hours[: a.hours]
-    d = dispatch.hourly_dispatch(case, hours)
+    # noE and projOnly keep NYgrid's own external scaling: no fix holding the external areas at base load
+    d = dispatch.hourly_dispatch(case, hours, hold_externals=a.variant not in ("noE", "projOnly"))
     solver = AcSolver(case)
     ny_unit = case.is_ny[case.unit_bus]
     rows, t0 = [], time.perf_counter()

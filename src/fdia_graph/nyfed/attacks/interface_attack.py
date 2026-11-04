@@ -27,6 +27,7 @@ the fewest meters over every anchor is kept (eq. 12).
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -117,30 +118,34 @@ class InterfaceFdia(OpfFdia):
                 return ep
         return None
 
+    def with_overshoot(self, overshoot: float) -> InterfaceFdia:
+        """This family with the goal `overshoot` MW past the limit (N58), as a copy; this one is unchanged. The copy
+        shares the attacker, the interfaces and the solver."""
+        other = copy.copy(self)
+        other.overshoot = overshoot
+        return other
+
     def max_overshoot(
         self, window: Window, rng: np.random.Generator, high: float = 800.0, tol: float = 25.0
     ) -> tuple[Episode | None, float]:
         """The damaging variant at its most (N58): the largest overshoot (MW, within `tol`, at most `high`)
         for which the window still has an attack under every bound, with that attack. Bisection, so about
-        log2(high / tol) designs. Returns (None, 0.0) where even the limit itself is out of reach."""
-        keep = self.overshoot
-        try:
-            self.overshoot = 0.0
-            best = self.design(window, rng)
-            if best is None:
-                return None, 0.0
-            lo, hi, best_mw = 0.0, high, 0.0
-            while hi - lo > tol:
-                mid = 0.5 * (lo + hi)
-                self.overshoot = mid
-                ep = self.design(window, rng)
-                if ep is None:
-                    hi = mid
-                else:
-                    lo, best, best_mw = mid, ep, mid
-            return best, best_mw
-        finally:
-            self.overshoot = keep
+        log2(high / tol) designs. Returns (None, 0.0) where even the limit itself is out of reach. This family
+        is unchanged: the search runs on a copy of it."""
+        probe = self.with_overshoot(0.0)
+        best = probe.design(window, rng)
+        if best is None:
+            return None, 0.0
+        lo, hi, best_mw = 0.0, high, 0.0
+        while hi - lo > tol:
+            mid = 0.5 * (lo + hi)
+            probe.overshoot = mid
+            ep = probe.design(window, rng)
+            if ep is None:
+                hi = mid
+            else:
+                lo, best, best_mw = mid, ep, mid
+        return best, best_mw
 
     def _attack_interface(self, onset: int, vm: np.ndarray, va: np.ndarray, it: Interface) -> Episode | None:
         att = self.att

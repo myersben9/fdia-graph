@@ -41,13 +41,15 @@ def _init(
 ) -> None:
     global _B
     _B = production_builder(
-        pool, ("Am",), interfaces=(interface,), workers=1, survey=0, hold_external=consistent
+        pool,
+        ("Am",),
+        interfaces=(interface,),
+        workers=1,
+        survey=0,
+        hold_external=consistent,
+        v_margin=v_margin,  # N71: the attacker's voltage limits widened
+        gen_v_tol=gen_v_tol,  # N75: generator voltages held near their schedule
     )
-    if v_margin:  # N71: the attacker's voltage limits widened (the reduced network pins NYC buses at vmax)
-        case = _B.att.net.case
-        case.vmin[:] = case.vmin - v_margin
-        case.vmax[:] = case.vmax + v_margin
-    _B.families["Am"].gen_v_tol = gen_v_tol  # N75: generator voltages held near their schedule
 
 
 def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | None:
@@ -63,13 +65,10 @@ def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | No
     if path.exists():  # a reused day: its meter count read back from the labels
         with h5py.File(path, "r") as h:
             return path, {"meters_tampered": int(h["labels/meter_tampered"][:].any(axis=0).sum())}
-    fam.overshoot = overshoot
     try:
-        return path, b.build_episode(path, onset, "Am", lo, lo + DAY)
-    except ValueError:
+        return path, b.build_episode(path, onset, "Am", lo, lo + DAY, using=fam.with_overshoot(overshoot))
+    except ValueError:  # no attack at this overshoot, or the window touches an unsolved frame
         return None
-    finally:
-        fam.overshoot = 0.0
 
 
 def _job(

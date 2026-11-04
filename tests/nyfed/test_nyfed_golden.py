@@ -212,11 +212,9 @@ def test_interface_attack_design(overshoot):
     fam = b.families["Am"]
     onset, L = 48220, b.episode_lengths()["Am"]
     w = slice(onset, onset + L)
-    fam.overshoot = overshoot
-    try:
-        ep = fam.design((onset, b.pool.vm[w], b.pool.va[w]), rng(Settings(), f"Am{onset}"))
-    finally:
-        fam.overshoot = 0.0
+    ep = fam.with_overshoot(overshoot).design(
+        (onset, b.pool.vm[w], b.pool.va[w]), rng(Settings(), f"Am{onset}")
+    )
     assert ep is not None
     tam = b.att.tampered(b.pool.vm[w], b.pool.va[w], ep.a)
     check(
