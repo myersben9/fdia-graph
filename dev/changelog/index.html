@@ -1645,6 +1645,13 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>A missing solver now says so (New York grid).</strong> <code>fdia_graph.nyfed.solvers.ipopt</code> finds Ipopt in the environment,
+  checks that it starts, and raises the new <code>fdia_graph.errors.SolverUnavailable</code> with the fix when it does not. Before,
+  an Ipopt that could not start (a missing DLL, exit code 0xC0000135) made every attack design read as infeasible, so a
+  timeline built with no overload attacks and no error. The attack OPF now reads only an abnormal stop on its own model
+  as an infeasible support, and counts those in <code>solver_errors</code>.</p>
+</li>
+<li>
 <p><strong>An attacker that follows the closed loop (New York grid).</strong> <code>tools/nyfed/adaptive_bdd.py</code> applies the designed
   false-state increment to the closed-loop state each scan and tests it, and the designed scans before the operator
   acts, under the persistence rule (N82).</p>
