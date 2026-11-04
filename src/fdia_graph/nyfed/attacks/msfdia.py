@@ -55,6 +55,7 @@ import heapq
 
 import numpy as np
 
+from fdia_graph.errors import ConfigError
 from fdia_graph.nyfed.attacks.attacker import Attacker
 from fdia_graph.nyfed.attacks.episode import AttackFamily, Episode, Window
 from fdia_graph.nyfed.sensing.meters import PF
@@ -101,15 +102,15 @@ class MsFdia(AttackFamily):
         wait_share: float | None = None,
     ):
         if exit_scans and step_bound is None:
-            raise ValueError("an exit (exit_scans) unwinds within the step bound, so it needs step_bound")
+            raise ConfigError("an exit (exit_scans) unwinds within the step bound, so it needs step_bound")
         if target_order not in ("loading", "random"):
-            raise ValueError(f"target_order must be 'loading' or 'random', not {target_order!r}")
+            raise ConfigError(f"target_order must be 'loading' or 'random', not {target_order!r}")
         self.target_order = target_order
         self.att, self.ratings = attacker, np.asarray(ratings, float)
         self.hops, self.n_lines, self.load_cap = hops, n_lines, load_cap
         self.budget, self.tries = budget, tries
         if step_bound is not None and frame_hour is None:
-            raise ValueError("a step bound needs the clock hour of every frame (frame_hour)")
+            raise ConfigError("a step bound needs the clock hour of every frame (frame_hour)")
         self.step_bound = None if step_bound is None else np.asarray(step_bound, float)
         self.frame_hour = None if frame_hour is None else np.asarray(frame_hour, int)
         self.kappa, self.reactive_step, self.family = kappa, reactive_step, family

@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fdia_graph.errors import ConfigError
+from fdia_graph.errors import ConfigError, DataConditionError
 from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.grid.clients import Ownership
 from fdia_graph.nyfed.grid.interfaces import Interface, hourly_interfaces
@@ -135,7 +135,7 @@ def operator_day(
     p = _POOLS[str(pool)]
     k = np.searchsorted(p.time.astype("datetime64[s]"), stamps)
     if not (p.time.astype("datetime64[s]")[k] == stamps).all() or p.unit_p is None:
-        raise ValueError("the pool does not hold every frame of the timeline with its unit dispatch")
+        raise DataConditionError("the pool does not hold every frame of the timeline with its unit dispatch")
     if str(data_dir) not in _HOURS:
         _HOURS[str(data_dir)] = read_nygrid(data_dir, 2019)
     hours = _HOURS[str(data_dir)]

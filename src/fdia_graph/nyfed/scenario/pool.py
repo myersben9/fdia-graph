@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from fdia_graph.errors import DataConditionError, NotFitted
 from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.grid.nygrid import HQ_BUS
@@ -160,7 +161,10 @@ class PoolBuilder:
             prev_q = None if first is None else first["unit_q"].copy()
             if first is not None:
                 s.vm, s.va = first["vm"].copy(), first["va"].copy()
-        assert prev is not None and prev_q is not None  # the first hour's AC point seeds the dispatch
+        if prev is None or prev_q is None:  # the first hour's AC point seeds the dispatch
+            raise DataConditionError(
+                f"frame {int(lo[0])}: the span's first hour has no AC point to start from"
+            )
         q_lo, q_hi = (case.qmin, case.qmax) if self.q_cap is None else (-self.q_cap, self.q_cap)
         for f in range(T):
             pd_f = self.loads.p[f] - ((1 - w[f]) * self.renew[lo[f]] + w[f] * self.renew[hi[f]])
@@ -246,7 +250,8 @@ class PoolBuilder:
         dispatch cost, the share of free ramp-limited units held at a ramp limit, the frames that needed
         the case's reactive limits and the time per frame, for the last build."""
         pool, case = self.pool, self.solver.case
-        assert pool is not None  # the report is of the last build
+        if pool is None:
+            raise NotFitted("report() describes the last build: call build() first")
         ok = pool.solve_kind == SOLVED
         kinds = {
             name: int((pool.solve_kind == k).sum())

@@ -12,6 +12,8 @@ from urllib.request import Request, urlopen
 
 import numpy as np
 
+from fdia_graph.errors import DataConditionError
+
 from .attacks.attacker import Attacker, generator_band, generator_q_capability, generator_ramps, natural_steps
 from .attacks.interface_attack import InterfaceFdia
 from .attacks.msfdia import NEAR_LIMIT
@@ -121,9 +123,8 @@ def production_builder(
     steps[:, att.gen_bus] = generator_ramps(case)[att.gen_bus]
     hour = (pool.time.astype(np.int64) // 3600) % 24
     q_lo, q_hi = generator_q_capability(case)
-    assert pool.unit_p is not None, (
-        "the pool must carry each unit's output (built by tools/nyfed/run_pool.py)"
-    )
+    if pool.unit_p is None:
+        raise DataConditionError("the pool must carry each unit's output (built by tools/nyfed/run_pool.py)")
     gen_output = np.zeros((len(pool.time), len(case.bus_id)))  # the units' output at each bus (N42)
     np.add.at(gen_output.T, case.unit_bus, np.nan_to_num(pool.unit_p).T)
     opf: dict[str, Any] = dict(

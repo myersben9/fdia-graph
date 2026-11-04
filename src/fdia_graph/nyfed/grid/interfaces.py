@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from fdia_graph.errors import DataConditionError
 from fdia_graph.nyfed.grid.case import Case
 
 # updateOpCond.m L420-430: each interface's branches as (from bus, to bus, sign) of the reduced case, as
@@ -59,12 +60,12 @@ def hourly_interfaces(
         branches, signs = [], []
         for f, t, s in NYISO_INTERFACES[name]:
             if (f, t) not in ends:
-                raise ValueError(f"{name}: branch {f}-{t} is not in the case in that orientation")
+                raise DataConditionError(f"{name}: branch {f}-{t} is not in the case in that orientation")
             branches.append(ends[(f, t)])
             signs.append(float(s))
         rows = table[table.InterfaceName == name].set_index("t")
         if rows.empty:
-            raise ValueError(f"{name}: no rows in interflowHourly_{year}.csv")
+            raise DataConditionError(f"{name}: no rows in interflowHourly_{year}.csv")
         out.append(
             Interface(
                 name,

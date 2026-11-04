@@ -5,16 +5,24 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Named errors and a troubleshooting page (New York grid).** `fdia_graph.nyfed` raises the SDK's named errors:
+  `ConfigError` for a wrong argument, `DataConditionError` (or `NoAdmissibleTarget`, `NotFitted`) for data that does
+  not meet a condition, instead of bare `ValueError`s and asserts. Both subclass `ValueError`, so existing handlers
+  keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.nyfed.tables`), and
+  the research tools no longer silence warnings. `docs/nyfed/TROUBLESHOOTING.md` lists what each stage reports when
+  it fails and what to do.
+
 - **A failed power flow reads as unknown, not safe (New York grid).** The operator's `Twin` gains `pf_failed [T]`,
   the scans whose AC power flow on the true grid failed, and `summarize` reports `pf_failed_scans` and
   `pf_failed_benign_scans`. Before, those scans' NaN margins counted as within the limit with no trace. `respond`
   now rejects an unknown `after` (before, a typo ran as an operator that never answers the alarm), and an unknown
   `mode`, `after` or `entry` raises `fdia_graph.errors.ConfigError` (a ValueError, as before).
 
-- **Why a design found no attack (New York grid).** Every family's `design` that returns None now leaves
-  `last_miss` (one of `fdia_graph.nyfed.attacks.episode.MISSES`: `no_target`, `infeasible`, `solver_error`), and
-  `TimelineBuilder.build` reports `missed`, the count of each reason per family. `build_episode`'s error names the
-  reason. Before, a timeline with few attacks gave no way to tell an empty window from a failing solver.
+- **Why a design found no attack (New York grid).** `AttackFamily.design_explained` returns the episode or the
+  reason there is none (one of `fdia_graph.nyfed.attacks.episode.MISSES`: `no_target`, `infeasible`,
+  `solver_error`), also kept in `last_miss`, and `TimelineBuilder.build` reports `missed` and, with the onset
+  survey, `survey_missed`: the count of each reason per family. `build_episode`'s error names the reason. Before, a
+  timeline with few attacks gave no way to tell an empty window from a failing solver.
 
 - **A missing solver now says so (New York grid).** `fdia_graph.nyfed.solvers.ipopt` finds Ipopt in the environment,
   checks that it starts, and raises the new `fdia_graph.errors.SolverUnavailable` with the fix when it does not. Before,

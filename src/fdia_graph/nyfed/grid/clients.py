@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from fdia_graph.errors import DataConditionError
 from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.tables import read_rows
 
@@ -65,10 +66,12 @@ def assign_clients(case: Case, territories: dict, locations: str | Path) -> Owne
     for i in np.flatnonzero(case.is_ny):
         row = rows.get(int(case.bus_id[i]))
         if row is None:
-            raise ValueError(f"bus {case.bus_id[i]} ({case.name[i]}) has no row in {locations}")
+            raise DataConditionError(f"bus {case.bus_id[i]} ({case.name[i]}) has no row in {locations}")
         if not row["lat"]:
             if row["utility"] not in names:
-                raise ValueError(f"bus {case.bus_id[i]}: utility {row['utility']!r} is not a territory")
+                raise DataConditionError(
+                    f"bus {case.bus_id[i]}: utility {row['utility']!r} is not a territory"
+                )
             bus_client[i] = names.index(row["utility"])
             continue
         lon, lat = float(row["lon"]), float(row["lat"])

@@ -122,6 +122,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.sensing.meters` | The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class. |
 | `nyfed.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
 | `nyfed.solvers` | The optimization solver every nyfed OPF runs on, found and checked in one place. |
+| `nyfed.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before). |
 | `nyfed.timeline` | Timeline: the time split, episode placement, and the frames and labels written to timeline.h5. |
 | `nyfed.timeline.builder` | The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled. |
 | `nyfed.timeline.schedule` | Where the timeline's splits are cut and where each split's episodes go. |

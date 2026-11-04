@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
+from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
 from fdia_graph.nyfed.attacks.attacker import Attacker
 from fdia_graph.nyfed.attacks.episode import AttackFamily, Episode
 from fdia_graph.nyfed.config import Settings, rng
@@ -102,7 +103,7 @@ class TimelineBuilder:
         survey_cache: str | Path | None = None,
     ):
         if split_by not in ("week", "time"):
-            raise ValueError(f"split_by must be 'week' or 'time', not {split_by!r}")
+            raise ConfigError(f"split_by must be 'week' or 'time', not {split_by!r}")
         self.split_by = split_by
         self.pool, self.meas, self.noise, self.att = pool, meas, noise, attacker
         self.families, self.own, self.settings = families, own, settings
@@ -321,14 +322,14 @@ class TimelineBuilder:
         L = self._lengths()[family]
         lo, hi = (onset if lo is None else lo), (onset + L if hi is None else hi)
         if not (lo <= onset and onset + L <= hi):
-            raise ValueError(f"the window {onset}..{onset + L} must lie inside the frames {lo}..{hi}")
+            raise ConfigError(f"the window {onset}..{onset + L} must lie inside the frames {lo}..{hi}")
         if not (self.pool.solve_kind[onset : onset + L] == SOLVED).all():
-            raise ValueError(f"the window at {onset} touches an unsolved frame")
+            raise DataConditionError(f"the window at {onset} touches an unsolved frame")
         w = slice(onset, onset + L)
         _init(self.families, self.settings)
         _, ep, sec, miss = _design((0, family, onset, self.pool.vm[w], self.pool.va[w]))
         if ep is None:
-            raise ValueError(f"{family} finds no attack at onset {onset} ({miss})")
+            raise NoAdmissibleTarget(f"{family} finds no attack at onset {onset} ({miss})")
         self._write(path, [ep], np.zeros(len(self.pool.time), np.int8), lo, hi)
         tam = self.att.tampered(self.pool.vm[w], self.pool.va[w], ep.a)
         return {
