@@ -1645,6 +1645,51 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>An attacker that follows the closed loop (New York grid).</strong> <code>tools/nyfed/adaptive_bdd.py</code> applies the designed
+  false-state increment to the closed-loop state each scan and tests it, and the designed scans before the operator
+  acts, under the persistence rule (N82).</p>
+</li>
+<li>
+<p><strong>What stealth buys, and detection on other meter fleets (New York grid).</strong> <code>tools/nyfed/naive_tie_bias.py</code>
+  tests a naive bias of the New York-end tie readings alone under the persistence rule (N80), and
+  <code>closed_loop_bdd.py --draws N</code> tests every attack against N further meter fleets (N81).</p>
+</li>
+<li>
+<p><strong>A persistence rule for the residual test (New York grid).</strong> <code>tools/nyfed/bdd_benign_series.py</code> and
+  <code>tools/nyfed/bdd_rule.py</code> calibrate a k-of-n residual alarm on whole benign days and rerun the operator's answers
+  at its first alarm (N79).</p>
+</li>
+<li>
+<p><strong>Answering a residual alarm (New York grid).</strong> <code>respond(after=...)</code> models the operator's response to an alarm
+  (switch to the benign scans, freeze with the AGC on the falsified ties, freeze with it on the common source), and
+  <code>closed_loop_bdd.py</code> calibrates the residual test on benign winter scans (N78).</p>
+</li>
+<li>
+<p><strong>The residual test with the meters' noise (New York grid).</strong> <code>closed_loop_bdd.py</code> tests the benign twin and the
+  closed-loop attacked scans with each window's own noise and reports the damage of an operator that falls back at the
+  first residual alarm (<code>respond(alarm_at=...)</code>, N77).</p>
+</li>
+<li>
+<p><strong>The closed loop (New York grid).</strong> <code>respond(closed_loop=True)</code> has the operator read the true flows after its
+  dispatch, with <code>--closed-loop</code> on the damage, entry and trace tools, and <code>tools/nyfed/closed_loop_bdd.py</code> tests
+  whether a precomputed attack stays stealthy once the operator acts (N76).</p>
+</li>
+<li>
+<p><strong>Voltage checks and the overload record (New York grid).</strong> <code>tools/nyfed/voltage_check.py</code> evaluates a voltage-limit
+  alarm as a detector (N74), <code>damage_study.py --gen-v-tol</code> holds generator voltages near their schedule (N75),
+  <code>tie_check.py --attacks</code> measures detection over the meter draws, and <code>summarize</code> reports how long an interface
+  stays past its true limit.</p>
+</li>
+<li>
+<p><strong>Entry patterns and many meter fleets (New York grid).</strong> <code>respond(entry=...)</code> chooses where the inadvertent
+  interchange enters (N72), with <code>tools/nyfed/entry_sensitivity.py</code> to rerun the operator under each, and
+  <code>tie_check.py --draws N</code> repeats the check over fresh meter-bias draws (N73).</p>
+</li>
+<li>
+<p><strong>The bound sweeps the load cap (New York grid).</strong> <code>tools/nyfed/push_bound.py</code> now steps the load cap from 2 to 30 percent
+  and keeps four bands, since the load cap, not the band, decides whether the interchange-consistent attack has room (N70).</p>
+</li>
+<li>
 <p><strong>Where the inadvertent interchange lands, and the certificate's reach (New York grid).</strong> The shortfall the trusting operator leaves is now taken up by the synchronous units outside New York in proportion to their capacity rather than by the reference bus, and every scan reports the tightest true interface margin (<code>margin</code>, summary <code>margin_min_mw</code> and <code>margin_lost_mw</code>) (N69). The interface numbers of the damage study change with it. <code>tools/nyfed/push_bound.py</code> bounds four attackers that keep the interchange true, from one subnetwork to all of New York, with the search's own injection bounds (a generator bus's load moves under the load
   cap too), over a denser band grid and each interface's own near-limit hours (N70). <code>damage_study.py --v-margin</code>
   widens the attacker's voltage limits (N71). A failed power flow now leaves the margin unknown.</p>

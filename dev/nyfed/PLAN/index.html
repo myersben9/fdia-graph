@@ -2499,6 +2499,61 @@ by DOI). Decisions N50 to N57.</p>
 <td>why the AC search rarely finds the consistent attack</td>
 <td>measured (2026-11-03): with the whole subnetwork as its support the AC static solve is still infeasible on the onsets the DC bound opens, and lifting the generators' reactive limits does not change that, while widening every bus voltage limit by 0.02 pu makes it feasible on every onset tried. The NYC generator buses of the Sprain Brook subnetwork sit at vmax 1.10 in 85 to 100 percent of the benign frames (the reduced network carries no shunt compensation), so the consistent attack is closed by pinned voltages, a property of the reduced model. <code>damage_study.py --v-margin</code> widens the attacker's voltage limits to measure what the consistent attack does to the operators</td>
 </tr>
+<tr>
+<td>N72</td>
+<td>where the inadvertent interchange enters</td>
+<td>decided (delegated, after the fourth internal review): <code>respond(entry=...)</code> shares the shortfall among the synchronous external units by capacity (<code>capacity</code>, N69), by the areas' approximate 2019 peak loads (<code>peak</code>, a proxy for frequency bias), or within one region (<code>pjm</code>, <code>isone</code>, <code>west</code>); <code>tools/nyfed/entry_sensitivity.py</code> reruns the trusting operator on every attack day under each. The median true rise of the attacked interface at the limit stays between 102 and 139 MW; with entry from the west or PJM the damaging attack takes some interface over its true limit on up to 11 of 113 onsets, by up to 96 MW</td>
+</tr>
+<tr>
+<td>N73</td>
+<td>the check over many meter fleets</td>
+<td>measured: <code>tie_check.py --draws 20</code> redraws both ends' constant biases and calibrates each draw on its own January to March. The threshold ranges 36 to 86 MW and the check raises a median of 6 false-alarm scans on 4 of 275 days (at most 12 days), since a relative bias grows with summer flows; the default fleet's zero was one lucky draw. Reconciling each tie's two meters, or normalizing by the accuracy class at the flow, did not remove them (kept in the json as <code>reconciled_*</code>)</td>
+</tr>
+<tr>
+<td>N74</td>
+<td>the voltage-limit alarm as a detector</td>
+<td>measured: <code>tools/nyfed/voltage_check.py</code> sets the alarm at the largest benign voltage reading of January to March plus 0.002 pu (1.1058 pu); no false alarm on the 275 test days; it catches all 97 consistent attacks designed with the attacker's voltage limits widened by 0.02 pu (by at least 0.013 pu) and none of the 233 attacks that falsify the interchange. <code>tie_check.py --attacks</code> measures detection over the 20 meter draws: 99.1 and 100 percent in every draw, median delays 2 to 4 and 0 to 2 scans, at most 9</td>
+</tr>
+<tr>
+<td>N75</td>
+<td>generator voltage schedules</td>
+<td>decided (delegated, after the fifth internal review): a generator bus regulates its voltage to a schedule the operator knows, so <code>OpfFdia.gen_v_tol</code> (<code>damage_study.py --gen-v-tol</code>) holds its false voltage within that much of the true one. With 0.005 pu and every other limit widened by 0.02 pu the consistent attack exists on 7 of 60 onsets, cutting the true transfer by a median of 30 and at most 59 MW, and clears the voltage alarm by only 0.0006 to 0.002 pu. <code>summarize</code> also reports the scans, longest run and energy an interface spends past its true limit (<code>over_*</code>): with western entry Central East, a median of 4 scans and at most 7 in a row</td>
+</tr>
+<tr>
+<td>N76</td>
+<td>the closed loop</td>
+<td>decided (delegated, after the sixth internal review): <code>respond(closed_loop=True)</code> lets the operator read each interface as it truly flows after its last dispatch (the part its shift factors did not predict enters the next reading); <code>damage_study.py</code>, <code>entry_sensitivity.py</code> and <code>operator_cost.py</code> take <code>--closed-loop</code>. Closed loop the damage barely moves (true rise 122 MW against 120 open loop, the damaging drop 180 against 231 MW), but the Central East violation of western entry shrinks to 3 onsets of one scan and 9 MW, since the operator now sees and relieves it. <code>tools/nyfed/closed_loop_bdd.py</code> rebuilds each attacked scan as the estimator receives it after the operator acts, h(x_closed) + a, and fits it by weighted least squares: open loop the residual is below 4e-8, closed loop the 99 percent chi-square test is more likely than not to fire within the window on 97 percent of the attacks at the limit and all damaging ones, first at a median of scan 10 and 7</td>
+</tr>
+<tr>
+<td>N77</td>
+<td>the residual test with the meters' own noise</td>
+<td>measured: <code>closed_loop_bdd.py</code> now adds each window's own noise realization to the closed-loop scans and tests the benign twin the same way. The benign scans never fire (0 of 7,264). Against the trusting operator the test fires on 95 percent of the attacks at the limit and all damaging ones, first at a median of scan 11 and 7; an operator that falls back at that alarm (<code>respond(alarm_at=...)</code>) keeps 99 of 424 MWh of inadvertent interchange at the limit and 76 of 788 damaging, and 1 of 184 MW of forfeited transfer. Against the accounting operator it fires on 1 and 88 percent, on the consistent attack 0 and 67 percent</td>
+</tr>
+<tr>
+<td>N78</td>
+<td>how the operator answers a residual alarm, and a calibrated test</td>
+<td>decided (delegated, after the eighth internal review): <code>respond(after=...)</code> lets any operator answer an alarm at <code>alarm_at</code> by switching to the scans without the attack (benign), holding its dispatch while its AGC keeps reading the tie meters it reads (freeze) or holding it with the AGC on the common-source tie values (freeze_cs). <code>closed_loop_bdd.py</code> calibrates the residual test at the 99th percentile of benign January to March scans (420 against the chi-square 469, a constant bias keeping the residual near 395). Calibrated, the test fires on 99 percent of the attacks at the limit and all damaging ones against the trusting operator (scan 8 and 5), 75 and 97 percent against the accounting operator and 53 and 92 percent on the consistent attack; freezing with the AGC on the falsified ties keeps 425 of 424 and 706 of 788 MWh of inadvertent interchange, with the AGC on the common source 51 and 43 MWh</td>
+</tr>
+<tr>
+<td>N79</td>
+<td>a persistence rule for the residual test</td>
+<td>decided (delegated, after the ninth internal review found the per-scan calibrated test raising about nine alarms a day): <code>bdd_benign_series.py</code> gives the benign residual of every scan of whole days, and <code>bdd_rule.py</code> alarms when 2 of the last 3 residuals exceed the 99.9th percentile of January to March (428.7). No false alarm day on 40 fit days, 80 test days of April to December or the benign twin of any attack window. It catches 96 percent of the attacks at the limit and all damaging ones against the trusting operator (scan 10 and 7), 4 and 88 percent against the accounting operator and 0 and 73 percent of the consistent attack. Answering it: the trusting operator keeps 425/757 MWh frozen on the falsified ties, 95/82 on the common source; the accounting operator, frozen at the alarm, forfeits 77 rather than 171 MW, the consistent attack 70 rather than 104</td>
+</tr>
+<tr>
+<td>N80</td>
+<td>a naive tie-bias baseline</td>
+<td>decided (delegated, eleventh internal review): <code>naive_tie_bias.py</code> adds to the benign scan only the stealthy attack's change of the New York-end tie P readings and applies the persistence rule before the operator acts. It is caught on 86 percent of the windows at the limit at a median of scan 12 and on all damaging ones at scan 8, against 96 percent at scan 10 and all at scan 7 for the stealthy attack once the trusting operator acts, so against an operator that acts the consistent state buys no time. The interchange check sees both the same</td>
+</tr>
+<tr>
+<td>N81</td>
+<td>residual-rule detection over further meter fleets</td>
+<td>decided (delegated, eleventh internal review): <code>closed_loop_bdd.py --draws 5</code> swaps each window's constant meter biases for those of five further fleets (as <code>bdd_benign_series.py --draw</code>), keeping the jitter, and each fleet is tested under its own January to March threshold</td>
+</tr>
+<tr>
+<td>N82</td>
+<td>an attacker that follows the closed loop</td>
+<td>decided (delegated, twelfth internal review, all three reviewers): <code>adaptive_bdd.py</code> adds the designed false-state increment to the closed-loop true state each scan (the attacker reads the meters it holds), one pass on the operator's response to the designed attack. No residual alarm on any of 551 windows, nor on the designed scans before the operator acts; a median of 3 and at most 6 meters beyond the design; against the trusting operator the pretended injections leave the designed ones by a median of 19 MW at the limit and 70 MW damaging (162 at the 90th percentile), so the damaging form may break the load cap. <code>adaptive_crosscheck.py</code> over every window: the false tie total stays within 4.4 MW of the designed one (227 windows) and the consistent attack still reads 1.12 pu, above the 1.1058 alarm (97 windows), so the interchange check and the voltage alarm still fire. The residual test stops only the attacker that ignores the operator</td>
+</tr>
 </tbody>
 </table>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
