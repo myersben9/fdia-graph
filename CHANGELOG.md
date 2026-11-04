@@ -5,6 +5,42 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **An attacker that follows the closed loop (New York grid).** `tools/nyfed/adaptive_bdd.py` applies the designed
+  false-state increment to the closed-loop state each scan and tests it, and the designed scans before the operator
+  acts, under the persistence rule (N82).
+
+- **What stealth buys, and detection on other meter fleets (New York grid).** `tools/nyfed/naive_tie_bias.py`
+  tests a naive bias of the New York-end tie readings alone under the persistence rule (N80), and
+  `closed_loop_bdd.py --draws N` tests every attack against N further meter fleets (N81).
+
+- **A persistence rule for the residual test (New York grid).** `tools/nyfed/bdd_benign_series.py` and
+  `tools/nyfed/bdd_rule.py` calibrate a k-of-n residual alarm on whole benign days and rerun the operator's answers
+  at its first alarm (N79).
+
+- **Answering a residual alarm (New York grid).** `respond(after=...)` models the operator's response to an alarm
+  (switch to the benign scans, freeze with the AGC on the falsified ties, freeze with it on the common source), and
+  `closed_loop_bdd.py` calibrates the residual test on benign winter scans (N78).
+
+- **The residual test with the meters' noise (New York grid).** `closed_loop_bdd.py` tests the benign twin and the
+  closed-loop attacked scans with each window's own noise and reports the damage of an operator that falls back at the
+  first residual alarm (`respond(alarm_at=...)`, N77).
+
+- **The closed loop (New York grid).** `respond(closed_loop=True)` has the operator read the true flows after its
+  dispatch, with `--closed-loop` on the damage, entry and trace tools, and `tools/nyfed/closed_loop_bdd.py` tests
+  whether a precomputed attack stays stealthy once the operator acts (N76).
+
+- **Voltage checks and the overload record (New York grid).** `tools/nyfed/voltage_check.py` evaluates a voltage-limit
+  alarm as a detector (N74), `damage_study.py --gen-v-tol` holds generator voltages near their schedule (N75),
+  `tie_check.py --attacks` measures detection over the meter draws, and `summarize` reports how long an interface
+  stays past its true limit.
+
+- **Entry patterns and many meter fleets (New York grid).** `respond(entry=...)` chooses where the inadvertent
+  interchange enters (N72), with `tools/nyfed/entry_sensitivity.py` to rerun the operator under each, and
+  `tie_check.py --draws N` repeats the check over fresh meter-bias draws (N73).
+
+- **The bound sweeps the load cap (New York grid).** `tools/nyfed/push_bound.py` now steps the load cap from 2 to 30 percent
+  and keeps four bands, since the load cap, not the band, decides whether the interchange-consistent attack has room (N70).
+
 - **Where the inadvertent interchange lands, and the certificate's reach (New York grid).** The shortfall the trusting operator leaves is now taken up by the synchronous units outside New York in proportion to their capacity rather than by the reference bus, and every scan reports the tightest true interface margin (`margin`, summary `margin_min_mw` and `margin_lost_mw`) (N69). The interface numbers of the damage study change with it. `tools/nyfed/push_bound.py` bounds four attackers that keep the interchange true, from one subnetwork to all of New York, with the search's own injection bounds (a generator bus's load moves under the load
   cap too), over a denser band grid and each interface's own near-limit hours (N70). `damage_study.py --v-margin`
   widens the attacker's voltage limits (N71). A failed power flow now leaves the margin unknown.

@@ -1,0 +1,86 @@
+"""Does the attacker that follows the closed loop (adaptive_bdd.py, N82) still show the interchange check its false
+interchange and the voltage alarm its high reading? For every attack window, against the trusting operator: the
+largest gap between the summed New York-end tie P change of the adaptive vector and the designed one, and the largest
+voltage reading of each (noise free), to compare with the voltage alarm (N74).
+
+    python tools/nyfed/adaptive_crosscheck.py OUT.csv STUDY [--pool out/pool_2019_v3.h5] [--data data/NYgrid/Data]
+
+Run from the folder whose `data/` holds the inputs. One row per attack window.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).parent))
+from adaptive_bdd import _false_state  # noqa: E402
+from closed_loop_bdd import REF  # noqa: E402
+
+from fdia_graph.nyfed.attacks.attacker import wrap_angles  # noqa: E402
+from fdia_graph.nyfed.grid.network import Network  # noqa: E402
+from fdia_graph.nyfed.operator.response import (  # noqa: E402
+    _entry_share,
+    _TrueGrid,
+    operator_day,
+    respond,
+    tie_meters,
+)
+from fdia_graph.nyfed.sensing.measure import Measurement  # noqa: E402
+from fdia_graph.nyfed.sensing.meters import KINDS  # noqa: E402
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("out")
+    ap.add_argument("study")
+    ap.add_argument("--pool", default="out/pool_2019_v3.h5")
+    ap.add_argument("--data", default="data/NYgrid/Data")
+    args = ap.parse_args()
+    with open(args.out, "w") as out:
+        out.write("file,tie_diff_max,tie_designed_max,vmax_designed,vmax_adaptive\n")
+        for p in sorted(Path(args.study, "days").glob("am_*_*.h5")):
+            day = operator_day(p, args.pool, args.data)
+            c, plan = day.case, day.plan
+            resp = respond(day, mode="trusting", calib=None, closed_loop=True).attacked
+            grid, share = _TrueGrid(day), _entry_share(c, "capacity")
+            meas = Measurement(Network(c), plan)
+            ref = int(np.flatnonzero(c.bus_type == REF)[0])
+            _, _, rows = tie_meters(c, plan)
+            vrows = np.flatnonzero(plan.kind == KINDS.index("v"))
+            tie_d, tie_a, v_d, v_a = [], [], [], []
+            for t in range(day.onset, day.onset + day.length):
+                units = day.unit_p[t] + resp.dev[t] + resp.reg[t] + resp.uncovered[t] * share
+                r = grid.solver.power_flow(
+                    grid.pd[t],
+                    grid.qd[t],
+                    units,
+                    np.ones(len(units), bool),
+                    day.vm[t, c.unit_bus],
+                    np.zeros(len(c.dc_f)),
+                    start=(day.vm[t], day.va[t]),
+                )
+                if r is None:
+                    continue
+                h_true = meas.h(day.vm[t], day.va[t])
+                a = wrap_angles(day.z[t] - day.z_benign[t], plan.kind)
+                vm_f, va_f, _ = _false_state(meas, h_true + a, day.vm[t].copy(), day.va[t].copy(), ref)
+                h_cl = meas.h(r["vm"], r["va"])
+                h_ad = meas.h(r["vm"] + vm_f - day.vm[t], r["va"] + va_f - day.va[t])
+                tie_d.append(a[rows].sum())
+                tie_a.append((h_ad - h_cl)[rows].sum())
+                v_d.append((h_true + a)[vrows].max())
+                v_a.append(h_ad[vrows].max())
+            td, ta = np.array(tie_d), np.array(tie_a)
+            out.write(
+                f"{p.name},{np.abs(ta - td).max():.2f},{np.abs(td).max():.1f},{max(v_d):.5f},{max(v_a):.5f}\n"
+            )
+            out.flush()
+            print(f"{p.name}: tie gap {np.abs(ta - td).max():.1f} MW, vmax {max(v_a):.4f}", flush=True)
+
+
+if __name__ == "__main__":
+    main()

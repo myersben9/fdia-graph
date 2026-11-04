@@ -108,6 +108,9 @@ class OpfFdia(MsFdia):
         self.gen_output = None if gen_output is None else np.asarray(gen_output, float)  # [T, N] MW, N42
         self.gen_ramp = np.asarray(gen_ramp, float)
         self.gen_band = np.full(n, np.inf) if gen_band is None else np.asarray(gen_band, float)
+        # N75: a generator bus regulates its voltage to a schedule the operator knows, so its false voltage may
+        # leave the true one by at most this much (pu); None leaves only the bus voltage limits
+        self.gen_v_tol: float | None = None
         self.q_lo = attacker.q_lo if q_lo is None else np.asarray(q_lo, float)
         self.q_hi = attacker.q_hi if q_hi is None else np.asarray(q_hi, float)
         self.q_ramp = np.full(n, np.inf) if q_ramp is None else np.asarray(q_ramp, float)
@@ -288,8 +291,11 @@ class OpfFdia(MsFdia):
         for t_i in range(len(w.targets)):
             m.goal[t_i] = float(w.goal[k, t_i])
         for b in interior.tolist():
-            m.vm[b].setlb(min(case.vmin[b], w.vm[k, b]))
-            m.vm[b].setub(max(case.vmax[b], w.vm[k, b]))
+            lo_v, hi_v = min(case.vmin[b], w.vm[k, b]), max(case.vmax[b], w.vm[k, b])
+            if self.gen_v_tol is not None and self.att.gen_bus[b]:  # N75: held near its voltage schedule
+                lo_v, hi_v = max(lo_v, w.vm[k, b] - self.gen_v_tol), min(hi_v, w.vm[k, b] + self.gen_v_tol)
+            m.vm[b].setlb(lo_v)
+            m.vm[b].setub(hi_v)
             dv, dt = (0.0, 0.0) if start is None else start[b]
             m.vm[b].value = float(np.clip(w.vm[k, b] + dv, m.vm[b].lb, m.vm[b].ub))
             m.th[b].value = float(w.th[k, b] + dt)

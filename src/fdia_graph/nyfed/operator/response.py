@@ -241,7 +241,7 @@ class Twin:
     cover as the operator sees it (MW), `uncovered [T]` the true imbalance regulation had no room for
     (MW, positive short), `iface_change [T, I]` the true interface flow change from the
     basepoint's (AC, MW), `n1_change [T]` the change in the worst single-outage interface flow (MW), `margin [T]` the tightest
-    true margin of any interface to its limit (MW, negative over it),
+    true margin of any interface to its limit (MW, negative over it) and `margin_at [T]` that interface (-1 unknown),
     `shed [T, N]` the load the operator shed (MW), `relief [T]` what relieving the interfaces cost in
     production ($, `Step.relief_usd`), `shortage [T]` the flow left over the limit at the shortage curve ($), `fuel [T]` the production cost change and `settled [T]` the energy
     change at the zonal LBMP ($ per scan)."""
@@ -254,6 +254,7 @@ class Twin:
     iface_change: np.ndarray
     n1_change: np.ndarray
     margin: np.ndarray
+    margin_at: np.ndarray
     shed: np.ndarray
     relief: np.ndarray
     shortage: np.ndarray
@@ -363,6 +364,39 @@ def _regulation(
 MODES = ("trusting", "accounting", "oracle")
 
 
+# N72: where the inadvertent interchange enters New York, as weights per external area of the source model (1
+# ISO-NE, 4 Ontario, 5 MISO, 6 PJM), split within an area by the units' capacity. "capacity" weights every
+# synchronous external unit by its capacity alone (N69); "peak" weights each area by its approximate 2019 peak
+# load in GW, a proxy for its frequency bias; the others put all of it in one region.
+ENTRY: dict[str, dict[int, float] | None] = {
+    "capacity": None,
+    "peak": {1: 24.4, 4: 21.8, 5: 121.6, 6: 151.3},
+    "pjm": {6: 1.0},
+    "isone": {1: 1.0},
+    "west": {4: 1.0, 5: 1.0, 6: 1.0},
+}
+
+
+def _entry_share(c: Case, entry: str) -> np.ndarray:
+    """[U] the share of the inadvertent interchange each unit supplies (N69, N72): synchronous units outside
+    New York (the HVDC import from Quebec cannot carry it), by capacity within the weights of `ENTRY[entry]`."""
+    if entry not in ENTRY:
+        raise ValueError(f"entry must be one of {tuple(ENTRY)}, not {entry!r}")
+    cap = np.nan_to_num(c.pmax)
+    ext = ~c.is_ny[c.unit_bus] & (c.bus_id[c.unit_bus] != HQ_BUS) & (cap > 0)
+    share = np.where(ext, cap, 0.0)
+    weights = ENTRY[entry]
+    if weights is not None:
+        area = c.area[c.unit_bus]
+        out = np.zeros_like(share)
+        for a, w in weights.items():
+            inside = share * (area == a)
+            if inside.sum() > 0:
+                out += w * inside / inside.sum()
+        share = out
+    return share / share.sum() if share.sum() > 0 else share
+
+
 def _run(
     day: OperatorDay,
     seen: np.ndarray,
@@ -373,6 +407,9 @@ def _run(
     mode: str,
     alarm: int | None,
     seen_benign: np.ndarray,
+    entry: str = "capacity",
+    closed_loop: bool = False,
+    after: str | None = None,
 ) -> Twin:
     """One run of the operator over the day (N66). `gap [T]` is the interchange it reads at the New York
     ends of the ties less the true one (zero in the benign twin). A trusting operator dispatches on the
@@ -390,9 +427,7 @@ def _run(
     sf_units = sced.sf[:, c.unit_bus]
     # N69: the inadvertent interchange enters over the AC ties, from the synchronous units outside New York in
     # proportion to their capacity (the HVDC import from Quebec cannot carry it), not at the reference bus
-    ext = ~c.is_ny[c.unit_bus] & (c.bus_id[c.unit_bus] != HQ_BUS) & (np.nan_to_num(c.pmax) > 0)
-    ext_share = np.where(ext, np.nan_to_num(c.pmax), 0.0)
-    ext_share = ext_share / ext_share.sum() if ext_share.sum() > 0 else ext_share
+    ext_share = _entry_share(c, entry)
     pf_true = Network(c).flows(day.vm, day.va)[0]
     true_iface = np.array([it.model_flow(pf_true) for it in day.interfaces]).T
     limit = true_iface + np.array([it.limit - it.flow for it in day.interfaces]).T  # D3
@@ -410,23 +445,39 @@ def _run(
         "iface_change": np.zeros((T, I)),
         "n1_change": np.zeros(T),
         "margin": np.full(T, np.nan),
+        "margin_at": np.full(T, -1),
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
     }
     prev, before = None, None
     over = np.zeros(I, int)  # scans in a row each interface has been over its limit
+    # N76: with `closed_loop` the operator reads each interface as it truly flows after its last dispatch, so
+    # the gap between that true change and what its shift factors predicted enters its next reading
+    mismatch = np.zeros(I)
+    last_step = None
     for t in range(T):
         if not (day.solved[t] and (t == 0 or day.solved[t - 1])):
             out["iface_change"][t], out["n1_change"][t] = np.nan, np.nan
             prev, before = (None, None) if not day.solved[t] else (prev, before)
             continue
         s = max(t - delay, 0)  # the operator acts on the scan `delay` scans back
-        fallback = mode == "oracle" and alarm is not None and t >= alarm  # decided at scan t, whatever s is
-        view = seen_benign[s] if fallback else seen[s]
+        # N78: past the alarm the oracle reads the scans without the attack; with `after` any operator responds
+        # to the alarm: "benign" as the oracle, "freeze" holding its dispatch while its AGC keeps reading the tie
+        # meters it reads, "freeze_cs" holding its dispatch with the AGC on the common-source tie values
+        alarmed = alarm is not None and t >= alarm and (mode == "oracle" or after is not None)
+        style = "benign" if mode == "oracle" else after
+        fallback = alarmed and style == "benign"  # decided at scan t, whatever s is
+        frozen = alarmed and style in ("freeze", "freeze_cs") and last_step is not None
+        view = (seen_benign[s] if fallback else seen[s]) + (mismatch if closed_loop else 0.0)
         dload = 0.0 if fallback else float(np.nan_to_num(load_change[s]))
-        if mode == "accounting":  # load from generation plus the agreed interchange: the false part drops out
+        if mode == "accounting" and not fallback:  # load from generation plus the agreed interchange
             dload += float(np.nan_to_num(gap[s]))  # the read export the attack added hides as much load
-        step = sced.step(t, view, limit[t], dload, prev, over >= SHED_AFTER)
+        step = (
+            last_step
+            if frozen and last_step is not None
+            else sced.step(t, view, limit[t], dload, prev, over >= SHED_AFTER)
+        )
+        last_step = step
         short = np.nan_to_num(step.unrelieved)
         # an interface's clock runs while it is over its limit, or would be without the load it sheds
         bare = np.nan_to_num(view + sf_units @ step.dev - limit[t]) > 1e-6
@@ -438,11 +489,13 @@ def _run(
         short_mw = -float(step.dev.sum() + step.shed.sum())
         # the AGC sees the shortfall through the tie meters it reads: the trusting operator's New
         # York-end meters carry the false interchange, the agreed ones do not
-        seen_err = (
-            float(np.nan_to_num(gap[t]))
-            if (mode == "trusting" or (mode == "oracle" and not fallback))
-            else 0.0
-        )
+        reads_ties = mode == "trusting" or (mode == "oracle" and not fallback)
+        if alarmed and style in (
+            "benign",
+            "freeze_cs",
+        ):  # the alarm moved the AGC off the New York-end meters
+            reads_ties = False
+        seen_err = float(np.nan_to_num(gap[t])) if reads_ties else 0.0
         reg, _ = _regulation(day, t, short_mw - seen_err, dispatched, before)
         prev, before = step.dev, dispatched + reg
         out["uncovered"][t] = short_mw - float(
@@ -457,12 +510,15 @@ def _run(
             out["iface_change"][t], out["n1_change"][t] = grid.change(
                 t, day.unit_p[t] + moved + lent, step.shed
             )
+        if closed_loop:  # what the next scan reads beyond the operator's own model of its dispatch
+            mismatch = np.nan_to_num(out["iface_change"][t] - sf_units @ step.dev)
         # the tightest true margin of any interface to its limit (MW, negative over it)
         # unknown (NaN) where the AC power flow of either run failed, never the benign margin
         change = out["iface_change"][t]
-        out["margin"][t] = (
-            np.nan if np.isnan(change).any() else float(np.nanmin(limit[t] - (true_iface[t] + change)))
-        )
+        if not np.isnan(change).any():
+            room = limit[t] - (true_iface[t] + change)
+            out["margin"][t] = float(np.nanmin(room))
+            out["margin_at"][t] = int(np.nanargmin(room))
         out["fuel"][t] = float(day.cost[t] @ moved) * FRAME_HOURS
         out["settled"][t] = float(np.nansum(price[t] * moved)) * FRAME_HOURS
     return Twin(**out)
@@ -510,14 +566,19 @@ def respond(
     over: float = 0.0,
     mode: str = "trusting",
     calib: tuple[float, float] | None = None,
+    entry: str = "capacity",
+    closed_loop: bool = False,
+    alarm_at: int | None = None,
+    after: str | None = None,
 ) -> Response:
     """Run the operator on `day` in one of `MODES` (N66), acting `delay` scans late (O5). `over` (MW) is a
     what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
-    to the push over the episode. `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
+    to the push over the episode. `entry` is where the inadvertent interchange enters (`ENTRY`, N72). With `closed_loop` the operator reads each interface as it truly flows after its own last dispatch (N76). `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
     tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
-    alarm = _alarm_scan(day, tie_a, tie_b, calib)
+    # the oracle falls back at the interchange alarm, or at `alarm_at` (a scan of the day) when another alarm is studied
+    alarm = _alarm_scan(day, tie_a, tie_b, calib) if alarm_at is None else alarm_at
     seen_b = seen_interfaces(day.plan, day.interfaces, day.z_benign)
     seen_a = seen_interfaces(day.plan, day.interfaces, day.z)
     if over and day.onset >= 0:
@@ -531,8 +592,10 @@ def respond(
     grid = _TrueGrid(day)
     zero = np.zeros(len(day.time))
     return Response(
-        attacked=_run(day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b),
-        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b),
+        attacked=_run(
+            day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b, entry, closed_loop, after
+        ),
+        benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b, entry, closed_loop),
         unit_client=day.own.bus_client[day.case.unit_bus],
         bus_client=day.own.bus_client,
         client_names=[str(n) for n in day.own.names],
@@ -545,6 +608,24 @@ def respond(
         alarm=float("nan") if alarm is None else float(alarm - day.onset),
         mode=mode,
     )
+
+
+def _over(r: Response) -> dict:
+    """Where the attacked run takes an interface past its true limit (N72): the scans over, the longest run of
+    them, the energy over (MWh) and the interface most often over (-1 none)."""
+    m = r.attacked.margin
+    over = np.nan_to_num(m, nan=1.0) < 0
+    run = best = 0
+    for o in over:
+        run = run + 1 if o else 0
+        best = max(best, run)
+    at = r.attacked.margin_at[over]
+    return {
+        "over_scans": int(over.sum()),
+        "over_run_scans": int(best),
+        "over_mwh": float(-m[over].sum() * FRAME_HOURS),
+        "over_iface": int(np.bincount(at).argmax()) if len(at) else -1,
+    }
 
 
 def summarize(r: Response, voll: float | None = None) -> dict:
@@ -587,6 +668,7 @@ def summarize(r: Response, voll: float | None = None) -> dict:
         "n1_up_mw": float(np.nanmax(a.n1_change - b.n1_change)),
         "margin_min_mw": float(np.nanmin(a.margin)) if np.isfinite(a.margin).any() else float("nan"),
         "margin_lost_mw": peak(b.margin - a.margin),
+        **_over(r),
         "fuel_usd": float(a.fuel.sum() - b.fuel.sum()),
         "settled_usd": float(a.settled.sum() - b.settled.sum()),
         "relief_usd": float(a.relief.sum() - b.relief.sum()),
