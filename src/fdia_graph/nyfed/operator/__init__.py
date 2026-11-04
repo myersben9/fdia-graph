@@ -8,7 +8,8 @@ consequence (`response` re-exports them all).
 scan under an `OperatorPolicy` (which operator, how late, how it answers an alarm): its five-minute security-
 constrained dispatch on what it reads (`DcSced`), its regulation and the interchange its neighbors supply, each
 checked on the true grid by an AC power flow (`TrueGrid`). It can answer an alarm (`AFTER`) and take the inadvertent
-interchange where it enters (`ENTRY`). `summarize` gives the attack's consequence, attacked less benign.
+interchange where it enters (`ENTRY`). `summarize` gives the attack's consequence, attacked less benign, and
+`area_damage` splits it by New York zone, utility and neighboring area, with the borrowed energy priced.
 
 A scan whose AC power flow fails is flagged (`Twin.pf_failed`) and counted, never read as within the limit.
 """
@@ -20,7 +21,8 @@ from typing import TYPE_CHECKING
 from fdia_graph.nyfed._lazy import attach
 
 if TYPE_CHECKING:  # the names below, with their real signatures for type checkers
-    from .day import OperatorDay, operator_day
+    from .areas import FEEDS, NEIGHBORS, PROXY, area_damage, attack_surface, neighbor_prices, zone_levers
+    from .day import OperatorDay, node_lbmp, operator_day
     from .policy import AFTER, ENTRY, MODES, AlarmAnswer, Entry, OperatorMode, OperatorPolicy, entry_share
     from .run import NyisoOperator, Operator, Response, Twin, respond
     from .sced import DcSced, Step, outage_factors, shift_factors, shortage_usd
@@ -56,34 +58,50 @@ _PUBLIC = {
     "Response": ".run",
     "respond": ".run",
     "summarize": ".summary",
+    "FEEDS": ".areas",
+    "NEIGHBORS": ".areas",
+    "PROXY": ".areas",
+    "area_damage": ".areas",
+    "attack_surface": ".areas",
+    "neighbor_prices": ".areas",
+    "zone_levers": ".areas",
+    "node_lbmp": ".day",
 }
 
 __all__ = [
     "AFTER",
     "AlarmAnswer",
+    "area_damage",
+    "attack_surface",
     "DcSced",
     "ENTRY",
     "Entry",
+    "entry_share",
+    "FEEDS",
+    "interchange_alarm",
     "MODES",
+    "neighbor_prices",
+    "NEIGHBORS",
+    "node_lbmp",
     "NyisoOperator",
     "Operator",
+    "operator_day",
     "OperatorDay",
     "OperatorMode",
     "OperatorPolicy",
-    "Response",
-    "Step",
-    "TrueGrid",
-    "Twin",
-    "entry_share",
-    "interchange_alarm",
-    "operator_day",
     "outage_factors",
+    "PROXY",
     "respond",
+    "Response",
     "seen_interfaces",
     "shift_factors",
     "shortage_usd",
+    "Step",
     "summarize",
     "tie_gap",
     "tie_meters",
+    "TrueGrid",
+    "Twin",
+    "zone_levers",
 ]
 __getattr__, __dir__ = attach(__name__, _PUBLIC)

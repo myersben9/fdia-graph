@@ -75,13 +75,20 @@ def _hour_weights(time: np.ndarray, hours: np.ndarray) -> tuple[np.ndarray, np.n
     return lo, np.minimum(lo + 1, len(mid) - 1), pos - lo
 
 
-def _zonal_lbmp(data_dir: Path, time: np.ndarray, year: int = 2019) -> np.ndarray:
-    """`[T, 11]` the real hourly zonal LBMP ($/MWh) of each frame's hour, zones A to K."""
-    price = pd.read_csv(data_dir / f"priceHourly_{year}.csv")
+def node_lbmp(data_dir: str | Path, time: np.ndarray, nodes: list[str], year: int = 2019) -> np.ndarray:
+    """`[T, len(nodes)]` the real hourly LBMP ($/MWh) of each frame's hour at each of NYISO's price `nodes`, as
+    `priceHourly` names them: the zones (`LBMP_ZONE`) and the proxy buses of the neighbors (`PJM`, `NPX` for ISO
+    New England, `O H` for Ontario, `H Q`)."""
+    price = pd.read_csv(Path(data_dir) / f"priceHourly_{year}.csv")
     price["t"] = pd.to_datetime(price.TimeStamp, format="%m/%d/%Y %H:%M:%S")
     table = price.pivot_table(index="t", columns="ZoneName", values="LBMP")
     hour = pd.DatetimeIndex(time.astype("datetime64[s]")).floor("h")
-    return table.reindex(index=hour, columns=[LBMP_ZONE[z] for z in ZONES]).to_numpy(float)
+    return table.reindex(index=hour, columns=nodes).to_numpy(float)
+
+
+def _zonal_lbmp(data_dir: Path, time: np.ndarray, year: int = 2019) -> np.ndarray:
+    """`[T, 11]` the real hourly zonal LBMP ($/MWh) of each frame's hour, zones A to K."""
+    return node_lbmp(data_dir, time, [LBMP_ZONE[z] for z in ZONES], year)
 
 
 def _target_first(interfaces: list[Interface], branch: int) -> list[Interface]:
