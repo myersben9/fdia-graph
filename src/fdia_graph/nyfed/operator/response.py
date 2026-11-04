@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from fdia_graph._moved import moved
 from fdia_graph.nyfed.operator.day import INTERFACES, LBMP_ZONE, OperatorDay, operator_day
-from fdia_graph.nyfed.operator.policy import AFTER, ENTRY, MODES, entry_share
+from fdia_graph.nyfed.operator.policy import AFTER, ENTRY, MODES, OperatorPolicy, entry_share
 from fdia_graph.nyfed.operator.run import (
     QUICK_FUELS,
     QUICK_MAX_MW,
@@ -39,6 +39,7 @@ __all__ = [
     "QUICK_ZONES",
     "REG_CAP",
     "OperatorDay",
+    "OperatorPolicy",
     "Response",
     "TrueGrid",
     "Twin",

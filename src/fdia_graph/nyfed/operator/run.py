@@ -8,13 +8,13 @@ both (DC against AC, the cost model) cancels. `respond` runs both and returns th
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
-from fdia_graph.errors import ConfigError
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.day import OperatorDay
-from fdia_graph.nyfed.operator.policy import AFTER, ENTRY, MODES, entry_share
+from fdia_graph.nyfed.operator.policy import OperatorPolicy, entry_share
 from fdia_graph.nyfed.operator.sced import (
     FRAME_HOURS,
     SHED_AFTER,
@@ -260,16 +260,18 @@ def respond(
     closed_loop: bool = False,
     alarm_at: int | None = None,
     after: str | None = None,
+    *,
+    policy: OperatorPolicy | None = None,
 ) -> Response:
-    """Run the operator on `day` in one of `MODES` (N66), acting `delay` scans late (O5). `over` (MW) is a
-    what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
-    to the push over the episode. `entry` is where the inadvertent interchange enters (`ENTRY`, N72). With `closed_loop` the operator reads each interface as it truly flows after its own last dispatch (N76). `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
-    if mode not in MODES:
-        raise ConfigError(f"mode must be one of {MODES}, not {mode!r}")
-    if after is not None and after not in AFTER:
-        raise ConfigError(f"after must be one of {AFTER} or None, not {after!r}")
-    if entry not in ENTRY:
-        raise ConfigError(f"entry must be one of {tuple(ENTRY)}, not {entry!r}")
+    """Run the operator on `day`, attacked and on its benign twin, under the choices of an `OperatorPolicy`: pass
+    one as `policy`, or its fields as keywords (`mode`, `delay`, `over`, `entry`, `closed_loop`, `after`), checked the
+    same way. `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the interchange alarm is
+    calibrated on, from other days (by default the benign day's own, in sample). `alarm_at` (a scan of the day) puts
+    the alarm there instead, for studying another detector's alarm; `after` says how the operator answers it."""
+    p = policy or OperatorPolicy(  # the choices, checked by the record before anything runs
+        mode=mode, delay=delay, over=over, entry=entry, closed_loop=closed_loop, after=after
+    )
+    mode, delay, over, entry, closed_loop, after = p.mode, p.delay, p.over, p.entry, p.closed_loop, p.after
     tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
     # the oracle falls back at the interchange alarm, or at `alarm_at` (a scan of the day) when another alarm is studied
     alarm = interchange_alarm(day, tie_a, tie_b, calib) if alarm_at is None else alarm_at
@@ -302,3 +304,25 @@ def respond(
         alarm=float("nan") if alarm is None else float(alarm - day.onset),
         mode=mode,
     )
+
+
+@runtime_checkable
+class Operator(Protocol):
+    """An operator: anything that runs on an attacked day and returns its `Response` (the attacked run and its
+    benign twin), so `summarize` and the detection tools work on it unchanged. `NyisoOperator` is the built-in one."""
+
+    def respond(
+        self, day: OperatorDay, *, calib: tuple[float, float] | None = None, alarm_at: int | None = None
+    ) -> Response: ...
+
+
+@dataclass(frozen=True)
+class NyisoOperator:
+    """The New York operator of this package under one `OperatorPolicy`: `respond` with that policy."""
+
+    policy: OperatorPolicy = OperatorPolicy()
+
+    def respond(
+        self, day: OperatorDay, *, calib: tuple[float, float] | None = None, alarm_at: int | None = None
+    ) -> Response:
+        return respond(day, calib=calib, alarm_at=alarm_at, policy=self.policy)
