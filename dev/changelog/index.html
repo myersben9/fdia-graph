@@ -1645,6 +1645,16 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>A least-cost dispatch with prices, and the idealized operator (New York grid).</strong> <code>DcSced(objective="cost")</code> and
+  <code>OperatorPolicy(dispatch="cost")</code> dispatch as a market clears, each MW moved charged <code>MOVE_USD</code>, and report each
+  interface's shadow price and the energy price (<code>Step.congestion</code>, <code>Step.energy</code>, and per scan on <code>Twin</code>). Under
+  it <code>area_damage</code> prices what each zone's and utility's load pays at the moved prices (<code>payments_usd</code>), and
+  <code>tools/nyfed/area_damage.py --dispatch cost</code> runs it over a study. <code>tools/nyfed/idealized_operator.py</code> reports
+  what a single-snapshot least-cost DC consequence analysis predicts for each attack beside what the closed-loop
+  operator causes. The default least-movement dispatch is unchanged: every golden value holds, and the operator
+  snapshots gain only the two new arrays, empty under it.</p>
+</li>
+<li>
 <p><strong>The interchange check against the hourly checkout (New York grid).</strong> <code>tools/nyfed/hourly_checkout.py</code> runs each
   attack day of a damage study through the trusting operator and reports when the scan-rate interchange check
   alarms, when an hourly checkout of the same tie readings (the energy agreement balancing authorities already run
