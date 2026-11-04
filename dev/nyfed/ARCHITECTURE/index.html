@@ -1333,6 +1333,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#how-a-run-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a run flows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#principles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1517,6 +1528,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#how-a-run-flows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a run flows
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#principles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1625,22 +1647,46 @@
 
 
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<p>In fdia-graph since 2026-11-02 as <code>fdia_graph.nyfed</code>: the package paths below are under <code>src/fdia_graph/nyfed/</code>, the tests are <code>tests/nyfed/test_nyfed_&lt;package&gt;.py</code> (inputs under <code>NYFED_ROOT</code>), the tools <code>tools/nyfed/</code>, and the results files sit in <code>results/</code> as they were.</p>
+<p><code>fdia_graph.nyfed</code> builds a federated FDIA dataset on the New York grid and studies attacks through the New York
+operator's own rules. It has been part of fdia-graph since 2026-11-02: the package is <code>src/fdia_graph/nyfed/</code>, its tests
+<code>tests/nyfed/</code> (inputs under <code>NYFED_ROOT</code>), its research tools <code>tools/nyfed/</code>, its runnable extension examples
+<code>examples/nyfed/</code>, and the results files <code>results/</code>.</p>
+<p>Read alongside: <a href="../WALKTHROUGH/">the walkthrough</a> follows one attack through every stage with the call that does each
+step, <a href="../EXTENDING/">the extending guide</a> says how to add an attack, a detector or an operator, and
+<a href="../TROUBLESHOOTING/">the troubleshooting page</a> what each stage reports when it fails. The decisions behind the design,
+numbered N1 onward, are in <a href="../PLAN/">the plan</a>.</p>
+<h2 id="how-a-run-flows">How a run flows<a class="headerlink" href="#how-a-run-flows" title="Permanent link">&para;</a></h2>
+<p><img alt="The stages of fdia_graph.nyfed" src="../../figures/diagrams/nyfed_pipeline.png" /></p>
+<p>Each box is a subpackage, one stage, and each stage reads what the one before it wrote. <code>grid</code> turns NYgrid's case into
+the network and the clients; <code>scenario</code> solves the year of true operating points (the slow step, built once into the
+pool); <code>sensing</code> places the meters; <code>attacks</code> designs each attack on a window of true states; <code>timeline</code> writes the
+noisy, labelled year; <code>operator</code> runs the operator on an attacked day and its benign twin; <code>detect</code> holds the residual
+test's building blocks. <code>experiments</code> runs a study over many attack windows. Each package's <code>__init__.py</code> opens with what
+its stage does.</p>
 <h2 id="principles">Principles<a class="headerlink" href="#principles" title="Permanent link">&para;</a></h2>
-<p>A setting is an argument of the function or constructor that uses it. Code never changes a library object's
-settings, or a shared record's arrays, after it is built: a variant is a copy (<code>with_overshoot</code>, <code>with_voltage_margin</code>).</p>
-<p>Each package's <code>__init__.py</code> says what its stage does and lists its public names (<code>__all__</code>), imported on first
-use so that reading a dataset never loads pandapower or Pyomo. A name outside <code>__all__</code> is internal and may change.</p>
 <ol>
-<li>A class owns state, cached work, or a shared interface. A plain function is stateless math.</li>
-<li>Classes are composed, not stacked. One small interface (<code>AttackFamily</code>) is the only base class.</li>
-<li>Data records are frozen dataclasses of numpy arrays.</li>
+<li>A setting is an argument of the function or constructor that uses it. Code never changes a library object's
+   settings, or a shared record's arrays, after it is built: a variant is a copy (<code>with_overshoot</code>,
+   <code>with_voltage_margin</code>).</li>
+<li>Each package's <code>__init__.py</code> lists its public names (<code>__all__</code>), imported on first use, so reading a dataset never
+   loads pandapower or Pyomo. A name outside <code>__all__</code> is internal and may change; a public name that is renamed keeps
+   its old spelling, with a DeprecationWarning, for one minor release.</li>
+<li>A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
+   frozen dataclasses of numpy arrays, and choices are validated records (<code>OperatorPolicy</code>).</li>
+<li>Extension points are small: <code>AttackFamily</code> is the base class of the attack families, and <code>Operator</code> and
+   <code>AlarmRule</code> are protocols. The overload families do stack (<code>MsFdia</code>, then <code>OpfFdia</code>, then <code>InterfaceFdia</code>), each
+   replacing one step of the search, as their docstrings say.</li>
 <li>One job per file. A file stays short enough to read in one sitting.</li>
-<li>Dependencies point one way, shown in the diagram below.</li>
-<li>pandapower lives in <code>scenario/solver.py</code>, h5py in <code>io.py</code>, random number creation in <code>config.py</code>. Pyomo models are
-   built in <code>scenario/solver.py</code> and in the attack OPFs (<code>attacks/opf_attack.py</code>, <code>attacks/interface_attack.py</code>), and
-   every one of them gets its Ipopt from <code>solvers.py</code>, which checks that it runs.</li>
-<li>Measurements are one flat vector <code>z</code> per frame with a meter table beside it. A client's data is <code>z[:, meters.owner == c]</code>.</li>
+<li>Dependencies point one way (below). pandapower lives in <code>scenario/solver.py</code>, h5py in <code>io.py</code>, random number
+   creation in <code>config.py</code>. Pyomo models are built in <code>scenario/solver.py</code> and in the attack OPFs, and every one gets
+   its Ipopt from <code>solvers.py</code>, which checks that it runs.</li>
+<li>Measurements are one flat vector <code>z</code> per frame with a meter table beside it. A client's data is
+   <code>z[:, meters.owner == c]</code>.</li>
+<li>Failures are named: a wrong argument is a <code>ConfigError</code>, data that does not meet a condition a
+   <code>DataConditionError</code>, a broken solver <code>SolverUnavailable</code>; what a stage cannot do it counts (<code>missed</code>,
+   <code>pf_failed_scans</code>) rather than hides.</li>
+<li>The golden snapshots pin what the operator, the detection tools and the interface attack return on fixed inputs,
+   so a change that moves a number says so.</li>
 </ol>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>src/fdia_graph/nyfed/
@@ -1725,21 +1771,7 @@ use so that reading a dataset never loads pandapower or Pyomo. A name outside <c
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
 <h2 id="how-the-pieces-talk">How the pieces talk<a class="headerlink" href="#how-the-pieces-talk" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>                     Settings
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                        |
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>          Case ---&gt; Network          Ownership
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>            |          |                 |
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>            |     +----+-----------+     |
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>            v     v                v     v
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>          AcSolver           Measurement (MeterPlan, NoiseModel)
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>            |                      |
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>       PoolBuilder ---&gt; Pool    Attacker
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                         |         |  uses MsFdia, Ramp
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                         |         v
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>                         +--&gt; TimelineBuilder ---&gt; TimelineWriter ---&gt; timeline.h5
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>                                                                          |
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>                                                              Dataset ---&gt; ClientView
-</code></pre></div>
+<p>The stages are drawn under "How a run flows" above. The imports point one way:</p>
 <ul>
 <li><code>grid</code> imports only <code>config</code>.</li>
 <li><code>scenario</code> and <code>sensing</code> import <code>grid</code>.</li>
@@ -1752,6 +1784,10 @@ copies them as they are.</p>
   operator's one residual test over all meters reads one AC state; <code>Episode.clients</code> records the
   owners of those meters, one or several.</li>
 <li><code>timeline</code> imports everything above it and <code>io</code>.</li>
+<li><code>operator</code> reads timeline files through <code>io</code> and imports <code>grid</code>, <code>scenario</code> and <code>sensing</code>. Nothing in the package
+  imports it; the tools and the tests do.</li>
+<li><code>detect</code> imports <code>attacks</code> (for <code>wrap_angles</code>), <code>grid</code> and <code>sensing</code>; <code>experiments</code> imports nothing of the
+  package, it only runs jobs.</li>
 <li><code>dataset</code> imports only <code>io</code> and <code>grid/network.py</code>, so loading data never needs pandapower.</li>
 </ul>
 <h2 id="records">Records<a class="headerlink" href="#records" title="Permanent link">&para;</a></h2>

@@ -1645,6 +1645,14 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Docs to read the New York grid by, and to extend it (New York grid).</strong> <code>docs/nyfed/WALKTHROUGH.md</code> follows one
+  attack through every stage with the call that does each step (each snippet checked on the 2019 data);
+  <code>docs/nyfed/EXTENDING.md</code> names the extension points (an attack family, an alarm rule, an operator, a study), each
+  with a runnable example under <code>examples/nyfed/</code> that CI runs; <code>docs/nyfed/ARCHITECTURE.md</code> opens with a rendered
+  diagram of the stages and its principles as they now hold, in place of an ASCII diagram that predated the operator
+  and the detectors.</p>
+</li>
+<li>
 <p><strong>The load model in one module per job (New York grid).</strong> <code>scenario/loads.py</code> (676 lines) keeps <code>LoadSeries</code>,
   <code>LoadModel</code> and its constants; the downloads and readers of its inputs move to <code>load_sources.py</code>, the fit of its
   within-hour constants to <code>load_fit.py</code> (public as <code>fluctuation_fit</code> and <code>switching_fit</code>, for refitting them), and
