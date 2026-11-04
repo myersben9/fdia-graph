@@ -41,7 +41,8 @@ class OperatorDay:
     attacked and benign scans `z`, `z_benign [T, M]`, the pool's basepoint `unit_p [T, G]`, the units'
     cost `cost [T, G]` ($/MWh, NYgrid's hourly costs interpolated on the frame clock as the pool build
     does), the real zonal LBMP `lbmp [T, 11]` ($/MWh, zones A to K), the `interfaces` the operator
-    enforces, `solved [T]`, and the file's first episode (`onset`, `length`)."""
+    enforces, `solved [T]`, the file's first episode (`onset`, `length`), and the file's labels of the meters the
+    attack tampers, `meter_tampered [T, M]` (None in a file without them)."""
 
     case: Case
     own: Ownership
@@ -58,6 +59,7 @@ class OperatorDay:
     solved: np.ndarray
     onset: int
     length: int
+    meter_tampered: np.ndarray | None = None
 
 
 # the interfaces the operator enforces, the attacked one first (N64)
@@ -146,6 +148,7 @@ def operator_day(
         solved=np.isfinite(vm).all(axis=1) & np.isfinite(p.unit_p[k]).all(axis=1),
         onset=int(eps["onset"][0]) if len(eps["onset"]) else -1,
         length=int(eps["length"][0]) if len(eps["length"]) else 0,
+        meter_tampered=h["labels/meter_tampered"][:] if "labels/meter_tampered" in h else None,
     )
     h.close()
     return day

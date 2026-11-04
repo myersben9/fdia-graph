@@ -72,3 +72,12 @@ def test_only_new_york_city_moves_the_flow_into_it_much():
     ]
     lever = {r["zone"]: r["lever_mw"] for r in rows}
     assert lever["J"] > 0.8 * sum(lever.values())
+
+
+def test_energy_without_a_price_is_unknown_not_free():
+    """A neighbor's energy in a scan with no price makes its value NaN; a missing price where nothing flowed does not."""
+    from fdia_graph.nyfed.operator.areas import _value
+
+    price = np.array([20.0, np.nan, 30.0])
+    assert np.isnan(_value(np.array([12.0, 12.0, 0.0]), price))
+    assert np.isclose(_value(np.array([12.0, 0.0, 24.0]), price), (12 * 20 + 24 * 30) / 12)

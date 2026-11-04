@@ -22,6 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
+from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.grid.case import REF
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.day import OperatorDay, node_lbmp
@@ -29,6 +30,7 @@ from fdia_graph.nyfed.operator.policy import entry_share
 from fdia_graph.nyfed.operator.run import Response
 from fdia_graph.nyfed.operator.sced import FRAME_HOURS, shift_factors
 from fdia_graph.nyfed.scenario.inputs import ZONES
+from fdia_graph.nyfed.sensing.measure import Measurement
 from fdia_graph.nyfed.sensing.meters import KINDS
 
 __all__ = ["FEEDS", "NEIGHBORS", "PROXY", "area_damage", "attack_surface", "neighbor_prices", "zone_levers"]
@@ -117,14 +119,22 @@ def _ny_rows(r: Response, day: OperatorDay) -> list[dict]:
                 "area": name,
                 "gen_mwh": float(dgen[:, units].sum() * FRAME_HOURS),
                 "gen_down_mw": float(max(-(dgen[:, units].sum(axis=1)).min(), 0.0)),
-                "fuel_usd": float(fuel[:, units].sum()),
-                "sales_usd": float(sales[:, units].sum()),
+                "fuel_usd": float(np.nansum(fuel[:, units])),
+                "sales_usd": float(np.nansum(sales[:, units])),
                 "shed_mwh": float(shed[:, buses].sum()),
                 "load_mw": float(load[buses].sum()),
                 **_exposure(zones, moves),
             }
         )
     return rows
+
+
+def _value(mw: np.ndarray, price: np.ndarray) -> float:
+    """The energy `mw [T]` at `price [T]` ($): NaN when energy flowed in a scan with no price, so missing prices
+    never read as free energy."""
+    if (np.isnan(price) & (mw != 0)).any():
+        return float("nan")
+    return float(np.nansum(mw * price) * FRAME_HOURS)
 
 
 def _neighbor_rows(r: Response, day: OperatorDay, prices: dict[int, np.ndarray], entry: str) -> list[dict]:
@@ -142,7 +152,7 @@ def _neighbor_rows(r: Response, day: OperatorDay, prices: dict[int, np.ndarray],
                 "area": name,
                 "supplied_mw": float(max(mw.max(), 0.0)),
                 "supplied_mwh": float(mw.sum() * FRAME_HOURS),
-                "supplied_usd": float(np.nansum(mw * prices[area]) * FRAME_HOURS),
+                "supplied_usd": _value(mw, prices[area]),
             }
         )
     return rows
@@ -178,9 +188,17 @@ def attack_surface(day: OperatorDay) -> list[dict]:
     any scan, the buses whose injection meter it moved, and the largest pretended net injection change of the
     area in one scan (MW, negative where it pretends more load)."""
     c, plan = day.case, day.plan
-    d = day.z - day.z_benign  # the attack vector of every scan (the noise is the same in both)
-    sigma = plan.sigma_rel * np.abs(day.z_benign) + plan.sigma_abs
-    tampered = (np.abs(d) > sigma).any(axis=0)  # [M]
+    d = wrap_angles(
+        day.z - day.z_benign, plan.kind
+    )  # the attack vector of every scan (the noise is the same in both)
+    if day.meter_tampered is not None:
+        # the labels the design stored, exact: the readings are stored in float32, and the search leaves many
+        # changes right at their meter's noise, where that rounding would flip the count
+        tampered = day.meter_tampered.any(axis=0)  # [M]
+    else:  # the labels' rule (`Attacker.tampered`): against the noise of the noiseless reading
+        sigma = plan.sigma_rel * np.abs(Measurement(Network(c), plan).h(day.vm, day.va)) + plan.sigma_abs
+        with np.errstate(invalid="ignore"):  # an unsolved scan's NaN readings count as untouched
+            tampered = (np.abs(d) > sigma).any(axis=0)
     p_meter = plan.kind == KINDS.index("p")
     meter_zone = c.zone[plan.bus].astype(str)
     areas = [("zone", z, meter_zone == z) for z in ZONES]
@@ -188,6 +206,7 @@ def attack_surface(day: OperatorDay) -> list[dict]:
     rows = []
     for kind, name, meters in areas:
         net = d[:, meters & p_meter].sum(axis=1)
+        net = net[np.isfinite(net)]  # unsolved scans carry NaN readings
         rows.append(
             {
                 "kind": kind,
