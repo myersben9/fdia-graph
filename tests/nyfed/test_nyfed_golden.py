@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from dataclasses import fields
 from pathlib import Path
 
 import numpy as np
@@ -83,20 +84,26 @@ def check(name: str, got: dict) -> None:
     _same(got, json.loads(path.read_text()), name)
 
 
-def _digest(a: np.ndarray) -> list[float]:
-    """Sum, absolute sum and largest magnitude of an array, NaN ignored: enough to see any change."""
+def _digest(a: np.ndarray) -> dict:
+    """The shape, the count of non-finite entries, and the sum, absolute sum and largest magnitude of the finite
+    ones: a value that changes, or a result that goes missing (NaN), both show."""
     a = np.asarray(a, float)
-    return [float(np.nansum(a)), float(np.nansum(np.abs(a))), float(np.nanmax(np.abs(a))) if a.size else 0.0]
+    finite = np.isfinite(a)
+    v = a[finite]
+    return {
+        "shape": list(a.shape),
+        "nonfinite": int((~finite).sum()),
+        "sum": float(v.sum()),
+        "abs": float(np.abs(v).sum()),
+        "max": float(np.abs(v).max()) if v.size else 0.0,
+    }
 
 
 def _response(r) -> dict:
     from fdia_graph.nyfed.operator.response import summarize
 
     twins = {
-        side: {
-            f: _digest(getattr(t, f))
-            for f in ("dev", "reg", "uncovered", "shed", "iface_change", "n1_change")
-        }
+        side: {f.name: _digest(getattr(t, f.name)) for f in fields(t)}  # every array of the run
         for side, t in (("attacked", r.attacked), ("benign", r.benign))
     }
     return {"alarm": r.alarm, "summary": summarize(r), "twins": twins}
@@ -186,6 +193,13 @@ def test_persistence_rule(tools):
     )
 
 
+TERRITORIES = ROOT / "data" / "territories"
+
+
+@pytest.mark.skipif(
+    not all((TERRITORIES / n).exists() for n in ("nys_electric_territories.geojson", "ny_bus_locations.csv")),
+    reason="utility territories missing under NYFED_ROOT/data/territories (the builder assigns clients)",
+)
 @pytest.mark.parametrize("overshoot", (0.0, 175.0))
 def test_interface_attack_design(overshoot):
     """The Am design on the onset of `WINDOWS`, at the limit and at the damage study's overshoot."""
@@ -213,7 +227,7 @@ def test_interface_attack_design(overshoot):
             "target_branch": int(ep.target_branch),
             "length": int(ep.length),
             "a": _digest(ep.a),
-            "a_per_scan": [_digest(row)[1] for row in ep.a],
+            "a_per_scan": [_digest(row)["abs"] for row in ep.a],
             "meters_tampered": int(tam.any(axis=0).sum()),
         },
     )
