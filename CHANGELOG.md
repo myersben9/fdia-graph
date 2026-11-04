@@ -5,6 +5,23 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A failed power flow reads as unknown, not safe (New York grid).** The operator's `Twin` gains `pf_failed [T]`,
+  the scans whose AC power flow on the true grid failed, and `summarize` reports `pf_failed_scans` and
+  `pf_failed_benign_scans`. Before, those scans' NaN margins counted as within the limit with no trace. `respond`
+  now rejects an unknown `after` (before, a typo ran as an operator that never answers the alarm), and an unknown
+  `mode`, `after` or `entry` raises `fdia_graph.errors.ConfigError` (a ValueError, as before).
+
+- **Why a design found no attack (New York grid).** Every family's `design` that returns None now leaves
+  `last_miss` (one of `fdia_graph.nyfed.attacks.episode.MISSES`: `no_target`, `infeasible`, `solver_error`), and
+  `TimelineBuilder.build` reports `missed`, the count of each reason per family. `build_episode`'s error names the
+  reason. Before, a timeline with few attacks gave no way to tell an empty window from a failing solver.
+
+- **A missing solver now says so (New York grid).** `fdia_graph.nyfed.solvers.ipopt` finds Ipopt in the environment,
+  checks that it starts, and raises the new `fdia_graph.errors.SolverUnavailable` with the fix when it does not. Before,
+  an Ipopt that could not start (a missing DLL, exit code 0xC0000135) made every attack design read as infeasible, so a
+  timeline built with no overload attacks and no error. The attack OPF now reads only an abnormal stop on its own model
+  as an infeasible support, and counts those in `solver_errors`.
+
 - **An attacker that follows the closed loop (New York grid).** `tools/nyfed/adaptive_bdd.py` applies the designed
   false-state increment to the closed-loop state each scan and tests it, and the designed scans before the operator
   acts, under the persistence rule (N82).

@@ -4,8 +4,6 @@ hours (pandapower)."""
 from __future__ import annotations
 
 import logging
-import os
-import sys
 import warnings
 
 import numpy as np
@@ -16,6 +14,7 @@ from pandapower.converter.pypower import from_ppc
 from fdia_graph.nyfed.grid.case import REF, Case
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.grid.nygrid import HQ_BUS
+from fdia_graph.nyfed.solvers import ipopt
 
 _NO_LIMIT = 9999.0
 # A unit held at a value its last bounds miss by rounding makes Pyomo warn (W1002); the bounds are reset each solve.
@@ -42,17 +41,6 @@ def _ppc(case: Case) -> dict:
     gen[0, [0, 5, 7]] = [ref + 1, case.vm[ref], 1]
     gen[0, 3], gen[0, 4], gen[0, 8], gen[0, 9] = _NO_LIMIT, -_NO_LIMIT, _NO_LIMIT, -_NO_LIMIT
     return {"version": "2", "baseMVA": case.base_mva, "bus": bus, "branch": br, "gen": gen}
-
-
-def _ipopt() -> pe.SolverFactory:
-    """Ipopt from the environment's conda Library folder, whose DLLs it needs on PATH."""
-    lib = os.path.join(sys.prefix, "Library", "bin")
-    if os.path.isdir(lib) and lib not in os.environ["PATH"]:
-        os.environ["PATH"] = lib + os.pathsep + os.environ["PATH"]
-    exe = os.path.join(lib, "ipopt.exe")
-    solver = pe.SolverFactory("ipopt", executable=exe) if os.path.exists(exe) else pe.SolverFactory("ipopt")
-    solver.options.update({"tol": 1e-8, "max_iter": 300})
-    return solver
 
 
 def _opf_model(network: Network, ref: int) -> pe.ConcreteModel:
@@ -126,7 +114,7 @@ class AcSolver:
         # appended after that line with its own -1100 to 1500 MW (L367-377), so it keeps its case limits (N45)
         self._import = (case.fuel == "Import") & (case.bus_id[case.unit_bus] != HQ_BUS)
         self._opf = _opf_model(self.network, self._ref)
-        self._ipopt = _ipopt()
+        self._ipopt = ipopt(tol=1e-8, max_iter=300)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             net = from_ppc(_ppc(case), f_hz=60, validate_conversion=False)

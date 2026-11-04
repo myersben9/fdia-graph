@@ -19,6 +19,8 @@
   "over_mwh": -0.0,
   "over_run_scans": 0,
   "over_scans": 0,
+  "pf_failed_benign_scans": 0,
+  "pf_failed_scans": 0,
   "regulation_mw": 64.30334472656229,
   "regulation_mwh": 0.0,
   "regulation_mwh_CHGE": 0.0,
@@ -102,6 +104,15 @@
      288
     ],
     "sum": -148.17146777225162
+   },
+   "pf_failed": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
    },
    "reg": {
     "abs": 668.198547363282,
@@ -228,6 +239,15 @@
     "sum": 408.0
    },
    "n1_change": {
+    "abs": 0.0,
+    "max": 0.0,
+    "nonfinite": 0,
+    "shape": [
+     288
+    ],
+    "sum": 0.0
+   },
+   "pf_failed": {
     "abs": 0.0,
     "max": 0.0,
     "nonfinite": 0,

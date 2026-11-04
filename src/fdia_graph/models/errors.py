@@ -1,5 +1,6 @@
 """The named errors of conditions only the data reveals, beside `ConfigError` so a model can raise
-one (`Validated.error`). `fdia_graph.errors` re-exports every one."""
+one (`Validated.error`), and the one error of an environment that cannot run a step
+(`SolverUnavailable`). `fdia_graph.errors` re-exports every one."""
 
 from __future__ import annotations
 
@@ -59,3 +60,8 @@ class NoSuchBranch(DataConditionError):
 
 class SnapshotDrawFailed(DataConditionError):
     """Too few of [WU26]'s steady-state draws converged to fill a window (`trust.wu26_snapshots`)."""
+
+
+class SolverUnavailable(RuntimeError):
+    """The optimization solver a step needs (Ipopt, through Pyomo) is not installed or does not start. Not a
+    property of the data, so not a `DataConditionError`: the run cannot go on until the environment is fixed."""
