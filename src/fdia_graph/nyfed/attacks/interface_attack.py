@@ -35,7 +35,7 @@ import numpy as np
 from fdia_graph.errors import ConfigError
 from fdia_graph.nyfed.attacks.attacker import Attacker
 from fdia_graph.nyfed.attacks.episode import Episode, Window
-from fdia_graph.nyfed.attacks.opf_attack import OpfFdia, _Window
+from fdia_graph.nyfed.attacks.opf_attack import OpfFdia, _OpfModel, _Prepared, _Window
 from fdia_graph.nyfed.grid.interfaces import Interface
 from fdia_graph.nyfed.sensing.meters import KINDS
 
@@ -52,14 +52,17 @@ class _IfaceWindow(_Window):
     offset: np.ndarray = field(default_factory=lambda: np.zeros(0))
     igoal: np.ndarray = field(default_factory=lambda: np.zeros(0))
     h_true: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    _still: list[tuple[int, float]] = field(default_factory=list)  # inner branches the support leaves true
-    _meters: list[int] = field(default_factory=list)  # the meter of each objective term
 
 
 class InterfaceFdia(OpfFdia):
     """Am against `interfaces` (from `hourly_interfaces`, over the same frames as the pool the onsets
     index), with OpfFdia's bounds and settings; `near` the real loading an onset needs (N48, 0.9).
-    `windows_solved` (6) caps the statically feasible supports per anchor that get the full window."""
+    `windows_solved` (6) caps the statically feasible supports per anchor that get the full window.
+
+    What it replaces in `OpfFdia`: `design` (the targets are the interfaces loaded at the window's last rise scan,
+    `_loaded`, not lines), the goal (the interface's summed flow rising by the hour's real headroom, plus
+    `overshoot`, `_prepare_interface`), and the OPF's goal constraint and objective (`_model`, `_set_scan`). The
+    branch ratings `OpfFdia` takes are not used, so it passes zeros. `with_overshoot` gives a variant as a copy."""
 
     def __init__(
         self,
@@ -154,7 +157,7 @@ class InterfaceFdia(OpfFdia):
             prep = self._prepare_interface(onset, vm, va, it, anchor)
             if prep is None:
                 continue
-            w, area, start, free = prep
+            w, area, start, free = prep.window, prep.area, prep.start, prep.free
             solved = 0
             for support in self._candidates(area, start, free):
                 if solved >= self.windows_solved:
@@ -214,18 +217,18 @@ class InterfaceFdia(OpfFdia):
         gen = None if self.gen_output is None else self.gen_output[onset : onset + L]
         h_true = att.meas.h(vm, va)
         w = _IfaceWindow(
-            onset,
-            vm,
-            np.deg2rad(va),
-            p,
-            q,
-            att.bus_load(vm, va),
-            att.sigma(h_true),
-            hours,
-            np.zeros(0, int),
-            np.zeros((L, 0)),
-            rise,
-            gen,
+            onset=onset,
+            vm=vm,
+            th=np.deg2rad(va),
+            p=p,
+            q=q,
+            load=att.bus_load(vm, va),
+            sig=att.sigma(h_true),
+            hours=hours,
+            targets=np.zeros(0, int),  # the goal is the interface's flow, not a branch's
+            goal=np.zeros((L, 0)),
+            rise=rise,
+            gen=gen,
             inner=it.branches[inner],
             inner_sign=it.signs[inner],
             offset=np.delete(true, inner, axis=1).sum(axis=1),
@@ -234,7 +237,7 @@ class InterfaceFdia(OpfFdia):
         )
         free = set(self._free(vm[0], va[0], area).tolist())
         anchor_ends = {int(case.f[anchor]), int(case.t[anchor])} & aset
-        return (w, area, frozenset(anchor_ends), free) if free and anchor_ends else None
+        return _Prepared(w, area, frozenset(anchor_ends), free) if free and anchor_ends else None
 
     # ------------------------------------------------------------------ the OPF on one support
     def _model(self, w: _IfaceWindow, support: np.ndarray):
@@ -243,9 +246,9 @@ class InterfaceFdia(OpfFdia):
         import pyomo.environ as pe
 
         ctx = super()._model(w, support)
-        m, interior = ctx[0], ctx[1]
+        m, interior = ctx.model, ctx.interior
         att, case, base = self.att, self.att.net.case, self.att.base_mva
-        inside, outside = set(interior.tolist()), set(ctx[4])
+        inside, outside = set(interior.tolist()), set(ctx.outside)
 
         def V(b):
             if b in inside:
@@ -280,9 +283,9 @@ class InterfaceFdia(OpfFdia):
             assert pq is not None  # a moving branch has an interior end, so both its ends are modelled
             sent += s * pq[0]
         m.c.add(sent + m.fixed_flow == m.igoal)
-        w._still = [(b, s) for b, s in zip(w.inner.tolist(), w.inner_sign.tolist()) if (b, s) not in moving]
+        ctx.still = [(b, s) for b, s in zip(w.inner.tolist(), w.inner_sign.tolist()) if (b, s) not in moving]
 
-        w._meters = []
+        ctx.objective_meters = []
         if self._meter_obj:
             plan = att.meas.plan
             terms = []
@@ -301,7 +304,7 @@ class InterfaceFdia(OpfFdia):
                 j = np.flatnonzero((plan.kind == KV) & (plan.bus == b))
                 if len(j):
                     terms.append((int(j[0]), m.vm[b]))
-            w._meters = [j for j, _ in terms]
+            ctx.objective_meters = [j for j, _ in terms]
             m.MJ = pe.Set(initialize=list(range(len(terms))))
             m.mt = pe.Param(m.MJ, mutable=True, initialize=0.0)
             m.ms = pe.Param(m.MJ, mutable=True, initialize=0.0)
@@ -313,15 +316,15 @@ class InterfaceFdia(OpfFdia):
             m.meter_obj = pe.Objective(expr=m.obj.expr + sum(m.um[i] for i in m.MJ))
         return ctx
 
-    def _set_scan(self, w: _IfaceWindow, ctx, k, prev, static, start=None, end=None) -> bool:
+    def _set_scan(self, w: _IfaceWindow, ctx: _OpfModel, k, prev, static, start=None, end=None) -> bool:
         if not super()._set_scan(w, ctx, k, prev, static, start, end):
             return False
-        m = ctx[0]
+        m = ctx.model
         pf, _, _, _ = self.att.net.flows(w.vm[k : k + 1], np.rad2deg(w.th[k : k + 1]))
-        still = sum(s * pf[0, b] for b, s in w._still)
+        still = sum(s * pf[0, b] for b, s in ctx.still)
         m.fixed_flow = float(w.offset[k] + still)
         m.igoal = float(w.igoal[k])
-        for i, j in enumerate(w._meters):
+        for i, j in enumerate(ctx.objective_meters):
             m.mt[i] = float(w.h_true[k, j])
             m.ms[i] = float(w.sig[k, j])
         return True

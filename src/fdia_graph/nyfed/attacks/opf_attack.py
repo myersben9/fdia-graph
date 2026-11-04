@@ -38,12 +38,13 @@ drift where the ramps cannot bring them back. Solved by Ipopt through Pyomo.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 
 from fdia_graph.nyfed.attacks.attacker import Attacker
-from fdia_graph.nyfed.attacks.episode import Episode, Window
+from fdia_graph.nyfed.attacks.episode import Episode
 from fdia_graph.nyfed.attacks.msfdia import MsFdia
 from fdia_graph.nyfed.solvers import ipopt
 
@@ -69,6 +70,36 @@ class _Window:
     gen: np.ndarray | None = None  # [L, N] the units' output at each bus (MW), None: the net injection
 
 
+@dataclass
+class _OpfModel:
+    """One support's OPF, built by `_model` and filled per scan by `_set_scan`: the Pyomo `model`, the buses whose
+    voltage it frees (`interior`), the buses whose injection it may pretend (`free`), every bus whose injection it
+    holds or moves (`rows`), the buses beyond the interior held at their true voltage (`outside`), and each free bus's
+    P and Q injection meter (`meter[(bus, 0 or 1)]`, -1 for none). An interface goal adds the inner branches the
+    support leaves at their true flow (`still`, branch and sign) and the meter of each objective term
+    (`objective_meters`)."""
+
+    model: Any
+    interior: np.ndarray
+    free: np.ndarray
+    rows: np.ndarray
+    outside: list[int]
+    meter: dict[tuple[int, int], int]
+    still: list[tuple[int, float]] = field(default_factory=list)
+    objective_meters: list[int] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _Prepared:
+    """A window ready for the support search: the shared `window`, the attacker's `area`, the buses the search grows
+    its supports from (`start`), and the buses whose injection it may pretend (`free`)."""
+
+    window: _Window
+    area: np.ndarray
+    start: frozenset[int]
+    free: set[int]
+
+
 class OpfFdia(MsFdia):
     """Am, or Ap with a step bound, whose false states come from a local AC OPF on each candidate
     support. Takes MsFdia's target choice (eligible lines, N26 order, D17 sets), support search and
@@ -76,7 +107,12 @@ class OpfFdia(MsFdia):
     unbounded), `gen_band [N]` the largest total deviation from the basepoint (MW, inf unbounded),
     `q_lo`, `q_hi [N]` the reactive capability (MVAr, default the case's limits) and `q_ramp [N]` the
     reactive move per scan (MVAr, default unbounded). `windows_solved` caps how many statically feasible
-    supports get the full window solve (3)."""
+    supports get the full window solve (3).
+
+    What it replaces in `MsFdia`: `_attack` only. Each candidate support is first solved at the last rise scan with
+    every static bound (`_static`, fast), and a support that passes is then solved scan by scan with the per-scan
+    bounds (`_sequential`). Each solve builds the support's Pyomo model once (`_model`, an `_OpfModel`) and sets each
+    scan's values on it (`_set_scan`). The target choice and the support search stay `MsFdia`'s."""
 
     def __init__(
         self,
@@ -110,23 +146,6 @@ class OpfFdia(MsFdia):
         self._solver = None
         self.solver_errors = 0  # solves Ipopt stopped abnormally on, each read as an infeasible support
 
-    def reachable(self, window: Window) -> bool:
-        """Whether some target set of the window has a support that carries the full overload at the last
-        rise scan inside every static bound (no ramp, step or exit): the necessary condition, fast."""
-        onset, vm, va = window
-        lines = self._eligible(vm, va)
-        if len(lines) == 0:
-            return False
-        rise = vm.shape[0] - self.exit_scans
-        for targets in self._target_sets(self._order(lines, vm[:rise], va[:rise], np.random.default_rng(0))):
-            prep = self._prepare(onset, vm, va, np.asarray(targets, int))
-            if prep is None:
-                continue
-            w, area, start, free = prep
-            if any(self._static(w, s) is not None for s in self._candidates(area, start, free)):
-                return True
-        return False
-
     def _free(self, vm: np.ndarray, va: np.ndarray, buses: np.ndarray) -> np.ndarray:
         """The buses of `buses` whose injection may be pretended: the attackable loads alone with
         `loads_only` (N43), the loads and the generators otherwise. A zero-injection bus never is."""
@@ -156,31 +175,31 @@ class OpfFdia(MsFdia):
         hours = None if self.frame_hour is None else self.frame_hour[onset : onset + length]
         gen = None if self.gen_output is None else self.gen_output[onset : onset + length]
         w = _Window(
-            onset,
-            vm,
-            np.deg2rad(va),
-            p,
-            q,
-            att.bus_load(vm, va),
-            att.sigma(att.meas.h(vm, va)),
-            hours,
-            targets,
-            goal,
-            rise,
-            gen,
+            onset=onset,
+            vm=vm,
+            th=np.deg2rad(va),
+            p=p,
+            q=q,
+            load=att.bus_load(vm, va),
+            sig=att.sigma(att.meas.h(vm, va)),
+            hours=hours,
+            targets=targets,
+            goal=goal,
+            rise=rise,
+            gen=gen,
         )
         free = set(self._free(vm[0], va[0], area).tolist())
         start = frozenset(
             int(b) for b in np.unique(np.r_[case.f[targets], case.t[targets]]) if int(b) in set(area.tolist())
         )
-        return (w, area, start, free) if free else None
+        return _Prepared(w, area, start, free) if free else None
 
     def _attack(self, onset: int, vm: np.ndarray, va: np.ndarray, targets: np.ndarray) -> Episode | None:
         att = self.att
         prep = self._prepare(onset, vm, va, targets)
         if prep is None:
             return None
-        w, area, start, free = prep
+        w, area, start, free = prep.window, prep.area, prep.start, prep.free
         best_cost, best, solved = None, None, 0
         for support in self._candidates(area, start, free):
             if solved >= self.windows_solved:
@@ -270,11 +289,18 @@ class OpfFdia(MsFdia):
         m.obj = pe.Objective(
             expr=sum(m.up[b] + m.uq[b] + 1e-4 * (m.dp[b] ** 2 + m.dq[b] ** 2) for b in free.tolist())
         )
-        return m, interior, free, rows, outside, meter
+        return _OpfModel(m, interior, free, rows, outside, meter)
 
-    def _set_scan(self, w, ctx, k, prev, static, start=None, end=None) -> bool:
+    def _set_scan(self, w, ctx: _OpfModel, k, prev, static, start=None, end=None) -> bool:
         """Set scan k's parameters, bounds and starting point; False when some bound box is empty."""
-        m, interior, free, rows, outside, meter = ctx
+        m, interior, free, rows, outside, meter = (
+            ctx.model,
+            ctx.interior,
+            ctx.free,
+            ctx.rows,
+            ctx.outside,
+            ctx.meter,
+        )
         case = self.att.net.case
         for b in outside:
             m.vo[b], m.to[b] = float(w.vm[k, b]), float(w.th[k, b])
@@ -327,7 +353,7 @@ class OpfFdia(MsFdia):
         import pyomo.environ as pe
 
         ctx = self._model(w, support)
-        m, free = ctx[0], ctx[2].tolist()
+        m, free = ctx.model, ctx.free.tolist()
         prev = {b: (0.0, 0.0) for b in free}
         if not (self._set_scan(w, ctx, w.rise - 1, prev, static=True) and self._run(m)):
             return None
@@ -341,7 +367,7 @@ class OpfFdia(MsFdia):
         import pyomo.environ as pe
 
         ctx = self._model(w, support)
-        m, interior, free, *_ = ctx
+        m, interior, free = ctx.model, ctx.interior, ctx.free
         L = w.vm.shape[0]
         vm_f, th_f = w.vm.copy(), w.th.copy()
         prev = {b: (0.0, 0.0) for b in free.tolist()}

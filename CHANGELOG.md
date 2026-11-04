@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The overload attacks read plainly (New York grid).** The OPF attack's per-support model and prepared window
+  are named records (`_OpfModel`, `_Prepared`) instead of tuples unpacked by position; the interface attack keeps
+  its per-support state on that model rather than writing it onto the shared window; windows are built by keyword;
+  and the unused `OpfFdia.reachable` is gone. Each class's docstring now says which step of the search it replaces
+  (`MsFdia` the target choice and support search, `OpfFdia` the solve, `InterfaceFdia` the goal and the design).
+  Attack designs are unchanged; `OpfFdia.reachable`, which nothing called, is no longer available.
+
 - **The operator's choices as one record, and an operator interface (New York grid).** `OperatorPolicy` holds
   `mode`, `delay`, `over`, `entry`, `closed_loop` and `after`, each checked when the record is built (`OperatorMode`,
   `AlarmAnswer` and `Entry` name the allowed values); `respond(day, policy=...)` takes one, and its keywords still
