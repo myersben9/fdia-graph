@@ -9,7 +9,9 @@ In fdia-graph since 2026-11-02 as `fdia_graph.nyfed`: the package paths below ar
 3. Data records are frozen dataclasses of numpy arrays.
 4. One job per file. A file stays short enough to read in one sitting.
 5. Dependencies point one way, shown in the diagram below.
-6. pandapower and Pyomo live in `scenario/solver.py`, h5py in `io.py`, random number creation in `config.py`.
+6. pandapower lives in `scenario/solver.py`, h5py in `io.py`, random number creation in `config.py`. Pyomo models are
+   built in `scenario/solver.py` and in the attack OPFs (`attacks/opf_attack.py`, `attacks/interface_attack.py`), and
+   every one of them gets its Ipopt from `solvers.py`, which checks that it runs.
 7. Measurements are one flat vector `z` per frame with a meter table beside it. A client's data is `z[:, meters.owner == c]`.
 
 ## Files
@@ -20,6 +22,8 @@ src/fdia_graph/nyfed/
   config.py            Settings, rng()
   build.py             fetch_inputs, production_builder (the release build in one place)
   io.py                TimelineWriter, open_timeline, read_pool, write_pool, SPLITS, FAMILIES
+  solvers.py           ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
+  tables.py            read_rows (the input CSV tables, read whole and closed)
   dataset.py           Dataset, ClientView
   grid/
     case.py            Case
@@ -41,7 +45,7 @@ src/fdia_graph/nyfed/
     measure.py         Measurement
     noise.py           NoiseModel
   attacks/
-    episode.py         Episode, AttackFamily
+    episode.py         Episode, AttackFamily (design, design_explained), MISSES
     attacker.py        Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
     msfdia.py          MsFdia (Am, and Ap with a step bound)
     opf_attack.py      OpfFdia (Am, Ap with the false state from a local AC OPF, N35)
@@ -54,7 +58,7 @@ src/fdia_graph/nyfed/
   operator/
     __init__.py        package docstring only
     sced.py            DcSced, Step, shift_factors, outage_factors, shortage_usd (N59, N60)
-    response.py        OperatorDay, Twin, Response, operator_day, seen_interfaces, respond, summarize
+    response.py        OperatorDay, Twin, Response, MODES, AFTER, ENTRY, operator_day, seen_interfaces, respond, summarize
 tools/nyfed/
   operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
   tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
@@ -67,7 +71,9 @@ tools/nyfed/
 results/
   nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
 tests/nyfed/
-  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset}.py
+  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+  test_nyfed_{solvers,choices,misses,tables}.py   checks that need no data (they run in CI)
+  test_nyfed_golden.py, golden/   snapshots of the operator, the detection tools and the interface attack
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 ```
 
@@ -171,6 +177,8 @@ Stateless steps, each called once in the build.
 | `split_frames(T, frac)` | `timeline/schedule.py` | | split column `[T]`: train, val, test as three contiguous blocks of the year in time order (before N41) |
 | `natural_steps(time, p, solved, pct=95.0)` | `attacks/attacker.py` | the pool's frame times, net injections `p [T, N]` (MW), which frames are solved | `[24, N]` each bus's `pct` percentile of \|p(t) - p(t-1)\| over consecutive solved frames, by the clock hour of the later frame: the natural five-minute step Ap's attacker knows (ours) |
 | `place_episodes(T, lengths, frac, rng, allowed=None)` | `timeline/schedule.py` | one split's frame count, `{family: length}`, the attacked share, `{family: [T] allowed onsets}` | `Slot` list: the whole episodes closest to `frac T` frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this) |
+| `ipopt(**options)` | `solvers.py` | Ipopt's options | a Pyomo `SolverFactory` checked to start; `SolverUnavailable` with the fix when Pyomo or Ipopt is missing or Ipopt cannot start |
+| `read_rows(path, encoding)` | `tables.py` | a CSV table of the inputs | its rows as dicts, the file closed |
 | `open_timeline(path)` | `io.py` | `timeline.h5` | the read-only file with its `Case`, `Ownership`, `MeterPlan` (a file written before `Case.ramp` reads it as NaN) |
 | `generator_ramps(case, minutes=5.0)` | `attacks/attacker.py` | `Case` | `[N]` each bus's units' ramp over `minutes` (MW) summed at the bus: NYgrid's ramp, nuclear 0, hydro 10% of nameplate per minute, imports 300 MW per 15 minutes per unit (N34), inf at a bus with no unit |
 | `generator_band(case)` | `attacks/attacker.py` | `Case` | `[N]` 3% of each bus's units' upper limit (MW), the basepoint band (N33) |

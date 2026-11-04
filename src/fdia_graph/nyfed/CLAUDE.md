@@ -2,14 +2,14 @@
 
 The New York grid package, moved into the SDK from its own repository on 2026-11-02. Until it is brought under the SDK's rules module by module (`DEFERRED` in `tools/readability.py`), these rules hold here.
 
-`docs/nyfed/ARCHITECTURE.md` is the contract for this package. `docs/nyfed/PLAN.md` says what each block builds and links to the source it comes from.
+`docs/nyfed/ARCHITECTURE.md` is the contract for this package, and `docs/nyfed/TROUBLESHOOTING.md` says how each stage fails. `docs/nyfed/PLAN.md` says what each block builds and links to the source it comes from.
 
 ## Stay inside the architecture
 
 - Only create the files, classes, records and functions listed in `docs/nyfed/ARCHITECTURE.md`, with the names and signatures given there.
 - If a change needs something that is not listed (a new file, class, public method, record field or dependency), stop and ask. Once it is approved, update `docs/nyfed/ARCHITECTURE.md` in the same change.
 - Imports point one way: `grid` -> `scenario`, `sensing` -> `attacks` -> `timeline` -> `io` -> `dataset`. `dataset.py` imports only `io.py` and `grid/network.py`.
-- pandapower and Pyomo are imported only in `scenario/solver.py`. Optimization problems are Pyomo models. h5py only in `io.py`. Random generators are made only by `config.rng()` and passed in.
+- pandapower is imported only in `scenario/solver.py`. Optimization problems are Pyomo models, built in `scenario/solver.py` and the attack OPFs, each solved by the Ipopt of `solvers.ipopt()`. h5py only in `io.py`. Random generators are made only by `config.rng()` and passed in.
 - Records are frozen dataclasses of numpy arrays. A class owns state, cached work or a shared interface. Stateless math is a plain function.
 - Compose classes. `AttackFamily` is the only base class. No mixins.
 - Measurements are the flat vector `z` with the `MeterPlan` table. A client's data is `z[:, meters.owner == c]`. A `ClientView` never exposes another client's meters.
