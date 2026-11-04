@@ -43,3 +43,17 @@ def test_design_says_why_it_found_no_attack(miss, errors, found, want):
     _, ep, _, why = builder._design((0, "Am", 5, np.ones((1, 2)), np.zeros((1, 2))))
     assert (ep is not None) is found
     assert why == want and (why is None or why in MISSES)
+
+
+def test_design_explained_keeps_last_miss_right_on_direct_calls():
+    """Outside the builder too: a success clears the reason a previous miss left, and an unexplained None reads as
+    infeasible rather than a stale 'no_target'."""
+    fam = _family("no_target", 0, False)
+    assert fam.design_explained((0, np.ones((1, 2)), np.zeros((1, 2))), np.random.default_rng(0)) == (
+        None,
+        "no_target",
+    )
+    hit = _family(None, 0, True)
+    hit.last_miss = "no_target"  # left by an earlier miss
+    ep, why = hit.design_explained((3, np.ones((1, 2)), np.zeros((1, 2))), np.random.default_rng(0))
+    assert ep is not None and why is None and hit.last_miss is None

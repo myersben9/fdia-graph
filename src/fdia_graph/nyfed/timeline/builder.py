@@ -60,16 +60,10 @@ def _design(
     """One episode design in a worker: (slot index, the episode or None, seconds, why there is none: one of
     `MISSES`, None with an episode)."""
     i, family, onset, vm, va = task
-    fam = _WORKER["families"][family]
-    fam.last_miss, errors = None, fam.solver_errors
     start = time.perf_counter()
-    ep = fam.design((onset, vm, va), rng(_WORKER["settings"], f"design/{family}/{onset}"))
-    if ep is not None:
-        miss = None
-    elif fam.solver_errors > errors:  # the solver failed on some support: the miss may not be real
-        miss = "solver_error"
-    else:
-        miss = fam.last_miss or "infeasible"
+    ep, miss = _WORKER["families"][family].design_explained(
+        (onset, vm, va), rng(_WORKER["settings"], f"design/{family}/{onset}")
+    )
     return i, ep, time.perf_counter() - start, miss
 
 
@@ -190,13 +184,15 @@ class TimelineBuilder:
     def _survey(self, weeks: np.ndarray, masks: dict[str, np.ndarray]):
         """N42: every allowed onset of each waiting family whose window lies in one week (`weeks` [T]), on
         a grid of `survey` frames, designed. Returns `{family: [T] bool}` the onsets with an attack,
-        `{(family, onset): (Episode, seconds)}` their designs, and the onsets tried per family."""
+        `{(family, onset): (Episode, seconds)}` their designs, the onsets tried per family, and why the surveyed
+        onsets without an attack have none, counted per family (chunks saved before the reasons were kept add
+        none)."""
         ok = self._onsets_ok(weeks, masks)
         grid = np.arange(len(weeks)) % self.survey == 0
         lengths = self._lengths()
         cands = [Slot(int(o), f, lengths[f]) for f in masks for o in np.flatnonzero(ok[f] & grid)]
         self._log(f"survey: {len(cands)} onsets on a {self.survey}-frame grid")
-        eps, secs = [], []
+        eps, secs, misses = [], [], []
         chunk = SURVEY_CHUNK if self.survey_cache else max(len(cands), 1)
         if self.survey_cache:
             self.survey_cache.mkdir(parents=True, exist_ok=True)
@@ -204,12 +200,14 @@ class TimelineBuilder:
             # with `survey_cache`, each chunk of designs is saved on its own, so a stopped build resumes
             part = None if self.survey_cache is None else self.survey_cache / f"{i:06d}_{len(cands)}.pkl"
             if part is not None and part.exists():
-                e, t = pickle.loads(part.read_bytes())
+                saved = pickle.loads(part.read_bytes())
+                e, t = saved[0], saved[1]
+                m = saved[2] if len(saved) > 2 else [None] * len(e)
             else:
-                e, t, _, _ = self._designs(cands[i : i + chunk])
+                e, t, _, m = self._designs(cands[i : i + chunk])
                 if part is not None:
-                    part.write_bytes(pickle.dumps((e, t)))
-            eps, secs = eps + e, secs + t
+                    part.write_bytes(pickle.dumps((e, t, m)))
+            eps, secs, misses = eps + e, secs + t, misses + m
             self._log(
                 f"survey {min(i + chunk, len(cands))}/{len(cands)}: {sum(x is not None for x in eps)} with an attack"
             )
@@ -221,7 +219,8 @@ class TimelineBuilder:
             if ep is not None:
                 found[c.family][c.onset] = True
                 cache[(c.family, c.onset)] = (ep, sec)
-        return found, cache, tried
+        missed = {f: dict(Counter(m for c, m in zip(cands, misses) if c.family == f and m)) for f in masks}
+        return found, cache, tried, missed
 
     def _designs(self, slots: list[Slot]) -> tuple[list[Episode | None], list[float], int, list[str | None]]:
         """The episode of each slot, None where its window touches an unsolved frame or the family finds
@@ -351,12 +350,13 @@ class TimelineBuilder:
         pool = self.pool
         T = len(pool.time)
         masks = self._masks()
-        surveyed = {}
+        surveyed: dict = {}
+        survey_missed: dict = {}
         if self.survey:
             # N46: survey whole weeks first, then stratify the weeks on the onsets where an attack exists,
             # so every split gets its share of the weeks an attack can happen in (the near-limit hours of
             # N41 left the test split one Am of 21, since most near-limit hours hold no attack)
-            found, cache, tried = self._survey(week_index(pool.time), masks)
+            found, cache, tried, survey_missed = self._survey(week_index(pool.time), masks)
             masks = found
             split = self._split(masks, HIT_STRATUM)
             for f in found:
@@ -406,6 +406,7 @@ class TimelineBuilder:
                 for f in fams
             },
             "survey": surveyed,
+            "survey_missed": survey_missed,  # why the surveyed onsets without an attack have none (`MISSES`)
             "attacked_frames": int(sum(ep.length for ep in episodes)),
             "design_seconds": round(float(sum(secs)), 1),
             "design_seconds_median": {
