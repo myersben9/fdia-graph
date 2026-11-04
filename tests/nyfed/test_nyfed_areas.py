@@ -81,3 +81,32 @@ def test_energy_without_a_price_is_unknown_not_free():
     price = np.array([20.0, np.nan, 30.0])
     assert np.isnan(_value(np.array([12.0, 12.0, 0.0]), price))
     assert np.isclose(_value(np.array([12.0, 0.0, 24.0]), price), (12 * 20 + 24 * 30) / 12)
+
+
+def test_the_least_cost_dispatch_prices_the_false_congestion():
+    """Under the least-cost dispatch the false congestion binds: the attacked interface takes a positive shadow
+    price, every enforced price is at least zero, and the zones' and utilities' payment changes each sum to New
+    York's. The least-movement dispatch reports no prices, so its payments are zero."""
+    from fdia_graph.nyfed.operator.areas import area_damage, neighbor_prices
+    from fdia_graph.nyfed.operator.response import operator_day, respond
+
+    day = operator_day(DAYS / DAMAGE_DAYS[1], DAYS_POOL, DATA)
+    prices = neighbor_prices(DATA, day.time)
+    r = respond(day, mode="trusting", closed_loop=True, dispatch="cost")
+    mu = r.attacked.congestion[np.isfinite(r.attacked.congestion)]
+    assert (mu >= -1e-6).all() and r.attacked.congestion[:, 0].max() > 1.0
+    assert np.isfinite(r.attacked.energy[day.onset : day.onset + day.length]).all()
+    rows = area_damage(r, day, prices)
+    total = next(row for row in rows if row["kind"] == "system")["payments_usd"]
+    for kind in ("zone", "utility"):
+        assert np.isclose(sum(row["payments_usd"] for row in rows if row["kind"] == kind), total, rtol=1e-6)
+    still = area_damage(respond(day, mode="trusting", closed_loop=True), day, prices)
+    assert next(row for row in still if row["kind"] == "system")["payments_usd"] == 0.0
+
+
+def test_an_unknown_objective_is_a_config_error():
+    from fdia_graph.errors import ConfigError
+    from fdia_graph.nyfed.operator.response import OperatorPolicy
+
+    with pytest.raises(ConfigError):
+        OperatorPolicy(dispatch="cheapest")

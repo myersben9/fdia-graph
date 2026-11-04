@@ -4,8 +4,9 @@ utility and by neighboring area, with what the attack tampered in each.
 `summarize` reports an attack for the whole system. `area_damage` splits the same run, attacked less benign:
 
 - each New York zone and utility: the energy its units produced less (dispatch and regulation), what that saved
-  in fuel and lost in sales at the zone's real price, the load it shed, and how far the attack cut the true
-  transfer into it or ate the margin of the interfaces that feed it (`FEEDS`);
+  in fuel and lost in sales at the zone's real price, the load it shed, how far the attack cut the true transfer
+  into it or ate the margin of the interfaces that feed it (`FEEDS`), and, under the least-cost dispatch, what its
+  load pays more at the congestion prices the false reading moves;
 - each neighboring area: the inadvertent interchange it supplied and that energy's value at its proxy bus price
   (`PROXY`), what New York borrowed and must repay in kind (NERC BAL-006);
 - the system: the fuel New York saved, the borrowed energy's value, and their sum, the net cost of the attack
@@ -93,6 +94,20 @@ def _exposure(zones: set[str], moves: dict[str, tuple[float, float]]) -> dict:
     }
 
 
+def _payments(r: Response, day: OperatorDay) -> np.ndarray:
+    """`[T, N]` what each bus's true load pays more ($ per scan) at the prices the false reading moves, as a market
+    prices them: the energy price at the reference bus plus, for each interface, minus its shadow price times the
+    bus's shift factor on it, attacked less benign. Zero under the least-movement dispatch, which reports no prices."""
+    a, b = r.attacked, r.benign
+    if a.congestion is None or b.congestion is None or a.energy is None or b.energy is None:
+        return np.zeros((len(day.time), len(day.case.bus_id)))
+    ptdf = shift_factors(day.case)
+    sf = np.array([it.signs @ ptdf[it.branches] for it in day.interfaces])  # [I, N]
+    dmu = np.nan_to_num(a.congestion) - np.nan_to_num(b.congestion)  # [T, I] $/MWh per MW
+    dlam = np.nan_to_num(a.energy) - np.nan_to_num(b.energy)  # [T] $/MWh
+    return (dlam[:, None] - dmu @ sf) * _bus_load(day) * FRAME_HOURS
+
+
 def _ny_rows(r: Response, day: OperatorDay) -> list[dict]:
     """One row per New York zone and per utility: generation, fuel, sales, shed, load and exposure."""
     c = day.case
@@ -103,6 +118,7 @@ def _ny_rows(r: Response, day: OperatorDay) -> list[dict]:
     price = np.where(np.isin(unit_zone, ZONES), day.lbmp[:, zi], 0.0)  # [T, G]
     fuel, sales = day.cost * dgen * FRAME_HOURS, price * dgen * FRAME_HOURS
     shed = (a.shed - b.shed) * FRAME_HOURS  # [T, N] MWh
+    paid = _payments(r, day)  # [T, N] $
     load = _bus_load(day)[_window(day)].max(axis=0)  # [N] each bus's peak load over the window
     bus_zone = c.zone.astype(str)
     moves = _interface_moves(r, day)
@@ -123,6 +139,7 @@ def _ny_rows(r: Response, day: OperatorDay) -> list[dict]:
                 "sales_usd": float(np.nansum(sales[:, units])),
                 "shed_mwh": float(shed[:, buses].sum()),
                 "load_mw": float(load[buses].sum()),
+                "payments_usd": float(np.nansum(paid[:, buses])),
                 **_exposure(zones, moves),
             }
         )
@@ -179,6 +196,7 @@ def area_damage(
         "net_cost_usd": fuel + borrowed,  # the fuel saved now, plus the energy owed back at its value
         "relief_usd": float(r.attacked.relief.sum() - r.benign.relief.sum()),
         "shortage_usd": float(r.attacked.shortage.sum() - r.benign.shortage.sum()),
+        "payments_usd": sum(row["payments_usd"] for row in zones),  # New York's load at the moved prices
     }
     return ny + out + [system]
 

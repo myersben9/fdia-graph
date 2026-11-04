@@ -45,6 +45,14 @@ class Entry(Choice):
     WEST = "west"
 
 
+class Dispatch(Choice):
+    """How the operator dispatches (`DcSced` objective): the least generation moved, then the least cost (N53), or
+    the least cost a market clears, which also prices each interface's congestion."""
+
+    MOVEMENT = "movement"
+    COST = "cost"
+
+
 MODES = tuple(OperatorMode.values())
 AFTER = tuple(AlarmAnswer.values())
 
@@ -86,8 +94,8 @@ def entry_share(c: Case, entry: str) -> np.ndarray:
 class OperatorPolicy(Validated):
     """How the operator runs: `mode` which operator, `delay` the scans it acts late (O5), `over` (MW) a what-if push
     of the attacked reading past what the attack reached, `entry` where the inadvertent interchange enters,
-    `closed_loop` whether it reads each interface as it truly flows after its own last dispatch (N76), and `after`
-    how it answers an alarm (None: it does not)."""
+    `closed_loop` whether it reads each interface as it truly flows after its own last dispatch (N76), `after`
+    how it answers an alarm (None: it does not), and `dispatch` its objective (`Dispatch`)."""
 
     mode: Annotated[str, OneOf(OperatorMode)] = "trusting"
     delay: Annotated[int, Integer(), AtLeast(0)] = 0
@@ -95,3 +103,4 @@ class OperatorPolicy(Validated):
     entry: Annotated[str, OneOf(Entry)] = "capacity"
     closed_loop: Annotated[bool, Boolean()] = False
     after: Annotated[Optional[str], OneOf(AlarmAnswer)] = None
+    dispatch: Annotated[str, OneOf(Dispatch)] = "movement"

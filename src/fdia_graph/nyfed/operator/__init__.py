@@ -23,7 +23,17 @@ from fdia_graph.nyfed._lazy import attach
 if TYPE_CHECKING:  # the names below, with their real signatures for type checkers
     from .areas import FEEDS, NEIGHBORS, PROXY, area_damage, attack_surface, neighbor_prices, zone_levers
     from .day import OperatorDay, node_lbmp, operator_day
-    from .policy import AFTER, ENTRY, MODES, AlarmAnswer, Entry, OperatorMode, OperatorPolicy, entry_share
+    from .policy import (
+        AFTER,
+        ENTRY,
+        MODES,
+        AlarmAnswer,
+        Dispatch,
+        Entry,
+        OperatorMode,
+        OperatorPolicy,
+        entry_share,
+    )
     from .run import NyisoOperator, Operator, Response, Twin, respond
     from .sced import DcSced, Step, outage_factors, shift_factors, shortage_usd
     from .summary import summarize
@@ -35,6 +45,7 @@ _PUBLIC = {
     "NyisoOperator": ".run",
     "Operator": ".run",
     "Entry": ".policy",
+    "Dispatch": ".policy",
     "AlarmAnswer": ".policy",
     "OperatorMode": ".policy",
     "OperatorPolicy": ".policy",
@@ -74,6 +85,7 @@ __all__ = [
     "area_damage",
     "attack_surface",
     "DcSced",
+    "Dispatch",
     "ENTRY",
     "Entry",
     "entry_share",

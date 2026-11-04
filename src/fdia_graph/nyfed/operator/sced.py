@@ -19,6 +19,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.optimize import linprog
 
+from fdia_graph.errors import ConfigError
 from fdia_graph.nyfed.grid.case import REF, Case
 from fdia_graph.nyfed.grid.interfaces import Interface
 
@@ -27,6 +28,9 @@ SLACK_WEIGHT = 1e6  # per MW of unrelieved interface flow or unmatched load, abo
 SHED_WEIGHT = 1e3  # per MW shed: only where no redispatch relieves (a MW moved weighs 1)
 SHED_FACTOR = -0.1  # a bus sheds only where a MW shed takes at least 0.1 MW off the interface
 SHED_AFTER = 3  # scans over the limit before load relief: 15 minutes (Emergency Operations Manual 4.5)
+# the least-cost dispatch charges this much per MW moved ($/MWh), so the benign run does not chase the small
+# differences between the AC pool's least-cost basepoint and the DC model's
+MOVE_USD = 1.0
 # the 2019 transmission shortage curve ($/MWh): 350 for the first 5 MW, 1,175 for the next 15 MW, the
 # 4,000 shadow-price cap beyond (NYISO's constraint-specific shortage pricing, in force June 20, 2017)
 SHORTAGE = ((5.0, 350.0), (15.0, 1175.0), (np.inf, 4000.0))
@@ -74,13 +78,18 @@ class Step:
     the operator sheds at each bus (MW), `unrelieved [I]` each interface's flow left over its limit as the
     operator sees it (MW), `unmatched` the seen load the units could not follow (MW, positive short), and
     `relief_usd` what relieving the interfaces costs this scan: the production cost of this dispatch less
-    that of the same dispatch with no interface limit ($)."""
+    that of the same dispatch with no interface limit ($), and `congestion [I]` each enforced interface's
+    shadow price ($/MWh per MW of its flow, zero where it does not bind, NaN where it is not enforced) under the
+    least-cost dispatch, all zero under the least-movement one, whose duals are not prices, and `energy` the
+    balance row's shadow price under the least-cost dispatch ($/MWh at the reference bus, NaN otherwise)."""
 
     dev: np.ndarray
     shed: np.ndarray
     unrelieved: np.ndarray
     unmatched: float
     relief_usd: float
+    congestion: np.ndarray | None = None
+    energy: float = float("nan")
 
 
 class DcSced:
@@ -90,7 +99,12 @@ class DcSced:
 
     The operator escalates as NYISO's procedures do (N59): it redispatches first and sheds load only where
     redispatch cannot relieve an interface, at the buses where shedding relieves it (a shift factor of at
-    most `SHED_FACTOR`), and any flow it still cannot relieve is left as the slack."""
+    most `SHED_FACTOR`), and any flow it still cannot relieve is left as the slack.
+
+    `objective` picks the dispatch. "movement" (the default) moves the least generation, then takes the least cost
+    among the dispatches that move no more (N53). "cost" is the least-cost dispatch a market clears, each MW moved
+    charged `MOVE_USD`, shedding and slack at their weights in $/MWh, and it reports each interface's shadow price,
+    the congestion component it adds to the price of every bus by the bus's shift factor."""
 
     def __init__(
         self,
@@ -100,8 +114,11 @@ class DcSced:
         interfaces: list[Interface],
         bus_load: np.ndarray | None = None,
         quick_start: np.ndarray | None = None,
+        objective: str = "movement",
     ):
-        self.case, self.unit_p, self.cost = case, unit_p, cost
+        if objective not in ("movement", "cost"):
+            raise ConfigError(f"objective must be 'movement' or 'cost', not {objective!r}")
+        self.case, self.unit_p, self.cost, self.objective = case, unit_p, cost, objective
         ptdf = shift_factors(case)
         self.sf = np.array([it.signs @ ptdf[it.branches] for it in interfaces])  # [I, N]
         self.free = ~np.isin(case.fuel.astype(str), HELD)
@@ -128,7 +145,8 @@ class DcSced:
     def _solve(self, t, seen, limit, load_change, prev, enforce: bool, shed_ok: bool | np.ndarray = True):
         """The two-stage dispatch: least weighted movement (redispatch at 1 per MW, shedding at
         `SHED_WEIGHT`, slack at `SLACK_WEIGHT`), then least cost at no more of each. Returns the units,
-        the dispatch [G], the shed [N], the interface slack [I] and the unmatched load."""
+        the dispatch [G], the shed [N], the interface slack [I], the unmatched load and the interfaces' congestion
+        prices [I] and energy price (`Step.congestion`, `Step.energy`)."""
         g = np.flatnonzero(self.free & ((self.unit_p[t] > 0.5) | self.quick))
         n = len(g)
         lo, hi = self._bounds(t, prev, g)
@@ -156,6 +174,8 @@ class DcSced:
         )
         weight = np.r_[np.ones(2 * n), np.full(s, SHED_WEIGHT), np.full(k + 2, SLACK_WEIGHT)]
         kw = dict(A_eq=a_eq, b_eq=[load_change], method="highs")
+        if self.objective == "cost":
+            return self._least_cost(t, g, n, s, k, on, sb, a_ub, b_ub, bounds, weight, kw, len(seen))
         first = linprog(weight, A_ub=a_ub if k else None, b_ub=b_ub if k else None, bounds=bounds, **kw)
         if first.status != 0:
             raise RuntimeError(f"scan {t}: {first.message}")
@@ -178,7 +198,30 @@ class DcSced:
         shed[sb] = x[2 * n : 2 * n + s]
         slack = np.full(len(seen), np.nan)
         slack[on] = x[2 * n + s : 2 * n + s + k]
-        return dev, shed, slack, float(x[-2] - x[-1])
+        return dev, shed, slack, float(x[-2] - x[-1]), np.where(on, 0.0, np.nan), float("nan")
+
+    def _least_cost(self, t, g, n, s, k, on, sb, a_ub, b_ub, bounds, weight, kw, n_if):
+        """The least-cost dispatch of `_solve`'s problem: each unit at its cost (less on the way down) plus
+        `MOVE_USD` per MW moved, and the interface rows' shadow prices ($/MWh per MW of flow)."""
+        c = self.cost[t, g]
+        price = np.r_[c + MOVE_USD, -c + MOVE_USD, weight[2 * n :]]
+        res = linprog(price, A_ub=a_ub if k else None, b_ub=b_ub if k else None, bounds=bounds, **kw)
+        if res.status != 0:
+            raise RuntimeError(f"scan {t}: {res.message}")
+        x = res.x
+        dev = np.zeros(len(self.free))
+        dev[g] = x[:n] - x[n : 2 * n]
+        shed = np.zeros(len(self.case.bus_id))
+        shed[sb] = x[2 * n : 2 * n + s]
+        slack = np.full(n_if, np.nan)
+        slack[on] = x[2 * n + s : 2 * n + s + k]
+        congestion = np.where(on, 0.0, np.nan)
+        if k:  # HiGHS reports d(cost)/d(limit) <= 0 for a binding upper row: the price of one more MW of room
+            congestion[on] = -np.asarray(res.ineqlin.marginals)[:k]
+        energy = float(
+            res.eqlin.marginals[0]
+        )  # d(cost)/d(load): the price of one more MW at the reference bus
+        return dev, shed, slack, float(x[-2] - x[-1]), congestion, energy
 
     def step(
         self,
@@ -194,9 +237,11 @@ class DcSced:
         operator's deviation at the scan before (None at the first scan). `shed_ok` (one flag, or one per
         interface) allows load relief for an interface, which the procedures reach only after `SHED_AFTER`
         scans over its limit."""
-        dev, shed, slack, unmatched = self._solve(t, seen, limit, load_change, prev, True, shed_ok)
+        dev, shed, slack, unmatched, congestion, energy = self._solve(
+            t, seen, limit, load_change, prev, True, shed_ok
+        )
         relief = 0.0
         if np.abs(dev).sum() > 1e-6 and np.isfinite(seen).any():
-            free_dev, _, _, _ = self._solve(t, seen, limit, load_change, prev, False)
+            free_dev = self._solve(t, seen, limit, load_change, prev, False)[0]
             relief = float(self.cost[t] @ (dev - free_dev)) * FRAME_HOURS
-        return Step(dev, shed, slack, unmatched, relief)
+        return Step(dev, shed, slack, unmatched, relief, congestion, energy)
