@@ -21,7 +21,6 @@ import argparse
 import json
 import os
 import time
-import warnings
 
 # One thread per worker and per Ipopt child: the OPF is small, so threads do not speed one solve (621 against
 # 685 ms per frame measured), and many workers each running threaded solves oversubscribe the machine.
@@ -33,8 +32,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-warnings.filterwarnings("ignore")
 
 from fdia_graph.nyfed.attacks.attacker import HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN
 from fdia_graph.nyfed.config import Settings, rng

@@ -32,15 +32,12 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse
 import json
 import time
-import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2
-
-warnings.filterwarnings("ignore")
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.grid.network import Network

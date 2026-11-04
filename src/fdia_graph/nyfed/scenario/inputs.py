@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import io
 import zipfile
 from dataclasses import dataclass
@@ -11,6 +10,8 @@ from urllib.request import Request, urlopen
 
 import numpy as np
 import pandas as pd
+
+from fdia_graph.nyfed.tables import read_rows
 
 ZONES = tuple("ABCDEFGHIJK")
 FUELS = ("Dual Fuel", "Hydro", "Natural Gas", "Nuclear", "Other Fossil Fuels", "Other Renewables", "Wind")
@@ -83,7 +84,7 @@ class NygridHour:
 def _bus_weights(data_dir: Path) -> np.ndarray:
     """[140, 11] share of each zone's load at each bus (allocateLoad.m 'weighted'): in proportion to the
     base load of the zone's load buses, or evenly over all its buses where none has base load (zone J)."""
-    rows = list(csv.DictReader(open(data_dir / "npcc_new.csv", encoding="utf-8-sig")))
+    rows = read_rows(data_dir / "npcc_new.csv", "utf-8-sig")
     w = np.zeros((len(rows), len(ZONES)))
     for k, z in enumerate(ZONES):
         idx = [int(r["idx"]) - 1 for r in rows if r["zone"] == z]
@@ -94,7 +95,7 @@ def _bus_weights(data_dir: Path) -> np.ndarray:
 
 def _renewable_caps(data_dir: Path) -> tuple[np.ndarray, np.ndarray]:
     wind, other = np.zeros(140), np.zeros(140)
-    for r in csv.DictReader(open(data_dir / "RenewableGen.csv", encoding="utf-8-sig")):
+    for r in read_rows(data_dir / "RenewableGen.csv", "utf-8-sig"):
         b = int(r["bus_id"]) - 1
         wind[b] = float(r["Pg Wind Cap"] or 0)
         other[b] = float(r["Pg Other Cap"] or 0)
@@ -129,7 +130,7 @@ def read_nygrid(data_dir: str | Path, year: int) -> list[NygridHour]:
     stl = hyd.stlCF.reindex(hours.to_period("M").to_timestamp()).to_numpy()
 
     params = sorted(
-        csv.DictReader(open(d / "genParamAll_newramp.csv", encoding="utf-8-sig")),
+        read_rows(d / "genParamAll_newramp.csv", "utf-8-sig"),
         key=lambda r: (r["NYISOName"], int(r["PTID"])),
     )
     units = [(r["NYISOName"], int(r["PTID"])) for r in params]

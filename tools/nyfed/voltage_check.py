@@ -12,13 +12,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import warnings
 from pathlib import Path
 
 import h5py
 import numpy as np
-
-warnings.filterwarnings("ignore")
 
 from fdia_graph.nyfed.build import production_builder
 from fdia_graph.nyfed.config import Settings, rng

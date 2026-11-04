@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from fdia_graph.errors import ConfigError
 from fdia_graph.nyfed.attacks.attacker import Attacker
 from fdia_graph.nyfed.attacks.episode import Episode, Window
 from fdia_graph.nyfed.attacks.opf_attack import OpfFdia, _Window
@@ -93,7 +94,7 @@ class InterfaceFdia(OpfFdia):
         hour of real loading at least `near` on some interface (N48)."""
         T = vm.shape[0]
         if any(len(it.flow) != T for it in self.interfaces):
-            raise ValueError("onset_mask needs the states of the frames the interfaces were built over")
+            raise ConfigError("onset_mask needs the states of the frames the interfaces were built over")
         rise = length - self.exit_scans
         loaded = np.zeros(T, bool)
         for it in self.interfaces:

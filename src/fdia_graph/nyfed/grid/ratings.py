@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import numpy as np
 
+from fdia_graph.errors import DataConditionError
 from fdia_graph.nyfed.grid.case import Case
 
 # updateOpCond.m L418-465 sets NYISO's interface limits on the reduced case as limits on the signed sum
@@ -40,6 +41,6 @@ def line_ratings(case: Case) -> Case:
     for (a, b), limit in _SINGLE_BRANCH.items():
         k = np.flatnonzero(((ends[:, 0] == a) & (ends[:, 1] == b)) | ((ends[:, 0] == b) & (ends[:, 1] == a)))
         if len(k) != 1:
-            raise ValueError(f"interface branch {a}-{b} found {len(k)} times in the case")
+            raise DataConditionError(f"interface branch {a}-{b} found {len(k)} times in the case")
         rating[k] = limit
     return replace(case, rating=rating)

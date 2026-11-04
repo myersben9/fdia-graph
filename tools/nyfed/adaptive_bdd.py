@@ -36,14 +36,11 @@ import argparse
 import json
 import sys
 import time
-import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-warnings.filterwarnings("ignore")
 
 sys.path.insert(0, str(Path(__file__).parent))
 from bdd_rule import first_alarm  # noqa: E402
