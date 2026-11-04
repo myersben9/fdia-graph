@@ -7,7 +7,15 @@ from __future__ import annotations
 from fdia_graph._moved import moved
 from fdia_graph.nyfed.operator.day import INTERFACES, LBMP_ZONE, OperatorDay, operator_day
 from fdia_graph.nyfed.operator.policy import AFTER, ENTRY, MODES, entry_share
-from fdia_graph.nyfed.operator.run import REG_CAP, Response, Twin, respond
+from fdia_graph.nyfed.operator.run import (
+    QUICK_FUELS,
+    QUICK_MAX_MW,
+    QUICK_ZONES,
+    REG_CAP,
+    Response,
+    Twin,
+    respond,
+)
 from fdia_graph.nyfed.operator.summary import summarize
 from fdia_graph.nyfed.operator.ties import (
     NEIGHBOUR_SEED,
@@ -26,6 +34,9 @@ __all__ = [
     "LBMP_ZONE",
     "MODES",
     "NEIGHBOUR_SEED",
+    "QUICK_FUELS",
+    "QUICK_MAX_MW",
+    "QUICK_ZONES",
     "REG_CAP",
     "OperatorDay",
     "Response",
