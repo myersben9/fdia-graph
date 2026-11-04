@@ -148,6 +148,7 @@ class MsFdia(AttackFamily):
         onset, vm, va = window
         lines = self._eligible(vm, va)
         if len(lines) == 0:
+            self.last_miss = "no_target"
             return None
         rise = vm.shape[0] - self.exit_scans
         for targets in self._target_sets(self._order(lines, vm[:rise], va[:rise], rng)):

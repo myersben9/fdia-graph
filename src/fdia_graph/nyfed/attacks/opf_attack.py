@@ -38,26 +38,16 @@ drift where the ramps cannot bring them back. Solved by Ipopt through Pyomo.
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 
 from fdia_graph.nyfed.attacks.attacker import Attacker
 from fdia_graph.nyfed.attacks.episode import Episode, Window
 from fdia_graph.nyfed.attacks.msfdia import MsFdia
+from fdia_graph.nyfed.solvers import ipopt
 
 P_KIND, Q_KIND = 2, 3  # nyfed.sensing.meters.KINDS "p", "q": the injection meters a pretended change moves
-
-
-def _ipopt():
-    from pyomo.environ import SolverFactory
-
-    exe = Path(sys.prefix) / "Library" / "bin" / "ipopt.exe"
-    solver = SolverFactory("ipopt", executable=str(exe)) if exe.exists() else SolverFactory("ipopt")
-    solver.options.update({"tol": 1e-7, "acceptable_tol": 1e-5, "max_iter": 600, "print_level": 0})
-    return solver
 
 
 @dataclass
@@ -117,6 +107,7 @@ class OpfFdia(MsFdia):
         self.windows_solved = windows_solved
         self.loads_only = loads_only  # N43: no pretended generator output, loads alone move
         self._solver = None
+        self.solver_errors = 0  # solves Ipopt stopped abnormally on, each read as an infeasible support
 
     def reachable(self, window: Window) -> bool:
         """Whether some target set of the window has a support that carries the full overload at the last
@@ -315,11 +306,14 @@ class OpfFdia(MsFdia):
         return True
 
     def _run(self, m) -> bool:
-        if self._solver is None:
-            self._solver = _ipopt()
+        from pyomo.common.errors import ApplicationError
+
+        if self._solver is None:  # raises SolverUnavailable where Ipopt cannot run at all
+            self._solver = ipopt(tol=1e-7, acceptable_tol=1e-5, max_iter=600, print_level=0)
         try:
             r = self._solver.solve(m, load_solutions=False)
-        except Exception:
+        except ApplicationError:  # Ipopt started but stopped abnormally on this model: no point, counted
+            self.solver_errors += 1
             return False
         if str(r.solver.termination_condition) not in ("optimal", "locallyOptimal"):
             return False

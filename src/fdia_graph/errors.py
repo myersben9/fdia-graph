@@ -5,7 +5,8 @@ consumer needs a `MissingCapability`), raised by the validation engine in `model
 the model is built. A condition that only the data can reveal (no benign records in a split, no
 room left for an episode, an outage that islands the grid) is one of the named errors below, raised
 where the data is read. Every one subclasses ValueError, the type these checks raised before, so a
-caller's `except ValueError` keeps working.
+caller's `except ValueError` keeps working. `SolverUnavailable` is the exception: a RuntimeError for an
+environment that cannot run the optimization at all.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from .models.errors import (
     NotFitted,
     SlackMismatch,
     SnapshotDrawFailed,
+    SolverUnavailable,
     UnknownColumnOrder,
     VaryingReference,
 )
@@ -45,4 +47,5 @@ __all__ = [
     "CountOverflow",
     "UnknownColumnOrder",
     "NoLineRatings",
+    "SolverUnavailable",
 ]

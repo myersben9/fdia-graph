@@ -81,7 +81,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `models.choices` | Every argument that takes one value from a fixed set, in one place. |
 | `models.config` | The settings every consumer accepts, one model each, checked when built (`models.validation`). |
 | `models.data` | What a user gets back: one record, a batch, a whole split, a summary, a stream, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was. |
-| `models.errors` | The named errors of conditions only the data reveals, beside `ConfigError` so a model can raise one (`Validated.error`). `fdia_graph.errors` re-exports every one. |
+| `models.errors` | The named errors of conditions only the data reveals, beside `ConfigError` so a model can raise one (`Validated.error`), and the one error of an environment that cannot run a step (`SolverUnavailable`). `fdia_graph.errors` re-exports every one. |
 | `models.federated` | What the federated layer passes around: how the buses split into clients. |
 | `models.fields` | The field groups the data bundles share. |
 | `models.frames` | What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns. |
@@ -121,6 +121,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
 | `nyfed.sensing.meters` | The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class. |
 | `nyfed.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
+| `nyfed.solvers` | The optimization solver every nyfed OPF runs on, found and checked in one place. |
 | `nyfed.timeline` | Timeline: the time split, episode placement, and the frames and labels written to timeline.h5. |
 | `nyfed.timeline.builder` | The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled. |
 | `nyfed.timeline.schedule` | Where the timeline's splits are cut and where each split's episodes go. |

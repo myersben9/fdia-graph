@@ -107,7 +107,10 @@ class InterfaceFdia(OpfFdia):
     def design(self, window: Window, rng: np.random.Generator) -> Episode | None:
         onset, vm, va = window
         rise = vm.shape[0] - self.exit_scans
-        for it in self._loaded(onset + rise - 1):
+        loaded = self._loaded(onset + rise - 1)
+        if not loaded:
+            self.last_miss = "no_target"
+        for it in loaded:
             ep = self._attack_interface(onset, vm, va, it)
             if ep is not None:
                 return ep

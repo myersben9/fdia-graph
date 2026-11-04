@@ -65,6 +65,7 @@ class Ramp(AttackFamily):
 
         for _ in range(self.draws):
             if not len(loads):
+                self.last_miss = "no_target"
                 return None
             area = att.area(int(rng.choice(loads)), self.hops)
             if area is None:
