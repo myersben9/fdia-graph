@@ -8,9 +8,10 @@ the least-cost objective and no ramp history), attacked less benign, and reports
 it predicts, and again with the shortfall drawn from the neighbors' units by capacity as the closed loop draws it
 (`shared_*`), which separates the slack from the loop. Beside it, the same day through the closed-loop trusting operator (`respond`) gives the largest true
 rise and drop of the attacked interface, the largest rise of any other and the inadvertent interchange, which the
-snapshot cannot see.
+snapshot cannot see. With `--dispatch cost` the closed loop dispatches at least cost too, as the snapshot always
+does.
 
-    python tools/nyfed/idealized_operator.py OUT.csv STUDY [STUDY ...] [--workers 8]
+    python tools/nyfed/idealized_operator.py OUT.csv STUDY [STUDY ...] [--dispatch cost] [--workers 8]
 
 Run from the folder whose `data/` holds the inputs. One row per attack day.
 """
@@ -64,18 +65,21 @@ def snapshot(day, slack: str = "reference") -> np.ndarray:
     return sced.sf @ inj
 
 
-def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> dict | None:
+def _job(
+    path: str, pool: str, data: str, calib: tuple[float, float], dispatch: str = "movement"
+) -> dict | None:
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
         return None
     predicted = snapshot(day)
     shared = snapshot(day, "neighbors")
-    s = summarize(respond(day, mode="trusting", calib=calib, closed_loop=True))
+    s = summarize(respond(day, mode="trusting", calib=calib, closed_loop=True, dispatch=dispatch))
     return {
         "file": Path(path).name,
         "study": str(Path(path).parents[1]),
         "onset": int(Path(path).stem.split("_")[1]),
         "variant": variant(path),
+        "dispatch": dispatch,
         "snapshot_attacked_mw": float(predicted[0]),
         "snapshot_other_up_mw": float(max(predicted[1:].max(), 0.0)) if len(predicted) > 1 else 0.0,
         "shared_attacked_mw": float(shared[0]),
@@ -96,9 +100,8 @@ def main() -> None:
     if not files:
         raise SystemExit(f"no attack days (days/am_*_*.h5) under {args.studies}")
     calib = load_calib(args.calib)
-    run_parallel(
-        _job, [(f, args.pool, args.data, calib) for f in files], args.out, workers=args.workers, every=10
-    )
+    tasks = [(f, args.pool, args.data, calib, args.dispatch) for f in files]
+    run_parallel(_job, tasks, args.out, workers=args.workers, every=10)
 
 
 if __name__ == "__main__":

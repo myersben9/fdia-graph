@@ -3,11 +3,12 @@ built (the interface reading taken to its limit) and under its damaging variant 
 limit as every bound allows), over onsets drawn at random among the near-limit hours.
 
     python tools/nyfed/damage_study.py OUT_DIR --pool out/pool_2019_v3.h5 [--onsets 60] [--workers 8]
-                                       [--voll 0] [--interface SPR/DUN-SOUTH]
+                                       [--voll 0] [--interface SPR/DUN-SOUTH] [--dispatch cost]
 
 Run from the folder whose `data/` holds the inputs. Each onset's two attacks are written as single-episode
 day files under OUT_DIR/days (resumable: a day already written is reused), the operator runs on each, and
-OUT_DIR/damage.csv gets one row per onset and variant (`summarize`, plus the overshoot and the meters).
+OUT_DIR/damage.csv gets one row per onset and variant (`summarize`, plus the overshoot and the meters). A folder
+holds one operator dispatch, so `--dispatch cost` results go in a folder of their own.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ import pandas as pd
 
 from fdia_graph.nyfed.build import production_builder
 from fdia_graph.nyfed.config import Settings, rng
-from fdia_graph.nyfed.experiments import DATA, load_calib
+from fdia_graph.nyfed.experiments import DATA, add_dispatch_argument, load_calib
 from fdia_graph.nyfed.operator.response import MODES, operator_day, respond, summarize
 from fdia_graph.nyfed.scenario.pool import SOLVED
 
@@ -81,6 +82,7 @@ def _job(
     voll: float | None,
     calib: tuple | None,
     closed_loop: bool = False,
+    dispatch: str = "movement",
 ) -> list[dict]:
     b = _B
     assert b is not None
@@ -106,12 +108,15 @@ def _job(
         path, info = made
         day = operator_day(path, pool, data)
         for mode in MODES:  # the trusting, the accounting and the oracle operator (N66)
-            s = summarize(respond(day, mode=mode, calib=calib, closed_loop=closed_loop), voll)
+            s = summarize(
+                respond(day, mode=mode, calib=calib, closed_loop=closed_loop, dispatch=dispatch), voll
+            )
             rows.append(
                 {
                     "onset": onset,
                     "time": str(b.pool.time.astype("datetime64[s]")[onset]),
                     "variant": variant,
+                    "dispatch": dispatch,
                     "overshoot_mw": mw,
                     "meters": info.get("meters_tampered"),
                     "design_s": round(design_s, 1),
@@ -155,18 +160,22 @@ def main() -> None:
         default=None,
         help="p.u. a generator bus's false voltage may leave its schedule (N75)",
     )
+    add_dispatch_argument(ap)
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    # the designs cached here belong to one attacker form: never mix the consistent and the plain one
+    # the designs cached here belong to one attacker form and the results to one dispatch: never mix them
     marker = out / "attacker.json"
     form = {
         "consistent": args.consistent,
         **({"v_margin": args.v_margin} if args.v_margin else {}),
         **({"gen_v_tol": args.gen_v_tol} if args.gen_v_tol is not None else {}),
+        **({"dispatch": args.dispatch} if args.dispatch != "movement" else {}),
     }
     if marker.exists() and json.loads(marker.read_text()) != form:
-        raise SystemExit(f"{out} holds the other attacker form's designs; use another folder")
+        raise SystemExit(
+            f"{out} holds another attacker form's designs or another dispatch; use another folder"
+        )
     marker.write_text(json.dumps(form))
     _init(args.pool, args.interface, args.consistent, args.v_margin, args.gen_v_tol)
     b = _B
@@ -187,7 +196,16 @@ def main() -> None:
         calib = load_calib(args.calib) if args.calib else None
         futs = [
             ex.submit(
-                _job, o, str(out), args.pool, args.data, args.interface, args.voll, calib, args.closed_loop
+                _job,
+                o,
+                str(out),
+                args.pool,
+                args.data,
+                args.interface,
+                args.voll,
+                calib,
+                args.closed_loop,
+                args.dispatch,
             )
             for o in todo
         ]

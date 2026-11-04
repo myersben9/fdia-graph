@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Every study tool can run the least-cost operator (New York grid).** Each tool under `tools/nyfed/` that runs the
+  operator takes `--dispatch cost` (declared once by `experiments.add_dispatch_argument`, and by
+  `add_study_arguments`) and writes the dispatch it used in a `dispatch` column; `damage_study.py` keeps a folder to
+  one dispatch. The default stays the least-movement dispatch, so every existing result is unchanged.
+  `tools/nyfed/operator_days.py` reruns the operator alone on a study's attack days, so the attacks, onsets and
+  draws of the study stay as they are under the other dispatch.
+
 - **The idealized operator with the closed loop's slack (New York grid).** `tools/nyfed/idealized_operator.py` also
   reports the single-snapshot prediction with the shortfall drawn from the neighbors' units by capacity, as the
   closed loop draws it (`shared_*` columns), so a difference from the closed loop can be told from the choice of

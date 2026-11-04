@@ -3,8 +3,9 @@
 A study is a folder that `tools/nyfed/damage_study.py` filled with single-episode day files, `days/am_<onset>_<mw>.h5`,
 one per attack window: at the limit (`mw` 0) or past it. A tool reads those days, runs the operator or a detector on
 each in parallel and writes one CSV. `study_days` lists the days, `variant` names a day's form, `load_calib` reads the
-interchange check's calibration, `add_study_arguments` declares the options every tool shares, and `run_parallel`
-runs a job over the days with a process pool, writing the CSV as results come in so a stopped run keeps what it did.
+interchange check's calibration, `add_study_arguments` declares the options every tool shares (`add_dispatch_argument`
+the operator's dispatch, for a tool with its own parser), and `run_parallel` runs a job over the days with a process
+pool, writing the CSV as results come in so a stopped run keeps what it did.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ __all__ = [
     "CALIB",
     "DATA",
     "POOL",
+    "add_dispatch_argument",
     "add_study_arguments",
     "load_calib",
     "run_parallel",
@@ -55,9 +57,25 @@ def load_calib(path: str | Path = CALIB) -> tuple[float, float]:
     return float(cal["mean_mw"]), float(cal["sd_mw"])
 
 
-def add_study_arguments(ap: argparse.ArgumentParser, *, studies: bool = True, calib: bool = True) -> None:
+def add_dispatch_argument(ap: argparse.ArgumentParser) -> None:
+    """`--dispatch`: the operator's objective (`Dispatch`), least movement unless asked otherwise."""
+    from fdia_graph.nyfed.operator.policy import Dispatch  # here, so importing this module stays light
+
+    ap.add_argument(
+        "--dispatch",
+        default="movement",
+        choices=tuple(Dispatch.values()),
+        help="the operator's dispatch: least movement (the default) or least cost, which also prices "
+        "congestion",
+    )
+
+
+def add_study_arguments(
+    ap: argparse.ArgumentParser, *, studies: bool = True, calib: bool = True, dispatch: bool = True
+) -> None:
     """The options every study tool shares: the output CSV, the study folders, the pool, NYgrid's data, the
-    interchange calibration, the worker count and a `--limit` for a quick check on the first days."""
+    interchange calibration, the operator's dispatch (`dispatch=False` for a tool that does not run the operator), the
+    worker count and a `--limit` for a quick check on the first days."""
     ap.add_argument("out", help="the CSV to write")
     if studies:
         ap.add_argument("studies", nargs="+", help="damage_study.py output folders")
@@ -65,6 +83,8 @@ def add_study_arguments(ap: argparse.ArgumentParser, *, studies: bool = True, ca
     ap.add_argument("--data", default=DATA)
     if calib:
         ap.add_argument("--calib", default=CALIB, help="tie_check.py's calibration")
+    if dispatch:
+        add_dispatch_argument(ap)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0, help="only the first N attack days (a quick check)")
 

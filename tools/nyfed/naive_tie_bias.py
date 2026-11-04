@@ -62,7 +62,7 @@ def _job(path: str, pool: str, data: str, rule: PersistenceRule) -> dict | None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    add_study_arguments(ap, calib=False)
+    add_study_arguments(ap, calib=False, dispatch=False)
     ap.add_argument("--theta", type=float, default=428.7)
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--n", type=int, default=3)

@@ -5,6 +5,7 @@
  "chi_benign_scans": 0,
  "chi_fired_scans": 13,
  "chi_first": 8,
+ "dispatch": "movement",
  "dof": 400,
  "file": "am_48220_175.h5",
  "full_iface_down_mw": -169.15838339701259,

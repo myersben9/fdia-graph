@@ -4,7 +4,8 @@
 `closed_loop_bdd.py` wrote, finds the first alarm of every attack window and of its benign twin, and reruns the operator
 answering the alarm three ways (`respond(after=...)`).
 
-    python tools/nyfed/bdd_rule.py OUT.csv IN.csv [--theta 428.7 --k 2 --n 3] [--mode trusting] [--workers 8]
+    python tools/nyfed/bdd_rule.py OUT.csv IN.csv [--theta 428.7 --k 2 --n 3] [--mode trusting]
+                                   [--dispatch cost] [--workers 8]
 
 Run from the folder whose `data/` holds the inputs.
 """
@@ -38,7 +39,9 @@ KEEP = (
 AFTER = ("benign", "freeze", "freeze_cs")
 
 
-def _job(row: dict, study_days: list[str], pool: str, data: str, calib, mode: str, rule) -> dict:
+def _job(
+    row: dict, study_days: list[str], pool: str, data: str, calib, mode: str, rule, dispatch: str = "movement"
+) -> dict:
     path = next(str(Path(s) / row["file"]) for s in study_days if (Path(s) / row["file"]).exists())
     day = operator_day(Path(path), pool, data)
     first = rule.first_alarm(np.array(json.loads(row["j_attacked"]), float))
@@ -47,16 +50,23 @@ def _job(row: dict, study_days: list[str], pool: str, data: str, calib, mode: st
         "file": row["file"],
         "variant": row["variant"],
         "mode": mode,
+        "dispatch": dispatch,
         "first": first,
         "benign_first": benign_first,
     }
-    full = summarize(respond(day, mode=mode, calib=calib, closed_loop=True))
+    full = summarize(respond(day, mode=mode, calib=calib, closed_loop=True, dispatch=dispatch))
     out.update({f"full_{x}": full[x] for x in KEEP})
     if first >= 0:
         for after in AFTER:
             s = summarize(
                 respond(
-                    day, mode=mode, calib=calib, closed_loop=True, alarm_at=day.onset + first, after=after
+                    day,
+                    mode=mode,
+                    calib=calib,
+                    closed_loop=True,
+                    alarm_at=day.onset + first,
+                    after=after,
+                    dispatch=dispatch,
                 )
             )
             out.update({f"{after}_{x}": s[x] for x in KEEP})
@@ -75,11 +85,17 @@ def main() -> None:
     args = ap.parse_args()
     calib = load_calib(args.calib)
     rule = PersistenceRule(args.theta, args.k, args.n)
-    rows = pd.read_csv(args.inp).drop_duplicates("file").to_dict("records")
+    inp = pd.read_csv(args.inp).drop_duplicates("file")
+    # the residuals follow the operator's own trajectory, so they must come from the dispatch asked for here; a CSV
+    # written before the option existed is the least-movement one
+    found = set(inp["dispatch"]) if "dispatch" in inp else {"movement"}
+    if found != {args.dispatch}:
+        raise SystemExit(f"{args.inp} holds residuals of the {sorted(found)} dispatch, not {args.dispatch!r}")
+    rows = inp.to_dict("records")
     if args.limit:
         rows = rows[: args.limit]
     days = [str(Path(s) / "days") for s in args.studies]
-    tasks = [(r, days, args.pool, args.data, calib, args.mode, rule) for r in rows]
+    tasks = [(r, days, args.pool, args.data, calib, args.mode, rule, args.dispatch) for r in rows]
     run_parallel(_job, tasks, args.out, workers=args.workers)
 
 

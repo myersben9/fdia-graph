@@ -2,6 +2,7 @@
 
     python tools/nyfed/operator_cost.py out/single_episode/*.h5 --pool out/pool_2019_v3.h5
                                         [--delay 0,1,3] [--over 0,50,100,200] [--out RESULTS_DIR]
+                                        [--dispatch cost]
 
 Run from the folder whose `data/` holds the inputs. Writes `nygrid.operator_cost.csv` (one row per day,
 delay and overshoot: the attack's consequence, attacked less benign, from `summarize`) and
@@ -25,7 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fdia_graph.nyfed.experiments import DATA
+from fdia_graph.nyfed.experiments import DATA, add_dispatch_argument
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.response import operator_day, respond, seen_interfaces, summarize
 
@@ -66,6 +67,7 @@ def main() -> None:
     ap.add_argument("--over", default="0,50,100,200")
     ap.add_argument("--out", default="results")
     ap.add_argument("--closed-loop", action="store_true", help="the operator reads the true flows (N76)")
+    add_dispatch_argument(ap)
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -78,8 +80,8 @@ def main() -> None:
             for over in (float(x) for x in args.over.split(",")):
                 if delay and over:
                     continue  # the delays at the attack as built, the overshoots on time
-                r = respond(day, delay, over, closed_loop=args.closed_loop)
-                rows.append({"day": name, **summarize(r)})
+                r = respond(day, delay, over, closed_loop=args.closed_loop, dispatch=args.dispatch)
+                rows.append({"day": name, "dispatch": args.dispatch, **summarize(r)})
                 print(json.dumps(rows[-1]), f"[{time.perf_counter() - t0:.0f}s]", flush=True)
                 if delay == 0 and over == 0:
                     traces.append(_trace(name, day, r))
@@ -91,6 +93,7 @@ def main() -> None:
             {
                 "days": [Path(p).stem for p in args.days],
                 "rows": len(rows),
+                "dispatch": args.dispatch,
                 "seconds": round(time.perf_counter() - t0),
             },
             indent=1,

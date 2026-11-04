@@ -14,7 +14,8 @@ first scan past the calibrated threshold the operator responds three ways (`resp
 without the attack (benign), it holds its dispatch while its AGC keeps reading the tie meters it reads (freeze), or it
 holds its dispatch with the AGC on the common-source tie values (freeze_cs).
 
-    python tools/nyfed/closed_loop_bdd.py OUT.csv STUDY [STUDY ...] [--mode trusting] [--workers 8] [--draws 5]
+    python tools/nyfed/closed_loop_bdd.py OUT.csv STUDY [STUDY ...] [--mode trusting] [--dispatch cost] [--workers 8]
+                                          [--draws 5]
 
 With `--draws N` it also tests every attack against N further meter fleets (fresh constant biases of the same
 accuracy classes, as bdd_benign_series.py --draw), one `j_attacked_dK` column each, and skips the three answers.
@@ -80,13 +81,20 @@ def _calibrate(day_path: str, pool_path: str, data: str, frames: int, seed: int)
 
 
 def _job(
-    path: str, pool: str, data: str, calib: tuple[float, float], mode: str, thr_cal: float, draws: int = 0
+    path: str,
+    pool: str,
+    data: str,
+    calib: tuple[float, float],
+    mode: str,
+    thr_cal: float,
+    draws: int = 0,
+    dispatch: str = "movement",
 ) -> dict | None:
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
         return None
     c = day.case
-    resp = respond(day, mode=mode, calib=calib, closed_loop=True)
+    resp = respond(day, mode=mode, calib=calib, closed_loop=True, dispatch=dispatch)
     a = resp.attacked
     grid = TrueGrid(day)
     share = entry_share(c, "capacity")
@@ -124,6 +132,7 @@ def _job(
         "file": Path(path).name,
         "onset": day.onset,
         "mode": mode,
+        "dispatch": dispatch,
         "variant": variant(path),
         "scans": int(np.isfinite(ja_).sum()),
         "dof": dof,
@@ -150,7 +159,13 @@ def _job(
         for after in AFTER:
             s = summarize(
                 respond(
-                    day, mode=mode, calib=calib, closed_loop=True, alarm_at=day.onset + first, after=after
+                    day,
+                    mode=mode,
+                    calib=calib,
+                    closed_loop=True,
+                    alarm_at=day.onset + first,
+                    after=after,
+                    dispatch=dispatch,
                 )
             )
             row.update({f"{after}_{k}": s[k] for k in KEEP})
@@ -184,7 +199,7 @@ def main() -> None:
         raise SystemExit(f"no attack days (days/am_*_*.h5) under {args.studies}")
     thr_cal = _threshold(Path(args.cal_json), files[0], args.pool, args.data, args.cal_frames)
     print(f"{len(files)} attack days, calibrated threshold {thr_cal:.1f}", flush=True)
-    tasks = [(f, args.pool, args.data, calib, args.mode, thr_cal, args.draws) for f in files]
+    tasks = [(f, args.pool, args.data, calib, args.mode, thr_cal, args.draws, args.dispatch) for f in files]
     run_parallel(_job, tasks, args.out, workers=args.workers)
 
 

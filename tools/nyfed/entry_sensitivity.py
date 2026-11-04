@@ -2,7 +2,8 @@
 operator rerun on every attack day the damage study wrote, once per entry pattern of `response.ENTRY`, one row per
 day file and pattern (`summarize`, plus the variant and the overshoot).
 
-    python tools/nyfed/entry_sensitivity.py OUT.csv out/damage_study out/damage_study_b [--workers 8]
+    python tools/nyfed/entry_sensitivity.py OUT.csv out/damage_study out/damage_study_b [--dispatch cost]
+                                             [--workers 8]
 
 Run from the folder whose `data/` holds the inputs.
 """
@@ -28,12 +29,17 @@ def _job(
     calib: tuple[float, float] | None,
     entries: list[str],
     closed_loop: bool = False,
+    dispatch: str = "movement",
 ) -> list[dict]:
     day = operator_day(Path(path), pool, data)
     onset, overshoot = Path(path).stem.split("_")[1:3]
     rows = []
     for entry in entries:
-        s = summarize(respond(day, mode="trusting", calib=calib, entry=entry, closed_loop=closed_loop))
+        s = summarize(
+            respond(
+                day, mode="trusting", calib=calib, entry=entry, closed_loop=closed_loop, dispatch=dispatch
+            )
+        )
         rows.append(
             {
                 "file": Path(path).name,
@@ -41,6 +47,7 @@ def _job(
                 "overshoot_mw": float(overshoot),
                 "variant": variant(path),
                 "entry": entry,
+                "dispatch": dispatch,
                 **s,
             }
         )
@@ -56,7 +63,7 @@ def main() -> None:
     calib = load_calib(args.calib)
     files = study_days(args.studies, args.limit)
     print(f"{len(files)} attack days, {len(args.entries)} entry patterns", flush=True)
-    tasks = [(f, args.pool, args.data, calib, args.entries, args.closed_loop) for f in files]
+    tasks = [(f, args.pool, args.data, calib, args.entries, args.closed_loop, args.dispatch) for f in files]
     run_parallel(_job, tasks, args.out, workers=args.workers, every=10)
 
 

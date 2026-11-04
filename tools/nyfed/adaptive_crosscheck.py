@@ -4,6 +4,7 @@ largest gap between the summed New York-end tie P change of the adaptive vector 
 voltage reading of each (noise free), to compare with the voltage alarm (N74).
 
     python tools/nyfed/adaptive_crosscheck.py OUT.csv STUDY [--pool out/pool_2019_v3.h5] [--data data/NYgrid/Data]
+                                              [--dispatch cost]
 
 Run from the folder whose `data/` holds the inputs. One row per attack window.
 """
@@ -17,7 +18,7 @@ import numpy as np
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.detect import exact_state, reference_bus
-from fdia_graph.nyfed.experiments import DATA, study_days
+from fdia_graph.nyfed.experiments import DATA, add_dispatch_argument, study_days
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, tie_meters
 from fdia_graph.nyfed.sensing.measure import Measurement
@@ -30,13 +31,16 @@ def main() -> None:
     ap.add_argument("study")
     ap.add_argument("--pool", default="out/pool_2019_v3.h5")
     ap.add_argument("--data", default=DATA)
+    add_dispatch_argument(ap)
     args = ap.parse_args()
     with open(args.out, "w") as out:
-        out.write("file,tie_diff_max,tie_designed_max,vmax_designed,vmax_adaptive\n")
+        out.write("file,tie_diff_max,tie_designed_max,vmax_designed,vmax_adaptive,dispatch\n")
         for p in map(Path, study_days([args.study])):
             day = operator_day(p, args.pool, args.data)
             c, plan = day.case, day.plan
-            resp = respond(day, mode="trusting", calib=None, closed_loop=True).attacked
+            resp = respond(
+                day, mode="trusting", calib=None, closed_loop=True, dispatch=args.dispatch
+            ).attacked
             grid, share = TrueGrid(day), entry_share(c, "capacity")
             meas = Measurement(Network(c), plan)
             ref = reference_bus(c)
@@ -58,7 +62,8 @@ def main() -> None:
                 v_a.append(h_ad[vrows].max())
             td, ta = np.array(tie_d), np.array(tie_a)
             out.write(
-                f"{p.name},{np.abs(ta - td).max():.2f},{np.abs(td).max():.1f},{max(v_d):.5f},{max(v_a):.5f}\n"
+                f"{p.name},{np.abs(ta - td).max():.2f},{np.abs(td).max():.1f},{max(v_d):.5f},{max(v_a):.5f},"
+                f"{args.dispatch}\n"
             )
             out.flush()
             print(f"{p.name}: tie gap {np.abs(ta - td).max():.1f} MW, vmax {max(v_a):.4f}", flush=True)
