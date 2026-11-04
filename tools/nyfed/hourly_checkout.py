@@ -26,15 +26,19 @@ from fdia_graph.nyfed.operator.response import interchange_alarm, operator_day, 
 from fdia_graph.nyfed.operator.sced import FRAME_HOURS
 
 SIGMAS = 4.0  # the threshold of the scan-rate check (N62), in standard deviations of the benign gap
+SCANS_PER_HOUR = 12
 
 
 def hourly_alarm(time: np.ndarray, gap: np.ndarray, onset: int, calib: tuple[float, float]) -> int | None:
     """The last scan of the first clock hour at or after the onset's whose mean gap is more than `SIGMAS` benign
-    standard deviations off the benign mean, or None: when an hourly checkout of the same readings would know."""
+    standard deviations off the benign mean, or None: when an hourly checkout of the same readings would know. Only
+    complete hours count, since a day file shifted past midnight can cut its first or last hour short."""
     hour = np.asarray(time).astype("datetime64[s]").astype("datetime64[h]")
     mean, sd = calib
     for h in np.unique(hour[onset:]):
         scans = np.flatnonzero(hour == h)
+        if len(scans) < SCANS_PER_HOUR:  # the file holds only part of this hour, so its checkout is not known
+            continue
         if abs(float(np.nanmean(gap[scans])) - mean) > SIGMAS * sd:
             return int(scans[-1])
     return None
@@ -57,6 +61,7 @@ def _job(path: str, pool: str, data: str, calib: tuple[float, float]) -> dict | 
 
     return {
         "file": Path(path).name,
+        "study": str(Path(path).parents[1]),  # two studies may hold a day of the same name
         "onset": int(Path(path).stem.split("_")[1]),
         "variant": variant(path),
         "scan_alarm": np.nan if scan is None else scan - day.onset,

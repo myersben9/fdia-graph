@@ -25,3 +25,10 @@ def test_a_short_spike_inside_an_hour_is_averaged_away():
     gap = np.full(36, 28.0)
     gap[13] = 28.0 + 300.0  # one scan off: the hour's mean moves by 25 MW, inside the threshold
     assert hourly_alarm(TIME, gap, onset=12, calib=CALIB) is None
+
+
+def test_an_hour_the_file_holds_only_part_of_is_not_decided():
+    """A day file shifted past midnight can end mid-hour: that hour's checkout is unknown, not decided early."""
+    gap = np.full(30, 28.0)
+    gap[26:] = 28.0 + 300.0  # the gap opens in the third hour, of which the file holds only six scans
+    assert hourly_alarm(TIME[:30], gap, onset=26, calib=CALIB) is None
