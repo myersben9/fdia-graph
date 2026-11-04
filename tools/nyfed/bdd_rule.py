@@ -85,7 +85,13 @@ def main() -> None:
     args = ap.parse_args()
     calib = load_calib(args.calib)
     rule = PersistenceRule(args.theta, args.k, args.n)
-    rows = pd.read_csv(args.inp).drop_duplicates("file").to_dict("records")
+    inp = pd.read_csv(args.inp).drop_duplicates("file")
+    # the residuals follow the operator's own trajectory, so they must come from the dispatch asked for here; a CSV
+    # written before the option existed is the least-movement one
+    found = set(inp["dispatch"]) if "dispatch" in inp else {"movement"}
+    if found != {args.dispatch}:
+        raise SystemExit(f"{args.inp} holds residuals of the {sorted(found)} dispatch, not {args.dispatch!r}")
+    rows = inp.to_dict("records")
     if args.limit:
         rows = rows[: args.limit]
     days = [str(Path(s) / "days") for s in args.studies]
