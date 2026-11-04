@@ -20,6 +20,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from fdia_graph.nyfed.detect import PersistenceRule
+
 ROOT = Path(os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2]))
 DATA = ROOT / "data" / "NYgrid" / "Data"
 POOL = ROOT / "out" / "pool_2019_v3.h5"
@@ -120,11 +122,10 @@ def days():
 def tools():
     sys.path.insert(0, str(TOOLS))
     import adaptive_bdd
-    import bdd_rule
     import closed_loop_bdd
     import naive_tie_bias
 
-    return closed_loop_bdd, adaptive_bdd, naive_tie_bias, bdd_rule
+    return closed_loop_bdd, adaptive_bdd, naive_tie_bias
 
 
 @pytest.mark.parametrize("window", WINDOWS)
@@ -173,24 +174,23 @@ def test_closed_loop_residual_test(tools, window):
 @pytest.mark.parametrize("window", WINDOWS)
 def test_adaptive_attacker(tools, window):
     adaptive_bdd = tools[1]
-    row = adaptive_bdd._job(str(DAYS / window), str(POOL), str(DATA), CALIB, "trusting", RULE)
+    row = adaptive_bdd._job(
+        str(DAYS / window), str(POOL), str(DATA), CALIB, "trusting", PersistenceRule(*RULE)
+    )
     check(f"adaptive_bdd_{Path(window).stem}", row)
 
 
 @pytest.mark.parametrize("window", WINDOWS)
 def test_naive_tie_bias(tools, window):
     naive_tie_bias = tools[2]
-    row = naive_tie_bias._job(str(DAYS / window), str(POOL), str(DATA), RULE)
+    row = naive_tie_bias._job(str(DAYS / window), str(POOL), str(DATA), PersistenceRule(*RULE))
     check(f"naive_tie_bias_{Path(window).stem}", row)
 
 
-def test_persistence_rule(tools):
-    bdd_rule = tools[3]
+def test_persistence_rule():
+    rule = PersistenceRule(*RULE)
     j = np.array([400.0, 430.0, 410.0, 431.0, np.nan, 440.0, 441.0, 300.0])
-    check(
-        "persistence_rule",
-        {"first": bdd_rule.first_alarm(j, *RULE), "none": bdd_rule.first_alarm(j[:3], *RULE)},
-    )
+    check("persistence_rule", {"first": rule.first_alarm(j), "none": rule.first_alarm(j[:3])})
 
 
 TERRITORIES = ROOT / "data" / "territories"

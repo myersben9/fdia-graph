@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-PACKAGES = ("", ".grid", ".scenario", ".sensing", ".attacks", ".timeline", ".operator")
+PACKAGES = ("", ".grid", ".scenario", ".sensing", ".attacks", ".timeline", ".operator", ".detect")
 
 
 @pytest.mark.parametrize("pkg", PACKAGES, ids=lambda p: p.strip(".") or "nyfed")

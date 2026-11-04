@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from fdia_graph.nyfed.detect import PersistenceRule
 from fdia_graph.nyfed.operator.response import operator_day, respond, summarize
 
 KEEP = (
@@ -38,20 +39,11 @@ KEEP = (
 AFTER = ("benign", "freeze", "freeze_cs")
 
 
-def first_alarm(j: np.ndarray, theta: float, k: int, n: int) -> int:
-    """The first scan at which `k` of the last `n` residuals exceed `theta` (-1 none)."""
-    over = np.nan_to_num(j, nan=0.0) > theta
-    count = np.convolve(over.astype(int), np.ones(n, int))[: len(over)]
-    hit = np.flatnonzero(count >= k)
-    return int(hit[0]) if len(hit) else -1
-
-
 def _job(row: dict, study_days: list[str], pool: str, data: str, calib, mode: str, rule) -> dict:
     path = next(str(Path(s) / row["file"]) for s in study_days if (Path(s) / row["file"]).exists())
     day = operator_day(Path(path), pool, data)
-    theta, k, n = rule
-    first = first_alarm(np.array(json.loads(row["j_attacked"]), float), theta, k, n)
-    benign_first = first_alarm(np.array(json.loads(row["j_benign"]), float), theta, k, n)
+    first = rule.first_alarm(np.array(json.loads(row["j_attacked"]), float))
+    benign_first = rule.first_alarm(np.array(json.loads(row["j_benign"]), float))
     out = {
         "file": row["file"],
         "variant": row["variant"],
@@ -94,7 +86,16 @@ def main() -> None:
     t0 = time.perf_counter()
     with ProcessPoolExecutor(args.workers) as ex:
         futs = [
-            ex.submit(_job, r, days, args.pool, args.data, calib, args.mode, (args.theta, args.k, args.n))
+            ex.submit(
+                _job,
+                r,
+                days,
+                args.pool,
+                args.data,
+                calib,
+                args.mode,
+                PersistenceRule(args.theta, args.k, args.n),
+            )
             for r in rows
         ]
         for i, fut in enumerate(as_completed(futs), 1):

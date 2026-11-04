@@ -40,15 +40,14 @@ import pandas as pd
 from scipy.stats import chi2
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
+from fdia_graph.nyfed.detect import fleet_bias, reference_bus, wls
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import read_pool
 from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, summarize
 from fdia_graph.nyfed.scenario.pool import SOLVED
 from fdia_graph.nyfed.sensing.measure import Measurement
-from fdia_graph.nyfed.sensing.meters import JITTER_FRAC
 from fdia_graph.nyfed.sensing.noise import NoiseModel
 
-REF = 3  # bus type of the reference bus
 KEEP = (
     "inadvertent_mw",
     "inadvertent_mwh",
@@ -60,33 +59,13 @@ KEEP = (
 AFTER = ("benign", "freeze", "freeze_cs")
 
 
-def _wls(meas: Measurement, z: np.ndarray, sigma: np.ndarray, vm: np.ndarray, va: np.ndarray, ref: int):
-    """Gauss-Newton weighted least squares from (vm, va), the reference angle fixed; a small damping keeps the
-    buses no meter sees from making the step singular. Returns the weighted residual sum and the rank used."""
-    kind = meas.plan.kind
-    keep = np.ones(2 * len(vm), bool)
-    keep[len(vm) + ref] = False
-    w = 1.0 / sigma
-    for _ in range(12):
-        r = wrap_angles(z - meas.h(vm, va), kind) * w
-        jac = meas.jacobian(vm, va)[:, keep] * w[:, None]
-        step = np.linalg.solve(jac.T @ jac + 1e-8 * np.eye(keep.sum()), jac.T @ r)
-        dx = np.zeros(2 * len(vm))
-        dx[keep] = step
-        vm, va = vm + dx[: len(vm)], va + dx[len(vm) :]
-        if np.abs(step).max() < 1e-7:
-            break
-    r = wrap_angles(z - meas.h(vm, va), kind) * w
-    return float(r @ r), int(np.linalg.matrix_rank(jac, tol=1e-6))
-
-
 def _calibrate(day_path: str, pool_path: str, data: str, frames: int, seed: int) -> tuple[float, list[float]]:
     """The 99th percentile of the benign weighted residual over `frames` solved scans of January to March, each
     drawn with the plan's meter noise (its constant biases and a fresh jitter)."""
     day = operator_day(Path(day_path), pool_path, data)
     meas = Measurement(Network(day.case), day.plan)
     noise = NoiseModel(day.plan)
-    ref = int(np.flatnonzero(day.case.bus_type == REF)[0])
+    ref = reference_bus(day.case)
     pool = read_pool(pool_path)
     month = pool.time.astype("datetime64[M]").astype(int) % 12 + 1
     ok = np.flatnonzero((month <= 3) & (pool.solve_kind == SOLVED))
@@ -98,16 +77,8 @@ def _calibrate(day_path: str, pool_path: str, data: str, frames: int, seed: int)
             continue
         exact = meas.h(vm, va)
         z = noise.sample(exact, g)
-        j, _ = _wls(meas, z, noise.sigmas(z), vm.copy(), va.copy(), ref)
-        js.append(j)
+        js.append(wls(meas, z, noise.sigmas(z), vm, va, ref).j)
     return float(np.percentile(js, 99)), js
-
-
-def _fleet_bias(plan, draw: int) -> np.ndarray:
-    """The constant biases of another meter fleet, drawn exactly as bdd_benign_series.py --draw draws them."""
-    rel = plan.sigma_rel > 0
-    scale = np.sqrt(1.0 - JITTER_FRAC**2) * np.where(rel, plan.sigma_rel, plan.sigma_abs)
-    return np.random.default_rng([20190101, 4219, draw]).normal(0.0, scale)
 
 
 def _job(
@@ -122,24 +93,15 @@ def _job(
     grid = TrueGrid(day)
     share = entry_share(c, "capacity")
     meas = Measurement(Network(c), day.plan)
-    ref = int(np.flatnonzero(c.bus_type == REF)[0])
-    sr, sa = day.plan.sigma_rel, day.plan.sigma_abs
+    noise_model = NoiseModel(day.plan)
+    ref = reference_bus(c)
     j_att, j_ben, dof = [], [], np.nan
     rel = day.plan.sigma_rel > 0
-    fleets = [_fleet_bias(day.plan, d) for d in range(1, draws + 1)]
+    fleets = [fleet_bias(day.plan, d) for d in range(1, draws + 1)]
     j_draw: list[list[float]] = [[] for _ in fleets]
     for t in range(day.onset, day.onset + day.length):
-        units = day.unit_p[t] + a.dev[t] + a.reg[t] + a.uncovered[t] * share
-        r = grid.solver.power_flow(
-            grid.pd[t],
-            grid.qd[t],
-            units,
-            np.ones(len(units), bool),
-            day.vm[t, c.unit_bus],
-            np.zeros(len(c.dc_f)),
-            start=(day.vm[t], day.va[t]),
-        )
-        if r is None:
+        x = grid.run_state(a, t, share)  # the true state once the operator has acted
+        if x is None:
             j_att.append(np.nan)
             j_ben.append(np.nan)
             for jd in j_draw:
@@ -147,18 +109,17 @@ def _job(
             continue
         noise = wrap_angles(day.z_benign[t] - meas.h(day.vm[t], day.va[t]), day.plan.kind)
         z_b = day.z_benign[t]
-        z_a = meas.h(r["vm"], r["va"]) + (day.z[t] - z_b) + noise
-        sigma = sr * np.abs(z_b) + sa
-        jb, rank = _wls(meas, z_b, sigma, day.vm[t].copy(), day.va[t].copy(), ref)
-        ja, _ = _wls(meas, z_a, sigma, r["vm"].copy(), r["va"].copy(), ref)
-        j_att.append(ja)
-        j_ben.append(jb)
+        z_a = meas.h(*x) + (day.z[t] - z_b) + noise
+        sigma = noise_model.sigmas(z_b)
+        benign = wls(meas, z_b, sigma, day.vm[t], day.va[t], ref)
+        j_att.append(wls(meas, z_a, sigma, *x, ref).j)
+        j_ben.append(benign.j)
         exact = meas.h(day.vm[t], day.va[t])
         own = np.where(rel, exact * day.plan.bias, day.plan.bias)
         for bias, jd in zip(fleets, j_draw):  # the same jitter, the other fleet's constant bias
             z_d = z_a - own + np.where(rel, exact * bias, bias)
-            jd.append(_wls(meas, z_d, sigma, r["vm"].copy(), r["va"].copy(), ref)[0])
-        dof = len(z_b) - rank
+            jd.append(wls(meas, z_d, sigma, *x, ref).j)
+        dof = len(z_b) - benign.rank
     ja_, jb_ = np.array(j_att), np.array(j_ben)
     thr_chi = chi2.ppf(0.99, dof) if np.isfinite(dof) else np.inf
     row = {

@@ -66,10 +66,15 @@ src/fdia_graph/nyfed/
     __init__.py        what the stage does, and its public names
     schedule.py        Slot, place_episodes, split_weeks, split_frames, week_index
     builder.py         TimelineBuilder
+  detect/
+    __init__.py        what the stage does, and its public names
+    estimate.py        WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
+    rules.py           AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
+    fleets.py          FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
   operator/
     __init__.py        what the stage does, and its public names
     sced.py            DcSced, Step, shift_factors, outage_factors, shortage_usd (N59, N60)
-    response.py        OperatorDay, Twin, Response, TrueGrid, MODES, AFTER, ENTRY, operator_day, seen_interfaces, tie_gap, tie_meters, entry_share, respond, summarize
+    response.py        OperatorDay, Twin, Response, TrueGrid (state, run_state), MODES, AFTER, ENTRY, operator_day, seen_interfaces, tie_gap, tie_meters, entry_share, respond, summarize
 tools/nyfed/
   operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
   tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)

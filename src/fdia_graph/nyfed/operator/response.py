@@ -286,7 +286,11 @@ class TrueGrid:
         self.lodf = outage_factors(c, shift_factors(c), self.outages)
         self._base: dict[int, tuple[np.ndarray, float]] = {}
 
-    def _flows(self, t: int, units: np.ndarray, shed: np.ndarray | None = None) -> np.ndarray | None:
+    def state(
+        self, t: int, units: np.ndarray, shed: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray] | None:
+        """The true AC state `(vm, va)` at scan `t` with the units at `units [U]` (MW) and `shed [N]` (MW) taken off
+        the true loads, or None where the power flow fails."""
         d = self.day
         q = self.qd[t]
         if shed is not None:  # a shed load takes its reactive demand with it, at its own power factor
@@ -301,7 +305,19 @@ class TrueGrid:
             np.zeros(len(d.case.dc_f)),
             start=(d.vm[t], d.va[t]),
         )
-        return None if r is None else self.net.flows(r["vm"], r["va"])[0]
+        return None if r is None else (r["vm"], r["va"])
+
+    def run_state(self, run: Twin, t: int, share: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
+        """The true state at scan `t` of an operator's `run`: its units at their basepoint plus its dispatch and
+        regulation, the neighbours' supply at their units in proportion to `share` (`entry_share`), and the load it
+        shed. What the estimator truly sees once the operator has acted (the closed loop, N76); None where the
+        power flow fails."""
+        units = self.day.unit_p[t] + run.dev[t] + run.reg[t] + run.uncovered[t] * share
+        return self.state(t, units, run.shed[t])
+
+    def _flows(self, t: int, units: np.ndarray, shed: np.ndarray | None = None) -> np.ndarray | None:
+        x = self.state(t, units, shed)
+        return None if x is None else self.net.flows(*x)[0]
 
     def _measure(self, pf: np.ndarray) -> tuple[np.ndarray, float]:
         """Every interface's flow, and the largest flow any of them carries after the worst single outage."""

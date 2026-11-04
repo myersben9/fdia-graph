@@ -103,6 +103,10 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.build` | The production build: the inputs fetched at their pinned versions, and the `TimelineBuilder` with every decided bound (N8, N27 to N49) in one place. |
 | `nyfed.config` | Build settings and the one place random generators are made. |
 | `nyfed.dataset` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
+| `nyfed.detect` | Detection: what the operator's checks see, as building blocks. |
+| `nyfed.detect.estimate` | The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic. |
+| `nyfed.detect.fleets` | Other meter fleets: the same meters and accuracy classes with fresh constant biases. |
+| `nyfed.detect.rules` | When a detector alarms: the rule that turns a statistic per scan into a first alarm. |
 | `nyfed.grid` | The network: the case, its admittances, the NYISO interfaces and the clients. |
 | `nyfed.grid.case` | The grid as one frozen record of arrays. |
 | `nyfed.grid.clients` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |

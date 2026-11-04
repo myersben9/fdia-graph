@@ -11,26 +11,16 @@ Run from the folder whose `data/` holds the inputs. One row per attack window.
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).parent))
-from adaptive_bdd import _false_state  # noqa: E402
-from closed_loop_bdd import REF  # noqa: E402
-
-from fdia_graph.nyfed.attacks.attacker import wrap_angles  # noqa: E402
-from fdia_graph.nyfed.grid.network import Network  # noqa: E402
-from fdia_graph.nyfed.operator.response import (  # noqa: E402
-    TrueGrid,
-    entry_share,
-    operator_day,
-    respond,
-    tie_meters,
-)
-from fdia_graph.nyfed.sensing.measure import Measurement  # noqa: E402
-from fdia_graph.nyfed.sensing.meters import KINDS  # noqa: E402
+from fdia_graph.nyfed.attacks.attacker import wrap_angles
+from fdia_graph.nyfed.detect import exact_state, reference_bus
+from fdia_graph.nyfed.grid.network import Network
+from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, tie_meters
+from fdia_graph.nyfed.sensing.measure import Measurement
+from fdia_graph.nyfed.sensing.meters import KINDS
 
 
 def main() -> None:
@@ -48,28 +38,19 @@ def main() -> None:
             resp = respond(day, mode="trusting", calib=None, closed_loop=True).attacked
             grid, share = TrueGrid(day), entry_share(c, "capacity")
             meas = Measurement(Network(c), plan)
-            ref = int(np.flatnonzero(c.bus_type == REF)[0])
+            ref = reference_bus(c)
             _, _, rows = tie_meters(c, plan)
             vrows = np.flatnonzero(plan.kind == KINDS.index("v"))
             tie_d, tie_a, v_d, v_a = [], [], [], []
             for t in range(day.onset, day.onset + day.length):
-                units = day.unit_p[t] + resp.dev[t] + resp.reg[t] + resp.uncovered[t] * share
-                r = grid.solver.power_flow(
-                    grid.pd[t],
-                    grid.qd[t],
-                    units,
-                    np.ones(len(units), bool),
-                    day.vm[t, c.unit_bus],
-                    np.zeros(len(c.dc_f)),
-                    start=(day.vm[t], day.va[t]),
-                )
-                if r is None:
+                x = grid.run_state(resp, t, share)  # the true state once the operator has acted
+                if x is None:
                     continue
                 h_true = meas.h(day.vm[t], day.va[t])
                 a = wrap_angles(day.z[t] - day.z_benign[t], plan.kind)
-                vm_f, va_f, _ = _false_state(meas, h_true + a, day.vm[t].copy(), day.va[t].copy(), ref)
-                h_cl = meas.h(r["vm"], r["va"])
-                h_ad = meas.h(r["vm"] + vm_f - day.vm[t], r["va"] + va_f - day.va[t])
+                vm_f, va_f, _ = exact_state(meas, h_true + a, day.vm[t].copy(), day.va[t].copy(), ref)
+                h_cl = meas.h(*x)
+                h_ad = meas.h(x[0] + vm_f - day.vm[t], x[1] + va_f - day.va[t])
                 tie_d.append(a[rows].sum())
                 tie_a.append((h_ad - h_cl)[rows].sum())
                 v_d.append((h_true + a)[vrows].max())

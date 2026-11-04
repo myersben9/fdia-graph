@@ -16,6 +16,8 @@ The work runs in stages, one subpackage each, every stage reading what the one b
    `Dataset`.
 6. `operator`: the consequence. The operator's five-minute dispatch, regulation and alarms on what it reads, run
    against the true grid (`respond`, `summarize`).
+7. `detect`: the operator's checks as building blocks. The residual test's estimator (`wls`), alarm rules
+   (`PersistenceRule`, or any `AlarmRule`) and other meter fleets (`with_fleet`).
 
 Entry points: `production_builder` builds the release timeline, `Dataset` reads one, `operator_day` and `respond`
 run the operator on an attacked day. Every public name below loads on first use. When a stage fails it raises a
