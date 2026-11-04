@@ -116,6 +116,7 @@ tools/nyfed/
   operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
   tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
   area_damage.py       the damage study's days through each operator, split by zone, utility and neighbor, with the attack's surface and each zone's lever
+  hourly_checkout.py   the scan-rate interchange check against the hourly checkout of the same tie readings: when each knows, and the inadvertent energy taken by then
   damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
   build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
