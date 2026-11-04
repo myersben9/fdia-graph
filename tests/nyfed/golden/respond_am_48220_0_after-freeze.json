@@ -1,0 +1,114 @@
+{
+ "alarm": 5.0,
+ "summary": {
+  "alarm_scans": 5.0,
+  "delay": 0,
+  "dispatch_moved_mw": 114.08154308283156,
+  "fuel_usd": -31006.00886280196,
+  "iface_down_mw": -2.3687072779794107,
+  "iface_up_mw": 198.4726391141662,
+  "inadvertent_mw": 389.08154296875,
+  "inadvertent_mwh": 529.4604848225911,
+  "margin_lost_mw": 198.4726391141662,
+  "margin_min_mw": 127.48166666666998,
+  "mode": "trusting",
+  "n1_up_mw": 112.19233209145523,
+  "other_iface_up_mw": 114.41619588053618,
+  "over_iface": -1,
+  "over_mw": 0.0,
+  "over_mwh": -0.0,
+  "over_run_scans": 0,
+  "over_scans": 0,
+  "regulation_mw": 275.0,
+  "regulation_mwh": 1281.6910858154295,
+  "regulation_mwh_CHGE": 0.0,
+  "regulation_mwh_ConEd": 1216.7690073438655,
+  "regulation_mwh_LIPA": 2.722529682578223,
+  "regulation_mwh_NGRID": 62.19954878898575,
+  "regulation_mwh_NYSEG": 0.0,
+  "regulation_mwh_ORU": 0.0,
+  "regulation_mwh_RGE": 0.0,
+  "relief_usd": -4.5890558524791605e-05,
+  "settled_usd": -12679.19850853663,
+  "shed_mw": 0.0,
+  "shed_mwh": 0.0,
+  "shed_mwh_CHGE": 0.0,
+  "shed_mwh_ConEd": 0.0,
+  "shed_mwh_LIPA": 0.0,
+  "shed_mwh_NGRID": 0.0,
+  "shed_mwh_NYSEG": 0.0,
+  "shed_mwh_ORU": 0.0,
+  "shed_mwh_RGE": 0.0,
+  "shortage_usd": 0.0,
+  "tie_gap_mw": 397.36529541015625,
+  "uncovered_mw": 389.08154296875,
+  "unmatched_mw": 0.0,
+  "unrelieved_mw": 0.0
+ },
+ "twins": {
+  "attacked": {
+   "dev": [
+    -18485.46759033203,
+    18485.468190748084,
+    114.08154352579078
+   ],
+   "iface_change": [
+    5759.726407648832,
+    6968.0037979123945,
+    198.4726391141662
+   ],
+   "n1_change": [
+    1705.600514278197,
+    2198.8503736264256,
+    112.19233209145523
+   ],
+   "reg": [
+    12131.941772460938,
+    18628.64428710938,
+    105.26320176864172
+   ],
+   "shed": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "uncovered": [
+    6353.525817871094,
+    6353.525817871094,
+    389.08154296875
+   ]
+  },
+  "benign": {
+   "dev": [
+    -5.293955920339377e-22,
+    0.0009157976586649079,
+    2.985985802838701e-05
+   ],
+   "iface_change": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "n1_change": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "reg": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "shed": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "uncovered": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ }
+}

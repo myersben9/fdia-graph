@@ -1,0 +1,114 @@
+{
+ "alarm": 1.0,
+ "summary": {
+  "alarm_scans": 1.0,
+  "delay": 0,
+  "dispatch_moved_mw": 22.104370139291873,
+  "fuel_usd": -163.22700480380746,
+  "iface_down_mw": 0.0,
+  "iface_up_mw": 14.303525268734575,
+  "inadvertent_mw": 24.8717041015625,
+  "inadvertent_mwh": 2.0726420084635415,
+  "margin_lost_mw": 14.303525268734575,
+  "margin_min_mw": 127.48166666666998,
+  "mode": "oracle",
+  "n1_up_mw": 7.084824629700506,
+  "other_iface_up_mw": 7.216356349512807,
+  "over_iface": -1,
+  "over_mw": 0.0,
+  "over_mwh": -0.0,
+  "over_run_scans": 0,
+  "over_scans": 0,
+  "regulation_mw": 2.767333984375,
+  "regulation_mwh": 0.0,
+  "regulation_mwh_CHGE": 0.0,
+  "regulation_mwh_ConEd": 0.0,
+  "regulation_mwh_LIPA": 0.0,
+  "regulation_mwh_NGRID": 0.0,
+  "regulation_mwh_NYSEG": 0.0,
+  "regulation_mwh_ORU": 0.0,
+  "regulation_mwh_RGE": 0.0,
+  "relief_usd": -5.886571733627005e-08,
+  "settled_usd": -46.60166368170527,
+  "shed_mw": 0.0,
+  "shed_mwh": 0.0,
+  "shed_mwh_CHGE": 0.0,
+  "shed_mwh_ConEd": 0.0,
+  "shed_mwh_LIPA": 0.0,
+  "shed_mwh_NGRID": 0.0,
+  "shed_mwh_NYSEG": 0.0,
+  "shed_mwh_ORU": 0.0,
+  "shed_mwh_RGE": 0.0,
+  "shortage_usd": 0.0,
+  "tie_gap_mw": 397.36529541015625,
+  "uncovered_mw": 24.8717041015625,
+  "unmatched_mw": 0.0,
+  "unrelieved_mw": 0.0
+ },
+ "twins": {
+  "attacked": {
+   "dev": [
+    -22.1043701171875,
+    22.105285936950533,
+    22.104369489684437
+   ],
+   "iface_change": [
+    22.264993263830547,
+    23.12648997051292,
+    14.303525268734575
+   ],
+   "n1_change": [
+    7.084824629700506,
+    7.084824629700506,
+    7.084824629700506
+   ],
+   "reg": [
+    -2.767333984375,
+    2.767333984375,
+    0.47391652332018985
+   ],
+   "shed": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "uncovered": [
+    24.8717041015625,
+    24.8717041015625,
+    24.8717041015625
+   ]
+  },
+  "benign": {
+   "dev": [
+    -5.293955920339377e-22,
+    0.0009157976586649079,
+    2.985985802838701e-05
+   ],
+   "iface_change": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "n1_change": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "reg": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "shed": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "uncovered": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ }
+}

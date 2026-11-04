@@ -1,0 +1,114 @@
+{
+ "alarm": 5.0,
+ "summary": {
+  "alarm_scans": 5.0,
+  "delay": 0,
+  "dispatch_moved_mw": 194.76354999945107,
+  "fuel_usd": -48058.023453580776,
+  "iface_down_mw": -4.042800740427992,
+  "iface_up_mw": 248.00185425507425,
+  "inadvertent_mw": 469.76354980468756,
+  "inadvertent_mwh": 768.6871744791658,
+  "margin_lost_mw": 248.00185425507425,
+  "margin_min_mw": 127.48166666666998,
+  "mode": "trusting",
+  "n1_up_mw": 135.0215798343279,
+  "other_iface_up_mw": 137.6644004043228,
+  "over_iface": -1,
+  "over_mw": 0.0,
+  "over_mwh": -0.0,
+  "over_run_scans": 0,
+  "over_scans": 0,
+  "regulation_mw": 275.00000000000006,
+  "regulation_mwh": 2192.8022104899087,
+  "regulation_mwh_CHGE": 0.0,
+  "regulation_mwh_ConEd": 2084.541340035695,
+  "regulation_mwh_LIPA": 4.685121449712318,
+  "regulation_mwh_NGRID": 103.57574900450136,
+  "regulation_mwh_NYSEG": 0.0,
+  "regulation_mwh_ORU": 0.0,
+  "regulation_mwh_RGE": 0.0,
+  "relief_usd": -7.827801891752534e-05,
+  "settled_usd": -18396.86980984603,
+  "shed_mw": 0.0,
+  "shed_mwh": 0.0,
+  "shed_mwh_CHGE": 0.0,
+  "shed_mwh_ConEd": 0.0,
+  "shed_mwh_LIPA": 0.0,
+  "shed_mwh_NGRID": 0.0,
+  "shed_mwh_NYSEG": 0.0,
+  "shed_mwh_ORU": 0.0,
+  "shed_mwh_RGE": 0.0,
+  "shortage_usd": 0.0,
+  "tie_gap_mw": 603.0787963867188,
+  "uncovered_mw": 469.76354980468756,
+  "unmatched_mw": 0.0,
+  "unrelieved_mw": 0.0
+ },
+ "twins": {
+  "attacked": {
+   "dev": [
+    -31533.281372070312,
+    31533.281985534184,
+    194.76355040206928
+   ],
+   "iface_change": [
+    8378.14713393072,
+    10402.246783340319,
+    248.00185425507425
+   ],
+   "n1_change": [
+    2433.6485222745505,
+    3266.2956848935,
+    135.0215798343279
+   ],
+   "reg": [
+    22309.035278320323,
+    30318.21777343749,
+    179.70860107891457
+   ],
+   "shed": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "uncovered": [
+    9224.246093749989,
+    9224.24609374999,
+    469.76354980468756
+   ]
+  },
+  "benign": {
+   "dev": [
+    -5.293955920339377e-22,
+    0.0009157976586649079,
+    2.985985802838701e-05
+   ],
+   "iface_change": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "n1_change": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "reg": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "shed": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "uncovered": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ }
+}
