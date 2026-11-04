@@ -409,6 +409,7 @@ def _run(
     seen_benign: np.ndarray,
     entry: str = "capacity",
     closed_loop: bool = False,
+    after: str | None = None,
 ) -> Twin:
     """One run of the operator over the day (N66). `gap [T]` is the interchange it reads at the New York
     ends of the ties less the true one (zero in the benign twin). A trusting operator dispatches on the
@@ -453,18 +454,26 @@ def _run(
     # N76: with `closed_loop` the operator reads each interface as it truly flows after its last dispatch, so
     # the gap between that true change and what its shift factors predicted enters its next reading
     mismatch = np.zeros(I)
+    last_step = None
     for t in range(T):
         if not (day.solved[t] and (t == 0 or day.solved[t - 1])):
             out["iface_change"][t], out["n1_change"][t] = np.nan, np.nan
             prev, before = (None, None) if not day.solved[t] else (prev, before)
             continue
         s = max(t - delay, 0)  # the operator acts on the scan `delay` scans back
-        fallback = mode == "oracle" and alarm is not None and t >= alarm  # decided at scan t, whatever s is
+        # N78: past the alarm the oracle reads the scans without the attack; with `after` any operator responds
+        # to the alarm: "benign" as the oracle, "freeze" holding its dispatch while its AGC keeps reading the tie
+        # meters it reads, "freeze_cs" holding its dispatch with the AGC on the common-source tie values
+        alarmed = alarm is not None and t >= alarm and (mode == "oracle" or after is not None)
+        style = "benign" if mode == "oracle" else after
+        fallback = alarmed and style == "benign"  # decided at scan t, whatever s is
+        frozen = alarmed and style in ("freeze", "freeze_cs") and last_step is not None
         view = (seen_benign[s] if fallback else seen[s]) + (mismatch if closed_loop else 0.0)
         dload = 0.0 if fallback else float(np.nan_to_num(load_change[s]))
-        if mode == "accounting":  # load from generation plus the agreed interchange: the false part drops out
+        if mode == "accounting" and not fallback:  # load from generation plus the agreed interchange
             dload += float(np.nan_to_num(gap[s]))  # the read export the attack added hides as much load
-        step = sced.step(t, view, limit[t], dload, prev, over >= SHED_AFTER)
+        step = last_step if frozen else sced.step(t, view, limit[t], dload, prev, over >= SHED_AFTER)
+        last_step = step
         short = np.nan_to_num(step.unrelieved)
         # an interface's clock runs while it is over its limit, or would be without the load it sheds
         bare = np.nan_to_num(view + sf_units @ step.dev - limit[t]) > 1e-6
@@ -476,11 +485,13 @@ def _run(
         short_mw = -float(step.dev.sum() + step.shed.sum())
         # the AGC sees the shortfall through the tie meters it reads: the trusting operator's New
         # York-end meters carry the false interchange, the agreed ones do not
-        seen_err = (
-            float(np.nan_to_num(gap[t]))
-            if (mode == "trusting" or (mode == "oracle" and not fallback))
-            else 0.0
-        )
+        reads_ties = mode == "trusting" or (mode == "oracle" and not fallback)
+        if alarmed and style in (
+            "benign",
+            "freeze_cs",
+        ):  # the alarm moved the AGC off the New York-end meters
+            reads_ties = False
+        seen_err = float(np.nan_to_num(gap[t])) if reads_ties else 0.0
         reg, _ = _regulation(day, t, short_mw - seen_err, dispatched, before)
         prev, before = step.dev, dispatched + reg
         out["uncovered"][t] = short_mw - float(
@@ -554,6 +565,7 @@ def respond(
     entry: str = "capacity",
     closed_loop: bool = False,
     alarm_at: int | None = None,
+    after: str | None = None,
 ) -> Response:
     """Run the operator on `day` in one of `MODES` (N66), acting `delay` scans late (O5). `over` (MW) is a
     what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
@@ -576,7 +588,9 @@ def respond(
     grid = _TrueGrid(day)
     zero = np.zeros(len(day.time))
     return Response(
-        attacked=_run(day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b, entry, closed_loop),
+        attacked=_run(
+            day, seen_a, load_change, delay, grid, gap, mode, alarm, seen_b, entry, closed_loop, after
+        ),
         benign=_run(day, seen_b, zero, delay, grid, zero, mode, None, seen_b, entry, closed_loop),
         unit_client=day.own.bus_client[day.case.unit_bus],
         bus_client=day.own.bus_client,

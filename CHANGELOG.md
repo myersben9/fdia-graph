@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Answering a residual alarm (New York grid).** `respond(after=...)` models the operator's response to an alarm
+  (switch to the benign scans, freeze with the AGC on the falsified ties, freeze with it on the common source), and
+  `closed_loop_bdd.py` calibrates the residual test on benign winter scans (N78).
+
 - **The residual test with the meters' noise (New York grid).** `closed_loop_bdd.py` tests the benign twin and the
   closed-loop attacked scans with each window's own noise and reports the damage of an operator that falls back at the
   first residual alarm (`respond(alarm_at=...)`, N77).
