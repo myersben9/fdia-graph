@@ -472,7 +472,11 @@ def _run(
         dload = 0.0 if fallback else float(np.nan_to_num(load_change[s]))
         if mode == "accounting" and not fallback:  # load from generation plus the agreed interchange
             dload += float(np.nan_to_num(gap[s]))  # the read export the attack added hides as much load
-        step = last_step if frozen else sced.step(t, view, limit[t], dload, prev, over >= SHED_AFTER)
+        step = (
+            last_step
+            if frozen and last_step is not None
+            else sced.step(t, view, limit[t], dload, prev, over >= SHED_AFTER)
+        )
         last_step = step
         short = np.nan_to_num(step.unrelieved)
         # an interface's clock runs while it is over its limit, or would be without the load it sheds
