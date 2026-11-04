@@ -19,7 +19,6 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse
 import json
-import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -27,35 +26,31 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).parent))
-from bdd_rule import first_alarm  # noqa: E402
-from closed_loop_bdd import REF, _wls  # noqa: E402
-
-from fdia_graph.nyfed.grid.network import Network  # noqa: E402
-from fdia_graph.nyfed.operator.response import operator_day, tie_meters  # noqa: E402
-from fdia_graph.nyfed.sensing.measure import Measurement  # noqa: E402
+from fdia_graph.nyfed.detect import PersistenceRule, reference_bus, wls
+from fdia_graph.nyfed.grid.network import Network
+from fdia_graph.nyfed.operator.response import operator_day, tie_meters
+from fdia_graph.nyfed.sensing.measure import Measurement
+from fdia_graph.nyfed.sensing.noise import NoiseModel
 
 
-def _job(path: str, pool: str, data: str, rule: tuple[float, int, int]) -> dict | None:
+def _job(path: str, pool: str, data: str, rule: PersistenceRule) -> dict | None:
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
         return None
     c, plan = day.case, day.plan
     meas = Measurement(Network(c), plan)
-    ref = int(np.flatnonzero(c.bus_type == REF)[0])
+    ref = reference_bus(c)
     _, _, rows = tie_meters(c, plan)
-    sr, sa = plan.sigma_rel, plan.sigma_abs
+    noise_model = NoiseModel(plan)
     js, bias_mw = [], []
     for t in range(day.onset, day.onset + day.length):
         z_b = day.z_benign[t]
         a = np.zeros_like(z_b)
         a[rows] = (day.z[t] - z_b)[rows]  # the stealthy attack's tie readings, nothing else
         z = z_b + a
-        j, _ = _wls(meas, z, sr * np.abs(z_b) + sa, day.vm[t].copy(), day.va[t].copy(), ref)
-        js.append(j)
+        js.append(wls(meas, z, noise_model.sigmas(z_b), day.vm[t], day.va[t], ref).j)
         bias_mw.append(float(np.abs(a[rows]).sum()))
     j_ = np.array(js)
-    theta, k, n = rule
     return {
         "file": Path(path).name,
         "onset": day.onset,
@@ -63,7 +58,7 @@ def _job(path: str, pool: str, data: str, rule: tuple[float, int, int]) -> dict 
         "ties": int(len(rows)),
         "tie_change_max": float(np.max(bias_mw)),
         "j_naive": json.dumps([round(float(x), 2) for x in j_]),
-        "first": first_alarm(j_, theta, k, n),
+        "first": rule.first_alarm(j_),
     }
 
 
@@ -82,7 +77,7 @@ def main() -> None:
     files = sorted({str(p) for s in args.studies for p in Path(s, "days").glob("am_*_*.h5")})
     if args.limit:
         files = files[: args.limit]
-    rule = (args.theta, args.k, args.n)
+    rule = PersistenceRule(args.theta, args.k, args.n)
     t0 = time.perf_counter()
     rows: list[dict] = []
     with ProcessPoolExecutor(args.workers) as ex:

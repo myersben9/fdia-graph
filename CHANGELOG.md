@@ -5,6 +5,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Detection as building blocks (New York grid).** New `fdia_graph.nyfed.detect`: the residual test's AC weighted
+  least squares (`wls`, returning a `WlsFit` that says whether it converged), the noise-free fit of a state
+  (`exact_state`), the persistence rule with its calibration (`PersistenceRule`, `PersistenceRule.fit`) behind an
+  `AlarmRule` protocol any other rule can implement, and other meter fleets (`with_fleet`, `fleet_bias`).
+  `TrueGrid.state` and `TrueGrid.run_state` give the true state after the operator acts, with the load it shed (the
+  research tools left the shed load out; no studied day sheds load, so no number changes). The six detection tools
+  under `tools/nyfed/` now drive these instead of carrying their own copies and importing each other.
+
 - **A public surface for the New York grid.** Every `fdia_graph.nyfed` package (`grid`, `scenario`, `sensing`,
   `attacks`, `timeline`, `operator`, and `fdia_graph.nyfed` itself) now has a docstring that says what its stage does,
   what goes in and comes out, and how it fails, and an `__all__` of its public names, loaded on first use (reading a

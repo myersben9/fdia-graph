@@ -15,7 +15,6 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
     os.environ.setdefault(_var, "1")
 
 import argparse
-import dataclasses
 import glob
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -24,52 +23,24 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from fdia_graph.nyfed.detect import reference_bus, with_fleet, wls
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import read_pool
 from fdia_graph.nyfed.operator.response import operator_day
 from fdia_graph.nyfed.scenario.pool import SOLVED
 from fdia_graph.nyfed.sensing.measure import Measurement
-from fdia_graph.nyfed.sensing.meters import JITTER_FRAC
 from fdia_graph.nyfed.sensing.noise import NoiseModel
 
-REF = 3
 _CTX: dict = {}
 
 
 def _init(day_path: str, pool_path: str, data: str, draw: int = 0) -> None:
     day = operator_day(Path(day_path), pool_path, data)  # any attack day carries the case and the meter plan
-    plan = day.plan
-    if (
-        draw
-    ):  # another meter fleet: fresh constant biases of the same accuracy classes (as tie_check.py --draws)
-        rel = plan.sigma_rel > 0
-        scale = np.sqrt(1.0 - JITTER_FRAC**2) * np.where(rel, plan.sigma_rel, plan.sigma_abs)
-        bias = np.random.default_rng([20190101, 4219, draw]).normal(0.0, scale)
-        plan = dataclasses.replace(plan, bias=bias)
+    plan = with_fleet(day.plan, draw)  # draw 0 the plan's own meter fleet, otherwise fresh constant biases
     _CTX["meas"] = Measurement(Network(day.case), plan)
     _CTX["noise"] = NoiseModel(plan)
-    _CTX["ref"] = int(np.flatnonzero(day.case.bus_type == REF)[0])
+    _CTX["ref"] = reference_bus(day.case)
     _CTX["pool"] = read_pool(pool_path)
-
-
-def _wls(meas, z, sigma, vm, va, ref):
-    from fdia_graph.nyfed.attacks.attacker import wrap_angles
-
-    kind = meas.plan.kind
-    keep = np.ones(2 * len(vm), bool)
-    keep[len(vm) + ref] = False
-    w = 1.0 / sigma
-    for _ in range(12):
-        r = wrap_angles(z - meas.h(vm, va), kind) * w
-        jac = meas.jacobian(vm, va)[:, keep] * w[:, None]
-        step = np.linalg.solve(jac.T @ jac + 1e-8 * np.eye(keep.sum()), jac.T @ r)
-        dx = np.zeros(2 * len(vm))
-        dx[keep] = step
-        vm, va = vm + dx[: len(vm)], va + dx[len(vm) :]
-        if np.abs(step).max() < 1e-7:
-            break
-    r = wrap_angles(z - meas.h(vm, va), kind) * w
-    return float(r @ r)
 
 
 def _job(day: str, frames: list[int], seed: int) -> list[dict]:
@@ -82,7 +53,7 @@ def _job(day: str, frames: list[int], seed: int) -> list[dict]:
             rows.append({"day": day, "scan": k, "j": np.nan})
             continue
         z = noise.sample(meas.h(vm, va), g)
-        rows.append({"day": day, "scan": k, "j": _wls(meas, z, noise.sigmas(z), vm.copy(), va.copy(), ref)})
+        rows.append({"day": day, "scan": k, "j": wls(meas, z, noise.sigmas(z), vm, va, ref).j})
     return rows
 
 
