@@ -1633,6 +1633,10 @@ into train, validation and test, stratified on those hours.</p>
 test whose input is missing:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">NYFED_ROOT</span><span class="o">=</span>/path/to/nyfed<span class="w"> </span>pytest<span class="w"> </span><span class="nv">$FG</span>/tests/nyfed
 </code></pre></div>
+<p>Most tests need only the inputs of step 1, with the attack days and their pool frames checked in under
+<code>tests/nyfed/data/days</code>; the tests that rate lines or survey onsets over the year also need the pool of step 2.
+<code>tests/nyfed/nyfed_inputs.py</code> says which input each test needs. CI runs the folder on the inputs of step 1
+(<code>.github/workflows/nyfed.yml</code>).</p>
 
 
 

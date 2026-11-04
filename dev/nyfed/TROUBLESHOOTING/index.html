@@ -1632,8 +1632,9 @@ from the calibration files under <code>results/</code>.</p>
 <p><code>tests/nyfed/test_nyfed_golden.py</code> compares what the operator, the detection tools and the interface attack return
 on fixed inputs with the snapshots in <code>tests/nyfed/golden/</code>. A failure names the first value that changed. If the
 change is intended, rewrite the snapshots with <code>NYFED_UPDATE_GOLDEN=1</code> and say in the pull request which numbers
-moved and why. The tests need the NYgrid checkout, the 2019 pool and the damage-study days under <code>NYFED_ROOT</code> and
-skip elsewhere.</p>
+moved and why. The operator and detection snapshots run on the attack days checked in under
+<code>tests/nyfed/data/days</code> with NYgrid's inputs, so CI runs them; the interface attack's design also needs the whole
+2019 pool under <code>NYFED_ROOT</code> and skips without it.</p>
 
 
 
