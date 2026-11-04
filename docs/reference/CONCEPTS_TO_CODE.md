@@ -118,6 +118,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.grid.ratings` | Branch ratings from the limits NYgrid itself sets. `npcc.mat` carries no branch ratings. |
 | `nyfed.io` | HDF5 files of the build. The only module that imports h5py. |
 | `nyfed.operator` | The grid operator under attack: what it does with false readings, and what that costs on the true grid. |
+| `nyfed.operator.areas` | Who bears an attack's damage, and whose grid the attacker uses: the consequence split by New York zone, by utility and by neighboring area, with what the attack tampered in each. |
 | `nyfed.operator.day` | An attacked day as the operator meets it: the scans it reads and their benign twin, the true states, the pool's unit dispatch and costs, the zonal prices, and the interfaces with their real limits (`operator_day`). |
 | `nyfed.operator.policy` | The operator's choices as one record (`OperatorPolicy`): which operator (`OperatorMode`), how late it acts, where the inadvertent interchange its neighbours supply enters (`Entry`, `entry_share`), whether it reads the true flows after its own dispatch, and how it answers an alarm (`AlarmAnswer`). The record checks every choice when it is built, so a typo is a `ConfigError` before anything runs. |
 | `nyfed.operator.response` | The operator's response, as one module: every name of `day`, `ties`, `truegrid`, `policy`, `run` and `summary`, re-exported so the imports written before the split keep working. New code imports from those modules or from `fdia_graph.nyfed.operator`. |

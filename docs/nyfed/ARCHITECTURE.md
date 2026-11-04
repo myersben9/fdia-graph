@@ -104,16 +104,18 @@ src/fdia_graph/nyfed/
   operator/
     __init__.py        what the stage does, and its public names
     sced.py            DcSced, Step, shift_factors, outage_factors, shortage_usd (N59, N60)
-    day.py             OperatorDay, operator_day, INTERFACES (an attacked day as the operator meets it)
+    day.py             OperatorDay, operator_day, INTERFACES, node_lbmp (an attacked day as the operator meets it, NYISO's hourly prices)
     ties.py            tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
     truegrid.py        TrueGrid (state, run_state, change: AC power flows on the true grid)
     policy.py          OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
     run.py             Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP (the operator scan by scan)
     summary.py         summarize (the attack's consequence, attacked less benign)
+    areas.py           area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
     response.py        every name above, re-exported for the imports written before the split
 tools/nyfed/
   operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
   tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
+  area_damage.py       the damage study's days through each operator, split by zone, utility and neighbor, with the attack's surface and each zone's lever
   damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
   build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
