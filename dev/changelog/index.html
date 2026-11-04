@@ -1645,6 +1645,14 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Named errors and a troubleshooting page (New York grid).</strong> <code>fdia_graph.nyfed</code> raises the SDK's named errors:
+  <code>ConfigError</code> for a wrong argument, <code>DataConditionError</code> (or <code>NoAdmissibleTarget</code>, <code>NotFitted</code>) for data that does
+  not meet a condition, instead of bare <code>ValueError</code>s and asserts. Both subclass <code>ValueError</code>, so existing handlers
+  keep working. The input CSV tables are read through one reader that closes them (<code>fdia_graph.nyfed.tables</code>), and
+  the research tools no longer silence warnings. <code>docs/nyfed/TROUBLESHOOTING.md</code> lists what each stage reports when
+  it fails and what to do.</p>
+</li>
+<li>
 <p><strong>A failed power flow reads as unknown, not safe (New York grid).</strong> The operator's <code>Twin</code> gains <code>pf_failed [T]</code>,
   the scans whose AC power flow on the true grid failed, and <code>summarize</code> reports <code>pf_failed_scans</code> and
   <code>pf_failed_benign_scans</code>. Before, those scans' NaN margins counted as within the limit with no trace. <code>respond</code>
@@ -1652,10 +1660,11 @@ the public API, the generated files and the numbers are the same as the previous
   <code>mode</code>, <code>after</code> or <code>entry</code> raises <code>fdia_graph.errors.ConfigError</code> (a ValueError, as before).</p>
 </li>
 <li>
-<p><strong>Why a design found no attack (New York grid).</strong> Every family's <code>design</code> that returns None now leaves
-  <code>last_miss</code> (one of <code>fdia_graph.nyfed.attacks.episode.MISSES</code>: <code>no_target</code>, <code>infeasible</code>, <code>solver_error</code>), and
-  <code>TimelineBuilder.build</code> reports <code>missed</code>, the count of each reason per family. <code>build_episode</code>'s error names the
-  reason. Before, a timeline with few attacks gave no way to tell an empty window from a failing solver.</p>
+<p><strong>Why a design found no attack (New York grid).</strong> <code>AttackFamily.design_explained</code> returns the episode or the
+  reason there is none (one of <code>fdia_graph.nyfed.attacks.episode.MISSES</code>: <code>no_target</code>, <code>infeasible</code>,
+  <code>solver_error</code>), also kept in <code>last_miss</code>, and <code>TimelineBuilder.build</code> reports <code>missed</code> and, with the onset
+  survey, <code>survey_missed</code>: the count of each reason per family. <code>build_episode</code>'s error names the reason. Before, a
+  timeline with few attacks gave no way to tell an empty window from a failing solver.</p>
 </li>
 <li>
 <p><strong>A missing solver now says so (New York grid).</strong> <code>fdia_graph.nyfed.solvers.ipopt</code> finds Ipopt in the environment,
