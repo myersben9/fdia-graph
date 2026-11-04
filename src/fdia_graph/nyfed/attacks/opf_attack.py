@@ -91,6 +91,7 @@ class OpfFdia(MsFdia):
         windows_solved: int = 3,
         gen_output: np.ndarray | None = None,
         loads_only: bool = False,
+        gen_v_tol: float | None = None,
         **kwargs,
     ):
         super().__init__(attacker, ratings, **kwargs)
@@ -100,7 +101,7 @@ class OpfFdia(MsFdia):
         self.gen_band = np.full(n, np.inf) if gen_band is None else np.asarray(gen_band, float)
         # N75: a generator bus regulates its voltage to a schedule the operator knows, so its false voltage may
         # leave the true one by at most this much (pu); None leaves only the bus voltage limits
-        self.gen_v_tol: float | None = None
+        self.gen_v_tol = gen_v_tol
         self.q_lo = attacker.q_lo if q_lo is None else np.asarray(q_lo, float)
         self.q_hi = attacker.q_hi if q_hi is None else np.asarray(q_hi, float)
         self.q_ramp = np.full(n, np.inf) if q_ramp is None else np.asarray(q_ramp, float)

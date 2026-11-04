@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -63,3 +63,8 @@ class Case:
     unit_q: np.ndarray
     unit_vg: np.ndarray
     unit_on: np.ndarray
+
+    def with_voltage_margin(self, margin: float) -> Case:
+        """A copy with every bus's voltage limits widened by `margin` (p.u.), this case unchanged. The attacker's
+        sensitivity case of N71: the reduced network pins New York City buses at their upper limit."""
+        return replace(self, vmin=self.vmin - margin, vmax=self.vmax + margin)

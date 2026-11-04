@@ -317,11 +317,18 @@ class TimelineBuilder:
         writer.close()
 
     def build_episode(
-        self, path, onset: int, family: str = "Am", lo: int | None = None, hi: int | None = None
+        self,
+        path,
+        onset: int,
+        family: str = "Am",
+        lo: int | None = None,
+        hi: int | None = None,
+        using: AttackFamily | None = None,
     ) -> dict:
         """Write one episode alone: `family` designed at pool frame `onset` on its own window, over the
-        pool frames lo..hi (default the window itself), every frame in the train split. For studying one
-        attack by hand (Ben, 2026-11-02). Raises if the family finds no attack there or a frame is unsolved."""
+        pool frames lo..hi (default the window itself), every frame in the train split, for studying one
+        attack by hand. `using` designs it in place of the builder's own family of that name (a variant, such as
+        `InterfaceFdia.with_overshoot`). Raises if the family finds no attack there or a frame is unsolved."""
         L = self.episode_lengths()[family]
         lo, hi = (onset if lo is None else lo), (onset + L if hi is None else hi)
         if not (lo <= onset and onset + L <= hi):
@@ -329,7 +336,7 @@ class TimelineBuilder:
         if not (self.pool.solve_kind[onset : onset + L] == SOLVED).all():
             raise DataConditionError(f"the window at {onset} touches an unsolved frame")
         w = slice(onset, onset + L)
-        _init(self.families, self.settings)
+        _init({**self.families, family: using} if using is not None else self.families, self.settings)
         _, ep, sec, miss = _design((0, family, onset, self.pool.vm[w], self.pool.va[w]))
         if ep is None:
             raise NoAdmissibleTarget(f"{family} finds no attack at onset {onset} ({miss})")
