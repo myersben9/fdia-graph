@@ -1645,6 +1645,17 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Who bears an attack's damage (New York grid).</strong> New <code>fdia_graph.nyfed.operator.areas</code>: <code>area_damage</code> splits an
+  operator run, attacked less benign, by New York zone, by utility and by neighboring area. Each zone and utility
+  gets the energy its units lose, the fuel saved and the sales lost at the zone's real price, the load shed, and the
+  transfer cut into it and margin lost on the interfaces that feed it (<code>FEEDS</code>). Each neighbor gets the inadvertent
+  interchange it supplied, priced at its NYISO proxy bus (<code>PROXY</code>, <code>neighbor_prices</code>), and the system row gives the
+  attack's net cost once the borrowed energy is priced. <code>attack_surface</code> counts the meters an attack tampers per
+  zone and utility, and <code>zone_levers</code> measures how far each zone's plausible false load and output could move each
+  interface. <code>node_lbmp</code> reads NYISO's hourly price at any zone or proxy bus. <code>tools/nyfed/area_damage.py</code> runs
+  them over a damage study. No change to existing results.</p>
+</li>
+<li>
 <p><strong>The New York grid's tests run in CI (New York grid).</strong> A new workflow, <code>nyfed.yml</code>, installs the <code>[ny]</code> extra
   and Ipopt from conda-forge, downloads NYgrid's public inputs with <code>fetch_inputs</code> (cached under the pinned commit)
   and runs <code>tests/nyfed</code> on pull requests that touch the New York grid, on main and weekly. Before it, no CI job
