@@ -1,9 +1,8 @@
-import os
 from dataclasses import replace
-from pathlib import Path
 
 import numpy as np
 import pytest
+from nyfed_inputs import DATA, DAYS_POOL, SINGLE_DAY, needs_data
 
 from fdia_graph.nyfed.grid.case import REF
 from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
@@ -11,13 +10,7 @@ from fdia_graph.nyfed.grid.interfaces import hourly_interfaces
 from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.nyfed.operator.sced import DcSced, outage_factors, shift_factors, shortage_usd
 
-ROOT = Path(
-    os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2])
-)  # the nyfed inputs, data/ and out/
-DATA = ROOT / "data" / "NYgrid" / "Data"
-DAY = ROOT / "out" / "single_episode" / "sd_south_2019-07-05.h5"
-POOL = ROOT / "out" / "pool_2019_v3.h5"
-pytestmark = pytest.mark.skipif(not DATA.exists(), reason="NYgrid checkout missing at data/NYgrid")
+pytestmark = needs_data
 
 
 @pytest.fixture(scope="module")
@@ -116,13 +109,12 @@ def test_the_operator_sheds_load_only_when_redispatch_cannot_relieve(case, sced)
     assert big.shed.sum() > 0 and (sced.sf[0, big.shed > 0] <= SHED_FACTOR).all()
 
 
-@pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
 def test_a_day_under_attack_against_its_benign_twin():
     """On the 5 July file the benign twin needs nothing, while the attacked run follows the pretended load
     drop, and regulation with what the neighbours supply makes up the generation the dispatch left out."""
     from fdia_graph.nyfed.operator.response import operator_day, respond
 
-    r = respond(operator_day(DAY, POOL, DATA))
+    r = respond(operator_day(SINGLE_DAY, DAYS_POOL, DATA))
     a, b = r.attacked, r.benign
     assert np.abs(b.dev).max() < 1e-3 and np.abs(b.reg).max() < 1e-3
     w = slice(r.onset, r.onset + r.length)
@@ -134,7 +126,6 @@ def test_a_day_under_attack_against_its_benign_twin():
     )
 
 
-@pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
 def test_the_three_operators_on_a_day_under_attack():
     """The 5 July attack moves New York's net interchange (its change is taken up outside New York), so the
     read interchange leaves the neighbours' meters beyond their noise inside the window (N62). The trusting
@@ -143,7 +134,7 @@ def test_the_three_operators_on_a_day_under_attack():
     generation plus the agreed interchange, so it does not follow the false load (N66)."""
     from fdia_graph.nyfed.operator.response import operator_day, respond
 
-    day = operator_day(DAY, POOL, DATA)
+    day = operator_day(SINGLE_DAY, DAYS_POOL, DATA)
     trusting, accounting = respond(day), respond(day, mode="accounting")
     assert np.isfinite(trusting.alarm) and 0 <= trusting.alarm < trusting.length
     w = slice(trusting.onset, trusting.onset + trusting.length)
@@ -153,14 +144,13 @@ def test_the_three_operators_on_a_day_under_attack():
     assert np.abs(accounting.attacked.uncovered).sum() < np.abs(trusting.attacked.uncovered).sum()
 
 
-@pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
 def test_a_failed_power_flow_is_unknown_not_safe(monkeypatch):
     """Scans whose AC power flow fails are flagged in `pf_failed`, have no margin, are counted in the summary and
     never read as within the limit; every other scan stays unflagged."""
     from fdia_graph.nyfed.operator import response
     from fdia_graph.nyfed.operator.response import operator_day, respond, summarize
 
-    day = operator_day(DAY, POOL, DATA)
+    day = operator_day(SINGLE_DAY, DAYS_POOL, DATA)
     fail = set(range(day.onset + 2, day.onset + 5))
     real = response.TrueGrid.change
 
@@ -178,3 +168,18 @@ def test_a_failed_power_flow_is_unknown_not_safe(monkeypatch):
     s = summarize(r)
     assert s["pf_failed_scans"] == len(flagged) and s["pf_failed_benign_scans"] == int(b.pf_failed.sum())
     assert not a.pf_failed[[t for t in range(len(a.pf_failed)) if t not in fail]].any()
+
+
+def test_a_pool_without_the_days_frames_is_a_named_error(tmp_path):
+    """A pool that ends before the day (here the checked-in pool cut to its first day, 17 June, for the 5 July
+    file) is a `DataConditionError` naming what is missing, not an index error."""
+    from fdia_graph.errors import DataConditionError
+    from fdia_graph.nyfed.io import read_pool, write_pool
+    from fdia_graph.nyfed.operator.response import operator_day
+    from fdia_graph.nyfed.scenario.pool import Pool
+
+    p = read_pool(DAYS_POOL)
+    june = p.time.astype("datetime64[D]") == np.datetime64("2019-06-17")
+    write_pool(tmp_path / "june.h5", Pool(**{k: getattr(p, k)[june] for k in Pool.__dataclass_fields__}))
+    with pytest.raises(DataConditionError, match="does not hold every frame"):
+        operator_day(SINGLE_DAY, tmp_path / "june.h5", DATA)

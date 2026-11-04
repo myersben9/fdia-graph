@@ -5,8 +5,8 @@ design) on one attack window of the damage study and compares a digest of what i
 under `golden/`. A refactor that moves code without changing behavior reproduces every digest; one that changes a
 number fails here and has to say why. Set `NYFED_UPDATE_GOLDEN=1` to rewrite the snapshots after an intended change.
 
-The inputs are the NYgrid checkout, the 2019 pool and the damage-study day files under `NYFED_ROOT` (the nyfed
-working folder), so these tests run where that data exists and skip elsewhere.
+The operator and detection snapshots run on the checked-in attack days with the public inputs (CI runs them);
+the interface attack's design rates lines over the year, so it needs the whole 2019 pool (`nyfed_inputs.py`).
 """
 
 from __future__ import annotations
@@ -19,24 +19,28 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from nyfed_inputs import (
+    DAMAGE_DAYS,
+    DATA,
+    DAYS,
+    DAYS_POOL,
+    POOL,
+    ROOT,
+    needs_data,
+    needs_pool,
+    needs_territories,
+)
 
 from fdia_graph.nyfed.detect import PersistenceRule
 
-ROOT = Path(os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2]))
-DATA = ROOT / "data" / "NYgrid" / "Data"
-POOL = ROOT / "out" / "pool_2019_v3.h5"
-DAYS = ROOT / "out" / "damage_study" / "days"
-WINDOWS = ("am_48220_0.h5", "am_48220_175.h5")  # one onset, at the limit and past it
+WINDOWS = DAMAGE_DAYS
 CALIB = (28.41, 13.76)  # the interchange check's calibration, results/nygrid.tie_check.json
 RULE = (428.7, 2, 3)  # the residual test's persistence rule
 GOLDEN = Path(__file__).parent / "golden"
 UPDATE = os.environ.get("NYFED_UPDATE_GOLDEN") == "1"
 TOOLS = Path(__file__).resolve().parents[2] / "tools" / "nyfed"
 
-pytestmark = pytest.mark.skipif(
-    not (DATA.exists() and POOL.exists() and all((DAYS / w).exists() for w in WINDOWS)),
-    reason="NYgrid checkout, the 2019 pool or the damage-study days missing under NYFED_ROOT",
-)
+pytestmark = needs_data
 
 
 def _plain(x):
@@ -115,7 +119,7 @@ def _response(r) -> dict:
 def days():
     from fdia_graph.nyfed.operator.response import operator_day
 
-    return {w: operator_day(DAYS / w, POOL, DATA) for w in WINDOWS}
+    return {w: operator_day(DAYS / w, DAYS_POOL, DATA) for w in WINDOWS}
 
 
 @pytest.fixture(scope="module")
@@ -167,7 +171,7 @@ def test_respond_options(days, window, options):
 @pytest.mark.parametrize("window", WINDOWS)
 def test_closed_loop_residual_test(tools, window):
     closed_loop_bdd = tools[0]
-    row = closed_loop_bdd._job(str(DAYS / window), str(POOL), str(DATA), CALIB, "trusting", 420.1, 2)
+    row = closed_loop_bdd._job(str(DAYS / window), str(DAYS_POOL), str(DATA), CALIB, "trusting", 420.1, 2)
     check(f"closed_loop_bdd_{Path(window).stem}", row)
 
 
@@ -175,7 +179,7 @@ def test_closed_loop_residual_test(tools, window):
 def test_adaptive_attacker(tools, window):
     adaptive_bdd = tools[1]
     row = adaptive_bdd._job(
-        str(DAYS / window), str(POOL), str(DATA), CALIB, "trusting", PersistenceRule(*RULE)
+        str(DAYS / window), str(DAYS_POOL), str(DATA), CALIB, "trusting", PersistenceRule(*RULE)
     )
     check(f"adaptive_bdd_{Path(window).stem}", row)
 
@@ -183,7 +187,7 @@ def test_adaptive_attacker(tools, window):
 @pytest.mark.parametrize("window", WINDOWS)
 def test_naive_tie_bias(tools, window):
     naive_tie_bias = tools[2]
-    row = naive_tie_bias._job(str(DAYS / window), str(POOL), str(DATA), PersistenceRule(*RULE))
+    row = naive_tie_bias._job(str(DAYS / window), str(DAYS_POOL), str(DATA), PersistenceRule(*RULE))
     check(f"naive_tie_bias_{Path(window).stem}", row)
 
 
@@ -193,13 +197,8 @@ def test_persistence_rule():
     check("persistence_rule", {"first": rule.first_alarm(j), "none": rule.first_alarm(j[:3])})
 
 
-TERRITORIES = ROOT / "data" / "territories"
-
-
-@pytest.mark.skipif(
-    not all((TERRITORIES / n).exists() for n in ("nys_electric_territories.geojson", "ny_bus_locations.csv")),
-    reason="utility territories missing under NYFED_ROOT/data/territories (the builder assigns clients)",
-)
+@needs_territories
+@needs_pool
 @pytest.mark.parametrize("overshoot", (0.0, 175.0))
 def test_interface_attack_design(overshoot):
     """The Am design on the onset of `WINDOWS`, at the limit and at the damage study's overshoot."""

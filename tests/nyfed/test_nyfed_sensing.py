@@ -1,11 +1,10 @@
 import json
-import os
-from pathlib import Path
 
 import numpy as np
 import pytest
 import scipy.linalg
 import scipy.sparse as sp
+from nyfed_inputs import DATA, TERRITORIES, needs_data
 
 from fdia_graph.nyfed.config import Settings, rng
 from fdia_graph.nyfed.grid.clients import assign_clients
@@ -28,12 +27,7 @@ from fdia_graph.nyfed.sensing.meters import (
 )
 from fdia_graph.nyfed.sensing.noise import NoiseModel
 
-ROOT = Path(
-    os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2])
-)  # the nyfed inputs, data/ and out/
-DATA = ROOT / "data" / "NYgrid" / "Data"
-TERRITORIES = ROOT / "data" / "territories"
-pytestmark = pytest.mark.skipif(not DATA.exists(), reason="NYgrid checkout missing at data/NYgrid")
+pytestmark = needs_data
 
 
 @pytest.fixture(scope="module")

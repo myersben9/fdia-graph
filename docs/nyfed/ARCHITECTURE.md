@@ -123,10 +123,12 @@ tools/nyfed/
 results/
   nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
 tests/nyfed/
+  nyfed_inputs.py      where the tests find their inputs, and which tests each input lets run
   test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-  test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data (they run in CI)
+  test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
   test_nyfed_golden.py, golden/   snapshots of the operator, the detection tools and the interface attack
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 ```
 
 `tools/`, `results/` and `tests/data/` follow the fdia_graph_sdk layout, so the move into the SDK

@@ -1,10 +1,9 @@
 import json
-import os
-from pathlib import Path
 
 import h5py
 import numpy as np
 import pytest
+from nyfed_inputs import DATA, POOL, TERRITORIES
 
 from fdia_graph.nyfed.attacks.attacker import Attacker, generator_ramps, natural_steps
 from fdia_graph.nyfed.attacks.msfdia import MsFdia
@@ -22,12 +21,6 @@ from fdia_graph.nyfed.sensing.noise import NoiseModel
 from fdia_graph.nyfed.timeline.builder import TimelineBuilder
 from fdia_graph.nyfed.timeline.schedule import WEEK, place_episodes, split_frames, split_weeks
 
-ROOT = Path(
-    os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2])
-)  # the nyfed inputs, data/ and out/
-DATA = ROOT / "data" / "NYgrid" / "Data"
-TERRITORIES = ROOT / "data" / "territories"
-POOL = ROOT / "out" / "pool_2019.h5"
 START, FRAMES = 50000, 288  # one day of the 2019 pool (June), short enough to build in seconds
 
 
@@ -93,8 +86,8 @@ def test_place_episodes_only_at_allowed_onsets_and_capped():
 
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
-    if not (DATA.exists() and POOL.exists()):
-        pytest.skip("NYgrid checkout or out/pool_2019.h5 missing")
+    if not (DATA.exists() and TERRITORIES.exists() and POOL.exists()):
+        pytest.skip("the public inputs or the whole 2019 pool missing (nyfed_inputs.py)")
     case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
     territories = json.load(open(TERRITORIES / "nys_electric_territories.geojson", encoding="utf-8"))
     own = assign_clients(case, territories, TERRITORIES / "ny_bus_locations.csv")

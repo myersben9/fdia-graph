@@ -1,9 +1,8 @@
 import json
-import os
-from pathlib import Path
 
 import numpy as np
 import pytest
+from nyfed_inputs import DATA, POOL_V1, TERRITORIES, needs_data, needs_pool_v1
 from scipy.stats import chi2
 
 from fdia_graph.nyfed.attacks.attacker import Attacker, generator_ramps, natural_steps, wrap_angles
@@ -20,21 +19,13 @@ from fdia_graph.nyfed.sensing.measure import Measurement
 from fdia_graph.nyfed.sensing.meters import IA, PF, QF, VA, P, Q
 from fdia_graph.nyfed.sensing.noise import NoiseModel
 
-ROOT = Path(
-    os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2])
-)  # the nyfed inputs, data/ and out/
-DATA = ROOT / "data" / "NYgrid" / "Data"
-TERRITORIES = ROOT / "data" / "territories"
-POOL = ROOT / "out" / "pool_2019.h5"
 LENGTH = 16
-pytestmark = pytest.mark.skipif(
-    not (DATA.exists() and POOL.exists()), reason="NYgrid checkout or out/pool_2019.h5 missing"
-)
+pytestmark = [needs_data, needs_pool_v1]
 
 
 @pytest.fixture(scope="module")
 def pool():
-    return read_pool(POOL)
+    return read_pool(POOL_V1)
 
 
 @pytest.fixture(scope="module")

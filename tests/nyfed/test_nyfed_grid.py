@@ -1,10 +1,9 @@
 import json
-import os
-from pathlib import Path
 
 import numpy as np
 import pytest
 import scipy.io
+from nyfed_inputs import DATA, TERRITORIES, needs_data
 
 from fdia_graph.nyfed.grid.case import PQ, PV, REF
 from fdia_graph.nyfed.grid.clients import assign_clients
@@ -13,15 +12,8 @@ from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.nyfed.grid.ratings import line_ratings
 
-NPCC = (
-    Path(os.environ.get("NYFED_ROOT", Path(__file__).resolve().parents[2]))
-    / "data"
-    / "NYgrid"
-    / "Data"
-    / "npcc.mat"
-)
-TERRITORIES = NPCC.parents[2] / "territories"
-pytestmark = pytest.mark.skipif(not NPCC.exists(), reason="NYgrid checkout missing at data/NYgrid")
+NPCC = DATA / "npcc.mat"
+pytestmark = needs_data
 
 
 @pytest.fixture(scope="module")
