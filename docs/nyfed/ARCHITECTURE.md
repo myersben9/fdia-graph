@@ -1,24 +1,50 @@
 # Architecture
 
-In fdia-graph since 2026-11-02 as `fdia_graph.nyfed`: the package paths below are under `src/fdia_graph/nyfed/`, the tests are `tests/nyfed/test_nyfed_<package>.py` (inputs under `NYFED_ROOT`), the tools `tools/nyfed/`, and the results files sit in `results/` as they were.
+`fdia_graph.nyfed` builds a federated FDIA dataset on the New York grid and studies attacks through the New York
+operator's own rules. It has been part of fdia-graph since 2026-11-02: the package is `src/fdia_graph/nyfed/`, its tests
+`tests/nyfed/` (inputs under `NYFED_ROOT`), its research tools `tools/nyfed/`, its runnable extension examples
+`examples/nyfed/`, and the results files `results/`.
+
+Read alongside: [the walkthrough](WALKTHROUGH.md) follows one attack through every stage with the call that does each
+step, [the extending guide](EXTENDING.md) says how to add an attack, a detector or an operator, and
+[the troubleshooting page](TROUBLESHOOTING.md) what each stage reports when it fails. The decisions behind the design,
+numbered N1 onward, are in [the plan](PLAN.md).
+
+## How a run flows
+
+![The stages of fdia_graph.nyfed](../figures/diagrams/nyfed_pipeline.png)
+
+Each box is a subpackage, one stage, and each stage reads what the one before it wrote. `grid` turns NYgrid's case into
+the network and the clients; `scenario` solves the year of true operating points (the slow step, built once into the
+pool); `sensing` places the meters; `attacks` designs each attack on a window of true states; `timeline` writes the
+noisy, labelled year; `operator` runs the operator on an attacked day and its benign twin; `detect` holds the residual
+test's building blocks. `experiments` runs a study over many attack windows. Each package's `__init__.py` opens with what
+its stage does.
 
 ## Principles
 
-A setting is an argument of the function or constructor that uses it. Code never changes a library object's
-settings, or a shared record's arrays, after it is built: a variant is a copy (`with_overshoot`, `with_voltage_margin`).
-
-Each package's `__init__.py` says what its stage does and lists its public names (`__all__`), imported on first
-use so that reading a dataset never loads pandapower or Pyomo. A name outside `__all__` is internal and may change.
-
-1. A class owns state, cached work, or a shared interface. A plain function is stateless math.
-2. Classes are composed, not stacked. One small interface (`AttackFamily`) is the only base class.
-3. Data records are frozen dataclasses of numpy arrays.
-4. One job per file. A file stays short enough to read in one sitting.
-5. Dependencies point one way, shown in the diagram below.
-6. pandapower lives in `scenario/solver.py`, h5py in `io.py`, random number creation in `config.py`. Pyomo models are
-   built in `scenario/solver.py` and in the attack OPFs (`attacks/opf_attack.py`, `attacks/interface_attack.py`), and
-   every one of them gets its Ipopt from `solvers.py`, which checks that it runs.
-7. Measurements are one flat vector `z` per frame with a meter table beside it. A client's data is `z[:, meters.owner == c]`.
+1. A setting is an argument of the function or constructor that uses it. Code never changes a library object's
+   settings, or a shared record's arrays, after it is built: a variant is a copy (`with_overshoot`,
+   `with_voltage_margin`).
+2. Each package's `__init__.py` lists its public names (`__all__`), imported on first use, so reading a dataset never
+   loads pandapower or Pyomo. A name outside `__all__` is internal and may change; a public name that is renamed keeps
+   its old spelling, with a DeprecationWarning, for one minor release.
+3. A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
+   frozen dataclasses of numpy arrays, and choices are validated records (`OperatorPolicy`).
+4. Extension points are small: `AttackFamily` is the base class of the attack families, and `Operator` and
+   `AlarmRule` are protocols. The overload families do stack (`MsFdia`, then `OpfFdia`, then `InterfaceFdia`), each
+   replacing one step of the search, as their docstrings say.
+5. One job per file. A file stays short enough to read in one sitting.
+6. Dependencies point one way (below). pandapower lives in `scenario/solver.py`, h5py in `io.py`, random number
+   creation in `config.py`. Pyomo models are built in `scenario/solver.py` and in the attack OPFs, and every one gets
+   its Ipopt from `solvers.py`, which checks that it runs.
+7. Measurements are one flat vector `z` per frame with a meter table beside it. A client's data is
+   `z[:, meters.owner == c]`.
+8. Failures are named: a wrong argument is a `ConfigError`, data that does not meet a condition a
+   `DataConditionError`, a broken solver `SolverUnavailable`; what a stage cannot do it counts (`missed`,
+   `pf_failed_scans`) rather than hides.
+9. The golden snapshots pin what the operator, the detection tools and the interface attack return on fixed inputs,
+   so a change that moves a number says so.
 
 ## Files
 
@@ -108,22 +134,7 @@ copies them as they are.
 
 ## How the pieces talk
 
-```
-                     Settings
-                        |
-          Case ---> Network          Ownership
-            |          |                 |
-            |     +----+-----------+     |
-            v     v                v     v
-          AcSolver           Measurement (MeterPlan, NoiseModel)
-            |                      |
-       PoolBuilder ---> Pool    Attacker
-                         |         |  uses MsFdia, Ramp
-                         |         v
-                         +--> TimelineBuilder ---> TimelineWriter ---> timeline.h5
-                                                                          |
-                                                              Dataset ---> ClientView
-```
+The stages are drawn under "How a run flows" above. The imports point one way:
 
 - `grid` imports only `config`.
 - `scenario` and `sensing` import `grid`.
@@ -136,6 +147,10 @@ copies them as they are.
   operator's one residual test over all meters reads one AC state; `Episode.clients` records the
   owners of those meters, one or several.
 - `timeline` imports everything above it and `io`.
+- `operator` reads timeline files through `io` and imports `grid`, `scenario` and `sensing`. Nothing in the package
+  imports it; the tools and the tests do.
+- `detect` imports `attacks` (for `wrap_angles`), `grid` and `sensing`; `experiments` imports nothing of the
+  package, it only runs jobs.
 - `dataset` imports only `io` and `grid/network.py`, so loading data never needs pandapower.
 
 ## Records

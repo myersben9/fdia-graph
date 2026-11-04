@@ -1,0 +1,61 @@
+flowchart TB
+    subgraph inputs["Inputs (fetch_inputs)"]
+        nygrid["NYgrid case and tables"]
+        nyiso["NYISO 2019 zonal load"]
+        terr["Utility territories"]
+    end
+    subgraph grid["grid: the network"]
+        case["Case + Network"]
+        own["Ownership: one client per utility"]
+        ifaces["Interface: real limits and flows"]
+    end
+    subgraph scenario["scenario: the operating points"]
+        loads["LoadModel: bus loads every 5 min"]
+        dispatch["hourly_dispatch"]
+        pool["PoolBuilder: AC dispatch, the Pool"]
+    end
+    subgraph sensing["sensing: the meters"]
+        plan["plan_meters: the MeterPlan"]
+        meas["Measurement h(x) + NoiseModel"]
+    end
+    subgraph attacks["attacks: the attacker"]
+        att["Attacker: local false state"]
+        fam["AttackFamily.design: an Episode"]
+    end
+    subgraph timeline["timeline: the dataset"]
+        builder["TimelineBuilder: timeline.h5"]
+        ds["Dataset, ClientView"]
+    end
+    subgraph operator["operator: the consequence"]
+        day["operator_day"]
+        respond["respond(policy): a Response"]
+        summary["summarize"]
+        tie["interchange_alarm: the tie check"]
+    end
+    subgraph detect["detect: the residual test"]
+        wls["wls + PersistenceRule"]
+    end
+    nygrid --> case
+    terr --> own
+    nygrid --> ifaces
+    nyiso --> loads
+    case --> loads
+    case --> dispatch
+    loads --> pool
+    dispatch --> pool
+    case --> plan
+    own --> plan
+    plan --> meas
+    meas --> att
+    att --> fam
+    pool --> builder
+    fam --> builder
+    meas --> builder
+    builder --> ds
+    builder --> day
+    pool --> day
+    ifaces --> day
+    day --> respond
+    respond --> summary
+    respond --> wls
+    day --> tie

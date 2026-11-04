@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nyfed/WALKTHROUGH.md` follows one
+  attack through every stage with the call that does each step (each snippet checked on the 2019 data);
+  `docs/nyfed/EXTENDING.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
+  with a runnable example under `examples/nyfed/` that CI runs; `docs/nyfed/ARCHITECTURE.md` opens with a rendered
+  diagram of the stages and its principles as they now hold, in place of an ASCII diagram that predated the operator
+  and the detectors.
+
 - **The load model in one module per job (New York grid).** `scenario/loads.py` (676 lines) keeps `LoadSeries`,
   `LoadModel` and its constants; the downloads and readers of its inputs move to `load_sources.py`, the fit of its
   within-hour constants to `load_fit.py` (public as `fluctuation_fit` and `switching_fit`, for refitting them), and
