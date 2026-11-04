@@ -1645,6 +1645,14 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Study helpers, and the research tools as thin drivers (New York grid).</strong> New <code>fdia_graph.nyfed.experiments</code>:
+  <code>study_days</code> (a study's day files), <code>variant</code> (at the limit or damaging), <code>load_calib</code> (the interchange check's
+  calibration), <code>add_study_arguments</code> (the options every tool shares) and <code>run_parallel</code> (a process pool that writes
+  the CSV as results come in, sorted by file at the end, so its rows no longer depend on which worker finished
+  first). The study tools under <code>tools/nyfed/</code> use them in place of their own copies, and the interchange-check tool
+  takes <code>--data</code> instead of a fixed path. The tools' results are unchanged.</p>
+</li>
+<li>
 <p><strong>The overload attacks read plainly (New York grid).</strong> The OPF attack's per-support model and prepared window
   are named records (<code>_OpfModel</code>, <code>_Prepared</code>) instead of tuples unpacked by position; the interface attack keeps
   its per-support state on that model rather than writing it onto the shared window; windows are built by keyword;
