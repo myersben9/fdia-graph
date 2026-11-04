@@ -115,7 +115,8 @@ class TimelineBuilder:
         if self.verbose:
             print(msg, flush=True)
 
-    def _lengths(self) -> dict[str, int]:
+    def episode_lengths(self) -> dict[str, int]:
+        """The episode length in frames of each family the builder holds."""
         return {f: self.length[f] if isinstance(self.length, dict) else self.length for f in self.families}
 
     def _masks(self) -> dict[str, np.ndarray]:
@@ -124,7 +125,9 @@ class TimelineBuilder:
         for f, fam in self.families.items():
             onset_mask = getattr(fam, "onset_mask", None)  # only the waiting families have one
             mask = (
-                onset_mask(self.pool.vm, self.pool.va, self._lengths()[f]) if onset_mask is not None else None
+                onset_mask(self.pool.vm, self.pool.va, self.episode_lengths()[f])
+                if onset_mask is not None
+                else None
             )
             if mask is not None:
                 masks[f] = mask
@@ -147,7 +150,7 @@ class TimelineBuilder:
         """Every split's episodes, onsets in timeline frames, placed inside one contiguous run of the
         split's frames (a window never crosses a week block) and where its family allows (one generator)."""
         g = rng(self.settings, "place")
-        lengths = self._lengths()
+        lengths = self.episode_lengths()
         slots = []
         for code in range(len(SPLITS)):
             where = np.flatnonzero(split == code)
@@ -174,7 +177,7 @@ class TimelineBuilder:
         run = np.r_[0, np.cumsum(blocks[1:] != blocks[:-1])]  # [T] which run of one block a frame is in
         unsolved = np.r_[0, np.cumsum(~solved)]
         ok = {}
-        for f, L in self._lengths().items():
+        for f, L in self.episode_lengths().items():
             a = np.zeros(T, bool)
             n = T - L + 1
             if n > 0:
@@ -190,7 +193,7 @@ class TimelineBuilder:
         none)."""
         ok = self._onsets_ok(weeks, masks)
         grid = np.arange(len(weeks)) % self.survey == 0
-        lengths = self._lengths()
+        lengths = self.episode_lengths()
         cands = [Slot(int(o), f, lengths[f]) for f in masks for o in np.flatnonzero(ok[f] & grid)]
         self._log(f"survey: {len(cands)} onsets on a {self.survey}-frame grid")
         eps, secs, misses = [], [], []
@@ -319,7 +322,7 @@ class TimelineBuilder:
         """Write one episode alone: `family` designed at pool frame `onset` on its own window, over the
         pool frames lo..hi (default the window itself), every frame in the train split. For studying one
         attack by hand (Ben, 2026-11-02). Raises if the family finds no attack there or a frame is unsolved."""
-        L = self._lengths()[family]
+        L = self.episode_lengths()[family]
         lo, hi = (onset if lo is None else lo), (onset + L if hi is None else hi)
         if not (lo <= onset and onset + L <= hi):
             raise ConfigError(f"the window {onset}..{onset + L} must lie inside the frames {lo}..{hi}")

@@ -11,7 +11,7 @@ Two goals re-solve the interior, through one solve (`_local_flow_solve`). The fl
 (`false_flow_state`) drives a target branch's apparent flow to a value; the load goal of At
 (`false_state`) prescribes a pretended load at chosen buses. In both a New York bus on the interior's
 edge whose injection may not change (a zero-injection bus, a load under the floor) first joins the
-interior, its voltage free, so the edge moves out to buses the attack may change (`_absorb`). The
+interior, its voltage free, so the edge moves out to buses the attack may change (`absorb`). The
 attackable loads and generators of the interior and its edge are free, every other bus there keeps its
 true injection (a zero-injection bus keeps reading zero: the operator meters P and Q at every New York
 bus). A bus outside New York carries no meter and absorbs, unless it has no unit and no injection (bus
@@ -282,7 +282,7 @@ class Attacker:
         dead = ~self.gen_bus & (np.abs(v * np.conj(self.ybus @ v)) < 1e-6)  # pu, the solver's zero
         return (self.owner >= 0) | dead | (self.hold_external & (self.owner < 0))
 
-    def _absorb(self, vm: np.ndarray, va: np.ndarray, interior: np.ndarray) -> np.ndarray:
+    def absorb(self, vm: np.ndarray, va: np.ndarray, interior: np.ndarray) -> np.ndarray:
         """The interior grown over its edge's buses whose injection the attack may not change
         (zero-injection buses and loads under the floor; N25, the coordinator's decision; outside New York
         only the dead buses of `_held_bus`, N44): such a bus moves inside, its voltage free and its
@@ -378,7 +378,7 @@ class Attacker:
         """The false state that drives the `lines` from-end apparent flows to `target_mva` on the
         `support` [1] eqs. 24-25. A New York bus on the support's edge whose injection may not change (a
         zero-injection bus, a load under the floor) first joins the support, its voltage free, until the
-        edge holds only free injections (`_absorb`, N25). The attackable loads and generators of the
+        edge holds only free injections (`absorb`, N25). The attackable loads and generators of the
         support and its edge are free (`free_injection_buses`); every other bus there, a zero-injection
         bus among them, keeps its true injection, since the operator meters P and Q at every New York
         bus; each bus outside the support holds its true voltage. Each free injection change stays inside
@@ -412,7 +412,7 @@ class Attacker:
         set, every other bus of the support and its edge held at its true injection."""
         case, base = self.net.case, self.base_mva
         v = vm * np.exp(1j * np.deg2rad(va))
-        s = self._absorb(vm, va, np.asarray(support, int))  # non-free edge buses join the interior
+        s = self.absorb(vm, va, np.asarray(support, int))  # non-free edge buses join the interior
         edge = self.boundary(s)
         touched = np.union1d(s, edge)
         free = self.free_injection_buses(vm, va, touched)

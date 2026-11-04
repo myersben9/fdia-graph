@@ -211,7 +211,7 @@ class OpfFdia(MsFdia):
         import pyomo.environ as pe
 
         att, case, base = self.att, self.att.net.case, self.att.base_mva
-        interior = att._absorb(w.vm[0], np.rad2deg(w.th[0]), np.asarray(support, int))
+        interior = att.absorb(w.vm[0], np.rad2deg(w.th[0]), np.asarray(support, int))
         interior = interior[interior != att.slack]
         touched = np.union1d(interior, att.boundary(interior))
         free = self._free(w.vm[0], np.rad2deg(w.th[0]), touched)

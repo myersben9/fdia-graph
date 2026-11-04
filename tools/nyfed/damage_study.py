@@ -58,7 +58,7 @@ def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | No
     t = b.pool.time.astype("datetime64[s]")
     # the calendar day of the onset, slid later where the window runs past midnight, so every attack fits
     lo = int(np.flatnonzero(t == t[onset].astype("datetime64[D]"))[0])
-    lo = min(max(lo, onset + b._lengths()["Am"] - DAY), len(t) - DAY)
+    lo = min(max(lo, onset + b.episode_lengths()["Am"] - DAY), len(t) - DAY)
     path = out / f"am_{onset}_{int(round(overshoot))}.h5"
     if path.exists():  # a reused day: its meter count read back from the labels
         with h5py.File(path, "r") as h:
@@ -86,7 +86,7 @@ def _job(
     assert b is not None
     days = Path(out) / "days"
     days.mkdir(parents=True, exist_ok=True)
-    L = b._lengths()["Am"]
+    L = b.episode_lengths()["Am"]
     w = slice(onset, onset + L)
     cached = days / f"overshoot_{onset}.json"  # the search is the slow part, so a rerun reuses it
     if cached.exists():
@@ -172,7 +172,7 @@ def main() -> None:
     b = _B
     assert b is not None
     fam = b.families["Am"]
-    L = b._lengths()["Am"]
+    L = b.episode_lengths()["Am"]
     mask = fam.onset_mask(b.pool.vm, b.pool.va, L)
     ok = np.flatnonzero(mask)
     ok = ok[[bool((b.pool.solve_kind[o : o + L] == SOLVED).all()) for o in ok]]

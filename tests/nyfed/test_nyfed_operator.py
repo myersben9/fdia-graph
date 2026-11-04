@@ -162,14 +162,14 @@ def test_a_failed_power_flow_is_unknown_not_safe(monkeypatch):
 
     day = operator_day(DAY, POOL, DATA)
     fail = set(range(day.onset + 2, day.onset + 5))
-    real = response._TrueGrid.change
+    real = response.TrueGrid.change
 
     def change(self, t, units, shed=None):
         if t in fail:
             return np.full(len(self.day.interfaces), np.nan), np.nan
         return real(self, t, units, shed)
 
-    monkeypatch.setattr(response._TrueGrid, "change", change)
+    monkeypatch.setattr(response.TrueGrid, "change", change)
     r = respond(day)
     a, b = r.attacked, r.benign
     flagged = set(np.flatnonzero(a.pf_failed).tolist())

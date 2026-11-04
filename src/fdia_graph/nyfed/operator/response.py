@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from fdia_graph._moved import moved
 from fdia_graph.errors import ConfigError, DataConditionError
 from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.grid.clients import Ownership
@@ -266,7 +267,7 @@ class Twin:
     pf_failed: np.ndarray
 
 
-class _TrueGrid:
+class TrueGrid:
     """The true grid of a day: AC power flows at the true loads for a given unit dispatch, the true
     interface flows and the worst single outage of a New York 345 kV branch."""
 
@@ -384,7 +385,7 @@ ENTRY: dict[str, dict[int, float] | None] = {
 }
 
 
-def _entry_share(c: Case, entry: str) -> np.ndarray:
+def entry_share(c: Case, entry: str) -> np.ndarray:
     """[U] the share of the inadvertent interchange each unit supplies (N69, N72): synchronous units outside
     New York (the HVDC import from Quebec cannot carry it), by capacity within the weights of `ENTRY[entry]`."""
     if entry not in ENTRY:
@@ -409,7 +410,7 @@ def _run(
     seen: np.ndarray,
     load_change: np.ndarray,
     delay: int,
-    grid: _TrueGrid,
+    grid: TrueGrid,
     gap: np.ndarray,
     mode: str,
     alarm: int | None,
@@ -434,7 +435,7 @@ def _run(
     sf_units = sced.sf[:, c.unit_bus]
     # N69: the inadvertent interchange enters over the AC ties, from the synchronous units outside New York in
     # proportion to their capacity (the HVDC import from Quebec cannot carry it), not at the reference bus
-    ext_share = _entry_share(c, entry)
+    ext_share = entry_share(c, entry)
     pf_true = Network(c).flows(day.vm, day.va)[0]
     true_iface = np.array([it.model_flow(pf_true) for it in day.interfaces]).T
     limit = true_iface + np.array([it.limit - it.flow for it in day.interfaces]).T  # D3
@@ -602,7 +603,7 @@ def respond(
     rows = np.flatnonzero(day.plan.kind == p)
     load_change = -(day.z[:, rows] - day.z_benign[:, rows]).sum(axis=1)  # the seen load's change, MW
     gap = tie_a - tie_b  # the false interchange, the meters' own noise cancelling against the twin
-    grid = _TrueGrid(day)
+    grid = TrueGrid(day)
     zero = np.zeros(len(day.time))
     return Response(
         attacked=_run(
@@ -698,3 +699,14 @@ def summarize(r: Response, voll: float | None = None) -> dict:
         out[f"regulation_mwh_{name}"] = float(reg_up[:, r.unit_client == c].sum())
         out[f"shed_mwh_{name}"] = float((a.shed - b.shed)[:, r.bus_client == c].sum() * FRAME_HOURS)
     return out
+
+
+# Renamed when they became public; the old names work, with a DeprecationWarning, until `_moved.RETIRES`.
+_MOVED = {
+    "_TrueGrid": ("fdia_graph.nyfed.operator.response.TrueGrid", TrueGrid),
+    "_entry_share": ("fdia_graph.nyfed.operator.response.entry_share", entry_share),
+}
+
+
+def __getattr__(name: str) -> object:
+    return moved(__name__, name, _MOVED)

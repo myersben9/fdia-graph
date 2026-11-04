@@ -210,7 +210,7 @@ def test_interface_attack_design(overshoot):
         str(POOL.relative_to(ROOT)), ("Am",), interfaces=("SPR/DUN-SOUTH",), workers=1, survey=0, root=ROOT
     )
     fam = b.families["Am"]
-    onset, L = 48220, b._lengths()["Am"]
+    onset, L = 48220, b.episode_lengths()["Am"]
     w = slice(onset, onset + L)
     fam.overshoot = overshoot
     try:
