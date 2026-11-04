@@ -1645,6 +1645,12 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Why a design found no attack (New York grid).</strong> Every family's <code>design</code> that returns None now leaves
+  <code>last_miss</code> (one of <code>fdia_graph.nyfed.attacks.episode.MISSES</code>: <code>no_target</code>, <code>infeasible</code>, <code>solver_error</code>), and
+  <code>TimelineBuilder.build</code> reports <code>missed</code>, the count of each reason per family. <code>build_episode</code>'s error names the
+  reason. Before, a timeline with few attacks gave no way to tell an empty window from a failing solver.</p>
+</li>
+<li>
 <p><strong>A missing solver now says so (New York grid).</strong> <code>fdia_graph.nyfed.solvers.ipopt</code> finds Ipopt in the environment,
   checks that it starts, and raises the new <code>fdia_graph.errors.SolverUnavailable</code> with the fix when it does not. Before,
   an Ipopt that could not start (a missing DLL, exit code 0xC0000135) made every attack design read as infeasible, so a
