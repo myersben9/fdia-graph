@@ -5,6 +5,12 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The operator in one module per job (New York grid).** `fdia_graph.nyfed.operator.response` (730 lines) is split
+  into `day` (reading an attacked day), `ties` (the interchange check), `truegrid` (the AC power flows on the true
+  grid), `policy` (the operator's choices), `run` (the scan-by-scan loop) and `summary` (its consequence), the code
+  moved as it was. `response` re-exports every name, so existing imports keep working. The interchange check's alarm
+  is public as `interchange_alarm`.
+
 - **Detection as building blocks (New York grid).** New `fdia_graph.nyfed.detect`: the residual test's AC weighted
   least squares (`wls`, returning a `WlsFit` that says whether it converged), the noise-free fit of a state
   (`exact_state`), the persistence rule with its calibration (`PersistenceRule`, `PersistenceRule.fit`) behind an

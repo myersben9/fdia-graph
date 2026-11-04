@@ -74,7 +74,13 @@ src/fdia_graph/nyfed/
   operator/
     __init__.py        what the stage does, and its public names
     sced.py            DcSced, Step, shift_factors, outage_factors, shortage_usd (N59, N60)
-    response.py        OperatorDay, Twin, Response, TrueGrid (state, run_state), MODES, AFTER, ENTRY, operator_day, seen_interfaces, tie_gap, tie_meters, entry_share, respond, summarize
+    day.py             OperatorDay, operator_day, INTERFACES (an attacked day as the operator meets it)
+    ties.py            tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
+    truegrid.py        TrueGrid (state, run_state, change: AC power flows on the true grid)
+    policy.py          MODES, AFTER, ENTRY, entry_share (the operator's choices)
+    run.py             Twin, Response, respond, REG_CAP (the operator scan by scan)
+    summary.py         summarize (the attack's consequence, attacked less benign)
+    response.py        every name above, re-exported for the imports written before the split
 tools/nyfed/
   operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
   tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
