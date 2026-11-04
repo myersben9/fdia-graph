@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A public surface for the New York grid.** Every `fdia_graph.nyfed` package (`grid`, `scenario`, `sensing`,
+  `attacks`, `timeline`, `operator`, and `fdia_graph.nyfed` itself) now has a docstring that says what its stage does,
+  what goes in and comes out, and how it fails, and an `__all__` of its public names, loaded on first use (reading a
+  dataset still never imports pandapower or Pyomo). Helpers the research tools reached into became public:
+  `operator.response.TrueGrid` and `entry_share` (the old `_TrueGrid` and `_entry_share` warn until 0.22),
+  `Attacker.absorb` and `TimelineBuilder.episode_lengths`.
+
 - **Named errors and a troubleshooting page (New York grid).** `fdia_graph.nyfed` raises the SDK's named errors:
   `ConfigError` for a wrong argument, `DataConditionError` (or `NoAdmissibleTarget`, `NotFitted`) for data that does
   not meet a condition, instead of bare `ValueError`s and asserts. Both subclass `ValueError`, so existing handlers

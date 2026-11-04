@@ -117,7 +117,7 @@ def main() -> None:
         free[att.free_injection_buses(vm, va, np.arange(len(case.bus_id)))] = True
         # the search's interior grows over every edge bus whose injection may not change (a zero-injection bus,
         # a load under the floor): its angle joins the free ones, its injection stays held
-        grown = [a_[ny[a_]] for a_ in (att._absorb(vm, va, area) for area in local[i])]
+        grown = [a_[ny[a_]] for a_ in (att.absorb(vm, va, area) for area in local[i])]
         it = ifs[i]
         H = float(it.limit[r] - it.flow[r])
         for tau in TAUS:

@@ -23,8 +23,8 @@ from closed_loop_bdd import REF  # noqa: E402
 from fdia_graph.nyfed.attacks.attacker import wrap_angles  # noqa: E402
 from fdia_graph.nyfed.grid.network import Network  # noqa: E402
 from fdia_graph.nyfed.operator.response import (  # noqa: E402
-    _entry_share,
-    _TrueGrid,
+    TrueGrid,
+    entry_share,
     operator_day,
     respond,
     tie_meters,
@@ -46,7 +46,7 @@ def main() -> None:
             day = operator_day(p, args.pool, args.data)
             c, plan = day.case, day.plan
             resp = respond(day, mode="trusting", calib=None, closed_loop=True).attacked
-            grid, share = _TrueGrid(day), _entry_share(c, "capacity")
+            grid, share = TrueGrid(day), entry_share(c, "capacity")
             meas = Measurement(Network(c), plan)
             ref = int(np.flatnonzero(c.bus_type == REF)[0])
             _, _, rows = tie_meters(c, plan)

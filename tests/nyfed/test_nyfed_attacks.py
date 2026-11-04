@@ -148,7 +148,7 @@ def test_false_flow_state_meets_goal_within_limits(setup):
     reported = np.hypot(*att.net.flows(vf, af)[:2])[b]
     assert abs(reported - ratings[b]) < 1e-2  # the from-end flow reaches the rating
     # outside the support, grown over its non-free New York edge buses (N25), every voltage stays true
-    outside = np.setdiff1d(np.arange(n), att._absorb(vm[0], va[0], area))
+    outside = np.setdiff1d(np.arange(n), att.absorb(vm[0], va[0], area))
     assert np.allclose(vf[outside], vm[0][outside]) and np.allclose(af[outside], va[0][outside])
     # a pretended load change never exceeds the 0.5 cap of its true load
     load = att.bus_load(vm[0], va[0])
@@ -178,7 +178,7 @@ def test_false_state_load_goal_ac_equations(setup):
     # every New York bus of the grown area (N25) and its edge that is not an attackable load or
     # generator, a zero-injection bus among them, keeps its true injection; every voltage outside the
     # grown area stays true
-    grown = att._absorb(vm[0], va[0], area)
+    grown = att.absorb(vm[0], va[0], area)
     touched = np.union1d(grown, att.boundary(grown))
     held = np.setdiff1d(touched, np.r_[att.free_injection_buses(vm[0], va[0], touched), center])
     held = held[att.owner[held] >= 0]
@@ -490,7 +490,7 @@ def test_zero_injection_edge_bus_is_absorbed_and_reads_zero(setup):
         edge_zero = [int(b) for b in att.boundary(area) if zero[b]]
         if not edge_zero:
             continue
-        grown = att._absorb(vm[0], va[0], area)
+        grown = att.absorb(vm[0], va[0], area)
         assert set(edge_zero) <= set(grown.tolist())  # absorbed into the interior
         e = att.boundary(grown)
         assert (free[e] | (att.owner[e] < 0) | (e == att.slack)).all()  # the edge moved out
@@ -545,5 +545,5 @@ def test_the_interchange_consistent_attacker_holds_every_bus_outside_new_york(se
     every = np.arange(len(held.owner))
     assert (held.owner[held.free_injection_buses(vm, va, every)] >= 0).all()
     for b in np.flatnonzero(case.is_ny)[:40]:
-        inside = held._absorb(vm, va, np.array([b]))
+        inside = held.absorb(vm, va, np.array([b]))
         assert (held.owner[inside] >= 0).all()  # never grown across the border

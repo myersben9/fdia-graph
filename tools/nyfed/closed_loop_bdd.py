@@ -42,7 +42,7 @@ from scipy.stats import chi2
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import read_pool
-from fdia_graph.nyfed.operator.response import _entry_share, _TrueGrid, operator_day, respond, summarize
+from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, summarize
 from fdia_graph.nyfed.scenario.pool import SOLVED
 from fdia_graph.nyfed.sensing.measure import Measurement
 from fdia_graph.nyfed.sensing.meters import JITTER_FRAC
@@ -119,8 +119,8 @@ def _job(
     c = day.case
     resp = respond(day, mode=mode, calib=calib, closed_loop=True)
     a = resp.attacked
-    grid = _TrueGrid(day)
-    share = _entry_share(c, "capacity")
+    grid = TrueGrid(day)
+    share = entry_share(c, "capacity")
     meas = Measurement(Network(c), day.plan)
     ref = int(np.flatnonzero(c.bus_type == REF)[0])
     sr, sa = day.plan.sigma_rel, day.plan.sigma_abs

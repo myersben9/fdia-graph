@@ -48,7 +48,7 @@ from closed_loop_bdd import REF, _wls  # noqa: E402
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles  # noqa: E402
 from fdia_graph.nyfed.grid.network import Network  # noqa: E402
-from fdia_graph.nyfed.operator.response import _entry_share, _TrueGrid, operator_day, respond  # noqa: E402
+from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond  # noqa: E402
 from fdia_graph.nyfed.sensing.measure import Measurement  # noqa: E402
 
 
@@ -77,8 +77,8 @@ def _job(path: str, pool: str, data: str, calib, mode: str, rule) -> dict | None
     c, plan = day.case, day.plan
     resp = respond(day, mode=mode, calib=calib, closed_loop=True)
     a_resp = resp.attacked
-    grid = _TrueGrid(day)
-    share = _entry_share(c, "capacity")
+    grid = TrueGrid(day)
+    share = entry_share(c, "capacity")
     meas = Measurement(Network(c), plan)
     net = Network(c)
     ref = int(np.flatnonzero(c.bus_type == REF)[0])
