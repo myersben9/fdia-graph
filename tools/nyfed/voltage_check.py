@@ -19,6 +19,7 @@ import numpy as np
 
 from fdia_graph.nyfed.build import production_builder
 from fdia_graph.nyfed.config import Settings, rng
+from fdia_graph.nyfed.experiments import study_days
 from fdia_graph.nyfed.scenario.pool import SOLVED
 from fdia_graph.nyfed.sensing.meters import JITTER_FRAC, KINDS
 
@@ -64,7 +65,7 @@ def main() -> None:
     }
     for study in args.studies:
         caught, margins = [], []
-        for path in sorted(Path(study, "days").glob("am_*.h5")):
+        for path in study_days([study]):
             with h5py.File(path, "r") as h:
                 kind = np.asarray(KINDS)[h["meters/kind"][:]] == "v"
                 on = h["frames/episode"][:] >= 0

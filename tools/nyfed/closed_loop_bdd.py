@@ -31,16 +31,14 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse
 import json
-import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 from scipy.stats import chi2
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.detect import fleet_bias, reference_bus, wls
+from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel, study_days, variant
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import read_pool
 from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, summarize
@@ -126,7 +124,7 @@ def _job(
         "file": Path(path).name,
         "onset": day.onset,
         "mode": mode,
-        "variant": "at_limit" if Path(path).stem.endswith("_0") else "damaging",
+        "variant": variant(path),
         "scans": int(np.isfinite(ja_).sum()),
         "dof": dof,
         "thr_chi": thr_chi,
@@ -159,60 +157,33 @@ def _job(
     return row
 
 
+def _threshold(cal_json: Path, first_day: str, pool: str, data: str, frames: int) -> float:
+    """The calibrated per-scan threshold, read from `cal_json`, or calibrated now on benign January to March scans
+    and written there."""
+    if cal_json.exists():
+        return float(json.loads(cal_json.read_text())["threshold"])
+    thr, js = _calibrate(first_day, pool, data, frames, 20190101)
+    summary = {"threshold": thr, "frames": len(js), "median": float(np.median(js)), "max": float(np.max(js))}
+    cal_json.write_text(json.dumps({**summary, "chi2_99_400": float(chi2.ppf(0.99, 400))}, indent=1))
+    return thr
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("out")
-    ap.add_argument("studies", nargs="+")
-    ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
-    ap.add_argument("--calib", default="results/nygrid.tie_check.json")
+    add_study_arguments(ap)
     ap.add_argument("--mode", default="trusting")
-    ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--limit", type=int, default=0, help="only the first N attack days (a quick check)")
     ap.add_argument(
         "--cal-frames", type=int, default=600, help="benign January to March scans for the threshold"
     )
     ap.add_argument("--cal-json", default="results/nygrid.bdd_calibration.json")
     ap.add_argument("--draws", type=int, default=0, help="also test against N further meter fleets")
     args = ap.parse_args()
-    cal = json.loads(Path(args.calib).read_text())
-    calib = (cal["mean_mw"], cal["sd_mw"])
-    files = sorted({str(p) for s in args.studies for p in Path(s, "days").glob("am_*_*.h5")})
-    if args.limit:
-        files = files[: args.limit]
-    t0 = time.perf_counter()
-    cal_path = Path(args.cal_json)
-    if cal_path.exists():
-        thr_cal = float(json.loads(cal_path.read_text())["threshold"])
-    else:
-        thr_cal, js = _calibrate(files[0], args.pool, args.data, args.cal_frames, 20190101)
-        cal_path.write_text(
-            json.dumps(
-                {
-                    "threshold": thr_cal,
-                    "frames": len(js),
-                    "median": float(np.median(js)),
-                    "max": float(np.max(js)),
-                    "chi2_99_400": float(chi2.ppf(0.99, 400)),
-                },
-                indent=1,
-            )
-        )
-    print(
-        f"{len(files)} attack days, calibrated threshold {thr_cal:.1f} [{time.perf_counter() - t0:.0f}s]",
-        flush=True,
-    )
-    rows: list[dict] = []
-    with ProcessPoolExecutor(args.workers) as ex:
-        futs = [
-            ex.submit(_job, f, args.pool, args.data, calib, args.mode, thr_cal, args.draws) for f in files
-        ]
-        for k, fut in enumerate(as_completed(futs), 1):
-            r = fut.result()
-            if r is not None:
-                rows.append(r)
-            pd.DataFrame(rows).to_csv(args.out, index=False)
-            print(f"{k}/{len(files)} [{time.perf_counter() - t0:.0f}s]", flush=True)
+    calib = load_calib(args.calib)
+    files = study_days(args.studies, args.limit)
+    thr_cal = _threshold(Path(args.cal_json), files[0], args.pool, args.data, args.cal_frames)
+    print(f"{len(files)} attack days, calibrated threshold {thr_cal:.1f}", flush=True)
+    tasks = [(f, args.pool, args.data, calib, args.mode, thr_cal, args.draws) for f in files]
+    run_parallel(_job, tasks, args.out, workers=args.workers)
 
 
 if __name__ == "__main__":

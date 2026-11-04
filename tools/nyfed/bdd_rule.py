@@ -18,14 +18,13 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse
 import json
-import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from fdia_graph.nyfed.detect import PersistenceRule
+from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel
 from fdia_graph.nyfed.operator.response import operator_day, respond, summarize
 
 KEEP = (
@@ -66,42 +65,22 @@ def _job(row: dict, study_days: list[str], pool: str, data: str, calib, mode: st
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("out")
+    add_study_arguments(ap, studies=False)
     ap.add_argument("inp", help="closed_loop_bdd.py output with the per-scan residuals")
     ap.add_argument("--studies", nargs="+", default=["out/damage_study", "out/damage_study_b"])
-    ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
-    ap.add_argument("--calib", default="results/nygrid.tie_check.json")
     ap.add_argument("--mode", default="trusting")
     ap.add_argument("--theta", type=float, default=428.7)
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--n", type=int, default=3)
-    ap.add_argument("--workers", type=int, default=8)
     args = ap.parse_args()
-    cal = json.loads(Path(args.calib).read_text())
-    calib = (cal["mean_mw"], cal["sd_mw"])
+    calib = load_calib(args.calib)
+    rule = PersistenceRule(args.theta, args.k, args.n)
     rows = pd.read_csv(args.inp).drop_duplicates("file").to_dict("records")
+    if args.limit:
+        rows = rows[: args.limit]
     days = [str(Path(s) / "days") for s in args.studies]
-    out: list[dict] = []
-    t0 = time.perf_counter()
-    with ProcessPoolExecutor(args.workers) as ex:
-        futs = [
-            ex.submit(
-                _job,
-                r,
-                days,
-                args.pool,
-                args.data,
-                calib,
-                args.mode,
-                PersistenceRule(args.theta, args.k, args.n),
-            )
-            for r in rows
-        ]
-        for i, fut in enumerate(as_completed(futs), 1):
-            out.append(fut.result())
-            pd.DataFrame(out).to_csv(args.out, index=False)
-            print(f"{i}/{len(rows)} [{time.perf_counter() - t0:.0f}s]", flush=True)
+    tasks = [(r, days, args.pool, args.data, calib, args.mode, rule) for r in rows]
+    run_parallel(_job, tasks, args.out, workers=args.workers)
 
 
 if __name__ == "__main__":
