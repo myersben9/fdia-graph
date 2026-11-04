@@ -85,9 +85,11 @@ class MsFdia(AttackFamily):
     orders them (`_order`) and tries each target set (`_target_sets`) with `_attack(onset, vm, va, targets)`, which
     grows candidate supports from the targets' ends (`_candidates`, smallest first) and keeps the one that tampers
     the fewest meters. Here `_attack` solves each support by Gauss-Newton within `_bounds` (`_search`).
-    `OpfFdia` replaces only `_attack`, solving each support by a local AC OPF instead; `InterfaceFdia` replaces
-    `design` too, driving a NYISO interface's flow rather than one line's. The target choice, the ordering, the
-    support search and the settings are this class's in all three."""
+    `OpfFdia` replaces only `_attack`, solving each support by a local AC OPF instead, so it keeps this class's line
+    targets, their ordering (`target_order`) and the support search. `InterfaceFdia` replaces `design` as well: its
+    targets are the loaded interfaces (`_loaded`, `_attack_interface`), so the line-target hooks (`_eligible`,
+    `_order`, `_target_sets`, `target_order`) do not reach it, while the support search (`_candidates`) and the OPF
+    of `OpfFdia` still do."""
 
     def __init__(
         self,
