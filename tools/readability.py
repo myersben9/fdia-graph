@@ -311,6 +311,7 @@ ANY_ALLOWED: dict[str, str] = {
     "models/validation.py:OneOf.apply:value": _RAW,
     "models/validation.py:Positive.holds:value": _RAW,
     "models/validation.py:Finite.holds:value": _RAW,
+    "models/validation.py:Boolean.holds:value": _RAW,
     "models/validation.py:Integer.holds:value": _RAW,
     "models/validation.py:AtLeast.holds:value": _RAW,
     "models/validation.py:InRange.holds:value": _RAW,
