@@ -53,7 +53,7 @@ def snapshot(day) -> np.ndarray:
     b = sced.step(t, seen_b, limit, 0.0, None)
     inj = np.zeros(len(c.bus_id))
     np.add.at(inj, c.unit_bus, a.dev - b.dev)
-    np.add.at(inj, np.arange(len(c.bus_id)), -(a.shed - b.shed))  # shed load is a positive injection change
+    inj += a.shed - b.shed  # shed load raises the bus's net injection
     return sced.sf @ inj
 
 
