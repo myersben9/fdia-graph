@@ -1645,6 +1645,12 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The idealized operator with the closed loop's slack (New York grid).</strong> <code>tools/nyfed/idealized_operator.py</code> also
+  reports the single-snapshot prediction with the shortfall drawn from the neighbors' units by capacity, as the
+  closed loop draws it (<code>shared_*</code> columns), so a difference from the closed loop can be told from the choice of
+  slack. No change to existing results.</p>
+</li>
+<li>
 <p><strong>Market prices that a market could set (New York grid).</strong> The least-cost dispatch (<code>DcSced(objective="cost")</code>)
   now prices the flow it leaves over an interface on the 2019 transmission shortage curve (350, 1,175 and 4,000
   $/MWh, <code>SHORTAGE</code>) and load it cannot match at the energy offer cap (<code>ENERGY_CAP</code>, 1,000 $/MWh), instead of the
