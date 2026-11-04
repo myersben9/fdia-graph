@@ -5,6 +5,11 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Why a design found no attack (New York grid).** Every family's `design` that returns None now leaves
+  `last_miss` (one of `fdia_graph.nyfed.attacks.episode.MISSES`: `no_target`, `infeasible`, `solver_error`), and
+  `TimelineBuilder.build` reports `missed`, the count of each reason per family. `build_episode`'s error names the
+  reason. Before, a timeline with few attacks gave no way to tell an empty window from a failing solver.
+
 - **A missing solver now says so (New York grid).** `fdia_graph.nyfed.solvers.ipopt` finds Ipopt in the environment,
   checks that it starts, and raises the new `fdia_graph.errors.SolverUnavailable` with the fix when it does not. Before,
   an Ipopt that could not start (a missing DLL, exit code 0xC0000135) made every attack design read as infeasible, so a
