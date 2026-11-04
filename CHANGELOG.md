@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Study helpers, and the research tools as thin drivers (New York grid).** New `fdia_graph.nyfed.experiments`:
+  `study_days` (a study's day files), `variant` (at the limit or damaging), `load_calib` (the interchange check's
+  calibration), `add_study_arguments` (the options every tool shares) and `run_parallel` (a process pool that writes
+  the CSV as results come in, sorted by file at the end, so its rows no longer depend on which worker finished
+  first). The study tools under `tools/nyfed/` use them in place of their own copies, and the interchange-check tool
+  takes `--data` instead of a fixed path. The tools' results are unchanged.
+
 - **The overload attacks read plainly (New York grid).** The OPF attack's per-support model and prepared window
   are named records (`_OpfModel`, `_Prepared`) instead of tuples unpacked by position; the interface attack keeps
   its per-support state on that model rather than writing it onto the shared window; windows are built by keyword;

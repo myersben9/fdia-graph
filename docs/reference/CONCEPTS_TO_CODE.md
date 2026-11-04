@@ -107,6 +107,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `nyfed.detect.estimate` | The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic. |
 | `nyfed.detect.fleets` | Other meter fleets: the same meters and accuracy classes with fresh constant biases. |
 | `nyfed.detect.rules` | When a detector alarms: the rule that turns a statistic per scan into a first alarm. |
+| `nyfed.experiments` | Studies over attack windows: the parts every research tool under `tools/nyfed/` repeats, in one place. |
 | `nyfed.grid` | The network: the case, its admittances, the NYISO interfaces and the clients. |
 | `nyfed.grid.case` | The grid as one frozen record of arrays. |
 | `nyfed.grid.clients` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |

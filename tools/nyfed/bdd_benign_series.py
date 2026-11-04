@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from fdia_graph.nyfed.detect import reference_bus, with_fleet, wls
+from fdia_graph.nyfed.experiments import DATA
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import read_pool
 from fdia_graph.nyfed.operator.response import operator_day
@@ -61,7 +62,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
+    ap.add_argument("--data", default=DATA)
     ap.add_argument("--days", type=int, default=40)
     ap.add_argument("--months", default="1-3")
     ap.add_argument("--workers", type=int, default=8)

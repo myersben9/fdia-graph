@@ -19,14 +19,12 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse
 import json
-import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 from fdia_graph.nyfed.detect import PersistenceRule, reference_bus, wls
+from fdia_graph.nyfed.experiments import add_study_arguments, run_parallel, study_days, variant
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.response import operator_day, tie_meters
 from fdia_graph.nyfed.sensing.measure import Measurement
@@ -54,7 +52,7 @@ def _job(path: str, pool: str, data: str, rule: PersistenceRule) -> dict | None:
     return {
         "file": Path(path).name,
         "onset": day.onset,
-        "variant": "at_limit" if Path(path).stem.endswith("_0") else "damaging",
+        "variant": variant(path),
         "ties": int(len(rows)),
         "tie_change_max": float(np.max(bias_mw)),
         "j_naive": json.dumps([round(float(x), 2) for x in j_]),
@@ -64,33 +62,16 @@ def _job(path: str, pool: str, data: str, rule: PersistenceRule) -> dict | None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("out")
-    ap.add_argument("studies", nargs="+")
-    ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
+    add_study_arguments(ap, calib=False)
     ap.add_argument("--theta", type=float, default=428.7)
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--n", type=int, default=3)
-    ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--limit", type=int, default=0, help="only the first N attack days (a quick check)")
     args = ap.parse_args()
-    files = sorted({str(p) for s in args.studies for p in Path(s, "days").glob("am_*_*.h5")})
-    if args.limit:
-        files = files[: args.limit]
     rule = PersistenceRule(args.theta, args.k, args.n)
-    t0 = time.perf_counter()
-    rows: list[dict] = []
-    with ProcessPoolExecutor(args.workers) as ex:
-        futs = [ex.submit(_job, f, args.pool, args.data, rule) for f in files]
-        for i, fut in enumerate(as_completed(futs), 1):
-            r = fut.result()
-            if r is not None:
-                rows.append(r)
-                print(
-                    f"{i}/{len(files)} {r['file']} first {r['first']} [{time.perf_counter() - t0:.0f}s]",
-                    flush=True,
-                )
-            pd.DataFrame(rows).to_csv(args.out, index=False)
+    tasks = [(f, args.pool, args.data, rule) for f in study_days(args.studies, args.limit)]
+    run_parallel(
+        _job, tasks, args.out, workers=args.workers, describe=lambda r: f"{r['file']} first {r['first']}"
+    )
 
 
 if __name__ == "__main__":

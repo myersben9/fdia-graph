@@ -34,15 +34,13 @@ for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse
 import json
-import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.detect import PersistenceRule, exact_state, reference_bus, wls
+from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel, study_days, variant
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond
 from fdia_graph.nyfed.sensing.measure import Measurement
@@ -103,7 +101,7 @@ def _job(path: str, pool: str, data: str, calib, mode: str, rule) -> dict | None
         "file": Path(path).name,
         "onset": day.onset,
         "mode": mode,
-        "variant": "at_limit" if Path(path).stem.endswith("_0") else "damaging",
+        "variant": variant(path),
         "first_open": rule.first_alarm(jo),
         "first_adaptive": rule.first_alarm(ja),
         "extra_meters_max": int(max(extra)) if extra else -1,
@@ -117,39 +115,25 @@ def _job(path: str, pool: str, data: str, calib, mode: str, rule) -> dict | None
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("out")
-    ap.add_argument("studies", nargs="+")
-    ap.add_argument("--pool", default="out/pool_2019_v3.h5")
-    ap.add_argument("--data", default="data/NYgrid/Data")
-    ap.add_argument("--calib", default="results/nygrid.tie_check.json")
+    add_study_arguments(ap)
     ap.add_argument("--mode", default="trusting")
     ap.add_argument("--theta", type=float, default=428.7)
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--n", type=int, default=3)
-    ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--limit", type=int, default=0, help="only the first N attack days (a quick check)")
     args = ap.parse_args()
-    cal = json.loads(Path(args.calib).read_text())
-    calib = (cal["mean_mw"], cal["sd_mw"])
-    files = sorted({str(p) for s in args.studies for p in Path(s, "days").glob("am_*_*.h5")})
-    if args.limit:
-        files = files[: args.limit]
+    calib = load_calib(args.calib)
     rule = PersistenceRule(args.theta, args.k, args.n)
-    t0 = time.perf_counter()
-    rows: list[dict] = []
-    with ProcessPoolExecutor(args.workers) as ex:
-        futs = [ex.submit(_job, f, args.pool, args.data, calib, args.mode, rule) for f in files]
-        for i, fut in enumerate(as_completed(futs), 1):
-            r = fut.result()
-            if r is not None:
-                rows.append(r)
-                print(
-                    f"{i}/{len(files)} {r['file']} open {r['first_open']} adaptive {r['first_adaptive']} "
-                    f"extra {r['extra_meters_max']} dinj {r['dinj_max_mw']:.1f} excess {r['bound_excess']:.3f} "
-                    f"[{time.perf_counter() - t0:.0f}s]",
-                    flush=True,
-                )
-            pd.DataFrame(rows).to_csv(args.out, index=False)
+    tasks = [(f, args.pool, args.data, calib, args.mode, rule) for f in study_days(args.studies, args.limit)]
+    run_parallel(
+        _job,
+        tasks,
+        args.out,
+        workers=args.workers,
+        describe=lambda r: (
+            f"{r['file']} open {r['first_open']} adaptive {r['first_adaptive']} extra {r['extra_meters_max']} "
+            f"dinj {r['dinj_max_mw']:.1f} excess {r['bound_excess']:.3f}"
+        ),
+    )
 
 
 if __name__ == "__main__":
