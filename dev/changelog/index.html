@@ -1645,6 +1645,13 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The operator's choices as one record, and an operator interface (New York grid).</strong> <code>OperatorPolicy</code> holds
+  <code>mode</code>, <code>delay</code>, <code>over</code>, <code>entry</code>, <code>closed_loop</code> and <code>after</code>, each checked when the record is built (<code>OperatorMode</code>,
+  <code>AlarmAnswer</code> and <code>Entry</code> name the allowed values); <code>respond(day, policy=...)</code> takes one, and its keywords still
+  build one, so existing calls are unchanged. <code>Operator</code> is the protocol a partner's operator implements (return a
+  <code>Response</code> and <code>summarize</code> works on it), and <code>NyisoOperator(policy)</code> is this package's.</p>
+</li>
+<li>
 <p><strong>The operator in one module per job (New York grid).</strong> <code>fdia_graph.nyfed.operator.response</code> (730 lines) is split
   into <code>day</code> (reading an attacked day), <code>ties</code> (the interchange check), <code>truegrid</code> (the AC power flows on the true
   grid), <code>policy</code> (the operator's choices), <code>run</code> (the scan-by-scan loop) and <code>summary</code> (its consequence), the code

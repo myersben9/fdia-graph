@@ -2005,7 +2005,7 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>nyfed.operator.policy</code></td>
-<td>The operator's choices: which operator (<code>MODES</code>), how it answers an alarm (<code>AFTER</code>), and where the inadvertent interchange its neighbours supply enters (<code>ENTRY</code>, <code>entry_share</code>).</td>
+<td>The operator's choices as one record (<code>OperatorPolicy</code>): which operator (<code>OperatorMode</code>), how late it acts, where the inadvertent interchange its neighbours supply enters (<code>Entry</code>, <code>entry_share</code>), whether it reads the true flows after its own dispatch, and how it answers an alarm (<code>AlarmAnswer</code>). The record checks every choice when it is built, so a typo is a <code>ConfigError</code> before anything runs.</td>
 </tr>
 <tr>
 <td><code>nyfed.operator.response</code></td>

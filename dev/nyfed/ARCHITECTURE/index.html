@@ -1697,8 +1697,8 @@ use so that reading a dataset never loads pandapower or Pyomo. A name outside <c
 <a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    day.py             OperatorDay, operator_day, INTERFACES (an attacked day as the operator meets it)
 <a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    ties.py            tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
 <a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    truegrid.py        TrueGrid (state, run_state, change: AC power flows on the true grid)
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    policy.py          MODES, AFTER, ENTRY, entry_share (the operator's choices)
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    run.py             Twin, Response, respond, REG_CAP (the operator scan by scan)
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    policy.py          OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    run.py             Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP (the operator scan by scan)
 <a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    summary.py         summarize (the attack's consequence, attacked less benign)
 <a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    response.py        every name above, re-exported for the imports written before the split
 <a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>tools/nyfed/
