@@ -23,6 +23,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import pickle
 import time
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
@@ -53,14 +54,23 @@ def _init(families: dict[str, AttackFamily], settings: Settings) -> None:
     _WORKER.update(families=families, settings=settings)
 
 
-def _design(task: tuple[int, str, int, np.ndarray, np.ndarray]) -> tuple[int, Episode | None, float]:
-    """One episode design in a worker: (slot index, the episode or None, seconds)."""
+def _design(
+    task: tuple[int, str, int, np.ndarray, np.ndarray],
+) -> tuple[int, Episode | None, float, str | None]:
+    """One episode design in a worker: (slot index, the episode or None, seconds, why there is none: one of
+    `MISSES`, None with an episode)."""
     i, family, onset, vm, va = task
+    fam = _WORKER["families"][family]
+    fam.last_miss, errors = None, fam.solver_errors
     start = time.perf_counter()
-    ep = _WORKER["families"][family].design(
-        (onset, vm, va), rng(_WORKER["settings"], f"design/{family}/{onset}")
-    )
-    return i, ep, time.perf_counter() - start
+    ep = fam.design((onset, vm, va), rng(_WORKER["settings"], f"design/{family}/{onset}"))
+    if ep is not None:
+        miss = None
+    elif fam.solver_errors > errors:  # the solver failed on some support: the miss may not be real
+        miss = "solver_error"
+    else:
+        miss = fam.last_miss or "infeasible"
+    return i, ep, time.perf_counter() - start, miss
 
 
 class TimelineBuilder:
@@ -196,7 +206,7 @@ class TimelineBuilder:
             if part is not None and part.exists():
                 e, t = pickle.loads(part.read_bytes())
             else:
-                e, t, _ = self._designs(cands[i : i + chunk])
+                e, t, _, _ = self._designs(cands[i : i + chunk])
                 if part is not None:
                     part.write_bytes(pickle.dumps((e, t)))
             eps, secs = eps + e, secs + t
@@ -213,9 +223,10 @@ class TimelineBuilder:
                 cache[(c.family, c.onset)] = (ep, sec)
         return found, cache, tried
 
-    def _designs(self, slots: list[Slot]) -> tuple[list[Episode | None], list[float], int]:
+    def _designs(self, slots: list[Slot]) -> tuple[list[Episode | None], list[float], int, list[str | None]]:
         """The episode of each slot, None where its window touches an unsolved frame or the family finds
-        no attack; the design seconds; and the count of slots skipped for unsolved frames."""
+        no attack; the design seconds; the count of slots skipped for unsolved frames; and why each designed
+        slot has no attack (one of `MISSES`, None with an attack or when skipped)."""
         pool, solved = self.pool, self.pool.solve_kind == SOLVED
         tasks, skipped = [], 0
         for i, s in enumerate(slots):
@@ -227,22 +238,23 @@ class TimelineBuilder:
         tasks.sort(key=lambda t: t[1] == "At")  # the slow overload families first, so workers finish together
         out: list[Episode | None] = [None] * len(slots)
         secs = [0.0] * len(slots)
+        misses: list[str | None] = [None] * len(slots)
         if self.workers > 1:
             ctx = mp.get_context("spawn")
             with ctx.Pool(self.workers, initializer=_init, initargs=(self.families, self.settings)) as p:
                 results = p.imap_unordered(_design, tasks, chunksize=1)
-                for k, (i, ep, sec) in enumerate(results, 1):
-                    out[i], secs[i] = ep, sec
+                for k, (i, ep, sec, miss) in enumerate(results, 1):
+                    out[i], secs[i], misses[i] = ep, sec, miss
                     if k % 50 == 0 or k == len(tasks):
                         self._log(f"designed {k}/{len(tasks)}")
         else:
             _init(self.families, self.settings)
             for k, task in enumerate(tasks, 1):
-                i, ep, sec = _design(task)
-                out[i], secs[i] = ep, sec
+                i, ep, sec, miss = _design(task)
+                out[i], secs[i], misses[i] = ep, sec, miss
                 if k % 50 == 0 or k == len(tasks):
                     self._log(f"designed {k}/{len(tasks)}")
-        return out, secs, skipped
+        return out, secs, skipped, misses
 
     def _write(
         self, path, episodes: list[Episode], split: np.ndarray, lo: int = 0, hi: int | None = None
@@ -315,9 +327,9 @@ class TimelineBuilder:
             raise ValueError(f"the window at {onset} touches an unsolved frame")
         w = slice(onset, onset + L)
         _init(self.families, self.settings)
-        _, ep, sec = _design((0, family, onset, self.pool.vm[w], self.pool.va[w]))
+        _, ep, sec, miss = _design((0, family, onset, self.pool.vm[w], self.pool.va[w]))
         if ep is None:
-            raise ValueError(f"{family} finds no attack at onset {onset}")
+            raise ValueError(f"{family} finds no attack at onset {onset} ({miss})")
         self._write(path, [ep], np.zeros(len(self.pool.time), np.int8), lo, hi)
         tam = self.att.tampered(self.pool.vm[w], self.pool.va[w], ep.a)
         return {
@@ -359,16 +371,17 @@ class TimelineBuilder:
         self._log(f"{T} frames, {len(slots)} slots placed")
         if self.survey:  # the surveyed families' designs are reused, the rest designed now
             rest = [i for i, s in enumerate(slots) if (s.family, s.onset) not in cache]
-            eps, sec, skipped = self._designs([slots[i] for i in rest])
+            eps, sec, skipped, miss = self._designs([slots[i] for i in rest])
             designs: list[Episode | None] = [None] * len(slots)
             secs = [0.0] * len(slots)
+            misses: list[str | None] = [None] * len(slots)
             for i, s in enumerate(slots):
                 if (s.family, s.onset) in cache:
                     designs[i], secs[i] = cache[(s.family, s.onset)]
-            for i, ep, t in zip(rest, eps, sec):
-                designs[i], secs[i] = ep, t
+            for i, ep, t_, m in zip(rest, eps, sec, miss):
+                designs[i], secs[i], misses[i] = ep, t_, m
         else:
-            designs, secs, skipped = self._designs(slots)
+            designs, secs, skipped, misses = self._designs(slots)
         kept = sorted(((s, ep) for s, ep in zip(slots, designs) if ep is not None), key=lambda k: k[0].onset)
         episodes = [ep for _, ep in kept]
         self._write(path, episodes, split)
@@ -387,6 +400,11 @@ class TimelineBuilder:
             "placed": placed.tolist(),
             "built": built.tolist(),
             "skipped_unsolved": skipped,
+            # why the placed slots of each family that were designed found no attack (`MISSES`)
+            "missed": {
+                f: dict(Counter(m for s, m in zip(slots, misses) if s.family == f and m is not None))
+                for f in fams
+            },
             "survey": surveyed,
             "attacked_frames": int(sum(ep.length for ep in episodes)),
             "design_seconds": round(float(sum(secs)), 1),

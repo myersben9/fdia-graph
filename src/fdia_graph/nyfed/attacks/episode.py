@@ -13,6 +13,12 @@ import numpy as np
 # onset. `L` is the window length, `N` the bus count.
 Window = tuple[int, np.ndarray, np.ndarray]
 
+# Why a design found no attack, as `AttackFamily.last_miss` and the builder's `missed` counts:
+# "no_target"    nothing to attack in the window (no line or interface near its limit, no load bus for a ramp);
+# "infeasible"   targets existed but no support met every bound;
+# "solver_error" the OPF solver stopped abnormally on a support it tried, so "infeasible" may be wrong.
+MISSES = ("no_target", "infeasible", "solver_error")
+
 
 @dataclass(frozen=True)
 class Episode:
@@ -39,6 +45,12 @@ class AttackFamily(ABC):
     """A family of attacks (Am, Ap or At). `design` draws one episode for a window of true states, or
     None when it finds no stealthy attack there (the window stays benign). The one base class of the
     attacks package: the families are composed around an `Attacker`, not stacked on mixins."""
+
+    #: why the last `design` found no attack, one of `MISSES` (None before any or after a success); a family
+    #: that finds nothing to attack sets "no_target", and a None it leaves unexplained reads as "infeasible"
+    last_miss: str | None = None
+    #: solves the family's OPF stopped abnormally on (an OPF family counts them; the others never do)
+    solver_errors: int = 0
 
     @abstractmethod
     def design(self, window: Window, rng: np.random.Generator) -> Episode | None:
