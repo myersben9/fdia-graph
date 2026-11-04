@@ -42,3 +42,17 @@ def test_fleets_are_reproducible_and_draw_zero_is_the_plan():
     assert not np.array_equal(fleet_bias(plan, 1), fleet_bias(plan, 2))
     assert with_fleet(plan, 0) is plan and np.array_equal(with_fleet(plan, 3).bias, fleet_bias(plan, 3))
     assert FLEET_STREAM == (20190101, 4219)  # the stream the published fleets were drawn from
+
+
+def test_rule_edge_cases():
+    """No scans is no alarm; a NaN never exceeds, even a negative threshold; nothing to fit on is an error."""
+    import pytest
+
+    from fdia_graph.errors import NoBenignRecords
+
+    assert PersistenceRule(1.0).first_alarm(np.array([])) == -1
+    assert PersistenceRule(-1.0).first_alarm(np.array([np.nan, np.nan, np.nan])) == -1
+    with pytest.raises(NoBenignRecords):
+        PersistenceRule.fit(np.array([np.nan, np.nan]))
+    with pytest.raises(NoBenignRecords):
+        PersistenceRule.fit(np.array([]))

@@ -12,6 +12,8 @@ from typing import Protocol, runtime_checkable
 
 import numpy as np
 
+from fdia_graph.errors import NoBenignRecords
+
 __all__ = ["AlarmRule", "PersistenceRule"]
 
 
@@ -32,8 +34,12 @@ class PersistenceRule:
     n: int = 3
 
     def first_alarm(self, stat: np.ndarray) -> int:
-        """The first scan at which `k` of the last `n` values of `stat [T]` exceed `theta`, or -1."""
-        over = np.nan_to_num(np.asarray(stat, float), nan=0.0) > self.theta
+        """The first scan at which `k` of the last `n` values of `stat [T]` exceed `theta`, or -1 (also for no
+        scans). A NaN never exceeds, whatever the sign of `theta`."""
+        stat = np.asarray(stat, float)
+        if stat.size == 0:
+            return -1
+        over = stat > self.theta  # a comparison with NaN is False
         count = np.convolve(over.astype(int), np.ones(self.n, int))[: len(over)]
         hit = np.flatnonzero(count >= self.k)
         return int(hit[0]) if len(hit) else -1
@@ -41,5 +47,13 @@ class PersistenceRule:
     @classmethod
     def fit(cls, benign: np.ndarray, q: float = 99.9, k: int = 2, n: int = 3) -> PersistenceRule:
         """The rule whose threshold is the `q`th percentile of the benign statistics `benign` (any shape, NaN
-        ignored): the calibration of N79 on whole benign January to March days."""
-        return cls(float(np.nanpercentile(np.asarray(benign, float), q)), k, n)
+        ignored): the calibration of N79 on whole benign January to March days.
+
+        Raises:
+            NoBenignRecords: `benign` holds no evaluated statistic, so there is nothing to calibrate on (a rule
+                fitted on nothing would never alarm).
+        """
+        benign = np.asarray(benign, float)
+        if not np.isfinite(benign).any():
+            raise NoBenignRecords("PersistenceRule.fit needs at least one evaluated benign statistic")
+        return cls(float(np.nanpercentile(benign, q)), k, n)
