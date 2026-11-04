@@ -2000,12 +2000,36 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>The grid operator under attack: what it does with false readings, and what that costs on the true grid.</td>
 </tr>
 <tr>
+<td><code>nyfed.operator.day</code></td>
+<td>An attacked day as the operator meets it: the scans it reads and their benign twin, the true states, the pool's unit dispatch and costs, the zonal prices, and the interfaces with their real limits (<code>operator_day</code>).</td>
+</tr>
+<tr>
+<td><code>nyfed.operator.policy</code></td>
+<td>The operator's choices: which operator (<code>MODES</code>), how it answers an alarm (<code>AFTER</code>), and where the inadvertent interchange its neighbours supply enters (<code>ENTRY</code>, <code>entry_share</code>).</td>
+</tr>
+<tr>
 <td><code>nyfed.operator.response</code></td>
-<td>What the operator does under an attack, and what it costs on the true grid (D1 to D6).</td>
+<td>The operator's response, as one module: every name of <code>day</code>, <code>ties</code>, <code>truegrid</code>, <code>policy</code>, <code>run</code> and <code>summary</code>, re-exported so the imports written before the split keep working. New code imports from those modules or from <code>fdia_graph.nyfed.operator</code>.</td>
+</tr>
+<tr>
+<td><code>nyfed.operator.run</code></td>
+<td>The operator scan by scan (D1 to D6). It dispatches on what it reads (<code>DcSced</code>), the attacked scans and, separately, their benign twin, each in closed loop on its own dispatch. The dispatch is applied to the true grid, whose load the attack never changed: the imbalance it leaves is picked up by regulation, the online free units in proportion to their five-minute ramp (AGC), up to <code>REG_CAP</code>, and the rest by the neighbours as inadvertent interchange. The attack's consequence is the attacked run less the benign one, so whatever the model does alike in both (DC against AC, the cost model) cancels. <code>respond</code> runs both and returns the <code>Response</code>.</td>
 </tr>
 <tr>
 <td><code>nyfed.operator.sced</code></td>
 <td>The operator's real-time dispatch: a DC security-constrained dispatch around the current basepoint, as NYISO's real-time dispatch is a DC dispatch on shift factors (D2).</td>
+</tr>
+<tr>
+<td><code>nyfed.operator.summary</code></td>
+<td>The attack's consequence over a day, attacked run less benign run (<code>summarize</code>): the dispatch moved, the regulation and its energy by utility, the inadvertent interchange, the true interface changes and margins, the scans over a true limit and those whose power flow failed, the costs, and any load shed.</td>
+</tr>
+<tr>
+<td><code>nyfed.operator.ties</code></td>
+<td>The interchange check: what the operator reads across the ties against what the neighbours' own meters read (N62, N67). The New York ends of the ties carry the attack's false interchange, the neighbours' ends do not, so the gap between them (<code>tie_gap</code>) leaves its benign noise once an attack moves the interchange, and <code>interchange_alarm</code> names the first scan it does. <code>seen_interfaces</code> is the interface flow the operator reads from its own scans.</td>
+</tr>
+<tr>
+<td><code>nyfed.operator.truegrid</code></td>
+<td>The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (<code>TrueGrid.state</code>), the true state once a run has acted (<code>run_state</code>, the closed loop), and the interface flows and the worst single 345 kV outage it gives (<code>change</code>). A power flow that fails returns None and its scan is unknown, never safe.</td>
 </tr>
 <tr>
 <td><code>nyfed.scenario</code></td>

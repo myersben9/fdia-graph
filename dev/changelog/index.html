@@ -1645,6 +1645,13 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The operator in one module per job (New York grid).</strong> <code>fdia_graph.nyfed.operator.response</code> (730 lines) is split
+  into <code>day</code> (reading an attacked day), <code>ties</code> (the interchange check), <code>truegrid</code> (the AC power flows on the true
+  grid), <code>policy</code> (the operator's choices), <code>run</code> (the scan-by-scan loop) and <code>summary</code> (its consequence), the code
+  moved as it was. <code>response</code> re-exports every name, so existing imports keep working. The interchange check's alarm
+  is public as <code>interchange_alarm</code>.</p>
+</li>
+<li>
 <p><strong>Detection as building blocks (New York grid).</strong> New <code>fdia_graph.nyfed.detect</code>: the residual test's AC weighted
   least squares (<code>wls</code>, returning a <code>WlsFit</code> that says whether it converged), the noise-free fit of a state
   (<code>exact_state</code>), the persistence rule with its calibration (<code>PersistenceRule</code>, <code>PersistenceRule.fit</code>) behind an
