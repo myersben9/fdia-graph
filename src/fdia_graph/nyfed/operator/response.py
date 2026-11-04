@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from fdia_graph.errors import ConfigError
 from fdia_graph.nyfed.grid.case import Case
 from fdia_graph.nyfed.grid.clients import Ownership
 from fdia_graph.nyfed.grid.interfaces import Interface, hourly_interfaces
@@ -244,7 +245,9 @@ class Twin:
     true margin of any interface to its limit (MW, negative over it) and `margin_at [T]` that interface (-1 unknown),
     `shed [T, N]` the load the operator shed (MW), `relief [T]` what relieving the interfaces cost in
     production ($, `Step.relief_usd`), `shortage [T]` the flow left over the limit at the shortage curve ($), `fuel [T]` the production cost change and `settled [T]` the energy
-    change at the zonal LBMP ($ per scan)."""
+    change at the zonal LBMP ($ per scan). `pf_failed [T]` marks the scans where the AC power flow of the
+    operator's dispatch on the true grid failed: their interface changes and margin are NaN, unknown rather than
+    safe, and `summarize` counts them."""
 
     dev: np.ndarray
     reg: np.ndarray
@@ -260,6 +263,7 @@ class Twin:
     shortage: np.ndarray
     fuel: np.ndarray
     settled: np.ndarray
+    pf_failed: np.ndarray
 
 
 class _TrueGrid:
@@ -362,6 +366,9 @@ def _regulation(
 
 
 MODES = ("trusting", "accounting", "oracle")
+# N78: how an operator answers an alarm: it reads the scans without the attack, or holds its dispatch with its
+# AGC on the tie meters it reads or on the common-source tie values
+AFTER = ("benign", "freeze", "freeze_cs")
 
 
 # N72: where the inadvertent interchange enters New York, as weights per external area of the source model (1
@@ -381,7 +388,7 @@ def _entry_share(c: Case, entry: str) -> np.ndarray:
     """[U] the share of the inadvertent interchange each unit supplies (N69, N72): synchronous units outside
     New York (the HVDC import from Quebec cannot carry it), by capacity within the weights of `ENTRY[entry]`."""
     if entry not in ENTRY:
-        raise ValueError(f"entry must be one of {tuple(ENTRY)}, not {entry!r}")
+        raise ConfigError(f"entry must be one of {tuple(ENTRY)}, not {entry!r}")
     cap = np.nan_to_num(c.pmax)
     ext = ~c.is_ny[c.unit_bus] & (c.bus_id[c.unit_bus] != HQ_BUS) & (cap > 0)
     share = np.where(ext, cap, 0.0)
@@ -448,6 +455,7 @@ def _run(
         "margin_at": np.full(T, -1),
         "fuel": np.zeros(T),
         "settled": np.zeros(T),
+        "pf_failed": np.zeros(T, bool),
     }
     prev, before = None, None
     over = np.zeros(I, int)  # scans in a row each interface has been over its limit
@@ -510,6 +518,7 @@ def _run(
             out["iface_change"][t], out["n1_change"][t] = grid.change(
                 t, day.unit_p[t] + moved + lent, step.shed
             )
+            out["pf_failed"][t] = bool(np.isnan(out["iface_change"][t]).any())
         if closed_loop:  # what the next scan reads beyond the operator's own model of its dispatch
             mismatch = np.nan_to_num(out["iface_change"][t] - sf_units @ step.dev)
         # the tightest true margin of any interface to its limit (MW, negative over it)
@@ -575,7 +584,11 @@ def respond(
     what-if: the attacked interface reading pushed that far past what the attack reached, in proportion
     to the push over the episode. `entry` is where the inadvertent interchange enters (`ENTRY`, N72). With `closed_loop` the operator reads each interface as it truly flows after its own last dispatch (N76). `calib` (MW) is the mean and standard deviation of the tie gap's benign noise the alarm is calibrated on, from other days."""
     if mode not in MODES:
-        raise ValueError(f"mode must be one of {MODES}, not {mode!r}")
+        raise ConfigError(f"mode must be one of {MODES}, not {mode!r}")
+    if after is not None and after not in AFTER:
+        raise ConfigError(f"after must be one of {AFTER} or None, not {after!r}")
+    if entry not in ENTRY:
+        raise ConfigError(f"entry must be one of {tuple(ENTRY)}, not {entry!r}")
     tie_a, tie_b = tie_gap(day, day.z), tie_gap(day, day.z_benign)
     # the oracle falls back at the interchange alarm, or at `alarm_at` (a scan of the day) when another alarm is studied
     alarm = _alarm_scan(day, tie_a, tie_b, calib) if alarm_at is None else alarm_at
@@ -612,7 +625,8 @@ def respond(
 
 def _over(r: Response) -> dict:
     """Where the attacked run takes an interface past its true limit (N72): the scans over, the longest run of
-    them, the energy over (MWh) and the interface most often over (-1 none)."""
+    them, the energy over (MWh) and the interface most often over (-1 none). A scan whose power flow failed has no
+    margin and is not counted over; `pf_failed_scans` says how many such scans there are."""
     m = r.attacked.margin
     over = np.nan_to_num(m, nan=1.0) < 0
     run = best = 0
@@ -669,6 +683,8 @@ def summarize(r: Response, voll: float | None = None) -> dict:
         "margin_min_mw": float(np.nanmin(a.margin)) if np.isfinite(a.margin).any() else float("nan"),
         "margin_lost_mw": peak(b.margin - a.margin),
         **_over(r),
+        "pf_failed_scans": int(a.pf_failed.sum()),
+        "pf_failed_benign_scans": int(b.pf_failed.sum()),
         "fuel_usd": float(a.fuel.sum() - b.fuel.sum()),
         "settled_usd": float(a.settled.sum() - b.settled.sum()),
         "relief_usd": float(a.relief.sum() - b.relief.sum()),

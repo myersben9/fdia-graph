@@ -151,3 +151,30 @@ def test_the_three_operators_on_a_day_under_attack():
     assert np.abs(trusting.attacked.uncovered[w]).max() > 200  # left to the neighbours
     assert np.abs(accounting.attacked.dev[w].sum(axis=1)).max() < 50  # no false load followed
     assert np.abs(accounting.attacked.uncovered).sum() < np.abs(trusting.attacked.uncovered).sum()
+
+
+@pytest.mark.skipif(not (DAY.exists() and POOL.exists()), reason="single-episode file or pool missing")
+def test_a_failed_power_flow_is_unknown_not_safe(monkeypatch):
+    """Scans whose AC power flow fails are flagged in `pf_failed`, have no margin, are counted in the summary and
+    never read as within the limit; every other scan stays unflagged."""
+    from fdia_graph.nyfed.operator import response
+    from fdia_graph.nyfed.operator.response import operator_day, respond, summarize
+
+    day = operator_day(DAY, POOL, DATA)
+    fail = set(range(day.onset + 2, day.onset + 5))
+    real = response._TrueGrid.change
+
+    def change(self, t, units, shed=None):
+        if t in fail:
+            return np.full(len(self.day.interfaces), np.nan), np.nan
+        return real(self, t, units, shed)
+
+    monkeypatch.setattr(response._TrueGrid, "change", change)
+    r = respond(day)
+    a, b = r.attacked, r.benign
+    flagged = set(np.flatnonzero(a.pf_failed).tolist())
+    assert flagged and flagged <= fail  # only scans the dispatch moved reach the true grid
+    assert np.isnan(a.margin[sorted(flagged)]).all() and np.isfinite(a.margin[sorted(fail - flagged)]).all()
+    s = summarize(r)
+    assert s["pf_failed_scans"] == len(flagged) and s["pf_failed_benign_scans"] == int(b.pf_failed.sum())
+    assert not a.pf_failed[[t for t in range(len(a.pf_failed)) if t not in fail]].any()

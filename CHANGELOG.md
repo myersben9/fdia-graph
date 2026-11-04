@@ -5,6 +5,12 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A failed power flow reads as unknown, not safe (New York grid).** The operator's `Twin` gains `pf_failed [T]`,
+  the scans whose AC power flow on the true grid failed, and `summarize` reports `pf_failed_scans` and
+  `pf_failed_benign_scans`. Before, those scans' NaN margins counted as within the limit with no trace. `respond`
+  now rejects an unknown `after` (before, a typo ran as an operator that never answers the alarm), and an unknown
+  `mode`, `after` or `entry` raises `fdia_graph.errors.ConfigError` (a ValueError, as before).
+
 - **Why a design found no attack (New York grid).** Every family's `design` that returns None now leaves
   `last_miss` (one of `fdia_graph.nyfed.attacks.episode.MISSES`: `no_target`, `infeasible`, `solver_error`), and
   `TimelineBuilder.build` reports `missed`, the count of each reason per family. `build_episode`'s error names the
