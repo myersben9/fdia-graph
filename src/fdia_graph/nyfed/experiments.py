@@ -86,30 +86,37 @@ def run_parallel(
     A job returns one row (a dict), several (a list of dicts) or None (nothing to report, such as a day without an
     attack). The CSV is rewritten every `every` finished tasks and at the end, so a stopped run keeps what it did,
     and the final file is sorted by `sort_by` (when that column exists) so it does not depend on which worker
-    finished first. Progress prints as `k/n [seconds]`, followed by `describe(row)` when given.
+    finished first; rows that tie on it keep the order of their tasks. Progress prints as `k/n [seconds]`, followed
+    by `describe(row)` when given. Returns the rows in that final order.
     """
     import pandas as pd  # the tools' dependency, not the package's
 
     for var in _THREADS:  # inherited by the workers the pool starts
         os.environ.setdefault(var, "1")
-    rows: list[dict] = []
+    done: dict[int, list[dict]] = {}  # each task's rows, by the task's position
     t0 = time.perf_counter()
 
+    def in_task_order() -> list[dict]:
+        return [row for i in sorted(done) for row in done[i]]
+
     def write(final: bool = False) -> None:
-        frame = pd.DataFrame(rows)
+        frame = pd.DataFrame(in_task_order())
         if final and sort_by and sort_by in frame:
-            frame = frame.sort_values(sort_by, kind="stable")
+            frame = frame.sort_values(sort_by, kind="stable")  # stable: ties keep the task order
         frame.to_csv(out, index=False)
 
     with ProcessPoolExecutor(workers, initializer=initializer, initargs=initargs) as ex:
-        futs = [ex.submit(job, *task) for task in tasks]
+        futs = {ex.submit(job, *task): i for i, task in enumerate(tasks)}
         for k, fut in enumerate(as_completed(futs), 1):
             got = fut.result()
             new = got if isinstance(got, list) else [] if got is None else [got]
-            rows += new
+            done[futs[fut]] = new
             if k % every == 0:
                 write()
             note = f" {describe(new[-1])}" if describe and new else ""
             print(f"{k}/{len(tasks)}{note} [{time.perf_counter() - t0:.0f}s]", flush=True)
     write(final=True)
+    rows = in_task_order()
+    if sort_by and rows and all(sort_by in r for r in rows):
+        rows = sorted(rows, key=lambda r: r[sort_by])  # Python's sort is stable, as the CSV's is
     return rows

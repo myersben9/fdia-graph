@@ -35,3 +35,12 @@ def test_run_parallel_writes_one_sorted_csv(tmp_path):
     rows = run_parallel(dict, tasks, out, workers=2)  # dict(pairs) is a picklable job returning one row
     assert sorted(r["file"] for r in rows) == ["a", "b", "c"]
     assert pd.read_csv(out)["file"].tolist() == ["a", "b", "c"]  # sorted whatever finished first
+
+
+def test_rows_that_tie_on_the_sort_column_keep_the_task_order(tmp_path):
+    """Two studies can hold a day of the same name: their rows tie on `file` and must not swap between runs."""
+    out = tmp_path / "rows.csv"
+    tasks = [([("file", "am_5_0.h5"), ("study", s)],) for s in ("a", "b", "c", "d")]
+    rows = run_parallel(dict, tasks, out, workers=4)
+    assert [r["study"] for r in rows] == ["a", "b", "c", "d"]
+    assert pd.read_csv(out)["study"].tolist() == ["a", "b", "c", "d"]

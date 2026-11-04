@@ -39,7 +39,9 @@ def main() -> None:
         "--attacks", nargs="*", default=[], help="damage_study.py folders whose attacks each draw detects"
     )
     args = ap.parse_args()
-    b = production_builder(args.pool, ("Am",), workers=1, survey=0)
+    # the builder reads NYgrid from <nygrid_dir>/Data, so --data names that Data folder
+    settings = Settings(nygrid_dir=Path(args.data).parent)
+    b = production_builder(args.pool, ("Am",), workers=1, survey=0, settings=settings)
     case, plan, net, pool = b.att.net.case, b.att.meas.plan, b.att.net, b.pool
     br, end, rows = tie_meters(case, plan)
     sr, sa, bias = plan.sigma_rel[rows], plan.sigma_abs[rows], plan.bias[rows]

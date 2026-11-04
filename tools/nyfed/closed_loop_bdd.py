@@ -180,6 +180,8 @@ def main() -> None:
     args = ap.parse_args()
     calib = load_calib(args.calib)
     files = study_days(args.studies, args.limit)
+    if not files:
+        raise SystemExit(f"no attack days (days/am_*_*.h5) under {args.studies}")
     thr_cal = _threshold(Path(args.cal_json), files[0], args.pool, args.data, args.cal_frames)
     print(f"{len(files)} attack days, calibrated threshold {thr_cal:.1f}", flush=True)
     tasks = [(f, args.pool, args.data, calib, args.mode, thr_cal, args.draws) for f in files]
