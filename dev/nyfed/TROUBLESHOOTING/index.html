@@ -1616,6 +1616,10 @@ listing the allowed values. In the result:</p>
 <td>The AC power flow of the operator's dispatch on the true grid failed on those scans. Their interface changes and margin are NaN, which means unknown, not safe. They are not counted in <code>over_scans</code></td>
 </tr>
 <tr>
+<td><code>margin_min_mw</code> below zero with <code>over_scans</code> zero</td>
+<td>The benign twin is over the limit as far, or further. The least-cost dispatch holds a binding interface at its shift-factor limit, and the true AC flow can pass it with no attack. <code>benign_margin_min_mw</code> gives the benign twin's tightest margin, and <code>over_*</code> count only the attack's excess</td>
+</tr>
+<tr>
 <td><code>alarm_scans</code> NaN</td>
 <td>The interchange check never fired in the window</td>
 </tr>

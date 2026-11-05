@@ -1645,6 +1645,14 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Overruns counted against the benign twin (New York grid).</strong> <code>summarize</code>'s <code>over_scans</code>, <code>over_run_scans</code>,
+  <code>over_mwh</code> and <code>over_iface</code> now count only the scans on which the attacked run is further over a true interface
+  limit than its benign twin, and that excess energy. The least-cost dispatch holds a binding interface at its
+  shift-factor limit, so its true flow can pass the limit with no attack, which the old counts charged to the
+  attack. <code>benign_margin_min_mw</code> reports the benign twin's tightest margin. Results of the least-movement dispatch,
+  whose benign twin never passed a limit, are unchanged.</p>
+</li>
+<li>
 <p><strong>Every study tool can run the least-cost operator (New York grid).</strong> Each tool under <code>tools/nyfed/</code> that runs the
   operator takes <code>--dispatch cost</code> (declared once by <code>experiments.add_dispatch_argument</code>, and by
   <code>add_study_arguments</code>) and writes the dispatch it used in a <code>dispatch</code> column; <code>damage_study.py</code> keeps a folder to
