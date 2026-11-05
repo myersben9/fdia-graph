@@ -11,7 +11,8 @@ least generation (the least cost breaking ties), "cost" clears at the least line
 `MOVE_USD` and the shortage curve and energy cap of `DcSced`, and prices every bus at its AC balance dual (the AC LMP).
 
 On a scan with nothing to answer (the loads read are the true ones, nothing to correct, no dispatch to unwind, every
-interface within its limit) the least-movement answer is the basepoint itself, so it is returned without a solve.
+interface within its limit) either objective's answer is the AC point itself, since the operator solves the problem the
+pool solved (`PoolFrames`), so it is returned without a solve; prices are then only where the scan is solved.
 """
 
 from __future__ import annotations
@@ -28,7 +29,6 @@ from fdia_graph.nyfed.grid.interfaces import Interface
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.day import PoolFrames
 from fdia_graph.nyfed.operator.sced import (
-    ENERGY_CAP,
     FRAME_HOURS,
     HELD,
     MOVE_USD,
@@ -154,6 +154,7 @@ class AcSced:
         bus_load: np.ndarray | None = None,
         quick_start: np.ndarray | None = None,
         objective: str = "movement",
+        solve_quiet: bool = False,
     ):
         if objective not in AC_OBJECTIVES:
             raise ConfigError(f"objective must be one of {AC_OBJECTIVES}, not {objective!r}")
@@ -182,6 +183,8 @@ class AcSced:
         self._last: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
         self._shift: dict[int, np.ndarray] = {}
         self.solves, self.seconds = 0, 0.0
+        self.solve_quiet = solve_quiet
+        self.solved_at: set[int] = set()  # the scans solved, not answered by the basepoint
 
     def _bounds(
         self, t: int, prev: np.ndarray | None, commit: bool
@@ -242,7 +245,9 @@ class AcSced:
         if self.objective == "cost":
             seg_w = tuple(w for w, _ in SHORTAGE)
             seg_p = tuple(p for _, p in SHORTAGE)
-            w_cost, bal_w = 1.0, ENERGY_CAP
+            # load left unmatched only where nothing else serves it: the pool had no such slack, and its anchored units
+            # can price energy above the offer cap where their schedules bind (the AC LMP is then that marginal value)
+            w_cost, bal_w = 1.0, SLACK_WEIGHT
         else:
             seg_w, seg_p = (np.inf,) * 3, (SLACK_WEIGHT,) * 3
             w_cost, bal_w = TIE_BREAK, SLACK_WEIGHT
@@ -305,14 +310,17 @@ class AcSced:
         limit: np.ndarray,
         prev: np.ndarray | None,
         shed_ok: bool | np.ndarray = True,
+        force: bool = False,
     ) -> Step:
         """Scan `t`: the bus loads the operator reads `load_p`, `load_q [N]`, each interface's reading correction
         `corr [I]` (MW: what it read after its last dispatch beyond its own model, plus any what-if push) against
-        `limit [I]` (NaN unenforced), and `prev [G]` its deviation at the scan before (None at the first). Raises
-        RuntimeError where Ipopt finds no dispatch."""
+        `limit [I]` (NaN unenforced), and `prev [G]` its deviation at the scan before (None at the first). A quiet scan
+        (the true loads, nothing to correct or unwind, every interface within its limit) returns the basepoint without
+        a solve, as either objective's answer there is the AC point the pool solved; `force` (or `solve_quiet`) solves it,
+        for its prices. Raises RuntimeError where Ipopt finds no dispatch."""
         on = np.isfinite(limit)
         quiet = (
-            self.objective == "movement"
+            not (force or self.solve_quiet)
             and np.array_equal(load_p, self.pd[t])
             and np.array_equal(load_q, self.qd[t])
             and np.abs(np.nan_to_num(corr)).max(initial=0.0) < 1e-9
@@ -322,6 +330,7 @@ class AcSced:
         if quiet:
             self._last = None
             return self._basepoint(t)
+        self.solved_at.add(t)
         sol = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, True, self.objective == "movement")
         if self.objective == "cost" and sol is not None:
             short = float(np.nansum(sol.over)) + float(sol.shed.sum()) + abs(sol.unmatched)

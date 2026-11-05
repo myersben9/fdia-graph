@@ -285,14 +285,17 @@ def _run_ac(
     closed_loop: bool = False,
     after: str | None = None,
     objective: str = "movement",
-) -> Twin:
+    force: set[int] | None = None,
+) -> tuple[Twin, set[int]]:
     """One run of the AC operator over the day (`AcSced`), as `_run` runs the DC one. Each scan it reads the true
     loads less the injection changes `d_p`, `d_q [T, N]` its meters carry (zero in the benign twin; the accounting
     operator adds the false interchange `gap` back as load, spread over New York's loads by their size), and solves its
     AC OPF on them. `push [T, I]` is a what-if push of the read interface flows (`respond`'s `over`). With
     `closed_loop` each interface's reading carries what the operator read after its last dispatch beyond its own AC
     model: the true flow then, plus the attack's change of the reading `flow_read [T, I]`, less the model's flow. The
-    regulation, the neighbours' supply and the true grid follow `_run`."""
+    regulation, the neighbours' supply and the true grid follow `_run`. `force` names scans solved even where quiet (the
+    benign twin of a least-cost run solves where the attacked one did, so both carry prices there). Returns the run and
+    the scans its dispatch solved."""
     c, T, G, I = day.case, len(day.time), len(day.case.unit_bus), len(day.interfaces)
     fuel_kind, zone = c.fuel.astype(str), c.zone.astype(str)[c.unit_bus]
     quick = np.isin(fuel_kind, QUICK_FUELS) & np.isin(zone, QUICK_ZONES) & (c.pmax <= QUICK_MAX_MW)
@@ -363,7 +366,16 @@ def _run_ac(
         step = (
             last_step
             if frozen and last_step is not None
-            else sced.step(t, load_p, load_q, view, limit[t], prev, over >= SHED_AFTER)
+            else sced.step(
+                t,
+                load_p,
+                load_q,
+                view,
+                limit[t],
+                prev,
+                over >= SHED_AFTER,
+                force=force is not None and t in force,
+            )
         )
         last_step = step
         short = np.nan_to_num(step.unrelieved)
@@ -405,7 +417,7 @@ def _run_ac(
             out["margin_at"][t] = int(np.nanargmin(room))
         out["fuel"][t] = float(day.cost[t] @ moved) * FRAME_HOURS
         out["settled"][t] = float(np.nansum(price[t] * moved)) * FRAME_HOURS
-    return Twin(**out)
+    return Twin(**out), sced.solved_at
 
 
 @dataclass(frozen=True)
@@ -478,38 +490,41 @@ def respond(
         d_p, d_q = reported_changes(day, day.z)
         raw = seen_interfaces(day.plan, day.interfaces, day.z)
         flat = np.zeros_like(seen_a)
+        attacked, solved = _run_ac(
+            day,
+            d_p,
+            d_q,
+            seen_a - raw,
+            raw - seen_b,
+            delay,
+            grid,
+            gap,
+            mode,
+            alarm,
+            entry,
+            closed_loop,
+            after,
+            objective,
+        )
+        benign, _ = _run_ac(
+            day,
+            np.zeros_like(d_p),
+            np.zeros_like(d_q),
+            flat,
+            flat,
+            delay,
+            grid,
+            zero,
+            mode,
+            None,
+            entry,
+            closed_loop,
+            objective=objective,
+            force=solved if objective == "cost" else None,  # its prices where the attacked run has them
+        )
         return Response(
-            attacked=_run_ac(
-                day,
-                d_p,
-                d_q,
-                seen_a - raw,
-                raw - seen_b,
-                delay,
-                grid,
-                gap,
-                mode,
-                alarm,
-                entry,
-                closed_loop,
-                after,
-                objective,
-            ),
-            benign=_run_ac(
-                day,
-                np.zeros_like(d_p),
-                np.zeros_like(d_q),
-                flat,
-                flat,
-                delay,
-                grid,
-                zero,
-                mode,
-                None,
-                entry,
-                closed_loop,
-                objective=objective,
-            ),
+            attacked=attacked,
+            benign=benign,
             unit_client=day.own.bus_client[day.case.unit_bus],
             bus_client=day.own.bus_client,
             client_names=[str(n) for n in day.own.names],

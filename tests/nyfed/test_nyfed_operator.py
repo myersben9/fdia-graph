@@ -324,7 +324,8 @@ def test_the_outage_power_flow_matches_pandapower(ac_day):
 
 
 def test_the_least_cost_ac_dispatch_keeps_the_ac_points_and_prices_them(ac_day):
-    """The least-cost AC dispatch solves the problem the pool solved, so on the true loads it stays at the stored AC
+    """The least-cost AC dispatch solves the problem the pool solved, so on the true loads (solved, not answered by the
+    basepoint) it stays at the stored AC
     points, and a unit inside its bounds and not ramp limited is priced within the movement charge of its cost: the
     balance duals are the AC LMPs in $/MWh."""
     from fdia_graph.nyfed.operator.sced import MOVE_USD
@@ -335,7 +336,9 @@ def test_the_least_cost_ac_dispatch_keeps_the_ac_points_and_prices_them(ac_day):
     c, prev = day.case, None
     interior = 0
     for t in range(day.onset, day.onset + 3):
-        step = sced.step(t, grid.pd[t], frames.qd[t], np.zeros(len(day.interfaces)), limit[t], prev)
+        step = sced.step(
+            t, grid.pd[t], frames.qd[t], np.zeros(len(day.interfaces)), limit[t], prev, force=True
+        )
         assert np.abs(step.dev).sum() < 0.5
         assert step.price is not None and np.isfinite(step.price).all()
         prev = step.dev
