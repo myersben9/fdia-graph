@@ -1645,6 +1645,9 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>Shunt compensation and reactive limits as a sensitivity (New York grid).</strong> <code>AcSolver(case, compensation=...)</code> takes a <code>Compensation</code>: switched shunt banks the dispatch sets frame by frame, a generator voltage schedule held by a penalty, an operating voltage band and unit reactive limits (<code>unit_q_limits</code>, power factor 0.85 lagging and 0.95 leading on Pmax where NYgrid left plus or minus 9999 MVAr). <code>PoolBuilder</code> applies its limits and records each bank's output (<code>shunt_q</code>), which enters the power flow and the pool's injections. Without a <code>Compensation</code> the model, the pool and every released file are unchanged.</p>
+</li>
+<li>
 <p><strong>Overruns counted against the benign twin (New York grid).</strong> <code>summarize</code>'s <code>over_scans</code>, <code>over_run_scans</code>,
   <code>over_mwh</code> and <code>over_iface</code> now count only the scans on which the attacked run is further over a true interface
   limit than its benign twin, and that excess energy. The least-cost dispatch holds a binding interface at its

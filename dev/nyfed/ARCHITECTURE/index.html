@@ -1717,7 +1717,7 @@ its stage does.</p>
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    load_fit.py        fluctuation_fit, switching_fit (how the within-hour constants were fitted, N31)
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    load_metrics.py    the measures LoadModel.validate compares with the real load
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    dispatch.py        Dispatch, hourly_dispatch
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    solver.py          AcSolver
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    solver.py          AcSolver, Compensation, unit_q_limits
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    pool.py            Pool, PoolBuilder, peak_ratings
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>  sensing/
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    __init__.py        what the stage does, and its public names
@@ -1839,6 +1839,11 @@ copies them as they are.</p>
 <td><code>time [T]</code>, <code>vm [T, N]</code>, <code>va [T, N]</code>, <code>p [T, N]</code>, <code>q [T, N]</code>, <code>solve_kind [T]</code> (<code>SOLVED</code>, <code>FAILED</code>, <code>NO_HOUR</code>, <code>NO_LOAD</code>; unsolved frames keep their place with NaN state, branch flows are <code>Network.flows(vm, va)</code>), <code>unit_p [T, G]</code> each unit's real-time dispatch basepoint (N32; None for a pool written before N32)</td>
 </tr>
 <tr>
+<td><code>Compensation</code></td>
+<td><code>scenario/solver.py</code></td>
+<td>reactive support for a sensitivity of the benign dispatch (the release has none): switched shunt banks <code>shunt_lo</code>, <code>shunt_hi [N]</code> (MVAr at 1 p.u., reactors negative), a generator voltage schedule <code>v_schedule [N]</code> (p.u., NaN unregulated) held at <code>v_weight</code> k$/h per p.u.^2, the banks' switching cost <code>shunt_cost</code> (k$/h per MVAr), unit reactive limits <code>q_lo</code>, <code>q_hi [G]</code> and the operating band <code>v_lo</code>, <code>v_hi [N]</code> (NaN keeps the case's limit); <code>band(case)</code>, <code>shunt_buses</code></td>
+</tr>
+<tr>
 <td><code>MeterPlan</code></td>
 <td><code>sensing/meters.py</code></td>
 <td>one row per meter: <code>kind</code> (v, va, p, q, pf, qf, i, ia), <code>bus</code>, <code>branch</code>, <code>end</code>, <code>owner</code>, <code>sigma_rel</code>, <code>sigma_abs</code>, <code>bias</code></td>
@@ -1881,13 +1886,13 @@ copies them as they are.</p>
 <tr>
 <td><code>AcSolver</code></td>
 <td><code>scenario/solver.py</code></td>
-<td>the <code>Network</code>, the Pyomo AC-OPF model (two objectives: deviation, and generation cost plus a quadratic penalty holding anchored units to a schedule), one pandapower net built from the <code>Case</code>, the last solved state for warm starts</td>
-<td><code>project(pd, qd, unit_p, unit_on, hvdc_p)</code> (hourly min-deviation AC-OPF as a Pyomo model solved by Ipopt), <code>dispatch(pd, qd, cost, p_lo, p_hi, q_lo, q_hi, unit_on, hvdc_p, init=None, anchor=None, anchor_weight=1000)</code> (one five-minute least-cost AC-OPF within per-unit P and Q bounds, started from <code>init</code> = the previous (unit_p, unit_q), units with a finite <code>anchor</code> (MW) held near it at <code>anchor_weight</code> $/MW^2h, N32, N39), <code>power_flow(pd, qd, unit_p, unit_on, unit_vm, hvdc_p, start=None)</code> (pandapower, at a frame's basepoints; <code>start</code> = (vm, va) starts Newton at the dispatch's own solution)</td>
+<td>built as <code>AcSolver(case, compensation=None)</code>: the <code>Network</code>, the Pyomo AC-OPF model (two objectives: deviation, and generation cost plus a quadratic penalty holding anchored units to a schedule; with a <code>Compensation</code> the dispatch also sets each bank and adds the voltage schedule's penalty and the banks' switching cost, and holds the operating band, while <code>project</code> stays NYgrid's), one pandapower net built from the <code>Case</code>, the last solved state for warm starts</td>
+<td><code>project(pd, qd, unit_p, unit_on, hvdc_p)</code> (hourly min-deviation AC-OPF as a Pyomo model solved by Ipopt), <code>dispatch(pd, qd, cost, p_lo, p_hi, q_lo, q_hi, unit_on, hvdc_p, init=None, anchor=None, anchor_weight=1000)</code> (one five-minute least-cost AC-OPF within per-unit P and Q bounds, started from <code>init</code> = the previous (unit_p, unit_q), units with a finite <code>anchor</code> (MW) held near it at <code>anchor_weight</code> $/MW^2h, N32, N39; returns each bank's output <code>shunt_q [N]</code>), <code>power_flow(pd, qd, unit_p, unit_on, unit_vm, hvdc_p, start=None)</code> (pandapower, at a frame's basepoints; <code>start</code> = (vm, va) starts Newton at the dispatch's own solution)</td>
 </tr>
 <tr>
 <td><code>PoolBuilder</code></td>
 <td><code>scenario/pool.py</code></td>
-<td>built as <code>PoolBuilder(solver, loads, dispatch, renew, ramp, q_cap=None)</code>: an <code>AcSolver</code>, the 5-minute <code>LoadSeries</code>, the <code>Dispatch</code>, NYgrid's hourly netted renewables <code>renew [H, N]</code>, each unit's ramp <code>ramp [G]</code> (MW per frame, inf unbounded), its reactive cap <code>q_cap [G]</code> (None: the case's limits, as the grid uses, N38); after a build <code>final</code> = (unit_p, unit_q, vm, va) of its last solved frame and per frame <code>slack_mw</code>, <code>cost</code>, <code>ramp_bound</code>, <code>anchor_dev</code></td>
+<td>built as <code>PoolBuilder(solver, loads, dispatch, renew, ramp, q_cap=None)</code>: an <code>AcSolver</code>, the 5-minute <code>LoadSeries</code>, the <code>Dispatch</code>, NYgrid's hourly netted renewables <code>renew [H, N]</code>, each unit's ramp <code>ramp [G]</code> (MW per frame, inf unbounded), its reactive cap <code>q_cap [G]</code> (None: the case's limits, as the grid uses, N38; the solver's <code>Compensation</code> limits when it has one, the banks' output entering the power flow as a reactive injection); after a build <code>final</code> = (unit_p, unit_q, vm, va) of its last solved frame and per frame <code>slack_mw</code>, <code>cost</code>, <code>ramp_bound</code>, <code>anchor_dev</code>, <code>shunt_q [T, N]</code></td>
 <td><code>build(start=None) -&gt; Pool</code> (projects every hour the frames touch, then a least-cost AC-OPF per frame in order from <code>start</code> or from the first hour's AC point: thermal units within their limits and their ramp of the previous frame's basepoint, nuclear at the hourly AC points' output interpolated, hydro and external units anchored to it (N39), every unit in service for reactive power as in NYgrid's case; then a power flow at the basepoints), <code>report()</code> (solve counts, voltages, reference bus residual, cost, anchor deviation, ramp-held share, reactive fallbacks)</td>
 </tr>
 <tr>
@@ -2137,6 +2142,12 @@ copies them as they are.</p>
 <td><code>attacks/attacker.py</code></td>
 <td><code>Case</code></td>
 <td><code>[N]</code> <code>share</code> (3%) of each bus's units' upper limit (MW), the basepoint band (N33)</td>
+</tr>
+<tr>
+<td><code>unit_q_limits(case, lag_pf=0.85, lead_pf=0.95)</code></td>
+<td><code>scenario/solver.py</code></td>
+<td><code>Case</code></td>
+<td><code>([G], [G])</code> each unit's reactive limits at those power factors on Pmax where NYgrid left the placeholder 9999 MVAr (MVAr, the <code>Compensation</code> sensitivity)</td>
 </tr>
 <tr>
 <td><code>generator_q_capability(case)</code></td>
