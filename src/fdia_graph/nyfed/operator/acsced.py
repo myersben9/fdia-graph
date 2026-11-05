@@ -48,6 +48,10 @@ ANCHOR_WEIGHT = (
 )
 TIE_BREAK = 1e-3  # the least-movement dispatch's weight on cost, so a dollar never outweighs a megawatt moved
 SCALE = 1e-3  # the objective's scale for Ipopt
+# per p.u.^2: units hold their bus's voltage at the AC point's schedule, as the true grid's power flow holds it, until
+# their reactive range binds; without it the least-movement dispatch's voltages are free, and its model flows part
+# from the true grid's by what the voltages carry
+V_WEIGHT = 1e7
 BOUND_TOL = 1e-4  # MW the pool's bounds widen by, so its own point stays inside past the solver's rounding
 
 
@@ -184,6 +188,8 @@ class AcSced:
         self._shift: dict[int, np.ndarray] = {}
         self.solves, self.seconds = 0, 0.0
         self.solve_quiet = solve_quiet
+        self.v_w = np.zeros(len(case.bus_id))
+        self.v_w[case.unit_bus] = V_WEIGHT  # the units' buses regulate
         self.solved_at: set[int] = set()  # the scans solved, not answered by the basepoint
 
     def _bounds(
@@ -263,6 +269,8 @@ class AcSced:
             q_lo=self.q_lo,
             q_hi=self.q_hi,
             anchor=anchor,
+            v_sched=self.vm[t],
+            v_w=self.v_w,
             cost=self.cost[t],
             move_w=move_w,
             anchor_w=anchor_w,
