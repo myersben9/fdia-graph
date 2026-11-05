@@ -45,8 +45,9 @@ class Twin:
     operator's dispatch on the true grid failed: their interface changes and margin are NaN, unknown rather than
     safe, and `summarize` counts them. `congestion [T, I]` is each interface's shadow price under the least-cost
     dispatch ($/MWh per MW, `Step.congestion`), zero under the least-movement one and NaN where not enforced (None in
-    a run built without it), and `energy [T]` the balance's shadow price under the least-cost dispatch ($/MWh at the
-    reference bus, NaN otherwise, `Step.energy`)."""
+    a run built without it), `energy [T]` the balance's shadow price under the least-cost dispatch ($/MWh at the
+    reference bus, NaN otherwise, `Step.energy`), and `price [T, N]` each bus's price under a least-cost dispatch
+    ($/MWh, `DcSced.prices`; NaN under the least-movement one, None in a run built without it)."""
 
     dev: np.ndarray
     reg: np.ndarray
@@ -65,6 +66,7 @@ class Twin:
     pf_failed: np.ndarray
     congestion: np.ndarray | None = None
     energy: np.ndarray | None = None
+    price: np.ndarray | None = None
 
 
 def _regulation(
@@ -133,7 +135,16 @@ def _run(
     fuel_kind, zone = c.fuel.astype(str), c.zone.astype(str)[c.unit_bus]
     quick = np.isin(fuel_kind, QUICK_FUELS) & np.isin(zone, QUICK_ZONES) & (c.pmax <= QUICK_MAX_MW)
     load = np.clip(grid.pd, 0.0, None) * day.case.is_ny
-    sced = DcSced(c, day.unit_p, day.cost, day.interfaces, load, quick_start=quick, objective=dispatch)
+    sced = DcSced(
+        c,
+        day.unit_p,
+        day.cost,
+        day.interfaces,
+        load,
+        quick_start=quick,
+        objective=dispatch,
+        state=(day.vm, day.va),
+    )
     sf_units = sced.sf[:, c.unit_bus]
     # N69: the inadvertent interchange enters over the AC ties, from the synchronous units outside New York in
     # proportion to their capacity (the HVDC import from Quebec cannot carry it), not at the reference bus
@@ -161,6 +172,7 @@ def _run(
         "pf_failed": np.zeros(T, bool),
         "congestion": np.full((T, I), np.nan),
         "energy": np.full(T, np.nan),
+        "price": np.full((T, len(c.bus_id)), np.nan),
     }
     prev, before = None, None
     over = np.zeros(I, int)  # scans in a row each interface has been over its limit
@@ -198,8 +210,8 @@ def _run(
         out["shortage"][t] = sum(shortage_usd(u) for u in short)  # the curve is per constraint
         dispatched = day.unit_p[t] + step.dev
         # the true load lost what was shed and nothing else, so the units' shortfall is the dispatch's
-        # change plus the shed (the attack's pretended load never existed)
-        short_mw = -float(step.dev.sum() + step.shed.sum())
+        # change plus the shed (the attack's pretended load never existed), as delivered at the reference bus
+        short_mw = -sced.delivered(t, step.dev, step.shed)
         # the AGC sees the shortfall through the tie meters it reads: the trusting operator's New
         # York-end meters carry the false interchange, the agreed ones do not
         reads_ties = mode == "trusting" or (mode == "oracle" and not fallback)
@@ -220,6 +232,8 @@ def _run(
         if step.congestion is not None:
             out["congestion"][t] = step.congestion
         out["energy"][t] = step.energy
+        if step.congestion is not None and np.isfinite(step.energy):
+            out["price"][t] = sced.prices(t, step.energy, step.congestion)
         moved = step.dev + reg
         lent = out["uncovered"][t] * ext_share  # what the neighbours supply, at their units
         if np.abs(moved).max() > 1e-3 or step.shed.any() or np.abs(lent).max() > 1e-3:

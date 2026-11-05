@@ -17,11 +17,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import scipy.sparse as sp
+import scipy.sparse.linalg as spl
 from scipy.optimize import linprog
 
 from fdia_graph.errors import ConfigError
 from fdia_graph.nyfed.grid.case import REF, Case
 from fdia_graph.nyfed.grid.interfaces import Interface
+from fdia_graph.nyfed.grid.network import Network
 
 HELD = ("Nuclear", "Hydro", "Import")  # units that follow their schedule (N39), never redispatched
 SLACK_WEIGHT = 1e6  # per MW of unrelieved interface flow or unmatched load, above any movement, shed or cost
@@ -37,6 +40,14 @@ ENERGY_CAP = 1000.0
 # 4,000 shadow-price cap beyond (NYISO's constraint-specific shortage pricing, in force June 20, 2017)
 SHORTAGE = ((5.0, 350.0), (15.0, 1175.0), (np.inf, 4000.0))
 FRAME_HOURS = 5.0 / 60.0
+OBJECTIVES = ("movement", "cost", "cost_lf")
+# the least-cost dispatch around the AC point ("cost_lf") starts an offline quick-start unit only when the committed
+# units leave more than this much of a constraint unmet (MW): interface shortage, shed or unmatched load
+NEEDED_MW = 1e-3
+# the implied values: a unit can move in a direction when it has more than this much room there (MW), and a unit's
+# own adder weighs this many times a bus's, so a residual goes to the bus's price wherever one price explains it
+ROOM_MW = 1e-3
+UNIT_ADDER_WEIGHT = 10.0
 
 
 def shortage_usd(mw: float) -> float:
@@ -74,6 +85,41 @@ def outage_factors(case: Case, ptdf: np.ndarray, outages: np.ndarray) -> np.ndar
     return lodf
 
 
+def loss_factors(case: Case, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
+    """`[N]` (or `[T, N]` for a `[T, N]` state) each bus's delivery factor at the AC state (`vm` p.u., `va`
+    degrees): the MW the reference bus gives up per MW injected at the bus, one less the bus's marginal loss
+    factor (one at the reference bus). The units' buses hold their voltage, as the true grid's power flow does,
+    and the others are PQ buses; the factors are the transposed power flow Jacobian solved against the reference
+    bus's injection gradient. A frame with no state (NaN) gets ones, the lossless factors."""
+    vm, va = np.asarray(vm, float), np.asarray(va, float)
+    if vm.ndim == 2:
+        return np.array([loss_factors(case, a, b) for a, b in zip(vm, va)])
+    n = len(case.bus_id)
+    if not (np.isfinite(vm).all() and np.isfinite(va).all()):
+        return np.ones(n)
+    ref = int(np.flatnonzero(case.bus_type == REF)[0])
+    v = vm * np.exp(1j * np.deg2rad(va))
+    y = Network(case).ybus.tocsc()
+    i_bus, dv = y @ v, sp.diags(v)
+    unit_v = sp.diags(v / np.abs(v))
+    ds_dva = 1j * dv @ np.conj(sp.diags(i_bus) - y @ dv)  # MATPOWER's dSbus_dV
+    ds_dvm = dv @ np.conj(y @ unit_v) + np.conj(sp.diags(i_bus)) @ unit_v
+    pq = np.ones(n, bool)
+    pq[case.unit_bus] = False
+    pq[ref] = False
+    ang, mag = np.flatnonzero(np.arange(n) != ref), np.flatnonzero(pq)
+    jac = sp.vstack(
+        [
+            sp.hstack([ds_dva.real[ang][:, ang], ds_dvm.real[ang][:, mag]]),
+            sp.hstack([ds_dva.imag[mag][:, ang], ds_dvm.imag[mag][:, mag]]),
+        ]
+    ).tocsc()
+    grad = np.r_[ds_dva.real[ref][:, ang].toarray().ravel(), ds_dvm.real[ref][:, mag].toarray().ravel()]
+    out = np.ones(n)
+    out[ang] = -spl.spsolve(jac.T, grad)[: len(ang)]
+    return out
+
+
 @dataclass(frozen=True)
 class Step:
     """One scan's dispatch: `dev [G]` each unit's change from the pool basepoint (MW), `shed [N]` the load
@@ -106,7 +152,13 @@ class DcSced:
     `objective` picks the dispatch. "movement" (the default) moves the least generation, then takes the least cost
     among the dispatches that move no more (N53). "cost" is the least-cost dispatch a market clears, each MW moved
     charged `MOVE_USD`, shedding and slack at their weights in $/MWh, and it reports each interface's shadow price,
-    the congestion component it adds to the price of every bus by the bus's shift factor."""
+    the congestion component it adds to the price of every bus by the bus's shift factor. "cost_lf" is that market
+    dispatch run around the AC operating point, as an RTO's incremental dispatch is: the flows are the read flows plus
+    the shift factors times the change, each unit's cost counts per MW delivered to the reference bus (its bus's
+    delivery factor, `loss_factors` at the frame's true AC state `state`, which it requires, weighs it in the
+    balance), the first scan moves no unit further than one scan's ramp from its basepoint, and the AC points'
+    commitment stands: an offline quick-start unit starts only when the committed units leave a constraint unmet
+    (`NEEDED_MW`). Its `energy` is the price at the reference bus, and `prices` gives every bus's."""
 
     def __init__(
         self,
@@ -117,10 +169,21 @@ class DcSced:
         bus_load: np.ndarray | None = None,
         quick_start: np.ndarray | None = None,
         objective: str = "movement",
+        state: tuple[np.ndarray, np.ndarray] | None = None,
     ):
-        if objective not in ("movement", "cost"):
-            raise ConfigError(f"objective must be 'movement' or 'cost', not {objective!r}")
+        if objective not in OBJECTIVES:
+            raise ConfigError(f"objective must be one of {OBJECTIVES}, not {objective!r}")
+        if objective == "cost_lf" and state is None:
+            raise ConfigError(
+                "the 'cost_lf' dispatch needs the frames' AC state (vm, va) for its loss factors"
+            )
         self.case, self.unit_p, self.cost, self.objective = case, unit_p, cost, objective
+        # [T, N] the buses' delivery factors: at the AC state around the AC point, otherwise ones (lossless)
+        self.beta = (
+            loss_factors(case, *state)
+            if objective == "cost_lf" and state is not None
+            else np.ones((len(unit_p), len(case.bus_id)))
+        )
         ptdf = shift_factors(case)
         self.sf = np.array([it.signs @ ptdf[it.branches] for it in interfaces])  # [I, N]
         self.free = ~np.isin(case.fuel.astype(str), HELD)
@@ -129,12 +192,69 @@ class DcSced:
         # N64: offline units the operator may start within ten minutes (half the range per scan)
         self.quick = np.zeros(len(self.free), bool) if quick_start is None else np.asarray(quick_start, bool)
         self.ramp = np.where(self.quick, np.maximum(self.ramp, case.pmax / 2.0), self.ramp)
+        self._implied: dict[int, tuple[np.ndarray, np.ndarray]] = {}
 
-    def _bounds(self, t: int, prev: np.ndarray | None, g: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def implied(self, t: int) -> tuple[np.ndarray, np.ndarray]:
+        """The AC point's implied values at frame `t` around the AC point ("cost_lf"): `adder [G]` ($/MWh) added to
+        each unit's cost and `rho [N]` ($/MWh) to each bus's price, the least (in total) that make the AC point the
+        least-cost dispatch of this model with every unit at its benign bounds. Where the loss factors explain the
+        AC dispatch they are zero; elsewhere they carry what the AC dispatch priced and this model does not see
+        (voltage and reactive limits, the held units' schedules). A unit that can rise must not be cheaper per MW
+        delivered than the energy price, a unit that can fall must not be dearer; the residual goes to the unit's
+        bus wherever one bus price explains its units, and the buses with no committed unit take the residual of
+        their neighbors (a harmonic fill on the branch susceptances). Zero under the other objectives."""
+        c, G, N = self.case, len(self.free), len(self.case.bus_id)
+        if self.objective != "cost_lf" or not np.isfinite(self.unit_p[t]).all():
+            return np.zeros(G), np.zeros(N)
+        if t in self._implied:
+            return self._implied[t]
+        g = np.flatnonzero(self.free & (self.unit_p[t] > 0.5))
+        prev = np.zeros(G) if t > 0 and np.isfinite(self.unit_p[t - 1]).all() else None
+        lo, hi = self._bounds(t, prev, g, commit=False)
+        up, down = hi > ROOM_MW, lo < -ROOM_MW
+        buses, at = np.unique(c.unit_bus[g], return_inverse=True)
+        m, n = len(buses), len(g)
+        beta, cost = self.beta[t, c.unit_bus[g]], self.cost[t, g]
+        # variables: energy price, bus adder (+, -) [m], unit adder (+, -) [n]
+        to_bus = np.zeros((n, m))
+        to_bus[np.arange(n), at] = 1.0
+        eye = np.eye(n)
+        # a unit that can rise: cost + adder >= price * beta; one that can fall: cost + adder <= price * beta
+        rise = np.hstack([beta[:, None], -to_bus, to_bus, -eye, eye])[up]
+        fall = np.hstack([-beta[:, None], to_bus, -to_bus, eye, -eye])[down]
+        res = linprog(
+            np.r_[0.0, np.ones(2 * m), np.full(2 * n, UNIT_ADDER_WEIGHT)],
+            A_ub=np.vstack([rise, fall]),
+            b_ub=np.r_[cost[up], -cost[down]],
+            bounds=[(None, None)] + [(0.0, None)] * (2 * m + 2 * n),
+            method="highs",
+        )
+        adder, rho = np.zeros(G), np.zeros(N)
+        if res.status == 0:
+            x = res.x
+            rho[buses] = x[1 : 1 + m] - x[1 + m : 1 + 2 * m]
+            free_rho = np.setdiff1d(np.arange(N), buses)
+            b = 1.0 / np.abs(c.x * np.where(c.tap == 0, 1.0, c.tap))
+            lap = sp.coo_matrix((np.r_[-b, -b], (np.r_[c.f, c.t], np.r_[c.t, c.f])), shape=(N, N)).tocsr()
+            lap = lap - sp.diags(np.asarray(lap.sum(axis=1)).ravel())
+            if len(free_rho):
+                rho[free_rho] = spl.spsolve(
+                    lap[free_rho][:, free_rho].tocsc(), -lap[free_rho][:, buses] @ rho[buses]
+                )
+            adder = rho[c.unit_bus]
+            adder[g] += x[1 + 2 * m : 1 + 2 * m + n] - x[1 + 2 * m + n :]
+        self._implied[t] = (adder, rho)
+        return adder, rho
+
+    def _bounds(
+        self, t: int, prev: np.ndarray | None, g: np.ndarray, commit: bool = True
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Each unit's reachable change from its basepoint, signed: its limits, and the ramp from the
         operator's previous dispatch. After an attack the interval can exclude the basepoint (a unit moved
         far cannot return in one scan), so recovery is ramp limited. Where the ramp and the limits do not
-        meet, the unit goes as far toward its limits as the ramp allows."""
+        meet, the unit goes as far toward its limits as the ramp allows. Around the AC point ("cost_lf") the
+        first scan ramps from the basepoint, and with `commit` False an offline quick-start unit follows its
+        basepoint down (the AC point has it off)."""
         c, p0 = self.case, self.unit_p[t, g]
         lo = np.minimum(c.pmin[g], p0) - p0
         hi = np.maximum(c.pmax[g], p0) - p0
@@ -142,16 +262,36 @@ class DcSced:
             was = self.unit_p[t - 1, g] + prev[g]
             lo = np.maximum(lo, was - self.ramp[g] - p0)
             hi = np.minimum(hi, was + self.ramp[g] - p0)
+        elif self.objective == "cost_lf":
+            lo, hi = np.maximum(lo, -self.ramp[g]), np.minimum(hi, self.ramp[g])
+        if not commit:  # the AC point has it off, so it follows its basepoint down as fast as its ramp allows
+            hi = np.where(self.quick[g] & (p0 <= 0.5), np.minimum(hi, np.maximum(lo, 0.0)), hi)
         return np.minimum(lo, hi), hi
 
-    def _solve(self, t, seen, limit, load_change, prev, enforce: bool, shed_ok: bool | np.ndarray = True):
+    def _solve(
+        self,
+        t,
+        seen,
+        limit,
+        load_change,
+        prev,
+        enforce: bool,
+        shed_ok: bool | np.ndarray = True,
+        commit: bool = True,
+    ):
         """The two-stage dispatch: least weighted movement (redispatch at 1 per MW, shedding at
         `SHED_WEIGHT`, slack at `SLACK_WEIGHT`), then least cost at no more of each. Returns the units,
         the dispatch [G], the shed [N], the interface slack [I], the unmatched load and the interfaces' congestion
-        prices [I] and energy price (`Step.congestion`, `Step.energy`)."""
+        prices [I] and energy price (`Step.congestion`, `Step.energy`). Around the AC point ("cost_lf") it first
+        holds the offline quick-start units (`commit` False) and starts them only when that leaves a constraint
+        unmet."""
+        if self.objective == "cost_lf" and commit:
+            held = self._solve(t, seen, limit, load_change, prev, enforce, shed_ok, commit=False)
+            if float(np.nansum(held[2])) + float(held[1].sum()) + abs(held[3]) <= NEEDED_MW:
+                return held
         g = np.flatnonzero(self.free & ((self.unit_p[t] > 0.5) | self.quick))
         n = len(g)
-        lo, hi = self._bounds(t, prev, g)
+        lo, hi = self._bounds(t, prev, g, commit)
         on = np.isfinite(seen) & np.isfinite(limit) if enforce else np.zeros(len(seen), bool)
         # each interface sheds only once it has been over its own limit for 15 minutes (N59)
         may_shed = (np.broadcast_to(np.asarray(shed_ok, bool), on.shape) & on)[on]
@@ -176,7 +316,7 @@ class DcSced:
         )
         weight = np.r_[np.ones(2 * n), np.full(s, SHED_WEIGHT), np.full(k + 2, SLACK_WEIGHT)]
         kw = dict(A_eq=a_eq, b_eq=[load_change], method="highs")
-        if self.objective == "cost":
+        if self.objective in ("cost", "cost_lf"):
             return self._least_cost(t, g, n, s, k, on, sb, a_ub, b_ub, bounds, weight, kw, len(seen))
         first = linprog(weight, A_ub=a_ub if k else None, b_ub=b_ub if k else None, bounds=bounds, **kw)
         if first.status != 0:
@@ -207,13 +347,16 @@ class DcSced:
         (less on the way down) plus `MOVE_USD` per MW moved, shedding at `SHED_WEIGHT`, the flow left over an
         interface on the 2019 shortage curve (`SHORTAGE`, so no shadow price passes its 4,000 $/MWh cap) and load
         left unmatched at `ENERGY_CAP`, the energy offer cap. Returns as `_solve` does, with the interface rows'
-        shadow prices ($/MWh per MW of flow) and the balance's (the energy price at the reference bus)."""
-        c = self.cost[t, g]
+        shadow prices ($/MWh per MW of flow) and the balance's (the energy price at the reference bus). Around the AC
+        point ("cost_lf") the balance weighs each unit and each shed by its bus's delivery factor, so a unit's cost per
+        MW delivered is its cost over that factor; otherwise every factor is one."""
+        c = self.cost[t, g] + self.implied(t)[0][g]
+        beta_u, beta_s = self.beta[t, self.case.unit_bus[g]], self.beta[t, sb]
         seg = len(SHORTAGE)
         units = a_ub[:, : 2 * n + s] if k else np.zeros((0, 2 * n + s))
         # the interface slack in one column per shortage segment, each taking its own price
         a_cost = np.hstack([units, np.tile(-np.eye(k), seg), np.zeros((k, 2))]) if k else None
-        a_eq = np.r_[np.ones(n), -np.ones(n), np.ones(s), np.zeros(seg * k), 1.0, -1.0][None, :]
+        a_eq = np.r_[beta_u, -beta_u, beta_s, np.zeros(seg * k), 1.0, -1.0][None, :]
         cap_bounds = [(0.0, width if np.isfinite(width) else None) for width, _ in SHORTAGE for _ in range(k)]
         price = np.r_[
             c + MOVE_USD,
@@ -248,6 +391,21 @@ class DcSced:
             res.eqlin.marginals[0]
         )  # d(cost)/d(load): the price of one more MW at the reference bus
         return dev, shed, slack, float(x[-2] - x[-1]), congestion, energy
+
+    def delivered(self, t: int, dev: np.ndarray, shed: np.ndarray) -> float:
+        """What the change `dev [G]` and the shed `shed [N]` deliver at the reference bus at scan `t` (MW): their
+        sum weighted by the delivery factors, the plain sum unless the dispatch runs around the AC point."""
+        return float(self.beta[t, self.case.unit_bus] @ dev + self.beta[t] @ shed)
+
+    def prices(self, t: int, energy: float, congestion: np.ndarray) -> np.ndarray:
+        """`[N]` each bus's price at scan `t` ($/MWh) from a least-cost `Step`'s `energy` and `congestion [I]`: the
+        energy price times the bus's delivery factor, less each enforced interface's price times the bus's shift
+        factor on it (a MW injected there adds that much flow)."""
+        return (
+            energy * self.beta[t]
+            + self.implied(t)[1]
+            - np.nan_to_num(np.asarray(congestion, float)) @ self.sf
+        )
 
     def step(
         self,
