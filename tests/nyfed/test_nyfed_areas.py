@@ -145,3 +145,19 @@ def test_a_load_the_units_cannot_follow_takes_the_energy_cap():
     seen = seen_interfaces(day.plan, day.interfaces, day.z_benign[t : t + 1])[0]
     step = _cost_sced(day).step(t, seen, np.full_like(seen, np.nan), 1e6, None)  # a terawatt more load
     assert step.unmatched > 1e5 and np.isclose(step.energy, ENERGY_CAP)
+
+
+def test_an_overrun_the_benign_twin_shares_is_not_the_attacks():
+    from types import SimpleNamespace
+
+    from fdia_graph.nyfed.operator.summary import _over
+
+    # the benign twin runs 20 MW over a limit throughout, as the least-cost dispatch can on shift factors; the
+    # attacked run is 30 MW over on two scans in a row, the attack's excess 10 MW on each
+    benign = SimpleNamespace(margin=np.full(6, -20.0), margin_at=np.zeros(6, dtype=int))
+    attacked = SimpleNamespace(
+        margin=np.array([-20.0, -30.0, -30.0, -20.0, -10.0, np.nan]), margin_at=np.array([0, 2, 2, 0, 0, -1])
+    )
+    o = _over(SimpleNamespace(attacked=attacked, benign=benign))
+    assert o["over_scans"] == 2 and o["over_run_scans"] == 2 and o["over_iface"] == 2
+    assert np.isclose(o["over_mwh"], 2 * 10.0 * 5 / 60)
