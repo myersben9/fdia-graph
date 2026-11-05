@@ -1,5 +1,5 @@
-"""AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between
-hours (pandapower)."""
+"""AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between
+hours (pandapower), and the operator's AC dispatch model (`OperatorOpf`), solved scan by scan."""
 
 from __future__ import annotations
 
@@ -364,3 +364,238 @@ class AcSolver:
             "unit_p": self.net.res_gen.p_mw.to_numpy().copy(),
             "unit_q": self.net.res_gen.q_mvar.to_numpy().copy(),
         }
+
+
+SEGMENTS = 3  # the priced segments of the flow an `OperatorOpf` leaves over an interface
+
+
+@dataclass(frozen=True)
+class OpfSolution:
+    """One solve of `OperatorOpf`: the units' output `unit_p [G]` (MW), the load shed `shed [N]` (MW), the flow left over
+    each interface `over [I]` (MW, its segments summed), the balance left at the reference bus `unmatched` (MW, positive
+    short), each interface's AC flow in the model `flow [I]` (MW, before its reading correction), the state `vm`, `va [N]`
+    (p.u., degrees), and the duals: `price [N]` of each bus's active balance and `congestion [I]` of each interface row,
+    per MW in the objective's units ($/MWh under a cost objective), positive where more load or more room raises the
+    objective."""
+
+    unit_p: np.ndarray
+    shed: np.ndarray
+    over: np.ndarray
+    unmatched: float
+    flow: np.ndarray
+    vm: np.ndarray
+    va: np.ndarray
+    price: np.ndarray
+    congestion: np.ndarray
+
+
+class OperatorOpf:
+    """The operator's AC dispatch model of a Case, built once and solved scan after scan with new loads, bounds and
+    weights. Unit outputs meet the bus loads through the AC power flow equations, within bus voltage limits, each unit's
+    P bounds and each unit bus's reactive range (its units' together, every unit in service for reactive power as the
+    pool solves it). Each enforced interface's AC flow, the signed sum of its branches' from-end flows, plus a reading
+    correction stays within its limit or leaves the excess in up to `SEGMENTS` priced segments. Load may be shed at the
+    buses allowed to, taking its reactive load at the bus's power factor, and the reference bus's balance may be left
+    short or over at a price. The objective is `scale` times: `w_cost` times the units' linear cost, `w_move` per MW each
+    movable unit moves from its basepoint, a quadratic penalty holding each anchored unit near its anchor (the pool's
+    rule for hydro and external units), and the prices of the shed, the segments and the balance slack."""
+
+    def __init__(self, case: Case, interfaces: list[tuple[np.ndarray, np.ndarray]]):
+        self.case, self.network = case, Network(case)
+        self.ref = int(np.flatnonzero(case.bus_type == REF)[0])
+        self.unit_buses = np.unique(case.unit_bus)
+        self.n_if = len(interfaces)
+        self._ipopt = ipopt(tol=1e-8, max_iter=500)
+        self.model = self._build(interfaces)
+
+    def _build(self, interfaces: list[tuple[np.ndarray, np.ndarray]]) -> pe.ConcreteModel:
+        case, net, ref, base = self.case, self.network, self.ref, self.case.base_mva
+        y = net.ybus.tocoo()
+        n, g, k_if = len(case.bus_id), len(case.unit_bus), len(interfaces)
+        lines = [[] for _ in range(n)]
+        for i, j, val in zip(y.row, y.col, y.data):
+            lines[i].append((int(j), float(val.real), float(val.imag)))
+        units = [[] for _ in range(n)]
+        for k, b in enumerate(case.unit_bus):
+            units[b].append(k)
+        yf = net.yf.tocsr()
+        m = pe.ConcreteModel()
+        m.B, m.G = pe.RangeSet(0, n - 1), pe.RangeSet(0, g - 1)
+        m.U = pe.Set(initialize=self.unit_buses.tolist())
+        m.I, m.K = pe.RangeSet(0, max(k_if, 1) - 1), pe.RangeSet(0, SEGMENTS - 1)
+        param = {"mutable": True, "initialize": 0.0}
+        m.load_p, m.load_q, m.qratio, m.shed_w = (pe.Param(m.B, **param) for _ in range(4))
+        m.p0, m.cost, m.anchor, m.anchor_w, m.move_w = (pe.Param(m.G, **param) for _ in range(5))
+        m.corr, m.lim = pe.Param(m.I, **param), pe.Param(m.I, **param)
+        m.seg_price = pe.Param(m.K, **param)
+        m.w_cost, m.bal_w, m.scale = pe.Param(**param), pe.Param(**param), pe.Param(**param)
+        m.vm = pe.Var(m.B, bounds=lambda _, i: (case.vmin[i], case.vmax[i]), initialize=1.0)
+        m.va = pe.Var(m.B, initialize=0.0)
+        m.va[ref].fix(0.0)
+        m.pg = pe.Var(m.G, initialize=0.0)
+        m.qb = pe.Var(m.U, initialize=0.0)
+        m.up, m.down = pe.Var(m.G, bounds=(0.0, None)), pe.Var(m.G, bounds=(0.0, None))
+        m.shed = pe.Var(m.B, bounds=(0.0, 0.0), initialize=0.0)
+        m.over = pe.Var(m.I, m.K, bounds=(0.0, None), initialize=0.0)
+        m.short, m.surplus = pe.Var(bounds=(0.0, None)), pe.Var(bounds=(0.0, None))
+
+        def injection(i, part):
+            terms = []
+            for j, gij, bij in lines[i]:
+                d = m.va[i] - m.va[j]
+                if part == "p":
+                    terms.append(m.vm[j] * (gij * pe.cos(d) + bij * pe.sin(d)))
+                else:
+                    terms.append(m.vm[j] * (gij * pe.sin(d) - bij * pe.cos(d)))
+            return m.vm[i] * sum(terms)
+
+        def slack(i):
+            return (m.short - m.surplus) / base if i == ref else 0.0
+
+        m.p_balance = pe.Constraint(
+            m.B,
+            rule=lambda _, i: (
+                sum(m.pg[k] for k in units[i]) + m.shed[i] / base + slack(i) - m.load_p[i]
+                == injection(i, "p")
+            ),
+        )
+        m.q_balance = pe.Constraint(
+            m.B,
+            rule=lambda _, i: (
+                (m.qb[i] if i in self.unit_buses else 0.0) + m.shed[i] * m.qratio[i] / base - m.load_q[i]
+                == injection(i, "q")
+            ),
+        )
+
+        def branch_p(l):  # from-end active flow of branch l (p.u.)
+            f, t = int(case.f[l]), int(case.t[l])
+            gff, gft, bft = float(yf[l, f].real), float(yf[l, t].real), float(yf[l, t].imag)
+            d = m.va[f] - m.va[t]
+            return m.vm[f] ** 2 * gff + m.vm[f] * m.vm[t] * (gft * pe.cos(d) + bft * pe.sin(d))
+
+        self._flow = [
+            sum(float(s) * branch_p(int(l)) for l, s in zip(br, sg)) * base for br, sg in interfaces
+        ]
+        m.iface = pe.Constraint(
+            m.I,
+            rule=lambda _, k: (
+                (self._flow[k] + m.corr[k] - sum(m.over[k, j] for j in m.K) <= m.lim[k])
+                if k_if
+                else pe.Constraint.Skip
+            ),
+        )
+        m.link = pe.Constraint(m.G, rule=lambda _, k: m.pg[k] * base - m.p0[k] - m.up[k] + m.down[k] == 0)
+        m.objective = pe.Objective(
+            expr=m.scale
+            * (
+                m.w_cost * sum(m.cost[k] * m.pg[k] for k in m.G) * base
+                + sum(m.move_w[k] * (m.up[k] + m.down[k]) for k in m.G)
+                + sum(m.anchor_w[k] * (m.pg[k] * base - m.anchor[k]) ** 2 for k in m.G)
+                + sum(m.shed_w[i] * m.shed[i] for i in m.B)
+                + sum(m.seg_price[j] * m.over[k, j] for k in m.I for j in m.K)
+                + m.bal_w * (m.short + m.surplus)
+            )
+        )
+        m.dual = pe.Suffix(direction=pe.Suffix.IMPORT)
+        return m
+
+    def solve(
+        self,
+        load_p: np.ndarray,
+        load_q: np.ndarray,
+        *,
+        p0: np.ndarray,
+        p_lo: np.ndarray,
+        p_hi: np.ndarray,
+        q_lo: np.ndarray,
+        q_hi: np.ndarray,
+        cost: np.ndarray,
+        move_w: np.ndarray,
+        anchor: np.ndarray,
+        anchor_w: np.ndarray,
+        shed_ub: np.ndarray,
+        shed_w: float,
+        qratio: np.ndarray,
+        corr: np.ndarray,
+        lim: np.ndarray,
+        seg_width: tuple[float, ...],
+        seg_price: tuple[float, ...],
+        w_cost: float,
+        bal_w: float,
+        scale: float,
+        start: tuple[np.ndarray, np.ndarray, np.ndarray],
+    ) -> OpfSolution | None:
+        """Solve one scan. Loads `load_p`, `load_q [N]` (MW, MVAr); each unit's basepoint `p0 [G]` (the anchor of an
+        anchored unit, the point a movable unit's movement is counted from) and bounds `p_lo`, `p_hi [G]` (MW, a unit
+        whose bounds meet is held); each unit bus's reactive range `q_lo`, `q_hi` (MVAr, over `unit_buses`); the units'
+        cost [G] ($/MWh), the movement weight `move_w [G]` (per MW, 0 for a unit that is not counted), the `anchor
+        [G]` (MW) each anchored unit is held near and its weight `anchor_w [G]` (per MW^2, 0 for none); the load each bus may shed `shed_ub [N]` (MW) at `shed_w` per MW
+        with its reactive load per MW `qratio [N]`; each interface's reading correction `corr [I]` and limit `lim [I]`
+        (MW, NaN unenforced), the segments' widths and prices; and the objective's weights. `start` = (vm, va degrees,
+        unit_p MW) starts Ipopt. Returns None where Ipopt reaches no optimum."""
+        m, case, base, ref = self.model, self.case, self.case.base_mva, self.ref
+        vm0, va0, pg0 = start
+        for i in m.B:
+            m.load_p[i], m.load_q[i] = float(load_p[i]) / base, float(load_q[i]) / base
+            m.qratio[i], m.shed_w[i] = float(qratio[i]), float(shed_w)
+            m.shed[i].setub(max(float(shed_ub[i]), 0.0))
+            m.shed[i].value = 0.0
+            m.vm[i].value = min(max(float(vm0[i]), case.vmin[i]), case.vmax[i])
+            if i != ref:
+                m.va[i].value = float(np.deg2rad(va0[i] - va0[ref]))
+        for k in m.G:
+            m.p0[k], m.cost[k] = float(p0[k]), float(cost[k])
+            m.move_w[k], m.anchor_w[k], m.anchor[k] = float(move_w[k]), float(anchor_w[k]), float(anchor[k])
+            lo, hi = float(p_lo[k]), float(p_hi[k])
+            if hi - lo < 1e-6:  # the last solve's bounds would make the held value look infeasible
+                m.pg[k].setlb(None)
+                m.pg[k].setub(None)
+                m.pg[k].fix(lo / base)
+            else:
+                m.pg[k].unfix()
+                m.pg[k].setlb(lo / base)
+                m.pg[k].setub(hi / base)
+                m.pg[k].value = min(max(float(pg0[k]), lo), hi) / base
+            d = float(pg0[k]) - float(p0[k]) if hi - lo >= 1e-6 else lo - float(p0[k])
+            m.up[k].value, m.down[k].value = max(d, 0.0), max(-d, 0.0)
+        for j, b in enumerate(self.unit_buses):
+            m.qb[int(b)].setlb(float(q_lo[j]) / base)
+            m.qb[int(b)].setub(float(q_hi[j]) / base)
+        for k in range(self.n_if):
+            on = bool(np.isfinite(lim[k]))
+            m.corr[k], m.lim[k] = float(np.nan_to_num(corr[k])), float(np.nan_to_num(lim[k]))
+            if on:
+                m.iface[k].activate()
+            else:
+                m.iface[k].deactivate()
+            for j in m.K:
+                m.over[k, j].setub(None if not np.isfinite(seg_width[j]) else float(seg_width[j]))
+                m.over[k, j].value = 0.0
+        for j in m.K:
+            m.seg_price[j] = float(seg_price[j])
+        m.w_cost, m.bal_w, m.scale = float(w_cost), float(bal_w), float(scale)
+        m.short.value, m.surplus.value = 0.0, 0.0
+        res = self._ipopt.solve(m, load_solutions=False)
+        if res.solver.termination_condition != pe.TerminationCondition.optimal:
+            return None
+        m.solutions.load_from(res)
+        n_if = self.n_if
+        dual = m.dual
+        on = [k for k in range(n_if) if m.iface[k].active]
+        congestion = np.full(n_if, np.nan)
+        for (
+            k
+        ) in on:  # Ipopt's multiplier of a binding upper row is negative: the objective falls with more room
+            congestion[k] = -float(dual.get(m.iface[k], 0.0))
+        return OpfSolution(
+            unit_p=np.array([pe.value(m.pg[k]) for k in m.G]) * base,
+            shed=np.array([pe.value(m.shed[i]) for i in m.B]),
+            over=np.array([sum(pe.value(m.over[k, j]) for j in m.K) for k in range(n_if)]),
+            unmatched=float(pe.value(m.short) - pe.value(m.surplus)),
+            flow=np.array([pe.value(f) for f in self._flow]),
+            vm=np.array([pe.value(m.vm[i]) for i in m.B]),
+            va=np.rad2deg([pe.value(m.va[i]) for i in m.B]) + float(va0[ref]),
+            # the balance row reads supply less load: one more MW of load is a MW less on its right side
+            price=np.array([float(dual.get(m.p_balance[i], 0.0)) for i in m.B]) / base,
+            congestion=congestion,
+        )

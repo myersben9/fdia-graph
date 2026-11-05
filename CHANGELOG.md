@@ -5,6 +5,20 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **An AC operator (New York grid).** `OperatorPolicy(dispatch="ac")` and `dispatch="ac_cost"` (`--dispatch ac` or
+  `ac_cost` on every study tool) run the operator's dispatch as an AC optimal power flow each scan (`AcSced`, Pyomo and
+  Ipopt, `OperatorOpf`): the loads it reads (the true loads plus what the attack changed in its New York injection
+  meters; the accounting operator adds the false interchange back over New York's loads by their size), the units
+  within the pool's own bounds (`PoolFrames`, `pool_frames`, `PoolBuilder.frame_limits`) and their five-minute ramps
+  from its previous dispatch, hydro and external units under the pool's anchor, bus voltage and reactive limits, the
+  four interfaces' AC flows within their limits, and the shed, shortage and balance prices of `DcSced`. `ac` moves the
+  least generation; `ac_cost` clears at least cost and prices every bus at its AC balance dual (`Twin.price`). Its
+  benign twin stays at the AC points (both solve the pool's problem). The closed loop re-solves on what the operator
+  reads after its own dispatch (true AC flows less its AC model), not on shift factors, the N-1 screen is an AC power
+  flow per outage (`TrueGrid(day, ac=True)`, `ac_power_flow`), shedding and the zone levers use AC sensitivities
+  (`ac_shift`), and `tools/nyfed/idealized_operator.py` takes one least-cost AC OPF as its snapshot. The DC
+  dispatches and their results are unchanged.
+
 - **A least-cost dispatch that keeps the AC operating points (New York grid).** `DcSced(objective="cost_lf")` and
   `OperatorPolicy(dispatch="cost_lf")` (`--dispatch cost_lf` on every study tool) run the market dispatch around the
   AC operating point, as an RTO's incremental dispatch is: each unit's cost counts per MW delivered to the reference

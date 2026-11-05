@@ -9,7 +9,9 @@ it predicts, and again with the shortfall drawn from the neighbors' units by cap
 (`shared_*`), which separates the slack from the loop. Beside it, the same day through the closed-loop trusting operator (`respond`) gives the largest true
 rise and drop of the attacked interface, the largest rise of any other and the inadvertent interchange, which the
 snapshot cannot see. With `--dispatch cost` the closed loop dispatches at least cost too, as the snapshot always
-does.
+does. With `--dispatch ac` or `ac_cost` the snapshot is one least-cost AC optimal power flow (`AcSced`) on the loads
+the operator reads under attack, less the same on the true loads, its true change an AC power flow of the true grid,
+and the closed loop runs the AC operator.
 
     python tools/nyfed/idealized_operator.py OUT.csv STUDY [STUDY ...] [--dispatch cost] [--workers 8]
 
@@ -25,14 +27,56 @@ import numpy as np
 
 from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel, study_days, variant
 from fdia_graph.nyfed.grid.network import Network
+from fdia_graph.nyfed.operator.acsced import AcSced
+from fdia_graph.nyfed.operator.day import pool_frames
 from fdia_graph.nyfed.operator.policy import entry_share
 from fdia_graph.nyfed.operator.response import operator_day, respond, seen_interfaces, summarize
-from fdia_graph.nyfed.operator.run import QUICK_FUELS, QUICK_MAX_MW, QUICK_ZONES
+from fdia_graph.nyfed.operator.run import (
+    AC_DISPATCH,
+    QUICK_FUELS,
+    QUICK_MAX_MW,
+    QUICK_ZONES,
+    reported_changes,
+)
 from fdia_graph.nyfed.operator.sced import DcSced
 from fdia_graph.nyfed.operator.truegrid import TrueGrid
 from fdia_graph.nyfed.sensing.meters import KINDS
 
 RISE = 16  # scans of the rise; the snapshot is taken at the last of them
+
+
+def ac_snapshot(day, slack: str = "reference") -> np.ndarray:
+    """`[I]` the true interface flow changes (MW) of the single-snapshot AC analysis at the last rise scan: one least-cost
+    AC OPF on the loads the operator reads under attack, less the same on the true loads, applied to the true grid by an
+    AC power flow whose reference bus balances it, or with the shortfall drawn from the neighbors' units by capacity."""
+    c = day.case
+    t = day.onset + RISE - 1
+    grid = TrueGrid(day, ac=True)
+    fuel, zone = c.fuel.astype(str), c.zone.astype(str)[c.unit_bus]
+    quick = np.isin(fuel, QUICK_FUELS) & np.isin(zone, QUICK_ZONES) & (c.pmax <= QUICK_MAX_MW)
+    load = np.clip(grid.pd, 0.0, None) * c.is_ny
+    frames = pool_frames(day)
+    sced = AcSced(
+        c,
+        day.unit_p,
+        day.cost,
+        day.interfaces,
+        (day.vm, day.va),
+        (grid.pd, frames.qd),
+        frames,
+        load,
+        quick,
+        objective="cost",
+    )
+    limit = sced.flow0[t] + np.array([it.limit[t] - it.flow[t] for it in day.interfaces])
+    d_p, d_q = reported_changes(day, day.z)
+    zero = np.zeros(len(day.interfaces))
+    a = sced.step(t, grid.pd[t] - d_p[t], frames.qd[t] - d_q[t], zero, limit, None)
+    b = sced.step(t, grid.pd[t], frames.qd[t], zero, limit, None)
+    units = day.unit_p[t] + a.dev - b.dev
+    if slack == "neighbors":
+        units = units - sced.delivered(t, a.dev - b.dev, a.shed - b.shed) * entry_share(c, "capacity")
+    return grid.change(t, units, a.shed - b.shed)[0]
 
 
 def snapshot(day, slack: str = "reference") -> np.ndarray:
@@ -71,8 +115,9 @@ def _job(
     day = operator_day(Path(path), pool, data)
     if day.onset < 0:
         return None
-    predicted = snapshot(day)
-    shared = snapshot(day, "neighbors")
+    shot = ac_snapshot if dispatch in AC_DISPATCH else snapshot
+    predicted = shot(day)
+    shared = shot(day, "neighbors")
     s = summarize(respond(day, mode="trusting", calib=calib, closed_loop=True, dispatch=dispatch))
     return {
         "file": Path(path).name,

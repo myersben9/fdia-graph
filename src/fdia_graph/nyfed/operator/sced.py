@@ -129,7 +129,9 @@ class Step:
     that of the same dispatch with no interface limit ($), and `congestion [I]` each enforced interface's
     shadow price ($/MWh per MW of its flow, zero where it does not bind, NaN where it is not enforced) under the
     least-cost dispatch, all zero under the least-movement one, whose duals are not prices, and `energy` the
-    balance row's shadow price under the least-cost dispatch ($/MWh at the reference bus, NaN otherwise)."""
+    balance row's shadow price under the least-cost dispatch ($/MWh at the reference bus, NaN otherwise). The AC
+    dispatch (`AcSced`) also gives `flow [I]`, each interface's AC flow in its model (MW, before the reading
+    correction), and under its least-cost objective `price [N]`, each bus's AC LMP ($/MWh)."""
 
     dev: np.ndarray
     shed: np.ndarray
@@ -138,6 +140,8 @@ class Step:
     relief_usd: float
     congestion: np.ndarray | None = None
     energy: float = float("nan")
+    flow: np.ndarray | None = None
+    price: np.ndarray | None = None
 
 
 class DcSced:

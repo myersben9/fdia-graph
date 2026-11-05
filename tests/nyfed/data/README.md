@@ -8,6 +8,7 @@ Files `tests/nyfed` reads that are checked in, so CI runs the tests on them with
 | `matlab_ref/` | operating points of three hours from NYgrid's MATLAB code with the AC recipe, which the Python port must match | `tools/nyfed/matlab/nygrid/dump_hours.m` |
 | `days/am_48220_0.h5`, `days/am_48220_175.h5` | two days of the damage study (2019-06-17): the interface attack at onset 48220, at the limit and 175 MW past it | `tools/nyfed/damage_study.py` on `out/pool_2019_v3.h5`, copied from `out/damage_study/days/` |
 | `days/sd_south_2019-07-05.h5` | the single-episode day of 2019-07-05 | `tools/nyfed/build_single_episodes.py` on `out/pool_2019_v3.h5`, copied from `out/single_episode/` |
+| `days/loads_2019_v2_days.npz` | the bus reactive loads of `out/loads_2019_v2.npz` (the pool's load series) on the same two days, which the AC operator reads (`pool_frames`, `NYFED_LOADS`) | `np.savez_compressed` of the series' `time` and `q` on those days |
 | `days/pool_2019_v3_days.h5` | the frames of `out/pool_2019_v3.h5` on 2019-06-17 and 2019-07-05 (576 frames), the pool `operator_day` reads beside a day | the slice below |
 
 `operator_day` matches the pool to a day by time, so these two days of the pool give the operator and the detection

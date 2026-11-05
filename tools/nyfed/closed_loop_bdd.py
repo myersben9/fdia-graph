@@ -43,6 +43,7 @@ from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_pa
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.io import read_pool
 from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, summarize
+from fdia_graph.nyfed.operator.run import AC_DISPATCH
 from fdia_graph.nyfed.scenario.pool import SOLVED
 from fdia_graph.nyfed.sensing.measure import Measurement
 from fdia_graph.nyfed.sensing.noise import NoiseModel
@@ -96,7 +97,7 @@ def _job(
     c = day.case
     resp = respond(day, mode=mode, calib=calib, closed_loop=True, dispatch=dispatch)
     a = resp.attacked
-    grid = TrueGrid(day)
+    grid = TrueGrid(day, ac=dispatch in AC_DISPATCH)  # only its AC power flows are used here
     share = entry_share(c, "capacity")
     meas = Measurement(Network(c), day.plan)
     noise_model = NoiseModel(day.plan)
