@@ -365,3 +365,19 @@ def test_the_ac_operator_on_a_damaging_day(monkeypatch):
     r = respond(day, mode="trusting", closed_loop=True, dispatch="ac")
     assert np.abs(r.benign.dev).max() == 0.0 and np.nanmax(np.abs(r.benign.iface_change)) == 0.0
     assert np.nanmin(r.attacked.iface_change[:, 0] - r.benign.iface_change[:, 0]) < -50.0
+
+
+def test_the_least_movement_ac_model_flows_are_the_true_grids(ac_day):
+    """Solved on the true loads, the least-movement AC dispatch holds the units' voltages at the AC point's schedule,
+    as the true grid's power flow does, so its model's interface flows are the true ones and the closed loop reads no
+    difference that is not there."""
+    day, grid, frames = ac_day
+    sced = _ac_sced(ac_day, "movement")
+    limit = sced.flow0 + np.array([it.limit - it.flow for it in day.interfaces]).T
+    for t in range(day.onset, day.onset + 3):
+        step = sced.step(
+            t, grid.pd[t], frames.qd[t], np.zeros(len(day.interfaces)), limit[t], None, force=True
+        )
+        assert np.abs(step.dev).sum() < 0.5
+        assert step.flow is not None
+        np.testing.assert_allclose(step.flow, sced.flow0[t], atol=0.1)

@@ -398,7 +398,8 @@ class OperatorOpf:
     buses allowed to, taking its reactive load at the bus's power factor, and the reference bus's balance may be left
     short or over at a price. The objective is `scale` times: `w_cost` times the units' linear cost, `w_move` per MW each
     movable unit moves from its basepoint, a quadratic penalty holding each anchored unit near its anchor (the pool's
-    rule for hydro and external units), and the prices of the shed, the segments and the balance slack."""
+    rule for hydro and external units), one holding each regulated bus's voltage near its schedule, and the prices of
+    the shed, the segments and the balance slack."""
 
     def __init__(self, case: Case, interfaces: list[tuple[np.ndarray, np.ndarray]]):
         self.case, self.network = case, Network(case)
@@ -427,6 +428,7 @@ class OperatorOpf:
         m.load_p, m.load_q, m.qratio, m.shed_w = (pe.Param(m.B, **param) for _ in range(4))
         m.p0, m.cost, m.anchor, m.anchor_w, m.move_w = (pe.Param(m.G, **param) for _ in range(5))
         m.corr, m.lim = pe.Param(m.I, **param), pe.Param(m.I, **param)
+        m.v_sched, m.v_w = pe.Param(m.B, **param), pe.Param(m.B, **param)
         m.seg_price = pe.Param(m.K, **param)
         m.w_cost, m.bal_w, m.scale = pe.Param(**param), pe.Param(**param), pe.Param(**param)
         m.vm = pe.Var(m.B, bounds=lambda _, i: (case.vmin[i], case.vmax[i]), initialize=1.0)
@@ -494,6 +496,7 @@ class OperatorOpf:
                 + sum(m.shed_w[i] * m.shed[i] for i in m.B)
                 + sum(m.seg_price[j] * m.over[k, j] for k in m.I for j in m.K)
                 + m.bal_w * (m.short + m.surplus)
+                + sum(m.v_w[i] * (m.vm[i] - m.v_sched[i]) ** 2 for i in m.B)
             )
         )
         m.dual = pe.Suffix(direction=pe.Suffix.IMPORT)
@@ -513,6 +516,8 @@ class OperatorOpf:
         move_w: np.ndarray,
         anchor: np.ndarray,
         anchor_w: np.ndarray,
+        v_sched: np.ndarray,
+        v_w: np.ndarray,
         shed_ub: np.ndarray,
         shed_w: float,
         qratio: np.ndarray,
@@ -529,7 +534,7 @@ class OperatorOpf:
         anchored unit, the point a movable unit's movement is counted from) and bounds `p_lo`, `p_hi [G]` (MW, a unit
         whose bounds meet is held); each unit bus's reactive range `q_lo`, `q_hi` (MVAr, over `unit_buses`); the units'
         cost [G] ($/MWh), the movement weight `move_w [G]` (per MW, 0 for a unit that is not counted), the `anchor
-        [G]` (MW) each anchored unit is held near and its weight `anchor_w [G]` (per MW^2, 0 for none); the load each bus may shed `shed_ub [N]` (MW) at `shed_w` per MW
+        [G]` (MW) each anchored unit is held near and its weight `anchor_w [G]` (per MW^2, 0 for none); each bus's voltage schedule `v_sched [N]` (p.u.) and the weight `v_w [N]` (per p.u.^2, 0 for none) holding it there; the load each bus may shed `shed_ub [N]` (MW) at `shed_w` per MW
         with its reactive load per MW `qratio [N]`; each interface's reading correction `corr [I]` and limit `lim [I]`
         (MW, NaN unenforced), the segments' widths and prices; and the objective's weights. `start` = (vm, va degrees,
         unit_p MW) starts Ipopt. Returns None where Ipopt reaches no optimum."""
@@ -538,6 +543,7 @@ class OperatorOpf:
         for i in m.B:
             m.load_p[i], m.load_q[i] = float(load_p[i]) / base, float(load_q[i]) / base
             m.qratio[i], m.shed_w[i] = float(qratio[i]), float(shed_w)
+            m.v_sched[i], m.v_w[i] = float(v_sched[i]), float(v_w[i])
             m.shed[i].setub(max(float(shed_ub[i]), 0.0))
             m.shed[i].value = 0.0
             m.vm[i].value = min(max(float(vm0[i]), case.vmin[i]), case.vmax[i])
