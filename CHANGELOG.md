@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Overruns counted against the benign twin (New York grid).** `summarize`'s `over_scans`, `over_run_scans`,
+  `over_mwh` and `over_iface` now count only the scans on which the attacked run is further over a true interface
+  limit than its benign twin, and that excess energy. The least-cost dispatch holds a binding interface at its
+  shift-factor limit, so its true flow can pass the limit with no attack, which the old counts charged to the
+  attack. `benign_margin_min_mw` reports the benign twin's tightest margin. Results of the least-movement dispatch,
+  whose benign twin never passed a limit, are unchanged.
+
 - **Every study tool can run the least-cost operator (New York grid).** Each tool under `tools/nyfed/` that runs the
   operator takes `--dispatch cost` (declared once by `experiments.add_dispatch_argument`, and by
   `add_study_arguments`) and writes the dispatch it used in a `dispatch` column; `damage_study.py` keeps a folder to

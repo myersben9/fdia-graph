@@ -2,6 +2,7 @@
  "alarm": 5.0,
  "summary": {
   "alarm_scans": 5.0,
+  "benign_margin_min_mw": 127.48166666666998,
   "delay": 0,
   "dispatch_moved_mw": 194.76354999945107,
   "fuel_usd": -3594.960567469255,

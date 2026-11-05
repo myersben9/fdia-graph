@@ -61,6 +61,7 @@ listing the allowed values. In the result:
 | What you see | Meaning |
 |---|---|
 | `pf_failed_scans` above zero in `summarize` (or `Twin.pf_failed`) | The AC power flow of the operator's dispatch on the true grid failed on those scans. Their interface changes and margin are NaN, which means unknown, not safe. They are not counted in `over_scans` |
+| `margin_min_mw` below zero with `over_scans` zero | The benign twin is over the limit as far, or further. The least-cost dispatch holds a binding interface at its shift-factor limit, and the true AC flow can pass it with no attack. `benign_margin_min_mw` gives the benign twin's tightest margin, and `over_*` count only the attack's excess |
 | `alarm_scans` NaN | The interchange check never fired in the window |
 | `RuntimeError: scan t: ...` from the dispatch | The operator's dispatch linear program failed on that scan |
 
