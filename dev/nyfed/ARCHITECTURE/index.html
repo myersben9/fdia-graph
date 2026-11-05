@@ -1717,7 +1717,7 @@ its stage does.</p>
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    load_fit.py        fluctuation_fit, switching_fit (how the within-hour constants were fitted, N31)
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    load_metrics.py    the measures LoadModel.validate compares with the real load
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    dispatch.py        Dispatch, hourly_dispatch
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    solver.py          AcSolver, Compensation, unit_q_limits
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    solver.py          AcSolver, Compensation, unit_q_limits, OperatorOpf, OpfSolution (the operator's AC dispatch model)
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    pool.py            Pool, PoolBuilder, peak_ratings
 <a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>  sensing/
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    __init__.py        what the stage does, and its public names
@@ -1744,36 +1744,37 @@ its stage does.</p>
 <a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  operator/
 <a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    __init__.py        what the stage does, and its public names
 <a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    sced.py            DcSced, Step, shift_factors, outage_factors, loss_factors, shortage_usd (N59, N60; least-movement or least-cost dispatch, the latter with congestion and energy prices, or least-cost around the AC point with loss factors and the AC point's implied values)
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    day.py             OperatorDay, operator_day, INTERFACES, node_lbmp (an attacked day as the operator meets it, NYISO's hourly prices)
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    ties.py            tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    truegrid.py        TrueGrid (state, run_state, change: AC power flows on the true grid)
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>    policy.py          OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>    run.py             Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP (the operator scan by scan)
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>    summary.py         summarize (the attack's consequence, attacked less benign)
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>    areas.py           area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>    response.py        every name above, re-exported for the imports written before the split
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>tools/nyfed/
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>  operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  area_damage.py       the damage study's days through each operator, split by zone, utility and neighbor, with the attack's surface and each zone's lever
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  idealized_operator.py the single-snapshot least-cost DC consequence analysis of load redistribution studies on each attack day, against the closed-loop operator
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  hourly_checkout.py   the scan-rate interchange check against the hourly checkout of the same tie readings: when each knows, and the inadvertent energy taken by then
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  operator_days.py     the operator half of the damage study on attack days already built, for another dispatch without redesigning the attacks
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>  nygrid_ac_summary.py summaries of those runs
-<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a>results/
-<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
-<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>tests/nyfed/
-<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a>  nyfed_inputs.py      where the tests find their inputs, and which tests each input lets run
-<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a>  test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a>  test_nyfed_golden.py, golden/   snapshots of the operator, the detection tools and the interface attack
-<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
-<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    day.py             OperatorDay, operator_day, INTERFACES, node_lbmp, PoolFrames, pool_frames (an attacked day as the operator meets it, NYISO's hourly prices, the pool's own inputs for its frames)
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    acsced.py          AcSced, ac_shift, ac_power_flow, open_branch (the operator's dispatch as an AC OPF each scan, AC LMPs; AC sensitivities; the AC power flow of an outage)
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    ties.py            tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>    truegrid.py        TrueGrid (state, run_state, change: AC power flows on the true grid; with `ac` the N-1 screen is an AC power flow per outage)
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>    policy.py          OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>    run.py             Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, AC_DISPATCH, reported_changes (the operator scan by scan, DC or AC)
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>    summary.py         summarize (the attack's consequence, attacked less benign)
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>    areas.py           area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>    response.py        every name above, re-exported for the imports written before the split
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>tools/nyfed/
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  area_damage.py       the damage study's days through each operator, split by zone, utility and neighbor, with the attack's surface and each zone's lever
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  idealized_operator.py the single-snapshot least-cost DC consequence analysis of load redistribution studies on each attack day, against the closed-loop operator
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  hourly_checkout.py   the scan-rate interchange check against the hourly checkout of the same tie readings: when each knows, and the inadvertent energy taken by then
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  operator_days.py     the operator half of the damage study on attack days already built, for another dispatch without redesigning the attacks
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a>  nygrid_ac_summary.py summaries of those runs
+<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a>results/
+<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
+<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a>tests/nyfed/
+<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a>  nyfed_inputs.py      where the tests find their inputs, and which tests each input lets run
+<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a>  test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
+<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a>  test_nyfed_golden.py, golden/   snapshots of the operator, the detection tools and the interface attack
+<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -1954,6 +1955,24 @@ copies them as they are.</p>
 <td><code>operator/sced.py</code></td>
 <td>built as <code>DcSced(case, unit_p [T, G], cost [T, G], interfaces, bus_load=None, quick_start=None, objective="movement", state=None)</code>: the pool basepoint, the units' costs, the interfaces it enforces; <code>objective</code> "movement", "cost" or "cost_lf" (the market dispatch around the AC point, which needs <code>state</code> = the frames' true (vm, va) for its delivery factors <code>beta [T, N]</code>)</td>
 <td><code>step(t, seen [I], limit [I], load_change, prev) -&gt; Step</code>: the scan's dispatch, least movement then least cost (N53), free units only (not nuclear, hydro or imports), within limits and five-minute ramps from <code>prev</code>, the unrelieved interface flow and unmatched load as slacks; <code>implied(t)</code> (the AC point's implied unit and bus adders, $/MWh, under "cost_lf"), <code>prices(t, energy, congestion) -&gt; [N]</code> (bus prices of a least-cost step), <code>delivered(t, dev, shed)</code> (MW at the reference bus)</td>
+</tr>
+<tr>
+<td><code>AcSced</code></td>
+<td><code>operator/acsced.py</code></td>
+<td>built as <code>AcSced(case, unit_p [T, G], cost [T, G], interfaces, state=(vm, va), loads=(pd, qd), frames=PoolFrames, bus_load=None, quick_start=None, objective="movement")</code>: the AC points and their loads, the pool's own bounds and schedules, its <code>OperatorOpf</code></td>
+<td><code>step(t, load_p [N], load_q [N], corr [I], limit [I], prev, shed_ok) -&gt; Step</code>: one AC OPF at the loads the operator reads (<code>movement</code>: least movement, cost breaking ties; <code>cost</code>: least cost, <code>price</code> the AC LMPs), interface AC flows plus the reading correction within their limits or priced over, shed and balance slacks as <code>DcSced</code>; <code>delivered(t, dev, shed)</code></td>
+</tr>
+<tr>
+<td><code>OperatorOpf</code>, <code>OpfSolution</code></td>
+<td><code>scenario/solver.py</code></td>
+<td>the Case and each interface's branches and signs; the Pyomo AC OPF with mutable loads, bounds, anchors, weights and interface rows</td>
+<td><code>solve(load_p, load_q, *, ...) -&gt; OpfSolution</code> (units, shed, interface excess, unmatched, model flows, state, balance and interface duals) or None</td>
+</tr>
+<tr>
+<td><code>PoolFrames</code></td>
+<td><code>operator/day.py</code></td>
+<td><code>p_lo</code>, <code>p_hi</code>, <code>sp [T, G]</code> (the pool's unit bounds before the ramp and its setpoints), <code>qd [T, N]</code> (the pool's reactive loads)</td>
+<td></td>
 </tr>
 <tr>
 <td><code>Step</code></td>
@@ -2214,6 +2233,18 @@ copies them as they are.</p>
 <td><code>operator/response.py</code></td>
 <td>a timeline file, its pool, NYgrid's <code>Data/</code></td>
 <td><code>OperatorDay</code></td>
+</tr>
+<tr>
+<td><code>pool_frames(day, loads=None)</code></td>
+<td><code>operator/day.py</code></td>
+<td><code>OperatorDay</code>, the pool's load series (default <code>NYFED_LOADS</code> or <code>out/loads_2019_v2.npz</code>)</td>
+<td><code>PoolFrames</code> (<code>PoolBuilder.frame_limits</code> on the hours the day touches)</td>
+</tr>
+<tr>
+<td><code>ac_shift(case, vm, va, interfaces)</code>, <code>ac_power_flow(case, net, vm, va, p, q)</code>, <code>open_branch(case, k)</code></td>
+<td><code>operator/acsced.py</code></td>
+<td>an AC state</td>
+<td><code>[I, N]</code> AC interface sensitivities to bus injections (power flow Jacobian), the Newton AC power flow at fixed injections, the case without branch <code>k</code></td>
 </tr>
 <tr>
 <td><code>tie_meters(case, plan)</code>, <code>neighbour_reads(plan, rows, far, rng)</code></td>

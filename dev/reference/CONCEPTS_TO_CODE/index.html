@@ -2004,6 +2004,10 @@ timelines; the rest load and serve data. The table is generated from each module
 <td>The grid operator under attack: what it does with false readings, and what that costs on the true grid.</td>
 </tr>
 <tr>
+<td><code>nyfed.operator.acsced</code></td>
+<td>The operator's real-time dispatch as an AC optimal power flow (<code>AcSced</code>), scan by scan, beside the DC <code>DcSced</code>.</td>
+</tr>
+<tr>
 <td><code>nyfed.operator.areas</code></td>
 <td>Who bears an attack's damage, and whose grid the attacker uses: the consequence split by New York zone, by utility and by neighboring area, with what the attack tampered in each.</td>
 </tr>
@@ -2037,7 +2041,7 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>nyfed.operator.truegrid</code></td>
-<td>The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (<code>TrueGrid.state</code>), the true state once a run has acted (<code>run_state</code>, the closed loop), and the interface flows and the worst single 345 kV outage it gives (<code>change</code>). A power flow that fails returns None and its scan is unknown, never safe.</td>
+<td>The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (<code>TrueGrid.state</code>), the true state once a run has acted (<code>run_state</code>, the closed loop), and the interface flows and the worst single 345 kV outage it gives (<code>change</code>). A power flow that fails returns None and its scan is unknown, never safe. The outage is screened with DC outage factors, or with <code>ac</code> by an AC power flow of the grid without each branch (<code>ac_power_flow</code>).</td>
 </tr>
 <tr>
 <td><code>nyfed.scenario</code></td>
@@ -2073,7 +2077,7 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>nyfed.scenario.solver</code></td>
-<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower).</td>
+<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (<code>OperatorOpf</code>), solved scan by scan.</td>
 </tr>
 <tr>
 <td><code>nyfed.sensing</code></td>

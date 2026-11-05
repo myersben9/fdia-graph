@@ -1645,6 +1645,21 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>An AC operator (New York grid).</strong> <code>OperatorPolicy(dispatch="ac")</code> and <code>dispatch="ac_cost"</code> (<code>--dispatch ac</code> or
+  <code>ac_cost</code> on every study tool) run the operator's dispatch as an AC optimal power flow each scan (<code>AcSced</code>, Pyomo and
+  Ipopt, <code>OperatorOpf</code>): the loads it reads (the true loads plus what the attack changed in its New York injection
+  meters; the accounting operator adds the false interchange back over New York's loads by their size), the units
+  within the pool's own bounds (<code>PoolFrames</code>, <code>pool_frames</code>, <code>PoolBuilder.frame_limits</code>) and their five-minute ramps
+  from its previous dispatch, hydro and external units under the pool's anchor, bus voltage and reactive limits, the
+  four interfaces' AC flows within their limits, and the shed, shortage and balance prices of <code>DcSced</code>. <code>ac</code> moves the
+  least generation; <code>ac_cost</code> clears at least cost and prices every bus at its AC balance dual (<code>Twin.price</code>). Its
+  benign twin stays at the AC points (both solve the pool's problem). The closed loop re-solves on what the operator
+  reads after its own dispatch (true AC flows less its AC model), not on shift factors, the N-1 screen is an AC power
+  flow per outage (<code>TrueGrid(day, ac=True)</code>, <code>ac_power_flow</code>), shedding and the zone levers use AC sensitivities
+  (<code>ac_shift</code>), and <code>tools/nyfed/idealized_operator.py</code> takes one least-cost AC OPF as its snapshot. The DC
+  dispatches and their results are unchanged.</p>
+</li>
+<li>
 <p><strong>A least-cost dispatch that keeps the AC operating points (New York grid).</strong> <code>DcSced(objective="cost_lf")</code> and
   <code>OperatorPolicy(dispatch="cost_lf")</code> (<code>--dispatch cost_lf</code> on every study tool) run the market dispatch around the
   AC operating point, as an RTO's incremental dispatch is: each unit's cost counts per MW delivered to the reference
