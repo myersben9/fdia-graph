@@ -19,6 +19,7 @@ from pathlib import Path
 from fdia_graph.nyfed.experiments import add_study_arguments, load_calib, run_parallel, study_days, variant
 from fdia_graph.nyfed.operator.areas import area_damage, attack_surface, neighbor_prices, zone_levers
 from fdia_graph.nyfed.operator.response import MODES, operator_day, respond
+from fdia_graph.nyfed.operator.run import AC_DISPATCH
 
 
 def _job(
@@ -37,7 +38,8 @@ def _job(
     }
     prices = neighbor_prices(data, day.time)
     rows = [{**tag, "table": "surface", **row} for row in attack_surface(day)]
-    rows += [{**tag, "table": "lever", **row} for row in zone_levers(day)]
+    ac = dispatch in AC_DISPATCH  # the AC operator takes the AC sensitivities, never the DC model's
+    rows += [{**tag, "table": "lever", **row} for row in zone_levers(day, ac=ac)]
     for mode in modes:
         r = respond(day, mode=mode, calib=calib, closed_loop=True, dispatch=dispatch)
         rows += [

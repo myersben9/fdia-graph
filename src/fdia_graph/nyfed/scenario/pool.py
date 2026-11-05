@@ -140,6 +140,16 @@ class PoolBuilder:
         p_lo[self._fixed] = p_hi[self._fixed] = sp[self._fixed]
         return p_lo, p_hi, sp
 
+    def frame_limits(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """`[T, G]` each frame's unit bounds before the ramp, lower and upper (MW), and the interpolated setpoints
+        (MW; the held units' from the hourly AC points), as `build` dispatches each frame: every hour the frames
+        touch is projected first, in `build`'s order. The operator's AC dispatch (`AcSced`) solves the same problem."""
+        lo, hi, w = self._brackets()
+        for h in np.unique(np.r_[lo, hi]):
+            self._project(int(h))
+        rows = [self._limits(lo[f], hi[f], w[f]) for f in range(len(self.loads.time))]
+        return tuple(np.array([r[k] for r in rows]) for k in range(3))  # type: ignore[return-value]
+
     def build(self, start: tuple[np.ndarray, ...] | None = None) -> Pool:
         """Dispatch and solve every frame in time order, from `start` = (unit_p, unit_q, vm, va), the last
         state of the frames before (`final` of their build), or else from the projection of the first

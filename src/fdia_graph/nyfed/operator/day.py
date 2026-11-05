@@ -3,6 +3,7 @@ pool's unit dispatch and costs, the zonal prices, and the interfaces with their 
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,8 +42,9 @@ class OperatorDay:
     attacked and benign scans `z`, `z_benign [T, M]`, the pool's basepoint `unit_p [T, G]`, the units'
     cost `cost [T, G]` ($/MWh, NYgrid's hourly costs interpolated on the frame clock as the pool build
     does), the real zonal LBMP `lbmp [T, 11]` ($/MWh, zones A to K), the `interfaces` the operator
-    enforces, `solved [T]`, the file's first episode (`onset`, `length`), and the file's labels of the meters the
-    attack tampers, `meter_tampered [T, M]` (None in a file without them)."""
+    enforces, `solved [T]`, the file's first episode (`onset`, `length`), the file's labels of the meters the
+    attack tampers, `meter_tampered [T, M]` (None in a file without them), and NYgrid's `Data/` folder it was read
+    with (`pool_frames` reads the pool's inputs from it)."""
 
     case: Case
     own: Ownership
@@ -60,6 +62,7 @@ class OperatorDay:
     onset: int
     length: int
     meter_tampered: np.ndarray | None = None
+    data_dir: str = ""
 
 
 # the interfaces the operator enforces, the attacked one first (N64)
@@ -149,6 +152,66 @@ def operator_day(
         onset=int(eps["onset"][0]) if len(eps["onset"]) else -1,
         length=int(eps["length"][0]) if len(eps["length"]) else 0,
         meter_tampered=h["labels/meter_tampered"][:] if "labels/meter_tampered" in h else None,
+        data_dir=str(data_dir),
     )
     h.close()
     return day
+
+
+@dataclass(frozen=True)
+class PoolFrames:
+    """The pool's own inputs for a day's frames, so the operator's AC dispatch solves the problem the pool solved:
+    each unit's bounds before the ramp `p_lo`, `p_hi [T, G]` (MW), the setpoints `sp [T, G]` (MW; the held units'
+    schedules, which anchor hydro and the external units) and every bus's reactive load `qd [T, N]` (MVAr)."""
+
+    p_lo: np.ndarray
+    p_hi: np.ndarray
+    sp: np.ndarray
+    qd: np.ndarray
+
+
+LOADS = (
+    Path("out") / "loads_2019_v2.npz"
+)  # the pool's load series, under the folder holding data/ (run_pool.py)
+_LOADS: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+_FRAMES: dict[tuple[str, int], PoolFrames] = {}
+
+
+def pool_frames(day: OperatorDay, loads: str | Path | None = None) -> PoolFrames:
+    """The pool's inputs for the frames of `day` (`PoolFrames`): NYgrid's hourly dispatch and AC points of the hours
+    the frames touch (`PoolBuilder.frame_limits`) and the bus reactive loads of the pool's load series `loads` (by
+    default the file the environment variable `NYFED_LOADS` names, else `LOADS` under the folder holding the day's
+    `data/`). Kept per process: a study runs each day several times."""
+    data_dir = Path(day.data_dir)
+    key = (str(data_dir), int(np.asarray(day.time)[0]))
+    if key in _FRAMES:
+        return _FRAMES[key]
+    from fdia_graph.nyfed.scenario.loads import LoadSeries  # the solver brings pandapower: only when asked
+    from fdia_graph.nyfed.scenario.pool import PoolBuilder
+    from fdia_graph.nyfed.scenario.solver import AcSolver
+
+    path = Path(loads or os.environ.get("NYFED_LOADS") or data_dir.parents[2] / LOADS)
+    if str(path) not in _LOADS:
+        with np.load(path) as z:
+            _LOADS[str(path)] = (z["time"].astype("datetime64[s]"), z["q"])
+    l_time, l_q = _LOADS[str(path)]
+    stamps = np.asarray(day.time).astype("datetime64[s]")
+    k = np.minimum(np.searchsorted(l_time, stamps), len(l_time) - 1)
+    if not (l_time[k] == stamps).all():
+        raise DataConditionError(f"{path} does not hold every frame of the day")
+    if str(data_dir) not in _HOURS:
+        _HOURS[str(data_dir)] = read_nygrid(data_dir, 2019)
+    hours = _HOURS[str(data_dir)]
+    when = np.array([x.time for x in hours]).astype("datetime64[s]")
+    near = np.flatnonzero(
+        (when >= stamps[0] - np.timedelta64(3600, "s")) & (when <= stamps[-1] + np.timedelta64(3600, "s"))
+    )
+    picked = [hours[i] for i in near]
+    disp = hourly_dispatch(day.case, picked)
+    renew = np.array([x.renew_mw for x in picked])
+    qd = l_q[k]
+    series = LoadSeries(time=stamps, p=np.zeros_like(qd), q=qd)
+    builder = PoolBuilder(AcSolver(day.case), series, disp, renew, np.full(len(day.case.unit_bus), np.inf))
+    p_lo, p_hi, sp = builder.frame_limits()
+    _FRAMES[key] = PoolFrames(p_lo=p_lo, p_hi=p_hi, sp=sp, qd=np.asarray(qd, float))
+    return _FRAMES[key]

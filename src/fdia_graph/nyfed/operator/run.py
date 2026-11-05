@@ -13,7 +13,8 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 
 from fdia_graph.nyfed.grid.network import Network
-from fdia_graph.nyfed.operator.day import OperatorDay
+from fdia_graph.nyfed.operator.acsced import AcSced
+from fdia_graph.nyfed.operator.day import OperatorDay, pool_frames
 from fdia_graph.nyfed.operator.policy import OperatorPolicy, entry_share
 from fdia_graph.nyfed.operator.sced import (
     FRAME_HOURS,
@@ -26,6 +27,7 @@ from fdia_graph.nyfed.operator.truegrid import TrueGrid
 from fdia_graph.nyfed.scenario.inputs import ZONES
 from fdia_graph.nyfed.sensing.meters import KINDS
 
+AC_DISPATCH = {"ac": "movement", "ac_cost": "cost"}  # the AC dispatches and their `AcSced` objective
 REG_CAP = 275.0  # MW of regulation the operator holds, the summer requirement at its highest hour (N63)
 # N64: small gas, oil and kerosene units in New York City and Long Island, the quick-start fleet
 QUICK_FUELS, QUICK_ZONES, QUICK_MAX_MW = ("Natural Gas", "Kerosene", "Fuel Oil 2"), ("J", "K"), 200.0
@@ -255,6 +257,157 @@ def _run(
     return Twin(**out)
 
 
+def reported_changes(day: OperatorDay, z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """`[T, N]` each bus's active and reactive injection change the operator reads in `z` against the benign scans
+    (MW, MVAr): its New York injection meters' difference, so the meters' own noise cancels as in `load_change`."""
+    plan, n = day.plan, len(day.case.bus_id)
+    out = []
+    for kind in ("p", "q"):
+        rows = np.flatnonzero(plan.kind == KINDS.index(kind))
+        d = np.zeros((len(day.time), n))
+        np.add.at(d.T, plan.bus[rows], np.nan_to_num(z[:, rows] - day.z_benign[:, rows]).T)
+        out.append(d)
+    return out[0], out[1]
+
+
+def _run_ac(
+    day: OperatorDay,
+    d_p: np.ndarray,
+    d_q: np.ndarray,
+    push: np.ndarray,
+    flow_read: np.ndarray,
+    delay: int,
+    grid: TrueGrid,
+    gap: np.ndarray,
+    mode: str,
+    alarm: int | None,
+    entry: str = "capacity",
+    closed_loop: bool = False,
+    after: str | None = None,
+    objective: str = "movement",
+) -> Twin:
+    """One run of the AC operator over the day (`AcSced`), as `_run` runs the DC one. Each scan it reads the true
+    loads less the injection changes `d_p`, `d_q [T, N]` its meters carry (zero in the benign twin; the accounting
+    operator adds the false interchange `gap` back as load, spread over New York's loads by their size), and solves its
+    AC OPF on them. `push [T, I]` is a what-if push of the read interface flows (`respond`'s `over`). With
+    `closed_loop` each interface's reading carries what the operator read after its last dispatch beyond its own AC
+    model: the true flow then, plus the attack's change of the reading `flow_read [T, I]`, less the model's flow. The
+    regulation, the neighbours' supply and the true grid follow `_run`."""
+    c, T, G, I = day.case, len(day.time), len(day.case.unit_bus), len(day.interfaces)
+    fuel_kind, zone = c.fuel.astype(str), c.zone.astype(str)[c.unit_bus]
+    quick = np.isin(fuel_kind, QUICK_FUELS) & np.isin(zone, QUICK_ZONES) & (c.pmax <= QUICK_MAX_MW)
+    load = np.clip(grid.pd, 0.0, None) * c.is_ny
+    frames = pool_frames(day)
+    sced = AcSced(
+        c,
+        day.unit_p,
+        day.cost,
+        day.interfaces,
+        (day.vm, day.va),
+        (grid.pd, frames.qd),
+        frames,
+        load,
+        quick_start=quick,
+        objective=objective,
+    )
+    true_q = frames.qd
+    ext_share = entry_share(c, entry)
+    true_iface = sced.flow0
+    limit = true_iface + np.array([it.limit - it.flow for it in day.interfaces]).T  # D3
+    unit_zone = np.array([ZONES.index(z) if z else -1 for z in c.zone.astype(str)[c.unit_bus]])
+    price = np.where(unit_zone >= 0, day.lbmp[:, np.maximum(unit_zone, 0)], np.nan)
+    ny_load = np.clip(grid.pd, 0.0, None) * c.is_ny
+    spread = ny_load / np.maximum(ny_load.sum(axis=1, keepdims=True), 1e-9)  # [T, N] conformal shares
+    out = {
+        "dev": np.zeros((T, G)),
+        "reg": np.zeros((T, G)),
+        "unrelieved": np.full((T, I), np.nan),
+        "unmatched": np.full(T, np.nan),
+        "uncovered": np.zeros(T),
+        "shed": np.zeros((T, len(c.bus_id))),
+        "relief": np.zeros(T),
+        "shortage": np.zeros(T),
+        "iface_change": np.zeros((T, I)),
+        "n1_change": np.zeros(T),
+        "margin": np.full(T, np.nan),
+        "margin_at": np.full(T, -1),
+        "fuel": np.zeros(T),
+        "settled": np.zeros(T),
+        "pf_failed": np.zeros(T, bool),
+        "congestion": np.full((T, I), np.nan),
+        "energy": np.full(T, np.nan),
+        "price": np.full((T, len(c.bus_id)), np.nan),
+    }
+    prev, before = None, None
+    over = np.zeros(I, int)
+    corr = np.zeros(I)  # the closed loop's reading correction
+    last_step = None
+    for t in range(T):
+        if not (day.solved[t] and (t == 0 or day.solved[t - 1])):
+            out["iface_change"][t], out["n1_change"][t] = np.nan, np.nan
+            prev, before = (None, None) if not day.solved[t] else (prev, before)
+            continue
+        s = max(t - delay, 0)
+        alarmed = alarm is not None and t >= alarm and (mode == "oracle" or after is not None)
+        style = "benign" if mode == "oracle" else after
+        fallback = alarmed and style == "benign"
+        frozen = alarmed and style in ("freeze", "freeze_cs") and last_step is not None
+        if fallback:
+            load_p, load_q, read = grid.pd[s].copy(), true_q[s].copy(), np.zeros(I)
+        else:
+            load_p, load_q = grid.pd[s] - d_p[s], true_q[s] - d_q[s]
+            if mode == "accounting":  # load from generation plus the agreed interchange
+                load_p = load_p + float(np.nan_to_num(gap[s])) * spread[s]
+            read = push[s]
+        view = read + (corr if closed_loop else 0.0)
+        step = (
+            last_step
+            if frozen and last_step is not None
+            else sced.step(t, load_p, load_q, view, limit[t], prev, over >= SHED_AFTER)
+        )
+        last_step = step
+        short = np.nan_to_num(step.unrelieved)
+        over = np.where((short > 1e-6) | ((over >= SHED_AFTER) & (step.shed.sum() > 1e-6)), over + 1, 0)
+        out["shortage"][t] = sum(shortage_usd(u) for u in short)
+        dispatched = day.unit_p[t] + step.dev
+        short_mw = -sced.delivered(t, step.dev, step.shed)
+        reads_ties = mode == "trusting" or (mode == "oracle" and not fallback)
+        if alarmed and style in ("benign", "freeze_cs"):
+            reads_ties = False
+        seen_err = float(np.nan_to_num(gap[t])) if reads_ties else 0.0
+        reg, _ = _regulation(day, t, short_mw - seen_err, dispatched, before)
+        prev, before = step.dev, dispatched + reg
+        out["uncovered"][t] = short_mw - float(reg.sum())
+        out["dev"][t], out["reg"][t] = step.dev, reg
+        out["unrelieved"][t], out["unmatched"][t] = step.unrelieved, step.unmatched
+        out["shed"][t], out["relief"][t] = step.shed, step.relief_usd
+        if step.congestion is not None:
+            out["congestion"][t] = step.congestion
+        out["energy"][t] = step.energy
+        if step.price is not None:
+            out["price"][t] = step.price
+        moved = step.dev + reg
+        lent = out["uncovered"][t] * ext_share
+        if np.abs(moved).max() > 1e-3 or step.shed.any() or np.abs(lent).max() > 1e-3:
+            out["iface_change"][t], out["n1_change"][t] = grid.change(
+                t, day.unit_p[t] + moved + lent, step.shed
+            )
+            out["pf_failed"][t] = bool(np.isnan(out["iface_change"][t]).any())
+        if closed_loop and step.flow is not None:  # what it reads next, beyond its own AC model of this scan
+            truth = (
+                true_iface[t] + np.nan_to_num(out["iface_change"][t]) + (0.0 if fallback else flow_read[t])
+            )
+            corr = np.nan_to_num(truth - step.flow)
+        change = out["iface_change"][t]
+        if not np.isnan(change).any():
+            room = limit[t] - (true_iface[t] + change)
+            out["margin"][t] = float(np.nanmin(room))
+            out["margin_at"][t] = int(np.nanargmin(room))
+        out["fuel"][t] = float(day.cost[t] @ moved) * FRAME_HOURS
+        out["settled"][t] = float(np.nansum(price[t] * moved)) * FRAME_HOURS
+    return Twin(**out)
+
+
 @dataclass(frozen=True)
 class Response:
     """The operator's run on the attacked scans and on their benign twin, with `unit_client [G]` the
@@ -318,8 +471,58 @@ def respond(
     rows = np.flatnonzero(day.plan.kind == p)
     load_change = -(day.z[:, rows] - day.z_benign[:, rows]).sum(axis=1)  # the seen load's change, MW
     gap = tie_a - tie_b  # the false interchange, the meters' own noise cancelling against the twin
-    grid = TrueGrid(day)
     zero = np.zeros(len(day.time))
+    if dispatch in AC_DISPATCH:
+        grid = TrueGrid(day, ac=True)
+        objective = AC_DISPATCH[dispatch]
+        d_p, d_q = reported_changes(day, day.z)
+        raw = seen_interfaces(day.plan, day.interfaces, day.z)
+        flat = np.zeros_like(seen_a)
+        return Response(
+            attacked=_run_ac(
+                day,
+                d_p,
+                d_q,
+                seen_a - raw,
+                raw - seen_b,
+                delay,
+                grid,
+                gap,
+                mode,
+                alarm,
+                entry,
+                closed_loop,
+                after,
+                objective,
+            ),
+            benign=_run_ac(
+                day,
+                np.zeros_like(d_p),
+                np.zeros_like(d_q),
+                flat,
+                flat,
+                delay,
+                grid,
+                zero,
+                mode,
+                None,
+                entry,
+                closed_loop,
+                objective=objective,
+            ),
+            unit_client=day.own.bus_client[day.case.unit_bus],
+            bus_client=day.own.bus_client,
+            client_names=[str(n) for n in day.own.names],
+            onset=day.onset,
+            length=day.length,
+            delay=delay,
+            over=over,
+            tie_attacked=tie_a,
+            tie_benign=tie_b,
+            alarm=float("nan") if alarm is None else float(alarm - day.onset),
+            mode=mode,
+        )
+    grid = TrueGrid(day)
     return Response(
         attacked=_run(
             day,

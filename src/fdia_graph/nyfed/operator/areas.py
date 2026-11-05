@@ -26,6 +26,7 @@ import numpy as np
 from fdia_graph.nyfed.attacks.attacker import wrap_angles
 from fdia_graph.nyfed.grid.case import REF
 from fdia_graph.nyfed.grid.network import Network
+from fdia_graph.nyfed.operator.acsced import ac_shift
 from fdia_graph.nyfed.operator.day import OperatorDay, node_lbmp
 from fdia_graph.nyfed.operator.policy import entry_share
 from fdia_graph.nyfed.operator.run import Response
@@ -240,11 +241,12 @@ def attack_surface(day: OperatorDay) -> list[dict]:
     return rows
 
 
-def zone_levers(day: OperatorDay, tau: float = 0.1, band: float = 0.03) -> list[dict]:
+def zone_levers(day: OperatorDay, tau: float = 0.1, band: float = 0.03, ac: bool = False) -> list[dict]:
     """What each New York zone could give an attacker at the last rise scan: for each interface, the most its
-    buses alone could move the interface's flow in the DC model (MW), every load within `tau` of itself and every
-    unit within `band` of its upper limit, as the attack's bounds allow. A zone's lever ignores the balance the
-    rest of the grid must keep, so it is an upper bound on its share of a push, not a push."""
+    buses alone could move the interface's flow in the DC model (MW), or with `ac` by the AC sensitivities at that
+    scan's true state (`ac_shift`), every load within `tau` of itself and every unit within `band` of its upper limit,
+    as the attack's bounds allow. A zone's lever ignores the balance the rest of the grid must keep, so it is an upper
+    bound on its share of a push, not a push."""
     c = day.case
     t = min(day.onset + day.length // 2 - 1, len(day.time) - 1)  # the last rise scan
     load = _bus_load(day)[t]
@@ -252,11 +254,15 @@ def zone_levers(day: OperatorDay, tau: float = 0.1, band: float = 0.03) -> list[
     np.add.at(pmax, c.unit_bus, np.where(np.isfinite(c.pmax), c.pmax, 0.0))
     room = tau * load + band * pmax  # MW each bus may move
     room[(c.bus_type == REF) | ~c.is_ny] = 0.0
-    ptdf = shift_factors(c)
     bus_zone = c.zone.astype(str)
+    if ac:
+        shift = ac_shift(c, day.vm[t], day.va[t], day.interfaces)
+    else:
+        ptdf = shift_factors(c)
+        shift = np.array([it.signs @ ptdf[it.branches] for it in day.interfaces])
     rows = []
-    for it in day.interfaces:
-        sf = np.abs(it.signs @ ptdf[it.branches])  # [N] interface MW per MW at each bus
+    for i, it in enumerate(day.interfaces):
+        sf = np.abs(shift[i])  # [N] interface MW per MW at each bus
         for z in ZONES:
             inside = bus_zone == z
             rows.append(

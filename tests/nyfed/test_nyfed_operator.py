@@ -240,3 +240,125 @@ def test_the_dispatch_around_the_ac_point_keeps_the_benign_twin_at_the_ac_points
     assert np.nanmax(np.abs(b.iface_change[:, 0])) < 1.0
     assert b.price is not None and r.attacked.price is not None
     assert np.isfinite(r.attacked.price[day.onset : day.onset + day.length]).all()
+
+
+# The AC operator (`AcSced`): it reads the pool's own inputs for the day, the reactive loads from the checked-in slice
+AC_LOADS = DAYS / "loads_2019_v2_days.npz"
+
+
+@pytest.fixture(scope="module")
+def ac_day():
+    from fdia_graph.nyfed.operator.day import pool_frames
+    from fdia_graph.nyfed.operator.response import operator_day
+    from fdia_graph.nyfed.operator.truegrid import TrueGrid
+
+    day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
+    return day, TrueGrid(day, ac=True), pool_frames(day, AC_LOADS)
+
+
+def _ac_sced(ac_day, objective):
+    from fdia_graph.nyfed.operator.acsced import AcSced
+
+    day, grid, frames = ac_day
+    return AcSced(
+        day.case,
+        day.unit_p,
+        day.cost,
+        day.interfaces,
+        (day.vm, day.va),
+        (grid.pd, frames.qd),
+        frames,
+        objective=objective,
+    )
+
+
+def test_ac_sensitivities_match_an_ac_power_flow(ac_day):
+    """The AC sensitivity of the attacked interface to a bus injection is what the true grid's power flow gives for
+    five more MW at a unit there, the reference bus balancing."""
+    from fdia_graph.nyfed.grid.network import Network
+    from fdia_graph.nyfed.operator.acsced import ac_shift
+
+    day, grid, _ = ac_day
+    c, t = day.case, day.onset
+    shift = ac_shift(c, day.vm[t], day.va[t], day.interfaces)
+    net = Network(c)
+    base = grid.state(t, day.unit_p[t])
+    assert base is not None
+    flow0 = day.interfaces[0].model_flow(net.flows(*base)[0])
+    free = ~np.isin(c.fuel.astype(str), ("Nuclear", "Hydro", "Import")) & c.is_ny[c.unit_bus]
+    for k in np.argsort(-np.where(free, day.unit_p[t], 0.0))[:3]:
+        units = day.unit_p[t].copy()
+        units[k] += 5.0
+        moved = grid.state(t, units)
+        assert moved is not None
+        got = (day.interfaces[0].model_flow(net.flows(*moved)[0]) - flow0) / 5.0
+        assert np.isclose(got, shift[0, c.unit_bus[k]], atol=5e-3)
+
+
+def test_the_outage_power_flow_matches_pandapower(ac_day):
+    """The N-1 screen's Newton power flow of the grid without a branch reaches the state pandapower reaches on the same
+    case, from the same injections and unit voltages."""
+    from fdia_graph.nyfed.grid.network import Network
+    from fdia_graph.nyfed.operator.acsced import ac_power_flow, open_branch
+    from fdia_graph.nyfed.scenario.solver import AcSolver
+
+    day, grid, _ = ac_day
+    c, t = day.case, day.onset
+    k = int(grid.outages[0])
+    opened = open_branch(c, k)
+    p, q = Network(c).injections(day.vm[t], day.va[t])
+    mine = ac_power_flow(c, Network(opened), day.vm[t], day.va[t], p, q)
+    assert mine is not None
+    theirs = AcSolver(opened).power_flow(
+        grid.pd[t],
+        grid.qd[t],
+        day.unit_p[t],
+        np.ones(len(c.unit_bus), bool),
+        day.vm[t, c.unit_bus],
+        np.zeros(len(c.dc_f)),
+        start=(day.vm[t], day.va[t]),
+    )
+    assert theirs is not None
+    np.testing.assert_allclose(mine[0], theirs["vm"], atol=1e-6)
+    np.testing.assert_allclose(mine[1], theirs["va"], atol=1e-4)
+
+
+def test_the_least_cost_ac_dispatch_keeps_the_ac_points_and_prices_them(ac_day):
+    """The least-cost AC dispatch solves the problem the pool solved, so on the true loads it stays at the stored AC
+    points, and a unit inside its bounds and not ramp limited is priced within the movement charge of its cost: the
+    balance duals are the AC LMPs in $/MWh."""
+    from fdia_graph.nyfed.operator.sced import MOVE_USD
+
+    day, grid, frames = ac_day
+    sced = _ac_sced(ac_day, "cost")
+    limit = sced.flow0 + np.array([it.limit - it.flow for it in day.interfaces]).T
+    c, prev = day.case, None
+    interior = 0
+    for t in range(day.onset, day.onset + 3):
+        step = sced.step(t, grid.pd[t], frames.qd[t], np.zeros(len(day.interfaces)), limit[t], prev)
+        assert np.abs(step.dev).sum() < 0.5
+        assert step.price is not None and np.isfinite(step.price).all()
+        prev = step.dev
+        p0, before = day.unit_p[t], day.unit_p[t - 1]
+        inside = (
+            sced.free
+            & (p0 > frames.p_lo[t] + 1.0)
+            & (p0 < frames.p_hi[t] - 1.0)
+            & (np.abs(p0 - before) < sced.ramp - 1.0)
+        )
+        gap = np.abs(step.price[c.unit_bus] - day.cost[t])[inside]
+        interior += int(inside.sum())
+        assert (gap <= MOVE_USD + 0.5).all()
+    assert interior > 0
+
+
+def test_the_ac_operator_on_a_damaging_day(monkeypatch):
+    """The least-movement AC operator keeps the benign twin at the AC points, and against the trusting operator the
+    damaging attack cuts the attacked interface's true transfer."""
+    from fdia_graph.nyfed.operator.response import operator_day, respond
+
+    monkeypatch.setenv("NYFED_LOADS", str(AC_LOADS))
+    day = operator_day(DAYS / DAMAGE_DAYS[1], DAYS_POOL, DATA)
+    r = respond(day, mode="trusting", closed_loop=True, dispatch="ac")
+    assert np.abs(r.benign.dev).max() == 0.0 and np.nanmax(np.abs(r.benign.iface_change)) == 0.0
+    assert np.nanmin(r.attacked.iface_change[:, 0] - r.benign.iface_change[:, 0]) < -50.0

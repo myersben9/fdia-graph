@@ -21,6 +21,7 @@ from fdia_graph.nyfed.detect import exact_state, reference_bus
 from fdia_graph.nyfed.experiments import DATA, add_dispatch_argument, study_days
 from fdia_graph.nyfed.grid.network import Network
 from fdia_graph.nyfed.operator.response import TrueGrid, entry_share, operator_day, respond, tie_meters
+from fdia_graph.nyfed.operator.run import AC_DISPATCH
 from fdia_graph.nyfed.sensing.measure import Measurement
 from fdia_graph.nyfed.sensing.meters import KINDS
 
@@ -41,7 +42,7 @@ def main() -> None:
             resp = respond(
                 day, mode="trusting", calib=None, closed_loop=True, dispatch=args.dispatch
             ).attacked
-            grid, share = TrueGrid(day), entry_share(c, "capacity")
+            grid, share = TrueGrid(day, ac=args.dispatch in AC_DISPATCH), entry_share(c, "capacity")
             meas = Measurement(Network(c), plan)
             ref = reference_bus(c)
             _, _, rows = tie_meters(c, plan)
