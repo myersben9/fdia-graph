@@ -381,3 +381,27 @@ def test_the_least_movement_ac_model_flows_are_the_true_grids(ac_day):
         assert np.abs(step.dev).sum() < 0.5
         assert step.flow is not None
         np.testing.assert_allclose(step.flow, sced.flow0[t], atol=0.1)
+
+
+def test_an_ipopt_that_ends_abnormally_is_a_failed_solve(ac_day, monkeypatch):
+    """An Ipopt that does not exit normally (killed, out of memory) is a solve without an optimum: `OperatorOpf.solve`
+    returns None and the AC operator tries once more from the AC point, rather than ending the study."""
+    from pyomo.common.errors import ApplicationError
+
+    day, grid, frames = ac_day
+    sced = _ac_sced(ac_day, "cost")
+    limit = sced.flow0 + np.array([it.limit - it.flow for it in day.interfaces]).T
+    calls = {"n": 0}
+    real = sced.opf._ipopt.solve
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ApplicationError("Solver (ipopt) did not exit normally")
+        return real(*a, **k)
+
+    monkeypatch.setattr(sced.opf._ipopt, "solve", flaky)
+    t = day.onset
+    sced._last = (day.vm[t], day.va[t], day.unit_p[t])  # a warm start, so the retry from the AC point runs
+    step = sced.step(t, grid.pd[t], frames.qd[t], np.zeros(len(day.interfaces)), limit[t], None, force=True)
+    assert calls["n"] >= 2 and np.abs(step.dev).sum() < 0.5

@@ -11,6 +11,7 @@ import numpy as np
 import pandapower as pp
 import pyomo.environ as pe
 from pandapower.converter.pypower import from_ppc
+from pyomo.common.errors import ApplicationError
 
 from fdia_graph.nyfed.grid.case import REF, Case
 from fdia_graph.nyfed.grid.network import Network
@@ -537,7 +538,7 @@ class OperatorOpf:
         [G]` (MW) each anchored unit is held near and its weight `anchor_w [G]` (per MW^2, 0 for none); each bus's voltage schedule `v_sched [N]` (p.u.) and the weight `v_w [N]` (per p.u.^2, 0 for none) holding it there; the load each bus may shed `shed_ub [N]` (MW) at `shed_w` per MW
         with its reactive load per MW `qratio [N]`; each interface's reading correction `corr [I]` and limit `lim [I]`
         (MW, NaN unenforced), the segments' widths and prices; and the objective's weights. `start` = (vm, va degrees,
-        unit_p MW) starts Ipopt. Returns None where Ipopt reaches no optimum."""
+        unit_p MW) starts Ipopt. Returns None where Ipopt reaches no optimum or ends abnormally."""
         m, case, base, ref = self.model, self.case, self.case.base_mva, self.ref
         vm0, va0, pg0 = start
         for i in m.B:
@@ -581,7 +582,10 @@ class OperatorOpf:
             m.seg_price[j] = float(seg_price[j])
         m.w_cost, m.bal_w, m.scale = float(w_cost), float(bal_w), float(scale)
         m.short.value, m.surplus.value = 0.0, 0.0
-        res = self._ipopt.solve(m, load_solutions=False)
+        try:
+            res = self._ipopt.solve(m, load_solutions=False)
+        except ApplicationError:  # Ipopt ended abnormally (killed, out of memory): a solve without an optimum
+            return None
         if res.solver.termination_condition != pe.TerminationCondition.optimal:
             return None
         m.solutions.load_from(res)
