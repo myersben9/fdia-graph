@@ -46,11 +46,13 @@ class Entry(Choice):
 
 
 class Dispatch(Choice):
-    """How the operator dispatches (`DcSced` objective): the least generation moved, then the least cost (N53), or
-    the least cost a market clears, which also prices each interface's congestion."""
+    """How the operator dispatches (`DcSced` objective): the least generation moved, then the least cost (N53), the
+    least cost a market clears, which also prices each interface's congestion, or that market dispatch run around the
+    AC operating point with loss factors (`cost_lf`), whose benign run stays at the AC points."""
 
     MOVEMENT = "movement"
     COST = "cost"
+    COST_LF = "cost_lf"
 
 
 MODES = tuple(OperatorMode.values())

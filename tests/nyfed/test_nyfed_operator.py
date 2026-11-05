@@ -2,13 +2,13 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
-from nyfed_inputs import DATA, DAYS_POOL, SINGLE_DAY, needs_data
+from nyfed_inputs import DAMAGE_DAYS, DATA, DAYS, DAYS_POOL, SINGLE_DAY, needs_data
 
 from fdia_graph.nyfed.grid.case import REF
 from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
 from fdia_graph.nyfed.grid.interfaces import hourly_interfaces
 from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.operator.sced import DcSced, outage_factors, shift_factors, shortage_usd
+from fdia_graph.nyfed.operator.sced import DcSced, loss_factors, outage_factors, shift_factors, shortage_usd
 
 pytestmark = needs_data
 
@@ -183,3 +183,60 @@ def test_a_pool_without_the_days_frames_is_a_named_error(tmp_path):
     write_pool(tmp_path / "june.h5", Pool(**{k: getattr(p, k)[june] for k in Pool.__dataclass_fields__}))
     with pytest.raises(DataConditionError, match="does not hold every frame"):
         operator_day(SINGLE_DAY, tmp_path / "june.h5", DATA)
+
+
+def test_the_dispatch_around_the_ac_point_needs_the_ac_state(case, sced):
+    from fdia_graph.errors import ConfigError
+
+    with pytest.raises(ConfigError, match="AC state"):
+        DcSced(case, sced.unit_p, sced.cost, [], objective="cost_lf")
+
+
+def test_lossless_prices_are_the_energy_price_less_congestion(sced):
+    """Under the least-cost dispatch without loss factors a bus's price is the energy price less each interface's
+    price times the bus's shift factor, and what a dispatch delivers is its plain sum."""
+    prices = sced.prices(1, 30.0, np.array([5.0]))
+    np.testing.assert_allclose(prices, 30.0 - 5.0 * sced.sf[0])
+    dev = np.random.default_rng(2).normal(0, 5, len(sced.free))
+    assert np.isclose(sced.delivered(1, dev, np.zeros(len(sced.case.bus_id))), dev.sum())
+
+
+def test_loss_factors_match_an_ac_power_flow():
+    """The delivery factors at a day's AC state are what the true grid's power flow gives: five more MW at a unit
+    take five times its bus's factor off the reference bus (the factors run from about 0.47 in the west to 1.02 in
+    New York City on this scan)."""
+    from fdia_graph.nyfed.grid.network import Network
+    from fdia_graph.nyfed.operator.response import operator_day
+    from fdia_graph.nyfed.operator.truegrid import TrueGrid
+
+    day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
+    c, t = day.case, day.onset
+    beta = loss_factors(c, day.vm[t], day.va[t])
+    grid, net = TrueGrid(day), Network(c)
+    ref = int(np.flatnonzero(c.bus_type == REF)[0])
+    assert beta[ref] == 1.0
+    state = grid.state(t, day.unit_p[t])
+    assert state is not None
+    base = net.injections(*state)[0][ref]
+    free = ~np.isin(c.fuel.astype(str), ("Nuclear", "Hydro", "Import")) & c.is_ny[c.unit_bus]
+    for k in np.argsort(-np.where(free, day.unit_p[t], 0.0))[:3]:  # the three largest free units on line
+        units = day.unit_p[t].copy()
+        units[k] += 5.0
+        moved = grid.state(t, units)
+        assert moved is not None
+        assert np.isclose((base - net.injections(*moved)[0][ref]) / 5.0, beta[c.unit_bus[k]], atol=2e-3)
+
+
+def test_the_dispatch_around_the_ac_point_keeps_the_benign_twin_at_the_ac_points():
+    """The least-cost dispatch on its own moves the benign twin about a gigawatt off the AC points (the DC model
+    does not see the losses, voltage limits and schedules they were dispatched against); around the AC point the
+    benign twin stays there, so the attack's consequence is the attack's. Bus prices are reported every scan."""
+    from fdia_graph.nyfed.operator.response import operator_day, respond
+
+    day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
+    r = respond(day, mode="accounting", closed_loop=True, dispatch="cost_lf")
+    b = r.benign
+    assert np.abs(b.dev).sum(axis=1).max() < 0.1
+    assert np.nanmax(np.abs(b.iface_change[:, 0])) < 1.0
+    assert b.price is not None and r.attacked.price is not None
+    assert np.isfinite(r.attacked.price[day.onset : day.onset + day.length]).all()

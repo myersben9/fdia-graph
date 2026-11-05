@@ -97,8 +97,11 @@ def _exposure(zones: set[str], moves: dict[str, tuple[float, float]]) -> dict:
 def _payments(r: Response, day: OperatorDay) -> np.ndarray:
     """`[T, N]` what each bus's true load pays more ($ per scan) at the prices the false reading moves, as a market
     prices them: the energy price at the reference bus plus, for each interface, minus its shadow price times the
-    bus's shift factor on it, attacked less benign. Zero under the least-movement dispatch, which reports no prices."""
+    bus's shift factor on it, attacked less benign (each run's `price`, which around the AC point also weighs the
+    energy price by the bus's delivery factor). Zero under the least-movement dispatch, which reports no prices."""
     a, b = r.attacked, r.benign
+    if a.price is not None and b.price is not None:
+        return np.nan_to_num(a.price - b.price) * _bus_load(day) * FRAME_HOURS
     if a.congestion is None or b.congestion is None or a.energy is None or b.energy is None:
         return np.zeros((len(day.time), len(day.case.bus_id)))
     ptdf = shift_factors(day.case)

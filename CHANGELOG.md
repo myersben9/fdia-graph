@@ -5,6 +5,17 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **A least-cost dispatch that keeps the AC operating points (New York grid).** `DcSced(objective="cost_lf")` and
+  `OperatorPolicy(dispatch="cost_lf")` (`--dispatch cost_lf` on every study tool) run the market dispatch around the
+  AC operating point, as an RTO's incremental dispatch is: each unit's cost counts per MW delivered to the reference
+  bus (`loss_factors`, the power flow Jacobian's delivery factors at the frame's true AC state), the balance is
+  written on the delivered change, the first scan ramps from the basepoint, offline quick-start units start only
+  when the committed units leave a constraint unmet, and the AC point's implied values (`DcSced.implied`: the least
+  bus and unit adders that make the AC point this model's least-cost dispatch) carry what the AC dispatch priced
+  and the DC model does not see. The plain least-cost dispatch moves its benign twin 1.2 to 4.1 GW off the AC
+  points on at-limit days; this one keeps it there. Each run now reports every bus's price (`Twin.price`,
+  `DcSced.prices`), and `area_damage`'s payments use it. The `movement` and `cost` dispatches are unchanged.
+
 - **Shunt compensation and reactive limits as a sensitivity (New York grid).** `AcSolver(case, compensation=...)` takes a `Compensation`: switched shunt banks the dispatch sets frame by frame, a generator voltage schedule held by a penalty, an operating voltage band and unit reactive limits (`unit_q_limits`, power factor 0.85 lagging and 0.95 leading on Pmax where NYgrid left plus or minus 9999 MVAr). `PoolBuilder` applies its limits and records each bank's output (`shunt_q`), which enters the power flow and the pool's injections. Without a `Compensation` the model, the pool and every released file are unchanged.
 
 - **Overruns counted against the benign twin (New York grid).** `summarize`'s `over_scans`, `over_run_scans`,
