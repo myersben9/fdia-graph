@@ -5,6 +5,12 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The AC operator solves its relief only where an interface binds (New York grid).** `AcSced.step` solves the
+  dispatch without interface limits (for `relief_usd`) only when an interface row binds, the only case where it can
+  differ, with the commitment the dispatch used (it allowed every quick-start unit, so a congestion-free scan could
+  show relief) and without moving the next scan's starting point. A scan that moves without congestion takes one
+  solve, not two; `relief_usd` under the AC operator changes, the other numbers do not.
+
 - **The AC operator holds the units' voltage schedule (New York grid).** `AcSced` now holds each unit bus's voltage
   near the AC point's (`V_WEIGHT`, the `OperatorOpf` voltage term), as the true grid's power flow holds it. Its voltages
   were free, so under least movement its model flows could part from the true grid's and the closed loop read that
