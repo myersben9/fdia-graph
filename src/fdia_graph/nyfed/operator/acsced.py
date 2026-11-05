@@ -52,7 +52,8 @@ SCALE = 1e-3  # the objective's scale for Ipopt
 # their reactive range binds; without it the least-movement dispatch's voltages are free, and its model flows part
 # from the true grid's by what the voltages carry
 V_WEIGHT = 1e7
-BOUND_TOL = 1e-4  # MW the pool's bounds widen by, so its own point stays inside past the solver's rounding
+BOUND_TOL = 1e-4
+BINDING = 1e-6  # an interface row's dual (objective units per MW) or excess (MW) above which it binds  # MW the pool's bounds widen by, so its own point stays inside past the solver's rounding
 
 
 def _jacobian(case: Case, net: Network, vm: np.ndarray, va: np.ndarray):
@@ -349,7 +350,11 @@ class AcSced:
         dev = sol.unit_p - self.unit_p[t]
         dev[np.abs(dev) < 1e-7] = 0.0
         relief = 0.0
-        if np.abs(dev).sum() > 1e-6 and on.any():
+        # the dispatch without interface limits differs only where an interface row binds: elsewhere it is this one
+        binding = bool(
+            (np.abs(np.nan_to_num(sol.congestion)) > BINDING).any() or np.nansum(sol.over) > BINDING
+        )
+        if np.abs(dev).sum() > 1e-6 and on.any() and binding:
             free = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, False, True)
             if free is not None:
                 relief = float(self.cost[t] @ (sol.unit_p - free.unit_p)) * FRAME_HOURS
