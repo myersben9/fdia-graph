@@ -1942,7 +1942,7 @@ copies them as they are.</p>
 <td><code>TimelineBuilder</code></td>
 <td><code>timeline/builder.py</code></td>
 <td>built as <code>TimelineBuilder(pool, meas, noise, attacker, families, own, settings, *, length=16 or {family: frames} (Am, At 16, Ap 96, N23), attacked_frac=0.2, split_frac=(0.7, 0.15, 0.15), split_by="week" (N41) or "time", workers=1, block=2016, verbose=False, survey=0, survey_cache=None)</code>: the pool, the <code>Measurement</code>, the <code>NoiseModel</code>, the <code>Attacker</code>, the families by name (<code>{"Am": MsFdia, "Ap": MsFdia(step_bound=...), "At": Ramp}</code>), the <code>Ownership</code> and <code>Settings</code> (whose seed keys every draw: <code>place</code>, <code>noise</code>, and <code>design/{family}/{onset}</code> per episode, so the result does not depend on <code>workers</code>)</td>
-<td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or <code>split_frames</code> with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code>, over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
+<td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or <code>split_frames</code> with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None, using=None, lag=0) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code> (at <code>onset - lag</code> with a lag, its vector added to the true scans), over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
 </tr>
 <tr>
 <td><code>DcSced</code></td>
@@ -2133,10 +2133,10 @@ copies them as they are.</p>
 <td><code>[N]</code> each bus's units' ramp over <code>minutes</code> (MW) summed at the bus: NYgrid's ramp, nuclear 0, hydro 10% of nameplate per minute, imports 300 MW per 15 minutes per unit (N34), inf at a bus with no unit</td>
 </tr>
 <tr>
-<td><code>generator_band(case)</code></td>
+<td><code>generator_band(case, share=BASEPOINT_BAND)</code></td>
 <td><code>attacks/attacker.py</code></td>
 <td><code>Case</code></td>
-<td><code>[N]</code> 3% of each bus's units' upper limit (MW), the basepoint band (N33)</td>
+<td><code>[N]</code> <code>share</code> (3%) of each bus's units' upper limit (MW), the basepoint band (N33)</td>
 </tr>
 <tr>
 <td><code>generator_q_capability(case)</code></td>
@@ -2151,10 +2151,10 @@ copies them as they are.</p>
 <td><code>root/data</code>: NYgrid's <code>Data/</code> at commit 47698b6, NYISO's pal archives for the year, the NYS DPS territories and the packaged <code>grid/ny_bus_locations.csv</code>, each kept when already there (the load model fetches its own sources on the first pool build)</td>
 </tr>
 <tr>
-<td><code>production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None, hold_external=False, v_margin=0.0, gen_v_tol=None)</code></td>
+<td><code>production_builder(pool_path, families=("Am", "At"), *, interfaces=("SPR/DUN-SOUTH",), workers=12, settings=Settings(), root=".", survey=12, survey_cache=None, hold_external=False, v_margin=0.0, gen_v_tol=None, load_cap=None, band=BASEPOINT_BAND)</code></td>
 <td><code>build.py</code></td>
 <td>the pool and <code>fetch_inputs</code>'s folder</td>
-<td>the release <code>TimelineBuilder</code>: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked. The attacker's sensitivities are arguments: <code>hold_external</code> (N62), <code>v_margin</code> widens the voltage limits on the attacker's own copy of the case (N71), <code>gen_v_tol</code> holds generator voltages near their schedule (N75)</td>
+<td>the release <code>TimelineBuilder</code>: peak ratings (N8), Am from the OPF attacker against the interfaces (N48, N49) or the ratings, Ap bounded by natural steps, At, every realism bound (N27 to N37, N42), 32-scan Am and 16-scan At windows, 20% attacked. The attacker's sensitivities are arguments: <code>hold_external</code> (N62), <code>v_margin</code> widens the voltage limits on the attacker's own copy of the case (N71), <code>gen_v_tol</code> holds generator voltages near their schedule (N75), <code>load_cap</code> replaces the OPF families' load cap (None keeps 0.1, N28), <code>band</code> the basepoint band's share (0.03, N33)</td>
 </tr>
 <tr>
 <td><code>wrap_angles(d, kind)</code></td>
@@ -2181,10 +2181,10 @@ copies them as they are.</p>
 <td>a copy with every bus's voltage limits widened (N71); the original unchanged</td>
 </tr>
 <tr>
-<td><code>TimelineBuilder.build_episode(path, onset, family, lo, hi, using=None)</code></td>
+<td><code>TimelineBuilder.build_episode(path, onset, family, lo, hi, using=None, lag=0)</code></td>
 <td><code>timeline/builder.py</code></td>
 <td>one onset</td>
-<td>one episode alone over frames lo..hi; <code>using</code> designs it with a family variant (such as <code>with_overshoot</code>) in place of the builder's own</td>
+<td>one episode alone over frames lo..hi; <code>using</code> designs it with a family variant (such as <code>with_overshoot</code>) in place of the builder's own; <code>lag</code> (frames) designs it on the window <code>lag</code> frames earlier, the attacker's persistence forecast, and adds its vector to the true scans from <code>onset</code></td>
 </tr>
 <tr>
 <td><code>shortage_usd(mw)</code></td>
