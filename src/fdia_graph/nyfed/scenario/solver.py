@@ -454,15 +454,17 @@ class OperatorOpf:
 
         m.p_balance = pe.Constraint(
             m.B,
-            rule=lambda _, i: sum(m.pg[k] for k in units[i]) + m.shed[i] / base + slack(i) - m.load_p[i]
-            == injection(i, "p"),
+            rule=lambda _, i: (
+                sum(m.pg[k] for k in units[i]) + m.shed[i] / base + slack(i) - m.load_p[i]
+                == injection(i, "p")
+            ),
         )
         m.q_balance = pe.Constraint(
             m.B,
-            rule=lambda _, i: (m.qb[i] if i in self.unit_buses else 0.0)
-            + m.shed[i] * m.qratio[i] / base
-            - m.load_q[i]
-            == injection(i, "q"),
+            rule=lambda _, i: (
+                (m.qb[i] if i in self.unit_buses else 0.0) + m.shed[i] * m.qratio[i] / base - m.load_q[i]
+                == injection(i, "q")
+            ),
         )
 
         def branch_p(l):  # from-end active flow of branch l (p.u.)
@@ -476,9 +478,11 @@ class OperatorOpf:
         ]
         m.iface = pe.Constraint(
             m.I,
-            rule=lambda _, k: (self._flow[k] + m.corr[k] - sum(m.over[k, j] for j in m.K) <= m.lim[k])
-            if k_if
-            else pe.Constraint.Skip,
+            rule=lambda _, k: (
+                (self._flow[k] + m.corr[k] - sum(m.over[k, j] for j in m.K) <= m.lim[k])
+                if k_if
+                else pe.Constraint.Skip
+            ),
         )
         m.link = pe.Constraint(m.G, rule=lambda _, k: m.pg[k] * base - m.p0[k] - m.up[k] + m.down[k] == 0)
         m.objective = pe.Objective(
