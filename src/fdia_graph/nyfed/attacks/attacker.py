@@ -93,11 +93,11 @@ def generator_ramps(case: Case, minutes: float = 5.0) -> np.ndarray:
     return _per_bus(case, np.where(np.isnan(ramp), np.inf, ramp))
 
 
-def generator_band(case: Case) -> np.ndarray:
-    """[N] MW: the largest pretended deviation of a generator bus's output from its basepoint (N33), 3
-    percent of its units' upper operating limit, NYISO's tolerance for a unit's output against its
-    real-time dispatch basepoint; inf at a bus with no unit."""
-    return _per_bus(case, BASEPOINT_BAND * np.asarray(case.pmax, float))
+def generator_band(case: Case, share: float = BASEPOINT_BAND) -> np.ndarray:
+    """[N] MW: the largest pretended deviation of a generator bus's output from its basepoint (N33), `share` of
+    its units' upper operating limit, 3 percent by default, NYISO's tolerance for a unit's output against its
+    real-time dispatch basepoint; inf at a bus with no unit. Another `share` is a sensitivity of the band."""
+    return _per_bus(case, share * np.asarray(case.pmax, float))
 
 
 def generator_q_capability(case: Case) -> tuple[np.ndarray, np.ndarray]:

@@ -4,11 +4,19 @@ limit as every bound allows), over onsets drawn at random among the near-limit h
 
     python tools/nyfed/damage_study.py OUT_DIR --pool out/pool_2019_v3.h5 [--onsets 60] [--workers 8]
                                        [--voll 0] [--interface SPR/DUN-SOUTH] [--dispatch cost]
+                                       [--load-cap 0.1] [--band 0.03] [--lag 0] [--onset-list ONSETS.json]
 
 Run from the folder whose `data/` holds the inputs. Each onset's two attacks are written as single-episode
 day files under OUT_DIR/days (resumable: a day already written is reused), the operator runs on each, and
 OUT_DIR/damage.csv gets one row per onset and variant (`summarize`, plus the overshoot and the meters). A folder
 holds one operator dispatch, so `--dispatch cost` results go in a folder of their own.
+
+The attacker's sensitivities: `--load-cap` its cap on a pretended load change (0.1, N28), `--band` the basepoint band
+as a share of the upper limit (0.03, N33), and `--lag` (frames) the age of what it knows: the attack is designed on
+the window `lag` frames before the onset (states, hours and headroom, a persistence forecast) and added to the true
+scans (`TimelineBuilder.build_episode(lag=...)`). `--onset-list` (a JSON list of pool frames) designs those onsets
+in place of the random draw, so a sensitivity runs on the same onsets as the study it is compared with. A folder
+holds one attacker form, so each setting goes in a folder of its own.
 """
 
 from __future__ import annotations
@@ -28,6 +36,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
+from fdia_graph.nyfed.attacks.attacker import BASEPOINT_BAND
 from fdia_graph.nyfed.build import production_builder
 from fdia_graph.nyfed.config import Settings, rng
 from fdia_graph.nyfed.experiments import DATA, add_dispatch_argument, load_calib
@@ -39,7 +48,13 @@ _B = None  # each worker's builder
 
 
 def _init(
-    pool: str, interface: str, consistent: bool = False, v_margin: float = 0.0, gen_v_tol: float | None = None
+    pool: str,
+    interface: str,
+    consistent: bool = False,
+    v_margin: float = 0.0,
+    gen_v_tol: float | None = None,
+    load_cap: float | None = None,
+    band: float = BASEPOINT_BAND,
 ) -> None:
     global _B
     _B = production_builder(
@@ -51,10 +66,12 @@ def _init(
         hold_external=consistent,
         v_margin=v_margin,  # N71: the attacker's voltage limits widened
         gen_v_tol=gen_v_tol,  # N75: generator voltages held near their schedule
+        load_cap=load_cap,
+        band=band,
     )
 
 
-def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | None:
+def _day_file(out: Path, onset: int, overshoot: float, lag: int = 0) -> tuple[Path, dict] | None:
     """The single-episode day of `onset` with the attack at `overshoot` (MW past the limit), written once."""
     b = _B
     assert b is not None
@@ -68,7 +85,9 @@ def _day_file(out: Path, onset: int, overshoot: float) -> tuple[Path, dict] | No
         with h5py.File(path, "r") as h:
             return path, {"meters_tampered": int(h["labels/meter_tampered"][:].any(axis=0).sum())}
     try:
-        return path, b.build_episode(path, onset, "Am", lo, lo + DAY, using=fam.with_overshoot(overshoot))
+        return path, b.build_episode(
+            path, onset, "Am", lo, lo + DAY, using=fam.with_overshoot(overshoot), lag=lag
+        )
     except ValueError:  # no attack at this overshoot, or the window touches an unsolved frame
         return None
 
@@ -83,26 +102,29 @@ def _job(
     calib: tuple | None,
     closed_loop: bool = False,
     dispatch: str = "movement",
+    lag: int = 0,
 ) -> list[dict]:
     b = _B
     assert b is not None
     days = Path(out) / "days"
     days.mkdir(parents=True, exist_ok=True)
     L = b.episode_lengths()["Am"]
-    w = slice(onset, onset + L)
+    w = slice(onset - lag, onset - lag + L)  # the window the attacker knows: the true one without a lag
+    if onset < lag or not (b.pool.solve_kind[w] == SOLVED).all():
+        return []  # the attacker knows no solved window to design on
     cached = days / f"overshoot_{onset}.json"  # the search is the slow part, so a rerun reuses it
     if cached.exists():
         overshoot, design_s = json.loads(cached.read_text())
     else:
         t0 = time.perf_counter()
         _, overshoot = b.families["Am"].max_overshoot(
-            (onset, b.pool.vm[w], b.pool.va[w]), rng(Settings(), f"Am{onset}")
+            (onset - lag, b.pool.vm[w], b.pool.va[w]), rng(Settings(), f"Am{onset}")
         )
         design_s = time.perf_counter() - t0
         cached.write_text(json.dumps([overshoot, design_s]))
     rows = []
     for variant, mw in (("at_limit", 0.0), ("damaging", overshoot)):
-        made = _day_file(days, onset, mw)
+        made = _day_file(days, onset, mw, lag)
         if made is None:
             continue
         path, info = made
@@ -160,6 +182,21 @@ def main() -> None:
         default=None,
         help="p.u. a generator bus's false voltage may leave its schedule (N75)",
     )
+    ap.add_argument(
+        "--load-cap", type=float, default=None, help="the cap on a pretended load change (0.1, N28)"
+    )
+    ap.add_argument(
+        "--band",
+        type=float,
+        default=BASEPOINT_BAND,
+        help="the basepoint band's share of the upper limit (N33)",
+    )
+    ap.add_argument(
+        "--lag", type=int, default=0, help="frames: the attacker designs on the window this much earlier"
+    )
+    ap.add_argument(
+        "--onset-list", default=None, help="a JSON list of the onsets to design, in place of the draw"
+    )
     add_dispatch_argument(ap)
     args = ap.parse_args()
     out = Path(args.out)
@@ -171,13 +208,25 @@ def main() -> None:
         **({"v_margin": args.v_margin} if args.v_margin else {}),
         **({"gen_v_tol": args.gen_v_tol} if args.gen_v_tol is not None else {}),
         **({"dispatch": args.dispatch} if args.dispatch != "movement" else {}),
+        **({"load_cap": args.load_cap} if args.load_cap is not None else {}),
+        **({"band": args.band} if args.band != BASEPOINT_BAND else {}),
+        **({"lag": args.lag} if args.lag else {}),
     }
     if marker.exists() and json.loads(marker.read_text()) != form:
         raise SystemExit(
             f"{out} holds another attacker form's designs or another dispatch; use another folder"
         )
     marker.write_text(json.dumps(form))
-    _init(args.pool, args.interface, args.consistent, args.v_margin, args.gen_v_tol)
+    init = (
+        args.pool,
+        args.interface,
+        args.consistent,
+        args.v_margin,
+        args.gen_v_tol,
+        args.load_cap,
+        args.band,
+    )
+    _init(*init)
     b = _B
     assert b is not None
     fam = b.families["Am"]
@@ -185,13 +234,18 @@ def main() -> None:
     mask = fam.onset_mask(b.pool.vm, b.pool.va, L)
     ok = np.flatnonzero(mask)
     ok = ok[[bool((b.pool.solve_kind[o : o + L] == SOLVED).all()) for o in ok]]
-    pick = np.sort(rng(Settings(), args.seed_key).choice(ok, size=min(args.onsets, len(ok)), replace=False))
-    print(f"{len(ok)} near-limit onsets with solved windows, {len(pick)} drawn", flush=True)
+    if args.onset_list:
+        pick = np.sort(np.asarray(json.loads(Path(args.onset_list).read_text()), int))
+        print(f"{len(pick)} onsets from {args.onset_list}", flush=True)
+    else:
+        pick = np.sort(
+            rng(Settings(), args.seed_key).choice(ok, size=min(args.onsets, len(ok)), replace=False)
+        )
+        print(f"{len(ok)} near-limit onsets with solved windows, {len(pick)} drawn", flush=True)
     done = out / "damage.csv"
     rows = [] if args.rerun or not done.exists() else pd.read_csv(done).to_dict("records")
     todo = [int(o) for o in pick if int(o) not in {r["onset"] for r in rows}]
     t0 = time.perf_counter()
-    init = (args.pool, args.interface, args.consistent, args.v_margin, args.gen_v_tol)
     with ProcessPoolExecutor(args.workers, initializer=_init, initargs=init) as ex:
         calib = load_calib(args.calib) if args.calib else None
         futs = [
@@ -206,6 +260,7 @@ def main() -> None:
                 calib,
                 args.closed_loop,
                 args.dispatch,
+                args.lag,
             )
             for o in todo
         ]

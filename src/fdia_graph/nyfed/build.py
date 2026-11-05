@@ -14,7 +14,14 @@ import numpy as np
 
 from fdia_graph.errors import DataConditionError
 
-from .attacks.attacker import Attacker, generator_band, generator_q_capability, generator_ramps, natural_steps
+from .attacks.attacker import (
+    BASEPOINT_BAND,
+    Attacker,
+    generator_band,
+    generator_q_capability,
+    generator_ramps,
+    natural_steps,
+)
 from .attacks.interface_attack import InterfaceFdia
 from .attacks.msfdia import NEAR_LIMIT
 from .attacks.opf_attack import OpfFdia
@@ -101,15 +108,19 @@ def production_builder(
     hold_external: bool = False,
     v_margin: float = 0.0,
     gen_v_tol: float | None = None,
+    load_cap: float | None = None,
+    band: float = BASEPOINT_BAND,
 ) -> TimelineBuilder:
     """The `TimelineBuilder` of the release: the case, clients, meters and the pool at `pool_path`
     (relative to `root`, whose `data/` holds `fetch_inputs`'s files), with the `families` named. Am targets
     the NYISO `interfaces` (N48, N49; empty targets the branch ratings instead), Ap is bounded by each bus's
     natural five-minute step, and both come from the OPF attacker with the units' output (N42). `survey`
-    is the onset survey's grid in frames (0 off), saved by chunk under `survey_cache` when given. Two
+    is the onset survey's grid in frames (0 off), saved by chunk under `survey_cache` when given. The
     sensitivities of the attacker: `v_margin` (p.u.) widens the voltage limits it must respect (N71, its own copy
-    of the case; the timeline keeps the true limits), and `gen_v_tol` (p.u.) holds each generator bus's false
-    voltage that close to its schedule (N75, the OPF attacks)."""
+    of the case; the timeline keeps the true limits), `gen_v_tol` (p.u.) holds each generator bus's false
+    voltage that close to its schedule (N75, the OPF attacks), `load_cap` replaces the OPF attacks' cap on a
+    pretended load change (None keeps 0.1, N28) and `band` the share of the upper limit in the basepoint band
+    (`generator_band`, 0.03, N33)."""
     root = Path(root)
     nygrid = root / settings.nygrid_dir / "Data"
     terr = root / "data" / "territories"
@@ -135,7 +146,7 @@ def production_builder(
     np.add.at(gen_output.T, case.unit_bus, np.nan_to_num(pool.unit_p).T)
     opf: dict[str, Any] = dict(
         gen_ramp=generator_ramps(case),
-        gen_band=generator_band(case),
+        gen_band=generator_band(case, band),
         q_lo=q_lo,
         q_hi=q_hi,
         step_bound=steps,
@@ -145,6 +156,8 @@ def production_builder(
         loads_only=False,
         gen_v_tol=gen_v_tol,
     )
+    if load_cap is not None:  # otherwise the families keep their own cap (N28)
+        opf["load_cap"] = load_cap
 
     def am():
         if interfaces:
