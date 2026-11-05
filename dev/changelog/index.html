@@ -1645,6 +1645,14 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>The AC operator holds the units' voltage schedule (New York grid).</strong> <code>AcSced</code> now holds each unit bus's voltage
+  near the AC point's (<code>V_WEIGHT</code>, the <code>OperatorOpf</code> voltage term), as the true grid's power flow holds it. Its voltages
+  were free, so under least movement its model flows could part from the true grid's and the closed loop read that
+  gap as a flow to relieve: one benign day of 24 moved a median of 224 MW. With it the benign twin holds on all 24
+  (<code>ac</code> and <code>ac_cost</code>) and the least-cost results change by at most 1 MW of transfer on the three days rechecked;
+  least-movement results from the earlier code change and are rerun.</p>
+</li>
+<li>
 <p><strong>An AC operator (New York grid).</strong> <code>OperatorPolicy(dispatch="ac")</code> and <code>dispatch="ac_cost"</code> (<code>--dispatch ac</code> or
   <code>ac_cost</code> on every study tool) run the operator's dispatch as an AC optimal power flow each scan (<code>AcSced</code>, Pyomo and
   Ipopt, <code>OperatorOpf</code>): the loads it reads (the true loads plus what the attack changed in its New York injection
