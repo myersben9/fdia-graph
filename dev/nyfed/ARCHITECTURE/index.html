@@ -1743,7 +1743,7 @@ its stage does.</p>
 <a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    fleets.py          FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
 <a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  operator/
 <a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    __init__.py        what the stage does, and its public names
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    sced.py            DcSced, Step, shift_factors, outage_factors, shortage_usd (N59, N60; least-movement or least-cost dispatch, the latter with congestion and energy prices)
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    sced.py            DcSced, Step, shift_factors, outage_factors, loss_factors, shortage_usd (N59, N60; least-movement or least-cost dispatch, the latter with congestion and energy prices, or least-cost around the AC point with loss factors and the AC point's implied values)
 <a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    day.py             OperatorDay, operator_day, INTERFACES, node_lbmp (an attacked day as the operator meets it, NYISO's hourly prices)
 <a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    ties.py            tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
 <a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    truegrid.py        TrueGrid (state, run_state, change: AC power flows on the true grid)
@@ -1952,8 +1952,8 @@ copies them as they are.</p>
 <tr>
 <td><code>DcSced</code></td>
 <td><code>operator/sced.py</code></td>
-<td>built as <code>DcSced(case, unit_p [T, G], cost [T, G], interfaces)</code>: the pool basepoint, the units' costs, the interfaces it enforces</td>
-<td><code>step(t, seen [I], limit [I], load_change, prev) -&gt; Step</code>: the scan's dispatch, least movement then least cost (N53), free units only (not nuclear, hydro or imports), within limits and five-minute ramps from <code>prev</code>, the unrelieved interface flow and unmatched load as slacks</td>
+<td>built as <code>DcSced(case, unit_p [T, G], cost [T, G], interfaces, bus_load=None, quick_start=None, objective="movement", state=None)</code>: the pool basepoint, the units' costs, the interfaces it enforces; <code>objective</code> "movement", "cost" or "cost_lf" (the market dispatch around the AC point, which needs <code>state</code> = the frames' true (vm, va) for its delivery factors <code>beta [T, N]</code>)</td>
+<td><code>step(t, seen [I], limit [I], load_change, prev) -&gt; Step</code>: the scan's dispatch, least movement then least cost (N53), free units only (not nuclear, hydro or imports), within limits and five-minute ramps from <code>prev</code>, the unrelieved interface flow and unmatched load as slacks; <code>implied(t)</code> (the AC point's implied unit and bus adders, $/MWh, under "cost_lf"), <code>prices(t, energy, congestion) -&gt; [N]</code> (bus prices of a least-cost step), <code>delivered(t, dev, shed)</code> (MW at the reference bus)</td>
 </tr>
 <tr>
 <td><code>Step</code></td>
@@ -1970,7 +1970,7 @@ copies them as they are.</p>
 <tr>
 <td><code>Twin</code>, <code>Response</code></td>
 <td><code>operator/response.py</code></td>
-<td>the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan</td>
+<td>the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan, and under a least-cost dispatch the congestion and energy prices and each bus's price <code>price [T, N]</code></td>
 <td></td>
 </tr>
 <tr>
