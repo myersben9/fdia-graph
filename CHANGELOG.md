@@ -5,6 +5,8 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Shunt compensation and reactive limits as a sensitivity (New York grid).** `AcSolver(case, compensation=...)` takes a `Compensation`: switched shunt banks the dispatch sets frame by frame, a generator voltage schedule held by a penalty, an operating voltage band and unit reactive limits (`unit_q_limits`, power factor 0.85 lagging and 0.95 leading on Pmax where NYgrid left plus or minus 9999 MVAr). `PoolBuilder` applies its limits and records each bank's output (`shunt_q`), which enters the power flow and the pool's injections. Without a `Compensation` the model, the pool and every released file are unchanged.
+
 - **Overruns counted against the benign twin (New York grid).** `summarize`'s `over_scans`, `over_run_scans`,
   `over_mwh` and `over_iface` now count only the scans on which the attacked run is further over a true interface
   limit than its benign twin, and that excess energy. The least-cost dispatch holds a binding interface at its

@@ -72,8 +72,10 @@ class PoolBuilder:
     (GEN_STATUS 1 for all units), so a unit held at zero output still supplies reactive power; without that
     the evening peaks of March and August were infeasible at the 0.9 p.u. voltage floor (535 frames).
     Unit reactive output stays within `q_cap [G]`
-    (MVAr, plus or minus); a frame whose OPF is infeasible under it is solved again with the case's unit
-    limits, and counted in `q_fallback`."""
+    (MVAr, plus or minus), or within the limits of the solver's `Compensation` when it has one; a frame whose OPF
+    is infeasible under them is solved again with the case's unit limits, and counted in `q_fallback`. Under a
+    `Compensation` the banks' output (`shunt_q`, per frame) enters the power flow as a reactive injection at its
+    bus, so the pool's injections `q` include it."""
 
     def __init__(
         self,
@@ -94,6 +96,7 @@ class PoolBuilder:
         self.cost = np.full(T, np.nan)  # $/h of the frame's dispatch
         self.ramp_bound = np.full(T, np.nan)  # share of the free ramp-limited units held at a ramp limit
         self.q_fallback = np.zeros(T, bool)  # solved only with the case's reactive limits
+        self.shunt_q = np.full((T, len(solver.case.bus_id)), np.nan)  # MVAr each bank injects (Compensation)
         fuel = solver.case.fuel
         self._held = np.isin(fuel, ("Nuclear", "Hydro", "Import"))  # follow NYgrid's hourly output (N39)
         self._fixed = fuel == "Nuclear"  # exactly
@@ -166,6 +169,10 @@ class PoolBuilder:
                 f"frame {int(lo[0])}: the span's first hour has no AC point to start from"
             )
         q_lo, q_hi = (case.qmin, case.qmax) if self.q_cap is None else (-self.q_cap, self.q_cap)
+        comp = s.compensation
+        if comp is not None:  # the sensitivity's unit reactive limits
+            q_lo, q_hi = comp.q_lo, comp.q_hi
+        capped = self.q_cap is not None or comp is not None
         for f in range(T):
             pd_f = self.loads.p[f] - ((1 - w[f]) * self.renew[lo[f]] + w[f] * self.renew[hi[f]])
             if np.isnan(pd_f).any() or np.isnan(self.loads.q[f]).any():
@@ -198,7 +205,7 @@ class PoolBuilder:
                 init=(prev, prev_q),
                 anchor=anchor,
             )
-            if r is None and self.q_cap is not None:
+            if r is None and capped:
                 self.q_fallback[f] = True
                 r = s.dispatch(
                     pd_f,
@@ -217,7 +224,7 @@ class PoolBuilder:
                 continue
             pf = s.power_flow(
                 pd_f,
-                self.loads.q[f],
+                self.loads.q[f] - r["shunt_q"],  # a bank's output as a reactive injection at its bus
                 r["unit_p"],
                 on,
                 r["vm"][case.unit_bus],
@@ -230,6 +237,7 @@ class PoolBuilder:
             vm[f], va[f] = pf["vm"], pf["va"]
             p[f], q[f] = s.network.injections(pf["vm"], pf["va"])
             unit_p[f] = r["unit_p"]
+            self.shunt_q[f] = r["shunt_q"]
             self.slack_mw[f] = float(s.net.res_ext_grid.p_mw.sum())
             self.cost[f] = r["cost"]
             self.anchor_dev[f] = float(np.abs(r["unit_p"] - sp)[anchored].sum())

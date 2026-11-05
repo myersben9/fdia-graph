@@ -22,7 +22,7 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     from .load_fit import fluctuation_fit, switching_fit
     from .loads import LoadModel, LoadSeries
     from .pool import FAILED, NO_HOUR, NO_LOAD, SOLVED, Pool, PoolBuilder, peak_ratings
-    from .solver import AcSolver
+    from .solver import AcSolver, Compensation, unit_q_limits
 
 # each public name and the module that defines it, imported on first use
 _PUBLIC = {
@@ -38,6 +38,8 @@ _PUBLIC = {
     "Dispatch": ".dispatch",
     "hourly_dispatch": ".dispatch",
     "AcSolver": ".solver",
+    "Compensation": ".solver",
+    "unit_q_limits": ".solver",
     "Pool": ".pool",
     "PoolBuilder": ".pool",
     "peak_ratings": ".pool",
@@ -51,6 +53,7 @@ __all__ = [
     "switching_fit",
     "fluctuation_fit",
     "AcSolver",
+    "Compensation",
     "Dispatch",
     "FAILED",
     "LoadModel",
@@ -67,5 +70,6 @@ __all__ = [
     "hourly_dispatch",
     "peak_ratings",
     "read_nygrid",
+    "unit_q_limits",
 ]
 __getattr__, __dir__ = attach(__name__, _PUBLIC)
