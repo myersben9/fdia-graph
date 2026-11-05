@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 import pandapower as pp
@@ -19,6 +20,55 @@ from fdia_graph.nyfed.solvers import ipopt
 _NO_LIMIT = 9999.0
 # A unit held at a value its last bounds miss by rounding makes Pyomo warn (W1002); the bounds are reset each solve.
 logging.getLogger("pyomo.core").setLevel(logging.ERROR)
+
+
+@dataclass(frozen=True)
+class Compensation:
+    """Reactive support for a sensitivity of the benign dispatch; the release solves without it. Switched shunt
+    banks: at each bus a range `shunt_lo`, `shunt_hi [N]` (MVAr at 1 p.u., capacitors positive, reactors negative,
+    both 0 where a bus has none) within which every frame's dispatch sets the bank, its output `b vm^2`. A generator
+    voltage schedule `v_schedule [N]` (p.u., NaN at a bus that does not regulate), which the dispatch holds by a
+    quadratic penalty of `v_weight` k$/h per p.u.^2, as a unit's voltage regulator holds its schedule until its
+    reactive limit binds. `shunt_cost` (k$/h per MVAr switched in) keeps a bank out unless the schedule or the
+    reactive limits need it, so banks are not switched in only to cut losses. Unit reactive limits `q_lo`, `q_hi
+    [G]` (MVAr, `unit_q_limits`) and the operating band `v_lo`, `v_hi [N]` (p.u., NaN keeps the case's limit) replace
+    the case's in the dispatch."""
+
+    shunt_lo: np.ndarray
+    shunt_hi: np.ndarray
+    v_schedule: np.ndarray
+    q_lo: np.ndarray
+    q_hi: np.ndarray
+    v_lo: np.ndarray
+    v_hi: np.ndarray
+    v_weight: float = 1.0e4
+    shunt_cost: float = 0.005
+
+    def band(self, case: Case) -> tuple[np.ndarray, np.ndarray]:
+        """`(lo, hi) [N]` p.u.: the voltage limits the dispatch holds, the case's where the band gives none."""
+        return np.where(np.isfinite(self.v_lo), self.v_lo, case.vmin), np.where(
+            np.isfinite(self.v_hi), self.v_hi, case.vmax
+        )
+
+    @property
+    def shunt_buses(self) -> np.ndarray:
+        """Positions of the buses with a bank."""
+        return np.flatnonzero((self.shunt_lo != 0) | (self.shunt_hi != 0))
+
+
+PLACEHOLDER_Q = 9999.0  # MVAr: NYgrid's reactive limits of a unit with no data (nygrid_units)
+
+
+def unit_q_limits(case: Case, lag_pf: float = 0.85, lead_pf: float = 0.95) -> tuple[np.ndarray, np.ndarray]:
+    """`(q_lo, q_hi) [G]` MVAr: each unit's reactive capability at power factor `lag_pf` lagging (producing) and
+    `lead_pf` leading (absorbing) at its Pmax, `Pmax tan(acos(pf))`, for the units whose case limits are NYgrid's
+    placeholder of plus or minus 9999 MVAr; a unit with real limits (the NPCC case's external units) keeps them.
+    The HQ import's Pmax is its 1500 MW import limit."""
+    pmax = np.abs(np.asarray(case.pmax, float))
+    loose = (np.abs(case.qmax) >= PLACEHOLDER_Q) | (np.abs(case.qmin) >= PLACEHOLDER_Q)
+    q_hi = np.where(loose, np.tan(np.arccos(lag_pf)) * pmax, case.qmax)
+    q_lo = np.where(loose, -np.tan(np.arccos(lead_pf)) * pmax, case.qmin)
+    return q_lo.astype(float), q_hi.astype(float)
 
 
 def _ppc(case: Case) -> dict:
@@ -43,12 +93,15 @@ def _ppc(case: Case) -> dict:
     return {"version": "2", "baseMVA": case.base_mva, "bus": bus, "branch": br, "gen": gen}
 
 
-def _opf_model(network: Network, ref: int) -> pe.ConcreteModel:
+def _opf_model(network: Network, ref: int, comp: Compensation | None = None) -> pe.ConcreteModel:
     """Polar AC-OPF of acproj.m in p.u. and radians: unit outputs `pg`, `qg` meet the loads at every bus
     through the AC power flow equations, at minimum sum of squared deviations from the setpoints `p0`
     (in MW). Loads, setpoints and limits are mutable, so one model serves every hour. A second objective,
     inactive until `AcSolver.dispatch` switches to it, is the linear generation cost `cost` ($/MWh) of the
-    units' output, scaled to thousands of dollars per hour."""
+    units' output, scaled to thousands of dollars per hour. With a `Compensation`, each bank is a capacitor part
+    `cap` and a reactor part `rea` (p.u. at 1 p.u. voltage) in its bus's reactive balance, and the cost objective
+    adds the voltage schedule's penalty and the banks' switching cost; the deviation objective is unchanged and
+    `AcSolver.project` holds the banks out."""
     case = network.case
     y = network.ybus.tocoo()
     n, g = len(case.bus_id), len(case.unit_bus)
@@ -83,19 +136,37 @@ def _opf_model(network: Network, ref: int) -> pe.ConcreteModel:
                 terms.append(m.vm[j] * (gij * pe.sin(d) - bij * pe.cos(d)))
         return m.vm[i] * sum(terms)
 
+    banks = [] if comp is None else comp.shunt_buses.tolist()
+    base = case.base_mva
+    cap_hi = {b: max(float(comp.shunt_hi[b]), 0.0) / base for b in banks} if comp is not None else {}
+    rea_hi = {b: max(-float(comp.shunt_lo[b]), 0.0) / base for b in banks} if comp is not None else {}
+    m.S = pe.Set(initialize=banks)
+    m.cap = pe.Var(m.S, bounds=lambda _, b: (0.0, cap_hi[b]), initialize=0.0)
+    m.rea = pe.Var(m.S, bounds=lambda _, b: (0.0, rea_hi[b]), initialize=0.0)
+
+    def bank(i):
+        return (m.cap[i] - m.rea[i]) * m.vm[i] ** 2 if i in cap_hi else 0.0
+
     m.p_balance = pe.Constraint(
         m.B, rule=lambda _, i: sum(m.pg[k] for k in units[i]) - m.load_p[i] == injection(i, "p")
     )
     m.q_balance = pe.Constraint(
-        m.B, rule=lambda _, i: sum(m.qg[k] for k in units[i]) - m.load_q[i] == injection(i, "q")
+        m.B, rule=lambda _, i: sum(m.qg[k] for k in units[i]) - m.load_q[i] + bank(i) == injection(i, "q")
     )
     m.deviation = pe.Objective(expr=sum((m.pg[k] * case.base_mva - m.p0[k]) ** 2 for k in m.G))
+    support = 0.0
+    if comp is not None:
+        regulated = np.flatnonzero(np.isfinite(comp.v_schedule)).tolist()
+        support = comp.v_weight * sum((m.vm[b] - float(comp.v_schedule[b])) ** 2 for b in regulated) + (
+            comp.shunt_cost * base * sum(m.cap[b] + m.rea[b] for b in banks)
+        )
     m.generation_cost = pe.Objective(
         expr=(
             sum(m.cost[k] * m.pg[k] for k in m.G) * case.base_mva
             + sum(m.anchor_w[k] * (m.pg[k] * case.base_mva - m.anchor[k]) ** 2 for k in m.G)
         )
         / 1000
+        + support
     )
     m.generation_cost.deactivate()
     return m
@@ -103,17 +174,19 @@ def _opf_model(network: Network, ref: int) -> pe.ConcreteModel:
 
 class AcSolver:
     """Solves one Case hour after hour. Holds its admittances, the AC-OPF model, a pandapower net for
-    power flows and the last solved state, which starts the next solve."""
+    power flows and the last solved state, which starts the next solve. `compensation` (None in the release) gives
+    the dispatch switched shunt banks and a generator voltage schedule (`Compensation`)."""
 
-    def __init__(self, case: Case):
+    def __init__(self, case: Case, compensation: Compensation | None = None):
         self.case = case
+        self.compensation = compensation
         self.network = Network(case)
         self.vm, self.va = case.vm.copy(), case.va.copy()
         self._ref = int(np.flatnonzero(case.bus_type == REF)[0])
         # the external units, which updateOpCond.m L360 bounds at 1.5 times their setpoint; the HQ import is
         # appended after that line with its own -1100 to 1500 MW (L367-377), so it keeps its case limits (N45)
         self._import = (case.fuel == "Import") & (case.bus_id[case.unit_bus] != HQ_BUS)
-        self._opf = _opf_model(self.network, self._ref)
+        self._opf = _opf_model(self.network, self._ref, compensation)
         self._ipopt = ipopt(tol=1e-8, max_iter=300)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -142,6 +215,11 @@ class AcSolver:
         unit_p, unit_q, or None when Ipopt does not reach an optimum."""
         c, m, base = self.case, self._opf, self.case.base_mva
         m.generation_cost.deactivate(), m.deviation.activate()
+        for b in m.S:  # the hourly AC point stays NYgrid's, without the sensitivity's banks or band
+            m.cap[b].fix(0.0), m.rea[b].fix(0.0)
+        if self.compensation is not None:
+            for i in m.B:
+                m.vm[i].setlb(c.vmin[i]), m.vm[i].setub(c.vmax[i])
         lo = np.minimum(c.pmin, unit_p)
         hi = np.maximum(c.pmax, unit_p)
         imp = self._import & (unit_p > 0)
@@ -197,14 +275,20 @@ class AcSolver:
         hour's projection far from the frame. `anchor [G]` (MW, NaN for none) holds a unit near a schedule
         by a quadratic penalty of `anchor_weight` $/MW^2h, so it leaves the schedule only as far as the AC
         solution needs (the min-deviation rule of acproj.m; at 1000 even a 400 $/MWh price gap moves a unit
-        0.2 MW). Returns vm, va (degrees), unit_p, unit_q and cost ($/h, generation cost only), or None when
-        Ipopt does not reach an optimum."""
+        0.2 MW). Returns vm, va (degrees), unit_p, unit_q, cost ($/h, generation cost only) and `shunt_q [N]`
+        (MVAr each bank injects, `b vm^2`, zero without a `Compensation`), or None when Ipopt does not reach an
+        optimum."""
         c, m, base = self.case, self._opf, self.case.base_mva
         m.deviation.deactivate(), m.generation_cost.activate()
+        for b in m.S:
+            m.cap[b].unfix(), m.rea[b].unfix()
+        v_lo, v_hi = (c.vmin, c.vmax) if self.compensation is None else self.compensation.band(c)
         load_p = self._net_load(pd, hvdc_p) / base
         for i in m.B:
             m.load_p[i], m.load_q[i] = load_p[i], qd[i] / base
-            m.vm[i].value = min(max(self.vm[i], c.vmin[i]), c.vmax[i])
+            if self.compensation is not None:
+                m.vm[i].setlb(v_lo[i]), m.vm[i].setub(v_hi[i])
+            m.vm[i].value = min(max(self.vm[i], v_lo[i]), v_hi[i])
             if i != self._ref:
                 m.va[i].value = np.deg2rad(self.va[i] - self.va[self._ref])
         p0 = None if init is None else np.asarray(init[0], float) / base
@@ -234,12 +318,16 @@ class AcSolver:
         self.vm = np.array([pe.value(m.vm[i]) for i in m.B])
         self.va = np.rad2deg([pe.value(m.va[i]) for i in m.B]) + c.va[self._ref]
         unit_p = np.array([pe.value(m.pg[k]) for k in m.G]) * base
+        shunt_q = np.zeros(len(self.vm))
+        for b in m.S:
+            shunt_q[b] = (pe.value(m.cap[b]) - pe.value(m.rea[b])) * base * self.vm[b] ** 2
         return {
             "vm": self.vm,
             "va": self.va,
             "unit_p": unit_p,
             "unit_q": np.array([pe.value(m.qg[k]) for k in m.G]) * base,
             "cost": float(cost @ unit_p),
+            "shunt_q": shunt_q,
         }
 
     def power_flow(

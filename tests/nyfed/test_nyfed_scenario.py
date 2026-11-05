@@ -170,6 +170,59 @@ def test_pool(case, hours, tmp_path):
     assert np.allclose(filled.rating[~public], peak[~public])
 
 
+def test_pool_compensation(case, hours):
+    """The shunt and reactive-limit sensitivity: units within 0.85 lagging and 0.95 leading power factor, New York's
+    generator buses regulated to 1.035 p.u., New York held in 0.95 to 1.05 p.u. by switched banks. The release's
+    solver has no bank at all."""
+    from fdia_graph.nyfed.scenario.loads import LoadSeries
+    from fdia_graph.nyfed.scenario.pool import SOLVED, PoolBuilder
+    from fdia_graph.nyfed.scenario.solver import AcSolver, Compensation, unit_q_limits
+
+    q_lo, q_hi = unit_q_limits(case)
+    loose = np.abs(case.qmax) >= 9999
+    assert loose.any() and (~loose).any()
+    assert np.allclose(q_hi[loose], np.tan(np.arccos(0.85)) * np.abs(case.pmax[loose]))
+    assert np.allclose(q_lo[loose], -np.tan(np.arccos(0.95)) * np.abs(case.pmax[loose]))
+    assert np.array_equal(q_hi[~loose], case.qmax[~loose]) and np.array_equal(q_lo[~loose], case.qmin[~loose])
+
+    n = len(case.bus_id)
+    ny = case.is_ny
+    gen = np.zeros(n, bool)
+    gen[case.unit_bus] = True
+    comp = Compensation(
+        shunt_lo=np.where(ny, -3000.0, 0.0),
+        shunt_hi=np.where(ny, 3000.0, 0.0),
+        v_schedule=np.where(ny & gen, 1.035, np.nan),
+        q_lo=q_lo,
+        q_hi=q_hi,
+        v_lo=np.where(ny, 0.95, np.nan),
+        v_hi=np.where(ny, 1.05, np.nan),
+    )
+    assert len(AcSolver(case)._opf.S) == 0  # the release's model
+    d = hourly_dispatch(case, hours[:2])
+    renew = np.array([h.renew_mw for h in hours[:2]])
+    half = np.timedelta64(30, "m")
+    time = np.array([d.hour[0] + half, d.hour[0] + 2 * half, d.hour[1] + half])
+    gross = d.pd + renew
+    p = np.stack([gross[0], 0.5 * (gross[0] + gross[1]), gross[1]])
+    q = np.stack([d.qd[0], 0.5 * (d.qd[0] + d.qd[1]), d.qd[1]])
+    ramp = np.where(case.fuel == "Nuclear", 0.0, np.nan_to_num(case.ramp, nan=np.inf)) * 5
+    solver = AcSolver(case, comp)
+    b = PoolBuilder(solver, LoadSeries(time=time, p=p, q=q), d, renew, ramp)
+    pool = b.build()
+    print(b.report(), np.round(b.shunt_q[:, np.abs(b.shunt_q).max(axis=0) > 1], 1))
+    assert (pool.solve_kind == SOLVED).all() and not b.q_fallback.any()
+    vm = pool.vm[:, ny]
+    assert vm.min() >= 0.95 - 1e-4 and vm.max() <= 1.05 + 1e-4  # the band, where the release sits at 1.10
+    sched = pool.vm[:, ny & gen]
+    assert np.median(np.abs(sched - 1.035)) < 5e-3
+    assert (b.shunt_q[:, ~ny] == 0).all() and np.abs(b.shunt_q).max() < 3000.0
+    # the power flow at the dispatch's basepoints, the banks as injections, leaves the reference bus a residual
+    assert np.abs(b.slack_mw).max() < 1e-3
+    pi, qi = solver.network.injections(pool.vm, pool.va)
+    assert np.allclose(pool.p, pi) and np.allclose(pool.q, qi)
+
+
 LOADS = ROOT / "data" / "loads"
 
 
