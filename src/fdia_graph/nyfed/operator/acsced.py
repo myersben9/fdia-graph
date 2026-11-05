@@ -340,11 +340,13 @@ class AcSced:
             self._last = None
             return self._basepoint(t)
         self.solved_at.add(t)
-        sol = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, True, self.objective == "movement")
+        commit = self.objective == "movement"
+        sol = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, True, commit)
         if self.objective == "cost" and sol is not None:
             short = float(np.nansum(sol.over)) + float(sol.shed.sum()) + abs(sol.unmatched)
             if short > NEEDED_MW:  # the committed units leave a constraint unmet: start the quick-start units
-                sol = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, True, True)
+                commit = True
+                sol = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, True, commit)
         if sol is None:
             raise RuntimeError(f"scan {t}: the AC dispatch found no optimum")
         dev = sol.unit_p - self.unit_p[t]
@@ -355,7 +357,10 @@ class AcSced:
             (np.abs(np.nan_to_num(sol.congestion)) > BINDING).any() or np.nansum(sol.over) > BINDING
         )
         if np.abs(dev).sum() > 1e-6 and on.any() and binding:
-            free = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, False, True)
+            # the same dispatch with the same commitment, only without the interface limits; it starts no scan after it
+            last = self._last
+            free = self._solve(t, load_p, load_q, corr, limit, prev, shed_ok, False, commit)
+            self._last = last
             if free is not None:
                 relief = float(self.cost[t] @ (sol.unit_p - free.unit_p)) * FRAME_HOURS
         unrelieved = np.where(on, sol.over, np.nan)
