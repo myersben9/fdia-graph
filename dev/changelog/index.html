@@ -1645,6 +1645,11 @@ the public API, the generated files and the numbers are the same as the previous
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
 <li>
+<p><strong>An Ipopt that ends abnormally is a failed solve (New York grid).</strong> <code>OperatorOpf.solve</code> returns None when Ipopt does
+  not exit normally (killed, out of memory), so the AC operator retries from the AC point instead of ending the study
+  that ran it.</p>
+</li>
+<li>
 <p><strong>The AC operator solves its relief only where an interface binds (New York grid).</strong> <code>AcSced.step</code> solves the
   dispatch without interface limits (for <code>relief_usd</code>) only when an interface row binds, the only case where it can
   differ, with the commitment the dispatch used (it allowed every quick-start unit, so a congestion-free scan could
