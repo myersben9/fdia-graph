@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **An Ipopt that ends abnormally is a failed solve (New York grid).** `OperatorOpf.solve` returns None when Ipopt does
+  not exit normally (killed, out of memory), so the AC operator retries from the AC point instead of ending the study
+  that ran it.
+
 - **The AC operator solves its relief only where an interface binds (New York grid).** `AcSced.step` solves the
   dispatch without interface limits (for `relief_usd`) only when an interface row binds, the only case where it can
   differ, with the commitment the dispatch used (it allowed every quick-start unit, so a congestion-free scan could
