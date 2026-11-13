@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v python >/dev/null 2>&1; then python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_git.py\"; else python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_git.py\"; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
