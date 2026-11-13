@@ -7,9 +7,10 @@ on:
 
 jobs:
   install-and-import:
-    # ubuntu-24.04, not ubuntu-latest: once ubuntu-latest became 26.04 (November 2026),
-    # setup-python had no Python 3.9 build for the image and every 3.9 job failed at setup.
-    runs-on: ubuntu-24.04
+    # Python 3.9 runs on ubuntu-24.04, not ubuntu-latest: once ubuntu-latest became 26.04
+    # (November 2026), setup-python had no Python 3.9 build for the image and every 3.9 job
+    # failed at setup. 3.12 stays on ubuntu-latest, so the install is still tried on the newest image.
+    runs-on: ${{ matrix.python-version == '3.9' && 'ubuntu-24.04' || 'ubuntu-latest' }}
     strategy:
       matrix:
         python-version: ["3.9", "3.12"]
