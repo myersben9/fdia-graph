@@ -66,17 +66,20 @@ python tools/pr.py merge 80                                    # refuses unless 
 python tools/review_ledger.py 80                               # record the review's findings, print the tally by kind
 ```
 
-Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (windows)`, `typecheck`,
-`format`, `readability`, the two installs) is a completed success on the head (a job that has not
-started yet counts as not green) and every other listed check has finished without failure.
+Green means: the fast jobs of the smoke workflow (`tests`, `typecheck`, `format`, `readability`) are
+a completed success on the head (a job that has not started yet counts as not green) and every other
+listed check has finished without failure. Python 3.9, Windows and the two clean installs run on every
+push to main and nightly; label a pull request `full-ci` to run them on it too (a change to
+packaging, path handling or anything platform-specific). A new push cancels the pull request's run
+still in progress.
 Reviewed means every required review bot has reviewed the pull request once and every one of its
 findings has a reply: an inline finding a reply in its thread, and the findings a review lists in
 its body ("Previously missed", outside the diff) a conversation comment on the pull request posted
 after that review.
 
-The automated review is billed per review, so each pull request gets **one**: the repository
-ruleset's Copilot rule reviews a pull request when it is opened or marked ready, and no longer on
-every push or on drafts (`review_on_push` and `review_draft_pull_requests` off). A pull request is
+The automated review is billed per review and is **opt-in**: label a pull request `copilot` to ask
+for it (a risky or wide change), and `tools/pr.py merge` then waits for that one review and an answer
+to each finding. A pull request without the label merges on green CI and the owner's review. A pull request is
 therefore opened as a draft while it is worked on and marked ready once it is clean; the fixes to
 the review's findings go in one push, answered one by one, and the pull request merges when that
 push is green, without a second review. A fix that changes behaviour beyond what its finding asked
