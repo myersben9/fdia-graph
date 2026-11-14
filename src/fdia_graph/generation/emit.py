@@ -41,7 +41,7 @@ _LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
     schema.NODE_TAMPER: (lambda C, E: (C, 4), np.uint8),
     schema.EDGE_TAMPER: (lambda C, E: (E, 2), np.uint8),
 }
-# the PMU branch-current layers of a hybrid-meter timeline [D10], created only when the meter
+# the PMU branch-current layers of a hybrid-meter timeline, created only when the meter
 # plan reads currents, so a v0.8.3-meter file has exactly its old datasets
 _CURRENT_LAYERS = {
     schema.PMU_I: (lambda C, E: (E, 4), np.float32),
@@ -279,7 +279,7 @@ def overload_episode(w: _Walk, t: int, length: int, design: AmOverloadDesign) ->
             emitted = np.hypot(frame.edge_x[lines, 0], frame.edge_x[lines, 1])
         t += 1
     last = design.goal.targets_at(len(design.goal.targets) - 1)  # the goal at the window's end
-    for j, line in enumerate(lines):  # one row per target line [D17]
+    for j, line in enumerate(lines):  # one row per target line
         w.buf.am_rows.append((ep.sid, line, design.ratings[j], last[j], float(reached[j]), float(emitted[j])))
     return ep.close(w, t)
 

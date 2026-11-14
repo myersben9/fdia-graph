@@ -203,7 +203,7 @@ def _knobs(s: TimelineSettings, limits: OperatingLimits, am_runs: bool) -> Frame
         s.search.min_budget,
         s.ramp.stealth_scale,
         getattr(o, "load_cap", None),  # the overload attack's cap; none without it
-        getattr(o, "n_lines", 1),  # the lines an overload episode drives [D17]
+        getattr(o, "n_lines", 1),  # the lines an overload episode drives
         getattr(o, "support_method", "search"),  # how its support is chosen
         area_rule=s.search.area_rule,  # how the attacker's area is chosen [WU26] Sec. III-A
     )
@@ -264,7 +264,7 @@ def generate_timeline(
                      and Q limits widened to the range the pool ran it over; a state outside them is
                      halved; v_lo and v_hi record the widest bus limits of the case
     redundancy       the meter plan, a `MeterSettings`: coverage {vbus_frac, pmu_frac, flow_frac},
-                     default 0.6/0.2/0.9, and `meter_model`, what the meters measure [D10]:
+                     default 0.6/0.2/0.9, and `meter_model`, what the meters measure:
                      "hybrid", a SCADA voltmeter reads |V| only, the angle is a PMU channel, and every
                      PMU reads the current phasor of each in-service branch at its bus, stored as
                      data/pmu_i with benign/pmu_i_benign and attack/pmu_i_tamper [WU26 eqs. 17-20]
@@ -284,9 +284,9 @@ def generate_timeline(
                      `OverloadSettings(rating_margin=1.5)`, or `rating_source="pglib"` for the
                      PGLib-OPF ratings (IEEE-14, 118 and 300 only: NoLineRatings elsewhere)
     stealth_scale    a multiplier on At's stealth bound: each channel's attack step between
-                     snapshots at most this many times the meters' rated accuracy [D7]; 1
+                     snapshots at most this many times the meters' rated accuracy 1
                      by default. Am has no such bound, as in [WU26]: its noise (0.03 pu SCADA, 0.01 pu
-                     PMU, D8) only decides which changes its tamper count ignores [D11]
+                     PMU, D8) only decides which changes its tamper count ignores
     workers          processes the overload Am designs run on (default 1); the file is the same for
                      any number, since every design draws from its own keyed stream
 

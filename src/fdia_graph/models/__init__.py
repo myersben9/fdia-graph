@@ -50,7 +50,6 @@ from .config import (
 from .data import (
     ArraysBundle,
     BatchBundle,
-    Decision,
     EpisodeTable,
     RecordBundle,
     Stream,
@@ -285,7 +284,6 @@ __all__ = [
     "SearchSettings",
     "TimelineKnobs",
     "TimelineSettings",
-    "Decision",
     "SplitSettings",
     "GeneratorOptions",
     "MeterSettings",

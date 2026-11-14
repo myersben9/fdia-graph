@@ -53,7 +53,7 @@ EDGE_TAMPER = path(Group.ATTACK, "edge_tamper")
 MAG_PTR = path(Group.ATTACK, "mag_ptr")
 MAG_BUS = path(Group.ATTACK, "mag_bus")
 MAG = path(Group.ATTACK, "mag")
-# the PMU branch-current phasors of a hybrid-meter timeline [WU26 eqs. 19-20] [D10]; absent
+# the PMU branch-current phasors of a hybrid-meter timeline [WU26 eqs. 19-20] absent
 # from a v0.8.3-meter file
 PMU_I = path(Group.DATA, "pmu_i")
 PMU_I_M = path(Group.DATA, "pmu_i_m")
@@ -103,7 +103,7 @@ EPISODE_MIN_SUPPORT_PTR, EPISODE_MIN_SUPPORT_IDX = "min_support_ptr", "min_suppo
 # episodes/ for the overload attack Am [WU26]: one row per Am episode
 EPISODE_AM_EPISODE, EPISODE_AM_LINE, EPISODE_AM_RATING = "am_episode", "am_line", "am_rating_mva"
 EPISODE_AM_REACHED, EPISODE_AM_EMITTED = "am_reached_mva", "am_emitted_mva"
-EPISODE_AM_TARGET = "am_target_mva"  # the goal at the window's end; one am_* row per target line [D17]
+EPISODE_AM_TARGET = "am_target_mva"  # the goal at the window's end; one am_* row per target line
 
 # record field -> dataset path: the loader's vocabulary on disk (clean fields resolve per timestep)
 FIELD_PATH = {
@@ -180,14 +180,14 @@ class Attr:
     MIN_BUDGET = "min_budget"
     AM_ATTACK = "am_attack"
     STEALTH_SCALE = "stealth_scale"
-    RATING_SOURCE = "rating_source"  # the overload attack's line ratings [D15]
+    RATING_SOURCE = "rating_source"  # the overload attack's line ratings
     RATING_MARGIN = "rating_margin"
-    LOAD_CAP = "load_cap"  # the overload attack's load-plausibility cap [D16]
-    N_LINES = "n_lines"  # the lines one overload episode drives at once [D17]
+    LOAD_CAP = "load_cap"  # the overload attack's load-plausibility cap
+    N_LINES = "n_lines"  # the lines one overload episode drives at once
     SUPPORT_METHOD = "support_method"  # how the overload attack chose its supports: "search" or "rref"
     SETTINGS = "settings"  # the TimelineSettings the walk ran, as JSON (`TimelineSettings.as_record`)
     SETTINGS_HASH = "settings_hash"  # `results.config_hash` of those settings, what a result cites
-    METER_MODEL = "meter_model"  # written on a hybrid-meter file only [D10]
+    METER_MODEL = "meter_model"  # written on a hybrid-meter file only
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"
     MAX_LOAD_MW = "max_load_mw"
@@ -210,7 +210,6 @@ KIND_TIMELINE = "timeline"
 
 # The attack families, their codes and the names older releases used for them (models.choices).
 from .models.choices import FAMILIES, FAMILY_ALIAS, STEALTHY_FAMILIES  # noqa: E402,F401
-from .models.data import Decision  # noqa: E402
 
 # The partition codes stored in data/split.
 SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}
@@ -218,8 +217,7 @@ SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}
 
 # ---- the paper-to-code map ---------------------------------------------------------------------------
 # What `tools/equation_map.py` indexes. Code cites an equation of [WU26] with one tag form,
-# `[WU26 eq. 28]`, `[WU26 eqs. 21-23]` or `[WU26 Alg. 1]`, and one of our decisions with `[D9]` or
-# `[E13]`, in the docstring or a comment of the function that implements it; a test cites what it
+# `[WU26 eq. 28]`, `[WU26 eqs. 21-23]` or `[WU26 Alg. 1]`, in the docstring or a comment of the function that implements it; a test cites what it
 # checks the same way, or names it in its test name (`test_wu26_eq28_...`).
 
 # [WU26]'s equations the package implements, by number, with what each states.
@@ -252,115 +250,4 @@ WU26_EQUATIONS: dict[str, str] = {
     "36": "the target Q value",
     "37": "the gradient step",
     "Alg. 1": "the DRL-based defense (training loop)",
-}
-
-
-_ATTACK, _DEFENSE = "docs/plans/WU_MSFDIA_PLAN.md, Decisions", "docs/plans/WU_DEFENSE_PLAN.md, Decisions"
-DECISIONS: dict[str, Decision] = {
-    "D1": Decision(
-        "the attack cost counts devices (a SCADA terminal and a PMU per bus) moved beyond noise",
-        "ours",
-        _ATTACK,
-    ),
-    "D2": Decision("the fewest-tamper search runs for every generated family, At and Am", "ours", _ATTACK),
-    "D3": Decision("PGLib-OPF v23.07 rate_a as the alternative line ratings", "ours", _ATTACK),
-    "D4": Decision(
-        "PMUs read the current phasor of every branch at their bus (eqs. 19-20)", "paper", _ATTACK
-    ),
-    "D5": Decision(
-        "the overload goal (24)-(25) holds on the noiseless reading of the false state", "paper", _ATTACK
-    ),
-    "D6": Decision("generation makes the multi-snapshot At and Am only", "ours", _ATTACK),
-    "D7": Decision("At's stealth bound and tamper count use the meters' rated accuracy", "ours", _ATTACK),
-    "D8": Decision(
-        "Am's tamper threshold is the paper's case-study noise, 0.03 pu SCADA, 0.01 pu PMU", "paper", _ATTACK
-    ),
-    "D9": Decision(
-        "the goal adds the share k/T of the gap to the rating to each snapshot's true flow", "ours", _ATTACK
-    ),
-    "D10": Decision("hybrid meters: an angle only at a PMU, and PMU branch currents", "paper", _ATTACK),
-    "D11": Decision("Am has no between-snapshot bound: noise only sets the l0 threshold", "paper", _ATTACK),
-    "D12": Decision("what the meters measure is its own knob of the meter plan", "ours", _ATTACK),
-    "D13": Decision(
-        "the previous frame's PMU currents are offered for the eq. (3) pseudo-measurements", "ours", _ATTACK
-    ),
-    "D14": Decision("generators of the support move freely within (22)-(23)", "paper", _ATTACK),
-    "D15": Decision("a line's rating defaults to 1.25 times its peak flow over the pool", "ours", _ATTACK),
-    "D16": Decision(
-        "the support's edge keeps (22)-(23), and a moved load changes by at most load_cap [YUA11]",
-        "ours",
-        _ATTACK,
-    ),
-    "D17": Decision(
-        "an overload episode drives two lines by default, as the paper's case studies", "paper", _ATTACK
-    ),
-    "D18": Decision(
-        "the attacker's area: the paper's where stated, else Sec. III-A's rules (1-2 checked, 3-4 our score)",
-        "paper",
-        _ATTACK,
-    ),
-    "E1": Decision(
-        "trust is incremental: a trusted PMU keeps the offset its bus had before its slot (eqs. 29-30)",
-        "paper",
-        _DEFENSE,
-    ),
-    "E2": Decision("a trusted PMU pins its own |V| and angle only (eqs. 27, 32)", "paper", _DEFENSE),
-    "E3": Decision(
-        "the defense's cost is the devices tampered at any snapshot (Fig. 12); eq. (33)'s net l0 also reported",
-        "paper",
-        _DEFENSE,
-    ),
-    "E4": Decision("1-minute attack snapshots interpolated from the 5-minute pool", "ours", _DEFENSE),
-    "E5": Decision("IEEE-118: 10 snapshots, one trust slot each (Figs. 10-11)", "paper", _DEFENSE),
-    "E6": Decision("Algorithm 1 line 8 ends an episode with no reward, as written", "paper", _DEFENSE),
-    "E7": Decision(
-        "the DQN's state is Fig. 1's: the readings, the target lines' loading, the trusted set",
-        "paper",
-        _DEFENSE,
-    ),
-    "E8": Decision("IEEE-118's 100 tests run as 10 training sessions of 10 test windows", "ours", _DEFENSE),
-    "E9": Decision(
-        "the Q network is ours (two hidden layers of 128); its hyperparameters are the paper's",
-        "ours",
-        _DEFENSE,
-    ),
-    "E10": Decision(
-        "detection with PMU support is the residual test with trusted PMUs reading truth", "ours", _DEFENSE
-    ),
-    "E11": Decision(
-        "the single-snapshot trusted-meter classes stay as the linear analogue", "ours", _DEFENSE
-    ),
-    "E12": Decision("IEEE-1354 is not reproduced", "ours", _DEFENSE),
-    "E13": Decision(
-        "one support is held for the window (a support per trust slot never changed an answer, removed)",
-        "ours",
-        _DEFENSE,
-    ),
-    "E14": Decision(
-        "reproduction ratings: each target's last flow plus 0.10 pu (Fig. 4's scale); k times the peak as a sensitivity",
-        "ours",
-        _DEFENSE,
-    ),
-    "E15": Decision("generation keeps the linear ramp of D9", "ours", _DEFENSE),
-    "E16": Decision(
-        "the attack minimizes the l1 of the window's summed attack, eq. (12) read literally ([37]'s l1)",
-        "paper",
-        _DEFENSE,
-    ),
-    "E17": Decision(
-        "the reproduction meters every branch at both ends, each node's SCADA its incident flows ([29])",
-        "paper",
-        _DEFENSE,
-    ),
-    "E19": Decision(
-        "the faithful attack's goal is (24)-(25) as written: the end at S_max, the flow never falling; "
-        "D9's ramp stays for generation",
-        "paper",
-        _DEFENSE,
-    ),
-    "E18": Decision(
-        "the reproduction's overload rho, per-snapshot l1 weight tau and trust region are ours",
-        "ours",
-        _DEFENSE,
-    ),
 }

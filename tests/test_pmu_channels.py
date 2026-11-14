@@ -1,4 +1,4 @@
-"""The hybrid meter model [D10]: angles at the PMU buses only, the PMU branch-current
+"""The hybrid meter model: angles at the PMU buses only, the PMU branch-current
 phasors [WU26 eqs. 19-20] emitted, stored, loaded and attacked, and the eq. (3) pseudo-measurements
 an estimator can derive from them. The v0.8.3 meter model stays the default and writes none of it."""
 
@@ -43,7 +43,6 @@ def files(tmp_path_factory, pool):
 
 
 def test_a_scada_voltmeter_reads_no_angle_under_the_hybrid_model(gens):
-    # [D10]
     g = gens
     nm, _ = g.meter_masks()
     pmu = np.zeros(g.C, bool)
@@ -250,7 +249,7 @@ def test_new_generation_is_hybrid_only():
     from fdia_graph.models.config import MeterSettings
     from fdia_graph.timeline import generate_timeline
 
-    assert MeterSettings().meter_model == "hybrid"  # its own knob [D12], in the meter plan
+    assert MeterSettings().meter_model == "hybrid"  # its own knob, in the meter plan
     assert "meter_model" not in inspect.signature(generate_timeline).parameters  # no new top-level knob
     assert inspect.signature(FdiaGenerator).parameters["meter_model"].default == "hybrid"
     for old in ("v083", "scada"):  # the v0.8.3 meters stay readable in old releases, not generated

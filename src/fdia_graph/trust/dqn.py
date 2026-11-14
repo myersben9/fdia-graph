@@ -38,8 +38,8 @@ def _torch(who: str = "TrustedMetersDQN") -> ModuleType:
 
 
 def q_network(n_in: int, width: int, n_out: int, who: str = "TrustedMetersDQN") -> nn.Module:
-    """The Q-network both DQN selectors use: two hidden ReLU layers of `width`. Its size is ours
-    [E9]; Fig. 1 of [WU26] only sketches the agent."""
+    """The Q-network both DQN selectors use: two hidden ReLU layers of `width`. Its size is ours.
+    Fig. 1 of [WU26] only sketches the agent."""
     torch = _torch(who)
     return torch.nn.Sequential(
         torch.nn.Linear(n_in, width),

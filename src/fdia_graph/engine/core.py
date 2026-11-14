@@ -77,7 +77,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         The random draws happen in a fixed order, the meter plan (voltage buses, PMU buses, flow
         meters), then the six per-meter bias vectors, then the branch-current channels' biases.
 
-        `meter_model` is what the meters measure [D10]: "hybrid", a SCADA voltmeter reads
+        `meter_model` is what the meters measure: "hybrid", a SCADA voltmeter reads
         |V| only, the angle is a PMU channel, and every PMU reads the current phasor of each
         in-service branch at its bus [WU26 eqs. 17-20].
         """

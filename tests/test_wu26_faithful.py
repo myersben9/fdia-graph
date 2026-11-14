@@ -128,7 +128,7 @@ def test_scenario1_attack_reaches_fig4(net14):
 
 
 def test_the_goal_is_eqs_24_25_as_written(net14):
-    """[E19]: only the window's end must reach S_max and the displayed flow may not fall between
+    """: only the window's end must reach S_max and the displayed flow may not fall between
     snapshots; no per-snapshot target (the generator's D9 ramp)."""
     case = net14.case
     state = (case.res_bus.vm_pu.values.copy(), np.radians(case.res_bus.va_degree.values))

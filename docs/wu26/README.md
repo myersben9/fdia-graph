@@ -90,20 +90,20 @@ consistent with the paper's figures; whether trust bites depends on ratings and 
 `trust.wu26` implements [WU26] as the paper states it, separately from the dataset generator's attack
 (`tools/wu26_faithful.py`; experiment `wu26.faithful`):
 
-- **Meter plan** ([E17]; [29] Sec. 2.2): every bus's SCADA reads its injection and the flow of each
+- **Meter plan** ([29] Sec. 2.2): every bus's SCADA reads its injection and the flow of each
   incident branch at its own end, so every branch is metered at both ends; the PMUs read their voltage,
   angle and incident branch currents; there is no SCADA voltmeter.
-- **Attack** ([E16]; eq. 12 read literally): the l1 of the window's summed attack ([37] p. 1898
+- **Attack** (eq. 12 read literally): the l1 of the window's summed attack ([37] p. 1898
   relaxes the l0 to l1), plus `tau` times the per-snapshot l1, solved as one IPOPT problem per window
   with the boundary held ([37] eq. 12). Changes below the paper's noise count as untampered (p. 659).
-- **Goal** ([E19]; eqs. 24-25 as written): each target's flow reaches its S_max at the window's end and
+- **Goal** (eqs. 24-25 as written): each target's flow reaches its S_max at the window's end and
   never falls between snapshots; there is no per-snapshot target, unlike the generator's ramp (D9). The
   per-snapshot ramp forced oversized attacks on IEEE-14.
-- **Trust** ([E1]; eqs. 29-30, "accumulating attack vectors", p. 659): a trusted PMU keeps the attack
+- **Trust** (eqs. 29-30, "accumulating attack vectors", p. 659): a trusted PMU keeps the attack
   offset its bus had at the snapshot before its slot; its currents stay untrusted (eq. 27).
-- **Cost** ([E3]): the devices tampered at any snapshot, the count of Fig. 4 and Fig. 12; eq. (33)'s l0
+- **Cost**: the devices tampered at any snapshot, the count of Fig. 4 and Fig. 12; eq. (33)'s l0
   of the net vector over channels moves the other way under this defense and is stored beside it.
-- **Ours** ([E18]): the overload `rho`, the per-snapshot weight `tau`, the per-snapshot trust region and
+- **Ours**: the overload `rho`, the per-snapshot weight `tau`, the per-snapshot trust region and
   the iteration cap (`Wu26Attack`).
 
 Each scenario runs windows drawn by the paper's data recipe (p. 658), with the trust order Solution 1
@@ -181,7 +181,7 @@ T. Wu et al., IEEE TII 17(3) (2021) 1892-1904, the two sources [WU26] cites for 
   systems.
 
 Where the paper is silent, the choice is ours and is recorded in
-[DECISIONS.md](../reference/DECISIONS.md) (ratings at the last flow plus a step, the load cap, the
+the code's docstrings (ratings at the last flow plus a step, the load cap, the
 snapshot spacing, the DQN's network).
 
 ### What agrees

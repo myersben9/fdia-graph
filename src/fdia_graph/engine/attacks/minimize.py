@@ -1,7 +1,7 @@
 """The cheapest support of an attack window [WU26 eq. 12].
 
 [WU26] builds its attack as a minimization: the fewest tampered measurements, a change under a meter's
-noise not counted [D8], subject to the AC measurement model and the operating limits. Every tampered
+noise not counted, subject to the AC measurement model and the operating limits. Every tampered
 reading here is a reading of a local false state, so the model holds by construction and which meters
 move is set by the support S, the buses whose voltages the false state frees. The search is a plain
 candidate loop over supports:
@@ -142,7 +142,7 @@ class MinimizeMixin(FalseStateMixin):
         """The cheapest support found for the window of `states` (one [N, 4] true state per snapshot)
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (None when that frame is benign): At's
-        stealth bound measures its first step from it [D7]. `trust` is the defender's trusted-PMU
+        stealth bound measures its first step from it. `trust` is the defender's trusted-PMU
         schedule [WU26 eqs. 26-32]. The search runs with BLAS on one thread (`_one_blas_thread`)."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
             TrustablePmus(trust.buses, frozenset(self.meters.pmu), self.C)
@@ -225,7 +225,7 @@ class MinimizeMixin(FalseStateMixin):
         Xa, _, dload = self.solve_flow_local(Xt, S, goal.lines, goal.targets_at(t), k.limits, k.load_cap)
         if Xa is None:
             return None
-        if k.limits is not None:  # every generator the attack moves, on S's edge too [D16]
+        if k.limits is not None:  # every generator the attack moves, on S's edge too
             gen = generator_output(Xt, self.load_base, self.gen_base)
             if not within_limits(Xa, Xt, gen, dload, k.limits, self.touched_buses(S)):
                 return None
@@ -357,7 +357,7 @@ class _Window:
     ) -> None:
         # The between-snapshot stealth bound is At's alone (a sub-noise ramp is what At is). [WU26]'s
         # model has no increment constraint: its noise only decides which changes the l0 count
-        # ignores, so a flow goal (Am) is never bounded [D11]. `stealth_bound` off is for analysis.
+        # ignores, so a flow goal (Am) is never bounded. `stealth_bound` off is for analysis.
         self.g, self.states, self.goal, self.k = g, states, goal, k
         self.stealth_bound = stealth_bound and goal.kind == "load"
         self.channels_first = k.objective == CostUnit.CHANNELS.value  # what the cost minimizes first
@@ -367,7 +367,7 @@ class _Window:
         self.node_m, self.edge_m = g.meter_masks()
         self.pmu = np.zeros(g.C, bool)
         self.pmu[sorted(g.meters.pmu)] = True
-        # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only [D10]
+        # a bus angle is a PMU channel: a SCADA voltmeter reads |V| only
         self.node_m = self.node_m.copy()
         self.node_m[~self.pmu, NODE.theta] = 0
         self.flows = g.clean_flows_from_states(np.stack(states))  # [T, E, 2], unmetered zeroed
@@ -383,7 +383,7 @@ class _Window:
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """What a change must exceed to count as tampering at each snapshot, and for At also the most a
         channel may move between snapshots: [WU26]'s own noise for the overload attack, the l0 threshold
-        only [D8] [D11]; the meters' rated accuracy for At [D7]."""
+        only the meters' rated accuracy for At."""
         if goal.kind == "flow":
             paper = paper_sigma(self.node_m.shape, self.edge_m.shape, self.pmu, g._base_mva)
             return [paper for _ in states]
@@ -404,7 +404,7 @@ class _Window:
         g: MinimizeMixin, states: list[np.ndarray], goal: Goal
     ) -> tuple[Optional[np.ndarray], Optional[list[np.ndarray]]]:
         """(The true PMU branch currents per snapshot [T, E, 4]; their noise scale per snapshot: [WU26]'s
-        0.01 pu for the overload attack [D8], the PMU accuracy class at the true currents for At [D7]),
+        0.01 pu for the overload attack, the PMU accuracy class at the true currents for At),
         both None without currents in the meter plan."""
         if g.current_mask() is None:
             return None, None
@@ -466,7 +466,7 @@ class _Window:
 
     def _devices(self, union: _Channels) -> int:
         """How many devices hold a channel of the union (a PMU branch current joins the PMU of the bus
-        at its end) [D1]."""
+        at its end)."""
         ei = self.g.ei
         return len(tampered_devices(union[0], union[1], self.pmu, ei[0], union[2], ei[1]))
 
@@ -486,7 +486,7 @@ class _Window:
         a_node = np.asarray(Xa, float) - np.asarray(self.states[t], float)
         a_edge, a_cur = self._branch_attack(t, Xa, self.near(S))
         sig_node, sig_edge = self.sigma[t]
-        if self.stealth_bound:  # [D7]: no metered channel moves more than its rated accuracy per step
+        if self.stealth_bound:  # no metered channel moves more than its rated accuracy per step
             scale = self.k.stealth_scale
             step = tampered_channels(
                 a_node - prev.node,
@@ -543,7 +543,7 @@ class _Window:
         return (np.abs(a_cur) > scale * self.i_sigma[t]) & (self.i_m > 0)
 
     def _current_step(self, t: int, a_cur: Optional[np.ndarray], prev: AttackVector, scale: float) -> bool:
-        """Whether the attack's step on a PMU branch-current channel breaks the stealth bound [D7]."""
+        """Whether the attack's step on a PMU branch-current channel breaks the stealth bound."""
         if a_cur is None or prev.current is None:
             return False
         over = self._over(t, a_cur - prev.current, scale)

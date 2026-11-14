@@ -30,7 +30,7 @@ MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window, a
 # evaluated), every search exhaustive (evaluated below the budget). The supports and counts are those
 # the search found before the proof machinery was removed; the two At searches stop as soon as a
 # support tampers one device on one channel, the least any attack can (60 and 78 candidates where they
-# solved 128 and 112). With the load cap [D16] one goal has no false state at all (devices -1).
+# solved 128 and 112). With the load cap one goal has no false state at all (devices -1).
 PINNED = {
     ("hybrid", 0.5, "Am", 0, (0,)): ([1, 2, 3, 4, 5, 6, 8], 8, 43, 18),
     ("hybrid", 0.5, "Am", 150, (0,)): ([1, 2, 3, 4, 5, 6, 8], -1, -1, 18),
@@ -79,7 +79,7 @@ def test_exhaustive_searches_return_their_pinned_answers(model, gen, pool):
     """The cheapest support (support, devices, channels) and how many candidates were solved, the search
     running to completion. The overload
     cases cover the D16 bounds (generator limits on the support's edge, the load cap) and two-line
-    goals [D17]."""
+    goals."""
     cases = {key: want for key, want in PINNED.items() if key[0] == model}
     for (_, cap, kind, t, which), want in cases.items():
         k = _knobs(gen, pool, cap)

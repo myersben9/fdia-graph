@@ -182,7 +182,7 @@ class AmAttack(Choice):
 
 
 class CostUnit(Choice):
-    """What the attack cost of [WU26]'s defense counts [E3]: the tampered measurements, the
+    """What the attack cost of [WU26]'s defense counts: the tampered measurements, the
     l0 of eqs. (28) and (33) and the unit of Table II's percentages, or the tampered devices, the unit
     of its extra-device counts (Table II, Fig. 12)."""
 
@@ -213,7 +213,7 @@ class AreaRule(Choice):
 
 
 class RatingSource(Choice):
-    """Where the overload attack's line ratings S_max come from [D15]: each branch's peak
+    """Where the overload attack's line ratings S_max come from: each branch's peak
     true flow over the operating pool times a margin (every system), PGLib-OPF's `rate_a`
     (IEEE-14, 118 and 300), or each target's true flow at the window's end plus a fixed step
     ("delta", ours: a rating scale matched to [WU26] Fig. 4's attack magnitudes)."""
@@ -224,7 +224,7 @@ class RatingSource(Choice):
 
 
 class MeterModel(Choice):
-    """What the meters of a generated file measure [D10]. "hybrid": a SCADA voltmeter reads
+    """What the meters of a generated file measure. "hybrid": a SCADA voltmeter reads
     the voltage magnitude only, the voltage angle is a PMU channel, and every PMU also reads the
     current phasor of each in-service branch at its bus [WU26 eqs. 17-20]. Data releases v0.8.3
     and earlier read an angle at every voltmeter bus and no branch currents; the loader still reads

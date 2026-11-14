@@ -10,25 +10,25 @@ the meter plan, the multi-snapshot attack and the incremental trusted-PMU defens
 
 The pieces, each from the paper or labelled ours:
 
-- The meter plan [E17] ("wu26"; [29] Sec. 2.2: S^n = [P^n, Q^n, P^{nn'}, Q^{nn'}, V^n, delta^n]): a SCADA device
+- The meter plan ("wu26"; [29] Sec. 2.2: S^n = [P^n, Q^n, P^{nn'}, Q^{nn'}, V^n, delta^n]): a SCADA device
   at every bus reads its injection and the flow of every incident branch at its own end, so every branch
   is metered at both ends; a PMU at a PMU bus reads |V|, the angle and the current of every incident
   branch at its end [WU26 eqs. 17-20]; no SCADA voltmeter. A device is everything of one type at a node.
-- The attack [WU26 eqs. 12-21, 24-25] [E16]: a false state of the area's buses per snapshot, its boundary held at the
+- The attack [WU26 eqs. 12-21, 24-25]: a false state of the area's buses per snapshot, its boundary held at the
   true state ([37] eq. 12), each target line's apparent flow at its overload by the window's end and never
-  falling between snapshots (eqs. 24-25 as written [E19]; no per-snapshot target, unlike the generator's
+  falling between snapshots (eqs. 24-25 as written no per-snapshot target, unlike the generator's
   D9 ramp), the voltages within limits (eq. 21). The objective is eq. (12) read literally, the norm of the SUM over
   the window, ||sum_t a_t||, with the l0 relaxed to l1 ([37] p. 1898), plus `tau` times the per-snapshot
   l1 so the intermediate snapshots stay bounded (ours). The whole window is one IPOPT problem, since the
   sum couples the snapshots. Changes below the paper's noise (0.03 pu SCADA, 0.01 pu PMU, p. 658) count
   as untampered ([37] p. 1898, [WU26] p. 659).
-- The defense [WU26 eqs. 29-30] [E1]: a PMU trusted at snapshot s keeps the attack offset its bus had at
+- The defense [WU26 eqs. 29-30]: a PMU trusted at snapshot s keeps the attack offset its bus had at
   snapshot s-1 from then on ("accumulating attack vectors", p. 659; eq. 30's h_t-1), its currents
   staying untrusted (eq. 27).
-- The cost [E3]: the devices tampered beyond noise at any snapshot (Fig. 4's and Fig. 12's count), with eq.
+- The cost: the devices tampered beyond noise at any snapshot (Fig. 4's and Fig. 12's count), with eq.
   (33)'s l0 of the net vector over channels also reported.
 
-Ours, where the paper is silent [E18]: the overload as `rho` times each line's true flow (no rating is
+Ours, where the paper is silent: the overload as `rho` times each line's true flow (no rating is
 stated), the voltage band 0.94 to 1.06 pu, the per-snapshot trust region (`dv`, `da`) that keeps the
 solve on the stealthy branch of the flow constraint, and `tau`. Generator limits (22)-(23) are not
 imposed: on the cases' buses mixing load and generation they bound the true state itself.
@@ -358,7 +358,7 @@ class _WindowProblem:
         return g
 
     def constraints(self) -> list[dict[str, object]]:
-        """Eqs. (24)-(25) as written [E19]: each target's flow at the window's end at least its S_max, and
+        """Eqs. (24)-(25) as written: each target's flow at the window's end at least its S_max, and
         the displayed flow never falling from one snapshot to the next (S_t = S_t-1 + dS_t, dS_t >= 0);
         no per-snapshot target. Squared magnitudes, as IPOPT's inequalities (>= 0)."""
         lines = range(len(self.lines))
