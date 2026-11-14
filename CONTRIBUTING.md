@@ -80,7 +80,7 @@ step, and an open pull request is rebased only for a real conflict. The order:
 2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff and every touched
    file read whole, searching outward from every change (a `/code-review` in Claude Code with the
    checklist does this). Fold what it finds into the branch.
-3. Before the pull request leaves draft, one review by the review agents (the checklist reviewer) on the diff;
+3. Before the pull request leaves draft, one review of the diff by Claude Code review agents (no paid review service);
    its findings are fixed in one round, not looped.
 4. Mark the draft ready and merge it on green once the owner approves.
 
