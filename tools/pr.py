@@ -19,10 +19,10 @@ pull request"), and an automated review runs only when `request-review` asks for
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -236,9 +236,7 @@ def reply(num: int, comment_id: int, text: str) -> None:
 def summary(num: int, path: str) -> None:
     """Post the summary the review agents wrote for the owner (four sentences) as a comment on the pull request."""
     text = Path(path).read_text(encoding="utf-8").strip()
-    api("POST", f"/issues/{num}/comments", json={"body": f"**Summary**
-
-{text}"})
+    api("POST", f"/issues/{num}/comments", json={"body": "**Summary**\n\n" + text})
     print(f"summary posted on #{num}")
 
 
