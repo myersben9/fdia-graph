@@ -4,7 +4,7 @@
 
     train = fg.load("ieee118", split="train")
     test = fg.load("ieee118", split="test")
-    loc = SwingThreshold(fa_target=0.01).fit(train)
+    loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train)
     flag = loc.localize(test)      # [n, N] bool, which buses are called attacked
     print(loc.score(test))         # per-family strict acc / node F1 / macro F1 / DR + benign FA
 

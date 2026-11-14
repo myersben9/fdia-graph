@@ -22,6 +22,7 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.localization import BusCNN, ResidualLocalizer
+from fdia_graph.models import GateConfig, LearnedConfig, PriorConfig, TrustConfig
 from fdia_graph.registry import register_local
 from fdia_graph.results import Run, Store
 from fdia_graph.se import GatedPrior, SubspacePrior
@@ -41,7 +42,7 @@ STORE = Store(os.path.join(HERE, "..", "..", "results"))  # the repository's res
 def selections(train):
     """{arm: (secured meter indices, the fitted selector or None)}: the orders run_trust.py stored,
     else a greedy fit."""
-    tm = TrustedMeters(k=K).fit(train)  # its estimator gives every copy the meter layout
+    tm = TrustedMeters(TrustConfig(k=K)).fit(train)  # its estimator gives every copy the meter layout
     stored = {}
     release = fg.resolve(SYSTEM).release or ""
     same_release = [
@@ -88,33 +89,37 @@ def localization(train, test):
         return m.score(test)
 
     def cnn():
-        m = BusCNN(features="full14+jac").fit(train)
+        m = BusCNN(learned=LearnedConfig(features="full14+jac")).fit(train)
         return m.score(test)
 
     return {"residual": resid, "cnn+jac": cnn}
 
 
 def estimation(train, test, secured):
-    kw = dict(rank_frac=rank, reweight="huber", c=c)
+    prior = PriorConfig(rank_frac=rank, reweight="huber", c=c)
 
     def run(est):
         est.fit(train)
         return est.score(test)
 
     arms = {
-        "prior+huber": lambda: run(SubspacePrior(**kw)),
-        "prior+huber+cnn": lambda: run(GatedPrior(gate=BusCNN().fit(train), **kw)),
-        "prior+huber+residual": lambda: run(GatedPrior(gate=ResidualLocalizer().fit(train), **kw)),
-        "prior+huber+oracle": lambda: run(GatedPrior(gate="oracle", **kw)),
+        "prior+huber": lambda: run(SubspacePrior(prior)),
+        "prior+huber+cnn": lambda: run(GatedPrior(GateConfig(BusCNN().fit(train)), prior=prior)),
+        "prior+huber+residual": lambda: run(
+            GatedPrior(GateConfig(ResidualLocalizer().fit(train)), prior=prior)
+        ),
+        "prior+huber+oracle": lambda: run(GatedPrior(GateConfig("oracle"), prior=prior)),
     }
     if len(secured):
         arms["prior+huber+cnn+trust"] = lambda: run(
-            GatedPrior(gate=BusCNN().fit(train), secured=secured, **kw)
+            GatedPrior(GateConfig(BusCNN().fit(train)), secured=secured, prior=prior)
         )
         arms["prior+huber+residual+trust"] = lambda: run(
-            GatedPrior(gate=ResidualLocalizer().fit(train), secured=secured, **kw)
+            GatedPrior(GateConfig(ResidualLocalizer().fit(train)), secured=secured, prior=prior)
         )
-        arms["prior+huber+oracle+trust"] = lambda: run(GatedPrior(gate="oracle", secured=secured, **kw))
+        arms["prior+huber+oracle+trust"] = lambda: run(
+            GatedPrior(GateConfig("oracle"), secured=secured, prior=prior)
+        )
     return arms
 
 

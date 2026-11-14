@@ -4,7 +4,7 @@
 
     train = fg.load("ieee118", split="train")
     test = fg.load("ieee118", split="test")
-    est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(train)
+    est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).fit(train)
     xhat = est.estimate(test)      # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
     print(est.score(test))         # per-family angle/voltage MAE vs the clean truth
 

@@ -17,6 +17,7 @@ from fdia_graph.formulas import (
     swing_zscore,
     temporal_delta,
 )
+from fdia_graph.models import HuberConfig, SolveConfig
 
 
 def test_series_admittance_by_hand():
@@ -145,7 +146,7 @@ def test_estimator_fits_and_scores_without_torch(splits, monkeypatch):
         monkeypatch.delitem(sys.modules, m)
     from fdia_graph.se import AdaptiveWeighting
 
-    est = AdaptiveWeighting(c=1.5, npass=2).fit(splits["train"])
+    est = AdaptiveWeighting(huber=HuberConfig(c=1.5), solve=SolveConfig(npass=2)).fit(splits["train"])
     scores = est.score(splits["test"])
     assert np.isfinite(scores.geo.angle_mae_deg) and not hasattr(est, "_Ybus")
 

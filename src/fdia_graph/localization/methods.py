@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 
 from ..formulas.projection import bus_incidence, meters_to_buses
+from ..models.config import LocalizerConfig
 from .base import LocalizerBase
 
 if TYPE_CHECKING:
@@ -63,8 +64,10 @@ class ResidualLocalizer(LocalizerBase):
     be localized by residuals. Needs the [se] extra (torch + pandapower).
     """
 
-    def __init__(self, estimator: Optional[SEBase] = None, fa_target: float = 0.01) -> None:
-        super().__init__(fa_target=fa_target)
+    def __init__(
+        self, estimator: Optional[SEBase] = None, localizer: LocalizerConfig = LocalizerConfig()
+    ) -> None:
+        super().__init__(localizer)
         self.estimator = estimator  # None -> a fresh WLS; an unfitted one is fitted on the train split
 
     def _fields(self) -> list[str]:

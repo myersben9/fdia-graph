@@ -30,13 +30,23 @@ def _defined_models(module):
     return {n for n, o in vars(module).items() if _is_model(o) and o.__module__ == module.__name__}
 
 
+NEW_YORK = (
+    "fdia_graph.generation.nygrid",
+    "fdia_graph.engine.attacks.family",
+    "fdia_graph.engine.sensing",
+    "fdia_graph.federated.utilities",
+    "fdia_graph.operator",
+    "fdia_graph.se.detect",
+)
+
+
 def test_every_public_model_is_defined_in_the_package():
     """A public Bundle or NamedTuple defined in a producer module would scatter the models again."""
     strays = {}
     for info in pkgutil.walk_packages([SRC], "fdia_graph."):
-        # fdia_graph.nyfed keeps its records in its own modules until it is conformed (DEFERRED in
+        # the New York code keeps its records in its own modules until each is conformed (DEFERRED in
         # tools/readability.py)
-        if info.name.startswith(("fdia_graph.models", "fdia_graph.nyfed")):
+        if info.name.startswith(("fdia_graph.models", *NEW_YORK)):
             continue
         try:
             mod = importlib.import_module(info.name)

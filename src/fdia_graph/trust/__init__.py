@@ -4,11 +4,11 @@
 
     train = fg.load("ieee118", split="train")
     test = fg.load("ieee118", split="test")
-    tm = TrustedMeters(k=20).fit(train)   # the greedy row-reduction selection on the Jacobian
+    tm = TrustedMeters(TrustConfig(k=20)).fit(train)   # the greedy row-reduction selection on the Jacobian
     tm.order, tm.cost                     # the meters secured in order, the attack cost after each
     print(tm.score(test))                 # per family: residual detection with and without the trust
 
-    rl = TrustedMetersDQN(k=20, episodes=200).fit(train)   # the MDP with a DQN policy (needs torch)
+    rl = TrustedMetersDQN(TrustConfig(k=20), dqn=DqnConfig(episodes=200)).fit(train)   # the MDP with a DQN policy (needs torch)
 
 A stealthy attack must leave the secured meters untouched, which pins its state change to the
 null space of the secured rows of the measurement Jacobian; every secured meter shrinks that

@@ -55,8 +55,8 @@ docs/*/results/cache/
 !tests/data/tiny_stream_v071.npz
 !tests/data/graph_ieee118_v071.npz
 # the New York attack days, their pool frames (6.7 MB) and their reactive loads, which CI runs the operator tests on
-!tests/nyfed/data/days/*.h5
-!tests/nyfed/data/days/*.npz
+!tests/nygrid/data/days/*.h5
+!tests/nygrid/data/days/*.npz
 
 # the results store's write lock and partial writes
 results/.lock

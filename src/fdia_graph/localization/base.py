@@ -74,10 +74,8 @@ class LocalizerBase:
     false-alarm budget and differences between methods are differences in the score, not the tuning.
     """
 
-    def __init__(self, fa_target: float = 0.01) -> None:
-        self.fa_target = LocalizerConfig(
-            fa_target
-        ).fa_target  # per-bus benign alarm rate the threshold is calibrated to
+    def __init__(self, localizer: LocalizerConfig = LocalizerConfig()) -> None:
+        self.fa_target = localizer.fa_target  # per-bus benign alarm rate the threshold is calibrated to
 
     # ---- subclass hooks ---------------------------------------------------------------------
     def _fields(self) -> list[str]:

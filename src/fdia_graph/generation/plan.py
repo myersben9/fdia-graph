@@ -12,8 +12,9 @@ attacks (`generation.design`) and the emit stage writes the frames (`generation.
 from __future__ import annotations
 
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Optional, TypeVar
 
 import numpy as np
 
@@ -26,6 +27,9 @@ PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped (
 REDRAWS = 20  # onsets an episode with no feasible design is moved to before it is given up (the split-first redraw rule)
 
 Slot = tuple[int, int, int]  # one placed episode: (onset in timeline frames, family code, length)
+Family = TypeVar(
+    "Family", int, str
+)  # an episode's family: the timeline's code, or the New York family's name
 
 
 @dataclass
@@ -103,13 +107,20 @@ def episode_counts(plan: _Schedule, n: int) -> np.ndarray:
     closest to `attacked_frac * n`, shared by largest remainder over the schedule's weights (so every
     family gets about the same share of attacked frames), never more frames than the split holds."""
     lengths = np.array([plan.length_of(f) for f in plan.families], int)
+    return whole_episode_counts(lengths, plan.weights, plan.attacked_frac, n)
+
+
+def whole_episode_counts(lengths: np.ndarray, weights: np.ndarray, frac: float, n: int) -> np.ndarray:
+    """Episodes per family, of `lengths` frames each, for n frames: the number of whole episodes whose frames come
+    closest to `frac * n`, shared by largest remainder over `weights`, never more frames than n."""
+    lengths = np.asarray(lengths)
     best = np.zeros(len(lengths), int)
-    if not len(lengths) or plan.attacked_frac <= 0:
+    if not len(lengths) or frac <= 0:
         return best
-    target = plan.attacked_frac * n
+    target = frac * n
     best_err = target
     for k in range(1, n // int(lengths.min()) + 1):
-        counts = largest_remainder(k, plan.weights)
+        counts = largest_remainder(k, weights)
         frames = int(counts @ lengths)
         if frames > n:
             break
@@ -118,26 +129,46 @@ def episode_counts(plan: _Schedule, n: int) -> np.ndarray:
     return best
 
 
-def uniform_onset(occupied: np.ndarray, length: int, rng: np.random.Generator, first: int = 0) -> int:
+def uniform_onset(
+    occupied: np.ndarray,
+    length: int,
+    rng: np.random.Generator,
+    first: int = 0,
+    allowed: Optional[np.ndarray] = None,
+) -> int:
     """An onset drawn uniformly among every position, at or after `first`, where `length` consecutive
-    frames are free."""
+    frames are free (and `allowed` [T] holds, when given)."""
     free = np.concatenate([[0], np.cumsum(~occupied)])
     T = len(occupied)
-    feasible = np.flatnonzero(free[length : T + 1] - free[: T - length + 1] == length)
+    fits = free[length : T + 1] - free[: T - length + 1] == length
+    if allowed is not None:
+        fits &= allowed[: T - length + 1]
+    feasible = np.flatnonzero(fits)
     feasible = feasible[feasible >= first]
     if len(feasible) == 0:
         raise NoRoomForEpisode(f"no room for a {length}-frame episode")
     return int(feasible[rng.integers(len(feasible))])
 
 
-def place_once(rng: np.random.Generator, episodes: list[tuple[int, int]], n: int) -> list[Slot]:
+def place_once(
+    rng: np.random.Generator,
+    episodes: Sequence[tuple[int, Family]],
+    n: int,
+    allowed: Optional[Mapping[Family, np.ndarray]] = None,
+) -> list[tuple[int, Family, int]]:
     """One placement of (length, family) episodes in a split of n frames: longest first, each at an
-    onset uniform among those where it fits without touching another (NoRoomForEpisode when one
-    does not fit). Returns (onset within the split, family, length)."""
+    onset uniform among those where it fits without touching another (and its family's `allowed` onsets,
+    when given). NoRoomForEpisode, naming the family, when one does not fit. Returns (onset within the
+    split, family, length)."""
     occupied = np.zeros(n, bool)
-    placed: list[Slot] = []
+    placed: list[tuple[int, Family, int]] = []
     for length, fid in sorted(episodes, key=lambda x: -x[0]):
-        onset = uniform_onset(occupied, length, rng)
+        try:
+            onset = uniform_onset(
+                occupied, length, rng, allowed=None if allowed is None else allowed.get(fid)
+            )
+        except NoRoomForEpisode as e:
+            raise NoRoomForEpisode(str(e), family=fid) from None
         occupied[onset : onset + length] = True
         placed.append((onset, fid, length))
     return placed

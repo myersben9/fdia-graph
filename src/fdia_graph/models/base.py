@@ -35,9 +35,9 @@ construction.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields
-from typing import Any, ClassVar, NoReturn, TypeVar
+from typing import ClassVar, NoReturn, TypeVar
 
 _B = TypeVar("_B", bound="Bundle")
 
@@ -90,7 +90,7 @@ class Bundle(dict):
     def _present(self) -> tuple[str, ...]:
         return tuple(n for n in self._names() if getattr(self, n) is not None)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, object]:
         """A plain dict copy of the bundle: every non-None field under its dict key."""
         return dict(self)
 
@@ -102,7 +102,7 @@ class Bundle(dict):
         return f"{type(self).__name__}({', '.join(parts)})"
 
     @classmethod
-    def ordered(cls: type[_B], mapping: dict[str, Any]) -> _B:
+    def ordered(cls: type[_B], mapping: Mapping[str, object]) -> _B:
         """A bundle whose dict view lists the keys in the mapping's order rather than the field order
         (a caller's requested field order in `to_numpy`). Keys are dict keys; None values are absent."""
         field_of = {cls.key_of(n): n for n in cls._names()}
@@ -148,7 +148,7 @@ class Bundle(dict):
         return (_rebuild, (type(self), {n: getattr(self, n) for n in self._names()}, list(self)))
 
 
-def _rebuild(cls: type[_B], field_values: dict[str, Any], key_order: list) -> _B:
+def _rebuild(cls: type[_B], field_values: Mapping[str, object], key_order: list[str]) -> _B:
     """Unpickle: construct by field name (positional order and dict order can differ), then restore
     the dict view's key order."""
     obj = cls(**field_values)

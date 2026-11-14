@@ -9,6 +9,7 @@ import pytest
 
 import fdia_graph as fg
 from fdia_graph import registry
+from fdia_graph.models import LearnedConfig, RemovalConfig, TrustConfig
 
 # ---- the replay families' benign buffer ------------------------------------------------------------
 
@@ -121,8 +122,8 @@ def test_trust_selector_base(splits):
     from fdia_graph.trust.base import TrustSelector
 
     with pytest.raises(NotImplementedError):
-        TrustSelector(k=2).fit(splits["train"])
-    tm = TrustedMeters(k=4).fit(splits["train"])
+        TrustSelector(TrustConfig(k=2)).fit(splits["train"])
+    tm = TrustedMeters(TrustConfig(k=4)).fit(splits["train"])
     assert len(tm.select()) == 4 and tm.select(2).tolist() == tm.order[:2]
     assert tm.attack_cost([]) <= tm.attack_cost()  # securing meters never makes the attack cheaper
 
@@ -131,7 +132,9 @@ def test_removal_keeps_every_meter_the_guard_refuses(splits):
     pytest.importorskip("pandapower")
     from fdia_graph.se import ResidualRemoval
 
-    est = ResidualRemoval(threshold=0.5).fit(splits["train"])  # nearly every residual is "bad"
+    est = ResidualRemoval(removal=RemovalConfig(threshold=0.5)).fit(
+        splits["train"]
+    )  # nearly every residual is "bad"
     d = splits["test"].export(["node_x", "edge_x"])
     z = est._z_of(d["node_x"], d["edge_x"])[:20]
     asked = []
@@ -150,7 +153,7 @@ def test_tune_threshold_picks_one_global_tau(splits, timeline):
     pytest.importorskip("torch")
     from fdia_graph.localization import BusMLP
 
-    loc = BusMLP(epochs=2, device="cpu").fit(splits["train"], val=splits["val"])
+    loc = BusMLP(learned=LearnedConfig(epochs=2, device="cpu")).fit(splits["train"], val=splits["val"])
     assert loc.tau is not None and np.round(loc.tau / 0.05) * 0.05 == pytest.approx(loc.tau)
     assert np.all(loc.thr[loc._attackable] == loc.tau) and np.all(np.isinf(loc.thr[~loc._attackable]))
     with pytest.raises(ValueError, match="attacked records"):

@@ -27,7 +27,7 @@ print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/se/README.md h
 ```python
 from fdia_graph.se import SubspacePrior
 
-est = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
+est = SubspacePrior(prior=PriorConfig(rank_frac=0.2, reweight="huber", c=1.5)).fit(train)
 print(est.score(test).geo)  # about half WLS's angle error on IEEE-14 (the table below)
 ```
 

@@ -106,8 +106,7 @@ class SEBase:
     state, the chord that makes per-record solves cheap.
     """
 
-    def __init__(self, npass: int = 40, iters: int = 8, pmu_pseudo: bool = False) -> None:
-        solve = SolveConfig(npass, iters, pmu_pseudo)
+    def __init__(self, solve: SolveConfig = SolveConfig()) -> None:
         self.npass = solve.npass  # reweighting passes (run to convergence per the paper protocol)
         self.iters = solve.iters  # chord-Newton steps inside each solve
         # [WU26 eq. 3]: the PMU currents place pseudo |V| and angle readings at the far end of every

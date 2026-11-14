@@ -8,13 +8,14 @@ import pytest
 pytest.importorskip("pandapower")
 
 import fdia_graph as fg  # noqa: E402
+from fdia_graph.models import DqnConfig, GateConfig, PriorConfig, TrustConfig
 
 
 @pytest.fixture(scope="module")
 def selector(timeline):
     from fdia_graph.trust import TrustedMeters
 
-    return TrustedMeters(k=12).fit(fg.load(timeline, split="train"))
+    return TrustedMeters(TrustConfig(k=12)).fit(fg.load(timeline, split="train"))
 
 
 def test_greedy_selection_raises_the_attack_cost(selector):
@@ -54,12 +55,14 @@ def test_dqn_learns_a_selection(timeline):
     pytest.importorskip("torch")
     from fdia_graph.trust import TrustedMetersDQN
 
-    rl = TrustedMetersDQN(k=8, episodes=12, seed=0).fit(fg.load(timeline, split="train"))
+    rl = TrustedMetersDQN(TrustConfig(k=8), dqn=DqnConfig(episodes=12, seed=0)).fit(
+        fg.load(timeline, split="train")
+    )
     assert 0 < len(rl.order) <= 8 and len(set(rl.order)) == len(rl.order)
     assert len(rl.history) == 12 and len(rl.cost) == len(rl.order)
     assert rl.attack_cost() >= rl.attack_cost([])
     with pytest.raises(ValueError, match="k must be"):
-        TrustedMetersDQN(k=0)
+        TrustedMetersDQN(TrustConfig(k=0))
 
 
 def test_secured_copy_pins_the_selection_and_keeps_the_temporal_kernels(selector, timeline, tmp_path):
@@ -104,8 +107,10 @@ def test_gated_prior_keeps_secured_meters_at_full_weight(selector, timeline):
     train = fg.load(timeline, split="train")
     test = fg.load(timeline, split="test")
     secured = selector.select(4)
-    plain = GatedPrior(gate="oracle", rank_frac=0.3).fit(train)
-    aware = GatedPrior(gate="oracle", rank_frac=0.3, secured=secured).fit(train)
+    plain = GatedPrior(GateConfig(gate="oracle"), prior=PriorConfig(rank_frac=0.3)).fit(train)
+    aware = GatedPrior(GateConfig(gate="oracle"), prior=PriorConfig(rank_frac=0.3), secured=secured).fit(
+        train
+    )
     w0, w1 = plain.gated_weights(test), aware.gated_weights(test)
     assert np.array_equal(w1[:, secured], np.broadcast_to(aware.Wk[secured], (len(test), len(secured))))
     assert (w0 < np.broadcast_to(plain.Wk, w0.shape)).any()  # the gate does fire somewhere

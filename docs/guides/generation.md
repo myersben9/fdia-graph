@@ -280,7 +280,7 @@ At test time a feature may use only measurements and quantities derived from the
 | `SEBase.fit(calibrate="measured")` | `node_x`, `edge_x`, `family` | fitting from the meters' accuracy classes and the estimated benign states |
 | `SEBase.score` | `node_x`, `edge_x` (through `estimate`), then `family`, `clean` | the estimate from measurements, then evaluation against the truth |
 | `JacobianFeatures`, `JacobianWeighting` | `node_x`, `edge_x`, `prev_node_x`, `prev_edge_x`, `prev_timestep` | measurements |
-| `GatedPrior(gate="oracle")` | `y` | evaluation ceiling only |
+| `GatedPrior(GateConfig(gate="oracle"))` | `y` | evaluation ceiling only |
 | `SwingThreshold`, `DeltaThreshold` | `swing`, `temporal_delta` | measurements |
 | `ResidualLocalizer` | `node_x`, `edge_x` | measurements |
 | `BusCNN`, `BusMLP`, `FedBusCNN`, `FedBusMLP` | `node_x`, `node_m`, `edge_x`, `temporal_delta`, `swing`, `prev_swing`, `prev_*`; `y` as the training label | measurements |

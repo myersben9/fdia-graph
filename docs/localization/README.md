@@ -9,7 +9,9 @@ from fdia_graph.localization import SwingThreshold, DeltaThreshold, ResidualLoca
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test")
 
-loc = SwingThreshold(fa_target=0.01).fit(train)  # thresholds set on benign records only
+loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(
+    train
+)  # thresholds set on benign records only
 flag = loc.localize(test)  # [n, N] bool: which buses are called attacked
 rep = loc.score(test)  # per-family metrics + benign false alarms
 ```

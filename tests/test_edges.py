@@ -8,6 +8,15 @@ import pytest
 
 import fdia_graph as fg
 from fdia_graph.dataset import FAMILIES, family_ids
+from fdia_graph.models import (
+    GateConfig,
+    HuberConfig,
+    JacobianWeightingConfig,
+    LocalizerConfig,
+    PriorConfig,
+    RemovalConfig,
+    SolveConfig,
+)
 
 # ---- registry and loading -------------------------------------------------------------------------
 
@@ -178,21 +187,21 @@ def test_estimator_constructor_checks():
     )
 
     with pytest.raises(ValueError, match="SolveConfig.npass must be >= 1"):
-        WLS(npass=0)
+        WLS(solve=SolveConfig(npass=0))
     with pytest.raises(ValueError, match="c must be"):
-        AdaptiveWeighting(c=0.0)
+        AdaptiveWeighting(huber=HuberConfig(c=0.0))
     with pytest.raises(ValueError, match="threshold"):
-        ResidualRemoval(threshold=0.0)
+        ResidualRemoval(removal=RemovalConfig(threshold=0.0))
     with pytest.raises(ValueError, match="rank_frac"):
-        SubspacePrior(rank_frac=1.5)
+        SubspacePrior(prior=PriorConfig(rank_frac=1.5))
     with pytest.raises(ValueError, match="reweight"):
-        SubspacePrior(reweight="bogus")
+        SubspacePrior(prior=PriorConfig(reweight="bogus"))
     with pytest.raises(ValueError, match="reweight"):
-        JacobianWeighting(reweight="bogus")
+        JacobianWeighting(weighting=JacobianWeightingConfig(reweight="bogus"))
     with pytest.raises(ValueError, match="gate"):
-        GatedPrior()
+        GatedPrior(GateConfig())
     with pytest.raises(ValueError, match="gate_factor"):
-        GatedPrior(gate="oracle", gate_factor=2.0)
+        GatedPrior(GateConfig(gate="oracle", gate_factor=2.0))
 
 
 def test_estimator_fit_and_score_input_checks(timeline, splits):
@@ -211,7 +220,7 @@ def test_localizer_input_checks(timeline, splits):
     from fdia_graph.localization import SwingThreshold
 
     with pytest.raises(ValueError, match="fa_target"):
-        SwingThreshold(fa_target=1.5)
+        SwingThreshold(localizer=LocalizerConfig(fa_target=1.5))
     with pytest.raises(ValueError, match="benign records"):
         SwingThreshold().fit(fg.load(timeline, split="train", families=["At"]))
     loc = SwingThreshold().fit(splits["train"])

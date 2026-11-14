@@ -10,6 +10,7 @@ from fdia_graph.formulas.attacks import tampered_devices
 from fdia_graph.formulas.estimation import pmu_pseudo_links, pmu_pseudo_voltages
 from fdia_graph.formulas.network import branch_currents
 from fdia_graph.formulas.noise import PMU_CURRENT_CLASS, current_sigma
+from fdia_graph.models import SolveConfig
 from fdia_graph.models.grid import CURRENT, NODE
 
 pytest.importorskip("pandapower")
@@ -234,9 +235,9 @@ def test_pmu_pseudo_fills_only_unmetered_slots_and_needs_currents(files):
 
     old, new = files
     with pytest.raises(MissingCapability, match="PMU currents"):
-        WLS(pmu_pseudo=True).fit(FdiaGraph(old, split="train"))
+        WLS(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(old, split="train"))
     plain = WLS().fit(FdiaGraph(new, split="train"))
-    est = WLS(pmu_pseudo=True).fit(FdiaGraph(new, split="train"))
+    est = WLS(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(new, split="train"))
     assert est.m == plain.m + len(est._pseudo_v) + len(est._pseudo_th) and len(est._pseudo_th) > 0
     x = est.estimate(FdiaGraph(new, split="test"))
     assert np.isfinite(x).all()
@@ -276,7 +277,7 @@ def test_jacobian_weighting_takes_the_pseudo_measurements(files):
     from fdia_graph.se import JacobianWeighting
 
     _, new = files
-    est = JacobianWeighting(pmu_pseudo=True).fit(FdiaGraph(new, split="train"))
+    est = JacobianWeighting(solve=SolveConfig(pmu_pseudo=True)).fit(FdiaGraph(new, split="train"))
     assert len(est._pseudo_th) > 0
     assert np.isfinite(est.estimate(FdiaGraph(new, split="test"))).all()
 
@@ -304,7 +305,9 @@ def test_pmu_pseudo_with_the_measured_calibration(files, method):
     from fdia_graph.dataset import FdiaGraph
 
     _, new = files
-    est = getattr(se, method)(pmu_pseudo=True).fit(FdiaGraph(new, split="train"), calibrate="measured")
+    est = getattr(se, method)(solve=SolveConfig(pmu_pseudo=True)).fit(
+        FdiaGraph(new, split="train"), calibrate="measured"
+    )
     n_pseudo = len(est._pseudo_v) + len(est._pseudo_th)
     assert est._pseudo_sig.shape == (n_pseudo,) and np.isfinite(est._pseudo_sig).all()
     assert (est._pseudo_sig > 0).all()
@@ -322,7 +325,7 @@ def test_estimate_builds_the_pseudo_measurements_chunk_by_chunk(files):
 
     _, new = files
     train, test = FdiaGraph(new, split="train"), FdiaGraph(new, split="test")
-    est = WLS(pmu_pseudo=True).fit(train)
+    est = WLS(solve=SolveConfig(pmu_pseudo=True)).fit(train)
     d = test.export(["node_x", "edge_x", "pmu_i"])
     whole = est._estimate_arrays(est._z_of(d["node_x"], d["edge_x"], d["pmu_i"]), None, 1000)
     np.testing.assert_array_equal(est.estimate(test, chunk=1000), whole)

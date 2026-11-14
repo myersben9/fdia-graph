@@ -17,15 +17,15 @@ first three are the formulas of `formulas.federated` and `formulas.metrics`.
 
 With K = 1 and no gradient clip the fit is the centralized one, weight for weight.
 
-    loc = FedBusCNN(K=3, rounds=60, local_epochs=3).fit(train, val=val)   # needs the [federated] extra
+    loc = FedBusCNN(federated=FederatedSettings(K=3, rounds=60, local_epochs=3)).fit(train, val=val)   # needs the [federated] extra
 """
 
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -43,7 +43,7 @@ from ..localization.learned import (
 from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
     Kcl,
 )
-from ..models.config import FederatedSettings
+from ..models.config import FederatedSettings, LearnedConfig, LocalizerConfig, TrainerConfig
 from ..models.federated import Partition, RoundLog
 from ..models.inputs import PartitionOnGrid
 from .aggregate import fedavg_state, state_bytes
@@ -96,30 +96,17 @@ class FederatedLocalizer(LearnedLocalizer):
 
     def __init__(
         self,
-        K: int = 2,
-        rounds: int = 60,
-        local_epochs: int = 3,
+        federated: FederatedSettings = FederatedSettings(),
         partition: Optional[Partition] = None,
-        halo: int = 0,
-        grad_clip: Optional[float] = 1.0,
-        kcl: str = "local",
-        **kw: Any,
+        learned: LearnedConfig = LearnedConfig(),
+        localizer: LocalizerConfig = LocalizerConfig(),
     ) -> None:
-        fed = FederatedSettings(
-            K,
-            rounds,
-            local_epochs,
-            halo,
-            grad_clip,
-            kcl,
-            partition_clients=None if partition is None else partition.K,
-            epochs=kw.pop("epochs", None),
-        )
-        super().__init__(**kw)
-        kcl = fed.kcl
-        self.K, self.rounds, self.local_epochs = K, rounds, local_epochs
-        self.partition, self.halo, self.grad_clip, self.kcl = partition, halo, grad_clip, kcl
-        self.epochs = rounds * local_epochs  # the local passes over the data each client makes
+        # the partition's client count must agree with K (checked by the model)
+        fed = replace(federated, partition_clients=None if partition is None else partition.K)
+        super().__init__(learned=learned, localizer=localizer)
+        self.K, self.rounds, self.local_epochs = fed.K, fed.rounds, fed.local_epochs
+        self.partition, self.halo, self.grad_clip, self.kcl = partition, fed.halo, fed.grad_clip, fed.kcl
+        self.epochs = fed.rounds * fed.local_epochs  # the local passes over the data each client makes
         self.history: list[RoundLog] = []
 
     # ---- features per client --------------------------------------------------------------
@@ -201,7 +188,13 @@ class FederatedLocalizer(LearnedLocalizer):
         clients = []
         for k, (X, (nodes, owned)) in enumerate(zip(blocks, views)):
             net = init if k == 0 else copy.deepcopy(init)
-            trainer = LocalTrainer(net, self._optim(), self.dev, self.seed + k, self.grad_clip)
+            trainer = LocalTrainer(
+                trainer=TrainerConfig(clip=self.grad_clip),
+                net=net,
+                cfg=self._optim(),
+                dev=self.dev,
+                seed=self.seed + k,
+            )
             rng = self._rng_state() if k == 0 else self._seeded_rng_state(self.seed + k)
             Xs = ((X - self.mu) / self.sd).astype(np.float32)
             Xt, Yt = trainer.stage(Xs, np.ascontiguousarray(Y[:, nodes[:owned]]))  # own labels only

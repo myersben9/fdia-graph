@@ -5,7 +5,21 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
-- **The New York grid's study scripts and design log leave the repository.** `tools/nyfed` keeps the build tools
+- **The New York grid in the SDK's own packages.** `fdia_graph.nyfed` is gone: the system source is
+  `generation.nygrid`, the meters `engine.sensing`, the attack families `engine.attacks`, the operator
+  `fdia_graph.operator`, the residual test `se.detect`, the utility clients `federated.utilities`, the client views
+  `dataset.clients` and the study helpers `results.studies`. Its tests, tools, docs and examples are under `nygrid`
+  folders, and the inputs root is `NYGRID_ROOT`. The duplicated network, accuracy-class, flow-solve, placement and
+  NYISO-reader code now calls the SDK's formulas and generation functions.
+- **Constructors take settings models.** Estimators, localizers, federated localizers and trust selectors take their
+  `models.config` settings (`SolveConfig`, `PriorConfig`, `LearnedConfig`, `FederatedSettings`, `TrustConfig`,
+  `DqnConfig`, ...) instead of flat keywords.
+
+- **An Ipopt that ends abnormally is a failed solve (New York grid).** `OperatorOpf.solve` returns None when Ipopt does
+  not exit normally (killed, out of memory), so the AC operator retries from the AC point instead of ending the study
+  that ran it.
+
+- **The New York grid's study scripts and design log leave the repository.** `tools/nygrid` keeps the build tools
   (`run_pool.py`, `build_timeline.py`, `build_single_episodes.py`, `matlab/`); the study drivers, their result files
   under `results/` and the design log are removed. The library, its defaults and its outputs are unchanged.
 
@@ -76,7 +90,7 @@ the public API, the generated files and the numbers are the same as the previous
   it `area_damage` prices what each zone's and utility's load pays at the moved prices (`payments_usd`). The default least-movement dispatch is unchanged: every golden value holds, and the operator
   snapshots gain only the two new arrays, empty under it.
 
-- **Who bears an attack's damage (New York grid).** New `fdia_graph.nyfed.operator.areas`: `area_damage` splits an
+- **Who bears an attack's damage (New York grid).** New `fdia_graph.operator.areas`: `area_damage` splits an
   operator run, attacked less benign, by New York zone, by utility and by neighboring area. Each zone and utility
   gets the energy its units lose, the fuel saved and the sales lost at the zone's real price, the load shed, and the
   transfer cut into it and margin lost on the interfaces that feed it (`FEEDS`). Each neighbor gets the inadvertent
@@ -85,20 +99,20 @@ the public API, the generated files and the numbers are the same as the previous
   zone and utility, and `zone_levers` measures how far each zone's plausible false load and output could move each
   interface. `node_lbmp` reads NYISO's hourly price at any zone or proxy bus. No change to existing results.
 
-- **The New York grid's tests run in CI (New York grid).** A new workflow, `nyfed.yml`, installs the `[ny]` extra
+- **The New York grid's tests run in CI (New York grid).** A new workflow, `nygrid.yml`, installs the `[ny]` extra
   and Ipopt from conda-forge, downloads NYgrid's public inputs with `fetch_inputs` (cached under the pinned commit)
-  and runs `tests/nyfed` on pull requests that touch the New York grid, on main and weekly. Before it, no CI job
+  and runs `tests/nygrid` on pull requests that touch the New York grid, on main and weekly. Before it, no CI job
   installed Pyomo, so the whole folder, the examples' test included, was left out of every run. Two damage-study days,
-  the single-episode day and the 2019 pool's frames of those days are checked in under `tests/nyfed/data/days`
+  the single-episode day and the 2019 pool's frames of those days are checked in under `tests/nygrid/data/days`
   (6.7 MB), so the operator's tests and 33 of the 35 golden snapshots run there too; the tests that need the whole
   pool (the attack families, the builder, the timeline and the interface attack's design) still run only where it
-  is built. `tests/nyfed/nyfed_inputs.py` names every input in one place and says which tests it lets run, in place
+  is built. `tests/nygrid/nygrid_inputs.py` names every input in one place and says which tests it lets run, in place
   of a path block repeated in nine test files. No user-visible change.
 
-- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nyfed/WALKTHROUGH.md` follows one
+- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nygrid/WALKTHROUGH.md` follows one
   attack through every stage with the call that does each step (each snippet checked on the 2019 data);
-  `docs/nyfed/EXTENDING.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
-  with a runnable example under `examples/nyfed/` that CI runs; `docs/nyfed/ARCHITECTURE.md` opens with a rendered
+  `docs/nygrid/EXTENDING.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
+  with a runnable example under `examples/nygrid/` that CI runs; `docs/nygrid/ARCHITECTURE.md` opens with a rendered
   diagram of the stages and its principles as they now hold, in place of an ASCII diagram that predated the operator
   and the detectors.
 
@@ -107,11 +121,11 @@ the public API, the generated files and the numbers are the same as the previous
   within-hour constants to `load_fit.py` (public as `fluctuation_fit` and `switching_fit`, for refitting them), and
   the validation measures to `load_metrics.py`. The code moved as it was.
 
-- **Study helpers, and the research tools as thin drivers (New York grid).** New `fdia_graph.nyfed.experiments`:
+- **Study helpers, and the research tools as thin drivers (New York grid).** New `fdia_graph.results.studies`:
   `study_days` (a study's day files), `variant` (at the limit or damaging), `load_calib` (the interchange check's
   calibration), `add_study_arguments` (the options every tool shares) and `run_parallel` (a process pool that writes
   the CSV as results come in, sorted by file at the end, so its rows no longer depend on which worker finished
-  first). The study tools under `tools/nyfed/` use them in place of their own copies, and the interchange-check tool
+  first). The study tools under `tools/nygrid/` use them in place of their own copies, and the interchange-check tool
   takes `--data` instead of a fixed path. The tools' results are unchanged.
 
 - **The overload attacks read plainly (New York grid).** The OPF attack's per-support model and prepared window
@@ -127,19 +141,19 @@ the public API, the generated files and the numbers are the same as the previous
   build one, so existing calls are unchanged. `Operator` is the protocol a partner's operator implements (return a
   `Response` and `summarize` works on it), and `NyisoOperator(policy)` is this package's.
 
-- **The operator in one module per job (New York grid).** `fdia_graph.nyfed.operator.response` (730 lines) is split
+- **The operator in one module per job (New York grid).** `fdia_graph.operator.response` (730 lines) is split
   into `day` (reading an attacked day), `ties` (the interchange check), `truegrid` (the AC power flows on the true
   grid), `policy` (the operator's choices), `run` (the scan-by-scan loop) and `summary` (its consequence), the code
   moved as it was. `response` re-exports every name, so existing imports keep working. The interchange check's alarm
   is public as `interchange_alarm`.
 
-- **Detection as building blocks (New York grid).** New `fdia_graph.nyfed.detect`: the residual test's AC weighted
+- **Detection as building blocks (New York grid).** New `fdia_graph.se.detect`: the residual test's AC weighted
   least squares (`wls`, returning a `WlsFit` that says whether it converged), the noise-free fit of a state
   (`exact_state`), the persistence rule with its calibration (`PersistenceRule`, `PersistenceRule.fit`) behind an
   `AlarmRule` protocol any other rule can implement, and other meter fleets (`with_fleet`, `fleet_bias`).
   `TrueGrid.state` and `TrueGrid.run_state` give the true state after the operator acts, with the load it shed (the
   research tools left the shed load out; no studied day sheds load, so no number changes). The six detection tools
-  under `tools/nyfed/` now drive these instead of carrying their own copies and importing each other.
+  under `tools/nygrid/` now drive these instead of carrying their own copies and importing each other.
 
 - **Settings are arguments, not patches (New York grid).** `production_builder` takes `v_margin` and `gen_v_tol`,
   the attacker's voltage sensitivities (N71, N75); `v_margin` widens the limits on the attacker's own copy of the case
@@ -148,18 +162,18 @@ the public API, the generated files and the numbers are the same as the previous
   and `max_overshoot` searches on one, instead of swapping `overshoot` in and out; `build_episode(using=...)` designs
   with such a variant. `hourly_dispatch(hold_externals=False)` replaces the AC ablation's monkeypatch.
 
-- **A public surface for the New York grid.** Every `fdia_graph.nyfed` package (`grid`, `scenario`, `sensing`,
-  `attacks`, `timeline`, `operator`, and `fdia_graph.nyfed` itself) now has a docstring that says what its stage does,
+- **A public surface for the New York grid.** Every `fdia_graph.generation.nygrid` package (`grid`, `scenario`, `sensing`,
+  `attacks`, `timeline`, `operator`, and `fdia_graph.generation.nygrid` itself) now has a docstring that says what its stage does,
   what goes in and comes out, and how it fails, and an `__all__` of its public names, loaded on first use (reading a
   dataset still never imports pandapower or Pyomo). Helpers the research tools reached into became public:
   `operator.response.TrueGrid` and `entry_share` (the old `_TrueGrid` and `_entry_share` warn until 0.22),
   `Attacker.absorb` and `TimelineBuilder.episode_lengths`.
 
-- **Named errors and a troubleshooting page (New York grid).** `fdia_graph.nyfed` raises the SDK's named errors:
+- **Named errors and a troubleshooting page (New York grid).** `fdia_graph.generation.nygrid` raises the SDK's named errors:
   `ConfigError` for a wrong argument, `DataConditionError` (or `NoAdmissibleTarget`, `NotFitted`) for data that does
   not meet a condition, instead of bare `ValueError`s and asserts. Both subclass `ValueError`, so existing handlers
-  keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.nyfed.tables`), and
-  the research tools no longer silence warnings. `docs/nyfed/TROUBLESHOOTING.md` lists what each stage reports when
+  keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.generation.nygrid.tables`), and
+  the research tools no longer silence warnings. `docs/nygrid/TROUBLESHOOTING.md` lists what each stage reports when
   it fails and what to do.
 
 - **A failed power flow reads as unknown, not safe (New York grid).** The operator's `Twin` gains `pf_failed [T]`,
@@ -169,12 +183,12 @@ the public API, the generated files and the numbers are the same as the previous
   `mode`, `after` or `entry` raises `fdia_graph.errors.ConfigError` (a ValueError, as before).
 
 - **Why a design found no attack (New York grid).** `AttackFamily.design_explained` returns the episode or the
-  reason there is none (one of `fdia_graph.nyfed.attacks.episode.MISSES`: `no_target`, `infeasible`,
+  reason there is none (one of `fdia_graph.engine.attacks.family.MISSES`: `no_target`, `infeasible`,
   `solver_error`), also kept in `last_miss`, and `TimelineBuilder.build` reports `missed` and, with the onset
   survey, `survey_missed`: the count of each reason per family. `build_episode`'s error names the reason. Before, a
   timeline with few attacks gave no way to tell an empty window from a failing solver.
 
-- **A missing solver now says so (New York grid).** `fdia_graph.nyfed.solvers.ipopt` finds Ipopt in the environment,
+- **A missing solver now says so (New York grid).** `fdia_graph.engine.solvers.ipopt` finds Ipopt in the environment,
   checks that it starts, and raises the new `fdia_graph.errors.SolverUnavailable` with the fix when it does not. Before,
   an Ipopt that could not start (a missing DLL, exit code 0xC0000135) made every attack design read as infeasible, so a
   timeline built with no overload attacks and no error. The attack OPF now reads only an abnormal stop on its own model
@@ -221,7 +235,7 @@ the public API, the generated files and the numbers are the same as the previous
   limit at the buses where shedding relieves the interface. `Step` carries the shed load and the cost of
   relieving the interface.
 
-- **The grid operator under attack (`fdia_graph.nyfed.operator`).** `DcSced` is the operator's real-time
+- **The grid operator under attack (`fdia_graph.operator`).** `DcSced` is the operator's real-time
   dispatch on what it sees: a DC dispatch on shift factors around the pool basepoint, with unit limits,
   five-minute ramps from its previous dispatch and the interface limit (the benign model flow plus the
   hour's real 2019 headroom). It moves as little as it must, then at least cost. `respond(day, delay,
@@ -233,14 +247,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## 0.21.0
 
-- **New York grid build in the package.** `fdia_graph.nyfed.build`: `fetch_inputs(root)` downloads the
+- **New York grid build in the package.** `fdia_graph.generation.nygrid.build`: `fetch_inputs(root)` downloads the
   inputs at their pinned versions (NYgrid at 47698b6, NYISO's 2019 five-minute load, the NYS DPS utility
   territories, and the bus locations now shipped as `grid/ny_bus_locations.csv`), and
   `production_builder(pool_path, ...)` returns the release `TimelineBuilder` with every decided bound.
   `tools/nyfed/build_timeline.py` and `tools/nyfed/build_single_episodes.py` run them; a single-episode
   file rebuilt this way is identical to the one built before. New guide: docs/guides/new_york.md.
 
-- **New York grid (`fdia_graph.nyfed`, the `[ny]` extra).** The New York federated grid package, moved in
+- **New York grid (`fdia_graph.generation.nygrid`, the `[ny]` extra).** The New York federated grid package, moved in
   from its own repository as written: the modified NPCC-140 of NYgrid in AC, the 2019 five-minute
   operating-point pool from a ramp-constrained AC dispatch, utility clients from the state's service
   territories, the hybrid SCADA and PMU meter plan with accuracy-class noise, the overload attack built
@@ -937,7 +951,7 @@ the public API, the generated files and the numbers are the same as the previous
   the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
   is the whole system's estimator applied to every meter's change, computed once centrally per pass
   and shared with every client (appended after the 14 channels for `full14+jac`, the whole input for
-  `jac`); that block is the one feature a client does not build from its own meters. One client equals the centralized `BusCNN(features="full14+jac")`.
+  `jac`); that block is the one feature a client does not build from its own meters. One client equals the centralized `BusCNN(learned=LearnedConfig(features="full14+jac"))`.
 - Localization, the federated paper's tables: `LocalizerBase.score_perbus(ds, buses=, fr_over=)`
   returns per-bus F1, detection rate, false-alarm rate and AUPRC (`models.scores.PerBusScores`,
   `PerBusMetrics`) over every record and per family (that family plus benign), on the active buses
@@ -949,7 +963,7 @@ the public API, the generated files and the numbers are the same as the previous
 - `fdia_graph.federated.RegionalPrior`: the proposed estimator's subspace prior fitted per client
   of a `Partition` (each client's basis from its own non-slack angles and voltages, placed on a block
   diagonal by `formulas.federated.block_diagonal_basis`), so no client's states leave it; one client
-  is `SubspacePrior` exactly. With `GatedPrior(gate=FedBusCNN(...))` the federated localizer gates the
+  is `SubspacePrior` exactly. With `GatedPrior(gate=FedBusCNN(federated=FederatedSettings(K=...)))` the federated localizer gates the
   estimator. The meter sigmas and the benign mean were already local; the solve stays central.
 - `fdia_graph.federated`: the federated localization paper's localizers trained by FedAvg [MCM17].
   `FedBusMLP` and `FedBusCNN` are `LocalizerBase` methods (`fit(train, val)`, `localize`, `scores`,
@@ -1053,7 +1067,7 @@ the public API, the generated files and the numbers are the same as the previous
   `units="pu"` view with a ValueError; `fit` did before, but estimating or scoring a per-unit view
   converted twice and returned errors about ten times too large. `GatedPrior` and
   `JacobianWeighting` supply their per-record weights through one hook (`_record_weights`) instead
-  of overriding `estimate`, so `ResidualLocalizer(estimator=GatedPrior(...))` scores the gated
+  of overriding `estimate`, so `ResidualLocalizer(estimator=GatedPrior(GateConfig(gate=...)))` scores the gated
   estimator rather than its ungated parent; the Huber passes live once in `SEBase` and
   `JacobianWeighting` gains `tol` (it ran all 40 passes) and builds its Jacobian features once in
   `fit`. `ResidualLocalizer` no longer refits an estimator that is already fitted
@@ -1182,9 +1196,9 @@ the public API, the generated files and the numbers are the same as the previous
   registered yet is not green), every other check finished without failure, and Copilot's review on
   that head; `wait` waits for the same set. A merge can no longer slip in while CI is still starting.
 - `fdia_graph.trust`: which meters to secure so that stealthy attacks stop being stealthy, after
-  the trusted-PMU defence of Wu et al. 2026. `TrustedMeters(k)` is the greedy row-reduction
+  the trusted-PMU defence of Wu et al. 2026. `TrustedMeters(TrustConfig(k=k))` is the greedy row-reduction
   selection on the WLS Jacobian (secure, on the cheapest open attack, the meter whose protection
-  raises the attack cost most), `TrustedMetersDQN(k, episodes)` the same selection learned as a
+  raises the attack cost most), `TrustedMetersDQN(TrustConfig(k=k), dqn=DqnConfig(episodes=episodes))` the same selection learned as a
   Markov decision process with a deep Q-network (state the secured set, reward the attack-cost
   rise; needs torch). Both expose the order and the attack cost after each meter, and `score(test)`
   on a time-ordered timeline pins the secured meters to their benign reading and reports the WLS

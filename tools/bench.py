@@ -35,6 +35,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tests"))
 from conftest import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
 
+from fdia_graph.models import HuberConfig, PriorConfig
+
 SLOW_FACTOR = 3.0
 # the fixture recipe a row was measured on: rows of another recipe time other frames and meters, so
 # `--check` compares only rows of this one (a new recipe starts a new table and a new baseline)
@@ -54,8 +56,8 @@ def _timings() -> dict[str, float]:
     train, test = fg.load("tiny", split="train"), fg.load("tiny", split="test")
     for name, est in (
         ("wls", WLS()),
-        ("huber", AdaptiveWeighting(c=1.5)),
-        ("prior+huber", SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5)),
+        ("huber", AdaptiveWeighting(huber=HuberConfig(c=1.5))),
+        ("prior+huber", SubspacePrior(prior=PriorConfig(rank_frac=0.2, reweight="huber", c=1.5))),
     ):
         est.fit(train)
         est.estimate(test)  # warm-up: first call pays for imports and caches
