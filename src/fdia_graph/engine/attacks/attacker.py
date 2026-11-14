@@ -7,7 +7,7 @@ runs one residual test over every meter, so stealth is global, not per client. T
 hold their true voltage and absorb the changed power, so their injection moves too. The slack bus (the
 estimator's angle reference) never moves.
 
-Two goals re-solve the interior, through one solve (`_local_flow_solve`). The flow goal of Am and Ap
+Two goals re-solve the interior, through one solve (`formulas.network.local_flow_solve`). The flow goal of Am and Ap
 (`false_flow_state`) drives a target branch's apparent flow to a value; the load goal of At
 (`false_state`) prescribes a pretended load at chosen buses. In both a New York bus on the interior's
 edge whose injection may not change (a zero-injection bus, a load under the floor) first joins the
@@ -38,10 +38,9 @@ import numpy as np
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import IA, VA
 from fdia_graph.engine.sensing.noise import NoiseModel
+from fdia_graph.formulas.network import local_flow_solve
 from fdia_graph.generation.nygrid.case import REF, Case
 from fdia_graph.generation.nygrid.network import Network
-
-_BACKTRACK_HALVINGS = 8  # step fractions tried per Newton iteration: 1, 1/2, ... 1/128
 
 
 def natural_steps(time: np.ndarray, p: np.ndarray, solved: np.ndarray, pct: float = 95.0) -> np.ndarray:
@@ -116,109 +115,6 @@ def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
     angle = np.isin(kind, (VA, IA))
     d[..., angle] = -((-d[..., angle] + 180.0) % 360.0 - 180.0)
     return d
-
-
-def _injection_jacobian(
-    y_ri: np.ndarray, v_r: np.ndarray, v_i: np.ndarray, i_r: np.ndarray, d: np.ndarray
-) -> np.ndarray:
-    """The [2r, 2k] Jacobian of the injections at buses R (inside the interior or on its edge) in the
-    interior's [theta_I, |V|_I], from S_r = V_r conj(sum_j Y_rj V_j); `y_ri` are R's rows of Ybus on
-    the interior's columns, `i_r = (Ybus V)_R`, and `d[r, i] = 1` where R's bus r is interior bus i."""
-    a = 1j * v_r[:, None] * (np.conj(i_r)[:, None] * d - np.conj(y_ri * v_i[None, :]))  # dS/dtheta
-    b = (
-        v_r[:, None] * np.conj(y_ri * (v_i / np.abs(v_i))[None, :])
-        + (np.conj(i_r) * v_r / np.abs(v_r))[:, None] * d
-    )
-    r, k = y_ri.shape
-    j = np.empty((2 * r, 2 * k))
-    j[:r, :k], j[:r, k:], j[r:, :k], j[r:, k:] = a.real, b.real, a.imag, b.imag
-    return j
-
-
-def _local_flow_solve(
-    ybus: np.ndarray,
-    yf: np.ndarray,
-    from_bus: np.ndarray,
-    v: np.ndarray,
-    interior: np.ndarray,
-    fixed: np.ndarray,
-    s_fixed: np.ndarray,
-    target: np.ndarray,
-    hold: np.ndarray,
-    vm_fixed: tuple[np.ndarray, np.ndarray],
-    iters: int = 60,
-    tol: float = 1e-9,
-) -> np.ndarray | None:
-    """The false voltages that drive each goal branch's from-end apparent flow to `target` while the
-    buses of `fixed` keep their injection, every bus outside `interior` held true [1] eqs. 24-25. Fewer
-    equations than the 2|interior| unknowns, so the least-norm Gauss-Newton step is taken, backtracked
-    until the residual drops.
-
-    yf, from_bus : [L, N] goal branches' from-end admittance rows and their from buses
-    interior     : buses whose voltage moves (the support)
-    fixed        : buses whose injection is held (interior or edge); `s_fixed` their injections (pu),
-                   `hold [len(fixed), 2]` which of P and Q each holds
-    target       : [L] goal apparent flows (pu); `vm_fixed = (buses, |V|)` held magnitudes (pu)
-    """
-    v = np.array(v, np.complex128, copy=True)
-    i_ = np.asarray(interior, int)
-    fx = np.asarray(fixed, int)
-    k = len(i_)
-    pos = {int(b): p for p, b in enumerate(i_)}
-    y_ri = ybus[np.ix_(fx, i_)]
-    d = (fx[:, None] == i_[None, :]).astype(float)
-    keep = np.concatenate([hold[:, 0], hold[:, 1]]).astype(bool)
-    yf_i = yf[:, i_]
-    f_at = np.array([pos.get(int(b), -1) for b in from_bus], int)
-    vb, vm_val = vm_fixed
-    vb_at = np.array([pos[int(b)] for b in vb], int)
-
-    def residual(vv: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        yv = ybus @ vv
-        mis = s_fixed - (vv * np.conj(yv))[fx]
-        inj = np.concatenate([np.real(mis), np.imag(mis)])[keep]
-        flow = np.abs(vv[from_bus] * np.conj(yf @ vv)) - target
-        vmr = np.abs(vv[vb]) - vm_val
-        return np.concatenate([inj, flow, vmr]), yv
-
-    r, yv = residual(v)
-    for _ in range(iters):
-        norm = float(np.max(np.abs(r)))
-        if norm < tol:
-            return v
-        jinj = _injection_jacobian(y_ri, v[fx], v[i_], yv[fx], d)[keep]
-        rows = [-jinj]
-        for y_row, yi, fb, at in zip(yf, yf_i, from_bus, f_at):
-            iff = y_row @ v
-            sf = v[fb] * np.conj(iff)
-            dth = -1j * v[fb] * np.conj(yi * v[i_])
-            dvm = v[fb] * np.conj(yi * v[i_] / np.abs(v[i_]))
-            if at >= 0:
-                dth[at] += 1j * sf
-                dvm[at] += (v[fb] / abs(v[fb])) * np.conj(iff)
-            mag = max(abs(sf), 1e-12)
-            rows.append(np.concatenate([np.real(np.conj(sf) * dth), np.real(np.conj(sf) * dvm)])[None] / mag)
-        vm_rows = np.zeros((len(vb_at), 2 * k))
-        vm_rows[np.arange(len(vb_at)), k + vb_at] = 1.0
-        jac = np.vstack(rows + [vm_rows])
-        step = np.linalg.lstsq(jac, -r, rcond=None)[0]
-        if not np.all(np.isfinite(step)):
-            return None
-        vm0, va0, accepted = np.abs(v[i_]), np.angle(v[i_]), None
-        for _ in range(_BACKTRACK_HALVINGS):
-            mag, ang = vm0 + step[k:], va0 + step[:k]
-            if np.all(mag > 0):
-                vtry = v.copy()
-                vtry[i_] = mag * np.exp(1j * ang)
-                tried, yv_try = residual(vtry)
-                if np.max(np.abs(tried)) < norm:
-                    accepted = (vtry, tried, yv_try)
-                    break
-            step = step / 2
-        if accepted is None:
-            return None
-        v, r, yv = accepted
-    return None
 
 
 class Attacker:
@@ -491,7 +387,7 @@ class Attacker:
                 bool,
             ).reshape(-1, 2)
             vb = np.array(sorted(held_v), int)
-            return _local_flow_solve(
+            return local_flow_solve(
                 self.ybus,
                 self.yf[lines],
                 self.from_bus[lines],
@@ -500,8 +396,9 @@ class Attacker:
                 fixed,
                 s_true[fixed] + change / base,
                 target,
-                hold,
-                (vb, np.array([held_v[int(b)] for b in vb])),
+                iters=60,
+                vm_fixed=(vb, np.array([held_v[int(b)] for b in vb])),
+                hold=hold,
             )
 
         def moved(vf: np.ndarray, key: tuple[int, int]) -> float:
