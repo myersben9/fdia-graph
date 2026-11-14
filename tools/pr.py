@@ -5,6 +5,7 @@
     python tools/pr.py status <num>                          # checks on the head, reviews, comment count
     python tools/pr.py comments <num>                        # every review comment (path, line, body)
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
+    python tools/pr.py summary <num> <summary.md>            # post the review agents' four-sentence summary
     python tools/pr.py wait <num> [minutes]                  # block until CI has finished
     python tools/pr.py merge <num>                           # squash-merge on green, delete the branch
     python tools/pr.py request-review <num>                  # ask for an automated review (optional, billed)
@@ -18,6 +19,7 @@ pull request"), and an automated review runs only when `request-review` asks for
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import subprocess
 import sys
 import time
@@ -231,6 +233,15 @@ def reply(num: int, comment_id: int, text: str) -> None:
     print("replied to", comment_id)
 
 
+def summary(num: int, path: str) -> None:
+    """Post the summary the review agents wrote for the owner (four sentences) as a comment on the pull request."""
+    text = Path(path).read_text(encoding="utf-8").strip()
+    api("POST", f"/issues/{num}/comments", json={"body": f"**Summary**
+
+{text}"})
+    print(f"summary posted on #{num}")
+
+
 def wait(num: int, minutes: float = 25) -> None:
     t0 = time.time()
     while True:
@@ -309,6 +320,8 @@ def main(argv: list[str]) -> None:
         comments(int(args[0]))
     elif cmd == "reply":
         reply(int(args[0]), int(args[1]), args[2])
+    elif cmd == "summary":
+        summary(int(args[0]), args[1])
     elif cmd == "wait":
         wait(int(args[0]), float(args[1]) if len(args) > 1 else 25)
     elif cmd == "merge":

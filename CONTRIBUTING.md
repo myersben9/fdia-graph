@@ -81,7 +81,8 @@ step, and an open pull request is rebased only for a real conflict. The order:
    file read whole, searching outward from every change (a `/code-review` in Claude Code with the
    checklist does this). Fold what it finds into the branch.
 3. Before the pull request leaves draft, one review of the diff by Claude Code review agents (no paid review service);
-   its findings are fixed in one round, not looped.
+   its findings are fixed in one round, not looped, and its four-sentence summary of the change is posted on
+   the pull request (`tools/pr.py summary`) for the owner.
 4. Mark the draft ready and merge it on green once the owner approves.
 
 When an automated review was asked for, its comments are suggestions: apply the ones that are right
