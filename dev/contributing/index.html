@@ -1605,8 +1605,8 @@ checks a docs change locally.</p>
 </tr>
 <tr>
 <td>the paper maps to the code</td>
-<td>an equation of [WU26] is cited as <code>[WU26 eq. 28]</code> (<code>[WU26 eqs. 21-23]</code>, <code>[WU26 Alg. 1]</code>) and one of our decisions as <code>[D9]</code> or <code>[E13]</code>, in the docstring or a comment of the function that implements it and of the test that checks it (or the test is named <code>test_wu26_eq28_...</code>); every equation in <code>schema.WU26_EQUATIONS</code> has a function and a test, every decision is listed in <code>schema.DECISIONS</code> as the paper's reading or ours</td>
-<td><code>python tools/equation_map.py</code> writes <code>docs/reference/DECISIONS.md</code> and the generated sections of <code>FORMULAS.md</code> and <code>CONCEPTS_TO_CODE.md</code>; <code>--check</code> in the pre-review and CI</td>
+<td>an equation of [WU26] is cited as <code>[WU26 eq. 28]</code> (<code>[WU26 eqs. 21-23]</code>, <code>[WU26 Alg. 1]</code>), in the docstring or a comment of the function that implements it and of the test that checks it (or the test is named <code>test_wu26_eq28_...</code>); every equation in <code>schema.WU26_EQUATIONS</code> has a function and a test</td>
+<td><code>python tools/equation_map.py</code> writes the generated sections of <code>FORMULAS.md</code> and <code>CONCEPTS_TO_CODE.md</code>; <code>--check</code> in the pre-review and CI</td>
 </tr>
 <tr>
 <td>speed is tracked</td>

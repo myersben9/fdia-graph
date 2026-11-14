@@ -1616,13 +1616,20 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The New York grid in the SDK's own packages.</strong> <code>fdia_graph.nyfed</code> is gone: the system source is
+<li>
+<p><strong>The decisions registry is removed.</strong> <code>schema.DECISIONS</code>, <code>models.Decision</code>, the generated decisions page
+  and the <code>[D9]</code> / <code>[E13]</code> tags go; each choice is stated in the docstring of the code that makes it.
+  <code>tools/equation_map.py</code> maps the <code>[WU26 ...]</code> citations only, and still refuses a decision tag.</p>
+</li>
+<li>
+<p><strong>The New York grid in the SDK's own packages.</strong> <code>fdia_graph.nyfed</code> is gone: the system source is
   <code>generation.nygrid</code>, the meters <code>engine.sensing</code>, the attack families <code>engine.attacks</code>, the operator
   <code>fdia_graph.operator</code>, the residual test <code>se.detect</code>, the utility clients <code>federated.utilities</code>, the client views
   <code>dataset.clients</code> and the study helpers <code>results.studies</code>. Its tests, tools, docs and examples are under <code>nygrid</code>
   folders, and the environment variables are <code>NYGRID_ROOT</code>, <code>NYGRID_LOADS</code> and <code>NYGRID_UPDATE_GOLDEN</code>.
   The old <code>fdia_graph.nyfed</code> path is removed without a warning period. The duplicated network, accuracy-class, flow-solve, placement and
-  NYISO-reader code now calls the SDK's formulas and generation functions.</li>
+  NYISO-reader code now calls the SDK's formulas and generation functions.</p>
+</li>
 <li>
 <p><strong>Constructors take settings models.</strong> Estimators, localizers, federated localizers and trust selectors take their
   <code>models.config</code> settings (<code>SolveConfig</code>, <code>PriorConfig</code>, <code>LearnedConfig</code>, <code>FederatedSettings</code>, <code>TrustConfig</code>,
