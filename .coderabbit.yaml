@@ -1,6 +1,5 @@
 # CodeRabbit review settings for this repository (https://docs.coderabbit.ai/reference/configuration).
-# CodeRabbit reviews every push to a pull request against main; tools/pr.py requires its review on
-# the head once it has reviewed a pull request, like Copilot's.
+# CodeRabbit reviews a pull request only when asked (a comment "@coderabbitai review"); no review gates a merge.
 language: en-US
 reviews:
   profile: assertive
@@ -9,7 +8,7 @@ reviews:
   poem: false
   review_status: true
   auto_review:
-    enabled: true
+    enabled: false
     base_branches:
       - main
   path_instructions:

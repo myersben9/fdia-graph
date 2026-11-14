@@ -62,44 +62,31 @@ python tools/pr.py ready 80                                    # once clean: the
 python tools/pr.py wait 80                                     # CI plus the one review of every required bot
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
-python tools/pr.py merge 80                                    # refuses unless green, reviewed once, every finding answered
+python tools/pr.py merge 80                                    # refuses unless green
 python tools/review_ledger.py 80                               # record the review's findings, print the tally by kind
 ```
 
 Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (windows)`, `typecheck`,
 `format`, `readability`, the two installs) is a completed success on the head (a job that has not
 started yet counts as not green) and every other listed check has finished without failure.
-Reviewed means every required review bot has reviewed the pull request once and every one of its
-findings has a reply: an inline finding a reply in its thread, and the findings a review lists in
-its body ("Previously missed", outside the diff) a conversation comment on the pull request posted
-after that review.
-
-The automated review is billed per review, so each pull request gets **one**: the repository
-ruleset's Copilot rule reviews a pull request when it is opened or marked ready, and no longer on
-every push or on drafts (`review_on_push` and `review_draft_pull_requests` off). A pull request is
-therefore opened as a draft while it is worked on and marked ready once it is clean; the fixes to
-the review's findings go in one push, answered one by one, and the pull request merges when that
-push is green, without a second review. A fix that changes behaviour beyond what its finding asked
-is the exception: request one more review for it with `tools/pr.py request-review`. Related work goes
-in one pull request per theme rather than one per step, and an open pull request is rebased only for
-a real conflict. The order:
+A pull request merges when it is green and the owner approves it. No automated review is required:
+the repository runs none on its own, and `tools/pr.py request-review` asks for one (billed) when a
+change is risky enough to want it. A pull request is opened as a draft while it is worked on and
+marked ready once it is clean. Related work goes in one pull request per theme rather than one per
+step, and an open pull request is rebased only for a real conflict. The order:
 
 1. `python tools/prereview.py` until it passes: the CI gates, the test suite, and the checks CI
    does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).
 2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff and every touched
    file read whole, searching outward from every change (a `/code-review` in Claude Code with the
    checklist does this). Fold what it finds into the branch.
-3. Mark the draft ready: Copilot reviews it once. Answer every finding, fix them all in one push,
-   repeat steps 1 and 2 on that push, and merge it on green. Record the review with
-   `tools/review_ledger.py`; a kind of finding that keeps coming up becomes a checklist item or a
-   check in `tools/prereview.py`.
-4. CodeRabbit (`.coderabbit.yaml` carries the repository's review instructions) and Gemini Code Assist, both
-   GitHub apps installed on the repository; `tools/pr.py` requires one review from a bot as soon as
-   that bot has reviewed the pull request, so a bot that is not installed never blocks a merge and
-   an installed one is never skipped.
+3. Before the pull request leaves draft, one review of the diff by Claude Code review agents (no paid review service);
+   its findings are fixed in one round, not looped, and its four-sentence summary of the change is posted on
+   the pull request (`tools/pr.py summary`) for the owner.
+4. Mark the draft ready and merge it on green once the owner approves.
 
-Bot comments are suggestions: apply the ones that are right and answer every one with what changed
-or why not. `tools/pr.py` uses the token the Git Credential Manager holds for `git push`, so it
+When an automated review was asked for, its comments are suggestions: apply the ones that are right
+and answer every one with what changed or why not. `tools/pr.py` uses the token the Git Credential Manager holds for `git push`, so it
 needs no gh CLI. Commit as yourself, with a message that says what the change does. If CI does not
 start on a push, check the account's Actions and Copilot credits first.
 
