@@ -45,26 +45,44 @@ _SCHEMA = os.path.join(ROOT, "schema.py")  # the one module allowed to spell a d
 # "module.qualname": reason. Keep every entry justified; the report still lists them, marked.
 EXCEPTIONS: dict[str, str] = {}
 
-# Subpackages these rules do not reach yet, with the reason. fdia_graph.nyfed came in from its own
+# Subpackages these rules do not reach yet, with the reason. fdia_graph.generation.nygrid came in from its own
 # repository as written (2026-11-02) and is brought under the rules one module at a time, each change
-# checked to reproduce the same output; until then its rules are src/fdia_graph/nyfed/CLAUDE.md.
-DEFERRED: dict[str, str] = {"nyfed": "moved in as written; conformed module by module"}
+# checked to reproduce the same output; until then its rules are src/fdia_graph/generation/nygrid/CLAUDE.md.
+DEFERRED: dict[str, str] = {
+    "generation/nygrid": "the New York code, moved in as written; conformed module by module",
+    "engine/attacks/attacker.py": "the New York code, moved in as written; conformed module by module",
+    "engine/attacks/family.py": "the New York code, moved in as written; conformed module by module",
+    "engine/attacks/msfdia.py": "the New York code, moved in as written; conformed module by module",
+    "engine/attacks/opf.py": "the New York code, moved in as written; conformed module by module",
+    "engine/attacks/interface.py": "the New York code, moved in as written; conformed module by module",
+    "engine/attacks/perturbation.py": "the New York code, moved in as written; conformed module by module",
+    "engine/attacks/ramp.py": "the New York code, moved in as written; conformed module by module",
+    "engine/sensing": "the New York code, moved in as written; conformed module by module",
+    "engine/solvers.py": "the New York code, moved in as written; conformed module by module",
+    "operator": "the New York code, moved in as written; conformed module by module",
+    "se/detect": "the New York code, moved in as written; conformed module by module",
+    "federated/utilities.py": "the New York code, moved in as written; conformed module by module",
+    "dataset/clients.py": "the New York code, moved in as written; conformed module by module",
+    "results/studies.py": "the New York code, moved in as written; conformed module by module",
+    "_lazy.py": "the New York code, moved in as written; conformed module by module",
+}
 
 
 def _deferred(path: str) -> bool:
-    """Whether `path` lies in a DEFERRED subpackage."""
+    """Whether `path` is, or lies in, a DEFERRED module or subpackage (a path relative to the package)."""
     try:
         rel = os.path.relpath(os.path.abspath(path), ROOT)
     except ValueError:  # another drive (Windows): not under the package
         return False
-    return rel.split(os.sep)[0] in DEFERRED
+    rel = rel.replace(os.sep, "/")
+    return any(rel == d or rel.startswith(d + "/") for d in DEFERRED)
 
 
 def _walk():
-    """os.walk over the package, without the DEFERRED subpackages."""
+    """os.walk over the package, without the DEFERRED subpackages and modules."""
     for dp, dirs, fs in os.walk(ROOT):
         dirs[:] = [d for d in dirs if not _deferred(os.path.join(dp, d))]
-        yield dp, dirs, fs
+        yield dp, dirs, [f for f in fs if not _deferred(os.path.join(dp, f))]
 
 
 _NEST = (ast.For, ast.While, ast.If, ast.With, ast.Try)

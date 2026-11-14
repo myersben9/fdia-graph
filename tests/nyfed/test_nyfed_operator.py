@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 from nyfed_inputs import DAMAGE_DAYS, DATA, DAYS, DAYS_POOL, SINGLE_DAY, needs_data
 
-from fdia_graph.nyfed.grid.case import REF
-from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
-from fdia_graph.nyfed.grid.interfaces import hourly_interfaces
-from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.operator.sced import DcSced, loss_factors, outage_factors, shift_factors, shortage_usd
+from fdia_graph.generation.nygrid.case import REF
+from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
+from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
+from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
+from fdia_graph.operator.sced import DcSced, loss_factors, outage_factors, shift_factors, shortage_usd
 
 pytestmark = needs_data
 
@@ -96,7 +96,7 @@ def test_recovery_after_an_attack_is_ramp_limited(sced):
 def test_the_operator_sheds_load_only_when_redispatch_cannot_relieve(case, sced):
     """A seen overload far beyond what redispatch can move is relieved by shedding load, only at buses where
     a MW shed takes at least 0.1 MW off the interface; a small overload is relieved by redispatch alone."""
-    from fdia_graph.nyfed.operator.sced import SHED_FACTOR
+    from fdia_graph.operator.sced import SHED_FACTOR
 
     load = np.tile(np.where(case.is_ny, 200.0, 0.0), (2, 1))
     op = DcSced(case, sced.unit_p, sced.cost, [], load)
@@ -112,7 +112,7 @@ def test_the_operator_sheds_load_only_when_redispatch_cannot_relieve(case, sced)
 def test_a_day_under_attack_against_its_benign_twin():
     """On the 5 July file the benign twin needs nothing, while the attacked run follows the pretended load
     drop, and regulation with what the neighbours supply makes up the generation the dispatch left out."""
-    from fdia_graph.nyfed.operator.response import operator_day, respond
+    from fdia_graph.operator.response import operator_day, respond
 
     r = respond(operator_day(SINGLE_DAY, DAYS_POOL, DATA))
     a, b = r.attacked, r.benign
@@ -132,7 +132,7 @@ def test_the_three_operators_on_a_day_under_attack():
     operator follows the false load drop and its AGC, reading the same falsified ties, hides the shortfall,
     which the neighbours supply as inadvertent interchange. The accounting operator takes its load from
     generation plus the agreed interchange, so it does not follow the false load (N66)."""
-    from fdia_graph.nyfed.operator.response import operator_day, respond
+    from fdia_graph.operator.response import operator_day, respond
 
     day = operator_day(SINGLE_DAY, DAYS_POOL, DATA)
     trusting, accounting = respond(day), respond(day, mode="accounting")
@@ -147,8 +147,8 @@ def test_the_three_operators_on_a_day_under_attack():
 def test_a_failed_power_flow_is_unknown_not_safe(monkeypatch):
     """Scans whose AC power flow fails are flagged in `pf_failed`, have no margin, are counted in the summary and
     never read as within the limit; every other scan stays unflagged."""
-    from fdia_graph.nyfed.operator import response
-    from fdia_graph.nyfed.operator.response import operator_day, respond, summarize
+    from fdia_graph.operator import response
+    from fdia_graph.operator.response import operator_day, respond, summarize
 
     day = operator_day(SINGLE_DAY, DAYS_POOL, DATA)
     fail = set(range(day.onset + 2, day.onset + 5))
@@ -174,9 +174,9 @@ def test_a_pool_without_the_days_frames_is_a_named_error(tmp_path):
     """A pool that ends before the day (here the checked-in pool cut to its first day, 17 June, for the 5 July
     file) is a `DataConditionError` naming what is missing, not an index error."""
     from fdia_graph.errors import DataConditionError
-    from fdia_graph.nyfed.io import read_pool, write_pool
-    from fdia_graph.nyfed.operator.response import operator_day
-    from fdia_graph.nyfed.scenario.pool import Pool
+    from fdia_graph.generation.nygrid.io import read_pool, write_pool
+    from fdia_graph.generation.nygrid.pool import Pool
+    from fdia_graph.operator.response import operator_day
 
     p = read_pool(DAYS_POOL)
     june = p.time.astype("datetime64[D]") == np.datetime64("2019-06-17")
@@ -205,9 +205,9 @@ def test_loss_factors_match_an_ac_power_flow():
     """The delivery factors at a day's AC state are what the true grid's power flow gives: five more MW at a unit
     take five times its bus's factor off the reference bus (the factors run from about 0.47 in the west to 1.02 in
     New York City on this scan)."""
-    from fdia_graph.nyfed.grid.network import Network
-    from fdia_graph.nyfed.operator.response import operator_day
-    from fdia_graph.nyfed.operator.truegrid import TrueGrid
+    from fdia_graph.generation.nygrid.network import Network
+    from fdia_graph.operator.response import operator_day
+    from fdia_graph.operator.truegrid import TrueGrid
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
     c, t = day.case, day.onset
@@ -231,7 +231,7 @@ def test_the_dispatch_around_the_ac_point_keeps_the_benign_twin_at_the_ac_points
     """The least-cost dispatch on its own moves the benign twin about a gigawatt off the AC points (the DC model
     does not see the losses, voltage limits and schedules they were dispatched against); around the AC point the
     benign twin stays there, so the attack's consequence is the attack's. Bus prices are reported every scan."""
-    from fdia_graph.nyfed.operator.response import operator_day, respond
+    from fdia_graph.operator.response import operator_day, respond
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
     r = respond(day, mode="accounting", closed_loop=True, dispatch="cost_lf")
@@ -248,16 +248,16 @@ AC_LOADS = DAYS / "loads_2019_v2_days.npz"
 
 @pytest.fixture(scope="module")
 def ac_day():
-    from fdia_graph.nyfed.operator.day import pool_frames
-    from fdia_graph.nyfed.operator.response import operator_day
-    from fdia_graph.nyfed.operator.truegrid import TrueGrid
+    from fdia_graph.operator.day import pool_frames
+    from fdia_graph.operator.response import operator_day
+    from fdia_graph.operator.truegrid import TrueGrid
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
     return day, TrueGrid(day, ac=True), pool_frames(day, AC_LOADS)
 
 
 def _ac_sced(ac_day, objective):
-    from fdia_graph.nyfed.operator.acsced import AcSced
+    from fdia_graph.operator.acsced import AcSced
 
     day, grid, frames = ac_day
     return AcSced(
@@ -275,8 +275,8 @@ def _ac_sced(ac_day, objective):
 def test_ac_sensitivities_match_an_ac_power_flow(ac_day):
     """The AC sensitivity of the attacked interface to a bus injection is what the true grid's power flow gives for
     five more MW at a unit there, the reference bus balancing."""
-    from fdia_graph.nyfed.grid.network import Network
-    from fdia_graph.nyfed.operator.acsced import ac_shift
+    from fdia_graph.generation.nygrid.network import Network
+    from fdia_graph.operator.acsced import ac_shift
 
     day, grid, _ = ac_day
     c, t = day.case, day.onset
@@ -298,9 +298,9 @@ def test_ac_sensitivities_match_an_ac_power_flow(ac_day):
 def test_the_outage_power_flow_matches_pandapower(ac_day):
     """The N-1 screen's Newton power flow of the grid without a branch reaches the state pandapower reaches on the same
     case, from the same injections and unit voltages."""
-    from fdia_graph.nyfed.grid.network import Network
-    from fdia_graph.nyfed.operator.acsced import ac_power_flow, open_branch
-    from fdia_graph.nyfed.scenario.solver import AcSolver
+    from fdia_graph.generation.nygrid.network import Network
+    from fdia_graph.generation.nygrid.solver import AcSolver
+    from fdia_graph.operator.acsced import ac_power_flow, open_branch
 
     day, grid, _ = ac_day
     c, t = day.case, day.onset
@@ -328,7 +328,7 @@ def test_the_least_cost_ac_dispatch_keeps_the_ac_points_and_prices_them(ac_day):
     basepoint) it stays at the stored AC
     points, and a unit inside its bounds and not ramp limited is priced within the movement charge of its cost: the
     balance duals are the AC LMPs in $/MWh."""
-    from fdia_graph.nyfed.operator.sced import MOVE_USD
+    from fdia_graph.operator.sced import MOVE_USD
 
     day, grid, frames = ac_day
     sced = _ac_sced(ac_day, "cost")
@@ -358,7 +358,7 @@ def test_the_least_cost_ac_dispatch_keeps_the_ac_points_and_prices_them(ac_day):
 def test_the_ac_operator_on_a_damaging_day(monkeypatch):
     """The least-movement AC operator keeps the benign twin at the AC points, and against the trusting operator the
     damaging attack cuts the attacked interface's true transfer."""
-    from fdia_graph.nyfed.operator.response import operator_day, respond
+    from fdia_graph.operator.response import operator_day, respond
 
     monkeypatch.setenv("NYFED_LOADS", str(AC_LOADS))
     day = operator_day(DAYS / DAMAGE_DAYS[1], DAYS_POOL, DATA)

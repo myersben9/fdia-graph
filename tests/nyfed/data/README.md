@@ -16,8 +16,8 @@ tools exactly what the whole pool does (the golden snapshots hold on both). To c
 
 ```python
 import numpy as np
-from fdia_graph.nyfed.io import read_pool, write_pool
-from fdia_graph.nyfed.scenario.pool import Pool
+from fdia_graph.generation.nygrid.io import read_pool, write_pool
+from fdia_graph.generation.nygrid.pool import Pool
 
 p = read_pool("out/pool_2019_v3.h5")
 keep = np.isin(p.time.astype("datetime64[D]"), np.array(["2019-06-17", "2019-07-05"], dtype="datetime64[D]"))

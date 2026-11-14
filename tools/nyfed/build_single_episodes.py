@@ -1,6 +1,6 @@
 """The single-episode files for studying one attack by hand: one Am on an interface per file, over the
 whole day it falls in (288 five-minute scans), nothing else attacked. Each file is a normal timeline
-(`fdia_graph.nyfed.io.open_timeline`): `z` with the attack, `z_benign` the same noisy scans without it,
+(`fdia_graph.generation.nygrid.io.open_timeline`): `z` with the attack, `z_benign` the same noisy scans without it,
 the true states and the labels.
 
     python tools/nyfed/build_single_episodes.py OUT_DIR [--pool out/pool_2019_v3.h5]
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from fdia_graph.nyfed.build import production_builder
+from fdia_graph.generation.nygrid.build import production_builder
 
 # The four study onsets (pool clock) and why each was picked, from the Am headroom survey on SPR/DUN-SOUTH
 STUDY = {

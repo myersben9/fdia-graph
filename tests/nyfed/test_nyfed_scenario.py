@@ -4,10 +4,10 @@ import numpy as np
 import pytest
 from nyfed_inputs import DATA, ROOT, TERRITORIES, needs_data
 
-from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
-from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.scenario.dispatch import hourly_dispatch
-from fdia_graph.nyfed.scenario.inputs import read_nygrid
+from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
+from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
+from fdia_graph.generation.nygrid.inputs import read_nygrid
+from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 
 REF = (
     Path(__file__).resolve().parent / "data" / "matlab_ref"
@@ -52,7 +52,7 @@ def test_dispatch_matches_matlab(case, hours):
 
 @pytest.mark.skipif(not REF.exists(), reason="MATLAB reference dumps missing")
 def test_projection_matches_matlab(case, hours):
-    from fdia_graph.nyfed.scenario.solver import AcSolver
+    from fdia_graph.generation.nygrid.solver import AcSolver
 
     picked = [next(h for h in hours if str(h.time).startswith(t)) for t in TAGS.values()]
     d = hourly_dispatch(case, picked)
@@ -74,7 +74,7 @@ YEAR = ROOT / "results" / "nygrid.ac_year.csv"  # the MATLAB recipe over 2019, o
 def test_projection_matches_matlab_year(case, hours):
     import pandas as pd
 
-    from fdia_graph.nyfed.scenario.solver import AcSolver
+    from fdia_graph.generation.nygrid.solver import AcSolver
 
     year = pd.read_csv(YEAR).set_index("ts")
     tags = [
@@ -101,10 +101,10 @@ def test_projection_matches_matlab_year(case, hours):
 
 
 def test_pool(case, hours, tmp_path):
-    from fdia_graph.nyfed.io import read_pool, write_pool
-    from fdia_graph.nyfed.scenario.loads import LoadSeries
-    from fdia_graph.nyfed.scenario.pool import NO_LOAD, SOLVED, PoolBuilder
-    from fdia_graph.nyfed.scenario.solver import AcSolver
+    from fdia_graph.generation.nygrid.io import read_pool, write_pool
+    from fdia_graph.generation.nygrid.loads import LoadSeries
+    from fdia_graph.generation.nygrid.pool import NO_LOAD, SOLVED, PoolBuilder
+    from fdia_graph.generation.nygrid.solver import AcSolver
 
     d = hourly_dispatch(case, hours[:2])
     renew = np.array([h.renew_mw for h in hours[:2]])
@@ -158,8 +158,8 @@ def test_pool(case, hours, tmp_path):
     assert np.array_equal(back.unit_p, pool.unit_p, equal_nan=True)
 
     # N8: public ratings stay, every other branch gets its peak flow over the solved frames (N47).
-    from fdia_graph.nyfed.grid.ratings import line_ratings
-    from fdia_graph.nyfed.scenario.pool import peak_ratings
+    from fdia_graph.generation.nygrid.pool import peak_ratings
+    from fdia_graph.generation.nygrid.ratings import line_ratings
 
     rated = line_ratings(case)
     filled = peak_ratings(rated, pool)
@@ -174,9 +174,9 @@ def test_pool_compensation(case, hours):
     """The shunt and reactive-limit sensitivity: units within 0.85 lagging and 0.95 leading power factor, New York's
     generator buses regulated to 1.035 p.u., New York held in 0.95 to 1.05 p.u. by switched banks. The release's
     solver has no bank at all."""
-    from fdia_graph.nyfed.scenario.loads import LoadSeries
-    from fdia_graph.nyfed.scenario.pool import SOLVED, PoolBuilder
-    from fdia_graph.nyfed.scenario.solver import AcSolver, Compensation, unit_q_limits
+    from fdia_graph.generation.nygrid.loads import LoadSeries
+    from fdia_graph.generation.nygrid.pool import SOLVED, PoolBuilder
+    from fdia_graph.generation.nygrid.solver import AcSolver, Compensation, unit_q_limits
 
     q_lo, q_hi = unit_q_limits(case)
     loose = np.abs(case.qmax) >= 9999
@@ -232,10 +232,10 @@ LOADS = ROOT / "data" / "loads"
 def test_load_profiles(case):
     import json
 
-    from fdia_graph.nyfed.config import Settings, rng
-    from fdia_graph.nyfed.grid.clients import assign_clients
-    from fdia_graph.nyfed.scenario.inputs import ZONES, ZoneLoad, fetch_nyiso
-    from fdia_graph.nyfed.scenario.loads import LoadModel
+    from fdia_graph.federated.utilities import assign_clients
+    from fdia_graph.generation.nygrid.config import Settings, rng
+    from fdia_graph.generation.nygrid.inputs import ZONES, ZoneLoad, fetch_nyiso
+    from fdia_graph.generation.nygrid.loads import LoadModel
 
     own = assign_clients(
         case,
@@ -279,8 +279,8 @@ def test_load_profiles(case):
 def test_within_hour_calibration():
     """The N31 constants are what the fits give on the real data: the fluctuation on NYISO 2018 (zone H
     left out), the switching on zone D of 2019 with the model's industrial load there."""
-    from fdia_graph.nyfed.scenario import load_fit, loads
-    from fdia_graph.nyfed.scenario.inputs import fetch_nyiso
+    from fdia_graph.generation.nygrid import load_fit, loads
+    from fdia_graph.generation.nygrid.inputs import fetch_nyiso
 
     fit = load_fit.fluctuation_fit(fetch_nyiso(2018, ROOT / "data" / "nyiso"))
     print({k: fit[k] for k in ("c", "beta", "phi", "c_residual", "r2")})

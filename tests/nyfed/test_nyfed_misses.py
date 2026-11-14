@@ -10,7 +10,7 @@ pytest.importorskip("h5py")  # the timeline builder writes HDF5
 
 
 def _family(miss: str | None, solver_errors: int, found: bool):
-    from fdia_graph.nyfed.attacks.episode import AttackFamily, Episode
+    from fdia_graph.engine.attacks.family import AttackFamily, Episode
 
     class Toy(AttackFamily):
         def design(self, window, rng):
@@ -35,9 +35,9 @@ def _family(miss: str | None, solver_errors: int, found: bool):
     ids=["found", "no-target", "infeasible", "solver-error"],
 )
 def test_design_says_why_it_found_no_attack(miss, errors, found, want):
-    from fdia_graph.nyfed.attacks.episode import MISSES
-    from fdia_graph.nyfed.config import Settings
-    from fdia_graph.nyfed.timeline import builder
+    from fdia_graph.engine.attacks.family import MISSES
+    from fdia_graph.generation.nygrid import timeline as builder
+    from fdia_graph.generation.nygrid.config import Settings
 
     builder._init({"Am": _family(miss, errors, found)}, Settings())
     _, ep, _, why = builder._design((0, "Am", 5, np.ones((1, 2)), np.zeros((1, 2))))

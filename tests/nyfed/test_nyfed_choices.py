@@ -13,7 +13,7 @@ pytest.importorskip("pandapower")  # the operator's true grid needs the [ny] ext
 )
 def test_respond_rejects_an_unknown_choice(kw):
     from fdia_graph.errors import ConfigError
-    from fdia_graph.nyfed.operator.response import respond
+    from fdia_graph.operator.response import respond
 
     with pytest.raises(ConfigError, match="must be one of"):
         respond(None, **kw)  # type: ignore[arg-type]  # checked before the day is read

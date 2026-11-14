@@ -76,7 +76,7 @@ the public API, the generated files and the numbers are the same as the previous
   it `area_damage` prices what each zone's and utility's load pays at the moved prices (`payments_usd`). The default least-movement dispatch is unchanged: every golden value holds, and the operator
   snapshots gain only the two new arrays, empty under it.
 
-- **Who bears an attack's damage (New York grid).** New `fdia_graph.nyfed.operator.areas`: `area_damage` splits an
+- **Who bears an attack's damage (New York grid).** New `fdia_graph.operator.areas`: `area_damage` splits an
   operator run, attacked less benign, by New York zone, by utility and by neighboring area. Each zone and utility
   gets the energy its units lose, the fuel saved and the sales lost at the zone's real price, the load shed, and the
   transfer cut into it and margin lost on the interfaces that feed it (`FEEDS`). Each neighbor gets the inadvertent
@@ -107,7 +107,7 @@ the public API, the generated files and the numbers are the same as the previous
   within-hour constants to `load_fit.py` (public as `fluctuation_fit` and `switching_fit`, for refitting them), and
   the validation measures to `load_metrics.py`. The code moved as it was.
 
-- **Study helpers, and the research tools as thin drivers (New York grid).** New `fdia_graph.nyfed.experiments`:
+- **Study helpers, and the research tools as thin drivers (New York grid).** New `fdia_graph.results.studies`:
   `study_days` (a study's day files), `variant` (at the limit or damaging), `load_calib` (the interchange check's
   calibration), `add_study_arguments` (the options every tool shares) and `run_parallel` (a process pool that writes
   the CSV as results come in, sorted by file at the end, so its rows no longer depend on which worker finished
@@ -127,13 +127,13 @@ the public API, the generated files and the numbers are the same as the previous
   build one, so existing calls are unchanged. `Operator` is the protocol a partner's operator implements (return a
   `Response` and `summarize` works on it), and `NyisoOperator(policy)` is this package's.
 
-- **The operator in one module per job (New York grid).** `fdia_graph.nyfed.operator.response` (730 lines) is split
+- **The operator in one module per job (New York grid).** `fdia_graph.operator.response` (730 lines) is split
   into `day` (reading an attacked day), `ties` (the interchange check), `truegrid` (the AC power flows on the true
   grid), `policy` (the operator's choices), `run` (the scan-by-scan loop) and `summary` (its consequence), the code
   moved as it was. `response` re-exports every name, so existing imports keep working. The interchange check's alarm
   is public as `interchange_alarm`.
 
-- **Detection as building blocks (New York grid).** New `fdia_graph.nyfed.detect`: the residual test's AC weighted
+- **Detection as building blocks (New York grid).** New `fdia_graph.se.detect`: the residual test's AC weighted
   least squares (`wls`, returning a `WlsFit` that says whether it converged), the noise-free fit of a state
   (`exact_state`), the persistence rule with its calibration (`PersistenceRule`, `PersistenceRule.fit`) behind an
   `AlarmRule` protocol any other rule can implement, and other meter fleets (`with_fleet`, `fleet_bias`).
@@ -148,17 +148,17 @@ the public API, the generated files and the numbers are the same as the previous
   and `max_overshoot` searches on one, instead of swapping `overshoot` in and out; `build_episode(using=...)` designs
   with such a variant. `hourly_dispatch(hold_externals=False)` replaces the AC ablation's monkeypatch.
 
-- **A public surface for the New York grid.** Every `fdia_graph.nyfed` package (`grid`, `scenario`, `sensing`,
-  `attacks`, `timeline`, `operator`, and `fdia_graph.nyfed` itself) now has a docstring that says what its stage does,
+- **A public surface for the New York grid.** Every `fdia_graph.generation.nygrid` package (`grid`, `scenario`, `sensing`,
+  `attacks`, `timeline`, `operator`, and `fdia_graph.generation.nygrid` itself) now has a docstring that says what its stage does,
   what goes in and comes out, and how it fails, and an `__all__` of its public names, loaded on first use (reading a
   dataset still never imports pandapower or Pyomo). Helpers the research tools reached into became public:
   `operator.response.TrueGrid` and `entry_share` (the old `_TrueGrid` and `_entry_share` warn until 0.22),
   `Attacker.absorb` and `TimelineBuilder.episode_lengths`.
 
-- **Named errors and a troubleshooting page (New York grid).** `fdia_graph.nyfed` raises the SDK's named errors:
+- **Named errors and a troubleshooting page (New York grid).** `fdia_graph.generation.nygrid` raises the SDK's named errors:
   `ConfigError` for a wrong argument, `DataConditionError` (or `NoAdmissibleTarget`, `NotFitted`) for data that does
   not meet a condition, instead of bare `ValueError`s and asserts. Both subclass `ValueError`, so existing handlers
-  keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.nyfed.tables`), and
+  keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.generation.nygrid.tables`), and
   the research tools no longer silence warnings. `docs/nyfed/TROUBLESHOOTING.md` lists what each stage reports when
   it fails and what to do.
 
@@ -169,12 +169,12 @@ the public API, the generated files and the numbers are the same as the previous
   `mode`, `after` or `entry` raises `fdia_graph.errors.ConfigError` (a ValueError, as before).
 
 - **Why a design found no attack (New York grid).** `AttackFamily.design_explained` returns the episode or the
-  reason there is none (one of `fdia_graph.nyfed.attacks.episode.MISSES`: `no_target`, `infeasible`,
+  reason there is none (one of `fdia_graph.engine.attacks.family.MISSES`: `no_target`, `infeasible`,
   `solver_error`), also kept in `last_miss`, and `TimelineBuilder.build` reports `missed` and, with the onset
   survey, `survey_missed`: the count of each reason per family. `build_episode`'s error names the reason. Before, a
   timeline with few attacks gave no way to tell an empty window from a failing solver.
 
-- **A missing solver now says so (New York grid).** `fdia_graph.nyfed.solvers.ipopt` finds Ipopt in the environment,
+- **A missing solver now says so (New York grid).** `fdia_graph.engine.solvers.ipopt` finds Ipopt in the environment,
   checks that it starts, and raises the new `fdia_graph.errors.SolverUnavailable` with the fix when it does not. Before,
   an Ipopt that could not start (a missing DLL, exit code 0xC0000135) made every attack design read as infeasible, so a
   timeline built with no overload attacks and no error. The attack OPF now reads only an abnormal stop on its own model
@@ -221,7 +221,7 @@ the public API, the generated files and the numbers are the same as the previous
   limit at the buses where shedding relieves the interface. `Step` carries the shed load and the cost of
   relieving the interface.
 
-- **The grid operator under attack (`fdia_graph.nyfed.operator`).** `DcSced` is the operator's real-time
+- **The grid operator under attack (`fdia_graph.operator`).** `DcSced` is the operator's real-time
   dispatch on what it sees: a DC dispatch on shift factors around the pool basepoint, with unit limits,
   five-minute ramps from its previous dispatch and the interface limit (the benign model flow plus the
   hour's real 2019 headroom). It moves as little as it must, then at least cost. `respond(day, delay,
@@ -233,14 +233,14 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## 0.21.0
 
-- **New York grid build in the package.** `fdia_graph.nyfed.build`: `fetch_inputs(root)` downloads the
+- **New York grid build in the package.** `fdia_graph.generation.nygrid.build`: `fetch_inputs(root)` downloads the
   inputs at their pinned versions (NYgrid at 47698b6, NYISO's 2019 five-minute load, the NYS DPS utility
   territories, and the bus locations now shipped as `grid/ny_bus_locations.csv`), and
   `production_builder(pool_path, ...)` returns the release `TimelineBuilder` with every decided bound.
   `tools/nyfed/build_timeline.py` and `tools/nyfed/build_single_episodes.py` run them; a single-episode
   file rebuilt this way is identical to the one built before. New guide: docs/guides/new_york.md.
 
-- **New York grid (`fdia_graph.nyfed`, the `[ny]` extra).** The New York federated grid package, moved in
+- **New York grid (`fdia_graph.generation.nygrid`, the `[ny]` extra).** The New York federated grid package, moved in
   from its own repository as written: the modified NPCC-140 of NYgrid in AC, the 2019 five-minute
   operating-point pool from a ramp-constrained AC dispatch, utility clients from the state's service
   territories, the hybrid SCADA and PMU meter plan with accuracy-class noise, the overload attack built

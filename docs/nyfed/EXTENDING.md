@@ -1,6 +1,6 @@
 # The New York grid: extending it
 
-`fdia_graph.nyfed` is built to take new parts without changes to its own code. This page names each extension
+`fdia_graph.generation.nygrid` is built to take new parts without changes to its own code. This page names each extension
 point, what it must provide, and a runnable example that implements it. The examples under `examples/nyfed/` need
 no data, and CI runs each of them, so they stay current with the code. For how the stages fit together see
 [the architecture](ARCHITECTURE.md), for one run end to end [the walkthrough](WALKTHROUGH.md).
@@ -12,7 +12,7 @@ no data, and CI runs each of them, so they stay current with the code. For how t
 | An attack family | `design(window, rng) -> Episode \| None` (subclass `AttackFamily`) | `TimelineBuilder` beside the package's families; `design_explained` reports why a window has none | [custom_attack_family.py](../../examples/nyfed/custom_attack_family.py) |
 | An alarm rule | `first_alarm(stat) -> int` (the `AlarmRule` protocol) | anywhere `PersistenceRule` is used, the detection tools included | [custom_alarm_rule.py](../../examples/nyfed/custom_alarm_rule.py) |
 | An operator | `respond(day, *, calib, alarm_at) -> Response` (the `Operator` protocol) | `summarize` and the detection tools, unchanged | [custom_operator.py](../../examples/nyfed/custom_operator.py) |
-| A study | a job over attack windows | `fdia_graph.nyfed.experiments`: `study_days`, `run_parallel` | the tools under `tools/nyfed/` |
+| A study | a job over attack windows | `fdia_graph.results.studies`: `study_days`, `run_parallel` | the tools under `tools/nyfed/` |
 
 ## An attack family
 

@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from fdia_graph.nyfed.detect import FLEET_STREAM, AlarmRule, PersistenceRule, fleet_bias, with_fleet
-from fdia_graph.nyfed.sensing.meters import MeterPlan
+from fdia_graph.engine.sensing.meters import MeterPlan
+from fdia_graph.se.detect.fleets import FLEET_STREAM, fleet_bias, with_fleet
+from fdia_graph.se.detect.rules import AlarmRule, PersistenceRule
 
 
 def test_persistence_rule_needs_k_of_n():

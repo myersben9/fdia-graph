@@ -1,4 +1,4 @@
-"""Build the release timeline (`fdia_graph.nyfed.build.production_builder`) from a pool.
+"""Build the release timeline (`fdia_graph.generation.nygrid.build.production_builder`) from a pool.
 
     python tools/nyfed/build_timeline.py OUT.h5 --pool out/pool_2019_v3.h5 [--families Am,At]
                                          [--interface SPR/DUN-SOUTH] [--workers 12] [--survey-cache DIR]
@@ -21,7 +21,7 @@ import json
 import time
 from pathlib import Path
 
-from fdia_graph.nyfed.build import fetch_inputs, production_builder
+from fdia_graph.generation.nygrid.build import fetch_inputs, production_builder
 
 
 def main() -> None:

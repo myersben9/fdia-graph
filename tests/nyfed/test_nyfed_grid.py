@@ -5,12 +5,12 @@ import pytest
 import scipy.io
 from nyfed_inputs import DATA, TERRITORIES, needs_data
 
-from fdia_graph.nyfed.grid.case import PQ, PV, REF
-from fdia_graph.nyfed.grid.clients import assign_clients
-from fdia_graph.nyfed.grid.fixes import externals_at_base, hvdc_links, restore_765kv, split_zone_j
-from fdia_graph.nyfed.grid.network import Network
-from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.grid.ratings import line_ratings
+from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.generation.nygrid.case import PQ, PV, REF
+from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links, restore_765kv, split_zone_j
+from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
+from fdia_graph.generation.nygrid.ratings import line_ratings
 
 NPCC = DATA / "npcc.mat"
 pytestmark = needs_data

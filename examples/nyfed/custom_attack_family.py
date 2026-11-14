@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from fdia_graph.nyfed.attacks import AttackFamily, Episode
+from fdia_graph.engine.attacks.family import AttackFamily, Episode
 
 
 class SlowBias(AttackFamily):

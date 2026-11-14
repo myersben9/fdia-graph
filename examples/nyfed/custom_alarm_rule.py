@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from fdia_graph.nyfed.detect import AlarmRule, PersistenceRule
+from fdia_graph.se.detect.rules import AlarmRule, PersistenceRule
 
 
 @dataclass(frozen=True)

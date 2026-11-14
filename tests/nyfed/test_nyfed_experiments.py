@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from fdia_graph.nyfed.experiments import load_calib, run_parallel, study_days, variant
+from fdia_graph.results.studies import load_calib, run_parallel, study_days, variant
 
 pd = pytest.importorskip("pandas")
 

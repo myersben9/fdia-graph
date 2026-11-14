@@ -4,7 +4,7 @@ They come in three kinds:
 
 - Public inputs under `NYFED_ROOT/data` (NYFED_ROOT defaults to the checkout): NYgrid's `Data/` folder at the
   pinned commit, the NYS utility territories and NYISO's five-minute load archives; `fetch_inputs(root)` from
-  `fdia_graph.nyfed.build` downloads them (a test fetches another year's archives itself). Most tests need
+  `fdia_graph.generation.nygrid.build` downloads them (a test fetches another year's archives itself). Most tests need
   only these, and CI downloads them (`.github/workflows/nyfed.yml`).
 - Checked in under `tests/nyfed/data/days` (its README says how they were made): two days of the damage study (one
   attack onset, at the limit and past it), the single-episode day of 2019-07-05, and the 2019 pool's frames of
@@ -33,7 +33,7 @@ DAYS_POOL = DAYS / "pool_2019_v3_days.h5"  # the whole pool's frames of the days
 DAMAGE_DAYS = ("am_48220_0.h5", "am_48220_175.h5")  # one onset, at the limit and past it
 SINGLE_DAY = DAYS / "sd_south_2019-07-05.h5"
 
-_FETCH = "fdia_graph.nyfed.build.fetch_inputs(root) downloads it"
+_FETCH = "fdia_graph.generation.nygrid.build.fetch_inputs(root) downloads it"
 needs_data = pytest.mark.skipif(
     not DATA.exists(), reason=f"NYgrid's Data/ missing under {ROOT}/data ({_FETCH})"
 )

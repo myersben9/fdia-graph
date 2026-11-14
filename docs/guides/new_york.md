@@ -1,6 +1,6 @@
 # The New York grid: building the timeline
 
-`fdia_graph.nyfed` builds a federated FDIA timeline on the New York grid: NYgrid's modified NPCC-140 case in
+`fdia_graph.generation.nygrid` builds a federated FDIA timeline on the New York grid: NYgrid's modified NPCC-140 case in
 AC, a 2019 five-minute operating-point pool from a ramp-constrained AC dispatch, one client per utility
 service territory, a hybrid SCADA and PMU meter plan, and attacks against NYISO interface limits. The
 modules are in
@@ -60,7 +60,7 @@ For one attack studied by hand, `tools/nyfed/build_single_episodes.py OUT_DIR --
 ## 4. Reading it as clients
 
 ```python
-from fdia_graph.nyfed.dataset import Dataset
+from fdia_graph.dataset.clients import Dataset
 
 ds = Dataset("out/timeline_2019.h5")
 con_ed = ds.client("ConEd", split="train")  # only this utility's meters, buses and labels

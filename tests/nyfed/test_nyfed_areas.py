@@ -13,8 +13,8 @@ pytestmark = needs_data
 
 @pytest.fixture(scope="module")
 def run():
-    from fdia_graph.nyfed.operator.areas import area_damage, neighbor_prices
-    from fdia_graph.nyfed.operator.response import operator_day, respond
+    from fdia_graph.operator.areas import area_damage, neighbor_prices
+    from fdia_graph.operator.response import operator_day, respond
 
     day = operator_day(DAYS / DAMAGE_DAYS[1], DAYS_POOL, DATA)
     r = respond(day, mode="trusting", closed_loop=True)
@@ -22,7 +22,7 @@ def run():
 
 
 def test_zones_and_utilities_each_add_up_to_new_york(run):
-    from fdia_graph.nyfed.operator.response import summarize
+    from fdia_graph.operator.response import summarize
 
     day, r, rows = run
     s = summarize(r)
@@ -48,8 +48,8 @@ def test_the_neighbors_supply_the_inadvertent_interchange_and_it_is_priced(run):
 
 
 def test_the_attack_surface_counts_the_meters_the_labels_mark():
-    from fdia_graph.nyfed.operator.areas import attack_surface
-    from fdia_graph.nyfed.operator.response import operator_day
+    from fdia_graph.operator.areas import attack_surface
+    from fdia_graph.operator.response import operator_day
 
     path = DAYS / DAMAGE_DAYS[1]
     rows = attack_surface(operator_day(path, DAYS_POOL, DATA))
@@ -62,8 +62,8 @@ def test_the_attack_surface_counts_the_meters_the_labels_mark():
 def test_only_new_york_city_moves_the_flow_into_it_much():
     """Sprain Brook/Dunwoodie South feeds New York City alone, so zone J's loads and units are nearly the whole
     lever on it."""
-    from fdia_graph.nyfed.operator.areas import zone_levers
-    from fdia_graph.nyfed.operator.response import operator_day
+    from fdia_graph.operator.areas import zone_levers
+    from fdia_graph.operator.response import operator_day
 
     rows = [
         r
@@ -76,7 +76,7 @@ def test_only_new_york_city_moves_the_flow_into_it_much():
 
 def test_energy_without_a_price_is_unknown_not_free():
     """A neighbor's energy in a scan with no price makes its value NaN; a missing price where nothing flowed does not."""
-    from fdia_graph.nyfed.operator.areas import _value
+    from fdia_graph.operator.areas import _value
 
     price = np.array([20.0, np.nan, 30.0])
     assert np.isnan(_value(np.array([12.0, 12.0, 0.0]), price))
@@ -87,8 +87,8 @@ def test_the_least_cost_dispatch_prices_the_false_congestion():
     """Under the least-cost dispatch the false congestion binds: the attacked interface takes a positive shadow
     price, every enforced price is at least zero, and the zones' and utilities' payment changes each sum to New
     York's. The least-movement dispatch reports no prices, so its payments are zero."""
-    from fdia_graph.nyfed.operator.areas import area_damage, neighbor_prices
-    from fdia_graph.nyfed.operator.response import operator_day, respond
+    from fdia_graph.operator.areas import area_damage, neighbor_prices
+    from fdia_graph.operator.response import operator_day, respond
 
     day = operator_day(DAYS / DAMAGE_DAYS[1], DAYS_POOL, DATA)
     prices = neighbor_prices(DATA, day.time)
@@ -106,14 +106,14 @@ def test_the_least_cost_dispatch_prices_the_false_congestion():
 
 def test_an_unknown_objective_is_a_config_error():
     from fdia_graph.errors import ConfigError
-    from fdia_graph.nyfed.operator.response import OperatorPolicy
+    from fdia_graph.operator.response import OperatorPolicy
 
     with pytest.raises(ConfigError):
         OperatorPolicy(dispatch="cheapest")
 
 
 def _cost_sced(day):
-    from fdia_graph.nyfed.operator.sced import DcSced
+    from fdia_graph.operator.sced import DcSced
 
     load = np.zeros_like(day.vm)  # no load to shed, so only redispatch and the slack can relieve
     return DcSced(day.case, day.unit_p, day.cost, day.interfaces, load, objective="cost")
@@ -122,8 +122,8 @@ def _cost_sced(day):
 def test_an_overload_no_redispatch_relieves_takes_the_shortage_cap():
     """An interface read far over its limit cannot be relieved: the flow left over it is reported, and its shadow
     price is the 4,000 $/MWh cap of the shortage curve, never the slack weight of the least-movement dispatch."""
-    from fdia_graph.nyfed.operator.response import operator_day, seen_interfaces
-    from fdia_graph.nyfed.operator.sced import SHORTAGE
+    from fdia_graph.operator.response import operator_day, seen_interfaces
+    from fdia_graph.operator.sced import SHORTAGE
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
     t = day.onset
@@ -137,8 +137,8 @@ def test_an_overload_no_redispatch_relieves_takes_the_shortage_cap():
 
 
 def test_a_load_the_units_cannot_follow_takes_the_energy_cap():
-    from fdia_graph.nyfed.operator.response import operator_day, seen_interfaces
-    from fdia_graph.nyfed.operator.sced import ENERGY_CAP
+    from fdia_graph.operator.response import operator_day, seen_interfaces
+    from fdia_graph.operator.sced import ENERGY_CAP
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
     t = day.onset
@@ -150,7 +150,7 @@ def test_a_load_the_units_cannot_follow_takes_the_energy_cap():
 def test_an_overrun_the_benign_twin_shares_is_not_the_attacks():
     from types import SimpleNamespace
 
-    from fdia_graph.nyfed.operator.summary import _over
+    from fdia_graph.operator.summary import _over
 
     # the benign twin runs 20 MW over a limit throughout, as the least-cost dispatch can on shift factors; the
     # attacked run is 30 MW over on two scans in a row, the attack's excess 10 MW on each

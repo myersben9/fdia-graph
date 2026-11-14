@@ -6,13 +6,8 @@ import scipy.linalg
 import scipy.sparse as sp
 from nyfed_inputs import DATA, TERRITORIES, needs_data
 
-from fdia_graph.nyfed.config import Settings, rng
-from fdia_graph.nyfed.grid.clients import assign_clients
-from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
-from fdia_graph.nyfed.grid.network import Network
-from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.sensing.measure import Measurement
-from fdia_graph.nyfed.sensing.meters import (
+from fdia_graph.engine.sensing.measure import Measurement
+from fdia_graph.engine.sensing.meters import (
     ACCURACY,
     IA,
     JITTER_FRAC,
@@ -25,7 +20,12 @@ from fdia_graph.nyfed.sensing.meters import (
     _min_pmus,
     plan_meters,
 )
-from fdia_graph.nyfed.sensing.noise import NoiseModel
+from fdia_graph.engine.sensing.noise import NoiseModel
+from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.generation.nygrid.config import Settings, rng
+from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
+from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 
 pytestmark = needs_data
 

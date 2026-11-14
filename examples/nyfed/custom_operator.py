@@ -18,7 +18,9 @@ from dataclasses import fields
 
 import numpy as np
 
-from fdia_graph.nyfed.operator import NyisoOperator, Operator, OperatorPolicy, Response, Twin, summarize
+from fdia_graph.operator.run import NyisoOperator, Operator, Response, Twin
+from fdia_graph.operator.policy import OperatorPolicy
+from fdia_graph.operator.summary import summarize
 
 
 def idle_twin(T: int, units: int, buses: int, interfaces: int) -> Twin:

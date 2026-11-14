@@ -27,7 +27,7 @@ class _FakeSolver:
     ("found", "starts"), [(False, False), (True, False)], ids=["missing", "does-not-start"]
 )
 def test_unusable_ipopt_raises_with_the_fix(monkeypatch, found, starts):
-    from fdia_graph.nyfed import solvers
+    from fdia_graph.engine import solvers
 
     monkeypatch.setattr(pe, "SolverFactory", lambda *a, **k: _FakeSolver(found, starts))
     with pytest.raises(SolverUnavailable, match="conda install -c conda-forge ipopt"):
@@ -35,7 +35,7 @@ def test_unusable_ipopt_raises_with_the_fix(monkeypatch, found, starts):
 
 
 def test_working_ipopt_takes_the_options(monkeypatch):
-    from fdia_graph.nyfed import solvers
+    from fdia_graph.engine import solvers
 
     monkeypatch.setattr(pe, "SolverFactory", lambda *a, **k: _FakeSolver(True, True))
     assert solvers.ipopt(tol=1e-8, max_iter=300).options == {"tol": 1e-8, "max_iter": 300}
@@ -50,7 +50,7 @@ def test_solver_unavailable_is_not_a_data_condition():
 
 def test_ipopt_that_prints_no_version_raises(monkeypatch):
     """Pyomo reads a program that printed nothing as version (0, 0, 0, 0): it did not really start."""
-    from fdia_graph.nyfed import solvers
+    from fdia_graph.engine import solvers
 
     monkeypatch.setattr(pe, "SolverFactory", lambda *a, **k: _FakeSolver(True, True, (0, 0, 0, 0)))
     with pytest.raises(SolverUnavailable):
@@ -62,7 +62,7 @@ def test_the_dll_folder_is_added_as_a_whole_path_entry(monkeypatch, tmp_path):
     import os
     import sys
 
-    from fdia_graph.nyfed import solvers
+    from fdia_graph.engine import solvers
 
     lib = tmp_path / "Library" / "bin"
     lib.mkdir(parents=True)

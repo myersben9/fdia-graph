@@ -18,7 +18,7 @@ atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 
 import pytest  # noqa: E402
 
-# tests/nyfed needs the [ny] extra (Pyomo, pandas, pandapower, SciPy, imported when fdia_graph.nyfed's
+# tests/nyfed needs the [ny] extra (Pyomo, pandas, pandapower, SciPy, imported when fdia_graph.generation.nygrid's
 # modules load): without it the folder is left out of collection rather than failing on import. With it,
 # each test still skips when the NYgrid checkout or the built pool is missing under NYFED_ROOT. (The rule
 # lives here: a conftest.py in tests/nyfed would shadow this module for `from conftest import ...`.)

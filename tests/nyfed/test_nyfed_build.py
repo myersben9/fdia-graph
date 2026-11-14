@@ -13,8 +13,8 @@ pytestmark = [needs_data, needs_territories, needs_pool]
 
 def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path):
     from fdia_graph.errors import DataConditionError
-    from fdia_graph.nyfed.build import production_builder
-    from fdia_graph.nyfed.io import open_timeline
+    from fdia_graph.generation.nygrid.build import production_builder
+    from fdia_graph.generation.nygrid.io import open_timeline
 
     b = production_builder(
         str(POOL.relative_to(ROOT)), ("At",), workers=1, survey=0, root=ROOT, v_margin=0.02
@@ -36,8 +36,8 @@ def test_a_timeline_built_with_a_voltage_margin_records_the_true_limits(tmp_path
 
 
 def test_the_load_cap_and_band_sensitivities_reach_the_opf_attacker():
-    from fdia_graph.nyfed.attacks.attacker import generator_band
-    from fdia_graph.nyfed.build import production_builder
+    from fdia_graph.engine.attacks.attacker import generator_band
+    from fdia_graph.generation.nygrid.build import production_builder
 
     pool = str(POOL.relative_to(ROOT))
     base = production_builder(pool, ("Am",), workers=1, survey=0, root=ROOT)
@@ -51,8 +51,8 @@ def test_the_load_cap_and_band_sensitivities_reach_the_opf_attacker():
 
 def test_a_lagged_attack_is_the_earlier_windows_design_added_to_the_true_scans(tmp_path):
     from fdia_graph.errors import ConfigError, DataConditionError
-    from fdia_graph.nyfed.build import production_builder
-    from fdia_graph.nyfed.io import open_timeline
+    from fdia_graph.generation.nygrid.build import production_builder
+    from fdia_graph.generation.nygrid.io import open_timeline
 
     b = production_builder(str(POOL.relative_to(ROOT)), ("At",), workers=1, survey=0, root=ROOT)
     lag = 12  # an hour

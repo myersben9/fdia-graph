@@ -5,16 +5,16 @@ import numpy as np
 import pytest
 from nyfed_inputs import DATA, ROOT, TERRITORIES, needs_data
 
-from fdia_graph.nyfed.attacks.episode import Episode
-from fdia_graph.nyfed.config import Settings, rng
-from fdia_graph.nyfed.dataset import ClientView, Dataset
-from fdia_graph.nyfed.grid.case import Case
-from fdia_graph.nyfed.grid.clients import assign_clients
-from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
-from fdia_graph.nyfed.grid.network import Network
-from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.io import TimelineWriter
-from fdia_graph.nyfed.sensing.meters import MeterPlan, plan_meters
+from fdia_graph.dataset.clients import ClientView, Dataset
+from fdia_graph.engine.attacks.family import Episode
+from fdia_graph.engine.sensing.meters import MeterPlan, plan_meters
+from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.generation.nygrid.config import Settings, rng
+from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
+from fdia_graph.generation.nygrid.io import TimelineWriter
+from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 
 pytestmark = needs_data
 T = 100

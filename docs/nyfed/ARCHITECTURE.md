@@ -1,6 +1,6 @@
 # Architecture
 
-`fdia_graph.nyfed` builds a federated FDIA dataset on the New York grid and studies attacks through the New York
+`fdia_graph.generation.nygrid` builds a federated FDIA dataset on the New York grid and studies attacks through the New York
 operator's own rules. It has been part of fdia-graph since 2026-11-02: the package is `src/fdia_graph/nyfed/`, its tests
 `tests/nyfed/` (inputs under `NYFED_ROOT`), its research tools `tools/nyfed/`, its runnable extension examples
 `examples/nyfed/`, and the results files `results/`.
@@ -12,7 +12,7 @@ number the design decisions.
 
 ## How a run flows
 
-![The stages of fdia_graph.nyfed](../figures/diagrams/nyfed_pipeline.png)
+![The stages of fdia_graph.generation.nygrid](../figures/diagrams/nyfed_pipeline.png)
 
 Each box is a subpackage, one stage, and each stage reads what the one before it wrote. `grid` turns NYgrid's case into
 the network and the clients; `scenario` solves the year of true operating points (the slow step, built once into the

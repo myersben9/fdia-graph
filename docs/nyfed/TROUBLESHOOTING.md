@@ -1,6 +1,6 @@
 # The New York grid: how it fails
 
-Every stage of `fdia_graph.nyfed` either raises a named error or records why it produced less than asked. This
+Every stage of `fdia_graph.generation.nygrid` either raises a named error or records why it produced less than asked. This
 page lists what each stage reports, what it means and what to do. The stages are those of
 [the guide](../guides/new_york.md): environment, inputs, the operating-point pool, the timeline, the operator and
 the detection tools. The errors live in `fdia_graph.errors`. A wrong argument is a `ConfigError` and data that
@@ -12,7 +12,7 @@ the data.
 
 | What you see | Why | Fix |
 |---|---|---|
-| `SolverUnavailable: Ipopt is not found or does not start` | Ipopt is not installed, or it is installed but cannot load its DLLs. On Windows a missing DLL shows as exit code `0xC0000135` | `conda install -c conda-forge ipopt` into the environment, and run that environment's Python with the environment active, so its `Library/bin` folder is on PATH. `fdia_graph.nyfed.solvers.ipopt()` adds the folder when it exists |
+| `SolverUnavailable: Ipopt is not found or does not start` | Ipopt is not installed, or it is installed but cannot load its DLLs. On Windows a missing DLL shows as exit code `0xC0000135` | `conda install -c conda-forge ipopt` into the environment, and run that environment's Python with the environment active, so its `Library/bin` folder is on PATH. `fdia_graph.engine.solvers.ipopt()` adds the folder when it exists |
 | `SolverUnavailable: Pyomo is not installed` | The `[ny]` extra is missing | `pip install "fdia-graph[ny]"` |
 | A change you made does not show up | Python imports another copy of the package, usually the editable install of the main checkout when you work in a git worktree | Put the worktree's `src` first: `PYTHONPATH=<worktree>/src` |
 | `FileNotFoundError` on `data/...` | The build tools and the operator read `data/` and `out/` relative to the working folder | Run from the work folder that holds `data/`, or pass `--data` and `--pool` |

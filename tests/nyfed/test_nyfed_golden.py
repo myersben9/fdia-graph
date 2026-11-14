@@ -30,7 +30,7 @@ from nyfed_inputs import (
     needs_territories,
 )
 
-from fdia_graph.nyfed.detect import PersistenceRule
+from fdia_graph.se.detect.rules import PersistenceRule
 
 WINDOWS = DAMAGE_DAYS
 CALIB = (28.41, 13.76)  # the interchange check's calibration, results/nygrid.tie_check.json
@@ -104,7 +104,7 @@ def _digest(a: np.ndarray) -> dict:
 
 
 def _response(r) -> dict:
-    from fdia_graph.nyfed.operator.response import summarize
+    from fdia_graph.operator.response import summarize
 
     twins = {
         side: {f.name: _digest(getattr(t, f.name)) for f in fields(t)}  # every array of the run
@@ -115,7 +115,7 @@ def _response(r) -> dict:
 
 @pytest.fixture(scope="module")
 def days():
-    from fdia_graph.nyfed.operator.response import operator_day
+    from fdia_graph.operator.response import operator_day
 
     return {w: operator_day(DAYS / w, DAYS_POOL, DATA) for w in WINDOWS}
 
@@ -124,7 +124,7 @@ def days():
 @pytest.mark.parametrize("mode", ("trusting", "accounting", "oracle"))
 @pytest.mark.parametrize("closed_loop", (False, True))
 def test_respond_modes(days, window, mode, closed_loop):
-    from fdia_graph.nyfed.operator.response import respond
+    from fdia_graph.operator.response import respond
 
     r = respond(days[window], mode=mode, calib=CALIB, closed_loop=closed_loop)
     check(f"respond_{Path(window).stem}_{mode}_{'cl' if closed_loop else 'ol'}", _response(r))
@@ -145,7 +145,7 @@ def test_respond_modes(days, window, mode, closed_loop):
     ids=lambda o: "_".join(f"{k}-{v}" for k, v in o.items()),
 )
 def test_respond_options(days, window, options):
-    from fdia_graph.nyfed.operator.response import respond
+    from fdia_graph.operator.response import respond
 
     day = days[window]
     kw = dict(options)
@@ -167,8 +167,8 @@ def test_persistence_rule():
 @pytest.mark.parametrize("overshoot", (0.0, 175.0))
 def test_interface_attack_design(overshoot):
     """The Am design on the onset of `WINDOWS`, at the limit and at the damage study's overshoot."""
-    from fdia_graph.nyfed.build import production_builder
-    from fdia_graph.nyfed.config import Settings, rng
+    from fdia_graph.generation.nygrid.build import production_builder
+    from fdia_graph.generation.nygrid.config import Settings, rng
 
     b = production_builder(
         str(POOL.relative_to(ROOT)), ("Am",), interfaces=("SPR/DUN-SOUTH",), workers=1, survey=0, root=ROOT

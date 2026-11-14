@@ -10,7 +10,7 @@ import pytest
 
 
 def _toy_case():
-    from fdia_graph.nyfed.grid.case import Case
+    from fdia_graph.generation.nygrid.case import Case
 
     return Case(**{f.name: (100.0 if f.name == "base_mva" else np.ones(3)) for f in fields(Case)})
 
@@ -24,7 +24,7 @@ def test_voltage_margin_is_a_copy():
 
 def test_overshoot_variant_is_a_copy():
     pytest.importorskip("pandas")  # the interface module reads the hourly interface tables
-    from fdia_graph.nyfed.attacks.interface_attack import InterfaceFdia
+    from fdia_graph.engine.attacks.interface import InterfaceFdia
 
     fam = object.__new__(InterfaceFdia)  # the copy semantics alone, without an attacker
     fam.overshoot = 0.0

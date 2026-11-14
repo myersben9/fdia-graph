@@ -5,7 +5,7 @@ from __future__ import annotations
 import gc
 import warnings
 
-from fdia_graph.nyfed.tables import read_rows
+from fdia_graph.generation.nygrid.tables import read_rows
 
 
 def test_read_rows_closes_the_file_and_drops_the_bom(tmp_path):

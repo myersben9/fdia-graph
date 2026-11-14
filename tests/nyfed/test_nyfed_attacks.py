@@ -5,19 +5,19 @@ import pytest
 from nyfed_inputs import DATA, POOL_V1, TERRITORIES, needs_data, needs_pool_v1
 from scipy.stats import chi2
 
-from fdia_graph.nyfed.attacks.attacker import Attacker, generator_ramps, natural_steps, wrap_angles
-from fdia_graph.nyfed.attacks.msfdia import MsFdia
-from fdia_graph.nyfed.attacks.ramp import Ramp
-from fdia_graph.nyfed.config import Settings, rng
-from fdia_graph.nyfed.grid.clients import assign_clients
-from fdia_graph.nyfed.grid.fixes import restore_765kv, split_zone_j
-from fdia_graph.nyfed.grid.network import Network
-from fdia_graph.nyfed.grid.nygrid import modify_mpc, nygrid_units, read_npcc
-from fdia_graph.nyfed.io import read_pool
-from fdia_graph.nyfed.scenario.pool import SOLVED, Pool, peak_ratings
-from fdia_graph.nyfed.sensing.measure import Measurement
-from fdia_graph.nyfed.sensing.meters import IA, PF, QF, VA, P, Q
-from fdia_graph.nyfed.sensing.noise import NoiseModel
+from fdia_graph.engine.attacks.attacker import Attacker, generator_ramps, natural_steps, wrap_angles
+from fdia_graph.engine.attacks.msfdia import MsFdia
+from fdia_graph.engine.attacks.ramp import Ramp
+from fdia_graph.engine.sensing.measure import Measurement
+from fdia_graph.engine.sensing.meters import IA, PF, QF, VA, P, Q
+from fdia_graph.engine.sensing.noise import NoiseModel
+from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.generation.nygrid.config import Settings, rng
+from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
+from fdia_graph.generation.nygrid.io import read_pool
+from fdia_graph.generation.nygrid.network import Network
+from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
+from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
 
 LENGTH = 16
 pytestmark = [needs_data, needs_pool_v1]
@@ -55,7 +55,7 @@ def setup(pool):
 
 
 def plan_meters(net, own):
-    from fdia_graph.nyfed.sensing.meters import plan_meters as pm
+    from fdia_graph.engine.sensing.meters import plan_meters as pm
 
     return pm(net, own, rng(Settings(), "meters"))
 
