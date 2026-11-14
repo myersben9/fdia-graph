@@ -1,5 +1,6 @@
 """Per-bus FDIA localization on fdia-graph datasets, sklearn style.
 
+    from fdia_graph.models import LocalizerConfig
     from fdia_graph.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN
 
     train = fg.load("ieee118", split="train")

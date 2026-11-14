@@ -1,5 +1,6 @@
 """State estimation on fdia-graph datasets, sklearn style.
 
+    from fdia_graph.models import PriorConfig
     from fdia_graph.se import WLS, AdaptiveWeighting, ResidualRemoval, SubspacePrior
 
     train = fg.load("ieee118", split="train")

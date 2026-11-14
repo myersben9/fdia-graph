@@ -99,7 +99,7 @@ The attack was designed on the benign states; once the operator has moved genera
 one, and the same attack vector no longer fits a state:
 
 ```python
-from fdia_graph.generation.nygrid.attacks import wrap_angles
+from fdia_graph.engine.attacks import wrap_angles
 from fdia_graph.se.detect import PersistenceRule, reference_bus, wls
 from fdia_graph.operator import TrueGrid, entry_share
 from fdia_graph.generation.nygrid import Network

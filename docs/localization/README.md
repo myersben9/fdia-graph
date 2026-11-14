@@ -5,6 +5,7 @@ Which buses are under attack, per scan.
 ```python
 import fdia_graph as fg
 from fdia_graph.localization import SwingThreshold, DeltaThreshold, ResidualLocalizer, BusCNN, BusMLP
+from fdia_graph.models import LocalizerConfig
 
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test")

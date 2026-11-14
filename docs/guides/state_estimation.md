@@ -25,6 +25,7 @@ print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/se/README.md h
 ## The better estimator
 
 ```python
+from fdia_graph.models import PriorConfig
 from fdia_graph.se import SubspacePrior
 
 est = SubspacePrior(prior=PriorConfig(rank_frac=0.2, reweight="huber", c=1.5)).fit(train)
