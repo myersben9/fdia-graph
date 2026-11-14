@@ -18,12 +18,12 @@ atexit.register(shutil.rmtree, _CACHE, ignore_errors=True)
 
 import pytest  # noqa: E402
 
-# tests/nyfed needs the [ny] extra (Pyomo, pandas, pandapower, SciPy, imported when fdia_graph.generation.nygrid's
+# tests/nygrid needs the [ny] extra (Pyomo, pandas, pandapower, SciPy, imported when fdia_graph.generation.nygrid's
 # modules load): without it the folder is left out of collection rather than failing on import. With it,
-# each test still skips when the NYgrid checkout or the built pool is missing under NYFED_ROOT. (The rule
-# lives here: a conftest.py in tests/nyfed would shadow this module for `from conftest import ...`.)
+# each test still skips when the NYgrid checkout or the built pool is missing under NYGRID_ROOT. (The rule
+# lives here: a conftest.py in tests/nygrid would shadow this module for `from conftest import ...`.)
 if any(importlib.util.find_spec(m) is None for m in ("pyomo", "pandas", "pandapower", "scipy")):
-    collect_ignore_glob = ["nyfed/*"]
+    collect_ignore_glob = ["nygrid/*"]
 
 TINY = "tiny_ieee14"
 # The v0.7.2 record-shard layout the loader still reads: 12 benign + 3 per family on a 200-timestep

@@ -1,6 +1,6 @@
 # The New York code in the SDK
 
-The New York grid came in as `fdia_graph.nyfed` and now lives in the SDK's own packages. Its modules are listed
+The New York grid's code lives in the SDK's own packages, by job. Its modules are listed
 in `DEFERRED` in `tools/readability.py` until each is brought under the SDK's rules; until then the rules below
 hold for them.
 
@@ -25,11 +25,11 @@ hold for them.
   math is a plain function, and a formula the SDK already has in `formulas/` is called, not rewritten.
 - Measurements are the flat vector `z` with the `MeterPlan` table. A client's data is `z[:, meters.owner == c]`.
   A `ClientView` never exposes another client's meters.
-- Every change keeps the golden snapshots of `tests/nyfed/test_nyfed_golden.py` (and the SDK's frozen references)
+- Every change keeps the golden snapshots of `tests/nygrid/test_nygrid_golden.py` (and the SDK's frozen references)
   unless the change is meant to move a number, and says so in `CHANGELOG.md`.
 
 ## Work
 
-- Tests are in `tests/nyfed/` and read the inputs (`data/`, `out/`) under `NYFED_ROOT`. Run them before saying a
+- Tests are in `tests/nygrid/` and read the inputs (`data/`, `out/`) under `NYGRID_ROOT`. Run them before saying a
   change is done, and report the numbers it produced.
 - Never commit or push unless asked. Never add AI attribution to commits.

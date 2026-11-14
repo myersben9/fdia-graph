@@ -180,7 +180,7 @@ _FRAMES: dict[tuple[str, int], PoolFrames] = {}
 def pool_frames(day: OperatorDay, loads: str | Path | None = None) -> PoolFrames:
     """The pool's inputs for the frames of `day` (`PoolFrames`): NYgrid's hourly dispatch and AC points of the hours
     the frames touch (`PoolBuilder.frame_limits`) and the bus reactive loads of the pool's load series `loads` (by
-    default the file the environment variable `NYFED_LOADS` names, else `LOADS` under the folder holding the day's
+    default the file the environment variable `NYGRID_LOADS` names, else `LOADS` under the folder holding the day's
     `data/`). Kept per process: a study runs each day several times."""
     data_dir = Path(day.data_dir)
     key = (str(data_dir), int(np.asarray(day.time)[0]))
@@ -190,7 +190,7 @@ def pool_frames(day: OperatorDay, loads: str | Path | None = None) -> PoolFrames
     from fdia_graph.generation.nygrid.pool import PoolBuilder
     from fdia_graph.generation.nygrid.solver import AcSolver
 
-    path = Path(loads or os.environ.get("NYFED_LOADS") or data_dir.parents[2] / LOADS)
+    path = Path(loads or os.environ.get("NYGRID_LOADS") or data_dir.parents[2] / LOADS)
     if str(path) not in _LOADS:
         with np.load(path) as z:
             _LOADS[str(path)] = (z["time"].astype("datetime64[s]"), z["q"])

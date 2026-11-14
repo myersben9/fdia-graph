@@ -1,4 +1,4 @@
-"""Public names that load on first use, for the nyfed packages.
+"""Public names that load on first use, for the nygrid packages.
 
 Each package lists its public names with the module that defines them, so `from fdia_graph.operator import
 respond` works while `import fdia_graph.operator` imports nothing heavy. That keeps the dataset readers free of

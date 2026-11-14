@@ -1,4 +1,4 @@
-"""Studies over attack windows: the parts every research tool under `tools/nyfed/` repeats, in one place.
+"""Studies over attack windows: the parts every research tool under `tools/nygrid/` repeats, in one place.
 
 A study is a folder of single-episode day files, `days/am_<onset>_<mw>.h5`,
 one per attack window: at the limit (`mw` 0) or past it. A tool reads those days, runs the operator or a detector on

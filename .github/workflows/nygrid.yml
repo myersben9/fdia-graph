@@ -1,0 +1,83 @@
+name: nygrid
+
+# The New York grid's tests (tests/nygrid). They need the [ny] extra, the Ipopt program and NYgrid's public inputs,
+# none of which the per-push suite installs, so tests/conftest.py leaves the folder out there. This job installs
+# Ipopt from conda-forge (as docs/guides/new_york.md does), downloads the inputs with fetch_inputs (NYgrid's Data/ at
+# the pinned commit, the NYS utility territories and NYISO's load archives) into a cache keyed on that commit, and
+# runs the folder. The attack days the golden snapshots read are checked in (tests/nygrid/data/days); the tests that
+# need the whole 2019 pool (370 MB, built locally) skip here, as tests/nygrid/nygrid_inputs.py says.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/fdia_graph/generation/nygrid/**"
+      - "src/fdia_graph/operator/**"
+      - "src/fdia_graph/engine/sensing/**"
+      - "src/fdia_graph/engine/attacks/**"
+      - "src/fdia_graph/se/detect/**"
+      - "src/fdia_graph/errors.py"
+      - "src/fdia_graph/_moved.py"
+      - "src/fdia_graph/models/**"
+      - "tests/nygrid/**"
+      - "tests/conftest.py"
+      - "tools/nygrid/**"
+      - "examples/nygrid/**"
+      - "pyproject.toml"
+      - ".github/workflows/nygrid.yml"
+  pull_request:
+    paths:
+      - "src/fdia_graph/generation/nygrid/**"
+      - "src/fdia_graph/operator/**"
+      - "src/fdia_graph/engine/sensing/**"
+      - "src/fdia_graph/engine/attacks/**"
+      - "src/fdia_graph/se/detect/**"
+      - "src/fdia_graph/errors.py"
+      - "src/fdia_graph/_moved.py"
+      - "src/fdia_graph/models/**"
+      - "tests/nygrid/**"
+      - "tests/conftest.py"
+      - "tools/nygrid/**"
+      - "examples/nygrid/**"
+      - "pyproject.toml"
+      - ".github/workflows/nygrid.yml"
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+jobs:
+  nygrid-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash -el {0}  # a login shell, so the micromamba environment is active
+    env:
+      NYGRID_ROOT: ${{ github.workspace }}/nygrid_root
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39  # v3.2.1
+        with:
+          environment-name: nygrid
+          create-args: python=3.12 ipopt
+          condarc: |
+            channels:
+              - conda-forge
+          init-shell: bash
+          cache-environment: true
+      - name: Install the package with the ny and test extras
+        run: pip install -e ".[ny,test]"
+      - name: Ipopt starts
+        run: python -c "from fdia_graph.engine.solvers import ipopt; print(ipopt().version())"
+      # The public inputs change only with the pinned NYgrid commit; a test that fetches another year's NYISO
+      # archives adds them under the same folder before the cache is saved.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: nygrid_root/data
+          key: nygrid-inputs-47698b6-2019-v1
+      - name: Fetch the public inputs
+        run: |
+          python -c "from fdia_graph.generation.nygrid.build import fetch_inputs; fetch_inputs('$NYGRID_ROOT')"
+          rm -f "$NYGRID_ROOT"/data/NYgrid_*.zip  # the extracted Data/ is what the tests read; keep the cache small
+          du -sh "$NYGRID_ROOT"/data/*
+      - name: Run tests/nygrid
+        run: pytest -q -n auto -rs tests/nygrid

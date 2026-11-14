@@ -1,4 +1,4 @@
-"""The optimization solver every nyfed OPF runs on, found and checked in one place.
+"""The optimization solver every nygrid OPF runs on, found and checked in one place.
 
 Ipopt comes from conda-forge into the environment's `Library/bin` folder on Windows, and it needs the DLLs in that
 folder on PATH to start. When it cannot start, Pyomo reports a failed solve rather than a missing program, so a

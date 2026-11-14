@@ -48,7 +48,7 @@ from fdia_graph.engine.attacks.family import Episode
 from fdia_graph.engine.attacks.msfdia import MsFdia
 from fdia_graph.engine.solvers import ipopt
 
-P_KIND, Q_KIND = 2, 3  # nyfed.sensing.meters.KINDS "p", "q": the injection meters a pretended change moves
+P_KIND, Q_KIND = 2, 3  # nygrid.sensing.meters.KINDS "p", "q": the injection meters a pretended change moves
 
 
 @dataclass

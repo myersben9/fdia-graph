@@ -140,7 +140,7 @@ def production_builder(
     hour = (pool.time.astype(np.int64) // 3600) % 24
     q_lo, q_hi = generator_q_capability(case)
     if pool.unit_p is None:
-        raise DataConditionError("the pool must carry each unit's output (built by tools/nyfed/run_pool.py)")
+        raise DataConditionError("the pool must carry each unit's output (built by tools/nygrid/run_pool.py)")
     gen_output = np.zeros((len(pool.time), len(case.bus_id)))  # the units' output at each bus (N42)
     np.add.at(gen_output.T, case.unit_bus, np.nan_to_num(pool.unit_p).T)
     opf: dict[str, Any] = dict(

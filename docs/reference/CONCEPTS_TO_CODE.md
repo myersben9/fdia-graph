@@ -25,7 +25,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | module | what it holds |
 |---|---|
 | `fdia_graph` | fdia-graph — load & generate ML-only dangerous FDIA localization datasets (realistic measurement graphs). |
-| `_lazy` | Public names that load on first use, for the nyfed packages. |
+| `_lazy` | Public names that load on first use, for the nygrid packages. |
 | `_moved` | Names that moved to another module and stay importable from the old one for one minor release. |
 | `dataset` | FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (0.18+, one row per frame in time order, `kind="timeline"`) or a record shard (the v0.7.2 release). |
 | `dataset.base` | The loader's shared state and the constants its concerns read. |
@@ -61,7 +61,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `engine.sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
 | `engine.sensing.meters` | The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class. |
 | `engine.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
-| `engine.solvers` | The optimization solver every nyfed OPF runs on, found and checked in one place. |
+| `engine.solvers` | The optimization solver every nygrid OPF runs on, found and checked in one place. |
 | `errors` | Every error the package raises on purpose, in one place. |
 | `federated` | Federated training over K clients (utilities) that never pool their records [FED26]. |
 | `federated.aggregate` | Averaging torch state dicts across clients with `formulas.federated.fedavg` [MCM17]. |
@@ -145,7 +145,7 @@ timelines; the rest load and serve data. The table is generated from each module
 | `results.render` | Turning records into what a reader sees: a formatted cell, a markdown table, a pivot of records by two keys, and the CSV sidecar a figure is drawn from. Nothing here measures or stores anything. |
 | `results.run` | How a harness records what it measured: open a `Run`, add values, and the run writes them to the store with its provenance when it closes. |
 | `results.store` | The results store: one tidy CSV per experiment plus one table of runs, in a folder kept in git. |
-| `results.studies` | Studies over attack windows: the parts every research tool under `tools/nyfed/` repeats, in one place. |
+| `results.studies` | Studies over attack windows: the parts every research tool under `tools/nygrid/` repeats, in one place. |
 | `se` | State estimation on fdia-graph datasets, sklearn style. |
 | `se.base` | State estimation on fdia-graph datasets — the shared machinery behind every method class. |
 | `se.detect` | Detection: what the operator's checks see, as building blocks. |

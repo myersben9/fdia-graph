@@ -5,7 +5,21 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
-- **The New York grid's study scripts and design log leave the repository.** `tools/nyfed` keeps the build tools
+- **The New York grid in the SDK's own packages.** `fdia_graph.nyfed` is gone: the system source is
+  `generation.nygrid`, the meters `engine.sensing`, the attack families `engine.attacks`, the operator
+  `fdia_graph.operator`, the residual test `se.detect`, the utility clients `federated.utilities`, the client views
+  `dataset.clients` and the study helpers `results.studies`. Its tests, tools, docs and examples are under `nygrid`
+  folders, and the inputs root is `NYGRID_ROOT`. The duplicated network, accuracy-class, flow-solve, placement and
+  NYISO-reader code now calls the SDK's formulas and generation functions.
+- **Constructors take settings models.** Estimators, localizers, federated localizers and trust selectors take their
+  `models.config` settings (`SolveConfig`, `PriorConfig`, `LearnedConfig`, `FederatedSettings`, `TrustConfig`,
+  `DqnConfig`, ...) instead of flat keywords.
+
+- **An Ipopt that ends abnormally is a failed solve (New York grid).** `OperatorOpf.solve` returns None when Ipopt does
+  not exit normally (killed, out of memory), so the AC operator retries from the AC point instead of ending the study
+  that ran it.
+
+- **The New York grid's study scripts and design log leave the repository.** `tools/nygrid` keeps the build tools
   (`run_pool.py`, `build_timeline.py`, `build_single_episodes.py`, `matlab/`); the study drivers, their result files
   under `results/` and the design log are removed. The library, its defaults and its outputs are unchanged.
 
@@ -85,20 +99,20 @@ the public API, the generated files and the numbers are the same as the previous
   zone and utility, and `zone_levers` measures how far each zone's plausible false load and output could move each
   interface. `node_lbmp` reads NYISO's hourly price at any zone or proxy bus. No change to existing results.
 
-- **The New York grid's tests run in CI (New York grid).** A new workflow, `nyfed.yml`, installs the `[ny]` extra
+- **The New York grid's tests run in CI (New York grid).** A new workflow, `nygrid.yml`, installs the `[ny]` extra
   and Ipopt from conda-forge, downloads NYgrid's public inputs with `fetch_inputs` (cached under the pinned commit)
-  and runs `tests/nyfed` on pull requests that touch the New York grid, on main and weekly. Before it, no CI job
+  and runs `tests/nygrid` on pull requests that touch the New York grid, on main and weekly. Before it, no CI job
   installed Pyomo, so the whole folder, the examples' test included, was left out of every run. Two damage-study days,
-  the single-episode day and the 2019 pool's frames of those days are checked in under `tests/nyfed/data/days`
+  the single-episode day and the 2019 pool's frames of those days are checked in under `tests/nygrid/data/days`
   (6.7 MB), so the operator's tests and 33 of the 35 golden snapshots run there too; the tests that need the whole
   pool (the attack families, the builder, the timeline and the interface attack's design) still run only where it
-  is built. `tests/nyfed/nyfed_inputs.py` names every input in one place and says which tests it lets run, in place
+  is built. `tests/nygrid/nygrid_inputs.py` names every input in one place and says which tests it lets run, in place
   of a path block repeated in nine test files. No user-visible change.
 
-- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nyfed/WALKTHROUGH.md` follows one
+- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nygrid/WALKTHROUGH.md` follows one
   attack through every stage with the call that does each step (each snippet checked on the 2019 data);
-  `docs/nyfed/EXTENDING.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
-  with a runnable example under `examples/nyfed/` that CI runs; `docs/nyfed/ARCHITECTURE.md` opens with a rendered
+  `docs/nygrid/EXTENDING.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
+  with a runnable example under `examples/nygrid/` that CI runs; `docs/nygrid/ARCHITECTURE.md` opens with a rendered
   diagram of the stages and its principles as they now hold, in place of an ASCII diagram that predated the operator
   and the detectors.
 
@@ -111,7 +125,7 @@ the public API, the generated files and the numbers are the same as the previous
   `study_days` (a study's day files), `variant` (at the limit or damaging), `load_calib` (the interchange check's
   calibration), `add_study_arguments` (the options every tool shares) and `run_parallel` (a process pool that writes
   the CSV as results come in, sorted by file at the end, so its rows no longer depend on which worker finished
-  first). The study tools under `tools/nyfed/` use them in place of their own copies, and the interchange-check tool
+  first). The study tools under `tools/nygrid/` use them in place of their own copies, and the interchange-check tool
   takes `--data` instead of a fixed path. The tools' results are unchanged.
 
 - **The overload attacks read plainly (New York grid).** The OPF attack's per-support model and prepared window
@@ -139,7 +153,7 @@ the public API, the generated files and the numbers are the same as the previous
   `AlarmRule` protocol any other rule can implement, and other meter fleets (`with_fleet`, `fleet_bias`).
   `TrueGrid.state` and `TrueGrid.run_state` give the true state after the operator acts, with the load it shed (the
   research tools left the shed load out; no studied day sheds load, so no number changes). The six detection tools
-  under `tools/nyfed/` now drive these instead of carrying their own copies and importing each other.
+  under `tools/nygrid/` now drive these instead of carrying their own copies and importing each other.
 
 - **Settings are arguments, not patches (New York grid).** `production_builder` takes `v_margin` and `gen_v_tol`,
   the attacker's voltage sensitivities (N71, N75); `v_margin` widens the limits on the attacker's own copy of the case
@@ -159,7 +173,7 @@ the public API, the generated files and the numbers are the same as the previous
   `ConfigError` for a wrong argument, `DataConditionError` (or `NoAdmissibleTarget`, `NotFitted`) for data that does
   not meet a condition, instead of bare `ValueError`s and asserts. Both subclass `ValueError`, so existing handlers
   keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.generation.nygrid.tables`), and
-  the research tools no longer silence warnings. `docs/nyfed/TROUBLESHOOTING.md` lists what each stage reports when
+  the research tools no longer silence warnings. `docs/nygrid/TROUBLESHOOTING.md` lists what each stage reports when
   it fails and what to do.
 
 - **A failed power flow reads as unknown, not safe (New York grid).** The operator's `Twin` gains `pf_failed [T]`,
