@@ -89,7 +89,7 @@ def fetch_inputs(root: str | Path) -> Path:
     terr = data / "territories"
     _download(TERRITORIES, terr / GEOJSON)
     if not (terr / LOCATIONS).exists():
-        shutil.copyfile(Path(__file__).parent / "grid" / LOCATIONS, terr / LOCATIONS)
+        shutil.copyfile(Path(__file__).parent / LOCATIONS, terr / LOCATIONS)
     fetch_nyiso(Settings().year, data / "nyiso")
     return data
 

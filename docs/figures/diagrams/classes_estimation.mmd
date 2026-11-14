@@ -94,14 +94,19 @@ classDiagram
     SEBase <|-- WLS
     SubspacePrior <|-- GatedPrior
     AdaptiveWeighting ..> HuberConfig : uses
+    AdaptiveWeighting ..> SolveConfig : uses
     GatedPrior ..> GateConfig : uses
     GatedPrior ..> LocalizerBase : gate
+    GatedPrior ..> PriorConfig : uses
+    GatedPrior ..> SolveConfig : uses
     JacobianFeatures ..> JacobianOutputs : uses
     JacobianFeatures ..> SEBase : uses
     JacobianFeatures ..> WLS : uses
     JacobianWeighting ..> JacobianFeatures : uses
     JacobianWeighting ..> JacobianWeightingConfig : uses
+    JacobianWeighting ..> SolveConfig : uses
     ResidualRemoval ..> RemovalConfig : uses
+    ResidualRemoval ..> SolveConfig : uses
     SEBase ..> ErrorPair : uses
     SEBase ..> EstimatorScores : uses
     SEBase ..> FitOptions : uses
@@ -114,3 +119,4 @@ classDiagram
     SEBase ..> TrueState : uses
     SEBase ..> VaryingReference : uses
     SubspacePrior ..> PriorConfig : uses
+    SubspacePrior ..> SolveConfig : uses
