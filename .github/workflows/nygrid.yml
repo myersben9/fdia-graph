@@ -70,7 +70,7 @@ jobs:
     env:
       NYGRID_ROOT: ${{ github.workspace }}/nygrid_root
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39  # v3.2.1
         with:
           environment-name: nygrid
@@ -86,7 +86,7 @@ jobs:
         run: python -c "from fdia_graph.engine.solvers import ipopt; print(ipopt().version())"
       # The public inputs change only with the pinned NYgrid commit; a test that fetches another year's NYISO
       # archives adds them under the same folder before the cache is saved.
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: nygrid_root/data
           key: nygrid-inputs-47698b6-2019-v1
