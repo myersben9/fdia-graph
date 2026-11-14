@@ -28,6 +28,7 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.localization import BusCNN, BusMLP, DeltaThreshold, ResidualLocalizer, SwingThreshold
+from fdia_graph.models import LearnedConfig
 from fdia_graph.results import Run, Store
 
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
@@ -73,9 +74,13 @@ methods = {
     "residual": ResidualLocalizer(),
     "mlp": BusMLP(),
     "cnn": BusCNN(),
-    "cnn+jac": BusCNN(features="full14+jac"),  # the digest's Model C, every family in-distribution
-    "cnn+prev": BusCNN(features="full14+prev"),  # + the previous frame's swing: tells an echo from an onset
-    "cnn+prev+jac": BusCNN(features="full14+prev+jac"),
+    "cnn+jac": BusCNN(
+        learned=LearnedConfig(features="full14+jac")
+    ),  # the digest's Model C, every family in-distribution
+    "cnn+prev": BusCNN(
+        learned=LearnedConfig(features="full14+prev")
+    ),  # + the previous frame's swing: tells an echo from an onset
+    "cnn+prev+jac": BusCNN(learned=LearnedConfig(features="full14+prev+jac")),
 }
 report = {name: run("common", name, m, train, test) for name, m in methods.items()}
 
@@ -88,11 +93,11 @@ zte = fg.load(SYSTEM, split="test", families=[0, 1, 2, 3, 4])
 zs_methods = {
     "mlp": BusMLP(),
     "cnn": BusCNN(),
-    "cnn_meas": BusCNN(features="meas"),
-    "cnn+jac": BusCNN(features="full14+jac"),
-    "cnn_jac": BusCNN(features="jac"),
-    "cnn+prev": BusCNN(features="full14+prev"),
-    "cnn+prev+jac": BusCNN(features="full14+prev+jac"),
+    "cnn_meas": BusCNN(learned=LearnedConfig(features="meas")),
+    "cnn+jac": BusCNN(learned=LearnedConfig(features="full14+jac")),
+    "cnn_jac": BusCNN(learned=LearnedConfig(features="jac")),
+    "cnn+prev": BusCNN(learned=LearnedConfig(features="full14+prev")),
+    "cnn+prev+jac": BusCNN(learned=LearnedConfig(features="full14+prev+jac")),
 }
 zero_shot = {name: run("zero_shot", name, m, ztr, zte, val=zva) for name, m in zs_methods.items()}
 zero_shot["swing"] = run("zero_shot", "swing", SwingThreshold(), ztr, zte)  # the feature alone, FA-calibrated

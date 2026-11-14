@@ -25,9 +25,11 @@ timelines; the rest load and serve data. The table is generated from each module
 | module | what it holds |
 |---|---|
 | `fdia_graph` | fdia-graph — load & generate ML-only dangerous FDIA localization datasets (realistic measurement graphs). |
+| `_lazy` | Public names that load on first use, for the nyfed packages. |
 | `_moved` | Names that moved to another module and stay importable from the old one for one minor release. |
 | `dataset` | FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (0.18+, one row per frame in time order, `kind="timeline"`) or a record shard (the v0.7.2 release). |
 | `dataset.base` | The loader's shared state and the constants its concerns read. |
+| `dataset.clients` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
 | `dataset.export` | A whole split at once: `summary`, and the arrays/tensors/frames of every kept record. |
 | `dataset.graph` | The static graph of a shard: connectivity and the per-branch and per-bus physics, as tensors. |
 | `dataset.physics` | The admittance matrices built from the static graph, and the clean power flow on every branch derived from the clean state through them. |
@@ -37,10 +39,16 @@ timelines; the rest load and serve data. The table is generated from each module
 | `engine` | The generation engine — the math/physics/theory half of the SDK, behind fg.generate(). |
 | `engine.attacks` | Every attack the generator builds, behind one mixin: `AttackMixin`, mixed into FdiaGenerator. |
 | `engine.attacks.area` | The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true. |
+| `engine.attacks.attacker` | The attacker: the local subnetwork it re-solves, and the false states its two goals imply. |
 | `engine.attacks.episodes` | What one episode attacks: its design, drawn at onset by the family's designer. |
 | `engine.attacks.false_state` | The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes. |
+| `engine.attacks.family` | What one attack occupies on the timeline, and the interface its two families share. |
+| `engine.attacks.interface` | The overload attack on a NYISO interface (N48, N49, ours): Am with OpfFdia's false states and every one of its bounds, the goal moved from one branch's rating to the flow across an interface. |
 | `engine.attacks.minimize` | The cheapest support of an attack window [WU26 eq. 12]. |
+| `engine.attacks.msfdia` | Am, the multi-snapshot overload FDIA of [1] (TSG 2026, eqs. 12-25): over a window of snapshots the reported apparent flow of one or two target branches is driven to their ratings, each snapshot the reading of one AC false state so the operator's residual test stays quiet, while the true flow is below the rating. The attack tampers the fewest distinct meters (eq. 12). |
+| `engine.attacks.opf` | The overload attacks with the attacker's false states from a local optimal power flow (N35, ours). |
 | `engine.attacks.overload` | `Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`, [D17]) driven to their ratings over the window, with the fewest devices tampered. |
+| `engine.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
 | `engine.attacks.rref` | [WU26]'s own construction of the attack's support: row reduction of the transposed attack-area Jacobian with column exchanges. |
 | `engine.attacks.stealthy` | The stealthy ramp At: one scan at a time, a local false state added to the true scan. |
 | `engine.base` | Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only. |
@@ -49,12 +57,18 @@ timelines; the rest load and serve data. The table is generated from each module
 | `engine.physics` | A scan's load and generation, read from its stored state. |
 | `engine.pp_types` | The pandapower objects the engine reads, as types. |
 | `engine.records` | One scan of the timeline writer: a benign scan, or an attacked At scan built by `engine.attacks`. |
+| `engine.sensing` | The meters: what each client measures, and how wrong each meter is. |
+| `engine.sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
+| `engine.sensing.meters` | The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class. |
+| `engine.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
+| `engine.solvers` | The optimization solver every nyfed OPF runs on, found and checked in one place. |
 | `errors` | Every error the package raises on purpose, in one place. |
 | `federated` | Federated training over K clients (utilities) that never pool their records [FED26]. |
 | `federated.aggregate` | Averaging torch state dicts across clients with `formulas.federated.fedavg` [MCM17]. |
 | `federated.localizer` | Federated per-bus localizers: the paper's BusMLP and BusCNN trained by FedAvg over K clients [MCM17], [FED26], with records never leaving a client. |
 | `federated.partition` | The split of a system's buses into K clients (utilities) for federated training [FED26]. |
 | `federated.se` | Federated fitting of the state estimator's learned part [EST26], [FED26]. |
+| `federated.utilities` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
 | `formulas` | The mathematics of the package as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue. |
 | `formulas.attacks` | Attack shapes defined by the dataset [DAT26] that are pure functions of their parameters. |
 | `formulas.estimation` | Weighted least squares state estimation and its robust variants, one function per equation [SCH70], [HAN75], [HUB64], [EST26]. |
@@ -69,6 +83,27 @@ timelines; the rest load and serve data. The table is generated from each module
 | `generation` | generate(system, name, **knobs) — build a custom dataset and register it as `name`. |
 | `generation.design` | The design stage of a timeline: the overload Am episodes of a split, designed before it is walked. |
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
+| `generation.nygrid` | The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them. |
+| `generation.nygrid.build` | The production build: the inputs fetched at their pinned versions, and the `TimelineBuilder` with every decided bound (N8, N27 to N49) in one place. |
+| `generation.nygrid.case` | The grid as one frozen record of arrays. |
+| `generation.nygrid.config` | Build settings and the one place random generators are made. |
+| `generation.nygrid.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
+| `generation.nygrid.fixes` | The changes that make NYgrid's operating points solvable in AC (checked in MATLAB on 8760 hours of 2019). |
+| `generation.nygrid.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load. |
+| `generation.nygrid.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
+| `generation.nygrid.io` | HDF5 files of the build. The only module that imports h5py. |
+| `generation.nygrid.load_fit` | How the within-hour terms of `LoadModel` were fitted (N31): the fluctuation's spread and autocorrelation on the real zones of a held-out year (`fluctuation_fit`), and industrial switching on zone D's large steps (`switching_fit`). Their results are the FLUCT_* and SWITCH_* constants of `loads.py`; run these again to refit them on other data. |
+| `generation.nygrid.load_metrics` | How a load series is compared with the real one (`LoadModel.validate`): the load factor, the distribution of the load and of its five-minute steps, the hourly autocorrelation and the spectrum. |
+| `generation.nygrid.load_sources` | Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
+| `generation.nygrid.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
+| `generation.nygrid.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
+| `generation.nygrid.npcc` | Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m). |
+| `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
+| `generation.nygrid.ratings` | Branch ratings from the limits NYgrid itself sets. `npcc.mat` carries no branch ratings. |
+| `generation.nygrid.schedule` | Where the timeline's splits are cut and where each split's episodes go. |
+| `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (`OperatorOpf`), solved scan by scan. |
+| `generation.nygrid.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before). |
+| `generation.nygrid.timeline` | The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
 | `generation.write` | The write stage of a timeline: its datasets, columns, episodes and attributes in the HDF5 file. |
 | `localization` | Per-bus FDIA localization on fdia-graph datasets, sklearn style. |
@@ -91,61 +126,17 @@ timelines; the rest load and serve data. The table is generated from each module
 | `models.scores` | The result tables: an estimator's error pair per record class, a localizer's metric rows per class, and the Jacobian feature outputs. Each is a Bundle, indexable by family name as before. |
 | `models.training` | What the learned localizers pass between their fitting pieces (a centralized fit and a federated client share them). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
-| `nyfed` | The New York grid: stealthy attacks on NYISO interfaces and the operator that answers them. |
-| `nyfed._lazy` | Public names that load on first use, for the nyfed packages. |
-| `nyfed.attacks` | The attacker: false data that the operator's state estimator accepts. |
-| `nyfed.attacks.attacker` | The attacker: the local subnetwork it re-solves, and the false states its two goals imply. |
-| `nyfed.attacks.episode` | What one attack occupies on the timeline, and the interface its two families share. |
-| `nyfed.attacks.interface_attack` | The overload attack on a NYISO interface (N48, N49, ours): Am with OpfFdia's false states and every one of its bounds, the goal moved from one branch's rating to the flow across an interface. |
-| `nyfed.attacks.msfdia` | Am, the multi-snapshot overload FDIA of [1] (TSG 2026, eqs. 12-25): over a window of snapshots the reported apparent flow of one or two target branches is driven to their ratings, each snapshot the reading of one AC false state so the operator's residual test stays quiet, while the true flow is below the rating. The attack tampers the fewest distinct meters (eq. 12). |
-| `nyfed.attacks.opf_attack` | The overload attacks with the attacker's false states from a local optimal power flow (N35, ours). |
-| `nyfed.attacks.ramp` | At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away. |
-| `nyfed.build` | The production build: the inputs fetched at their pinned versions, and the `TimelineBuilder` with every decided bound (N8, N27 to N49) in one place. |
-| `nyfed.config` | Build settings and the one place random generators are made. |
-| `nyfed.dataset` | The timeline as federated clients: each utility sees only its own meters, buses and labels. |
-| `nyfed.detect` | Detection: what the operator's checks see, as building blocks. |
-| `nyfed.detect.estimate` | The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic. |
-| `nyfed.detect.fleets` | Other meter fleets: the same meters and accuracy classes with fresh constant biases. |
-| `nyfed.detect.rules` | When a detector alarms: the rule that turns a statistic per scan into a first alarm. |
-| `nyfed.experiments` | Studies over attack windows: the parts every research tool under `tools/nyfed/` repeats, in one place. |
-| `nyfed.grid` | The network: the case, its admittances, the NYISO interfaces and the clients. |
-| `nyfed.grid.case` | The grid as one frozen record of arrays. |
-| `nyfed.grid.clients` | Federated clients: each NY bus belongs to the electric utility whose service territory holds it. |
-| `nyfed.grid.fixes` | The changes that make NYgrid's operating points solvable in AC (checked in MATLAB on 8760 hours of 2019). |
-| `nyfed.grid.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
-| `nyfed.grid.network` | Admittances of a Case, built once, and the AC quantities they give for any state. |
-| `nyfed.grid.nygrid` | Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m). |
-| `nyfed.grid.ratings` | Branch ratings from the limits NYgrid itself sets. `npcc.mat` carries no branch ratings. |
-| `nyfed.io` | HDF5 files of the build. The only module that imports h5py. |
-| `nyfed.operator` | The grid operator under attack: what it does with false readings, and what that costs on the true grid. |
-| `nyfed.operator.acsced` | The operator's real-time dispatch as an AC optimal power flow (`AcSced`), scan by scan, beside the DC `DcSced`. |
-| `nyfed.operator.areas` | Who bears an attack's damage, and whose grid the attacker uses: the consequence split by New York zone, by utility and by neighboring area, with what the attack tampered in each. |
-| `nyfed.operator.day` | An attacked day as the operator meets it: the scans it reads and their benign twin, the true states, the pool's unit dispatch and costs, the zonal prices, and the interfaces with their real limits (`operator_day`). |
-| `nyfed.operator.policy` | The operator's choices as one record (`OperatorPolicy`): which operator (`OperatorMode`), how late it acts, where the inadvertent interchange its neighbours supply enters (`Entry`, `entry_share`), whether it reads the true flows after its own dispatch, and how it answers an alarm (`AlarmAnswer`). The record checks every choice when it is built, so a typo is a `ConfigError` before anything runs. |
-| `nyfed.operator.response` | The operator's response, as one module: every name of `day`, `ties`, `truegrid`, `policy`, `run` and `summary`, re-exported so the imports written before the split keep working. New code imports from those modules or from `fdia_graph.operator`. |
-| `nyfed.operator.run` | The operator scan by scan (D1 to D6). It dispatches on what it reads (`DcSced`), the attacked scans and, separately, their benign twin, each in closed loop on its own dispatch. The dispatch is applied to the true grid, whose load the attack never changed: the imbalance it leaves is picked up by regulation, the online free units in proportion to their five-minute ramp (AGC), up to `REG_CAP`, and the rest by the neighbours as inadvertent interchange. The attack's consequence is the attacked run less the benign one, so whatever the model does alike in both (DC against AC, the cost model) cancels. `respond` runs both and returns the `Response`. |
-| `nyfed.operator.sced` | The operator's real-time dispatch: a DC security-constrained dispatch around the current basepoint, as NYISO's real-time dispatch is a DC dispatch on shift factors (D2). |
-| `nyfed.operator.summary` | The attack's consequence over a day, attacked run less benign run (`summarize`): the dispatch moved, the regulation and its energy by utility, the inadvertent interchange, the true interface changes and margins, the scans over a true limit and those whose power flow failed, the costs, and any load shed. |
-| `nyfed.operator.ties` | The interchange check: what the operator reads across the ties against what the neighbours' own meters read (N62, N67). The New York ends of the ties carry the attack's false interchange, the neighbours' ends do not, so the gap between them (`tie_gap`) leaves its benign noise once an attack moves the interchange, and `interchange_alarm` names the first scan it does. `seen_interfaces` is the interface flow the operator reads from its own scans. |
-| `nyfed.operator.truegrid` | The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (`TrueGrid.state`), the true state once a run has acted (`run_state`, the closed loop), and the interface flows and the worst single 345 kV outage it gives (`change`). A power flow that fails returns None and its scan is unknown, never safe. The outage is screened with DC outage factors, or with `ac` by an AC power flow of the grid without each branch (`ac_power_flow`). |
-| `nyfed.scenario` | The operating points: a year of true AC states at five-minute steps. |
-| `nyfed.scenario.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
-| `nyfed.scenario.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load. |
-| `nyfed.scenario.load_fit` | How the within-hour terms of `LoadModel` were fitted (N31): the fluctuation's spread and autocorrelation on the real zones of a held-out year (`fluctuation_fit`), and industrial switching on zone D's large steps (`switching_fit`). Their results are the FLUCT_* and SWITCH_* constants of `loads.py`; run these again to refit them on other data. |
-| `nyfed.scenario.load_metrics` | How a load series is compared with the real one (`LoadModel.validate`): the load factor, the distribution of the load and of its five-minute steps, the hourly autocorrelation and the spectrum. |
-| `nyfed.scenario.load_sources` | Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
-| `nyfed.scenario.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
-| `nyfed.scenario.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
-| `nyfed.scenario.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (`OperatorOpf`), solved scan by scan. |
-| `nyfed.sensing` | The meters: what each client measures, and how wrong each meter is. |
-| `nyfed.sensing.measure` | The measurement function: the meter readings a grid state gives, and their derivatives. |
-| `nyfed.sensing.meters` | The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class. |
-| `nyfed.sensing.noise` | Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter. |
-| `nyfed.solvers` | The optimization solver every nyfed OPF runs on, found and checked in one place. |
-| `nyfed.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before). |
-| `nyfed.timeline` | The dataset: a year of noisy scans with attacks placed at random and labelled. |
-| `nyfed.timeline.builder` | The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled. |
-| `nyfed.timeline.schedule` | Where the timeline's splits are cut and where each split's episodes go. |
+| `operator` | The grid operator under attack: what it does with false readings, and what that costs on the true grid. |
+| `operator.acsced` | The operator's real-time dispatch as an AC optimal power flow (`AcSced`), scan by scan, beside the DC `DcSced`. |
+| `operator.areas` | Who bears an attack's damage, and whose grid the attacker uses: the consequence split by New York zone, by utility and by neighboring area, with what the attack tampered in each. |
+| `operator.day` | An attacked day as the operator meets it: the scans it reads and their benign twin, the true states, the pool's unit dispatch and costs, the zonal prices, and the interfaces with their real limits (`operator_day`). |
+| `operator.policy` | The operator's choices as one record (`OperatorPolicy`): which operator (`OperatorMode`), how late it acts, where the inadvertent interchange its neighbours supply enters (`Entry`, `entry_share`), whether it reads the true flows after its own dispatch, and how it answers an alarm (`AlarmAnswer`). The record checks every choice when it is built, so a typo is a `ConfigError` before anything runs. |
+| `operator.response` | The operator's response, as one module: every name of `day`, `ties`, `truegrid`, `policy`, `run` and `summary`, re-exported so the imports written before the split keep working. New code imports from those modules or from `fdia_graph.operator`. |
+| `operator.run` | The operator scan by scan (D1 to D6). It dispatches on what it reads (`DcSced`), the attacked scans and, separately, their benign twin, each in closed loop on its own dispatch. The dispatch is applied to the true grid, whose load the attack never changed: the imbalance it leaves is picked up by regulation, the online free units in proportion to their five-minute ramp (AGC), up to `REG_CAP`, and the rest by the neighbours as inadvertent interchange. The attack's consequence is the attacked run less the benign one, so whatever the model does alike in both (DC against AC, the cost model) cancels. `respond` runs both and returns the `Response`. |
+| `operator.sced` | The operator's real-time dispatch: a DC security-constrained dispatch around the current basepoint, as NYISO's real-time dispatch is a DC dispatch on shift factors (D2). |
+| `operator.summary` | The attack's consequence over a day, attacked run less benign run (`summarize`): the dispatch moved, the regulation and its energy by utility, the inadvertent interchange, the true interface changes and margins, the scans over a true limit and those whose power flow failed, the costs, and any load shed. |
+| `operator.ties` | The interchange check: what the operator reads across the ties against what the neighbours' own meters read (N62, N67). The New York ends of the ties carry the attack's false interchange, the neighbours' ends do not, so the gap between them (`tie_gap`) leaves its benign noise once an attack moves the interchange, and `interchange_alarm` names the first scan it does. `seen_interfaces` is the interface flow the operator reads from its own scans. |
+| `operator.truegrid` | The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (`TrueGrid.state`), the true state once a run has acted (`run_state`, the closed loop), and the interface flows and the worst single 345 kV outage it gives (`change`). A power flow that fails returns None and its scan is unknown, never safe. The outage is screened with DC outage factors, or with `ac` by an AC power flow of the grid without each branch (`ac_power_flow`). |
 | `profiles` | Load-profile ingestion + operating-state generation — the FRONT of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
 | `registry` | Dataset registry: built-in (downloadable) datasets + locally generated ones. |
@@ -154,8 +145,13 @@ timelines; the rest load and serve data. The table is generated from each module
 | `results.render` | Turning records into what a reader sees: a formatted cell, a markdown table, a pivot of records by two keys, and the CSV sidecar a figure is drawn from. Nothing here measures or stores anything. |
 | `results.run` | How a harness records what it measured: open a `Run`, add values, and the run writes them to the store with its provenance when it closes. |
 | `results.store` | The results store: one tidy CSV per experiment plus one table of runs, in a folder kept in git. |
+| `results.studies` | Studies over attack windows: the parts every research tool under `tools/nyfed/` repeats, in one place. |
 | `se` | State estimation on fdia-graph datasets, sklearn style. |
 | `se.base` | State estimation on fdia-graph datasets — the shared machinery behind every method class. |
+| `se.detect` | Detection: what the operator's checks see, as building blocks. |
+| `se.detect.estimate` | The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic. |
+| `se.detect.fleets` | Other meter fleets: the same meters and accuracy classes with fresh constant biases. |
+| `se.detect.rules` | When a detector alarms: the rule that turns a statistic per scan into a first alarm. |
 | `se.jacobian` | Jacobian-informed features (Abdulin & Narimani): the measurement Jacobian as a physics transform of the scan-to-scan measurement change, not as raw model input. |
 | `se.methods` | The estimator method classes. Each changes exactly one thing about SEBase, so a difference between two arms is a difference between estimators rather than between implementations. |
 | `streams` | The deprecated stream entry points, to be removed in a future release: `generate_stream` writes a timeline file through `fdia_graph.timeline` and returns it as the stream dict, `load_stream` reads the v0.7.2 stream files, and `windows` slides over a stream dict. The timeline file is the dataset now: `fg.generate` writes it and `fg.load(name, order="time")` reads it, with `ds.windows`. `load_stream` and `windows` stay for reading the v0.7.x stream files, which a timeline loader does not open. |
@@ -191,7 +187,7 @@ and converts them on load.
 | Bad-data test `r_i=(z_i−h_i)/σ_i`, `J=Σr_i²` | `σ_i` is the RMS of the benign residuals at the training truth (`se/base.py` `SEBase.fit`); residuals in `se/base.py` `SEBase._nres`. The `stealthy` flag marks the families that evade it by construction (`Aq`/`At`/`Al`/`Am`, `schema.STEALTHY_FAMILIES`) |
 | Noise model | `FdiaGenerator.SD` (accuracy class): reading = true + per-meter bias + per-scan jitter. The estimator does not read it; it calibrates `σ_i` from data |
 | Meter model (hybrid SCADA and PMU, the plan's D10) | `MeasurementMixin.meter_masks` (the angle at the PMU buses only), `current_mask` and `_emit_currents` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(..., redundancy={"meter_model": ...})` through `models.MeterSettings` |
-| PMU pseudo-measurements `V_f = (I_n − y_nn V_n)/y_nf` [WU26, eq. (3)] | `formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages` (with the propagated variance), used by `SEBase(pmu_pseudo=True)` in `_build_pseudo` and `_z_of` |
+| PMU pseudo-measurements `V_f = (I_n − y_nn V_n)/y_nf` [WU26, eq. (3)] | `formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages` (with the propagated variance), used by `SEBase(solve=SolveConfig(pmu_pseudo=True))` in `_build_pseudo` and `_z_of` |
 
 Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
 

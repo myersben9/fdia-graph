@@ -132,38 +132,31 @@ def _build(module, cls_name, **kw):
     return lambda: getattr(importlib.import_module(f"fdia_graph.{module}"), cls_name)(**kw)
 
 
-def _learned(**kw):
-    def call():
-        pytest.importorskip("torch")
-        from fdia_graph.localization import BusMLP
-
-        BusMLP(**kw)
-
-    return call
-
-
 ENTRY_POINTS = [
-    ("WLS npass", _build("se", "WLS", npass="many")),
-    ("WLS iters", _build("se", "WLS", iters=2.5)),
-    ("AdaptiveWeighting c", _build("se", "AdaptiveWeighting", c=float("nan"))),
-    ("AdaptiveWeighting tol", _build("se", "AdaptiveWeighting", tol="small")),
-    ("ResidualRemoval threshold", _build("se", "ResidualRemoval", threshold="high")),
-    ("ResidualRemoval cond_mult", _build("se", "ResidualRemoval", cond_mult=-1)),
-    ("SubspacePrior rank_frac", _build("se", "SubspacePrior", rank_frac=10**1000)),
-    ("SubspacePrior reweight", _build("se", "SubspacePrior", reweight="tukey")),
-    ("JacobianWeighting huber_c", _build("se", "JacobianWeighting", huber_c=float("inf"))),
-    ("GatedPrior gate_factor", _build("se", "GatedPrior", gate_factor="big")),
-    ("SwingThreshold fa_target", _build("localization", "SwingThreshold", fa_target=1.5)),
-    ("SwingThreshold fa_target kind", _build("localization", "SwingThreshold", fa_target="low")),
-    ("ResidualLocalizer fa_target", _build("localization", "ResidualLocalizer", fa_target=None)),
-    ("TrustedMeters k", _build("trust", "TrustedMeters", k=2.5)),
-    ("TrustedMeters fa_target", _build("trust", "TrustedMeters", k=2, fa_target=float("nan"))),
-    ("BusMLP layers", _learned(layers=2.5)),
-    ("BusMLP features", _learned(features="everything")),
-    ("BusMLP batch_size", _learned(batch_size=2.5)),
-    ("BusMLP epochs", _learned(epochs=0)),
-    ("BusMLP lr", _learned(lr=float("nan"))),
-    ("BusMLP dropout", _learned(dropout=1.5)),
+    ("SolveConfig npass", _build("models.config", "SolveConfig", npass="many")),
+    ("SolveConfig iters", _build("models.config", "SolveConfig", iters=2.5)),
+    ("HuberConfig c", _build("models.config", "HuberConfig", c=float("nan"))),
+    ("HuberConfig tol", _build("models.config", "HuberConfig", tol="small")),
+    ("RemovalConfig threshold", _build("models.config", "RemovalConfig", threshold="high")),
+    ("RemovalConfig cond_mult", _build("models.config", "RemovalConfig", cond_mult=-1)),
+    ("PriorConfig rank_frac", _build("models.config", "PriorConfig", rank_frac=10**1000)),
+    ("PriorConfig reweight", _build("models.config", "PriorConfig", reweight="tukey")),
+    (
+        "JacobianWeightingConfig huber_c",
+        _build("models.config", "JacobianWeightingConfig", huber_c=float("inf")),
+    ),
+    ("GateConfig gate_factor", _build("models.config", "GateConfig", gate="oracle", gate_factor="big")),
+    ("LocalizerConfig fa_target", _build("models.config", "LocalizerConfig", fa_target=1.5)),
+    ("LocalizerConfig fa_target kind", _build("models.config", "LocalizerConfig", fa_target="low")),
+    ("LocalizerConfig fa_target", _build("models.config", "LocalizerConfig", fa_target=None)),
+    ("TrustConfig k", _build("models.config", "TrustConfig", k=2.5)),
+    ("TrustConfig fa_target", _build("models.config", "TrustConfig", k=2, fa_target=float("nan"))),
+    ("LearnedConfig layers", _build("models.config", "LearnedConfig", layers=2.5)),
+    ("LearnedConfig features", _build("models.config", "LearnedConfig", features="everything")),
+    ("LearnedConfig batch_size", _build("models.config", "LearnedConfig", batch_size=2.5)),
+    ("LearnedConfig epochs", _build("models.config", "LearnedConfig", epochs=0)),
+    ("LearnedConfig lr", _build("models.config", "LearnedConfig", lr=float("nan"))),
+    ("LearnedConfig dropout", _build("models.config", "LearnedConfig", dropout=1.5)),
     (
         "spectral_partition K",
         _build("federated.partition", "spectral_partition", edge_index=_EDGES, N=3, K=2.5),

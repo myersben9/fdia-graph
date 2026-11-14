@@ -15,7 +15,9 @@ train = fg.load("ieee118", split="train", **zs)
 val = fg.load("ieee118", split="val", **zs)
 test = fg.load("ieee118", split="test", families=[0, 1, 2, 3, 4], **rel)  # adds As and Ar
 
-loc = FedBusCNN(K=3, rounds=60, local_epochs=3, features="full14+jac").fit(train, val=val)
+loc = FedBusCNN(
+    federated=FederatedSettings(K=3, rounds=60, local_epochs=3), learned=LearnedConfig(features="full14+jac")
+).fit(train, val=val)
 tab = loc.score_perbus(test, buses="attackable", fr_over="all")  # the paper's Table IV block
 ```
 

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from ..formulas.trust import attack_cost
+from ..models.config import DqnConfig, TrustConfig
 from .base import TrustSelector
 
 if TYPE_CHECKING:
@@ -54,18 +55,15 @@ class TrustedMetersDQN(TrustSelector):
     `lr` the Adam step, `hidden` the MLP width, `seed` the exploration and initialization seed.
     The greedy rollout after training is the selection; `history` keeps the return per episode."""
 
-    def __init__(
-        self,
-        k: int,
-        episodes: int = 200,
-        gamma: float = 0.95,
-        lr: float = 1e-3,
-        hidden: int = 128,
-        seed: int = 123,
-        fa_target: float = 0.01,
-    ) -> None:
-        super().__init__(k, fa_target)
-        self.episodes, self.gamma, self.lr, self.hidden, self.seed = episodes, gamma, lr, hidden, seed
+    def __init__(self, trust: TrustConfig, dqn: DqnConfig = DqnConfig()) -> None:
+        super().__init__(trust)
+        self.episodes, self.gamma, self.lr, self.hidden, self.seed = (
+            dqn.episodes,
+            dqn.gamma,
+            dqn.lr,
+            dqn.hidden,
+            dqn.seed,
+        )
         self.history: list[float] = []
 
     # ---- the MDP --------------------------------------------------------------------------------

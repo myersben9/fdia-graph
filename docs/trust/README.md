@@ -9,11 +9,13 @@ from fdia_graph.trust import TrustedMeters, TrustedMetersDQN
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test", order="time")
 
-tm = TrustedMeters(k=20).fit(train)  # the greedy row-reduction selection on the Jacobian
+tm = TrustedMeters(TrustConfig(k=20)).fit(train)  # the greedy row-reduction selection on the Jacobian
 tm.order, tm.cost  # the meters secured in order, the attack cost after each
 rep = tm.score(test)  # residual detection per family, with and without the trust
 
-rl = TrustedMetersDQN(k=20, episodes=200).fit(train)  # the same selection as an MDP with a DQN policy
+rl = TrustedMetersDQN(TrustConfig(k=20), dqn=DqnConfig(episodes=200)).fit(
+    train
+)  # the same selection as an MDP with a DQN policy
 ```
 
 ![tm.fit: the WLS Jacobian at the benign mean, the attack subspace left open by the secured rows, the attack cost, then the greedy or the DQN selection; tm.score: secured meters read their benign value, the WLS residual test at the benign alarm level, detection per family before and after](../figures/diagrams/trust_flow.png)
@@ -74,7 +76,7 @@ selections of `run_trust.py` and writes runs of `trust.secured_localization` and
 Rule: a localization gate never down-weights a secured meter.
 `GatedPrior` scales every meter of a flagged bus by a thousandth. On a secured copy those meters
 include the secured ones, the only true readings inside the attacked region, so a plain gate throws
-away the evidence the trusted set provides. `GatedPrior(secured=tm.select())` keeps the secured
+away the evidence the trusted set provides. `GatedPrior(GateConfig(gate), secured=tm.select())` keeps the secured
 meters at full weight, and that arm wins on IEEE-14.
 
 IEEE-14, 20 secured meters, test split, node-F1 with the detection rate in parentheses:

@@ -25,8 +25,8 @@ class TrustSelector:
     [V, P, Q, theta over the buses, then Pf, Qf over the branches, metered channels only]) and
     `cost` (the attack cost after each)."""
 
-    def __init__(self, k: int, fa_target: float = 0.01) -> None:
-        cfg = TrustConfig(k, fa_target)
+    def __init__(self, trust: TrustConfig) -> None:
+        cfg = trust
         self.k, self.fa_target = cfg.k, cfg.fa_target
         self.order: list[int] = []
         self.cost: list[float] = []

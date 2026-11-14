@@ -9,17 +9,16 @@ prior measures. Everything else the estimator learns is already local: each mete
 from that meter's own residuals, the benign mean from each coordinate's own history.
 
 The solve itself stays at the control center (the classical EMS arrangement); a localizer trained by
-FedAvg can gate it: `GatedPrior(gate=FedBusCNN(...).fit(train, val))`.
+FedAvg can gate it: `GatedPrior(gate=FedBusCNN(federated=FederatedSettings(K=...)).fit(train, val))`.
 """
 
 from __future__ import annotations
-
-from typing import Any, Optional
 
 import numpy as np
 
 from ..formulas.estimation import whitened_svd_basis
 from ..formulas.federated import block_diagonal_basis
+from ..models.config import PriorConfig, SolveConfig
 from ..models.federated import Partition
 from ..models.inputs import PartitionOnGrid
 from ..se.methods import SubspacePrior
@@ -31,9 +30,9 @@ class RegionalPrior(SubspacePrior):
     to their block-diagonal union. Every other knob is SubspacePrior's."""
 
     def __init__(
-        self, partition: Partition, rank_frac: float = 0.5, reweight: Optional[str] = None, **kw: Any
+        self, partition: Partition, prior: PriorConfig = PriorConfig(), solve: SolveConfig = SolveConfig()
     ) -> None:
-        super().__init__(rank_frac=rank_frac, reweight=reweight, **kw)
+        super().__init__(prior, solve)
         self.partition = partition
 
     def state_columns(self, k: int) -> np.ndarray:

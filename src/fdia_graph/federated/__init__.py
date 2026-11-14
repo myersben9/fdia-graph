@@ -6,7 +6,7 @@ drop-in LocalizerBase methods), and the estimator's subspace prior fitted per cl
 (`RegionalPrior`).
 
     from fdia_graph.federated import FedBusCNN
-    loc = FedBusCNN(K=3).fit(train, val=val)   # needs the [federated] extra
+    loc = FedBusCNN(federated=FederatedSettings(K=3)).fit(train, val=val)   # needs the [federated] extra
     rep = loc.score(test)
 """
 

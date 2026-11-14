@@ -4,6 +4,14 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
+from fdia_graph.models import (
+    GateConfig,
+    JacobianWeightingConfig,
+    LearnedConfig,
+    LocalizerConfig,
+    PriorConfig,
+    TrainerConfig,
+)
 from fdia_graph.registry import system_id
 
 # ---- names and ids ----------------------------------------------------------------------------
@@ -227,7 +235,7 @@ def test_kcl_residual_matches_the_papers_builder(splits):
 def test_threshold_localizer_protocol(timeline, splits):
     from fdia_graph.localization import SwingThreshold
 
-    loc = SwingThreshold(fa_target=0.05).fit(splits["train"])
+    loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.05)).fit(splits["train"])
     flags = loc.localize(splits["test"])
     assert flags.shape == (len(splits["test"]), splits["test"].N) and flags.dtype == bool
     rep = loc.score(splits["test"])
@@ -250,7 +258,7 @@ def test_learned_localizer_smoke(splits):
     from fdia_graph.localization import BusCNN, BusMLP
 
     for cls in (BusMLP, BusCNN):
-        loc = cls(epochs=2, device="cpu").fit(splits["train"], val=splits["val"])
+        loc = cls(learned=LearnedConfig(epochs=2, device="cpu")).fit(splits["train"], val=splits["val"])
         assert loc.tau is not None and 0.0 < loc.tau < 1.0
         s = loc.scores(splits["test"])
         assert s.shape == (len(splits["test"]), splits["test"].N)
@@ -320,11 +328,11 @@ def test_learned_localizer_feature_sets(splits):
     from fdia_graph.localization.learned import FEATURE_SETS
 
     for feats, width in FEATURE_SETS.items():
-        loc = BusMLP(epochs=1, device="cpu", features=feats).fit(splits["train"])
+        loc = BusMLP(learned=LearnedConfig(epochs=1, device="cpu", features=feats)).fit(splits["train"])
         assert loc.n_feat == width and loc.mu.shape == (width,)
         assert loc.scores(splits["test"]).shape == (len(splits["test"]), splits["test"].N)
     with pytest.raises(ValueError):
-        BusMLP(features="nope")
+        BusMLP(learned=LearnedConfig(features="nope"))
 
 
 def test_jacobian_weighting_estimator():
@@ -337,7 +345,7 @@ def test_jacobian_weighting_estimator():
     from fdia_graph.se import WLS, JacobianWeighting
 
     splits = {s: FdiaGraph(TIMELINE_V083, split=s) for s in ("train", "test")}
-    est = JacobianWeighting(c=3.0).fit(splits["train"])
+    est = JacobianWeighting(weighting=JacobianWeightingConfig(c=3.0)).fit(splits["train"])
     w = est.weights(splits["test"])
     assert w.shape == (len(splits["test"]), est.m) and np.all(w <= est.Wk[None, :] + 1e-12)
     x = est.estimate(splits["test"])
@@ -352,7 +360,9 @@ def test_gated_prior_uses_the_gate(splits):
     pytest.importorskip("torch")
     from fdia_graph.se import GatedPrior
 
-    est = GatedPrior(gate="oracle", rank_frac=0.5, reweight="huber", c=1.5).fit(splits["train"])
+    est = GatedPrior(
+        GateConfig(gate="oracle"), prior=PriorConfig(rank_frac=0.5, reweight="huber", c=1.5)
+    ).fit(splits["train"])
     w = est.gated_weights(splits["test"])
     y = splits["test"].export(["y"])["y"].astype(bool)
     assert w.shape == (len(splits["test"]), est.m)
@@ -361,7 +371,7 @@ def test_gated_prior_uses_the_gate(splits):
     x = est.estimate(splits["test"])
     assert x.shape == (len(splits["test"]), 2 * splits["test"].N - 1)
     with pytest.raises(ValueError):
-        GatedPrior(gate=None)
+        GatedPrior(GateConfig(gate=None))
 
 
 def test_local_trainer_runs_persist_and_honour_owned_and_clip():
@@ -387,7 +397,7 @@ def _trainer_contract(torch, LocalTrainer, OptimConfig, _mlp_net):
     def train(Y, runs, owned=None, clip=None):
         torch.manual_seed(7)
         net = _mlp_net(14, 16, 2, 0.0)
-        tr = LocalTrainer(net, cfg, "cpu", seed=3, clip=clip)
+        tr = LocalTrainer(trainer=TrainerConfig(clip=clip), net=net, cfg=cfg, dev="cpu", seed=3)
         Xt, Yt = tr.stage(Xs, Y)
         for e in runs:
             tr.run(Xt, Yt, e, owned=owned)
@@ -446,7 +456,7 @@ def test_learned_localizer_grid_detection_and_attackable_table(splits, timeline)
     pytest.importorskip("torch")
     from fdia_graph.localization import BusMLP
 
-    loc = BusMLP(epochs=2, device="cpu").fit(splits["train"], val=splits["val"])
+    loc = BusMLP(learned=LearnedConfig(epochs=2, device="cpu")).fit(splits["train"], val=splits["val"])
     with pytest.raises(ValueError, match="tune_grid_threshold"):
         loc.score_grid(splits["test"])
     import fdia_graph as fg
@@ -516,7 +526,7 @@ def test_previous_swing_feature_set(timeline, splits):
     ds = splits["test"]
     d = ds.export(["prev_swing"])
     assert np.array_equal(d["prev_swing"], full["swing"][np.maximum(ds.idx - 1, 0)])
-    loc = BusCNN(epochs=1, device="cpu", features="full14+prev").fit(splits["train"])
+    loc = BusCNN(learned=LearnedConfig(epochs=1, device="cpu", features="full14+prev")).fit(splits["train"])
     x = loc._pull(ds)
     F = loc._features(x)
     assert (

@@ -64,8 +64,8 @@ from fdia_graph.dataset.clients import Dataset
 
 ds = Dataset("out/timeline_2019.h5")
 con_ed = ds.client("ConEd", split="train")  # only this utility's meters, buses and labels
-x = con_ed.node_features()                  # [T, N_c, 4] metered |V|, angle, P, Q per owned bus
-op = ds.operator(split="test")             # every meter, for state estimation
+x = con_ed.node_features()  # [T, N_c, 4] metered |V|, angle, P, Q per owned bus
+op = ds.operator(split="test")  # every meter, for state estimation
 ```
 
 A client sees only its own meters and the labels of its own buses. The operator view is the full scan.

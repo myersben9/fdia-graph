@@ -9,6 +9,7 @@ pytest.importorskip("pandapower")
 pytest.importorskip("torch")
 
 import fdia_graph as fg  # noqa: E402
+from fdia_graph.models import LocalizerConfig
 
 
 def test_generate_rejects_a_bad_frame_cap(tmp_path):
@@ -201,7 +202,7 @@ def test_estimator_and_localizer_score_a_timeline_with_am(timeline):
     assert 7 in set(test.export(["family"])["family"].tolist())
     se = WLS().fit(train).score(test)
     assert se.Am is not None and se["Am"].angle_mae_deg > 0 and list(se)[-1] == "geo"
-    loc = SwingThreshold(fa_target=0.01).fit(train).score(test)
+    loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train).score(test)
     assert loc.Am is not None and 0 <= loc["Am"].detection_rate <= 1
 
 

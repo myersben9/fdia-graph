@@ -10,7 +10,7 @@ from fdia_graph.se import WLS, AdaptiveWeighting, SubspacePrior
 train = fg.load("ieee14", split="train")
 test = fg.load("ieee14", split="test")
 
-est = SubspacePrior(rank_frac=0.2, reweight="huber", c=1.5).fit(train)
+est = SubspacePrior(prior=PriorConfig(rank_frac=0.2, reweight="huber", c=1.5)).fit(train)
 xhat = est.estimate(test)  # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
 rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 ```

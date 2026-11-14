@@ -14,6 +14,7 @@ PUBLIC names the bundles a user receives from the public API; the data dictionar
 from .assets import AssetSpec, DownloadTarget
 from .base import Bundle
 from .config import (
+    DqnConfig,
     ExportRequest,
     FederatedSettings,
     FitOptions,
@@ -293,6 +294,7 @@ __all__ = [
     "WuDefenseConfig",
     "WindowAttack",
     "Wu26Attack",
+    "DqnConfig",
     "WuDqnConfig",
     "ShardRun",
     "IsoExport",

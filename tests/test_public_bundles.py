@@ -6,7 +6,7 @@ import json
 import numpy as np
 import pytest
 
-from fdia_graph.models import Bundle
+from fdia_graph.models import Bundle, LocalizerConfig
 
 
 def _agree(b: Bundle) -> None:
@@ -87,7 +87,7 @@ def test_estimator_and_localizer_scores(timeline):
         set(se[k]) == {"angle_mae_deg", "voltage_mae_pu"} for k in se
     )
 
-    loc = SwingThreshold(fa_target=0.01).fit(train).score(test)
+    loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train).score(test)
     assert isinstance(loc, LocalizerScores) and isinstance(loc.all, OverallMetrics)
     _agree(loc)
     assert loc["all"]["macro_f1"] == loc.all.macro_f1

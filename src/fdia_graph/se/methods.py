@@ -4,13 +4,20 @@ between two arms is a difference between estimators rather than between implemen
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, cast
+from typing import TYPE_CHECKING, Optional, Protocol, cast
 
 import numpy as np
 
 from ..formulas.estimation import gate_weights, huber_weights, normal_matrix, whitened_svd_basis
 from ..formulas.linalg import condition_number
-from ..models.config import GateConfig, HuberConfig, JacobianWeightingConfig, PriorConfig, RemovalConfig
+from ..models.config import (
+    GateConfig,
+    HuberConfig,
+    JacobianWeightingConfig,
+    PriorConfig,
+    RemovalConfig,
+    SolveConfig,
+)
 from .base import SEBase, require_physical
 
 if TYPE_CHECKING:
@@ -29,13 +36,10 @@ class AdaptiveWeighting(SEBase):
     2.5 and 6.0 on IEEE 14, 118 and 300.
     """
 
-    def __init__(
-        self, c: float = 1.5, npass: int = 40, iters: int = 8, tol: float = 1e-4, pmu_pseudo: bool = False
-    ) -> None:
-        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
-        cfg = HuberConfig(c, tol)
-        self.c = cfg.c
-        self.tol = cfg.tol  # stop the reweighting passes once no weight moves by more than this
+    def __init__(self, huber: HuberConfig = HuberConfig(), solve: SolveConfig = SolveConfig()) -> None:
+        super().__init__(solve)
+        self.c = huber.c
+        self.tol = huber.tol  # stop the reweighting passes once no weight moves by more than this
 
     def _solve(self, z: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
         x = super()._solve(z, w)
@@ -55,17 +59,9 @@ class ResidualRemoval(SEBase):
     (118); on IEEE 300 no threshold on the grid helped.
     """
 
-    def __init__(
-        self,
-        threshold: float = 4.0,
-        cond_mult: float = 100.0,
-        npass: int = 40,
-        iters: int = 8,
-        pmu_pseudo: bool = False,
-    ) -> None:
-        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
-        cfg = RemovalConfig(threshold, cond_mult)
-        self.threshold, self.cond_mult = cfg.threshold, cfg.cond_mult
+    def __init__(self, removal: RemovalConfig = RemovalConfig(), solve: SolveConfig = SolveConfig()) -> None:
+        super().__init__(solve)
+        self.threshold, self.cond_mult = removal.threshold, removal.cond_mult
 
     def _post_fit(self) -> None:
         self._cond_full = condition_number(normal_matrix(self.H, self.Wk))
@@ -113,18 +109,9 @@ class SubspacePrior(SEBase):
     validation-selected rank fractions are 0.20, 0.50 and 0.50 on IEEE 14, 118 and 300.
     """
 
-    def __init__(
-        self,
-        rank_frac: float = 0.5,
-        reweight: Optional[str] = None,
-        c: float = 1.5,
-        npass: int = 40,
-        iters: int = 8,
-        tol: float = 1e-4,
-        pmu_pseudo: bool = False,
-    ) -> None:
-        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
-        cfg = PriorConfig(rank_frac, reweight, c, tol)
+    def __init__(self, prior: PriorConfig = PriorConfig(), solve: SolveConfig = SolveConfig()) -> None:
+        super().__init__(solve)
+        cfg = prior
         self.tol = cfg.tol  # stop the Huber passes once no weight moves by more than this
         self.rank_frac, self.c = cfg.rank_frac, cfg.c
         self.reweight = cfg.reweight
@@ -158,16 +145,11 @@ class JacobianWeighting(SEBase):
 
     def __init__(
         self,
-        c: float = 3.0,
-        reweight: Optional[str] = None,
-        huber_c: float = 1.5,
-        npass: int = 40,
-        iters: int = 8,
-        tol: float = 1e-4,
-        pmu_pseudo: bool = False,
+        weighting: JacobianWeightingConfig = JacobianWeightingConfig(),
+        solve: SolveConfig = SolveConfig(),
     ) -> None:
-        super().__init__(npass=npass, iters=iters, pmu_pseudo=pmu_pseudo)
-        cfg = JacobianWeightingConfig(c, reweight, huber_c, tol)
+        super().__init__(solve)
+        cfg = weighting
         self.c, self.huber_c = cfg.c, cfg.huber_c
         # "huber": Huber passes on the estimate's residual, from these weights
         self.reweight = cfg.reweight
@@ -229,13 +211,13 @@ class GatedPrior(SubspacePrior):
 
     def __init__(
         self,
-        gate: Union[str, Localizes, None] = None,
-        gate_factor: float = 1e-3,
+        gate: GateConfig,
         secured: Optional[Sequence[int]] = None,
-        **kw: Any,
+        prior: PriorConfig = PriorConfig(),
+        solve: SolveConfig = SolveConfig(),
     ) -> None:
-        super().__init__(**kw)
-        cfg = GateConfig(gate, gate_factor)
+        super().__init__(prior, solve)
+        cfg = gate
         self.gate: Localizes = OracleGate() if cfg.is_oracle else cast(Localizes, cfg.gate)
         self.gate_factor = cfg.gate_factor
         self.secured = np.asarray([] if secured is None else secured, int)

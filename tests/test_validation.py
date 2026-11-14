@@ -7,6 +7,7 @@ from typing import Annotated, Optional
 import numpy as np
 import pytest
 
+from fdia_graph.models import GateConfig, HuberConfig, LocalizerConfig
 from fdia_graph.models.choices import Choice, Iso
 from fdia_graph.models.config import FederatedSettings, LoadOptions, PriorConfig, WindowSpec
 from fdia_graph.models.validation import (
@@ -82,8 +83,6 @@ def test_the_config_models_state_the_old_rules():
         WindowSpec(T=10, W=11)
     with pytest.raises(ConfigError, match="the partition has 3 clients but K=2"):
         FederatedSettings(K=2, partition_clients=3)
-    with pytest.raises(ConfigError, match="pass those, not epochs"):
-        FederatedSettings(epochs=5)
 
 
 @pytest.mark.parametrize(
@@ -94,7 +93,6 @@ def test_the_config_models_state_the_old_rules():
             lambda: FederatedSettings(K=2, partition_clients=2.0),
             "FederatedSettings.partition_clients must be an integer",
         ),
-        (lambda: FederatedSettings(epochs=1.5), "FederatedSettings.epochs must be an integer"),
     ],
 )
 def test_whole_number_settings_refuse_a_fraction(build, message):
@@ -149,14 +147,14 @@ def test_estimators_and_localizers_build_their_models():
     from fdia_graph.se import AdaptiveWeighting, GatedPrior, SubspacePrior
 
     with pytest.raises(ConfigError, match="HuberConfig.c must be > 0"):
-        AdaptiveWeighting(c=0)
+        AdaptiveWeighting(huber=HuberConfig(c=0))
     with pytest.raises(ConfigError, match="PriorConfig.reweight must be one of"):
-        SubspacePrior(reweight="tukey")
+        SubspacePrior(prior=PriorConfig(reweight="tukey"))
     with pytest.raises(ConfigError, match="LocalizerConfig.fa_target must be in"):
-        SwingThreshold(fa_target=1.0)
+        SwingThreshold(localizer=LocalizerConfig(fa_target=1.0))
     with pytest.raises(ConfigError, match="pass gate=<fitted localizer> or gate='oracle'"):
-        GatedPrior(gate="orcale")
-    assert SubspacePrior(reweight="huber").reweight == "huber"
+        GatedPrior(GateConfig(gate="orcale"))
+    assert SubspacePrior(prior=PriorConfig(reweight="huber")).reweight == "huber"
 
 
 def test_the_formula_options_share_the_message():

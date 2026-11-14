@@ -17,7 +17,7 @@ Needs torch: pip install "fdia-graph[torch]". Trains on the GPU when one is visi
 from __future__ import annotations
 
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
@@ -28,7 +28,7 @@ from ..models.choices import (  # noqa: F401  re-exported beside the code that r
     BENIGN_CODE,
     Features,
 )
-from ..models.config import LearnedConfig, TrainerConfig
+from ..models.config import LearnedConfig, LocalizerConfig, TrainerConfig
 from ..models.scores import GridScores
 from ..models.training import OptimConfig  # noqa: F401  re-exported beside its user
 from .base import LocalizerBase
@@ -104,32 +104,18 @@ class LearnedLocalizer(LocalizerBase):
     """
 
     def __init__(
-        self,
-        fa_target: float = 0.01,
-        hidden: int = 128,
-        layers: int = 4,
-        dropout: float = 0.1,
-        lr: float = 5e-4,
-        weight_decay: float = 0.01,
-        batch_size: int = 256,
-        epochs: int = 60,
-        pos_weight: float = 1.0,
-        seed: int = 123,
-        attackable_only: bool = True,
-        device: Optional[str] = None,
-        features: str = "full14",
+        self, learned: LearnedConfig = LearnedConfig(), localizer: LocalizerConfig = LocalizerConfig()
     ) -> None:
-        super().__init__(fa_target=fa_target)
-        cfg = LearnedConfig(
-            layers, hidden, features, dropout, lr, weight_decay, batch_size, epochs, pos_weight, seed
-        )
+        super().__init__(localizer)
+        cfg = learned
         self.features = cfg.features  # which per-bus vector the encoder sees (see FEATURE_SETS)
         self.n_feat = FEATURE_SETS[cfg.features]
         self.hidden, self.layers, self.dropout = cfg.hidden, cfg.layers, cfg.dropout
         self.lr, self.weight_decay, self.batch_size = cfg.lr, cfg.weight_decay, cfg.batch_size
         self.epochs, self.pos_weight, self.seed = cfg.epochs, cfg.pos_weight, cfg.seed
-        self.attackable_only = attackable_only
-        self.device = device  # None -> cuda if available, else cpu
+        self.attackable_only = cfg.attackable_only
+        self.device = cfg.device  # None -> cuda if available, else cpu
+        self.kernel = cfg.kernel  # BusCNN's convolution width
         self.tau: Optional[float] = None  # set by tune_threshold (the papers' global threshold)
 
     # ---- subclass hook --------------------------------------------------------------------
@@ -191,7 +177,7 @@ class LearnedLocalizer(LocalizerBase):
         torch.manual_seed(self.seed)
         self.dev = self.device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.net = self._build(self.N).to(self.dev)
-        trainer = LocalTrainer(self.net, self._optim(), self.dev, self.seed)
+        trainer = LocalTrainer(net=self.net, cfg=self._optim(), dev=self.dev, seed=self.seed)
         trainer.run(*trainer.stage(Xs, Y), self.epochs)
         self.net.eval()
 
@@ -304,9 +290,9 @@ class LocalTrainer:
     """
 
     def __init__(
-        self, net: nn.Module, cfg: OptimConfig, dev: str, seed: int, clip: Optional[float] = None
+        self, net: nn.Module, cfg: OptimConfig, dev: str, seed: int, trainer: TrainerConfig = TrainerConfig()
     ) -> None:
-        clip = TrainerConfig(clip).clip
+        clip = trainer.clip
         torch = _torch()
         self.net, self.cfg, self.dev, self.clip = net, cfg, dev, clip
         self.opt = torch.optim.AdamW(net.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
@@ -359,10 +345,6 @@ class BusCNN(LearnedLocalizer):
     then a linear head per bus. About 154k parameters; macro-F1 0.963 / 0.963 / 0.952 on
     IEEE 14 / 118 / 300 in the paper's zero-shot protocol (v0.4.1 data).
     """
-
-    def __init__(self, kernel: int = 3, **kw: Any) -> None:
-        super().__init__(**kw)
-        self.kernel = kernel
 
     def _build(self, N: int) -> nn.Module:
         return _cnn_net(self.n_feat, self.hidden, self.layers, self.kernel, self.dropout)

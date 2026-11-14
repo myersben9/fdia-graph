@@ -16,7 +16,14 @@ The snippets run from a work folder that holds the inputs (`python tools/nyfed/b
 York bus belongs to one utility, a client of the federated dataset.
 
 ```python
-from fdia_graph.generation.nygrid import Network, modify_mpc, nygrid_units, read_npcc, restore_765kv, split_zone_j
+from fdia_graph.generation.nygrid import (
+    Network,
+    modify_mpc,
+    nygrid_units,
+    read_npcc,
+    restore_765kv,
+    split_zone_j,
+)
 
 data = "data/NYgrid/Data"
 case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(f"{data}/npcc.mat")), data)))

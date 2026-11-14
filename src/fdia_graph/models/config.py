@@ -42,6 +42,7 @@ from .choices import (
 from .validation import (
     AsTuple,
     AtLeast,
+    Boolean,
     ConfigError,
     Finite,
     InRange,
@@ -210,6 +211,9 @@ class LearnedConfig(Validated):
     epochs: Count = 60
     pos_weight: Scale = 1.0
     seed: Annotated[int, Integer()] = 123
+    attackable_only: Annotated[bool, Boolean()] = True  # train and score on the attackable buses only
+    device: Optional[str] = None  # None: cuda when available, else cpu
+    kernel: Annotated[int, Integer(), AtLeast(1)] = 3  # BusCNN's convolution width along the bus axis
 
 
 @dataclass(frozen=True)
@@ -236,6 +240,17 @@ class TrustConfig(Validated):
 
 
 @dataclass(frozen=True)
+class DqnConfig(Validated):
+    """The DQN trusted-meter selector's training: episodes, discount, Adam step, MLP width and seed."""
+
+    episodes: Count = 200
+    gamma: Share = 0.95
+    lr: Scale = 1e-3
+    hidden: Count = 128
+    seed: Annotated[int, Integer(), AtLeast(0)] = 123
+
+
+@dataclass(frozen=True)
 class FederatedSettings(Validated):
     """A federated fit: clients, rounds, local passes, the halo, the clip and where KCL comes from."""
 
@@ -247,11 +262,8 @@ class FederatedSettings(Validated):
     kcl: Annotated[str, OneOf(Kcl)] = "local"
     # K of a partition passed in, which must agree
     partition_clients: Annotated[Optional[int], Integer(), AtLeast(1)] = None
-    # the centralized knob, refused: a federated fit counts rounds
-    epochs: Annotated[Optional[int], Integer()] = None
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield self.epochs is None, "a federated fit trains rounds x local_epochs; pass those, not epochs"
         yield (
             self.partition_clients in (None, self.K),
             f"the partition has {self.partition_clients} clients but K={self.K}",

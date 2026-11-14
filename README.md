@@ -71,7 +71,7 @@ fg.load("ieee118", split="test", order="time")                 # the time series
 from fdia_graph.se import SubspacePrior                       # pip install "fdia-graph[se]"
 
 train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
-est = SubspacePrior(rank_frac=0.5, reweight="huber", c=2.5).fit(train)
+est = SubspacePrior(prior=PriorConfig(rank_frac=0.5, reweight="huber", c=2.5)).fit(train)
 xhat = est.estimate(test)          # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
 print(est.score(test))             # per-family angle / voltage MAE vs the clean truth
 ```
@@ -84,7 +84,7 @@ One solver, six estimators that each change one thing: `WLS`, `AdaptiveWeighting
 ```python
 from fdia_graph.localization import SwingThreshold, BusCNN     # numpy only / [torch]
 
-loc = SwingThreshold(fa_target=0.01).fit(train)     # per-bus thresholds from benign records only
+loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train)     # per-bus thresholds from benign records only
 flag = loc.localize(test)                           # [n, N] bool: which buses are called attacked
 print(loc.score(test))                              # per-family node-F1, strict accuracy, DR next to FA
 

@@ -937,7 +937,7 @@ the public API, the generated files and the numbers are the same as the previous
   the 14 channels stay per client (local power balance by default) and the 8-channel Jacobian block
   is the whole system's estimator applied to every meter's change, computed once centrally per pass
   and shared with every client (appended after the 14 channels for `full14+jac`, the whole input for
-  `jac`); that block is the one feature a client does not build from its own meters. One client equals the centralized `BusCNN(features="full14+jac")`.
+  `jac`); that block is the one feature a client does not build from its own meters. One client equals the centralized `BusCNN(learned=LearnedConfig(features="full14+jac"))`.
 - Localization, the federated paper's tables: `LocalizerBase.score_perbus(ds, buses=, fr_over=)`
   returns per-bus F1, detection rate, false-alarm rate and AUPRC (`models.scores.PerBusScores`,
   `PerBusMetrics`) over every record and per family (that family plus benign), on the active buses
@@ -949,7 +949,7 @@ the public API, the generated files and the numbers are the same as the previous
 - `fdia_graph.federated.RegionalPrior`: the proposed estimator's subspace prior fitted per client
   of a `Partition` (each client's basis from its own non-slack angles and voltages, placed on a block
   diagonal by `formulas.federated.block_diagonal_basis`), so no client's states leave it; one client
-  is `SubspacePrior` exactly. With `GatedPrior(gate=FedBusCNN(...))` the federated localizer gates the
+  is `SubspacePrior` exactly. With `GatedPrior(gate=FedBusCNN(federated=FederatedSettings(K=...)))` the federated localizer gates the
   estimator. The meter sigmas and the benign mean were already local; the solve stays central.
 - `fdia_graph.federated`: the federated localization paper's localizers trained by FedAvg [MCM17].
   `FedBusMLP` and `FedBusCNN` are `LocalizerBase` methods (`fit(train, val)`, `localize`, `scores`,
@@ -1053,7 +1053,7 @@ the public API, the generated files and the numbers are the same as the previous
   `units="pu"` view with a ValueError; `fit` did before, but estimating or scoring a per-unit view
   converted twice and returned errors about ten times too large. `GatedPrior` and
   `JacobianWeighting` supply their per-record weights through one hook (`_record_weights`) instead
-  of overriding `estimate`, so `ResidualLocalizer(estimator=GatedPrior(...))` scores the gated
+  of overriding `estimate`, so `ResidualLocalizer(estimator=GatedPrior(GateConfig(gate=...)))` scores the gated
   estimator rather than its ungated parent; the Huber passes live once in `SEBase` and
   `JacobianWeighting` gains `tol` (it ran all 40 passes) and builds its Jacobian features once in
   `fit`. `ResidualLocalizer` no longer refits an estimator that is already fitted
@@ -1182,9 +1182,9 @@ the public API, the generated files and the numbers are the same as the previous
   registered yet is not green), every other check finished without failure, and Copilot's review on
   that head; `wait` waits for the same set. A merge can no longer slip in while CI is still starting.
 - `fdia_graph.trust`: which meters to secure so that stealthy attacks stop being stealthy, after
-  the trusted-PMU defence of Wu et al. 2026. `TrustedMeters(k)` is the greedy row-reduction
+  the trusted-PMU defence of Wu et al. 2026. `TrustedMeters(TrustConfig(k=k))` is the greedy row-reduction
   selection on the WLS Jacobian (secure, on the cheapest open attack, the meter whose protection
-  raises the attack cost most), `TrustedMetersDQN(k, episodes)` the same selection learned as a
+  raises the attack cost most), `TrustedMetersDQN(TrustConfig(k=k), dqn=DqnConfig(episodes=episodes))` the same selection learned as a
   Markov decision process with a deep Q-network (state the secured set, reward the attack-cost
   rise; needs torch). Both expose the order and the attack cost after each meter, and `score(test)`
   on a time-ordered timeline pins the secured meters to their benign reading and reports the WLS

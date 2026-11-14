@@ -8,6 +8,7 @@ import os
 import time
 
 import fdia_graph as fg
+from fdia_graph.models import DqnConfig, TrustConfig
 from fdia_graph.results import Run, Store
 from fdia_graph.trust import TrustedMeters, TrustedMetersDQN
 
@@ -22,10 +23,10 @@ STORE = Store(os.path.join(HERE, "..", "..", "results"))  # the repository's res
 train = fg.load(SYSTEM, split="train")
 test = fg.load(SYSTEM, split="test", order="time")
 report = {}
-arms = {"greedy": TrustedMeters(k=K)}
+arms = {"greedy": TrustedMeters(TrustConfig(k=K))}
 if EPISODES > 0:
     arms["dqn"] = TrustedMetersDQN(
-        k=K, episodes=EPISODES, seed=0
+        TrustConfig(k=K), dqn=DqnConfig(episodes=EPISODES, seed=0)
     )  # the published tables were made with seed 0
 for name, tm in arms.items():
     t0 = time.time()

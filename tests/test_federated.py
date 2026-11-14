@@ -8,6 +8,7 @@ import pytest
 
 from fdia_graph.federated import compute_nodes, partition_from_assignment, spectral_partition
 from fdia_graph.formulas.federated import attackable_affinity, fedavg, halo_nodes
+from fdia_graph.models import FederatedSettings, GateConfig, LearnedConfig, PriorConfig
 
 # The paper's cached IEEE-14 partitions: assignment, cut edges, interior and boundary bus counts.
 PAPER_14 = {
@@ -196,8 +197,9 @@ def test_one_client_is_the_centralized_fit_weight_for_weight(zs, name):
     try:
         tr, va, te = zs
         central, fed = (BusMLP, FedBusMLP) if name == "mlp" else (BusCNN, FedBusCNN)
-        c = central(epochs=4, device="cpu").fit(tr, val=va)
-        f = fed(K=1, rounds=2, local_epochs=2, grad_clip=None, device="cpu").fit(tr, val=va)
+        c = central(learned=LearnedConfig(epochs=4, device="cpu")).fit(tr, val=va)
+        one = FederatedSettings(K=1, rounds=2, local_epochs=2, grad_clip=None)
+        f = fed(federated=one, learned=LearnedConfig(device="cpu")).fit(tr, val=va)
         cs, fs = c.net.state_dict(), f.net.state_dict()
         assert cs.keys() == fs.keys() and all(torch.equal(cs[k], fs[k]) for k in cs)
         assert np.array_equal(c.scores(te), f.scores(te)) and c.tau == f.tau
@@ -212,7 +214,9 @@ def test_two_clients_train_score_and_log_their_rounds(zs):
     from fdia_graph.federated.localizer import FedBusCNN
 
     tr, va, te = zs
-    loc = FedBusCNN(K=2, rounds=3, local_epochs=1, device="cpu").fit(tr, val=va)
+    loc = FedBusCNN(
+        federated=FederatedSettings(K=2, rounds=3, local_epochs=1), learned=LearnedConfig(device="cpu")
+    ).fit(tr, val=va)
     assert len(loc.history) == 3 and len(loc.history[0].loss_per_client) == 2
     assert loc.history[0].bytes_up == 2 * state_bytes(loc.net.state_dict())
     import torch
@@ -233,7 +237,7 @@ def test_local_power_balance_changes_only_buses_on_foreign_metered_branches(zs):
     tr, _, _ = zs
     ei = tr.edge_index_np
     part = partition_from_assignment(PAPER_14[2][0], ei)
-    loc = FedBusMLP(K=2, partition=part)
+    loc = FedBusMLP(federated=FederatedSettings(K=2), partition=part)
     loc._part = part
     d = tr.export(loc._fields())
     glob, local = loc._features(d), loc._client_features(d, 0)
@@ -250,19 +254,17 @@ def test_federated_constructor_checks():
     pytest.importorskip("torch")
     from fdia_graph.federated.localizer import FedBusMLP
 
-    with pytest.raises(ValueError, match="rounds x local_epochs"):
-        FedBusMLP(epochs=5)
     with pytest.raises(ValueError, match="kcl"):
-        FedBusMLP(kcl="bogus")
+        FedBusMLP(federated=FederatedSettings(kcl="bogus"))
     for bad in (dict(K=2.5), dict(rounds=True), dict(halo=1.0)):
         with pytest.raises(ValueError, match="FederatedSettings.(K|rounds|halo) must be an integer"):
-            FedBusMLP(**bad)
+            FedBusMLP(federated=FederatedSettings(**bad))
     for bad in (0.0, -1.0, float("nan"), float("inf")):
         with pytest.raises(ValueError, match="grad_clip"):
-            FedBusMLP(grad_clip=bad)
+            FedBusMLP(federated=FederatedSettings(grad_clip=bad))
     three = partition_from_assignment(np.array([0, 1, 2]), np.array([[0, 1], [1, 2]]))
     with pytest.raises(ValueError, match="3 clients but K=2"):
-        FedBusMLP(K=2, partition=three)
+        FedBusMLP(federated=FederatedSettings(K=2), partition=three)
 
 
 def test_a_partition_of_another_grid_is_refused(zs):
@@ -276,9 +278,17 @@ def test_a_partition_of_another_grid_is_refused(zs):
     N = tr.N
     odd = Partition(2, np.r_[np.zeros(N - 1, int), 5], np.zeros((2, N), bool), np.zeros((2, N), bool), 0)
     with pytest.raises(ValueError, match="number its clients 0..1"):
-        FedBusMLP(K=2, partition=odd, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+        FedBusMLP(
+            federated=FederatedSettings(K=2, rounds=1, local_epochs=1),
+            learned=LearnedConfig(device="cpu"),
+            partition=odd,
+        ).fit(tr, val=va)
     with pytest.raises(ValueError, match="covers 3 buses"):
-        FedBusMLP(K=2, partition=small, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+        FedBusMLP(
+            federated=FederatedSettings(K=2, rounds=1, local_epochs=1),
+            learned=LearnedConfig(device="cpu"),
+            partition=small,
+        ).fit(tr, val=va)
 
 
 def test_a_two_client_fit_is_reproducible_and_leaves_no_client_stream_shared(zs):
@@ -292,8 +302,9 @@ def test_a_two_client_fit_is_reproducible_and_leaves_no_client_stream_shared(zs)
     torch.use_deterministic_algorithms(True)
     try:
         tr, va, _ = zs
-        kw = dict(K=2, rounds=2, local_epochs=1, device="cpu")
-        a, b = FedBusMLP(**kw).fit(tr, val=va), FedBusMLP(**kw).fit(tr, val=va)
+        fed, learned = FederatedSettings(K=2, rounds=2, local_epochs=1), LearnedConfig(device="cpu")
+        a = FedBusMLP(federated=fed, learned=learned).fit(tr, val=va)
+        b = FedBusMLP(federated=fed, learned=learned).fit(tr, val=va)
         assert all(
             torch.equal(x, y) for x, y in zip(a.net.state_dict().values(), b.net.state_dict().values())
         )
@@ -310,7 +321,11 @@ def test_a_halo_client_gets_context_features_but_only_its_own_labels(zs):
 
     tr, va, _ = zs
     part = partition_from_assignment(PAPER_14[2][0], tr.edge_index_np)
-    loc = FedBusMLP(K=2, partition=part, halo=1, rounds=1, local_epochs=1, device="cpu").fit(tr, val=va)
+    loc = FedBusMLP(
+        federated=FederatedSettings(K=2, rounds=1, local_epochs=1, halo=1),
+        learned=LearnedConfig(device="cpu"),
+        partition=part,
+    ).fit(tr, val=va)
     for c in loc._clients:
         assert len(c.nodes) > c.owned  # the halo is there as features
         assert tuple(c.Xt.shape[1:2]) == (len(c.nodes),) and tuple(c.Yt.shape[1:]) == (c.owned,)
@@ -327,11 +342,13 @@ def test_one_region_is_the_subspace_prior_and_two_are_block_diagonal(splits, edg
     ei, N = edges
     tr, te = splits["train"], splits["test"]
     one = partition_from_assignment(np.zeros(N, int), ei)
-    base = SubspacePrior(rank_frac=0.5).fit(tr)
-    reg = RegionalPrior(one, rank_frac=0.5).fit(tr)
+    base = SubspacePrior(prior=PriorConfig(rank_frac=0.5)).fit(tr)
+    reg = RegionalPrior(prior=PriorConfig(rank_frac=0.5), partition=one).fit(tr)
     assert np.array_equal(base.VK, reg.VK) and np.array_equal(base.estimate(te), reg.estimate(te))
 
-    two = RegionalPrior(partition_from_assignment(PAPER_14[2][0], ei), rank_frac=0.5).fit(tr)
+    two = RegionalPrior(
+        prior=PriorConfig(rank_frac=0.5), partition=partition_from_assignment(PAPER_14[2][0], ei)
+    ).fit(tr)
     V = two.VK
     assert np.allclose(V.T @ V, np.eye(V.shape[1]), atol=1e-10)
     c0, c1 = two.state_columns(0), two.state_columns(1)
@@ -348,8 +365,12 @@ def test_a_federated_localizer_gates_the_estimator(zs, splits):
     from fdia_graph.se import GatedPrior
 
     tr, va, _ = zs
-    gate = FedBusMLP(K=2, rounds=2, local_epochs=1, device="cpu").fit(tr, val=va)
-    est = GatedPrior(gate=gate, rank_frac=0.5, reweight="huber").fit(splits["train"])
+    gate = FedBusMLP(
+        federated=FederatedSettings(K=2, rounds=2, local_epochs=1), learned=LearnedConfig(device="cpu")
+    ).fit(tr, val=va)
+    est = GatedPrior(GateConfig(gate=gate), prior=PriorConfig(rank_frac=0.5, reweight="huber")).fit(
+        splits["train"]
+    )
     assert np.isfinite(est.score(splits["test"])["geo"]["angle_mae_deg"])
 
 
@@ -378,7 +399,7 @@ def test_a_regional_prior_refuses_a_partition_with_gaps(splits):
     N = splits["train"].N
     gap = Partition(2, np.r_[0, np.full(N - 1, 2)], np.zeros((2, N), bool), np.zeros((2, N), bool), 0)
     with pytest.raises(ValueError, match="number its clients 0..1"):
-        RegionalPrior(gap).fit(splits["train"])
+        RegionalPrior(partition=gap).fit(splits["train"])
 
 
 def test_the_jacobian_feature_set_federates_with_one_central_block(zs):
@@ -393,12 +414,16 @@ def test_the_jacobian_feature_set_federates_with_one_central_block(zs):
     torch.use_deterministic_algorithms(True)
     try:
         tr, va, te = zs
-        c = BusCNN(features="full14+jac", epochs=2, device="cpu").fit(tr, val=va)
-        f = FedBusCNN(K=1, rounds=2, local_epochs=1, grad_clip=None, features="full14+jac", device="cpu").fit(
-            tr, val=va
-        )
+        c = BusCNN(learned=LearnedConfig(epochs=2, device="cpu", features="full14+jac")).fit(tr, val=va)
+        f = FedBusCNN(
+            federated=FederatedSettings(K=1, rounds=2, local_epochs=1, grad_clip=None),
+            learned=LearnedConfig(device="cpu", features="full14+jac"),
+        ).fit(tr, val=va)
         assert np.array_equal(c.scores(te), f.scores(te))
-        two = FedBusCNN(K=2, rounds=1, local_epochs=1, features="full14+jac", device="cpu").fit(tr, val=va)
+        two = FedBusCNN(
+            federated=FederatedSettings(K=2, rounds=1, local_epochs=1),
+            learned=LearnedConfig(device="cpu", features="full14+jac"),
+        ).fit(tr, val=va)
         d = te.export(two._fields())
         a, b = two._client_features(d, 0), two._client_features(d, 1)
         assert a.shape[-1] == 22 and np.array_equal(a[..., 14:], b[..., 14:])  # one Jacobian block
@@ -415,7 +440,10 @@ def test_the_jacobian_only_set_federates_and_refuses_per_unit(zs, timeline):
     from fdia_graph.federated.localizer import FedBusMLP
 
     tr, va, te = zs
-    m = FedBusMLP(K=2, rounds=1, local_epochs=1, features="jac", device="cpu").fit(tr, val=va)
+    m = FedBusMLP(
+        federated=FederatedSettings(K=2, rounds=1, local_epochs=1),
+        learned=LearnedConfig(device="cpu", features="jac"),
+    ).fit(tr, val=va)
     d = te.export(m._fields())
     a, b = m._client_features(d, 0), m._client_features(d, 1)
     assert a.shape[-1] == 8 and np.array_equal(a, b)
@@ -436,12 +464,16 @@ def test_the_previous_swing_set_federates_client_locally(zs):
     torch.use_deterministic_algorithms(True)
     try:
         tr, va, te = zs
-        c = BusCNN(features="full14+prev", epochs=2, device="cpu").fit(tr, val=va)
+        c = BusCNN(learned=LearnedConfig(epochs=2, device="cpu", features="full14+prev")).fit(tr, val=va)
         f = FedBusCNN(
-            K=1, rounds=2, local_epochs=1, grad_clip=None, features="full14+prev", device="cpu"
+            federated=FederatedSettings(K=1, rounds=2, local_epochs=1, grad_clip=None),
+            learned=LearnedConfig(device="cpu", features="full14+prev"),
         ).fit(tr, val=va)
         assert np.array_equal(c.scores(te), f.scores(te))
-        two = FedBusCNN(K=2, rounds=1, local_epochs=1, features="full14+prev", device="cpu").fit(tr, val=va)
+        two = FedBusCNN(
+            federated=FederatedSettings(K=2, rounds=1, local_epochs=1),
+            learned=LearnedConfig(device="cpu", features="full14+prev"),
+        ).fit(tr, val=va)
         assert two._client_features(two._pull(te), 0).shape[-1] == 16 and "Am" in two.score(te)
     finally:
         torch.use_deterministic_algorithms(was)

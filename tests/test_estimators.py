@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
+from fdia_graph.models import GateConfig, PriorConfig, RemovalConfig, TrustConfig
 
 pytest.importorskip("pandapower")
 
@@ -40,7 +41,7 @@ def test_every_public_path_refuses_a_per_unit_view(timeline, splits, wls):
     with pytest.raises(ValueError, match="units='physical'"):
         JacobianWeighting().fit(splits["train"]).estimate(pu)
     with pytest.raises(ValueError, match="units='physical'"):
-        TrustedMeters(k=2).fit(splits["train"]).score(pu)
+        TrustedMeters(TrustConfig(k=2)).fit(splits["train"]).score(pu)
 
 
 def test_residual_localizer_keeps_a_fitted_estimator(splits, wls):
@@ -55,7 +56,9 @@ def test_a_composed_gated_estimator_is_the_gated_estimator(splits):
     from fdia_graph.localization import ResidualLocalizer
     from fdia_graph.se import GatedPrior
 
-    est = GatedPrior(gate="oracle", rank_frac=0.5, reweight="huber").fit(splits["train"])
+    est = GatedPrior(GateConfig(gate="oracle"), prior=PriorConfig(rank_frac=0.5, reweight="huber")).fit(
+        splits["train"]
+    )
     loc = ResidualLocalizer(estimator=est).fit(splits["train"])
     test = splits["test"]
     d = test.export(["node_x", "edge_x"])
@@ -80,7 +83,7 @@ def test_weighted_solve_considers_its_last_step(wls, test_arrays):
 def test_removal_takes_out_one_gross_error_and_keeps_its_neighbours(splits, test_arrays):
     from fdia_graph.se import ResidualRemoval
 
-    est = ResidualRemoval(threshold=4.0).fit(splits["train"])
+    est = ResidualRemoval(removal=RemovalConfig(threshold=4.0)).fit(splits["train"])
     z, fam = test_arrays
     z = z[fam == 0].copy()
 
@@ -183,7 +186,7 @@ def test_measured_calibration_fits_without_a_clean_layer(timeline, tmp_path):
         del f[schema.NODE_CLEAN], f[schema.EDGE_CLEAN]
     ds = FdiaGraph(copy, split="train")
     assert not ds.has_clean
-    for est in (WLS(), SubspacePrior(reweight="huber")):
+    for est in (WLS(), SubspacePrior(prior=PriorConfig(reweight="huber"))):
         est.fit(ds, calibrate="measured")
         assert np.isfinite(est.xmean).all() and not est._full_state
     assert SubspacePrior().fit(ds, calibrate="measured")._basis().shape[1] < 2 * ds.N - 1

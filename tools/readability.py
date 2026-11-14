@@ -313,11 +313,7 @@ ANY_ALLOWED: dict[str, str] = {
     "dataset/records.py:RecordsMixin._base_item:return": _STAGE,
     "dataset/records.py:RecordsMixin._add_optional_layers:item": _STAGE,
     "dataset/records.py:RecordsMixin.loader:**kw": _KW,
-    "federated/localizer.py:FederatedLocalizer.__init__:**kw": _KW,
-    "federated/se.py:RegionalPrior.__init__:**kw": _KW,
     "localization/base.py:LocalizerBase.score.out": "the score table's rows: overall, benign and per-family metrics, one row type per key",
-    "localization/learned.py:BusCNN.__init__:**kw": _KW,
-    "se/methods.py:GatedPrior.__init__:**kw": _KW,
     "models/assets.py:AssetSpec.meta": "a local dataset's JSON metadata, as fg.generate wrote it",
 }
 
