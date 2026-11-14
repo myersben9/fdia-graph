@@ -1,20 +1,18 @@
 """Pull requests from the command line, without the gh CLI (CONTRIBUTING.md, "The pull request").
 
     python tools/pr.py create <branch> "<title>" <body.md>   # open a PR against main, as a draft
-    python tools/pr.py ready <num>                           # mark the draft ready: the one automated review
+    python tools/pr.py ready <num>                           # mark the draft ready for the owner's approval
     python tools/pr.py status <num>                          # checks on the head, reviews, comment count
     python tools/pr.py comments <num>                        # every review comment (path, line, body)
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
-    python tools/pr.py wait <num> [minutes]                  # block until CI has finished and every required bot has reviewed once
+    python tools/pr.py wait <num> [minutes]                  # block until CI has finished
     python tools/pr.py merge <num>                           # squash-merge on green, delete the branch
-    python tools/pr.py request-review <num>                  # ask the automated reviewer, once the pre-review is clean
+    python tools/pr.py request-review <num>                  # ask for an automated review (optional, billed)
 
 The token comes from the Git Credential Manager (`git credential fill`), the same one `git push`
 uses, so nothing is stored in the repo. `merge` refuses while a check on the head is failing or
-still running, while a required review bot (Copilot, and every installed app that has reviewed the
-pull request) has not reviewed the pull request once, and while any of its findings has no reply:
-the repo's merge rule (CONTRIBUTING.md, "The pull request"). The automated review runs once per pull
-request (the ruleset no longer reviews every push), so a fix pushed after it does not wait for another.
+still running. No automated review is required: the owner approves each merge (CONTRIBUTING.md, "The
+pull request"), and an automated review runs only when `request-review` asks for one.
 """
 
 from __future__ import annotations
@@ -107,7 +105,6 @@ def _head_state(num: int) -> dict[str, Any]:
         for bot in REVIEW_BOTS
     }
     reviewed = {bot: [r["commit_id"][:8] for r in reviews if _bot_of(r) == bot] for bot in REVIEW_BOTS}
-    seen = {b for r in reviews if (b := _bot_of(r)) is not None}
     notes = api_all(f"/pulls/{num}/comments")
     answered = {c["in_reply_to_id"] for c in notes if c.get("in_reply_to_id")}
     talk = [c for c in api_all(f"/issues/{num}/comments") if _bot_of(c) is None]
@@ -117,7 +114,7 @@ def _head_state(num: int) -> dict[str, Any]:
         "checks": _latest_runs(checks),
         "reviews_on_head": on_head,
         "reviewed_commits": reviewed,
-        "required_bots": [b for b in REVIEW_BOTS if b == COPILOT or b in seen],
+        "required_bots": [],  # no review bot gates a merge; the owner approves it
         "unanswered": _missed_unanswered(reviews, talk)
         + [c["id"] for c in notes if not c.get("in_reply_to_id") and _bot_of(c) and c["id"] not in answered],
         "n_comments": len(notes),
@@ -268,11 +265,6 @@ def merge(num: int) -> None:
     why = _not_green(s)
     if why:
         raise SystemExit(f"not green on {s['sha'][:8]}: " + "; ".join(why))
-    if not _reviewed(s):
-        missing = ", ".join(_missing_reviews(s))
-        raise SystemExit(f"no review of #{num} yet from {missing}; run `wait {num}` first")
-    if s["unanswered"]:
-        raise SystemExit(f"review findings without a reply: {s['unanswered']}; answer each with `reply`")
     pr = s["pr"]
     # `sha` binds the merge to the head that was checked: GitHub refuses if a push moved it meanwhile.
     r = api(
