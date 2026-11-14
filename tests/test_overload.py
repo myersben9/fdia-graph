@@ -155,7 +155,7 @@ def test_the_search_on_a_flow_goal_equals_brute_force(g, pool):
 
 
 def test_am_reaches_the_rating_on_the_held_support(tmp_path, pool):
-    """New generation's Am on IEEE-14 (no stealth bound, as in [WU26], [D11]): each episode's
+    """New generation's Am on IEEE-14 (no stealth bound, as in [WU26]): each episode's
     noiseless reported flow on its target branch reaches the branch's rating at the last frame, on a
     support that moves at least one device beyond noise."""
     out = generate_timeline(
@@ -194,8 +194,8 @@ def test_the_paper_noise_is_in_the_stored_units(g):
 
 
 def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, pool):
-    """The window of a flow goal (Am) takes [WU26]'s noise [D8]; a load goal (At) keeps the meters'
-    rated accuracy [D7]."""
+    """The window of a flow goal (Am) takes [WU26]'s noise a load goal (At) keeps the meters'
+    rated accuracy."""
     from fdia_graph.engine.attacks.minimize import _Window
     from fdia_graph.engine.base import POWER_NOISE_FLOOR_MW
     from fdia_graph.formulas.noise import accuracy_sigma
@@ -213,7 +213,7 @@ def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, 
 
 
 def test_the_goal_rides_on_the_true_flow_and_ends_at_the_rating(g, pool):
-    # [WU26 eqs. 24-25] [D9] [D5]
+    # [WU26 eqs. 24-25]
     """D9: S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T}) for t = kappa+1 ...
     kappa+T [WU26 eq. 25]: the window's first snapshot already carries 1/T of the way to the rating
     (kappa, the reference, is the frame before), the share grows linearly, the natural drift is left
@@ -363,7 +363,6 @@ def test_the_overload_am_is_not_checked_against_a_target_count(monkeypatch):
 
 
 def test_am_has_no_stealth_bound_and_at_keeps_its_own(g, pool):
-    # [D11] [D7] [D8]
     """D11: [WU26]'s model bounds nothing between snapshots; its noise only thresholds the l0 count.
     The overload window's cost does not depend on the stealth scale, At's window is bounded."""
     from fdia_graph.engine.attacks.minimize import _Window
@@ -436,7 +435,7 @@ def _generator_only_case(g, pool):
 
 
 def test_a_generator_at_its_p_limit_keeps_its_q_free(g, pool):
-    # [WU26 eqs. 22-23] [D14]
+    # [WU26 eqs. 22-23]
     """Review fix: pinning is per component. With the generator's P range shut to its true output, the
     solve pins P alone and still meets the goal by moving Q; pinning both would leave no free injection."""
     from fdia_graph.formulas.attacks import generator_output
@@ -494,7 +493,6 @@ def _edge_cases(g, pool):
 
 
 def test_an_edge_generator_stays_inside_its_limits(g, pool):
-    # [D16]
     """D16: (22)-(23) bound every generator whose reported output the attack changes, a generator on
     the support's edge included: shut its P range and the solve holds its P there or refuses."""
     from fdia_graph.formulas.attacks import generator_output
@@ -541,7 +539,6 @@ def test_the_load_cap_bounds_every_load_the_attack_moves(g, pool):
 
 
 def test_two_lines_by_default_and_the_pairs_share_one_area(g, pool):
-    # [D17]
     """D17: an episode overloads n_lines at once (2 by default, 1 allowed); each pair's second line
     lies inside the first one's attack area, so one held support can reach both."""
     from fdia_graph.models.config import OverloadSettings

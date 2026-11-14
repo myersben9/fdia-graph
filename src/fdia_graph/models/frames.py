@@ -95,9 +95,9 @@ class FrameKnobs(NamedTuple):
     # within `hops`), searched over at most `min_budget` candidate supports
     min_tamper: bool = False
     min_budget: int = 256
-    # a multiplier on At's stealth bound, whose unit is the rated accuracy [D7]; Am has none [D11]
+    # a multiplier on At's stealth bound, whose unit is the rated accuracy Am has none
     stealth_scale: float = 1.0
-    # the overload attack's load-plausibility cap tau [D16]: None leaves the load changes unbounded
+    # the overload attack's load-plausibility cap tau: None leaves the load changes unbounded
     load_cap: Optional[float] = None
     n_lines: int = 1  # the lines an overload episode drives at once (D17; new generation: 2)
     # the overload attack's support method (`OverloadSettings.support_method`): "search" or "rref"
@@ -133,12 +133,12 @@ class LoadGoal(NamedTuple):
 class FlowGoal(NamedTuple):
     """What the overload attack of [WU26 eqs. 24-25] must realize at each snapshot of its window: the
     apparent flow (MVA) that the tampered measurements carry before noise on each target branch,
-    `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free, [D9]),
+    `S_{l,t} = S_true_{l,t} + (t - kappa)/T (S_max - S_true_{l,kappa+T})` (drift-free),
     reaching the branch's rating at the window's end. The free injections of the support (attackable
     loads and generators) move; the fewest-tamper search holds one support for all snapshots. A goal
     drives one or more lines at once on the same support: `line` is the first target and `more` the
     others. Generated episodes drive `OverloadSettings.n_lines` lines, two by default as the paper's
-    case studies do, or one [D17]."""
+    case studies do, or one."""
 
     line: int  # the first target branch (position in the edge index)
     targets: tuple[float, ...]  # the first target's MVA per snapshot, in window order

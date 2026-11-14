@@ -135,7 +135,7 @@ class FalseStateMixin(AreaMixin):
 
     def free_injection_buses(self) -> np.ndarray:
         """The buses whose injection a flow-goal attacker may change: the attackable loads and the
-        generators [D14]. A zero-injection bus is held at zero: nothing is connected there
+        generators. A zero-injection bus is held at zero: nothing is connected there
         (a rule of ours, not the paper's)."""
         cached = getattr(self, "_free_injection_buses", None)
         if cached is None:  # asked once per candidate solve: built once, read-only
@@ -161,7 +161,7 @@ class FalseStateMixin(AreaMixin):
         false voltages. With `limits`, every generator whose reported output the attack changes, in
         S or on its edge, stays inside its limits (22)-(23), and every voltage of S inside (21); with
         `load_cap` tau, every load bus whose reported injection it changes shows at most tau times
-        its true load [D16]. A component (P or Q) the solve drives past its bound is pinned at the
+        its true load. A component (P or Q) the solve drives past its bound is pinned at the
         bound, the other left free, and the solve repeated (an active set), so the least-norm state
         is sought among those that keep every bound. Returns (the false state [N, 4] with the
         injections of S and its edge moved by exactly the change the false voltages cause, whether
@@ -304,7 +304,7 @@ class FalseStateMixin(AreaMixin):
         """The components of a solve past their bounds, each with the change that puts it at the
         bound (MW or MVAr, generation positive): a generator's P or Q outside its limits (22)-(23),
         in S or on its edge (the slack excluded, its output the balance); a load bus's active change
-        beyond `load_cap` times its true load [D16], both over the region's support and its edge
+        beyond `load_cap` times its true load, both over the region's support and its edge
         (`region.touched`). `bounds` = (limits, load_cap), either None."""
         limits, load_cap = bounds
         out: tuple[dict[int, float], dict[int, float]] = ({}, {})

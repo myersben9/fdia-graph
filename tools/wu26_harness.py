@@ -6,14 +6,14 @@
 For each of the paper's scenarios (IEEE-14: lines 3-4 and 6-11, lines 1-2 and 4-5, PMUs 1, 4, 6, 13
 trusted at snapshots 2, 4, 6, 8; IEEE-118: lines 84-85 and 99-100, its 11 PMUs, one per snapshot) and
 each rating (`--ratings`: "+0.10", each target line's true flow at the window's last snapshot plus
-0.10 pu, matched to the paper's Fig. 4 attack magnitudes, the default [E14]; or a margin k such as "1.1",
+0.10 pu, matched to the paper's Fig. 4 attack magnitudes, the default or a margin k such as "1.1",
 k times each target line's peak true flow over the window), on the paper's attack area (`wu26_area`:
-IEEE-14's every bus but the slack, IEEE-118's Fig. 9 network [D18]), windows of 1-minute attack snapshots are built from the
+IEEE-14's every bus but the slack, IEEE-118's Fig. 9 network), windows of 1-minute attack snapshots are built from the
 5-minute operating pool (ours: each bus's load and generation scale recovered from two consecutive pool
 states, interpolated linearly in time and re-solved by AC power flow, so every snapshot is a power-flow
 solution). On each window the trusted-PMU MDP (`trust.WuDefenseEnv`, the search as the cost oracle) is
 played by Solution 1 (`trust.TrustedPMUs`) and by Solution 2 (`trust.TrustedPMUsDQN`, trained on the
-other windows of its session, [E8] option 2).
+other windows of its session).
 
 Written to --out, each table and figure beside the CSV its numbers come from:
     table2_ieee{N}.csv   devices and channels undefended and defended, the extra devices, the rise (Table II, Fig. 12)
@@ -43,7 +43,7 @@ import numpy as np
 PAPER_ORDERS = {14: ((1, 4, 6, 13), (4, 6, 1, 13))}
 SNAPSHOTS = {14: 20, 118: 10}  # 10 minutes of 30 s snapshots on IEEE-14 is 20; Figs. 10-11 show 10 on 118
 POOL_MINUTES = 5  # the pool's cadence
-ATTACK_MINUTES = 1  # the attack snapshots' [E4]
+ATTACK_MINUTES = 1  # the attack snapshots' cadence
 
 
 # ---- windows of 1-minute snapshots -----------------------------------------------------------------------
@@ -291,7 +291,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         "--ratings",
         nargs="+",
         default=["+0.10"],
-        help='"+d": each line true flow at the window end plus d pu [E14]; "k": k times its peak flow',
+        help='"+d": each line true flow at the window end plus d pu "k": k times its peak flow',
     )
     ap.add_argument("--windows", type=int, default=20)
     ap.add_argument(

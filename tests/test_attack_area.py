@@ -37,7 +37,7 @@ def test_the_paper_area_is_what_wu26_states():
 
 
 def test_the_ieee118_area_is_fig_9_and_the_search_uses_it(g118):
-    # [WU26] Sec. III-A Fig. 9 [D18]
+    # [WU26] Sec. III-A Fig. 9
     area = g118.wu26_area()
     number = g118.base.bus["name"].astype(int).to_numpy()
     assert sorted(int(number[b]) for b in area) == sorted(WU26_ATTACK_AREA[118])
@@ -49,7 +49,7 @@ def test_the_ieee118_area_is_fig_9_and_the_search_uses_it(g118):
 
 
 def test_the_rules_check_1_and_2_and_charge_for_size(g118):
-    # [WU26] Sec. III-A rules 1-4 [D18]
+    # [WU26] Sec. III-A rules 1-4
     states = np.stack(_load_states(118, None)[:10])
     lines = _lines(g118, 118)
     seeds = np.unique(g118.ei[:, lines])
@@ -85,7 +85,7 @@ def test_delta_ratings_end_each_goal_at_its_flow_plus_the_step():
 
 
 def test_every_attack_the_search_returns_is_valid():
-    # [WU26 eqs. 12, 24-25, 29] [D8]
+    # [WU26 eqs. 12, 24-25, 29]
     """Scenario 2 at k = 1.1 with the paper's trust schedule: the goal is met at every snapshot (the last
     at both ratings), no untampered channel moves beyond its noise, and a trusted bus is exactly true."""
     g = FdiaGenerator(14, seed=1, meter_model="hybrid")
@@ -122,7 +122,6 @@ def test_every_attack_the_search_returns_is_valid():
 
 
 def test_delta_ratings_generate_am_episodes(tmp_path):
-    # [E14]
     """The timeline path takes the delta ratings: every eligible line is rated per window, so Am
     episodes are built (and the workers' generator carries the step)."""
     import h5py

@@ -112,7 +112,7 @@ class AreaMixin(GridBase):
         return interior if len(interior) and len(boundary) else None
 
     def rule_area(self, seeds: np.ndarray, lines: list[int], states: np.ndarray) -> Optional[np.ndarray]:
-        """[D18] The best-scoring region around `seeds` among `AREA_HOPS` that passes rules 1 and 2 (ours, from
+        """The best-scoring region around `seeds` among `AREA_HOPS` that passes rules 1 and 2 (ours, from
         [WU26] p. 654): None when none does."""
         scored = []
         for h in AREA_HOPS:

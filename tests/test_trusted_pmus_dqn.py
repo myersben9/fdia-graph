@@ -42,7 +42,6 @@ class _Chain:
 
 
 def test_the_stated_hyperparameters_are_the_defaults():
-    # [E9]
     c = WuDqnConfig()
     assert (c.gamma, c.lr, c.buffer, c.batch, c.target_every, c.epsilon_decay, c.episodes) == (
         0.9,

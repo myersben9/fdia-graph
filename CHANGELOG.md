@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The decisions registry is removed.** `schema.DECISIONS`, `models.Decision`, the generated decisions page
+  and the `[D9]` / `[E13]` tags go; each choice is stated in the docstring of the code that makes it.
+  `tools/equation_map.py` maps the `[WU26 ...]` citations only, and still refuses a decision tag.
+
 - **The New York grid in the SDK's own packages.** `fdia_graph.nyfed` is gone: the system source is
   `generation.nygrid`, the meters `engine.sensing`, the attack families `engine.attacks`, the operator
   `fdia_graph.operator`, the residual test `se.detect`, the utility clients `federated.utilities`, the client views

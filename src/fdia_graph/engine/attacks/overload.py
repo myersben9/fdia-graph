@@ -1,10 +1,9 @@
 """`Am`, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two
-by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`,
-[D17]) driven to their ratings over the window, with the fewest devices tampered.
+by default, as the paper's case studies overload two lines at once, or one; `OverloadSettings.n_lines`) driven to their ratings over the window, with the fewest devices tampered.
 
 [WU26 eqs. 24-25] asks that the apparent flow the tampered measurements carry on a target line grow
 snapshot by snapshot until it reaches the line's rating S_max. The rating is by default 1.25 times the
-branch's peak true flow over the operating pool ([D15], `use_line_ratings`), or on request the
+branch's peak true flow over the operating pool (`use_line_ratings`), or on request the
 branch's PGLib-OPF `rate_a` (`fdia_graph.ratings`; the IEEE cases pandapower ships rate every branch
 9,900 MVA, which no flow comes near). A branch is a target for a window only when it is rated, its flow is metered
 (the goal is what the operator sees) and its true flow stays below the rating at every snapshot of
@@ -18,7 +17,7 @@ on the noiseless reading of the false state: the true flow plus a share of what 
 snapshot's true flow from the rating, so the attack adds a steady ramp on top of the load's own
 drift instead of cancelling it, and reaches S_max at the window's last snapshot (eq. 25). As in
 [WU26], nothing bounds how far the attack moves between snapshots: the paper's noise only decides
-which changes its tamper count ignores (`formulas.noise.paper_sigma`, [D8] and D11), and the
+which changes its tamper count ignores (`formulas.noise.paper_sigma`), and the
 attack is stealthy because every snapshot's readings are those of one AC state. Each snapshot's false
 state frees the attackable loads and the generators of the support (the latter within their limits,
 eqs. 22-23) and holds every other bus's injection
@@ -98,7 +97,7 @@ WU26_ATTACK_AREA: dict[int, tuple[int, ...]] = {
 
 def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
     """One branch's goal over a window from its true flows [T, 2] (MW, MVAr): the true flow plus a
-    linear share of what separates the last true flow from the rating [D9]. The window's
+    linear share of what separates the last true flow from the rating. The window's
     snapshots are kappa+1 ... kappa+T after the untouched reference kappa [WU26 eq. 25], so snapshot
     k of the window (k = 1 ... T) carries the share k/T: every snapshot moves the flow and the last
     reaches the rating."""
@@ -111,7 +110,7 @@ class OverloadMixin(MinimizeMixin):
     """Design and step the overload attack of [WU26] on a rated, metered target branch."""
 
     def use_line_ratings(self, settings: OverloadSettings, X: np.ndarray) -> None:
-        """Set the ratings the overload attack drives its lines to [D15]: with "pool", each
+        """Set the ratings the overload attack drives its lines to: with "pool", each
         branch's `rating_margin` times its peak true apparent flow over the pool X [T, N, 4], at the
         from end as the goal reads it (a static rating per line, every system); with "pglib", the
         PGLib-OPF ratings (`line_ratings`, NoLineRatings on a case without them)."""
@@ -173,7 +172,7 @@ class OverloadMixin(MinimizeMixin):
         """The per-snapshot flow the attack must reach on `line`, the first target, over `window`
         (module docstring), and on each branch of `more` at once, each toward its own rating. The
         generator's episodes pass `OverloadSettings.n_lines` targets: two by default, as the paper's
-        case studies overload two lines at once, or one [D17]."""
+        case studies overload two lines at once, or one."""
         flows = self.clean_flows_from_states(np.stack(window))  # [T, E, 2] MW, MVAr
         rating = self.window_ratings(flows)
         first = _schedule(flows[:, line], float(rating[line]))
@@ -201,7 +200,7 @@ class OverloadMixin(MinimizeMixin):
         return None
 
     def _target_sets(self, order: np.ndarray, n_lines: int, hops: int) -> list[tuple[int, ...]]:
-        """At most `AM_LINE_TRIES` target sets from the eligible branches in `order` [D17]: single
+        """At most `AM_LINE_TRIES` target sets from the eligible branches in `order`: single
         branches, or pairs one held support can reach, each first branch taken in order with the
         first other branch whose ends lie inside the first one's attack area (the buses within
         `hops` of its ends), each pair once."""

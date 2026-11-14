@@ -241,9 +241,9 @@ def search_attrs(
 ) -> dict[str, object]:
     """The attributes of the searches a walk ran and of the meters it read, written only when they
     apply: the fewest-tamper knobs, the Am attack, the stealth scale of At's search (Am has no stealth
-    bound, [D11]; an Am-only file records the scale it was given, which nothing used), and on
+    bound, an Am-only file records the scale it was given, which nothing used), and on
     a hybrid-meter file its meter model and the legend of its current layers; the overload attack's
-    rating source and margin [D15]."""
+    rating source and margin."""
     out: dict[str, object] = {}
     if s.search.min_tamper:
         out.update({Attr.MIN_TAMPER: 1, Attr.MIN_BUDGET: s.search.min_budget})

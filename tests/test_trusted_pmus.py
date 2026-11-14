@@ -72,7 +72,7 @@ def test_the_schedule_refuses_what_it_cannot_mean(bad):
 
 
 def test_trust_accumulates_from_its_slot():
-    # [WU26 eqs. 30-31] [E1]
+    # [WU26 eqs. 30-31]
     s = TrustSchedule([0, 3, 5, 12], [1, 3, 5, 7])
     assert s.pinned(0) == frozenset()
     assert s.pinned(1) == {0} and s.pinned(4) == {0, 3} and s.pinned(19) == {0, 3, 5, 12}
@@ -80,7 +80,7 @@ def test_trust_accumulates_from_its_slot():
 
 # ---- the constraint --------------------------------------------------------------------------------
 def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
-    # [WU26 eqs. 17-18, 27, 29, 32] [E2]
+    # [WU26 eqs. 17-18, 27, 29, 32]
     """Eq. (29): from its slot, a trusted PMU's |V| and angle are exactly true, even when the support
     holds its bus; before its slot the bus may still move."""
     g, window, k, goal = _setup(0, 1.1)

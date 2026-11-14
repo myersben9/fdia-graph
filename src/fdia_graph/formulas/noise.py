@@ -163,7 +163,7 @@ def paper_sigma(
     node_shape: tuple[int, ...], edge_shape: tuple[int, ...], pmu_bus: np.ndarray, base_mva: float
 ) -> tuple[np.ndarray, np.ndarray]:
     """The noise standard deviation of every channel as [WU26]'s case studies state it (0.03 pu for
-    SCADA, 0.01 pu for PMU), in the stored units: [D8], the scale of the overload attack's
+    SCADA, 0.01 pu for PMU), in the stored units, the scale of the overload attack's
     stealth bound and of its tamper count, since the paper excludes from its l0 count the changes
     smaller than its own noise.
 

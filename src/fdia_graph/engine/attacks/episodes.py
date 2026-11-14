@@ -128,7 +128,7 @@ class OverloadDesigner:
         branch), each tried until the fewest-tamper search finds a support that meets the goal at every
         snapshot [WU26 eqs. 24-25], inside the operating limits [WU26 eqs. 21-23], and moves at least one
         device beyond noise. None when no set has one (the design stage then moves the episode,
-        `generation.design`). A flow goal has no stealth bound [D11], so nothing here reads the
+        `generation.design`). A flow goal has no stealth bound, so nothing here reads the
         frame before t."""
         frames = range(t, min(t + length, len(X)))
         window = [X[u] for u in frames]
