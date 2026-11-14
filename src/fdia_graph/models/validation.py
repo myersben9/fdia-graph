@@ -25,9 +25,9 @@ from __future__ import annotations
 import math
 import numbers
 import typing
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sized
 from dataclasses import Field, fields
-from typing import Any, ClassVar, Union
+from typing import ClassVar, Protocol, SupportsFloat, Union, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
@@ -44,15 +44,26 @@ class MissingCapability(ConfigError):
 
 
 # ---- rules ------------------------------------------------------------------------------------------
+@runtime_checkable
+class Ordered(Protocol):
+    """A value a bound compares with: anything with the rich comparisons (a number, a numpy scalar). A value
+    whose comparison raises (a string against a number) fails the rule as `Rule.apply` says."""
+
+    def __lt__(self, other: float, /) -> object: ...
+    def __le__(self, other: float, /) -> object: ...
+    def __gt__(self, other: float, /) -> object: ...
+    def __ge__(self, other: float, /) -> object: ...
+
+
 class Rule:
     """One condition on a field's value and the phrase that states it."""
 
     says = ""
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
         raise NotImplementedError
 
-    def apply(self, value: Any, where: str) -> Any:
+    def apply(self, value: object, where: str) -> object:
         """The value, unchanged, or ConfigError naming `where` when the rule does not hold. A value
         the rule cannot even evaluate (a string where a number belongs) has failed it too, so a
         malformed argument gets the same message as an out-of-range one."""
@@ -71,7 +82,7 @@ class OneOf(Rule):
     def __init__(self, choice: type[Choice]) -> None:
         self.choice, self.says = choice, f"must be one of {choice.values()}"
 
-    def apply(self, value: Any, where: str) -> str:
+    def apply(self, value: object, where: str) -> str:
         try:
             return self.choice(value).value
         except ValueError:
@@ -81,15 +92,15 @@ class OneOf(Rule):
 class Positive(Rule):
     says = "must be > 0"
 
-    def holds(self, value: Any) -> bool:
-        return value > 0
+    def holds(self, value: object) -> bool:
+        return isinstance(value, Ordered) and bool(value > 0)
 
 
 class Finite(Rule):
     says = "must be finite"
 
-    def holds(self, value: Any) -> bool:
-        return math.isfinite(value)
+    def holds(self, value: object) -> bool:
+        return isinstance(value, SupportsFloat) and math.isfinite(value)
 
 
 class Boolean(Rule):
@@ -97,14 +108,14 @@ class Boolean(Rule):
 
     says = "must be True or False"
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
         return isinstance(value, (bool, np.bool_))
 
 
 class Integer(Rule):
     says = "must be an integer"
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
         return isinstance(value, numbers.Integral) and not isinstance(value, bool)
 
 
@@ -112,8 +123,8 @@ class AtLeast(Rule):
     def __init__(self, low: float) -> None:
         self.low, self.says = low, f"must be >= {low}"
 
-    def holds(self, value: Any) -> bool:
-        return value >= self.low
+    def holds(self, value: object) -> bool:
+        return isinstance(value, Ordered) and bool(value >= self.low)
 
 
 class InRange(Rule):
@@ -123,10 +134,12 @@ class InRange(Rule):
         self.lo, self.hi, self.lo_closed, self.hi_closed = lo, hi, lo_closed, hi_closed
         self.says = f"must be in {'[' if lo_closed else '('}{lo:g}, {hi:g}{']' if hi_closed else ')'}"
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
+        if not isinstance(value, Ordered):
+            return False
         above = value >= self.lo if self.lo_closed else value > self.lo
         below = value <= self.hi if self.hi_closed else value < self.hi
-        return above and below
+        return bool(above) and bool(below)
 
 
 class Required(Rule):
@@ -135,7 +148,7 @@ class Required(Rule):
     def __init__(self, says: str = "is required") -> None:
         self.says = says
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
         return value is not None
 
 
@@ -147,7 +160,7 @@ class AsArray(Rule):
     def __init__(self, dtype: npt.DTypeLike = None) -> None:
         self.dtype = dtype
 
-    def apply(self, value: Any, where: str) -> np.ndarray:
+    def apply(self, value: object, where: str) -> np.ndarray:
         try:
             return np.asarray(value, self.dtype)
         except (TypeError, ValueError, OverflowError):
@@ -160,8 +173,8 @@ class AsTuple(Rule):
 
     says = "must be a sequence"
 
-    def apply(self, value: Any, where: str) -> tuple[object, ...]:
-        if isinstance(value, (str, bytes, dict)):
+    def apply(self, value: object, where: str) -> tuple[object, ...]:
+        if isinstance(value, (str, bytes, dict)) or not isinstance(value, Iterable):
             raise ConfigError(f"{where} {self.says}, got {value!r}")
         try:
             return tuple(value)
@@ -173,35 +186,37 @@ class Dims(Rule):
     def __init__(self, ndim: int) -> None:
         self.ndim, self.says = ndim, f"must be {ndim}-dimensional"
 
-    def holds(self, value: Any) -> bool:
-        return np.ndim(value) == self.ndim
+    def holds(self, value: object) -> bool:
+        return np.asarray(value).ndim == self.ndim
 
 
 class IntegerDtype(Rule):
     says = "must hold integers"
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
         return np.issubdtype(np.asarray(value).dtype, np.integer)
 
 
 class NonEmpty(Rule):
     says = "must not be empty"
 
-    def holds(self, value: Any) -> bool:
-        return np.size(value) > 0 if isinstance(value, np.ndarray) else len(value) > 0
+    def holds(self, value: object) -> bool:
+        if isinstance(value, np.ndarray):
+            return value.size > 0
+        return isinstance(value, Sized) and len(value) > 0
 
 
 class AllFinite(Rule):
     says = "must be finite everywhere"
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
         return bool(np.isfinite(np.asarray(value, np.float64)).all())
 
 
 class AllPositive(Rule):
     says = "must be positive everywhere"
 
-    def holds(self, value: Any) -> bool:
+    def holds(self, value: object) -> bool:
         return bool((np.asarray(value, np.float64) > 0).all())
 
 
@@ -212,7 +227,7 @@ class Parses(Rule):
     def __init__(self, parse: Callable[..., object], says: str) -> None:
         self.parse, self.says = parse, says
 
-    def apply(self, value: Any, where: str) -> object:
+    def apply(self, value: object, where: str) -> object:
         try:
             return self.parse(value)
         except (ValueError, TypeError, KeyError):
@@ -227,7 +242,7 @@ class Validated:
     # (`models.errors`) for a model that states what the data lacks
     error: ClassVar[type[ValueError]] = ConfigError
     # every model is a dataclass (the subclass is decorated); declared so `fields(model)` type-checks
-    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
+    __dataclass_fields__: ClassVar[dict[str, Field[object]]]
 
     def __post_init__(self) -> None:
         validate(self)
@@ -247,7 +262,7 @@ def validate(model: Validated) -> None:
     _check_invariants(model, name)
 
 
-def _checked(value: Any, rules: tuple[Rule, ...], optional: bool, where: str) -> Any:
+def _checked(value: object, rules: tuple[Rule, ...], optional: bool, where: str) -> object:
     """One field's value after its rules; None only where the annotation allows it."""
     if value is None:
         required = next((r for r in rules if isinstance(r, Required)), None)
