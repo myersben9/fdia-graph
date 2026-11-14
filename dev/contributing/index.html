@@ -1624,42 +1624,30 @@ checks a docs change locally.</p>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span><span class="nb">wait</span><span class="w"> </span><span class="m">80</span><span class="w">                                     </span><span class="c1"># CI plus the one review of every required bot</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>comments<span class="w"> </span><span class="m">80</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>reply<span class="w"> </span><span class="m">80</span><span class="w"> </span>&lt;comment-id&gt;<span class="w"> </span><span class="s2">"what changed"</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>merge<span class="w"> </span><span class="m">80</span><span class="w">                                    </span><span class="c1"># refuses unless green, reviewed once, every finding answered</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>python<span class="w"> </span>tools/pr.py<span class="w"> </span>merge<span class="w"> </span><span class="m">80</span><span class="w">                                    </span><span class="c1"># refuses unless green</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>python<span class="w"> </span>tools/review_ledger.py<span class="w"> </span><span class="m">80</span><span class="w">                               </span><span class="c1"># record the review's findings, print the tally by kind</span>
 </code></pre></div>
 <p>Green means: every job of the smoke workflow (<code>tests</code>, <code>tests (3.9)</code>, <code>tests (windows)</code>, <code>typecheck</code>,
 <code>format</code>, <code>readability</code>, the two installs) is a completed success on the head (a job that has not
 started yet counts as not green) and every other listed check has finished without failure.
-Reviewed means every required review bot has reviewed the pull request once and every one of its
-findings has a reply: an inline finding a reply in its thread, and the findings a review lists in
-its body ("Previously missed", outside the diff) a conversation comment on the pull request posted
-after that review.</p>
-<p>The automated review is billed per review, so each pull request gets <strong>one</strong>: the repository
-ruleset's Copilot rule reviews a pull request when it is opened or marked ready, and no longer on
-every push or on drafts (<code>review_on_push</code> and <code>review_draft_pull_requests</code> off). A pull request is
-therefore opened as a draft while it is worked on and marked ready once it is clean; the fixes to
-the review's findings go in one push, answered one by one, and the pull request merges when that
-push is green, without a second review. A fix that changes behaviour beyond what its finding asked
-is the exception: request one more review for it with <code>tools/pr.py request-review</code>. Related work goes
-in one pull request per theme rather than one per step, and an open pull request is rebased only for
-a real conflict. The order:</p>
+A pull request merges when it is green and the owner approves it. No automated review is required:
+the repository runs none on its own, and <code>tools/pr.py request-review</code> asks for one (billed) when a
+change is risky enough to want it. A pull request is opened as a draft while it is worked on and
+marked ready once it is clean. Related work goes in one pull request per theme rather than one per
+step, and an open pull request is rebased only for a real conflict. The order:</p>
 <ol>
 <li><code>python tools/prereview.py</code> until it passes: the CI gates, the test suite, and the checks CI
    does not run (changelog, cited paths, vacuous tests, integer fields, rendered diagrams).</li>
 <li>The review checklist, <code>docs/reference/REVIEW_CHECKLIST.md</code>, against the diff and every touched
    file read whole, searching outward from every change (a <code>/code-review</code> in Claude Code with the
    checklist does this). Fold what it finds into the branch.</li>
-<li>Mark the draft ready: Copilot reviews it once. Answer every finding, fix them all in one push,
-   repeat steps 1 and 2 on that push, and merge it on green. Record the review with
-   <code>tools/review_ledger.py</code>; a kind of finding that keeps coming up becomes a checklist item or a
-   check in <code>tools/prereview.py</code>.</li>
-<li>CodeRabbit (<code>.coderabbit.yaml</code> carries the repository's review instructions) and Gemini Code Assist, both
-   GitHub apps installed on the repository; <code>tools/pr.py</code> requires one review from a bot as soon as
-   that bot has reviewed the pull request, so a bot that is not installed never blocks a merge and
-   an installed one is never skipped.</li>
+<li>Before the pull request leaves draft, one review of the diff by Claude Code review agents (no paid review service);
+   its findings are fixed in one round, not looped, and its four-sentence summary of the change is posted on
+   the pull request (<code>tools/pr.py summary</code>) for the owner.</li>
+<li>Mark the draft ready and merge it on green once the owner approves.</li>
 </ol>
-<p>Bot comments are suggestions: apply the ones that are right and answer every one with what changed
-or why not. <code>tools/pr.py</code> uses the token the Git Credential Manager holds for <code>git push</code>, so it
+<p>When an automated review was asked for, its comments are suggestions: apply the ones that are right
+and answer every one with what changed or why not. <code>tools/pr.py</code> uses the token the Git Credential Manager holds for <code>git push</code>, so it
 needs no gh CLI. Commit as yourself, with a message that says what the change does. If CI does not
 start on a push, check the account's Actions and Copilot credits first.</p>
 <h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
