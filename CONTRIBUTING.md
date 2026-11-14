@@ -80,7 +80,9 @@ step, and an open pull request is rebased only for a real conflict. The order:
 2. The review checklist, `docs/reference/REVIEW_CHECKLIST.md`, against the diff and every touched
    file read whole, searching outward from every change (a `/code-review` in Claude Code with the
    checklist does this). Fold what it finds into the branch.
-3. Mark the draft ready and merge it on green once the owner approves.
+3. Before the pull request leaves draft, one review by the review agents (the checklist reviewer) on the diff;
+   its findings are fixed in one round, not looped.
+4. Mark the draft ready and merge it on green once the owner approves.
 
 When an automated review was asked for, its comments are suggestions: apply the ones that are right
 and answer every one with what changed or why not. `tools/pr.py` uses the token the Git Credential Manager holds for `git push`, so it
