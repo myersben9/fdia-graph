@@ -1,0 +1,3 @@
+# The owner reviews every change. This file asks for the review on each pull request. The ruleset
+# on main enforces it only once "Require review from Code Owners" is turned on there.
+* @myersben9
