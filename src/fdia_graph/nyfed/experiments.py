@@ -33,7 +33,7 @@ __all__ = [
 
 POOL = "out/pool_2019_v3.h5"  # the 2019 operating-point pool, relative to the work folder
 DATA = "data/NYgrid/Data"  # NYgrid's data tables
-CALIB = "results/nygrid.tie_check.json"  # the interchange check's calibration, mean and std of the benign gap
+CALIB = "results/nygrid.tie_check.json"  # the interchange check's calibration, a file of the work folder
 # one BLAS thread per worker: the jobs are many small dense solves, and a pool of workers each running a full
 # thread team oversubscribes the machine
 _THREADS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
@@ -52,7 +52,9 @@ def variant(path: str | Path) -> Literal["at_limit", "damaging"]:
 
 
 def load_calib(path: str | Path = CALIB) -> tuple[float, float]:
-    """The interchange check's benign-noise mean and standard deviation (MW), as `respond(calib=...)` takes them."""
+    """The interchange check's benign-noise mean and standard deviation (MW), as `respond(calib=...)` takes them,
+    from a JSON file `{"mean_mw": ..., "sd_mw": ...}` measured on benign days of the user's own work folder; the
+    default path is relative to that folder, as `POOL` and `DATA` are."""
     cal = json.loads(Path(path).read_text())
     return float(cal["mean_mw"]), float(cal["sd_mw"])
 
