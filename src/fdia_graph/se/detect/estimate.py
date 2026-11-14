@@ -14,6 +14,7 @@ import numpy as np
 
 from fdia_graph.engine.attacks.attacker import wrap_angles
 from fdia_graph.engine.sensing.measure import Measurement
+from fdia_graph.formulas.estimation import normal_matrix
 from fdia_graph.generation.nygrid.case import REF, Case
 
 __all__ = ["WlsFit", "exact_state", "reference_bus", "wls"]
@@ -55,21 +56,22 @@ def wls(
     kind = meas.plan.kind
     keep = np.ones(2 * len(vm), bool)
     keep[len(vm) + ref] = False
-    w = 1.0 / sigma
+    w = 1.0 / sigma**2  # the weights of [SCH70, part II]
     vm, va = vm.copy(), va.copy()
     converged, it, jac = False, 0, np.zeros((0, 0))
     for it in range(1, max_iter + 1):
-        r = wrap_angles(z - meas.h(vm, va), kind) * w
-        jac = meas.jacobian(vm, va)[:, keep] * w[:, None]
-        step = np.linalg.solve(jac.T @ jac + 1e-8 * np.eye(keep.sum()), jac.T @ r)
+        r = wrap_angles(z - meas.h(vm, va), kind)
+        jac = meas.jacobian(vm, va)[:, keep]
+        step = np.linalg.solve(normal_matrix(jac, w) + 1e-8 * np.eye(keep.sum()), jac.T @ (w * r))
         dx = np.zeros(2 * len(vm))
         dx[keep] = step
         vm, va = vm + dx[: len(vm)], va + dx[len(vm) :]
         if np.abs(step).max() < tol:
             converged = True
             break
-    r = wrap_angles(z - meas.h(vm, va), kind) * w
-    return WlsFit(float(r @ r), int(np.linalg.matrix_rank(jac, tol=1e-6)), vm, va, converged, it)
+    r = wrap_angles(z - meas.h(vm, va), kind)
+    rank = int(np.linalg.matrix_rank(jac / sigma[:, None], tol=1e-6)) if jac.size else 0
+    return WlsFit(float(r @ (w * r)), rank, vm, va, converged, it)
 
 
 def exact_state(

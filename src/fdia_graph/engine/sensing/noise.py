@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from fdia_graph.engine.sensing.meters import JITTER_FRAC, MeterPlan
+from fdia_graph.formulas.estimation import accuracy_class_sigma
 
 
 class NoiseModel:
@@ -17,11 +18,12 @@ class NoiseModel:
     def __init__(self, plan: MeterPlan):
         self.sigma_rel, self.sigma_abs, self.bias = plan.sigma_rel, plan.sigma_abs, plan.bias
         self.relative = plan.sigma_rel > 0
+        self._class = np.where(self.relative, plan.sigma_rel, plan.sigma_abs)  # the class of [ASP14]
 
     def sigmas(self, z: np.ndarray) -> np.ndarray:
         """The accuracy-class standard deviation of each meter at exact readings z [..., M], the total of
         bias and jitter (what an estimator weights by and what a change must exceed to count)."""
-        return self.sigma_rel * np.abs(z) + self.sigma_abs
+        return accuracy_class_sigma(np.abs(z), self._class, self.relative, self.sigma_abs)
 
     def sample(self, z: np.ndarray, rng: np.random.Generator) -> np.ndarray:
         """One noisy scan of exact readings z [..., M] (a scan per row on a stack of frames)."""

@@ -37,6 +37,7 @@ import numpy as np
 
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import IA, VA
+from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.generation.nygrid.case import REF, Case
 from fdia_graph.generation.nygrid.network import Network
 
@@ -265,12 +266,12 @@ class Attacker:
         ):
             np.add.at(arr, case.unit_bus, src)
         # a channel's rated-accuracy standard deviation (the noise floor a change must clear to count)
-        self._sigma_rel, self._sigma_abs = plan.sigma_rel, plan.sigma_abs
+        self._noise = NoiseModel(plan)
 
     def sigma(self, z: np.ndarray) -> np.ndarray:
         """The accuracy-class standard deviation of each meter at readings `z`, the noise a change must
         exceed to count as tampering (`sigma_rel |z| + sigma_abs`, the rated accuracy of M2)."""
-        return self._sigma_rel * np.abs(z) + self._sigma_abs
+        return self._noise.sigmas(z)
 
     def _held_bus(self, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
         """[N] bool: the buses whose injection the attack keeps true unless it is free. Every New York
