@@ -1369,34 +1369,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../nyfed/PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    New York grid build
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../nyfed/ARCHITECTURE/" class="md-nav__link">
         
   
@@ -2065,11 +2037,11 @@ timelines; the rest load and serve data. The table is generated from each module
 </tr>
 <tr>
 <td><code>nyfed.scenario.load_sources</code></td>
-<td>Where the bottom-up load profiles come from (Li et al. [2], PLAN.md), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
+<td>Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
 </tr>
 <tr>
 <td><code>nyfed.scenario.loads</code></td>
-<td>Per-bus load profiles by the bottom-up method of Li et al. [2] (PLAN.md), scaled to the real zone load.</td>
+<td>Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.</td>
 </tr>
 <tr>
 <td><code>nyfed.scenario.pool</code></td>

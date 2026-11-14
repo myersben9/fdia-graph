@@ -1234,34 +1234,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    New York grid build
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../ARCHITECTURE/" class="md-nav__link">
         
   
@@ -1536,8 +1508,7 @@ one, and the same attack vector no longer fits a state:</p>
 <a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="n">j</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">wls</span><span class="p">(</span><span class="n">meas</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">noise</span><span class="o">.</span><span class="n">sigmas</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">z_benign</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span> <span class="o">*</span><span class="n">x</span><span class="p">,</span> <span class="n">ref</span><span class="p">)</span><span class="o">.</span><span class="n">j</span><span class="p">)</span>
 <a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">PersistenceRule</span><span class="p">(</span><span class="mf">428.7</span><span class="p">)</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">(</span><span class="n">j</span><span class="p">))</span>  <span class="c1"># the first scan the residual test alarms on, -1 for none</span>
 </code></pre></div>
-<p><code>tools/nyfed/closed_loop_bdd.py</code> runs this over every window of a study; <code>PersistenceRule.fit</code> calibrates the
-threshold on benign days.</p>
+<p><code>PersistenceRule.fit</code> calibrates the threshold on benign days.</p>
 
 
 

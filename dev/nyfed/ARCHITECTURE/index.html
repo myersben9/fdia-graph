@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://fdia.artecommercellc.com/dev/nyfed/ARCHITECTURE/">
       
       
-        <link rel="prev" href="../PLAN/">
+        <link rel="prev" href="../../plans/WU_DEFENSE_PLAN/">
       
       
         <link rel="next" href="../../contributing/">
@@ -1242,34 +1242,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../PLAN/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    New York grid build
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -1653,8 +1625,8 @@ operator's own rules. It has been part of fdia-graph since 2026-11-02: the packa
 <code>examples/nyfed/</code>, and the results files <code>results/</code>.</p>
 <p>Read alongside: <a href="../WALKTHROUGH/">the walkthrough</a> follows one attack through every stage with the call that does each
 step, <a href="../EXTENDING/">the extending guide</a> says how to add an attack, a detector or an operator, and
-<a href="../TROUBLESHOOTING/">the troubleshooting page</a> what each stage reports when it fails. The decisions behind the design,
-numbered N1 onward, are in <a href="../PLAN/">the plan</a>.</p>
+<a href="../TROUBLESHOOTING/">the troubleshooting page</a> what each stage reports when it fails. Tags N1 onward in the code
+number the design decisions.</p>
 <h2 id="how-a-run-flows">How a run flows<a class="headerlink" href="#how-a-run-flows" title="Permanent link">&para;</a></h2>
 <p><img alt="The stages of fdia_graph.nyfed" src="../../figures/diagrams/nyfed_pipeline.png" /></p>
 <p>Each box is a subpackage, one stage, and each stage reads what the one before it wrote. <code>grid</code> turns NYgrid's case into
@@ -1754,27 +1726,19 @@ its stage does.</p>
 <a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>    areas.py           area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
 <a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>    response.py        every name above, re-exported for the imports written before the split
 <a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>tools/nyfed/
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  area_damage.py       the damage study's days through each operator, split by zone, utility and neighbor, with the attack's surface and each zone's lever
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  idealized_operator.py the single-snapshot least-cost DC consequence analysis of load redistribution studies on each attack day, against the closed-loop operator
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  hourly_checkout.py   the scan-rate interchange check against the hourly checkout of the same tie readings: when each knows, and the inadvertent energy taken by then
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  operator_days.py     the operator half of the damage study on attack days already built, for another dispatch without redesigning the attacks
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a>  nygrid_ac_summary.py summaries of those runs
-<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a>results/
-<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
-<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a>tests/nyfed/
-<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a>  nyfed_inputs.py      where the tests find their inputs, and which tests each input lets run
-<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a>  test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a>  test_nyfed_golden.py, golden/   snapshots of the operator, the detection tools and the interface attack
-<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
-<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>results/
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>tests/nyfed/
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  nyfed_inputs.py      where the tests find their inputs, and which tests each input lets run
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>  test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
+<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a>  test_nyfed_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
+<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -1786,7 +1750,7 @@ copies them as they are.</p>
 <li><code>attacks</code> imports <code>grid</code> and <code>sensing</code>. Its local re-solves (the subnetwork Newton of [1], load and
   flow goals, one least-squares solve since N18 holds the edge's non-free injections) live in
   <code>attacks/attacker.py</code> as the module function <code>_local_flow_solve</code>, pure numpy so <code>attacks</code> never imports pandapower; they are not <code>Network</code> methods
-  (A1 decision, see PLAN.md). A family's <code>design</code> takes <code>window</code>, the tuple <code>(onset, vm [L, N],
+  (A1 decision). A family's <code>design</code> takes <code>window</code>, the tuple <code>(onset, vm [L, N],
   va [L, N])</code> of the frames it covers. The attacker's subnetwork may span utilities, and stealth is
   global: the attack vector is written on every meter it moves beyond noise, whoever owns it, so the
   operator's one residual test over all meters reads one AC state; <code>Episode.clients</code> records the
@@ -1918,7 +1882,7 @@ copies them as they are.</p>
 <td><code>Attacker</code></td>
 <td><code>attacks/attacker.py</code></td>
 <td>a <code>Network</code>, a <code>Measurement</code></td>
-<td><code>area(center, hops)</code> (the local subnetwork of [1] in PLAN.md, which may span utilities, or <code>None</code>), <code>false_state(vm, va, area, load_change)</code> (At's load goal: the pretended loads prescribed, the other free injections of the area and its edge absorbing within the same bounds and active set, every other bus held; module <code>_local_flow_solve</code> with no target line), <code>false_flow_state(vm, va, support, lines, target_mva, load_cap, step=None, start=None)</code> (Am's flow goal, module <code>_local_flow_solve</code>: the support first grows over its non-free New York edge buses (<code>absorb</code>, N25); the free injections of the support and its edge move, every other New York bus there, zero-injection ones included, holds its injection, a bus outside New York on the edge absorbs unless it has no unit and no injection (<code>_held_bus</code>, N44, bus 140), which holds; loads capped at 0.5 of their true P and Q (D16, N24); an active set pins a free injection at a bound and releases it when the solve without the pin leaves it inside; Ap's <code>step = (centre, bound_p, bound_q)</code> adds a box around a centre; <code>start = (vm, va)</code> warm-starts the state and the active set from the previous scan's false state), <code>attack_vector(vm_t, va_t, vm_f, va_f)</code> (global, in full), <code>tampered(vm, va, a)</code> (the meters moved beyond noise, angle changes wrapped: eq. 12 count, labels, owners), <code>load_buses(vm, va, buses=None)</code>, <code>free_injection_buses(vm, va, buses)</code>, <code>boundary(interior)</code>, <code>sigma(z)</code>, <code>bus_load(vm, va)</code></td>
+<td><code>area(center, hops)</code> (the local subnetwork of [WU26], which may span utilities, or <code>None</code>), <code>false_state(vm, va, area, load_change)</code> (At's load goal: the pretended loads prescribed, the other free injections of the area and its edge absorbing within the same bounds and active set, every other bus held; module <code>_local_flow_solve</code> with no target line), <code>false_flow_state(vm, va, support, lines, target_mva, load_cap, step=None, start=None)</code> (Am's flow goal, module <code>_local_flow_solve</code>: the support first grows over its non-free New York edge buses (<code>absorb</code>, N25); the free injections of the support and its edge move, every other New York bus there, zero-injection ones included, holds its injection, a bus outside New York on the edge absorbs unless it has no unit and no injection (<code>_held_bus</code>, N44, bus 140), which holds; loads capped at 0.5 of their true P and Q (D16, N24); an active set pins a free injection at a bound and releases it when the solve without the pin leaves it inside; Ap's <code>step = (centre, bound_p, bound_q)</code> adds a box around a centre; <code>start = (vm, va)</code> warm-starts the state and the active set from the previous scan's false state), <code>attack_vector(vm_t, va_t, vm_f, va_f)</code> (global, in full), <code>tampered(vm, va, a)</code> (the meters moved beyond noise, angle changes wrapped: eq. 12 count, labels, owners), <code>load_buses(vm, va, buses=None)</code>, <code>free_injection_buses(vm, va, buses)</code>, <code>boundary(interior)</code>, <code>sigma(z)</code>, <code>bus_load(vm, va)</code></td>
 </tr>
 <tr>
 <td><code>MsFdia</code></td>
@@ -2413,7 +2377,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>O1, O2, O5</td>
-<td><code>operator/sced.py</code>, <code>operator/response.py</code>, <code>tools/nyfed/operator_cost.py</code></td>
+<td><code>operator/sced.py</code>, <code>operator/response.py</code></td>
 </tr>
 </tbody>
 </table>
@@ -2452,7 +2416,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: New York grid build">
+          <a href="../../plans/WU_DEFENSE_PLAN/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Wu defense">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2462,7 +2426,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
                 Previous
               </span>
               <div class="md-ellipsis">
-                New York grid build
+                Wu defense
               </div>
             </div>
           </a>
