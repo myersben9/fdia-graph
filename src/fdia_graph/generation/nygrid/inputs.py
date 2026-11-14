@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import io
-import zipfile
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
-from urllib.request import Request, urlopen
 
 import numpy as np
 import pandas as pd
 
 from fdia_graph.generation.nygrid.tables import read_rows
+from fdia_graph.profiles import nyiso_zone_load
 
 ZONES = tuple("ABCDEFGHIJK")
 FUELS = ("Dual Fuel", "Hydro", "Natural Gas", "Nuclear", "Other Fossil Fuels", "Other Renewables", "Wind")
@@ -196,26 +195,9 @@ def read_nygrid(data_dir: str | Path, year: int) -> list[NygridHour]:
 def fetch_nyiso(year: int, cache_dir: str | Path = "data/nyiso") -> ZoneLoad:
     """NYISO real-time actual load ('pal' feed, about 5-minute samples) for every zone and month of
     `year`, on a clean 5-minute grid. Monthly archives are cached in `cache_dir`."""
-    cache = Path(cache_dir)
-    cache.mkdir(parents=True, exist_ok=True)
-    frames = []
-    for m in range(1, 13):
-        path = cache / f"{year}{m:02d}01pal_csv.zip"
-        if not path.exists():
-            url = f"https://mis.nyiso.com/public/csv/pal/{path.name}"
-            with urlopen(Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=120) as r:
-                path.write_bytes(r.read())
-        with zipfile.ZipFile(path) as z:
-            for name in z.namelist():
-                df = pd.read_csv(io.BytesIO(z.read(name)))
-                frames.append(df[["Time Stamp", "Name", "Load"]])
-    full = pd.concat(frames)
-    full["t"] = pd.to_datetime(full["Time Stamp"])
-    full["zone"] = full.Name.map(_ZONE_NAME)
-    piv = full.dropna(subset=["zone"]).pivot_table(index="t", columns="zone", values="Load", aggfunc="mean")
-    # Zones report a few seconds apart; put them on one 5-minute grid before using them together.
     grid = pd.date_range(f"{year}-01-01", f"{year + 1}-01-01", freq="5min", inclusive="left")
-    piv = piv.reindex(piv.index.union(grid)).interpolate(limit=3).reindex(grid)[list(ZONES)]
+    months = [date(year, m, 1) for m in range(1, 13)]
+    piv = nyiso_zone_load(months, grid, cache_dir).rename(columns=_ZONE_NAME)[list(ZONES)]
     return ZoneLoad(time=piv.index.to_numpy(), load=piv.to_numpy())
 
 

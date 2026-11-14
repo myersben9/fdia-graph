@@ -26,7 +26,12 @@ class NoAdmissibleTarget(DataConditionError):
 
 
 class NoRoomForEpisode(DataConditionError):
-    """The attacked fraction cannot be placed: no free span is long enough for an episode."""
+    """The attacked fraction cannot be placed: no free span is long enough for an episode. `family` names the
+    episode's family when the placement knows it."""
+
+    def __init__(self, message: str, family: object = None) -> None:
+        super().__init__(message)
+        self.family = family
 
 
 class SlackMismatch(DataConditionError):

@@ -20,8 +20,10 @@ import io
 import os
 import warnings
 import zipfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Protocol, Union, runtime_checkable
+from urllib.request import Request, urlopen
 
 import numpy as np
 
@@ -287,34 +289,54 @@ def _month_firsts(start: _dt.date, end: _dt.date) -> Iterator[_dt.date]:
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
 
 
+def nyiso_pal_month(first: _dt.date, cache_dir: Optional[Union[str, Path]] = None) -> bytes:
+    """One month's archive of NYISO's 'pal' feed (real-time actual load by zone, about 5-minute samples, one CSV
+    per day in a zip), kept in `cache_dir` when given and read from there once it is."""
+    name = f"{first:%Y%m01}pal_csv.zip"
+    path = None if cache_dir is None else Path(cache_dir) / name
+    if path is not None and path.exists():
+        return path.read_bytes()
+    url = f"https://mis.nyiso.com/public/csv/pal/{name}"
+    with urlopen(Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=120) as r:
+        data = r.read()
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return data
+
+
+def nyiso_zone_load(
+    firsts: Iterable[_dt.date],
+    grid: Optional[pd.DatetimeIndex] = None,
+    cache_dir: Optional[Union[str, Path]] = None,
+) -> pd.DataFrame:
+    """NYISO's real-time actual load (MW) per zone, one column per zone name of the feed, on the 5-minute `grid`
+    (None: the data's own span) from the monthly archives starting at `firsts`. Zones report a few seconds apart,
+    so each is put on the grid before any two are used together, gaps of up to three samples interpolated."""
+    pd = _pandas()
+    frames = []
+    for first in firsts:
+        with zipfile.ZipFile(io.BytesIO(nyiso_pal_month(first, cache_dir))) as z:
+            for nm in z.namelist():
+                frames.append(pd.read_csv(io.BytesIO(z.read(nm)))[["Time Stamp", "Name", "Load"]])
+    full = pd.concat(frames)
+    full["Time Stamp"] = pd.to_datetime(full["Time Stamp"])
+    piv = full.pivot_table(index="Time Stamp", columns="Name", values="Load", aggfunc="mean")
+    if grid is None:
+        grid = pd.date_range(piv.index.min().floor("5min"), piv.index.max().ceil("5min"), freq="5min")
+    return piv.reindex(piv.index.union(grid)).interpolate(limit=3).reindex(grid)
+
+
 class NyisoArchive:
     """NYISO system load (MW) at 5-MINUTE resolution from the public monthly archives: built in, no
     account and no extra dependency.
 
     Uses the 'pal' feed (real-time actual, ~288 samples/day; 'palIntegrated' is only hourly), one CSV
     per day in a monthly zip. Each row is a control-zone reading; system load sums the 11 zones per
-    timestamp."""
+    timestamp (`nyiso_zone_load`)."""
 
     def fetch(self, start: _dt.date, end: _dt.date) -> pd.Series:
-        import requests
-
-        pd = _pandas()
-        frames = []
-        for first in _month_firsts(start, end):
-            url = f"https://mis.nyiso.com/public/csv/pal/{first:%Y%m01}pal_csv.zip"
-            r = requests.get(url, timeout=60, headers={"User-Agent": "Mozilla/5.0"})
-            r.raise_for_status()
-            with zipfile.ZipFile(io.BytesIO(r.content)) as z:
-                for nm in z.namelist():
-                    df = pd.read_csv(io.BytesIO(z.read(nm)))
-                    df["Time Stamp"] = pd.to_datetime(df["Time Stamp"])
-                    frames.append(df[["Time Stamp", "Name", "Load"]])
-        full = pd.concat(frames)
-        # Zones have small clock offsets; pivot onto a clean 5-min grid before summing so no timestamp
-        # under-counts.
-        piv = full.pivot_table(index="Time Stamp", columns="Name", values="Load", aggfunc="mean")
-        grid = pd.date_range(piv.index.min().floor("5min"), piv.index.max().ceil("5min"), freq="5min")
-        piv = piv.reindex(piv.index.union(grid)).interpolate(limit=3).reindex(grid)
+        piv = nyiso_zone_load(_month_firsts(start, end))
         system = piv.sum(axis=1, min_count=piv.shape[1]).dropna().sort_index()  # all zones present
         mask = (system.index.date >= start) & (system.index.date <= end)
         return system[mask]

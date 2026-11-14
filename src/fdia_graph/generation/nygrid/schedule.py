@@ -19,6 +19,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from fdia_graph.errors import NoRoomForEpisode
+from fdia_graph.generation.plan import largest_remainder, place_once, whole_episode_counts
+
 PLACE_TRIES = 10  # whole placements tried before one episode is dropped
 WEEK = 7 * 86400  # seconds
 STRATUM = 20  # weeks per stratum of `split_weeks`, one 14/3/3 draw at the default shares
@@ -73,54 +76,9 @@ def split_weeks(
     code = np.zeros(n, np.int8)
     for a in range(0, n, stratum):
         weeks = ranked[a : a + stratum]
-        counts = _largest_remainder(len(weeks), np.asarray(frac, float))
+        counts = largest_remainder(len(weeks), np.asarray(frac, float))
         code[rng.permutation(weeks)] = np.repeat(np.arange(3, dtype=np.int8), counts)
     return code[week]
-
-
-def _largest_remainder(total: int, weights: np.ndarray) -> np.ndarray:
-    """`total` whole units shared in proportion to `weights`: each gets the floor of its quota, the units
-    left go to the largest fractional parts (ties to the earlier one)."""
-    if total == 0 or len(weights) == 0:
-        return np.zeros(len(weights), int)
-    quota = total * weights / weights.sum()
-    counts = np.floor(quota).astype(int)
-    order = np.argsort(-(quota - counts), kind="stable")
-    counts[order[: total - int(counts.sum())]] += 1
-    return counts
-
-
-def _episode_counts(T: int, lengths: np.ndarray, frac: float) -> np.ndarray:
-    """Episodes per family for T frames: the number of whole episodes whose frames come closest to
-    `frac * T`, shared by largest remainder with weights 1/length so every family gets about the same
-    attacked frames, never more frames than T."""
-    best = np.zeros(len(lengths), int)
-    if not len(lengths) or frac <= 0:
-        return best
-    weights = 1.0 / lengths
-    target, best_err = frac * T, frac * T
-    for k in range(1, T // int(lengths.min()) + 1):
-        counts = _largest_remainder(k, weights)
-        frames = int(counts @ lengths)
-        if frames > T:
-            break
-        if abs(frames - target) < best_err:
-            best, best_err = counts, abs(frames - target)
-    return best
-
-
-def _uniform_onset(
-    occupied: np.ndarray, length: int, rng: np.random.Generator, allowed: np.ndarray | None = None
-) -> int | None:
-    """An onset drawn uniformly among every position where `length` consecutive frames are free (and
-    `allowed` [T] holds, when given), or None."""
-    free = np.concatenate([[0], np.cumsum(~occupied)])
-    T = len(occupied)
-    fits = free[length : T + 1] - free[: T - length + 1] == length
-    if allowed is not None:
-        fits &= allowed[: T - length + 1]
-    feasible = np.flatnonzero(fits)
-    return None if len(feasible) == 0 else int(feasible[rng.integers(len(feasible))])
 
 
 def _capacity(allowed: np.ndarray, length: int) -> int:
@@ -131,23 +89,6 @@ def _capacity(allowed: np.ndarray, length: int) -> int:
         if s > end:
             n, end = n + 1, s + length - 1
     return n
-
-
-def _place_once(
-    T: int, episodes: list[tuple[int, str]], rng: np.random.Generator, allowed: dict[str, np.ndarray]
-) -> tuple[list[Slot] | None, str | None]:
-    """One placement of (length, family) episodes in T frames, longest first, each at an onset uniform
-    among those its family allows where it fits without overlapping another: (the slots, None), or
-    (None, the family of the episode that did not fit)."""
-    occupied = np.zeros(T, bool)
-    placed = []
-    for length, family in sorted(episodes, key=lambda e: -e[0]):
-        onset = _uniform_onset(occupied, length, rng, allowed.get(family))
-        if onset is None:
-            return None, family
-        occupied[onset : onset + length] = True
-        placed.append(Slot(onset, family, length))
-    return placed, None
 
 
 def place_episodes(
@@ -164,16 +105,20 @@ def place_episodes(
     that one episode of the family that jammed is dropped, with a warning, and the placement starts over."""
     fams = list(lengths)
     allowed = {} if allowed is None else allowed
-    counts = _episode_counts(T, np.array([lengths[f] for f in fams], float), frac)
+    sizes = np.array([lengths[f] for f in fams], float)
+    counts = whole_episode_counts(sizes, 1.0 / sizes if len(sizes) else sizes, frac, T)
     for i, f in enumerate(fams):
         if f in allowed:
             counts[i] = min(counts[i], _capacity(allowed[f][: max(T - lengths[f] + 1, 0)], lengths[f]))
     episodes = [(lengths[f], f) for f, c in zip(fams, counts) for _ in range(c)]
     while episodes:
         for _ in range(PLACE_TRIES):
-            placed, jammed = _place_once(T, episodes, rng, allowed)
-            if placed is not None:
-                return sorted(placed, key=lambda s: s.onset)
+            try:
+                placed = place_once(rng, episodes, T, allowed)
+            except NoRoomForEpisode as e:
+                jammed = e.family
+                continue
+            return sorted((Slot(o, f, n) for o, f, n in placed), key=lambda s: s.onset)
         episodes.remove(next(e for e in episodes if e[1] == jammed))
         warnings.warn(
             f"{PLACE_TRIES} placements jammed, one {jammed} episode dropped", RuntimeWarning, stacklevel=2
