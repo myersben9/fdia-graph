@@ -1,6 +1,6 @@
 """Studies over attack windows: the parts every research tool under `tools/nyfed/` repeats, in one place.
 
-A study is a folder that `tools/nyfed/damage_study.py` filled with single-episode day files, `days/am_<onset>_<mw>.h5`,
+A study is a folder of single-episode day files, `days/am_<onset>_<mw>.h5`,
 one per attack window: at the limit (`mw` 0) or past it. A tool reads those days, runs the operator or a detector on
 each in parallel and writes one CSV. `study_days` lists the days, `variant` names a day's form, `load_calib` reads the
 interchange check's calibration, `add_study_arguments` declares the options every tool shares (`add_dispatch_argument`
@@ -33,7 +33,7 @@ __all__ = [
 
 POOL = "out/pool_2019_v3.h5"  # the 2019 operating-point pool, relative to the work folder
 DATA = "data/NYgrid/Data"  # NYgrid's data tables
-CALIB = "results/nygrid.tie_check.json"  # the interchange check's calibration (tools/nyfed/tie_check.py)
+CALIB = "results/nygrid.tie_check.json"  # the interchange check's calibration, mean and std of the benign gap
 # one BLAS thread per worker: the jobs are many small dense solves, and a pool of workers each running a full
 # thread team oversubscribes the machine
 _THREADS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
@@ -78,11 +78,11 @@ def add_study_arguments(
     worker count and a `--limit` for a quick check on the first days."""
     ap.add_argument("out", help="the CSV to write")
     if studies:
-        ap.add_argument("studies", nargs="+", help="damage_study.py output folders")
+        ap.add_argument("studies", nargs="+", help="study folders of day files")
     ap.add_argument("--pool", default=POOL)
     ap.add_argument("--data", default=DATA)
     if calib:
-        ap.add_argument("--calib", default=CALIB, help="tie_check.py's calibration")
+        ap.add_argument("--calib", default=CALIB, help="the interchange check's calibration (JSON)")
     if dispatch:
         add_dispatch_argument(ap)
     ap.add_argument("--workers", type=int, default=8)

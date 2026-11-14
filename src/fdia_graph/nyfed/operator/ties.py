@@ -83,7 +83,7 @@ def interchange_alarm(
 ) -> int | None:
     """The first scan at or after the onset whose read interchange is off the neighbours' meters by
     more than four standard deviations of the gap's benign noise (N62). `calib` is that noise's mean and
-    standard deviation (MW), calibrated on other days (`tools/nyfed/tie_check.py`); by default the benign
+    standard deviation (MW), calibrated on other days; by default the benign
     day's own, which is in sample."""
     if day.onset < 0:
         return None

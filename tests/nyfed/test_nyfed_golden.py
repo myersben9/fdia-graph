@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from dataclasses import fields
 from pathlib import Path
 
@@ -38,7 +37,6 @@ CALIB = (28.41, 13.76)  # the interchange check's calibration, results/nygrid.ti
 RULE = (428.7, 2, 3)  # the residual test's persistence rule
 GOLDEN = Path(__file__).parent / "golden"
 UPDATE = os.environ.get("NYFED_UPDATE_GOLDEN") == "1"
-TOOLS = Path(__file__).resolve().parents[2] / "tools" / "nyfed"
 
 pytestmark = needs_data
 
@@ -122,16 +120,6 @@ def days():
     return {w: operator_day(DAYS / w, DAYS_POOL, DATA) for w in WINDOWS}
 
 
-@pytest.fixture(scope="module")
-def tools():
-    sys.path.insert(0, str(TOOLS))
-    import adaptive_bdd
-    import closed_loop_bdd
-    import naive_tie_bias
-
-    return closed_loop_bdd, adaptive_bdd, naive_tie_bias
-
-
 @pytest.mark.parametrize("window", WINDOWS)
 @pytest.mark.parametrize("mode", ("trusting", "accounting", "oracle"))
 @pytest.mark.parametrize("closed_loop", (False, True))
@@ -166,29 +154,6 @@ def test_respond_options(days, window, options):
     r = respond(day, mode="trusting", calib=CALIB, closed_loop=True, **kw)
     tag = "_".join(f"{k}-{v}" for k, v in options.items())
     check(f"respond_{Path(window).stem}_{tag}", _response(r))
-
-
-@pytest.mark.parametrize("window", WINDOWS)
-def test_closed_loop_residual_test(tools, window):
-    closed_loop_bdd = tools[0]
-    row = closed_loop_bdd._job(str(DAYS / window), str(DAYS_POOL), str(DATA), CALIB, "trusting", 420.1, 2)
-    check(f"closed_loop_bdd_{Path(window).stem}", row)
-
-
-@pytest.mark.parametrize("window", WINDOWS)
-def test_adaptive_attacker(tools, window):
-    adaptive_bdd = tools[1]
-    row = adaptive_bdd._job(
-        str(DAYS / window), str(DAYS_POOL), str(DATA), CALIB, "trusting", PersistenceRule(*RULE)
-    )
-    check(f"adaptive_bdd_{Path(window).stem}", row)
-
-
-@pytest.mark.parametrize("window", WINDOWS)
-def test_naive_tie_bias(tools, window):
-    naive_tie_bias = tools[2]
-    row = naive_tie_bias._job(str(DAYS / window), str(DAYS_POOL), str(DATA), PersistenceRule(*RULE))
-    check(f"naive_tie_bias_{Path(window).stem}", row)
 
 
 def test_persistence_rule():

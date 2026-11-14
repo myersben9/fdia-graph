@@ -7,8 +7,8 @@ operator's own rules. It has been part of fdia-graph since 2026-11-02: the packa
 
 Read alongside: [the walkthrough](WALKTHROUGH.md) follows one attack through every stage with the call that does each
 step, [the extending guide](EXTENDING.md) says how to add an attack, a detector or an operator, and
-[the troubleshooting page](TROUBLESHOOTING.md) what each stage reports when it fails. The decisions behind the design,
-numbered N1 onward, are in [the plan](PLAN.md).
+[the troubleshooting page](TROUBLESHOOTING.md) what each stage reports when it fails. Tags N1 onward in the code
+number the design decisions.
 
 ## How a run flows
 
@@ -114,25 +114,17 @@ src/fdia_graph/nyfed/
     areas.py           area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
     response.py        every name above, re-exported for the imports written before the split
 tools/nyfed/
-  operator_cost.py     the operator on single-episode days: results/nygrid.operator_cost.csv and the per-scan trace
-  tie_check.py         the interchange check's false alarms over 2019, calibrated on January to March (N67)
-  area_damage.py       the damage study's days through each operator, split by zone, utility and neighbor, with the attack's surface and each zone's lever
-  idealized_operator.py the single-snapshot least-cost DC consequence analysis of load redistribution studies on each attack day, against the closed-loop operator
-  hourly_checkout.py   the scan-rate interchange check against the hourly checkout of the same tie readings: when each knows, and the inadvertent energy taken by then
-  operator_days.py     the operator half of the damage study on attack days already built, for another dispatch without redesigning the attacks
-  damage_study.py      both forms of the overload attack (at the limit, at its largest overshoot) on near-limit onsets drawn at random, each through the operator: damage.csv (N58 to N60)
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
   build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
   matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-  nygrid_ac_summary.py summaries of those runs
   run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from attacks/attacker.py's constants, NYgrid's reactive limits (N38)
 results/
-  nygrid.ac_year.csv, nygrid.ac_ablation.csv   per-hour MATLAB results, with .json summaries
+  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
 tests/nyfed/
   nyfed_inputs.py      where the tests find their inputs, and which tests each input lets run
   test_nyfed_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
   test_nyfed_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-  test_nyfed_golden.py, golden/   snapshots of the operator, the detection tools and the interface attack
+  test_nyfed_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
   data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 ```
@@ -149,7 +141,7 @@ The stages are drawn under "How a run flows" above. The imports point one way:
 - `attacks` imports `grid` and `sensing`. Its local re-solves (the subnetwork Newton of [1], load and
   flow goals, one least-squares solve since N18 holds the edge's non-free injections) live in
   `attacks/attacker.py` as the module function `_local_flow_solve`, pure numpy so `attacks` never imports pandapower; they are not `Network` methods
-  (A1 decision, see PLAN.md). A family's `design` takes `window`, the tuple `(onset, vm [L, N],
+  (A1 decision). A family's `design` takes `window`, the tuple `(onset, vm [L, N],
   va [L, N])` of the frames it covers. The attacker's subnetwork may span utilities, and stealth is
   global: the attack vector is written on every meter it moves beyond noise, whoever owns it, so the
   operator's one residual test over all meters reads one AC state; `Episode.clients` records the
@@ -189,7 +181,7 @@ Frozen dataclasses of arrays, passed between classes.
 | `Measurement` | `sensing/measure.py` | a `Network`, a `MeterPlan` | `h(vm, va) -> z`, `jacobian(vm, va)`, `for_client(c)` |
 | `NoiseModel` | `sensing/noise.py` | the accuracy classes, the per-meter biases | `sigmas(z)`, `sample(z, rng)` |
 | `AttackFamily` | `attacks/episode.py` | interface only | `design(window, rng) -> Episode` |
-| `Attacker` | `attacks/attacker.py` | a `Network`, a `Measurement` | `area(center, hops)` (the local subnetwork of [1] in PLAN.md, which may span utilities, or `None`), `false_state(vm, va, area, load_change)` (At's load goal: the pretended loads prescribed, the other free injections of the area and its edge absorbing within the same bounds and active set, every other bus held; module `_local_flow_solve` with no target line), `false_flow_state(vm, va, support, lines, target_mva, load_cap, step=None, start=None)` (Am's flow goal, module `_local_flow_solve`: the support first grows over its non-free New York edge buses (`absorb`, N25); the free injections of the support and its edge move, every other New York bus there, zero-injection ones included, holds its injection, a bus outside New York on the edge absorbs unless it has no unit and no injection (`_held_bus`, N44, bus 140), which holds; loads capped at 0.5 of their true P and Q (D16, N24); an active set pins a free injection at a bound and releases it when the solve without the pin leaves it inside; Ap's `step = (centre, bound_p, bound_q)` adds a box around a centre; `start = (vm, va)` warm-starts the state and the active set from the previous scan's false state), `attack_vector(vm_t, va_t, vm_f, va_f)` (global, in full), `tampered(vm, va, a)` (the meters moved beyond noise, angle changes wrapped: eq. 12 count, labels, owners), `load_buses(vm, va, buses=None)`, `free_injection_buses(vm, va, buses)`, `boundary(interior)`, `sigma(z)`, `bus_load(vm, va)` |
+| `Attacker` | `attacks/attacker.py` | a `Network`, a `Measurement` | `area(center, hops)` (the local subnetwork of [WU26], which may span utilities, or `None`), `false_state(vm, va, area, load_change)` (At's load goal: the pretended loads prescribed, the other free injections of the area and its edge absorbing within the same bounds and active set, every other bus held; module `_local_flow_solve` with no target line), `false_flow_state(vm, va, support, lines, target_mva, load_cap, step=None, start=None)` (Am's flow goal, module `_local_flow_solve`: the support first grows over its non-free New York edge buses (`absorb`, N25); the free injections of the support and its edge move, every other New York bus there, zero-injection ones included, holds its injection, a bus outside New York on the edge absorbs unless it has no unit and no injection (`_held_bus`, N44, bus 140), which holds; loads capped at 0.5 of their true P and Q (D16, N24); an active set pins a free injection at a bound and releases it when the solve without the pin leaves it inside; Ap's `step = (centre, bound_p, bound_q)` adds a box around a centre; `start = (vm, va)` warm-starts the state and the active set from the previous scan's false state), `attack_vector(vm_t, va_t, vm_f, va_f)` (global, in full), `tampered(vm, va, a)` (the meters moved beyond noise, angle changes wrapped: eq. 12 count, labels, owners), `load_buses(vm, va, buses=None)`, `free_injection_buses(vm, va, buses)`, `boundary(interior)`, `sigma(z)`, `bus_load(vm, va)` |
 | `MsFdia` | `attacks/msfdia.py` | an `Attacker`, the ratings; for Ap (ours) `step_bound [24, N]` (`natural_steps` at load buses, `generator_ramps` at generator buses, on the reported output there; a column of inf leaves that bus unbounded per step), `frame_hour [T]` the clock hour of the frames onsets index, `kappa` (1.0), `reactive_step` (False: Ap bounds only the active step, N22; True: the P+Q variant), `family` ("Am" by default, "Ap"), `target_order` ("loading" by default, the most loaded eligible line at the window's last scan first, N26; "random"), `bound_rise`, `exit_scans` (N30), `wait_share` (N36, None or `NEAR_LIMIT` 0.9) | `design(window, rng)`; with `step_bound=None` it is Am. Both solve a support's scans in order, each warm-started from the previous scan's false state. `loaded_frames(vm, va, share) -> [T]` whether some candidate line carries `share` of its rating; `onset_mask(vm, va, length) -> [T] or None` the onsets whose last rise scan is loaded (N36) |
 | `OpfFdia` | `attacks/opf_attack.py` | `MsFdia`'s settings plus `gen_ramp [N]` (`generator_ramps`), `gen_band [N]` (`generator_band`, 3% of the upper limit, N33/N37), `q_lo`, `q_hi [N]` (`generator_q_capability`, widened to the unit's true Q, N34/N38), `q_ramp [N]` (unbounded by default, N37), `windows_solved` (3), `gen_output [T, N]` (the units' output at each bus, from the pool's `unit_p`; the generator bounds act on it and the load at the bus moves within the load cap, N42), `loads_only` (False; True pretends no generator bus, N43) | `design(window, rng)`: MsFdia's target choice and support search, each candidate support tested by a one-scan AC OPF at the full overload with every static bound (`_static`), then solved scan by scan by Ipopt with the ramp, step and band bounds, each scan kept within reach of the full-overload solution and of zero at the last scan; the support whose window tampers the fewest meters is kept and an attack still tampering at the last scan does not exist |
 | `InterfaceFdia` | `attacks/interface_attack.py` | `OpfFdia`'s settings plus `interfaces` (a list of `Interface`, built over the same frames as the pool) and `near` (0.9); `windows_solved` 6 | `onset_mask(vm, va, length)` (last rise scan in a real 2019 hour at `near` of some interface's limit, N48), `design(window, rng)`: the goal is the model's interface flow plus that hour's real headroom (N49); supports grow from one interface branch's ends at a time; each window is solved with the meter objective (the change beyond noise on every P and Q flow meter touching the interior and every interior voltage meter, added to the injection terms) and with `OpfFdia`'s objective where that fails; the fewest tampered meters over all anchors is kept |
@@ -293,4 +285,4 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | D1 | `timeline/schedule.py`, `timeline/builder.py`, `TimelineWriter` in `io.py` |
 | D2 | `dataset.py`, `open_timeline` in `io.py` |
 | D3 | `build.py` (`fetch_inputs`, `production_builder`), `tools/nyfed/build_timeline.py`, `tools/nyfed/build_single_episodes.py` |
-| O1, O2, O5 | `operator/sced.py`, `operator/response.py`, `tools/nyfed/operator_cost.py` |
+| O1, O2, O5 | `operator/sced.py`, `operator/response.py` |

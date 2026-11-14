@@ -1,4 +1,4 @@
-"""Where the bottom-up load profiles come from (Li et al. [2], PLAN.md), each downloaded once into a cache: the
+"""Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the
 NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and
 the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus
 profiles from these."""
