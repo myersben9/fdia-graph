@@ -40,6 +40,9 @@ classDiagram
     class ConfigError {
         <<models>>
     }
+    class DqnConfig {
+        <<models>>
+    }
     class GridScores {
         <<models>>
     }
@@ -105,6 +108,7 @@ classDiagram
     LearnedLocalizer ..> GridScores : uses
     LearnedLocalizer ..> JacobianFeatures : uses
     LearnedLocalizer ..> LearnedConfig : uses
+    LearnedLocalizer ..> LocalizerConfig : uses
     LearnedLocalizer ..> NoAttackedRecords : uses
     LearnedLocalizer ..> NotFitted : uses
     LearnedLocalizer ..> OptimConfig : uses
@@ -118,9 +122,12 @@ classDiagram
     LocalizerBase ..> PerBusReport : uses
     LocalizerBase ..> PerBusScores : uses
     LocalizerBase ..> ShapedArray : uses
+    ResidualLocalizer ..> LocalizerConfig : uses
     ResidualLocalizer ..> SEBase : estimator
     ResidualLocalizer ..> WLS : uses
     TrustSelector ..> NoBenignRecords : uses
     TrustSelector ..> TrustConfig : uses
     TrustSelector ..> TrustScores : uses
     TrustSelector ..> WLS : uses
+    TrustedMetersDQN ..> DqnConfig : uses
+    TrustedMetersDQN ..> TrustConfig : uses

@@ -1325,7 +1325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../nyfed/ARCHITECTURE/" class="md-nav__link">
+      <a href="../nygrid/ARCHITECTURE/" class="md-nav__link">
         
   
   
@@ -1494,11 +1494,13 @@
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">train</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s2">"time"</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">tm</span> <span class="o">=</span> <span class="n">TrustedMeters</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>  <span class="c1"># the greedy row-reduction selection on the Jacobian</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">tm</span> <span class="o">=</span> <span class="n">TrustedMeters</span><span class="p">(</span><span class="n">TrustConfig</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">20</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>  <span class="c1"># the greedy row-reduction selection on the Jacobian</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">tm</span><span class="o">.</span><span class="n">order</span><span class="p">,</span> <span class="n">tm</span><span class="o">.</span><span class="n">cost</span>  <span class="c1"># the meters secured in order, the attack cost after each</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">rep</span> <span class="o">=</span> <span class="n">tm</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># residual detection per family, with and without the trust</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">rl</span> <span class="o">=</span> <span class="n">TrustedMetersDQN</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">episodes</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>  <span class="c1"># the same selection as an MDP with a DQN policy</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">rl</span> <span class="o">=</span> <span class="n">TrustedMetersDQN</span><span class="p">(</span><span class="n">TrustConfig</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span> <span class="n">dqn</span><span class="o">=</span><span class="n">DqnConfig</span><span class="p">(</span><span class="n">episodes</span><span class="o">=</span><span class="mi">200</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">train</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>  <span class="c1"># the same selection as an MDP with a DQN policy</span>
 </code></pre></div>
 <p><img alt="tm.fit: the WLS Jacobian at the benign mean, the attack subspace left open by the secured rows, the attack cost, then the greedy or the DQN selection; tm.score: secured meters read their benign value, the WLS residual test at the benign alarm level, detection per family before and after" src="../figures/diagrams/trust_flow.png" /></p>
 <h2 id="the-idea">The idea<a class="headerlink" href="#the-idea" title="Permanent link">&para;</a></h2>
@@ -1610,7 +1612,7 @@ selections of <code>run_trust.py</code> and writes runs of <code>trust.secured_l
 <p>Rule: a localization gate never down-weights a secured meter.
 <code>GatedPrior</code> scales every meter of a flagged bus by a thousandth. On a secured copy those meters
 include the secured ones, the only true readings inside the attacked region, so a plain gate throws
-away the evidence the trusted set provides. <code>GatedPrior(secured=tm.select())</code> keeps the secured
+away the evidence the trusted set provides. <code>GatedPrior(GateConfig(gate), secured=tm.select())</code> keeps the secured
 meters at full weight, and that arm wins on IEEE-14.</p>
 <p>IEEE-14, 20 secured meters, test split, node-F1 with the detection rate in parentheses:</p>
 <!-- results: trust.secured_loc ieee14 -->

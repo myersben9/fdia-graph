@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/nyfed/TROUBLESHOOTING/">
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/nygrid/TROUBLESHOOTING/">
       
       
       
@@ -1440,7 +1440,7 @@
 
 
 <h1 id="the-new-york-grid-how-it-fails">The New York grid: how it fails<a class="headerlink" href="#the-new-york-grid-how-it-fails" title="Permanent link">&para;</a></h1>
-<p>Every stage of <code>fdia_graph.nyfed</code> either raises a named error or records why it produced less than asked. This
+<p>Every stage of <code>fdia_graph.generation.nygrid</code> either raises a named error or records why it produced less than asked. This
 page lists what each stage reports, what it means and what to do. The stages are those of
 <a href="../../guides/new_york/">the guide</a>: environment, inputs, the operating-point pool, the timeline, the operator and
 the detection tools. The errors live in <code>fdia_graph.errors</code>. A wrong argument is a <code>ConfigError</code> and data that
@@ -1460,7 +1460,7 @@ the data.</p>
 <tr>
 <td><code>SolverUnavailable: Ipopt is not found or does not start</code></td>
 <td>Ipopt is not installed, or it is installed but cannot load its DLLs. On Windows a missing DLL shows as exit code <code>0xC0000135</code></td>
-<td><code>conda install -c conda-forge ipopt</code> into the environment, and run that environment's Python with the environment active, so its <code>Library/bin</code> folder is on PATH. <code>fdia_graph.nyfed.solvers.ipopt()</code> adds the folder when it exists</td>
+<td><code>conda install -c conda-forge ipopt</code> into the environment, and run that environment's Python with the environment active, so its <code>Library/bin</code> folder is on PATH. <code>fdia_graph.engine.solvers.ipopt()</code> adds the folder when it exists</td>
 </tr>
 <tr>
 <td><code>SolverUnavailable: Pyomo is not installed</code></td>
@@ -1602,15 +1602,15 @@ listing the allowed values. In the result:</p>
 </tbody>
 </table>
 <h2 id="the-detection-tools">The detection tools<a class="headerlink" href="#the-detection-tools" title="Permanent link">&para;</a></h2>
-<p>The research tools under <code>tools/nyfed/</code> show every warning; none is silenced. Their detection thresholds come
+<p>The research tools under <code>tools/nygrid/</code> show every warning; none is silenced. Their detection thresholds come
 from the calibration files under <code>results/</code>.</p>
 <h2 id="the-golden-snapshots">The golden snapshots<a class="headerlink" href="#the-golden-snapshots" title="Permanent link">&para;</a></h2>
-<p><code>tests/nyfed/test_nyfed_golden.py</code> compares what the operator, the detection tools and the interface attack return
-on fixed inputs with the snapshots in <code>tests/nyfed/golden/</code>. A failure names the first value that changed. If the
-change is intended, rewrite the snapshots with <code>NYFED_UPDATE_GOLDEN=1</code> and say in the pull request which numbers
+<p><code>tests/nygrid/test_nygrid_golden.py</code> compares what the operator, the detection tools and the interface attack return
+on fixed inputs with the snapshots in <code>tests/nygrid/golden/</code>. A failure names the first value that changed. If the
+change is intended, rewrite the snapshots with <code>NYGRID_UPDATE_GOLDEN=1</code> and say in the pull request which numbers
 moved and why. The operator and detection snapshots run on the attack days checked in under
-<code>tests/nyfed/data/days</code> with NYgrid's inputs, so CI runs them; the interface attack's design also needs the whole
-2019 pool under <code>NYFED_ROOT</code> and skips without it.</p>
+<code>tests/nygrid/data/days</code> with NYgrid's inputs, so CI runs them; the interface attack's design also needs the whole
+2019 pool under <code>NYGRID_ROOT</code> and skips without it.</p>
 
 
 

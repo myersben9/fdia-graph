@@ -10,7 +10,7 @@
       
       
       
-        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/nyfed/WALKTHROUGH/">
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/nygrid/EXTENDING/">
       
       
       
@@ -23,7 +23,7 @@
     
     
       
-        <title>The New York grid: one run, end to end - fdia-graph</title>
+        <title>The New York grid: extending it - fdia-graph</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#the-new-york-grid-one-run-end-to-end" class="md-skip">
+        <a href="#the-new-york-grid-extending-it" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              The New York grid: one run, end to end
+              The New York grid: extending it
             
           </span>
         </div>
@@ -1343,10 +1343,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-the-network-and-the-clients" class="md-nav__link">
+  <a href="#what-you-can-add" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. The network and the clients
+        What you can add
       
     </span>
   </a>
@@ -1354,10 +1354,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-the-operating-points" class="md-nav__link">
+  <a href="#an-attack-family" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. The operating points
+        An attack family
       
     </span>
   </a>
@@ -1365,10 +1365,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-the-meters-the-attacker-and-the-timeline" class="md-nav__link">
+  <a href="#an-alarm-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. The meters, the attacker and the timeline
+        An alarm rule
       
     </span>
   </a>
@@ -1376,10 +1376,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-the-clients-view" class="md-nav__link">
+  <a href="#an-operator" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. The clients' view
+        An operator
       
     </span>
   </a>
@@ -1387,21 +1387,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-the-operators-response" class="md-nav__link">
+  <a href="#changing-the-package-itself" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. The operator's response
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-the-residual-test-after-the-operator-acts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. The residual test after the operator acts
+        Changing the package itself
       
     </span>
   </a>
@@ -1428,87 +1417,78 @@
   
 
 
-<h1 id="the-new-york-grid-one-run-end-to-end">The New York grid: one run, end to end<a class="headerlink" href="#the-new-york-grid-one-run-end-to-end" title="Permanent link">&para;</a></h1>
-<p>This page follows one attack through every stage of <code>fdia_graph.nyfed</code>, from the network to the operator's alarm,
-with the call that does each step. <a href="../ARCHITECTURE/">The architecture</a> says how the modules fit together,
-<a href="../TROUBLESHOOTING/">the troubleshooting page</a> what each stage reports when it fails, and
-<a href="../EXTENDING/">the extending guide</a> how to add an attack, a detector or an operator of your own.</p>
-<p><img alt="The stages of fdia_graph.nyfed" src="../../figures/diagrams/nyfed_pipeline.png" /></p>
-<p>The snippets run from a work folder that holds the inputs (<code>python tools/nyfed/build_timeline.py --fetch</code>, see
-<a href="../../guides/new_york/">the guide</a>) and the 2019 pool (<code>tools/nyfed/run_pool.py</code>, several hours).</p>
-<h2 id="1-the-network-and-the-clients">1. The network and the clients<a class="headerlink" href="#1-the-network-and-the-clients" title="Permanent link">&para;</a></h2>
-<p><code>grid</code> turns NYgrid's case into a <code>Case</code>, a frozen record of arrays, and its admittances into a <code>Network</code>. Each New
-York bus belongs to one utility, a client of the federated dataset.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.grid</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span><span class="p">,</span> <span class="n">modify_mpc</span><span class="p">,</span> <span class="n">nygrid_units</span><span class="p">,</span> <span class="n">read_npcc</span><span class="p">,</span> <span class="n">restore_765kv</span><span class="p">,</span> <span class="n">split_zone_j</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">data</span> <span class="o">=</span> <span class="s2">"data/NYgrid/Data"</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">case</span> <span class="o">=</span> <span class="n">restore_765kv</span><span class="p">(</span><span class="n">split_zone_j</span><span class="p">(</span><span class="n">nygrid_units</span><span class="p">(</span><span class="n">modify_mpc</span><span class="p">(</span><span class="n">read_npcc</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">/npcc.mat"</span><span class="p">)),</span> <span class="n">data</span><span class="p">)))</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">net</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">case</span><span class="p">)</span>
-</code></pre></div>
-<p>Each step returns a new <code>Case</code>; none changes one in place.</p>
-<h2 id="2-the-operating-points">2. The operating points<a class="headerlink" href="#2-the-operating-points" title="Permanent link">&para;</a></h2>
-<p><code>scenario</code> gives the true AC state of every five-minute frame of 2019: the loads by bus (<code>LoadModel</code>), NYgrid's
-hourly dispatch, and a ramp-limited least-cost AC dispatch solved frame by frame (<code>PoolBuilder</code>). The year takes
-hours, so it is built once and read back:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_pool</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.scenario</span><span class="w"> </span><span class="kn">import</span> <span class="n">SOLVED</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">pool</span> <span class="o">=</span> <span class="n">read_pool</span><span class="p">(</span><span class="s2">"out/pool_2019_v3.h5"</span><span class="p">)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">print</span><span class="p">((</span><span class="n">pool</span><span class="o">.</span><span class="n">solve_kind</span> <span class="o">==</span> <span class="n">SOLVED</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>  <span class="c1"># 0.998: the frames that solved; only these are used downstream</span>
-</code></pre></div>
-<h2 id="3-the-meters-the-attacker-and-the-timeline">3. The meters, the attacker and the timeline<a class="headerlink" href="#3-the-meters-the-attacker-and-the-timeline" title="Permanent link">&para;</a></h2>
-<p><code>production_builder</code> assembles the release build: the clients, the meter plan, the attacker and its families, over
-the pool. One attack window can be built on its own, which is how the studies of the paper are made:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed</span><span class="w"> </span><span class="kn">import</span> <span class="n">production_builder</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">b</span> <span class="o">=</span> <span class="n">production_builder</span><span class="p">(</span><span class="s2">"out/pool_2019_v3.h5"</span><span class="p">,</span> <span class="p">(</span><span class="s2">"Am"</span><span class="p">,),</span> <span class="n">workers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">survey</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">b</span><span class="o">.</span><span class="n">build_episode</span><span class="p">(</span><span class="s2">"one.h5"</span><span class="p">,</span> <span class="n">onset</span><span class="o">=</span><span class="mi">48220</span><span class="p">,</span> <span class="n">family</span><span class="o">=</span><span class="s2">"Am"</span><span class="p">)</span>  <span class="c1"># the interface attack at the limit, on its day</span>
-</code></pre></div>
-<p>The Am family (<code>InterfaceFdia</code>) raises the reported flow of the Sprain Brook and Dunwoodie South interface to its
-limit while keeping every reading consistent with a false state, so the operator's residual test cannot see it.
-<code>b.build(path)</code> writes the whole year instead, with episodes placed at random; its summary counts what it placed,
-built and, by reason, missed.</p>
-<h2 id="4-the-clients-view">4. The clients' view<a class="headerlink" href="#4-the-clients-view" title="Permanent link">&para;</a></h2>
-<p>A client reads only its own meters, and the labels of its own buses:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span><span class="s2">"one.h5"</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">view</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">clients</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">view</span><span class="o">.</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">view</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># scans x this client's meters, scans x its buses</span>
-</code></pre></div>
-<h2 id="5-the-operators-response">5. The operator's response<a class="headerlink" href="#5-the-operators-response" title="Permanent link">&para;</a></h2>
-<p><code>operator_day</code> reads the attacked day with its benign twin; <code>respond</code> runs the operator on both, under an
-<code>OperatorPolicy</code>; <code>summarize</code> gives the attack's consequence, attacked less benign:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">OperatorPolicy</span><span class="p">,</span> <span class="n">operator_day</span><span class="p">,</span> <span class="n">respond</span><span class="p">,</span> <span class="n">summarize</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">day</span> <span class="o">=</span> <span class="n">operator_day</span><span class="p">(</span><span class="s2">"one.h5"</span><span class="p">,</span> <span class="s2">"out/pool_2019_v3.h5"</span><span class="p">,</span> <span class="s2">"data/NYgrid/Data"</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">r</span> <span class="o">=</span> <span class="n">respond</span><span class="p">(</span><span class="n">day</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">OperatorPolicy</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"trusting"</span><span class="p">,</span> <span class="n">closed_loop</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">s</span> <span class="o">=</span> <span class="n">summarize</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">"dispatch_moved_mw"</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s2">"inadvertent_mwh"</span><span class="p">],</span> <span class="n">s</span><span class="p">[</span><span class="s2">"pf_failed_scans"</span><span class="p">])</span>
-</code></pre></div>
-<p>The trusting operator follows the attack's false load while its control error, read from the same falsified tie
-meters, hides the shortfall: the neighbours supply it as inadvertent interchange. <code>r.alarm</code> is the scan the
-interchange check against the neighbours' meters fires on (<code>interchange_alarm</code>).</p>
-<h2 id="6-the-residual-test-after-the-operator-acts">6. The residual test after the operator acts<a class="headerlink" href="#6-the-residual-test-after-the-operator-acts" title="Permanent link">&para;</a></h2>
-<p>The attack was designed on the benign states; once the operator has moved generation, the true state is another
-one, and the same attack vector no longer fits a state:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.attacks</span><span class="w"> </span><span class="kn">import</span> <span class="n">wrap_angles</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.detect</span><span class="w"> </span><span class="kn">import</span> <span class="n">PersistenceRule</span><span class="p">,</span> <span class="n">reference_bus</span><span class="p">,</span> <span class="n">wls</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.operator</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrueGrid</span><span class="p">,</span> <span class="n">entry_share</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.grid</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.sensing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Measurement</span><span class="p">,</span> <span class="n">NoiseModel</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">meas</span><span class="p">,</span> <span class="n">noise</span> <span class="o">=</span> <span class="n">Measurement</span><span class="p">(</span><span class="n">Network</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">case</span><span class="p">),</span> <span class="n">day</span><span class="o">.</span><span class="n">plan</span><span class="p">),</span> <span class="n">NoiseModel</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">plan</span><span class="p">)</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">grid</span><span class="p">,</span> <span class="n">share</span><span class="p">,</span> <span class="n">ref</span> <span class="o">=</span> <span class="n">TrueGrid</span><span class="p">(</span><span class="n">day</span><span class="p">),</span> <span class="n">entry_share</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">case</span><span class="p">,</span> <span class="s2">"capacity"</span><span class="p">),</span> <span class="n">reference_bus</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">case</span><span class="p">)</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">j</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">onset</span><span class="p">,</span> <span class="n">day</span><span class="o">.</span><span class="n">onset</span> <span class="o">+</span> <span class="n">day</span><span class="o">.</span><span class="n">length</span><span class="p">):</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">x</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">run_state</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">attacked</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">share</span><span class="p">)</span>  <span class="c1"># the true state once the operator has acted</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">e</span> <span class="o">=</span> <span class="n">wrap_angles</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">z_benign</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">-</span> <span class="n">meas</span><span class="o">.</span><span class="n">h</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">vm</span><span class="p">[</span><span class="n">t</span><span class="p">],</span> <span class="n">day</span><span class="o">.</span><span class="n">va</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span> <span class="n">day</span><span class="o">.</span><span class="n">plan</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>  <span class="c1"># this scan's meter noise</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    <span class="n">z</span> <span class="o">=</span> <span class="n">meas</span><span class="o">.</span><span class="n">h</span><span class="p">(</span><span class="o">*</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">z</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">-</span> <span class="n">day</span><span class="o">.</span><span class="n">z_benign</span><span class="p">[</span><span class="n">t</span><span class="p">])</span> <span class="o">+</span> <span class="n">e</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="n">j</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">wls</span><span class="p">(</span><span class="n">meas</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">noise</span><span class="o">.</span><span class="n">sigmas</span><span class="p">(</span><span class="n">day</span><span class="o">.</span><span class="n">z_benign</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span> <span class="o">*</span><span class="n">x</span><span class="p">,</span> <span class="n">ref</span><span class="p">)</span><span class="o">.</span><span class="n">j</span><span class="p">)</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">PersistenceRule</span><span class="p">(</span><span class="mf">428.7</span><span class="p">)</span><span class="o">.</span><span class="n">first_alarm</span><span class="p">(</span><span class="n">j</span><span class="p">))</span>  <span class="c1"># the first scan the residual test alarms on, -1 for none</span>
-</code></pre></div>
-<p><code>PersistenceRule.fit</code> calibrates the threshold on benign days.</p>
+<h1 id="the-new-york-grid-extending-it">The New York grid: extending it<a class="headerlink" href="#the-new-york-grid-extending-it" title="Permanent link">&para;</a></h1>
+<p><code>fdia_graph.generation.nygrid</code> is built to take new parts without changes to its own code. This page names each extension
+point, what it must provide, and a runnable example that implements it. The examples under <code>examples/nygrid/</code> need
+no data, and CI runs each of them, so they stay current with the code. For how the stages fit together see
+<a href="../ARCHITECTURE/">the architecture</a>, for one run end to end <a href="../WALKTHROUGH/">the walkthrough</a>.</p>
+<h2 id="what-you-can-add">What you can add<a class="headerlink" href="#what-you-can-add" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>You add</th>
+<th>It provides</th>
+<th>It plugs into</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>An attack family</td>
+<td><code>design(window, rng) -&gt; Episode \| None</code> (subclass <code>AttackFamily</code>)</td>
+<td><code>TimelineBuilder</code> beside the package's families; <code>design_explained</code> reports why a window has none</td>
+<td><a href="../../examples/nygrid/custom_attack_family.py">custom_attack_family.py</a></td>
+</tr>
+<tr>
+<td>An alarm rule</td>
+<td><code>first_alarm(stat) -&gt; int</code> (the <code>AlarmRule</code> protocol)</td>
+<td>anywhere <code>PersistenceRule</code> is used, the detection tools included</td>
+<td><a href="../../examples/nygrid/custom_alarm_rule.py">custom_alarm_rule.py</a></td>
+</tr>
+<tr>
+<td>An operator</td>
+<td><code>respond(day, *, calib, alarm_at) -&gt; Response</code> (the <code>Operator</code> protocol)</td>
+<td><code>summarize</code> and the detection tools, unchanged</td>
+<td><a href="../../examples/nygrid/custom_operator.py">custom_operator.py</a></td>
+</tr>
+<tr>
+<td>A study</td>
+<td>a job over attack windows</td>
+<td><code>fdia_graph.results.studies</code>: <code>study_days</code>, <code>run_parallel</code></td>
+<td>the tools under <code>tools/nygrid/</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="an-attack-family">An attack family<a class="headerlink" href="#an-attack-family" title="Permanent link">&para;</a></h2>
+<p>A family receives a window of true states, <code>(onset, vm [L, N], va [L, N])</code>, and returns an <code>Episode</code>: the attack
+vector <code>a [L, M]</code> added to each scan, the buses it attacks (the localization labels) and the owners of the meters
+it moves. Return None where the window holds nothing to attack, and set <code>self.last_miss = "no_target"</code> when that is
+why; <code>design_explained</code> then reports <code>no_target</code>, and a None left unexplained reads as <code>infeasible</code>.</p>
+<p>An attack the operator's residual test should not see has to change the readings as h(x_false) - h(x_true) for a
+false state, as the package's <code>Attacker</code> does. A family that does not, like the example's slow bias, is the naive
+attack the residual test is meant to catch, and is useful as a baseline.</p>
+<h2 id="an-alarm-rule">An alarm rule<a class="headerlink" href="#an-alarm-rule" title="Permanent link">&para;</a></h2>
+<p>A rule turns a statistic per scan (the residual sum of <code>wls</code>, a tie gap, any score) into the first scan it alarms
+on, or -1. Calibrate it on benign days only: <code>PersistenceRule.fit</code> takes a percentile of benign statistics, and a
+rule fitted on no statistic at all is an error (<code>NoBenignRecords</code>), since it would never alarm. Report its false
+alarms on benign days of other months beside its detection rate, and on other meter fleets (<code>with_fleet</code>).</p>
+<h2 id="an-operator">An operator<a class="headerlink" href="#an-operator" title="Permanent link">&para;</a></h2>
+<p>An operator runs on an <code>OperatorDay</code> and returns a <code>Response</code>: its run on the attacked scans and on their benign
+twin, each a <code>Twin</code> of per-scan arrays (dispatch, regulation, the imbalance the neighbours supply, the true interface
+changes and margins, and <code>pf_failed</code> where the true grid's power flow failed). <code>summarize</code> reports the attack's
+consequence as attacked less benign, so an operator only has to produce both runs the same way. The package's own,
+<code>NyisoOperator(policy)</code>, takes its choices from an <code>OperatorPolicy</code>, which checks every choice when it is built.</p>
+<h2 id="changing-the-package-itself">Changing the package itself<a class="headerlink" href="#changing-the-package-itself" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The golden snapshots (<code>tests/nygrid/test_nygrid_golden.py</code>) pin what the operator, the detection tools and the
+  interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
+  that should must rewrite them (<code>NYGRID_UPDATE_GOLDEN=1</code>) and say in the pull request which numbers moved and why.</li>
+<li>A setting is an argument; never change a library object's settings or a shared record's arrays after it is built.</li>
+<li>Raise the named errors of <code>fdia_graph.errors</code>: <code>ConfigError</code> for a wrong argument, a <code>DataConditionError</code> for data
+  that does not meet a condition, <code>SolverUnavailable</code> for an environment that cannot run the solver.</li>
+<li>A new module is listed in <a href="../ARCHITECTURE/">the architecture</a> in the same change, and a new public name in its
+  package's <code>__init__.py</code>.</li>
+</ul>
 
 
 

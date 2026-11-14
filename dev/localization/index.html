@@ -1358,7 +1358,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../nyfed/ARCHITECTURE/" class="md-nav__link">
+      <a href="../nygrid/ARCHITECTURE/" class="md-nav__link">
         
   
   
@@ -1560,9 +1560,11 @@
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">train</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">test</span> <span class="o">=</span> <span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee14"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">loc</span> <span class="o">=</span> <span class="n">SwingThreshold</span><span class="p">(</span><span class="n">fa_target</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>  <span class="c1"># thresholds set on benign records only</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">flag</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">localize</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># [n, N] bool: which buses are called attacked</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">rep</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># per-family metrics + benign false alarms</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">loc</span> <span class="o">=</span> <span class="n">SwingThreshold</span><span class="p">(</span><span class="n">localizer</span><span class="o">=</span><span class="n">LocalizerConfig</span><span class="p">(</span><span class="n">fa_target</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">train</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>  <span class="c1"># thresholds set on benign records only</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">flag</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">localize</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># [n, N] bool: which buses are called attacked</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">rep</span> <span class="o">=</span> <span class="n">loc</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>  <span class="c1"># per-family metrics + benign false alarms</span>
 </code></pre></div>
 <p><img alt="loc.fit calibrates threshold arms on benign records and trains the learned arms on every record; loc.localize flags buses above the per-bus threshold; loc.score reports per-family metrics" src="../figures/diagrams/localization_flow.png" /></p>
 <table>

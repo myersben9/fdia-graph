@@ -1358,7 +1358,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../nyfed/ARCHITECTURE/" class="md-nav__link">
+      <a href="../../nygrid/ARCHITECTURE/" class="md-nav__link">
         
   
   
@@ -1553,24 +1553,24 @@
 
 
 <h1 id="the-new-york-grid-building-the-timeline">The New York grid: building the timeline<a class="headerlink" href="#the-new-york-grid-building-the-timeline" title="Permanent link">&para;</a></h1>
-<p><code>fdia_graph.nyfed</code> builds a federated FDIA timeline on the New York grid: NYgrid's modified NPCC-140 case in
+<p><code>fdia_graph.generation.nygrid</code> builds a federated FDIA timeline on the New York grid: NYgrid's modified NPCC-140 case in
 AC, a 2019 five-minute operating-point pool from a ramp-constrained AC dispatch, one client per utility
 service territory, a hybrid SCADA and PMU meter plan, and attacks against NYISO interface limits. The
 modules are in
-<a href="../../nyfed/ARCHITECTURE/">the architecture</a>, one run end to end in <a href="../../nyfed/WALKTHROUGH/">the walkthrough</a>, how to
-add an attack, a detector or an operator in <a href="../../nyfed/EXTENDING/">the extending guide</a>, and what each stage reports
-when it fails in <a href="../../nyfed/TROUBLESHOOTING/">the troubleshooting page</a>. No built pool or timeline is published yet, so the steps
+<a href="../../nygrid/ARCHITECTURE/">the architecture</a>, one run end to end in <a href="../../nygrid/WALKTHROUGH/">the walkthrough</a>, how to
+add an attack, a detector or an operator in <a href="../../nygrid/EXTENDING/">the extending guide</a>, and what each stage reports
+when it fails in <a href="../../nygrid/TROUBLESHOOTING/">the troubleshooting page</a>. No built pool or timeline is published yet, so the steps
 below build them from the public inputs.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<p>The build tools live in the repository's <code>tools/nyfed/</code>, not in the wheel, so work from a checkout:</p>
+<p>The build tools live in the repository's <code>tools/nygrid/</code>, not in the wheel, so work from a checkout:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/myersben9/fdia-graph<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">"./fdia-graph[ny]"</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>ipopt<span class="w">   </span><span class="c1"># the AC dispatch solves through Pyomo with Ipopt</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FG</span><span class="o">=</span><span class="nv">$PWD</span>/fdia-graph
 </code></pre></div>
 <p>The steps below run in a separate work folder that holds the inputs and the outputs.</p>
 <h2 id="1-inputs">1. Inputs<a class="headerlink" href="#1-inputs" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir<span class="w"> </span>nyfed<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>nyfed
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span><span class="nv">$FG</span>/tools/nyfed/build_timeline.py<span class="w"> </span>--fetch
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir<span class="w"> </span>nygrid<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>nygrid
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span><span class="nv">$FG</span>/tools/nygrid/build_timeline.py<span class="w"> </span>--fetch
 </code></pre></div>
 <p><code>fetch_inputs</code> writes <code>data/</code>: NYgrid's <code>Data/</code> folder at commit 47698b6, NYISO's 2019 five-minute zonal
 load, the NYS DPS utility territories, and the bus locations that place each New York bus in a territory
@@ -1578,37 +1578,37 @@ load, the NYS DPS utility territories, and the bus locations that place each New
 database are downloaded by the load model the first time the pool is built (about 200 MB, 15 minutes).
 Every step keeps a file that is already there.</p>
 <h2 id="2-the-operating-point-pool">2. The operating-point pool<a class="headerlink" href="#2-the-operating-point-pool" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/tools/nyfed/run_pool.py<span class="w"> </span><span class="m">2019</span>-01-01<span class="w"> </span><span class="m">2020</span>-01-01<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/tools/nygrid/run_pool.py<span class="w"> </span><span class="m">2019</span>-01-01<span class="w"> </span><span class="m">2020</span>-01-01<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
 </code></pre></div>
 <p>The year is dispatched in weekly chunks in parallel, then each seam between chunks is solved again until
 the dispatch is continuous. The pool holds the true state and injections of every five-minute frame.</p>
 <h2 id="3-the-timeline">3. The timeline<a class="headerlink" href="#3-the-timeline" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/tools/nyfed/build_timeline.py<span class="w"> </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span><span class="nv">$FG</span>/tools/nygrid/build_timeline.py<span class="w"> </span>out/timeline_2019.h5<span class="w"> </span>--pool<span class="w"> </span>out/pool_2019.h5<span class="w"> </span>--workers<span class="w"> </span><span class="m">8</span>
 </code></pre></div>
 <p><code>production_builder</code> puts every decided bound in one place: line ratings from the pool's peak flows, the
 overload attack (Am) against the Sprain Brook/Dunwoodie South interface, the slow ramp (At), 20% of
 each split's frames attacked, and onsets surveyed among the hours an attack can reach. The weeks are split
 into train, validation and test, stratified on those hours.</p>
-<p>For one attack studied by hand, <code>tools/nyfed/build_single_episodes.py OUT_DIR --pool out/pool_2019.h5
+<p>For one attack studied by hand, <code>tools/nygrid/build_single_episodes.py OUT_DIR --pool out/pool_2019.h5
 --onset 2019-07-05T10:30:00</code> writes the whole day of that onset with a single Am episode in it.</p>
 <h2 id="4-reading-it-as-clients">4. Reading it as clients<a class="headerlink" href="#4-reading-it-as-clients" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.nyfed.dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.dataset.clients</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">ds</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span><span class="s2">"out/timeline_2019.h5"</span><span class="p">)</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">con_ed</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ConEd"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>  <span class="c1"># only this utility's meters, buses and labels</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">x</span> <span class="o">=</span> <span class="n">con_ed</span><span class="o">.</span><span class="n">node_features</span><span class="p">()</span>                  <span class="c1"># [T, N_c, 4] metered |V|, angle, P, Q per owned bus</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">op</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>             <span class="c1"># every meter, for state estimation</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">x</span> <span class="o">=</span> <span class="n">con_ed</span><span class="o">.</span><span class="n">node_features</span><span class="p">()</span>  <span class="c1"># [T, N_c, 4] metered |V|, angle, P, Q per owned bus</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">op</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">operator</span><span class="p">(</span><span class="n">split</span><span class="o">=</span><span class="s2">"test"</span><span class="p">)</span>  <span class="c1"># every meter, for state estimation</span>
 </code></pre></div>
 <p>A client sees only its own meters and the labels of its own buses. The operator view is the full scan.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
-<p><code>tests/nyfed</code> reads the inputs and the pool under <code>NYFED_ROOT</code> (the folder of steps 1 to 3) and skips a
+<p><code>tests/nygrid</code> reads the inputs and the pool under <code>NYGRID_ROOT</code> (the folder of steps 1 to 3) and skips a
 test whose input is missing:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">NYFED_ROOT</span><span class="o">=</span>/path/to/nyfed<span class="w"> </span>pytest<span class="w"> </span><span class="nv">$FG</span>/tests/nyfed
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">NYGRID_ROOT</span><span class="o">=</span>/path/to/nygrid<span class="w"> </span>pytest<span class="w"> </span><span class="nv">$FG</span>/tests/nygrid
 </code></pre></div>
 <p>Most tests need only the inputs of step 1, with the attack days and their pool frames checked in under
-<code>tests/nyfed/data/days</code>; the tests that rate lines or survey onsets over the year also need the pool of step 2.
-<code>tests/nyfed/nyfed_inputs.py</code> says which input each test needs. CI runs the folder on the inputs of step 1
-(<code>.github/workflows/nyfed.yml</code>).</p>
+<code>tests/nygrid/data/days</code>; the tests that rate lines or survey onsets over the year also need the pool of step 2.
+<code>tests/nygrid/nygrid_inputs.py</code> says which input each test needs. CI runs the folder on the inputs of step 1
+(<code>.github/workflows/nygrid.yml</code>).</p>
 
 
 

@@ -21,6 +21,7 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.localization import BusCNN
+from fdia_graph.models import GateConfig, HuberConfig, JacobianWeightingConfig, PriorConfig, RemovalConfig
 from fdia_graph.results import Run, Store
 from fdia_graph.se import (
     WLS,
@@ -45,19 +46,23 @@ train = fg.load(SYSTEM, split="train")
 test = fg.load(SYSTEM, split="test")
 methods = {
     "wls": WLS(),
-    "removal": ResidualRemoval(threshold=thr),
-    "huber": AdaptiveWeighting(c=c),
-    "prior+huber": SubspacePrior(rank_frac=rank, reweight="huber", c=c),
+    "removal": ResidualRemoval(removal=RemovalConfig(threshold=thr)),
+    "huber": AdaptiveWeighting(huber=HuberConfig(c=c)),
+    "prior+huber": SubspacePrior(prior=PriorConfig(rank_frac=rank, reweight="huber", c=c)),
     "jacobian": JacobianWeighting(
-        c=3.0
+        weighting=JacobianWeightingConfig(c=3.0)
     ),  # weights from the unexplained temporal residual (Abdulin & Narimani)
 }
 # Localization-gated arms: the proposed estimator with a localizer down-weighting the meters of the
 # buses it flags. The CNN gate is the papers' localizer trained on this train split (all families,
 # the common protocol); the oracle gate uses the true labels and is the ceiling for any gate.
 gate = BusCNN().fit(train)
-methods["prior+huber+gate"] = GatedPrior(gate=gate, rank_frac=rank, reweight="huber", c=c)
-methods["prior+huber+oracle"] = GatedPrior(gate="oracle", rank_frac=rank, reweight="huber", c=c)
+methods["prior+huber+gate"] = GatedPrior(
+    GateConfig(gate=gate), prior=PriorConfig(rank_frac=rank, reweight="huber", c=c)
+)
+methods["prior+huber+oracle"] = GatedPrior(
+    GateConfig(gate="oracle"), prior=PriorConfig(rank_frac=rank, reweight="huber", c=c)
+)
 # FG_SKIP=removal,... leaves arms out of a run. Residual removal is the slow arm on IEEE-300 (about
 # three hours, its per-record observability guard) and does not beat WLS there; the published column
 # ran it anyway so every column carries every arm.

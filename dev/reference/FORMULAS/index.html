@@ -1314,7 +1314,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../nyfed/ARCHITECTURE/" class="md-nav__link">
+      <a href="../../nygrid/ARCHITECTURE/" class="md-nav__link">
         
   
   
@@ -1764,7 +1764,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>PMU pseudo voltage</td>
-<td><code>formulas.estimation.pmu_pseudo_links</code>, <code>pmu_pseudo_voltages</code>, through <code>SEBase(pmu_pseudo=True)</code></td>
+<td><code>formulas.estimation.pmu_pseudo_links</code>, <code>pmu_pseudo_voltages</code>, through <code>SEBase(solve=SolveConfig(pmu_pseudo=True))</code></td>
 <td>V_f = (I_n − y_nn V_n) / y_nf, the mean over the links reaching f; dV_f = R(1/y_nf) dI_n − R(y_nn/y_nf) P_n (d|V_n|, dθ_n), var|V_f| = g_r C g_rᵀ, var θ_f = g_θ C g_θᵀ</td>
 <td>[WU26, eq. (3)]</td>
 <td>the estimators' <code>pmu_pseudo</code> option</td>
