@@ -109,5 +109,4 @@ for t in range(day.onset, day.onset + day.length):
 print(PersistenceRule(428.7).first_alarm(j))  # the first scan the residual test alarms on, -1 for none
 ```
 
-`tools/nyfed/closed_loop_bdd.py` runs this over every window of a study; `PersistenceRule.fit` calibrates the
-threshold on benign days.
+`PersistenceRule.fit` calibrates the threshold on benign days.

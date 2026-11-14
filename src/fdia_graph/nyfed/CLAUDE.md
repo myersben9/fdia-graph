@@ -2,7 +2,7 @@
 
 The New York grid package, moved into the SDK from its own repository on 2026-11-02. Until it is brought under the SDK's rules module by module (`DEFERRED` in `tools/readability.py`), these rules hold here.
 
-`docs/nyfed/ARCHITECTURE.md` is the contract for this package, and `docs/nyfed/TROUBLESHOOTING.md` says how each stage fails. `docs/nyfed/PLAN.md` says what each block builds and links to the source it comes from.
+`docs/nyfed/ARCHITECTURE.md` is the contract for this package, and `docs/nyfed/TROUBLESHOOTING.md` says how each stage fails.
 
 ## Stay inside the architecture
 

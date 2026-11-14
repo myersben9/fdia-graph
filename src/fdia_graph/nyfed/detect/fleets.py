@@ -2,7 +2,7 @@
 
 One realization of the meters' constant biases is one fleet. A detector calibrated and tested on one fleet says
 little about the next, so the residual test is checked over further fleets drawn here (N79, N81). The draws use
-their own random stream, keyed by the draw number; the interchange check's fleets (tools/nyfed/tie_check.py) draw
+their own random stream, keyed by the draw number; the interchange check's fleets draw
 only the tie meters from another stream, so draw d is not the same fleet in the two studies.
 """
 

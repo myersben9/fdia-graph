@@ -5,6 +5,10 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The New York grid's study scripts and design log leave the repository.** `tools/nyfed` keeps the build tools
+  (`run_pool.py`, `build_timeline.py`, `build_single_episodes.py`, `matlab/`); the study drivers, their result files
+  under `results/` and the design log are removed. The library, its defaults and its outputs are unchanged.
+
 - **An Ipopt that ends abnormally is a failed solve (New York grid).** `OperatorOpf.solve` returns None when Ipopt does
   not exit normally (killed, out of memory), so the AC operator retries from the AC point instead of ending the study
   that ran it.
@@ -22,8 +26,7 @@ the public API, the generated files and the numbers are the same as the previous
   (`ac` and `ac_cost`) and the least-cost results change by at most 1 MW of transfer on the three days rechecked;
   least-movement results from the earlier code change and are rerun.
 
-- **An AC operator (New York grid).** `OperatorPolicy(dispatch="ac")` and `dispatch="ac_cost"` (`--dispatch ac` or
-  `ac_cost` on every study tool) run the operator's dispatch as an AC optimal power flow each scan (`AcSced`, Pyomo and
+- **An AC operator (New York grid).** `OperatorPolicy(dispatch="ac")` and `dispatch="ac_cost"` run the operator's dispatch as an AC optimal power flow each scan (`AcSced`, Pyomo and
   Ipopt, `OperatorOpf`): the loads it reads (the true loads plus what the attack changed in its New York injection
   meters; the accounting operator adds the false interchange back over New York's loads by their size), the units
   within the pool's own bounds (`PoolFrames`, `pool_frames`, `PoolBuilder.frame_limits`) and their five-minute ramps
@@ -33,7 +36,7 @@ the public API, the generated files and the numbers are the same as the previous
   benign twin stays at the AC points (both solve the pool's problem). The closed loop re-solves on what the operator
   reads after its own dispatch (true AC flows less its AC model), not on shift factors, the N-1 screen is an AC power
   flow per outage (`TrueGrid(day, ac=True)`, `ac_power_flow`), shedding and the zone levers use AC sensitivities
-  (`ac_shift`), and `tools/nyfed/idealized_operator.py` takes one least-cost AC OPF as its snapshot. The DC
+  (`ac_shift`). The DC
   dispatches and their results are unchanged.
 
 - **A least-cost dispatch that keeps the AC operating points (New York grid).** `DcSced(objective="cost_lf")` and
@@ -56,17 +59,9 @@ the public API, the generated files and the numbers are the same as the previous
   attack. `benign_margin_min_mw` reports the benign twin's tightest margin. Results of the least-movement dispatch,
   whose benign twin never passed a limit, are unchanged.
 
-- **Every study tool can run the least-cost operator (New York grid).** Each tool under `tools/nyfed/` that runs the
-  operator takes `--dispatch cost` (declared once by `experiments.add_dispatch_argument`, and by
-  `add_study_arguments`) and writes the dispatch it used in a `dispatch` column; `damage_study.py` keeps a folder to
-  one dispatch. The default stays the least-movement dispatch, so every existing result is unchanged.
-  `tools/nyfed/operator_days.py` reruns the operator alone on a study's attack days, so the attacks, onsets and
-  draws of the study stay as they are under the other dispatch.
-
-- **The idealized operator with the closed loop's slack (New York grid).** `tools/nyfed/idealized_operator.py` also
-  reports the single-snapshot prediction with the shortfall drawn from the neighbors' units by capacity, as the
-  closed loop draws it (`shared_*` columns), so a difference from the closed loop can be told from the choice of
-  slack. No change to existing results.
+- **The least-cost operator from the command line (New York grid).** `experiments.add_dispatch_argument` (and
+  `add_study_arguments`) declares `--dispatch cost` once for a driver that runs the operator. The default stays the
+  least-movement dispatch, so every existing result is unchanged.
 
 - **Market prices that a market could set (New York grid).** The least-cost dispatch (`DcSced(objective="cost")`)
   now prices the flow it leaves over an interface on the 2019 transmission shortage curve (350, 1,175 and 4,000
@@ -78,16 +73,8 @@ the public API, the generated files and the numbers are the same as the previous
 - **A least-cost dispatch with prices, and the idealized operator (New York grid).** `DcSced(objective="cost")` and
   `OperatorPolicy(dispatch="cost")` dispatch as a market clears, each MW moved charged `MOVE_USD`, and report each
   interface's shadow price and the energy price (`Step.congestion`, `Step.energy`, and per scan on `Twin`). Under
-  it `area_damage` prices what each zone's and utility's load pays at the moved prices (`payments_usd`), and
-  `tools/nyfed/area_damage.py --dispatch cost` runs it over a study. `tools/nyfed/idealized_operator.py` reports
-  what a single-snapshot least-cost DC consequence analysis predicts for each attack beside what the closed-loop
-  operator causes. The default least-movement dispatch is unchanged: every golden value holds, and the operator
+  it `area_damage` prices what each zone's and utility's load pays at the moved prices (`payments_usd`). The default least-movement dispatch is unchanged: every golden value holds, and the operator
   snapshots gain only the two new arrays, empty under it.
-
-- **The interchange check against the hourly checkout (New York grid).** `tools/nyfed/hourly_checkout.py` runs each
-  attack day of a damage study through the trusting operator and reports when the scan-rate interchange check
-  alarms, when an hourly checkout of the same tie readings (the energy agreement balancing authorities already run
-  after every hour) would know, and the inadvertent interchange taken by each. No change to existing results.
 
 - **Who bears an attack's damage (New York grid).** New `fdia_graph.nyfed.operator.areas`: `area_damage` splits an
   operator run, attacked less benign, by New York zone, by utility and by neighboring area. Each zone and utility
@@ -96,8 +83,7 @@ the public API, the generated files and the numbers are the same as the previous
   interchange it supplied, priced at its NYISO proxy bus (`PROXY`, `neighbor_prices`), and the system row gives the
   attack's net cost once the borrowed energy is priced. `attack_surface` counts the meters an attack tampers per
   zone and utility, and `zone_levers` measures how far each zone's plausible false load and output could move each
-  interface. `node_lbmp` reads NYISO's hourly price at any zone or proxy bus. `tools/nyfed/area_damage.py` runs
-  them over a damage study. No change to existing results.
+  interface. `node_lbmp` reads NYISO's hourly price at any zone or proxy bus. No change to existing results.
 
 - **The New York grid's tests run in CI (New York grid).** A new workflow, `nyfed.yml`, installs the `[ny]` extra
   and Ipopt from conda-forge, downloads NYgrid's public inputs with `fetch_inputs` (cached under the pinned commit)
@@ -194,64 +180,38 @@ the public API, the generated files and the numbers are the same as the previous
   timeline built with no overload attacks and no error. The attack OPF now reads only an abnormal stop on its own model
   as an infeasible support, and counts those in `solver_errors`.
 
-- **An attacker that follows the closed loop (New York grid).** `tools/nyfed/adaptive_bdd.py` applies the designed
-  false-state increment to the closed-loop state each scan and tests it, and the designed scans before the operator
-  acts, under the persistence rule (N82).
-
-- **What stealth buys, and detection on other meter fleets (New York grid).** `tools/nyfed/naive_tie_bias.py`
-  tests a naive bias of the New York-end tie readings alone under the persistence rule (N80), and
-  `closed_loop_bdd.py --draws N` tests every attack against N further meter fleets (N81).
-
-- **A persistence rule for the residual test (New York grid).** `tools/nyfed/bdd_benign_series.py` and
-  `tools/nyfed/bdd_rule.py` calibrate a k-of-n residual alarm on whole benign days and rerun the operator's answers
-  at its first alarm (N79).
-
 - **Answering a residual alarm (New York grid).** `respond(after=...)` models the operator's response to an alarm
-  (switch to the benign scans, freeze with the AGC on the falsified ties, freeze with it on the common source), and
-  `closed_loop_bdd.py` calibrates the residual test on benign winter scans (N78).
+  (switch to the benign scans, freeze with the AGC on the falsified ties, freeze with it on the common source) (N78).
 
-- **The residual test with the meters' noise (New York grid).** `closed_loop_bdd.py` tests the benign twin and the
-  closed-loop attacked scans with each window's own noise and reports the damage of an operator that falls back at the
-  first residual alarm (`respond(alarm_at=...)`, N77).
+- **The residual test with the meters' noise (New York grid).** `respond(alarm_at=...)` models an operator that falls
+  back at the first residual alarm (N77).
 
 - **The closed loop (New York grid).** `respond(closed_loop=True)` has the operator read the true flows after its
-  dispatch, with `--closed-loop` on the damage, entry and trace tools, and `tools/nyfed/closed_loop_bdd.py` tests
-  whether a precomputed attack stays stealthy once the operator acts (N76).
+  dispatch (N76).
 
-- **Voltage checks and the overload record (New York grid).** `tools/nyfed/voltage_check.py` evaluates a voltage-limit
-  alarm as a detector (N74), `damage_study.py --gen-v-tol` holds generator voltages near their schedule (N75),
-  `tie_check.py --attacks` measures detection over the meter draws, and `summarize` reports how long an interface
+- **Voltage checks and the overload record (New York grid).** `production_builder(gen_v_tol=...)` holds generator
+  voltages near their schedule (N75), and `summarize` reports how long an interface
   stays past its true limit.
 
 - **Entry patterns and many meter fleets (New York grid).** `respond(entry=...)` chooses where the inadvertent
-  interchange enters (N72), with `tools/nyfed/entry_sensitivity.py` to rerun the operator under each, and
-  `tie_check.py --draws N` repeats the check over fresh meter-bias draws (N73).
+  interchange enters (N72).
 
-- **The bound sweeps the load cap (New York grid).** `tools/nyfed/push_bound.py` now steps the load cap from 2 to 30 percent
-  and keeps four bands, since the load cap, not the band, decides whether the interchange-consistent attack has room (N70).
-
-- **Where the inadvertent interchange lands, and the certificate's reach (New York grid).** The shortfall the trusting operator leaves is now taken up by the synchronous units outside New York in proportion to their capacity rather than by the reference bus, and every scan reports the tightest true interface margin (`margin`, summary `margin_min_mw` and `margin_lost_mw`) (N69). The interface numbers of the damage study change with it. `tools/nyfed/push_bound.py` bounds four attackers that keep the interchange true, from one subnetwork to all of New York, with the search's own injection bounds (a generator bus's load moves under the load
-  cap too), over a denser band grid and each interface's own near-limit hours (N70). `damage_study.py --v-margin`
-  widens the attacker's voltage limits (N71). A failed power flow now leaves the margin unknown.
+- **Where the inadvertent interchange lands, and the certificate's reach (New York grid).** The shortfall the trusting operator leaves is now taken up by the synchronous units outside New York in proportion to their capacity rather than by the reference bus, and every scan reports the tightest true interface margin (`margin`, summary `margin_min_mw` and `margin_lost_mw`) (N69). `production_builder(v_margin=...)` widens the attacker's voltage limits (N71). A failed power flow now leaves the margin unknown.
 
 - **Three operators and a calibrated interchange check (New York grid).** `respond(mode=...)` runs the
   trusting operator, whose AGC reads the falsified New York-end tie meters, the accounting operator, which takes
   its load and ACE from the agreed interchange (BAL-005), and the oracle upper bound (N66; replaces
-  `defended`). The neighbours' tie meters carry their own accuracy-class noise (`neighbour_reads`), and
-  `tools/nyfed/tie_check.py` calibrates the alarm on January to March and counts false alarms over the rest of
-  2019; `respond(calib=...)` takes that calibration (N67). The consistent attacker's area stays inside New York.
-  The target interface comes first, the shed clock runs per interface, the oracle falls back at decision time,
-  and the damage study keeps each attacker form's designs apart.
+  `defended`). The neighbours' tie meters carry their own accuracy-class noise (`neighbour_reads`); `respond(calib=...)` takes the alarm's calibration (N67). The consistent attacker's area stays inside New York.
+  The target interface comes first, the shed clock runs per interface, and the oracle falls back at decision time.
 
 - **The interchange-consistent attacker and the interchange check (New York grid).** `Attacker(hold_external=True)`
   (and `production_builder(..., hold_external=True)`) keeps every bus outside New York at its true injection, so
-  the attack cannot move New York's net interchange (N62). On the 60 drawn onsets this form reaches the limit at
-  one onset and never overshoots it. The operator gets the matching check, `tie_gap`: the interchange read at the
+  the attack cannot move New York's net interchange (N62). The operator gets the matching check, `tie_gap`: the interchange read at the
   New York ends of the ties less what the neighbours meter. `respond(..., defended=True)` stops acting on the
   tampered scans from the first alarm (N65). The operator now enforces all four mapped interfaces, each with its
   own 15-minute clock and shortage price. It may start the quick-start units of zones J and K, and it caps
   regulation at 275 MW, reporting the rest as an ACE excursion (N63, N64). Shed load takes its reactive demand
-  with it, and a reused day keeps its meter count. `damage_study.py` gains `--consistent` and `--seed-key`.
+  with it, and a reused day keeps its meter count.
 
 - **The damaging attack and the operator's escalation (New York grid).** `InterfaceFdia(overshoot=...)`
   takes the reported interface flow past its limit, designed under every bound as a real attack, and
@@ -259,8 +219,7 @@ the public API, the generated files and the numbers are the same as the previous
   escalates as NYISO's emergency procedures do (N59): redispatch first, the flow it cannot relieve priced
   at the 2019 transmission shortage curve (`shortage_usd`, N60), and load relief after 15 minutes over the
   limit at the buses where shedding relieves the interface. `Step` carries the shed load and the cost of
-  relieving the interface. `tools/nyfed/damage_study.py` runs both forms of the attack through the operator
-  on near-limit onsets drawn at random. Results: `results/nygrid.damage.csv`.
+  relieving the interface.
 
 - **The grid operator under attack (`fdia_graph.nyfed.operator`).** `DcSced` is the operator's real-time
   dispatch on what it sees: a DC dispatch on shift factors around the pool basepoint, with unit limits,
@@ -270,8 +229,7 @@ the public API, the generated files and the numbers are the same as the previous
   true load never changed, so regulation picks up the generation the dispatch removed, and an AC power
   flow gives the true interface flow and the worst single 345 kV outage. `summarize` reports the attack's
   consequence, attacked less benign: dispatch moved, regulation (MW, MWh, by utility), unrelieved flow,
-  the true interface and N-1 changes, production cost and the energy settled at the real zonal LBMP.
-  `tools/nyfed/operator_cost.py` runs it on the single-episode days. Plan rows N50 to N57.
+  the true interface and N-1 changes, production cost and the energy settled at the real zonal LBMP (N50 to N57).
 
 ## 0.21.0
 

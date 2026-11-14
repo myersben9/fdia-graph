@@ -5,7 +5,7 @@ branches and units as arrays), a `Network` built on it (Ybus, branch admittances
 with each hour's real limit and flow, and the `Ownership` that gives every New York bus to one utility (a client).
 
 `read_npcc`, `modify_mpc` and `nygrid_units` reproduce NYgrid's hourly case; `split_zone_j` and `restore_765kv` are
-this package's corrections to it (docs/nyfed/PLAN.md says why each exists). Every step returns a new `Case`; none
+this package's corrections to it (each function's docstring says why). Every step returns a new `Case`; none
 changes one in place. A table that disagrees with the case raises a `DataConditionError` naming the bus or branch.
 """
 

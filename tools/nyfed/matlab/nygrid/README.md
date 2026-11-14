@@ -42,11 +42,4 @@ addpath('<nyfed>/tools/matlab/nygrid')
 ablation('<nyfed>/data/matpower8.0', 1, 24, '<nyfed>/results/ablation_parts/part_1.csv')
 ```
 
-`ac_year(mpdir, hours, outfile)` takes a datetime vector of hours instead. Then summarize:
-
-```bash
-python tools/nygrid_ac_summary.py year
-python tools/nygrid_ac_summary.py ablation
-```
-
-The summaries are `results/nygrid.ac_year.json` and `results/nygrid.ac_ablation.json`.
+`ac_year(mpdir, hours, outfile)` takes a datetime vector of hours instead.

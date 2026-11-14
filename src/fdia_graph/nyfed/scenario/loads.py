@@ -1,4 +1,4 @@
-"""Per-bus load profiles by the bottom-up method of Li et al. [2] (PLAN.md), scaled to the real zone load.
+"""Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.
 
 Each NY load bus aggregates prototype buildings and plants until each of its residential, commercial and
 industrial components reaches its peak (Sec. II-D). The bus mix comes from its utility's sector sales
