@@ -68,6 +68,7 @@ fg.load("ieee118", split="test", order="time")                 # the time series
 ## State estimation
 
 ```python
+from fdia_graph.models import PriorConfig
 from fdia_graph.se import SubspacePrior                       # pip install "fdia-graph[se]"
 
 train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")
@@ -83,6 +84,7 @@ One solver, six estimators that each change one thing: `WLS`, `AdaptiveWeighting
 
 ```python
 from fdia_graph.localization import SwingThreshold, BusCNN     # numpy only / [torch]
+from fdia_graph.models import LocalizerConfig
 
 loc = SwingThreshold(localizer=LocalizerConfig(fa_target=0.01)).fit(train)     # per-bus thresholds from benign records only
 flag = loc.localize(test)                           # [n, N] bool: which buses are called attacked

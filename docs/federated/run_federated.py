@@ -30,6 +30,7 @@ import numpy as np
 
 import fdia_graph as fg
 from fdia_graph.federated import FedBusCNN, FedBusMLP
+from fdia_graph.models import FederatedSettings, LearnedConfig
 from fdia_graph.results import Run, Store
 
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
@@ -77,7 +78,8 @@ def run_one(name, K, seed):
             return json.load(fh)
     train, val, test = splits()
     t0 = time.time()
-    m = MODELS[name](K=K, seed=seed, features="full14+jac").fit(train, val=val)
+    cfg = LearnedConfig(seed=seed, features="full14+jac")
+    m = MODELS[name](federated=FederatedSettings(K=K), learned=cfg).fit(train, val=val)
     res = {"tau": float(m.tau), "fit_s": time.time() - t0}
     for fr in ("all", "benign"):
         ps = m.score_perbus(test, buses="attackable", fr_over=fr)

@@ -5,6 +5,7 @@ Every timeline ships a noiseless `clean` layer, so the estimate is scored agains
 
 ```python
 import fdia_graph as fg
+from fdia_graph.models import PriorConfig
 from fdia_graph.se import WLS, AdaptiveWeighting, SubspacePrior
 
 train = fg.load("ieee14", split="train")

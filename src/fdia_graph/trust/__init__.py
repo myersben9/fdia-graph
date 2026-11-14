@@ -1,5 +1,6 @@
 """Which meters to trust so that stealthy attacks stop being stealthy [WU26], sklearn style.
 
+    from fdia_graph.models import DqnConfig, TrustConfig
     from fdia_graph.trust import TrustedMeters, TrustedMetersDQN
 
     train = fg.load("ieee118", split="train")

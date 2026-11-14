@@ -17,6 +17,7 @@ first three are the formulas of `formulas.federated` and `formulas.metrics`.
 
 With K = 1 and no gradient clip the fit is the centralized one, weight for weight.
 
+    from fdia_graph.models import FederatedSettings
     loc = FedBusCNN(federated=FederatedSettings(K=3, rounds=60, local_epochs=3)).fit(train, val=val)   # needs the [federated] extra
 """
 
@@ -101,7 +102,8 @@ class FederatedLocalizer(LearnedLocalizer):
         learned: LearnedConfig = LearnedConfig(),
         localizer: LocalizerConfig = LocalizerConfig(),
     ) -> None:
-        # the partition's client count must agree with K (checked by the model)
+        # the partition's client count must agree with K (checked by the model); a federated fit trains
+        # rounds x local_epochs passes, so `learned.epochs` (the centralized fit's) is not used here
         fed = replace(federated, partition_clients=None if partition is None else partition.K)
         super().__init__(learned=learned, localizer=localizer)
         self.K, self.rounds, self.local_epochs = fed.K, fed.rounds, fed.local_epochs
