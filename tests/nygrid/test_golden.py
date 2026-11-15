@@ -36,6 +36,10 @@ from .inputs import (
 WINDOWS = DAMAGE_DAYS
 CALIB = (28.41, 13.76)  # the interchange check's calibration, results/nygrid.tie_check.json
 RULE = (428.7, 2, 3)  # the residual test's persistence rule
+# The operator's dispatch is an interior-point solve (Ipopt): its answer agrees between machines and linear-algebra
+# builds to the solver's tolerance, not to the last digit, so its snapshots compare within these (a digest is a sum
+# over a day's scans, MW or dollars).
+SOLVER_RTOL, SOLVER_ATOL = 1e-4, 1e-2
 GOLDEN = Path(__file__).parent / "golden"
 UPDATE = os.environ.get("NYGRID_UPDATE_GOLDEN") == "1"
 
@@ -61,24 +65,25 @@ def _plain(x):
     return x
 
 
-def _same(got, want, path: str = "") -> None:
+def _same(got, want, path: str = "", rtol: float = 1e-9, atol: float = 1e-9) -> None:
     if isinstance(want, dict):
         assert set(got) == set(want), f"{path}: keys differ: {sorted(set(got) ^ set(want))}"
         for k in want:
-            _same(got[k], want[k], f"{path}.{k}")
+            _same(got[k], want[k], f"{path}.{k}", rtol, atol)
     elif isinstance(want, list):
         assert len(got) == len(want), f"{path}: length {len(got)} != {len(want)}"
         for i, (g, w) in enumerate(zip(got, want)):
-            _same(g, w, f"{path}[{i}]")
+            _same(g, w, f"{path}[{i}]", rtol, atol)
     elif isinstance(want, float) or isinstance(got, float):
         assert got is not None and want is not None, f"{path}: {got} != {want}"
-        assert np.isclose(got, want, rtol=1e-9, atol=1e-9), f"{path}: {got!r} != {want!r}"
+        assert np.isclose(got, want, rtol=rtol, atol=atol), f"{path}: {got!r} != {want!r}"
     else:
         assert got == want, f"{path}: {got!r} != {want!r}"
 
 
-def check(name: str, got: dict) -> None:
-    """Compare `got` with the snapshot `name`, or write it with NYGRID_UPDATE_GOLDEN=1."""
+def check(name: str, got: dict, rtol: float = 1e-9, atol: float = 1e-9) -> None:
+    """Compare `got` with the snapshot `name` (floats within `rtol` and `atol`), or write it with
+    NYGRID_UPDATE_GOLDEN=1."""
     got = _plain(got)
     path = GOLDEN / f"{name}.json"
     if UPDATE:
@@ -86,7 +91,7 @@ def check(name: str, got: dict) -> None:
         path.write_text(json.dumps(got, indent=1, sort_keys=True))
         return
     assert path.exists(), f"no snapshot {path.name}; run once with NYGRID_UPDATE_GOLDEN=1"
-    _same(got, json.loads(path.read_text()), name)
+    _same(got, json.loads(path.read_text()), name, rtol, atol)
 
 
 def _digest(a: np.ndarray) -> dict:
@@ -121,17 +126,22 @@ def days():
     return {w: operator_day(DAYS / w, DAYS_POOL, DATA) for w in WINDOWS}
 
 
-@pytest.mark.parametrize("window", WINDOWS)
-@pytest.mark.parametrize("mode", ("trusting", "accounting", "oracle"))
-@pytest.mark.parametrize("closed_loop", (False, True))
+# every operator and loop on the window past the limit, and the trusting closed loop on the one at the limit: each
+# run is an AC optimal power flow per scan of the day, twice (about a minute), so the matrix is kept to what differs
+MODES = [(WINDOWS[1], m, c) for m in ("trusting", "accounting", "oracle") for c in (False, True)]
+MODES.append((WINDOWS[0], "trusting", True))
+
+
+@pytest.mark.parametrize("window,mode,closed_loop", MODES)
 def test_respond_modes(days, window, mode, closed_loop):
     from fdia_graph.operator.run import respond
 
     r = respond(days[window], mode=mode, calib=CALIB, closed_loop=closed_loop)
-    check(f"respond_{Path(window).stem}_{mode}_{'cl' if closed_loop else 'ol'}", _response(r))
+    name = f"respond_{Path(window).stem}_{mode}_{'cl' if closed_loop else 'ol'}"
+    check(name, _response(r), SOLVER_RTOL, SOLVER_ATOL)
 
 
-@pytest.mark.parametrize("window", WINDOWS)
+@pytest.mark.parametrize("window", WINDOWS[1:])
 @pytest.mark.parametrize(
     "options",
     (
@@ -154,7 +164,7 @@ def test_respond_options(days, window, options):
         kw["alarm_at"] = day.onset + 5
     r = respond(day, mode="trusting", calib=CALIB, closed_loop=True, **kw)
     tag = "_".join(f"{k}-{v}" for k, v in options.items())
-    check(f"respond_{Path(window).stem}_{tag}", _response(r))
+    check(f"respond_{Path(window).stem}_{tag}", _response(r), SOLVER_RTOL, SOLVER_ATOL)
 
 
 def test_persistence_rule():

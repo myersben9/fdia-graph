@@ -186,7 +186,7 @@ class AreaScore(NamedTuple):
     observable: bool  # rule 1: a metered voltage or injection channel in the area
     connected: bool  # rule 2: one connected region over live branches
     load_share: float  # rule 3: the area's share of the system's active load over the window
-    spread: float  # rule 3: mean |DC PTDF| of the goal lines to the area's injections (0 for a load goal)
+    spread: float  # rule 3: mean |AC flow sensitivity| of the goal lines to the area's injections (0 for a load goal)
     stability: float  # rule 4: 1 / (1 + the mean coefficient of variation of the area's loads)
     observability: float  # rule 4: metered channels per area bus against the system's, capped at 1
     size: float  # the area's buses as a share of the system's

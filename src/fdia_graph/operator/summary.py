@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import numpy as np
 
+from fdia_graph.operator.acsced import FRAME_HOURS
 from fdia_graph.operator.run import Response
-from fdia_graph.operator.sced import FRAME_HOURS
 
 
 def _over(r: Response) -> dict:
     """Where the attack takes an interface past its true limit (N72): the scans on which the attacked run is further
     over a true limit than the benign twin, the longest run of them, that excess energy (MWh) and the interface most
-    often over on them (-1 none). The least-cost dispatch holds a binding interface at its shift-factor limit, so
+    often over on them (-1 none). The dispatch holds a binding interface at the limit in its own model, so
     the true flow can pass the limit in the benign twin too, and only the attack's excess counts. A scan whose power
     flow failed in either run has no margin and is not counted over; `pf_failed_scans` says how many such scans
     there are."""

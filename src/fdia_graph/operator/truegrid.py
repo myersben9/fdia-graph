@@ -1,8 +1,8 @@
 """The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow
 at the true loads for any unit dispatch (`TrueGrid.state`), the true state once a run has acted (`run_state`, the
 closed loop), and the interface flows and the worst single 345 kV outage it gives (`change`). A power flow that fails
-returns None and its scan is unknown, never safe. The outage is screened with DC outage factors, or with `ac` by an AC
-power flow of the grid without each branch (`ac_power_flow`)."""
+returns None and its scan is unknown, never safe. Each outage is screened by an AC power flow of the grid without
+the branch (`ac_power_flow`)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,6 @@ from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.solver import AcSolver
 from fdia_graph.operator.acsced import ac_power_flow, open_branch
 from fdia_graph.operator.day import OperatorDay
-from fdia_graph.operator.sced import outage_factors, shift_factors
 
 if TYPE_CHECKING:  # the run record, whose module imports this one
     from fdia_graph.operator.run import Twin
@@ -22,10 +21,9 @@ if TYPE_CHECKING:  # the run record, whose module imports this one
 
 class TrueGrid:
     """The true grid of a day: AC power flows at the true loads for a given unit dispatch, the true
-    interface flows and the worst single outage of a New York 345 kV branch (by DC outage factors, or with `ac` by
-    an AC power flow of each outage)."""
+    interface flows and the worst single outage of a New York 345 kV branch (an AC power flow of each outage)."""
 
-    def __init__(self, day: OperatorDay, ac: bool = False):
+    def __init__(self, day: OperatorDay):
         c = day.case
         self.day, self.net = day, Network(c)
         self.solver = AcSolver(c)
@@ -37,11 +35,8 @@ class TrueGrid:
         self.pd, self.qd = gen - pt, np.where(has_unit, 0.0, -qt)  # loads net of the HVDC links
         ny345 = c.is_ny[c.f] & c.is_ny[c.t] & (c.kv[c.f] >= 345) & (c.kv[c.t] >= 345)
         self.outages = np.flatnonzero(ny345)
-        self.ac = ac
-        if ac:  # the grid without each branch, for its AC power flow
-            self._open = {int(k): Network(open_branch(c, int(k))) for k in self.outages}
-        else:
-            self.lodf = outage_factors(c, shift_factors(c), self.outages)
+        # the grid without each branch, for its AC power flow
+        self._open = {int(k): Network(open_branch(c, int(k))) for k in self.outages}
         self._base: dict[int, tuple[np.ndarray, float]] = {}
 
     def state(
@@ -93,13 +88,7 @@ class TrueGrid:
         """Every interface's flow, and the largest flow any of them carries after the worst single outage."""
         pf = self.net.flows(*x)[0]
         iface = np.array([it.model_flow(pf) for it in self.day.interfaces])
-        if self.ac:
-            return iface, self._n1_ac(*x)
-        worst = max(
-            float((iface[i] + it.signs @ (self.lodf[it.branches] * pf[self.outages])).max())
-            for i, it in enumerate(self.day.interfaces)
-        )
-        return iface, worst
+        return iface, self._n1_ac(*x)
 
     def change(self, t: int, units: np.ndarray, shed: np.ndarray | None = None) -> tuple[np.ndarray, float]:
         """The true interface flows' and the worst N-1 flow's change from the basepoint at scan `t`, with

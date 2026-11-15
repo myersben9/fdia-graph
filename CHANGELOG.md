@@ -5,6 +5,38 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **No DC model is left (breaking; New York operator numbers move).** The DC dispatch `operator.sced` is removed
+  with `DcSced` (and its `implied` and `prices`), `shift_factors`, `outage_factors`, the objective `cost_lf`
+  and the constants `OBJECTIVES`, `ROOM_MW`, `UNIT_ADDER_WEIGHT` and `ENERGY_CAP`; `operator.run.AC_DISPATCH`
+  goes too. The operator dispatches by the AC
+  optimal power flow that was `dispatch="ac"` and `"ac_cost"`: `Dispatch` is now `"movement"` (the default) and
+  `"cost"`, both AC, and `"ac"`, `"ac_cost"` and `"cost_lf"` are refused. `Step`, `shortage_usd`, `loss_factors`
+  and the dispatch constants live in `operator.acsced`; `fdia_graph.operator` exports `AcSced`.
+  - `respond` needs the bus reactive loads of the pool's load series (`pool_frames`: `NYGRID_LOADS`, or the
+    default file beside the data), which only the AC dispatches needed before.
+  - `TrueGrid(day)` screens each 345 kV outage by an AC power flow (`TrueGrid(day, ac=True)` before); the `ac`
+    argument and the DC outage factors are gone. `zone_levers(day)` uses the AC sensitivities (`ac_shift`); its
+    `ac` argument is gone. `area_damage`'s payments are the AC bus prices, attacked less benign.
+  - A `respond` run is an AC OPF per scan, about a minute per day on the test machine against five seconds for
+    the DC dispatch. The `respond_*` snapshots under `tests/nygrid/golden/` are regenerated under AC, compared
+    within the solver's tolerance (relative 1e-4, absolute 1e-2) since an interior-point answer is not
+    bit-identical across machines, and cut from 26 to 14: every operator and loop on the window past the limit,
+    the trusting closed loop on the window at the limit, and the seven options on the window past the limit.
+  - Load the units cannot follow is no longer priced at the 1,000 $/MWh offer cap (`ENERGY_CAP`, the DC
+    least-cost dispatch's): the AC dispatch leaves it as a slack at `SLACK_WEIGHT`.
+  - With `delay` the benign twin now moves: it dispatches each scan for the scan before against the current
+    basepoint (14,439 MW-scans on the snapshot day at `delay=1`), where the DC benign twin moved nothing. This
+    is how the AC dispatch already behaved; it is now the only behaviour.
+  - Tests of `DcSced` alone are removed (its lossless prices, its shortage and energy caps, the DC shift and
+    outage factors); relieving an interface read over its limit, ramp-limited recovery and shedding only when
+    allowed and only where it relieves are tested on `AcSced.step`.
+- **The attack-area rule reads AC flow sensitivities.** Rule 3's spread term of `AreaMixin.area_score` (used only
+  with `area_rule="rules"`; the default region is the buses within `hops`) is the mean absolute sensitivity of
+  the goal lines' active flow to the area's injections at the window's first true state
+  (`formulas.network.flow_sensitivities`, checked against a re-solved power flow), no longer DC transfer
+  factors from the reactances. On IEEE-14 and IEEE-118 the two agree to a correlation above 0.996 and the term
+  moves by 2 to 5 percent on the candidate regions tried; `AreaMixin._ptdf` is removed.
+
 - **Deprecated logic is removed (breaking).** Main holds current code only; anything below still works in
   `fdia-graph==0.21.0`, and nothing here keeps an alias or a warning period.
   - **Record shards and stream files.** `fg.load` and `FdiaGraph` read timelines only: a file without the `kind`

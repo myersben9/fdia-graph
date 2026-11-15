@@ -6,7 +6,7 @@ consequence.
 
 `operator_day` reads an attacked day (a timeline file) with its benign twin. `respond` runs the operator scan by
 scan under an `OperatorPolicy` (which operator, how late, how it answers an alarm): its five-minute security-
-constrained dispatch on what it reads (`DcSced`), its regulation and the interchange its neighbors supply, each
+constrained dispatch on what it reads, an AC optimal power flow (`AcSced`), its regulation and the interchange its neighbors supply, each
 checked on the true grid by an AC power flow (`TrueGrid`). It can answer an alarm (`AFTER`) and take the inadvertent
 interchange where it enters (`ENTRY`). `summarize` gives the attack's consequence, attacked less benign, and
 `area_damage` splits it by New York zone, utility and neighboring area, with the borrowed energy priced.
@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from fdia_graph._lazy import attach
 
 if TYPE_CHECKING:  # the names below, with their real signatures for type checkers
+    from fdia_graph.operator.acsced import AcSced, Step, shortage_usd
     from fdia_graph.operator.areas import (
         FEEDS,
         NEIGHBORS,
@@ -43,7 +44,6 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
         entry_share,
     )
     from fdia_graph.operator.run import NyisoOperator, Operator, Response, Twin, respond
-    from fdia_graph.operator.sced import DcSced, Step, outage_factors, shift_factors, shortage_usd
     from fdia_graph.operator.summary import summarize
     from fdia_graph.operator.ties import interchange_alarm, seen_interfaces, tie_gap, tie_meters
     from fdia_graph.operator.truegrid import TrueGrid
@@ -57,11 +57,9 @@ _PUBLIC = {
     "AlarmAnswer": ".policy",
     "OperatorMode": ".policy",
     "OperatorPolicy": ".policy",
-    "DcSced": ".sced",
-    "Step": ".sced",
-    "shift_factors": ".sced",
-    "outage_factors": ".sced",
-    "shortage_usd": ".sced",
+    "AcSced": ".acsced",
+    "Step": ".acsced",
+    "shortage_usd": ".acsced",
     "OperatorDay": ".day",
     "operator_day": ".day",
     "seen_interfaces": ".ties",
@@ -92,7 +90,7 @@ __all__ = [
     "AlarmAnswer",
     "area_damage",
     "attack_surface",
-    "DcSced",
+    "AcSced",
     "Dispatch",
     "ENTRY",
     "Entry",
@@ -109,12 +107,10 @@ __all__ = [
     "OperatorDay",
     "OperatorMode",
     "OperatorPolicy",
-    "outage_factors",
     "PROXY",
     "respond",
     "Response",
     "seen_interfaces",
-    "shift_factors",
     "shortage_usd",
     "Step",
     "summarize",
