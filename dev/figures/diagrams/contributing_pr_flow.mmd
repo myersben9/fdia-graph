@@ -2,9 +2,7 @@ flowchart LR
     A[branch off main] --> B["tools/prereview.py<br/>every gate"]
     B --> C[checklist review<br/>REVIEW_CHECKLIST.md]
     C --> D["tools/pr.py create<br/>a draft while iterating"]
-    D --> E["tools/pr.py ready<br/>CI + one review per bot"]
-    E --> F{findings?}
-    F -- yes --> G[fix them all in one push,<br/>reply to every one]
-    G --> R["tools/prereview.py and<br/>the checklist again"]
-    R --> H
-    F -- no --> H["tools/pr.py merge<br/>(green + reviewed once,<br/>every finding answered)"]
+    D --> E[one review by review agents,<br/>one round of fixes]
+    E --> R["tools/prereview.py<br/>again"]
+    R --> F["tools/pr.py ready<br/>and summary"]
+    F --> H["tools/pr.py merge<br/>(green CI and<br/>the owner's approval)"]

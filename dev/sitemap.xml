@@ -17,7 +17,35 @@
          <lastmod>2026-11-15</lastmod>
     </url>
     <url>
-         <loc>https://fdia.artecommercellc.com/dev/federated/</loc>
+         <loc>https://fdia.artecommercellc.com/dev/analysis/defense_reproduction/</loc>
+         <lastmod>2026-11-15</lastmod>
+    </url>
+    <url>
+         <loc>https://fdia.artecommercellc.com/dev/analysis/estimation/</loc>
+         <lastmod>2026-11-15</lastmod>
+    </url>
+    <url>
+         <loc>https://fdia.artecommercellc.com/dev/analysis/federated/</loc>
+         <lastmod>2026-11-15</lastmod>
+    </url>
+    <url>
+         <loc>https://fdia.artecommercellc.com/dev/analysis/localization/</loc>
+         <lastmod>2026-11-15</lastmod>
+    </url>
+    <url>
+         <loc>https://fdia.artecommercellc.com/dev/analysis/trust/</loc>
+         <lastmod>2026-11-15</lastmod>
+    </url>
+    <url>
+         <loc>https://fdia.artecommercellc.com/dev/concepts/new_york_grid/</loc>
+         <lastmod>2026-11-15</lastmod>
+    </url>
+    <url>
+         <loc>https://fdia.artecommercellc.com/dev/getting-started/new_york_walkthrough/</loc>
+         <lastmod>2026-11-15</lastmod>
+    </url>
+    <url>
+         <loc>https://fdia.artecommercellc.com/dev/guides/extending_new_york/</loc>
          <lastmod>2026-11-15</lastmod>
     </url>
     <url>
@@ -33,35 +61,7 @@
          <lastmod>2026-11-15</lastmod>
     </url>
     <url>
-         <loc>https://fdia.artecommercellc.com/dev/localization/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/nygrid/ARCHITECTURE/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/nygrid/EXTENDING/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/nygrid/TROUBLESHOOTING/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/nygrid/WALKTHROUGH/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/plans/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/plans/WU_DEFENSE_PLAN/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/plans/WU_MSFDIA_PLAN/</loc>
+         <loc>https://fdia.artecommercellc.com/dev/guides/troubleshooting_new_york/</loc>
          <lastmod>2026-11-15</lastmod>
     </url>
     <url>
@@ -102,18 +102,6 @@
     </url>
     <url>
          <loc>https://fdia.artecommercellc.com/dev/reference/REVIEW_CHECKLIST/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/se/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/trust/</loc>
-         <lastmod>2026-11-15</lastmod>
-    </url>
-    <url>
-         <loc>https://fdia.artecommercellc.com/dev/wu26/</loc>
          <lastmod>2026-11-15</lastmod>
     </url>
 </urlset>
