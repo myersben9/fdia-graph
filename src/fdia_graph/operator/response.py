@@ -4,7 +4,6 @@ or from `fdia_graph.operator`."""
 
 from __future__ import annotations
 
-from fdia_graph._moved import moved
 from fdia_graph.operator.day import INTERFACES, LBMP_ZONE, OperatorDay, operator_day
 from fdia_graph.operator.policy import AFTER, ENTRY, MODES, OperatorPolicy, entry_share
 from fdia_graph.operator.run import QUICK_FUELS, QUICK_MAX_MW, QUICK_ZONES, REG_CAP, Response, Twin, respond
@@ -45,13 +44,3 @@ __all__ = [
     "tie_gap",
     "tie_meters",
 ]
-
-# Renamed when they became public; the old names work, with a DeprecationWarning, until `_moved.RETIRES`.
-_MOVED = {
-    "_TrueGrid": ("fdia_graph.operator.TrueGrid", TrueGrid),
-    "_entry_share": ("fdia_graph.operator.entry_share", entry_share),
-}
-
-
-def __getattr__(name: str) -> object:
-    return moved(__name__, name, _MOVED)

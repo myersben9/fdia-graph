@@ -1,4 +1,4 @@
-"""[WU26]'s trusted-PMU defense on the faithful attack (`trust.wu26`): the MDP (Sec. IV-D2, Fig. 1,
+"""[WU26]'s trusted-PMU defense on the faithful attack (`trust.faithful_attack`): the MDP (Sec. IV-D2, Fig. 1,
 Algorithm 1) and Solution 1's row reduction (Sec. IV-D1, p. 657).
 
     env = Wu26DefenseEnv(net, states, area, targets, Wu26Attack(), WuDefenseConfig(pmus, slots, "devices"))
@@ -24,7 +24,7 @@ from ..models.choices import CostUnit
 from ..models.config import Wu26Attack, WuDefenseConfig
 from ..models.frames import WindowAttack
 from ..models.inputs import ChosenAction, TrustablePmus, WindowSlots
-from .wu26 import _TH, _V, Wu26Network, incremental_freeze, solve_window
+from .faithful_attack import _TH, _V, Wu26Network, incremental_freeze, solve_window
 
 _Schedule = tuple[int, ...]  # the actions taken so far: indices into `WuDefenseConfig.pmus`, in order
 

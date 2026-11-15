@@ -50,7 +50,7 @@ from ..models.frames import WindowAttack
 if TYPE_CHECKING:
     from scipy.sparse import csr_matrix
 
-    from ..engine.pp_types import PandapowerNet
+    from ..engine.pandapower_types import PandapowerNet
 
 SIGMA_SCADA = 0.03  # pu, [WU26] p. 658
 SIGMA_PMU = 0.01  # pu, [WU26] p. 658

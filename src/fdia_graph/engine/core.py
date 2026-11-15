@@ -35,7 +35,7 @@ from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
 
 if TYPE_CHECKING:
-    from .pp_types import PandapowerNet, PpcTables
+    from .pandapower_types import PandapowerNet, PpcTables
 
 # Integer family label written into the per-bus label tensor `y` (0=clean, >0=attacked of that family);
 # the generator makes At and Am (the codes of every released family are in models.choices.FAMILIES).

@@ -1,4 +1,4 @@
-"""[WU26]'s attack as the paper states it (`trust.wu26`): the meter plan, the objective's form, the
+"""[WU26]'s attack as the paper states it (`trust.faithful_attack`): the meter plan, the objective's form, the
 incremental trust and the reproduction's settings."""
 
 import os
@@ -12,13 +12,13 @@ from fdia_graph.models.validation import ConfigError
 pp = pytest.importorskip("pandapower")
 
 from fdia_graph.models.frames import WindowAttack  # noqa: E402
-from fdia_graph.trust.wu26 import (  # noqa: E402
+from fdia_graph.trust.faithful_attack import (  # noqa: E402
     _PF,
     _WindowProblem,
     incremental_freeze,
     wu26_network,
 )
-from fdia_graph.trust.wu26_defense import wu26_solution1  # noqa: E402
+from fdia_graph.trust.faithful_defense import wu26_solution1  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -115,7 +115,7 @@ def test_solution1_derives_fig6_order_for_scenario1(net14):
 def test_scenario1_attack_reaches_fig4(net14):
     """IEEE-14 scenario 1 (lines 3-4 and 6-11): the attack tampers every device of Fig. 4's set."""
     pytest.importorskip("cyipopt")
-    from fdia_graph.trust.wu26 import solve_window, wu26_snapshots
+    from fdia_graph.trust.faithful_attack import solve_window, wu26_snapshots
 
     states = wu26_snapshots(net14.case, 20, seed=123)
     area = [b - 1 for b in (2, 3, 4, 5, 6, 11, 12, 13)]
@@ -154,6 +154,6 @@ def test_a_window_keeps_drawing_until_it_is_full(net14, monkeypatch):
         return real(net, *args, **kwargs)
 
     monkeypatch.setattr(pp, "runpp", flaky)
-    from fdia_graph.trust.wu26 import wu26_snapshots
+    from fdia_graph.trust.faithful_attack import wu26_snapshots
 
     assert len(wu26_snapshots(net14.case, 3, seed=1)) == 3

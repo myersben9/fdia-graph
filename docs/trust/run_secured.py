@@ -7,7 +7,7 @@ to the results store (`results/`).
 Set FG_SYSTEM (default ieee14) and FG_K (the budget, default 20); the copies and the score caches
 are keyed by the secured meters and the source file, so a new selection or budget never reuses a
 stale entry. The selections come from
-the store's `trust.selection` run when `run_trust.py` has written one (its greedy and DQN orders), else
+the store's `trust.selection` run when `run.py` has written one (its greedy and DQN orders), else
 the greedy selector is fitted here. Needs the [se] and [torch] extras; the copies and the per-arm caches go
 under results/cache/. The gated estimators run twice on a secured copy: as they are, and with the
 secured meters exempt from the gate (`GatedPrior(secured=...)`), which is the arm that wins.
@@ -30,7 +30,7 @@ from fdia_graph.trust import TrustedMeters
 
 SYSTEM = os.environ.get("FG_SYSTEM", "ieee14")
 K = int(os.environ.get("FG_K", "20"))
-HP = {"ieee14": (1.5, 0.20), "ieee118": (2.5, 0.50), "ieee300": (6.0, 0.50)}  # docs/se/run_se.py
+HP = {"ieee14": (1.5, 0.20), "ieee118": (2.5, 0.50), "ieee300": (6.0, 0.50)}  # docs/se/run.py
 c, rank = HP.get(SYSTEM, (1.5, 0.5))
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "results")
@@ -40,7 +40,7 @@ STORE = Store(os.path.join(HERE, "..", "..", "results"))  # the repository's res
 
 
 def selections(train):
-    """{arm: (secured meter indices, the fitted selector or None)}: the orders run_trust.py stored,
+    """{arm: (secured meter indices, the fitted selector or None)}: the orders run.py stored,
     else a greedy fit."""
     tm = TrustedMeters(TrustConfig(k=K)).fit(train)  # its estimator gives every copy the meter layout
     stored = {}

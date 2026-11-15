@@ -101,9 +101,9 @@ def test_windows_on_the_time_ordered_view(timeline):
 
 def test_the_v072_record_shard_still_loads():
     """The pre-0.18 layout (gap rows, the clean pool once per pool timestep) reads as before."""
-    from conftest import SHARD_V072
-
     from fdia_graph.dataset import FdiaGraph
+
+    from .conftest import SHARD_V072
 
     ds = FdiaGraph(SHARD_V072)
     assert not ds.is_timeline and not ds.has_benign and ds.has_clean and len(ds) > 0
@@ -164,9 +164,9 @@ def test_stream_of_refuses_a_shuffled_or_filtered_view(timeline):
     E = s.edge_x.shape[1]
     assert s.pmu_i.shape == (len(s.node_x), E, 4) and s.pmu_i_benign.shape == s.pmu_i.shape
     assert s.pmu_i_m.shape == (E, 4) and s.pmu_i_m.any()
-    from test_old_releases import TIMELINE_V083
-
     from fdia_graph.dataset import FdiaGraph
+
+    from .test_old_releases import TIMELINE_V083
 
     old = stream_of(FdiaGraph(TIMELINE_V083, split="test"))
     assert old.pmu_i is None and "pmu_i" not in old

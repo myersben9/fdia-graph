@@ -39,15 +39,16 @@ checks a docs change locally.
 
 | rule | means | command |
 |---|---|---|
-| nothing a user sees changes without a changelog entry | public API, file formats, the numbers a timeline, estimator or localizer produces; moved private names get a warning alias for one minor version | `CHANGELOG.md`, `## Unreleased` |
-| every change is proven behaviour-free, or its effect is measured | the tests pin the fewest-tamper search's answers (`tests/test_search_speed.py`), [WU26]'s scenarios (`tests/test_wu_scenarios.py`) and the formulas and models; a change that moves a generated number states the delta | `pytest -W "error::DeprecationWarning:fdia_graph" tests` |
+| nothing a user sees changes without a changelog entry | public API, file formats, the numbers a timeline, estimator or localizer produces; a private name (a leading underscore) carries no promise and gets no alias when it moves | `CHANGELOG.md`, `## Unreleased` |
+| every change is proven behaviour-free, or its effect is measured | the tests pin the fewest-tamper search's answers (`tests/test_search_speed.py`), [WU26]'s scenarios (`tests/test_overload_case_studies.py`) and the formulas and models; a change that moves a generated number states the delta | `pytest -W "error::DeprecationWarning:fdia_graph" tests` |
 | code reads as its subject | complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in `formulas/` with a source key; every returned bundle a model in `models/` | `python tools/readability.py --report`, `--check --base origin/main` |
 | an input is checked in one place | a new argument is a field on its consumer's model in `models/config.py`, with its rules in the annotation (`Annotated[float, Positive()]`, `OneOf(<Choice>)`) and cross-field rules in `invariants()`; a dataset precondition is a `ds.require(...)` capability; a condition only the data reveals raises a named error from `errors.py`; never a `raise ValueError` in a function body | `python tools/readability.py --check` (refuses a new one) |
 | everything is typed | every parameter, return and field carries its real type; an optional dependency's type (pandapower, torch, h5py, scipy, pandas) is imported under `if TYPE_CHECKING:` so the import stays lazy; `Any` only where the value can be anything, listed in `ANY_ALLOWED` in `tools/readability.py` with the reason | `python tools/readability.py --check` (refuses an unlisted `Any` and a stale entry), pyright in CI |
 | typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src`, `ruff check src tests tools` |
 | generated docs match the code | the class and module diagram sources and the data dictionary's Models section | `python tools/class_diagrams.py --check`, `python tools/models_doc.py --check` |
 | no measured number is typed into markdown | a harness writes what it measures through `fdia_graph.results.Run` into the results store (`results/`, see its README); a doc shows a number or a table through a results block (`<!-- results: <query> ... -->`, queries in `results/queries.py`), a CHANGELOG entry names the experiment; settings and published values from papers stay as text | `python tools/results_docs.py --write`, `--check`; `--lint` lists typed decimals |
-| the paper maps to the code | an equation of [WU26] is cited as `[WU26 eq. 28]` (`[WU26 eqs. 21-23]`, `[WU26 Alg. 1]`), in the docstring or a comment of the function that implements it and of the test that checks it (or the test is named `test_wu26_eq28_...`); every equation in `schema.WU26_EQUATIONS` has a function and a test | `python tools/equation_map.py` writes the generated sections of `FORMULAS.md` and `CONCEPTS_TO_CODE.md`; `--check` in the pre-review and CI |
+| a file's name says what it does | plain words: never its folder's name again (`tests/nygrid/test_areas.py`, not test_nygrid_areas.py), never a sibling's name plus a short ending (reduce.py beside reduced.py), no digit, no citation key or first author's surname from `REFERENCES.md` | `python tools/layout.py --check` |
+| every file says what it does, and every page keeps up | every Python file opens with a docstring whose first paragraph is its line in `docs/reference/MODULES.md`; every package has a page (`PAGES` in `tools/layout.py`) that names each of its modules; every module or name a doc or docstring cites in a code span exists | `python tools/layout.py` writes the file map; `--check` in the pre-review and CI |
 | speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python tools/bench.py --check` before a release, `python tools/bench.py` after |
 
 ## The pull request
@@ -114,5 +115,6 @@ registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 | the federated localizers and prior | `federated/`, its algebra in `formulas/federated.py` |
 | a returned record's fields | `models/` |
 | a formula | `formulas/`, and its row in `docs/reference/FORMULAS.md` |
+| any file, to learn what it does | `docs/reference/MODULES.md`, the first paragraph of every file's docstring |
 
 The design documents behind the current layout are archived in `docs/plans/`.

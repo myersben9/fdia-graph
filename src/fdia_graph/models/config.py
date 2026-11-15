@@ -334,7 +334,7 @@ class OverloadSettings(Validated):
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
             self.support_method != SupportMethod.WU_L1.value,
-            ("the wu_l1 attack is the [WU26] reproduction's (trust.wu26), not the generator's"),
+            ("the wu_l1 attack is the [WU26] reproduction's (trust.faithful_attack), not the generator's"),
         )
 
     @staticmethod
@@ -386,7 +386,9 @@ class MeterSettings(Validated):
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
             self.meter_model != MeterModel.WU26.value,
-            ("the wu26 meter plan is the [WU26] reproduction's (trust.wu26), not a generator plan"),
+            (
+                "the wu26 meter plan is the [WU26] reproduction's (trust.faithful_attack), not a generator plan"
+            ),
         )
 
     @property
@@ -547,7 +549,9 @@ class GeneratorOptions(Validated):
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
             self.meter_model != MeterModel.WU26.value,
-            ("the wu26 meter plan is the [WU26] reproduction's (trust.wu26), not a generator plan"),
+            (
+                "the wu26 meter plan is the [WU26] reproduction's (trust.faithful_attack), not a generator plan"
+            ),
         )
 
 
@@ -613,7 +617,7 @@ class WuDefenseConfig(Validated):
 
 @dataclass(frozen=True)
 class Wu26Attack(Validated):
-    """[WU26]'s attack as `trust.wu26` reproduces it: the meter plan "wu26" and the solver "wu_l1" (eq. 12
+    """[WU26]'s attack as `trust.faithful_attack` reproduces it: the meter plan "wu26" and the solver "wu_l1" (eq. 12
     read literally, the l1 of the window's summed attack), with the settings the paper leaves open, all
     ours: the overload `rho` (each target's flow ramps to rho times its true value by the window's end;
     no rating is stated), the weight `tau` of the per-snapshot l1 that bounds the intermediate snapshots

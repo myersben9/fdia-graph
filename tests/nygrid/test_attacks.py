@@ -1,8 +1,10 @@
+"""The New York attacks on the real grid: the attacker's area and false states, the multi-snapshot overload
+(`MsFdia`), the ramp, and that each meets its goal, stays within the natural load swing and evades the residual test."""
+
 import json
 
 import numpy as np
 import pytest
-from nygrid_inputs import DATA, POOL_V1, TERRITORIES, needs_data, needs_pool_v1
 from scipy.stats import chi2
 
 from fdia_graph.engine.attacks.attacker import Attacker, generator_ramps, natural_steps, wrap_angles
@@ -18,6 +20,8 @@ from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
+
+from .inputs import DATA, POOL_V1, TERRITORIES, needs_data, needs_pool_v1
 
 LENGTH = 16
 pytestmark = [needs_data, needs_pool_v1]

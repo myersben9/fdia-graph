@@ -70,7 +70,7 @@ def test_jitter_draws_in_the_per_channel_order():
 
 
 def test_replay_keeps_the_newest_in_arrival_order():
-    from fdia_graph.trust.dqn import _Replay
+    from fdia_graph.trust.meter_dqn import _Replay
 
     buf = _Replay(3)
     for i in range(5):

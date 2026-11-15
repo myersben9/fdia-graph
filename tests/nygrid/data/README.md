@@ -1,7 +1,7 @@
 # New York grid test data
 
 Files `tests/nygrid` reads that are checked in, so CI runs the tests on them with only the public inputs
-(`tests/nygrid/nygrid_inputs.py` says which input each test needs).
+(`tests/nygrid/inputs.py` says which input each test needs).
 
 | file | what it is | made by |
 |---|---|---|

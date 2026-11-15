@@ -8,6 +8,16 @@ Every measured number the docs show comes from here, through `fdia_graph.results
 | `runs.csv` | one row per run: SDK version, git commit and dirty flag, data release, seed, settings hash, platform, a note |
 | `queries.py` | the queries the docs' results blocks name |
 
+The code is the package `fdia_graph.results`:
+
+| file | holds |
+|---|---|
+| `src/fdia_graph/results/run.py` | `Run`: open a run, add values, and the run writes them with their provenance when it closes |
+| `src/fdia_graph/results/store.py` | `Store`: one tidy CSV per experiment plus the table of runs, read and written |
+| `src/fdia_graph/results/render.py` | records to what a reader sees: a formatted cell, a markdown table, a pivot, a figure's CSV sidecar |
+| `src/fdia_graph/results/docs.py` | the results blocks of the docs, filled and checked from the store |
+| `src/fdia_graph/results/studies.py` | the parts every study over attack windows repeats (the New York tools under `tools/nygrid/`) |
+
 ## Writing results
 
 A harness opens a run and adds values; the run writes them with its provenance when it closes, and a

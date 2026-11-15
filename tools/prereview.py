@@ -11,8 +11,8 @@ started with. A parser of loose input can behave differently between versions, s
 with the test extras installed can be added with `--also-python` (repeatable) or, set once per
 machine, `FDIA_PREREVIEW_PYTHONS` (paths joined by the platform's path separator).
 
-It runs the gates CI runs (formatting, lint, types, readability, the generated diagrams and data
-dictionary) and the test suite on this checkout's own source (`PYTHONPATH=src`, so an
+It runs the gates CI runs (formatting, lint, types, readability, the layout rules and the file map,
+the generated diagrams and data dictionary) and the test suite on this checkout's own source (`PYTHONPATH=src`, so an
 editable install of another checkout cannot stand in for it), plus checks CI does not run, each one
 a kind of finding reviews kept raising (`docs/reference/REVIEW_CHECKLIST.md`). The changed files are
 the branch's commits against the base, the uncommitted changes and the untracked files.
@@ -20,7 +20,8 @@ the branch's commits against the base, the uncommitted changes and the untracked
 - **changelog**: never more than one `## Unreleased`; a change under `src/` needs exactly one, with
   at least one entry, and CHANGELOG.md changed.
 - **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too.
-- **cited paths**: every repository path a changed Markdown file cites exists (a file or a folder,
+- **cited paths**: every repository path a Markdown file cites exists (every file, every run: a
+  page nobody edits goes stale too; docs/plans/ is design history and is not read) (a file or a folder,
   with or without an extension; in CHANGELOG.md the `## Unreleased` section only, the released
   sections being history), in a code span whose first part is a root entry of the tree (or a
   dotfile or upper-case Markdown name), or as a link or image destination (relative to the file; anchors, queries and web links are ignored).
@@ -78,10 +79,10 @@ def gates(base: str, also: list[str]) -> list[Gate]:
         Gate("lint", [py, "-m", "ruff", "check", "src", "tests", "tools"]),
         Gate("types", [py, "-m", "pyright", "src/fdia_graph"]),
         Gate("readability", [py, "tools/readability.py", "--report", "--check", "--base", base]),
+        Gate("layout", [py, "tools/layout.py", "--check"]),
         Gate("class diagrams", [py, "tools/class_diagrams.py", "--check"]),
         Gate("data dictionary", [py, "tools/models_doc.py", "--check"]),
         Gate("results docs", [py, "tools/results_docs.py", "--check"]),
-        Gate("equation map", [py, "tools/equation_map.py", "--check"]),
         Gate(f"tests ({_version(py)})", _suite(py), slow=True),
         *(Gate(f"tests ({_version(other)})", _suite(other), slow=True) for other in also),
     ]
@@ -239,6 +240,7 @@ def _vacuous_tests() -> tuple[str, str]:
 
 
 _MODELS = ("src/fdia_graph/models/config.py", "src/fdia_graph/models/inputs.py")
+HISTORY = ("docs/plans/",)  # design documents kept as history: they may cite files a later change removed
 
 
 def _expand(ann: str, aliases: dict[str, str]) -> str:
@@ -297,7 +299,10 @@ def repo_checks(files: list[str]) -> list[tuple[str, str, str]]:
     """The checks CI does not run: (name, PASS/FAIL/SKIP, detail)."""
     return [
         ("changelog", *_changelog(files)),
-        ("cited paths", *_cited_paths(files)),
+        (
+            "cited paths",
+            *_cited_paths(sorted(f for f in _tree() if f.endswith(".md") and not f.startswith(HISTORY))),
+        ),
         ("vacuous tests", *_vacuous_tests()),
         ("integer fields", *_integer_fields()),
         ("rendered diagrams", *_rendered_diagrams(files)),

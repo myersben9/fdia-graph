@@ -1,9 +1,9 @@
-"""[WU26]'s defense on the faithful attack (`trust.wu26`), at the paper's scale: windows drawn by p. 658's
+"""[WU26]'s defense on the faithful attack (`trust.faithful_attack`), at the paper's scale: windows drawn by p. 658's
 data recipe, the undefended attack of each and the attack under Solution 1's trusted PMUs, one step per
 configuration slot. Every window's numbers go to the results store as `wu26.faithful` (docs/wu26).
 
-    python tools/wu26_faithful.py --system 118 --windows 100 --workers 26
-    python tools/wu26_faithful.py --system 14 --windows 5 --dry      # a few windows, printed, nothing stored
+    python tools/reproduce_faithful_defense.py --system 118 --windows 100 --workers 26
+    python tools/reproduce_faithful_defense.py --system 14 --windows 5 --dry      # a few windows, printed, nothing stored
 
 Per window: the devices tampered at any snapshot without and with the defense (Fig. 12's cost), the rise
 and the new devices, eq. (33)'s net-vector channels, the largest change (Fig. 4's scale), the overlap
@@ -23,8 +23,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from fdia_graph.models.config import Wu26Attack, WuDefenseConfig  # noqa: E402
-from fdia_graph.trust.wu26 import wu26_network, wu26_snapshots  # noqa: E402
-from fdia_graph.trust.wu26_defense import Wu26DefenseEnv, wu26_solution1  # noqa: E402
+from fdia_graph.trust.faithful_attack import wu26_network, wu26_snapshots  # noqa: E402
+from fdia_graph.trust.faithful_defense import Wu26DefenseEnv, wu26_solution1  # noqa: E402
 
 # the paper's scenarios (Sec. V): PMUs, attack area, target lines, configuration slots (0-based snapshots),
 # the reference tampered set, and the settings it leaves open (ours, Wu26Attack)

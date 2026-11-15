@@ -18,20 +18,20 @@ kernel (`formulas.trust`) and the scoring: the secured meters are set back to th
 reading on every attacked record and the residual test of a WLS estimator says whether the attack
 now shows. Needs the [se] extra; the DQN the [torch] extra.
 
-`trust.wu26` reproduces [WU26]'s attack as the paper states it (its meter plan, eq. 12's l1 of the
+`trust.faithful_attack` reproduces [WU26]'s attack as the paper states it (its meter plan, eq. 12's l1 of the
 window's summed attack on IPOPT, incremental trust; needs the [wu] extra) and `Wu26DefenseEnv` is the
 MDP on it. `WuDefenseEnv` is [WU26]'s own MDP on the overload attack: the agent trusts one PMU per configuration
 step, and the reward is the rise in the fewest-tamper search's cost under the schedule (eq. 33).
 """
 
 from .base import TrustedMeters, TrustSelector
-from .defense import DefenseEnv, WuDefenseEnv
-from .dqn import TrustedMetersDQN
+from .faithful_attack import Wu26Network, incremental_freeze, solve_window, wu26_network, wu26_snapshots
+from .faithful_defense import Wu26DefenseEnv, wu26_solution1
+from .meter_dqn import TrustedMetersDQN
+from .pmu_dqn import TrustedPMUsDQN
+from .pmu_environment import DefenseEnv, WuDefenseEnv
+from .pmu_row_reduction import TrustedPMUs
 from .secured import secured_copy
-from .solution1 import TrustedPMUs
-from .wu26 import Wu26Network, incremental_freeze, solve_window, wu26_network, wu26_snapshots
-from .wu26_defense import Wu26DefenseEnv, wu26_solution1
-from .wu_dqn import TrustedPMUsDQN
 
 __all__ = [
     "DefenseEnv",

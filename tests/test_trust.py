@@ -44,9 +44,9 @@ def test_secured_meters_expose_the_stealthy_families(selector, timeline):
             assert rep.detected_after[fam] >= rep.detected_before[fam] - 0.05, fam
     assert rep["order"] == rep.order and len(rep.cost) == len(rep.order)
     with pytest.raises(ValueError, match="benign layer"):
-        from conftest import SHARD_V072
-
         from fdia_graph.dataset import FdiaGraph
+
+        from .conftest import SHARD_V072
 
         selector.score(FdiaGraph(SHARD_V072))
 
@@ -119,7 +119,7 @@ def test_gated_prior_keeps_secured_meters_at_full_weight(selector, timeline):
 
 
 def test_dqn_replay_ring_draws_what_the_sliced_list_drew():
-    from fdia_graph.trust.dqn import _Replay
+    from fdia_graph.trust.meter_dqn import _Replay
 
     rng = np.random.default_rng(1)
     ring, flat = _Replay(5), []

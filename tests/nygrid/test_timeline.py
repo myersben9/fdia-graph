@@ -1,9 +1,11 @@
+"""The New York timeline: splits cut whole and disjoint, episodes placed at random within their split and only at
+allowed onsets, and every frame a noisy benign scan plus its attack with labels that match the meters tampered."""
+
 import json
 
 import h5py
 import numpy as np
 import pytest
-from nygrid_inputs import DATA, POOL, TERRITORIES
 
 from fdia_graph.engine.attacks.attacker import Attacker, generator_ramps, natural_steps
 from fdia_graph.engine.attacks.msfdia import MsFdia
@@ -20,6 +22,8 @@ from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npc
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
 from fdia_graph.generation.nygrid.schedule import WEEK, place_episodes, split_frames, split_weeks
 from fdia_graph.generation.nygrid.timeline import TimelineBuilder
+
+from .inputs import DATA, POOL, TERRITORIES
 
 START, FRAMES = 50000, 288  # one day of the 2019 pool (June), short enough to build in seconds
 
@@ -87,7 +91,7 @@ def test_place_episodes_only_at_allowed_onsets_and_capped():
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
     if not (DATA.exists() and TERRITORIES.exists() and POOL.exists()):
-        pytest.skip("the public inputs or the whole 2019 pool missing (nygrid_inputs.py)")
+        pytest.skip("the public inputs or the whole 2019 pool missing (inputs.py)")
     case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
     territories = json.load(open(TERRITORIES / "nys_electric_territories.geojson", encoding="utf-8"))
     own = assign_clients(case, territories, TERRITORIES / "ny_bus_locations.csv")

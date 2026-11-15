@@ -41,9 +41,29 @@ set back to their benign reading (the attacker cannot write them) and a WLS resi
 benign false-alarm level says whether the attack now shows. `detected_before` is the residual test
 with every meter writable, `detected_after` with the trust in place.
 
+## Files
+
+The package holds two things: the trusted-meter selectors on a dataset, and the trusted-PMU defense of [WU26]
+on an overload window, the latter both on the generator's attack and on the paper's own attack.
+
+| file | holds |
+|---|---|
+| `trust/base.py` | `TrustSelector`, the shared fit and score (the Jacobian at the benign mean, the attack-cost kernel, the residual test with the secured meters pinned), and `TrustedMeters`, the greedy selection |
+| `trust/meter_dqn.py` | `TrustedMetersDQN`: the same selection as an MDP with a deep Q-network |
+| `trust/secured.py` | `secured_copy`: a copy of a timeline with chosen meters secured and its temporal features recomputed |
+| `trust/pmu_environment.py` | `DefenseEnv`, the protocol both trusted-PMU MDPs implement, and `WuDefenseEnv`: the trusted-PMU configuration as an MDP on one overload window of the generator, its reward the rise in the fewest-tamper search's cost |
+| `trust/pmu_row_reduction.py` | `TrustedPMUs`: the trusted PMUs by row reduction of the measurement matrix (the paper's Solution 1) |
+| `trust/pmu_dqn.py` | `TrustedPMUsDQN`: the trusted PMUs by a deep Q-network trained with the paper's Algorithm 1 (Solution 2) |
+| `trust/faithful_attack.py` | the paper's attack as the paper states it, on a pandapower case: the meter plan, the multi-snapshot attack on IPOPT, incremental trust (needs the `[wu]` extra) |
+| `trust/faithful_defense.py` | `Wu26DefenseEnv` and `wu26_solution1`: the trusted-PMU MDP and Solution 1 on that attack |
+
+The defense results are reproduced by `tools/reproduce_defense.py` (on the generator),
+`tools/reproduce_faithful_defense.py` and `tools/reproduce_faithful_dqn.py` (on the paper's attack); the
+numbers are in [`../wu26/README.md`](../wu26/README.md).
+
 ## Results
 
-`python docs/trust/run_trust.py` (set `FG_SYSTEM`) writes a run of `trust.selection` to the
+`python docs/trust/run.py` (set `FG_SYSTEM`) writes a run of `trust.selection` to the
 results store: the selection, the attack-cost curve, and the detection table. Read the detection
 table first. The attack cost is the sparsest row of an echelon basis of the open subspace, an upper
 bound on the true sparsest attack, so it is not monotone in the secured set: on IEEE-14 the greedy
@@ -71,7 +91,7 @@ of the timeline in which the selected meters read their benign value on every fr
 locked out of them, the tamper masks and the stored temporal features following), so every
 estimator and localizer of the other two guides can be scored with the set secured;
 `python docs/trust/run_secured.py` (set `FG_SYSTEM`, `FG_K`) does that for the greedy and the DQN
-selections of `run_trust.py` and writes runs of `trust.secured_localization` and
+selections of `run.py` and writes runs of `trust.secured_localization` and
 `trust.secured_estimation` to the results store.
 
 Rule: a localization gate never down-weights a secured meter.

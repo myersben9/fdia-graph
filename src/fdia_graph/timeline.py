@@ -44,15 +44,7 @@ from typing import Optional, Union
 import h5py
 import numpy as np
 
-from ._moved import moved
 from .engine import FdiaGenerator
-from .engine.attacks.episodes import (
-    ONSET_DRAWS,
-    EpisodeDesignMixin,
-    draw_ramp,
-    probe_frames,
-    ramp_dev,
-)
 from .engine.records import (  # noqa: F401  AttackDesign, is_feasible re-exported as before
     AM_FAMILY,
     RAMP_FAMILY,
@@ -61,7 +53,7 @@ from .engine.records import (  # noqa: F401  AttackDesign, is_feasible re-export
     is_feasible,
 )
 from .formulas.attacks import ramp_profile  # noqa: F401  re-exported as before
-from .generation import _FrameContext, _load_states, _write_graph, emit, plan, write
+from .generation import _FrameContext, _load_states, _write_graph, emit, plan
 from .generation.design import AmDesigner, _GeneratorSpec
 from .generation.emit import TimelineBuffers, clean_slice, walk_split
 from .generation.plan import (  # noqa: F401  the plan stage's names the walk uses, and its constants
@@ -95,63 +87,6 @@ from .schema import Attr
 
 # the generator makes the multi-snapshot families [WU26]: the ramp At and the overload Am
 DEFAULT_FAMILIES = GENERATED_FAMILIES
-
-# what an episode attacks moved to engine.attacks.episodes (the generator's AttackMixin); the old
-# private names keep their old signatures for one minor release, forwarding to the new home
-_EPISODES = "engine.attacks.episodes"
-_MOVED: dict[str, tuple[str, object]] = {
-    "_ONSET_DRAWS": (f"{_EPISODES}.ONSET_DRAWS", ONSET_DRAWS),
-    "_ramp_dev": (f"{_EPISODES}.ramp_dev", ramp_dev),
-    "_target_counts": (f"{_EPISODES}.EpisodeDesignMixin.target_counts", EpisodeDesignMixin.target_counts),
-    "_probe_frames": (
-        f"{_EPISODES}.probe_frames",
-        lambda ctx, t, length: probe_frames(len(ctx.X), t, length),
-    ),
-    "_draw_ramp": (
-        f"{_EPISODES}.draw_ramp",
-        lambda ctx, rng, n: tuple(draw_ramp(rng, ctx.g.stealthy_pos, n))[
-            :4
-        ],  # its old (targets, direction, rise, hold)
-    ),
-}
-# the stages' names moved to the generation package; those kept with their old signature resolve here
-# for one minor release, with a warning
-_PLAN, _EMIT, _WRITE = "generation.plan", "generation.emit", "generation.write"
-_MOVED.update(
-    {
-        "_Schedule": (f"{_PLAN}._Schedule", plan._Schedule),
-        "_Placement": (f"{_PLAN}._Placement", plan._Placement),
-        "_split_bounds": (f"{_PLAN}.split_bounds", plan.split_bounds),
-        "_largest_remainder": (f"{_PLAN}.largest_remainder", plan.largest_remainder),
-        "_episode_counts": (f"{_PLAN}.episode_counts", plan.episode_counts),
-        "_uniform_onset": (f"{_PLAN}.uniform_onset", plan.uniform_onset),
-        "_place_once": (f"{_PLAN}.place_once", plan.place_once),
-        "_place_split": (f"{_PLAN}.place_split", plan.place_split),
-        "_split_column": (f"{_PLAN}.split_column", plan.split_column),
-        "_give_up": (f"{_PLAN}.give_up", plan.give_up),
-        "_TimelineBuffers": (f"{_EMIT}.TimelineBuffers", emit.TimelineBuffers),
-        "_Walk": (f"{_EMIT}._Walk", emit._Walk),
-        "_emit_benign": (f"{_EMIT}.emit_benign", emit.emit_benign),
-        "_benign_run": (f"{_EMIT}.benign_run", emit.benign_run),
-        "_ramp_episode": (f"{_EMIT}.ramp_episode", emit.ramp_episode),
-        "_relocate": (f"{_EMIT}.relocate_later", emit.relocate_later),
-        "_clean_slice": (f"{_EMIT}.clean_slice", emit.clean_slice),
-        "_layers": (f"{_EMIT}.layers", emit.layers),
-        "_create_layers": (f"{_WRITE}.create_layers", write.create_layers),
-        "_ragged": (f"{_WRITE}.ragged", write.ragged),
-        "_write_masks": (f"{_WRITE}._write_masks", write._write_masks),
-        "_write_episodes": (f"{_WRITE}._write_episodes", write._write_episodes),
-        "_write_min_rows": (f"{_WRITE}._write_min_rows", write._write_min_rows),
-        "_write_am_rows": (f"{_WRITE}._write_am_rows", write._write_am_rows),
-        "_placement_attrs": (f"{_WRITE}.placement_attrs", write.placement_attrs),
-        "_timeline_attrs": (f"{_WRITE}._timeline_attrs", write._timeline_attrs),
-        "_block_scale": (f"{_WRITE}._block_scale", write._block_scale),
-    }
-)
-
-
-def __getattr__(name: str) -> object:
-    return moved(__name__, name, _MOVED)
 
 
 def _generator(system: Union[int, str], seed: int, s: TimelineSettings) -> FdiaGenerator:

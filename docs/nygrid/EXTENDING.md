@@ -42,7 +42,7 @@ consequence as attacked less benign, so an operator only has to produce both run
 
 ## Changing the package itself
 
-- The golden snapshots (`tests/nygrid/test_nygrid_golden.py`) pin what the operator, the detection tools and the
+- The golden snapshots (`tests/nygrid/test_golden.py`) pin what the operator, the detection tools and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (`NYGRID_UPDATE_GOLDEN=1`) and say in the pull request which numbers moved and why.
 - A setting is an argument; never change a library object's settings or a shared record's arrays after it is built.

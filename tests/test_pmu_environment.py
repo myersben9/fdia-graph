@@ -10,12 +10,12 @@ import pytest
 
 pytest.importorskip("pandapower")
 
-import test_trusted_pmus as tt  # noqa: E402
-
 from fdia_graph.models import WuDefenseConfig  # noqa: E402
 from fdia_graph.models.frames import MinimizerResult  # noqa: E402
 from fdia_graph.models.validation import ConfigError  # noqa: E402
 from fdia_graph.trust import WuDefenseEnv  # noqa: E402
+
+from . import test_trusted_pmus as tt  # noqa: E402
 
 SLOTS = (1, 3, 5, 7)
 

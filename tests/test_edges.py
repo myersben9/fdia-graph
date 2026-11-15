@@ -75,9 +75,9 @@ def test_load_rejects_bad_units_split_and_family(timeline):
 def test_family_filter_aliases_and_heldout_protocol(timeline):
     """On an old release that carries them, the old family names, aliases and the unseen-attack
     protocol (As and Ar held out of train and val) still select as documented."""
-    from test_old_releases import TIMELINE_V083
-
     from fdia_graph.dataset import FdiaGraph
+
+    from .test_old_releases import TIMELINE_V083
 
     by_alias = FdiaGraph(TIMELINE_V083, families=["Ao"])
     by_code = FdiaGraph(TIMELINE_V083, families=[1])

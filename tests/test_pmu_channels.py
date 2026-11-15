@@ -32,9 +32,9 @@ def pool():
 
 @pytest.fixture(scope="module")
 def files(tmp_path_factory, pool):
-    from test_old_releases import TIMELINE_V083
-
     from fdia_graph.timeline import generate_timeline
+
+    from .test_old_releases import TIMELINE_V083
 
     d = tmp_path_factory.mktemp("pmu")
     kw = dict(states=pool, seed=1, families=("At",), ramp_len=10, min_budget=32)

@@ -1,14 +1,18 @@
+"""The operator's real-time dispatch (`operator.sced`): shift and outage factors, the 2019 shortage price, and a
+dispatch that moves nothing when it sees nothing wrong and relieves what it sees over a limit."""
+
 from dataclasses import replace
 
 import numpy as np
 import pytest
-from nygrid_inputs import DAMAGE_DAYS, DATA, DAYS, DAYS_POOL, SINGLE_DAY, needs_data
 
 from fdia_graph.generation.nygrid.case import REF
 from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.operator.sced import DcSced, loss_factors, outage_factors, shift_factors, shortage_usd
+
+from .inputs import DAMAGE_DAYS, DATA, DAYS, DAYS_POOL, SINGLE_DAY, needs_data
 
 pytestmark = needs_data
 

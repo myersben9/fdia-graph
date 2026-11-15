@@ -1,13 +1,17 @@
+"""The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the
+pool, and the bottom-up load profiles with their within-hour calibration."""
+
 from pathlib import Path
 
 import numpy as np
 import pytest
-from nygrid_inputs import DATA, ROOT, TERRITORIES, needs_data
 
 from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
 from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.inputs import read_nygrid
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
+
+from .inputs import DATA, ROOT, TERRITORIES, needs_data
 
 REF = (
     Path(__file__).resolve().parent / "data" / "matlab_ref"

@@ -28,9 +28,9 @@ import numpy as np
 
 from ..models.config import WuDqnConfig
 from ..models.inputs import SameDefense
-from .defense import DefenseEnv
-from .dqn import _Replay, q_network
-from .dqn import _torch as _dqn_torch
+from .meter_dqn import _Replay, q_network
+from .meter_dqn import _torch as _dqn_torch
+from .pmu_environment import DefenseEnv
 
 if TYPE_CHECKING:
     import torch

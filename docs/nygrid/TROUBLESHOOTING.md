@@ -72,7 +72,7 @@ from the calibration files under `results/`.
 
 ## The golden snapshots
 
-`tests/nygrid/test_nygrid_golden.py` compares what the operator, the detection tools and the interface attack return
+`tests/nygrid/test_golden.py` compares what the operator, the detection tools and the interface attack return
 on fixed inputs with the snapshots in `tests/nygrid/golden/`. A failure names the first value that changed. If the
 change is intended, rewrite the snapshots with `NYGRID_UPDATE_GOLDEN=1` and say in the pull request which numbers
 moved and why. The operator and detection snapshots run on the attack days checked in under
