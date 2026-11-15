@@ -18,9 +18,11 @@ the public API, the generated files and the numbers are the same as the previous
     argument and the DC outage factors are gone. `zone_levers(day)` uses the AC sensitivities (`ac_shift`); its
     `ac` argument is gone. `area_damage`'s payments are the AC bus prices, attacked less benign.
   - A `respond` run is an AC OPF per scan, about a minute per day on the test machine against five seconds for
-    the DC dispatch. The `respond_*` snapshots under `tests/nygrid/golden/` are regenerated under AC, compared
-    within the solver's tolerance (relative 1e-4, absolute 1e-2) since an interior-point answer is not
-    bit-identical across machines, and cut from 26 to 14: every operator and loop on the window past the limit,
+    the DC dispatch. The `respond_*` snapshots under `tests/nygrid/golden/` are regenerated under AC and cut
+    from 26 to 14. They compare within relative 1e-4 and absolute 1e-2 on the machine that recorded them
+    (`respond_recorded_on.json`), where a refactor must repeat them, and within 5 percent or 2 (MW or dollars)
+    elsewhere: on another platform the least-movement dispatch lands on another of its near-equal answers (the
+    first Linux run moved the same MW to 0.05 percent and the dollars to half a percent). The 14 are: every operator and loop on the window past the limit,
     the trusting closed loop on the window at the limit, and the seven options on the window past the limit.
   - Load the units cannot follow is no longer priced at the 1,000 $/MWh offer cap (`ENERGY_CAP`, the DC
     least-cost dispatch's): the AC dispatch leaves it as a slack at `SLACK_WEIGHT`.

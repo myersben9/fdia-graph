@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 from dataclasses import fields
 from pathlib import Path
 
@@ -36,10 +37,14 @@ from .inputs import (
 WINDOWS = DAMAGE_DAYS
 CALIB = (28.41, 13.76)  # the interchange check's calibration, results/nygrid.tie_check.json
 RULE = (428.7, 2, 3)  # the residual test's persistence rule
-# The operator's dispatch is an interior-point solve (Ipopt): its answer agrees between machines and linear-algebra
-# builds to the solver's tolerance, not to the last digit, so its snapshots compare within these (a digest is a sum
-# over a day's scans, MW or dollars).
-SOLVER_RTOL, SOLVER_ATOL = 1e-4, 1e-2
+# The operator's dispatch is an interior-point solve (Ipopt). On the machine that recorded the snapshots it repeats
+# within SOLVER (relative, absolute; a digest is a sum over a day's scans, MW or dollars), so there a refactor
+# shows. On another platform or solver build the least-movement dispatch lands on another of its near-equal
+# answers: the MW it moves agree to about 0.05 percent and the dollars to about half a percent (the first Linux
+# run against Windows snapshots), so elsewhere the snapshots compare within ELSEWHERE, which still shows a result
+# that changes in kind. `respond_recorded_on.json` names the recording machine.
+SOLVER, ELSEWHERE = (1e-4, 1e-2), (5e-2, 2.0)
+RECORDED_ON = "respond_recorded_on"
 GOLDEN = Path(__file__).parent / "golden"
 UPDATE = os.environ.get("NYGRID_UPDATE_GOLDEN") == "1"
 
@@ -79,6 +84,22 @@ def _same(got, want, path: str = "", rtol: float = 1e-9, atol: float = 1e-9) -> 
         assert np.isclose(got, want, rtol=rtol, atol=atol), f"{path}: {got!r} != {want!r}"
     else:
         assert got == want, f"{path}: {got!r} != {want!r}"
+
+
+def machine() -> str:
+    """The machine a solver snapshot repeats on: platform, Python and numpy."""
+    return f"{platform.platform()} | python {platform.python_version()} | numpy {np.__version__}"
+
+
+def solver_tolerance() -> tuple[float, float]:
+    """(rtol, atol) for the operator snapshots: `SOLVER` on the machine that recorded them, `ELSEWHERE` on any
+    other; a rewrite (NYGRID_UPDATE_GOLDEN=1) records this machine."""
+    path = GOLDEN / f"{RECORDED_ON}.json"
+    if UPDATE:
+        GOLDEN.mkdir(exist_ok=True)
+        path.write_text(json.dumps({"machine": machine()}, indent=1) + "\n")
+        return SOLVER
+    return SOLVER if path.exists() and json.loads(path.read_text())["machine"] == machine() else ELSEWHERE
 
 
 def check(name: str, got: dict, rtol: float = 1e-9, atol: float = 1e-9) -> None:
@@ -138,7 +159,7 @@ def test_respond_modes(days, window, mode, closed_loop):
 
     r = respond(days[window], mode=mode, calib=CALIB, closed_loop=closed_loop)
     name = f"respond_{Path(window).stem}_{mode}_{'cl' if closed_loop else 'ol'}"
-    check(name, _response(r), SOLVER_RTOL, SOLVER_ATOL)
+    check(name, _response(r), *solver_tolerance())
 
 
 @pytest.mark.parametrize("window", WINDOWS[1:])
@@ -164,7 +185,7 @@ def test_respond_options(days, window, options):
         kw["alarm_at"] = day.onset + 5
     r = respond(day, mode="trusting", calib=CALIB, closed_loop=True, **kw)
     tag = "_".join(f"{k}-{v}" for k, v in options.items())
-    check(f"respond_{Path(window).stem}_{tag}", _response(r), SOLVER_RTOL, SOLVER_ATOL)
+    check(f"respond_{Path(window).stem}_{tag}", _response(r), *solver_tolerance())
 
 
 def test_persistence_rule():
