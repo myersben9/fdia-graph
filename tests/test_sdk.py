@@ -298,10 +298,10 @@ def test_jacobian_features_split_stealthy_from_corruption():
     already moved). The digest's central claims, with only observed data in the feature, checked on
     the v0.8.3 release that carries both families (the generator no longer makes them)."""
     pytest.importorskip("torch")
-    from test_old_releases import TIMELINE_V083
-
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se.jacobian import JacobianFeatures
+
+    from .test_old_releases import TIMELINE_V083
 
     jf = JacobianFeatures().fit(FdiaGraph(TIMELINE_V083, split="train"))
     d = FdiaGraph(TIMELINE_V083).export(
@@ -339,10 +339,10 @@ def test_jacobian_weighting_estimator():
     """On the v0.8.3 release, which carries the in-place bias Ad: the weights never raise a meter,
     and the estimate is never worse than WLS on the bias."""
     pytest.importorskip("torch")
-    from test_old_releases import TIMELINE_V083
-
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se import WLS, JacobianWeighting
+
+    from .test_old_releases import TIMELINE_V083
 
     splits = {s: FdiaGraph(TIMELINE_V083, split=s) for s in ("train", "test")}
     est = JacobianWeighting(weighting=JacobianWeightingConfig(c=3.0)).fit(splits["train"])
@@ -476,9 +476,9 @@ def test_learned_localizer_grid_detection_and_attackable_table(splits, timeline)
 def test_previous_frame_fields_are_the_row_emitted_before(timeline):
     """prev_* hold the readings of file row - 1 for every kept record, whatever split or family that
     row belongs to (an operator sees every frame); a record shard offers none."""
-    from conftest import SHARD_V072
-
     from fdia_graph import FdiaGraph
+
+    from .conftest import SHARD_V072
 
     full = fg.load(timeline).export(["node_x", "edge_x", "timestep"])
     ds = fg.load(timeline, split="test", families=[0, 1, 2])
@@ -508,9 +508,9 @@ def test_jacobian_features_never_read_the_true_state(timeline, splits):
     empty = {k: v[:0] for k, v in d.items()}  # an empty view transforms to empty features
     assert jf.transform(empty)["bus"].shape == (0, before.shape[1], 8)
     with pytest.raises(ValueError, match="timeline"):
-        from conftest import SHARD_V072
-
         from fdia_graph import FdiaGraph
+
+        from .conftest import SHARD_V072
 
         JacobianFeatures().fit(FdiaGraph(SHARD_V072))
 

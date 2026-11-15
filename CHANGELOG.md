@@ -5,9 +5,31 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **File names say what a file does, and a gate keeps them and the docs current.** `tools/layout.py --check` (in the
+  pre-review and CI) fails on a file name that repeats its folder's name, differs from a sibling's by a short ending,
+  or carries a digit, a citation key or an author's name; on a Python file without a docstring; on a module its
+  package's page does not name; and on a module or name a doc or docstring cites that does not exist.
+  `docs/reference/MODULES.md`, generated from the docstrings, gives every file of the repository in one line (the
+  module table of `CONCEPTS_TO_CODE.md` moves there). The pre-review's cited-paths check reads every Markdown file,
+  not only the changed ones.
+- **The [WU26] equation registry is removed.** `schema.WU26_EQUATIONS`, the tool that read it (the paper-to-code
+  equation map), its gate and the generated equations table of `FORMULAS.md` go: nothing else read the registry, and
+  the file-protocol module is no place for one paper's equation list. The `[WU26 eq. N]` citations stay in the
+  docstrings.
+- **Renamed modules.** `trust.defense` is
+  `trust.pmu_environment`, `trust.solution1` `trust.pmu_row_reduction`, `trust.wu_dqn` `trust.pmu_dqn`, `trust.wu26`
+  `trust.faithful_attack`, `trust.wu26_defense` `trust.faithful_defense`, `trust.dqn` `trust.meter_dqn` and
+  `engine.pp_types` `engine.pandapower_types`. The names `fdia_graph.trust` exports are unchanged. The scripts
+  `tools/wu26_*.py` are `tools/reproduce_defense.py`, `tools/reproduce_faithful_defense.py` and
+  `tools/reproduce_faithful_dqn.py`; the docs' `run_<folder>.py` scripts are `run.py`; the New York tests drop their
+  `nygrid_` prefix (the test folders are packages, so a name may repeat across folders). The old module paths are
+  removed, not aliased: code imports from `fdia_graph.trust`, whose names are unchanged.
+- **No aliases for moved private names.** The tables that kept old private names of `timeline`, `engine.records` and
+  `operator.response` importable with a warning (`_ONSET_DRAWS`, `_Schedule`, `_TrueGrid`, ...) are removed with the
+  `_moved` module: a name with a leading underscore was never public, so it carries no promise when it moves.
+
 - **The decisions registry is removed.** `schema.DECISIONS`, `models.Decision`, the generated decisions page
   and the `[D9]` / `[E13]` tags go; each choice is stated in the docstring of the code that makes it.
-  `tools/equation_map.py` maps the `[WU26 ...]` citations only, and still refuses a decision tag.
 
 - **The New York grid in the SDK's own packages.** `fdia_graph.nyfed` is gone: the system source is
   `generation.nygrid`, the meters `engine.sensing`, the attack families `engine.attacks`, the operator
@@ -107,7 +129,7 @@ the public API, the generated files and the numbers are the same as the previous
   the single-episode day and the 2019 pool's frames of those days are checked in under `tests/nygrid/data/days`
   (6.7 MB), so the operator's tests and 33 of the 35 golden snapshots run there too; the tests that need the whole
   pool (the attack families, the builder, the timeline and the interface attack's design) still run only where it
-  is built. `tests/nygrid/nygrid_inputs.py` names every input in one place and says which tests it lets run, in place
+  is built. `tests/nygrid/inputs.py` names every input in one place and says which tests it lets run, in place
   of a path block repeated in nine test files. No user-visible change.
 
 - **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nygrid/WALKTHROUGH.md` follows one
@@ -167,7 +189,7 @@ the public API, the generated files and the numbers are the same as the previous
   `attacks`, `timeline`, `operator`, and `fdia_graph.nyfed` itself) now has a docstring that says what its stage does,
   what goes in and comes out, and how it fails, and an `__all__` of its public names, loaded on first use (reading a
   dataset still never imports pandapower or Pyomo). Helpers the research tools reached into became public:
-  `operator.response.TrueGrid` and `entry_share` (the old `_TrueGrid` and `_entry_share` warn until 0.22),
+  `operator.response.TrueGrid` and `entry_share` (the old private names `_TrueGrid` and `_entry_share` are gone),
   `Attacker.absorb` and `TimelineBuilder.episode_lengths`.
 
 - **Named errors and a troubleshooting page (New York grid).** `fdia_graph.nyfed` raises the SDK's named errors:

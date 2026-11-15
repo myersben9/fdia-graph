@@ -34,6 +34,16 @@ and the run script refuses to fit otherwise.
 | threshold | the papers' validation-best global tau on the 0.05 to 0.95 grid, from per-client confusion counts summed at the server |
 | what crosses a boundary | per-channel moments once, the model weights every round, the per-bus confusion counts once, and the central Jacobian block |
 
+## Files
+
+| file | holds |
+|---|---|
+| `federated/partition.py` | the split of a system's buses into K clients by spectral partition of the bus graph |
+| `federated/utilities.py` | the New York clients: each bus belongs to the utility whose service territory holds it |
+| `federated/aggregate.py` | FedAvg over torch state dicts (`formulas.federated.fedavg`) |
+| `federated/localizer.py` | `FedBusMLP` and `FedBusCNN`: the per-bus localizers trained by FedAvg, records never leaving a client |
+| `federated/se.py` | `RegionalPrior`: the estimator's learned subspace prior fitted per client |
+
 ## Results
 
 These runs used the earlier Jacobian block, which took the change against the previous frame's true
@@ -109,9 +119,9 @@ it on 14; the centralized comparison with and without the block is in
 ## Regenerate
 
 ```bash
-FG_SYSTEM=ieee14 python docs/federated/run_federated.py     # 18 runs, writes docs/federated/results/runs/ + a run of federated.localization
-FG_SYSTEM=ieee118 python docs/federated/run_federated.py
-FG_SYSTEM=ieee300 python docs/federated/run_federated.py
+FG_SYSTEM=ieee14 python docs/federated/run.py     # 18 runs, writes docs/federated/results/runs/ + a run of federated.localization
+FG_SYSTEM=ieee118 python docs/federated/run.py
+FG_SYSTEM=ieee300 python docs/federated/run.py
 python docs/federated/make_report.py                        # figures + CSV sidecars from the store
 python tools/results_docs.py --write                        # the README's results blocks
 ```

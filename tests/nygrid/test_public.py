@@ -36,12 +36,3 @@ def test_reading_a_dataset_needs_neither_pandapower_nor_pyomo():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout
     assert out.strip() == "[]"
-
-
-@pytest.mark.parametrize(("old", "new"), [("_TrueGrid", "TrueGrid"), ("_entry_share", "entry_share")])
-def test_renamed_names_still_import_with_a_warning(old, new):
-    pytest.importorskip("pandapower")  # the operator's module imports the [ny] extra
-    from fdia_graph.operator import response
-
-    with pytest.warns(DeprecationWarning, match=new):
-        assert getattr(response, old) is getattr(response, new)

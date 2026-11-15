@@ -1,9 +1,11 @@
+"""The timeline file as federated clients (`dataset.clients`): a written file reloads whole, each client sees only its
+own meters, buses and labels, and the operator and split views select the right frames."""
+
 import json
 from dataclasses import fields
 
 import numpy as np
 import pytest
-from nygrid_inputs import DATA, ROOT, TERRITORIES, needs_data
 
 from fdia_graph.dataset.clients import ClientView, Dataset
 from fdia_graph.engine.attacks.family import Episode
@@ -15,6 +17,8 @@ from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.io import TimelineWriter
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
+
+from .inputs import DATA, ROOT, TERRITORIES, needs_data
 
 pytestmark = needs_data
 T = 100

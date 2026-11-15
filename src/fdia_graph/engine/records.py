@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from .._moved import moved
 from ..models.choices import BENIGN_CODE
 from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
     AttackDesign,
@@ -22,7 +21,7 @@ from ..models.frames import (  # noqa: F401  re-exported: defined here before th
     FrameKnobs,
     Scan,
 )
-from .attacks.false_state import FalseStateMixin, changed_meters
+from .attacks.false_state import FalseStateMixin
 from .attacks.stealthy import (  # noqa: F401  re-exported: defined here before engine.attacks
     AM_FAMILY,
     RAMP_FAMILY,
@@ -71,26 +70,3 @@ def _benign_frame(g: FdiaGenerator, Xt: np.ndarray) -> Frame:
 stealthy_state = FalseStateMixin.stealthy_state
 with_region = FalseStateMixin.with_region
 is_feasible = FalseStateMixin.is_feasible
-
-
-# private helpers that moved to engine.attacks: each takes the generator first, as it did here
-_MOVED: dict[str, tuple[str, object]] = {
-    "_stealthy_frame": (
-        "engine.attacks.stealthy.StealthyMixin._stealthy_frame",
-        StealthyMixin._stealthy_frame,
-    ),
-    "_solvable_step": ("engine.attacks.stealthy.StealthyMixin._solvable_step", StealthyMixin._solvable_step),
-    "_within_limits": (
-        "engine.attacks.false_state.FalseStateMixin._within_limits",
-        FalseStateMixin._within_limits,
-    ),
-    "_attack_vector": (
-        "engine.attacks.false_state.FalseStateMixin._attack_vector",
-        FalseStateMixin._attack_vector,
-    ),
-    "_changed_meters": ("engine.attacks.false_state.changed_meters", changed_meters),
-}
-
-
-def __getattr__(name: str) -> object:
-    return moved(__name__, name, _MOVED)

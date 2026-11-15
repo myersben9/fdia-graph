@@ -79,10 +79,10 @@ def test_old_releases_score_per_old_family(release):
 
 
 def test_a_v072_record_shard_scores_per_family():
-    from conftest import SHARD_V072
-
     from fdia_graph.dataset import FdiaGraph
     from fdia_graph.se import WLS
+
+    from .conftest import SHARD_V072
 
     ds = FdiaGraph(SHARD_V072)
     rep = WLS().fit(ds).score(ds)

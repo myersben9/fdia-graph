@@ -1236,7 +1236,7 @@ _WU_FAITHFUL = {
 
 @query("wu26.faithful")
 def wu26_faithful(store: Store) -> str:
-    """Per scenario and trust order of the faithful reproduction (`tools/wu26_faithful.py`): the
+    """Per scenario and trust order of the faithful reproduction (`tools/reproduce_faithful_defense.py`): the
     windows, the order (Solution 1's, derived, or the paper's), the median devices undefended and
     defended, the mean and median rise in the devices tampered at any snapshot (Fig. 12's cost), the
     share of windows in Fig. 12's 10% to 20% band, the mean new devices, the mean overlap of the
@@ -1249,7 +1249,7 @@ def wu26_faithful(store: Store) -> str:
     when = {p.run_id: p.timestamp for p in store.runs()}
     keyed: dict[tuple[str, str], set[str]] = {}
     for r in store.query(exp):
-        # runs before the tau tag used the scenario's calibrated weight (tools/wu26_faithful.py)
+        # runs before the tau tag used the scenario's calibrated weight (tools/reproduce_faithful_defense.py)
         tau = r.tag("tau", _WU_FAITHFUL_TAU.get(r.tag("scenario"), ""))
         keyed.setdefault((r.tag("scenario"), tau), set()).add(r.run_id)
     for (name, tau), ids in sorted(keyed.items()):
@@ -1301,7 +1301,7 @@ def wu26_faithful(store: Store) -> str:
 
 @query("wu26.dqn")
 def wu26_dqn(store: Store) -> str:
-    """[WU26]'s Solution 2 on the faithful attack (`tools/wu26_dqn.py`), the newest run whole: the
+    """[WU26]'s Solution 2 on the faithful attack (`tools/reproduce_faithful_dqn.py`), the newest run whole: the
     sessions and tests, the training episodes per session, the mean and median rise in the devices
     tampered at any snapshot (Fig. 12's cost), the share of tests in Fig. 12's 10% to 20% band, the mean
     new devices, the PMU each step picks most often with its share (Fig. 11), and the mean training and

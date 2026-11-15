@@ -29,7 +29,7 @@ POWER_NOISE_FLOOR_MW = 1e-3
 if TYPE_CHECKING:
     from scipy.sparse import csr_matrix
 
-    from .pp_types import PandapowerNet
+    from .pandapower_types import PandapowerNet
     from .records import Scan
 
 

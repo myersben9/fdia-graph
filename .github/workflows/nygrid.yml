@@ -5,7 +5,7 @@ name: nygrid
 # Ipopt from conda-forge (as docs/guides/new_york.md does), downloads the inputs with fetch_inputs (NYgrid's Data/ at
 # the pinned commit, the NYS utility territories and NYISO's load archives) into a cache keyed on that commit, and
 # runs the folder. The attack days the golden snapshots read are checked in (tests/nygrid/data/days); the tests that
-# need the whole 2019 pool (370 MB, built locally) skip here, as tests/nygrid/nygrid_inputs.py says.
+# need the whole 2019 pool (370 MB, built locally) skip here, as tests/nygrid/inputs.py says.
 on:
   push:
     branches: [main]
@@ -24,7 +24,6 @@ on:
       - "src/fdia_graph/generation/plan.py"
       - "src/fdia_graph/profiles.py"
       - "src/fdia_graph/errors.py"
-      - "src/fdia_graph/_moved.py"
       - "src/fdia_graph/models/**"
       - "tests/nygrid/**"
       - "tests/conftest.py"
@@ -48,7 +47,6 @@ on:
       - "src/fdia_graph/generation/plan.py"
       - "src/fdia_graph/profiles.py"
       - "src/fdia_graph/errors.py"
-      - "src/fdia_graph/_moved.py"
       - "src/fdia_graph/models/**"
       - "tests/nygrid/**"
       - "tests/conftest.py"

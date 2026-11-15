@@ -1,10 +1,12 @@
+"""The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian
+against finite differences, observability and the meter noise."""
+
 import json
 
 import numpy as np
 import pytest
 import scipy.linalg
 import scipy.sparse as sp
-from nygrid_inputs import DATA, TERRITORIES, needs_data
 
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import (
@@ -26,6 +28,8 @@ from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
+
+from .inputs import DATA, TERRITORIES, needs_data
 
 pytestmark = needs_data
 

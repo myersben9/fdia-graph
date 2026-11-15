@@ -186,7 +186,7 @@ class Attr:
     N_LINES = "n_lines"  # the lines one overload episode drives at once
     SUPPORT_METHOD = "support_method"  # how the overload attack chose its supports: "search" or "rref"
     SETTINGS = "settings"  # the TimelineSettings the walk ran, as JSON (`TimelineSettings.as_record`)
-    SETTINGS_HASH = "settings_hash"  # `results.config_hash` of those settings, what a result cites
+    SETTINGS_HASH = "settings_hash"  # `results.run.config_hash` of those settings, what a result cites
     METER_MODEL = "meter_model"  # written on a hybrid-meter file only
     CURRENT_FEAT = "current_feat"  # the legend of pmu_i, on a hybrid-meter file
     CURRENT_UNITS = "current_units"
@@ -213,41 +213,3 @@ from .models.choices import FAMILIES, FAMILY_ALIAS, STEALTHY_FAMILIES  # noqa: E
 
 # The partition codes stored in data/split.
 SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}
-
-
-# ---- the paper-to-code map ---------------------------------------------------------------------------
-# What `tools/equation_map.py` indexes. Code cites an equation of [WU26] with one tag form,
-# `[WU26 eq. 28]`, `[WU26 eqs. 21-23]` or `[WU26 Alg. 1]`, in the docstring or a comment of the function that implements it; a test cites what it
-# checks the same way, or names it in its test name (`test_wu26_eq28_...`).
-
-# [WU26]'s equations the package implements, by number, with what each states.
-WU26_EQUATIONS: dict[str, str] = {
-    "3": "PMU pseudo-measurements of the neighbouring voltages, from the branch currents (KKT form)",
-    "12": "the attack: fewest tampered measurements over the window (l0)",
-    "13": "SCADA active injection under attack",
-    "14": "SCADA reactive injection under attack",
-    "15": "SCADA active branch flow under attack",
-    "16": "SCADA reactive branch flow under attack",
-    "17": "PMU voltage magnitude under attack",
-    "18": "PMU voltage angle under attack",
-    "19": "PMU branch current, real part, under attack",
-    "20": "PMU branch current, imaginary part, under attack",
-    "21": "bus voltage limits",
-    "22": "generator active output limits",
-    "23": "generator reactive output limits",
-    "24": "the target flow grows snapshot by snapshot",
-    "25": "the target flow reaches its rating S_max over the window",
-    "26": "the SE linearization with the secure and nonsecure PMU rows",
-    "27": "the secure set h^S: a trusted PMU's own |V| and angle rows",
-    "28": "the attack under defense: fewest nonsecure measurements",
-    "29": "the trusted rows' state deviation is zero",
-    "30": "the nonsecure set at t",
-    "31": "trust accumulates: h^S_t = h^S_t-1 + dh^S_t",
-    "32": "the rows one trusted PMU adds",
-    "33": "the defense effect: the rise in the attack's cost",
-    "34": "the DQN's greedy action",
-    "35": "the DQN's loss over a mini-batch",
-    "36": "the target Q value",
-    "37": "the gradient step",
-    "Alg. 1": "the DRL-based defense (training loop)",
-}

@@ -24,7 +24,7 @@ from fdia_graph.models.frames import FrameKnobs, LoadGoal  # noqa: E402
 from fdia_graph.models.grid import NODE  # noqa: E402
 
 WINDOW = 8
-MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window, as tests/test_wu_scenarios.py
+MARGIN = 1.2  # S_max = MARGIN x each branch's peak true flow over the window, as tests/test_overload_case_studies.py
 
 # (meter model, load_cap, kind, onset, target lines or ramp draw) -> (support, devices, channels,
 # evaluated), every search exhaustive (evaluated below the budget). The supports and counts are those

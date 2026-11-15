@@ -4,8 +4,8 @@ as sessions x test windows (the plan's E8 option 2). Records go to the results s
 (docs/wu26): every test window's cost without and with the trained policy's schedule (Fig. 12), each
 step's choice (Fig. 11's selection probabilities) and the decision and training times (p. 662).
 
-    python tools/wu26_dqn.py --sessions 10 --test 10 --workers 10            # the run
-    python tools/wu26_dqn.py --sessions 1 --episodes 3 --train 2 --test 1 --dry  # a timing check
+    python tools/reproduce_faithful_dqn.py --sessions 10 --test 10 --workers 10            # the run
+    python tools/reproduce_faithful_dqn.py --sessions 1 --episodes 3 --train 2 --test 1 --dry  # a timing check
 
 The scale is reduced from the paper's where the attack solves make it unaffordable: `--episodes` (250 in
 the paper) is recorded with the results.
@@ -24,11 +24,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
-from wu26_faithful import SCENARIOS  # noqa: E402
+from reproduce_faithful_defense import SCENARIOS  # noqa: E402
 
 from fdia_graph.models.config import Wu26Attack, WuDefenseConfig, WuDqnConfig  # noqa: E402
-from fdia_graph.trust.wu26 import wu26_network, wu26_snapshots  # noqa: E402
-from fdia_graph.trust.wu26_defense import Wu26DefenseEnv, wu26_solution1  # noqa: E402
+from fdia_graph.trust.faithful_attack import wu26_network, wu26_snapshots  # noqa: E402
+from fdia_graph.trust.faithful_defense import Wu26DefenseEnv, wu26_solution1  # noqa: E402
 
 
 def _env(name: str, seed: int, tau: Optional[float]) -> Wu26DefenseEnv:
@@ -43,7 +43,7 @@ def _env(name: str, seed: int, tau: Optional[float]) -> Wu26DefenseEnv:
 
 def session(job: tuple[str, int, int, int, int, Optional[float]]) -> dict:
     """Train one DQN (Algorithm 1) on `train` windows, then test it on `test` fresh windows."""
-    from fdia_graph.trust.wu_dqn import TrustedPMUsDQN
+    from fdia_graph.trust.pmu_dqn import TrustedPMUsDQN
 
     name, s, episodes, train, test, tau = job
     sc = SCENARIOS[name]

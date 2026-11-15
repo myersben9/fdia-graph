@@ -34,7 +34,7 @@ import numpy as np
 
 from ..engine.attacks.rref import RrefSupport, _moved_lines, _state_change
 from ..formulas.trust import sparsest_rows
-from .defense import WuDefenseEnv
+from .pmu_environment import WuDefenseEnv
 
 ZERO = 1e-9  # an attack entry this small relative to the Jacobian's largest is structurally zero
 

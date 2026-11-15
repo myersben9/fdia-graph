@@ -73,10 +73,10 @@ def test_a_short_run_on_the_ieee14_scenario():
     """Three iterations on the paper's lines 1-2 and 4-5 (8 pool frames, k = 1.1): the policy's order is
     a sequence of distinct PMUs of the four."""
     pytest.importorskip("pandapower")
-    import test_trusted_pmus as tt
-
     from fdia_graph.models import WuDefenseConfig
     from fdia_graph.trust import WuDefenseEnv
+
+    from . import test_trusted_pmus as tt
 
     tt.WINDOW, window = 8, tt.WINDOW
     try:

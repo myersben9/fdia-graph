@@ -34,6 +34,15 @@ rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 | `JacobianWeighting` | Huber weights from the physically unexplained part of the scan-to-scan measurement change (the Jacobian-informed digest), one solve; `reweight="huber"` adds the classical passes on top | `c`, `reweight`, `huber_c` |
 | `GatedPrior` | The proposed estimator with a localizer gating the weights: meters on flagged buses and their incident flows are down-weighted so the prior fills in the state there; `secured` meters are never down-weighted | `gate`, `gate_factor`, `secured` |
 
+## Files
+
+| file | holds |
+|---|---|
+| `se/base.py` | `SEBase`: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator |
+| `se/methods.py` | the method classes above, each a subclass of `SEBase` that changes one thing |
+| `se/jacobian.py` | `JacobianFeatures`: the measurement Jacobian as a transform of the scan-to-scan measurement change, the features `JacobianWeighting` and the learned localizers read |
+| `se/detect/` | the New York operator's own estimator and alarm rules, described in [`../nygrid/ARCHITECTURE.md`](../nygrid/ARCHITECTURE.md) |
+
 ## Results
 
 | protocol | |
@@ -163,9 +172,9 @@ otherwise needs the previous scan, the temporal direction.
 ## Regenerate
 
 ```bash
-FG_SYSTEM=ieee14 python docs/se/run_se.py      # fits, writes a run of se.estimators to results/ (estimates cached per arm)
-FG_SYSTEM=ieee118 python docs/se/run_se.py
-OMP_NUM_THREADS=1 FG_SYSTEM=ieee300 python docs/se/run_se.py   # single-threaded: multi-threaded, the gated arms hung in the OpenMP runtime
+FG_SYSTEM=ieee14 python docs/se/run.py      # fits, writes a run of se.estimators to results/ (estimates cached per arm)
+FG_SYSTEM=ieee118 python docs/se/run.py
+OMP_NUM_THREADS=1 FG_SYSTEM=ieee300 python docs/se/run.py   # single-threaded: multi-threaded, the gated arms hung in the OpenMP runtime
 python docs/se/make_report.py                  # figures + CSV sidecars from the store
 python tools/results_docs.py --write           # the README's results blocks from the store
 ```

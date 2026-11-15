@@ -57,7 +57,7 @@ GROUPS = {
         "localization/methods",
         "localization/learned",
         "trust/base",
-        "trust/dqn",
+        "trust/meter_dqn",
     ],
     "federated": ["federated/partition", "federated/aggregate", "federated/localizer", "federated/se"],
     "models": ["models/base", "models/fields", "models/data"],
@@ -211,9 +211,8 @@ def class_diagram(group: str, mods: dict[str, ast.Module], idx: dict[str, str]) 
 
 
 # read by every module, so their edges are said once in the caption instead of drawn; and the public
-# API imports everything, which is not a dependency worth a line each. `_moved` only keeps old import
-# paths alive for a release, which is not a dependency either.
-FOUNDATION = {"models", "formulas", "schema", "errors", "_moved"}
+# API imports everything, which is not a dependency worth a line each.
+FOUNDATION = {"models", "formulas", "schema", "errors"}
 OMIT = {"fdia_graph"}
 
 

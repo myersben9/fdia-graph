@@ -1,12 +1,13 @@
 """The release builder's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the
 case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and
-the whole 2019 pool (nygrid_inputs.py)."""
+the whole 2019 pool (inputs.py)."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
-from nygrid_inputs import POOL, ROOT, needs_data, needs_pool, needs_territories
+
+from .inputs import POOL, ROOT, needs_data, needs_pool, needs_territories
 
 pytestmark = [needs_data, needs_territories, needs_pool]
 

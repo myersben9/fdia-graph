@@ -294,6 +294,35 @@ output feeds a detector (`ResidualLocalizer`, the Jacobian feature sets, `TrustS
 estimator with `calibrate="measured"`, so no clean layer is read at fit or test time. The state
 estimators themselves default to `calibrate="truth"`, the estimation benchmark's calibration.
 
+## Where each piece lives
+
+The generator is `FdiaGenerator` in `engine/core.py`, composed of mixins over the shared state contract of
+`engine/base.py`:
+
+| file | holds |
+|---|---|
+| `engine/core.py` | `FdiaGenerator`: the grid, the meter plan and noise, attack targeting, and the mixins below composed |
+| `engine/base.py` | `GridBase`: the attributes and cross-method signatures the mixins share |
+| `engine/measurement.py` | `MeasurementMixin`: the measurement function `h(x)`, a scan from a state |
+| `engine/physics.py` | a scan's load and generation, read from its stored state |
+| `engine/records.py` | one scan of the timeline writer: benign, or attacked by `engine.attacks` |
+| `engine/solvers.py` | the optimization solver the AC optimal power flows run on, found and checked in one place |
+| `engine/pandapower_types.py` | the pandapower objects the engine reads, as types |
+| `engine/attacks/area.py` | the attacker's area: the subnetwork a stealthy attack re-solves and the boundary it holds |
+| `engine/attacks/false_state.py` | the local false state: the area re-solved under false loads with the boundary held true |
+| `engine/attacks/stealthy.py` | `At` one scan at a time: a local false state added to the true scan |
+| `engine/attacks/overload.py` | `Am`, the multi-snapshot overload attack of [WU26] |
+| `engine/attacks/minimize.py` | the cheapest support of an attack window [WU26, eq. 12] |
+| `engine/attacks/rref.py` | the support by [WU26]'s row reduction |
+| `engine/attacks/episodes.py` | each episode's design, drawn at onset by its family's designer |
+| `generation/plan.py`, `generation/design.py`, `generation/emit.py`, `generation/write.py` | the stages of a timeline: plan the splits and episodes, design the `Am` episodes, emit every frame, write the file |
+
+The New York grid's attacks are separate classes on the New York network: `engine/attacks/attacker.py`
+(`Attacker`), `engine/attacks/family.py` (what an attack occupies on the timeline), `engine/attacks/ramp.py`
+(`Ramp`), `engine/attacks/msfdia.py` (`MsFdia`), `engine/attacks/opf.py` and `engine/attacks/interface.py`
+(the overload with false states from a local optimal power flow, and on an interface); they are described in
+[`../nygrid/ARCHITECTURE.md`](../nygrid/ARCHITECTURE.md).
+
 ## 7. Building your own
 
 ```python

@@ -43,7 +43,7 @@ from .minimize import MinimizeMixin
 # How many target sets (one line, or two, D17) an Am episode tries, drawn from one random order of the
 # eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
 # a full fewest-tamper search (about 13 s on IEEE-118), so an episode whose first eight sets admit no
-# attack is moved to another onset by the walk (`timeline._relocate`) even if a later set would have
+# attack is moved to another onset by the walk (`generation.emit.relocate_later`) even if a later set would have
 # served.
 AM_LINE_TRIES = 8
 

@@ -6,7 +6,7 @@ under `golden/`. A refactor that moves code without changing behavior reproduces
 number fails here and has to say why. Set `NYGRID_UPDATE_GOLDEN=1` to rewrite the snapshots after an intended change.
 
 The operator and detection snapshots run on the checked-in attack days with the public inputs (CI runs them);
-the interface attack's design rates lines over the year, so it needs the whole 2019 pool (`nygrid_inputs.py`).
+the interface attack's design rates lines over the year, so it needs the whole 2019 pool (`inputs.py`).
 """
 
 from __future__ import annotations
@@ -18,7 +18,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from nygrid_inputs import (
+
+from fdia_graph.se.detect.rules import PersistenceRule
+
+from .inputs import (
     DAMAGE_DAYS,
     DATA,
     DAYS,
@@ -29,8 +32,6 @@ from nygrid_inputs import (
     needs_pool,
     needs_territories,
 )
-
-from fdia_graph.se.detect.rules import PersistenceRule
 
 WINDOWS = DAMAGE_DAYS
 CALIB = (28.41, 13.76)  # the interchange check's calibration, results/nygrid.tie_check.json

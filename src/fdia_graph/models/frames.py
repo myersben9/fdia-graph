@@ -193,7 +193,7 @@ class AreaScore(NamedTuple):
 
 
 class WindowAttack(NamedTuple):
-    """One window of [WU26]'s attack as `trust.wu26` solves it: each snapshot's change of every meter
+    """One window of [WU26]'s attack as `trust.faithful_attack` solves it: each snapshot's change of every meter
     (`dz`, snapshots x meters), the area buses' state offsets per snapshot (`offsets`, snapshots x
     buses x [dVm, dVa]), the meters' noise `sigma` and devices (`dev_type` 0 SCADA, 1 PMU, at `dev_bus`,
     0-based), the `area` buses, whether every snapshot met its goal, and IPOPT's status."""

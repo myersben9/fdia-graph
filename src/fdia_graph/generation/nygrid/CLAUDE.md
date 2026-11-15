@@ -25,7 +25,7 @@ hold for them.
   math is a plain function, and a formula the SDK already has in `formulas/` is called, not rewritten.
 - Measurements are the flat vector `z` with the `MeterPlan` table. A client's data is `z[:, meters.owner == c]`.
   A `ClientView` never exposes another client's meters.
-- Every change keeps the golden snapshots of `tests/nygrid/test_nygrid_golden.py` (and the SDK's frozen references)
+- Every change keeps the golden snapshots of `tests/nygrid/test_golden.py` (and the SDK's frozen references)
   unless the change is meant to move a number, and says so in `CHANGELOG.md`.
 
 ## Work

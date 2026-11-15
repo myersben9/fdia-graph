@@ -119,10 +119,10 @@ tools/nygrid/
 results/
   nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
 tests/nygrid/
-  nygrid_inputs.py      where the tests find their inputs, and which tests each input lets run
-  test_nygrid_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-  test_nygrid_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-  test_nygrid_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
+  inputs.py      where the tests find their inputs, and which tests each input lets run
+  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
+  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
   data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 ```
@@ -193,8 +193,8 @@ Frozen dataclasses of arrays, passed between classes.
 | `OperatorDay` | `operator/response.py` | one timeline file's frames with the pool basepoint, the interpolated unit costs, the real zonal LBMP and the interfaces | |
 | `Twin`, `Response` | `operator/response.py` | the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan, and under a least-cost dispatch the congestion and energy prices and each bus's price `price [T, N]` | |
 | `TimelineWriter` | `io.py` | an open HDF5 file, built as `TimelineWriter(path)` | `write_static(case, own, plan)`, `write_frames(t0, block)` (`block` a dict of the per-frame arrays of frames `t0..`, datasets grown as written), `write_episodes(episodes)`, `close()` |
-| `Dataset` | `dataset.py` | an open timeline file (`open_timeline`) with its `case`, `own`, `plan` | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames |
-| `ClientView` | `dataset.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (the indices of the selected frames, exact for the interleaved week split) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; `z` stays raw) |
+| `Dataset` | `dataset/clients.py` | an open timeline file (`open_timeline`) with its `case`, `own`, `plan` | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames |
+| `ClientView` | `dataset/clients.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (the indices of the selected frames, exact for the interleaved week split) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; `z` stays raw) |
 
 ## Functions
 
@@ -281,6 +281,6 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | A3 | `engine/attacks/ramp.py` |
 | A4 | `engine/attacks/msfdia.py` (Ap option), `natural_steps`, `generator_ramps`, `wrap_angles` in `engine/attacks/attacker.py`, `Case.ramp` from `nygrid_units` |
 | D1 | `generation/nygrid/schedule.py`, `generation/nygrid/timeline.py`, `TimelineWriter` in `io.py` |
-| D2 | `dataset.py`, `open_timeline` in `io.py` |
+| D2 | `dataset/clients.py`, `open_timeline` in `io.py` |
 | D3 | `build.py` (`fetch_inputs`, `production_builder`), `tools/nygrid/build_timeline.py`, `tools/nygrid/build_single_episodes.py` |
 | O1, O2, O5 | `operator/sced.py`, `operator/response.py` |

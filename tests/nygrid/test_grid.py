@@ -1,9 +1,11 @@
+"""The New York grid as read from NYgrid: the NPCC case and NYgrid's modifications, the fixed unit list, the AC fixes,
+the utility of each bus and the branch ratings, checked against MATPOWER's power flow."""
+
 import json
 
 import numpy as np
 import pytest
 import scipy.io
-from nygrid_inputs import DATA, TERRITORIES, needs_data
 
 from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.case import PQ, PV, REF
@@ -11,6 +13,8 @@ from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links, re
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.generation.nygrid.ratings import line_ratings
+
+from .inputs import DATA, TERRITORIES, needs_data
 
 NPCC = DATA / "npcc.mat"
 pytestmark = needs_data

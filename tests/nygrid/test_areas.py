@@ -6,7 +6,8 @@ from __future__ import annotations
 import h5py
 import numpy as np
 import pytest
-from nygrid_inputs import DAMAGE_DAYS, DATA, DAYS, DAYS_POOL, needs_data
+
+from .inputs import DAMAGE_DAYS, DATA, DAYS, DAYS_POOL, needs_data
 
 pytestmark = needs_data
 

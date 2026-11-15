@@ -1,7 +1,7 @@
 """Reproduce [WU26]'s defense results on our generator (docs/plans/WU_DEFENSE_PLAN.md, PR E).
 
-    python tools/wu26_harness.py --system 14 --windows 20 --workers 26 --out docs/wu26
-    python tools/wu26_harness.py --system 118 --windows 100 --sessions 10 --workers 26 --out docs/wu26
+    python tools/reproduce_defense.py --system 14 --windows 20 --workers 26 --out docs/wu26
+    python tools/reproduce_defense.py --system 118 --windows 100 --sessions 10 --workers 26 --out docs/wu26
 
 For each of the paper's scenarios (IEEE-14: lines 3-4 and 6-11, lines 1-2 and 4-5, PMUs 1, 4, 6, 13
 trusted at snapshots 2, 4, 6, 8; IEEE-118: lines 84-85 and 99-100, its 11 PMUs, one per snapshot) and

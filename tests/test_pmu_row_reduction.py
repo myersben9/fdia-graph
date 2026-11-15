@@ -14,10 +14,10 @@ import pytest
 
 pytest.importorskip("pandapower")
 
-import test_trusted_pmus as tt  # noqa: E402
-
 from fdia_graph.models import WuDefenseConfig  # noqa: E402
 from fdia_graph.trust import TrustedPMUs, WuDefenseEnv  # noqa: E402
+
+from . import test_trusted_pmus as tt  # noqa: E402
 
 SLOW = pytest.mark.skipif(
     not os.environ.get("FDIA_SLOW"), reason="set FDIA_SLOW=1: 20-frame IEEE-14 searches"

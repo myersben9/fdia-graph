@@ -38,6 +38,12 @@ rep = loc.score(test)  # per-family metrics + benign false alarms
 The learned arms train on the records they are given, so the protocol is the load call.
 `fit(train, val=val)` picks the papers' validation-best threshold instead of the false-alarm one.
 
+| file | holds |
+|---|---|
+| `localization/base.py` | `LocalizerBase`: the false-alarm calibration, the per-bus metrics and the scoring every method shares |
+| `localization/methods.py` | the threshold and residual classes (`SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer`) |
+| `localization/learned.py` | the learned per-bus classes (`BusMLP`, `BusCNN`) |
+
 ## Feature sets
 
 `BusMLP`, `BusCNN` and the federated arms take `features=`, the per-bus vector the encoder reads
@@ -162,9 +168,9 @@ The same papers' protocol trained federated across K utilities, with the Jacobia
 ## Regenerate
 
 ```bash
-FG_SYSTEM=ieee14 python docs/localization/run_localization.py    # fits, writes runs of localization.* to results/
-FG_SYSTEM=ieee118 python docs/localization/run_localization.py
-FG_SYSTEM=ieee300 python docs/localization/run_localization.py
+FG_SYSTEM=ieee14 python docs/localization/run.py    # fits, writes runs of localization.* to results/
+FG_SYSTEM=ieee118 python docs/localization/run.py
+FG_SYSTEM=ieee300 python docs/localization/run.py
 python docs/localization/make_report.py                          # figures + CSV sidecars from the store
 python tools/results_docs.py --write                             # the README's results blocks
 ```

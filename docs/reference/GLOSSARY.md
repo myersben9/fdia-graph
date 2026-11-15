@@ -9,16 +9,16 @@ the data terms is in [`../guides/generation.md`](../guides/generation.md); citat
 | term | definition | in code |
 |---|---|---|
 | scan | One emission of every meter in the plan from one grid state: readings and masks. | `models.frames.Scan`, `engine.measurement.MeasurementMixin.emit_from_state` |
-| frame | One row of a timeline: the scan at one pool timestep with the attack of its episode applied, or none. | `models.frames.Frame`, `timeline._TimelineBuffers.store` |
+| frame | One row of a timeline: the scan at one pool timestep with the attack of its episode applied, or none. | `models.frames.Frame`, `generation.emit.TimelineBuffers.store` |
 | record | One row as the loader serves it, `ds[i]`: a frame of a timeline, or a row of a record shard. | `dataset/records.py`, `models.data.RecordBundle` |
 | timestep | The index of the pool state a frame was emitted from; on a timeline frame `t` is timestep `t`. | `data/timestep`, `schema.TIMESTEP` |
-| episode | A run of consecutive frames under one attack of one family on one design; episodes never overlap. | `timeline._Episode`, `episodes/` group, `data/seq_id` |
-| onset | The first frame of an episode, drawn uniformly among the positions of its split where the episode fits. | `timeline._uniform_onset`, `episodes/onset` |
+| episode | A run of consecutive frames under one attack of one family on one design; episodes never overlap. | `generation.emit._Episode`, `episodes/` group, `data/seq_id` |
+| onset | The first frame of an episode, drawn uniformly among the positions of its split where the episode fits. | `generation.plan.uniform_onset`, `episodes/onset` |
 | pool | The operating-point pool: `[T, N, 4]` converged AC states in <code>&#124;V&#124;</code>, `P_inj`, `Q_inj`, `theta` order, one per minute of the load profile. | `profiles.generate_states`, `generation._load_states`, `pool_ieee{C}.h5` |
 | timeline | One HDF5 file per system: every pool timestep scanned in time order, with attack episodes placed on it; the file format of every data release from v0.8.0. | `timeline.generate_timeline`, `schema.KIND_TIMELINE` |
 | record shard (legacy) | The pre-v0.8.0 file layout, `ml_only_ieee{C}.h5`: independent records with gap rows, no `benign/`, `episodes/` or `attack/` groups; still readable with `release="v0.7.2"`. | `registry.dataset_file`, `schema.GAP` |
 | release | A tagged set of data assets (`data-v<x.y.z>` from v0.8.0), pinned by sha256; `registry._RELEASE` is the default. | `registry.py`, `tools/upload_assets.py` |
-| split | The chronological train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split. | `timeline._split_bounds`, `data/split`, `schema.SPLIT_CODE` |
+| split | The chronological train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split. | `generation.plan.split_bounds`, `data/split`, `schema.SPLIT_CODE` |
 | family | The attack type of a frame: 0 benign, 1 `Aq`, 2 `Ad`, 3 `As`, 4 `Ar`, 5 `At`, 6 `Al`, 7 `Am`. | `schema.FAMILIES`, `engine.FAM_ID`, `data/family` |
 | stealthy | 1 for the families built as local false states (`Aq`, `At`, `Al`, `Am`), which pass the residual test. | `schema.STEALTHY_FAMILIES`, `data/stealthy` |
 | support | The buses whose voltages a local false state moves; only meters that depend on them can change. The fewest-tamper search chooses it. | `engine.attacks.minimize.MinimizeMixin.min_tamper` |
@@ -70,8 +70,8 @@ the data terms is in [`../guides/generation.md`](../guides/generation.md); citat
 |---|---|---|
 | FA budget / `fa_target` | The per-bus benign alarm rate each threshold is set to: the `(1 - fa_target)` quantile of the bus's benign training score; default 0.01. | `localization.base.LocalizerBase.fit` |
 | validation tau | One global probability threshold on a 0.05 to 0.95 grid that maximizes mean per-bus F1 over the active buses of the validation split. | `localization.learned.LearnedLocalizer.tune_threshold`, `formulas.metrics.tau_from_counts` |
-| zero-shot protocol | Train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in training; learned arms use the validation tau. | `localization/learned.py` docstring, `docs/localization/run_localization.py` |
-| common protocol | Every family in train and test; every method calibrated at the same `fa_target`. | `docs/localization/run_localization.py` |
+| zero-shot protocol | Train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in training; learned arms use the validation tau. | `localization/learned.py` docstring, `docs/localization/run.py` |
+| common protocol | Every family in train and test; every method calibrated at the same `fa_target`. | `docs/localization/run.py` |
 | macro-F1 | The mean per-bus F1 over the active buses (per family: over the buses the family attacks). | `models.scores.OverallMetrics.macro_f1`, `FamilyMetrics.macro_f1` |
 | node-F1 | The micro F1 over every bus call. | `models.scores.OverallMetrics.node_f1` |
 | DR | Detection rate: the mean per-bus recall over the active buses; per family, `detection_rate` is the share of records with any bus flagged. | `OverallMetrics.macro_dr`, `FamilyMetrics.detection_rate`, `PerBusMetrics.dr` |
