@@ -94,7 +94,7 @@ def reduction(
     return format(100.0 * (1.0 - n / b), fmt)
 
 
-# ---- state estimation (docs/se)
+# ---- state estimation (docs/analysis/estimation)
 SE_ROWS = [
     ("wls", "WLS baseline"),
     ("removal", "Residual removal"),
@@ -205,7 +205,7 @@ def se_gated(store: Store) -> str:
     return table(head, rows)
 
 
-# ---- localization (docs/localization)
+# ---- localization (docs/analysis/localization)
 LOC_COMMON = [
     ("swing", "Swing threshold"),
     ("delta", "Delta threshold"),
@@ -285,7 +285,7 @@ def loc_table(store: Store, protocol: str) -> str:
     )
 
 
-# ---- federated localization (docs/federated)
+# ---- federated localization (docs/analysis/federated)
 FED_ROWS = [
     (m, k, f"{lab}, K = {k}")
     for m, lab in (("cnn", "1D CNN"), ("mlp", "Per-bus MLP"))
@@ -340,7 +340,7 @@ def fed_table(store: Store, kind: str) -> str:
     return table(["Model", *(f"{name} {_short(s)}" for s in systems for _, name, _ in cols)], body)
 
 
-# ---- trusted meters (docs/trust)
+# ---- trusted meters (docs/analysis/trust)
 _STEALTHY = ("Aq", "At", "Al", "Am")
 _SELECTORS = (("greedy", "greedy"), ("dqn", "DQN"))
 
@@ -452,7 +452,7 @@ def bench_table(store: Store) -> str:
     return table(head, body)
 
 
-# ---- [WU26] defense plan (docs/plans/WU_DEFENSE_PLAN.md)
+# ---- [WU26] defense
 def _count_pair(store: Store, exp: str, **keys: str) -> Optional[tuple[int, int]]:
     d, c = (_get(store, exp, metric=m, **keys) for m in ("devices", "channels"))
     return None if d is None or c is None else (int(d.value), int(c.value))
@@ -829,7 +829,7 @@ def gen_workers(store: Store) -> str:
     return table([f"workers ({frames} frames)", "seconds", "speed-up", "Am episodes", "same file"], body)
 
 
-# ---- the attack search and the [WU26] reproduction (docs/wu26/README.md)
+# ---- the attack search and the [WU26] reproduction (docs/analysis/defense_reproduction/README.md)
 @query("search.solvers")
 def search_solvers(store: Store) -> str:
     """The pinned IEEE-14 searches with the least-norm Gauss-Newton solve against scipy's least squares:
@@ -972,7 +972,7 @@ def wu26_reproduction(store: Store) -> str:
     return table(head, body, numeric_from=3)
 
 
-# ---- replication against [WU26] (docs/wu26/README.md, "Replication against [WU26]")
+# ---- replication against [WU26] (docs/analysis/defense_reproduction/README.md, "Replication against [WU26]")
 def _vals(store: Store, exp: str, metric: str, **keys: str) -> list[float]:
     return [r.value for r in store.latest(exp, metric=metric, **keys)]
 
@@ -1224,7 +1224,7 @@ def wu_table5(store: Store) -> str:
     return table(head, body, numeric_from=5)
 
 
-# ---- the faithful reproduction of [WU26] (docs/wu26/README.md, "Faithful reproduction")
+# ---- the faithful reproduction of [WU26] (docs/analysis/defense_reproduction/README.md, "Faithful reproduction")
 # the per-snapshot weight each scenario was calibrated at (`Wu26Attack.tau`), for runs stored untagged
 _WU_FAITHFUL_TAU = {"118": "0.05", "14-1": "0.1", "14-2": "0.1"}
 _WU_FAITHFUL = {
@@ -1236,7 +1236,7 @@ _WU_FAITHFUL = {
 
 @query("wu26.faithful")
 def wu26_faithful(store: Store) -> str:
-    """Per scenario and trust order of the faithful reproduction (`tools/reproduce_faithful_defense.py`): the
+    """Per scenario and trust order of the faithful reproduction (`experiments/defense_reproduction/run_faithful.py`): the
     windows, the order (Solution 1's, derived, or the paper's), the median devices undefended and
     defended, the mean and median rise in the devices tampered at any snapshot (Fig. 12's cost), the
     share of windows in Fig. 12's 10% to 20% band, the mean new devices, the mean overlap of the
@@ -1249,7 +1249,7 @@ def wu26_faithful(store: Store) -> str:
     when = {p.run_id: p.timestamp for p in store.runs()}
     keyed: dict[tuple[str, str], set[str]] = {}
     for r in store.query(exp):
-        # runs before the tau tag used the scenario's calibrated weight (tools/reproduce_faithful_defense.py)
+        # runs before the tau tag used the scenario's calibrated weight (experiments/defense_reproduction/run_faithful.py)
         tau = r.tag("tau", _WU_FAITHFUL_TAU.get(r.tag("scenario"), ""))
         keyed.setdefault((r.tag("scenario"), tau), set()).add(r.run_id)
     for (name, tau), ids in sorted(keyed.items()):
@@ -1301,7 +1301,7 @@ def wu26_faithful(store: Store) -> str:
 
 @query("wu26.dqn")
 def wu26_dqn(store: Store) -> str:
-    """[WU26]'s Solution 2 on the faithful attack (`tools/reproduce_faithful_dqn.py`), the newest run whole: the
+    """[WU26]'s Solution 2 on the faithful attack (`experiments/defense_reproduction/run_faithful_dqn.py`), the newest run whole: the
     sessions and tests, the training episodes per session, the mean and median rise in the devices
     tampered at any snapshot (Fig. 12's cost), the share of tests in Fig. 12's 10% to 20% band, the mean
     new devices, the PMU each step picks most often with its share (Fig. 11), and the mean training and

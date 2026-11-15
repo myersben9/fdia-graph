@@ -1,5 +1,5 @@
 """[WU26]'s Solution 2: the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2, p. 658)
-on trusted-PMU MDPs (`trust.WuDefenseEnv`; docs/plans/WU_DEFENSE_PLAN.md, PR D).
+on trusted-PMU MDPs (`trust.WuDefenseEnv`).
 
 Algorithm 1, as the paper gives it: initialize the Q-network and an empty replay buffer D, and the target
 network to the same weights; for each iteration, initialize the system state and generate the attack for

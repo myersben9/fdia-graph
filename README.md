@@ -27,7 +27,7 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | [`docs/reference/CONCEPTS_TO_CODE.md`](docs/reference/CONCEPTS_TO_CODE.md) | paper equations to functions |
 | [`docs/reference/CLASS_MAP.md`](docs/reference/CLASS_MAP.md) | architecture: the UML class and module diagrams, drawn from the code |
 | [`docs/reference/EXAMPLES.md`](docs/reference/EXAMPLES.md) | runnable baselines, the timeline as sequences, dataset stats |
-| [`docs/se/`](docs/se/README.md) · [`docs/localization/`](docs/localization/README.md) · [`docs/trust/`](docs/trust/README.md) · [`docs/federated/`](docs/federated/README.md) | the analysis modules, with results |
+| [`docs/analysis/estimation/`](docs/analysis/estimation/README.md) · [`docs/analysis/localization/`](docs/analysis/localization/README.md) · [`docs/analysis/trust/`](docs/analysis/trust/README.md) · [`docs/analysis/federated/`](docs/analysis/federated/README.md) | the analysis modules, with results |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | rules, pull-request flow, releases |
 
 ## Install
@@ -79,7 +79,7 @@ print(est.score(test))             # per-family angle / voltage MAE vs the clean
 ```
 
 One solver, six estimators that each change one thing: `WLS`, `AdaptiveWeighting`, `ResidualRemoval`,
-`SubspacePrior`, `JacobianWeighting`, `GatedPrior`. Results: [`docs/se/`](docs/se/README.md).
+`SubspacePrior`, `JacobianWeighting`, `GatedPrior`. Results: [`docs/analysis/estimation/`](docs/analysis/estimation/README.md).
 
 ## Localization
 
@@ -96,7 +96,7 @@ cnn = BusCNN().fit(fg.load("ieee118", split="train", **zs), val=fg.load("ieee118
 ```
 
 One calibration, five localizers: `SwingThreshold`, `DeltaThreshold`, `ResidualLocalizer`, `BusMLP`,
-`BusCNN`. Results: [`docs/localization/`](docs/localization/README.md).
+`BusCNN`. Results: [`docs/analysis/localization/`](docs/analysis/localization/README.md).
 
 ## Data
 
@@ -142,7 +142,7 @@ and branch currents, and the operating limits); `Am` also meets the line-overloa
 `min_tamper=True` (the default for `At`; `Am` always picks its support that way, by the search or by
 [WU26]'s row reduction, `am_attack={"support_method": "rref"}`). The single-snapshot families and the
 redistribution `Am` of the older releases were drawn at random targets, on meters without branch
-currents, and drove no line to its limit (`docs/plans/WU_MSFDIA_PLAN.md`).
+currents, and drove no line to its limit.
 
 ![BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it](https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png)
 

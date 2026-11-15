@@ -14,7 +14,7 @@ from fdia_graph.se import WLS
 train, test = fg.load("ieee14", split="train"), fg.load("ieee14", split="test")
 wls = WLS().fit(train)
 xhat = wls.estimate(test)  # [n, 2N-1] = [theta rad (non-slack) | V pu (all buses)]
-print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/se/README.md has the table)
+print(wls.score(test).geo)  # angle_mae_deg, voltage_mae_pu (docs/analysis/estimation/README.md has the table)
 ```
 
 | `fit()` learns | `estimate()` returns |
@@ -84,7 +84,7 @@ had no stored run behind them and are not repeated here.
 | `Ad` bias, `As` scaling, `Ar` replay (older releases only) | improve a lot | meters corrupted in place, which robust weighting exists to reject |
 | benign | improves on the larger systems, can lose slightly on ieee14 | the baseline is already at the noise floor there |
 
-Full per-family table and figures, on data release v0.8.x: [`../se/README.md`](../se/README.md).
+Full per-family table and figures, on data release v0.8.x: [`../analysis/estimation/README.md`](../analysis/estimation/README.md).
 
 ## Your own estimator
 

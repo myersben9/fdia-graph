@@ -76,7 +76,7 @@ def _readable(a: np.ndarray) -> np.ndarray:
 
 
 class TimelineWriter:
-    """An open timeline file (the layout in ARCHITECTURE.md): the static case, ownership and meter plan,
+    """An open timeline file (the layout in docs/concepts/new_york_grid.md): the static case, ownership and meter plan,
     the per-frame arrays written a block at a time, and the episode table."""
 
     def __init__(self, path: str | Path):

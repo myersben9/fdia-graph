@@ -32,7 +32,7 @@ The docs site is built from `docs/` plus the three root pages by `mkdocs.yml`: t
 the main branch at the custom domain, and `.github/workflows/docs.yml` deploys one copy per package
 version to GitHub Pages with mike (a tag push deploys that version as `latest`, a push to main
 deploys `dev`), so every release's docs stay readable after the next release; the version picker on
-each page switches between them. `python scripts/site_index.py && python -m mkdocs build --strict`
+each page switches between them. `python tools/site_index.py && python -m mkdocs build --strict`
 checks a docs change locally.
 
 ## The rules
@@ -44,35 +44,34 @@ checks a docs change locally.
 | code reads as its subject | complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in `formulas/` with a source key; every returned bundle a model in `models/` | `python tools/readability.py --report`, `--check --base origin/main` |
 | an input is checked in one place | a new argument is a field on its consumer's model in `models/config.py`, with its rules in the annotation (`Annotated[float, Positive()]`, `OneOf(<Choice>)`) and cross-field rules in `invariants()`; a dataset precondition is a `ds.require(...)` capability; a condition only the data reveals raises a named error from `errors.py`; never a `raise ValueError` in a function body | `python tools/readability.py --check` (refuses a new one) |
 | everything is typed | every parameter, return and field carries its real type; an optional dependency's type (pandapower, torch, h5py, scipy, pandas) is imported under `if TYPE_CHECKING:` so the import stays lazy; `Any` only where the value can be anything, listed in `ANY_ALLOWED` in `tools/readability.py` with the reason | `python tools/readability.py --check` (refuses an unlisted `Any` and a stale entry), pyright in CI |
-| typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src`, `ruff check src tests tools` |
+| typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src/fdia_graph tests tools experiments pipelines`, `ruff check src tests tools experiments pipelines` |
 | generated docs match the code | the class and module diagram sources and the data dictionary's Models section | `python tools/class_diagrams.py --check`, `python tools/models_doc.py --check` |
 | no measured number is typed into markdown | a harness writes what it measures through `fdia_graph.results.Run` into the results store (`results/`, see its README); a doc shows a number or a table through a results block (`<!-- results: <query> ... -->`, queries in `results/queries.py`), a CHANGELOG entry names the experiment; settings and published values from papers stay as text | `python tools/results_docs.py --write`, `--check`; `--lint` lists typed decimals |
 | a file's name says what it does | plain words: never its folder's name again (`tests/nygrid/test_areas.py`, not test_nygrid_areas.py), never a sibling's name plus a short ending (reduce.py beside reduced.py), no digit, no citation key or first author's surname from `REFERENCES.md` | `python tools/layout.py --check` |
-| every file says what it does, and every page keeps up | every Python file opens with a docstring whose first paragraph is its line in `docs/reference/MODULES.md`; every package has a page (`PAGES` in `tools/layout.py`) that names each of its modules; every module or name a doc or docstring cites in a code span exists | `python tools/layout.py` writes the file map; `--check` in the pre-review and CI |
-| speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python tools/bench.py --check` before a release, `python tools/bench.py` after |
+| every file says what it does, and every page keeps up | every Python file opens with a docstring whose first paragraph is its line in `docs/reference/MODULES.md`; every package has a page (`PAGES` in `tools/layout.py`) that names each of its modules; every module or name a doc or docstring cites in a code span exists; every folder at the root and under `docs/` has its role in the tool's repository map | `python tools/layout.py` writes the file map; `--check` in the pre-review and CI |
+| speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python experiments/benchmarks/run.py --check` before a release, `python experiments/benchmarks/run.py` after |
 
 ## The pull request
 
-![the pull request flow: branch, the pre-review gate and the checklist review, create as a draft, mark ready for the one review, fix every finding in one push and reply to each, merge on green](docs/figures/diagrams/contributing_pr_flow.png)
+![the pull request flow: branch, the pre-review gate and the checklist review, create as a draft, one review by review agents and one round of fixes, the pre-review again, mark ready and post the summary, merge on green CI and the owner's approval](docs/figures/diagrams/contributing_pr_flow.png)
 
 ```bash
 python tools/prereview.py                                      # every gate, locally, on this checkout's source
 python tools/prereview.py --also-python <path-to-python3.12>  # and the suite on a second Python, as CI runs 3.9 and 3.12
 python tools/pr.py create my-branch "One-line title" body.md   # a draft; body: what, why, what you checked
-python tools/pr.py ready 80                                    # once clean: the one review of every bot
-python tools/pr.py wait 80                                     # CI plus the one review of every required bot
+python tools/pr.py ready 80                                    # once clean: ready for the owner
+python tools/pr.py wait 80                                     # until CI has finished
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
+python tools/pr.py summary 80 summary.md                       # the four-sentence summary for the owner
 python tools/pr.py merge 80                                    # refuses unless green
-python tools/review_ledger.py 80                               # record the review's findings, print the tally by kind
 ```
 
 Green means: every job of the smoke workflow (`tests`, `tests (3.9)`, `tests (windows)`, `typecheck`,
 `format`, `readability`, the two installs) is a completed success on the head (a job that has not
 started yet counts as not green) and every other listed check has finished without failure.
-A pull request merges when it is green and the owner approves it. No automated review is required:
-the repository runs none on its own, and `tools/pr.py request-review` asks for one (billed) when a
-change is risky enough to want it. A pull request is opened as a draft while it is worked on and
+A pull request merges when it is green and the owner approves it. The repository runs no automated
+review. A pull request is opened as a draft while it is worked on and
 marked ready once it is clean. Related work goes in one pull request per theme rather than one per
 step, and an open pull request is rebased only for a real conflict. The order:
 
@@ -86,10 +85,9 @@ step, and an open pull request is rebased only for a real conflict. The order:
    the pull request (`tools/pr.py summary`) for the owner.
 4. Mark the draft ready and merge it on green once the owner approves.
 
-When an automated review was asked for, its comments are suggestions: apply the ones that are right
-and answer every one with what changed or why not. `tools/pr.py` uses the token the Git Credential Manager holds for `git push`, so it
+`tools/pr.py` uses the token the Git Credential Manager holds for `git push`, so it
 needs no gh CLI. Commit as yourself, with a message that says what the change does. If CI does not
-start on a push, check the account's Actions and Copilot credits first.
+start on a push, check the account's Actions minutes first.
 
 ## Releasing
 
@@ -116,5 +114,6 @@ registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 | a returned record's fields | `models/` |
 | a formula | `formulas/`, and its row in `docs/reference/FORMULAS.md` |
 | any file, to learn what it does | `docs/reference/MODULES.md`, the first paragraph of every file's docstring |
-
-The design documents behind the current layout are archived in `docs/plans/`.
+| a study's numbers or figures | its folder under `experiments/` (`run.py`, `report.py`), its page under `docs/analysis/` |
+| how released New York data is built | `pipelines/newyork/` |
+| a new folder | its role in `REPO` or `DOCS` in `tools/layout.py` first; the gate fails a folder without one |

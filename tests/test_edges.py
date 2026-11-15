@@ -237,7 +237,7 @@ def test_localizer_input_checks(timeline, splits):
 def test_ieee118_estimator_sanity():
     """WLS on the published IEEE-118 timeline: the benign angle error is a fraction of a degree and
     every class scores finite. A loose bound, so a data or solver regression shows without pinning
-    the paper's numbers here (docs/se/README.md holds those)."""
+    the paper's numbers here (docs/analysis/estimation/README.md holds those)."""
     from fdia_graph.se import WLS
 
     train, test = fg.load("ieee118", split="train"), fg.load("ieee118", split="test")

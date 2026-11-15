@@ -10,7 +10,7 @@
 #
 # The Vercel build (vercel.json) keeps serving the main branch's docs at the custom domain; this
 # workflow is the one that keeps every release's docs readable after the next release. The site
-# sources are the same: scripts/site_index.py stages README, CONTRIBUTING and CHANGELOG into
+# sources are the same: tools/site_index.py stages README, CONTRIBUTING and CHANGELOG into
 # docs/, mkdocs.yml is the site.
 name: docs
 
@@ -72,7 +72,7 @@ jobs:
       - name: Take the site tooling from main
         run: |
           cp .tooling/mkdocs.yml mkdocs.yml
-          cp .tooling/scripts/site_index.py scripts/site_index.py
+          cp .tooling/tools/site_index.py tools/site_index.py
           rm -rf .tooling
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
@@ -80,7 +80,7 @@ jobs:
       - name: Install the site tooling
         run: pip install mkdocs==1.6.1 mkdocs-material==9.7.7 mike==2.2.0
       - name: Stage the root pages into docs/
-        run: python scripts/site_index.py
+        run: python tools/site_index.py
       - name: Name the version
         id: version
         run: |

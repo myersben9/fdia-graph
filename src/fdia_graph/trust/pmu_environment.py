@@ -1,5 +1,5 @@
 """[WU26]'s trusted-PMU configuration as a Markov decision process (Sec. IV-D2, Fig. 1, Algorithm 1), on
-the overload attack of one window (docs/plans/WU_DEFENSE_PLAN.md, PR B).
+the overload attack of one window.
 
     env = WuDefenseEnv(g, states, goal, k, WuDefenseConfig(pmus, slots))
     obs = env.reset()

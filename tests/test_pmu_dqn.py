@@ -1,4 +1,4 @@
-"""[WU26]'s Solution 2 (`trust.TrustedPMUsDQN`, Algorithm 1; docs/plans/WU_DEFENSE_PLAN.md PR D): the
+"""[WU26]'s Solution 2 (`trust.TrustedPMUsDQN`, Algorithm 1): the
 stated hyperparameters, a constructed MDP where the right first PMU is known, seeded determinism, and one
 short run on the paper's IEEE-14 scenario."""
 

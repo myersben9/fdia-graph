@@ -1,8 +1,9 @@
 # Review checklist
 
-Run this before a pull request is sent for review. It is built from the 313 findings of the
-automated reviewer on 80 pull requests (#52 to #148), grouped by kind and ordered by how often each
-kind came up. `python tools/prereview.py` runs every mechanical check. This page covers what only a
+Run this before a pull request leaves draft. It is built from the 313 findings of the automated
+reviewer the repository once used, on 80 pull requests (#52 to #148), grouped by kind and ordered by
+how often each kind came up; the repository runs no automated review now, and this page is what the
+one review before a pull request reads the diff against. `python tools/prereview.py` runs every mechanical check. This page covers what only a
 reader can check.
 
 A third of all findings were one failure mode: code changed, but a doc, a docstring, a changelog line,
@@ -10,18 +11,13 @@ a number or a generated file describing it did not. Most of those findings point
 request never touched. So the review starts from the diff and searches outward through the whole
 repository, not just the changed lines.
 
-The reviewer also reads every file a pull request touches from top to bottom, not only the changed
-lines: on #140 to #152, more than a third of its findings were in lines the pull request did not
-change, and each one cost a further review round. So the local review reads each touched file
-whole too.
+The review reads every file a pull request touches from top to bottom, not only the changed lines:
+on #140 to #152, more than a third of the findings were in lines the pull request did not change.
+A kind of finding that keeps coming up becomes a checklist item or a mechanical check.
 
-`python tools/review_ledger.py <num>` adds a pull request's findings to
-`docs/reference/review_ledger.csv` and prints the tally by kind. Run it after every automated review.
-A kind that keeps coming up becomes a checklist item or a mechanical check.
+## Since #140
 
-## Since #140 (the ledger)
-
-The kinds, most frequent first; `python tools/review_ledger.py` prints the current counts.
+The kinds, most frequent first.
 
 | kind | what now catches it |
 |---|---|
@@ -102,7 +98,7 @@ The kinds, most frequent first; `python tools/review_ledger.py` prints the curre
 11. **Memory and hot loops.**
     - Nothing of size T x N is materialized in float64 on a timeline path.
     - Nothing is allocated per Newton iteration.
-    - Estimate the size at IEEE-300 over 72,000 frames; `python tools/bench.py --check` gates the
+    - Estimate the size at IEEE-300 over 72,000 frames; `python experiments/benchmarks/run.py --check` gates the
       timings.
 12. **The readability contract.** Channel indices come from `NODE`/`EDGE`/`BRANCH`, file paths and
     attributes from `schema`, each formula exists once, and there are no positional tuples.
@@ -128,9 +124,6 @@ The kinds, most frequent first; `python tools/review_ledger.py` prints the curre
 1. `python tools/prereview.py` until it passes.
 2. Work through the checklist above against the diff and every touched file, searching outward from
    every change, and fix what it finds.
-3. Only then mark the draft ready, which asks for the one automated review (the ruleset no longer
-   reviews every push). Batch the fixes to its findings into one push, reply to each, run steps 1
-   and 2 again, and merge that push on green; request another review
-   (`python tools/pr.py request-review <num>`) only for a fix that changes behaviour beyond what its
-   finding asked.
-4. `python tools/review_ledger.py <num>` after each review, so the tally stays current.
+3. One review of the diff by review agents against this page, its findings fixed in one round; then
+   mark the draft ready. It merges on green once the owner approves (`CONTRIBUTING.md`, "The pull
+   request").

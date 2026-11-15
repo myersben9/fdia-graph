@@ -47,15 +47,22 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Roadmap: ROADMAP.md
-  - Modules:
-      - State estimation: se/README.md
-      - Localization: localization/README.md
-      - Trusted meters: trust/README.md
-      - Federated: federated/README.md
+  - Getting started:
+      - New York walkthrough: getting-started/new_york_walkthrough.md
   - Guides:
       - Timeline generation: guides/generation.md
       - State estimation: guides/state_estimation.md
       - New York grid: guides/new_york.md
+      - Extending the New York grid: guides/extending_new_york.md
+      - Troubleshooting the New York grid: guides/troubleshooting_new_york.md
+  - Concepts:
+      - New York grid architecture: concepts/new_york_grid.md
+  - Analysis:
+      - State estimation: analysis/estimation/README.md
+      - Localization: analysis/localization/README.md
+      - Trusted meters: analysis/trust/README.md
+      - Federated: analysis/federated/README.md
+      - Defense reproduction: analysis/defense_reproduction/README.md
   - Reference:
       - Data dictionary: reference/DATA_DICTIONARY.md
       - Glossary: reference/GLOSSARY.md
@@ -67,11 +74,6 @@ nav:
       - Benchmarks: reference/BENCHMARKS.md
       - Review checklist: reference/REVIEW_CHECKLIST.md
       - References: reference/REFERENCES.md
-  - Plans:
-      - Overview: plans/README.md
-      - Wu MS-FDIA: plans/WU_MSFDIA_PLAN.md
-      - Wu defense: plans/WU_DEFENSE_PLAN.md
-      - New York grid architecture: nygrid/ARCHITECTURE.md
   - Contributing: contributing.md
   - Changelog: changelog.md
 

@@ -1,4 +1,4 @@
-"""The extension examples of docs/nygrid/EXTENDING.md run as published, so the guide never shows code that broke
+"""The extension examples of docs/guides/extending_new_york.md run as published, so the guide never shows code that broke
 (no data needed)."""
 
 from __future__ import annotations

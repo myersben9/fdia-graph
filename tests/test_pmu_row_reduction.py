@@ -1,4 +1,4 @@
-"""[WU26]'s Solution 1 (`trust.TrustedPMUs`, p. 657 steps 1-5; docs/plans/WU_DEFENSE_PLAN.md PR C) on the
+"""[WU26]'s Solution 1 (`trust.TrustedPMUs`, p. 657 steps 1-5) on the
 paper's IEEE-14 scenarios: one PMU per configuration step, each a PMU reading the sparsest attack that
 moves a target line, scored by the trusted-PMU MDP.
 

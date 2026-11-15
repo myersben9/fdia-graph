@@ -61,7 +61,7 @@ The meter plan is drawn once per generator from the seed and is the same on ever
 | `P_inj`, `Q_inj` | every injection bus and every zero-injection bus | always |
 | `P_from`, `Q_from` | each branch independently with probability `flow_frac` | `flow_frac = 0.9` |
 
-The meter model decides what a meter reads (`meter_model` in the meter plan, the plan's D10). The
+The meter model decides what a meter reads (`meter_model` in the meter plan, D10 of the attack-design plan, "the plan" on this page: `git show 91c15ad:docs/plans/WU_MSFDIA_PLAN.md`). The
 default, `"hybrid"`, is a SCADA and PMU plan as in [WU26]: a SCADA voltmeter reads `|V|` only, a PMU
 reads `|V|`, the angle and the current phasor of every in-service branch at its bus [WU26, eqs.
 17-20]. The released files up to v0.8.3 wrote an angle at every voltmeter bus and read no
@@ -105,7 +105,7 @@ Q limits widened to the range the pool used (`engine/attacks/false_state._within
 `operating_limits`). They satisfy equations (13)-(25) of [WU26] (the SCADA measurements, the PMU
 voltage magnitudes, angles and branch currents, the operating limits and the line-overload goal) and
 its objective, eq. (12): each episode is held on the support that tampers the fewest devices
-(`docs/plans/WU_MSFDIA_PLAN.md`).
+(decisions D1 to D17 of the plan).
 
 | family | code | construction | magnitude per bus | episode length | stealthy | target set |
 |---|---|---|---|---|---|---|
@@ -227,7 +227,7 @@ window, and each design draws its line order from a stream keyed by the seed, th
 and the move), so `workers=N` designs them in N processes and the file is byte-identical for any N.
 On Windows a script that passes `workers` above 1 must start under `if __name__ == "__main__":`, as
 any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experiment
-`generation.parallel_design`, `tools/experiments/design_speed.py`):
+`generation.parallel_design`, `experiments/benchmarks/design_speed.py`):
 
 <!-- results: gen.workers -->
 | workers (3000 frames) | seconds | speed-up | Am episodes | same file |
@@ -321,7 +321,7 @@ The New York grid's attacks are separate classes on the New York network: `engin
 (`Attacker`), `engine/attacks/family.py` (what an attack occupies on the timeline), `engine/attacks/ramp.py`
 (`Ramp`), `engine/attacks/msfdia.py` (`MsFdia`), `engine/attacks/opf.py` and `engine/attacks/interface.py`
 (the overload with false states from a local optimal power flow, and on an interface); they are described in
-[`../nygrid/ARCHITECTURE.md`](../nygrid/ARCHITECTURE.md).
+[`../concepts/new_york_grid.md`](../concepts/new_york_grid.md).
 
 ## 7. Building your own
 
