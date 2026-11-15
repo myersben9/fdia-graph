@@ -378,7 +378,7 @@ episode more or less moves 60 frames and their split counts vary most:
 <!-- /results -->
 
 The v0.7.2 release shipped a record shard and a separate stream per system; from v0.8.0 the
-timeline is the one file, and `fg.load(..., release="v0.7.2")` still reads the shards.
+timeline is the one file. The shards and streams are read by `fdia-graph==0.21.0`.
 
 **Operating-state distributions** (from the 72k pool per system):
 

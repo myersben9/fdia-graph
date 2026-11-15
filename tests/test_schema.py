@@ -63,7 +63,7 @@ def test_the_fixture_carries_exactly_the_schema(timeline):
         per_frame
         | episodes
         | searched
-        | {schema.EDGE_INDEX, schema.EDGE_REACTANCE}
+        | {schema.EDGE_INDEX}
         | {schema.path(schema.Group.GRAPH, k) for k in schema.STATIC_PHYSICS}
     )
     assert set(names) <= known, sorted(set(names) - known)  # every dataset in the file has a name here

@@ -81,7 +81,6 @@ class GridBase:
     edge_is_trafo: np.ndarray
     bus_shunt_g: np.ndarray
     bus_shunt_b: np.ndarray
-    x_react: np.ndarray
     _Ybus: csr_matrix
     _Yf: csr_matrix
     _Yt: csr_matrix

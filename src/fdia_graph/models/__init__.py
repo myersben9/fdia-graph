@@ -52,7 +52,6 @@ from .data import (
     BatchBundle,
     EpisodeTable,
     RecordBundle,
-    Stream,
     Summary,
     TrueState,
 )
@@ -165,7 +164,6 @@ PUBLIC = (
     "ArraysBundle",
     "Summary",
     "EpisodeTable",
-    "Stream",
     "EstimatorScores",
     "ErrorPair",
     "LocalizerScores",
@@ -305,7 +303,6 @@ __all__ = [
     "ArraysBundle",
     "Summary",
     "EpisodeTable",
-    "Stream",
     "TrueState",
     "ErrorPair",
     "EstimatorScores",

@@ -3,7 +3,6 @@ same keys in the same order, and its attribute view agrees with the dict view.""
 
 import json
 
-import numpy as np
 import pytest
 
 from fdia_graph.models import Bundle, LocalizerConfig
@@ -46,12 +45,12 @@ def test_record_batch_and_arrays(splits):
     arrays = ds.export()
     assert isinstance(arrays, ArraysBundle)
     _agree(arrays)
-    assert list(arrays)[:3] == ["edge_index", "edge_reactance", "node_x"]
+    assert list(arrays)[:2] == ["edge_index", "node_x"]
     assert arrays.node_x.shape == (len(ds), ds.N, 4) and "swing" in arrays
     sub = ds.export(fields=["node_x", "y"])
-    assert list(sub) == ["edge_index", "edge_reactance", "node_x", "y"] and sub.swing is None
+    assert list(sub) == ["edge_index", "node_x", "y"] and sub.swing is None
     rev = ds.export(fields=["y", "node_x"])  # the caller's order is the dict order, as before
-    assert list(rev) == ["edge_index", "edge_reactance", "y", "node_x"]
+    assert list(rev) == ["edge_index", "y", "node_x"]
     assert list(ds.export(fields=["y", "node_x"], format="torch")) == list(rev)
     tens = ds.export(fields=["node_x"], format="torch")
     assert isinstance(tens, ArraysBundle) and torch.equal(tens.node_x, torch.as_tensor(sub.node_x))
@@ -118,51 +117,3 @@ def test_jacobian_outputs(timeline):
     _agree(out)
     assert list(out) == ["bus", "global", "dx_hat", "r_perp"]
     assert out["global"] is out.global_ and out.bus.shape[:2] == (len(test), test.N)
-
-
-@pytest.fixture(scope="module")
-def raw_stream(timeline):
-    """A stream dict as `generate_stream` returns it, minus the two summary fields: what a stream
-    file carries."""
-    import fdia_graph as fg
-    from fdia_graph.streams import stream_of
-
-    s = stream_of(fg.load(timeline, split="test"))
-    return {k: v for k, v in s.items() if k not in ("system", "attacked_frac")}
-
-
-def test_stream_bundle(raw_stream):
-    from fdia_graph.streams import Stream
-
-    raw = raw_stream
-    s = Stream(**raw)
-    _agree(s)
-    assert list(s) == list(raw) and s.system is None and "system" not in s  # the file carries arrays only
-    from fdia_graph.streams import stream_summary
-
-    summ = stream_summary(raw)  # what load_stream adds on top of the file
-    assert summ["system"] == raw["node_x"].shape[1] == 14
-    assert summ["attacked_frac"] == float((raw["y"].sum(axis=1) > 0).mean()) and 0 < summ["attacked_frac"] < 1
-    full = Stream(**raw, **summ)
-    assert full.system == 14 and full["attacked_frac"] == summ["attacked_frac"]
-    assert s.episodes[0]["onset"] >= 0 and len(s.episodes) > 1
-    assert s.node_x.shape[0] == s.y.shape[0] == len(s.timestep)
-
-
-def test_load_stream_fills_the_summary_fields(tmp_path, monkeypatch, raw_stream):
-    """`fg.load_stream` itself, with the download replaced by a file built from a stream's arrays
-    (the v0.7.2 stream files): `system` and `attacked_frac` come back filled."""
-    import fdia_graph as fg
-    import fdia_graph.download as download
-
-    arrays = {k: v for k, v in raw_stream.items() if k != "episodes"}
-    episodes = raw_stream["episodes"]
-    path = tmp_path / "stream_ieee14.npz"
-    np.savez_compressed(path, **arrays, episodes=np.array(episodes, dtype=object))
-    monkeypatch.setattr(download, "ensure_local", lambda spec: str(path))
-
-    with pytest.warns(DeprecationWarning, match="load_stream is deprecated"):
-        s = fg.load_stream("ieee14", release="v0.7.2")  # the stream-file path, whatever the default release
-    assert s.system == 14 and s["system"] == 14
-    assert s.attacked_frac == float((arrays["y"].sum(axis=1) > 0).mean()) and 0 < s.attacked_frac < 1
-    assert s.node_x.shape == arrays["node_x"].shape and len(s.episodes) == len(episodes)

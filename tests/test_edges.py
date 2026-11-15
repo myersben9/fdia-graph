@@ -91,7 +91,6 @@ def test_family_filter_aliases_and_heldout_protocol(timeline):
     assert test_fams & {3, 4}, "the test split keeps As/Ar"
     ramp = fg.load(timeline, families=["ramp"])  # an alias of the generated families on a new file
     assert len(ramp) == len(fg.load(timeline, families=["At"])) > 0
-    assert len(fg.load(timeline, include_gaps=True)) >= len(fg.load(timeline))
 
 
 # ---- exports ----------------------------------------------------------------------------------------
@@ -102,7 +101,7 @@ def test_export_rejects_unknown_fields_and_empty_means_default(splits):
     with pytest.raises(ValueError, match="unknown field"):
         ds.export(["node_x", "nope"])
     assert list(ds.export([])) == list(ds.export())
-    assert list(ds.export(["y"])) == ["edge_index", "edge_reactance", "y"]
+    assert list(ds.export(["y"])) == ["edge_index", "y"]
 
 
 def test_default_fields_follow_the_layers_present(splits):
@@ -112,7 +111,7 @@ def test_default_fields_follow_the_layers_present(splits):
     fields = ds._default_fields()
     assert ("clean" in fields) == (ds._clean_np is not None)
     assert ("edge_clean" in fields) == (ds._eclean_np is not None)
-    assert set(ds.export(fields)) == set(fields) | {"edge_index", "edge_reactance"}
+    assert set(ds.export(fields)) == set(fields) | {"edge_index"}
 
 
 def test_summary_counts_add_up(splits):
@@ -134,27 +133,20 @@ def test_collate_and_loader_shapes(splits):
     assert torch.equal(batch["edge_index"], ds.edge_index)
 
 
-# ---- streams ------------------------------------------------------------------------------------------
-
-
-def _tiny_stream(T: int = 12, N: int = 3):
-    rng = np.random.default_rng(0)
-    return {"node_x": rng.normal(size=(T, N, 4)), "y": (rng.random((T, N)) > 0.7).astype(np.uint8)}
+# ---- windows ------------------------------------------------------------------------------------------
 
 
 def test_windows_labels_and_bounds():
-    """The deprecated stream-dict `windows` (retires in 0.19) and the label helper it shares with
-    `ds.windows`."""
+    """The label helper of `ds.windows` and the checks of its arguments."""
     from fdia_graph.dataset.sequence import window_labels
     from fdia_graph.models.config import WindowSpec
 
-    s = _tiny_stream()
-    with pytest.warns(DeprecationWarning, match="windows.*deprecated"):
-        Xw, yw = fg.windows(s, W=4, stride=2, label="frame")
-    assert Xw.shape == (5, 4, 3, 4) and yw.shape == (5, 4, 3)
+    y = (np.random.default_rng(0).random((12, 3)) > 0.7).astype(np.uint8)
     starts = range(0, 12 - 4 + 1, 2)
-    y_any = window_labels(s["y"], starts, 4, "any")
-    y_last = window_labels(s["y"], starts, 4, "last")
+    yw = window_labels(y, starts, 4, "frame")
+    assert yw.shape == (5, 4, 3)
+    y_any = window_labels(y, starts, 4, "any")
+    y_last = window_labels(y, starts, 4, "last")
     assert y_any.shape == y_last.shape == (5, 3)
     assert np.array_equal(y_any, yw.max(axis=1)) and np.array_equal(y_last, yw[:, -1])
     with pytest.raises(ValueError, match="label must be"):
@@ -166,11 +158,6 @@ def test_windows_labels_and_bounds():
     for W, stride in ((4.5, 1), (4, 1.5), (True, 1)):
         with pytest.raises(ValueError, match="WindowSpec.(W|stride) must be an integer"):
             WindowSpec(12, W, stride, "any")
-
-
-def test_load_stream_rejects_an_unknown_system():
-    with pytest.raises(ValueError, match="system must be"), pytest.warns(DeprecationWarning):
-        fg.load_stream("bogus")
 
 
 # ---- estimators and localizers ---------------------------------------------------------------------------

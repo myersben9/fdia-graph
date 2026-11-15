@@ -17,7 +17,7 @@ from typing import Annotated, ClassVar, Optional, Union, cast
 
 import numpy as np
 
-from .choices import FAMILIES, FAMILY_ALIAS, GENERATED_FAMILIES, Capability, Iso, Reduce
+from .choices import FAMILIES, FAMILY_ALIAS, GENERATED_FAMILIES, Capability, Reduce
 from .errors import NoAdmissibleTarget
 from .validation import (
     AsArray,
@@ -134,40 +134,15 @@ class DateSpan(Validated):
 
 @dataclass(frozen=True)
 class ProfileSource(Validated):
-    """What `load_profile` was handed: a source that reads itself (it has `loads()`), or the pre-0.21
-    form, an operator name with a directory, a CSV path with its column, or the load values."""
+    """What `load_profile` was handed: a source that reads itself (it has `loads()`), such as `IsoFolder`,
+    `CsvColumn` or `RawSeries`."""
 
     source: object
-    path: Optional[str] = None
-    column: Optional[str] = None
-
-    @property
-    def text(self) -> str:
-        """The operator name or CSV path, for the kinds "iso" and "csv"."""
-        return cast(str, self.source)
-
-    @property
-    def series(self) -> Sequence[float]:
-        """The load values, for the kind "values"."""
-        return cast(Sequence[float], self.source)
-
-    @property
-    def kind(self) -> str:
-        """ "source", "values", "iso", "csv", or "unsupported" (which the invariant refuses)."""
-        if callable(getattr(self.source, "loads", None)):  # what `LoadSource`'s runtime check tests
-            return "source"
-        if isinstance(self.source, str):
-            return "iso" if self.source.lower() in Iso.values() else "csv"
-        if isinstance(self.source, (list, tuple, np.ndarray)):
-            values = np.asarray(cast(Sequence[float], self.source))
-            if values.ndim == 1 and values.size and np.issubdtype(values.dtype, np.number):
-                return "values"
-        return "unsupported"
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (
-            self.kind != "unsupported",
-            "source must be a LoadSource, an operator name, a CSV path, or a 1-d sequence of load values",
+            callable(getattr(self.source, "loads", None)),  # what `LoadSource`'s runtime check tests
+            "source must be a LoadSource: IsoFolder, CsvColumn, RawSeries, or any object with loads()",
         )
 
 
@@ -283,9 +258,13 @@ class SupportedSystem(Validated):
         )
 
 
+FIRST_RELEASE = (0, 8, 0)  # the first data release of timelines, the only layout the package reads
+
+
 @dataclass(frozen=True)
 class ReleaseName(Validated):
-    """A data release name; `numbers` orders releases."""
+    """A data release name; `numbers` orders releases. The first release this package reads is v0.8.0:
+    the record shards and stream files before it are read by fdia-graph 0.21 and earlier."""
 
     release: Annotated[
         Union[str, tuple[int, ...]], Parses(release_numbers, "must be a data release name like 'v0.8.0'")
@@ -294,6 +273,13 @@ class ReleaseName(Validated):
     @property
     def numbers(self) -> tuple[int, ...]:
         return tuple(int(x) for x in self.release)
+
+    def invariants(self) -> Iterable[tuple[bool, str]]:
+        yield (
+            self.numbers >= FIRST_RELEASE,
+            "data releases before v0.8.0 are record shards: read them with fdia-graph 0.21 "
+            "(pip install fdia-graph==0.21.0)",
+        )
 
 
 # ---- arrays ---------------------------------------------------------------------------------------

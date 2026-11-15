@@ -214,11 +214,6 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         ).astype(np.int32)
         self.E = self.ei.shape[1]
         self.n_lines = len(base_line)  # lines come first in ei, transformers after
-        # DEPRECATED (v0.5.0), retained for loading. Mixes UNITS: line reactance in ohms vs trafo vk_percent,
-        # putting trafo entries ~3 orders of magnitude above lines on IEEE-300. Use the per-unit edge_* arrays.
-        self.x_react = np.r_[
-            base_line.x_ohm_per_km.values * base_line.length_km.values, base.trafo.vk_percent.values
-        ].astype(np.float32)
 
     def _branch_physics(self, ppc: PpcTables) -> None:
         """Full per-unit branch and bus physics, exactly the quantities makeYbus consumes, so a model

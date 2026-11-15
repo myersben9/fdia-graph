@@ -24,7 +24,7 @@ from . import _CHUNK_ROWS, _base_attrs
 from .emit import TimelineBuffers, layers
 from .plan import _Placement, split_column
 
-KIND = schema.KIND_TIMELINE  # the file attribute that tells a timeline from a shard
+KIND = schema.KIND_TIMELINE  # the file attribute the loader requires
 
 
 def ragged(rows: Sequence[np.ndarray], dtype) -> tuple[np.ndarray, np.ndarray]:

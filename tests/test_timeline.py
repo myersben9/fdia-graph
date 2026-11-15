@@ -4,8 +4,6 @@ One tiny IEEE-14 timeline is generated once per session (1000 frames, At and the
 20-frame episodes, the search capped as in conftest.TIMELINE_KW), and read here with h5py against
 the layout the module docstring promises."""
 
-import os
-
 import h5py
 import numpy as np
 import pytest
@@ -155,20 +153,6 @@ def test_layers_and_tamper_masks_agree(timeline):
     v = nm[:, :, 0] > 0
     assert np.abs(bn[:, :, 0] - cl[:, :, 0])[v].max() < 0.02
     assert (a["data/stealthy"] == np.isin(fam, sorted(STEALTHY_FAMILIES))).all()
-
-
-def test_generate_stream_is_the_timeline_as_a_dict(tmp_path, pool):
-    import fdia_graph as fg
-
-    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
-        s = fg.generate_stream(
-            14, pool[:60], 0.5, ("At",), ramp_len=10, seed=SEED, out=str(tmp_path / "s.h5"), min_tamper=False
-        )
-    with pytest.raises(TypeError):  # a 0.20 positional call: attack_intensity sat where ramp_rate is now
-        fg.generate_stream(14, pool[:60], 0.5, ("At",), 0.2, 0.002)
-    assert s.system == 14 and s.node_x.shape == (60, 14, 4) and s.node_m.shape == (14, 4)
-    assert set(np.unique(s.family).tolist()) <= {0, 5} and len(s.episodes) > 0
-    assert os.path.exists(tmp_path / "s.h5")
 
 
 def test_stealthy_families_pass_the_residual_test(timeline):
@@ -501,9 +485,9 @@ def test_block_scale_matches_the_whole_series_kernel(timeline):
             assert np.allclose(parts, whole, rtol=1e-6, atol=1e-9)
 
 
-def test_the_settings_take_a_model_flat_keywords_or_a_deprecated_dict():
-    """`generate_timeline`'s settings: a nested `TimelineSettings`, any flat keyword over it, and for
-    one minor version the old dicts, which warn; an unknown keyword is refused."""
+def test_the_settings_take_a_model_or_flat_keywords():
+    """`generate_timeline`'s settings: a nested `TimelineSettings` or any flat keyword over it; a dict in place
+    of a settings model and an unknown keyword are refused."""
     from fdia_graph.models.config import (
         MeterSettings,
         OverloadSettings,
@@ -525,11 +509,10 @@ def test_the_settings_take_a_model_flat_keywords_or_a_deprecated_dict():
         am_attack=OverloadSettings(rating_margin=1.5),
     )
     assert flat == nested
-    with pytest.warns(DeprecationWarning, match="goes in 0.22"):
-        old = TimelineSettings.of(
-            ramp_len=10, hops=3, redundancy={"pmu_frac": 0.3}, am_attack={"rating_margin": 1.5}
-        )
-    assert old == nested
+    with pytest.raises(ValueError, match="redundancy must be a MeterSettings"):  # a dict is no settings model
+        TimelineSettings.of(redundancy={"pmu_frac": 0.3})
+    with pytest.raises(ValueError, match="am_attack must be a OverloadSettings"):
+        TimelineSettings.of(am_attack={"rating_margin": 1.5})
     assert TimelineSettings.of(nested, hops=4).search.hops == 4  # a keyword over a model
     with pytest.raises(ValueError, match="unknown settings: bogus"):
         TimelineSettings.of(bogus=1)

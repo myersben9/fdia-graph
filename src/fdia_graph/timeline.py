@@ -29,8 +29,6 @@ The walk is a pipeline of stages with typed hand-offs, each in its own module of
 split's overload Am, in parallel across `workers` processes, before the split is walked), emit
 (`generation.emit`: the frames in time order, the ramp At designed as the walk reaches it) and write
 (`generation.write`: the datasets, episodes and attributes). This module orchestrates them.
-
-`generate_stream` (deprecated) is this writer followed by a read of the file it wrote.
 """
 
 from __future__ import annotations
@@ -225,7 +223,6 @@ def generate_timeline(
     workers          processes the overload Am designs run on (default 1); the file is the same for
                      any number, since every design draws from its own keyed stream
 
-    A dict for `am_attack` or `redundancy` still works and warns (DeprecationWarning): dicts go in 0.22.
     The file records the settings as JSON (attribute `settings`) with their hash (`settings_hash`).
     """
     s = TimelineSettings.of(settings, **knobs)

@@ -57,7 +57,9 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     )
     from fdia_graph.generation.nygrid.solver import AcSolver, Compensation, unit_q_limits
     from fdia_graph.generation.nygrid.timeline import TimelineBuilder
-    from fdia_graph.operator.response import operator_day, respond, summarize
+    from fdia_graph.operator.day import operator_day
+    from fdia_graph.operator.run import respond
+    from fdia_graph.operator.summary import summarize
 
 # each public name and the module that defines it, imported on first use
 _PUBLIC = {
@@ -101,20 +103,20 @@ _PUBLIC = {
     "modify_mpc": "fdia_graph.generation.nygrid.npcc",
     "nygrid_units": "fdia_graph.generation.nygrid.npcc",
     "open_timeline": "fdia_graph.generation.nygrid.io",
-    "operator_day": "fdia_graph.operator.response",
+    "operator_day": "fdia_graph.operator.day",
     "peak_ratings": "fdia_graph.generation.nygrid.pool",
     "place_episodes": "fdia_graph.generation.nygrid.schedule",
     "production_builder": "fdia_graph.generation.nygrid.build",
     "read_npcc": "fdia_graph.generation.nygrid.npcc",
     "read_nygrid": "fdia_graph.generation.nygrid.inputs",
     "read_pool": "fdia_graph.generation.nygrid.io",
-    "respond": "fdia_graph.operator.response",
+    "respond": "fdia_graph.operator.run",
     "restore_765kv": "fdia_graph.generation.nygrid.fixes",
     "rng": "fdia_graph.generation.nygrid.config",
     "split_frames": "fdia_graph.generation.nygrid.schedule",
     "split_weeks": "fdia_graph.generation.nygrid.schedule",
     "split_zone_j": "fdia_graph.generation.nygrid.fixes",
-    "summarize": "fdia_graph.operator.response",
+    "summarize": "fdia_graph.operator.summary",
     "switching_fit": "fdia_graph.generation.nygrid.load_fit",
     "unit_q_limits": "fdia_graph.generation.nygrid.solver",
     "week_index": "fdia_graph.generation.nygrid.schedule",

@@ -9,6 +9,11 @@ class DataConditionError(ValueError):
     """A condition the data read does not meet; base of the named errors below."""
 
 
+class NotATimeline(DataConditionError):
+    """The file is not a timeline (its `kind` attribute says so): a record shard of a data release before
+    v0.8.0, or no fdia-graph file at all."""
+
+
 class NoBenignRecords(DataConditionError):
     """A fit that calibrates on benign records was given none (a filtered view instead of a split)."""
 

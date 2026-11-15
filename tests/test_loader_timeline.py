@@ -21,7 +21,7 @@ def test_generate_rejects_a_bad_frame_cap(tmp_path):
 def test_generate_registers_a_timeline_that_load_reads(timeline):
     assert fg.list_datasets()[timeline] == "local"
     ds = fg.load(timeline)
-    assert ds.is_timeline and ds.has_benign and ds.has_clean and ds.has_clean_full
+    assert ds.has_benign and ds.has_clean and ds.has_clean_full
     assert len(ds) == 1000 and ds.system == 14 and ds.N == 14 and ds.E == 20
     assert np.array_equal(ds.idx, np.arange(1000))
     summ = ds.summary()
@@ -99,30 +99,6 @@ def test_windows_on_the_time_ordered_view(timeline):
         ds.windows(T + 1)
 
 
-def test_the_v072_record_shard_still_loads():
-    """The pre-0.18 layout (gap rows, the clean pool once per pool timestep) reads as before."""
-    from fdia_graph.dataset import FdiaGraph
-
-    from .conftest import SHARD_V072
-
-    ds = FdiaGraph(SHARD_V072)
-    assert not ds.is_timeline and not ds.has_benign and ds.has_clean and len(ds) > 0
-    assert len(FdiaGraph(SHARD_V072, include_gaps=True)) >= len(ds)
-    rec = ds[0]
-    assert "benign" not in rec and "benign" not in ds.export() and tuple(rec["clean"].shape) == (14, 4)
-    assert set(np.unique(ds.export(["family"])["family"]).tolist()) <= set(range(7))
-    train, test = FdiaGraph(SHARD_V072, split="train"), FdiaGraph(SHARD_V072, split="test")
-    assert len(train) > len(test) > 0
-    with pytest.raises(ValueError, match="timeline file"):
-        ds.windows(4)
-    with pytest.raises(AttributeError, match="no episodes"):
-        ds.episodes
-    rnd = FdiaGraph(SHARD_V072, order="random")
-    assert sorted(int(rnd[i]["timestep"]) for i in range(len(rnd))) == sorted(
-        int(ds[i]["timestep"]) for i in range(len(ds))
-    )
-
-
 def test_episodes_table_follows_the_view(timeline):
     from fdia_graph.models import EpisodeTable
 
@@ -151,27 +127,6 @@ def test_edge_attr_np_is_torch_free_and_equal_to_edge_attr(timeline):
     assert isinstance(torch.as_tensor(ds.edge_attr_np), torch.Tensor)
 
 
-def test_stream_of_refuses_a_shuffled_or_filtered_view(timeline):
-    from fdia_graph.streams import stream_of
-
-    with pytest.raises(ValueError, match="order='time'"):
-        stream_of(fg.load(timeline, order="random"))
-    with pytest.raises(ValueError, match="consecutive frames"):
-        stream_of(fg.load(timeline, families=["Am"]))
-    s = stream_of(fg.load(timeline, split="test"))
-    assert s.node_x.shape[0] == len(fg.load(timeline, split="test"))
-    # a hybrid-meter timeline's stream carries its PMU branch currents; an old release's has none
-    E = s.edge_x.shape[1]
-    assert s.pmu_i.shape == (len(s.node_x), E, 4) and s.pmu_i_benign.shape == s.pmu_i.shape
-    assert s.pmu_i_m.shape == (E, 4) and s.pmu_i_m.any()
-    from fdia_graph.dataset import FdiaGraph
-
-    from .test_old_releases import TIMELINE_V083
-
-    old = stream_of(FdiaGraph(TIMELINE_V083, split="test"))
-    assert old.pmu_i is None and "pmu_i" not in old
-
-
 def test_per_bus_windows_come_from_the_view_itself(timeline):
     """Per-bus sequences from a time-ordered view, the file's split as the split (what the torch
     helpers of 0.17 built from a stream)."""
@@ -182,16 +137,6 @@ def test_per_bus_windows_come_from_the_view_itself(timeline):
     assert np.array_equal(Xb[0], ds.export(["node_x"])["node_x"][:8, 0])
     Xf, yf = ds.windows(8, stride=4, label="frame", per_bus=True)
     assert yf.shape == (Xf.shape[0], 8)
-
-
-def test_the_stream_entry_points_warn(timeline):
-    from fdia_graph.generation import _load_states
-
-    X = _load_states(14, None)[:30]
-    with pytest.warns(DeprecationWarning, match="generate_stream is deprecated"):
-        s = fg.generate_stream(14, states=X, seed=1)
-    with pytest.warns(DeprecationWarning, match="windows.*deprecated"):
-        fg.windows(s, W=4)
 
 
 def test_estimator_and_localizer_score_a_timeline_with_am(timeline):

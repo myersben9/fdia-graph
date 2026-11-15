@@ -129,10 +129,6 @@ _UNIT_KIND = {
 }
 
 
-def _is_timeline(ds: DatasetBase) -> bool:
-    return ds.is_timeline
-
-
 def _has_benign(ds: DatasetBase) -> bool:
     return ds.has_benign
 
@@ -171,11 +167,10 @@ def _consecutive(ds: DatasetBase) -> bool:
 
 # What a view may lack that a consumer needs: the test and what the consumer needs, in words.
 CAPABILITIES: dict[str, tuple[Callable[[DatasetBase], bool], str]] = {
-    Capability.TIMELINE: (_is_timeline, "a timeline file, not a record shard"),
     Capability.BENIGN_LAYER: (_has_benign, "a timeline view with the benign layer"),
     Capability.CLEAN_LAYER: (
         _has_clean,
-        'a clean layer (load a timeline or a v0.7.2 record shard, or fit with calibrate="measured")',
+        'a clean layer (or fit with calibrate="measured")',
     ),
     Capability.PHYSICAL_UNITS: (
         _physical,
@@ -207,7 +202,6 @@ class DatasetBase:
     slack: Optional[int]
     idx: np.ndarray
     edge_index_np: np.ndarray
-    edge_reactance_np: np.ndarray
     has_physics: bool
     has_temporal: bool
     has_swing: bool
@@ -216,7 +210,6 @@ class DatasetBase:
     has_benign: bool
     has_currents: bool
     has_split: bool
-    is_timeline: bool  # the file attribute kind == "timeline" (one row per frame, in time order)
     edge_status_per_record: Optional[np.ndarray]
     _perm: Optional[np.ndarray]  # order="random": view position -> position in idx
     _episodes: Optional[EpisodeTable]  # the whole file's, None on a shard

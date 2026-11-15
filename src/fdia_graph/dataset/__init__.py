@@ -1,5 +1,5 @@
-"""FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (0.18+, one row per frame in
-time order, `kind="timeline"`) or a record shard (the v0.7.2 release).
+"""FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order,
+`kind="timeline"`).
 
 Static graph read once; per-record tensors sliced lazily so the whole file is never loaded. Each item:
   node_x [N,4]=[|V|,P_inj,Q_inj,theta]  node_m [N,4] availability mask
@@ -39,6 +39,7 @@ from ..models.data import (  # noqa: F401  re-exported: defined here before the 
     RecordBundle,
     Summary,
 )
+from ..models.errors import NotATimeline
 from ..models.grid import NODE
 from ..schema import Attr
 from .base import (  # noqa: F401  re-exported: defined here before the split
@@ -61,23 +62,18 @@ from .sequence import SequenceMixin, read_episodes
 
 
 class _RecordFilter(NamedTuple):
-    """Which records a FdiaGraph view keeps: the partition, the families, gap records, the
+    """Which records a FdiaGraph view keeps: the partition, the families, the
     unseen-attack protocol (As/Ar held out of train and val)."""
 
     split: Optional[str]
     families: Optional[Sequence[Union[str, int]]]
-    include_gaps: bool
     heldout: bool
 
 
-def _record_mask(
-    fam: np.ndarray, gap: np.ndarray, sp: Optional[np.ndarray], filt: _RecordFilter, path: str
-) -> np.ndarray:
-    """The kept record positions (sorted, unique): drop gap records unless asked, restrict to the
-    requested partition, apply the unseen-attack protocol, and keep only the requested families."""
+def _record_mask(fam: np.ndarray, sp: Optional[np.ndarray], filt: _RecordFilter) -> np.ndarray:
+    """The kept record positions (sorted, unique): restrict to the requested partition, apply the
+    unseen-attack protocol, and keep only the requested families."""
     keep = np.ones(len(fam), bool)
-    if not filt.include_gaps:
-        keep &= gap == 0  # drop gap (missing/skipped scan) records unless asked
     if filt.split is not None:
         code = _SPLIT[filt.split]
         keep &= (sp == code) if sp is not None else False  # a file without the column is refused first
@@ -96,7 +92,6 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
         path: str,
         split: Optional[str] = None,
         families: Optional[Sequence[Union[str, int]]] = None,
-        include_gaps: bool = False,
         heldout: bool = False,
         format: str = "torch",
         units: str = "physical",
@@ -125,15 +120,13 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
             self._read_layers(f)
             self.slack = self._reference_bus()
             fam = f[schema.FAMILY][:]
-            # per-record metadata copied to RAM for filtering; a timeline has no gap rows
-            gap = f[schema.GAP][:] if schema.GAP in f else np.zeros(len(fam), np.uint8)
             sp = f[schema.SPLIT][:] if schema.SPLIT in f else None  # split code, or None on unsplit files
             self._episodes = read_episodes(f, schema.Group.EPISODES in f)
         self.has_split = sp is not None
         if split is not None:
             self.require("split", by=f"split={split!r} (run the split step first)")
         # Kept row positions; SORTED+UNIQUE by construction, which lets to_numpy() use h5py fancy-indexing.
-        self.idx = _record_mask(fam, gap, sp, _RecordFilter(split, families, include_gaps, heldout), path)
+        self.idx = _record_mask(fam, sp, _RecordFilter(split, families, heldout))
         # order="random": the same rows in a permutation fixed by the seed, applied as a view index.
         self._perm = np.random.default_rng(seed).permutation(len(self.idx)) if order == "random" else None
         self._mem: Optional[dict[str, np.ndarray]] = None
@@ -141,20 +134,23 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
             self._preload(path)
 
     def _read_header(self, f: h5py.File) -> None:
-        """Dims and the power base. IEEE case (14/118/300) falls back to N, then 0, for older files."""
+        """Dims and the power base, of a timeline file: any other file is refused."""
         a = f.attrs
+        if str(a.get(Attr.KIND, "")) != schema.KIND_TIMELINE:
+            raise NotATimeline(
+                f"{self.path} is not a timeline file; a record shard of a data release before v0.8.0 reads "
+                "with fdia-graph 0.21 (pip install fdia-graph==0.21.0)"
+            )
         self.system = int(a.get(Attr.SYSTEM, a.get(Attr.N, 0)))
         self.N = int(a[Attr.N])
         self.E = int(a[Attr.E])  # fixed graph size: bus count N, branch count E
         self.baseMVA = float(a.get(Attr.BASEMVA, 100.0))  # p.u. base; v0.4.1+, default 100 MVA
-        self.is_timeline = str(a.get(Attr.KIND, "")) == schema.KIND_TIMELINE
 
     def _read_static_graph(self, f: h5py.File) -> None:
-        """The static graph, read ONCE and cached as numpy (same for every record): edge index, the
-        deprecated reactance, and the v0.5.0+ per-unit branch physics, bus shunts and per-bus
+        """The static graph, read ONCE and cached as numpy (same for every record): edge index and the
+        per-unit branch physics, bus shunts and per-bus
         attributes, each None when the file predates the schema."""
         self.edge_index_np = f[schema.EDGE_INDEX][:].astype(np.int64)
-        self.edge_reactance_np = f[schema.EDGE_REACTANCE][:].astype(np.float32)
         self._phys = {}
         for _k in _STATIC_PHYSICS:
             p = schema.path(schema.Group.GRAPH, _k)

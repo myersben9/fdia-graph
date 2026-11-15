@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """60-second tour of fdia-graph: load a dataset, inspect it, and get it in whatever format you want.
 
-Run: python quickstart.py   (downloads the IEEE-14 shard on first use, then caches it)
+Run: python quickstart.py   (downloads the IEEE-14 timeline on first use, then caches it)
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ df = test.export(format="pandas", flatten_features=False)  # one row per record 
 print("pandas head:\n", df.head())
 
 # 5) VERSION CONTROL — pin an exact dataset release for reproducibility.
-#    fg.load("ieee14", release="v0.1.0")
+#    fg.load("ieee14", release="v0.8.1")
 
 # 6) GENERATE A CUSTOM VARIANT (needs: pip install 'fdia-graph[generate]')
 #    fg.generate("ieee14", name="my_run", frames=2000, families=["At", "Am"])

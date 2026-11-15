@@ -11,8 +11,7 @@ weights, mirroring the paper's protocol.
 
 Needs pandapower and scipy: pip install "fdia-graph[se]". The measurement function and its Jacobian
 are the closed-form numpy kernel (`formulas.network.ac_measurement`, `ac_jacobian`); torch, when
-installed, only speeds up the per-record inverses. Datasets must carry the clean layer (a timeline,
-or a v0.7.2 record shard; it supplies the truth) loaded with units="physical" (the default).
+installed, only speeds up the per-record inverses. Datasets must carry the clean layer (it supplies the truth) and be loaded with units="physical" (the default).
 """
 
 from __future__ import annotations

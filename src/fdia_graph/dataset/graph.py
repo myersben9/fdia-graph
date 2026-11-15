@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import torch
 
-import warnings
 
 import numpy as np
 
@@ -23,20 +22,14 @@ class GraphMixin(DatasetBase):
     def edge_index(self) -> torch.Tensor:
         return _torch().as_tensor(self.edge_index_np)  # [2,E] long connectivity for message passing
 
-    @property
-    def edge_reactance(self) -> torch.Tensor:
-        # DEPRECATED: mixes ohms (lines) with vk_percent (transformers), not comparable. Use edge_x (per-unit).
-        return _torch().as_tensor(self.edge_reactance_np)
-
     def _p(self, key: str) -> torch.Tensor:
         v = self._phys.get(key)
         if v is None:
             raise AttributeError(f"{key} needs a v0.5.0+ shard; this file predates the physics schema")
         return _torch().as_tensor(v)
 
-    # Per-unit branch physics, ppc order (lines then transformers), aligned with edge_index. The
-    # canonical names are branch_*; the older edge_* spellings still work but warn, because `edge_x`
-    # on the dataset (series reactance) collided with `edge_x` on every record (the branch flows).
+    # Per-unit branch physics, ppc order (lines then transformers), aligned with edge_index. The names
+    # are branch_*: `edge_x` on every record is the branch flows.
     @property
     def branch_r(self) -> torch.Tensor:
         return self._p("edge_r")  # series resistance
@@ -52,30 +45,6 @@ class GraphMixin(DatasetBase):
     @property
     def branch_g(self) -> torch.Tensor:
         return self._p("edge_g")  # charging conductance, transformer iron losses
-
-    def _old_name(self, attr: str) -> torch.Tensor:
-        # Deprecated edge_* spelling of a branch_* property: same tensor, plus a one-line warning.
-        note = " (on records and batches edge_x is the [E,2] branch flows)" if attr == "x" else ""
-        warnings.warn(
-            f"ds.edge_{attr} is deprecated, use ds.branch_{attr}{note}", DeprecationWarning, stacklevel=3
-        )
-        return getattr(self, f"branch_{attr}")
-
-    @property
-    def edge_r(self) -> torch.Tensor:
-        return self._old_name("r")
-
-    @property
-    def edge_x(self) -> torch.Tensor:
-        return self._old_name("x")
-
-    @property
-    def edge_b(self) -> torch.Tensor:
-        return self._old_name("b")
-
-    @property
-    def edge_g(self) -> torch.Tensor:
-        return self._old_name("g")
 
     def _series_adm(self, imag: bool) -> torch.Tensor:
         # Series admittance 1/(r+jx). Stored on v0.7.0+ shards; derived from r,x for older ones so edge_attr
@@ -105,22 +74,6 @@ class GraphMixin(DatasetBase):
     @property
     def branch_shift(self) -> torch.Tensor:
         return self._p("edge_shift")  # phase shift, degrees
-
-    @property
-    def edge_gs(self) -> torch.Tensor:
-        return self._old_name("gs")
-
-    @property
-    def edge_bs(self) -> torch.Tensor:
-        return self._old_name("bs")
-
-    @property
-    def edge_tap(self) -> torch.Tensor:
-        return self._old_name("tap")
-
-    @property
-    def edge_shift(self) -> torch.Tensor:
-        return self._old_name("shift")
 
     @property
     def edge_status(self) -> torch.Tensor:
@@ -179,7 +132,7 @@ class GraphMixin(DatasetBase):
     @property
     def edge_attr(self) -> torch.Tensor:
         """[E,8] stacked per-unit branch features: series impedance (r,x), branch shunt (b,g), series
-        admittance (gs,bs = 1/(r+jx)), and transformer tap/shift. Drop-in replacement for edge_reactance."""
+        admittance (gs,bs = 1/(r+jx)), and transformer tap/shift."""
         t = _torch()
         return t.stack(
             [

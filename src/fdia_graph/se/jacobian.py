@@ -5,8 +5,7 @@ For a record with measurements z_t, the change dz = z_t - h(x_hat_{t-1}) is take
 measurement prediction of the previous frame's state estimate: the fitted estimator's plain solve
 of the frame emitted just before (the dataset's prev_node_x / prev_edge_x, read whatever split or
 family that frame belongs to, attacked or not), referenced to the case's slack angle. Only the
-measurements enter the transform. A timeline is required (a record shard's rows are not
-consecutive frames). The chord Jacobian H at the benign
+measurements enter the transform. The chord Jacobian H at the benign
 mean state, the meter weights W and the measurement mask all come from a fitted fdia_graph.se
 estimator, so the physics here is the estimator's physics.
 
@@ -25,7 +24,7 @@ meters and incident branch flows:
     6 sensitivity-normalised change      max over incident meters of |dz_k| / s_k
     7 weak-direction move                implied move projected on the n_weak weakest directions
 Needs the [se] extra (pandapower + scipy) and a timeline for the previous frame's readings; the
-angle reference is the case's slack angle, a network parameter. A v0.7.2 record shard is refused.
+angle reference is the case's slack angle, a network parameter.
 """
 
 from __future__ import annotations
@@ -75,8 +74,7 @@ def bus_incidence(est: SEBase, edge_index: np.ndarray) -> list[np.ndarray]:
 class JacobianFeatures:
     """Fit on the train split (any fdia_graph.se estimator supplies the physics), then transform
     any split of the same timeline into per-bus and global Jacobian-informed features, each frame's
-    change taken against the previous frame's estimate (a v0.7.2 record shard is refused: its rows
-    are not consecutive frames).
+    change taken against the previous frame's estimate.
 
     n_weak: how many of the weakest observable state directions define the "weak" subspace
     (default: 10 percent of the state dimension, at least 2).
@@ -95,7 +93,6 @@ class JacobianFeatures:
         if not self.est.is_fitted:
             self.est.fit(ds, calibrate="measured")  # a feature: measurements only
         est = self.est
-        ds.require("timeline", by="Jacobian features (they read the previous frame)")
         self._inc = bus_incidence(est, ds.edge_index_np)
         sw = np.sqrt(est.Wk)  # W^1/2 as a vector
         Hw = sw[:, None] * est.H  # [m, SD], the whitened Jacobian

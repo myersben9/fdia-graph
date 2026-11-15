@@ -27,9 +27,9 @@ def window_labels(y: np.ndarray, starts: range, W: int, label: str) -> np.ndarra
 
 class SequenceMixin(DatasetBase):
     def _check_timeline(self, what: str) -> None:
-        """A sequence view needs consecutive frames in time order: a timeline file, `order="time"`,
-        and a view that keeps a contiguous span (a split or the whole file, not a family subset)."""
-        self.require("timeline", "time_order", "consecutive", by=what)
+        """A sequence view needs consecutive frames in time order: `order="time"` and a view that
+        keeps a contiguous span (a split or the whole file, not a family subset)."""
+        self.require("time_order", "consecutive", by=what)
 
     def windows(
         self,
@@ -67,9 +67,9 @@ class SequenceMixin(DatasetBase):
     @property
     def episodes(self) -> EpisodeTable:
         """The attack episodes whose onset falls in this view: onset (a file row), length, family,
-        and the attacked buses of each. Timeline files only."""
+        and the attacked buses of each."""
         if self._episodes is None:
-            raise AttributeError(f"{self.path} has no episodes (a record shard, not a timeline)")
+            raise AttributeError(f"{self.path} has no episodes group")
         e = self._episodes
         keep = np.isin(e.onset, self.idx)
         return EpisodeTable(

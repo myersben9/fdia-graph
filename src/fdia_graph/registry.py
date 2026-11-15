@@ -1,8 +1,8 @@
 """Dataset registry: built-in (downloadable) datasets + locally generated ones.
 
-Built-in datasets live as assets on a GitHub Release; the ladder names them, the release tag picks
-the layout (record shards and npz pools before v0.8.0, one timeline per system and HDF5 pools from
-v0.8.0) and the registry knows the sha256 of the releases it pins. Locally generated datasets (via
+Built-in datasets live as assets on a GitHub Release: one timeline per system and its operating-point
+pool as HDF5, from data release v0.8.0 (the record shards of earlier releases are read by fdia-graph
+0.21 and earlier). The ladder names them and the registry knows the sha256 of the releases it pins. Locally generated datasets (via
 `fdia_graph.generate()`) are recorded in a small JSON under the cache dir so they are loadable by
 name exactly like the built-ins.
 """
@@ -21,15 +21,13 @@ CACHE_DIR = os.environ.get("FDIA_GRAPH_CACHE", os.path.join(os.path.expanduser("
 _REPO = "myersben9/fdia-graph"
 # Default pinned release tag, used when GitHub isn't queried for the newest; FDIA_GRAPH_RELEASE overrides.
 _RELEASE = os.environ.get("FDIA_GRAPH_RELEASE", "v0.8.3")  # pinned data release (env var overrides)
-# One release channel: each tag carries all assets, so streams follow _RELEASE (env var overrides).
-STREAM_RELEASE = os.environ.get("FDIA_GRAPH_STREAM_RELEASE", _RELEASE)
 
 
 def system_id(system: Union[str, int]) -> int:
     """Bus count of a ladder system from either spelling: "ieee118", "IEEE118", "118" or 118 -> 118.
 
     Every public entry point accepts both forms, so this is the one place that parses them; the
-    engine, generators, streams and profiles all go through it.
+    engine, generators and profiles all go through it.
     """
     return SystemRef(system).number
 
@@ -41,22 +39,8 @@ _ALIASES = {
     **{str(C): f"ieee{C}" for C in (14, 30, 57, 89, 118, 145, 200, 300)},
     **{C: f"ieee{C}" for C in (14, 30, 57, 89, 118, 145, 200, 300)},
 }
-# What each data release ships per system. Releases before v0.8.0 are record shards (`ml_only_ieee{C}.h5`)
-# with npz operating-point pools and separate stream files; from v0.8.0 one timeline per system
-# (`timeline_ieee{C}.h5`) and the pool as HDF5. `fg.load(..., release="v0.7.2")` still reads the shards.
-_TIMELINE_FROM = (0, 8, 0)
 # sha256 of the assets, per release; a release not listed downloads unverified.
 _SHA256: dict[str, dict[str, str]] = {
-    "v0.7.2": {
-        "ieee14": "bd161b3a0a507eccbfcc8172b4839439c29721d2a648e37a681469386af6c867",
-        "ieee30": "df491a7e32906a570caa6350c2336061d6f3b670ab890b67235c9147aae17c0d",
-        "ieee57": "d631aee4bf88ff62c8cc42ba25080e613bb776b36c2fea7019ef9ba6aa1e1d5d",
-        "ieee89": "c34031ded619be874859f4fb662c2dba644bfdf3039e27a24ec18ea90ae55464",
-        "ieee118": "a8ef90092815a6888f89b0cca3bfe75c44f20fd8b34aaf49b5fc787e53f0bb73",
-        "ieee145": "ccdb6009113bb5aff30ae2e554a5bc559f39751898cbb995422aae134008155e",
-        "ieee200": "f75c1e7a32a536f157d812d6d89d6012930c63ceda9041524dbcbae8790d4d06",
-        "ieee300": "d8d8055588dfa3a39b221404604ac8ae8c0ec245074ba501788371401a026c29",
-    },
     "v0.8.0": {
         "ieee14": "c1d3fafcb37e3c2b57a07523fee6bd0a658ed9cd4b77bc6b38697762e13a5a28",
         "ieee30": "9ad2bd82adef5dbd8c08587982c0f50bafe584c8318f13e4b8082795f7418a66",
@@ -91,7 +75,6 @@ _SHA256: dict[str, dict[str, str]] = {
 
 
 _DATA_TAG_PREFIX = "data-"  # GitHub tags of data releases from v0.8.0: "data-v0.8.0"
-_BARE_DATA_TAGS = ("v0.7.1", "v0.7.2")  # the two data releases tagged before the namespace existed
 
 
 def release_tuple(release: str) -> tuple[int, ...]:
@@ -107,29 +90,21 @@ def release_name(release: str) -> str:
 
 def release_tag(release: str) -> str:
     """The GitHub tag that carries a data release's assets. Package versions own the bare "v0.x.y"
-    tags (PyPI 0.8.0 is `v0.8.0`), so a data release from v0.8.0 lives at "data-v0.8.0"; the two
-    releases tagged before that keep their bare tags."""
-    name = release_name(release)
-    return name if name in _BARE_DATA_TAGS else _DATA_TAG_PREFIX + name
+    tags (PyPI 0.8.0 is `v0.8.0`), so a data release lives at "data-v0.8.0"."""
+    return _DATA_TAG_PREFIX + release_name(release)
 
 
-def is_timeline_release(release: str) -> bool:
-    """Whether a data release ships timelines (v0.8.0 and later) rather than record shards."""
-    return release_tuple(release) >= _TIMELINE_FROM
-
-
-def dataset_file(C: int, release: str) -> str:
-    """The dataset asset of `system` at `release`."""
-    return f"timeline_ieee{C}.h5" if is_timeline_release(release) else f"ml_only_ieee{C}.h5"
+def dataset_file(C: int) -> str:
+    """The dataset asset of a system: its timeline."""
+    return f"timeline_ieee{C}.h5"
 
 
 def pool_spec(system: Union[str, int], release: Optional[str] = None) -> AssetSpec:
-    """The operating-point pool of a system at a data release: HDF5 (dataset `X`) from v0.8.0, npz before."""
+    """The operating-point pool of a system at a data release: HDF5, dataset `X`."""
     C = system_id(system)
     rel = release_name(release or _RELEASE)
-    ext = "h5" if is_timeline_release(rel) else "npz"
     return AssetSpec(
-        "builtin", f"pool{C}", file=f"pool_ieee{C}.{ext}", release=release_tag(rel), repo=_REPO, system=C
+        "builtin", f"pool{C}", file=f"pool_ieee{C}.h5", release=release_tag(rel), repo=_REPO, system=C
     )
 
 
@@ -164,7 +139,7 @@ def _newest_data_release(releases: list[dict]) -> Optional[str]:
     """The short name of the newest published data release among GitHub release records, or None:
     package releases share the repository, so only data tags count."""
     tags = [x["tag_name"] for x in releases if not x.get("draft") and not x.get("prerelease")]
-    data = [t for t in tags if (t.startswith(_DATA_TAG_PREFIX) or t in _BARE_DATA_TAGS) and _is_release(t)]
+    data = [t for t in tags if t.startswith(_DATA_TAG_PREFIX) and _is_release(t)]
     return release_name(max(data, key=release_tuple)) if data else None
 
 
@@ -216,7 +191,7 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
     then serves as "ieee14"), as `list_datasets` reports. A built-in name is one name in any case,
     so "IEEE14" is shadowed exactly like "ieee14"; other local names are matched exactly. For built-ins, `release`: None -> the
     pinned _RELEASE; an explicit name ("v0.8.0", or its tag "data-v0.8.0") -> that exact release
-    (reproducible pin), with the file name that release used (see `dataset_file`), its sha256 when
+    (reproducible pin), with its sha256 when
     the registry knows it, and the GitHub tag the assets live under (`release_tag`) in `release`.
     Local datasets live at a fixed path, so `release` is ignored for them.
     """
@@ -230,7 +205,7 @@ def resolve(name: Union[str, int], release: Optional[str] = None) -> AssetSpec:
         return AssetSpec(
             "builtin",
             name,
-            file=dataset_file(C, rel),
+            file=dataset_file(C),
             release=release_tag(rel),
             repo=_REPO,
             sha256=_SHA256.get(rel, {}).get(name),

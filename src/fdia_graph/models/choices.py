@@ -106,7 +106,6 @@ class Layer(Choice):
 class Capability(Choice):
     """What a dataset view can offer a consumer (the table is `dataset.base.CAPABILITIES`)."""
 
-    TIMELINE = "timeline"
     BENIGN_LAYER = "benign_layer"
     CLEAN_LAYER = "clean_layer"
     PHYSICAL_UNITS = "physical_units"

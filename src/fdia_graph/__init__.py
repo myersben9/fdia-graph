@@ -3,7 +3,7 @@
 Quickstart
 ----------
     import fdia_graph as fg
-    ds = fg.load("ieee118", split="train")          # auto-downloads + caches the latest shard
+    ds = fg.load("ieee118", split="train")          # auto-downloads + caches the pinned timeline
     loader = ds.loader(batch_size=64)               # ready-to-train PyTorch DataLoader
     for batch in loader:
         batch["node_x"], batch["edge_x"], batch["y"], batch["family"], ...
@@ -21,10 +21,9 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 if TYPE_CHECKING:  # the lazy names below, with their real signatures for type checkers
     from .generation import generate
     from .profiles import fetch_profile, generate_states, load_profile
-    from .streams import generate_stream, load_stream, windows
 
 # Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
-# FdiaGraph: torch Dataset over one .h5 shard; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
+# FdiaGraph: torch Dataset over one timeline file; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
 # BDD-evading subset (hard cases, e.g. Aq).
 from .dataset import FAMILIES, STEALTHY_FAMILIES, FdiaGraph, family_ids
 
@@ -41,9 +40,6 @@ __version__ = "0.21.0"
 __all__ = [
     "load",
     "generate",
-    "generate_stream",
-    "load_stream",
-    "windows",
     "load_profile",
     "fetch_profile",
     "generate_states",
@@ -58,7 +54,6 @@ def load(
     name: str,
     split: Optional[str] = None,
     families: Optional[Sequence[Union[str, int]]] = None,
-    include_gaps: bool = False,
     heldout: bool = False,
     format: str = "torch",
     release: Optional[str] = None,
@@ -72,10 +67,9 @@ def load(
     name        : "ieee14/30/57/89/118/145/200/300" (transmission ladder), or a locally-generated name.
     split       : None (all) | "train" | "val" | "test"  (chronological 60/20/20).
     families    : optional subset, e.g. ["At","Am"] or [5,7] (an old release also carries Aq, Ad, As, Ar, Al).
-    include_gaps: keep physics non-convergence NA rows of a v0.7.2 shard (default False; timelines have none).
     heldout     : unseen-attack protocol — exclude As/Ar from train/val (Boyaci et al. 2022).
     format      : "torch" (dict batches) | "pyg" (torch_geometric Data).
-    release     : dataset VERSION. None -> the pinned release; an explicit tag e.g. "v0.7.2" -> that exact
+    release     : dataset VERSION. None -> the pinned release; an explicit tag e.g. "v0.8.1" -> that exact
                   version, for reproducible experiments.
     units       : "physical" -> [V p.u., P_inj MW, Q_inj MVAr, theta deg] (as stored; human-readable for plots);
                   "pu" -> everything per-unit on baseMVA with theta in radians (ML/physics). Same file either way.
@@ -95,12 +89,11 @@ def load(
     if families is not None:
         family_ids(families)
     path = ensure_local(resolve(name, release=release))
-    # Thin factory: the Dataset applies split/families/gaps/heldout and the export format lazily.
+    # Thin factory: the Dataset applies split/families/heldout and the export format lazily.
     return FdiaGraph(
         path,
         split=options.split,
         families=families,
-        include_gaps=include_gaps,
         heldout=heldout,
         format=options.format,
         units=options.units,
@@ -110,7 +103,7 @@ def load(
     )
 
 
-# The generators, profiles, stream and torch helpers pull in pandapower, torch or torch_geometric,
+# The generators and the profile helpers pull in pandapower, torch or torch_geometric,
 # so they are imported on first use rather than at `import fdia_graph`. Each name resolves to the
 # real function (its own docstring and signature), not a wrapper that could drift from it.
 # `from fdia_graph import *` resolves all of them (it binds every name in __all__), which loads
@@ -118,9 +111,6 @@ def load(
 # inside the functions that need them (tests/test_namespace.py checks this in a fresh interpreter).
 _LAZY = {
     "generate": ".generation",
-    "generate_stream": ".streams",
-    "load_stream": ".streams",
-    "windows": ".streams",
     "load_profile": ".profiles",
     "fetch_profile": ".profiles",
     "generate_states": ".profiles",

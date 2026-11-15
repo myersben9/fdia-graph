@@ -116,7 +116,8 @@ def test_the_operator_sheds_load_only_when_redispatch_cannot_relieve(case, sced)
 def test_a_day_under_attack_against_its_benign_twin():
     """On the 5 July file the benign twin needs nothing, while the attacked run follows the pretended load
     drop, and regulation with what the neighbours supply makes up the generation the dispatch left out."""
-    from fdia_graph.operator.response import operator_day, respond
+    from fdia_graph.operator.day import operator_day
+    from fdia_graph.operator.run import respond
 
     r = respond(operator_day(SINGLE_DAY, DAYS_POOL, DATA))
     a, b = r.attacked, r.benign
@@ -136,7 +137,8 @@ def test_the_three_operators_on_a_day_under_attack():
     operator follows the false load drop and its AGC, reading the same falsified ties, hides the shortfall,
     which the neighbours supply as inadvertent interchange. The accounting operator takes its load from
     generation plus the agreed interchange, so it does not follow the false load (N66)."""
-    from fdia_graph.operator.response import operator_day, respond
+    from fdia_graph.operator.day import operator_day
+    from fdia_graph.operator.run import respond
 
     day = operator_day(SINGLE_DAY, DAYS_POOL, DATA)
     trusting, accounting = respond(day), respond(day, mode="accounting")
@@ -151,19 +153,21 @@ def test_the_three_operators_on_a_day_under_attack():
 def test_a_failed_power_flow_is_unknown_not_safe(monkeypatch):
     """Scans whose AC power flow fails are flagged in `pf_failed`, have no margin, are counted in the summary and
     never read as within the limit; every other scan stays unflagged."""
-    from fdia_graph.operator import response
-    from fdia_graph.operator.response import operator_day, respond, summarize
+    from fdia_graph.operator import truegrid
+    from fdia_graph.operator.day import operator_day
+    from fdia_graph.operator.run import respond
+    from fdia_graph.operator.summary import summarize
 
     day = operator_day(SINGLE_DAY, DAYS_POOL, DATA)
     fail = set(range(day.onset + 2, day.onset + 5))
-    real = response.TrueGrid.change
+    real = truegrid.TrueGrid.change
 
     def change(self, t, units, shed=None):
         if t in fail:
             return np.full(len(self.day.interfaces), np.nan), np.nan
         return real(self, t, units, shed)
 
-    monkeypatch.setattr(response.TrueGrid, "change", change)
+    monkeypatch.setattr(truegrid.TrueGrid, "change", change)
     r = respond(day)
     a, b = r.attacked, r.benign
     flagged = set(np.flatnonzero(a.pf_failed).tolist())
@@ -180,7 +184,7 @@ def test_a_pool_without_the_days_frames_is_a_named_error(tmp_path):
     from fdia_graph.errors import DataConditionError
     from fdia_graph.generation.nygrid.io import read_pool, write_pool
     from fdia_graph.generation.nygrid.pool import Pool
-    from fdia_graph.operator.response import operator_day
+    from fdia_graph.operator.day import operator_day
 
     p = read_pool(DAYS_POOL)
     june = p.time.astype("datetime64[D]") == np.datetime64("2019-06-17")
@@ -210,7 +214,7 @@ def test_loss_factors_match_an_ac_power_flow():
     take five times its bus's factor off the reference bus (the factors run from about 0.47 in the west to 1.02 in
     New York City on this scan)."""
     from fdia_graph.generation.nygrid.network import Network
-    from fdia_graph.operator.response import operator_day
+    from fdia_graph.operator.day import operator_day
     from fdia_graph.operator.truegrid import TrueGrid
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
@@ -235,7 +239,8 @@ def test_the_dispatch_around_the_ac_point_keeps_the_benign_twin_at_the_ac_points
     """The least-cost dispatch on its own moves the benign twin about a gigawatt off the AC points (the DC model
     does not see the losses, voltage limits and schedules they were dispatched against); around the AC point the
     benign twin stays there, so the attack's consequence is the attack's. Bus prices are reported every scan."""
-    from fdia_graph.operator.response import operator_day, respond
+    from fdia_graph.operator.day import operator_day
+    from fdia_graph.operator.run import respond
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
     r = respond(day, mode="accounting", closed_loop=True, dispatch="cost_lf")
@@ -252,8 +257,7 @@ AC_LOADS = DAYS / "loads_2019_v2_days.npz"
 
 @pytest.fixture(scope="module")
 def ac_day():
-    from fdia_graph.operator.day import pool_frames
-    from fdia_graph.operator.response import operator_day
+    from fdia_graph.operator.day import operator_day, pool_frames
     from fdia_graph.operator.truegrid import TrueGrid
 
     day = operator_day(DAYS / DAMAGE_DAYS[0], DAYS_POOL, DATA)
@@ -362,7 +366,8 @@ def test_the_least_cost_ac_dispatch_keeps_the_ac_points_and_prices_them(ac_day):
 def test_the_ac_operator_on_a_damaging_day(monkeypatch):
     """The least-movement AC operator keeps the benign twin at the AC points, and against the trusting operator the
     damaging attack cuts the attacked interface's true transfer."""
-    from fdia_graph.operator.response import operator_day, respond
+    from fdia_graph.operator.day import operator_day
+    from fdia_graph.operator.run import respond
 
     monkeypatch.setenv("NYGRID_LOADS", str(AC_LOADS))
     day = operator_day(DAYS / DAMAGE_DAYS[1], DAYS_POOL, DATA)

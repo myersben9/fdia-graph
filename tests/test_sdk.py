@@ -180,9 +180,7 @@ def test_branch_physics_names(timeline):
     ds = fg.load(timeline)
     assert torch.equal(ds.branch_x, ds.edge_attr[:, 1])
     assert torch.equal(ds.branch_gs, ds.edge_attr[:, 4])
-    with pytest.warns(DeprecationWarning, match="branch flows"):
-        old = ds.edge_x  # the dataset-level reactance under its clashing old name
-    assert torch.equal(old, ds.branch_x)
+    assert not hasattr(ds, "edge_x")  # on a record edge_x is the branch flows; the dataset has branch_x
 
 
 def test_dict_loader_batches_every_documented_key(splits):
@@ -475,11 +473,7 @@ def test_learned_localizer_grid_detection_and_attackable_table(splits, timeline)
 
 def test_previous_frame_fields_are_the_row_emitted_before(timeline):
     """prev_* hold the readings of file row - 1 for every kept record, whatever split or family that
-    row belongs to (an operator sees every frame); a record shard offers none."""
-    from fdia_graph import FdiaGraph
-
-    from .conftest import SHARD_V072
-
+    row belongs to (an operator sees every frame)."""
     full = fg.load(timeline).export(["node_x", "edge_x", "timestep"])
     ds = fg.load(timeline, split="test", families=[0, 1, 2])
     d = ds.export(["prev_node_x", "prev_edge_x", "prev_timestep"])
@@ -488,8 +482,6 @@ def test_previous_frame_fields_are_the_row_emitted_before(timeline):
     assert np.array_equal(d["prev_node_x"], full["node_x"][prev])
     assert np.array_equal(d["prev_edge_x"], full["edge_x"][prev])
     assert np.array_equal(d["prev_timestep"], full["timestep"][prev])
-    with pytest.raises(ValueError, match="unknown field"):
-        FdiaGraph(SHARD_V072).export(["prev_node_x"])
 
 
 def test_jacobian_features_never_read_the_true_state(timeline, splits):
@@ -507,12 +499,6 @@ def test_jacobian_features_never_read_the_true_state(timeline, splits):
     assert np.allclose(np.deg2rad(clean[:, jf.est.slack, 3]), jf.est.theta_ref)
     empty = {k: v[:0] for k, v in d.items()}  # an empty view transforms to empty features
     assert jf.transform(empty)["bus"].shape == (0, before.shape[1], 8)
-    with pytest.raises(ValueError, match="timeline"):
-        from fdia_graph import FdiaGraph
-
-        from .conftest import SHARD_V072
-
-        JacobianFeatures().fit(FdiaGraph(SHARD_V072))
 
 
 def test_previous_swing_feature_set(timeline, splits):

@@ -9,11 +9,8 @@ import fdia_graph as fg
 def test_lazy_names_resolve_to_the_real_functions():
     import fdia_graph.generation
     import fdia_graph.profiles
-    import fdia_graph.streams
 
     assert fg.generate is fdia_graph.generation.generate
-    assert fg.generate_stream is fdia_graph.streams.generate_stream
-    assert fg.load_stream is fdia_graph.streams.load_stream and fg.windows is fdia_graph.streams.windows
     assert fg.load_profile is fdia_graph.profiles.load_profile
     assert fg.fetch_profile is fdia_graph.profiles.fetch_profile
     assert fg.generate_states is fdia_graph.profiles.generate_states
@@ -22,9 +19,22 @@ def test_lazy_names_resolve_to_the_real_functions():
 def test_all_names_exist_and_dir_lists_them():
     assert all(hasattr(fg, n) for n in fg.__all__)
     assert set(fg.__all__) <= set(dir(fg))
-    from fdia_graph import generate, windows  # the `from` form goes through the same hook
+    from fdia_graph import generate, load_profile  # the `from` form goes through the same hook
 
-    assert callable(generate) and callable(windows)
+    assert callable(generate) and callable(load_profile)
+
+
+def test_the_removed_entry_points_are_gone():
+    """No alias is kept for a removed name: the stream functions, their module and the operator's
+    re-export module."""
+    import importlib
+
+    import pytest
+
+    assert not any(hasattr(fg, n) for n in ("generate_stream", "load_stream", "windows"))
+    for module in ("fdia_graph.streams", "fdia_graph.operator.response"):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(module)
 
 
 def test_unknown_attribute_still_raises():
