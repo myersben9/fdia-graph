@@ -18,7 +18,7 @@ Each rule is a kind of drift that once made the tree hard to read (CONTRIBUTING.
   (`fdia_graph.trust.base`, `trust.TrustSelector`, `ramp.py`), names something that exists; a span that is
   an experiment of the results store (`se.estimators`, from results/<experiment>.csv) is one too. The
   CHANGELOG (whose entries name what a change removed) is not read.
-- **repository map**: every folder at the root of the tree and every folder of `docs/` has its role in `REPO` or
+- **repository map**: every folder at the root of the tree and every folder directly under `docs/` has its role in `REPO` or
   `DOCS`, and every folder named there exists, so a new place for files cannot appear without saying what it
   holds. The map is the first section of the file map.
 """

@@ -161,7 +161,7 @@ def test_the_repository_docs_match_the_store() -> None:
 
 
 def test_the_check_fails_on_a_hand_edited_block_and_lint_flags_a_typed_number(tmp_path: object) -> None:
-    doc = os.path.join(ROOT, "docs", "se", "README.md")
+    doc = os.path.join(ROOT, "docs", "analysis", "estimation", "README.md")
     text = open(doc, encoding="utf-8").read()
     start = text.index("<!-- results: red se ieee14 geo angle_mae_deg wls prior+huber -->")
     end = text.index("<!-- /results -->", start)

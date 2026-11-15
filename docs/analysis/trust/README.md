@@ -59,7 +59,7 @@ on an overload window, the latter both on the generator's attack and on the pape
 
 The defense results are reproduced by `experiments/defense_reproduction/run.py` (on the generator),
 `experiments/defense_reproduction/run_faithful.py` and `experiments/defense_reproduction/run_faithful_dqn.py` (on the paper's attack); the
-numbers are in [`../wu26/README.md`](../defense_reproduction/README.md).
+numbers are in [`../defense_reproduction/README.md`](../defense_reproduction/README.md).
 
 ## Results
 

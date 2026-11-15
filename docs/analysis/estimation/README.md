@@ -20,7 +20,7 @@ rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 
 | needs | `pip install "fdia-graph[se]"`, a timeline (data release v0.8.3) or a v0.7.2 record shard, `units="physical"` |
 |---|---|
-| walkthrough | [`../guides/state_estimation.md`](../../guides/state_estimation.md) |
+| walkthrough | [`../../guides/state_estimation.md`](../../guides/state_estimation.md) |
 | state | 2N-1: every voltage magnitude, every non-slack angle; slack angle fixed to one reference angle, `theta_ref`, taken from the training split at fit time (the case's reference angle on the released pools) |
 
 ## The method classes
@@ -41,7 +41,7 @@ rep = est.score(test)  # per-family angle/voltage MAE vs the clean truth
 | `se/base.py` | `SEBase`: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator |
 | `se/methods.py` | the method classes above, each a subclass of `SEBase` that changes one thing |
 | `se/jacobian.py` | `JacobianFeatures`: the measurement Jacobian as a transform of the scan-to-scan measurement change, the features `JacobianWeighting` and the learned localizers read |
-| `se/detect/` | the New York operator's own estimator and alarm rules, described in [`../nygrid/ARCHITECTURE.md`](../../concepts/new_york_grid.md) |
+| `se/detect/` | the New York operator's own estimator and alarm rules, described in [`../../concepts/new_york_grid.md`](../../concepts/new_york_grid.md) |
 
 ## Results
 
@@ -182,4 +182,4 @@ python tools/results_docs.py --write           # the README's results blocks fro
 | | |
 |---|---|
 | skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
-| re-runs | score from the estimate cache (the `cache` folder under the guide's results, not in git) in about a minute per arm |
+| re-runs | score from the estimate cache (`experiments/estimation/cache/`, not in git) in about a minute per arm |

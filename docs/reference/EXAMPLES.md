@@ -76,7 +76,7 @@ all-negative model scores 0.98 accuracy while detecting nothing.
 The printed outputs and the tables in this section were recorded on the v0.7.1 ieee118 record
 shards, before the timeline replaced them in v0.8.0. The code runs unchanged on the default
 release, and its numbers there differ. Current localization results are in
-[`../localization/README.md`](../analysis/localization/README.md).
+[`../analysis/localization/README.md`](../analysis/localization/README.md).
 
 - Thresholds are picked on the **val** split (best F1). Test is evaluated once at that threshold.
 - Baseline 1 follows the papers' protocol: train on benign + `Aq` + `Ad`, hold out `As`/`Ar`

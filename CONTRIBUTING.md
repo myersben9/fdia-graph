@@ -63,6 +63,7 @@ python tools/pr.py ready 80                                    # once clean: rea
 python tools/pr.py wait 80                                     # until CI has finished
 python tools/pr.py comments 80
 python tools/pr.py reply 80 <comment-id> "what changed"
+python tools/pr.py summary 80 summary.md                       # the four-sentence summary for the owner
 python tools/pr.py merge 80                                    # refuses unless green
 ```
 

@@ -84,7 +84,7 @@ had no stored run behind them and are not repeated here.
 | `Ad` bias, `As` scaling, `Ar` replay (older releases only) | improve a lot | meters corrupted in place, which robust weighting exists to reject |
 | benign | improves on the larger systems, can lose slightly on ieee14 | the baseline is already at the noise floor there |
 
-Full per-family table and figures, on data release v0.8.x: [`../se/README.md`](../analysis/estimation/README.md).
+Full per-family table and figures, on data release v0.8.x: [`../analysis/estimation/README.md`](../analysis/estimation/README.md).
 
 ## Your own estimator
 

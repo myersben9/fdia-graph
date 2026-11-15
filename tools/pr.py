@@ -144,7 +144,7 @@ def ready(num: int) -> None:
     )
     if r.status_code >= 300 or r.json().get("errors"):
         raise SystemExit(f"ready #{num} -> {r.status_code}: {r.text[:500]}")
-    print(f"#{num} marked ready for review")
+    print(f"#{num} marked ready")
 
 
 def status(num: int) -> None:
