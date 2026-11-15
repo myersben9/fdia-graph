@@ -5,6 +5,26 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The repository has one place per kind of file.** Files moved; nothing in the package changed. Each study is a
+  folder of `experiments/` (`estimation`, `localization`, `trust`, `federated`, `defense_reproduction`, `benchmarks`,
+  `data_release`): `run.py` measures and writes to the results store, `report.py` draws the figures of its page. The
+  scripts came from docs/<package>/run.py and `make_report.py`, from tools/reproduce_*.py (now
+  `experiments/defense_reproduction/run.py`, `run_faithful.py`, `run_faithful_dqn.py`), from tools/bench.py (now
+  `experiments/benchmarks/run.py`) and from tools/experiments/. The New York build tools and the MATLAB reference
+  are `pipelines/newyork/` (was tools/nygrid/). The docs are sorted by kind: `docs/getting-started/`,
+  `docs/guides/`, `docs/concepts/`, `docs/analysis/` (one page per study with its figures, docs/se/ now
+  `docs/analysis/estimation/`, docs/wu26/ now `docs/analysis/defense_reproduction/`) and `docs/reference/`; the four
+  pages of docs/nygrid/ are `docs/concepts/new_york_grid.md`, `docs/getting-started/new_york_walkthrough.md`,
+  `docs/guides/extending_new_york.md` and `docs/guides/troubleshooting_new_york.md`. The run scripts keep their caches
+  in `experiments/<study>/cache/` (move a cache from docs/<package>/results/cache/ to keep it).
+  `tools/site_index.py` was scripts/site_index.py. `tools/` holds repository tooling only.
+- **Removed with the move:** the design documents of docs/plans/ (in the git history: `git show
+  91c15ad:docs/plans/README.md`), the review ledger (tools/review_ledger.py and its CSV), the CodeRabbit
+  configuration, and the review-bot code of `tools/pr.py` with its `request-review` command; a merge needs green CI
+  and the owner's approval.
+- **The layout gate maps the repository.** `tools/layout.py` holds the role of every folder at the root and under
+  `docs/` (`REPO`, `DOCS`), prints them as the first section of `docs/reference/MODULES.md`, and fails a folder that
+  has no role or a role whose folder is gone. The format and lint gates now cover `experiments/` and `pipelines/`.
 - **File names say what a file does, and a gate keeps them and the docs current.** `tools/layout.py --check` (in the
   pre-review and CI) fails on a file name that repeats its folder's name, differs from a sibling's by a short ending,
   or carries a digit, a citation key or an author's name; on a Python file without a docstring; on a module its
@@ -20,8 +40,8 @@ the public API, the generated files and the numbers are the same as the previous
   `trust.pmu_environment`, `trust.solution1` `trust.pmu_row_reduction`, `trust.wu_dqn` `trust.pmu_dqn`, `trust.wu26`
   `trust.faithful_attack`, `trust.wu26_defense` `trust.faithful_defense`, `trust.dqn` `trust.meter_dqn` and
   `engine.pp_types` `engine.pandapower_types`. The names `fdia_graph.trust` exports are unchanged. The scripts
-  `tools/wu26_*.py` are `tools/reproduce_defense.py`, `tools/reproduce_faithful_defense.py` and
-  `tools/reproduce_faithful_dqn.py`; the docs' `run_<folder>.py` scripts are `run.py`; the New York tests drop their
+  `tools/wu26_*.py` are `experiments/defense_reproduction/run.py`, `experiments/defense_reproduction/run_faithful.py` and
+  `experiments/defense_reproduction/run_faithful_dqn.py`; the docs' `run_<folder>.py` scripts are `run.py`; the New York tests drop their
   `nygrid_` prefix (the test folders are packages, so a name may repeat across folders). The old module paths are
   removed, not aliased: code imports from `fdia_graph.trust`, whose names are unchanged.
 - **No aliases for moved private names.** The tables that kept old private names of `timeline`, `engine.records` and
@@ -42,7 +62,7 @@ the public API, the generated files and the numbers are the same as the previous
   `models.config` settings (`SolveConfig`, `PriorConfig`, `LearnedConfig`, `FederatedSettings`, `TrustConfig`,
   `DqnConfig`, ...) instead of flat keywords.
 
-- **The New York grid's study scripts and design log leave the repository.** `tools/nygrid` keeps the build tools
+- **The New York grid's study scripts and design log leave the repository.** `pipelines/newyork` keeps the build tools
   (`run_pool.py`, `build_timeline.py`, `build_single_episodes.py`, `matlab/`); the study drivers, their result files
   under `results/` and the design log are removed. The library, its defaults and its outputs are unchanged.
 
@@ -132,10 +152,10 @@ the public API, the generated files and the numbers are the same as the previous
   is built. `tests/nygrid/inputs.py` names every input in one place and says which tests it lets run, in place
   of a path block repeated in nine test files. No user-visible change.
 
-- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/nygrid/WALKTHROUGH.md` follows one
+- **Docs to read the New York grid by, and to extend it (New York grid).** `docs/getting-started/new_york_walkthrough.md` follows one
   attack through every stage with the call that does each step (each snippet checked on the 2019 data);
-  `docs/nygrid/EXTENDING.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
-  with a runnable example under `examples/nygrid/` that CI runs; `docs/nygrid/ARCHITECTURE.md` opens with a rendered
+  `docs/guides/extending_new_york.md` names the extension points (an attack family, an alarm rule, an operator, a study), each
+  with a runnable example under `examples/nygrid/` that CI runs; `docs/concepts/new_york_grid.md` opens with a rendered
   diagram of the stages and its principles as they now hold, in place of an ASCII diagram that predated the operator
   and the detectors.
 
@@ -148,7 +168,7 @@ the public API, the generated files and the numbers are the same as the previous
   `study_days` (a study's day files), `variant` (at the limit or damaging), `load_calib` (the interchange check's
   calibration), `add_study_arguments` (the options every tool shares) and `run_parallel` (a process pool that writes
   the CSV as results come in, sorted by file at the end, so its rows no longer depend on which worker finished
-  first). The study tools under `tools/nygrid/` use them in place of their own copies, and the interchange-check tool
+  first). The study tools under `pipelines/newyork/` use them in place of their own copies, and the interchange-check tool
   takes `--data` instead of a fixed path. The tools' results are unchanged.
 
 - **The overload attacks read plainly (New York grid).** The OPF attack's per-support model and prepared window
@@ -176,7 +196,7 @@ the public API, the generated files and the numbers are the same as the previous
   `AlarmRule` protocol any other rule can implement, and other meter fleets (`with_fleet`, `fleet_bias`).
   `TrueGrid.state` and `TrueGrid.run_state` give the true state after the operator acts, with the load it shed (the
   research tools left the shed load out; no studied day sheds load, so no number changes). The six detection tools
-  under `tools/nygrid/` now drive these instead of carrying their own copies and importing each other.
+  under `pipelines/newyork/` now drive these instead of carrying their own copies and importing each other.
 
 - **Settings are arguments, not patches (New York grid).** `production_builder` takes `v_margin` and `gen_v_tol`,
   the attacker's voltage sensitivities (N71, N75); `v_margin` widens the limits on the attacker's own copy of the case
@@ -196,7 +216,7 @@ the public API, the generated files and the numbers are the same as the previous
   `ConfigError` for a wrong argument, `DataConditionError` (or `NoAdmissibleTarget`, `NotFitted`) for data that does
   not meet a condition, instead of bare `ValueError`s and asserts. Both subclass `ValueError`, so existing handlers
   keep working. The input CSV tables are read through one reader that closes them (`fdia_graph.nyfed.tables`), and
-  the research tools no longer silence warnings. `docs/nygrid/TROUBLESHOOTING.md` lists what each stage reports when
+  the research tools no longer silence warnings. `docs/guides/troubleshooting_new_york.md` lists what each stage reports when
   it fails and what to do.
 
 - **A failed power flow reads as unknown, not safe (New York grid).** The operator's `Twin` gains `pf_failed [T]`,

@@ -1,6 +1,5 @@
 """[WU26]'s Solution 1: the trusted PMUs by row reduction of the measurement matrix (Sec. IV-D1, p. 657),
-on the trusted-PMU MDP of one overload window (`trust.WuDefenseEnv`; docs/plans/WU_DEFENSE_PLAN.md,
-PR C).
+on the trusted-PMU MDP of one overload window (`trust.WuDefenseEnv`).
 
 The paper's steps, at each dynamic attack interval: "1) Compute the Jacobian matrix and transform [...]
 into a full-row-rank matrix h^T. 2) Perform Elementary Row Transformations [...] into an RREF. 3) [...]

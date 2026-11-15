@@ -2,7 +2,7 @@
 """A detector rule of your own: a CUSUM on the residual statistic, next to the package's persistence rule.
 
 Any object with `first_alarm(stat) -> int` is an `AlarmRule`, so it plugs in wherever the package's
-`PersistenceRule` is used (the detection tools under tools/nygrid/ take one). This example runs on a synthetic
+`PersistenceRule` is used (the detection tools under pipelines/newyork/ take one). This example runs on a synthetic
 residual series, so it needs no data.
 
 Run: python examples/nygrid/custom_alarm_rule.py

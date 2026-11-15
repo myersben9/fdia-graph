@@ -44,7 +44,7 @@ and converts them on load.
 | Meter model (hybrid SCADA and PMU, the plan's D10) | `MeasurementMixin.meter_masks` (the angle at the PMU buses only), `current_mask` and `_emit_currents` (the PMU branch currents `I_f = Y_f V`, `I_t = Y_t V`, `formulas.network.branch_currents`, noise `formulas.noise.current_sigma`); chosen by `generate_timeline(..., redundancy={"meter_model": ...})` through `models.MeterSettings` |
 | PMU pseudo-measurements `V_f = (I_n − y_nn V_n)/y_nf` [WU26, eq. (3)] | `formulas.estimation.pmu_pseudo_links`, `pmu_pseudo_voltages` (with the propagated variance), used by `SEBase(solve=SolveConfig(pmu_pseudo=True))` in `_build_pseudo` and `_z_of` |
 
-Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
+Walkthrough: `../guides/state_estimation.md`. Results: `../analysis/estimation/README.md`.
 
 ## Attack families
 
@@ -61,7 +61,7 @@ Walkthrough: `../guides/state_estimation.md`. Results: `../se/README.md`.
   drives a line's reported flow to its rating, eqs. (24)-(25) (by default 1.25 times its peak pool
   flow, D15), on the support that tampers the fewest devices, eq. (12); `At` is held on that
   support when `min_tamper=True` (the default), else on the region within `hops`
-  (`docs/plans/WU_MSFDIA_PLAN.md`). The single-snapshot families of older releases (`Aq`,
+  (`../guides/generation.md`, section 3). The single-snapshot families of older releases (`Aq`,
   `Al`, and the in-place `Ad`, `As`, `Ar`) are read-only: fdia-graph 0.20 generates them.
 - With `min_tamper=True` an At episode is held on the support that tampers the fewest devices over
   the episode, the objective of [WU26, eq. 12] (`engine/attacks/minimize.MinimizeMixin.min_tamper`,

@@ -76,7 +76,7 @@ all-negative model scores 0.98 accuracy while detecting nothing.
 The printed outputs and the tables in this section were recorded on the v0.7.1 ieee118 record
 shards, before the timeline replaced them in v0.8.0. The code runs unchanged on the default
 release, and its numbers there differ. Current localization results are in
-[`../localization/README.md`](../localization/README.md).
+[`../localization/README.md`](../analysis/localization/README.md).
 
 - Thresholds are picked on the **val** split (best F1). Test is evaluated once at that threshold.
 - Baseline 1 follows the papers' protocol: train on benign + `Aq` + `Ad`, hold out `As`/`Ar`
@@ -335,7 +335,7 @@ layer (the label stays the attack target).
 ## Dataset statistics
 
 The tables in this section describe data release v0.8.3 (the results store's `data.release_stats`,
-written by `tools/experiments/release_stats.py`). Its `Aq` and `Al` episodes are one frame
+written by `experiments/data_release/run.py`). Its `Aq` and `Al` episodes are one frame
 each, so a timeline holds more episodes than v0.8.0 and v0.8.1, whose
 `Aq` and `Al` were held over several frames; the pools, the other knobs and the seed are unchanged.
 

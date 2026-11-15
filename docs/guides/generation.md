@@ -105,7 +105,7 @@ Q limits widened to the range the pool used (`engine/attacks/false_state._within
 `operating_limits`). They satisfy equations (13)-(25) of [WU26] (the SCADA measurements, the PMU
 voltage magnitudes, angles and branch currents, the operating limits and the line-overload goal) and
 its objective, eq. (12): each episode is held on the support that tampers the fewest devices
-(`docs/plans/WU_MSFDIA_PLAN.md`).
+(decisions D1 to D17 of the attack-design plan, "the plan" on this page; the document left the tree with the rest of the design history and reads from git: `git show 91c15ad:docs/plans/WU_MSFDIA_PLAN.md`).
 
 | family | code | construction | magnitude per bus | episode length | stealthy | target set |
 |---|---|---|---|---|---|---|
@@ -227,7 +227,7 @@ window, and each design draws its line order from a stream keyed by the seed, th
 and the move), so `workers=N` designs them in N processes and the file is byte-identical for any N.
 On Windows a script that passes `workers` above 1 must start under `if __name__ == "__main__":`, as
 any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experiment
-`generation.parallel_design`, `tools/experiments/design_speed.py`):
+`generation.parallel_design`, `experiments/benchmarks/design_speed.py`):
 
 <!-- results: gen.workers -->
 | workers (3000 frames) | seconds | speed-up | Am episodes | same file |
@@ -321,7 +321,7 @@ The New York grid's attacks are separate classes on the New York network: `engin
 (`Attacker`), `engine/attacks/family.py` (what an attack occupies on the timeline), `engine/attacks/ramp.py`
 (`Ramp`), `engine/attacks/msfdia.py` (`MsFdia`), `engine/attacks/opf.py` and `engine/attacks/interface.py`
 (the overload with false states from a local optimal power flow, and on an interface); they are described in
-[`../nygrid/ARCHITECTURE.md`](../nygrid/ARCHITECTURE.md).
+[`../nygrid/ARCHITECTURE.md`](../concepts/new_york_grid.md).
 
 ## 7. Building your own
 

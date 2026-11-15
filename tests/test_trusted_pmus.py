@@ -1,5 +1,5 @@
-"""[WU26]'s trusted-PMU schedule as a constraint on the fewest-tamper search (docs/plans/WU_DEFENSE_PLAN.md,
-PR A): a PMU trusted at slot s keeps its bus's |V| and angle true at every snapshot t >= s (eqs. 26-32),
+"""[WU26]'s trusted-PMU schedule as a constraint on the fewest-tamper search:
+a PMU trusted at slot s keeps its bus's |V| and angle true at every snapshot t >= s (eqs. 26-32),
 its branch currents stay untrusted (eq. 27), and one support is held for the window.
 
 The pinned counts are the IEEE-14 case studies on the paper's metering, a window of 20 pool frames with

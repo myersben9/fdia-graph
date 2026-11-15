@@ -1,4 +1,4 @@
-"""[WU26]'s attack and defense as the paper states them (docs/wu26/README.md, "Faithful reproduction"):
+"""[WU26]'s attack and defense as the paper states them (docs/analysis/defense_reproduction/README.md, "Faithful reproduction"):
 the meter plan, the multi-snapshot attack and the incremental trusted-PMU defense, on a pandapower case.
 
     net = wu26_network("case118", pmus=[76, 78, 80, ...])     # buses as the paper numbers them

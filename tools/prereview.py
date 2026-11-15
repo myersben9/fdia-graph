@@ -21,7 +21,7 @@ the branch's commits against the base, the uncommitted changes and the untracked
   at least one entry, and CHANGELOG.md changed.
 - **rendered diagrams**: a changed `docs/figures/diagrams/*.mmd` has its `.png` and `.svg` changed too.
 - **cited paths**: every repository path a Markdown file cites exists (every file, every run: a
-  page nobody edits goes stale too; docs/plans/ is design history and is not read) (a file or a folder,
+  page nobody edits goes stale too) (a file or a folder,
   with or without an extension; in CHANGELOG.md the `## Unreleased` section only, the released
   sections being history), in a code span whose first part is a root entry of the tree (or a
   dotfile or upper-case Markdown name), or as a link or image destination (relative to the file; anchors, queries and web links are ignored).
@@ -47,6 +47,11 @@ from dataclasses import dataclass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
+SCRIPTS = (
+    "tools",
+    "experiments",
+    "pipelines",
+)  # the folders of scripts, formatted and linted with the package
 
 
 @dataclass(frozen=True)
@@ -75,8 +80,8 @@ def _version(py: str) -> str:
 def gates(base: str, also: list[str]) -> list[Gate]:
     py = sys.executable
     return [
-        Gate("format", [py, "-m", "ruff", "format", "--check", "src/fdia_graph", "tests", "tools"]),
-        Gate("lint", [py, "-m", "ruff", "check", "src", "tests", "tools"]),
+        Gate("format", [py, "-m", "ruff", "format", "--check", "src/fdia_graph", "tests", *SCRIPTS]),
+        Gate("lint", [py, "-m", "ruff", "check", "src", "tests", *SCRIPTS]),
         Gate("types", [py, "-m", "pyright", "src/fdia_graph"]),
         Gate("readability", [py, "tools/readability.py", "--report", "--check", "--base", base]),
         Gate("layout", [py, "tools/layout.py", "--check"]),
@@ -240,7 +245,6 @@ def _vacuous_tests() -> tuple[str, str]:
 
 
 _MODELS = ("src/fdia_graph/models/config.py", "src/fdia_graph/models/inputs.py")
-HISTORY = ("docs/plans/",)  # design documents kept as history: they may cite files a later change removed
 
 
 def _expand(ann: str, aliases: dict[str, str]) -> str:
@@ -301,7 +305,7 @@ def repo_checks(files: list[str]) -> list[tuple[str, str, str]]:
         ("changelog", *_changelog(files)),
         (
             "cited paths",
-            *_cited_paths(sorted(f for f in _tree() if f.endswith(".md") and not f.startswith(HISTORY))),
+            *_cited_paths(sorted(f for f in _tree() if f.endswith(".md"))),
         ),
         ("vacuous tests", *_vacuous_tests()),
         ("integer fields", *_integer_fields()),

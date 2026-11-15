@@ -194,7 +194,7 @@ class Provenance(Validated):
     seed: Annotated[Optional[int], Integer()] = None
     config_hash: str = ""  # of the run's settings, so equal settings hash equal
     platform: str = ""
-    note: str = ""  # e.g. "migrated from docs/se/results/se_ieee14.json"
+    note: str = ""  # e.g. "migrated from docs/analysis/estimation/se_ieee14.json"
 
 
 # ---- loose input, read by its type

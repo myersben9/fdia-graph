@@ -1,4 +1,4 @@
-"""[WU26]'s trusted-PMU MDP (`trust.WuDefenseEnv`, docs/plans/WU_DEFENSE_PLAN.md PR B) on the paper's
+"""[WU26]'s trusted-PMU MDP (`trust.WuDefenseEnv`) on the paper's
 IEEE-14 scenario for lines 1-2 and 4-5: the configuration model, the reward as the rise in the search's
 cost under the schedule (eq. 33), the cache, the state of Fig. 1, and the paper's line-8 break.
 

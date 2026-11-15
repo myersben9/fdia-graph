@@ -33,31 +33,45 @@ names them all. The one-line summary of every file of the repository is
 | `ratings/` | PGLib-OPF branch ratings of IEEE-14, 118 and 300 |
 | `formulas/` | the mathematics as pure functions with source keys: [`reference/FORMULAS.md`](reference/FORMULAS.md) |
 | `engine/`, `generation/` | the generator: the AC physics, the meters and the attacks, and the stages that walk a timeline: [`guides/generation.md`](guides/generation.md) |
-| `generation/nygrid/`, `operator/`, `engine/sensing/`, `se/detect/` | the New York grid, its operator, its meters and the operator's detector: [`nygrid/ARCHITECTURE.md`](nygrid/ARCHITECTURE.md) |
-| `se/`, `localization/`, `trust/`, `federated/` | the analysis packages, each with its page: [`se/README.md`](se/README.md), [`localization/README.md`](localization/README.md), [`trust/README.md`](trust/README.md), [`federated/README.md`](federated/README.md) |
+| `generation/nygrid/`, `operator/`, `engine/sensing/`, `se/detect/` | the New York grid, its operator, its meters and the operator's detector: [`concepts/new_york_grid.md`](concepts/new_york_grid.md) |
+| `se/`, `localization/`, `trust/`, `federated/` | the analysis packages, each with its page: [`analysis/estimation/README.md`](analysis/estimation/README.md), [`analysis/localization/README.md`](analysis/localization/README.md), [`analysis/trust/README.md`](analysis/trust/README.md), [`analysis/federated/README.md`](analysis/federated/README.md) |
 | `results/` | the results store's code: [`../results/README.md`](../results/README.md) |
+
+## The repository
+
+Every folder at the root has one role, and `tools/layout.py` fails a folder that has none (`REPO` and `DOCS` in the
+tool; the generated table opens [`reference/MODULES.md`](reference/MODULES.md)).
+
+| folder | holds |
+|---|---|
+| `src/fdia_graph/` | the package |
+| `tests/` | the test suite |
+| `examples/` | scripts a user copies |
+| `experiments/` | one folder per study (`estimation`, `localization`, `trust`, `federated`, `defense_reproduction`, `benchmarks`, `data_release`): `run.py` measures and writes runs to the results store, `report.py` (where present) draws the figures of the study's page from it, and `tools/results_docs.py` fills that page's tables |
+| `results/` | the results store: data only, one CSV per experiment and `runs.csv`, with `queries.py` |
+| `pipelines/` | the builds of released data: `pipelines/newyork/` builds the New York pool and timeline, and holds the MATLAB reference they are checked against |
+| `tools/` | repository tooling only: the gates, the generated docs, pull requests, releases |
+| `docs/` | the documentation, one folder per kind of page (below) |
 
 ## Docs
 
 | folder | holds |
 |---|---|
+| `getting-started/` | tutorials: `new_york_walkthrough.md`, one attack day on the New York grid from start to finish |
+| `guides/` | one task each: `generation.md` (how a timeline is built), `state_estimation.md`, `new_york.md` (building the New York data), `extending_new_york.md`, `troubleshooting_new_york.md` |
+| `concepts/` | explanations: `new_york_grid.md`, how the New York grid, its meters and its operator are built |
+| `analysis/` | one page per study with its figures and their CSV sidecars: `estimation/`, `localization/`, `trust/`, `federated/`, and `defense_reproduction/` (the reproduction of [WU26]'s defense results) |
 | `reference/` | the file map (`MODULES.md`), data dictionary, glossary, concepts to code, formulas, examples, benchmarks |
-| `guides/` | task walkthroughs: `generation.md` (how a timeline is built), `state_estimation.md`, `new_york.md` |
-| `nygrid/` | the New York grid: its architecture, a walkthrough, how to extend it, troubleshooting |
-| `se/`, `localization/`, `trust/`, `federated/` | `run.py` fits one system and writes runs to the results store (`results/`); `make_report.py` (where present) draws the figures from it and `tools/results_docs.py` fills the README tables |
-| `wu26/` | the reproduction of [WU26]'s defense results, written by the `tools/reproduce_*.py` scripts |
 | `figures/` | shared images with their data sidecars |
-| `plans/` | the design documents behind the 0.16 and 0.17 refactors (history, not instructions) |
 
 ## Tests and releases
 
 | | |
 |---|---|
-| `python tools/review_ledger.py <num>` | records the automated reviewer's findings per pull request in `docs/reference/review_ledger.csv` and prints the tally by kind, so a recurring kind becomes a check |
 | `python tools/prereview.py` | every CI gate, the test suite and the checks CI does not run, on this checkout's source; run before a review is requested (`docs/reference/REVIEW_CHECKLIST.md`) |
 | `pytest tests` | builds a tiny IEEE-14 timeline in a throwaway cache (about a minute) and checks the documented contracts |
 | `FDIA_SLOW=1 pytest tests` | adds a sanity test on the published IEEE-118 file |
-| CI | tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the layout gate (`tools/layout.py`: names, docstrings, package pages, cited names, the file map), the generated-docs checks, install on 3.9 and 3.12 |
+| CI | tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the layout gate (`tools/layout.py`: names, docstrings, package pages, cited names, the repository map, the file map), the generated-docs checks, install on 3.9 and 3.12 |
 | release | bump PR, then `python tools/release.py vX.Y.Z notes.md` (tag, GitHub release, PyPI); see `CONTRIBUTING.md` |
 
 ## Reading order
@@ -73,7 +87,7 @@ names them all. The one-line summary of every file of the repository is
 | 6 | `reference/CONCEPTS_TO_CODE.md` | paper formulas to code |
 | 7 | `reference/CLASS_MAP.md` | the class and module diagrams, drawn from the code by `tools/class_diagrams.py` |
 | 8 | `reference/EXAMPLES.md` | training examples to copy from |
-| 9 | `se/README.md`, `guides/state_estimation.md` | measurements in, better-than-WLS state out |
-| 10 | `localization/README.md` | which buses are under attack, and why the slow ramp is open |
-| 11 | `trust/README.md` | which meters to secure so a stealthy attack stops being stealthy |
-| 12 | `federated/README.md` | the localizers and the prior trained across clients that never pool their records |
+| 9 | `analysis/estimation/README.md`, `guides/state_estimation.md` | measurements in, better-than-WLS state out |
+| 10 | `analysis/localization/README.md` | which buses are under attack, and why the slow ramp is open |
+| 11 | `analysis/trust/README.md` | which meters to secure so a stealthy attack stops being stealthy |
+| 12 | `analysis/federated/README.md` | the localizers and the prior trained across clients that never pool their records |

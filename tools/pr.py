@@ -2,18 +2,17 @@
 
     python tools/pr.py create <branch> "<title>" <body.md>   # open a PR against main, as a draft
     python tools/pr.py ready <num>                           # mark the draft ready for the owner's approval
-    python tools/pr.py status <num>                          # checks on the head, reviews, comment count
+    python tools/pr.py status <num>                          # checks on the head, comment count
     python tools/pr.py comments <num>                        # every review comment (path, line, body)
     python tools/pr.py reply <num> <comment-id> "<text>"     # answer one review comment
     python tools/pr.py summary <num> <summary.md>            # post the review agents' four-sentence summary
     python tools/pr.py wait <num> [minutes]                  # block until CI has finished
     python tools/pr.py merge <num>                           # squash-merge on green, delete the branch
-    python tools/pr.py request-review <num>                  # ask for an automated review (optional, billed)
 
 The token comes from the Git Credential Manager (`git credential fill`), the same one `git push`
 uses, so nothing is stored in the repo. `merge` refuses while a check on the head is failing or
-still running. No automated review is required: the owner approves each merge (CONTRIBUTING.md, "The
-pull request"), and an automated review runs only when `request-review` asks for one.
+still running. The owner approves each merge (CONTRIBUTING.md, "The pull request"); no automated review
+is asked for or waited on.
 """
 
 from __future__ import annotations
@@ -29,11 +28,6 @@ import requests
 
 OWNER, REPO = "myersben9", "fdia-graph"
 BASE = f"https://api.github.com/repos/{OWNER}/{REPO}"
-COPILOT = "copilot"
-# The review bots, by login fragment. Copilot is always required on the head; another bot becomes
-# required for a pull request as soon as it has reviewed that request once (it is installed), so an
-# uninstalled bot never blocks and an installed one is never skipped.
-REVIEW_BOTS = (COPILOT, "coderabbitai", "gemini-code-assist")
 # The smoke workflow's jobs, every one required green on the head before a merge; a job that has
 # not registered yet counts as not green (so a merge cannot slip in while CI is still starting).
 REQUIRED = (
@@ -101,57 +95,13 @@ def _head_state(num: int) -> dict[str, Any]:
     pr = api("GET", f"/pulls/{num}")
     sha = pr["head"]["sha"]
     checks = api_all(f"/commits/{sha}/check-runs")
-    reviews = api_all(f"/pulls/{num}/reviews")
-    on_head = {
-        bot: [(r["state"], r["submitted_at"]) for r in reviews if _bot_of(r) == bot and r["commit_id"] == sha]
-        for bot in REVIEW_BOTS
-    }
-    reviewed = {bot: [r["commit_id"][:8] for r in reviews if _bot_of(r) == bot] for bot in REVIEW_BOTS}
     notes = api_all(f"/pulls/{num}/comments")
-    answered = {c["in_reply_to_id"] for c in notes if c.get("in_reply_to_id")}
-    talk = [c for c in api_all(f"/issues/{num}/comments") if _bot_of(c) is None]
     return {
         "pr": pr,
         "sha": sha,
         "checks": _latest_runs(checks),
-        "reviews_on_head": on_head,
-        "reviewed_commits": reviewed,
-        "required_bots": [],  # no review bot gates a merge; the owner approves it
-        "unanswered": _missed_unanswered(reviews, talk)
-        + [c["id"] for c in notes if not c.get("in_reply_to_id") and _bot_of(c) and c["id"] not in answered],
         "n_comments": len(notes),
     }
-
-
-def _missed_unanswered(reviews: list[dict[str, Any]], talk: list[dict[str, Any]]) -> list[str]:
-    """Bot reviews whose body lists findings outside the diff ("Previously missed", read by
-    `tools/review_ledger.py`) and that no person has answered since: a conversation comment on the
-    pull request posted after the review answers all of its body's findings."""
-    out = []
-    for r in reviews:
-        if _bot_of(r) and "Previously missed" in (r.get("body") or ""):
-            if not any(c["created_at"] > r["submitted_at"] for c in talk):
-                out.append(f"review {r['id']} (previously missed)")
-    return out
-
-
-def _bot_of(review: dict[str, Any]) -> str | None:
-    """Which review bot wrote `review`, or None for a person: only a GitHub account of type Bot
-    counts, so a person whose login contains a bot's name cannot satisfy the gate."""
-    user = review.get("user") or {}
-    if user.get("type") != "Bot":
-        return None
-    login = str(user.get("login", "")).lower()
-    return next((b for b in REVIEW_BOTS if b in login), None)
-
-
-def _reviewed(state: dict[str, Any]) -> bool:
-    """Every required bot has reviewed the pull request once, on any of its commits."""
-    return all(state["reviewed_commits"][b] for b in state["required_bots"])
-
-
-def _missing_reviews(state: dict[str, Any]) -> list[str]:
-    return [b for b in state["required_bots"] if not state["reviewed_commits"][b]]
 
 
 def _not_green(state: dict[str, Any]) -> list[str]:
@@ -174,7 +124,7 @@ def _green(state: dict[str, Any]) -> bool:
 
 
 def create(branch: str, title: str, body_file: str) -> None:
-    """Open the pull request as a draft: the ruleset reviews it once, when it is marked `ready`."""
+    """Open the pull request as a draft; `ready` marks it ready for the owner once it is clean."""
     body = open(body_file, encoding="utf8").read()
     pr = api(
         "POST", "/pulls", json={"title": title, "head": branch, "base": "main", "body": body, "draft": True}
@@ -183,7 +133,7 @@ def create(branch: str, title: str, body_file: str) -> None:
 
 
 def ready(num: int) -> None:
-    """Mark a draft ready for review (GraphQL: the REST API cannot), which asks for the one review."""
+    """Mark a draft ready for the owner's approval (GraphQL: the REST API cannot)."""
     node = api("GET", f"/pulls/{num}")["node_id"]
     query = "mutation($id: ID!) { markPullRequestReadyForReview(input: {pullRequestId: $id}) { pullRequest { isDraft } } }"
     r = requests.post(
@@ -207,10 +157,6 @@ def status(num: int) -> None:
                 "merged": s["pr"].get("merged"),
                 "green": _green(s),
                 "checks": s["checks"],
-                "reviews_on_head": s["reviews_on_head"],
-                "reviewed_commits": s["reviewed_commits"],
-                "unanswered": s["unanswered"],
-                "required_bots": s["required_bots"],
                 "n_comments": s["n_comments"],
             },
             indent=1,
@@ -248,7 +194,7 @@ def wait(num: int, minutes: float = 25) -> None:
             st == "completed" for st, _ in s["checks"].values()
         )
         elapsed = (time.time() - t0) / 60
-        if (done and _reviewed(s)) or elapsed > minutes:
+        if done or elapsed > minutes:
             print(
                 json.dumps(
                     {
@@ -256,10 +202,6 @@ def wait(num: int, minutes: float = 25) -> None:
                         "head": s["sha"][:8],
                         "green": _green(s),
                         "checks": {k: v[1] for k, v in s["checks"].items()},
-                        "reviews_on_head": s["reviews_on_head"],
-                        "reviewed_commits": s["reviewed_commits"],
-                        "unanswered": s["unanswered"],
-                        "required_bots": s["required_bots"],
                         "n_comments": s["n_comments"],
                     },
                     indent=1,
@@ -287,19 +229,6 @@ def merge(num: int) -> None:
         print("deleted branch", pr["head"]["ref"])
 
 
-def request_review(num: int) -> None:
-    """Ask the automated reviewer for one more review of the current head: only when a fix changed
-    behaviour beyond the findings it answers. Opening a pull request (or marking a draft ready) asks
-    for the one review; run `tools/prereview.py` and the checklist in
-    docs/reference/REVIEW_CHECKLIST.md first: each request is a billed review."""
-    api(
-        "POST",
-        f"/pulls/{num}/requested_reviewers",
-        json={"reviewers": ["copilot-pull-request-reviewer[bot]"]},
-    )
-    print(f"review requested on #{num}")
-
-
 def main(argv: list[str]) -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(
@@ -324,8 +253,6 @@ def main(argv: list[str]) -> None:
         wait(int(args[0]), float(args[1]) if len(args) > 1 else 25)
     elif cmd == "merge":
         merge(int(args[0]))
-    elif cmd == "request-review":
-        request_review(int(args[0]))
     else:
         raise SystemExit(__doc__)
 
