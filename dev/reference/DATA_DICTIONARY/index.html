@@ -1358,17 +1358,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#stream-fdia_graphmodelsdata" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stream (fdia_graph.models.data)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#estimatorscores-fdia_graphmodelsscores" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2015,17 +2004,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#stream-fdia_graphmodelsdata" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stream (fdia_graph.models.data)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#estimatorscores-fdia_graphmodelsscores" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2319,11 +2297,11 @@ in a new data release.</p>
 </ul>
 <h2 id="node_x-n4-bus-measurements-voltage-first"><code>node_x</code> <code>[N,4]</code>: bus measurements (voltage first)<a class="headerlink" href="#node_x-n4-bus-measurements-voltage-first" title="Permanent link">&para;</a></h2>
 <p>The column order is defined once, in <code>fdia_graph.models.NodeColumns</code> (<code>v</code>, <code>p_inj</code>, <code>q_inj</code>, <code>theta</code>);
-every record, batch, split and stream exposes named views of it through <code>.node()</code> and <code>.edge()</code>,
+every record, batch and split exposes named views of it through <code>.node()</code> and <code>.edge()</code>,
 and the generator, loader and estimator index columns through <code>NODE</code> and <code>EDGE</code> rather than literals:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">rec</span> <span class="o">=</span> <span class="n">ds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">rec</span><span class="o">.</span><span class="n">node</span><span class="p">()</span><span class="o">.</span><span class="n">theta</span>  <span class="c1"># the angle column, a view of rec.node_x[..., 3]</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">NodeColumns</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">clean</span><span class="p">)</span><span class="o">.</span><span class="n">v</span>  <span class="c1"># works on any [..., 4] array, a stream's clean layer included</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">NodeColumns</span><span class="o">.</span><span class="n">of</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">export</span><span class="p">([</span><span class="s2">"clean"</span><span class="p">])</span><span class="o">.</span><span class="n">clean</span><span class="p">)</span><span class="o">.</span><span class="n">v</span>  <span class="c1"># works on any [..., 4] array, a split's clean layer included</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2452,12 +2430,6 @@ and the generator, loader and estimator index columns through <code>NODE</code> 
 <td><code>["edge_m"]</code></td>
 <td><code>ds.edge_attr</code></td>
 </tr>
-<tr>
-<td>stream dict <code>fg.load_stream()</code></td>
-<td><code>["edge_x"]</code> <code>[T,E,2]</code></td>
-<td><code>["edge_m"]</code></td>
-<td><code>["edge_attr"]</code></td>
-</tr>
 </tbody>
 </table>
 <p>One name to watch: the static table's <code>graph/edge_x</code> is the per-unit series reactance of each branch
@@ -2469,8 +2441,7 @@ here are the flows.</p>
 <p>Flows are per record, so they only exist on records and batches. The static per-unit branch
 physics live on the dataset as <code>ds.edge_attr</code> <code>[E,8]</code> and one column each as <code>ds.branch_r</code>,
 <code>ds.branch_x</code>, <code>ds.branch_b</code>, <code>ds.branch_g</code>, <code>ds.branch_gs</code>, <code>ds.branch_bs</code>, <code>ds.branch_tap</code>,
-<code>ds.branch_shift</code>. The older <code>ds.edge_r</code> … <code>ds.edge_shift</code> spellings of all eight still work but raise
-a <code>DeprecationWarning</code>; the rename exists because <code>ds.edge_x</code> (the reactance) collided with the flows' name.</p>
+<code>ds.branch_shift</code>. They are named <code>branch_*</code> because <code>edge_x</code> is the flows' name.</p>
 <h2 id="the-rest">The rest<a class="headerlink" href="#the-rest" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2504,7 +2475,7 @@ a <code>DeprecationWarning</code>; the rename exists because <code>ds.edge_x</co
 <tr>
 <td><code>slack</code></td>
 <td>dataset attribute</td>
-<td>index of the reference (slack) bus, <code>ds.slack</code>. Derived from the clean layer, so v0.7.2+ only. Also <code>Data.slack</code> in PyG format</td>
+<td>index of the reference (slack) bus, <code>ds.slack</code>. Derived from the clean layer. Also <code>Data.slack</code> in PyG format</td>
 </tr>
 <tr>
 <td><code>ybus</code></td>
@@ -2544,7 +2515,7 @@ a <code>DeprecationWarning</code>; the rename exists because <code>ds.edge_x</co
 <li><code>clean</code> covers every bus with no mask, whatever the meter placement.</li>
 <li><code>edge_clean</code> zeroes unmetered branches, like <code>edge_x</code>.</li>
 <li><code>edge_clean_full</code> is the same true flow on every branch, metered or not, computed from <code>clean</code>
-  through <code>yf</code> when the shard is loaded (<code>V[from] * conj(Yf @ V)</code>, times <code>baseMVA</code>). It equals
+  through <code>yf</code> when the file is loaded (<code>V[from] * conj(Yf @ V)</code>, times <code>baseMVA</code>). It equals
   <code>edge_clean</code> wherever a flow meter exists, so a graph model can supervise every edge.</li>
 <li>On benign records <code>node_x − clean</code> is the meter error.</li>
 <li>This is the state-estimation target.</li>
@@ -2641,9 +2612,9 @@ current, the same on a <code>units="pu"</code> or <code>"physical"</code> view, 
 channels the attacker wrote. A file without these datasets (every released file) loads unchanged
 and its records carry no <code>pmu_i</code>. <code>export(["prev_pmu_i"])</code> gives the previous emitted frame's
 currents on a hybrid-meter timeline, like <code>prev_node_x</code>.</p>
-<p>Chunked along the frame axis so a window of W frames is one read. The v0.7.2 record shards (the
-same <code>data/</code>, <code>clean/</code> once per pool timestep, a <code>gap</code> column, no <code>benign/</code>) still load through
-<code>fg.load(..., release="v0.7.2")</code>.</p>
+<p>Chunked along the frame axis so a window of W frames is one read. A file without the <code>kind</code> attribute
+<code>timeline</code> (a record shard of a data release before v0.8.0) is refused with <code>NotATimeline</code>; fdia-graph
+0.21 reads those.</p>
 <!-- models:begin -->
 <h2 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h2>
 <p>Every dict the package returns is a typed bundle (<code>fdia_graph.models.Bundle</code>): a frozen
@@ -2998,13 +2969,6 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td>[2, E] from and to bus of every branch (GraphFields)</td>
 </tr>
 <tr>
-<td><code>edge_reactance</code></td>
-<td><code>edge_reactance</code></td>
-<td>array</td>
-<td></td>
-<td>[E], deprecated units, kept for old callers</td>
-</tr>
-<tr>
 <td><code>node_x</code></td>
 <td><code>node_x</code></td>
 <td>Array</td>
@@ -3271,190 +3235,6 @@ by <code>tools/models_doc.py</code> from the dataclasses.</p>
 <td>list[array]</td>
 <td>yes</td>
 <td>K arrays, the buses the episode labelled</td>
-</tr>
-</tbody>
-</table>
-<h3 id="stream-fdia_graphmodelsdata"><code>Stream</code> (<code>fdia_graph.models.data</code>)<a class="headerlink" href="#stream-fdia_graphmodelsdata" title="Permanent link">&para;</a></h3>
-<p>A continuous attacked time series as <code>generate_stream</code> and <code>load_stream</code> return it, leading axis T: three aligned measurement layers per frame (observed <code>node_x</code>, <code>benign</code>, <code>clean</code>), the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list; on a hybrid-meter file also the PMU branch currents (<code>pmu_i</code>, <code>pmu_i_benign</code> per frame, the static mask <code>pmu_i_m</code>). <code>stealthy</code>, <code>seq_id</code> and <code>edge_clean_full</code> are not part of a stream. A dict as well, so <code>windows</code> and every <code>s["node_x"]</code> keep working.</p>
-<p>Field groups: <code>PmuCurrentFields</code>, <code>StreamLayers</code>, <code>GraphFields</code>, <code>CleanFields</code>, <code>TemporalFields</code>, <code>RecordIds</code>, <code>LabelFields</code>, <code>ScanFields</code>.</p>
-<table>
-<thead>
-<tr>
-<th>field</th>
-<th>dict key</th>
-<th>type</th>
-<th>required</th>
-<th>meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>node_x</code></td>
-<td><code>node_x</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., N, 4] &#124;V&#124;, P_inj, Q_inj, theta (zero where unmetered) (ScanFields)</td>
-</tr>
-<tr>
-<td><code>benign</code></td>
-<td><code>benign</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., N, 4] attack removed, noise kept (StreamLayers)</td>
-</tr>
-<tr>
-<td><code>clean</code></td>
-<td><code>clean</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., N, 4] true state at the record's timestep (CleanFields)</td>
-</tr>
-<tr>
-<td><code>edge_x</code></td>
-<td><code>edge_x</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., E, 2] P_from, Q_from (ScanFields)</td>
-</tr>
-<tr>
-<td><code>edge_benign</code></td>
-<td><code>edge_benign</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., E, 2] attack removed, noise kept (StreamLayers)</td>
-</tr>
-<tr>
-<td><code>edge_clean</code></td>
-<td><code>edge_clean</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., E, 2] exact true flows on metered branches (CleanFields)</td>
-</tr>
-<tr>
-<td><code>edge_index</code></td>
-<td><code>edge_index</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[2, E] from and to bus of every branch (GraphFields)</td>
-</tr>
-<tr>
-<td><code>edge_attr</code></td>
-<td><code>edge_attr</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields)</td>
-</tr>
-<tr>
-<td><code>node_m</code></td>
-<td><code>node_m</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., N, 4] meter mask, 1 metered (ScanFields)</td>
-</tr>
-<tr>
-<td><code>edge_m</code></td>
-<td><code>edge_m</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., E, 2] flow-meter mask (ScanFields)</td>
-</tr>
-<tr>
-<td><code>y</code></td>
-<td><code>y</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., N] per-bus attack label, 1 attacked (LabelFields)</td>
-</tr>
-<tr>
-<td><code>family</code></td>
-<td><code>family</code></td>
-<td>Scalars</td>
-<td>yes</td>
-<td>[...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields)</td>
-</tr>
-<tr>
-<td><code>temporal_delta</code></td>
-<td><code>temporal_delta</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., N, 2] injection change vs the previous pool scan (v0.3+) (TemporalFields)</td>
-</tr>
-<tr>
-<td><code>swing</code></td>
-<td><code>swing</code></td>
-<td>Array</td>
-<td>yes</td>
-<td>[..., N, 2] that change as a z-score of recent change (v0.4.1+) (TemporalFields)</td>
-</tr>
-<tr>
-<td><code>timestep</code></td>
-<td><code>timestep</code></td>
-<td>Scalars</td>
-<td>yes</td>
-<td>[...] position in the source load profile (RecordIds)</td>
-</tr>
-<tr>
-<td><code>episodes</code></td>
-<td><code>episodes</code></td>
-<td>list[EpisodeRow]</td>
-<td>yes</td>
-<td buses family_ length_ onset_>list of</td>
-</tr>
-<tr>
-<td><code>system</code></td>
-<td><code>system</code></td>
-<td>int</td>
-<td></td>
-<td>bus count (generate_stream and load_stream both set it)</td>
-</tr>
-<tr>
-<td><code>attacked_frac</code></td>
-<td><code>attacked_frac</code></td>
-<td>float</td>
-<td></td>
-<td>fraction of frames with at least one attacked bus (both set it)</td>
-</tr>
-<tr>
-<td><code>pmu_i</code></td>
-<td><code>pmu_i</code></td>
-<td>Array</td>
-<td></td>
-<td>[..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields)</td>
-</tr>
-<tr>
-<td><code>pmu_i_m</code></td>
-<td><code>pmu_i_m</code></td>
-<td>Array</td>
-<td></td>
-<td>[..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields)</td>
-</tr>
-<tr>
-<td><code>pmu_i_benign</code></td>
-<td><code>pmu_i_benign</code></td>
-<td>Array</td>
-<td></td>
-<td>[..., E, 4] attack removed, noise kept (PmuCurrentFields)</td>
-</tr>
-<tr>
-<td><code>stealthy</code></td>
-<td><code>stealthy</code></td>
-<td>Scalars</td>
-<td></td>
-<td>[...] 1 for the re-solve families Aq, At, Al, Am (RecordIds)</td>
-</tr>
-<tr>
-<td><code>seq_id</code></td>
-<td><code>seq_id</code></td>
-<td>Scalars</td>
-<td></td>
-<td>[...] episode index of the frame's attack (every family), -1 benign (RecordIds)</td>
-</tr>
-<tr>
-<td><code>edge_clean_full</code></td>
-<td><code>edge_clean_full</code></td>
-<td>Array</td>
-<td></td>
-<td>[..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields)</td>
 </tr>
 </tbody>
 </table>

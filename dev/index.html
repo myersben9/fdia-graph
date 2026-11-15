@@ -1829,8 +1829,9 @@ a record table when shuffled, a time series when not.</p>
 </tr>
 </tbody>
 </table>
-<p>Data is pinned per SDK version and cached in <code>~/.cache/fdia_graph</code>. <code>fg.load(..., release="v0.7.2")</code>
-pins a data version (the v0.7.2 record shards still load); <code>pip install --upgrade fdia-graph</code> moves it forward.</p>
+<p>Data is pinned per SDK version and cached in <code>~/.cache/fdia_graph</code>. <code>fg.load(..., release="v0.8.1")</code>
+pins a data version, any timeline release from v0.8.0; <code>pip install --upgrade fdia-graph</code> moves it forward.
+The record shards of the data releases before v0.8.0 are read by <code>fdia-graph==0.21.0</code>.</p>
 <h2 id="load">Load<a class="headerlink" href="#load" title="Permanent link">&para;</a></h2>
 <p>One file per system, one loader. <code>order</code> decides what the file is to you:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">fg</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"ieee300"</span><span class="p">,</span> <span class="n">split</span><span class="o">=</span><span class="s2">"train"</span><span class="p">)</span>                              <span class="c1"># 60/20/20 chronological split, episodes never cut</span>
@@ -2013,7 +2014,7 @@ satisfy equations (13)-(23) of [WU26] (the SCADA measurements, the PMU voltage m
 and branch currents, and the operating limits); <code>Am</code> also meets the line-overload goal, eqs.
 (24)-(25), and both are held on the support that tampers the fewest devices, eq. (12), when
 <code>min_tamper=True</code> (the default for <code>At</code>; <code>Am</code> always picks its support that way, by the search or by
-[WU26]'s row reduction, <code>am_attack={"support_method": "rref"}</code>). The single-snapshot families and the
+[WU26]'s row reduction, <code>am_attack=OverloadSettings(support_method="rref")</code>). The single-snapshot families and the
 redistribution <code>Am</code> of the older releases were drawn at random targets, on meters without branch
 currents, and drove no line to its limit.</p>
 <p><img alt="BDD statistic per family: the stealthy families sit below the alarm line with benign, the three tampering families sit far above it" src="https://raw.githubusercontent.com/myersben9/fdia-graph/main/docs/figures/fig_bdd.png" /></p>

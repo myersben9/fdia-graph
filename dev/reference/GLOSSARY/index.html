@@ -1689,7 +1689,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 </tr>
 <tr>
 <td>record</td>
-<td>One row as the loader serves it, <code>ds[i]</code>: a frame of a timeline, or a row of a record shard.</td>
+<td>One row as the loader serves it, <code>ds[i]</code>: a frame of a timeline.</td>
 <td><code>dataset/records.py</code>, <code>models.data.RecordBundle</code></td>
 </tr>
 <tr>
@@ -1716,11 +1716,6 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <td>timeline</td>
 <td>One HDF5 file per system: every pool timestep scanned in time order, with attack episodes placed on it; the file format of every data release from v0.8.0.</td>
 <td><code>timeline.generate_timeline</code>, <code>schema.KIND_TIMELINE</code></td>
-</tr>
-<tr>
-<td>record shard (legacy)</td>
-<td>The pre-v0.8.0 file layout, <code>ml_only_ieee{C}.h5</code>: independent records with gap rows, no <code>benign/</code>, <code>episodes/</code> or <code>attack/</code> groups; still readable with <code>release="v0.7.2"</code>.</td>
-<td><code>registry.dataset_file</code>, <code>schema.GAP</code></td>
 </tr>
 <tr>
 <td>release</td>

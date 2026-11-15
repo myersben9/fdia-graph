@@ -1822,7 +1822,7 @@
 </tr>
 <tr>
 <td><code>dataset</code></td>
-<td>FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (0.18+, one row per frame in time order, <code>kind="timeline"</code>) or a record shard (the v0.7.2 release).</td>
+<td>FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (one row per frame in time order, <code>kind="timeline"</code>).</td>
 </tr>
 <tr>
 <td><code>dataset.base</code></td>
@@ -2174,7 +2174,7 @@
 </tr>
 <tr>
 <td><code>models.data</code></td>
-<td>What a user gets back: one record, a batch, a whole split, a summary, a stream, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was.</td>
+<td>What a user gets back: one record, a batch, a whole split, a summary, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was.</td>
 </tr>
 <tr>
 <td><code>models.errors</code></td>
@@ -2235,10 +2235,6 @@
 <tr>
 <td><code>operator.policy</code></td>
 <td>The operator's choices as one record (<code>OperatorPolicy</code>): which operator (<code>OperatorMode</code>), how late it acts, where the inadvertent interchange its neighbours supply enters (<code>Entry</code>, <code>entry_share</code>), whether it reads the true flows after its own dispatch, and how it answers an alarm (<code>AlarmAnswer</code>). The record checks every choice when it is built, so a typo is a <code>ConfigError</code> before anything runs.</td>
-</tr>
-<tr>
-<td><code>operator.response</code></td>
-<td>The operator's response, as one module: every name of <code>day</code>, <code>ties</code>, <code>truegrid</code>, <code>policy</code>, <code>run</code> and <code>summary</code>, re-exported so the imports written before the split keep working. New code imports from those modules or from <code>fdia_graph.operator</code>.</td>
 </tr>
 <tr>
 <td><code>operator.run</code></td>
@@ -2331,10 +2327,6 @@
 <tr>
 <td><code>se.methods</code></td>
 <td>The estimator method classes. Each changes exactly one thing about SEBase, so a difference between two arms is a difference between estimators rather than between implementations.</td>
-</tr>
-<tr>
-<td><code>streams</code></td>
-<td>The deprecated stream entry points, to be removed in a future release: <code>generate_stream</code> writes a timeline file through <code>fdia_graph.timeline</code> and returns it as the stream dict, <code>load_stream</code> reads the v0.7.2 stream files, and <code>windows</code> slides over a stream dict. The timeline file is the dataset now: <code>fg.generate</code> writes it and <code>fg.load(name, order="time")</code> reads it, with <code>ds.windows</code>. <code>load_stream</code> and <code>windows</code> stay for reading the v0.7.x stream files, which a timeline loader does not open.</td>
 </tr>
 <tr>
 <td><code>timeline</code></td>
@@ -2584,7 +2576,7 @@
 </tr>
 <tr>
 <td><code>tests/test_old_releases.py</code></td>
-<td>Old data releases stay readable. The generator makes only At and Am, but a timeline of each of v0.8.0, v0.8.1 and v0.8.3, a v0.7.2 record shard and a v0.7.1 stream file load, split, filter by family name and score per family as before. Each fixture under tests/data was written by the SDK that built its release, or is a slice of the published file (tests/data/README.md).</td>
+<td>The pinned data releases stay readable. The generator makes only At and Am, but a timeline of each of v0.8.0, v0.8.1 and v0.8.3 loads, splits, filters by family name and scores per family as before; the record shards and stream files of the releases before v0.8.0 are refused. Each fixture under tests/data was written by the SDK that built its release, or is a slice of the published file (tests/data/README.md).</td>
 </tr>
 <tr>
 <td><code>tests/test_overload.py</code></td>
@@ -2628,7 +2620,7 @@
 </tr>
 <tr>
 <td><code>tests/test_registry.py</code></td>
-<td>The registry's per-release asset layout: record shards and npz pools before v0.8.0, one timeline per system and HDF5 pools from v0.8.0, and the deprecated <code>load_stream</code> following it.</td>
+<td>The registry's asset layout: one timeline per system and its HDF5 pool, from data release v0.8.0.</td>
 </tr>
 <tr>
 <td><code>tests/test_results.py</code></td>

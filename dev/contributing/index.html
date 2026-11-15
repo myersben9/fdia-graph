@@ -1789,8 +1789,8 @@ start on a push, check the account's Actions minutes first.</p>
 <h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
 <p><img alt="the release flow: bump PR, merge on green, tag on main, GitHub release, publish.yml to PyPI" src="../figures/diagrams/contributing_release_flow.png" /></p>
 <p>A released version is never re-cut; fix forward. Data releases (timelines, pools) have their own
-tags, <code>data-v&lt;x.y.z&gt;</code> from v0.8.0 (the bare <code>v0.x.y</code> tags belong to package versions; the two
-earlier data releases keep <code>v0.7.1</code> and <code>v0.7.2</code>), and do not move the package version. The
+tags, <code>data-v&lt;x.y.z&gt;</code> (the bare <code>v0.x.y</code> tags belong to package versions), and do not move the
+package version. The
 registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to the tag, and
 <code>tools/upload_assets.py v0.8.0 &lt;files&gt;</code> refuses to touch a package tag.</p>
 <h2 id="where-things-live">Where things live<a class="headerlink" href="#where-things-live" title="Permanent link">&para;</a></h2>

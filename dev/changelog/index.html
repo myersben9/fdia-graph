@@ -1749,7 +1749,37 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The repository has one place per kind of file.</strong> Files moved; nothing in the package changed. Each study is a
+<li><strong>Deprecated logic is removed (breaking).</strong> Main holds current code only; anything below still works in
+  <code>fdia-graph==0.21.0</code>, and nothing here keeps an alias or a warning period.</li>
+<li><strong>Record shards and stream files.</strong> <code>fg.load</code> and <code>FdiaGraph</code> read timelines only: a file without the <code>kind</code>
+    attribute <code>timeline</code> raises <code>NotATimeline</code>, and a data release before v0.8.0 (<code>release="v0.7.2"</code>) is refused
+    by name. The registry drops the v0.7.x layout (<code>ml_only_ieee{C}.h5</code>, npz pools, the bare <code>v0.7.x</code> tags, their
+    sha256), <code>registry.is_timeline_release</code>, <code>STREAM_RELEASE</code> and the environment variable
+    <code>FDIA_GRAPH_STREAM_RELEASE</code>; <code>registry.dataset_file</code> takes the system alone, <code>registry.pool_spec</code> names the
+    HDF5 pool only, and <code>registry.release_tuple</code> and <code>release_name</code> raise for a release before v0.8.0
+    (<code>models.inputs.FIRST_RELEASE</code>). <code>fg.load(include_gaps=...)</code> and <code>FdiaGraph(include_gaps=...)</code> go with the gap
+    rows and <code>schema.GAP</code>, and so do <code>ds.is_timeline</code> and <code>Capability.TIMELINE</code> (the <code>timeline</code> capability). The
+    new error is <code>errors.NotATimeline</code>. The pinned timeline releases v0.8.0, v0.8.1 and v0.8.3 read as before.</li>
+<li><strong>The stream entry points.</strong> <code>fg.generate_stream</code>, <code>fg.load_stream</code>, <code>fg.windows</code>, the module
+    <code>fdia_graph.streams</code> and the models <code>Stream</code>, <code>StreamSummary</code> and <code>StreamLike</code> are removed: <code>fg.generate</code>
+    writes the timeline, <code>fg.load(name, order="time")</code> reads it and <code>ds.windows(W, stride, label)</code> windows it.</li>
+<li><strong>Dict-style settings.</strong> <code>generate_timeline(am_attack={...})</code> and <code>redundancy={...}</code> are refused: pass
+    <code>OverloadSettings(...)</code> and <code>MeterSettings(...)</code>. <code>OverloadSettings.of</code> is removed.</li>
+<li><strong><code>load_profile</code>'s old keywords.</strong> <code>load_profile(source, path=, column=)</code> with a string or an array is
+    refused: pass <code>IsoFolder</code>, <code>CsvColumn</code>, <code>RawSeries</code> or any object with <code>loads()</code>. <code>ProfileSource</code> keeps its
+    <code>source</code> field alone (<code>path</code>, <code>column</code>, <code>text</code>, <code>series</code> and <code>kind</code> are removed).</li>
+<li><strong><code>edge_reactance</code> and <code>ds.edge_*</code>.</strong> <code>ds.edge_reactance</code>, <code>ds.edge_reactance_np</code>, <code>schema.EDGE_REACTANCE</code>,
+    <code>schema.Attr.EDGE_REACTANCE_DEPRECATED</code>, the generator's <code>x_react</code>, the <code>edge_reactance</code> key of <code>ds.export()</code> and the
+    <code>ds.edge_r</code> ... <code>ds.edge_shift</code> spellings are removed: the branch physics is <code>ds.branch_*</code> and <code>ds.edge_attr</code>.
+    A newly written timeline no longer carries <code>graph/edge_reactance</code> or the attribute
+    <code>edge_reactance_deprecated</code>; every other dataset of the file is unchanged.</li>
+<li>
+<p><strong><code>fdia_graph.operator.response</code>.</strong> The re-export module is removed: import each name from the module that
+    defines it (<code>operator.day</code>, <code>ties</code>, <code>truegrid</code>, <code>policy</code>, <code>run</code>, <code>summary</code>); the package <code>fdia_graph.operator</code>
+    exports its public names as before.</p>
+</li>
+<li>
+<p><strong>The repository has one place per kind of file.</strong> Files moved; nothing in the package changed. Each study is a
   folder of <code>experiments/</code> (<code>estimation</code>, <code>localization</code>, <code>trust</code>, <code>federated</code>, <code>defense_reproduction</code>, <code>benchmarks</code>,
   <code>data_release</code>): <code>run.py</code> measures and writes to the results store, <code>report.py</code> draws the figures of its page. The
   scripts came from docs/<package>/run.py and <code>make_report.py</code>, from tools/reproduce_*.py (now
@@ -1761,7 +1791,8 @@ the public API, the generated files and the numbers are the same as the previous
   pages of docs/nygrid/ are <code>docs/concepts/new_york_grid.md</code>, <code>docs/getting-started/new_york_walkthrough.md</code>,
   <code>docs/guides/extending_new_york.md</code> and <code>docs/guides/troubleshooting_new_york.md</code>. The run scripts keep their caches
   in <code>experiments/&lt;study&gt;/cache/</code> (move a cache from docs/<package>/results/cache/ to keep it).
-  <code>tools/site_index.py</code> was scripts/site_index.py. <code>tools/</code> holds repository tooling only.</li>
+  <code>tools/site_index.py</code> was scripts/site_index.py. <code>tools/</code> holds repository tooling only.</p>
+</li>
 <li><strong>Removed with the move:</strong> the design documents of docs/plans/ (in the git history: <code>git show
   91c15ad:docs/plans/README.md</code>), the review ledger (tools/review_ledger.py and its CSV), the CodeRabbit
   configuration, and the review-bot code of <code>tools/pr.py</code> with its <code>request-review</code> command; a merge needs green CI

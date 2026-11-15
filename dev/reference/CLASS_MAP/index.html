@@ -1766,8 +1766,8 @@ lives there.</p>
 real dependencies show: <code>models/</code> (every returned record, every config model and the one validation
 engine), <code>formulas/</code> (the equations), <code>schema.py</code> (the file protocol) and <code>errors.py</code> (the named
 errors). <code>__init__.py</code>, the <code>fg.*</code> public API, imports everything and is left out for the
-same reason. <code>streams.py</code> is deprecated for generation and kept for reading the v0.7 stream files.</p>
-<p><img alt="Module diagram: streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry" src="../../figures/diagrams/modules.png" /></p>
+same reason.</p>
+<p><img alt="Module diagram: federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry" src="../../figures/diagrams/modules.png" /></p>
 <h2 id="the-dataset">The dataset<a class="headerlink" href="#the-dataset" title="Permanent link">&para;</a></h2>
 <p><code>FdiaGraph</code> is the file. Five mixins over <code>DatasetBase</code> give it its faces: the static graph physics
 (<code>GraphMixin</code>), the admittance matrices (<code>AdmittanceMixin</code>), records and batches (<code>RecordsMixin</code>), the
@@ -1809,10 +1809,10 @@ each client trains its own copy with the shared <code>LocalTrainer</code> on its
 <p><img alt="Class diagram of the federated package: FederatedLocalizer under LearnedLocalizer, FedBusMLP under FederatedLocalizer and BusMLP, FedBusCNN under FederatedLocalizer and BusCNN; the federated localizer uses LocalTrainer, Partition, RoundLog and JacobianFeatures; RegionalPrior under SubspacePrior uses Partition" src="../../figures/diagrams/classes_federated.png" /></p>
 <h2 id="the-records">The records<a class="headerlink" href="#the-records" title="Permanent link">&para;</a></h2>
 <p>Everything a call returns is a <code>Bundle</code>, a dict with attribute access and a fixed key order. The record
-forms share seven field-group mixins, one per group of keys, so a record, a batch, an exported split and
-a stream carry the same names. An exported split adds an eighth, export-only group,
+forms share seven field-group mixins, one per group of keys, so a record, a batch and an exported split
+carry the same names. An exported split adds an eighth, export-only group,
 <code>PreviousFrameFields</code> (the previous frame's readings on a timeline).</p>
-<p><img alt="Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle, ArraysBundle and Stream inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
+<p><img alt="Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle and ArraysBundle inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle" src="../../figures/diagrams/classes_models.png" /></p>
 <h2 id="the-scores">The scores<a class="headerlink" href="#the-scores" title="Permanent link">&para;</a></h2>
 <p>The result of every <code>score()</code> is a <code>Bundle</code> too: <code>ErrorPair</code> and <code>EstimatorScores</code> for the estimators,
 <code>OverallMetrics</code>, <code>BenignMetrics</code>, <code>FamilyMetrics</code> and <code>LocalizerScores</code> for the localizers, <code>TrustScores</code>

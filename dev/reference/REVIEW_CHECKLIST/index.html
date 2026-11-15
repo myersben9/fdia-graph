@@ -1822,7 +1822,8 @@ A kind of finding that keeps coming up becomes a checklist item or a mechanical 
    and <code>.png</code>, and the data dictionary.</li>
 <li><strong>Backward compatibility.</strong></li>
 <li>A new parameter goes last or is keyword-only.</li>
-<li>A removed or renamed public name keeps a deprecated alias for one minor version.</li>
+<li>A removed or renamed public name is a changelog entry; no alias, shim or warning period is kept
+     (old behaviour lives in the released versions).</li>
 <li>Dataclass field order does not change.</li>
 <li>New public names are exported.</li>
 <li><strong>Tooling and CI.</strong></li>

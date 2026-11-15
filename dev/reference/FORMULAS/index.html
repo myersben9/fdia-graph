@@ -1862,14 +1862,14 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>pool line rating</td>
-<td><code>OverloadMixin.use_line_ratings</code> with <code>rating_source="pool"</code> (the default; <code>generate_timeline(..., am_attack={"rating_margin": ...})</code>)</td>
+<td><code>OverloadMixin.use_line_ratings</code> with <code>rating_source="pool"</code> (the default; <code>generate_timeline(..., am_attack=OverloadSettings(rating_margin=...))</code>)</td>
 <td>S_max_l = rating_margin × max over the pool of |S_f,l|, the noiseless from-end apparent flow of every branch (<code>MeasurementMixin.all_flows_from_states</code>), rating_margin = 1.25</td>
 <td>the plan's D15</td>
 <td>Am</td>
 </tr>
 <tr>
 <td>branch rating</td>
-<td><code>formulas.attacks.branch_ratings</code>, called by <code>OverloadMixin.line_ratings</code> (<code>am_attack={"rating_source": "pglib"}</code>)</td>
+<td><code>formulas.attacks.branch_ratings</code>, called by <code>OverloadMixin.line_ratings</code> (<code>am_attack=OverloadSettings(rating_source="pglib")</code>)</td>
 <td>the PGLib-OPF <code>rate_a</code> of the row with the branch's two end buses, the smallest over parallel rows; the 9,900 MVA placeholder is no rating</td>
 <td>[WU26, eq. 25]; PGLib-OPF v23.07</td>
 <td>Am</td>
