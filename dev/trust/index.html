@@ -669,6 +669,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -968,6 +979,34 @@
     
   
     Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
   
 
     
@@ -1445,6 +1484,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1537,8 +1587,56 @@ echelon basis, an upper bound on the exact NP-hard minimum). Both selectors read
 set back to their benign reading (the attacker cannot write them) and a WLS residual test at the
 benign false-alarm level says whether the attack now shows. <code>detected_before</code> is the residual test
 with every meter writable, <code>detected_after</code> with the trust in place.</p>
+<h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
+<p>The package holds two things: the trusted-meter selectors on a dataset, and the trusted-PMU defense of [WU26]
+on an overload window, the latter both on the generator's attack and on the paper's own attack.</p>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trust/base.py</code></td>
+<td><code>TrustSelector</code>, the shared fit and score (the Jacobian at the benign mean, the attack-cost kernel, the residual test with the secured meters pinned), and <code>TrustedMeters</code>, the greedy selection</td>
+</tr>
+<tr>
+<td><code>trust/meter_dqn.py</code></td>
+<td><code>TrustedMetersDQN</code>: the same selection as an MDP with a deep Q-network</td>
+</tr>
+<tr>
+<td><code>trust/secured.py</code></td>
+<td><code>secured_copy</code>: a copy of a timeline with chosen meters secured and its temporal features recomputed</td>
+</tr>
+<tr>
+<td><code>trust/pmu_environment.py</code></td>
+<td><code>DefenseEnv</code>, the protocol both trusted-PMU MDPs implement, and <code>WuDefenseEnv</code>: the trusted-PMU configuration as an MDP on one overload window of the generator, its reward the rise in the fewest-tamper search's cost</td>
+</tr>
+<tr>
+<td><code>trust/pmu_row_reduction.py</code></td>
+<td><code>TrustedPMUs</code>: the trusted PMUs by row reduction of the measurement matrix (the paper's Solution 1)</td>
+</tr>
+<tr>
+<td><code>trust/pmu_dqn.py</code></td>
+<td><code>TrustedPMUsDQN</code>: the trusted PMUs by a deep Q-network trained with the paper's Algorithm 1 (Solution 2)</td>
+</tr>
+<tr>
+<td><code>trust/faithful_attack.py</code></td>
+<td>the paper's attack as the paper states it, on a pandapower case: the meter plan, the multi-snapshot attack on IPOPT, incremental trust (needs the <code>[wu]</code> extra)</td>
+</tr>
+<tr>
+<td><code>trust/faithful_defense.py</code></td>
+<td><code>Wu26DefenseEnv</code> and <code>wu26_solution1</code>: the trusted-PMU MDP and Solution 1 on that attack</td>
+</tr>
+</tbody>
+</table>
+<p>The defense results are reproduced by <code>tools/reproduce_defense.py</code> (on the generator),
+<code>tools/reproduce_faithful_defense.py</code> and <code>tools/reproduce_faithful_dqn.py</code> (on the paper's attack); the
+numbers are in <a href="../wu26/"><code>../wu26/README.md</code></a>.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
-<p><code>python docs/trust/run_trust.py</code> (set <code>FG_SYSTEM</code>) writes a run of <code>trust.selection</code> to the
+<p><code>python docs/trust/run.py</code> (set <code>FG_SYSTEM</code>) writes a run of <code>trust.selection</code> to the
 results store: the selection, the attack-cost curve, and the detection table. Read the detection
 table first. The attack cost is the sparsest row of an echelon basis of the open subspace, an upper
 bound on the true sparsest attack, so it is not monotone in the secured set: on IEEE-14 the greedy
@@ -1608,7 +1706,7 @@ of the timeline in which the selected meters read their benign value on every fr
 locked out of them, the tamper masks and the stored temporal features following), so every
 estimator and localizer of the other two guides can be scored with the set secured;
 <code>python docs/trust/run_secured.py</code> (set <code>FG_SYSTEM</code>, <code>FG_K</code>) does that for the greedy and the DQN
-selections of <code>run_trust.py</code> and writes runs of <code>trust.secured_localization</code> and
+selections of <code>run.py</code> and writes runs of <code>trust.secured_localization</code> and
 <code>trust.secured_estimation</code> to the results store.</p>
 <p>Rule: a localization gate never down-weights a secured meter.
 <code>GatedPrior</code> scales every meter of a flagged bus by a thousandth. On a secured copy those meters

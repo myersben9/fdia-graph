@@ -854,6 +854,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-each-piece-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where each piece lives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#7-building-your-own" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1029,6 +1040,34 @@
     
   
     Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
   
 
     
@@ -1571,6 +1610,17 @@
     <span class="md-ellipsis">
       
         6. The rule for features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-each-piece-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where each piece lives
       
     </span>
   </a>
@@ -2430,6 +2480,84 @@ recent change on every frame, so its swing stays near the benign level (<code>fo
 output feeds a detector (<code>ResidualLocalizer</code>, the Jacobian feature sets, <code>TrustSelector</code>) fits its
 estimator with <code>calibrate="measured"</code>, so no clean layer is read at fit or test time. The state
 estimators themselves default to <code>calibrate="truth"</code>, the estimation benchmark's calibration.</p>
+<h2 id="where-each-piece-lives">Where each piece lives<a class="headerlink" href="#where-each-piece-lives" title="Permanent link">&para;</a></h2>
+<p>The generator is <code>FdiaGenerator</code> in <code>engine/core.py</code>, composed of mixins over the shared state contract of
+<code>engine/base.py</code>:</p>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine/core.py</code></td>
+<td><code>FdiaGenerator</code>: the grid, the meter plan and noise, attack targeting, and the mixins below composed</td>
+</tr>
+<tr>
+<td><code>engine/base.py</code></td>
+<td><code>GridBase</code>: the attributes and cross-method signatures the mixins share</td>
+</tr>
+<tr>
+<td><code>engine/measurement.py</code></td>
+<td><code>MeasurementMixin</code>: the measurement function <code>h(x)</code>, a scan from a state</td>
+</tr>
+<tr>
+<td><code>engine/physics.py</code></td>
+<td>a scan's load and generation, read from its stored state</td>
+</tr>
+<tr>
+<td><code>engine/records.py</code></td>
+<td>one scan of the timeline writer: benign, or attacked by <code>engine.attacks</code></td>
+</tr>
+<tr>
+<td><code>engine/solvers.py</code></td>
+<td>the optimization solver the AC optimal power flows run on, found and checked in one place</td>
+</tr>
+<tr>
+<td><code>engine/pandapower_types.py</code></td>
+<td>the pandapower objects the engine reads, as types</td>
+</tr>
+<tr>
+<td><code>engine/attacks/area.py</code></td>
+<td>the attacker's area: the subnetwork a stealthy attack re-solves and the boundary it holds</td>
+</tr>
+<tr>
+<td><code>engine/attacks/false_state.py</code></td>
+<td>the local false state: the area re-solved under false loads with the boundary held true</td>
+</tr>
+<tr>
+<td><code>engine/attacks/stealthy.py</code></td>
+<td><code>At</code> one scan at a time: a local false state added to the true scan</td>
+</tr>
+<tr>
+<td><code>engine/attacks/overload.py</code></td>
+<td><code>Am</code>, the multi-snapshot overload attack of [WU26]</td>
+</tr>
+<tr>
+<td><code>engine/attacks/minimize.py</code></td>
+<td>the cheapest support of an attack window [WU26, eq. 12]</td>
+</tr>
+<tr>
+<td><code>engine/attacks/rref.py</code></td>
+<td>the support by [WU26]'s row reduction</td>
+</tr>
+<tr>
+<td><code>engine/attacks/episodes.py</code></td>
+<td>each episode's design, drawn at onset by its family's designer</td>
+</tr>
+<tr>
+<td><code>generation/plan.py</code>, <code>generation/design.py</code>, <code>generation/emit.py</code>, <code>generation/write.py</code></td>
+<td>the stages of a timeline: plan the splits and episodes, design the <code>Am</code> episodes, emit every frame, write the file</td>
+</tr>
+</tbody>
+</table>
+<p>The New York grid's attacks are separate classes on the New York network: <code>engine/attacks/attacker.py</code>
+(<code>Attacker</code>), <code>engine/attacks/family.py</code> (what an attack occupies on the timeline), <code>engine/attacks/ramp.py</code>
+(<code>Ramp</code>), <code>engine/attacks/msfdia.py</code> (<code>MsFdia</code>), <code>engine/attacks/opf.py</code> and <code>engine/attacks/interface.py</code>
+(the overload with false states from a local optimal power flow, and on an interface); they are described in
+<a href="../../nygrid/ARCHITECTURE/"><code>../nygrid/ARCHITECTURE.md</code></a>.</p>
 <h2 id="7-building-your-own">7. Building your own<a class="headerlink" href="#7-building-your-own" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>

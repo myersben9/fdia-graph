@@ -903,6 +903,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
@@ -1565,12 +1593,12 @@ checks a docs change locally.</p>
 <tbody>
 <tr>
 <td>nothing a user sees changes without a changelog entry</td>
-<td>public API, file formats, the numbers a timeline, estimator or localizer produces; moved private names get a warning alias for one minor version</td>
+<td>public API, file formats, the numbers a timeline, estimator or localizer produces; a private name (a leading underscore) carries no promise and gets no alias when it moves</td>
 <td><code>CHANGELOG.md</code>, <code>## Unreleased</code></td>
 </tr>
 <tr>
 <td>every change is proven behaviour-free, or its effect is measured</td>
-<td>the tests pin the fewest-tamper search's answers (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios (<code>tests/test_wu_scenarios.py</code>) and the formulas and models; a change that moves a generated number states the delta</td>
+<td>the tests pin the fewest-tamper search's answers (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios (<code>tests/test_overload_case_studies.py</code>) and the formulas and models; a change that moves a generated number states the delta</td>
 <td><code>pytest -W "error::DeprecationWarning:fdia_graph" tests</code></td>
 </tr>
 <tr>
@@ -1604,9 +1632,14 @@ checks a docs change locally.</p>
 <td><code>python tools/results_docs.py --write</code>, <code>--check</code>; <code>--lint</code> lists typed decimals</td>
 </tr>
 <tr>
-<td>the paper maps to the code</td>
-<td>an equation of [WU26] is cited as <code>[WU26 eq. 28]</code> (<code>[WU26 eqs. 21-23]</code>, <code>[WU26 Alg. 1]</code>), in the docstring or a comment of the function that implements it and of the test that checks it (or the test is named <code>test_wu26_eq28_...</code>); every equation in <code>schema.WU26_EQUATIONS</code> has a function and a test</td>
-<td><code>python tools/equation_map.py</code> writes the generated sections of <code>FORMULAS.md</code> and <code>CONCEPTS_TO_CODE.md</code>; <code>--check</code> in the pre-review and CI</td>
+<td>a file's name says what it does</td>
+<td>plain words: never its folder's name again (<code>tests/nygrid/test_areas.py</code>, not test_nygrid_areas.py), never a sibling's name plus a short ending (reduce.py beside reduced.py), no digit, no citation key or first author's surname from <code>REFERENCES.md</code></td>
+<td><code>python tools/layout.py --check</code></td>
+</tr>
+<tr>
+<td>every file says what it does, and every page keeps up</td>
+<td>every Python file opens with a docstring whose first paragraph is its line in <code>docs/reference/MODULES.md</code>; every package has a page (<code>PAGES</code> in <code>tools/layout.py</code>) that names each of its modules; every module or name a doc or docstring cites in a code span exists</td>
+<td><code>python tools/layout.py</code> writes the file map; <code>--check</code> in the pre-review and CI</td>
 </tr>
 <tr>
 <td>speed is tracked</td>
@@ -1705,6 +1738,10 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
 <tr>
 <td>a formula</td>
 <td><code>formulas/</code>, and its row in <code>docs/reference/FORMULAS.md</code></td>
+</tr>
+<tr>
+<td>any file, to learn what it does</td>
+<td><code>docs/reference/MODULES.md</code>, the first paragraph of every file's docstring</td>
 </tr>
 </tbody>
 </table>

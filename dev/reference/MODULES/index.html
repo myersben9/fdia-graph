@@ -1,0 +1,2759 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stealthy FDIA localization datasets for power grids, PyTorch-ready in one line">
+      
+      
+      
+        <link rel="canonical" href="https://fdia.artecommercellc.com/dev/reference/MODULES/">
+      
+      
+        <link rel="prev" href="../GLOSSARY/">
+      
+      
+        <link rel="next" href="../CONCEPTS_TO_CODE/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Modules - fdia-graph</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#modules" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="fdia-graph" class="md-header__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            fdia-graph
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Modules
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../ROADMAP/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../se/" class="md-tabs__link">
+          
+  
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/generation/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../DATA_DICTIONARY/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../plans/" class="md-tabs__link">
+          
+  
+  
+  Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="fdia-graph" class="md-nav__button md-logo" aria-label="fdia-graph" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m8.28 5.45-1.78-.9L7.76 2h8.47l1.27 2.55-1.78.89L15 4H9zM18.62 8h-4.53l-.79-3h-2.6l-.79 3H5.38L4.1 10.55l1.79.89.73-1.44h10.76l.72 1.45 1.79-.89zm-.85 14H15.7l-.24-.9L12 15.9l-3.47 5.2-.23.9H6.23l2.89-11h2.07l-.36 1.35L12 14.1l1.16-1.75-.35-1.35h2.07zm-6.37-7-.9-1.35-1.18 4.48zm3.28 3.12-1.18-4.48-.9 1.36z"/></svg>
+
+    </a>
+    fdia-graph
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/myersben9/fdia-graph" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    myersben9/fdia-graph
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ROADMAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../se/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../localization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Localization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../trust/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trusted meters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../federated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Federated
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeline generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/state_estimation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State estimation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/new_york/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_DICTIONARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data dictionary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GLOSSARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-results-stores-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The results store's queries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#site-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Site scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONCEPTS_TO_CODE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts to code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CLASS_MAP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture (UML diagrams)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../FORMULAS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Formulas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../BENCHMARKS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REVIEW_CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review checklist
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../REFERENCES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    References
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/WU_MSFDIA_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu MS-FDIA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/WU_DEFENSE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wu defense
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../nygrid/ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    New York grid architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-package" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The package
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-results-stores-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The results store's queries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#site-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Site scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h1>
+<p>What every Python file of the repository does, in one line: the first paragraph of its docstring. Generated by <code>tools/layout.py</code>; edit the docstring, not this page. The package section names each file by its module under <code>fdia_graph</code> (<code>se.base</code> is <code>src/fdia_graph/se/base.py</code>).</p>
+<!-- file-map: generated by tools/layout.py -->
+<h2 id="the-package">The package<a class="headerlink" href="#the-package" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fdia_graph</code></td>
+<td>fdia-graph — load &amp; generate ML-only dangerous FDIA localization datasets (realistic measurement graphs).</td>
+</tr>
+<tr>
+<td><code>_lazy</code></td>
+<td>Public names that load on first use, for the nygrid packages.</td>
+</tr>
+<tr>
+<td><code>dataset</code></td>
+<td>FdiaGraph: a PyTorch-ready dataset over one HDF5 file, a timeline (0.18+, one row per frame in time order, <code>kind="timeline"</code>) or a record shard (the v0.7.2 release).</td>
+</tr>
+<tr>
+<td><code>dataset.base</code></td>
+<td>The loader's shared state and the constants its concerns read.</td>
+</tr>
+<tr>
+<td><code>dataset.clients</code></td>
+<td>The timeline as federated clients: each utility sees only its own meters, buses and labels.</td>
+</tr>
+<tr>
+<td><code>dataset.export</code></td>
+<td>A whole split at once: <code>summary</code>, and the arrays/tensors/frames of every kept record.</td>
+</tr>
+<tr>
+<td><code>dataset.graph</code></td>
+<td>The static graph of a shard: connectivity and the per-branch and per-bus physics, as tensors.</td>
+</tr>
+<tr>
+<td><code>dataset.physics</code></td>
+<td>The admittance matrices built from the static graph, and the clean power flow on every branch derived from the clean state through them.</td>
+</tr>
+<tr>
+<td><code>dataset.records</code></td>
+<td>One record at a time: unit conversion, <code>__getitem__</code> in dict/PyG form, <code>collate</code>, and a ready DataLoader.</td>
+</tr>
+<tr>
+<td><code>dataset.sequence</code></td>
+<td>The timeline as sequences: sliding windows over a time-ordered view, and the episode table.</td>
+</tr>
+<tr>
+<td><code>download</code></td>
+<td>Fetch built-in shards from the GitHub Release and cache them under ~/.cache/fdia_graph.</td>
+</tr>
+<tr>
+<td><code>engine</code></td>
+<td>The generation engine — the math/physics/theory half of the SDK, behind fg.generate().</td>
+</tr>
+<tr>
+<td><code>engine.attacks</code></td>
+<td>Every attack the generator builds, behind one mixin: <code>AttackMixin</code>, mixed into FdiaGenerator.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.area</code></td>
+<td>The attacker's area: the subnetwork a stealthy attack re-solves, and the boundary it holds true.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.attacker</code></td>
+<td>The attacker: the local subnetwork it re-solves, and the false states its two goals imply.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.episodes</code></td>
+<td>What one episode attacks: its design, drawn at onset by the family's designer.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.false_state</code></td>
+<td>The local false state of a stealthy attack: the attacker's area re-solved under false loads with the boundary held true, checked against the operating limits, and the attack vector it writes.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.family</code></td>
+<td>What one attack occupies on the timeline, and the interface its two families share.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.interface</code></td>
+<td>The overload attack on a NYISO interface (N48, N49, ours): Am with OpfFdia's false states and every one of its bounds, the goal moved from one branch's rating to the flow across an interface.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.minimize</code></td>
+<td>The cheapest support of an attack window [WU26 eq. 12].</td>
+</tr>
+<tr>
+<td><code>engine.attacks.msfdia</code></td>
+<td>Am, the multi-snapshot overload FDIA of [1] (TSG 2026, eqs. 12-25): over a window of snapshots the reported apparent flow of one or two target branches is driven to their ratings, each snapshot the reading of one AC false state so the operator's residual test stays quiet, while the true flow is below the rating. The attack tampers the fewest distinct meters (eq. 12).</td>
+</tr>
+<tr>
+<td><code>engine.attacks.opf</code></td>
+<td>The overload attacks with the attacker's false states from a local optimal power flow (N35, ours).</td>
+</tr>
+<tr>
+<td><code>engine.attacks.overload</code></td>
+<td><code>Am</code>, the multi-snapshot overload attack of [WU26]: the reported flows of its target branches (two by default, as the paper's case studies overload two lines at once, or one; <code>OverloadSettings.n_lines</code>) driven to their ratings over the window, with the fewest devices tampered.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.ramp</code></td>
+<td>At, the slow ramp: a false load that rises a little each frame, every step below the natural five-minute load swing, so no single snapshot looks anomalous while the total drifts the state away.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.rref</code></td>
+<td>[WU26]'s own construction of the attack's support: row reduction of the transposed attack-area Jacobian with column exchanges.</td>
+</tr>
+<tr>
+<td><code>engine.attacks.stealthy</code></td>
+<td>The stealthy ramp At: one scan at a time, a local false state added to the true scan.</td>
+</tr>
+<tr>
+<td><code>engine.base</code></td>
+<td>Shared state contract for FdiaGenerator's mixins — attribute + cross-method annotations only.</td>
+</tr>
+<tr>
+<td><code>engine.core</code></td>
+<td>Dataset generation engine (attack simulation + realistic measurement emission).</td>
+</tr>
+<tr>
+<td><code>engine.measurement</code></td>
+<td>Measurement emission: turn a grid state into meter readings (the measurement function h(x)).</td>
+</tr>
+<tr>
+<td><code>engine.pandapower_types</code></td>
+<td>The pandapower objects the engine reads, as types.</td>
+</tr>
+<tr>
+<td><code>engine.physics</code></td>
+<td>A scan's load and generation, read from its stored state.</td>
+</tr>
+<tr>
+<td><code>engine.records</code></td>
+<td>One scan of the timeline writer: a benign scan, or an attacked At scan built by <code>engine.attacks</code>.</td>
+</tr>
+<tr>
+<td><code>engine.sensing</code></td>
+<td>The meters: what each client measures, and how wrong each meter is.</td>
+</tr>
+<tr>
+<td><code>engine.sensing.measure</code></td>
+<td>The measurement function: the meter readings a grid state gives, and their derivatives.</td>
+</tr>
+<tr>
+<td><code>engine.sensing.meters</code></td>
+<td>The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class.</td>
+</tr>
+<tr>
+<td><code>engine.sensing.noise</code></td>
+<td>Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter.</td>
+</tr>
+<tr>
+<td><code>engine.solvers</code></td>
+<td>The optimization solver every nygrid OPF runs on, found and checked in one place.</td>
+</tr>
+<tr>
+<td><code>errors</code></td>
+<td>Every error the package raises on purpose, in one place.</td>
+</tr>
+<tr>
+<td><code>federated</code></td>
+<td>Federated training over K clients (utilities) that never pool their records [FED26].</td>
+</tr>
+<tr>
+<td><code>federated.aggregate</code></td>
+<td>Averaging torch state dicts across clients with <code>formulas.federated.fedavg</code> [MCM17].</td>
+</tr>
+<tr>
+<td><code>federated.localizer</code></td>
+<td>Federated per-bus localizers: the paper's BusMLP and BusCNN trained by FedAvg over K clients [MCM17], [FED26], with records never leaving a client.</td>
+</tr>
+<tr>
+<td><code>federated.partition</code></td>
+<td>The split of a system's buses into K clients (utilities) for federated training [FED26].</td>
+</tr>
+<tr>
+<td><code>federated.se</code></td>
+<td>Federated fitting of the state estimator's learned part [EST26], [FED26].</td>
+</tr>
+<tr>
+<td><code>federated.utilities</code></td>
+<td>Federated clients: each NY bus belongs to the electric utility whose service territory holds it.</td>
+</tr>
+<tr>
+<td><code>formulas</code></td>
+<td>The mathematics of the package as named, pure functions: numpy in, numpy out, no files, no dataset objects, no torch. Each function carries its equation and a source key from docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue.</td>
+</tr>
+<tr>
+<td><code>formulas.attacks</code></td>
+<td>Attack shapes defined by the dataset [DAT26] that are pure functions of their parameters.</td>
+</tr>
+<tr>
+<td><code>formulas.estimation</code></td>
+<td>Weighted least squares state estimation and its robust variants, one function per equation [SCH70], [HAN75], [HUB64], [EST26].</td>
+</tr>
+<tr>
+<td><code>formulas.federated</code></td>
+<td>Statistics that combine across federated clients without moving their records [FED26].</td>
+</tr>
+<tr>
+<td><code>formulas.linalg</code></td>
+<td>Numerical linear algebra the estimators lean on: a guarded inverse of a normal matrix, its condition number without an eigen-decomposition, and per-record normal matrices in sub-batches.</td>
+</tr>
+<tr>
+<td><code>formulas.metrics</code></td>
+<td>Per-bus localization metrics from confusion counts, so they can be summed across clients or thresholds before any ratio is taken [KEC25].</td>
+</tr>
+<tr>
+<td><code>formulas.network</code></td>
+<td>The AC network model: branch admittances, bus injections and branch flows [AE04, ch. 2], [MP19].</td>
+</tr>
+<tr>
+<td><code>formulas.noise</code></td>
+<td>The meter error model: accuracy-class standard deviations split into a constant per-meter bias and a per-scan jitter [ASP14], our split.</td>
+</tr>
+<tr>
+<td><code>formulas.projection</code></td>
+<td>Projections through the measurement Jacobian: the explained and unexplained parts of a measurement change, leverage, the weak directions, and the meter-to-bus aggregation of the Jacobian-informed features [JAC26], [HAN75].</td>
+</tr>
+<tr>
+<td><code>formulas.temporal</code></td>
+<td>The temporal features of a scan [FED26]: the one-step injection change and its z-score against the bus's typical recent change, and the recent-change scale itself.</td>
+</tr>
+<tr>
+<td><code>formulas.trust</code></td>
+<td>Trusted-meter selection against stealthy attacks [WU26]: the attack subspace a secured set leaves open, the cost of the cheapest attack in it, and the greedy selection that closes it.</td>
+</tr>
+<tr>
+<td><code>generation</code></td>
+<td>generate(system, name, **knobs) — build a custom dataset and register it as <code>name</code>.</td>
+</tr>
+<tr>
+<td><code>generation.design</code></td>
+<td>The design stage of a timeline: the overload Am episodes of a split, designed before it is walked.</td>
+</tr>
+<tr>
+<td><code>generation.emit</code></td>
+<td>The emit stage of a timeline: every frame in time order, benign or under its episode's design.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid</code></td>
+<td>The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.build</code></td>
+<td>The production build: the inputs fetched at their pinned versions, and the <code>TimelineBuilder</code> with every decided bound (N8, N27 to N49) in one place.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.case</code></td>
+<td>The grid as one frozen record of arrays.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.config</code></td>
+<td>Build settings and the one place random generators are made.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.dispatch</code></td>
+<td>Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.fixes</code></td>
+<td>The changes that make NYgrid's operating points solvable in AC (checked in MATLAB on 8760 hours of 2019).</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.inputs</code></td>
+<td>Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.interfaces</code></td>
+<td>NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.io</code></td>
+<td>HDF5 files of the build. The only module that imports h5py.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.load_fit</code></td>
+<td>How the within-hour terms of <code>LoadModel</code> were fitted (N31): the fluctuation's spread and autocorrelation on the real zones of a held-out year (<code>fluctuation_fit</code>), and industrial switching on zone D's large steps (<code>switching_fit</code>). Their results are the FLUCT_* and SWITCH_* constants of <code>loads.py</code>; run these again to refit them on other data.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.load_metrics</code></td>
+<td>How a load series is compared with the real one (<code>LoadModel.validate</code>): the load factor, the distribution of the load and of its five-minute steps, the hourly autocorrelation and the spectrum.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.load_sources</code></td>
+<td>Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.loads</code></td>
+<td>Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.network</code></td>
+<td>Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (<code>formulas.network</code>).</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.npcc</code></td>
+<td>Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m).</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.pool</code></td>
+<td>The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32).</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.ratings</code></td>
+<td>Branch ratings from the limits NYgrid itself sets. <code>npcc.mat</code> carries no branch ratings.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.schedule</code></td>
+<td>Where the timeline's splits are cut and where each split's episodes go.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.solver</code></td>
+<td>AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (<code>OperatorOpf</code>), solved scan by scan.</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.tables</code></td>
+<td>The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before).</td>
+</tr>
+<tr>
+<td><code>generation.nygrid.timeline</code></td>
+<td>The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled.</td>
+</tr>
+<tr>
+<td><code>generation.plan</code></td>
+<td>The plan stage of a timeline: where its splits are cut and where each split's episodes go.</td>
+</tr>
+<tr>
+<td><code>generation.write</code></td>
+<td>The write stage of a timeline: its datasets, columns, episodes and attributes in the HDF5 file.</td>
+</tr>
+<tr>
+<td><code>localization</code></td>
+<td>Per-bus FDIA localization on fdia-graph datasets, sklearn style.</td>
+</tr>
+<tr>
+<td><code>localization.base</code></td>
+<td>Per-bus FDIA localization on fdia-graph datasets — the shared machinery behind every method class.</td>
+</tr>
+<tr>
+<td><code>localization.learned</code></td>
+<td>Learned per-bus localizers: the graph-free encoders that gave the best localization numbers in the federated localization paper, on that paper's 14-dim per-bus feature vector.</td>
+</tr>
+<tr>
+<td><code>localization.methods</code></td>
+<td>The localizer method classes. Each changes exactly one thing about LocalizerBase — the per-bus score — so a difference between two arms is a difference between detection signals, not between calibration or metrics code.</td>
+</tr>
+<tr>
+<td><code>models</code></td>
+<td>Every data model of the package in one place.</td>
+</tr>
+<tr>
+<td><code>models.assets</code></td>
+<td>How files are found: where a dataset comes from, where its bytes are fetched from, and one line of the N-1 candidate list.</td>
+</tr>
+<tr>
+<td><code>models.base</code></td>
+<td>Bundle: a typed record that still IS the dict it used to be.</td>
+</tr>
+<tr>
+<td><code>models.choices</code></td>
+<td>Every argument that takes one value from a fixed set, in one place.</td>
+</tr>
+<tr>
+<td><code>models.config</code></td>
+<td>The settings every consumer accepts, one model each, checked when built (<code>models.validation</code>).</td>
+</tr>
+<tr>
+<td><code>models.data</code></td>
+<td>What a user gets back: one record, a batch, a whole split, a summary, a stream, the episode table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still the dict it always was.</td>
+</tr>
+<tr>
+<td><code>models.errors</code></td>
+<td>The named errors of conditions only the data reveals, beside <code>ConfigError</code> so a model can raise one (<code>Validated.error</code>), and the one error of an environment that cannot run a step (<code>SolverUnavailable</code>). <code>fdia_graph.errors</code> re-exports every one.</td>
+</tr>
+<tr>
+<td><code>models.federated</code></td>
+<td>What the federated layer passes around: how the buses split into clients.</td>
+</tr>
+<tr>
+<td><code>models.fields</code></td>
+<td>The field groups the data bundles share.</td>
+</tr>
+<tr>
+<td><code>models.frames</code></td>
+<td>What the generator passes around per scan: a measurement scan, the emitted frame with its labels, the run's attack knobs, the design of an At ramp and of an Am overload episode, and what the fewest-tamper search returns.</td>
+</tr>
+<tr>
+<td><code>models.grid</code></td>
+<td>The static description of a system: the per-branch pi model and the admittance matrices built from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was built with. Nothing here changes from one scan to the next.</td>
+</tr>
+<tr>
+<td><code>models.inputs</code></td>
+<td>What the formulas and the parsers accept, one model each, checked when built (<code>models.validation</code>).</td>
+</tr>
+<tr>
+<td><code>models.results</code></td>
+<td>The models of a results table: the metric registry, a <code>Record</code> (one measured value with the keys that say what it is) and a <code>Provenance</code> (which run made it), plus the parsers that read loose input (a nested score report, a filter value, a run's settings) by its type. Every check lives here, per the validation rule, so a store never holds an unknown metric, a non-finite value or a malformed key; <code>fdia_graph.results</code> builds these models and never checks its input itself.</td>
+</tr>
+<tr>
+<td><code>models.scores</code></td>
+<td>The result tables: an estimator's error pair per record class, a localizer's metric rows per class, and the Jacobian feature outputs. Each is a Bundle, indexable by family name as before.</td>
+</tr>
+<tr>
+<td><code>models.training</code></td>
+<td>What the learned localizers pass between their fitting pieces (a centralized fit and a federated client share them).</td>
+</tr>
+<tr>
+<td><code>models.validation</code></td>
+<td>The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place").</td>
+</tr>
+<tr>
+<td><code>operator</code></td>
+<td>The grid operator under attack: what it does with false readings, and what that costs on the true grid.</td>
+</tr>
+<tr>
+<td><code>operator.acsced</code></td>
+<td>The operator's real-time dispatch as an AC optimal power flow (<code>AcSced</code>), scan by scan, beside the DC <code>DcSced</code>.</td>
+</tr>
+<tr>
+<td><code>operator.areas</code></td>
+<td>Who bears an attack's damage, and whose grid the attacker uses: the consequence split by New York zone, by utility and by neighboring area, with what the attack tampered in each.</td>
+</tr>
+<tr>
+<td><code>operator.day</code></td>
+<td>An attacked day as the operator meets it: the scans it reads and their benign twin, the true states, the pool's unit dispatch and costs, the zonal prices, and the interfaces with their real limits (<code>operator_day</code>).</td>
+</tr>
+<tr>
+<td><code>operator.policy</code></td>
+<td>The operator's choices as one record (<code>OperatorPolicy</code>): which operator (<code>OperatorMode</code>), how late it acts, where the inadvertent interchange its neighbours supply enters (<code>Entry</code>, <code>entry_share</code>), whether it reads the true flows after its own dispatch, and how it answers an alarm (<code>AlarmAnswer</code>). The record checks every choice when it is built, so a typo is a <code>ConfigError</code> before anything runs.</td>
+</tr>
+<tr>
+<td><code>operator.response</code></td>
+<td>The operator's response, as one module: every name of <code>day</code>, <code>ties</code>, <code>truegrid</code>, <code>policy</code>, <code>run</code> and <code>summary</code>, re-exported so the imports written before the split keep working. New code imports from those modules or from <code>fdia_graph.operator</code>.</td>
+</tr>
+<tr>
+<td><code>operator.run</code></td>
+<td>The operator scan by scan (D1 to D6). It dispatches on what it reads (<code>DcSced</code>), the attacked scans and, separately, their benign twin, each in closed loop on its own dispatch. The dispatch is applied to the true grid, whose load the attack never changed: the imbalance it leaves is picked up by regulation, the online free units in proportion to their five-minute ramp (AGC), up to <code>REG_CAP</code>, and the rest by the neighbours as inadvertent interchange. The attack's consequence is the attacked run less the benign one, so whatever the model does alike in both (DC against AC, the cost model) cancels. <code>respond</code> runs both and returns the <code>Response</code>.</td>
+</tr>
+<tr>
+<td><code>operator.sced</code></td>
+<td>The operator's real-time dispatch: a DC security-constrained dispatch around the current basepoint, as NYISO's real-time dispatch is a DC dispatch on shift factors (D2).</td>
+</tr>
+<tr>
+<td><code>operator.summary</code></td>
+<td>The attack's consequence over a day, attacked run less benign run (<code>summarize</code>): the dispatch moved, the regulation and its energy by utility, the inadvertent interchange, the true interface changes and margins, the scans over a true limit and those whose power flow failed, the costs, and any load shed.</td>
+</tr>
+<tr>
+<td><code>operator.ties</code></td>
+<td>The interchange check: what the operator reads across the ties against what the neighbours' own meters read (N62, N67). The New York ends of the ties carry the attack's false interchange, the neighbours' ends do not, so the gap between them (<code>tie_gap</code>) leaves its benign noise once an attack moves the interchange, and <code>interchange_alarm</code> names the first scan it does. <code>seen_interfaces</code> is the interface flow the operator reads from its own scans.</td>
+</tr>
+<tr>
+<td><code>operator.truegrid</code></td>
+<td>The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (<code>TrueGrid.state</code>), the true state once a run has acted (<code>run_state</code>, the closed loop), and the interface flows and the worst single 345 kV outage it gives (<code>change</code>). A power flow that fails returns None and its scan is unknown, never safe. The outage is screened with DC outage factors, or with <code>ac</code> by an AC power flow of the grid without each branch (<code>ac_power_flow</code>).</td>
+</tr>
+<tr>
+<td><code>profiles</code></td>
+<td>Load-profile ingestion + operating-state generation — the FRONT of the pipeline.</td>
+</tr>
+<tr>
+<td><code>ratings</code></td>
+<td>Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package.</td>
+</tr>
+<tr>
+<td><code>registry</code></td>
+<td>Dataset registry: built-in (downloadable) datasets + locally generated ones.</td>
+</tr>
+<tr>
+<td><code>results</code></td>
+<td>Measured results as data: typed records with their provenance, one tidy store, and the renderers that put the numbers into docs and figures, so no measured number is typed by hand.</td>
+</tr>
+<tr>
+<td><code>results.docs</code></td>
+<td>Measured numbers in markdown come from the store, never from a keyboard.</td>
+</tr>
+<tr>
+<td><code>results.render</code></td>
+<td>Turning records into what a reader sees: a formatted cell, a markdown table, a pivot of records by two keys, and the CSV sidecar a figure is drawn from. Nothing here measures or stores anything.</td>
+</tr>
+<tr>
+<td><code>results.run</code></td>
+<td>How a harness records what it measured: open a <code>Run</code>, add values, and the run writes them to the store with its provenance when it closes.</td>
+</tr>
+<tr>
+<td><code>results.store</code></td>
+<td>The results store: one tidy CSV per experiment plus one table of runs, in a folder kept in git.</td>
+</tr>
+<tr>
+<td><code>results.studies</code></td>
+<td>Studies over attack windows: the parts every research tool under <code>tools/nygrid/</code> repeats, in one place.</td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td>The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (<code>timeline</code>, <code>generation</code>), the readers (<code>dataset</code>) and the tools agree through these names and nowhere else; <code>tools/readability.py</code> refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (<code>node_x</code>, <code>clean</code>, ...) are the public vocabulary of a record and stay as words in the code; <code>FIELD_PATH</code> maps them here.</td>
+</tr>
+<tr>
+<td><code>se</code></td>
+<td>State estimation on fdia-graph datasets, sklearn style.</td>
+</tr>
+<tr>
+<td><code>se.base</code></td>
+<td>State estimation on fdia-graph datasets — the shared machinery behind every method class.</td>
+</tr>
+<tr>
+<td><code>se.detect</code></td>
+<td>Detection: what the operator's checks see, as building blocks.</td>
+</tr>
+<tr>
+<td><code>se.detect.estimate</code></td>
+<td>The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic.</td>
+</tr>
+<tr>
+<td><code>se.detect.fleets</code></td>
+<td>Other meter fleets: the same meters and accuracy classes with fresh constant biases.</td>
+</tr>
+<tr>
+<td><code>se.detect.rules</code></td>
+<td>When a detector alarms: the rule that turns a statistic per scan into a first alarm.</td>
+</tr>
+<tr>
+<td><code>se.jacobian</code></td>
+<td>Jacobian-informed features (Abdulin &amp; Narimani): the measurement Jacobian as a physics transform of the scan-to-scan measurement change, not as raw model input.</td>
+</tr>
+<tr>
+<td><code>se.methods</code></td>
+<td>The estimator method classes. Each changes exactly one thing about SEBase, so a difference between two arms is a difference between estimators rather than between implementations.</td>
+</tr>
+<tr>
+<td><code>streams</code></td>
+<td>The deprecated stream entry points, to be removed in a future release: <code>generate_stream</code> writes a timeline file through <code>fdia_graph.timeline</code> and returns it as the stream dict, <code>load_stream</code> reads the v0.7.2 stream files, and <code>windows</code> slides over a stream dict. The timeline file is the dataset now: <code>fg.generate</code> writes it and <code>fg.load(name, order="time")</code> reads it, with <code>ds.windows</code>. <code>load_stream</code> and <code>windows</code> stay for reading the v0.7.x stream files, which a timeline loader does not open.</td>
+</tr>
+<tr>
+<td><code>timeline</code></td>
+<td>One continuous attacked timeline per system, written as one HDF5 file.</td>
+</tr>
+<tr>
+<td><code>trust</code></td>
+<td>Which meters to trust so that stealthy attacks stop being stealthy [WU26], sklearn style.</td>
+</tr>
+<tr>
+<td><code>trust.base</code></td>
+<td>The shared machinery of the trusted-meter selectors: the measurement Jacobian at the benign mean (from a WLS estimator of <code>fdia_graph.se</code>), the attack-cost kernel, and the scoring that pins the secured meters and asks the residual test whether the attack shows.</td>
+</tr>
+<tr>
+<td><code>trust.faithful_attack</code></td>
+<td>[WU26]'s attack and defense as the paper states them (docs/wu26/README.md, "Faithful reproduction"): the meter plan, the multi-snapshot attack and the incremental trusted-PMU defense, on a pandapower case.</td>
+</tr>
+<tr>
+<td><code>trust.faithful_defense</code></td>
+<td>[WU26]'s trusted-PMU defense on the faithful attack (<code>trust.faithful_attack</code>): the MDP (Sec. IV-D2, Fig. 1, Algorithm 1) and Solution 1's row reduction (Sec. IV-D1, p. 657).</td>
+</tr>
+<tr>
+<td><code>trust.meter_dqn</code></td>
+<td>The trusted-meter selection as a Markov decision process solved by a deep Q-network (the learned selection of [WU26]).</td>
+</tr>
+<tr>
+<td><code>trust.pmu_dqn</code></td>
+<td>[WU26]'s Solution 2: the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2, p. 658) on trusted-PMU MDPs (<code>trust.WuDefenseEnv</code>; docs/plans/WU_DEFENSE_PLAN.md, PR D).</td>
+</tr>
+<tr>
+<td><code>trust.pmu_environment</code></td>
+<td>[WU26]'s trusted-PMU configuration as a Markov decision process (Sec. IV-D2, Fig. 1, Algorithm 1), on the overload attack of one window (docs/plans/WU_DEFENSE_PLAN.md, PR B).</td>
+</tr>
+<tr>
+<td><code>trust.pmu_row_reduction</code></td>
+<td>[WU26]'s Solution 1: the trusted PMUs by row reduction of the measurement matrix (Sec. IV-D1, p. 657), on the trusted-PMU MDP of one overload window (<code>trust.WuDefenseEnv</code>; docs/plans/WU_DEFENSE_PLAN.md, PR C).</td>
+</tr>
+<tr>
+<td><code>trust.secured</code></td>
+<td>A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (<code>timeline.write_temporal_layers</code>). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (<code>TrustSelector.score</code>). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tools/bench.py</code></td>
+<td>Time the estimators and the generator on the tiny timeline, and store the timings as a run of the <code>bench</code> experiment in the results store (<code>results/bench.csv</code>), where docs/reference/BENCHMARKS.md renders them from (a results block).</td>
+</tr>
+<tr>
+<td><code>tools/class_diagrams.py</code></td>
+<td>Write the class and module diagrams of the package from its source, as Mermaid sources under docs/figures/diagrams/, so the pictures in docs/reference/CLASS_MAP.md never drift from the code.</td>
+</tr>
+<tr>
+<td><code>tools/experiments/design_speed.py</code></td>
+<td>Record what the parallel overload Am design stage buys (experiment <code>generation.parallel_design</code>): an Am-only IEEE-14 timeline over the first <code>--frames</code> pool frames, generated with each worker count of <code>--workers</code> on one seed, its wall time, the episodes built and whether every file is byte-identical to the one-worker file (it must be: each design draws from its own keyed stream).</td>
+</tr>
+<tr>
+<td><code>tools/experiments/release_stats.py</code></td>
+<td>Record a data release's statistics in the results store (experiment <code>data.release_stats</code>), the numbers docs/reference/EXAMPLES.md renders in its "Dataset statistics" section.</td>
+</tr>
+<tr>
+<td><code>tools/layout.py</code></td>
+<td>The repository's layout rules, and the file map they keep current (docs/reference/MODULES.md).</td>
+</tr>
+<tr>
+<td><code>tools/models_doc.py</code></td>
+<td>Render the public data models into docs/reference/DATA_DICTIONARY.md.</td>
+</tr>
+<tr>
+<td><code>tools/nygrid/build_single_episodes.py</code></td>
+<td>The single-episode files for studying one attack by hand: one Am on an interface per file, over the whole day it falls in (288 five-minute scans), nothing else attacked. Each file is a normal timeline (<code>fdia_graph.generation.nygrid.io.open_timeline</code>): <code>z</code> with the attack, <code>z_benign</code> the same noisy scans without it, the true states and the labels.</td>
+</tr>
+<tr>
+<td><code>tools/nygrid/build_timeline.py</code></td>
+<td>Build the release timeline (<code>fdia_graph.generation.nygrid.build.production_builder</code>) from a pool.</td>
+</tr>
+<tr>
+<td><code>tools/nygrid/run_pool.py</code></td>
+<td>Build the P5 pool for a time window as NYISO's real-time dispatch (N32, N39), in chunks run in parallel.</td>
+</tr>
+<tr>
+<td><code>tools/pr.py</code></td>
+<td>Pull requests from the command line, without the gh CLI (CONTRIBUTING.md, "The pull request").</td>
+</tr>
+<tr>
+<td><code>tools/prereview.py</code></td>
+<td>Every check a pull request must pass, run locally in one command before the review is requested (CONTRIBUTING.md, "The pull request").</td>
+</tr>
+<tr>
+<td><code>tools/readability.py</code></td>
+<td>Readability measures for src/fdia_graph, the limits below (<code>LIMITS</code>), and the file-protocol rule: a dataset path ("data/...", "graph/...", any group of <code>schema.Group</code>) or a group name used as one (<code>f.create_group("data")</code>, <code>f["attack"]</code>, <code>"episodes" in f</code>) may be spelled only in src/fdia_graph/schema.py; every other module goes through <code>schema</code>. And the validation rule (CONTRIBUTING.md, "an input is checked in one place"): <code>raise ValueError</code> / <code>raise TypeError</code> and <code>isinstance(...)</code> only inside <code>fdia_graph.models</code>, where the one engine checks every input and the parser models read loose input by its type; everywhere else an input is checked or parsed by building its model, and a condition only the data reveals raises a named error from <code>errors</code>. And the typing rule: an annotation says <code>Any</code> only where ANY_ALLOWED lists it with the reason the value can be anything; every other annotation carries its real type.</td>
+</tr>
+<tr>
+<td><code>tools/release.py</code></td>
+<td>Cut a package release after the version-bump PR has merged (CONTRIBUTING.md, "Releasing").</td>
+</tr>
+<tr>
+<td><code>tools/render_mermaid.py</code></td>
+<td>Render a Mermaid source file to a standalone SVG and a PNG next to it. Every diagram in the docs is such a rendered image, because the README is also the PyPI page and the docs are read in the GitHub mobile app, and neither renders a Mermaid block.</td>
+</tr>
+<tr>
+<td><code>tools/reproduce_defense.py</code></td>
+<td>Reproduce [WU26]'s defense results on our generator (docs/plans/WU_DEFENSE_PLAN.md, PR E).</td>
+</tr>
+<tr>
+<td><code>tools/reproduce_faithful_defense.py</code></td>
+<td>[WU26]'s defense on the faithful attack (<code>trust.faithful_attack</code>), at the paper's scale: windows drawn by p. 658's data recipe, the undefended attack of each and the attack under Solution 1's trusted PMUs, one step per configuration slot. Every window's numbers go to the results store as <code>wu26.faithful</code> (docs/wu26).</td>
+</tr>
+<tr>
+<td><code>tools/reproduce_faithful_dqn.py</code></td>
+<td>[WU26]'s Solution 2 on the faithful attack (<code>trust.TrustedPMUsDQN</code> over <code>trust.Wu26DefenseEnv</code>): training sessions of Algorithm 1 run in parallel, each tested on fresh windows, the paper's "100 tests" as sessions x test windows (the plan's E8 option 2). Records go to the results store as <code>wu26.dqn</code> (docs/wu26): every test window's cost without and with the trained policy's schedule (Fig. 12), each step's choice (Fig. 11's selection probabilities) and the decision and training times (p. 662).</td>
+</tr>
+<tr>
+<td><code>tools/results_docs.py</code></td>
+<td>Fill and check the results blocks of the docs from the results store (<code>results/</code>).</td>
+</tr>
+<tr>
+<td><code>tools/review_ledger.py</code></td>
+<td>A running tally of what the automated reviewer finds, so the local review can stop repeating it (docs/reference/REVIEW_CHECKLIST.md).</td>
+</tr>
+<tr>
+<td><code>tools/upload_assets.py</code></td>
+<td>Publish data-release assets to a GitHub release (CONTRIBUTING.md, "Releasing", data releases).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/conftest.py</code></td>
+<td>Shared fixtures. The suite builds its own tiny IEEE-14 timeline (about 20 s, needs the [generate] extra and the operating-point pool download) inside a throwaway cache, so it never touches a user's ~/.cache/fdia_graph and never downloads a full timeline. Old releases are read from the checked-in files under tests/data (tests/data/README.md).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/inputs.py</code></td>
+<td>The inputs of the nygrid tests in one place, and which tests each one lets run.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_areas.py</code></td>
+<td>The damage split by area adds up to the whole: the zones and the utilities each partition New York's units, the neighbors' supply is the inadvertent interchange, and the attack surface counts the meters the day's labels mark.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_attacks.py</code></td>
+<td>The New York attacks on the real grid: the attacker's area and false states, the multi-snapshot overload (<code>MsFdia</code>), the ramp, and that each meets its goal, stays within the natural load swing and evades the residual test.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_build.py</code></td>
+<td>The release builder's attacker sensitivities stay with the attacker: a timeline built with <code>v_margin</code> records the case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and the whole 2019 pool (inputs.py).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_choices.py</code></td>
+<td>The operator's choices are checked before anything runs: a typo is an error, never a silent fall back to the default run (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_configs.py</code></td>
+<td>Settings are passed in, never patched onto shared objects: a widened case and an overshoot variant are copies, and the originals stay as they were (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_dataset.py</code></td>
+<td>The timeline file as federated clients (<code>dataset.clients</code>): a written file reloads whole, each client sees only its own meters, buses and labels, and the operator and split views select the right frames.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_detect.py</code></td>
+<td>The detection building blocks that need no grid: the persistence rule and its calibration, and the meter fleets (the estimator itself is checked on real days by the golden snapshots).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_examples.py</code></td>
+<td>The extension examples of docs/nygrid/EXTENDING.md run as published, so the guide never shows code that broke (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_experiments.py</code></td>
+<td>The study helpers every research tool shares: the day files of a study, a day's variant, the interchange calibration, and the parallel runner that writes a sorted CSV (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_golden.py</code></td>
+<td>Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_grid.py</code></td>
+<td>The New York grid as read from NYgrid: the NPCC case and NYgrid's modifications, the fixed unit list, the AC fixes, the utility of each bus and the branch ratings, checked against MATPOWER's power flow.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_misses.py</code></td>
+<td>Every design that finds no attack says why (<code>MISSES</code>), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_operator.py</code></td>
+<td>The operator's real-time dispatch (<code>operator.sced</code>): shift and outage factors, the 2019 shortage price, and a dispatch that moves nothing when it sees nothing wrong and relieves what it sees over a limit.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_policy.py</code></td>
+<td>The operator's choices are one validated record, and an operator is anything that returns a Response (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_public.py</code></td>
+<td>The public surface of the New York code: every package's names resolve, reading a dataset stays light, and the names that became public keep their old spelling for one release (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_scenario.py</code></td>
+<td>The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the pool, and the bottom-up load profiles with their within-hour calibration.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_sensing.py</code></td>
+<td>The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian against finite differences, observability and the meter noise.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_solvers.py</code></td>
+<td>The checked Ipopt every nygrid OPF runs on: a solver that is missing, or found but unable to start, raises <code>SolverUnavailable</code> with the fix, instead of reading as an infeasible model downstream.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_tables.py</code></td>
+<td>The input tables are read whole and closed: no ResourceWarning, a byte-order mark dropped (no data needed).</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_timeline.py</code></td>
+<td>The New York timeline: splits cut whole and disjoint, episodes placed at random within their split and only at allowed onsets, and every frame a noisy benign scan plus its attack with labels that match the meters tampered.</td>
+</tr>
+<tr>
+<td><code>tests/test_attack_area.py</code></td>
+<td>The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the region its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true).</td>
+</tr>
+<tr>
+<td><code>tests/test_edges.py</code></td>
+<td>The public edges: wrong arguments fail early with a message naming what is allowed, and the filters mean what the docs say. The other test files prove the happy path; this file is the rest.</td>
+</tr>
+<tr>
+<td><code>tests/test_estimators.py</code></td>
+<td>Estimator behaviour the frozen scores cannot see: the per-unit guard on every public path, one estimator whatever calls it, the weighted solve keeping its best step, classical one-at-a-time residual removal, and the spread-out meter-sigma calibration.</td>
+</tr>
+<tr>
+<td><code>tests/test_faithful_attack.py</code></td>
+<td>[WU26]'s attack as the paper states it (<code>trust.faithful_attack</code>): the meter plan, the objective's form, the incremental trust and the reproduction's settings.</td>
+</tr>
+<tr>
+<td><code>tests/test_federated.py</code></td>
+<td>fdia_graph.federated: the partition of buses into clients and the averaging formulas.</td>
+</tr>
+<tr>
+<td><code>tests/test_formulas.py</code></td>
+<td>The formulas kernel: each function on a case small enough to check by hand, and the estimator's torch measurement function pinned to the numpy kernel so there is one AC model in the package.</td>
+</tr>
+<tr>
+<td><code>tests/test_loader_timeline.py</code></td>
+<td><code>fg.load</code> on a timeline file: the record table and the timeline from one file, <code>order</code>, the benign layer on records, batches and exports, <code>ds.windows</code> and <code>ds.episodes</code>. Uses the <code>timeline</code> fixture of conftest.</td>
+</tr>
+<tr>
+<td><code>tests/test_malformed_inputs.py</code></td>
+<td>A malformed setting or argument is a <code>ConfigError</code>, never a raw TypeError, KeyError, ValueError or IndexError from deeper in the code (docs/reference/REVIEW_CHECKLIST.md, item 4).</td>
+</tr>
+<tr>
+<td><code>tests/test_minimize.py</code></td>
+<td>The fewest-tamper support search [WU26 eq. 12]: exact against brute force on IEEE-14, a lower bound that never exceeds a cost, the two sigmas (the emitter's per-scan jitter, the meters' accuracy class the search counts against), and a continuous reweighted-l1 cross-check the search is never beaten by.</td>
+</tr>
+<tr>
+<td><code>tests/test_models.py</code></td>
+<td>Bundle, the dual-access base of the typed records: every dict use the package's callers rely on must keep working, and the attribute view must agree with it.</td>
+</tr>
+<tr>
+<td><code>tests/test_models_doc.py</code></td>
+<td>The models section of the data dictionary is generated from the dataclasses; this keeps it so.</td>
+</tr>
+<tr>
+<td><code>tests/test_models_package.py</code></td>
+<td>Every data model lives in fdia_graph.models (data models plan, step 5): the package names them all, they are defined nowhere else, and its own modules depend on nothing but numpy and typing.</td>
+</tr>
+<tr>
+<td><code>tests/test_namespace.py</code></td>
+<td>The package namespace: the heavy helpers resolve lazily to the real functions, so their docstrings and signatures cannot drift from a wrapper's, and <code>import fdia_graph</code> stays light.</td>
+</tr>
+<tr>
+<td><code>tests/test_old_releases.py</code></td>
+<td>Old data releases stay readable. The generator makes only At and Am, but a timeline of each of v0.8.0, v0.8.1 and v0.8.3, a v0.7.2 record shard and a v0.7.1 stream file load, split, filter by family name and score per family as before. Each fixture under tests/data was written by the SDK that built its release, or is a slice of the published file (tests/data/README.md).</td>
+</tr>
+<tr>
+<td><code>tests/test_overload.py</code></td>
+<td><code>Am</code> as the overload attack of [WU26]: the PGLib-OPF line ratings, the flow-goal false state, the eligible target branches, the fewest-tamper search on a flow goal, and new generation's families.</td>
+</tr>
+<tr>
+<td><code>tests/test_overload_case_studies.py</code></td>
+<td>[WU26]'s case studies on our overload attack: the paper's PMU placement, its two lines overloaded at once, the ratings 1.2 times each line's peak true flow over the window (the level at which our device counts matched the paper's in the S_max sensitivity study), and the D16 bounds. The paper states no line limits, so the ratings are ours and the comparison is of kind, not of value: the attack is feasible, reaches both ratings, tampers the paper's devices on IEEE-14, and its largest per-device change is of the paper's order (0.22 and 0.17 pu there).</td>
+</tr>
+<tr>
+<td><code>tests/test_package_equivalence.py</code></td>
+<td>Hand-written loops and formulas replaced by library calls or array operations: each test pins the replacement to the code it replaced (identical, or to tolerance where the arithmetic order changes), so the simplification cannot drift.</td>
+</tr>
+<tr>
+<td><code>tests/test_pmu_channels.py</code></td>
+<td>The hybrid meter model: angles at the PMU buses only, the PMU branch-current phasors [WU26 eqs. 19-20] emitted, stored, loaded and attacked, and the eq. (3) pseudo-measurements an estimator can derive from them. The v0.8.3 meter model stays the default and writes none of it.</td>
+</tr>
+<tr>
+<td><code>tests/test_pmu_dqn.py</code></td>
+<td>[WU26]'s Solution 2 (<code>trust.TrustedPMUsDQN</code>, Algorithm 1; docs/plans/WU_DEFENSE_PLAN.md PR D): the stated hyperparameters, a constructed MDP where the right first PMU is known, seeded determinism, and one short run on the paper's IEEE-14 scenario.</td>
+</tr>
+<tr>
+<td><code>tests/test_pmu_environment.py</code></td>
+<td>[WU26]'s trusted-PMU MDP (<code>trust.WuDefenseEnv</code>, docs/plans/WU_DEFENSE_PLAN.md PR B) on the paper's IEEE-14 scenario for lines 1-2 and 4-5: the configuration model, the reward as the rise in the search's cost under the schedule (eq. 33), the cache, the state of Fig. 1, and the paper's line-8 break.</td>
+</tr>
+<tr>
+<td><code>tests/test_pmu_row_reduction.py</code></td>
+<td>[WU26]'s Solution 1 (<code>trust.TrustedPMUs</code>, p. 657 steps 1-5; docs/plans/WU_DEFENSE_PLAN.md PR C) on the paper's IEEE-14 scenarios: one PMU per configuration step, each a PMU reading the sparsest attack that moves a target line, scored by the trusted-PMU MDP.</td>
+</tr>
+<tr>
+<td><code>tests/test_profiles.py</code></td>
+<td>Load sources and operator feeds: each reads itself, no network needed.</td>
+</tr>
+<tr>
+<td><code>tests/test_public_bundles.py</code></td>
+<td>The public dual-access bundles (data models step 3): each is the dict it used to be, with the same keys in the same order, and its attribute view agrees with the dict view.</td>
+</tr>
+<tr>
+<td><code>tests/test_public_coverage.py</code></td>
+<td>Direct tests for public pieces the rest of the suite reached only through a whole pipeline: the replay policy, the linear-algebra and network kernels on cases small enough to check by hand, the episode reader, the release lookup, the trust selector base, the removal guard and the learned localizer's threshold.</td>
+</tr>
+<tr>
+<td><code>tests/test_registry.py</code></td>
+<td>The registry's per-release asset layout: record shards and npz pools before v0.8.0, one timeline per system and HDF5 pools from v0.8.0, and the deprecated <code>load_stream</code> following it.</td>
+</tr>
+<tr>
+<td><code>tests/test_results.py</code></td>
+<td>The results store: records are checked on construction, the store round-trips and keeps history, a run records its provenance, nested reports flatten to records, and the docs' results blocks render from the store and fail the check when edited by hand.</td>
+</tr>
+<tr>
+<td><code>tests/test_rref_attack.py</code></td>
+<td>[WU26]'s row-reduction attack (p. 655 and Sec. IV-D1 steps 1-5, after [YAN17]) as the overload attack's support method (<code>OverloadSettings.support_method="rref"</code>): the column-exchange reduction, the supports it pins on the paper's IEEE-14 scenarios, and that the attack it builds is feasible.</td>
+</tr>
+<tr>
+<td><code>tests/test_schema.py</code></td>
+<td>The file protocol lives in one module: the fixture file carries exactly the names it spells, and no other module spells a dataset path.</td>
+</tr>
+<tr>
+<td><code>tests/test_sdk.py</code></td>
+<td>Behavioral tests for the SDK surface: the contracts the docs promise, checked on a tiny timeline.</td>
+</tr>
+<tr>
+<td><code>tests/test_search_speed.py</code></td>
+<td>The fewest-tamper search's speed-ups change nothing it finds: exhaustive searches on fixed IEEE-14 windows return the answers the search returned before them (pinned), and each shortcut equals the computation it replaced (the cached boundary, the reused solve blocks, the attack vector over the support's branches only).</td>
+</tr>
+<tr>
+<td><code>tests/test_split_first.py</code></td>
+<td>Split-first generation: the timeline is cut into train, val and test before any episode is placed; each split gets the whole number of episodes closest to its attacked fraction, shared between the families by largest remainder and placed uniformly without overlap or cut; an episode with no feasible design moves to another onset of its split (an Am anywhere in it, a ramp later); and every frame's jitter comes from its own (seed, timestep) stream, so timelines that place different attacks carry the same benign frames.</td>
+</tr>
+<tr>
+<td><code>tests/test_timeline.py</code></td>
+<td>The one-file timeline writer: its layout, its episodes and the At and Am frames.</td>
+</tr>
+<tr>
+<td><code>tests/test_trust.py</code></td>
+<td>The trusted-meter selectors on the tiny timeline: the greedy selection raises the attack cost, the secured meters expose the stealthy families to the residual test, and the DQN learns a selection that closes the attack subspace too.</td>
+</tr>
+<tr>
+<td><code>tests/test_trust_formulas.py</code></td>
+<td>The trusted-meter kernel: row reduction, the open attack subspace, its cost, the greedy selection.</td>
+</tr>
+<tr>
+<td><code>tests/test_trusted_pmus.py</code></td>
+<td>[WU26]'s trusted-PMU schedule as a constraint on the fewest-tamper search (docs/plans/WU_DEFENSE_PLAN.md, PR A): a PMU trusted at slot s keeps its bus's /V/ and angle true at every snapshot t &gt;= s (eqs. 26-32), its branch currents stay untrusted (eq. 27), and one support is held for the window.</td>
+</tr>
+<tr>
+<td><code>tests/test_validation.py</code></td>
+<td>The validation engine (models.validation): rules declared on fields, one message shape, and the public entry points that build their config models before any work.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>examples/nygrid/custom_alarm_rule.py</code></td>
+<td>A detector rule of your own: a CUSUM on the residual statistic, next to the package's persistence rule.</td>
+</tr>
+<tr>
+<td><code>examples/nygrid/custom_attack_family.py</code></td>
+<td>An attack family of your own: a slow bias on one load bus's injection meter.</td>
+</tr>
+<tr>
+<td><code>examples/nygrid/custom_operator.py</code></td>
+<td>An operator of your own: one that ignores what it reads and never redispatches.</td>
+</tr>
+<tr>
+<td><code>examples/quickstart.py</code></td>
+<td>60-second tour of fdia-graph: load a dataset, inspect it, and get it in whatever format you want.</td>
+</tr>
+<tr>
+<td><code>examples/train_arma.py</code></td>
+<td>Stronger localizer baseline: an edge-fused ARMA graph convolution net (Bianchi et al., IEEE TPAMI 2021).</td>
+</tr>
+<tr>
+<td><code>examples/train_gnn.py</code></td>
+<td>End-to-end example: train a GNN attack-localizer on an fdia-graph dataset — the whole point of the SDK.</td>
+</tr>
+<tr>
+<td><code>examples/train_tgnn.py</code></td>
+<td>Temporal Graph NN localizer benchmark on an fdia-graph dataset.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="docs-scripts">Docs scripts<a class="headerlink" href="#docs-scripts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/federated/make_report.py</code></td>
+<td>Draw the README figures from the results store (experiment <code>federated.localization</code>).</td>
+</tr>
+<tr>
+<td><code>docs/federated/run.py</code></td>
+<td>Run the federated localization papers' protocol on one system and write a run of <code>federated.localization</code> to the results store (<code>results/</code>).</td>
+</tr>
+<tr>
+<td><code>docs/localization/make_report.py</code></td>
+<td>Draw the README figures from the results store (experiment <code>localization.common</code>).</td>
+</tr>
+<tr>
+<td><code>docs/localization/run.py</code></td>
+<td>Fit the fdia_graph.localization methods on one system and write runs of <code>localization.common</code> and <code>localization.zero_shot</code> to the results store (<code>results/</code>).</td>
+</tr>
+<tr>
+<td><code>docs/se/make_report.py</code></td>
+<td>Draw the README figures from the results store (experiment <code>se.estimators</code>).</td>
+</tr>
+<tr>
+<td><code>docs/se/run.py</code></td>
+<td>Fit the fdia_graph.se estimators on one system and write a run of <code>se.estimators</code> to the results store (<code>results/</code>).</td>
+</tr>
+<tr>
+<td><code>docs/trust/run.py</code></td>
+<td>Select trusted meters on one system and write a run of <code>trust.selection</code> to the results store.</td>
+</tr>
+<tr>
+<td><code>docs/trust/run_secured.py</code></td>
+<td>What a trusted-meter selection does for state estimation and localization, not only for the residual test: the estimators and localizers of the other two guides scored on the plain timeline and on secured copies of it (<code>TrustSelector.secured_copy</code>, the selected meters reading their benign value on every frame). Writes runs of <code>trust.secured_localization</code> and <code>trust.secured_estimation</code> to the results store (<code>results/</code>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-results-stores-queries">The results store's queries<a class="headerlink" href="#the-results-stores-queries" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>results/queries.py</code></td>
+<td>The repository's results queries: what each results block in the docs renders from the store.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="site-scripts">Site scripts<a class="headerlink" href="#site-scripts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/site_index.py</code></td>
+<td>Stage the three root pages of the repository for the docs site: README.md becomes docs/index.md, CONTRIBUTING.md docs/contributing.md and CHANGELOG.md docs/changelog.md. The README is the single source for the landing page; its links carry a docs/ prefix that is wrong once the file lives inside docs_dir, so the prefix is stripped on copy, and links between the three root pages are rewritten to their staged names. Runs in the Vercel build (vercel.json) and in the versioned deploy (.github/workflows/docs.yml); the three staged files are generated output and stay untracked.</td>
+</tr>
+</tbody>
+</table>
+<!-- /file-map -->
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../GLOSSARY/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Glossary">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Glossary
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../CONCEPTS_TO_CODE/" class="md-footer__link md-footer__link--next" aria-label="Next: Concepts to code">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Concepts to code
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fdia-graph/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/myersben9/fdia-graph" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

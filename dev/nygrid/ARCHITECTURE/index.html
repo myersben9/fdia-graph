@@ -903,6 +903,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
@@ -1731,10 +1759,10 @@ its stage does.</p>
 <a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>results/
 <a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
 <a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>tests/nygrid/
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  nygrid_inputs.py      where the tests find their inputs, and which tests each input lets run
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  test_nygrid_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  test_nygrid_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  test_nygrid_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
 <a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
 <a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 </code></pre></div>
@@ -1962,13 +1990,13 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>Dataset</code></td>
-<td><code>dataset.py</code></td>
+<td><code>dataset/clients.py</code></td>
 <td>an open timeline file (<code>open_timeline</code>) with its <code>case</code>, <code>own</code>, <code>plan</code></td>
 <td><code>clients</code>, <code>client(name, split=None) -&gt; ClientView</code>, <code>operator(split=None) -&gt; ClientView</code> (every meter and bus, the operator's full scan); <code>split</code> is "train", "val", "test" or None for all frames</td>
 </tr>
 <tr>
 <td><code>ClientView</code></td>
-<td><code>dataset.py</code></td>
+<td><code>dataset/clients.py</code></td>
 <td>one client's meter, bus and frame selection, read when made, no file handle: <code>buses [N_c]</code> (bus positions it owns), <code>frames</code> (the indices of the selected frames, exact for the interleaved week split)</td>
 <td><code>z [T, M_c]</code>, <code>labels [T, N_c]</code> (<code>bus_attacked</code> of its buses), <code>meters</code> (its <code>MeterPlan</code> rows), <code>node_features()</code> (<code>[T, N_c, 4]</code> metered |V|, angle, P, Q per owned bus, NaN where not metered), <code>temporal()</code> (<code>[T, M_c]</code> change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; <code>z</code> stays raw)</td>
 </tr>
@@ -2367,7 +2395,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>D2</td>
-<td><code>dataset.py</code>, <code>open_timeline</code> in <code>io.py</code></td>
+<td><code>dataset/clients.py</code>, <code>open_timeline</code> in <code>io.py</code></td>
 </tr>
 <tr>
 <td>D3</td>

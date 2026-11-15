@@ -1005,6 +1005,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
@@ -1527,72 +1555,88 @@
 
 <h1 id="repo-roadmap">Repo roadmap<a class="headerlink" href="#repo-roadmap" title="Permanent link">&para;</a></h1>
 <p>Two halves. The <strong>SDK</strong> loads and serves data and runs on the base install; the <strong>engine</strong> is the
-theory (power flow, meters, attacks) and needs <code>[generate]</code>. The public surface is <code>fg.*</code> and the
+theory (power flow, meters, attacks) and needs <code>[generate]</code>. The public surface is <code>fg.*</code>, the
 analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</code>, <code>fdia_graph.trust</code> and
-<code>fdia_graph.federated</code>; everything else serves them.</p>
+<code>fdia_graph.federated</code>, and the New York grid (<code>fdia_graph.generation.nygrid</code> and its operator,
+<code>fdia_graph.operator</code>, behind <code>[ny]</code>); everything else serves them.</p>
 <p><img alt="the package map: the public API over dataset, timeline, registry, se, localization and trust in the base install, generation and engine behind the generate extra, models and formulas read by every package" src="../figures/diagrams/roadmap_modules.png" /></p>
 <h2 id="the-two-paths">The two paths<a class="headerlink" href="#the-two-paths" title="Permanent link">&para;</a></h2>
 <p><img alt="fg.generate from ISO load series through the AC pool, the timeline walk and one scan per frame to one registered HDF5 file, and fg.load from registry.resolve through the cached download to FdiaGraph in random or time order" src="../figures/diagrams/roadmap_generate_load.png" /></p>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
+<p>Every package has one page that says what each of its files does, and <code>tools/layout.py</code> checks that the page
+names them all. The one-line summary of every file of the repository is
+<a href="../reference/MODULES/"><code>reference/MODULES.md</code></a>, generated from the docstrings.</p>
 <table>
 <thead>
 <tr>
-<th>file</th>
+<th>file or folder</th>
 <th>what it is</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>__init__.py</code></td>
-<td>public API; the heavy helpers resolve lazily so <code>load()</code> never imports torch or pandapower</td>
+<td>the public API; the heavy helpers resolve lazily so <code>load()</code> never imports torch or pandapower</td>
 </tr>
 <tr>
-<td><code>dataset/</code></td>
-<td><code>FdiaGraph</code> from <code>graph</code> (static graph), <code>physics</code> (admittances, clean flows), <code>records</code> (items, collate, DataLoader), <code>export</code> (whole-split arrays), <code>sequence</code> (windows, episodes) over <code>base</code> (shared state)</td>
+<td><code>_lazy.py</code></td>
+<td>the public names of the New York packages, loaded on first use</td>
+</tr>
+<tr>
+<td><code>errors.py</code></td>
+<td>every error the package raises on purpose</td>
 </tr>
 <tr>
 <td><code>registry.py</code>, <code>download.py</code></td>
 <td><code>(name, release)</code> to a download spec with that release's file layout; fetch to <code>~/.cache/fdia_graph</code>, sha256-verified</td>
 </tr>
 <tr>
-<td><code>timeline.py</code>, <code>generation.py</code>, <code>profiles.py</code></td>
-<td>the timeline walker and writer; the pool, frame context and file attributes; ISO load profiles to AC operating-state pools</td>
+<td><code>schema.py</code></td>
+<td>the file protocol: every HDF5 group, dataset and attribute name, defined once</td>
+</tr>
+<tr>
+<td><code>timeline.py</code></td>
+<td>one continuous attacked timeline per system, written as one HDF5 file through the stages of <code>generation/</code></td>
+</tr>
+<tr>
+<td><code>profiles.py</code></td>
+<td>ISO load profiles to AC operating-state pools</td>
 </tr>
 <tr>
 <td><code>streams.py</code></td>
 <td>the deprecated stream entry points, kept for reading the v0.7 stream files</td>
 </tr>
 <tr>
-<td><code>se/</code></td>
-<td><code>SEBase</code> (measurement model, chord-Newton, calibration) plus one class per estimator</td>
-</tr>
-<tr>
-<td><code>localization/</code></td>
-<td><code>LocalizerBase</code> (false-alarm calibration, metrics) plus threshold and learned classes</td>
-</tr>
-<tr>
-<td><code>trust/</code></td>
-<td><code>TrustSelector</code> plus the greedy row-reduction (<code>TrustedMeters</code>) and deep Q-network (<code>TrustedMetersDQN</code>) meter selections, and <code>secured_copy</code> of a timeline with the chosen meters pinned</td>
-</tr>
-<tr>
-<td><code>federated/</code></td>
-<td>the client partition (<code>spectral_partition</code>), the FedAvg localizers (<code>FedBusMLP</code>, <code>FedBusCNN</code>) and the per-client subspace prior (<code>RegionalPrior</code>); needs <code>[federated]</code></td>
-</tr>
-<tr>
-<td><code>schema.py</code></td>
-<td>the file protocol: every HDF5 group, dataset and attribute name, defined once</td>
+<td><code>dataset/</code></td>
+<td><code>FdiaGraph</code>, composed of <code>graph.py</code> (the static graph), <code>physics.py</code> (admittances, clean flows), <code>records.py</code> (items, collate, DataLoader), <code>export.py</code> (whole-split arrays) and <code>sequence.py</code> (windows, episodes) over <code>dataset/base.py</code> (shared state); <code>clients.py</code> reads a New York timeline as federated clients</td>
 </tr>
 <tr>
 <td><code>models/</code></td>
-<td>every value bundle a function returns, grouped <code>grid</code>, <code>frames</code>, <code>data</code>, <code>scores</code>, <code>assets</code></td>
+<td>every value bundle the package passes or returns, one module per subject: <code>models/base.py</code> (<code>Bundle</code>), <code>fields.py</code> (the field groups bundles share), <code>grid.py</code>, <code>frames.py</code>, <code>data.py</code>, <code>scores.py</code>, <code>results.py</code>, <code>training.py</code>, <code>federated.py</code>, <code>assets.py</code>; the settings in <code>config.py</code> and the parser inputs in <code>inputs.py</code>, checked by <code>validation.py</code>; the fixed-set arguments in <code>choices.py</code> and the data-condition errors in <code>models/errors.py</code>. <a href="../reference/DATA_DICTIONARY/"><code>reference/DATA_DICTIONARY.md</code></a> lists every field</td>
+</tr>
+<tr>
+<td><code>ratings/</code></td>
+<td>PGLib-OPF branch ratings of IEEE-14, 118 and 300</td>
 </tr>
 <tr>
 <td><code>formulas/</code></td>
-<td>the mathematics as pure functions with source keys; catalogue in <code>reference/FORMULAS.md</code></td>
+<td>the mathematics as pure functions with source keys: <a href="../reference/FORMULAS/"><code>reference/FORMULAS.md</code></a></td>
 </tr>
 <tr>
-<td><code>engine/</code></td>
-<td><code>FdiaGenerator</code> = <code>MeasurementMixin</code> (meters, noise) + <code>PhysicsMixin</code> (AC solves) + <code>AttackMixin</code> (every attack, the <code>engine/attacks/</code> package: the attacker's area, the local false state, the redistribution, the stealthy and in-place frames, each episode's design) over <code>GridBase</code>; <code>records.py</code> emits a benign scan and hands an attacked family to the mixin</td>
+<td><code>engine/</code>, <code>generation/</code></td>
+<td>the generator: the AC physics, the meters and the attacks, and the stages that walk a timeline: <a href="../guides/generation/"><code>guides/generation.md</code></a></td>
+</tr>
+<tr>
+<td><code>generation/nygrid/</code>, <code>operator/</code>, <code>engine/sensing/</code>, <code>se/detect/</code></td>
+<td>the New York grid, its operator, its meters and the operator's detector: <a href="../nygrid/ARCHITECTURE/"><code>nygrid/ARCHITECTURE.md</code></a></td>
+</tr>
+<tr>
+<td><code>se/</code>, <code>localization/</code>, <code>trust/</code>, <code>federated/</code></td>
+<td>the analysis packages, each with its page: <a href="../se/"><code>se/README.md</code></a>, <a href="../localization/"><code>localization/README.md</code></a>, <a href="../trust/"><code>trust/README.md</code></a>, <a href="../federated/"><code>federated/README.md</code></a></td>
+</tr>
+<tr>
+<td><code>results/</code></td>
+<td>the results store's code: <a href="../results/README.md"><code>../results/README.md</code></a></td>
 </tr>
 </tbody>
 </table>
@@ -1607,15 +1651,23 @@ analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</cod
 <tbody>
 <tr>
 <td><code>reference/</code></td>
-<td>data dictionary, glossary, concepts to code, formulas, examples, benchmarks</td>
+<td>the file map (<code>MODULES.md</code>), data dictionary, glossary, concepts to code, formulas, examples, benchmarks</td>
 </tr>
 <tr>
 <td><code>guides/</code></td>
-<td>task walkthroughs: <code>generation.md</code> (how a timeline is built), <code>state_estimation.md</code></td>
+<td>task walkthroughs: <code>generation.md</code> (how a timeline is built), <code>state_estimation.md</code>, <code>new_york.md</code></td>
+</tr>
+<tr>
+<td><code>nygrid/</code></td>
+<td>the New York grid: its architecture, a walkthrough, how to extend it, troubleshooting</td>
 </tr>
 <tr>
 <td><code>se/</code>, <code>localization/</code>, <code>trust/</code>, <code>federated/</code></td>
-<td><code>run_*.py</code> fits one system and writes runs to the results store (<code>results/</code>); <code>make_report.py</code> (where present) draws the figures from it and <code>tools/results_docs.py</code> fills the README tables</td>
+<td><code>run.py</code> fits one system and writes runs to the results store (<code>results/</code>); <code>make_report.py</code> (where present) draws the figures from it and <code>tools/results_docs.py</code> fills the README tables</td>
+</tr>
+<tr>
+<td><code>wu26/</code></td>
+<td>the reproduction of [WU26]'s defense results, written by the <code>tools/reproduce_*.py</code> scripts</td>
 </tr>
 <tr>
 <td><code>figures/</code></td>
@@ -1654,7 +1706,7 @@ analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</cod
 </tr>
 <tr>
 <td>CI</td>
-<td>tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the class-diagram check, install on 3.9 and 3.12</td>
+<td>tests on Linux (3.12 and 3.9) and Windows, pyright, ruff format and check, the readability gate, the layout gate (<code>tools/layout.py</code>: names, docstrings, package pages, cited names, the file map), the generated-docs checks, install on 3.9 and 3.12</td>
 </tr>
 <tr>
 <td>release</td>
@@ -1699,7 +1751,7 @@ analysis packages <code>fdia_graph.se</code>, <code>fdia_graph.localization</cod
 </tr>
 <tr>
 <td>5</td>
-<td>this page</td>
+<td>this page, then <code>reference/MODULES.md</code></td>
 <td>which file does what</td>
 </tr>
 <tr>

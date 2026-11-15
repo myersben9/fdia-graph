@@ -16,7 +16,7 @@
         <link rel="prev" href="../DATA_DICTIONARY/">
       
       
-        <link rel="next" href="../CONCEPTS_TO_CODE/">
+        <link rel="next" href="../MODULES/">
       
       
         
@@ -1010,6 +1010,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
@@ -1552,7 +1580,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>frame</td>
 <td>One row of a timeline: the scan at one pool timestep with the attack of its episode applied, or none.</td>
-<td><code>models.frames.Frame</code>, <code>timeline._TimelineBuffers.store</code></td>
+<td><code>models.frames.Frame</code>, <code>generation.emit.TimelineBuffers.store</code></td>
 </tr>
 <tr>
 <td>record</td>
@@ -1567,12 +1595,12 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>episode</td>
 <td>A run of consecutive frames under one attack of one family on one design; episodes never overlap.</td>
-<td><code>timeline._Episode</code>, <code>episodes/</code> group, <code>data/seq_id</code></td>
+<td><code>generation.emit._Episode</code>, <code>episodes/</code> group, <code>data/seq_id</code></td>
 </tr>
 <tr>
 <td>onset</td>
 <td>The first frame of an episode, drawn uniformly among the positions of its split where the episode fits.</td>
-<td><code>timeline._uniform_onset</code>, <code>episodes/onset</code></td>
+<td><code>generation.plan.uniform_onset</code>, <code>episodes/onset</code></td>
 </tr>
 <tr>
 <td>pool</td>
@@ -1597,7 +1625,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>split</td>
 <td>The chronological train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split.</td>
-<td><code>timeline._split_bounds</code>, <code>data/split</code>, <code>schema.SPLIT_CODE</code></td>
+<td><code>generation.plan.split_bounds</code>, <code>data/split</code>, <code>schema.SPLIT_CODE</code></td>
 </tr>
 <tr>
 <td>family</td>
@@ -1818,12 +1846,12 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>zero-shot protocol</td>
 <td>Train and val hold benign, <code>Aq</code> and <code>Ad</code>; test adds <code>As</code> and <code>Ar</code>, never seen in training; learned arms use the validation tau.</td>
-<td><code>localization/learned.py</code> docstring, <code>docs/localization/run_localization.py</code></td>
+<td><code>localization/learned.py</code> docstring, <code>docs/localization/run.py</code></td>
 </tr>
 <tr>
 <td>common protocol</td>
 <td>Every family in train and test; every method calibrated at the same <code>fa_target</code>.</td>
-<td><code>docs/localization/run_localization.py</code></td>
+<td><code>docs/localization/run.py</code></td>
 </tr>
 <tr>
 <td>macro-F1</td>
@@ -1951,13 +1979,13 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
         
         
           
-          <a href="../CONCEPTS_TO_CODE/" class="md-footer__link md-footer__link--next" aria-label="Next: Concepts to code">
+          <a href="../MODULES/" class="md-footer__link md-footer__link--next" aria-label="Next: Modules">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Concepts to code
+                Modules
               </div>
             </div>
             <div class="md-footer__button md-icon">

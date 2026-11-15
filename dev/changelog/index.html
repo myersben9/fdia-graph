@@ -901,6 +901,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
@@ -1616,10 +1644,33 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>File names say what a file does, and a gate keeps them and the docs current.</strong> <code>tools/layout.py --check</code> (in the
+  pre-review and CI) fails on a file name that repeats its folder's name, differs from a sibling's by a short ending,
+  or carries a digit, a citation key or an author's name; on a Python file without a docstring; on a module its
+  package's page does not name; and on a module or name a doc or docstring cites that does not exist.
+  <code>docs/reference/MODULES.md</code>, generated from the docstrings, gives every file of the repository in one line (the
+  module table of <code>CONCEPTS_TO_CODE.md</code> moves there). The pre-review's cited-paths check reads every Markdown file,
+  not only the changed ones.</li>
+<li><strong>The [WU26] equation registry is removed.</strong> <code>schema.WU26_EQUATIONS</code>, the tool that read it (the paper-to-code
+  equation map), its gate and the generated equations table of <code>FORMULAS.md</code> go: nothing else read the registry, and
+  the file-protocol module is no place for one paper's equation list. The <code>[WU26 eq. N]</code> citations stay in the
+  docstrings.</li>
+<li><strong>Renamed modules.</strong> <code>trust.defense</code> is
+  <code>trust.pmu_environment</code>, <code>trust.solution1</code> <code>trust.pmu_row_reduction</code>, <code>trust.wu_dqn</code> <code>trust.pmu_dqn</code>, <code>trust.wu26</code>
+  <code>trust.faithful_attack</code>, <code>trust.wu26_defense</code> <code>trust.faithful_defense</code>, <code>trust.dqn</code> <code>trust.meter_dqn</code> and
+  <code>engine.pp_types</code> <code>engine.pandapower_types</code>. The names <code>fdia_graph.trust</code> exports are unchanged. The scripts
+  <code>tools/wu26_*.py</code> are <code>tools/reproduce_defense.py</code>, <code>tools/reproduce_faithful_defense.py</code> and
+  <code>tools/reproduce_faithful_dqn.py</code>; the docs' <code>run_&lt;folder&gt;.py</code> scripts are <code>run.py</code>; the New York tests drop their
+  <code>nygrid_</code> prefix (the test folders are packages, so a name may repeat across folders). The old module paths are
+  removed, not aliased: code imports from <code>fdia_graph.trust</code>, whose names are unchanged.</li>
+<li>
+<p><strong>No aliases for moved private names.</strong> The tables that kept old private names of <code>timeline</code>, <code>engine.records</code> and
+  <code>operator.response</code> importable with a warning (<code>_ONSET_DRAWS</code>, <code>_Schedule</code>, <code>_TrueGrid</code>, ...) are removed with the
+  <code>_moved</code> module: a name with a leading underscore was never public, so it carries no promise when it moves.</p>
+</li>
 <li>
 <p><strong>The decisions registry is removed.</strong> <code>schema.DECISIONS</code>, <code>models.Decision</code>, the generated decisions page
-  and the <code>[D9]</code> / <code>[E13]</code> tags go; each choice is stated in the docstring of the code that makes it.
-  <code>tools/equation_map.py</code> maps the <code>[WU26 ...]</code> citations only, and still refuses a decision tag.</p>
+  and the <code>[D9]</code> / <code>[E13]</code> tags go; each choice is stated in the docstring of the code that makes it.</p>
 </li>
 <li>
 <p><strong>The New York grid in the SDK's own packages.</strong> <code>fdia_graph.nyfed</code> is gone: the system source is
@@ -1735,7 +1786,7 @@ the public API, the generated files and the numbers are the same as the previous
   the single-episode day and the 2019 pool's frames of those days are checked in under <code>tests/nygrid/data/days</code>
   (6.7 MB), so the operator's tests and 33 of the 35 golden snapshots run there too; the tests that need the whole
   pool (the attack families, the builder, the timeline and the interface attack's design) still run only where it
-  is built. <code>tests/nygrid/nygrid_inputs.py</code> names every input in one place and says which tests it lets run, in place
+  is built. <code>tests/nygrid/inputs.py</code> names every input in one place and says which tests it lets run, in place
   of a path block repeated in nine test files. No user-visible change.</p>
 </li>
 <li>
@@ -1804,7 +1855,7 @@ the public API, the generated files and the numbers are the same as the previous
   <code>attacks</code>, <code>timeline</code>, <code>operator</code>, and <code>fdia_graph.nyfed</code> itself) now has a docstring that says what its stage does,
   what goes in and comes out, and how it fails, and an <code>__all__</code> of its public names, loaded on first use (reading a
   dataset still never imports pandapower or Pyomo). Helpers the research tools reached into became public:
-  <code>operator.response.TrueGrid</code> and <code>entry_share</code> (the old <code>_TrueGrid</code> and <code>_entry_share</code> warn until 0.22),
+  <code>operator.response.TrueGrid</code> and <code>entry_share</code> (the old private names <code>_TrueGrid</code> and <code>_entry_share</code> are gone),
   <code>Attacker.absorb</code> and <code>TimelineBuilder.episode_lengths</code>.</p>
 </li>
 <li>

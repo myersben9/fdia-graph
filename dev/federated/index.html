@@ -686,6 +686,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -968,6 +979,34 @@
     
   
     Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
   
 
     
@@ -1434,6 +1473,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1537,6 +1587,37 @@ and the run script refuses to fit otherwise.</p>
 <tr>
 <td>what crosses a boundary</td>
 <td>per-channel moments once, the model weights every round, the per-bus confusion counts once, and the central Jacobian block</td>
+</tr>
+</tbody>
+</table>
+<h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>federated/partition.py</code></td>
+<td>the split of a system's buses into K clients by spectral partition of the bus graph</td>
+</tr>
+<tr>
+<td><code>federated/utilities.py</code></td>
+<td>the New York clients: each bus belongs to the utility whose service territory holds it</td>
+</tr>
+<tr>
+<td><code>federated/aggregate.py</code></td>
+<td>FedAvg over torch state dicts (<code>formulas.federated.fedavg</code>)</td>
+</tr>
+<tr>
+<td><code>federated/localizer.py</code></td>
+<td><code>FedBusMLP</code> and <code>FedBusCNN</code>: the per-bus localizers trained by FedAvg, records never leaving a client</td>
+</tr>
+<tr>
+<td><code>federated/se.py</code></td>
+<td><code>RegionalPrior</code>: the estimator's learned subspace prior fitted per client</td>
 </tr>
 </tbody>
 </table>
@@ -1861,9 +1942,9 @@ physics instead of its history, which recovers most of that drop on 118 and 300 
 it on 14; the centralized comparison with and without the block is in
 <a href="../localization/"><code>../localization/README.md</code></a>.</p>
 <h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/federated/run_federated.py<span class="w">     </span><span class="c1"># 18 runs, writes docs/federated/results/runs/ + a run of federated.localization</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>docs/federated/run_federated.py
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>docs/federated/run_federated.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/federated/run.py<span class="w">     </span><span class="c1"># 18 runs, writes docs/federated/results/runs/ + a run of federated.localization</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>docs/federated/run.py
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>docs/federated/run.py
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>docs/federated/make_report.py<span class="w">                        </span><span class="c1"># figures + CSV sidecars from the store</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/results_docs.py<span class="w"> </span>--write<span class="w">                        </span><span class="c1"># the README's results blocks</span>
 </code></pre></div>

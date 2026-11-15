@@ -613,6 +613,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -990,6 +1001,34 @@
     
   
     Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
   
 
     
@@ -1467,6 +1506,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1602,6 +1652,33 @@ Every timeline ships a noiseless <code>clean</code> layer, so the estimate is sc
 <td><code>GatedPrior</code></td>
 <td>The proposed estimator with a localizer gating the weights: meters on flagged buses and their incident flows are down-weighted so the prior fills in the state there; <code>secured</code> meters are never down-weighted</td>
 <td><code>gate</code>, <code>gate_factor</code>, <code>secured</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>file</th>
+<th>holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>se/base.py</code></td>
+<td><code>SEBase</code>: the measurement function, the chord Jacobian, meter weights from benign residuals, the chord-Newton loop, calibration and scoring, shared by every estimator</td>
+</tr>
+<tr>
+<td><code>se/methods.py</code></td>
+<td>the method classes above, each a subclass of <code>SEBase</code> that changes one thing</td>
+</tr>
+<tr>
+<td><code>se/jacobian.py</code></td>
+<td><code>JacobianFeatures</code>: the measurement Jacobian as a transform of the scan-to-scan measurement change, the features <code>JacobianWeighting</code> and the learned localizers read</td>
+</tr>
+<tr>
+<td><code>se/detect/</code></td>
+<td>the New York operator's own estimator and alarm rules, described in <a href="../nygrid/ARCHITECTURE/"><code>../nygrid/ARCHITECTURE.md</code></a></td>
 </tr>
 </tbody>
 </table>
@@ -2141,9 +2218,9 @@ from <!-- results: v sest ieee14 prior+huber geo angle_mae_deg secured=plain -->
 <p>0.017 with the same CNN gate added. Recovering a stealthy false state from one scan
 otherwise needs the previous scan, the temporal direction.</p>
 <h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/se/run_se.py<span class="w">      </span><span class="c1"># fits, writes a run of se.estimators to results/ (estimates cached per arm)</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>docs/se/run_se.py
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>docs/se/run_se.py<span class="w">   </span><span class="c1"># single-threaded: multi-threaded, the gated arms hung in the OpenMP runtime</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>docs/se/run.py<span class="w">      </span><span class="c1"># fits, writes a run of se.estimators to results/ (estimates cached per arm)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>docs/se/run.py
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">OMP_NUM_THREADS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>docs/se/run.py<span class="w">   </span><span class="c1"># single-threaded: multi-threaded, the gated arms hung in the OpenMP runtime</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>docs/se/make_report.py<span class="w">                  </span><span class="c1"># figures + CSV sidecars from the store</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/results_docs.py<span class="w"> </span>--write<span class="w">           </span><span class="c1"># the README's results blocks from the store</span>
 </code></pre></div>

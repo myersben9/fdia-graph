@@ -897,6 +897,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/MODULES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/CONCEPTS_TO_CODE/" class="md-nav__link">
         
   
@@ -1605,7 +1633,7 @@ listing the allowed values. In the result:</p>
 <p>The research tools under <code>tools/nygrid/</code> show every warning; none is silenced. Their detection thresholds come
 from the calibration files under <code>results/</code>.</p>
 <h2 id="the-golden-snapshots">The golden snapshots<a class="headerlink" href="#the-golden-snapshots" title="Permanent link">&para;</a></h2>
-<p><code>tests/nygrid/test_nygrid_golden.py</code> compares what the operator, the detection tools and the interface attack return
+<p><code>tests/nygrid/test_golden.py</code> compares what the operator, the detection tools and the interface attack return
 on fixed inputs with the snapshots in <code>tests/nygrid/golden/</code>. A failure names the first value that changed. If the
 change is intended, rewrite the snapshots with <code>NYGRID_UPDATE_GOLDEN=1</code> and say in the pull request which numbers
 moved and why. The operator and detection snapshots run on the attack days checked in under
