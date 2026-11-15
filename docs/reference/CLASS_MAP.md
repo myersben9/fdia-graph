@@ -17,9 +17,9 @@ Which module imports which. Four foundations are read by nearly every module and
 real dependencies show: `models/` (every returned record, every config model and the one validation
 engine), `formulas/` (the equations), `schema.py` (the file protocol) and `errors.py` (the named
 errors). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
-same reason. `streams.py` is deprecated for generation and kept for reading the v0.7 stream files.
+same reason.
 
-![Module diagram: streams over dataset; federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
+![Module diagram: federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
 
 ## The dataset
 
@@ -81,11 +81,11 @@ each client trains its own copy with the shared `LocalTrainer` on its own buses,
 ## The records
 
 Everything a call returns is a `Bundle`, a dict with attribute access and a fixed key order. The record
-forms share seven field-group mixins, one per group of keys, so a record, a batch, an exported split and
-a stream carry the same names. An exported split adds an eighth, export-only group,
+forms share seven field-group mixins, one per group of keys, so a record, a batch and an exported split
+carry the same names. An exported split adds an eighth, export-only group,
 `PreviousFrameFields` (the previous frame's readings on a timeline).
 
-![Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle, ArraysBundle and Stream inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle](../figures/diagrams/classes_models.png)
+![Class diagram of the record bundles: Bundle, the seven shared field-group mixins as one node, and RecordBundle, BatchBundle and ArraysBundle inheriting both; ArraysBundle also takes an eighth, export-only group, PreviousFrameFields; EpisodeTable, Summary and TrueState under Bundle](../figures/diagrams/classes_models.png)
 
 ## The scores
 

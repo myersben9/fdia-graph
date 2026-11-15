@@ -7,14 +7,14 @@ classDiagram
     }
     class GraphMixin {
         +edge_index
-        +edge_reactance
         +branch_r
         +branch_x
         +branch_b
         +branch_g
-        +edge_r
-        +edge_x
-        ... and 25 more
+        +branch_gs
+        +branch_bs
+        +branch_tap
+        ... and 16 more
     }
     class AdmittanceMixin {
         +ybus_np
@@ -68,6 +68,9 @@ classDiagram
     class MissingCapability {
         <<models>>
     }
+    class NotATimeline {
+        <<models>>
+    }
     class RecordBundle {
         <<models>>
     }
@@ -102,6 +105,7 @@ classDiagram
     ExportMixin ..> Summary : uses
     FdiaGraph ..> Attr : uses
     FdiaGraph ..> LoadOptions : uses
+    FdiaGraph ..> NotATimeline : uses
     RecordsMixin ..> BatchBundle : uses
     RecordsMixin ..> RecordBundle : uses
     SequenceMixin ..> EpisodeTable : uses

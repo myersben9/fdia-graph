@@ -25,9 +25,6 @@ if any(importlib.util.find_spec(m) is None for m in ("pyomo", "pandas", "pandapo
     collect_ignore_glob = ["nygrid/*"]
 
 TINY = "tiny_ieee14"
-# The v0.7.2 record-shard layout the loader still reads: 12 benign + 3 per family on a 200-timestep
-# pool slice, written by the pre-0.18 writer (deleted in 0.18) and checked in.
-SHARD_V072 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tiny_shard_v072.h5")
 
 
 # The shared tiny timeline: new generation's families (At and the overload Am) on the hybrid meters,

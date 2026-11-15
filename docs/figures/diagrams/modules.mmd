@@ -11,7 +11,6 @@ flowchart TB
     registry["registry.py"]
     results["results"]
     se["se/"]
-    streams["streams.py<br/>(deprecated)"]
     timeline["timeline.py"]
     trust["trust/"]
     download --> registry
@@ -31,10 +30,6 @@ flowchart TB
     profiles --> registry
     se --> dataset
     se --> engine
-    streams --> dataset
-    streams --> download
-    streams --> registry
-    streams --> timeline
     timeline --> engine
     timeline --> generation
     timeline --> registry

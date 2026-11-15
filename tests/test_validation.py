@@ -177,7 +177,7 @@ def test_a_view_is_refused_through_the_capability_table(timeline):
 
     assert set(CAPABILITIES) == set(Capability)  # every capability has its test and its phrase
     pu = fg.load(timeline, split="test", units="pu")
-    pu.require("timeline", "benign_layer", by="anything")  # what a timeline offers passes
+    pu.require("time_order", "benign_layer", by="anything")  # what a timeline offers passes
     with pytest.raises(MissingCapability, match="^the estimator needs units='physical'"):
         pu.require("physical_units", by="the estimator")
     with pytest.raises(MissingCapability, match="needs order='time'"):

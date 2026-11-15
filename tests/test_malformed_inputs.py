@@ -45,7 +45,7 @@ VALID = {
     config.GateConfig: dict(gate="oracle"),
     config.IsoExport: dict(iso="nyiso"),
     inputs.DateSpan: dict(start="2024-01-01", end="2024-01-02"),
-    inputs.ProfileSource: dict(source=[1.0, 2.0]),
+    inputs.ProfileSource: dict(source=type("Series", (), {"loads": lambda self: np.ones(2)})()),
     inputs.DatasetName: dict(name="ieee14", local=frozenset(), builtin=frozenset({"ieee14"})),
     inputs.AdmissibleTargets: dict(families=("Aq", "Ad"), targets={1: 2, 2: 3}),
     inputs.TrustablePmus: dict(buses=[0], pmu=frozenset({0}), n_bus=3),
@@ -78,7 +78,7 @@ VALID = {
     ),
     inputs.RankedLabels: dict(score=np.array([0.1, 0.9]), truth=np.array([False, True])),
     inputs.Aggregation: dict(reduce="sum"),
-    inputs.Requirement: dict(capabilities=("timeline",), by="a test"),
+    inputs.Requirement: dict(capabilities=("time_order",), by="a test"),
     inputs.LoadValues: dict(values=[1.0, 2.0, 3.0]),
     result_models.Record: dict(experiment="demo.x", metric="angle_mae_deg", value=0.1),
     result_models.Provenance: dict(

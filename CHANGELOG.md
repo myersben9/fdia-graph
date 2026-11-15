@@ -5,6 +5,34 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Deprecated logic is removed (breaking).** Main holds current code only; anything below still works in
+  `fdia-graph==0.21.0`, and nothing here keeps an alias or a warning period.
+  - **Record shards and stream files.** `fg.load` and `FdiaGraph` read timelines only: a file without the `kind`
+    attribute `timeline` raises `NotATimeline`, and a data release before v0.8.0 (`release="v0.7.2"`) is refused
+    by name. The registry drops the v0.7.x layout (`ml_only_ieee{C}.h5`, npz pools, the bare `v0.7.x` tags, their
+    sha256), `registry.is_timeline_release`, `STREAM_RELEASE` and the environment variable
+    `FDIA_GRAPH_STREAM_RELEASE`; `registry.dataset_file` takes the system alone, `registry.pool_spec` names the
+    HDF5 pool only, and `registry.release_tuple` and `release_name` raise for a release before v0.8.0
+    (`models.inputs.FIRST_RELEASE`). `fg.load(include_gaps=...)` and `FdiaGraph(include_gaps=...)` go with the gap
+    rows and `schema.GAP`, and so do `ds.is_timeline` and `Capability.TIMELINE` (the `timeline` capability). The
+    new error is `errors.NotATimeline`. The pinned timeline releases v0.8.0, v0.8.1 and v0.8.3 read as before.
+  - **The stream entry points.** `fg.generate_stream`, `fg.load_stream`, `fg.windows`, the module
+    `fdia_graph.streams` and the models `Stream`, `StreamSummary` and `StreamLike` are removed: `fg.generate`
+    writes the timeline, `fg.load(name, order="time")` reads it and `ds.windows(W, stride, label)` windows it.
+  - **Dict-style settings.** `generate_timeline(am_attack={...})` and `redundancy={...}` are refused: pass
+    `OverloadSettings(...)` and `MeterSettings(...)`. `OverloadSettings.of` is removed.
+  - **`load_profile`'s old keywords.** `load_profile(source, path=, column=)` with a string or an array is
+    refused: pass `IsoFolder`, `CsvColumn`, `RawSeries` or any object with `loads()`. `ProfileSource` keeps its
+    `source` field alone (`path`, `column`, `text`, `series` and `kind` are removed).
+  - **`edge_reactance` and `ds.edge_*`.** `ds.edge_reactance`, `ds.edge_reactance_np`, `schema.EDGE_REACTANCE`,
+    `schema.Attr.EDGE_REACTANCE_DEPRECATED`, the generator's `x_react`, the `edge_reactance` key of `ds.export()` and the
+    `ds.edge_r` ... `ds.edge_shift` spellings are removed: the branch physics is `ds.branch_*` and `ds.edge_attr`.
+    A newly written timeline no longer carries `graph/edge_reactance` or the attribute
+    `edge_reactance_deprecated`; every other dataset of the file is unchanged.
+  - **`fdia_graph.operator.response`.** The re-export module is removed: import each name from the module that
+    defines it (`operator.day`, `ties`, `truegrid`, `policy`, `run`, `summary`); the package `fdia_graph.operator`
+    exports its public names as before.
+
 - **The repository has one place per kind of file.** Files moved; nothing in the package changed. Each study is a
   folder of `experiments/` (`estimation`, `localization`, `trust`, `federated`, `defense_reproduction`, `benchmarks`,
   `data_release`): `run.py` measures and writes to the results store, `report.py` draws the figures of its page. The

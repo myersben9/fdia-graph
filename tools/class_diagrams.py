@@ -260,7 +260,6 @@ def module_diagram(mods: dict[str, ast.Module]) -> str:
         "timeline": "timeline.py",
         "generation": "generation.py",
         "profiles": "profiles.py",
-        "streams": "streams.py<br/>(deprecated)",
     }
     drawn = {(a, b) for (a, b) in edges if a not in OMIT | FOUNDATION and b not in FOUNDATION}
     lines = ["flowchart TB"]

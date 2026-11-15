@@ -1,16 +1,15 @@
-"""What a user gets back: one record, a batch, a whole split, a summary, a stream, the episode
+"""What a user gets back: one record, a batch, a whole split, a summary, the episode
 table, and the per-record truth an estimator is scored against. Each is a Bundle, so it is still
 the dict it always was.
 
-The shard-shaped bundles are built from the field groups in `fields.py`, so each field's meaning
+The record-shaped bundles are built from the field groups in `fields.py`, so each field's meaning
 is written once; what a bundle adds is its leading axis, which fields it requires, and the order
 its dict view keeps (the order the old dict had)."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Optional, TypedDict, Union
+from typing import TypedDict
 
 import numpy as np
 
@@ -94,12 +93,9 @@ class ArraysBundle(
     or "tf"), leading axis n: every per-record field that was requested and the file carries, plus
     the static graph. Fields not requested are absent from the dict view."""
 
-    edge_reactance: Optional[np.ndarray] = None  # [E], deprecated units, kept for old callers
-
     # edge_attr comes with GraphFields; the exports never fill it, so it is None and absent from the dict
     _order = (
         "edge_index",
-        "edge_reactance",
         *_SCAN,
         "y",
         *_TEMPORAL,
@@ -136,58 +132,6 @@ class EpisodeRow(TypedDict):
     buses: list[int]
 
 
-class StreamSummary(TypedDict):
-    """The two summary fields of a stream, derived from its arrays."""
-
-    system: int  # the bus count
-    attacked_frac: float  # the fraction of frames with at least one attacked bus
-
-
-@dataclass(frozen=True, eq=False)
-class Stream(
-    PmuCurrentFields,
-    StreamLayers,
-    GraphFields,
-    CleanFields,
-    TemporalFields,
-    RecordIds,
-    LabelFields,
-    ScanFields,
-    Bundle,
-):
-    """A continuous attacked time series as `generate_stream` and `load_stream` return it, leading
-    axis T: three aligned measurement layers per frame (observed `node_x`, `benign`, `clean`), the
-    same three for branch flows, the static graph and meter masks, labels, the two temporal
-    features, and the episode list; on a hybrid-meter file also the PMU branch currents (`pmu_i`,
-    `pmu_i_benign` per frame, the static mask `pmu_i_m`). `stealthy`, `seq_id` and `edge_clean_full`
-    are not part of a stream. A dict as well, so `windows` and every `s["node_x"]` keep working."""
-
-    episodes: Optional[list[EpisodeRow]] = None  # list of {onset, length, family, buses}
-    system: Optional[int] = None  # bus count (generate_stream and load_stream both set it)
-    attacked_frac: Optional[float] = None  # fraction of frames with at least one attacked bus (both set it)
-
-    _required = (
-        "node_x",
-        "benign",
-        "clean",
-        "edge_x",
-        "edge_benign",
-        "edge_clean",
-        "edge_index",
-        "edge_attr",
-        "node_m",
-        "edge_m",
-        "y",
-        "family",
-        "temporal_delta",
-        "swing",
-        "timestep",
-        "episodes",
-    )
-    # the three group fields a stream never fills come last: None, so absent from the dict
-    _order = (*_required, "system", "attacked_frac", *_PMU_I, "stealthy", "seq_id", "edge_clean_full")
-
-
 @dataclass(frozen=True, eq=False)
 class Summary(Bundle):
     """`FdiaGraph.summary()`: the system, its size, the number of records in the view, and the
@@ -206,8 +150,3 @@ class TrueState(Bundle):
 
     x: np.ndarray  # [n, 2N-1] the true state: non-slack angles (rad), then every voltage magnitude (pu)
     thsl: np.ndarray  # [n] the slack angle reference per record (rad)
-
-
-# What a stream consumer accepts: the `Stream` that `load_stream` and `generate_stream` return
-# (arrays plus the episode list and scalars), or a plain dict of the stream's arrays.
-StreamLike = Union[Stream, Mapping[str, np.ndarray]]

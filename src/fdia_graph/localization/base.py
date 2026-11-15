@@ -53,10 +53,7 @@ _FIELD_CAPABILITY = {  # the capability a view needs to carry each optional fiel
     "swing": "swing",
     "temporal_delta": "temporal",
     "clean": "clean_layer",
-    "prev_node_x": "timeline",
-    "prev_edge_x": "timeline",
-    "prev_timestep": "timeline",
-    "prev_swing": "timeline",
+    "prev_swing": "swing",
     "prev_pmu_i": "pmu_currents",
 }
 

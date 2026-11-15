@@ -193,8 +193,6 @@ def _write_graph(f: h5py.File, g: FdiaGenerator) -> None:
     and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics."""
     gg = f.create_group(Group.GRAPH)
     gg.create_dataset(schema.EDGE_INDEX.split("/")[1], data=g.ei)
-    # DEPRECATED, unit-inconsistent (ohms for lines, vk percent for trafos). Kept for v0.4.x readers.
-    gg.create_dataset(schema.EDGE_REACTANCE.split("/")[1], data=g.x_react)
     values = _static_physics(g)
     for name in schema.STATIC_PHYSICS:  # the reader's table, in its order; what this writer has of it
         if name in values:
@@ -203,7 +201,6 @@ def _write_graph(f: h5py.File, g: FdiaGenerator) -> None:
         {
             Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
             Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
-            Attr.EDGE_REACTANCE_DEPRECATED: "mixes ohms (lines) with vk_percent (trafos); use edge_x",
             Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
         }
     )

@@ -61,7 +61,7 @@ class ExportMixin(DatasetBase):
         # on request only, a timeline's previous frame; its swing and PMU currents only when the file
         # carries them
         needs = {"prev_swing": self.has_swing, "prev_pmu_i": self.has_currents}
-        prev = [k for k in _PREV_FIELDS if self.is_timeline and needs.get(k, True)]
+        prev = [k for k in _PREV_FIELDS if needs.get(k, True)]
         offered = known + prev
         return list(FieldRequest(fields, tuple(offered), tuple(known)).fields)
 
@@ -105,7 +105,7 @@ class ExportMixin(DatasetBase):
         (`flatten_features` spreads the per-bus and per-branch readings into columns).
 
         Keys: node_x [n,N,4], node_m, edge_x [n,E,2], edge_m, y [n,N], family/stealthy/seq_id/
-        timestep [n], plus the static graph edge_index [2,E] and edge_reactance [E], always included.
+        timestep [n], plus the static graph edge_index [2,E], always included.
         On a timeline, `fields` may also ask for prev_node_x [n,N,4], prev_edge_x [n,E,2],
         prev_timestep [n], prev_swing [n,N,2] (when the file carries swing) and prev_pmu_i [n,E,4]
         (when it carries the PMU currents, a hybrid-meter file): the readings of the
@@ -129,8 +129,8 @@ class ExportMixin(DatasetBase):
         """The numpy export every format is built from: one bulk read, in the view's order and
         units, the caller's field order kept."""
         want = self._checked_fields(fields)
-        # Static graph arrays always included (tiny, and needed to interpret edges).
-        out = {"edge_index": self.edge_index_np, "edge_reactance": self.edge_reactance_np}
+        # The static edge index is always included (tiny, and needed to interpret edges).
+        out = {"edge_index": self.edge_index_np}
         out.update(self._gather(want))
         if self._perm is not None:  # order="random": the gathered rows in the view's permutation
             out.update({k: out[k][self._perm] for k in want})

@@ -341,9 +341,9 @@ under `name`. Without `states`, it reads `$FDIA_GRAPH_INIT` or downloads the sys
 | `attacked_frac` | 0.5 | fraction of frames under an episode |
 | `families` | ("At", "Am") | the families in rotation; the single-snapshot families of older releases are refused |
 | `min_tamper` | True | hold each episode on the support that tampers the fewest devices [WU26, eq. 12] |
-| `am_attack` | "overload" | `Am` as the overload attack of [WU26], or an `OverloadSettings` (a dict still works and warns; dicts go in 0.22) |
+| `am_attack` | "overload" | `Am` as the overload attack of [WU26], or an `OverloadSettings` |
 | `stealth_scale` | 1.0 | a multiplier on At's stealth bound, in units of the rated accuracy (Am has none, D11) |
-| `redundancy` | `MeterSettings()` | the meter plan, a `MeterSettings` (a dict warns, as above): coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` (D10, D12) |
+| `redundancy` | `MeterSettings()` | the meter plan, a `MeterSettings`: coverage `vbus_frac` 0.6, `pmu_frac` 0.2, `flow_frac` 0.9, and `meter_model` `"hybrid"` (D10, D12) |
 | `ramp_rate` | 0.002 | `At` growth per frame |
 | `ramp_len` | 60 | `At` episode length |
 | `am_len` | `ramp_len` | `Am` episode length |

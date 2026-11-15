@@ -27,8 +27,8 @@ its stage does.
    settings, or a shared record's arrays, after it is built: a variant is a copy (`with_overshoot`,
    `with_voltage_margin`).
 2. Each package's `__init__.py` lists its public names (`__all__`), imported on first use, so reading a dataset never
-   loads pandapower or Pyomo. A name outside `__all__` is internal and may change; a public name that is renamed keeps
-   its old spelling, with a DeprecationWarning, for one minor release.
+   loads pandapower or Pyomo. A name outside `__all__` is internal and may change; a public name that is renamed is a
+   changelog entry, with no alias kept.
 3. A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
    frozen dataclasses of numpy arrays, and choices are validated records (`OperatorPolicy`).
 4. Extension points are small: `AttackFamily` is the base class of the attack families, and `Operator` and
@@ -98,7 +98,6 @@ src/fdia_graph/
     run.py              Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, AC_DISPATCH, reported_changes (the operator scan by scan, DC or AC)
     summary.py          summarize (the attack's consequence, attacked less benign)
     areas.py            area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
-    response.py         every name above, re-exported for the imports written before the split
   se/detect/
     __init__.py         what the stage does, and its public names
     estimate.py         WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
@@ -190,8 +189,8 @@ Frozen dataclasses of arrays, passed between classes.
 | `OperatorOpf`, `OpfSolution` | `generation/nygrid/solver.py` | the Case and each interface's branches and signs; the Pyomo AC OPF with mutable loads, bounds, anchors, weights and interface rows | `solve(load_p, load_q, *, ...) -> OpfSolution` (units, shed, interface excess, unmatched, model flows, state, balance and interface duals) or None |
 | `PoolFrames` | `operator/day.py` | `p_lo`, `p_hi`, `sp [T, G]` (the pool's unit bounds before the ramp and its setpoints), `qd [T, N]` (the pool's reactive loads) | |
 | `Step` | `operator/sced.py` | `dev [G]` (MW from the basepoint), `shed [N]` (MW of load relief), `unrelieved [I]`, `unmatched`, `relief_usd` (the dispatch's cost less that of the same dispatch with no interface limit) | |
-| `OperatorDay` | `operator/response.py` | one timeline file's frames with the pool basepoint, the interpolated unit costs, the real zonal LBMP and the interfaces | |
-| `Twin`, `Response` | `operator/response.py` | the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan, and under a least-cost dispatch the congestion and energy prices and each bus's price `price [T, N]` | |
+| `OperatorDay` | `operator/day.py` | one timeline file's frames with the pool basepoint, the interpolated unit costs, the real zonal LBMP and the interfaces | |
+| `Twin`, `Response` | `operator/run.py` | the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan, and under a least-cost dispatch the congestion and energy prices and each bus's price `price [T, N]` | |
 | `TimelineWriter` | `io.py` | an open HDF5 file, built as `TimelineWriter(path)` | `write_static(case, own, plan)`, `write_frames(t0, block)` (`block` a dict of the per-frame arrays of frames `t0..`, datasets grown as written), `write_episodes(episodes)`, `close()` |
 | `Dataset` | `dataset/clients.py` | an open timeline file (`open_timeline`) with its `case`, `own`, `plan` | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames |
 | `ClientView` | `dataset/clients.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (the indices of the selected frames, exact for the interleaved week split) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; `z` stays raw) |
@@ -236,13 +235,13 @@ Stateless steps, each called once in the build.
 | `TimelineBuilder.build_episode(path, onset, family, lo, hi, using=None, lag=0)` | `generation/nygrid/timeline.py` | one onset | one episode alone over frames lo..hi; `using` designs it with a family variant (such as `with_overshoot`) in place of the builder's own; `lag` (frames) designs it on the window `lag` frames earlier, the attacker's persistence forecast, and adds its vector to the true scans from `onset` |
 | `shortage_usd(mw)` | `operator/sced.py` | MW over an interface limit for one scan | $ at the 2019 transmission shortage curve (N60) |
 | `shift_factors(case)`, `outage_factors(case, ptdf, outages)` | `operator/sced.py` | `Case` | `[L, N]` DC shift factors (reference bus out), `[L, K]` line outage distribution factors |
-| `operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))` | `operator/response.py` | a timeline file, its pool, NYgrid's `Data/` | `OperatorDay` |
+| `operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))` | `operator/day.py` | a timeline file, its pool, NYgrid's `Data/` | `OperatorDay` |
 | `pool_frames(day, loads=None)` | `operator/day.py` | `OperatorDay`, the pool's load series (default `NYGRID_LOADS` or `out/loads_2019_v2.npz`) | `PoolFrames` (`PoolBuilder.frame_limits` on the hours the day touches) |
 | `ac_shift(case, vm, va, interfaces)`, `ac_power_flow(case, net, vm, va, p, q)`, `open_branch(case, k)` | `operator/acsced.py` | an AC state | `[I, N]` AC interface sensitivities to bus injections (power flow Jacobian), the Newton AC power flow at fixed injections, the case without branch `k` |
-| `tie_meters(case, plan)`, `neighbour_reads(plan, rows, far, rng)` | `operator/response.py` | the case and plan, the far-end flows | the ties with a New York-end P-flow meter, and the neighbours' readings of them through meters of the same class (N67) |
-| `tie_gap(day, z)` | `operator/response.py` | `OperatorDay`, scans `[T, M]` | `[T]` the net interchange read at the New York ends of the ties less what the neighbours meter at their ends (the true flow there), the interchange check of N62 |
-| `seen_interfaces(plan, interfaces, z)` | `operator/response.py` | the meter plan, the interfaces, scans `[T, M]` | `[T, I]` each interface's flow as the operator reads it from its branches' P-flow meters |
-| `respond(day, delay=0, over=0.0, mode="trusting", calib=None)`, `summarize(response, voll=None)` | `operator/response.py` | `OperatorDay` | `Response` (O1, O2, O5, N50 to N65: every interface of `INTERFACES` enforced, quick-start units, regulation capped at `REG_CAP` with the rest an ACE excursion, the interchange alarm, and with `defended` the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility |
+| `tie_meters(case, plan)`, `neighbour_reads(plan, rows, far, rng)` | `operator/ties.py` | the case and plan, the far-end flows | the ties with a New York-end P-flow meter, and the neighbours' readings of them through meters of the same class (N67) |
+| `tie_gap(day, z)` | `operator/ties.py` | `OperatorDay`, scans `[T, M]` | `[T]` the net interchange read at the New York ends of the ties less what the neighbours meter at their ends (the true flow there), the interchange check of N62 |
+| `seen_interfaces(plan, interfaces, z)` | `operator/ties.py` | the meter plan, the interfaces, scans `[T, M]` | `[T, I]` each interface's flow as the operator reads it from its branches' P-flow meters |
+| `respond(day, delay=0, over=0.0, mode="trusting", calib=None)`, `summarize(response, voll=None)` | `operator/run.py`, `operator/summary.py` | `OperatorDay` | `Response` (O1, O2, O5, N50 to N65: every interface of `INTERFACES` enforced, quick-start units, regulation capped at `REG_CAP` with the rest an ACE excursion, the interchange alarm, and with `defended` the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility |
 
 ## The timeline file
 
@@ -283,4 +282,4 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | D1 | `generation/nygrid/schedule.py`, `generation/nygrid/timeline.py`, `TimelineWriter` in `io.py` |
 | D2 | `dataset/clients.py`, `open_timeline` in `io.py` |
 | D3 | `build.py` (`fetch_inputs`, `production_builder`), `pipelines/newyork/build_timeline.py`, `pipelines/newyork/build_single_episodes.py` |
-| O1, O2, O5 | `operator/sced.py`, `operator/response.py` |
+| O1, O2, O5 | `operator/sced.py`, `operator/run.py` |

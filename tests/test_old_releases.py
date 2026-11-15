@@ -1,6 +1,6 @@
-"""Old data releases stay readable. The generator makes only At and Am, but a timeline of each of
-v0.8.0, v0.8.1 and v0.8.3, a v0.7.2 record shard and a v0.7.1 stream file load, split, filter by
-family name and score per family as before. Each fixture under tests/data was written by the SDK
+"""The pinned data releases stay readable. The generator makes only At and Am, but a timeline of each of
+v0.8.0, v0.8.1 and v0.8.3 loads, splits, filters by family name and scores per family as before; the
+record shards and stream files of the releases before v0.8.0 are refused. Each fixture under tests/data was written by the SDK
 that built its release, or is a slice of the published file (tests/data/README.md).
 
 Also here: the graph fields a GNN user relies on (the series admittance and the clean flow on every
@@ -19,9 +19,6 @@ TIMELINES = {
     "v0.8.1": os.path.join(DATA, "tiny_timeline_v081.h5"),
     "v0.8.3": TIMELINE_V083,
 }
-# the first 100 frames of the published IEEE-118 stream file
-STREAM_V071 = os.path.join(DATA, "tiny_stream_v071.npz")
-GRAPH_V071 = os.path.join(DATA, "graph_ieee118_v071.npz")  # that release's graph sidecar, as published
 OLD_FAMILIES = {"Aq", "Ad", "As", "Ar", "At", "Al", "Am"}
 
 
@@ -37,7 +34,7 @@ def test_an_old_timeline_loads_every_split_and_family(release):
 
     path = TIMELINES[release]
     ds = FdiaGraph(path)
-    assert ds.is_timeline and ds.has_benign and ds.has_clean and _family_names(ds) == OLD_FAMILIES
+    assert ds.has_benign and ds.has_clean and _family_names(ds) == OLD_FAMILIES
     sizes = [len(FdiaGraph(path, split=s)) for s in ("train", "val", "test")]
     assert all(n > 0 for n in sizes) and sum(sizes) == len(ds)
     only = FdiaGraph(path, families=["Aq", "Al"])
@@ -78,48 +75,34 @@ def test_old_releases_score_per_old_family(release):
         assert se[name] is not None and loc[name] is not None
 
 
-def test_a_v072_record_shard_scores_per_family():
-    from fdia_graph.dataset import FdiaGraph
-    from fdia_graph.se import WLS
-
-    from .conftest import SHARD_V072
-
-    ds = FdiaGraph(SHARD_V072)
-    rep = WLS().fit(ds).score(ds)
-    assert rep["benign"] is not None and rep["geo"].angle_mae_deg > 0
-    present = _family_names(ds)
-    assert present <= OLD_FAMILIES and {"Aq", "Ad", "As", "Ar", "At", "Al"} <= present
-    for name in present:  # every attacked family of the shard is scored
-        assert rep[name] is not None and rep[name].angle_mae_deg >= 0
-
-
-def test_a_v071_stream_file_loads_and_windows(monkeypatch):
-    """`load_stream` at a pre-timeline release reads the published stream file and that release's
-    graph sidecar (the download replaced by the checked-in slices), and `streams.windows` slides
-    over it."""
-    import fdia_graph as fg
-    import fdia_graph.download as download
-    from fdia_graph.streams import windows
-
-    files = {"stream_ieee118.npz": STREAM_V071, "graph_ieee118.npz": GRAPH_V071}
-    monkeypatch.setattr(download, "ensure_local", lambda spec: files[spec.file])
-    with pytest.warns(DeprecationWarning):
-        s = fg.load_stream("ieee118", release="v0.7.1")
-    assert s.system == 118 and s.node_x.shape == (100, 118, 4) and 0 < s.attacked_frac < 1
-    assert s.edge_index.shape == (2, 186) and s.edge_attr.shape == (186, 8) and s.node_m.shape == (118, 4)
-    assert len(s.episodes) > 0 and {int(e["family"]) for e in s.episodes} <= set(range(8))
-    with pytest.warns(DeprecationWarning):
-        X, y = windows(s, 8, stride=4)
-    assert X.shape[1:] == (8, 118, 4) and len(X) == len(y)
-
-
-@pytest.mark.parametrize("release", ["v0.7.1", "v0.7.2", "v0.8.0", "v0.8.1", "v0.8.3"])
-def test_every_published_release_resolves_to_its_asset(release):
+@pytest.mark.parametrize("release", ["v0.8.0", "v0.8.1", "v0.8.3"])
+def test_every_timeline_release_resolves_to_its_asset(release):
     from fdia_graph import registry
 
     spec = registry.resolve("ieee14", release=release)
-    want = "timeline_ieee14.h5" if registry.is_timeline_release(release) else "ml_only_ieee14.h5"
-    assert spec.file == want
+    assert spec.file == "timeline_ieee14.h5" and spec.sha256 == registry._SHA256[release]["ieee14"]
+
+
+@pytest.mark.parametrize("release", ["v0.7.1", "v0.7.2"])
+def test_a_release_before_the_timelines_is_refused(release):
+    from fdia_graph import registry
+
+    with pytest.raises(ValueError, match="fdia-graph 0.21"):
+        registry.resolve("ieee14", release=release)
+
+
+def test_a_file_that_is_no_timeline_is_refused(tmp_path):
+    """A record shard (no `kind` attribute) is refused by name, before anything is read from it."""
+    import h5py
+
+    from fdia_graph.dataset import FdiaGraph
+    from fdia_graph.errors import NotATimeline
+
+    path = tmp_path / "shard.h5"
+    with h5py.File(path, "w") as f:
+        f.attrs.update({"N": 14, "E": 20})
+    with pytest.raises(NotATimeline, match="fdia-graph 0.21"):
+        FdiaGraph(str(path))
 
 
 def test_the_series_admittance_is_one_over_the_series_impedance(timeline):

@@ -1,7 +1,5 @@
-"""The registry's per-release asset layout: record shards and npz pools before v0.8.0, one timeline
-per system and HDF5 pools from v0.8.0, and the deprecated `load_stream` following it."""
+"""The registry's asset layout: one timeline per system and its HDF5 pool, from data release v0.8.0."""
 
-import numpy as np
 import pytest
 
 import fdia_graph as fg
@@ -9,35 +7,31 @@ from fdia_graph import registry
 
 
 def test_release_tags_order_and_layout():
-    assert registry.release_tuple("v0.7.2") == (0, 7, 2) and registry.release_tuple("0.10.1") == (0, 10, 1)
+    assert registry.release_tuple("v0.8.3") == (0, 8, 3) and registry.release_tuple("0.10.1") == (0, 10, 1)
     with pytest.raises(ValueError, match="data release"):
         registry.release_tuple("latest")
-    assert not registry.is_timeline_release("v0.7.2") and registry.is_timeline_release("v0.8.0")
-    assert registry.is_timeline_release("v1.0.0")
+    with pytest.raises(ValueError, match="fdia-graph 0.21"):  # a release of record shards
+        registry.release_tuple("v0.7.2")
     # package versions own the bare tags, so a data release from v0.8.0 lives under "data-"
     assert registry.release_tuple("data-v0.8.0") == (0, 8, 0)
     assert (
         registry.release_tag("v0.8.0") == "data-v0.8.0"
         and registry.release_tag("data-v0.8.0") == "data-v0.8.0"
     )
-    assert registry.release_tag("v0.7.2") == "v0.7.2" and registry.release_name("data-v0.9.1") == "v0.9.1"
-    assert registry.dataset_file(118, "v0.7.2") == "ml_only_ieee118.h5"
-    assert registry.dataset_file(118, "v0.8.0") == "timeline_ieee118.h5"
+    assert registry.release_name("data-v0.9.1") == "v0.9.1"
+    assert registry.dataset_file(118) == "timeline_ieee118.h5"
 
 
 def test_resolve_follows_the_release():
-    old = registry.resolve("ieee14", release="v0.7.2")
-    assert old.file == "ml_only_ieee14.h5" and old.release == "v0.7.2" and old.system == 14
-    assert old.sha256 == registry._SHA256["v0.7.2"]["ieee14"]
+    old = registry.resolve("ieee14", release="v0.8.1")
+    assert old.file == "timeline_ieee14.h5" and old.release == "data-v0.8.1" and old.system == 14
+    assert old.sha256 == registry._SHA256["v0.8.1"]["ieee14"]
     new = registry.resolve(300, release="v0.8.0")
     assert new.file == "timeline_ieee300.h5" and new.release == "data-v0.8.0"  # the tag the assets live under
     assert registry.resolve(300, release="data-v0.8.0").release == "data-v0.8.0"
-    assert (
-        registry.pool_spec(14, "v0.8.0").release == "data-v0.8.0"
-        and registry.pool_spec(14, "v0.7.2").release == "v0.7.2"
-    )
+    assert registry.pool_spec(14, "v0.8.0").release == "data-v0.8.0"
     assert new.sha256 == registry._SHA256.get("v0.8.0", {}).get("ieee300")
-    assert registry.resolve("118").file == registry.dataset_file(118, registry._RELEASE)
+    assert registry.resolve("118").file == registry.dataset_file(118)
     assert set(registry.BUILTIN) == {f"ieee{C}" for C in (14, 30, 57, 89, 118, 145, 200, 300)}
     with pytest.raises(KeyError, match="unknown dataset"):
         registry.resolve("ieee999")
@@ -52,7 +46,7 @@ def test_a_local_registration_shadows_a_builtin_name(timeline, tmp_path):
         spec = registry.resolve("ieee14")
         assert spec.kind == "local" and spec.path == path
         assert registry.resolve("IEEE14").kind == "local"  # one name in either case, so it is shadowed alike
-        assert fg.load("ieee14").is_timeline
+        assert len(fg.load("ieee14")) > 0
     finally:
         local = registry._load_local()
         local.pop("ieee14", None)
@@ -61,7 +55,6 @@ def test_a_local_registration_shadows_a_builtin_name(timeline, tmp_path):
 
 
 def test_pool_spec_follows_the_release():
-    assert registry.pool_spec(14, "v0.7.2").file == "pool_ieee14.npz"
     assert registry.pool_spec("ieee300", "v0.8.0").file == "pool_ieee300.h5"
     spec = registry.pool_spec(57)
     assert (
@@ -69,22 +62,6 @@ def test_pool_spec_follows_the_release():
         and spec.kind == "builtin"
         and spec.system == 57
     )
-
-
-def test_load_stream_reads_a_timeline_release_through_the_loader(timeline, monkeypatch):
-    """At a timeline release `load_stream` is the loader plus `stream_of`, so the dict it returns
-    is the same frames `fg.load(name, order="time")` gives."""
-    import fdia_graph.download as download
-
-    path = fg.load(timeline).path
-    monkeypatch.setattr(download, "ensure_local", lambda spec: path)
-    monkeypatch.setattr(fg, "ensure_local", lambda spec: path)  # `load` bound the name at import
-    with pytest.warns(DeprecationWarning, match="load_stream is deprecated"):
-        s = fg.load_stream("ieee14", release="v0.8.0")
-    ds = fg.load(timeline)
-    assert s.system == 14 and s.node_x.shape == (len(ds), 14, 4) and s.node_m.shape == (14, 4)
-    assert np.array_equal(s.y, ds.export(["y"])["y"]) and len(s.episodes) == len(ds.episodes)
-    assert s.attacked_frac == pytest.approx(float((s.y.sum(axis=1) > 0).mean()))
 
 
 def test_builtin_names_are_case_insensitive():

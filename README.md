@@ -43,8 +43,9 @@ Xw, yw = ts.windows(W=24, stride=12)                  # [n, 24, N, 4] windows fo
 | `pip install "fdia-graph[federated]"` | + torch and scikit-learn, for `fdia_graph.federated` |
 | `pip install "fdia-graph[all]"` | every extra above |
 
-Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.7.2")`
-pins a data version (the v0.7.2 record shards still load); `pip install --upgrade fdia-graph` moves it forward.
+Data is pinned per SDK version and cached in `~/.cache/fdia_graph`. `fg.load(..., release="v0.8.1")`
+pins a data version, any timeline release from v0.8.0; `pip install --upgrade fdia-graph` moves it forward.
+The record shards of the data releases before v0.8.0 are read by `fdia-graph==0.21.0`.
 
 ## Load
 
@@ -140,7 +141,7 @@ satisfy equations (13)-(23) of [WU26] (the SCADA measurements, the PMU voltage m
 and branch currents, and the operating limits); `Am` also meets the line-overload goal, eqs.
 (24)-(25), and both are held on the support that tampers the fewest devices, eq. (12), when
 `min_tamper=True` (the default for `At`; `Am` always picks its support that way, by the search or by
-[WU26]'s row reduction, `am_attack={"support_method": "rref"}`). The single-snapshot families and the
+[WU26]'s row reduction, `am_attack=OverloadSettings(support_method="rref")`). The single-snapshot families and the
 redistribution `Am` of the older releases were drawn at random targets, on meters without branch
 currents, and drove no line to its limit.
 

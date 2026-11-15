@@ -18,7 +18,6 @@ import datetime as _dt
 import glob
 import io
 import os
-import warnings
 import zipfile
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
@@ -119,38 +118,14 @@ class IsoFolder:
         return pd.concat(frames).sort_index()[load].dropna().to_numpy(dtype=float)
 
 
-def load_profile(
-    source: Union[LoadSource, str, Sequence[float], np.ndarray],
-    path: Optional[str] = None,
-    column: Optional[str] = None,
-) -> np.ndarray:
+def load_profile(source: LoadSource) -> np.ndarray:
     """A normalized load-scaling vector S [T] (zero mean, unit variance) from a load time series.
 
     source : where the loads come from, `IsoFolder("nyiso", "data/nyiso")`,
              `CsvColumn("loads.csv", "load_mw")` or `RawSeries(values)`; each reads itself.
-
-    The older form, a string or an array with `path` / `column`, still works for one minor version and
-    warns (`_legacy_source`).
     """
-    spec = ProfileSource(source, path, column)
-    reader: LoadSource = source if spec.kind == "source" else _legacy_source(spec)  # type: ignore[assignment]
-    return _standardize(reader.loads())
-
-
-def _legacy_source(spec: ProfileSource) -> LoadSource:
-    """The pre-0.21 call `load_profile(source, path, column)` as a source: an operator name with a
-    directory, a CSV path with its column (`CsvSpec` requires it), or the values themselves."""
-    warnings.warn(
-        "load_profile(source, path=, column=) is deprecated; pass IsoFolder, CsvColumn or RawSeries",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    if spec.kind == "values":
-        return RawSeries(spec.series)
-    if spec.kind == "iso":
-        return IsoFolder(spec.text, spec.path or ".")
-    csv = CsvSpec(spec.text, spec.column)
-    return CsvColumn(os.fspath(csv.path), str(csv.column))
+    ProfileSource(source)  # anything else is refused here
+    return _standardize(source.loads())
 
 
 def _case_buses(key: int) -> np.ndarray:

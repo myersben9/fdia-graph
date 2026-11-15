@@ -49,13 +49,13 @@ in a new data release.
 ## `node_x` `[N,4]`: bus measurements (voltage first)
 
 The column order is defined once, in `fdia_graph.models.NodeColumns` (`v`, `p_inj`, `q_inj`, `theta`);
-every record, batch, split and stream exposes named views of it through `.node()` and `.edge()`,
+every record, batch and split exposes named views of it through `.node()` and `.edge()`,
 and the generator, loader and estimator index columns through `NODE` and `EDGE` rather than literals:
 
 ```python
 rec = ds[0]
 rec.node().theta  # the angle column, a view of rec.node_x[..., 3]
-NodeColumns.of(s.clean).v  # works on any [..., 4] array, a stream's clean layer included
+NodeColumns.of(ds.export(["clean"]).clean).v  # works on any [..., 4] array, a split's clean layer included
 ```
 
 | col | name | physical units | pu units |
@@ -95,7 +95,6 @@ Sign of `P_inj`/`Q_inj`: `+` = net consumption (load), `−` = net injection (ge
 | dict record `ds[i]` or a `ds.loader()` batch | `["edge_x"]` | `["edge_m"]` | `["edge_attr"]` |
 | PyG `Data` or `DataBatch` (`format="pyg"`) | `.edge_attr` or `.edge_x` | `.edge_mask` | `.edge_phys` |
 | `ds.export()` | `["edge_x"]` `[n,E,2]` | `["edge_m"]` | `ds.edge_attr` |
-| stream dict `fg.load_stream()` | `["edge_x"]` `[T,E,2]` | `["edge_m"]` | `["edge_attr"]` |
 
 One name to watch: the static table's `graph/edge_x` is the per-unit series reactance of each branch
 (`ds.branch_x`), unrelated to the per-record flow layer `edge_x` above; the on-disk name changes at
@@ -108,8 +107,7 @@ here are the flows.
 Flows are per record, so they only exist on records and batches. The static per-unit branch
 physics live on the dataset as `ds.edge_attr` `[E,8]` and one column each as `ds.branch_r`,
 `ds.branch_x`, `ds.branch_b`, `ds.branch_g`, `ds.branch_gs`, `ds.branch_bs`, `ds.branch_tap`,
-`ds.branch_shift`. The older `ds.edge_r` … `ds.edge_shift` spellings of all eight still work but raise
-a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) collided with the flows' name.
+`ds.branch_shift`. They are named `branch_*` because `edge_x` is the flows' name.
 
 ## The rest
 
@@ -119,7 +117,7 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 | `node_m`, `edge_m` | `[N,4]`, `[E,2]` | `1` metered, `0` not. Metering is sparse: read the mask. |
 | `edge_index` | `[2,E]` | row 0 from-bus, row 1 to-bus |
 | `y`, `family` | `[N]`, scalar | see Labels above (Aq = paper `A_o`) |
-| `slack` | dataset attribute | index of the reference (slack) bus, `ds.slack`. Derived from the clean layer, so v0.7.2+ only. Also `Data.slack` in PyG format |
+| `slack` | dataset attribute | index of the reference (slack) bus, `ds.slack`. Derived from the clean layer. Also `Data.slack` in PyG format |
 | `ybus` | dataset attribute | full nodal admittance matrix `[N,N]`, complex per-unit, in `node_x` bus order: `ds.ybus` (torch complex128) or `ds.ybus_np`. Built from `edge_attr` and the bus shunts with pandapower's branch model, equal to the engine's matrix. Static per shard, so it lives on the dataset, not on each record |
 | `yf`, `yt` | dataset attributes | from-end and to-end branch admittance matrices `[E,N]` (rows follow `edge_index`, columns `node_x` bus order): `ds.yf` / `ds.yt` (torch complex128) or `ds.yf_np` / `ds.yt_np`. For a complex bus voltage vector `V`, `V[from] * conj(Yf @ V)` is the from-end branch flow in per-unit (times `baseMVA` gives `edge_x` / `edge_clean` units). Same construction as makeYbus |
 | `stealthy` | scalar | 1 for the re-solve families `Aq`/`At`/`Al`/`Am` (`fg.STEALTHY_FAMILIES`, BDD-evading by construction), 0 for benign and `Ad`/`As`/`Ar` |
@@ -133,7 +131,7 @@ a `DeprecationWarning`; the rename exists because `ds.edge_x` (the reactance) co
 - `clean` covers every bus with no mask, whatever the meter placement.
 - `edge_clean` zeroes unmetered branches, like `edge_x`.
 - `edge_clean_full` is the same true flow on every branch, metered or not, computed from `clean`
-  through `yf` when the shard is loaded (`V[from] * conj(Yf @ V)`, times `baseMVA`). It equals
+  through `yf` when the file is loaded (`V[from] * conj(Yf @ V)`, times `baseMVA`). It equals
   `edge_clean` wherever a flow meter exists, so a graph model can supervise every edge.
 - On benign records `node_x − clean` is the meter error.
 - This is the state-estimation target.
@@ -178,9 +176,9 @@ channels the attacker wrote. A file without these datasets (every released file)
 and its records carry no `pmu_i`. `export(["prev_pmu_i"])` gives the previous emitted frame's
 currents on a hybrid-meter timeline, like `prev_node_x`.
 
-Chunked along the frame axis so a window of W frames is one read. The v0.7.2 record shards (the
-same `data/`, `clean/` once per pool timestep, a `gap` column, no `benign/`) still load through
-`fg.load(..., release="v0.7.2")`.
+Chunked along the frame axis so a window of W frames is one read. A file without the `kind` attribute
+`timeline` (a record shard of a data release before v0.8.0) is refused with `NotATimeline`; fdia-graph
+0.21 reads those.
 
 <!-- models:begin -->
 ## Models
@@ -259,7 +257,6 @@ Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphF
 | field | dict key | type | required | meaning |
 |---|---|---|---|---|
 | `edge_index` | `edge_index` | Array |  | [2, E] from and to bus of every branch (GraphFields) |
-| `edge_reactance` | `edge_reactance` | array |  | [E], deprecated units, kept for old callers |
 | `node_x` | `node_x` | Array |  | [..., N, 4] &#124;V&#124;, P_inj, Q_inj, theta (zero where unmetered) (ScanFields) |
 | `node_m` | `node_m` | Array |  | [..., N, 4] meter mask, 1 metered (ScanFields) |
 | `edge_x` | `edge_x` | Array |  | [..., E, 2] P_from, Q_from (ScanFields) |
@@ -308,39 +305,6 @@ Field groups: `PmuCurrentFields`, `PreviousFrameFields`, `StreamLayers`, `GraphF
 | `length` | `length` | array | yes | [K] frames |
 | `family` | `family` | array | yes | [K] family code |
 | `buses` | `buses` | list[array] | yes | K arrays, the buses the episode labelled |
-
-### `Stream` (`fdia_graph.models.data`)
-
-A continuous attacked time series as `generate_stream` and `load_stream` return it, leading axis T: three aligned measurement layers per frame (observed `node_x`, `benign`, `clean`), the same three for branch flows, the static graph and meter masks, labels, the two temporal features, and the episode list; on a hybrid-meter file also the PMU branch currents (`pmu_i`, `pmu_i_benign` per frame, the static mask `pmu_i_m`). `stealthy`, `seq_id` and `edge_clean_full` are not part of a stream. A dict as well, so `windows` and every `s["node_x"]` keep working.
-
-Field groups: `PmuCurrentFields`, `StreamLayers`, `GraphFields`, `CleanFields`, `TemporalFields`, `RecordIds`, `LabelFields`, `ScanFields`.
-
-| field | dict key | type | required | meaning |
-|---|---|---|---|---|
-| `node_x` | `node_x` | Array | yes | [..., N, 4] &#124;V&#124;, P_inj, Q_inj, theta (zero where unmetered) (ScanFields) |
-| `benign` | `benign` | Array | yes | [..., N, 4] attack removed, noise kept (StreamLayers) |
-| `clean` | `clean` | Array | yes | [..., N, 4] true state at the record's timestep (CleanFields) |
-| `edge_x` | `edge_x` | Array | yes | [..., E, 2] P_from, Q_from (ScanFields) |
-| `edge_benign` | `edge_benign` | Array | yes | [..., E, 2] attack removed, noise kept (StreamLayers) |
-| `edge_clean` | `edge_clean` | Array | yes | [..., E, 2] exact true flows on metered branches (CleanFields) |
-| `edge_index` | `edge_index` | Array | yes | [2, E] from and to bus of every branch (GraphFields) |
-| `edge_attr` | `edge_attr` | Array | yes | [E, 8] per-unit line physics r, x, b, g, gs, bs, tap, shift (v0.5.0+) (GraphFields) |
-| `node_m` | `node_m` | Array | yes | [..., N, 4] meter mask, 1 metered (ScanFields) |
-| `edge_m` | `edge_m` | Array | yes | [..., E, 2] flow-meter mask (ScanFields) |
-| `y` | `y` | Array | yes | [..., N] per-bus attack label, 1 attacked (LabelFields) |
-| `family` | `family` | Scalars | yes | [...] 0 benign, 1 Aq, 2 Ad, 3 As, 4 Ar, 5 At, 6 Al, 7 Am (timeline) (LabelFields) |
-| `temporal_delta` | `temporal_delta` | Array | yes | [..., N, 2] injection change vs the previous pool scan (v0.3+) (TemporalFields) |
-| `swing` | `swing` | Array | yes | [..., N, 2] that change as a z-score of recent change (v0.4.1+) (TemporalFields) |
-| `timestep` | `timestep` | Scalars | yes | [...] position in the source load profile (RecordIds) |
-| `episodes` | `episodes` | list[EpisodeRow] | yes | list of {onset, length, family, buses} |
-| `system` | `system` | int |  | bus count (generate_stream and load_stream both set it) |
-| `attacked_frac` | `attacked_frac` | float |  | fraction of frames with at least one attacked bus (both set it) |
-| `pmu_i` | `pmu_i` | Array |  | [..., E, 4] observed (attacked where attacked), noise kept (PmuCurrentFields) |
-| `pmu_i_m` | `pmu_i_m` | Array |  | [..., E, 4] 1 where a PMU reads that end of the branch (PmuCurrentFields) |
-| `pmu_i_benign` | `pmu_i_benign` | Array |  | [..., E, 4] attack removed, noise kept (PmuCurrentFields) |
-| `stealthy` | `stealthy` | Scalars |  | [...] 1 for the re-solve families Aq, At, Al, Am (RecordIds) |
-| `seq_id` | `seq_id` | Scalars |  | [...] episode index of the frame's attack (every family), -1 benign (RecordIds) |
-| `edge_clean_full` | `edge_clean_full` | Array |  | [..., E, 2] exact true flows on every branch (v0.15.0+) (CleanFields) |
 
 ### `EstimatorScores` (`fdia_graph.models.scores`)
 

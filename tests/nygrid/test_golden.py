@@ -105,7 +105,7 @@ def _digest(a: np.ndarray) -> dict:
 
 
 def _response(r) -> dict:
-    from fdia_graph.operator.response import summarize
+    from fdia_graph.operator.summary import summarize
 
     twins = {
         side: {f.name: _digest(getattr(t, f.name)) for f in fields(t)}  # every array of the run
@@ -116,7 +116,7 @@ def _response(r) -> dict:
 
 @pytest.fixture(scope="module")
 def days():
-    from fdia_graph.operator.response import operator_day
+    from fdia_graph.operator.day import operator_day
 
     return {w: operator_day(DAYS / w, DAYS_POOL, DATA) for w in WINDOWS}
 
@@ -125,7 +125,7 @@ def days():
 @pytest.mark.parametrize("mode", ("trusting", "accounting", "oracle"))
 @pytest.mark.parametrize("closed_loop", (False, True))
 def test_respond_modes(days, window, mode, closed_loop):
-    from fdia_graph.operator.response import respond
+    from fdia_graph.operator.run import respond
 
     r = respond(days[window], mode=mode, calib=CALIB, closed_loop=closed_loop)
     check(f"respond_{Path(window).stem}_{mode}_{'cl' if closed_loop else 'ol'}", _response(r))
@@ -146,7 +146,7 @@ def test_respond_modes(days, window, mode, closed_loop):
     ids=lambda o: "_".join(f"{k}-{v}" for k, v in o.items()),
 )
 def test_respond_options(days, window, options):
-    from fdia_graph.operator.response import respond
+    from fdia_graph.operator.run import respond
 
     day = days[window]
     kw = dict(options)

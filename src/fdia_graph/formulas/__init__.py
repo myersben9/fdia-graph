@@ -2,7 +2,7 @@
 dataset objects, no torch. Each function carries its equation and a source key from
 docs/reference/REFERENCES.md; docs/reference/FORMULAS.md is the catalogue.
 
-Provisional until 1.0: names may still be adjusted once, with a deprecation alias.
+Provisional until 1.0: a name may still be adjusted, as a changelog entry with no alias kept.
 """
 
 from .attacks import ramp_profile, tampered_channels, tampered_devices

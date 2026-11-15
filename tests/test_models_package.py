@@ -118,9 +118,8 @@ def test_old_import_paths_still_work():
     from fdia_graph.formulas.network import BranchModel
     from fdia_graph.registry import AssetSpec
     from fdia_graph.se.base import EstimatorScores, TrueState
-    from fdia_graph.streams import Stream
 
-    assert RecordBundle is models.RecordBundle and Stream is models.Stream and Frame is models.Frame
+    assert RecordBundle is models.RecordBundle and Frame is models.Frame
     assert Scan is models.Scan and BranchModel is models.BranchModel and AssetSpec is models.AssetSpec
     assert EstimatorScores is models.EstimatorScores and TrueState is models.TrueState
     assert MeterPlan is models.MeterPlan and INTACT is models.INTACT

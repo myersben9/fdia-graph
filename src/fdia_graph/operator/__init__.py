@@ -2,7 +2,7 @@
 
 The work is split by job: `day` reads an attacked day, `ties` holds the interchange check, `truegrid` the AC
 power flows on the true grid, `policy` the operator's choices, `run` the scan-by-scan loop and `summary` its
-consequence (`response` re-exports them all).
+consequence.
 
 `operator_day` reads an attacked day (a timeline file) with its benign twin. `respond` runs the operator scan by
 scan under an `OperatorPolicy` (which operator, how late, how it answers an alarm): its five-minute security-

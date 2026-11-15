@@ -43,11 +43,10 @@ def test_an_operator_without_an_export_format_is_refused_when_described(tmp_path
         IsoFolder(Iso.CAISO, str(tmp_path)).loads()
 
 
-def test_the_old_call_form_warns_and_means_the_same(tmp_path):
-    with pytest.warns(DeprecationWarning, match="IsoFolder, CsvColumn or RawSeries"):
-        old = load_profile([1.0, 2.0, 4.0])
-    assert np.array_equal(old, load_profile(RawSeries([1.0, 2.0, 4.0])))
-    with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="column"):
+def test_a_bare_series_or_path_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="source must be a LoadSource"):
+        load_profile([1.0, 2.0, 4.0])
+    with pytest.raises(ValueError, match="source must be a LoadSource"):
         load_profile(str(tmp_path / "x.csv"))
 
 

@@ -1,8 +1,6 @@
 """`Am` as the overload attack of [WU26]: the PGLib-OPF line ratings, the flow-goal false state, the
 eligible target branches, the fewest-tamper search on a flow goal, and new generation's families."""
 
-import warnings
-
 import h5py
 import numpy as np
 import pytest
@@ -283,9 +281,6 @@ def test_the_rating_margin_must_exceed_one():
         with pytest.raises(ValueError):
             OverloadSettings(load_cap=bad)
     assert OverloadSettings(load_cap=1.0).load_cap == 1.0
-    assert OverloadSettings.of("overload")[1] == OverloadSettings()
-    assert OverloadSettings.of("redistribution") == ("redistribution", None)  # TimelineKnobs refuses it
-    assert OverloadSettings.of({"rating_margin": 1.5}) == ("overload", OverloadSettings(rating_margin=1.5))
 
 
 def test_a_system_without_pglib_ratings_makes_am_on_pool_ratings(tmp_path):
@@ -320,27 +315,6 @@ def test_a_voltmeter_angle_is_not_a_channel_the_attack_is_charged_for(g, pool):
     pmu = np.zeros(g.C, bool)
     pmu[sorted(g.meters.pmu)] = True
     assert not w.node_m[~pmu, NODE.theta].any()
-
-
-def test_the_deprecated_stream_makes_new_generation(monkeypatch):
-    """generate_stream is deprecated and passes new generation's families and defaults through."""
-
-    from fdia_graph import streams, timeline
-    from fdia_graph.models.choices import GENERATED_FAMILIES
-
-    seen = {}
-
-    def fake(system, **kw):
-        seen.update(kw)
-        raise RuntimeError("stop before any work")
-
-    monkeypatch.setattr(timeline, "generate_timeline", fake)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises(RuntimeError, match="stop before any work"):
-            streams.generate_stream(30)
-    assert tuple(seen["families"]) == tuple(GENERATED_FAMILIES)
-    assert "am_attack" not in seen and "min_tamper" not in seen  # generate_timeline's own defaults
 
 
 def test_the_overload_am_is_not_checked_against_a_target_count(monkeypatch):

@@ -43,12 +43,6 @@ def test_secured_meters_expose_the_stealthy_families(selector, timeline):
         if fam in rep.detected_after:
             assert rep.detected_after[fam] >= rep.detected_before[fam] - 0.05, fam
     assert rep["order"] == rep.order and len(rep.cost) == len(rep.order)
-    with pytest.raises(ValueError, match="benign layer"):
-        from fdia_graph.dataset import FdiaGraph
-
-        from .conftest import SHARD_V072
-
-        selector.score(FdiaGraph(SHARD_V072))
 
 
 def test_dqn_learns_a_selection(timeline):

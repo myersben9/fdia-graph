@@ -13,7 +13,7 @@ from .models.choices import (  # noqa: F401  re-exported beside the code that re
 
 
 class Group:
-    """The six groups of a timeline file (a v0.7.2 shard has no benign/, episodes/ or attack/)."""
+    """The six groups of a timeline file."""
 
     DATA = "data"  # one row per record: measurements, masks, labels, provenance, temporal features
     BENIGN = "benign"  # the attack-removed measurement layers, one row per frame
@@ -41,7 +41,6 @@ TIMESTEP = path(Group.DATA, "timestep")
 SPLIT = path(Group.DATA, "split")
 TEMPORAL_DELTA = path(Group.DATA, "temporal_delta")
 SWING = path(Group.DATA, "swing")
-GAP = path(Group.DATA, "gap")  # shards only: the gap rows between pool timesteps
 EDGE_STATUS = path(Group.DATA, "edge_status")  # v0.6.0 shards: per-record branch status
 # benign/, clean/, attack/: per-frame layers
 NODE_BENIGN = path(Group.BENIGN, "node_benign")
@@ -62,7 +61,6 @@ PMU_I_TAMPER = path(Group.ATTACK, "pmu_i_tamper")
 CURRENT_LAYERS = (PMU_I, PMU_I_M, PMU_I_BENIGN, PMU_I_TAMPER)  # all of them or none, by meter model
 # graph/
 EDGE_INDEX = path(Group.GRAPH, "edge_index")
-EDGE_REACTANCE = path(Group.GRAPH, "edge_reactance")  # the pre-0.5 branch feature, kept for old callers
 
 
 class Static:
@@ -133,7 +131,7 @@ class Attr:
     legends, the timeline's own counts, the generation knobs, and the graph/ group's legends."""
 
     # the header
-    KIND = "kind"  # "timeline" marks a timeline; absent on a v0.7.2 shard
+    KIND = "kind"  # "timeline": the one layout the loader reads
     SYSTEM = "system"
     N = "N"
     E = "E"
@@ -199,7 +197,6 @@ class Attr:
     # on graph/ and attack/
     EDGE_FEAT_STATIC = "edge_feat_static"
     BUS_FEAT_STATIC = "bus_feat_static"
-    EDGE_REACTANCE_DEPRECATED = "edge_reactance_deprecated"
     YBUS_RECONSTRUCTIBLE = "ybus_reconstructible"
     TAMPER = "tamper"  # on attack/: what a 1 in the tamper masks means
 

@@ -27,7 +27,6 @@ names them all. The one-line summary of every file of the repository is
 | `schema.py` | the file protocol: every HDF5 group, dataset and attribute name, defined once |
 | `timeline.py` | one continuous attacked timeline per system, written as one HDF5 file through the stages of `generation/` |
 | `profiles.py` | ISO load profiles to AC operating-state pools |
-| `streams.py` | the deprecated stream entry points, kept for reading the v0.7 stream files |
 | `dataset/` | `FdiaGraph`, composed of `graph.py` (the static graph), `physics.py` (admittances, clean flows), `records.py` (items, collate, DataLoader), `export.py` (whole-split arrays) and `sequence.py` (windows, episodes) over `dataset/base.py` (shared state); `clients.py` reads a New York timeline as federated clients |
 | `models/` | every value bundle the package passes or returns, one module per subject: `models/base.py` (`Bundle`), `fields.py` (the field groups bundles share), `grid.py`, `frames.py`, `data.py`, `scores.py`, `results.py`, `training.py`, `federated.py`, `assets.py`; the settings in `config.py` and the parser inputs in `inputs.py`, checked by `validation.py`; the fixed-set arguments in `choices.py` and the data-condition errors in `models/errors.py`. [`reference/DATA_DICTIONARY.md`](reference/DATA_DICTIONARY.md) lists every field |
 | `ratings/` | PGLib-OPF branch ratings of IEEE-14, 118 and 300 |

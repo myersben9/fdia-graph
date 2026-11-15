@@ -94,8 +94,8 @@ start on a push, check the account's Actions minutes first.
 ![the release flow: bump PR, merge on green, tag on main, GitHub release, publish.yml to PyPI](docs/figures/diagrams/contributing_release_flow.png)
 
 A released version is never re-cut; fix forward. Data releases (timelines, pools) have their own
-tags, `data-v<x.y.z>` from v0.8.0 (the bare `v0.x.y` tags belong to package versions; the two
-earlier data releases keep `v0.7.1` and `v0.7.2`), and do not move the package version. The
+tags, `data-v<x.y.z>` (the bare `v0.x.y` tags belong to package versions), and do not move the
+package version. The
 registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 `tools/upload_assets.py v0.8.0 <files>` refuses to touch a package tag.
 

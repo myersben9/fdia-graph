@@ -84,7 +84,8 @@ The kinds, most frequent first.
    and `.png`, and the data dictionary.
 8. **Backward compatibility.**
    - A new parameter goes last or is keyword-only.
-   - A removed or renamed public name keeps a deprecated alias for one minor version.
+   - A removed or renamed public name is a changelog entry; no alias, shim or warning period is kept
+     (old behaviour lives in the released versions).
    - Dataclass field order does not change.
    - New public names are exported.
 9. **Tooling and CI.**

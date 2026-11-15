@@ -29,15 +29,12 @@ UPLOADS = BASE.replace("https://api.github.com", "https://uploads.github.com")
 
 def release_for(name: str, notes_file: str) -> dict:
     """The release of the data release `name` (its tag from `registry.release_tag`, so a package tag
-    is never touched), created on origin/main when missing; an existing tag is reused only when it
-    is a data tag."""
+    is never touched), created on origin/main when missing."""
     tag = release_tag(name)
     r = requests.get(
         f"{BASE}/releases/tags/{tag}", headers={"Authorization": f"Bearer {token()}"}, timeout=60
     )
     if r.status_code == 200:
-        if not tag.startswith("data-") and tag not in ("v0.7.1", "v0.7.2"):
-            raise SystemExit(f"{tag} is a package release; data releases are tagged data-v<x.y.z>")
         print(f"release {tag} exists, reusing")
         return r.json()
     if r.status_code != 404:  # only "no such release" means create; auth or server errors stop here

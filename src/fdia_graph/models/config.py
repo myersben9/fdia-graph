@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import math
 import os
-import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass, field, replace
-from typing import Annotated, Optional, Union, cast
+from typing import Annotated, Optional, cast
 
 import numpy as np
 
@@ -309,8 +308,8 @@ class TimelineKnobs(Validated):
 
 @dataclass(frozen=True)
 class OverloadSettings(Validated):
-    """The overload attack's settings, as `generate_timeline(am_attack=...)` takes them in a dict of
-    these fields (the string "overload" is these defaults): the line ratings, S_max
+    """The overload attack's settings, as `generate_timeline(am_attack=OverloadSettings(...))` takes them
+    (the string "overload" is these defaults): the line ratings, S_max
     of each branch `rating_margin` times its peak true apparent flow over the operating pool
     ("pool", every system) or PGLib-OPF's `rate_a` ("pglib", IEEE-14, 118 and 300); the
     load-plausibility cap `load_cap` on every load bus the attack moves and `n_lines`, the
@@ -336,14 +335,6 @@ class OverloadSettings(Validated):
             self.support_method != SupportMethod.WU_L1.value,
             ("the wu_l1 attack is the [WU26] reproduction's (trust.faithful_attack), not the generator's"),
         )
-
-    @staticmethod
-    def of(am_attack: Union[str, dict]) -> tuple[str, Optional[OverloadSettings]]:
-        """(the Am attack's kind, its settings): a dict of these fields means the overload attack with
-        them; a string names the kind (checked by `TimelineKnobs`), None settings for an unknown one."""
-        if isinstance(am_attack, dict):
-            return AmAttack.OVERLOAD.value, OverloadSettings(**am_attack)
-        return am_attack, OverloadSettings() if am_attack == AmAttack.OVERLOAD.value else None
 
 
 @dataclass(frozen=True)
@@ -474,8 +465,7 @@ class TimelineSettings(Validated):
         keyword applied over it, every name `generate_timeline` has always taken: attacked_frac,
         families, ramp_rate, ramp_len, am_len, hops, redundancy (a `MeterSettings`), split (fractions or
         a `SplitSettings`), max_load_mw, min_tamper, min_budget, am_attack ("overload" or an
-        `OverloadSettings`), stealth_scale, workers. A dict for `am_attack` or `redundancy` still works
-        and warns: dicts go in 0.22."""
+        `OverloadSettings`), stealth_scale, workers."""
         base = settings or cls()
         unknown = sorted(set(knobs) - set(_FLAT) - set(_TOP) - {"redundancy", "split", "am_attack"})
         if unknown:
@@ -514,16 +504,9 @@ def _section_knobs(knobs: dict[str, object]) -> dict[str, object]:
 
 
 def _model(model: type, value: object, name: str) -> object:
-    """A settings model from its instance, None (the defaults) or a dict (deprecated, warned)."""
+    """A settings model from its instance or None (the defaults)."""
     if value is None:
         return model()
-    if isinstance(value, dict):
-        warnings.warn(
-            f"generate_timeline({name}=dict) is deprecated and goes in 0.22: pass a {model.__name__}",
-            DeprecationWarning,
-            stacklevel=5,  # the caller of generate_timeline or generate
-        )
-        return model(**value)
     if not isinstance(value, model):
         raise ConfigError(f"{name} must be a {model.__name__}")
     return value
