@@ -28,8 +28,9 @@ mkdir nygrid && cd nygrid
 python $FG/pipelines/newyork/build_timeline.py --fetch
 ```
 
-`fetch_inputs` writes `data/`: NYgrid's `Data/` folder at commit 47698b6, NYISO's 2019 five-minute zonal
-load, the NYS DPS utility territories, and the bus locations that place each New York bus in a territory
+The grid itself needs no download: it is the MATPOWER case file shipped with the package (`nygrid_case()`).
+`fetch_inputs` writes `data/`: NYgrid's `Data/` folder at commit 47698b6 (its hourly 2019 data), NYISO's 2019
+five-minute zonal load, the NYS DPS utility territories, and the bus locations that place each New York bus in a territory
 (shipped with the package). The building-stock load profiles, EIA-861 and the industrial assessment
 database are downloaded by the load model the first time the pool is built (about 200 MB, 15 minutes).
 Every step keeps a file that is already there.

@@ -12,25 +12,18 @@ The snippets run from a work folder that holds the inputs (`python pipelines/new
 
 ## 1. The network and the clients
 
-`grid` turns NYgrid's case into a `Case`, a frozen record of arrays, and its admittances into a `Network`. Each New
-York bus belongs to one utility, a client of the federated dataset.
+The grid is one MATPOWER case file shipped with the package (NYgrid's case with the changes that make it
+solvable in AC). `nygrid_case()` reads it into a `Case`, a frozen record of arrays, and `Network` holds its
+admittances. Each New York bus belongs to one utility, a client of the federated dataset.
 
 ```python
-from fdia_graph.generation.nygrid import (
-    Network,
-    modify_mpc,
-    nygrid_units,
-    read_npcc,
-    restore_765kv,
-    split_zone_j,
-)
+from fdia_graph.generation.nygrid import Network, nygrid_case
 
-data = "data/NYgrid/Data"
-case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(f"{data}/npcc.mat")), data)))
+case = nygrid_case()
 net = Network(case)
 ```
 
-Each step returns a new `Case`; none changes one in place.
+A change to the grid is an edit to the case file ([the architecture](../concepts/new_york_grid.md) lists its fields); a variant in code is a copy (`hvdc_links(case)`, `case.with_voltage_margin(0.02)`), never a change in place.
 
 ## 2. The operating points
 

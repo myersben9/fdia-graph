@@ -11,8 +11,7 @@ from typing import Annotated, Optional
 import numpy as np
 
 from fdia_graph.errors import ConfigError
-from fdia_graph.generation.nygrid.case import Case
-from fdia_graph.generation.nygrid.npcc import HQ_BUS
+from fdia_graph.generation.nygrid.case import HQ_BUS, Case
 from fdia_graph.models.choices import Choice
 from fdia_graph.models.validation import AtLeast, Boolean, Finite, Integer, OneOf, Validated
 

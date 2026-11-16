@@ -56,10 +56,10 @@ src/fdia_graph/
     build.py            fetch_inputs, production_builder (the release build in one place)
     io.py               TimelineWriter, open_timeline, read_pool, write_pool, FAMILIES
     tables.py           read_rows (the input CSV tables, read whole and closed)
-    case.py             Case
+    case.py             Case (from_matpower, check), nygrid_case, ZONES, HQ_BUS
     network.py          Network
-    npcc.py             read_npcc, modify_mpc, nygrid_units
-    fixes.py            split_zone_j, restore_765kv, externals_at_base, hvdc_links
+    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
+    fixes.py            externals_at_base, hvdc_links
     ratings.py          line_ratings
     interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
     ny_bus_locations.csv each NY bus located on the territories (N12)
@@ -110,6 +110,7 @@ src/fdia_graph/
   _lazy.py            attach: the public names of a package, imported on first use
 pipelines/newyork/
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+  make_case.py         the recipe of the case file and its writer: case_nygrid.m made again from NYgrid's Data/ folder
   build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
   matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
   run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
@@ -192,16 +193,25 @@ Frozen dataclasses of arrays, passed between classes.
 | `Dataset` | `dataset/clients.py` | an open timeline file (`open_timeline`) with its `case`, `own`, `plan` | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames |
 | `ClientView` | `dataset/clients.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (the indices of the selected frames, exact for the interleaved week split) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; `z` stays raw) |
 
+## The case file
+
+The New York grid is one MATPOWER case file, `src/fdia_graph/generation/nygrid/case_nygrid.m`, shipped with the package the way the IEEE test cases ship with pandapower. `nygrid_case()` reads it, and every build, test and pipeline starts from that `Case`. A change to the grid is an edit to the file: no code patches the case on the way in.
+
+`Case.from_matpower(path)` reads the file with matpowercaseframes, the reader pandapower uses for `.m` files, and takes every column by MATPOWER's own name (`BUS_I`, `PD`, `RATE_A`, `TAP`). Standard MATPOWER fields carry everything they can: the bus `zone` column is the NYISO load zone as a number (1 for A to 11 for K, 12 for a bus outside New York), `mpc.bus_name` the bus names and `mpc.genfuel` the unit fuels. Two numeric fields are ours: `mpc.bus_latlon` (latitude and longitude in degrees) and `mpc.gen_ramp` (MW per minute, `NaN` where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.
+
+`Case.check(source)` then refuses a file whose parts disagree, with a `DataConditionError` that names the file and what is wrong: a bus number that is not whole or is on two rows, a bus type other than 1, 2, 3 or not exactly one reference bus, a unit or branch on a bus the case does not have, a zone number outside 1 to 12, or a name, coordinate, fuel or ramp list with the wrong number of rows. Two things the library would pass over without a word are refused as well: an indexed assignment such as `mpc.bus(1, 3) = 500;` and a field that is not one of the case's (the standard `mpc.gencost`, `mpc.gentype`, `mpc.areas` and `mpc.dclinecost` are passed over). To change the grid, edit rows in place, one row per line (`tests/nygrid/test_case_file.py` has one case per rule).
+
+`pipelines/newyork/make_case.py` is the recipe of the file, outside the package: it makes the file again from NYgrid's `Data/` folder (the NPCC-140 case at the pinned commit, NYgrid's own `modifyMPC.m` changes, the fixed unit list of its hourly case, zone J's units split over buses 81 and 82, and the 765 kV line 47-43), and holds the writer. Every number is written with the digits that read back to the same bits, and a test checks that the recipe still reproduces the checked-in file and its `Case` exactly.
+
 ## Functions
 
 Stateless steps, each called once in the build.
 
 | function | file | in | out |
 |---|---|---|---|
-| `read_npcc(path)` | `generation/nygrid/npcc.py` | `npcc.mat` | `Case` |
-| `modify_mpc(case)` | `generation/nygrid/npcc.py` | `Case` | `Case` with every `modifyMPC.m` change |
-| `nygrid_units(case, data_dir)` | `generation/nygrid/npcc.py` | `Case`, NYgrid `Data/` | `Case` with the fixed unit list of NYgrid's hourly case (thermal, nuclear, hydro, external, HQ) |
-| `split_zone_j`, `restore_765kv`, `hvdc_links` | `generation/nygrid/fixes.py` | `Case` | `Case` |
+| `nygrid_case()` | `generation/nygrid/case.py` | the case file `case_nygrid.m`, shipped with the package | the `Case` every build starts from: 140 buses, 227 branches, 271 units |
+| `Case.from_matpower(path)` | `generation/nygrid/case.py` | a MATPOWER case file | its `Case`, read with matpowercaseframes and checked: bus numbers become positions, the zone number a zone letter; a file whose parts disagree is a `DataConditionError` |
+| `hvdc_links(case)` | `generation/nygrid/fixes.py` | `Case` | `Case` with NYgrid's four HVDC links as DC lines in place of the AC branch 81-125 (a variant; the release keeps the branch) |
 | `externals_at_base(case, base)` | `generation/nygrid/fixes.py` | an hourly `Case`, the base `Case` | `Case` with external load at base and external units covering the balance |
 | `line_ratings(case)` | `generation/nygrid/ratings.py` | `Case` | `Case` with the ratings NYgrid gives (modifyMPC.m ties, fixed single-branch interface limits), 0 elsewhere; the rest are filled by `peak_ratings` |
 | `hourly_interfaces(case, time, data, names=None, year=2019)` | `generation/nygrid/interfaces.py` | `Case`, the pool's frame times, NYgrid's data folder | a list of `Interface` (branches and signs from `updateOpCond.m` L420-430, real hourly limit and flow per frame from `interflowHourly_2019.csv`); `Interface.model_flow(pf)` the signed sum |
@@ -259,9 +269,9 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | block | files |
 |---|---|
 | F1, F2 | `pyproject.toml`, `config.py`, `io.py` |
-| G1 | `generation/nygrid/case.py`, `generation/nygrid/npcc.py`, `generation/nygrid/network.py` |
-| G2 | `generation/nygrid/fixes.py` |
-| G3 | `generation/nygrid/npcc.py` (unit list) |
+| G1 | `generation/nygrid/case.py` (the case file and its reader), `generation/nygrid/network.py` |
+| G2 | the case file (zone J's split and the 765 kV line are in it; `pipelines/newyork/make_case.py` is how), `generation/nygrid/fixes.py` (the variants) |
+| G3 | the case file (the unit list, `mpc.gen` with `mpc.genfuel` and `mpc.gen_ramp`) |
 | G4 | `generation/nygrid/ratings.py` |
 | G5 | `federated/utilities.py`, `data/territories/ny_bus_locations.csv` |
 | P1 | `generation/nygrid/inputs.py` |
@@ -273,7 +283,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | A1 | `engine/attacks/family.py`, `engine/attacks/attacker.py` |
 | A2 | `engine/attacks/msfdia.py`, `engine/attacks/opf.py`, `engine/attacks/interface.py` and `generation/nygrid/interfaces.py` (N48, N49) |
 | A3 | `engine/attacks/ramp.py` |
-| A4 | `engine/attacks/msfdia.py` (Ap option), `natural_steps`, `generator_ramps`, `wrap_angles` in `engine/attacks/attacker.py`, `Case.ramp` from `nygrid_units` |
+| A4 | `engine/attacks/msfdia.py` (Ap option), `natural_steps`, `generator_ramps`, `wrap_angles` in `engine/attacks/attacker.py`, `Case.ramp` from the case file (`mpc.gen_ramp`) |
 | D1 | `generation/plan.py`, `generation/nygrid/timeline.py`, `TimelineWriter` in `io.py` |
 | D2 | `dataset/clients.py`, `open_timeline` in `io.py` |
 | D3 | `build.py` (`fetch_inputs`, `production_builder`), `pipelines/newyork/build_timeline.py`, `pipelines/newyork/build_single_episodes.py` |

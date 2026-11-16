@@ -4,9 +4,7 @@ price, the delivery factors and AC sensitivities, the outage power flow, and the
 import numpy as np
 import pytest
 
-from fdia_graph.generation.nygrid.case import REF
-from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
-from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
+from fdia_graph.generation.nygrid.case import REF, nygrid_case
 from fdia_graph.operator.acsced import loss_factors, shortage_usd
 
 from .inputs import DAMAGE_DAYS, DATA, DAYS, DAYS_POOL, SINGLE_DAY, needs_data
@@ -16,7 +14,7 @@ pytestmark = needs_data
 
 @pytest.fixture(scope="module")
 def case():
-    return restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
+    return nygrid_case()
 
 
 def test_shortage_is_priced_at_the_2019_curve():

@@ -1,4 +1,6 @@
-"""The changes that make NYgrid's operating points solvable in AC (checked in MATLAB on 8760 hours of 2019)."""
+"""Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's
+HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in
+the case file itself (`case.py` reads it)."""
 
 from __future__ import annotations
 
@@ -6,42 +8,11 @@ from dataclasses import replace
 
 import numpy as np
 
-from fdia_graph.generation.nygrid.case import PV, Case
+from fdia_graph.generation.nygrid.case import Case
 
 
 def _pos(case: Case) -> dict[int, int]:
     return {b: i for i, b in enumerate(case.bus_id.tolist())}
-
-
-def split_zone_j(case: Case) -> Case:
-    """NYgrid places every zone J unit at bus 82 and none at bus 81, though allocateLoad.m splits zone J's
-    load evenly over the two (neither has base load). Move units to bus 81 in proportion to its half of
-    the load, taking every other unit in list order, and make bus 81 a PV bus."""
-    pos = _pos(case)
-    b81, b82 = pos[81], pos[82]
-    at82 = np.flatnonzero(case.unit_bus == b82)
-    n = int(round(len(at82) * 0.5))
-    unit_bus = case.unit_bus.copy()
-    unit_bus[at82[0 : 2 * n : 2]] = b81
-    bus_type = case.bus_type.copy()
-    bus_type[b81] = PV
-    return replace(case, unit_bus=unit_bus, bus_type=bus_type)
-
-
-def restore_765kv(case: Case) -> Case:
-    """Add the 765 kV Massena-Marcy line (47-43) that modifyMPC.m carries commented out at L75."""
-    pos = _pos(case)
-    return replace(
-        case,
-        f=np.r_[case.f, pos[47]],
-        t=np.r_[case.t, pos[43]],
-        r=np.r_[case.r, 0.004],
-        x=np.r_[case.x, 0.0085],
-        b=np.r_[case.b, 0.0],
-        tap=np.r_[case.tap, 1.0],
-        shift=np.r_[case.shift, 0.0],
-        rating=np.r_[case.rating, 0.0],
-    )
 
 
 def externals_at_base(case: Case, base: Case) -> Case:

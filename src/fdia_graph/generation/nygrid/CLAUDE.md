@@ -6,7 +6,7 @@ hold for them.
 
 | Job | Where |
 |---|---|
-| the system: NYgrid's case, its fixes, interfaces, reduced network, loads, dispatch and the pool | `generation/nygrid/` |
+| the system: the case file, its variants, interfaces, reduced network, loads, dispatch and the pool | `generation/nygrid/` |
 | the timeline written from a pool, and its HDF5 files | `generation/nygrid/timeline.py`, `io.py` (its plan stage is `generation/plan.py`) |
 | the meter table, the measurement function and meter noise | `engine/sensing/` |
 | the attack families (`AttackFamily`, `Attacker`, Am, the OPF and interface attacks, Ac, At) | `engine/attacks/` |
@@ -18,6 +18,9 @@ hold for them.
 
 ## Rules that hold
 
+- The grid is the MATPOWER case file `case_nygrid.m` in `generation/nygrid/`, read by `nygrid_case()`
+  (`case.py`, with matpowercaseframes). A change to the grid is an edit to that file; no code assembles or patches the case on the way
+  in. `pipelines/newyork/make_case.py` is the recipe that first made the file from NYgrid's `Data/` folder.
 - pandapower is imported only in `generation/nygrid/solver.py`. Optimization problems are Pyomo models solved by
   `engine.solvers.ipopt()`. h5py only in `generation/nygrid/io.py` and `dataset/`. Random generators come only from
   `generation.nygrid.config.rng()` and are passed in.

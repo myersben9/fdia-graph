@@ -21,7 +21,7 @@ def line_ratings(case: Case) -> Case:
 
     Rated branches and their sources:
 
-    - the ties to PJM, ISO-NE and IESO that modifyMPC.m L54-67 rates (MVA), already set by `modify_mpc`:
+    - the ties to PJM, ISO-NE and IESO that modifyMPC.m L54-67 rates (MVA), already in the case file:
       66-134, 67-138, 81-125, 75-124, 60-140, 29-37, 35-73, 48-100, 54-102, 54-103. `hvdc_links`
       removes 81-125, so a case with the HVDC links has nine of them.
     - the single-branch interfaces with a fixed limit (updateOpCond.m L460 and L462, as `_SINGLE_BRANCH`):

@@ -24,19 +24,18 @@ from fdia_graph.engine.sensing.meters import (
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.formulas.noise import JITTER_FRAC
+from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 
-from .inputs import DATA, TERRITORIES, needs_data
+from .inputs import TERRITORIES, needs_data
 
 pytestmark = needs_data
 
 
 @pytest.fixture(scope="module")
 def grid():
-    case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
+    case = nygrid_case()
     territories = json.load(open(TERRITORIES / "nys_electric_territories.geojson", encoding="utf-8"))
     own = assign_clients(case, territories, TERRITORIES / "ny_bus_locations.csv")
     net = Network(case)

@@ -6,10 +6,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
-from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.inputs import read_nygrid
-from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 
 from .inputs import DATA, ROOT, TERRITORIES, needs_data
 
@@ -22,7 +21,7 @@ TAGS = {"2019010100": "2019-01-01T00", "2019041514": "2019-04-15T14", "201907201
 
 @pytest.fixture(scope="module")
 def case():
-    return restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
+    return nygrid_case()
 
 
 @pytest.fixture(scope="module")
@@ -237,8 +236,9 @@ def test_load_profiles(case):
     import json
 
     from fdia_graph.federated.utilities import assign_clients
+    from fdia_graph.generation.nygrid.case import ZONES
     from fdia_graph.generation.nygrid.config import Settings, rng
-    from fdia_graph.generation.nygrid.inputs import ZONES, ZoneLoad, fetch_nyiso
+    from fdia_graph.generation.nygrid.inputs import ZoneLoad, fetch_nyiso
     from fdia_graph.generation.nygrid.loads import LoadModel
 
     own = assign_clients(

@@ -14,9 +14,8 @@ from pandapower.converter.pypower import from_ppc
 from pyomo.common.errors import ApplicationError
 
 from fdia_graph.engine.solvers import ipopt
-from fdia_graph.generation.nygrid.case import REF, Case
+from fdia_graph.generation.nygrid.case import HQ_BUS, REF, Case
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.npcc import HQ_BUS
 
 _NO_LIMIT = 9999.0
 # A unit held at a value its last bounds miss by rounding makes Pyomo warn (W1002); the bounds are reset each solve.
@@ -57,7 +56,7 @@ class Compensation:
         return np.flatnonzero((self.shunt_lo != 0) | (self.shunt_hi != 0))
 
 
-PLACEHOLDER_Q = 9999.0  # MVAr: NYgrid's reactive limits of a unit with no data (nygrid_units)
+PLACEHOLDER_Q = 9999.0  # MVAr: NYgrid's reactive limits of a unit with no data (the case file)
 
 
 def unit_q_limits(case: Case, lag_pf: float = 0.85, lead_pf: float = 0.95) -> tuple[np.ndarray, np.ndarray]:
