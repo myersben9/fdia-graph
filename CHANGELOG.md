@@ -5,6 +5,31 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **One plan stage for every timeline (breaking for New York imports).** Where a timeline's splits are cut and
+  where its episodes go is decided in `generation/plan.py` for the IEEE systems and for New York alike;
+  `generation/nygrid/schedule.py` is removed.
+  - `place_episodes(rng, lengths, frac, n, allowed=None)` is the one placement: it returns
+    `(onset, family, length)` triples with the counts requested and dropped per family. The IEEE walk and the
+    New York builder both call it. `split_weeks` and `week_index` live beside it; New York's `split_frames` is
+    `split_column(split_bounds(T, frac), T)`.
+  - `fdia_graph.generation.nygrid` no longer exports `place_episodes`, `split_frames`, `split_weeks` or
+    `week_index`; `Slot` is defined in `generation/nygrid/timeline.py`. `plan.episode_counts` and
+    `_Schedule.weights` are removed (the placement computes its weights from the lengths).
+  - **One rule when a placement jams.** After ten whole placements fail, one episode of the family that could
+    not be placed is dropped. The IEEE generator used to drop one of the family with the most episodes. Only a
+    timeline that already warned "placements jammed" can differ. `place_episodes` reports
+    what it dropped and its caller warns.
+  - **Episode shares are exact.** The episodes of a split are shared between the families by largest remainder
+    over the weights 1 / length as exact fractions. In floating point a tie between two families' remainders
+    fell differently on the two generators (the IEEE one normalised the weights first). Counts can differ by
+    one episode between families only where their lengths differ and the remainders tie: on the IEEE side for
+    example `ramp_len=12`, `am_len=60`, `attacked_frac=0.05` on a 6,000-frame split got 12 At and 3 Am episodes
+    and now gets 13 and 2 (the tie goes to the family named first, as documented). Families of equal length,
+    the default, are unaffected, and so are the New York lengths (16, 16 and 96 frames).
+  - The whole-timeline digests, IEEE and New York, are unchanged.
+  - `capacity` (the most windows a family's allowed onsets can hold) is public in `generation/plan.py`, with
+    `WEEK` and `STRATUM`; `HIT_STRATUM` is in `generation/nygrid/timeline.py`.
+
 - **The study scripts leave the repository.** The folder `experiments/` (the estimation, localization, trust,
   federated and defense-reproduction studies, the data-release statistics, the design-speed measurement, and the
   federated study's per-run files) is removed: the repository holds the package, its tests, its tooling and its
