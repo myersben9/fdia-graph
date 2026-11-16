@@ -1705,8 +1705,9 @@ below build them from the public inputs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir<span class="w"> </span>nygrid<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>nygrid
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span><span class="nv">$FG</span>/pipelines/newyork/build_timeline.py<span class="w"> </span>--fetch
 </code></pre></div>
-<p><code>fetch_inputs</code> writes <code>data/</code>: NYgrid's <code>Data/</code> folder at commit 47698b6, NYISO's 2019 five-minute zonal
-load, the NYS DPS utility territories, and the bus locations that place each New York bus in a territory
+<p>The grid itself needs no download: it is the MATPOWER case file shipped with the package (<code>nygrid_case()</code>).
+<code>fetch_inputs</code> writes <code>data/</code>: NYgrid's <code>Data/</code> folder at commit 47698b6 (its hourly 2019 data), NYISO's 2019
+five-minute zonal load, the NYS DPS utility territories, and the bus locations that place each New York bus in a territory
 (shipped with the package). The building-stock load profiles, EIA-861 and the industrial assessment
 database are downloaded by the load model the first time the pool is built (about 200 MB, 15 minutes).
 Every step keeps a file that is already there.</p>

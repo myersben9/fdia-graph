@@ -1694,22 +1694,15 @@ with the call that does each step. <a href="../../concepts/new_york_grid/">The a
 <p>The snippets run from a work folder that holds the inputs (<code>python pipelines/newyork/build_timeline.py --fetch</code>, see
 <a href="../../guides/new_york/">the guide</a>) and the 2019 pool (<code>pipelines/newyork/run_pool.py</code>, several hours).</p>
 <h2 id="1-the-network-and-the-clients">1. The network and the clients<a class="headerlink" href="#1-the-network-and-the-clients" title="Permanent link">&para;</a></h2>
-<p><code>grid</code> turns NYgrid's case into a <code>Case</code>, a frozen record of arrays, and its admittances into a <code>Network</code>. Each New
-York bus belongs to one utility, a client of the federated dataset.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.nygrid</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">Network</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">modify_mpc</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">nygrid_units</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">read_npcc</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">restore_765kv</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">split_zone_j</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">data</span> <span class="o">=</span> <span class="s2">"data/NYgrid/Data"</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">case</span> <span class="o">=</span> <span class="n">restore_765kv</span><span class="p">(</span><span class="n">split_zone_j</span><span class="p">(</span><span class="n">nygrid_units</span><span class="p">(</span><span class="n">modify_mpc</span><span class="p">(</span><span class="n">read_npcc</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">/npcc.mat"</span><span class="p">)),</span> <span class="n">data</span><span class="p">)))</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">net</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">case</span><span class="p">)</span>
+<p>The grid is one MATPOWER case file shipped with the package (NYgrid's case with the changes that make it
+solvable in AC). <code>nygrid_case()</code> reads it into a <code>Case</code>, a frozen record of arrays, and <code>Network</code> holds its
+admittances. Each New York bus belongs to one utility, a client of the federated dataset.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.generation.nygrid</span><span class="w"> </span><span class="kn">import</span> <span class="n">Network</span><span class="p">,</span> <span class="n">nygrid_case</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">case</span> <span class="o">=</span> <span class="n">nygrid_case</span><span class="p">()</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">net</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">case</span><span class="p">)</span>
 </code></pre></div>
-<p>Each step returns a new <code>Case</code>; none changes one in place.</p>
+<p>A change to the grid is an edit to the case file (<a href="../../concepts/new_york_grid/">the architecture</a> lists its fields); a variant in code is a copy (<code>hvdc_links(case)</code>, <code>case.with_voltage_margin(0.02)</code>), never a change in place.</p>
 <h2 id="2-the-operating-points">2. The operating points<a class="headerlink" href="#2-the-operating-points" title="Permanent link">&para;</a></h2>
 <p><code>scenario</code> gives the true AC state of every five-minute frame of 2019: the loads by bus (<code>LoadModel</code>), NYgrid's
 hourly dispatch, and a ramp-limited least-cost AC dispatch solved frame by frame (<code>PoolBuilder</code>). The year takes

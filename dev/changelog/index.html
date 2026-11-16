@@ -1749,9 +1749,34 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>One copy of the shared constants and helpers (breaking for imports).</strong> Names the IEEE generator and the New
+<li><strong>The New York grid is one MATPOWER case file (breaking for New York imports).</strong> The grid every New York pool
+  and timeline is built on is <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, shipped with the package, in place
+  of code that assembled it from NYgrid's <code>npcc.mat</code> each time. A change to the grid is now an edit to that file.
+  No generated file changes: the file reads back to the same arrays, bit for bit, as the code built.</li>
+<li><code>nygrid_case()</code> returns the grid's <code>Case</code> (140 buses, 227 branches, 271 units). <code>production_builder</code>, the
+    tests and <code>pipelines/newyork/run_pool.py</code> start from it, so the case no longer needs NYgrid's <code>Data/</code> folder
+    (the hourly data still does).</li>
+<li><code>Case.from_matpower(path)</code> reads a MATPOWER version-2 case file with matpowercaseframes, the reader
+    pandapower uses for <code>.m</code> files (a new dependency of the <code>ny</code> and <code>all</code> extras), taking each column by
+    MATPOWER's name. The bus <code>zone</code> column is the NYISO load zone as a number (1 for A to 11 for K, 12 outside
+    New York), <code>mpc.bus_name</code> and <code>mpc.genfuel</code> are MATPOWER's own, and <code>mpc.bus_latlon</code> and <code>mpc.gen_ramp</code>
+    hold the coordinates and the ramps. <code>Case.check</code> refuses a file whose parts disagree, and an indexed
+    assignment or an unknown field is refused instead of passed over, each a <code>DataConditionError</code> naming the
+    file and what is wrong. The file's writer is in <code>pipelines/newyork/make_case.py</code>.</li>
+<li><code>ZONES</code> moved from <code>generation/nygrid/inputs.py</code> to <code>generation/nygrid/case.py</code>.</li>
+<li><code>read_npcc</code>, <code>modify_mpc</code>, <code>nygrid_units</code>, <code>split_zone_j</code> and <code>restore_765kv</code> are removed from the package
+    with no alias, and <code>generation/nygrid/npcc.py</code> with them. They are how the file was made, and live in
+    <code>pipelines/newyork/make_case.py</code>, which makes the file again from NYgrid's <code>Data/</code> folder; a test checks that
+    it reproduces the checked-in file exactly. <code>hvdc_links</code> and <code>externals_at_base</code> stay in
+    <code>generation/nygrid/fixes.py</code>.</li>
+<li>
+<p><code>HQ_BUS</code> moved from <code>generation/nygrid/npcc.py</code> to <code>generation/nygrid/case.py</code>.</p>
+</li>
+<li>
+<p><strong>One copy of the shared constants and helpers (breaking for imports).</strong> Names the IEEE generator and the New
   York builder each held a copy of now have one home, and the old names are removed with no alias. No generated
-  file changes: every value and every floating-point expression is the one it was.</li>
+  file changes: every value and every floating-point expression is the one it was.</p>
+</li>
 <li><code>SPLITS</code> (<code>("train", "val", "test")</code>) is in <code>models/choices.py</code>, beside <code>Split</code>, and derived from it. The copy in
     <code>generation/nygrid/io.py</code> is removed, and <code>fdia_graph.generation.nygrid</code> no longer exports it.</li>
 <li><code>generation.write.ragged</code> (variable-length rows as a pointer array and a flat array) also writes the New

@@ -970,6 +970,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-case-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The case file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#functions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1699,6 +1710,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-case-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The case file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#functions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1801,10 +1823,10 @@ its stage does.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    build.py            fetch_inputs, production_builder (the release build in one place)
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    io.py               TimelineWriter, open_timeline, read_pool, write_pool, FAMILIES
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    tables.py           read_rows (the input CSV tables, read whole and closed)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    case.py             Case
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    case.py             Case (from_matpower, check), nygrid_case, ZONES, HQ_BUS
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    network.py          Network
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    npcc.py             read_npcc, modify_mpc, nygrid_units
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    fixes.py            split_zone_j, restore_765kv, externals_at_base, hvdc_links
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    fixes.py            externals_at_base, hvdc_links
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    ratings.py          line_ratings
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    ny_bus_locations.csv each NY bus located on the territories (N12)
@@ -1855,18 +1877,19 @@ its stage does.</p>
 <a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>  _lazy.py            attach: the public names of a package, imported on first use
 <a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>pipelines/newyork/
 <a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>results/
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>tests/nygrid/
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>  make_case.py         the recipe of the case file and its writer: case_nygrid.m made again from NYgrid's Data/ folder
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>results/
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>tests/nygrid/
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -2098,6 +2121,11 @@ copies them as they are.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="the-case-file">The case file<a class="headerlink" href="#the-case-file" title="Permanent link">&para;</a></h2>
+<p>The New York grid is one MATPOWER case file, <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, shipped with the package the way the IEEE test cases ship with pandapower. <code>nygrid_case()</code> reads it, and every build, test and pipeline starts from that <code>Case</code>. A change to the grid is an edit to the file: no code patches the case on the way in.</p>
+<p><code>Case.from_matpower(path)</code> reads the file with matpowercaseframes, the reader pandapower uses for <code>.m</code> files, and takes every column by MATPOWER's own name (<code>BUS_I</code>, <code>PD</code>, <code>RATE_A</code>, <code>TAP</code>). Standard MATPOWER fields carry everything they can: the bus <code>zone</code> column is the NYISO load zone as a number (1 for A to 11 for K, 12 for a bus outside New York), <code>mpc.bus_name</code> the bus names and <code>mpc.genfuel</code> the unit fuels. Two numeric fields are ours: <code>mpc.bus_latlon</code> (latitude and longitude in degrees) and <code>mpc.gen_ramp</code> (MW per minute, <code>NaN</code> where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.</p>
+<p><code>Case.check(source)</code> then refuses a file whose parts disagree, with a <code>DataConditionError</code> that names the file and what is wrong: a bus number that is not whole or is on two rows, a bus type other than 1, 2, 3 or not exactly one reference bus, a unit or branch on a bus the case does not have, a zone number outside 1 to 12, or a name, coordinate, fuel or ramp list with the wrong number of rows. Two things the library would pass over without a word are refused as well: an indexed assignment such as <code>mpc.bus(1, 3) = 500;</code> and a field that is not one of the case's (the standard <code>mpc.gencost</code>, <code>mpc.gentype</code>, <code>mpc.areas</code> and <code>mpc.dclinecost</code> are passed over). To change the grid, edit rows in place, one row per line (<code>tests/nygrid/test_case_file.py</code> has one case per rule).</p>
+<p><code>pipelines/newyork/make_case.py</code> is the recipe of the file, outside the package: it makes the file again from NYgrid's <code>Data/</code> folder (the NPCC-140 case at the pinned commit, NYgrid's own <code>modifyMPC.m</code> changes, the fixed unit list of its hourly case, zone J's units split over buses 81 and 82, and the 765 kV line 47-43), and holds the writer. Every number is written with the digits that read back to the same bits, and a test checks that the recipe still reproduces the checked-in file and its <code>Case</code> exactly.</p>
 <h2 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h2>
 <p>Stateless steps, each called once in the build.</p>
 <table>
@@ -2111,28 +2139,22 @@ copies them as they are.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>read_npcc(path)</code></td>
-<td><code>generation/nygrid/npcc.py</code></td>
-<td><code>npcc.mat</code></td>
-<td><code>Case</code></td>
+<td><code>nygrid_case()</code></td>
+<td><code>generation/nygrid/case.py</code></td>
+<td>the case file <code>case_nygrid.m</code>, shipped with the package</td>
+<td>the <code>Case</code> every build starts from: 140 buses, 227 branches, 271 units</td>
 </tr>
 <tr>
-<td><code>modify_mpc(case)</code></td>
-<td><code>generation/nygrid/npcc.py</code></td>
-<td><code>Case</code></td>
-<td><code>Case</code> with every <code>modifyMPC.m</code> change</td>
+<td><code>Case.from_matpower(path)</code></td>
+<td><code>generation/nygrid/case.py</code></td>
+<td>a MATPOWER case file</td>
+<td>its <code>Case</code>, read with matpowercaseframes and checked: bus numbers become positions, the zone number a zone letter; a file whose parts disagree is a <code>DataConditionError</code></td>
 </tr>
 <tr>
-<td><code>nygrid_units(case, data_dir)</code></td>
-<td><code>generation/nygrid/npcc.py</code></td>
-<td><code>Case</code>, NYgrid <code>Data/</code></td>
-<td><code>Case</code> with the fixed unit list of NYgrid's hourly case (thermal, nuclear, hydro, external, HQ)</td>
-</tr>
-<tr>
-<td><code>split_zone_j</code>, <code>restore_765kv</code>, <code>hvdc_links</code></td>
+<td><code>hvdc_links(case)</code></td>
 <td><code>generation/nygrid/fixes.py</code></td>
 <td><code>Case</code></td>
-<td><code>Case</code></td>
+<td><code>Case</code> with NYgrid's four HVDC links as DC lines in place of the AC branch 81-125 (a variant; the release keeps the branch)</td>
 </tr>
 <tr>
 <td><code>externals_at_base(case, base)</code></td>
@@ -2415,15 +2437,15 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>G1</td>
-<td><code>generation/nygrid/case.py</code>, <code>generation/nygrid/npcc.py</code>, <code>generation/nygrid/network.py</code></td>
+<td><code>generation/nygrid/case.py</code> (the case file and its reader), <code>generation/nygrid/network.py</code></td>
 </tr>
 <tr>
 <td>G2</td>
-<td><code>generation/nygrid/fixes.py</code></td>
+<td>the case file (zone J's split and the 765 kV line are in it; <code>pipelines/newyork/make_case.py</code> is how), <code>generation/nygrid/fixes.py</code> (the variants)</td>
 </tr>
 <tr>
 <td>G3</td>
-<td><code>generation/nygrid/npcc.py</code> (unit list)</td>
+<td>the case file (the unit list, <code>mpc.gen</code> with <code>mpc.genfuel</code> and <code>mpc.gen_ramp</code>)</td>
 </tr>
 <tr>
 <td>G4</td>
@@ -2471,7 +2493,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>A4</td>
-<td><code>engine/attacks/msfdia.py</code> (Ap option), <code>natural_steps</code>, <code>generator_ramps</code>, <code>wrap_angles</code> in <code>engine/attacks/attacker.py</code>, <code>Case.ramp</code> from <code>nygrid_units</code></td>
+<td><code>engine/attacks/msfdia.py</code> (Ap option), <code>natural_steps</code>, <code>generator_ramps</code>, <code>wrap_angles</code> in <code>engine/attacks/attacker.py</code>, <code>Case.ramp</code> from the case file (<code>mpc.gen_ramp</code>)</td>
 </tr>
 <tr>
 <td>D1</td>

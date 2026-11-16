@@ -1726,6 +1726,12 @@ consequence as attacked less benign, so an operator only has to produce both run
 <code>NyisoOperator(policy)</code>, takes its choices from an <code>OperatorPolicy</code>, which checks every choice when it is built.</p>
 <h2 id="changing-the-package-itself">Changing the package itself<a class="headerlink" href="#changing-the-package-itself" title="Permanent link">&para;</a></h2>
 <ul>
+<li>The grid is the MATPOWER case file <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, read by <code>nygrid_case()</code>. To
+  change a line, a unit or a limit, edit the file; code does not patch the case on the way in. Edit rows in place,
+  or add and delete whole rows: <code>Case.from_matpower</code> reads the file with matpowercaseframes and refuses a file
+  whose parts disagree, naming the file and what is wrong (<a href="../../concepts/new_york_grid/">the architecture</a> lists
+  the checks). A study on another grid passes its own <code>Case</code> (<code>Case.from_matpower</code> of its own file) wherever the
+  package takes one. A change to the file moves generated numbers, so it comes with the goldens and digests below.</li>
 <li>The golden snapshots (<code>tests/nygrid/test_golden.py</code>) pin what the operator, the detection tools and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (<code>NYGRID_UPDATE_GOLDEN=1</code>) and say in the pull request which numbers moved and why.</li>

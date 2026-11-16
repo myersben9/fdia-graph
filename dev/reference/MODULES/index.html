@@ -2028,7 +2028,7 @@
 </tr>
 <tr>
 <td><code>generation.nygrid.case</code></td>
-<td>The grid as one frozen record of arrays.</td>
+<td>The grid as one frozen record of arrays, read from a MATPOWER case file.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.config</code></td>
@@ -2040,7 +2040,7 @@
 </tr>
 <tr>
 <td><code>generation.nygrid.fixes</code></td>
-<td>The changes that make NYgrid's operating points solvable in AC (checked in MATLAB on 8760 hours of 2019).</td>
+<td>Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (<code>case.py</code> reads it).</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.inputs</code></td>
@@ -2073,10 +2073,6 @@
 <tr>
 <td><code>generation.nygrid.network</code></td>
 <td>Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (<code>formulas.network</code>).</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.npcc</code></td>
-<td>Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m).</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.pool</code></td>
@@ -2437,6 +2433,10 @@
 <td>The release builder's attacker sensitivities stay with the attacker: a timeline built with <code>v_margin</code> records the case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and the whole 2019 pool (inputs.py).</td>
 </tr>
 <tr>
+<td><code>tests/nygrid/test_case_file.py</code></td>
+<td><code>Case.from_matpower</code> on a three-bus case file written here: what it reads and what it refuses. Needs no input data.</td>
+</tr>
+<tr>
 <td><code>tests/nygrid/test_choices.py</code></td>
 <td>The operator's choices are checked before anything runs: a typo is an error, never a silent fall back to the default run (no data needed).</td>
 </tr>
@@ -2466,7 +2466,7 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_grid.py</code></td>
-<td>The New York grid as read from NYgrid: the NPCC case and NYgrid's modifications, the fixed unit list, the AC fixes, the utility of each bus and the branch ratings, checked against MATPOWER's power flow.</td>
+<td>The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants, the utility of each bus and the branch ratings.</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_misses.py</code></td>
@@ -2713,6 +2713,10 @@
 <tr>
 <td><code>pipelines/newyork/build_timeline.py</code></td>
 <td>Build the release timeline (<code>fdia_graph.generation.nygrid.build.production_builder</code>) from a pool.</td>
+</tr>
+<tr>
+<td><code>pipelines/newyork/make_case.py</code></td>
+<td>The recipe of the New York case file: <code>case_nygrid.m</code> made again from NYgrid's <code>Data/</code> folder.</td>
 </tr>
 <tr>
 <td><code>pipelines/newyork/run_pool.py</code></td>
