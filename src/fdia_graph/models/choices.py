@@ -38,14 +38,13 @@ class Choice(str, Enum):
 # families of data releases v0.8.3 and earlier included, so old releases keep loading and scoring per
 # family. Generation makes GENERATED_FAMILIES only.
 FAMILIES = {0: "benign", 1: "Aq", 2: "Ad", 3: "As", 4: "Ar", 5: "At", 6: "Al", 7: "Am"}
-FAMILY_CODE = {name: code for code, name in FAMILIES.items()}  # "Aq" -> 1 (aliases: FAMILY_ALIAS)
+FAMILY_CODE = {name: code for code, name in FAMILIES.items()}  # "Aq" -> 1
 BENIGN_CODE = FAMILY_CODE["benign"]
 # local false states that pass the residual test
 STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", "At", "Al", "Am")}
 HELDOUT_FAMILIES = ("As", "Ar")  # kept out of train and val in the unseen-attack protocol [BOY22]
 # what the generator makes: the multi-snapshot families [WU26] (the ramp At, the overload Am)
 GENERATED_FAMILIES = ("At", "Am")
-FAMILY_ALIAS = {"Ao": 1, "SLS": 1, "ramp": 5, "LRA": 6}  # backward-compatible family-name aliases
 
 
 # ---- the dataset ---------------------------------------------------------------------------------

@@ -17,13 +17,13 @@ import argparse, json, numpy as np, torch, torch.nn as nn, torch.nn.functional a
 from contextlib import nullcontext
 from typing import Any, Dict, Tuple
 import fdia_graph as fg
-from fdia_graph.dataset import FAMILIES, FdiaGraph
+from fdia_graph import FAMILIES, FdiaGraph
 from torch_geometric.nn import ARMAConv, GATv2Conv
 
 
 def kcl_residual(node_x: torch.Tensor, edge_x: torch.Tensor, ei: torch.Tensor, N: int) -> torch.Tensor:
     """Per-bus KCL power-balance residual (inflow - injection) from the MEASUREMENTS, a cheap BDD-like signal.
-    ~0 for consistent states (Ao/ramp/LRA pass BDD) but spikes where incident meters were corrupted
+    ~0 for consistent states (Aq/At/Al pass BDD) but spikes where incident meters were corrupted
     (Ad/As/Ar break KCL), so the model gets the physics filter as a feature. Returns [n,N,2] residual (P,Q)."""
     n = node_x.shape[0]; fr, to = ei[0], ei[1]
     inP = torch.zeros(n, N, device=node_x.device); inQ = torch.zeros(n, N, device=node_x.device)

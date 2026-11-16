@@ -14,9 +14,9 @@ import h5py
 import numpy as np
 
 from .. import schema
-from ..dataset.base import FAMILIES, STEALTHY_FAMILIES
 from ..engine import FdiaGenerator
 from ..formulas.temporal import SWING_WINDOW, recent_change_scale
+from ..models.choices import FAMILIES, STEALTHY_FAMILIES
 from ..models.config import OverloadSettings, TimelineSettings
 from ..models.frames import MinimizerResult
 from ..schema import Attr

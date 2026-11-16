@@ -7,9 +7,7 @@ public vocabulary of a record and stay as words in the code; `FIELD_PATH` maps t
 
 from __future__ import annotations
 
-from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    Split,
-)
+from .models.choices import Split
 
 
 class Group:
@@ -204,9 +202,6 @@ class Attr:
 ATTR_KEYS = frozenset(v for k, v in vars(Attr).items() if not k.startswith("_"))
 
 KIND_TIMELINE = "timeline"
-
-# The attack families, their codes and the names older releases used for them (models.choices).
-from .models.choices import FAMILIES, FAMILY_ALIAS, STEALTHY_FAMILIES  # noqa: E402,F401
 
 # The partition codes stored in data/split.
 SPLIT_CODE: dict[str, int] = {Split.TRAIN: 0, Split.VAL: 1, Split.TEST: 2}

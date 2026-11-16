@@ -13,7 +13,7 @@ from ..errors import NoBenignRecords
 from ..formulas.trust import attack_cost, greedy_trusted_meters
 from ..models.choices import BENIGN_CODE
 from ..models.config import TrustConfig
-from ..models.scores import TrustScores  # noqa: F401  re-exported: defined here before the models package
+from ..models.scores import TrustScores
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph
@@ -78,7 +78,7 @@ class TrustSelector:
         """Residual detection per family with and without the secured meters, on a timeline view
         (the benign layer is what a secured meter reads), at the alarm level `fit` calibrated on
         benign training records; `false_alarm` is the benign rate of this view at that level."""
-        from ..dataset import FAMILIES
+        from ..models.choices import FAMILIES
 
         ds.require("physical_units", "benign_layer", by="the secured-meter score")
         d = ds.export(["node_x", "edge_x", "benign", "edge_benign", "family"])

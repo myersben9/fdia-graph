@@ -29,37 +29,16 @@ import h5py
 import numpy as np
 
 from .. import schema
-from ..models.choices import FAMILY_ALIAS as _FAMILY_ALIAS  # noqa: F401  kept where it was read before
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    FAMILY_CODE,
-    HELDOUT_FAMILIES,
-    Capability,
-    Order,
-    RecordFormat,
-    Units,
-)
+from ..models.choices import FAMILY_CODE, HELDOUT_FAMILIES, Capability
 from ..models.inputs import FamilySelection, Requirement
 from ..models.validation import MissingCapability
-
-# On-disk `data/family` codes -> display name; the SDK speaks in codes.
-from ..schema import (  # noqa: F401  re-exported: the loader's callers import them from here
-    FAMILIES,
-    STEALTHY_FAMILIES,
-    Split,
-)
-from ..schema import (
-    SPLIT_CODE as _SPLIT,  # noqa: F401  re-exported: the loader reads the codes from here
-)
-from ..schema import (
-    STATIC_PHYSICS as _STATIC_PHYSICS,  # noqa: F401
-)
 
 # As, Ar reserved for test-only in the unseen-attack protocol (Boyaci et al. 2022)
 _HELDOUT_TRAIN_EXCLUDE = {FAMILY_CODE[n] for n in HELDOUT_FAMILIES}
 
 
 def family_ids(families: Sequence[Union[str, int]]) -> list[int]:
-    """Family names (with the legacy aliases) or raw integer codes as integer codes. An unknown
+    """Family names or raw integer codes as integer codes. An unknown
     name or code is an error rather than a silently empty selection."""
     return list(FamilySelection(families).codes)
 

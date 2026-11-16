@@ -45,7 +45,7 @@ from ..formulas.projection import (
     weak_move,
     weighted_pseudoinverse,
 )
-from ..models.scores import JacobianOutputs  # noqa: F401  re-exported: defined here before the models package
+from ..models.scores import JacobianOutputs
 from .base import require_physical
 
 if TYPE_CHECKING:

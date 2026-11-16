@@ -19,7 +19,7 @@ engine), `formulas/` (the equations), `schema.py` (the file protocol) and `error
 errors). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
 same reason.
 
-![Module diagram: federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over timeline for its temporal layers; generation over engine, timeline, download and registry; profiles over engine and registry; timeline over dataset, engine, generation and registry; download and engine over registry](../figures/diagrams/modules.png)
+![Module diagram: federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over generation for its temporal layers; generation over engine, timeline, download and registry; profiles over engine; timeline over engine, generation, registry and results; download and engine over registry](../figures/diagrams/modules.png)
 
 ## The dataset
 

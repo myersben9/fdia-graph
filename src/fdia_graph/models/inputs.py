@@ -17,7 +17,7 @@ from typing import Annotated, ClassVar, Optional, Union, cast
 
 import numpy as np
 
-from .choices import FAMILIES, FAMILY_ALIAS, GENERATED_FAMILIES, Capability, Reduce
+from .choices import FAMILIES, FAMILY_CODE, GENERATED_FAMILIES, Capability, Reduce
 from .errors import NoAdmissibleTarget
 from .validation import (
     AsArray,
@@ -33,20 +33,18 @@ from .validation import (
     Validated,
 )
 
+
 # ---- parsers of loose input -----------------------------------------------------------------------
-_FAMILY_NAMES = {**{v: k for k, v in FAMILIES.items()}, **FAMILY_ALIAS}
-
-
 def _family_code(f: object) -> int:
     if isinstance(f, str):
-        return _FAMILY_NAMES[f]
+        return FAMILY_CODE[f]
     if isinstance(f, (int, np.integer)) and not isinstance(f, bool) and int(f) in FAMILIES:
         return int(f)
     raise KeyError(f)  # a float such as 1.9, a bool, or a code outside the table
 
 
 def family_codes(families: Sequence[Union[str, int]]) -> tuple[int, ...]:
-    """Family names (with the legacy aliases) or integer codes, as codes."""
+    """Family names or integer codes, as codes."""
     return tuple(_family_code(f) for f in families)
 
 
@@ -77,13 +75,13 @@ def iso_date(d: object) -> _dt.date:
 
 
 FAMILY_WORDS = (
-    f"must name families; unknown family in it (known: {sorted(_FAMILY_NAMES)} or codes {sorted(FAMILIES)})"
+    f"must name families; unknown family in it (known: {sorted(FAMILY_CODE)} or codes {sorted(FAMILIES)})"
 )
 
 
 @dataclass(frozen=True)
 class FamilySelection(Validated):
-    """A selection of attack families by name, alias or code."""
+    """A selection of attack families by name or code."""
 
     families: Annotated[Sequence[Union[str, int]], Parses(family_codes, FAMILY_WORDS)]
 
@@ -104,7 +102,7 @@ class GeneratedFamilies(Validated):
         return tuple(int(c) for c in self.families)
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
-        made = {_FAMILY_NAMES[n] for n in GENERATED_FAMILIES}
+        made = {FAMILY_CODE[n] for n in GENERATED_FAMILIES}
         old = sorted(FAMILIES[c] for c in self.codes if c not in made)
         yield (
             not old,

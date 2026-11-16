@@ -43,41 +43,15 @@ import h5py
 import numpy as np
 
 from .engine import FdiaGenerator
-from .engine.records import (  # noqa: F401  AttackDesign, is_feasible re-exported as before
-    AM_FAMILY,
-    RAMP_FAMILY,
-    AttackDesign,
-    FrameKnobs,
-    is_feasible,
-)
-from .formulas.attacks import ramp_profile  # noqa: F401  re-exported as before
+from .engine.attacks.stealthy import AM_FAMILY
 from .generation import _FrameContext, _load_states, _write_graph, emit, plan
 from .generation.design import AmDesigner, _GeneratorSpec
 from .generation.emit import TimelineBuffers, clean_slice, walk_split
-from .generation.plan import (  # noqa: F401  the plan stage's names the walk uses, and its constants
-    PLACE_TRIES,
-    REDRAWS,
-    SPLITS,
-    episode_counts,
-    largest_remainder,
-    place_split,
-    split_bounds,
-    split_column,
-)
-from .generation.write import (  # noqa: F401  KIND and write_temporal_layers are public here, as before
-    KIND,
-    create_layers,
-    finish_timeline,
-    search_attrs,
-    write_temporal_layers,
-)
-from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    BENIGN_CODE,
-    FAMILY_CODE,
-    GENERATED_FAMILIES,
-)
+from .generation.plan import place_split, split_bounds
+from .generation.write import create_layers, finish_timeline, search_attrs, write_temporal_layers
+from .models.choices import GENERATED_FAMILIES
 from .models.config import TimelineSettings
-from .models.frames import OperatingLimits
+from .models.frames import FrameKnobs, OperatingLimits
 from .models.inputs import AdmissibleTargets, GeneratedFamilies
 from .registry import CACHE_DIR, system_id
 from .results.run import config_hash
@@ -226,7 +200,7 @@ def generate_timeline(
     The file records the settings as JSON (attribute `settings`) with their hash (`settings_hash`).
     """
     s = TimelineSettings.of(settings, **knobs)
-    # one column per family: an alias of a family already named ("ramp" beside "At") adds nothing
+    # one column per family: a family named twice adds nothing
     fams = tuple(dict.fromkeys(GeneratedFamilies(s.families).codes))
     am_runs = AM_FAMILY in fams
     g = _generator(system, seed, s)

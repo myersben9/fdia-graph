@@ -28,14 +28,10 @@ from ..formulas.metrics import (
     sample_f1,
     strict_accuracy,
 )
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    BENIGN_CODE,
-    Buses,
-    FrOver,
-)
+from ..models.choices import BENIGN_CODE
 from ..models.config import LocalizerConfig, PerBusReport
 from ..models.inputs import ShapedArray
-from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
+from ..models.scores import (
     BenignMetrics,
     FamilyMetrics,
     LocalizerScores,
@@ -130,7 +126,7 @@ class LocalizerBase:
         record, benign included; its macro_f1 (per-bus F1 averaged over the active buses) is the
         papers' headline number, and reads 0.0 when the dataset holds no attacked bus at all.
         """
-        from ..dataset import FAMILIES
+        from ..models.choices import FAMILIES
 
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])
         s = self._score(d, ds) if scores is None else scores
@@ -162,7 +158,7 @@ class LocalizerBase:
                   records included) or "benign" (benign records only); with buses="active" and
                   fr_over="benign" the `all` block's means equal `score()["all"]`'s macro F1, DR and FR
         """
-        from ..dataset import FAMILIES
+        from ..models.choices import FAMILIES
 
         fr_over = PerBusReport(buses, fr_over).fr_over
         d = self._pull(ds, extra=["family", "y"]) if scores is None else ds.export(["family", "y"])

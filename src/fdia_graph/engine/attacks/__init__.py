@@ -25,12 +25,7 @@ from typing import Optional
 
 import numpy as np
 
-from ...models.frames import (  # noqa: F401  re-exported: engine.attacks named these before the models package
-    AttackDesign,
-    Frame,
-    FrameKnobs,
-    Scan,
-)
+from ...models.frames import AttackDesign, Frame, FrameKnobs
 from .episodes import EpisodeDesignMixin
 from .overload import OverloadMixin
 from .stealthy import RAMP_FAMILY, StealthyMixin

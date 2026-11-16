@@ -11,13 +11,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
-from ..models.grid import (  # noqa: F401  re-exported: defined here before the models package
-    INTACT,
-    BranchModel,
-    MeterBias,
-    MeterPlan,
-    Outage,
-)
+from ..models.grid import BranchModel, MeterBias, MeterPlan, Outage
 
 # Meter accuracy classes [ASP14]: the error std of every meter type. |V| and angle are the
 # class-0.2/sqrt(3) instrument-transformer figures, absolute (pu, rad); injections and flows a ~1.7%
@@ -29,8 +23,8 @@ POWER_NOISE_FLOOR_MW = 1e-3
 if TYPE_CHECKING:
     from scipy.sparse import csr_matrix
 
+    from ..models.frames import Scan
     from .pandapower_types import PandapowerNet
-    from .records import Scan
 
 
 class GridBase:

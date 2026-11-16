@@ -39,17 +39,11 @@ from ..formulas.estimation import (
 from ..formulas.linalg import batched_normal_matrices, guarded_inverse
 from ..formulas.network import ac_jacobian, ac_measurement
 from ..formulas.noise import PMU_CURRENT_CLASS, current_sigma
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    Calibrate,
-)
 from ..models.config import FitOptions, SolveConfig
-from ..models.data import TrueState  # noqa: F401  re-exported: defined here before the models package
+from ..models.data import TrueState
 from ..models.grid import EDGE, NODE, EdgeColumns, NodeColumns, PseudoVoltages
 from ..models.inputs import ShapedArray
-from ..models.scores import (  # noqa: F401  re-exported: defined here before the models package
-    ErrorPair,
-    EstimatorScores,
-)
+from ..models.scores import ErrorPair, EstimatorScores
 
 if TYPE_CHECKING:
     import torch
@@ -553,7 +547,7 @@ class SEBase:
         """Per-family angle (deg) and voltage (pu) MAE vs the clean truth, plus the geometric
         mean over families ('geo', the paper's table cell). Pass `xhat` (a previous `estimate(ds)`)
         to score without re-solving, e.g. from a cache; it must be in record order of `ds`."""
-        from ..dataset import FAMILIES
+        from ..models.choices import FAMILIES
 
         require_physical(ds)
         est = self.estimate(ds, chunk=chunk) if xhat is None else xhat

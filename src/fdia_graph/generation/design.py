@@ -23,7 +23,7 @@ from typing import Optional, Union
 import numpy as np
 
 from ..engine import FdiaGenerator
-from ..engine.records import AM_FAMILY
+from ..engine.attacks.stealthy import AM_FAMILY
 from ..errors import NoRoomForEpisode
 from ..models.config import MeterSettings
 from ..models.frames import AmOverloadDesign, FrameKnobs

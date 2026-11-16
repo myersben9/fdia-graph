@@ -22,7 +22,8 @@ def test_record_batch_and_arrays(splits):
     torch = pytest.importorskip("torch")
     from torch.utils.data import DataLoader
 
-    from fdia_graph.dataset import ArraysBundle, BatchBundle, FdiaGraph, RecordBundle, Summary
+    from fdia_graph.dataset import FdiaGraph
+    from fdia_graph.models.data import ArraysBundle, BatchBundle, RecordBundle, Summary
 
     ds = splits["test"]
     rec = ds[0]
@@ -71,9 +72,8 @@ def test_record_batch_and_arrays(splits):
 def test_estimator_and_localizer_scores(timeline):
     import fdia_graph as fg
     from fdia_graph.localization import SwingThreshold
-    from fdia_graph.localization.base import LocalizerScores, OverallMetrics
+    from fdia_graph.models.scores import ErrorPair, EstimatorScores, LocalizerScores, OverallMetrics
     from fdia_graph.se import WLS
-    from fdia_graph.se.base import ErrorPair, EstimatorScores
 
     train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
     se = WLS().fit(train).score(test)
@@ -105,7 +105,8 @@ def test_estimator_and_localizer_scores(timeline):
 
 def test_jacobian_outputs(timeline):
     import fdia_graph as fg
-    from fdia_graph.se.jacobian import JacobianFeatures, JacobianOutputs
+    from fdia_graph.models.scores import JacobianOutputs
+    from fdia_graph.se.jacobian import JacobianFeatures
 
     train, test = fg.load(timeline, split="train"), fg.load(timeline, split="test")
     out = (

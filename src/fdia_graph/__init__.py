@@ -25,10 +25,11 @@ if TYPE_CHECKING:  # the lazy names below, with their real signatures for type c
 # Re-exports so users write `fg.FdiaGraph` / `fg.load(...)` instead of reaching into submodules.
 # FdiaGraph: torch Dataset over one timeline file; FAMILIES: attack-family names/ids; STEALTHY_FAMILIES: the
 # BDD-evading subset (hard cases, e.g. Aq).
-from .dataset import FAMILIES, STEALTHY_FAMILIES, FdiaGraph, family_ids
+from .dataset import FdiaGraph, family_ids
 
 # download: ensure_local (resolved spec -> local .h5 path, fetching+caching if absent).
 from .download import ensure_local
+from .models.choices import FAMILIES, STEALTHY_FAMILIES
 
 # registry = dataset "version control": list_datasets (known built-in + local), register_local (name a local
 # dataset), resolve ((name, release) -> download spec).

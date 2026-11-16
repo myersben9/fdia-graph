@@ -19,7 +19,7 @@ batch = next(iter(loader))
 print("batch tensors:", {k: tuple(v.shape) for k, v in batch.items() if hasattr(v, "shape")})
 
 # 3) SLICE THE BENCHMARK — family subsets and the unseen-attack generalization protocol.
-stealthy = fg.load("ieee14", split="test", families=["Ao", "ramp", "LRA"])  # the hard, ML-only attacks
+stealthy = fg.load("ieee14", split="test", families=["Aq", "At", "Al"])  # the hard, ML-only attacks
 print("stealthy-only test set:", len(stealthy), "records")
 heldout = fg.load("ieee14", split="train", heldout=True)  # As/Ar held out of training
 print("held-out train set:", len(heldout), "records")

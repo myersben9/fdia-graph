@@ -19,7 +19,6 @@ flowchart TB
     federated --> dataset
     federated --> localization
     federated --> se
-    generation --> dataset
     generation --> download
     generation --> engine
     generation --> registry
@@ -27,7 +26,6 @@ flowchart TB
     localization --> dataset
     localization --> se
     profiles --> engine
-    profiles --> registry
     se --> dataset
     se --> engine
     timeline --> engine
@@ -36,6 +34,6 @@ flowchart TB
     timeline --> results
     trust --> dataset
     trust --> engine
+    trust --> generation
     trust --> registry
     trust --> se
-    trust --> timeline

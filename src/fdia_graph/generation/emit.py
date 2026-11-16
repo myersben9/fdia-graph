@@ -19,11 +19,12 @@ import numpy as np
 
 from .. import schema
 from ..engine import FdiaGenerator
-from ..engine.records import AM_FAMILY, RAMP_FAMILY, Frame, attack_frame
+from ..engine.attacks.stealthy import AM_FAMILY, RAMP_FAMILY
+from ..engine.records import attack_frame
 from ..errors import NoRoomForEpisode
 from ..models.choices import BENIGN_CODE
 from ..models.data import EpisodeRow
-from ..models.frames import AmOverloadDesign, AttackVector, MinimizerResult
+from ..models.frames import AmOverloadDesign, AttackVector, Frame, MinimizerResult
 from . import _FrameContext
 from .plan import REDRAWS, Slot, _Placement, _Schedule, give_up, uniform_onset
 

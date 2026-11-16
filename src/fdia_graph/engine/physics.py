@@ -8,7 +8,6 @@ from __future__ import annotations
 import numpy as np
 
 from ..formulas.attacks import bus_load, element_loads, generator_output
-from ..models.frames import OperatingLimits  # noqa: F401  re-exported: defined here before the models package
 from ..models.grid import NODE
 from .base import GridBase
 

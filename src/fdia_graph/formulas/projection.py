@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..models.choices import Reduce  # noqa: F401  re-exported beside its formula
 from ..models.inputs import Aggregation
 
 

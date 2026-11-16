@@ -27,12 +27,9 @@ from urllib.request import Request, urlopen
 import numpy as np
 
 from .engine.core import _CASE  # bus-count -> pandapower builder; single source of supported systems
-from .models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    Iso,
-)
+from .models.choices import Iso
 from .models.config import EXPORT_COLUMNS, IsoExport, ProfileFetch
 from .models.inputs import CsvSpec, DateSpan, LoadValues, ProfileSource, SupportedSystem
-from .registry import system_id  # noqa: F401  re-exported: callers read it from here before
 
 
 def _pandas():

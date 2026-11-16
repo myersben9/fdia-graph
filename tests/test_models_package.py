@@ -109,17 +109,3 @@ def test_package_imports_only_numpy_and_the_standard_library():
             else:
                 continue
             assert names <= allowed, f"fdia_graph.models.{info.name} imports {names - allowed}"
-
-
-def test_old_import_paths_still_work():
-    from fdia_graph.dataset import RecordBundle
-    from fdia_graph.engine.base import INTACT, MeterPlan
-    from fdia_graph.engine.records import Frame, Scan
-    from fdia_graph.formulas.network import BranchModel
-    from fdia_graph.registry import AssetSpec
-    from fdia_graph.se.base import EstimatorScores, TrueState
-
-    assert RecordBundle is models.RecordBundle and Frame is models.Frame
-    assert Scan is models.Scan and BranchModel is models.BranchModel and AssetSpec is models.AssetSpec
-    assert EstimatorScores is models.EstimatorScores and TrueState is models.TrueState
-    assert MeterPlan is models.MeterPlan and INTACT is models.INTACT

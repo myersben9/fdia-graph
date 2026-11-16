@@ -24,13 +24,10 @@ import numpy as np
 from ..errors import NoAttackedRecords, NotFitted
 from ..formulas.federated import Moments, channel_moments, pool_moments
 from ..formulas.metrics import perbus_counts_at, tau_from_counts
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    BENIGN_CODE,
-    Features,
-)
+from ..models.choices import BENIGN_CODE, Features
 from ..models.config import LearnedConfig, LocalizerConfig, TrainerConfig
 from ..models.scores import GridScores
-from ..models.training import OptimConfig  # noqa: F401  re-exported beside its user
+from ..models.training import OptimConfig
 from .base import LocalizerBase
 
 if TYPE_CHECKING:
@@ -244,7 +241,7 @@ class LearnedLocalizer(LocalizerBase):
     def score_grid(self, ds: FdiaGraph) -> GridScores:
         """Record-level detection at `grid_tau` (from `tune_grid_threshold`): the benign false-alarm
         rate and the detection rate, over every attacked record and per family."""
-        from ..dataset import FAMILIES
+        from ..models.choices import FAMILIES
 
         tau = getattr(self, "grid_tau", None)
         if tau is None:

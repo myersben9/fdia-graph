@@ -15,7 +15,7 @@ import numpy as np
 
 from .. import schema
 from ..formulas.projection import meter_positions
-from ..timeline import write_temporal_layers
+from ..generation.write import write_temporal_layers
 
 if TYPE_CHECKING:
     from ..dataset import FdiaGraph

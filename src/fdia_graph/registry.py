@@ -13,7 +13,7 @@ import json
 import os
 from typing import Optional, Union
 
-from .models.assets import AssetSpec  # noqa: F401  re-exported: defined here before the models package
+from .models.assets import AssetSpec
 from .models.inputs import DatasetName, ReleaseName, SystemRef
 
 # Cache dir for downloaded shards + the local-datasets JSON; override via FDIA_GRAPH_CACHE.
