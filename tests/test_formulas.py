@@ -16,6 +16,7 @@ from fdia_graph.formulas import (
     series_admittance,
     swing_zscore,
     temporal_delta,
+    wrap_degrees,
 )
 from fdia_graph.models import HuberConfig, SolveConfig
 
@@ -208,6 +209,14 @@ def test_ramp_profile_shape():
     assert devs[4:6] == [2.0, 2.0]
     assert devs[6:] == pytest.approx([2.0 - 0.25 * k for k in range(6)])
     assert ramp_profile(100, 4, 2, 0.5, 0.25) == 0.0
+
+
+def test_wrap_degrees_by_hand():
+    """A difference across the +-180 wrap comes back small, 180 stays 180 and -180 becomes 180 (the interval
+    is (-180, 180]); the dtype of the readings is kept."""
+    d = np.array([0.0, 10.0, -10.0, 350.0, -350.0, 180.0, -180.0, 540.0])
+    assert wrap_degrees(d).tolist() == [0.0, 10.0, -10.0, -10.0, 10.0, 180.0, 180.0, 180.0]
+    assert wrap_degrees(d.astype(np.float32)).dtype == np.float32
 
 
 def test_temporal_features_by_hand():

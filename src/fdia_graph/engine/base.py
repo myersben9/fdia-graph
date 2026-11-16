@@ -13,13 +13,6 @@ import numpy as np
 
 from ..models.grid import BranchModel, MeterBias, MeterPlan, Outage
 
-# Meter accuracy classes [ASP14]: the error std of every meter type. |V| and angle are the
-# class-0.2/sqrt(3) instrument-transformer figures, absolute (pu, rad); injections and flows a ~1.7%
-# power-measurement std, relative to the reading, with POWER_NOISE_FLOOR_MW as an absolute floor.
-# The generator's noise model and a measurement-only estimator calibration both read these.
-ACCURACY_CLASS = {"pf": 0.017, "qf": 0.017, "v": 0.0012, "pi": 0.017, "qi": 0.017, "va": 0.00168}
-POWER_NOISE_FLOOR_MW = 1e-3
-
 if TYPE_CHECKING:
     from scipy.sparse import csr_matrix
 

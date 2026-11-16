@@ -35,6 +35,7 @@ from ...formulas.attacks import generator_output, tampered_channels, tampered_de
 from ...formulas.network import _row_block, complex_voltages
 from ...formulas.noise import (
     PMU_CURRENT_CLASS,
+    POWER_NOISE_FLOOR_MW,
     accuracy_sigma,
     current_sigma,
     paper_current_sigma,
@@ -45,7 +46,6 @@ from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, LoadGoal, MinimizerResult
 from ...models.grid import NODE
 from ...models.inputs import TrustablePmus
-from ..base import POWER_NOISE_FLOOR_MW
 from .false_state import FalseStateMixin
 
 if TYPE_CHECKING:

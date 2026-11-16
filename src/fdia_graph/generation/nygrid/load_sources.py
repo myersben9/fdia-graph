@@ -10,10 +10,12 @@ import io
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import numpy as np
 import pandas as pd
+
+from fdia_graph.generation.nygrid.inputs import download_once
 
 HOURS = 8760
 QUARTERS = 4 * HOURS  # the native 15-minute rows of the building stock profiles
@@ -55,13 +57,6 @@ _IAC = "https://itac.university/storage/ITAC_Database.zip"
 _GAZETTEER = (
     "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2019_Gazetteer/2019_Gaz_counties_national.zip"
 )
-
-
-def _download(url: str, path: Path) -> Path:
-    if not path.exists():
-        with urlopen(Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=300) as r:
-            path.write_bytes(r.read())
-    return path
 
 
 def _list_keys(prefix: str) -> list[str]:
@@ -114,7 +109,7 @@ def _building_stock(cache: Path) -> dict[str, np.ndarray]:
 def _sector_mix(cache: Path) -> dict[str, np.ndarray]:
     """II-B: each utility's residential, commercial and industrial share of its 2019 MWh sales to ultimate
     customers, bundled (Part A) plus delivery (Part C). Transportation sales count as commercial."""
-    with zipfile.ZipFile(_download(_EIA, cache / "f8612019.zip")) as z:
+    with zipfile.ZipFile(download_once(_EIA, cache / "f8612019.zip")) as z:
         s = pd.read_excel(io.BytesIO(z.read("Sales_Ult_Cust_2019.xlsx")), sheet_name="States", header=2)
     s = s[(s.State == "NY") & s.Part.isin(["A", "C"])]
     mwh = s[["Megawatthours", "Megawatthours.1", "Megawatthours.2", "Megawatthours.3"]]
@@ -128,7 +123,7 @@ def _sector_mix(cache: Path) -> dict[str, np.ndarray]:
 
 def _county_centroids(cache: Path) -> dict[str, tuple[float, float]]:
     """NY county internal points (lat, lon) from the 2019 Census gazetteer, keyed by NHGIS code as the OEDI files are."""
-    with zipfile.ZipFile(_download(_GAZETTEER, cache / "2019_Gaz_counties_national.zip")) as z:
+    with zipfile.ZipFile(download_once(_GAZETTEER, cache / "2019_Gaz_counties_national.zip")) as z:
         text = z.read(z.namelist()[0]).decode("latin-1")
     rows = csv.DictReader(io.StringIO(text), delimiter="\t")
     out = {}
@@ -153,7 +148,7 @@ def _plants(cache: Path) -> dict[str, np.ndarray]:
     yearly kW-months over 12. Plants with a load factor above 1 or more than 8760 hours are data errors."""
     path = cache / "iac_plants.npz"
     if not path.exists():
-        with zipfile.ZipFile(_download(_IAC, cache / "ITAC_Database.zip")) as z:
+        with zipfile.ZipFile(download_once(_IAC, cache / "ITAC_Database.zip")) as z:
             a = pd.read_excel(io.BytesIO(z.read(z.namelist()[0])), sheet_name="ASSESS")
         a = a[
             (a.EC_plant_usage > 0)

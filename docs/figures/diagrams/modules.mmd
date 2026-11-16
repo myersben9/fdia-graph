@@ -13,21 +13,32 @@ flowchart TB
     se["se/"]
     timeline["timeline.py"]
     trust["trust/"]
+    dataset --> generation
     download --> registry
+    engine --> _lazy
+    engine --> federated
+    engine --> generation
     engine --> ratings
     engine --> registry
     federated --> dataset
+    federated --> generation
     federated --> localization
     federated --> se
+    generation --> _lazy
+    generation --> dataset
     generation --> download
     generation --> engine
+    generation --> federated
+    generation --> profiles
     generation --> registry
     generation --> timeline
     localization --> dataset
     localization --> se
     profiles --> engine
+    se --> _lazy
     se --> dataset
     se --> engine
+    se --> generation
     timeline --> engine
     timeline --> generation
     timeline --> registry

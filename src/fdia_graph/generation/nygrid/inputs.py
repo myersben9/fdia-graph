@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 import numpy as np
 import pandas as pd
@@ -44,6 +46,21 @@ _NUCLEAR_COLS = (  # unit order of nygrid_units: Ginna (53), FitzPatrick, Nine M
     "IndianPoint2Gen",
     "IndianPoint3Gen",
 )
+
+
+def download_once(url: str, path: Path) -> Path:
+    """`url` saved to `path` once; a file already there is kept. The download goes to a `.part` file first,
+    so an interrupted one is never taken for the whole file."""
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_suffix(path.suffix + ".part")
+        with (
+            urlopen(Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=300) as r,
+            open(part, "wb") as f,
+        ):
+            shutil.copyfileobj(r, f)
+        part.replace(path)
+    return path
 
 
 @dataclass(frozen=True)

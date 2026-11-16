@@ -12,7 +12,6 @@ from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import (
     ACCURACY,
     IA,
-    JITTER_FRAC,
     KINDS,
     PF,
     VA,
@@ -24,6 +23,7 @@ from fdia_graph.engine.sensing.meters import (
 )
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.formulas.noise import JITTER_FRAC
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.network import Network

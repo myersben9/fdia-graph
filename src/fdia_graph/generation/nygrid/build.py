@@ -8,7 +8,6 @@ import shutil
 import zipfile
 from pathlib import Path
 from typing import Any
-from urllib.request import Request, urlopen
 
 import numpy as np
 
@@ -31,7 +30,7 @@ from fdia_graph.errors import DataConditionError
 from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
-from fdia_graph.generation.nygrid.inputs import fetch_nyiso
+from fdia_graph.generation.nygrid.inputs import download_once, fetch_nyiso
 from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
 from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
@@ -49,26 +48,12 @@ AT_LENGTH = 16  # the slow ramp's window (scans)
 ATTACKED_FRAC = 0.2
 
 
-def _download(url: str, path: Path) -> Path:
-    """`url` saved to `path` once; a file already there is kept."""
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        part = path.with_suffix(path.suffix + ".part")
-        with (
-            urlopen(Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=300) as r,
-            open(part, "wb") as f,
-        ):
-            shutil.copyfileobj(r, f)
-        part.replace(path)
-    return path
-
-
 def _nygrid(data: Path) -> None:
     """NYgrid's `Data/` folder at the pinned commit, under `data/NYgrid/Data`."""
     dest = data / "NYgrid" / "Data"
     if dest.exists():
         return
-    archive = _download(NYGRID_ZIP, data / f"NYgrid_{NYGRID_COMMIT[:7]}.zip")
+    archive = download_once(NYGRID_ZIP, data / f"NYgrid_{NYGRID_COMMIT[:7]}.zip")
     with zipfile.ZipFile(archive) as z:
         for name in z.namelist():
             parts = name.split("/")
@@ -87,7 +72,7 @@ def fetch_inputs(root: str | Path) -> Path:
     data = Path(root) / "data"
     _nygrid(data)
     terr = data / "territories"
-    _download(TERRITORIES, terr / GEOJSON)
+    download_once(TERRITORIES, terr / GEOJSON)
     if not (terr / LOCATIONS).exists():
         shutil.copyfile(Path(__file__).parent / LOCATIONS, terr / LOCATIONS)
     fetch_nyiso(Settings().year, data / "nyiso")

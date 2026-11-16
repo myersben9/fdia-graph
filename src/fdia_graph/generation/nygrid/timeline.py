@@ -37,7 +37,7 @@ from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
 from fdia_graph.federated.utilities import Ownership
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.io import FAMILIES, SPLITS, TimelineWriter
+from fdia_graph.generation.nygrid.io import FAMILIES, TimelineWriter
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool
 from fdia_graph.generation.plan import (
     place_episodes,
@@ -46,6 +46,7 @@ from fdia_graph.generation.plan import (
     split_weeks,
     week_index,
 )
+from fdia_graph.models.choices import SPLITS
 from fdia_graph.models.plan import Slot
 
 # weeks per stratum of the split when the weight is the surveyed attacks (N46): they sit in about 9 weeks, one

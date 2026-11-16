@@ -19,7 +19,7 @@ engine), `formulas/` (the equations), `schema.py` (the file protocol) and `error
 errors). `__init__.py`, the `fg.*` public API, imports everything and is left out for the
 same reason.
 
-![Module diagram: federated over localization, se and dataset; trust and localization over se, which reads dataset and engine (the accuracy classes), and trust over generation for its temporal layers; generation over engine, timeline, download and registry; profiles over engine; timeline over engine, generation, registry and results; download and engine over registry](../figures/diagrams/modules.png)
+![Module diagram: federated over localization, se, dataset and generation; trust over se, dataset, engine, generation and registry; localization over se and dataset; se over dataset, engine and generation; generation over engine, dataset, federated, profiles, timeline, download and registry; engine over generation, federated, ratings and registry; dataset over generation; timeline over engine, generation, registry and results; profiles over engine; download over registry. The New York code's imports make generation, engine, dataset and federated read each other in both directions](../figures/diagrams/modules.png)
 
 ## The dataset
 

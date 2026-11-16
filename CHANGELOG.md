@@ -5,6 +5,32 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **One copy of the shared constants and helpers (breaking for imports).** Names the IEEE generator and the New
+  York builder each held a copy of now have one home, and the old names are removed with no alias. No generated
+  file changes: every value and every floating-point expression is the one it was.
+  - `SPLITS` (`("train", "val", "test")`) is in `models/choices.py`, beside `Split`, and derived from it. The copy in
+    `generation/nygrid/io.py` is removed, and `fdia_graph.generation.nygrid` no longer exports it.
+  - `generation.write.ragged` (variable-length rows as a pointer array and a flat array) also writes the New
+    York episode table's `buses` and `clients`; `generation/nygrid/io.py` no longer builds them by hand.
+  - `ACCURACY_CLASS` and `POWER_NOISE_FLOOR_MW` moved from `engine/base.py` to `formulas/noise.py`, beside
+    `PMU_CURRENT_CLASS` and `CURRENT_FLOOR_PU`. The New York table `engine.sensing.meters.ACCURACY` (per meter
+    kind, angles in degrees) is built from those four names instead of repeating their numbers.
+  - `JITTER_FRAC` (0.25) moved from `engine/sensing/meters.py` to `formulas/noise.py`; it is the default of
+    `bias_jitter_split` and what the IEEE generator passes, in place of a bare 0.25. `fdia_graph.engine.sensing`
+    no longer exports it.
+  - `generation.nygrid.inputs.download_once(url, path)` is the one download-if-missing of the New York inputs
+    (to a `.part` file first, so an interrupted download is never taken for the file); the copies in
+    `generation/nygrid/build.py` and `load_sources.py` are removed.
+  - The module diagram follows `from fdia_graph.x import y` as well as relative imports (`tools/class_diagrams.py`
+    followed only the relative ones), so it now shows what the New York modules import: `generation`, `engine`,
+    `dataset` and `federated` read each other in both directions.
+  - `formulas.temporal.wrap_degrees(d)` is the one wrap of an angle difference to (-180, 180].
+    `engine.attacks.attacker.wrap_angles` (which picks the angle meters) and `ClientView.temporal` both call it.
+  - `AM_LINE_TRIES` (8) is in `engine/attacks/overload.py` only; `engine/attacks/msfdia.py` imports it.
+  - `engine.FAM_ID` (and `engine.core.FAM_ID`) is removed: the family codes are `models.choices.FAMILY_CODE`.
+  - `RAMP_CODE` and `AM_CODE` of `engine/attacks/episodes.py` are removed: the same two codes are `RAMP_FAMILY`
+    and `AM_FAMILY` in `engine/attacks/stealthy.py`.
+
 - **One plan stage for every timeline (breaking for New York imports).** Where a timeline's splits are cut and
   where its episodes go is decided in `generation/plan.py` for the IEEE systems and for New York alike;
   `generation/nygrid/schedule.py` is removed.

@@ -80,7 +80,7 @@ from .projection import (
     weak_move,
     weighted_pseudoinverse,
 )
-from .temporal import recent_change_scale, swing_zscore, temporal_delta
+from .temporal import recent_change_scale, swing_zscore, temporal_delta, wrap_degrees
 from .trust import attack_cost, attack_subspace, greedy_trusted_meters, rref, sparse_basis
 
 __all__ = [
@@ -159,4 +159,5 @@ __all__ = [
     "whitened_svd_basis",
     "wls_step",
     "wls_step_batched",
+    "wrap_degrees",
 ]

@@ -10,6 +10,18 @@ import numpy as np
 SWING_WINDOW = 60
 
 
+def wrap_degrees(d: np.ndarray) -> np.ndarray:
+    """A difference of two angle readings, degrees, wrapped to (-180, 180]: readings either side of
+    the +-180 wrap differ by almost 360 while the angles themselves barely moved.
+
+        wrapped = -((-d + 180) mod 360 - 180)
+
+    d       : differences of angles, degrees, any shape
+    returns : the same shape and dtype, each value in (-180, 180]
+    """
+    return -((-d + 180.0) % 360.0 - 180.0)
+
+
 def recent_change_scale(X: np.ndarray, window: int, n_bus: int) -> np.ndarray:
     """Per-timestep typical recent change of every bus's injections [FED26].
 

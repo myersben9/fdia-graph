@@ -45,7 +45,6 @@ STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", "At", "Al", "Am")}
 HELDOUT_FAMILIES = ("As", "Ar")  # kept out of train and val in the unseen-attack protocol [BOY22]
 # what the generator makes: the multi-snapshot families [WU26] (the ramp At, the overload Am)
 GENERATED_FAMILIES = ("At", "Am")
-SPLITS = ("train", "val", "test")  # the order of the per-split attributes and of data/split's codes
 
 
 # ---- the dataset ---------------------------------------------------------------------------------
@@ -55,6 +54,11 @@ class Split(Choice):
     TRAIN = "train"
     VAL = "val"
     TEST = "test"
+
+
+# ("train", "val", "test"): a split's position is its code in a file's split column (0, 1, 2) and its
+# row in the per-split attributes, for the IEEE timelines and the New York ones alike.
+SPLITS = tuple(Split.values())
 
 
 class Units(Choice):

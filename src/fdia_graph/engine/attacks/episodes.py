@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Optional, Union, cast
 import numpy as np
 
 from ...formulas.attacks import ramp_profile
-from ...models.choices import FAMILY_CODE
 from ...models.frames import (
     AmOverloadDesign,
     AttackDesign,
@@ -25,13 +24,13 @@ from ...models.frames import (
     RampDesign,
 )
 from ..base import GridBase
+from .stealthy import AM_FAMILY, RAMP_FAMILY
 
 if TYPE_CHECKING:
     from . import AttackMixin
     from .overload import OverloadMixin
 
 ONSET_DRAWS = 40  # designs an At episode tries for one with a stealthy state on every frame
-RAMP_CODE, AM_CODE = FAMILY_CODE["At"], FAMILY_CODE["Am"]
 
 
 def probe_frames(T: int, t: int, length: int) -> range:
@@ -148,7 +147,7 @@ class OverloadDesigner:
 
 
 Designer = Union[RampDesigner, OverloadDesigner]
-DESIGNERS: dict[int, Designer] = {RAMP_CODE: RampDesigner(), AM_CODE: OverloadDesigner()}
+DESIGNERS: dict[int, Designer] = {RAMP_FAMILY: RampDesigner(), AM_FAMILY: OverloadDesigner()}
 
 
 class EpisodeDesignMixin(GridBase):
@@ -162,7 +161,7 @@ class EpisodeDesignMixin(GridBase):
         """The targets the case offers the ramp: At needs a load off every generator bus (checked
         against the request by `models.inputs.AdmissibleTargets`; the overload Am's targets are the
         rated, metered lines of each window, decided per episode)."""
-        return {RAMP_CODE: len(self.stealthy_pos)}
+        return {RAMP_FAMILY: len(self.stealthy_pos)}
 
     def ramp_step(self, design: RampDesign, i: int, rate: float) -> AttackDesign:
         """`ramp_step`: the design of the ramp's frame i."""
@@ -177,7 +176,7 @@ class EpisodeDesignMixin(GridBase):
         prev: Optional[AttackVector] = None,
     ) -> Optional[RampDesign]:
         """The At designer's design on this generator (`designer`)."""
-        ramp = cast(RampDesigner, self.designer(RAMP_CODE))
+        ramp = cast(RampDesigner, self.designer(RAMP_FAMILY))
         return ramp.design(cast("AttackMixin", self), X, t, shape, k, prev)
 
     def am_overload_design(
@@ -189,5 +188,5 @@ class EpisodeDesignMixin(GridBase):
         rng: Optional[np.random.Generator] = None,
     ) -> Optional[AmOverloadDesign]:
         """The Am designer's design on this generator (`designer`)."""
-        overload = cast(OverloadDesigner, self.designer(AM_CODE))
+        overload = cast(OverloadDesigner, self.designer(AM_FAMILY))
         return overload.design(cast("OverloadMixin", self), X, t, length, k, rng)

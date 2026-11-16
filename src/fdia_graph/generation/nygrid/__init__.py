@@ -28,7 +28,6 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     from fdia_graph.generation.nygrid.interfaces import NYISO_INTERFACES, Interface, hourly_interfaces
     from fdia_graph.generation.nygrid.io import (
         FAMILIES,
-        SPLITS,
         TimelineWriter,
         open_timeline,
         read_pool,
@@ -76,7 +75,6 @@ _PUBLIC = {
     "Pool": "fdia_graph.generation.nygrid.pool",
     "PoolBuilder": "fdia_graph.generation.nygrid.pool",
     "SOLVED": "fdia_graph.generation.nygrid.pool",
-    "SPLITS": "fdia_graph.generation.nygrid.io",
     "Settings": "fdia_graph.generation.nygrid.config",
     "TimelineBuilder": "fdia_graph.generation.nygrid.timeline",
     "TimelineWriter": "fdia_graph.generation.nygrid.io",
@@ -132,7 +130,6 @@ __all__ = [
     "Pool",
     "PoolBuilder",
     "SOLVED",
-    "SPLITS",
     "Settings",
     "TimelineBuilder",
     "TimelineWriter",
