@@ -2,8 +2,8 @@
 `bench` experiment in the results store (`results/bench.csv`), where docs/reference/BENCHMARKS.md
 renders them from (a results block).
 
-    python experiments/benchmarks/run.py            # store this machine's run
-    python experiments/benchmarks/run.py --check    # exit 1 if any timing is more than 3x slower than the last run
+    python tools/bench.py            # store this machine's run
+    python tools/bench.py --check    # exit 1 if any timing is more than 3x slower than the last run
 
 Timings are per record for the estimators (fit excluded) and per frame for timeline generation,
 in milliseconds, on the tiny IEEE-14 timeline the test suite builds (1000 frames, At and Am,
@@ -31,7 +31,7 @@ import numpy as np
 
 import fdia_graph as fg
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 from conftest import TIMELINE_KW  # noqa: E402  the test suite's tiny timeline, one definition
 

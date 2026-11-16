@@ -171,15 +171,5 @@ otherwise needs the previous scan, the temporal direction.
 
 ## Regenerate
 
-```bash
-FG_SYSTEM=ieee14 python experiments/estimation/run.py      # fits, writes a run of se.estimators to results/ (estimates cached per arm)
-FG_SYSTEM=ieee118 python experiments/estimation/run.py
-OMP_NUM_THREADS=1 FG_SYSTEM=ieee300 python experiments/estimation/run.py   # single-threaded: multi-threaded, the gated arms hung in the OpenMP runtime
-python experiments/estimation/report.py                  # figures + CSV sidecars from the store
-python tools/results_docs.py --write           # the README's results blocks from the store
-```
-
-| | |
-|---|---|
-| skip arms | `FG_SKIP=removal,...` (every published column ran every arm) |
-| re-runs | score from the estimate cache (the `cache` folder beside `experiments/estimation/run.py`, not in git) in about a minute per arm |
+The scripts that ran the study are not part of this repository; the runs they wrote are in the results store (`se.estimators`).
+`python tools/results_docs.py --write` fills this page's results blocks from the store.

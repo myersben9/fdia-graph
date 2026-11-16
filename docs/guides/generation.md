@@ -227,7 +227,7 @@ window, and each design draws its line order from a stream keyed by the seed, th
 and the move), so `workers=N` designs them in N processes and the file is byte-identical for any N.
 On Windows a script that passes `workers` above 1 must start under `if __name__ == "__main__":`, as
 any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experiment
-`generation.parallel_design`, `experiments/benchmarks/design_speed.py`):
+`generation.parallel_design`):
 
 <!-- results: gen.workers -->
 | workers (3000 frames) | seconds | speed-up | Am episodes | same file |

@@ -47,11 +47,7 @@ from dataclasses import dataclass
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
-SCRIPTS = (
-    "tools",
-    "experiments",
-    "pipelines",
-)  # the folders of scripts, formatted and linted with the package
+SCRIPTS = ("tools", "pipelines")  # the folders of scripts, formatted and linted with the package
 
 
 @dataclass(frozen=True)

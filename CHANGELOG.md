@@ -5,6 +5,13 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The study scripts leave the repository.** The folder `experiments/` (the estimation, localization, trust,
+  federated and defense-reproduction studies, the data-release statistics, the design-speed measurement, and the
+  federated study's per-run files) is removed: the repository holds the package, its tests, its tooling and its
+  docs. The runs those scripts wrote stay in the results store (`results/`), and the pages under
+  `docs/analysis/` still have their tables rendered from it; the pages now say the scripts are kept elsewhere, and
+  their figures and CSV sidecars stay as last drawn (they can no longer be redrawn from this repository).
+  The speed benchmark is repository tooling and is `tools/bench.py` again.
 - **Family-name aliases and old import paths are removed (breaking).** Under the same rule as the deprecated
   logic: one name per family, one home per name, nothing kept for an old spelling.
   - **Families.** `"Ao"`, `"SLS"`, `"ramp"` and `"LRA"` are no longer accepted where a family is named

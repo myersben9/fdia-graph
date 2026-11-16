@@ -44,9 +44,6 @@ docs/contributing.md
 docs/changelog.md
 site/
 
-# per-method estimate/score caches written by the experiment scripts
-experiments/*/cache/
-
 # the binaries the tests read: one frozen reference timeline per pinned data release
 !tests/data/tiny_timeline_v080.h5
 !tests/data/tiny_timeline_v081.h5

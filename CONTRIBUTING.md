@@ -44,12 +44,12 @@ checks a docs change locally.
 | code reads as its subject | complexity 10, nesting 3, no closure captures, at most 7 parameters, no positional record indexing; every equation a named function in `formulas/` with a source key; every returned bundle a model in `models/` | `python tools/readability.py --report`, `--check --base origin/main` |
 | an input is checked in one place | a new argument is a field on its consumer's model in `models/config.py`, with its rules in the annotation (`Annotated[float, Positive()]`, `OneOf(<Choice>)`) and cross-field rules in `invariants()`; a dataset precondition is a `ds.require(...)` capability; a condition only the data reveals raises a named error from `errors.py`; never a `raise ValueError` in a function body | `python tools/readability.py --check` (refuses a new one) |
 | everything is typed | every parameter, return and field carries its real type; an optional dependency's type (pandapower, torch, h5py, scipy, pandas) is imported under `if TYPE_CHECKING:` so the import stays lazy; `Any` only where the value can be anything, listed in `ANY_ALLOWED` in `tools/readability.py` with the reason | `python tools/readability.py --check` (refuses an unlisted `Any` and a stale entry), pyright in CI |
-| typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src/fdia_graph tests tools experiments pipelines`, `ruff check src tests tools experiments pipelines` |
+| typed, formatted, linted | pyright at zero, ruff format and check clean | `pyright src/fdia_graph`, `ruff format --check src/fdia_graph tests tools pipelines`, `ruff check src tests tools pipelines` |
 | generated docs match the code | the class and module diagram sources and the data dictionary's Models section | `python tools/class_diagrams.py --check`, `python tools/models_doc.py --check` |
 | no measured number is typed into markdown | a harness writes what it measures through `fdia_graph.results.Run` into the results store (`results/`, see its README); a doc shows a number or a table through a results block (`<!-- results: <query> ... -->`, queries in `results/queries.py`), a CHANGELOG entry names the experiment; settings and published values from papers stay as text | `python tools/results_docs.py --write`, `--check`; `--lint` lists typed decimals |
 | a file's name says what it does | plain words: never its folder's name again (`tests/nygrid/test_areas.py`, not test_nygrid_areas.py), never a sibling's name plus a short ending (reduce.py beside reduced.py), no digit, no citation key or first author's surname from `REFERENCES.md` | `python tools/layout.py --check` |
 | every file says what it does, and every page keeps up | every Python file opens with a docstring whose first paragraph is its line in `docs/reference/MODULES.md`; every package has a page (`PAGES` in `tools/layout.py`) that names each of its modules; every module or name a doc or docstring cites in a code span exists; every folder at the root and under `docs/` has its role in the tool's repository map | `python tools/layout.py` writes the file map; `--check` in the pre-review and CI |
-| speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python experiments/benchmarks/run.py --check` before a release, `python experiments/benchmarks/run.py` after |
+| speed is tracked | per-record timings against the last row from this machine, 3x tolerance | `python tools/bench.py --check` before a release, `python tools/bench.py` after |
 
 ## The pull request
 
@@ -114,6 +114,6 @@ registry maps the short name (`fg.load(..., release="v0.8.0")`) to the tag, and
 | a returned record's fields | `models/` |
 | a formula | `formulas/`, and its row in `docs/reference/FORMULAS.md` |
 | any file, to learn what it does | `docs/reference/MODULES.md`, the first paragraph of every file's docstring |
-| a study's numbers or figures | its folder under `experiments/` (`run.py`, `report.py`), its page under `docs/analysis/` |
+| a study's numbers or figures | its runs in the results store (`results/`), its page under `docs/analysis/` |
 | how released New York data is built | `pipelines/newyork/` |
 | a new folder | its role in `REPO` or `DOCS` in `tools/layout.py` first; the gate fails a folder without one |

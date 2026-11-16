@@ -10,7 +10,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `src/` | the package `fdia_graph`: everything a user installs |
 | `tests/` | the test suite |
 | `examples/` | scripts a user copies: the quickstart, the training examples, the New York extension points |
-| `experiments/` | one folder per study: `run.py` measures and writes to the results store, `report.py` draws the figures of the study's page under `docs/analysis/` |
 | `results/` | the results store: data only (one CSV per experiment and `runs.csv`), with the queries the docs read it through |
 | `pipelines/` | the builds of released data: the New York pool and timeline, and the MATLAB reference they are checked against |
 | `tools/` | repository tooling only: the gates, the generated docs, pull requests and releases |
@@ -170,6 +169,7 @@ What every folder of the repository holds, then what every Python file does, in 
 
 | file | what it does |
 |---|---|
+| `tools/bench.py` | Time the estimators and the generator on the tiny timeline, and store the timings as a run of the `bench` experiment in the results store (`results/bench.csv`), where docs/reference/BENCHMARKS.md renders them from (a results block). |
 | `tools/class_diagrams.py` | Write the class and module diagrams of the package from its source, as Mermaid sources under docs/figures/diagrams/, so the pictures in docs/reference/CLASS_MAP.md never drift from the code. |
 | `tools/layout.py` | The repository's layout rules, and the file map they keep current (docs/reference/MODULES.md). |
 | `tools/models_doc.py` | Render the public data models into docs/reference/DATA_DICTIONARY.md. |
@@ -260,25 +260,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `examples/train_arma.py` | Stronger localizer baseline: an edge-fused ARMA graph convolution net (Bianchi et al., IEEE TPAMI 2021). |
 | `examples/train_gnn.py` | End-to-end example: train a GNN attack-localizer on an fdia-graph dataset — the whole point of the SDK. |
 | `examples/train_tgnn.py` | Temporal Graph NN localizer benchmark on an fdia-graph dataset. |
-
-## Experiments
-
-| file | what it does |
-|---|---|
-| `experiments/benchmarks/design_speed.py` | Record what the parallel overload Am design stage buys (experiment `generation.parallel_design`): an Am-only IEEE-14 timeline over the first `--frames` pool frames, generated with each worker count of `--workers` on one seed, its wall time, the episodes built and whether every file is byte-identical to the one-worker file (it must be: each design draws from its own keyed stream). |
-| `experiments/benchmarks/run.py` | Time the estimators and the generator on the tiny timeline, and store the timings as a run of the `bench` experiment in the results store (`results/bench.csv`), where docs/reference/BENCHMARKS.md renders them from (a results block). |
-| `experiments/data_release/run.py` | Record a data release's statistics in the results store (experiment `data.release_stats`), the numbers docs/reference/EXAMPLES.md renders in its "Dataset statistics" section. |
-| `experiments/defense_reproduction/run.py` | Reproduce [WU26]'s defense results on our generator. |
-| `experiments/defense_reproduction/run_faithful.py` | [WU26]'s defense on the faithful attack (`trust.faithful_attack`), at the paper's scale: windows drawn by p. 658's data recipe, the undefended attack of each and the attack under Solution 1's trusted PMUs, one step per configuration slot. Every window's numbers go to the results store as `wu26.faithful` (docs/analysis/defense_reproduction). |
-| `experiments/defense_reproduction/run_faithful_dqn.py` | [WU26]'s Solution 2 on the faithful attack (`trust.TrustedPMUsDQN` over `trust.Wu26DefenseEnv`): training sessions of Algorithm 1 run in parallel, each tested on fresh windows, the paper's "100 tests" as sessions x test windows (the plan's E8 option 2). Records go to the results store as `wu26.dqn` (docs/analysis/defense_reproduction): every test window's cost without and with the trained policy's schedule (Fig. 12), each step's choice (Fig. 11's selection probabilities) and the decision and training times (p. 662). |
-| `experiments/estimation/report.py` | Draw the README figures from the results store (experiment `se.estimators`). |
-| `experiments/estimation/run.py` | Fit the fdia_graph.se estimators on one system and write a run of `se.estimators` to the results store (`results/`). |
-| `experiments/federated/report.py` | Draw the README figures from the results store (experiment `federated.localization`). |
-| `experiments/federated/run.py` | Run the federated localization papers' protocol on one system and write a run of `federated.localization` to the results store (`results/`). |
-| `experiments/localization/report.py` | Draw the README figures from the results store (experiment `localization.common`). |
-| `experiments/localization/run.py` | Fit the fdia_graph.localization methods on one system and write runs of `localization.common` and `localization.zero_shot` to the results store (`results/`). |
-| `experiments/trust/run.py` | Select trusted meters on one system and write a run of `trust.selection` to the results store. |
-| `experiments/trust/run_secured.py` | What a trusted-meter selection does for state estimation and localization, not only for the residual test: the estimators and localizers of the other two guides scored on the plain timeline and on secured copies of it (`TrustSelector.secured_copy`, the selected meters reading their benign value on every frame). Writes runs of `trust.secured_localization` and `trust.secured_estimation` to the results store (`results/`). |
 
 ## Pipelines
 

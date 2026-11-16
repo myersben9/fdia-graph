@@ -146,9 +146,9 @@ jobs:
       - name: Install ruff
         run: pip install ruff
       - name: Check formatting (ruff format)
-        run: ruff format --check src/fdia_graph tests tools experiments pipelines
+        run: ruff format --check src/fdia_graph tests tools pipelines
       - name: "Lint (ruff check: pyflakes, import order, modern syntax)"
-        run: ruff check src tests tools experiments pipelines
+        run: ruff check src tests tools pipelines
 
   readability:
     runs-on: ubuntu-latest
