@@ -167,12 +167,5 @@ The same papers' protocol trained federated across K utilities, with the Jacobia
 
 ## Regenerate
 
-```bash
-FG_SYSTEM=ieee14 python experiments/localization/run.py    # fits, writes runs of localization.* to results/
-FG_SYSTEM=ieee118 python experiments/localization/run.py
-FG_SYSTEM=ieee300 python experiments/localization/run.py
-python experiments/localization/report.py                          # figures + CSV sidecars from the store
-python tools/results_docs.py --write                             # the README's results blocks
-```
-
-IEEE-300 takes the longest, mostly the residual arm's solves.
+The scripts that ran the study are not part of this repository; the runs they wrote are in the results store (`localization.*`).
+`python tools/results_docs.py --write` fills this page's results blocks from the store.

@@ -69,8 +69,8 @@ the data terms is in [`../guides/generation.md`](../guides/generation.md); citat
 |---|---|---|
 | FA budget / `fa_target` | The per-bus benign alarm rate each threshold is set to: the `(1 - fa_target)` quantile of the bus's benign training score; default 0.01. | `localization.base.LocalizerBase.fit` |
 | validation tau | One global probability threshold on a 0.05 to 0.95 grid that maximizes mean per-bus F1 over the active buses of the validation split. | `localization.learned.LearnedLocalizer.tune_threshold`, `formulas.metrics.tau_from_counts` |
-| zero-shot protocol | Train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in training; learned arms use the validation tau. | `localization/learned.py` docstring, `experiments/localization/run.py` |
-| common protocol | Every family in train and test; every method calibrated at the same `fa_target`. | `experiments/localization/run.py` |
+| zero-shot protocol | Train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in training; learned arms use the validation tau. | `localization/learned.py` docstring |
+| common protocol | Every family in train and test; every method calibrated at the same `fa_target`. | `docs/analysis/localization/README.md` |
 | macro-F1 | The mean per-bus F1 over the active buses (per family: over the buses the family attacks). | `models.scores.OverallMetrics.macro_f1`, `FamilyMetrics.macro_f1` |
 | node-F1 | The micro F1 over every bus call. | `models.scores.OverallMetrics.node_f1` |
 | DR | Detection rate: the mean per-bus recall over the active buses; per family, `detection_rate` is the share of records with any bus flagged. | `OverallMetrics.macro_dr`, `FamilyMetrics.detection_rate`, `PerBusMetrics.dr` |

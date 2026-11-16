@@ -1,8 +1,8 @@
 # Federated localization with `fdia_graph.federated`
 
-> **Status.** The results on this page are on data release v0.8.1, pinned in the run script, and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame `Aq` and `Al`. They are not yet rerun on v0.8.3; the centralized numbers in [`../localization/README.md`](../localization/README.md) are current.
+> **Status.** The results on this page are on data release v0.8.1 and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame `Aq` and `Al`. They are not yet rerun on v0.8.3; the centralized numbers in [`../localization/README.md`](../localization/README.md) are current.
 
-The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines (pinned in the run script) with
+The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines with
 the 14-dim per-bus vector plus the Jacobian block.
 
 ```python
@@ -24,7 +24,7 @@ tab = loc.score_perbus(test, buses="attackable", fr_over="all")  # the paper's T
 
 `release=` pins the built-in data only: a dataset registered locally under the same name loads in
 its place. `fg.list_datasets()["ieee118"]` reads `"builtin"` when these are the release's records,
-and the run script refuses to fit otherwise.
+and the study did not fit otherwise.
 
 | | |
 |---|---|
@@ -52,7 +52,7 @@ await a rerun on it.
 
 Zero-shot: train and val hold benign, `Aq` and `Ad`; test adds `As` and `Ar`, never seen in
 training. F1, DR and FR are the paper's per-bus macro scores over the attackable buses, mean and
-standard deviation over seeds 123, 124 and 125. Every run is in `experiments/federated/runs/`, the aggregates in
+standard deviation over seeds 123, 124 and 125. The aggregates are in
 the results store, experiment `federated.localization` (`results/`).
 
 **Table IV layout** (FR over every test record, the paper's convention)
@@ -118,12 +118,5 @@ it on 14; the centralized comparison with and without the block is in
 
 ## Regenerate
 
-```bash
-FG_SYSTEM=ieee14 python experiments/federated/run.py     # 18 runs, writes experiments/federated/runs/ + a run of federated.localization
-FG_SYSTEM=ieee118 python experiments/federated/run.py
-FG_SYSTEM=ieee300 python experiments/federated/run.py
-python experiments/federated/report.py                        # figures + CSV sidecars from the store
-python tools/results_docs.py --write                        # the README's results blocks
-```
-
-Saved runs are skipped, so a re-run only aggregates.
+The scripts that ran the study are not part of this repository; the runs they wrote are in the results store (`federated.localization`).
+`python tools/results_docs.py --write` fills this page's results blocks from the store.

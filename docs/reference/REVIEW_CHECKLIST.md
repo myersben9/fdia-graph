@@ -99,7 +99,7 @@ The kinds, most frequent first.
 11. **Memory and hot loops.**
     - Nothing of size T x N is materialized in float64 on a timeline path.
     - Nothing is allocated per Newton iteration.
-    - Estimate the size at IEEE-300 over 72,000 frames; `python experiments/benchmarks/run.py --check` gates the
+    - Estimate the size at IEEE-300 over 72,000 frames; `python tools/bench.py --check` gates the
       timings.
 12. **The readability contract.** Channel indices come from `NODE`/`EDGE`/`BRANCH`, file paths and
     attributes from `schema`, each formula exists once, and there are no positional tuples.

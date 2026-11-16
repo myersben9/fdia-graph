@@ -64,8 +64,6 @@ REPO = {
     "src": "the package `fdia_graph`: everything a user installs",
     "tests": "the test suite",
     "examples": "scripts a user copies: the quickstart, the training examples, the New York extension points",
-    "experiments": "one folder per study: `run.py` measures and writes to the results store, `report.py` draws "
-    "the figures of the study's page under `docs/analysis/`",
     "results": "the results store: data only (one CSV per experiment and `runs.csv`), with the queries the docs "
     "read it through",
     "pipelines": "the builds of released data: the New York pool and timeline, and the MATLAB reference they are "
@@ -90,7 +88,6 @@ SECTIONS = (
     ("Tools", "tools"),
     ("Tests", "tests"),
     ("Examples", "examples"),
-    ("Experiments", "experiments"),
     ("Pipelines", "pipelines"),
     ("The results store's queries", "results"),
 )

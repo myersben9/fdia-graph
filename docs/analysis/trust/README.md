@@ -57,14 +57,13 @@ on an overload window, the latter both on the generator's attack and on the pape
 | `trust/faithful_attack.py` | the paper's attack as the paper states it, on a pandapower case: the meter plan, the multi-snapshot attack on IPOPT, incremental trust (needs the `[wu]` extra) |
 | `trust/faithful_defense.py` | `Wu26DefenseEnv` and `wu26_solution1`: the trusted-PMU MDP and Solution 1 on that attack |
 
-The defense results are reproduced by `experiments/defense_reproduction/run.py` (on the generator),
-`experiments/defense_reproduction/run_faithful.py` and `experiments/defense_reproduction/run_faithful_dqn.py` (on the paper's attack); the
+The defense results are reproduced on the generator and on the paper's attack; the
 numbers are in [`../defense_reproduction/README.md`](../defense_reproduction/README.md).
 
 ## Results
 
-`python experiments/trust/run.py` (set `FG_SYSTEM`) writes a run of `trust.selection` to the
-results store: the selection, the attack-cost curve, and the detection table. Read the detection
+The scripts that ran the study are not part of this repository. The study wrote a run of
+`trust.selection` to the results store: the selection, the attack-cost curve, and the detection table. Read the detection
 table first. The attack cost is the sparsest row of an echelon basis of the open subspace, an upper
 bound on the true sparsest attack, so it is not monotone in the secured set: on IEEE-14 the greedy
 cost plateaus after its second meter, while the DQN selection's cost jumps up and down along its
@@ -90,8 +89,8 @@ The residual test is one consumer of a trusted set. `tm.secured_copy(ds, out, na
 of the timeline in which the selected meters read their benign value on every frame (the attacker
 locked out of them, the tamper masks and the stored temporal features following), so every
 estimator and localizer of the other two guides can be scored with the set secured;
-`python experiments/trust/run_secured.py` (set `FG_SYSTEM`, `FG_K`) does that for the greedy and the DQN
-selections of `run.py` and writes runs of `trust.secured_localization` and
+the study does that for the greedy and the DQN
+selections and writes runs of `trust.secured_localization` and
 `trust.secured_estimation` to the results store.
 
 Rule: a localization gate never down-weights a secured meter.

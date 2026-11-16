@@ -51,5 +51,5 @@ The proposed estimator cuts the angle error <!-- results: red se ieee14 geo angl
 gate and a CI step) fails when a block differs from what the store renders; `--lint` lists
 decimals and percentages typed outside a block, which is only a report, since settings such as a
 noise level are legitimate numbers. Released CHANGELOG sections are history and stay as written;
-an Unreleased entry points at the experiment it measured. Figures read the store too, and
-`fdia_graph.results.figure_data` writes each figure's CSV sidecar from the same records.
+an Unreleased entry points at the experiment it measured. The figures under `docs/analysis/` were drawn from the store by the studies' report scripts, which are not
+part of this repository; `fdia_graph.results.figure_data` writes a figure's CSV sidecar from the same records.

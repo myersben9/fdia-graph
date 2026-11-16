@@ -334,8 +334,7 @@ layer (the label stays the attack target).
 
 ## Dataset statistics
 
-The tables in this section describe data release v0.8.3 (the results store's `data.release_stats`,
-written by `experiments/data_release/run.py`). Its `Aq` and `Al` episodes are one frame
+The tables in this section describe data release v0.8.3 (the results store's `data.release_stats`). Its `Aq` and `Al` episodes are one frame
 each, so a timeline holds more episodes than v0.8.0 and v0.8.1, whose
 `Aq` and `Al` were held over several frames; the pools, the other knobs and the seed are unchanged.
 

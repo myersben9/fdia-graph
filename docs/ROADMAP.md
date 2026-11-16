@@ -46,7 +46,6 @@ tool; the generated table opens [`reference/MODULES.md`](reference/MODULES.md)).
 | `src/fdia_graph/` | the package |
 | `tests/` | the test suite |
 | `examples/` | scripts a user copies |
-| `experiments/` | one folder per study (`estimation`, `localization`, `trust`, `federated`, `defense_reproduction`, `benchmarks`, `data_release`): `run.py` measures and writes runs to the results store, `report.py` (where present) draws the figures of the study's page from it, and `tools/results_docs.py` fills that page's tables |
 | `results/` | the results store: data only, one CSV per experiment and `runs.csv`, with `queries.py` |
 | `pipelines/` | the builds of released data: `pipelines/newyork/` builds the New York pool and timeline, and holds the MATLAB reference they are checked against |
 | `tools/` | repository tooling only: the gates, the generated docs, pull requests, releases |
