@@ -1749,13 +1749,43 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>No DC model is left (breaking; New York operator numbers move).</strong> The DC dispatch <code>operator.sced</code> is removed
+<li><strong>Family-name aliases and old import paths are removed (breaking).</strong> Under the same rule as the deprecated
+  logic: one name per family, one home per name, nothing kept for an old spelling.</li>
+<li><strong>Families.</strong> <code>"Ao"</code>, <code>"SLS"</code>, <code>"ramp"</code> and <code>"LRA"</code> are no longer accepted where a family is named
+    (<code>fg.load(families=...)</code>, <code>generate_timeline(families=...)</code>, <code>family_ids</code>): write <code>"Aq"</code>, <code>"At"</code>, <code>"Al"</code>.
+    <code>models.choices.FAMILY_ALIAS</code> is removed.</li>
+<li><strong>Import paths.</strong> A name is imported from the module that defines it, or from its package's public names
+    (<code>fdia_graph</code>, <code>fdia_graph.models</code>, <code>fdia_graph.se</code>, ...). The copies other modules kept "where it was read
+    before" are gone:<ul>
+<li>from <code>dataset.base</code> (and, where <code>fdia_graph.dataset</code> only passed them on, from it): <code>RecordBundle</code>, <code>BatchBundle</code>, <code>ArraysBundle</code>, <code>Summary</code>
+  (in <code>models.data</code>); <code>FAMILIES</code>, <code>STEALTHY_FAMILIES</code>, <code>Split</code>, <code>Order</code>, <code>Units</code>, <code>RecordFormat</code>, and
+  <code>Format</code>, <code>Label</code>, <code>Layer</code> of <code>dataset.export</code> and <code>dataset.sequence</code> (in <code>models.choices</code>; <code>fg.FAMILIES</code>
+  and <code>fg.STEALTHY_FAMILIES</code> stay);</li>
+<li>from <code>fdia_graph.timeline</code>: <code>AttackDesign</code> (in <code>models.frames</code>), <code>is_feasible</code> and <code>ramp_profile</code> (in the
+  engine), <code>KIND</code> and <code>write_temporal_layers</code> (in <code>generation.write</code>), <code>RAMP_FAMILY</code>, <code>BENIGN_CODE</code>,
+  <code>FAMILY_CODE</code> (in <code>models.choices</code> and <code>engine.attacks.stealthy</code>), and the plan stage's <code>SPLITS</code>,
+  <code>REDRAWS</code>, <code>PLACE_TRIES</code>, <code>episode_counts</code>, <code>largest_remainder</code>, <code>split_column</code> (in <code>generation.plan</code>);</li>
+<li>from <code>fdia_graph.engine</code>: <code>Scan</code> and <code>OperatingLimits</code> (in <code>models.frames</code>), <code>INTACT</code> and <code>Outage</code> (in
+  <code>models.grid</code>), <code>POWER_NOISE_FLOOR_MW</code> of <code>engine.core</code> (in <code>engine.base</code>), and <code>AM_FAMILY</code>, <code>RAMP_FAMILY</code>,
+  <code>STEP_HALVINGS</code>, <code>StealthyMixin</code> of <code>engine.records</code> (in <code>engine.attacks.stealthy</code>);</li>
+<li><code>schema.FAMILIES</code>, <code>schema.FAMILY_ALIAS</code> and <code>schema.STEALTHY_FAMILIES</code>, <code>se.base.Calibrate</code>,
+  <code>profiles.system_id</code> (in <code>registry</code>),
+  <code>formulas.projection.Reduce</code>, <code>localization.base.Buses</code> and <code>FrOver</code>, <code>federated.localizer.Kcl</code> (in
+  <code>models.choices</code>).</li>
+</ul>
+</li>
+<li>
+<p>The whole-timeline digests are unchanged by this entry: no generated number moves.</p>
+</li>
+<li>
+<p><strong>No DC model is left (breaking; New York operator numbers move).</strong> The DC dispatch <code>operator.sced</code> is removed
   with <code>DcSced</code> (and its <code>implied</code> and <code>prices</code>), <code>shift_factors</code>, <code>outage_factors</code>, the objective <code>cost_lf</code>
   and the constants <code>OBJECTIVES</code>, <code>ROOM_MW</code>, <code>UNIT_ADDER_WEIGHT</code> and <code>ENERGY_CAP</code>; <code>operator.run.AC_DISPATCH</code>
   goes too. The operator dispatches by the AC
   optimal power flow that was <code>dispatch="ac"</code> and <code>"ac_cost"</code>: <code>Dispatch</code> is now <code>"movement"</code> (the default) and
   <code>"cost"</code>, both AC, and <code>"ac"</code>, <code>"ac_cost"</code> and <code>"cost_lf"</code> are refused. <code>Step</code>, <code>shortage_usd</code>, <code>loss_factors</code>
-  and the dispatch constants live in <code>operator.acsced</code>; <code>fdia_graph.operator</code> exports <code>AcSced</code>.</li>
+  and the dispatch constants live in <code>operator.acsced</code>; <code>fdia_graph.operator</code> exports <code>AcSced</code>.</p>
+</li>
 <li><code>respond</code> needs the bus reactive loads of the pool's load series (<code>pool_frames</code>: <code>NYGRID_LOADS</code>, or the
     default file beside the data), which only the AC dispatches needed before.</li>
 <li><code>TrueGrid(day)</code> screens each 345 kV outage by an AC power flow (<code>TrueGrid(day, ac=True)</code> before); the <code>ac</code>
