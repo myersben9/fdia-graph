@@ -48,15 +48,8 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
         peak_ratings,
     )
     from fdia_graph.generation.nygrid.ratings import line_ratings
-    from fdia_graph.generation.nygrid.schedule import (
-        Slot,
-        place_episodes,
-        split_frames,
-        split_weeks,
-        week_index,
-    )
     from fdia_graph.generation.nygrid.solver import AcSolver, Compensation, unit_q_limits
-    from fdia_graph.generation.nygrid.timeline import TimelineBuilder
+    from fdia_graph.generation.nygrid.timeline import Slot, TimelineBuilder
     from fdia_graph.operator.day import operator_day
     from fdia_graph.operator.run import respond
     from fdia_graph.operator.summary import summarize
@@ -85,7 +78,7 @@ _PUBLIC = {
     "SOLVED": "fdia_graph.generation.nygrid.pool",
     "SPLITS": "fdia_graph.generation.nygrid.io",
     "Settings": "fdia_graph.generation.nygrid.config",
-    "Slot": "fdia_graph.generation.nygrid.schedule",
+    "Slot": "fdia_graph.generation.nygrid.timeline",
     "TimelineBuilder": "fdia_graph.generation.nygrid.timeline",
     "TimelineWriter": "fdia_graph.generation.nygrid.io",
     "ZONES": "fdia_graph.generation.nygrid.inputs",
@@ -105,7 +98,6 @@ _PUBLIC = {
     "open_timeline": "fdia_graph.generation.nygrid.io",
     "operator_day": "fdia_graph.operator.day",
     "peak_ratings": "fdia_graph.generation.nygrid.pool",
-    "place_episodes": "fdia_graph.generation.nygrid.schedule",
     "production_builder": "fdia_graph.generation.nygrid.build",
     "read_npcc": "fdia_graph.generation.nygrid.npcc",
     "read_nygrid": "fdia_graph.generation.nygrid.inputs",
@@ -113,13 +105,10 @@ _PUBLIC = {
     "respond": "fdia_graph.operator.run",
     "restore_765kv": "fdia_graph.generation.nygrid.fixes",
     "rng": "fdia_graph.generation.nygrid.config",
-    "split_frames": "fdia_graph.generation.nygrid.schedule",
-    "split_weeks": "fdia_graph.generation.nygrid.schedule",
     "split_zone_j": "fdia_graph.generation.nygrid.fixes",
     "summarize": "fdia_graph.operator.summary",
     "switching_fit": "fdia_graph.generation.nygrid.load_fit",
     "unit_q_limits": "fdia_graph.generation.nygrid.solver",
-    "week_index": "fdia_graph.generation.nygrid.schedule",
     "write_pool": "fdia_graph.generation.nygrid.io",
 }
 
@@ -166,7 +155,6 @@ __all__ = [
     "open_timeline",
     "operator_day",
     "peak_ratings",
-    "place_episodes",
     "production_builder",
     "read_npcc",
     "read_nygrid",
@@ -174,13 +162,10 @@ __all__ = [
     "respond",
     "restore_765kv",
     "rng",
-    "split_frames",
-    "split_weeks",
     "split_zone_j",
     "summarize",
     "switching_fit",
     "unit_q_limits",
-    "week_index",
     "write_pool",
 ]
 

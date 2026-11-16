@@ -101,7 +101,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.nygrid.npcc` | Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m). |
 | `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
 | `generation.nygrid.ratings` | Branch ratings from the limits NYgrid itself sets. `npcc.mat` carries no branch ratings. |
-| `generation.nygrid.schedule` | Where the timeline's splits are cut and where each split's episodes go. |
 | `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (`OperatorOpf`), solved scan by scan. |
 | `generation.nygrid.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before). |
 | `generation.nygrid.timeline` | The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled. |

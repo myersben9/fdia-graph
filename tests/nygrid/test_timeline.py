@@ -20,23 +20,23 @@ from fdia_graph.generation.nygrid.io import FAMILIES, read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
-from fdia_graph.generation.nygrid.schedule import WEEK, place_episodes, split_frames, split_weeks
-from fdia_graph.generation.nygrid.timeline import TimelineBuilder
+from fdia_graph.generation.nygrid.timeline import Slot, TimelineBuilder
+from fdia_graph.generation.plan import WEEK, place_episodes, split_weeks
 
 from .inputs import DATA, POOL, TERRITORIES
 
 START, FRAMES = 50000, 288  # one day of the 2019 pool (June), short enough to build in seconds
 
 
-def test_split_frames_contiguous_and_disjoint():
-    split = split_frames(1000, (0.7, 0.15, 0.15))
-    assert np.bincount(split).tolist() == [700, 150, 150]
-    assert (np.diff(split) >= 0).all()  # three blocks in time order, each contiguous, never interleaved
+def _placed(n, lengths, name, allowed=None):
+    """One split's placement at an attacked share of 0.2, as the builder's slots."""
+    placed, _, _ = place_episodes(rng(Settings(), name), lengths, 0.2, n, allowed)
+    return [Slot(*p) for p in placed]
 
 
 def test_place_episodes_per_family_length_equal_frames():
     lengths = {"Am": 16, "At": 16, "Ap": 96}
-    slots = place_episodes(20000, lengths, 0.2, rng(Settings(), "test-place-len"))
+    slots = _placed(20000, lengths, "test-place-len")
     frames = {f: sum(s.length for s in slots if s.family == f) for f in lengths}
     assert all(s.length == lengths[s.family] for s in slots)  # each family at its own window length
     assert abs(sum(frames.values()) - 4000) <= 96  # the attacked share counted in frames
@@ -50,7 +50,7 @@ def test_place_episodes_per_family_length_equal_frames():
 
 
 def test_place_episodes_uniform_non_overlapping():
-    slots = place_episodes(5000, {"Am": 16, "At": 16}, 0.2, rng(Settings(), "test-place"))
+    slots = _placed(5000, {"Am": 16, "At": 16}, "test-place")
     frames = sum(s.length for s in slots)
     assert abs(frames - 1000) <= 16  # the whole episodes closest to the attacked share
     assert sorted(s.family for s in slots).count("Am") - sorted(s.family for s in slots).count("At") in (0, 1)
@@ -59,7 +59,7 @@ def test_place_episodes_uniform_non_overlapping():
         assert 0 <= s.onset and s.onset + s.length <= 5000  # never cut by the split's end
         cover[s.onset : s.onset + s.length] += 1
     assert cover.max() == 1  # never overlapping
-    again = place_episodes(5000, {"Am": 16, "At": 16}, 0.2, rng(Settings(), "test-place"))
+    again = _placed(5000, {"Am": 16, "At": 16}, "test-place")
     assert again == slots  # the generator alone decides the placement
 
 
@@ -82,7 +82,7 @@ def test_split_weeks_whole_weeks_stratified_on_weight():
 def test_place_episodes_only_at_allowed_onsets_and_capped():
     allowed = np.zeros(5000, bool)
     allowed[[100, 1000, 1005, 3000]] = True  # four allowed Am onsets, two of them overlapping
-    slots = place_episodes(5000, {"Am": 16, "At": 16}, 0.2, rng(Settings(), "test-allow"), {"Am": allowed})
+    slots = _placed(5000, {"Am": 16, "At": 16}, "test-allow", {"Am": allowed})
     am = sorted(s.onset for s in slots if s.family == "Am")
     assert set(am) <= {100, 1000, 1005, 3000} and len(am) == 3  # capped at what the onsets can hold
     assert sum(s.family == "At" for s in slots) > 3  # the family that does not wait keeps its share

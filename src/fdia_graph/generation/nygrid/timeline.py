@@ -23,8 +23,9 @@ from __future__ import annotations
 import multiprocessing as mp
 import pickle
 import time
+import warnings
 from collections import Counter
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -38,16 +39,23 @@ from fdia_graph.federated.utilities import Ownership
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import FAMILIES, SPLITS, TimelineWriter
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool
-from fdia_graph.generation.nygrid.schedule import (
-    HIT_STRATUM,
-    Slot,
-    place_episodes,
-    split_frames,
-    split_weeks,
-    week_index,
-)
+from fdia_graph.generation.plan import place_episodes, split_bounds, split_column, split_weeks, week_index
 
+# weeks per stratum of the split when the weight is the surveyed attacks (N46): they sit in about 9 weeks, one
+# of them holding 40%, so a 20-week stratum can leave a split one episode; 5 draws 3/1/1 per stratum
+HIT_STRATUM = 5
 SURVEY_CHUNK = 240  # onsets designed and saved at a time with `survey_cache`
+
+
+@dataclass(frozen=True)
+class Slot:
+    """One placed episode: its first frame `onset`, its `family` ("Am", "Ap" or "At") and `length` in frames."""
+
+    onset: int
+    family: str
+    length: int
+
+
 _WORKER: dict = {}  # a worker process's families and settings, set once by `_init`
 
 
@@ -139,7 +147,7 @@ class TimelineBuilder:
         three contiguous blocks."""
         T = len(self.pool.time)
         if self.split_by == "time":
-            return split_frames(T, self.split_frac)
+            return split_column(split_bounds(T, self.split_frac), T)
         loaded = np.zeros(T, bool)
         for mask in masks.values():
             loaded |= mask
@@ -164,10 +172,15 @@ class TimelineBuilder:
                 if f in masks:
                     ok &= masks[f][where]
                 allowed[f] = ok
-            slots += [
-                Slot(int(where[s.onset]), s.family, s.length)
-                for s in place_episodes(len(where), lengths, self.attacked_frac, g, allowed)
-            ]
+            placed, _, dropped = place_episodes(g, lengths, self.attacked_frac, len(where), allowed)
+            for f, count in dropped.items():
+                if count:
+                    warnings.warn(
+                        f"split {SPLITS[code]}: placements jammed, {count} {f} episode(s) dropped",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+            slots += [Slot(int(where[onset]), f, length) for onset, f, length in placed]
         return slots
 
     def _onsets_ok(self, blocks: np.ndarray, masks: dict[str, np.ndarray]) -> dict[str, np.ndarray]:

@@ -49,10 +49,39 @@ def test_largest_remainder_shares_whole_units():
 )
 def test_each_split_gets_the_whole_episodes_closest_to_half(n, want):
     """At 72,000 frames every split is exactly 50%; a short split rounds to the nearest whole episode."""
-    counts = plan_stage.episode_counts(_plan(), n)
+    counts = plan_stage.whole_episode_counts([60, 60], 0.5, n)
     assert counts.tolist() == want
     frames = 60 * counts.sum()
     assert all(abs(frames - 0.5 * n) <= abs(60 * k - 0.5 * n) for k in range(n // 60 + 1))
+
+
+def test_unequal_lengths_share_attacked_frames_by_exact_fractions():
+    """Lengths 60 and 12 weigh 1/60 and 1/12, shares of 1/6 and 5/6 exactly: of k episodes the short family
+    gets 5k/6 and the long one k/6, a tie in the remainders going to the family named first. Floating-point
+    weights rounded these ties differently depending on whether they were normalised first."""
+    from fractions import Fraction
+
+    weights = [Fraction(1, 60), Fraction(1, 12)]
+    assert plan_stage.largest_remainder(6, weights).tolist() == [1, 5]
+    assert plan_stage.largest_remainder(3, weights).tolist() == [
+        1,
+        2,
+    ]  # quotas 0.5 and 2.5: the tie to the first
+    assert plan_stage.largest_remainder(15, weights).tolist() == [3, 12]  # 2.5 and 12.5: again to the first
+    counts = plan_stage.whole_episode_counts([60, 12], 0.05, 6000)  # the 300 frames closest to 5% of 6000
+    assert counts.tolist() == [3, 12] and int(counts @ [60, 12]) == 324
+
+
+def test_a_family_held_to_too_few_onsets_jams_and_loses_the_episode_that_did_not_fit():
+    """Two 10-frame episodes in 20 frames, the first family held to onset 5: the second can never fit beside
+    it, so every placement jams on the second family, and it is the one that is dropped."""
+    allowed = np.zeros(20, bool)
+    allowed[5] = True
+    placed, requested, dropped = plan_stage.place_episodes(
+        np.random.default_rng(0), {AM: 10, AT: 10}, 1.0, 20, {AM: allowed}
+    )
+    assert placed == [(5, AM, 10)]
+    assert requested == {AM: 1, AT: 1} and dropped == {AM: 0, AT: 1}
 
 
 # ---- 5, 6, 7. the placement ---------------------------------------------------------------------
@@ -76,25 +105,25 @@ def test_episodes_lie_whole_inside_their_split_and_never_overlap():
 
 
 def test_a_jammed_split_retries_then_drops_one_episode_and_records_it(monkeypatch):
-    """A placement that jams is retried whole PLACE_TRIES times, then one episode of the family with
-    the most is dropped, recorded and warned about, and the rest are placed."""
+    """A placement that jams is retried whole PLACE_TRIES times, then one episode of the family that
+    jammed is dropped, recorded and warned about, and the rest are placed."""
     from fdia_graph.errors import NoRoomForEpisode
 
     calls = []
     real = plan_stage.place_once
 
-    def jam_while_four(rng, episodes, n):
+    def jam_while_four(rng, episodes, n, allowed):
         calls.append(len(episodes))
         if len(episodes) >= 4:
-            raise NoRoomForEpisode("jammed")
-        return real(rng, episodes, n)
+            raise NoRoomForEpisode("jammed", family=AT)
+        return real(rng, episodes, n, allowed)
 
     monkeypatch.setattr(plan_stage, "place_once", jam_while_four)
     plan = _plan()
     rec = plan_stage._Placement.empty(plan.families)
     with pytest.warns(RuntimeWarning, match="dropped"):
         placed = plan_stage.place_split(np.random.default_rng(1), plan, 0, (0, 480), rec)
-    assert rec.requested[0].tolist() == [2, 2] and rec.dropped[0].tolist() == [1, 0]  # the tie: At first
+    assert rec.requested[0].tolist() == [2, 2] and rec.dropped[0].tolist() == [1, 0]  # At jammed
     assert calls == [4] * plan_stage.PLACE_TRIES + [3] and len(placed) == 3
     assert _occupancy(placed, 0, 480).max() <= 1
 

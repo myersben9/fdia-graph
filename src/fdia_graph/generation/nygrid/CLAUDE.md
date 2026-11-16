@@ -7,7 +7,7 @@ hold for them.
 | Job | Where |
 |---|---|
 | the system: NYgrid's case, its fixes, interfaces, reduced network, loads, dispatch and the pool | `generation/nygrid/` |
-| the timeline written from a pool, and its HDF5 files | `generation/nygrid/timeline.py`, `schedule.py`, `io.py` |
+| the timeline written from a pool, and its HDF5 files | `generation/nygrid/timeline.py`, `io.py` (its plan stage is `generation/plan.py`) |
 | the meter table, the measurement function and meter noise | `engine/sensing/` |
 | the attack families (`AttackFamily`, `Attacker`, Am, the OPF and interface attacks, Ac, At) | `engine/attacks/` |
 | the operator under attack | `operator/` |
