@@ -1,0 +1,551 @@
+{
+ "attrs": {
+  "E": "20",
+  "N": "14",
+  "T": "1000",
+  "am_attack": "overload",
+  "am_len": "20",
+  "attacked_frac": "0.5",
+  "baseMVA": "100.0",
+  "current_feat": "Re_I_from,Im_I_from,Re_I_to,Im_I_to",
+  "current_units": "pu on the base current",
+  "edge_feat": "P_from,Q_from",
+  "edge_units": "P_from:MW,Q_from:MVAr",
+  "episode_redraws": "[[0, 0], [0, 0], [0, 1]]",
+  "episode_shortfall": "[[0, 0], [0, 0], [0, 0]]",
+  "episodes_built": "[[8, 7], [3, 2], [3, 2]]",
+  "episodes_dropped": "[[0, 0], [0, 0], [0, 0]]",
+  "episodes_requested": "[[8, 7], [3, 2], [3, 2]]",
+  "fallback_benign": "0",
+  "families": "0benign,1Aq,2Ad,3As,4Ar,5At,6Al,7Am",
+  "flow_frac": "0.9",
+  "hops": "2",
+  "jitter_keyed": "1",
+  "kind": "timeline",
+  "load_cap": "0.5",
+  "max_load_mw": "2000.0",
+  "meter_model": "hybrid",
+  "n_episodes": "25",
+  "n_lines": "2",
+  "n_records": "1000",
+  "node_feat": "V,P_inj,Q_inj,theta",
+  "node_units": "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
+  "outage_base_flow_mw": "nan",
+  "outage_branch_pos": "-1",
+  "outage_from_bus": "-1",
+  "outage_line": "-1",
+  "outage_line_name": "",
+  "outage_to_bus": "-1",
+  "placed_families": "At,Am",
+  "pmu_frac": "0.2",
+  "ramp_len": "20",
+  "ramp_rate": "0.002",
+  "rating_margin": "1.25",
+  "rating_source": "pool",
+  "seed": "2",
+  "settings": "{\"am_attack\": \"overload\", \"am_len\": null, \"attacked_frac\": 0.5, \"families\": [\"At\", \"Am\"], \"max_load_mw\": 2000.0, \"meters\": {\"flow_frac\": 0.9, \"meter_model\": \"hybrid\", \"pmu_frac\": 0.2, \"vbus_frac\": 0.6}, \"overload\": {\"load_cap\": 0.5, \"n_lines\": 2, \"rating_delta\": 0.1, \"rating_margin\": 1.25, \"rating_source\": \"pool\", \"support_method\": \"search\"}, \"ramp\": {\"length\": 20, \"rate\": 0.002, \"stealth_scale\": 1.0}, \"search\": {\"area_rule\": \"hops\", \"hops\": 2, \"min_budget\": 16, \"min_tamper\": false}, \"split\": {\"fractions\": [0.6, 0.2, 0.2]}}",
+  "settings_hash": "d4955f19c06a",
+  "split_attacked_frac": "[0.5, 0.5, 0.5]",
+  "split_frac": "[0.6, 0.2, 0.2]",
+  "split_sizes": "[600, 200, 200]",
+  "stealth_scale": "1.0",
+  "support_method": "search",
+  "system": "14",
+  "target_attacked_frac": "0.5",
+  "topology": "base",
+  "v_hi": "1.06",
+  "v_lo": "0.94",
+  "vbus_frac": "0.6"
+ },
+ "datasets": {
+  "attack/edge_tamper": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "6f0ab127f227ece074000fca45718021d66709fd74944d529ac55fa00edca8a8",
+   "shape": [
+    1000,
+    20,
+    2
+   ]
+  },
+  "attack/mag": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "f606eace36ef1d78fa8a0a0c76d783acba7611263901dfe95c41c7d0402b472f",
+   "shape": [
+    3240
+   ]
+  },
+  "attack/mag_bus": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "10b713e13092aeebf9bea1ef611b4cee86413c5f330f97dd26116788a91569f8",
+   "shape": [
+    3240
+   ]
+  },
+  "attack/mag_ptr": {
+   "attrs": {},
+   "dtype": "int64",
+   "sha256": "6056d75133027e620588ba1ba15962279b5f330393639497ebb9ee2f6961d3b0",
+   "shape": [
+    1001
+   ]
+  },
+  "attack/node_tamper": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "aa1268a698566bc04bb20f02b669587f5eef99dd3f1f8b9cbd77d0f78d52f7e6",
+   "shape": [
+    1000,
+    14,
+    4
+   ]
+  },
+  "attack/pmu_i_tamper": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "5af7f5022f98b24a34fc83ddd85199886817365d27062f03b4b08e202fff10f0",
+   "shape": [
+    1000,
+    20,
+    4
+   ]
+  },
+  "benign/edge_benign": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "23ae24776a2166feb59d4cf6871e71e1a91209ddcc25ff95e7929d5060489489",
+   "shape": [
+    1000,
+    20,
+    2
+   ]
+  },
+  "benign/node_benign": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "d7e1062b9c07aae2591c0a1cce36f41de1612a024d8a5327ae33dc91f4e606c3",
+   "shape": [
+    1000,
+    14,
+    4
+   ]
+  },
+  "benign/pmu_i_benign": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "e36eb6fe4e3688209df1a3195eee0754a427c55425cf3260ac1bf30dd27f590e",
+   "shape": [
+    1000,
+    20,
+    4
+   ]
+  },
+  "clean/edge_clean": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "63282c18e913a94f02de621de6d5a721d390036949052abbc04fc57fb3719d57",
+   "shape": [
+    1000,
+    20,
+    2
+   ]
+  },
+  "clean/node_clean": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "edc1e9afbe9f6080acf920999e5bdfcba6108f6345188c1116ae30868bc21fbb",
+   "shape": [
+    1000,
+    14,
+    4
+   ]
+  },
+  "data/edge_m": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "26e328477c85f1a866478311518af19ac314c41a4680b434834d58429597ba8b",
+   "shape": [
+    1000,
+    20,
+    2
+   ]
+  },
+  "data/edge_x": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "d2834029ac795e453aee6517abf31d13ac12b0da65c63f10c15393b2280990f1",
+   "shape": [
+    1000,
+    20,
+    2
+   ]
+  },
+  "data/family": {
+   "attrs": {},
+   "dtype": "int8",
+   "sha256": "0d7a771d5521381d0229f500499b895a24937ef1936980502ae67126b7be8402",
+   "shape": [
+    1000
+   ]
+  },
+  "data/node_m": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "894db9d61d9bcd89e72ce5c9038657f95cb11de879530421b77b6e9664512c57",
+   "shape": [
+    1000,
+    14,
+    4
+   ]
+  },
+  "data/node_x": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "dbb0eb753669cfd7a8b89c2e689a831bd37499067b59f946a1d65265f7990e4e",
+   "shape": [
+    1000,
+    14,
+    4
+   ]
+  },
+  "data/pmu_i": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "37bc3204ed713ae23a42abc6a30ea8c217ad2c3e00d56da23024e149a2ce2586",
+   "shape": [
+    1000,
+    20,
+    4
+   ]
+  },
+  "data/pmu_i_m": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "7532768287d2d161430b64a0d0b2faecf3b5e992d7c16294b391cd79c9905fbd",
+   "shape": [
+    1000,
+    20,
+    4
+   ]
+  },
+  "data/seq_id": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "d56b6fd67672086e294cedfb9302406311bf4551f2ae9aab25cd503b8ab2b428",
+   "shape": [
+    1000
+   ]
+  },
+  "data/split": {
+   "attrs": {},
+   "dtype": "int8",
+   "sha256": "ca272bdce3b7ea011a761a3711b768f6984fedde796190d1a92a93793cde0c98",
+   "shape": [
+    1000
+   ]
+  },
+  "data/stealthy": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "96439ff7a733f66ebac8ee3d4acc46e9d0bf4b10942dd9bf6ef0c1b2f6b988e6",
+   "shape": [
+    1000
+   ]
+  },
+  "data/swing": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "15e274b2a4e0cce86bbe0d85439aec1092fda044a8aa55c8999c251a529ce8bb",
+   "shape": [
+    1000,
+    14,
+    2
+   ]
+  },
+  "data/temporal_delta": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "6c444ecb5e905fe4f90eb911e1c7a84c7d22ef4bc71ca2e2a98448c2df43d8fd",
+   "shape": [
+    1000,
+    14,
+    2
+   ]
+  },
+  "data/timestep": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "550625f47dc1b7d1d5bda267bc6e2baeeb0e700033b325e5d53ccd66267dd74e",
+   "shape": [
+    1000
+   ]
+  },
+  "data/y": {
+   "attrs": {},
+   "dtype": "uint8",
+   "sha256": "db4bc2e72d2942f3397f21b1eefa4f049ce0d2c7ba4558fd8f890bf9e033ebd9",
+   "shape": [
+    1000,
+    14
+   ]
+  },
+  "episodes/am_emitted_mva": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "9bc8f1bcd97697322d19d27958d13dd0c983242417620367c5f3601687994cd5",
+   "shape": [
+    22
+   ]
+  },
+  "episodes/am_episode": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "802e5cdf1ef6a8574e078141d4625e0f48376c493c48e5f114239addd5880253",
+   "shape": [
+    22
+   ]
+  },
+  "episodes/am_line": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "69dd4cd0f52dc2adc138b5d6e854f46a0e69b3858934a49b694ba807df998c43",
+   "shape": [
+    22
+   ]
+  },
+  "episodes/am_rating_mva": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "8abe594f70aadf2869aefab971ebbf787de8d653744634f6b82ff71a84eba436",
+   "shape": [
+    22
+   ]
+  },
+  "episodes/am_reached_mva": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "fb9ed98191fefa08f0b1093bc6a00270d4208855fc47056549221d8072304fc0",
+   "shape": [
+    22
+   ]
+  },
+  "episodes/am_target_mva": {
+   "attrs": {},
+   "dtype": "float32",
+   "sha256": "8abe594f70aadf2869aefab971ebbf787de8d653744634f6b82ff71a84eba436",
+   "shape": [
+    22
+   ]
+  },
+  "episodes/bus_idx": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "67fb3cad0a701db6a9a9ee57be0c7f8fbc92e161ef326f5234a4406ad02b64b8",
+   "shape": [
+    162
+   ]
+  },
+  "episodes/bus_ptr": {
+   "attrs": {},
+   "dtype": "int64",
+   "sha256": "f9a92007b4678ea661fc7a0da743902ac98a4d87948d28910f93d3dc3052f4c4",
+   "shape": [
+    26
+   ]
+  },
+  "episodes/family": {
+   "attrs": {},
+   "dtype": "int8",
+   "sha256": "0686eebc688507faf69b245f0895193bef0a6ad6126350fac88f033164907ba5",
+   "shape": [
+    25
+   ]
+  },
+  "episodes/length": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "ffe0ec8227a6688cc6b182f0d178bb3ceb116d4bbe2d4fb6699a25f439a79758",
+   "shape": [
+    25
+   ]
+  },
+  "episodes/min_channels": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "7cef03b48edb0ed338a7da5fbf6139649295ee5109f67ffe54cd42fb63274bae",
+   "shape": [
+    11
+   ]
+  },
+  "episodes/min_devices": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "6e22518c1b6f0fa80059e66bfdfb17c1b917e8495231fb43f6a415a31f40919d",
+   "shape": [
+    11
+   ]
+  },
+  "episodes/min_episode": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "57557e885696ec5f9de2cbe368c888b066d50211d176a35770239334fdb15f6a",
+   "shape": [
+    11
+   ]
+  },
+  "episodes/min_evaluated": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "87a5b2672ee2b9e12177cc50f26aff61bd7d8d05097d729e9876f87db18988c1",
+   "shape": [
+    11
+   ]
+  },
+  "episodes/min_support_idx": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "d0e41a6e6f543e15ac5ef2ea3c45249718a7c3d7a195ec3574ec2fdd09c132ed",
+   "shape": [
+    100
+   ]
+  },
+  "episodes/min_support_ptr": {
+   "attrs": {},
+   "dtype": "int64",
+   "sha256": "be8caeaabc6745b61ec6b28109b18dad5d205c6cb47abf5c33bb7b92289facb5",
+   "shape": [
+    12
+   ]
+  },
+  "episodes/onset": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "24f521d9479eded001bf7abd17edf2ab7d79d5122b09b4cd5e940041e45e91bf",
+   "shape": [
+    25
+   ]
+  },
+  "graph/bus_shunt_b": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "22583d70bbdd89e28a7341eb7f2953087b390ebc9bf9fb6ec0f7840197fefdf6",
+   "shape": [
+    14
+   ]
+  },
+  "graph/bus_shunt_g": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "b5fdab78d8947eacc864bfeecb4d2100780e5afe1cd8efafb124887913ac49fa",
+   "shape": [
+    14
+   ]
+  },
+  "graph/edge_b": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "10423160562bd26c47fdd451b654786352802c9b1cce9474adcc7e12b3429d98",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_bs": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "694f0365e468346d0ff543c280c904d0f28332b7e58940bb83be38dfd71cbbd2",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_g": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "b393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2e4",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_gs": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "31135ef3d55549c339d2fd3708d6b27eeaee4a4afe1c14888e74f0328aec12fd",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_index": {
+   "attrs": {},
+   "dtype": "int32",
+   "sha256": "ddcfa5817c135eccd0314188ec6b38c867e06dbbd953db39fad0c9397b9eb320",
+   "shape": [
+    2,
+    20
+   ]
+  },
+  "graph/edge_is_trafo": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "e8be371a03e4a7bb9937af911f65f658c0e2bf86213f9682e39e6d626a7456bd",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_r": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "78a8250d7dc11e3a4a1d773fbd48addafeb1a6e0f06d9575d680a9214511a366",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_shift": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "b393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2e4",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_status": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "44a2420d6f45ff8516f66bbad47077a221eef78b5aa4e7df63d1f19ab1893f7f",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_tap": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "96bd2a8bfab9ae89639cda450bec92646c43dbff858af20b8baa0a0e58d1d706",
+   "shape": [
+    20
+   ]
+  },
+  "graph/edge_x": {
+   "attrs": {},
+   "dtype": "float64",
+   "sha256": "59f16eebecb17b329a2685ad1a8db981f44e4c5d3200e03c36cc83e2b8d9b89e",
+   "shape": [
+    20
+   ]
+  }
+ },
+ "groups": {
+  "attack": {
+   "tamper": "1 where the attacker wrote the meter: the meters the local false state moves for the stealthy families, the changed channels for Ad/As/Ar"
+  },
+  "benign": {},
+  "clean": {},
+  "data": {},
+  "episodes": {},
+  "graph": {
+   "bus_feat_static": "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
+   "edge_feat_static": "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
+   "ybus_reconstructible": "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts"
+  }
+ },
+ "recorded_on": "Windows AMD64 | python 3.10 | numpy 1.26.4"
+}
