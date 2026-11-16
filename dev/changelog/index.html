@@ -1749,9 +1749,38 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>One plan stage for every timeline (breaking for New York imports).</strong> Where a timeline's splits are cut and
+<li><strong>One copy of the shared constants and helpers (breaking for imports).</strong> Names the IEEE generator and the New
+  York builder each held a copy of now have one home, and the old names are removed with no alias. No generated
+  file changes: every value and every floating-point expression is the one it was.</li>
+<li><code>SPLITS</code> (<code>("train", "val", "test")</code>) is in <code>models/choices.py</code>, beside <code>Split</code>, and derived from it. The copy in
+    <code>generation/nygrid/io.py</code> is removed, and <code>fdia_graph.generation.nygrid</code> no longer exports it.</li>
+<li><code>generation.write.ragged</code> (variable-length rows as a pointer array and a flat array) also writes the New
+    York episode table's <code>buses</code> and <code>clients</code>; <code>generation/nygrid/io.py</code> no longer builds them by hand.</li>
+<li><code>ACCURACY_CLASS</code> and <code>POWER_NOISE_FLOOR_MW</code> moved from <code>engine/base.py</code> to <code>formulas/noise.py</code>, beside
+    <code>PMU_CURRENT_CLASS</code> and <code>CURRENT_FLOOR_PU</code>. The New York table <code>engine.sensing.meters.ACCURACY</code> (per meter
+    kind, angles in degrees) is built from those four names instead of repeating their numbers.</li>
+<li><code>JITTER_FRAC</code> (0.25) moved from <code>engine/sensing/meters.py</code> to <code>formulas/noise.py</code>; it is the default of
+    <code>bias_jitter_split</code> and what the IEEE generator passes, in place of a bare 0.25. <code>fdia_graph.engine.sensing</code>
+    no longer exports it.</li>
+<li><code>generation.nygrid.inputs.download_once(url, path)</code> is the one download-if-missing of the New York inputs
+    (to a <code>.part</code> file first, so an interrupted download is never taken for the file); the copies in
+    <code>generation/nygrid/build.py</code> and <code>load_sources.py</code> are removed.</li>
+<li>The module diagram follows <code>from fdia_graph.x import y</code> as well as relative imports (<code>tools/class_diagrams.py</code>
+    followed only the relative ones), so it now shows what the New York modules import: <code>generation</code>, <code>engine</code>,
+    <code>dataset</code> and <code>federated</code> read each other in both directions.</li>
+<li><code>formulas.temporal.wrap_degrees(d)</code> is the one wrap of an angle difference to (-180, 180].
+    <code>engine.attacks.attacker.wrap_angles</code> (which picks the angle meters) and <code>ClientView.temporal</code> both call it.</li>
+<li><code>AM_LINE_TRIES</code> (8) is in <code>engine/attacks/overload.py</code> only; <code>engine/attacks/msfdia.py</code> imports it.</li>
+<li><code>engine.FAM_ID</code> (and <code>engine.core.FAM_ID</code>) is removed: the family codes are <code>models.choices.FAMILY_CODE</code>.</li>
+<li>
+<p><code>RAMP_CODE</code> and <code>AM_CODE</code> of <code>engine/attacks/episodes.py</code> are removed: the same two codes are <code>RAMP_FAMILY</code>
+    and <code>AM_FAMILY</code> in <code>engine/attacks/stealthy.py</code>.</p>
+</li>
+<li>
+<p><strong>One plan stage for every timeline (breaking for New York imports).</strong> Where a timeline's splits are cut and
   where its episodes go is decided in <code>generation/plan.py</code> for the IEEE systems and for New York alike;
-  <code>generation/nygrid/schedule.py</code> is removed.</li>
+  <code>generation/nygrid/schedule.py</code> is removed.</p>
+</li>
 <li><code>place_episodes(rng, lengths, frac, n, allowed=None)</code> is the one placement: it returns
     <code>Slot(onset, family, length)</code> records with the counts requested and dropped per family. The IEEE walk and the
     New York builder both call it. <code>split_weeks</code> and <code>week_index</code> live beside it; New York's <code>split_frames</code> is

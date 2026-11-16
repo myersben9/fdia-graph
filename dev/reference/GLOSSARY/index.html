@@ -1725,12 +1725,12 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>split</td>
 <td>The chronological train, val and test partition (0, 1, 2), cut before any episode is placed, so every episode lies inside one split.</td>
-<td><code>generation.plan.split_bounds</code>, <code>data/split</code>, <code>schema.SPLIT_CODE</code></td>
+<td><code>generation.plan.split_bounds</code>, <code>data/split</code>, <code>models.choices.SPLITS</code>, <code>schema.SPLIT_CODE</code></td>
 </tr>
 <tr>
 <td>family</td>
 <td>The attack type of a frame: 0 benign, 1 <code>Aq</code>, 2 <code>Ad</code>, 3 <code>As</code>, 4 <code>Ar</code>, 5 <code>At</code>, 6 <code>Al</code>, 7 <code>Am</code>.</td>
-<td><code>models.choices.FAMILIES</code>, <code>engine.FAM_ID</code>, <code>data/family</code></td>
+<td><code>models.choices.FAMILIES</code>, <code>models.choices.FAMILY_CODE</code>, <code>data/family</code></td>
 </tr>
 <tr>
 <td>stealthy</td>
