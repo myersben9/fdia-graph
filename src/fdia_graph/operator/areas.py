@@ -26,8 +26,7 @@ import numpy as np
 from fdia_graph.engine.attacks.attacker import wrap_angles
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import KINDS
-from fdia_graph.generation.nygrid.case import REF
-from fdia_graph.generation.nygrid.inputs import ZONES
+from fdia_graph.generation.nygrid.case import REF, ZONES
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.operator.acsced import FRAME_HOURS, ac_shift
 from fdia_graph.operator.day import OperatorDay, node_lbmp

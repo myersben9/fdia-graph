@@ -20,11 +20,11 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     from fdia_graph.engine.solvers import ipopt
     from fdia_graph.federated.utilities import Ownership, assign_clients
     from fdia_graph.generation.nygrid.build import fetch_inputs, production_builder
-    from fdia_graph.generation.nygrid.case import Case
+    from fdia_graph.generation.nygrid.case import ZONES, Case, nygrid_case
     from fdia_graph.generation.nygrid.config import Settings, rng
     from fdia_graph.generation.nygrid.dispatch import Dispatch, hourly_dispatch
-    from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links, restore_765kv, split_zone_j
-    from fdia_graph.generation.nygrid.inputs import ZONES, NygridHour, ZoneLoad, fetch_nyiso, read_nygrid
+    from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links
+    from fdia_graph.generation.nygrid.inputs import NygridHour, ZoneLoad, fetch_nyiso, read_nygrid
     from fdia_graph.generation.nygrid.interfaces import NYISO_INTERFACES, Interface, hourly_interfaces
     from fdia_graph.generation.nygrid.io import (
         FAMILIES,
@@ -36,7 +36,6 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     from fdia_graph.generation.nygrid.load_fit import fluctuation_fit, switching_fit
     from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
     from fdia_graph.generation.nygrid.network import Network
-    from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
     from fdia_graph.generation.nygrid.pool import (
         FAILED,
         NO_HOUR,
@@ -78,7 +77,7 @@ _PUBLIC = {
     "Settings": "fdia_graph.generation.nygrid.config",
     "TimelineBuilder": "fdia_graph.generation.nygrid.timeline",
     "TimelineWriter": "fdia_graph.generation.nygrid.io",
-    "ZONES": "fdia_graph.generation.nygrid.inputs",
+    "ZONES": "fdia_graph.generation.nygrid.case",
     "ZoneLoad": "fdia_graph.generation.nygrid.inputs",
     "assign_clients": "fdia_graph.federated.utilities",
     "externals_at_base": "fdia_graph.generation.nygrid.fixes",
@@ -90,19 +89,15 @@ _PUBLIC = {
     "hvdc_links": "fdia_graph.generation.nygrid.fixes",
     "ipopt": "fdia_graph.engine.solvers",
     "line_ratings": "fdia_graph.generation.nygrid.ratings",
-    "modify_mpc": "fdia_graph.generation.nygrid.npcc",
-    "nygrid_units": "fdia_graph.generation.nygrid.npcc",
+    "nygrid_case": "fdia_graph.generation.nygrid.case",
     "open_timeline": "fdia_graph.generation.nygrid.io",
     "operator_day": "fdia_graph.operator.day",
     "peak_ratings": "fdia_graph.generation.nygrid.pool",
     "production_builder": "fdia_graph.generation.nygrid.build",
-    "read_npcc": "fdia_graph.generation.nygrid.npcc",
     "read_nygrid": "fdia_graph.generation.nygrid.inputs",
     "read_pool": "fdia_graph.generation.nygrid.io",
     "respond": "fdia_graph.operator.run",
-    "restore_765kv": "fdia_graph.generation.nygrid.fixes",
     "rng": "fdia_graph.generation.nygrid.config",
-    "split_zone_j": "fdia_graph.generation.nygrid.fixes",
     "summarize": "fdia_graph.operator.summary",
     "switching_fit": "fdia_graph.generation.nygrid.load_fit",
     "unit_q_limits": "fdia_graph.generation.nygrid.solver",
@@ -145,19 +140,15 @@ __all__ = [
     "hvdc_links",
     "ipopt",
     "line_ratings",
-    "modify_mpc",
-    "nygrid_units",
+    "nygrid_case",
     "open_timeline",
     "operator_day",
     "peak_ratings",
     "production_builder",
-    "read_npcc",
     "read_nygrid",
     "read_pool",
     "respond",
-    "restore_765kv",
     "rng",
-    "split_zone_j",
     "summarize",
     "switching_fit",
     "unit_q_limits",

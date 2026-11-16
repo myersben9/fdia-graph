@@ -2,7 +2,7 @@
 
 NYgrid's published 2019 operating points are DC. In AC none of the 8,760 hours converge. These scripts
 are the MATLAB reference for the changes that make them AC-feasible, and for the test of which of those
-changes are needed. The Python port in `src/fdia_graph/generation/nygrid/fixes.py` and `scenario/solver.py` is checked
+changes are needed. The Python port (the case file `src/fdia_graph/generation/nygrid/case_nygrid.m`, made by `pipelines/newyork/make_case.py`, and `src/fdia_graph/generation/nygrid/solver.py`) is checked
 against the files they write.
 
 ## Setup

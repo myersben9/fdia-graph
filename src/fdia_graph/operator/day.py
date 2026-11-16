@@ -13,9 +13,9 @@ import pandas as pd
 from fdia_graph.engine.sensing.meters import MeterPlan
 from fdia_graph.errors import DataConditionError
 from fdia_graph.federated.utilities import Ownership
-from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.generation.nygrid.case import ZONES, Case
 from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
-from fdia_graph.generation.nygrid.inputs import ZONES, read_nygrid
+from fdia_graph.generation.nygrid.inputs import read_nygrid
 from fdia_graph.generation.nygrid.interfaces import Interface, hourly_interfaces
 from fdia_graph.generation.nygrid.io import open_timeline, read_pool
 from fdia_graph.generation.nygrid.pool import Pool

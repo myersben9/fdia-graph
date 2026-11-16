@@ -9,9 +9,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from fdia_graph.errors import DataConditionError, NotFitted
-from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.generation.nygrid.case import HQ_BUS, Case
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.npcc import HQ_BUS
 
 if TYPE_CHECKING:  # the pool record is read without pandapower, so the solver is only a type here
     from fdia_graph.generation.nygrid.dispatch import Dispatch

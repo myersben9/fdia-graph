@@ -35,13 +35,12 @@ import pandas as pd
 
 from fdia_graph.engine.attacks.attacker import HYDRO_RAMP_PER_MIN, IMPORT_RAMP_MW_PER_MIN
 from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.dispatch import hourly_dispatch
-from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.inputs import fetch_nyiso, read_nygrid
 from fdia_graph.generation.nygrid.io import read_pool, write_pool
 from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
-from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, PoolBuilder
 from fdia_graph.generation.nygrid.solver import AcSolver
 
@@ -60,7 +59,7 @@ def log(*a):
 
 def _case():
     # The case the MATLAB recipe and the P4 tests use: zone J split, 765 kV line, no HVDC links.
-    return restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
+    return nygrid_case()
 
 
 def unit_ramps(case) -> np.ndarray:

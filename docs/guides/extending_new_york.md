@@ -42,6 +42,12 @@ consequence as attacked less benign, so an operator only has to produce both run
 
 ## Changing the package itself
 
+- The grid is the MATPOWER case file `src/fdia_graph/generation/nygrid/case_nygrid.m`, read by `nygrid_case()`. To
+  change a line, a unit or a limit, edit the file; code does not patch the case on the way in. Edit rows in place,
+  or add and delete whole rows: `Case.from_matpower` reads the file with matpowercaseframes and refuses a file
+  whose parts disagree, naming the file and what is wrong ([the architecture](../concepts/new_york_grid.md) lists
+  the checks). A study on another grid passes its own `Case` (`Case.from_matpower` of its own file) wherever the
+  package takes one. A change to the file moves generated numbers, so it comes with the goldens and digests below.
 - The golden snapshots (`tests/nygrid/test_golden.py`) pin what the operator, the detection tools and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (`NYGRID_UPDATE_GOLDEN=1`) and say in the pull request which numbers moved and why.

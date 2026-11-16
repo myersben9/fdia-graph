@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import genpareto
 
-from fdia_graph.generation.nygrid.inputs import ZONES, ZoneLoad
+from fdia_graph.generation.nygrid.case import ZONES
+from fdia_graph.generation.nygrid.inputs import ZoneLoad
 from fdia_graph.generation.nygrid.loads import FRAME_MIN
 
 

@@ -13,7 +13,7 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 
 from fdia_graph.engine.sensing.meters import KINDS
-from fdia_graph.generation.nygrid.inputs import ZONES
+from fdia_graph.generation.nygrid.case import ZONES
 from fdia_graph.operator.acsced import FRAME_HOURS, SHED_AFTER, AcSced, shortage_usd
 from fdia_graph.operator.day import OperatorDay, pool_frames
 from fdia_graph.operator.policy import OperatorPolicy, entry_share

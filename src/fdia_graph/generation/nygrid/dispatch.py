@@ -14,7 +14,7 @@ _NIAGARA, _ST_LAWRENCE = 55, 48  # hydro buses with their own rule (updateOpCond
 _NIAGARA_CAP, _ST_LAWRENCE_CAP = 2460.0, 856.0
 # updateOpCond.m L485-491 draws nuclear costs 1 + 2 rand and hydro costs 10 rand ($/MWh) after rng("default")
 # every hour, so they are fixed numbers: MATLAB's default stream is Mersenne Twister seeded 5489, the first
-# 16 draws of numpy's RandomState(5489), in the unit order of nygrid_units.
+# 16 draws of numpy's RandomState(5489), in the unit order of the case file.
 _NUCLEAR_COST = (2.6294, 2.8116, 1.2540, 2.8268, 2.2647, 1.1951)
 _HYDRO_COST = (2.7850, 5.4688, 9.5751, 9.6489, 1.5761, 9.7059, 9.5717, 4.8538, 8.0028, 1.4189)
 _AREA_PRICE = {

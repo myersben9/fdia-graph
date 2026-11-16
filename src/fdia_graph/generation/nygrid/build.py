@@ -28,13 +28,12 @@ from fdia_graph.engine.sensing.meters import plan_meters
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.errors import DataConditionError
 from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.inputs import download_once, fetch_nyiso
 from fdia_graph.generation.nygrid.interfaces import hourly_interfaces
 from fdia_graph.generation.nygrid.io import read_pool
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.generation.nygrid.pool import SOLVED, peak_ratings
 from fdia_graph.generation.nygrid.timeline import TimelineBuilder
 
@@ -108,7 +107,7 @@ def production_builder(
     root = Path(root)
     nygrid = root / settings.nygrid_dir / "Data"
     terr = root / "data" / "territories"
-    case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(nygrid / "npcc.mat")), nygrid)))
+    case = nygrid_case()
     with open(terr / GEOJSON, encoding="utf-8") as f:
         own = assign_clients(case, json.load(f), terr / LOCATIONS)
     pool = read_pool(root / pool_path)

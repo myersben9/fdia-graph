@@ -11,14 +11,12 @@ from fdia_graph.dataset.clients import ClientView, Dataset
 from fdia_graph.engine.attacks.family import Episode
 from fdia_graph.engine.sensing.meters import MeterPlan, plan_meters
 from fdia_graph.federated.utilities import assign_clients
-from fdia_graph.generation.nygrid.case import Case
+from fdia_graph.generation.nygrid.case import Case, nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.io import TimelineWriter
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 
-from .inputs import DATA, ROOT, TERRITORIES, needs_data
+from .inputs import ROOT, TERRITORIES, needs_data
 
 pytestmark = needs_data
 T = 100
@@ -28,7 +26,7 @@ T = 100
 def written(tmp_path_factory):
     """A short timeline written block by block: the real case, ownership and meter plan with random
     frames, labels and two episodes, so the round trip and the views are checked without the pool."""
-    case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
+    case = nygrid_case()
     territories = json.load(open(TERRITORIES / "nys_electric_territories.geojson", encoding="utf-8"))
     own = assign_clients(case, territories, TERRITORIES / "ny_bus_locations.csv")
     plan = plan_meters(Network(case), own, rng(Settings(), "meters"))

@@ -14,11 +14,10 @@ from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.federated.utilities import assign_clients
+from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
-from fdia_graph.generation.nygrid.fixes import restore_765kv, split_zone_j
 from fdia_graph.generation.nygrid.io import FAMILIES, read_pool
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
 from fdia_graph.generation.nygrid.timeline import TimelineBuilder
 from fdia_graph.generation.plan import WEEK, place_episodes, split_weeks
@@ -92,7 +91,7 @@ def test_place_episodes_only_at_allowed_onsets_and_capped():
 def built(tmp_path_factory):
     if not (DATA.exists() and TERRITORIES.exists() and POOL.exists()):
         pytest.skip("the public inputs or the whole 2019 pool missing (inputs.py)")
-    case = restore_765kv(split_zone_j(nygrid_units(modify_mpc(read_npcc(DATA / "npcc.mat")), DATA)))
+    case = nygrid_case()
     territories = json.load(open(TERRITORIES / "nys_electric_territories.geojson", encoding="utf-8"))
     own = assign_clients(case, territories, TERRITORIES / "ny_bus_locations.csv")
     full = read_pool(POOL)

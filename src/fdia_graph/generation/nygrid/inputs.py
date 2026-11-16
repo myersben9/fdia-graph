@@ -11,10 +11,10 @@ from urllib.request import Request, urlopen
 import numpy as np
 import pandas as pd
 
+from fdia_graph.generation.nygrid.case import ZONES
 from fdia_graph.generation.nygrid.tables import read_rows
 from fdia_graph.profiles import nyiso_zone_load
 
-ZONES = tuple("ABCDEFGHIJK")
 FUELS = ("Dual Fuel", "Hydro", "Natural Gas", "Nuclear", "Other Fossil Fuels", "Other Renewables", "Wind")
 # Interfaces NYgrid reads (updateOpCond.m L248-262 and L445-451), schedules into NY are positive.
 INTERFACES = (
@@ -38,7 +38,7 @@ INTERFACES = (
 )
 EXT_PRICES = ("NPX", "O H", "PJM", "H Q")  # proxy buses pricing the NE, IESO, PJM and HQ units
 _FUEL_PRICE = {"Coal": "coal_NY", "Fuel Oil 2": "FO2_UPNY", "Kerosene": "FO2_UPNY", "Fuel Oil 6": "FO6_UPNY"}
-_NUCLEAR_COLS = (  # unit order of nygrid_units: Ginna (53), FitzPatrick, Nine Mile 1, 2 (50), Indian Point 2, 3 (74)
+_NUCLEAR_COLS = (  # unit order of the case file: Ginna (53), FitzPatrick, Nine Mile 1, 2 (50), Indian Point 2, 3 (74)
     "GinnaGen",
     "FitzPatrickGen",
     "NineMilePoint1Gen",
@@ -77,7 +77,7 @@ class NygridHour:
 
     `ny_pd`, `ny_qd` and `renew_mw` are over the 140 NPCC buses in bus-number order: NYgrid's split of
     the zone loads onto NY buses (0.98 power factor) and the wind plus other renewables it nets off them.
-    `thermal_mw` follows the thermal units of `nygrid_units`, `nuclear_mw` its six nuclear units.
+    `thermal_mw` follows the thermal units of the case file (`nygrid_case`), `nuclear_mw` its six nuclear units.
     `thermal_cost` is each thermal unit's linear generation cost, $/MWh: the week's fuel price times its
     heat rate (allocateGen.m 'lm', the cost updateOpCond.m L474-479 puts in gencost); `ext_lbmp` the hour's
     real-time LBMP of NYISO's proxy buses NPX, O H, PJM and H Q, which price the external units (L493-501)."""

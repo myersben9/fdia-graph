@@ -5,6 +5,28 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **The New York grid is one MATPOWER case file (breaking for New York imports).** The grid every New York pool
+  and timeline is built on is `src/fdia_graph/generation/nygrid/case_nygrid.m`, shipped with the package, in place
+  of code that assembled it from NYgrid's `npcc.mat` each time. A change to the grid is now an edit to that file.
+  No generated file changes: the file reads back to the same arrays, bit for bit, as the code built.
+  - `nygrid_case()` returns the grid's `Case` (140 buses, 227 branches, 271 units). `production_builder`, the
+    tests and `pipelines/newyork/run_pool.py` start from it, so the case no longer needs NYgrid's `Data/` folder
+    (the hourly data still does).
+  - `Case.from_matpower(path)` reads a MATPOWER version-2 case file with matpowercaseframes, the reader
+    pandapower uses for `.m` files (a new dependency of the `ny` and `all` extras), taking each column by
+    MATPOWER's name. The bus `zone` column is the NYISO load zone as a number (1 for A to 11 for K, 12 outside
+    New York), `mpc.bus_name` and `mpc.genfuel` are MATPOWER's own, and `mpc.bus_latlon` and `mpc.gen_ramp`
+    hold the coordinates and the ramps. `Case.check` refuses a file whose parts disagree, and an indexed
+    assignment or an unknown field is refused instead of passed over, each a `DataConditionError` naming the
+    file and what is wrong. The file's writer is in `pipelines/newyork/make_case.py`.
+  - `ZONES` moved from `generation/nygrid/inputs.py` to `generation/nygrid/case.py`.
+  - `read_npcc`, `modify_mpc`, `nygrid_units`, `split_zone_j` and `restore_765kv` are removed from the package
+    with no alias, and `generation/nygrid/npcc.py` with them. They are how the file was made, and live in
+    `pipelines/newyork/make_case.py`, which makes the file again from NYgrid's `Data/` folder; a test checks that
+    it reproduces the checked-in file exactly. `hvdc_links` and `externals_at_base` stay in
+    `generation/nygrid/fixes.py`.
+  - `HQ_BUS` moved from `generation/nygrid/npcc.py` to `generation/nygrid/case.py`.
+
 - **One copy of the shared constants and helpers (breaking for imports).** Names the IEEE generator and the New
   York builder each held a copy of now have one home, and the old names are removed with no alias. No generated
   file changes: every value and every floating-point expression is the one it was.

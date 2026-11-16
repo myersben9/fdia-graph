@@ -86,10 +86,10 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.emit` | The emit stage of a timeline: every frame in time order, benign or under its episode's design. |
 | `generation.nygrid` | The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them. |
 | `generation.nygrid.build` | The production build: the inputs fetched at their pinned versions, and the `TimelineBuilder` with every decided bound (N8, N27 to N49) in one place. |
-| `generation.nygrid.case` | The grid as one frozen record of arrays. |
+| `generation.nygrid.case` | The grid as one frozen record of arrays, read from a MATPOWER case file. |
 | `generation.nygrid.config` | Build settings and the one place random generators are made. |
 | `generation.nygrid.dispatch` | Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list. |
-| `generation.nygrid.fixes` | The changes that make NYgrid's operating points solvable in AC (checked in MATLAB on 8760 hours of 2019). |
+| `generation.nygrid.fixes` | Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (`case.py` reads it). |
 | `generation.nygrid.inputs` | Historical inputs: NYgrid's hourly 2019 tables and NYISO's 5-minute zonal load. |
 | `generation.nygrid.interfaces` | NYISO's internal transmission interfaces on the reduced case, with their real 2019 hourly limits and flows. |
 | `generation.nygrid.io` | HDF5 files of the build. The only module that imports h5py. |
@@ -98,7 +98,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.nygrid.load_sources` | Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. `LoadModel` (`loads.py`) builds the bus profiles from these. |
 | `generation.nygrid.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
 | `generation.nygrid.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
-| `generation.nygrid.npcc` | Read NYgrid's NPCC-140 case and apply NYgrid's own modifications (modifyMPC.m). |
 | `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
 | `generation.nygrid.ratings` | Branch ratings from the limits NYgrid itself sets. `npcc.mat` carries no branch ratings. |
 | `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (`OperatorOpf`), solved scan by scan. |
@@ -193,6 +192,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_areas.py` | The damage split by area adds up to the whole: the zones and the utilities each partition New York's units, the neighbors' supply is the inadvertent interchange, and the attack surface counts the meters the day's labels mark. |
 | `tests/nygrid/test_attacks.py` | The New York attacks on the real grid: the attacker's area and false states, the multi-snapshot overload (`MsFdia`), the ramp, and that each meets its goal, stays within the natural load swing and evades the residual test. |
 | `tests/nygrid/test_build.py` | The release builder's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and the whole 2019 pool (inputs.py). |
+| `tests/nygrid/test_case_file.py` | `Case.from_matpower` on a three-bus case file written here: what it reads and what it refuses. Needs no input data. |
 | `tests/nygrid/test_choices.py` | The operator's choices are checked before anything runs: a typo is an error, never a silent fall back to the default run (no data needed). |
 | `tests/nygrid/test_configs.py` | Settings are passed in, never patched onto shared objects: a widened case and an overshoot variant are copies, and the originals stay as they were (no data needed). |
 | `tests/nygrid/test_dataset.py` | The timeline file as federated clients (`dataset.clients`): a written file reloads whole, each client sees only its own meters, buses and labels, and the operator and split views select the right frames. |
@@ -200,7 +200,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/nygrid/test_examples.py` | The extension examples of docs/guides/extending_new_york.md run as published, so the guide never shows code that broke (no data needed). |
 | `tests/nygrid/test_experiments.py` | The study helpers every research tool shares: the day files of a study, a day's variant, the interchange calibration, and the parallel runner that writes a sorted CSV (no data needed). |
 | `tests/nygrid/test_golden.py` | Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor. |
-| `tests/nygrid/test_grid.py` | The New York grid as read from NYgrid: the NPCC case and NYgrid's modifications, the fixed unit list, the AC fixes, the utility of each bus and the branch ratings, checked against MATPOWER's power flow. |
+| `tests/nygrid/test_grid.py` | The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants, the utility of each bus and the branch ratings. |
 | `tests/nygrid/test_misses.py` | Every design that finds no attack says why (`MISSES`), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed). |
 | `tests/nygrid/test_operator.py` | The operator's real-time dispatch (`operator.acsced`, an AC optimal power flow each scan): the 2019 shortage price, the delivery factors and AC sensitivities, the outage power flow, and the operator on days under attack. |
 | `tests/nygrid/test_policy.py` | The operator's choices are one validated record, and an operator is anything that returns a Response (no data needed). |
@@ -267,6 +267,7 @@ What every folder of the repository holds, then what every Python file does, in 
 |---|---|
 | `pipelines/newyork/build_single_episodes.py` | The single-episode files for studying one attack by hand: one Am on an interface per file, over the whole day it falls in (288 five-minute scans), nothing else attacked. Each file is a normal timeline (`fdia_graph.generation.nygrid.io.open_timeline`): `z` with the attack, `z_benign` the same noisy scans without it, the true states and the labels. |
 | `pipelines/newyork/build_timeline.py` | Build the release timeline (`fdia_graph.generation.nygrid.build.production_builder`) from a pool. |
+| `pipelines/newyork/make_case.py` | The recipe of the New York case file: `case_nygrid.m` made again from NYgrid's `Data/` folder. |
 | `pipelines/newyork/run_pool.py` | Build the P5 pool for a time window as NYISO's real-time dispatch (N32, N39), in chunks run in parallel. |
 
 ## The results store's queries
