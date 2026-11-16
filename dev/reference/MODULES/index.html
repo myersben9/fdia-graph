@@ -2435,6 +2435,10 @@
 <td>Shared fixtures. The suite builds its own tiny IEEE-14 timeline (about 20 s, needs the [generate] extra and the operating-point pool download) inside a throwaway cache, so it never touches a user's ~/.cache/fdia_graph and never downloads a full timeline. Old releases are read from the checked-in files under tests/data (tests/data/README.md).</td>
 </tr>
 <tr>
+<td><code>tests/digests.py</code></td>
+<td>Whole-file digests of a generated HDF5 file: the proof that a refactor did not move a number.</td>
+</tr>
+<tr>
 <td><code>tests/nygrid/conftest.py</code></td>
 <td>The New York tests' shared setup: the operator's dispatch reads the bus reactive loads of the checked-in days.</td>
 </tr>
@@ -2521,6 +2525,10 @@
 <tr>
 <td><code>tests/nygrid/test_timeline.py</code></td>
 <td>The New York timeline: splits cut whole and disjoint, episodes placed at random within their split and only at allowed onsets, and every frame a noisy benign scan plus its attack with labels that match the meters tampered.</td>
+</tr>
+<tr>
+<td><code>tests/nygrid/test_timeline_digests.py</code></td>
+<td>The New York timeline, whole: every dataset and attribute of the files the release builder writes on the checked-in days' pool, against stored digests (<code>tests/digests.py</code> says what is compared where).</td>
 </tr>
 <tr>
 <td><code>tests/test_attack_area.py</code></td>
@@ -2649,6 +2657,10 @@
 <tr>
 <td><code>tests/test_timeline.py</code></td>
 <td>The one-file timeline writer: its layout, its episodes and the At and Am frames.</td>
+</tr>
+<tr>
+<td><code>tests/test_timeline_digests.py</code></td>
+<td>The generated IEEE timeline, whole: every dataset and attribute of the file against a stored digest.</td>
 </tr>
 <tr>
 <td><code>tests/test_trust.py</code></td>

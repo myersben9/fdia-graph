@@ -1729,6 +1729,8 @@ consequence as attacked less benign, so an operator only has to produce both run
 <li>The golden snapshots (<code>tests/nygrid/test_golden.py</code>) pin what the operator, the detection tools and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (<code>NYGRID_UPDATE_GOLDEN=1</code>) and say in the pull request which numbers moved and why.</li>
+<li>The timeline digests (<code>tests/nygrid/test_timeline_digests.py</code>) pin every dataset and attribute of a built
+  timeline and of two episodes the same way; they are rewritten with <code>FDIA_UPDATE_DIGESTS=1</code>.</li>
 <li>A setting is an argument; never change a library object's settings or a shared record's arrays after it is built.</li>
 <li>Raise the named errors of <code>fdia_graph.errors</code>: <code>ConfigError</code> for a wrong argument, a <code>DataConditionError</code> for data
   that does not meet a condition, <code>SolverUnavailable</code> for an environment that cannot run the solver.</li>

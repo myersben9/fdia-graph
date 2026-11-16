@@ -1879,6 +1879,9 @@ change is intended, rewrite the snapshots with <code>NYGRID_UPDATE_GOLDEN=1</cod
 moved and why. The operator and detection snapshots run on the attack days checked in under
 <code>tests/nygrid/data/days</code> with NYgrid's inputs, so CI runs them; the interface attack's design also needs the whole
 2019 pool under <code>NYGRID_ROOT</code> and skips without it.</p>
+<p>The same folder holds whole-file digests of a New York timeline and of two episodes
+(<code>tests/nygrid/test_timeline_digests.py</code>): bit for bit on the machine that recorded them, skipped
+elsewhere. Rewrite those with <code>FDIA_UPDATE_DIGESTS=1</code>, under the same rule.</p>
 
 
 

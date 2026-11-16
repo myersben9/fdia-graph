@@ -1703,7 +1703,7 @@ checks a docs change locally.</p>
 </tr>
 <tr>
 <td>every change is proven behaviour-free, or its effect is measured</td>
-<td>the tests pin the fewest-tamper search's answers (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios (<code>tests/test_overload_case_studies.py</code>) and the formulas and models; a change that moves a generated number states the delta</td>
+<td>the tests pin the fewest-tamper search's answers (<code>tests/test_search_speed.py</code>), [WU26]'s scenarios (<code>tests/test_overload_case_studies.py</code>), the formulas and models, and whole generated files: every dataset and attribute of an IEEE timeline and of a New York build against stored digests (<code>tests/test_timeline_digests.py</code>, <code>tests/nygrid/test_timeline_digests.py</code>; bit for bit on the machine that recorded them, skipped elsewhere, <code>tests/digests.py</code>); a change that moves a generated number states the delta and rewrites the snapshot with <code>FDIA_UPDATE_DIGESTS=1</code></td>
 <td><code>pytest -W "error::DeprecationWarning:fdia_graph" tests</code></td>
 </tr>
 <tr>
