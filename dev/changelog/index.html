@@ -1749,13 +1749,41 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The study scripts leave the repository.</strong> The folder <code>experiments/</code> (the estimation, localization, trust,
+<li><strong>One plan stage for every timeline (breaking for New York imports).</strong> Where a timeline's splits are cut and
+  where its episodes go is decided in <code>generation/plan.py</code> for the IEEE systems and for New York alike;
+  <code>generation/nygrid/schedule.py</code> is removed.</li>
+<li><code>place_episodes(rng, lengths, frac, n, allowed=None)</code> is the one placement: it returns
+    <code>(onset, family, length)</code> triples with the counts requested and dropped per family. The IEEE walk and the
+    New York builder both call it. <code>split_weeks</code> and <code>week_index</code> live beside it; New York's <code>split_frames</code> is
+    <code>split_column(split_bounds(T, frac), T)</code>.</li>
+<li><code>fdia_graph.generation.nygrid</code> no longer exports <code>place_episodes</code>, <code>split_frames</code>, <code>split_weeks</code> or
+    <code>week_index</code>; <code>Slot</code> is defined in <code>generation/nygrid/timeline.py</code>. <code>plan.episode_counts</code> and
+    <code>_Schedule.weights</code> are removed (the placement computes its weights from the lengths).</li>
+<li><strong>One rule when a placement jams.</strong> After ten whole placements fail, one episode of the family that could
+    not be placed is dropped. The IEEE generator used to drop one of the family with the most episodes. Only a
+    timeline that already warned "placements jammed" can differ. <code>place_episodes</code> reports
+    what it dropped and its caller warns.</li>
+<li><strong>Episode shares are exact.</strong> The episodes of a split are shared between the families by largest remainder
+    over the weights 1 / length as exact fractions. In floating point a tie between two families' remainders
+    fell differently on the two generators (the IEEE one normalised the weights first). Counts can differ by
+    one episode between families only where their lengths differ and the remainders tie: on the IEEE side for
+    example <code>ramp_len=12</code>, <code>am_len=60</code>, <code>attacked_frac=0.05</code> on a 6,000-frame split got 12 At and 3 Am episodes
+    and now gets 13 and 2 (the tie goes to the family named first, as documented). Families of equal length,
+    the default, are unaffected, and so are the New York lengths (16, 16 and 96 frames).</li>
+<li>The whole-timeline digests, IEEE and New York, are unchanged.</li>
+<li>
+<p><code>capacity</code> (the most windows a family's allowed onsets can hold) is public in <code>generation/plan.py</code>, with
+    <code>WEEK</code> and <code>STRATUM</code>; <code>HIT_STRATUM</code> is in <code>generation/nygrid/timeline.py</code>.</p>
+</li>
+<li>
+<p><strong>The study scripts leave the repository.</strong> The folder <code>experiments/</code> (the estimation, localization, trust,
   federated and defense-reproduction studies, the data-release statistics, the design-speed measurement, and the
   federated study's per-run files) is removed: the repository holds the package, its tests, its tooling and its
   docs. The runs those scripts wrote stay in the results store (<code>results/</code>), and the pages under
   <code>docs/analysis/</code> still have their tables rendered from it; the pages now say the scripts are kept elsewhere, and
   their figures and CSV sidecars stay as last drawn (they can no longer be redrawn from this repository).
-  The speed benchmark is repository tooling and is <code>tools/bench.py</code> again.</li>
+  The speed benchmark is repository tooling and is <code>tools/bench.py</code> again.</p>
+</li>
 <li><strong>Family-name aliases and old import paths are removed (breaking).</strong> Under the same rule as the deprecated
   logic: one name per family, one home per name, nothing kept for an old spelling.</li>
 <li><strong>Families.</strong> <code>"Ao"</code>, <code>"SLS"</code>, <code>"ramp"</code> and <code>"LRA"</code> are no longer accepted where a family is named

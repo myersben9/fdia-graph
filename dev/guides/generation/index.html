@@ -2182,11 +2182,11 @@ and 2,000 frames; IEEE-30 a smoke run), before the search speed-up of #163 (expe
 <tr>
 <td>count</td>
 <td>per split, the whole number of episodes whose frames come closest to <code>attacked_frac</code> of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights <code>1 / length</code>, so every family gets about the same share of attacked frames</td>
-<td><code>plan.episode_counts</code>, <code>plan.largest_remainder</code></td>
+<td><code>plan.whole_episode_counts</code>, <code>plan.largest_remainder</code></td>
 </tr>
 <tr>
 <td>place</td>
-<td>per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family with the most is dropped and recorded (<code>RuntimeWarning</code>)</td>
+<td>per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family that jammed is dropped and recorded (<code>RuntimeWarning</code>)</td>
 <td><code>plan.place_split</code>, <code>plan.uniform_onset</code></td>
 </tr>
 <tr>

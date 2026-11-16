@@ -1816,58 +1816,57 @@ its stage does.</p>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    dispatch.py         Dispatch, hourly_dispatch
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    solver.py           AcSolver, Compensation, unit_q_limits, OperatorOpf, OpfSolution (the operator's AC dispatch model)
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    pool.py             Pool, PoolBuilder, peak_ratings
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    schedule.py         Slot, place_episodes, split_weeks, split_frames, week_index
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    timeline.py         TimelineBuilder
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>  engine/
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    solvers.py          ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>  engine/sensing/
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    meters.py           MeterPlan, plan_meters
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    measure.py          Measurement
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    noise.py            NoiseModel
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>  engine/attacks/
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    family.py           Episode, AttackFamily (design, design_explained), MISSES
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    attacker.py         Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    msfdia.py           MsFdia (Am, and Ap with a step bound)
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    opf.py              OpfFdia (Am, Ap with the false state from a local AC OPF, N35)
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    ramp.py             Ramp
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>  operator/
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    day.py              OperatorDay, operator_day, INTERFACES, node_lbmp, PoolFrames, pool_frames (an attacked day as the operator meets it, NYISO's hourly prices, the pool's own inputs for its frames)
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    acsced.py           AcSced, Step, shortage_usd, loss_factors, ac_shift, ac_power_flow, open_branch (N59, N60; the operator's dispatch as an AC OPF each scan, least movement or least cost with AC LMPs; AC sensitivities; the AC power flow of an outage)
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    ties.py             tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    truegrid.py         TrueGrid (state, run_state, change: AC power flows on the true grid; the N-1 screen is an AC power flow per outage)
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    policy.py           OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    run.py              Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, reported_changes (the operator scan by scan)
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    summary.py          summarize (the attack's consequence, attacked less benign)
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    areas.py            area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>  se/detect/
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    estimate.py         WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    fleets.py           FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>  federated/
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    utilities.py        Ownership, assign_clients
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>  dataset/
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    clients.py          Dataset, ClientView
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>  results/
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>    studies.py          study_days, variant, load_calib, add_study_arguments, run_parallel (what every study tool repeats)
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>  _lazy.py            attach: the public names of a package, imported on first use
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>pipelines/newyork/
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>results/
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>tests/nygrid/
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    timeline.py         TimelineBuilder
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>  engine/
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    solvers.py          ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>  engine/sensing/
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    __init__.py         what the stage does, and its public names
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    meters.py           MeterPlan, plan_meters
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    measure.py          Measurement
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    noise.py            NoiseModel
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>  engine/attacks/
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    family.py           Episode, AttackFamily (design, design_explained), MISSES
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    attacker.py         Attacker, natural_steps, generator_ramps, generator_band, generator_q_capability, wrap_angles
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    msfdia.py           MsFdia (Am, and Ap with a step bound)
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    opf.py              OpfFdia (Am, Ap with the false state from a local AC OPF, N35)
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>    ramp.py             Ramp
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>  operator/
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    __init__.py         what the stage does, and its public names
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    day.py              OperatorDay, operator_day, INTERFACES, node_lbmp, PoolFrames, pool_frames (an attacked day as the operator meets it, NYISO's hourly prices, the pool's own inputs for its frames)
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    acsced.py           AcSced, Step, shortage_usd, loss_factors, ac_shift, ac_power_flow, open_branch (N59, N60; the operator's dispatch as an AC OPF each scan, least movement or least cost with AC LMPs; AC sensitivities; the AC power flow of an outage)
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    ties.py             tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    truegrid.py         TrueGrid (state, run_state, change: AC power flows on the true grid; the N-1 screen is an AC power flow per outage)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    policy.py           OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    run.py              Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, reported_changes (the operator scan by scan)
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    summary.py          summarize (the attack's consequence, attacked less benign)
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    areas.py            area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>  se/detect/
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>    __init__.py         what the stage does, and its public names
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    estimate.py         WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    fleets.py           FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>  federated/
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    utilities.py        Ownership, assign_clients
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>  dataset/
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    clients.py          Dataset, ClientView
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>  results/
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    studies.py          study_days, variant, load_calib, add_study_arguments, run_parallel (what every study tool repeats)
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>  _lazy.py            attach: the public names of a package, imported on first use
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>pipelines/newyork/
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>results/
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>tests/nygrid/
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -1949,7 +1948,7 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>Slot</code></td>
-<td><code>generation/nygrid/schedule.py</code></td>
+<td><code>generation/nygrid/timeline.py</code></td>
 <td>one placed episode: <code>onset</code> (frame), <code>family</code> ("Am", "Ap" or "At"), <code>length</code></td>
 </tr>
 </tbody>
@@ -2041,7 +2040,7 @@ copies them as they are.</p>
 <td><code>TimelineBuilder</code></td>
 <td><code>generation/nygrid/timeline.py</code></td>
 <td>built as <code>TimelineBuilder(pool, meas, noise, attacker, families, own, settings, *, length=16 or {family: frames} (Am, At 16, Ap 96, N23), attacked_frac=0.2, split_frac=(0.7, 0.15, 0.15), split_by="week" (N41) or "time", workers=1, block=2016, verbose=False, survey=0, survey_cache=None)</code>: the pool, the <code>Measurement</code>, the <code>NoiseModel</code>, the <code>Attacker</code>, the families by name (<code>{"Am": MsFdia, "Ap": MsFdia(step_bound=...), "At": Ramp}</code>), the <code>Ownership</code> and <code>Settings</code> (whose seed keys every draw: <code>place</code>, <code>noise</code>, and <code>design/{family}/{onset}</code> per episode, so the result does not depend on <code>workers</code>)</td>
-<td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or <code>split_frames</code> with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None, using=None, lag=0) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code> (at <code>onset - lag</code> with a lag, its vector added to the true scans), over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
+<td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or three blocks in time order (<code>split_bounds</code>) with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None, using=None, lag=0) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code> (at <code>onset - lag</code> with a lag, its vector added to the true scans), over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
 </tr>
 <tr>
 <td><code>AcSced</code></td>
@@ -2197,15 +2196,9 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>split_weeks(time, frac, weight, rng, stratum=STRATUM)</code></td>
-<td><code>generation/nygrid/schedule.py</code></td>
+<td><code>generation/plan.py</code></td>
 <td>frame times, the shares, a weight per frame (the loaded onsets)</td>
 <td>split column <code>[T]</code>: whole weeks ranked by weight, cut into strata of 20, each stratum drawn into train, val, test in the shares (N41)</td>
-</tr>
-<tr>
-<td><code>split_frames(T, frac)</code></td>
-<td><code>generation/nygrid/schedule.py</code></td>
-<td></td>
-<td>split column <code>[T]</code>: train, val, test as three contiguous blocks of the year in time order (before N41)</td>
 </tr>
 <tr>
 <td><code>natural_steps(time, p, solved, pct=95.0)</code></td>
@@ -2214,10 +2207,10 @@ copies them as they are.</p>
 <td><code>[24, N]</code> each bus's <code>pct</code> percentile of |p(t) - p(t-1)| over consecutive solved frames, by the clock hour of the later frame: the natural five-minute step Ap's attacker knows (ours)</td>
 </tr>
 <tr>
-<td><code>place_episodes(T, lengths, frac, rng, allowed=None)</code></td>
-<td><code>generation/nygrid/schedule.py</code></td>
+<td><code>place_episodes(rng, lengths, frac, n, allowed=None)</code></td>
+<td><code>generation/plan.py</code></td>
 <td>one split's frame count, <code>{family: length}</code>, the attacked share, <code>{family: [T] allowed onsets}</code></td>
-<td><code>Slot</code> list: the whole episodes closest to <code>frac T</code> frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this)</td>
+<td><code>(onset, family, length)</code> list with the counts requested and dropped: the whole episodes closest to <code>frac T</code> frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this)</td>
 </tr>
 <tr>
 <td><code>ipopt(**options)</code></td>
@@ -2482,7 +2475,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>D1</td>
-<td><code>generation/nygrid/schedule.py</code>, <code>generation/nygrid/timeline.py</code>, <code>TimelineWriter</code> in <code>io.py</code></td>
+<td><code>generation/plan.py</code>, <code>generation/nygrid/timeline.py</code>, <code>TimelineWriter</code> in <code>io.py</code></td>
 </tr>
 <tr>
 <td>D2</td>
