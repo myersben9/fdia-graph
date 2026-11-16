@@ -182,7 +182,7 @@ class SEBase:
     def _pseudo_of(self, node_x: np.ndarray, pmu_i: np.ndarray) -> PseudoVoltages:
         """The eq. (3) pseudo phasors of a batch of scans, their noise propagated from the PMU accuracy
         class (|V| and angle absolute, the currents `PMU_CURRENT_CLASS` of the reading)."""
-        from ..engine.base import ACCURACY_CLASS
+        from ..formulas.noise import ACCURACY_CLASS
 
         return pmu_pseudo_voltages(
             self._links,
@@ -354,7 +354,7 @@ class SEBase:
 
     def _class_sigma(self, mean_abs: np.ndarray) -> np.ndarray:
         """The accuracy-class sigma of every metered slot [m], in the estimator's units (pu, rad)."""
-        from ..engine.base import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
+        from ..formulas.noise import ACCURACY_CLASS, POWER_NOISE_FLOOR_MW
 
         N, E = self.N, self.E
         order = [

@@ -129,8 +129,8 @@ def test_the_emitter_draws_with_the_shared_noise_rule(case):
 def test_the_search_counts_against_the_calibrations_accuracy_sigma(case):
     """accuracy_sigma is the measured calibration's sigma (SEBase._class_sigma through
     accuracy_class_sigma) at one scan's readings, in physical units; it is larger than the jitter."""
-    from fdia_graph.engine.base import ACCURACY_CLASS
     from fdia_graph.formulas.estimation import accuracy_class_sigma
+    from fdia_graph.formulas.noise import ACCURACY_CLASS
 
     g, X, _ = case
     x, base = X[0], g._base_mva

@@ -39,6 +39,7 @@ from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import IA, VA
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.formulas.network import local_flow_solve
+from fdia_graph.formulas.temporal import wrap_degrees
 from fdia_graph.generation.nygrid.case import REF, Case
 from fdia_graph.generation.nygrid.network import Network
 
@@ -113,7 +114,7 @@ def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
     to (-180, 180]; `kind [M]` the meter kinds. The other readings are returned as they are."""
     d = np.array(d, float, copy=True)
     angle = np.isin(kind, (VA, IA))
-    d[..., angle] = -((-d[..., angle] + 180.0) % 360.0 - 180.0)
+    d[..., angle] = wrap_degrees(d[..., angle])
     return d
 
 

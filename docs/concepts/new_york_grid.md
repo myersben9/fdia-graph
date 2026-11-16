@@ -54,7 +54,7 @@ src/fdia_graph/
     __init__.py         the New York system's public names, loaded on first use
     config.py           Settings, rng()
     build.py            fetch_inputs, production_builder (the release build in one place)
-    io.py               TimelineWriter, open_timeline, read_pool, write_pool, SPLITS, FAMILIES
+    io.py               TimelineWriter, open_timeline, read_pool, write_pool, FAMILIES
     tables.py           read_rows (the input CSV tables, read whole and closed)
     case.py             Case
     network.py          Network
@@ -63,7 +63,7 @@ src/fdia_graph/
     ratings.py          line_ratings
     interfaces.py       Interface, hourly_interfaces, NYISO_INTERFACES (N48)
     ny_bus_locations.csv each NY bus located on the territories (N12)
-    inputs.py           ZoneLoad, NygridHour, read_nygrid, fetch_nyiso
+    inputs.py           ZoneLoad, NygridHour, read_nygrid, fetch_nyiso, download_once
     loads.py            LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
     load_sources.py     the building-stock, EIA-861, census and IAC inputs the profiles come from, downloaded once
     load_fit.py         fluctuation_fit, switching_fit (how the within-hour constants were fitted, N31)

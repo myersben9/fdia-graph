@@ -105,9 +105,11 @@ def modules() -> dict[str, ast.Module]:
 
 
 def resolve(module: str, node: ast.ImportFrom) -> str | None:
-    """The package-relative module an `from .x import y` names, or None for an outside import."""
+    """The package-relative module a `from .x import y` or a `from fdia_graph.x import y` names, or None
+    for an outside import."""
     if node.level == 0:
-        return node.module if node.module and node.module.startswith("fdia_graph") else None
+        parts = (node.module or "").split(".")
+        return "/".join(parts[1:]) if parts[0] == "fdia_graph" and len(parts) > 1 else None
     base = module.split("/")[:-1]
     base = base[: len(base) - (node.level - 1)] if node.level > 1 else base
     target = base + (node.module.split(".") if node.module else [])

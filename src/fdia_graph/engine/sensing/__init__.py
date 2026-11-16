@@ -14,7 +14,7 @@ from fdia_graph._lazy import attach
 
 if TYPE_CHECKING:  # the names below, with their real signatures for type checkers
     from fdia_graph.engine.sensing.measure import Measurement
-    from fdia_graph.engine.sensing.meters import JITTER_FRAC, KINDS, MeterPlan, plan_meters
+    from fdia_graph.engine.sensing.meters import KINDS, MeterPlan, plan_meters
     from fdia_graph.engine.sensing.noise import NoiseModel
 
 # each public name and the module that defines it, imported on first use
@@ -22,13 +22,11 @@ _PUBLIC = {
     "MeterPlan": ".meters",
     "plan_meters": ".meters",
     "KINDS": ".meters",
-    "JITTER_FRAC": ".meters",
     "Measurement": ".measure",
     "NoiseModel": ".noise",
 }
 
 __all__ = [
-    "JITTER_FRAC",
     "KINDS",
     "Measurement",
     "MeterPlan",

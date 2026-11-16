@@ -7,6 +7,13 @@ from dataclasses import dataclass
 import numpy as np
 
 from fdia_graph.federated.utilities import Ownership
+from fdia_graph.formulas.noise import (
+    ACCURACY_CLASS,
+    CURRENT_FLOOR_PU,
+    JITTER_FRAC,
+    PMU_CURRENT_CLASS,
+    POWER_NOISE_FLOOR_MW,
+)
 from fdia_graph.generation.nygrid.network import Network
 
 V, VA, P, Q, PF, QF, I, IA = range(8)  # meter kinds, the `kind` codes
@@ -18,19 +25,18 @@ KINDS = ("v", "va", "p", "q", "pf", "qf", "i", "ia")
 # 1e-3 MW floor so a near-zero reading still has noise. The PMU branch currents take IEEE C37.118.1's
 # 1% total vector error as three standard deviations of the phasor: 1/300 of |I| on the magnitude and
 # 1/300 rad on the angle, with a 1e-5 p.u. floor. Angles are in degrees, like the state.
+# The numbers are the one table of `formulas.noise` (`ACCURACY_CLASS`, `POWER_NOISE_FLOOR_MW`,
+# `PMU_CURRENT_CLASS`, `CURRENT_FLOOR_PU`), here per meter kind and with the angles in degrees.
 ACCURACY = {
-    V: (0.0, 0.0012),
-    VA: (0.0, float(np.degrees(0.00168))),
-    P: (0.017, 1e-3),
-    Q: (0.017, 1e-3),
-    PF: (0.017, 1e-3),
-    QF: (0.017, 1e-3),
-    I: (0.01 / 3, 1e-5),
-    IA: (0.0, float(np.degrees(0.01 / 3))),
+    V: (0.0, ACCURACY_CLASS["v"]),
+    VA: (0.0, float(np.degrees(ACCURACY_CLASS["va"]))),
+    P: (ACCURACY_CLASS["pi"], POWER_NOISE_FLOOR_MW),
+    Q: (ACCURACY_CLASS["qi"], POWER_NOISE_FLOOR_MW),
+    PF: (ACCURACY_CLASS["pf"], POWER_NOISE_FLOOR_MW),
+    QF: (ACCURACY_CLASS["qf"], POWER_NOISE_FLOOR_MW),
+    I: (PMU_CURRENT_CLASS, CURRENT_FLOOR_PU),
+    IA: (0.0, float(np.degrees(PMU_CURRENT_CLASS))),
 }
-# Share of each class that is per-scan jitter; the rest is a constant per-meter bias, with
-# bias^2 + jitter^2 = class^2. Meter error is mostly a fixed calibration offset.
-JITTER_FRAC = 0.25
 
 
 @dataclass(frozen=True)

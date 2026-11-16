@@ -44,7 +44,7 @@ from .minimize import MinimizeMixin
 # eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
 # a full fewest-tamper search (about 13 s on IEEE-118), so an episode whose first eight sets admit no
 # attack is moved to another onset by the walk (`generation.emit.relocate_later`) even if a later set would have
-# served.
+# served. The New York overload (`msfdia.MsFdia`) tries as many before its episode stays benign.
 AM_LINE_TRIES = 8
 
 # [WU26]'s case studies, in MATPOWER bus numbers (`wu26_branch` maps a pair to our branch by its end

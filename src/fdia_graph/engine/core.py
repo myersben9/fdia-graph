@@ -19,21 +19,17 @@ from typing import TYPE_CHECKING, Optional, Union
 import numpy as np
 
 from ..formulas.network import series_admittance
-from ..formulas.noise import PMU_CURRENT_CLASS, bias_jitter_split
+from ..formulas.noise import ACCURACY_CLASS, JITTER_FRAC, PMU_CURRENT_CLASS, bias_jitter_split
 from ..models.config import GeneratorOptions
 from ..models.grid import INTACT, BranchModel, MeterBias, MeterPlan
 from ..registry import system_id
 from .attacks import AttackMixin
-from .base import ACCURACY_CLASS
 from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
 
 if TYPE_CHECKING:
     from .pandapower_types import PandapowerNet, PpcTables
 
-# Integer family label written into the per-bus label tensor `y` (0=clean, >0=attacked of that family);
-# the generator makes At and Am (the codes of every released family are in models.choices.FAMILIES).
-FAM_ID = {"benign": 0, "At": 5, "Am": 7}
 # Bus-count knob (14/118/300) -> pandapower.networks factory name.
 # Bus-count -> pandapower.networks builder. Transmission systems only (>=110 kV, meshed). A system is
 # load()-able only once its pool + registry entry ship; listing it here just lets the generator build it.
@@ -88,7 +84,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         # Measurement noise stds, the accuracy classes (ACCURACY_CLASS), split into a per-scan jitter
         # and a per-meter bias (see formulas.noise).
         self.SD = dict(ACCURACY_CLASS)
-        self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=0.25)
+        self.SDj, self._bias_sd = bias_jitter_split(self.SD, jitter_frac=JITTER_FRAC)
         self.NET = getattr(pn, _CASE[self.C])
         self.base = self._open_case()
         self._load_tables(self.base)
@@ -277,6 +273,6 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         channel, drawn once after the six v0.8.3 bias vectors from the accuracy class
         `PMU_CURRENT_CLASS` split like the others (`bias_jitter_split`); the per-scan jitter part is
         kept in `self._i_jitter`."""
-        jit, bias = bias_jitter_split({"i": PMU_CURRENT_CLASS}, jitter_frac=0.25)
+        jit, bias = bias_jitter_split({"i": PMU_CURRENT_CLASS}, jitter_frac=JITTER_FRAC)
         self._i_jitter = jit["i"]
         self.bias = self.bias._replace(i=self.rng.normal(0, bias["i"], (self.E, 4)))

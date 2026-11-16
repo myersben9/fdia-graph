@@ -195,8 +195,7 @@ def test_am_counts_against_the_paper_noise_and_at_against_the_rated_accuracy(g, 
     """The window of a flow goal (Am) takes [WU26]'s noise a load goal (At) keeps the meters'
     rated accuracy."""
     from fdia_graph.engine.attacks.minimize import _Window
-    from fdia_graph.engine.base import POWER_NOISE_FLOOR_MW
-    from fdia_graph.formulas.noise import accuracy_sigma
+    from fdia_graph.formulas.noise import POWER_NOISE_FLOOR_MW, accuracy_sigma
     from fdia_graph.models.frames import AttackDesign, LoadGoal
 
     k = _knobs(g, pool, 1.0)

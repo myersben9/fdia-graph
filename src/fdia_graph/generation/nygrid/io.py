@@ -14,10 +14,11 @@ from fdia_graph.engine.sensing.meters import KINDS, MeterPlan
 from fdia_graph.federated.utilities import Ownership
 from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.pool import Pool
+from fdia_graph.generation.write import ragged
+from fdia_graph.models.choices import SPLITS
 
 _POOL_ARRAYS = ("vm", "va", "p", "q", "solve_kind")
 
-SPLITS = ("train", "val", "test")  # the codes 0, 1, 2 of `frames/split`
 FAMILIES = (
     "benign",
     "Am",
@@ -134,11 +135,9 @@ class TimelineWriter:
         for name in ("onset", "length", "target_branch"):
             g.create_dataset(name, data=np.array([getattr(e, name) for e in episodes], np.int64))
         for name in ("buses", "clients"):
-            parts = [np.asarray(getattr(e, name), np.int64) for e in episodes]
-            g.create_dataset(name, data=np.concatenate(parts) if parts else np.zeros(0, np.int64))
-            g.create_dataset(
-                f"{name}_ptr", data=np.r_[0, np.cumsum([len(p) for p in parts])].astype(np.int64)
-            )
+            ptr, flat = ragged([getattr(e, name) for e in episodes], np.int64)
+            g.create_dataset(name, data=flat)
+            g.create_dataset(f"{name}_ptr", data=ptr)
 
     def close(self) -> None:
         self.h.close()

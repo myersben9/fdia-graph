@@ -14,7 +14,9 @@ from pathlib import Path
 
 import numpy as np
 
-from fdia_graph.generation.nygrid.io import SPLITS, open_timeline
+from fdia_graph.formulas.temporal import wrap_degrees
+from fdia_graph.generation.nygrid.io import open_timeline
+from fdia_graph.models.choices import SPLITS
 
 _BUS_KINDS = ("v", "va", "p", "q")  # the node features, in this order
 _ANGLE_KINDS = ("va", "ia")  # readings in degrees that wrap at +-180
@@ -58,7 +60,7 @@ class ClientView:
         d[1:] = np.diff(self.z, axis=0)
         d[1:][np.diff(self.frames) != 1] = 0.0
         angle = np.isin(self.meters.kind, [self._kinds.index(k) for k in _ANGLE_KINDS])
-        d[:, angle] = -((-d[:, angle] + 180.0) % 360.0 - 180.0)
+        d[:, angle] = wrap_degrees(d[:, angle])
         return d
 
 

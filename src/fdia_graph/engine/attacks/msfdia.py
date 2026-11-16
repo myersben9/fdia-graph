@@ -57,10 +57,10 @@ import numpy as np
 
 from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.family import AttackFamily, Episode, Window
+from fdia_graph.engine.attacks.overload import AM_LINE_TRIES
 from fdia_graph.engine.sensing.meters import PF
 from fdia_graph.errors import ConfigError
 
-AM_LINE_TRIES = 8  # target sets an episode tries before it stays benign
 MIN_BUDGET = 32  # candidate supports evaluated per target set
 NEAR_LIMIT = 0.9  # N36: the share of its rating some candidate line carries when the attacker strikes
 

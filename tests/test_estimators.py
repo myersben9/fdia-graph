@@ -151,7 +151,7 @@ def test_measured_calibration_reads_no_clean_layer(timeline, tmp_path):
     import h5py
 
     from fdia_graph import schema
-    from fdia_graph.engine.base import ACCURACY_CLASS
+    from fdia_graph.formulas.noise import ACCURACY_CLASS
     from fdia_graph.se import WLS
 
     a = WLS().fit(fg.load(timeline, split="train"), calibrate="measured")

@@ -8,9 +8,20 @@ import numpy as np
 from ..models.grid import EDGE, NODE
 from .estimation import accuracy_class_sigma
 
+# Meter accuracy classes [ASP14]: the error std of every meter type. |V| and angle are the
+# class-0.2/sqrt(3) instrument-transformer figures, absolute (pu, rad); injections and flows a ~1.7%
+# power-measurement std, relative to the reading, with POWER_NOISE_FLOOR_MW as an absolute floor.
+# The IEEE generator's noise model, the New York meter plan (`engine.sensing.meters.ACCURACY`, the
+# same classes per meter kind) and a measurement-only estimator calibration all read these.
+ACCURACY_CLASS = {"pf": 0.017, "qf": 0.017, "v": 0.0012, "pi": 0.017, "qi": 0.017, "va": 0.00168}
+POWER_NOISE_FLOOR_MW = 1e-3
+# Share of each class that is per-scan jitter; the rest is a constant per-meter bias, with
+# bias^2 + jitter^2 = class^2. Meter error is mostly a fixed calibration offset.
+JITTER_FRAC = 0.25
+
 
 def bias_jitter_split(
-    sd: dict[str, float], jitter_frac: float = 0.25
+    sd: dict[str, float], jitter_frac: float = JITTER_FRAC
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Split each accuracy-class std into a per-scan jitter and a per-meter bias [ASP14], our split.
 
@@ -80,7 +91,7 @@ def accuracy_sigma(
 
     node_true : [N, 4] true |V|, P_inj, Q_inj, theta of the scan
     flow_true : [E, 2] true P_from, Q_from of the scan (MW, MVAr)
-    cls       : accuracy class per channel kind (`engine.base.ACCURACY_CLASS`)
+    cls       : accuracy class per channel kind (`ACCURACY_CLASS`)
     floor_mw  : the absolute floor on power channels
     returns   : (sigma per node channel [N, 4], sigma per flow channel [E, 2])
     """

@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from fdia_graph.engine.sensing.meters import JITTER_FRAC, KINDS, MeterPlan
+from fdia_graph.engine.sensing.meters import KINDS, MeterPlan
+from fdia_graph.formulas.noise import JITTER_FRAC
 from fdia_graph.generation.nygrid.case import Case
 from fdia_graph.generation.nygrid.interfaces import Interface
 from fdia_graph.generation.nygrid.network import Network

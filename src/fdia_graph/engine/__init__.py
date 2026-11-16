@@ -5,6 +5,6 @@ measurement.py (meters + noise), physics.py (a scan's load and generation), atta
 Everything user-facing (loading, registry, streams) lives one level up.
 """
 
-from .core import FAM_ID, FdiaGenerator
+from .core import FdiaGenerator
 
-__all__ = ["FdiaGenerator", "FAM_ID"]
+__all__ = ["FdiaGenerator"]
