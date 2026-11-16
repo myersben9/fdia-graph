@@ -31,7 +31,7 @@ class Compensation:
     quadratic penalty of `v_weight` k$/h per p.u.^2, as a unit's voltage regulator holds its schedule until its
     reactive limit binds. `shunt_cost` (k$/h per MVAr switched in) keeps a bank out unless the schedule or the
     reactive limits need it, so banks are not switched in only to cut losses. Unit reactive limits `q_lo`, `q_hi
-    [G]` (MVAr, `unit_q_limits`) and the operating band `v_lo`, `v_hi [N]` (p.u., NaN keeps the case's limit) replace
+    [G]` (MVAr) and the operating band `v_lo`, `v_hi [N]` (p.u., NaN keeps the case's limit) replace
     the case's in the dispatch."""
 
     shunt_lo: np.ndarray
@@ -54,21 +54,6 @@ class Compensation:
     def shunt_buses(self) -> np.ndarray:
         """Positions of the buses with a bank."""
         return np.flatnonzero((self.shunt_lo != 0) | (self.shunt_hi != 0))
-
-
-PLACEHOLDER_Q = 9999.0  # MVAr: NYgrid's reactive limits of a unit with no data (the case file)
-
-
-def unit_q_limits(case: Case, lag_pf: float = 0.85, lead_pf: float = 0.95) -> tuple[np.ndarray, np.ndarray]:
-    """`(q_lo, q_hi) [G]` MVAr: each unit's reactive capability at power factor `lag_pf` lagging (producing) and
-    `lead_pf` leading (absorbing) at its Pmax, `Pmax tan(acos(pf))`, for the units whose case limits are NYgrid's
-    placeholder of plus or minus 9999 MVAr; a unit with real limits (the NPCC case's external units) keeps them.
-    The HQ import's Pmax is its 1500 MW import limit."""
-    pmax = np.abs(np.asarray(case.pmax, float))
-    loose = (np.abs(case.qmax) >= PLACEHOLDER_Q) | (np.abs(case.qmin) >= PLACEHOLDER_Q)
-    q_hi = np.where(loose, np.tan(np.arccos(lag_pf)) * pmax, case.qmax)
-    q_lo = np.where(loose, -np.tan(np.arccos(lead_pf)) * pmax, case.qmin)
-    return q_lo.astype(float), q_hi.astype(float)
 
 
 def _ppc(case: Case) -> dict:

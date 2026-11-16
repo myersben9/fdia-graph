@@ -52,7 +52,6 @@ DEFERRED: dict[str, str] = {
     "generation/nygrid": "the New York code, moved in as written; conformed module by module",
     "engine/attacks/attacker.py": "the New York code, moved in as written; conformed module by module",
     "engine/attacks/family.py": "the New York code, moved in as written; conformed module by module",
-    "engine/attacks/msfdia.py": "the New York code, moved in as written; conformed module by module",
     "engine/attacks/opf.py": "the New York code, moved in as written; conformed module by module",
     "engine/attacks/interface.py": "the New York code, moved in as written; conformed module by module",
     "engine/attacks/perturbation.py": "the New York code, moved in as written; conformed module by module",

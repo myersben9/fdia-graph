@@ -1,4 +1,6 @@
-"""The attacker: the local subnetwork it re-solves, and the false states its two goals imply.
+"""The attacker: the local subnetwork it re-solves, the false state a pretended load implies, and the bounds
+the grid's own behaviour puts on a pretended change (`natural_steps`, `generator_ramps`, `generator_band`,
+`generator_q_capability`).
 
 An attacker knows one connected local subnetwork (the interior) and re-solves it with every bus
 outside it held at its true voltage, so only the interior's and its boundary's meters change and the
@@ -7,25 +9,17 @@ runs one residual test over every meter, so stealth is global, not per client. T
 hold their true voltage and absorb the changed power, so their injection moves too. The slack bus (the
 estimator's angle reference) never moves.
 
-Two goals re-solve the interior, through one solve (`formulas.network.local_flow_solve`). The flow goal of Am and Ap
-(`false_flow_state`) drives a target branch's apparent flow to a value; the load goal of At
-(`false_state`) prescribes a pretended load at chosen buses. In both a New York bus on the interior's
-edge whose injection may not change (a zero-injection bus, a load under the floor) first joins the
-interior, its voltage free, so the edge moves out to buses the attack may change (`absorb`). The
-attackable loads and generators of the interior and its edge are free, every other bus there keeps its
-true injection (a zero-injection bus keeps reading zero: the operator meters P and Q at every New York
-bus). A bus outside New York carries no meter and absorbs, unless it has no unit and no injection (bus
-140, radial off Dunkirk, N44): nothing there could take up a change, so it is held like a New York
-zero-injection bus (`_held_bus`). Then the least-norm Gauss-Newton moves the interior voltages; an active set holds each free
-injection inside its bounds, generator limits (22)-(23) and the load plausibility cap on P and Q,
-pinning one at a bound and releasing it when the solve without the pin leaves it inside. Each step is
-halved until the residual drops, so a step too large to absorb fails cleanly instead of diverging.
-`attacks` imports only `grid` and `sensing`, so the solve is plain numpy here, never pandapower.
-
-The pattern-aware overload Ap (ours) adds one more box to that active set: each pretended load may
-move from the previous scan's by at most the bus's natural five-minute step (`natural_steps`), and a
-generator bus's reported output by at most its units' five-minute ramp (`generator_ramps`), so the
-attack ramps the way the grid itself can move.
+The load goal of At (`false_state`) prescribes a pretended load at chosen buses and re-solves the interior
+(`formulas.network.local_flow_solve`). A New York bus on the interior's edge whose injection may not change (a
+zero-injection bus, a load under the floor) first joins the interior, its voltage free, so the edge moves out
+to buses the attack may change (`absorb`). The attackable loads and generators of the interior and its edge
+are free, every other bus there keeps its true injection (a zero-injection bus keeps reading zero: the
+operator meters P and Q at every New York bus). A bus outside New York carries no meter and absorbs, unless it
+has no unit and no injection (bus 140, radial off Dunkirk, N44), which is held like a New York zero-injection
+bus (`_held_bus`). Then the least-norm Gauss-Newton moves the interior voltages; an active set holds each free
+injection inside its bounds, generator limits (22)-(23) and the load plausibility cap on P and Q, pinning one
+at a bound and releasing it when the solve without the pin leaves it inside. The solve is plain numpy, never
+pandapower. The OPF attacks (`opf.OpfFdia`) use the attacker's area and edge rules with their own solve.
 
 Angle readings (kinds va and ia) wrap at +-180 degrees, so a difference of two of them is wrapped
 back to (-180, 180] before it is compared (`wrap_angles`); the stored readings stay raw.
@@ -49,8 +43,8 @@ def natural_steps(time: np.ndarray, p: np.ndarray, solved: np.ndarray, pct: floa
     |p(t) - p(t-1)| over every pair of consecutive solved frames, grouped by the clock hour of the later
     frame. `time [T]` the frame times (local clock), `p [T, N]` the net injections (MW, NaN where
     unsolved), `solved [T]` which frames hold a state. A load bus's step is its load's, a generator bus's
-    its dispatch's. This is what a pattern-aware attacker is assumed to know of typical load behaviour
-    (Ap, ours); an hour with no pair keeps 0."""
+    its dispatch's. This is what the attacker is assumed to know of typical load behaviour, the bound on each
+    scan of an OPF attack's exit; an hour with no pair keeps 0."""
     hours = (np.asarray(time).astype("datetime64[s]").astype(np.int64) // 3600) % 24
     ok = np.asarray(solved, bool)
     pair = ok[1:] & ok[:-1]
@@ -69,6 +63,7 @@ IMPORT_RAMP_MW_PER_MIN = (
 )  # NY real-time interchange ramp per interface (ISO-NE CROP.31001, 300 MW per 15 min)
 BASEPOINT_BAND = 0.03  # share of the upper operating limit (NYISO MST Rate Schedule 3-A, 15.3A.1)
 Q_SHARE = 0.312  # |Q| per MW of capability at power factor 0.95 (NYISO Manual 2, 3.6; FERC Order 827)
+ABSORB_CAP = 0.5  # the share of its true load an absorbing load may move by in `Attacker.false_state`
 
 
 def _per_bus(case: Case, per_unit: np.ndarray) -> np.ndarray:
@@ -121,8 +116,8 @@ def wrap_angles(d: np.ndarray, kind: np.ndarray) -> np.ndarray:
 class Attacker:
     """Holds a `Network` and a `Measurement`. Finds the local subnetwork of a target (`area`, the
     connected region of [1], which may span utilities), re-solves it under a pretended load change
-    (`false_state`, the load goal of At) or a target branch flow (`false_flow_state`, the flow goal of
-    Am), and writes the attack vector those states move (`attack_vector`). Meter ownership comes from
+    (`false_state`, the load goal of At), and writes the attack vector a false state moves (`attack_vector`).
+    Meter ownership comes from
     the measurement's plan, so the attacker needs no separate `Ownership`: a bus's client is the owner
     of its meters (a bus with no meters is external, N4), used only to label an episode's owners."""
 
@@ -251,74 +246,31 @@ class Attacker:
         """The false state a pretended load change implies (the load goal of At): each bus where
         `load_change` is nonzero reads its true injection less that change (extra load, generation
         negative), the other attackable loads and generators of the `area` and its edge absorb the
-        rest within the same bounds and active set as the flow goal, and every other bus there, a
-        zero-injection bus among them, keeps its true injection; every voltage outside the area is held
-        true. Holding the edge leaves more equations than unknowns, so the solve is the least-squares
-        Gauss-Newton of the flow goal with no target line. `load_change [N]` is complex, MW + j MVAr,
-        nonzero only on `area` buses. Returns the false state (`vm` p.u., `va` degrees) [N], or None
-        when no solution inside the bounds is found."""
-        res = self._goal_solve(
-            vm, va, area, np.zeros(0, int), np.zeros(0), held=-np.asarray(load_change, complex)
-        )
-        return None if res is None else (res[0], res[1])
-
-    def false_flow_state(
-        self,
-        vm: np.ndarray,
-        va: np.ndarray,
-        support: np.ndarray,
-        lines: np.ndarray,
-        target_mva: np.ndarray,
-        load_cap: float = 0.5,
-        step: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
-        start: tuple[np.ndarray, np.ndarray] | None = None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
-        """The false state that drives the `lines` from-end apparent flows to `target_mva` on the
-        `support` [1] eqs. 24-25. A New York bus on the support's edge whose injection may not change (a
-        zero-injection bus, a load under the floor) first joins the support, its voltage free, until the
-        edge holds only free injections (`absorb`, N25). The attackable loads and generators of the
-        support and its edge are free (`free_injection_buses`); every other bus there, a zero-injection
-        bus among them, keeps its true injection, since the operator meters P and Q at every New York
-        bus; each bus outside the support holds its true voltage. Each free injection change stays inside
-        its bounds: a generator's reported output inside its limits (22)-(23), a load's active and
-        reactive change within `load_cap` times its true active load and max(|Q|, 0.2 P) (the plausibility
-        cap of Yuan, IEEE TSG 2011, ours, not the paper's; on Q by N24), and with `step = (centre [N] complex MVA, bound_p [N] MW, bound_q [N] MVAr)` Ap's box
-        (ours): each free injection change within `bound` of `centre`. An active set holds them there:
-        an injection past a bound is pinned at it, and a pinned one is released when the solve without
-        its pin leaves it inside its bounds. `start = (vm, va)` warm-starts the solve inside the support
-        (the previous scan's false state carried onto this one) and the active set with it (an injection
-        on a bound there starts pinned on that side), so successive scans stay continuous.
-        Returns (`vm` p.u., `va` degrees [N], the pretended active load change per bus [N] MW), or None
-        when no solution inside the bounds is found (the support cannot carry the goal)."""
-        return self._goal_solve(vm, va, support, lines, target_mva, load_cap, step, start)
+        rest within their bounds, and every other bus there, a zero-injection bus among them, keeps its
+        true injection; every voltage outside the area is held true. The bounds: a generator's reported
+        output inside its limits (22)-(23) and its reactive change within `gen_q_share` of its range (N27),
+        a load's active and reactive change within `ABSORB_CAP` times its true active load and
+        max(|Q|, 0.2 P) (the plausibility cap of Yuan, IEEE TSG 2011; on Q by N24). `load_change [N]` is
+        complex, MW + j MVAr, nonzero only on `area` buses. Returns the false state (`vm` p.u., `va`
+        degrees) [N], or None when no solution inside the bounds is found."""
+        return self._goal_solve(vm, va, area, -np.asarray(load_change, complex))
 
     def _goal_solve(
-        self,
-        vm: np.ndarray,
-        va: np.ndarray,
-        support: np.ndarray,
-        lines: np.ndarray,
-        target_mva: np.ndarray,
-        load_cap: float = 0.5,
-        step: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None,
-        start: tuple[np.ndarray, np.ndarray] | None = None,
-        held: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
-        """The solve behind both goals: `lines` driven to `target_mva` (the flow goal, none for the load
-        goal) with the injection change `held [N]` (complex MVA, generation positive) prescribed where it
-        is nonzero (the load goal's pretended loads), the other free injections bounded by the active
-        set, every other bus of the support and its edge held at its true injection."""
+        self, vm: np.ndarray, va: np.ndarray, support: np.ndarray, held: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray] | None:
+        """The solve behind `false_state`: the injection change `held [N]` (complex MVA, generation
+        positive) prescribed where it is nonzero, the other free injections bounded by the active set
+        (an injection past a bound is pinned at it, and released when the solve without its pin leaves it
+        inside), every other bus of the support and its edge held at its true injection. Holding the edge
+        leaves more equations than unknowns, so the solve is a least-squares Gauss-Newton."""
         case, base = self.net.case, self.base_mva
         v = vm * np.exp(1j * np.deg2rad(va))
         s = self.absorb(vm, va, np.asarray(support, int))  # non-free edge buses join the interior
         edge = self.boundary(s)
         touched = np.union1d(s, edge)
         free = self.free_injection_buses(vm, va, touched)
-        if held is None and not len(np.intersect1d(free, s)):  # a flow goal needs a free injection
-            return None
-        held_bus = np.zeros(0, int) if held is None else np.flatnonzero(held)
+        held_bus = np.flatnonzero(held)
         held_set = set(held_bus.tolist())
-        held_mva = np.zeros(len(vm), complex) if held is None else held  # read only at held_set's buses
         free = np.setdiff1d(free[free != self.slack], held_bus)
         # every New York bus there that is not free holds its true injection (zero-injection ones too),
         # and so does a dead bus outside New York (N44); any other bus outside New York carries no meter,
@@ -328,11 +280,7 @@ class Attacker:
         s_true = v * np.conj(self.ybus @ v)  # pu, generation positive, per bus
         gen_p, gen_q = s_true.real * base, s_true.imag * base  # gen output proxy at a generator bus (MW/MVAr)
         true_load = self.bus_load(vm, va)
-        lines = np.atleast_1d(np.asarray(lines, int))
-        target = np.atleast_1d(np.asarray(target_mva, float)) / base
-        v0 = v.copy()
-        if start is not None:  # warm start inside the support only; every other voltage stays true
-            v0[s] = start[0][s] * np.exp(1j * np.deg2rad(start[1][s]))
+        no_line, no_goal = np.zeros(0, int), np.zeros(0)  # the solve takes a branch-flow goal; this has none
 
         # the bounds of each free injection change (MVA, generation positive): (bus, comp) -> (lo, hi)
         bounds: dict[tuple[int, int], tuple[float, float]] = {}
@@ -351,15 +299,10 @@ class Attacker:
             else:  # load cap [YUA11]
                 # P and Q (N24): the reactive cap has a floor of 0.2 times the active load, so a load
                 # near unity power factor may still move its Q (Ben, 2026-10-27)
-                cap, cap_q = load_cap * true_load[bus], load_cap * max(abs(gen_q[bus]), 0.2 * true_load[bus])
+                cap = ABSORB_CAP * true_load[bus]
+                cap_q = ABSORB_CAP * max(abs(gen_q[bus]), 0.2 * true_load[bus])
                 p_b, q_b = (-cap, cap), (-cap_q, cap_q)
             for comp, (lo, hi) in enumerate((p_b, q_b)):
-                if step is not None:  # Ap: within the step box around the centre
-                    c = step[0][bus].real if comp == 0 else step[0][bus].imag
-                    w = (step[1] if comp == 0 else step[2])[bus]
-                    lo, hi = max(lo, c - w), min(hi, c + w)
-                    if lo > hi + 1e-9:
-                        return None
                 bounds[(bus, comp)] = (float(lo), float(hi))
 
         vlo = np.minimum(case.vmin, vm)
@@ -373,7 +316,7 @@ class Attacker:
             whole = set(rest.tolist()) | held_set
             change = np.array(
                 [
-                    held_mva[int(b)]
+                    held[int(b)]
                     if int(b) in held_set
                     else pins.get((int(b), 0), 0.0) + 1j * pins.get((int(b), 1), 0.0)
                     for b in fixed
@@ -390,13 +333,13 @@ class Attacker:
             vb = np.array(sorted(held_v), int)
             return local_flow_solve(
                 self.ybus,
-                self.yf[lines],
-                self.from_bus[lines],
-                v0,
+                self.yf[no_line],
+                self.from_bus[no_line],
+                v,
                 s,
                 fixed,
                 s_true[fixed] + change / base,
-                target,
+                no_goal,
                 iters=60,
                 vm_fixed=(vb, np.array([held_v[int(b)] for b in vb])),
                 hold=hold,
@@ -407,13 +350,6 @@ class Attacker:
             return float(ds.real if key[1] == 0 else ds.imag)
 
         pins: dict[tuple[int, int], float] = {}
-        if start is not None:  # warm-start the active set too: an injection on or past a bound at the
-            for key, (lo, hi) in bounds.items():  # carried-over state starts pinned on that side
-                m = moved(v0, key)
-                if m <= lo + 1e-3:
-                    pins[key] = lo
-                elif m >= hi - 1e-3:
-                    pins[key] = hi
         releases: dict[tuple[int, int], int] = {}
         for _ in range(4 * len(bounds) + 2 * len(s) + 2):
             vf = solve(pins)
@@ -447,10 +383,7 @@ class Attacker:
                     break
             if released:
                 continue
-            dload = np.zeros(len(vm))
-            loads = np.setdiff1d(free, np.flatnonzero(self.gen_bus))
-            dload[loads] = -(((vf * np.conj(self.ybus @ vf)) - s_true)[loads].real * base)
-            return np.abs(vf), np.degrees(np.angle(vf)), dload
+            return np.abs(vf), np.degrees(np.angle(vf))
         return None
 
     def attack_vector(

@@ -2,13 +2,13 @@
 allowed onsets, and every frame a noisy benign scan plus its attack with labels that match the meters tampered."""
 
 import json
+from dataclasses import replace
 
 import h5py
 import numpy as np
 import pytest
 
-from fdia_graph.engine.attacks.attacker import Attacker, generator_ramps, natural_steps
-from fdia_graph.engine.attacks.msfdia import MsFdia
+from fdia_graph.engine.attacks.attacker import Attacker
 from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
@@ -34,7 +34,7 @@ def _placed(n, lengths, name, allowed=None):
 
 
 def test_place_episodes_per_family_length_equal_frames():
-    lengths = {"Am": 16, "At": 16, "Ap": 96}
+    lengths = {"Am": 16, "At": 16, "long": 96}
     slots = _placed(20000, lengths, "test-place-len")
     frames = {f: sum(s.length for s in slots if s.family == f) for f in lengths}
     assert all(s.length == lengths[s.family] for s in slots)  # each family at its own window length
@@ -87,6 +87,18 @@ def test_place_episodes_only_at_allowed_onsets_and_capped():
     assert sum(s.family == "At" for s in slots) > 3  # the family that does not wait keeps its share
 
 
+class _RampAs(Ramp):
+    """A ramp written under another family's name: a second family for the builder that needs no solver."""
+
+    def __init__(self, attacker, family):
+        super().__init__(attacker)
+        self.family = family
+
+    def design(self, window, rng):
+        ep = super().design(window, rng)
+        return None if ep is None else replace(ep, family=self.family)
+
+
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
     if not (DATA.exists() and TERRITORIES.exists() and POOL.exists()):
@@ -103,15 +115,10 @@ def built(tmp_path_factory):
     meas = Measurement(net, plan)
     att = Attacker(net, meas)
     noise = NoiseModel(plan)
-    steps = natural_steps(full.time, full.p, full.solve_kind == SOLVED)  # Ap: natural steps over the year
-    steps[:, att.gen_bus] = generator_ramps(case)[att.gen_bus]  # generators by their units' ramp
-    hour = (pool.time.astype(np.int64) // 3600) % 24
-    fams = {
-        "Am": MsFdia(att, case.rating, budget=4),
-        "At": Ramp(att),  # a small search keeps the test fast
-        "Ap": MsFdia(att, case.rating, budget=4, step_bound=steps, frame_hour=hour, family="Ap"),
-    }
-    lengths = {"Am": 16, "At": 16, "Ap": 32}  # Ap's own length (96 in the build; 32 fits one day)
+    # two families of different window lengths; the release's Am (`InterfaceFdia`) is built and pinned in
+    # test_timeline_digests.py, here any second family serves
+    fams = {"Am": _RampAs(att, "Am"), "At": Ramp(att)}
+    lengths = {"Am": 32, "At": 16}
     path = tmp_path_factory.mktemp("timeline") / "timeline.h5"
     summary = TimelineBuilder(
         pool, meas, noise, att, fams, own, Settings(), length=lengths, attacked_frac=0.3, split_by="time"
@@ -141,11 +148,11 @@ def built(tmp_path_factory):
 def test_episodes_stay_inside_their_split(built):
     pool, att, noise, fams, summary, a = built
     assert len(a["episodes/onset"]) >= 2 and sum(map(sum, summary["built"])) == len(a["episodes/onset"])
-    assert set(a["episodes/family"].astype(str)) <= {"Am", "Ap", "At"}
-    assert (
-        summary["families"] == ["Am", "At", "Ap"] and sum(r[2] for r in summary["placed"]) > 0
-    )  # Ap is placed
-    lengths = {"Am": 16, "At": 16, "Ap": 32}
+    assert set(a["episodes/family"].astype(str)) <= {"Am", "At"}
+    assert summary["families"] == ["Am", "At"] and all(
+        sum(r[k] for r in summary["placed"]) > 0 for k in (0, 1)
+    )
+    lengths = {"Am": 32, "At": 16}
     for fam, length in zip(a["episodes/family"].astype(str), a["episodes/length"]):
         assert length == lengths[fam]  # each episode spans its family's window
     split = a["frames/split"]

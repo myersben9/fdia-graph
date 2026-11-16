@@ -1,4 +1,4 @@
-"""Every design that finds no attack says why (`MISSES`), so a timeline with few attacks can be read: nothing to
+"""Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to
 attack, nothing feasible, or a solver that failed (no data needed)."""
 
 from __future__ import annotations
@@ -35,14 +35,13 @@ def _family(miss: str | None, solver_errors: int, found: bool):
     ids=["found", "no-target", "infeasible", "solver-error"],
 )
 def test_design_says_why_it_found_no_attack(miss, errors, found, want):
-    from fdia_graph.engine.attacks.family import MISSES
     from fdia_graph.generation.nygrid import timeline as builder
     from fdia_graph.generation.nygrid.config import Settings
 
     builder._init({"Am": _family(miss, errors, found)}, Settings())
     _, ep, _, why = builder._design((0, "Am", 5, np.ones((1, 2)), np.zeros((1, 2))))
     assert (ep is not None) is found
-    assert why == want and (why is None or why in MISSES)
+    assert why == want
 
 
 def test_design_explained_keeps_last_miss_right_on_direct_calls():

@@ -24,7 +24,8 @@ FAMILIES = (
     "Am",
     "At",
     "Ap",
-)  # the codes 0..3 of `frames/family` (Ap appended, so Am, At keep theirs)
+)  # the codes 0..3 of `frames/family`, written to every file. Nothing builds Ap any more; its code stays so
+# files written with it still read and the attribute `family_codes` of new files is unchanged
 
 # where each per-frame array of a block goes, and its stored type
 _FRAME_ARRAYS = {

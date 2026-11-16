@@ -1,4 +1,11 @@
-"""What one attack occupies on the timeline, and the interface its two families share."""
+"""What one attack occupies on the timeline, and the interface its two families share.
+
+Why a design found no attack is a miss reason, kept in `AttackFamily.last_miss` and counted by the builder as
+`missed`:
+"no_target"    nothing to attack in the window (no interface near its limit, no load bus for a ramp);
+"infeasible"   targets existed but no support met every bound;
+"solver_error" the OPF solver stopped abnormally on a support it tried, so "infeasible" may be wrong.
+"""
 
 from __future__ import annotations
 
@@ -13,20 +20,14 @@ import numpy as np
 # onset. `L` is the window length, `N` the bus count.
 Window = tuple[int, np.ndarray, np.ndarray]
 
-# Why a design found no attack, as `AttackFamily.last_miss` and the builder's `missed` counts:
-# "no_target"    nothing to attack in the window (no line or interface near its limit, no load bus for a ramp);
-# "infeasible"   targets existed but no support met every bound;
-# "solver_error" the OPF solver stopped abnormally on a support it tried, so "infeasible" may be wrong.
-MISSES = ("no_target", "infeasible", "solver_error")
-
 
 @dataclass(frozen=True)
 class Episode:
-    """One attack over a window of `length` frames from `onset`. `family` is "Am", "Ap" or "At". `clients`
+    """One attack over a window of `length` frames from `onset`. `family` is "Am" or "At". `clients`
     are the owners of the tampered meters, one or several: the attacker's local subnetwork may span
     utilities and it tampers whatever meters its support needs (G5). `buses` are the attacked buses
-    (the pretended loads and generators, the localization label). `target_branch` is the overloaded
-    branch for Am and Ap (its first, when two are driven), -1 for At. `a [length, M]` is the attack vector
+    (the pretended loads and generators, the localization label). `target_branch` is the interface
+    branch Am's area is anchored on, -1 for At. `a [length, M]` is the attack vector
     added to each frame's benign scan, the noiseless reading of the local false state minus that of the
     true state (h(x_false) - h(x_true)) in full, so the operator's one residual test over all meters
     sees noise (global stealth). The tampered meters, those it moves beyond their noise, come from
@@ -42,11 +43,11 @@ class Episode:
 
 
 class AttackFamily(ABC):
-    """A family of attacks (Am, Ap or At). `design` draws one episode for a window of true states, or
+    """A family of attacks (Am or At). `design` draws one episode for a window of true states, or
     None when it finds no stealthy attack there (the window stays benign). The one base class of the
     attacks package: the families are composed around an `Attacker`, not stacked on mixins."""
 
-    #: why the last `design_explained` found no attack, one of `MISSES` (None after a success); inside `design` a
+    #: why the last `design_explained` found no attack, a miss reason (None after a success); inside `design` a
     #: family only leaves a hint here ("no_target" where the window has nothing to attack)
     last_miss: str | None = None
     #: solves the family's OPF stopped abnormally on (an OPF family counts them; the others never do)
@@ -57,7 +58,7 @@ class AttackFamily(ABC):
         """One episode over `window = (onset, vm, va)`, or None."""
 
     def design_explained(self, window: Window, rng: np.random.Generator) -> tuple[Episode | None, str | None]:
-        """`design`, and why it found no attack: (the episode, None) or (None, one of `MISSES`), the reason also
+        """`design`, and why it found no attack: (the episode, None) or (None, a miss reason), the reason also
         kept in `last_miss`. A solver failure during the design makes the miss "solver_error", since the support
         it failed on might have held an attack; a None the family leaves unexplained is "infeasible"."""
         self.last_miss, errors = None, self.solver_errors

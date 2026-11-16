@@ -9,9 +9,10 @@ the hour. The zone's real 5-minute load is split over its buses in proportion to
 Within the hour (N31) each bus then gets two terms of its own, so its five-minute steps are not its zone's:
 
 - Fluctuation. An AR(1) factor on the bus's load, `p (1 + e)`, with `e` of standard deviation
-  `FLUCT_C size^-FLUCT_BETA` (size the bus's mean load, MW) and lag-1 coefficient `FLUCT_PHI`. It is fitted
-  by `load_fit.fluctuation_fit` on the real zones of the held-out year (2018, the year `validate` uses, so 2019 is
-  not fitted to itself). A zone's fluctuation is its regulation component in the sense of Kirby and Hirst
+  `FLUCT_C size^-FLUCT_BETA` (size the bus's mean load, MW) and lag-1 coefficient `FLUCT_PHI`. The constants
+  were fitted on the real zones of a held-out year (2018, so 2019 is not fitted to itself) by a function
+  removed from the package after release 0.21.0, where it can still be read and run (`_fluctuation_fit` in
+  `fdia_graph/nyfed/scenario/loads.py`). A zone's fluctuation is its regulation component in the sense of Kirby and Hirst
   (ORNL/TM-2001/13): the 5-minute load less its 30-minute rolling mean of L(t-3) .. L(t+2), relative to
   that mean. Its spread is the robust (1.4826 MAD) standard deviation, so large industrial steps, modelled
   next, do not inflate it. The spread is fitted against zone mean load as `c size^-beta` across the zones;
@@ -23,8 +24,8 @@ Within the hour (N31) each bus then gets two terms of its own, so its five-minut
   0.5 independent bus terms add up to the zone's own fluctuation, so the rescaling below leaves each bus
   with its own spread and the zone with its real load.
 - Industrial switching. Zone D's real five-minute steps above 5% of its mean load (2,799 in 2019, up to
-  314 MW) are taken as large plants switching. `load_fit.switching_fit` merges same-sign steps in consecutive frames
-  into one event and models switch-off and switch-on pulses: a pulse starts at an event and ends at the
+  314 MW) are taken as large plants switching. The fit (`_switching_fit`, in release 0.21.0 beside the other)
+  merged same-sign steps in consecutive frames into one event and modelled switch-off and switch-on pulses: a pulse starts at an event and ends at the
   next event of opposite sign. Pulses arrive as a Poisson process at `SWITCH_RATE` per MW of the bus's
   mean industrial load and hour (zone D's pulses, half its events, over the model's industrial load of zone
   D). A pulse's size relative to the bus's mean industrial load is the 5% threshold plus a generalized
@@ -49,7 +50,6 @@ from scipy.stats import genpareto
 from fdia_graph.federated.utilities import Ownership
 from fdia_graph.generation.nygrid.case import ZONES, Case
 from fdia_graph.generation.nygrid.inputs import ZoneLoad, _bus_weights
-from fdia_graph.generation.nygrid.load_metrics import _METRICS, _hourly_mean, _step_distribution
 from fdia_graph.generation.nygrid.load_sources import (
     HOURS,
     QUARTERS,
@@ -67,8 +67,10 @@ POWER_FACTOR = 0.98  # NYgrid's load power factor (allocateLoad.m), so P4 still 
 POOL_COUNTIES = 5  # II-D: the five prototype locations nearest the bus
 SWAP_PAIRS = (100, 100, 50)  # II-D: hour pairs permuted per residential, commercial, industrial pick
 
-# N31 within-hour terms (module docstring). FLUCT_* by load_fit.fluctuation_fit on NYISO 2018, zone H left out;
-# SWITCH_* by load_fit.switching_fit on NYISO 2019 zone D with the model's industrial load there.
+# N31 within-hour terms (module docstring). FLUCT_* were fitted on NYISO 2018, zone H left out, and SWITCH_* on
+# NYISO 2019 zone D with the model's industrial load there. The two fitting functions were removed after release
+# 0.21.0 (there `_fluctuation_fit` and `_switching_fit` in `fdia_graph/nyfed/scenario/loads.py`); the constants
+# are their results.
 # The residual's own spread is 0.2554 size^-0.516 (R^2 0.61 over the ten zones); FLUCT_C is the AR(1)'s.
 FLUCT_C, FLUCT_BETA, FLUCT_PHI = 0.32547, 0.51590, 0.37889
 SWITCH_INDUSTRIAL_MW = 125.43  # the model's mean industrial load in zone D (its one NYSEG load bus)
@@ -276,44 +278,6 @@ class LoadModel:
         p[:, self.load_bus] = bus
         q[:, self.load_bus] = p[:, self.load_bus] * np.tan(np.arccos(POWER_FACTOR))
         return LoadSeries(time=zone_load.time, p=p, q=q)
-
-    def validate(self, held_out: ZoneLoad, series: LoadSeries) -> dict[str, np.ndarray]:
-        """Sec. IV metrics on the hourly mean of every load bus, against the band the held-out year's 11
-        real zones span: monthly load factor (IV-A), load distribution curve (IV-B), autocorrelation of the
-        differenced log load to 48 h (IV-C) and its power spectral density from 10 h to a year (IV-D).
-        Returns, for each metric, the fraction of every bus's curve inside the band [B].
-
-        Five-minute checks (N31), each [B]: `step_distribution`, the fraction of the bus's distribution of
-        five-minute steps relative to its mean load inside the band of the held-out zones' (the same rule as
-        the four above); `step_zone_corr`, the mean correlation of the bus's steps with those of the other
-        buses of its zone (NaN where the zone has one load bus); `step_zone_share`, the share of the bus's
-        step variance its zone's step explains (squared correlation of the two)."""
-        real = _hourly_mean(held_out.time, held_out.load)
-        ours = _hourly_mean(series.time, series.p[:, self.load_bus])
-        out = {}
-        for name, fn in _METRICS.items():
-            band = np.stack([fn(real[:, z]) for z in range(real.shape[1])])
-            curves = np.stack([fn(ours[:, j]) for j in range(ours.shape[1])])
-            out[name] = ((curves >= band.min(axis=0)) & (curves <= band.max(axis=0))).mean(axis=1)
-
-        band = np.stack([_step_distribution(held_out.load[:, z]) for z in range(held_out.load.shape[1])])
-        p = series.p[:, self.load_bus]
-        curves = np.stack([_step_distribution(p[:, j]) for j in range(p.shape[1])])
-        out["step_distribution"] = ((curves >= band.min(axis=0)) & (curves <= band.max(axis=0))).mean(axis=1)
-        steps = np.diff(p, axis=0)
-        ok = np.isfinite(steps).all(axis=1)
-        steps = steps[ok]
-        zone_steps = np.zeros((len(steps), len(ZONES)))
-        np.add.at(zone_steps.T, self.zone_of, steps.T)
-        corr = np.corrcoef(steps.T)
-        out["step_zone_corr"] = np.full(p.shape[1], np.nan)
-        out["step_zone_share"] = np.zeros(p.shape[1])
-        for j in range(p.shape[1]):
-            mates = np.flatnonzero((self.zone_of == self.zone_of[j]) & (np.arange(p.shape[1]) != j))
-            if len(mates):
-                out["step_zone_corr"][j] = corr[j, mates].mean()
-            out["step_zone_share"][j] = np.corrcoef(steps[:, j], zone_steps[:, self.zone_of[j]])[0, 1] ** 2
-        return out
 
 
 def _hourly_peak(x: np.ndarray) -> float:

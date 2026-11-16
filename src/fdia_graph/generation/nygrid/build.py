@@ -20,13 +20,11 @@ from fdia_graph.engine.attacks.attacker import (
     natural_steps,
 )
 from fdia_graph.engine.attacks.interface import InterfaceFdia
-from fdia_graph.engine.attacks.msfdia import NEAR_LIMIT
-from fdia_graph.engine.attacks.opf import OpfFdia
 from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
 from fdia_graph.engine.sensing.noise import NoiseModel
-from fdia_graph.errors import DataConditionError
+from fdia_graph.errors import ConfigError, DataConditionError
 from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.case import nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
@@ -42,7 +40,9 @@ NYGRID_ZIP = f"https://codeload.github.com/AndersonEnergyLab-Cornell/NYgrid/zip/
 TERRITORIES = "https://data.ny.gov/api/geospatial/awza-4vgu?method=export&format=GeoJSON"  # NYS DPS
 GEOJSON = "nys_electric_territories.geojson"
 LOCATIONS = "ny_bus_locations.csv"  # each NY bus located on the territories (N12), shipped with the package
-RISE = {"Am": 16, "Ap": 96}  # rise scans per family; each window adds as many exit scans (N37)
+AM, AT = "Am", "At"
+BUILT_FAMILIES = (AM, AT)  # the families `production_builder` builds
+AM_RISE = 16  # Am's rise scans; its window adds as many exit scans (N37)
 AT_LENGTH = 16  # the slow ramp's window (scans)
 ATTACKED_FRAC = 0.2
 
@@ -80,7 +80,7 @@ def fetch_inputs(root: str | Path) -> Path:
 
 def production_builder(
     pool_path: str | Path,
-    families: tuple[str, ...] = ("Am", "At"),
+    families: tuple[str, ...] = BUILT_FAMILIES,
     *,
     interfaces: tuple[str, ...] = ("SPR/DUN-SOUTH",),
     workers: int = 12,
@@ -95,15 +95,23 @@ def production_builder(
     band: float = BASEPOINT_BAND,
 ) -> TimelineBuilder:
     """The `TimelineBuilder` of the release: the case, clients, meters and the pool at `pool_path`
-    (relative to `root`, whose `data/` holds `fetch_inputs`'s files), with the `families` named. Am targets
-    the NYISO `interfaces` (N48, N49; empty targets the branch ratings instead), Ap is bounded by each bus's
-    natural five-minute step, and both come from the OPF attacker with the units' output (N42). `survey`
+    (relative to `root`, whose `data/` holds `fetch_inputs`'s files), with the `families` named, each one of
+    `BUILT_FAMILIES`: Am targets the NYISO `interfaces` (N48, N49, at least one) from the OPF attacker with the
+    units' output (N42), At is the slow ramp. Another family, or Am with no interface, is a `ConfigError`. `survey`
     is the onset survey's grid in frames (0 off), saved by chunk under `survey_cache` when given. The
     sensitivities of the attacker: `v_margin` (p.u.) widens the voltage limits it must respect (N71, its own copy
     of the case; the timeline keeps the true limits), `gen_v_tol` (p.u.) holds each generator bus's false
     voltage that close to its schedule (N75, the OPF attacks), `load_cap` replaces the OPF attacks' cap on a
     pretended load change (None keeps 0.1, N28) and `band` the share of the upper limit in the basepoint band
     (`generator_band`, 0.03, N33)."""
+    unknown = [f for f in families if f not in BUILT_FAMILIES]
+    if unknown:
+        raise ConfigError(
+            f"production_builder builds the families {', '.join(BUILT_FAMILIES)}; it does not build "
+            f"{', '.join(map(str, unknown))}"
+        )
+    if AM in families and not interfaces:
+        raise ConfigError("Am attacks a NYISO interface: name at least one in `interfaces`")
     root = Path(root)
     nygrid = root / settings.nygrid_dir / "Data"
     terr = root / "data" / "territories"
@@ -117,7 +125,7 @@ def production_builder(
     meas = Measurement(net, plan)
     att_net = Network(case.with_voltage_margin(v_margin)) if v_margin else net  # N71: the attacker's limits
     att = Attacker(att_net, meas, hold_external=hold_external)  # N62: True keeps the interchange true
-    # Ap: each bus's natural five-minute step by hour over the whole pool (what the attacker knows),
+    # Am's exit: each bus's natural five-minute step by hour over the whole pool (what the attacker knows),
     # generator buses bounded by their units' five-minute ramp (nuclear 0, hydro and imports inf)
     steps = natural_steps(pool.time, pool.p, pool.solve_kind == SOLVED)
     steps[:, att.gen_bus] = generator_ramps(case)[att.gen_bus]
@@ -136,7 +144,6 @@ def production_builder(
         q_hi=q_hi,
         step_bound=steps,
         frame_hour=hour,
-        wait_share=NEAR_LIMIT,
         gen_output=gen_output,
         loads_only=False,
         gen_v_tol=gen_v_tol,
@@ -144,19 +151,13 @@ def production_builder(
     if load_cap is not None:  # otherwise the families keep their own cap (N28)
         opf["load_cap"] = load_cap
 
-    def am():
-        if interfaces:
-            ifs = hourly_interfaces(case, pool.time, nygrid, list(interfaces))
-            return InterfaceFdia(att, ifs, bound_rise=False, exit_scans=RISE["Am"], **opf)
-        return OpfFdia(att, case.rating, bound_rise=False, exit_scans=RISE["Am"], family="Am", **opf)
+    def am() -> InterfaceFdia:
+        ifs = hourly_interfaces(case, pool.time, nygrid, list(interfaces))
+        return InterfaceFdia(att, ifs, exit_scans=AM_RISE, **opf)
 
-    every = {
-        "Am": am,
-        "Ap": lambda: OpfFdia(att, case.rating, bound_rise=True, exit_scans=RISE["Ap"], family="Ap", **opf),
-        "At": lambda: Ramp(att),
-    }
+    every = {AM: am, AT: lambda: Ramp(att)}
     fams = {f: every[f]() for f in families}
-    length = {"Am": 2 * RISE["Am"], "Ap": 2 * RISE["Ap"], "At": AT_LENGTH}
+    length = {AM: 2 * AM_RISE, AT: AT_LENGTH}
     return TimelineBuilder(
         pool,
         meas,
