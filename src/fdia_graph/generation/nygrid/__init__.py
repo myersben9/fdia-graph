@@ -33,7 +33,6 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
         read_pool,
         write_pool,
     )
-    from fdia_graph.generation.nygrid.load_fit import fluctuation_fit, switching_fit
     from fdia_graph.generation.nygrid.loads import LoadModel, LoadSeries
     from fdia_graph.generation.nygrid.network import Network
     from fdia_graph.generation.nygrid.pool import (
@@ -45,8 +44,7 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
         PoolBuilder,
         peak_ratings,
     )
-    from fdia_graph.generation.nygrid.ratings import line_ratings
-    from fdia_graph.generation.nygrid.solver import AcSolver, Compensation, unit_q_limits
+    from fdia_graph.generation.nygrid.solver import AcSolver, Compensation
     from fdia_graph.generation.nygrid.timeline import TimelineBuilder
     from fdia_graph.operator.day import operator_day
     from fdia_graph.operator.run import respond
@@ -83,12 +81,10 @@ _PUBLIC = {
     "externals_at_base": "fdia_graph.generation.nygrid.fixes",
     "fetch_inputs": "fdia_graph.generation.nygrid.build",
     "fetch_nyiso": "fdia_graph.generation.nygrid.inputs",
-    "fluctuation_fit": "fdia_graph.generation.nygrid.load_fit",
     "hourly_dispatch": "fdia_graph.generation.nygrid.dispatch",
     "hourly_interfaces": "fdia_graph.generation.nygrid.interfaces",
     "hvdc_links": "fdia_graph.generation.nygrid.fixes",
     "ipopt": "fdia_graph.engine.solvers",
-    "line_ratings": "fdia_graph.generation.nygrid.ratings",
     "nygrid_case": "fdia_graph.generation.nygrid.case",
     "open_timeline": "fdia_graph.generation.nygrid.io",
     "operator_day": "fdia_graph.operator.day",
@@ -99,8 +95,6 @@ _PUBLIC = {
     "respond": "fdia_graph.operator.run",
     "rng": "fdia_graph.generation.nygrid.config",
     "summarize": "fdia_graph.operator.summary",
-    "switching_fit": "fdia_graph.generation.nygrid.load_fit",
-    "unit_q_limits": "fdia_graph.generation.nygrid.solver",
     "write_pool": "fdia_graph.generation.nygrid.io",
 }
 
@@ -134,12 +128,10 @@ __all__ = [
     "externals_at_base",
     "fetch_inputs",
     "fetch_nyiso",
-    "fluctuation_fit",
     "hourly_dispatch",
     "hourly_interfaces",
     "hvdc_links",
     "ipopt",
-    "line_ratings",
     "nygrid_case",
     "open_timeline",
     "operator_day",
@@ -150,8 +142,6 @@ __all__ = [
     "respond",
     "rng",
     "summarize",
-    "switching_fit",
-    "unit_q_limits",
     "write_pool",
 ]
 

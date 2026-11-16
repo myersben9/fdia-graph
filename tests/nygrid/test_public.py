@@ -27,6 +27,21 @@ def test_every_public_name_resolves(pkg):
     assert set(m.__all__) <= set(dir(m))
 
 
+@pytest.mark.parametrize(
+    ("families", "interfaces", "says"),
+    [(("Am", "Ap"), ("SPR/DUN-SOUTH",), "Am, At"), (("Am",), (), "interface")],
+    ids=["a family nothing builds", "Am with no interface"],
+)
+def test_the_release_builder_refuses_what_it_does_not_build(families, interfaces, says):
+    """Before it reads a file: a family other than Am and At, or Am with no interface to attack."""
+    pytest.importorskip("pandapower")
+    from fdia_graph.errors import ConfigError
+    from fdia_graph.generation.nygrid.build import production_builder
+
+    with pytest.raises(ConfigError, match=says):
+        production_builder("no_pool.h5", families, interfaces=interfaces)
+
+
 def test_reading_a_dataset_needs_neither_pandapower_nor_pyomo():
     """Runs without the [ny] extra too: there above all, reading a dataset must not need it."""
     pytest.importorskip("h5py")  # the dataset reader's own dependency

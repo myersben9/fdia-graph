@@ -319,8 +319,8 @@ The generator is `FdiaGenerator` in `engine/core.py`, composed of mixins over th
 
 The New York grid's attacks are separate classes on the New York network: `engine/attacks/attacker.py`
 (`Attacker`), `engine/attacks/family.py` (what an attack occupies on the timeline), `engine/attacks/ramp.py`
-(`Ramp`), `engine/attacks/msfdia.py` (`MsFdia`), `engine/attacks/opf.py` and `engine/attacks/interface.py`
-(the overload with false states from a local optimal power flow, and on an interface); they are described in
+(`Ramp`), `engine/attacks/opf.py` and `engine/attacks/interface.py`
+(the overload of an interface, with false states from a local optimal power flow); they are described in
 [`../concepts/new_york_grid.md`](../concepts/new_york_grid.md).
 
 ## 7. Building your own

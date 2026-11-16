@@ -5,6 +5,28 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **New York code that nothing built is removed (breaking for New York imports).** The release builds Am against
+  a NYISO interface (`InterfaceFdia`) and At (`Ramp`). The code below was reached by no pipeline, example, tool or
+  doc, only by its own tests. It is removed with no alias. Release 0.21.0 still holds it, under
+  `fdia_graph.nyfed` (`attacks/msfdia.py`, `grid/ratings.py`, the fits and `validate` in `scenario/loads.py`);
+  `unit_q_limits` was never released. No generated file changes: the pinned New York timeline and episodes are
+  the same, byte for byte.
+  - The line-target Am and the Ap family: `engine/attacks/msfdia.py` (`MsFdia`, `NEAR_LIMIT`) is gone, and
+    `OpfFdia` no longer attacks a line. `OpfFdia` is now the base class of the OPF attacks (the support search
+    and the per-scan OPF) and `InterfaceFdia` is its one subclass. Its arguments `ratings`, `n_lines`, `tries`,
+    `target_order`, `kappa`, `reactive_step`, `bound_rise` and `wait_share` are gone; the step bound now holds
+    over the exit only, as the release always built it.
+  - `Attacker.false_flow_state` is removed. `Attacker.false_state` (the ramp's solve) gives the same states.
+  - `production_builder` builds `"Am"` and `"At"`. Asking it for `"Ap"` or any other family, or for Am with
+    `interfaces=()`, raises a `ConfigError` that names the families it builds; before, `"Ap"` built a
+    line-target attack and an empty `interfaces` built Am against branch ratings. The family code 3 (`Ap`) stays
+    in `frames/family_codes`, so files written with it still read.
+  - `MISSES` is removed from `engine/attacks/family.py`; the three miss reasons (`"no_target"`, `"infeasible"`,
+    `"solver_error"`) are unchanged and listed in the module's docstring.
+  - `generation/nygrid/load_fit.py` (`fluctuation_fit`, `switching_fit`), `generation/nygrid/load_metrics.py`
+    with `LoadModel.validate`, `generation/nygrid/ratings.py` (`line_ratings`) and `unit_q_limits` are removed.
+    The load constants the fits produced stay in `loads.py`, and the tie ratings stay in the case file.
+
 - **The New York grid is one MATPOWER case file (breaking for New York imports).** The grid every New York pool
   and timeline is built on is `src/fdia_graph/generation/nygrid/case_nygrid.m`, shipped with the package, in place
   of code that assembled it from NYgrid's `npcc.mat` each time. A change to the grid is now an edit to that file.

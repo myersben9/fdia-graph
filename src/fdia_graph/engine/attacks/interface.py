@@ -1,5 +1,6 @@
-"""The overload attack on a NYISO interface (N48, N49, ours): Am with OpfFdia's false states and every one of
-its bounds, the goal moved from one branch's rating to the flow across an interface.
+"""Am, the overload attack on a NYISO interface (N48, N49, ours): over a window of scans the reported flow
+across an interface rises to its limit, each scan the reading of one AC false state from `OpfFdia`'s local OPF
+under every one of its bounds, so the operator's residual test stays quiet.
 
 Goal (N49). The attacker strikes an interface that is already close to its limit and closes the last gap
 in above-noise steps over the rise. The model's interface flows differ from the real 2019 ones (N48), so
@@ -59,10 +60,10 @@ class InterfaceFdia(OpfFdia):
     index), with OpfFdia's bounds and settings; `near` the real loading an onset needs (N48, 0.9).
     `windows_solved` (6) caps the statically feasible supports per anchor that get the full window.
 
-    What it replaces in `OpfFdia`: `design` (the targets are the interfaces loaded at the window's last rise scan,
-    `_loaded`, not lines), the goal (the interface's summed flow rising by the hour's real headroom, plus
-    `overshoot`, `_prepare_interface`), and the OPF's goal constraint and objective (`_model`, `_set_scan`). The
-    branch ratings `OpfFdia` takes are not used, so it passes zeros. `with_overshoot` gives a variant as a copy."""
+    What it adds to `OpfFdia`: `design` (the targets are the interfaces loaded at the window's last rise scan,
+    `_loaded`), the goal (the interface's summed flow rising by the hour's real headroom, plus `overshoot`,
+    `_prepare_interface`), and the OPF's goal constraint and objective (`_model`, `_set_scan`).
+    `with_overshoot` gives a variant as a copy."""
 
     def __init__(
         self,
@@ -74,10 +75,7 @@ class InterfaceFdia(OpfFdia):
         overshoot: float = 0.0,
         **kwargs,
     ):
-        kwargs.setdefault("family", "Am")
-        super().__init__(
-            attacker, np.zeros(len(attacker.net.case.f)), windows_solved=windows_solved, **kwargs
-        )
+        super().__init__(attacker, windows_solved=windows_solved, **kwargs)
         self.interfaces, self.near, self.overshoot = interfaces, near, overshoot
         self._yt = attacker.net.yt.toarray()
         self._meter_obj = True
@@ -225,8 +223,6 @@ class InterfaceFdia(OpfFdia):
             load=att.bus_load(vm, va),
             sig=att.sigma(h_true),
             hours=hours,
-            targets=np.zeros(0, int),  # the goal is the interface's flow, not a branch's
-            goal=np.zeros((L, 0)),
             rise=rise,
             gen=gen,
             inner=it.branches[inner],
@@ -241,8 +237,8 @@ class InterfaceFdia(OpfFdia):
 
     # ------------------------------------------------------------------ the OPF on one support
     def _model(self, w: _IfaceWindow, support: np.ndarray):
-        """OpfFdia's model with no branch goal (w.targets is empty), plus the interface goal and, with
-        `_meter_obj`, the flow and voltage meter terms of the objective."""
+        """OpfFdia's model plus the interface goal and, with `_meter_obj`, the flow and voltage meter terms of
+        the objective."""
         import pyomo.environ as pe
 
         ctx = super()._model(w, support)

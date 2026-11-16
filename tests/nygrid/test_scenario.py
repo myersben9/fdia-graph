@@ -160,16 +160,14 @@ def test_pool(case, hours, tmp_path):
     assert np.array_equal(back.vm, pool.vm, equal_nan=True) and np.array_equal(back.p, pool.p, equal_nan=True)
     assert np.array_equal(back.unit_p, pool.unit_p, equal_nan=True)
 
-    # N8: public ratings stay, every other branch gets its peak flow over the solved frames (N47).
+    # N8: the case file's ratings stay, every other branch gets its peak flow over the solved frames (N47).
     from fdia_graph.generation.nygrid.pool import peak_ratings
-    from fdia_graph.generation.nygrid.ratings import line_ratings
 
-    rated = line_ratings(case)
-    filled = peak_ratings(rated, pool)
+    filled = peak_ratings(case, pool)
     pf, qf, pt, qt = solver.network.flows(pool.vm[:3], pool.va[:3])
     peak = np.maximum(np.hypot(pf, qf), np.hypot(pt, qt)).max(axis=0)
-    public = rated.rating > 0
-    assert np.array_equal(filled.rating[public], rated.rating[public])
+    public = case.rating > 0
+    assert public.any() and np.array_equal(filled.rating[public], case.rating[public])
     assert np.allclose(filled.rating[~public], peak[~public])
 
 
@@ -179,14 +177,14 @@ def test_pool_compensation(case, hours):
     solver has no bank at all."""
     from fdia_graph.generation.nygrid.loads import LoadSeries
     from fdia_graph.generation.nygrid.pool import SOLVED, PoolBuilder
-    from fdia_graph.generation.nygrid.solver import AcSolver, Compensation, unit_q_limits
+    from fdia_graph.generation.nygrid.solver import AcSolver, Compensation
 
-    q_lo, q_hi = unit_q_limits(case)
-    loose = np.abs(case.qmax) >= 9999
+    # the units NYgrid leaves at its placeholder of plus or minus 9999 MVAr get the power-factor limits on Pmax
+    loose = (np.abs(case.qmax) >= 9999) | (np.abs(case.qmin) >= 9999)
     assert loose.any() and (~loose).any()
-    assert np.allclose(q_hi[loose], np.tan(np.arccos(0.85)) * np.abs(case.pmax[loose]))
-    assert np.allclose(q_lo[loose], -np.tan(np.arccos(0.95)) * np.abs(case.pmax[loose]))
-    assert np.array_equal(q_hi[~loose], case.qmax[~loose]) and np.array_equal(q_lo[~loose], case.qmin[~loose])
+    pmax = np.abs(np.asarray(case.pmax, float))
+    q_hi = np.where(loose, np.tan(np.arccos(0.85)) * pmax, case.qmax).astype(float)
+    q_lo = np.where(loose, -np.tan(np.arccos(0.95)) * pmax, case.qmin).astype(float)
 
     n = len(case.bus_id)
     ny = case.is_ny
@@ -278,28 +276,3 @@ def test_load_profiles(case):
         f"within-zone five-minute step correlation: median {np.median(within):.3f}, max {np.max(within):.3f}"
     )
     assert np.median(within) < 0.9
-
-
-def test_within_hour_calibration():
-    """The N31 constants are what the fits give on the real data: the fluctuation on NYISO 2018 (zone H
-    left out), the switching on zone D of 2019 with the model's industrial load there."""
-    from fdia_graph.generation.nygrid import load_fit, loads
-    from fdia_graph.generation.nygrid.inputs import fetch_nyiso
-
-    fit = load_fit.fluctuation_fit(fetch_nyiso(2018, ROOT / "data" / "nyiso"))
-    print({k: fit[k] for k in ("c", "beta", "phi", "c_residual", "r2")})
-    assert np.isclose(fit["c"], loads.FLUCT_C, rtol=1e-3) and np.isclose(
-        fit["beta"], loads.FLUCT_BETA, rtol=1e-3
-    )
-    assert np.isclose(fit["phi"], loads.FLUCT_PHI, atol=1e-3)
-    sw = load_fit.switching_fit(fetch_nyiso(2019, ROOT / "data" / "nyiso"), loads.SWITCH_INDUSTRIAL_MW)
-    print(
-        {
-            k: sw[k]
-            for k in ("rate", "u", "xi", "scale", "max", "dur_mu", "dur_sigma", "off", "steps", "max_mw")
-        }
-    )
-    assert sw["steps"] == 2799 and round(sw["max_mw"]) == 314
-    assert np.isclose(sw["rate"], loads.SWITCH_RATE, rtol=1e-3) and np.isclose(
-        sw["xi"], loads.SWITCH_XI, atol=1e-3
-    )

@@ -1,5 +1,5 @@
 """The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the
-recipe that made it from NYgrid, the two case variants, the utility of each bus and the branch ratings."""
+recipe that made it from NYgrid, the two case variants and the utility of each bus."""
 
 import dataclasses
 import importlib.util
@@ -14,7 +14,6 @@ from fdia_graph.federated.utilities import assign_clients
 from fdia_graph.generation.nygrid.case import CASE_FILE, HQ_BUS, PQ, PV, REF, Case, nygrid_case
 from fdia_graph.generation.nygrid.fixes import externals_at_base, hvdc_links
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.generation.nygrid.ratings import line_ratings
 
 from .inputs import DATA, TERRITORIES, needs_data, needs_territories
 from .test_case_file import differing
@@ -211,15 +210,3 @@ def test_assign_clients(nygrid):
     assert (own.tie_lines == (own.bus_client[nygrid.f] != own.bus_client[nygrid.t])).all()
     ny_ties = own.tie_lines & nygrid.is_ny[nygrid.f] & nygrid.is_ny[nygrid.t]
     assert ny_ties.any()
-
-
-def test_line_ratings(nygrid):
-    case = line_ratings(nygrid)
-    ends = list(zip(case.bus_id[case.f].tolist(), case.bus_id[case.t].tolist()))
-    rated = {e: float(r) for e, r in zip(ends, case.rating) if r > 0}
-    print(f"{len(rated)} of {len(ends)} branches rated: {rated}")
-    # the ten tie ratings of modifyMPC.m and the two single-branch interfaces with a fixed limit
-    assert len(rated) == 12
-    assert rated[(37, 39)] == 5400 and rated[(74, 78)] == 8450 and rated[(75, 124)] == 2000
-    assert (38, 77) not in rated and (47, 43) not in rated  # hourly E-G limit, restored line: no rating
-    assert (line_ratings(hvdc_links(nygrid)).rating > 0).sum() == 11  # 81-125 goes with the HVDC links

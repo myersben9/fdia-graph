@@ -65,8 +65,8 @@ def _init(families: dict[str, AttackFamily], settings: Settings) -> None:
 def _design(
     task: tuple[int, str, int, np.ndarray, np.ndarray],
 ) -> tuple[int, Episode | None, float, str | None]:
-    """One episode design in a worker: (slot index, the episode or None, seconds, why there is none: one of
-    `MISSES`, None with an episode)."""
+    """One episode design in a worker: (slot index, the episode or None, seconds, why there is none:
+    a miss reason of `engine.attacks.family`, None with an episode)."""
     i, family, onset, vm, va = task
     start = time.perf_counter()
     ep, miss = _WORKER["families"][family].design_explained(
@@ -77,9 +77,9 @@ def _design(
 
 class TimelineBuilder:
     """Holds the pool, the `Measurement`, the `NoiseModel`, the `Attacker` and the families (by name,
-    "Am", "Ap" and "At"), with the `Ownership` and the `Settings` whose seed keys every draw. Settings of the
+    "Am" and "At"), with the `Ownership` and the `Settings` whose seed keys every draw. Settings of the
     timeline: `length` frames per episode, one number for every family or `{family: frames}` (16
-    five-minute scans as [1] for Am and At, 96 for Ap, Ben 2026-10-27), `attacked_frac` the share of
+    five-minute scans as [1] by default), `attacked_frac` the share of
     each split's frames placed under an episode, `split_frac` the train, val and test shares of the
     year, `split_by` "week" (whole weeks stratified on the loaded frames, N41) or "time" (three
     contiguous blocks, before N41), `workers` processes for the designs (1 runs them here), `block`
@@ -243,7 +243,7 @@ class TimelineBuilder:
     ) -> tuple[list[Episode | None], list[float], int, list[str | None]]:
         """The episode of each slot, None where its window touches an unsolved frame or the family finds
         no attack; the design seconds; the count of slots skipped for unsolved frames; and why each designed
-        slot has no attack (one of `MISSES`, None with an attack or when skipped)."""
+        slot has no attack (a miss reason, None with an attack or when skipped)."""
         pool, solved = self.pool, self.pool.solve_kind == SOLVED
         tasks, skipped = [], 0
         for i, s in enumerate(slots):
@@ -434,13 +434,13 @@ class TimelineBuilder:
             "placed": placed.tolist(),
             "built": built.tolist(),
             "skipped_unsolved": skipped,
-            # why the placed slots of each family that were designed found no attack (`MISSES`)
+            # why the placed slots of each family that were designed found no attack
             "missed": {
                 f: dict(Counter(m for s, m in zip(slots, misses) if s.family == f and m is not None))
                 for f in fams
             },
             "survey": surveyed,
-            "survey_missed": survey_missed,  # why the surveyed onsets without an attack have none (`MISSES`)
+            "survey_missed": survey_missed,  # why the surveyed onsets without an attack have none
             "attacked_frames": int(sum(ep.length for ep in episodes)),
             "design_seconds": round(float(sum(secs)), 1),
             "design_seconds_median": {
