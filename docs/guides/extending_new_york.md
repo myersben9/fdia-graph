@@ -45,6 +45,8 @@ consequence as attacked less benign, so an operator only has to produce both run
 - The golden snapshots (`tests/nygrid/test_golden.py`) pin what the operator, the detection tools and the
   interface attack return on fixed inputs. A change that should not move a number must pass them unchanged; one
   that should must rewrite them (`NYGRID_UPDATE_GOLDEN=1`) and say in the pull request which numbers moved and why.
+- The timeline digests (`tests/nygrid/test_timeline_digests.py`) pin every dataset and attribute of a built
+  timeline and of two episodes the same way; they are rewritten with `FDIA_UPDATE_DIGESTS=1`.
 - A setting is an argument; never change a library object's settings or a shared record's arrays after it is built.
 - Raise the named errors of `fdia_graph.errors`: `ConfigError` for a wrong argument, a `DataConditionError` for data
   that does not meet a condition, `SolverUnavailable` for an environment that cannot run the solver.

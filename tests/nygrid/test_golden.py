@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import os
-import platform
 from dataclasses import fields
 from pathlib import Path
 
@@ -22,6 +21,7 @@ import pytest
 
 from fdia_graph.se.detect.rules import PersistenceRule
 
+from ..digests import recorded_on
 from .inputs import (
     DAMAGE_DAYS,
     DATA,
@@ -86,20 +86,15 @@ def _same(got, want, path: str = "", rtol: float = 1e-9, atol: float = 1e-9) -> 
         assert got == want, f"{path}: {got!r} != {want!r}"
 
 
-def machine() -> str:
-    """The machine a solver snapshot repeats on: platform, Python and numpy."""
-    return f"{platform.platform()} | python {platform.python_version()} | numpy {np.__version__}"
-
-
 def solver_tolerance() -> tuple[float, float]:
     """(rtol, atol) for the operator snapshots: `SOLVER` on the machine that recorded them, `ELSEWHERE` on any
     other; a rewrite (NYGRID_UPDATE_GOLDEN=1) records this machine."""
     path = GOLDEN / f"{RECORDED_ON}.json"
     if UPDATE:
         GOLDEN.mkdir(exist_ok=True)
-        path.write_text(json.dumps({"machine": machine()}, indent=1) + "\n")
+        path.write_text(json.dumps({"machine": recorded_on()}, indent=1) + "\n")
         return SOLVER
-    return SOLVER if path.exists() and json.loads(path.read_text())["machine"] == machine() else ELSEWHERE
+    return SOLVER if path.exists() and json.loads(path.read_text())["machine"] == recorded_on() else ELSEWHERE
 
 
 def check(name: str, got: dict, rtol: float = 1e-9, atol: float = 1e-9) -> None:
