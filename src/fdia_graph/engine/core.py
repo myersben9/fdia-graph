@@ -118,8 +118,8 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         """Which buses carry load, which of those can be attacked, which inject nothing, and the
         generator MW co-located with each load.
 
-        load_bus is the bus of EVERY load element, aligned 1:1 with net.load so the re-solve and the
-        PTDF-over-load arrays stay the same length. ATTACKABLE = load_bus positions with real ACTIVE
+        load_bus is the bus of EVERY load element, aligned 1:1 with net.load so the re-solve's
+        arrays stay the same length. ATTACKABLE = load_bus positions with real ACTIVE
         load (|p_mw| > 0) and at most `max_load_mw`: reactive-only loads (e.g. IEEE-300 buses 141,
         183) and area-equivalent loads stay in the physics table but are excluded from target
         selection and the LRA candidate set, since attacking a reactive-only load leaves no P

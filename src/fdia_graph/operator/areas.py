@@ -29,11 +29,10 @@ from fdia_graph.engine.sensing.meters import KINDS
 from fdia_graph.generation.nygrid.case import REF
 from fdia_graph.generation.nygrid.inputs import ZONES
 from fdia_graph.generation.nygrid.network import Network
-from fdia_graph.operator.acsced import ac_shift
+from fdia_graph.operator.acsced import FRAME_HOURS, ac_shift
 from fdia_graph.operator.day import OperatorDay, node_lbmp
 from fdia_graph.operator.policy import entry_share
 from fdia_graph.operator.run import Response
-from fdia_graph.operator.sced import FRAME_HOURS, shift_factors
 
 __all__ = ["FEEDS", "NEIGHBORS", "PROXY", "area_damage", "attack_surface", "neighbor_prices", "zone_levers"]
 
@@ -97,19 +96,12 @@ def _exposure(zones: set[str], moves: dict[str, tuple[float, float]]) -> dict:
 
 def _payments(r: Response, day: OperatorDay) -> np.ndarray:
     """`[T, N]` what each bus's true load pays more ($ per scan) at the prices the false reading moves, as a market
-    prices them: the energy price at the reference bus plus, for each interface, minus its shadow price times the
-    bus's shift factor on it, attacked less benign (each run's `price`, which around the AC point also weighs the
-    energy price by the bus's delivery factor). Zero under the least-movement dispatch, which reports no prices."""
+    prices them: each bus's AC price, attacked less benign (each run's `price`). Zero under the least-movement
+    dispatch, which reports no prices."""
     a, b = r.attacked, r.benign
-    if a.price is not None and b.price is not None:
-        return np.nan_to_num(a.price - b.price) * _bus_load(day) * FRAME_HOURS
-    if a.congestion is None or b.congestion is None or a.energy is None or b.energy is None:
+    if a.price is None or b.price is None:
         return np.zeros((len(day.time), len(day.case.bus_id)))
-    ptdf = shift_factors(day.case)
-    sf = np.array([it.signs @ ptdf[it.branches] for it in day.interfaces])  # [I, N]
-    dmu = np.nan_to_num(a.congestion) - np.nan_to_num(b.congestion)  # [T, I] $/MWh per MW
-    dlam = np.nan_to_num(a.energy) - np.nan_to_num(b.energy)  # [T] $/MWh
-    return (dlam[:, None] - dmu @ sf) * _bus_load(day) * FRAME_HOURS
+    return np.nan_to_num(a.price - b.price) * _bus_load(day) * FRAME_HOURS
 
 
 def _ny_rows(r: Response, day: OperatorDay) -> list[dict]:
@@ -241,10 +233,10 @@ def attack_surface(day: OperatorDay) -> list[dict]:
     return rows
 
 
-def zone_levers(day: OperatorDay, tau: float = 0.1, band: float = 0.03, ac: bool = False) -> list[dict]:
+def zone_levers(day: OperatorDay, tau: float = 0.1, band: float = 0.03) -> list[dict]:
     """What each New York zone could give an attacker at the last rise scan: for each interface, the most its
-    buses alone could move the interface's flow in the DC model (MW), or with `ac` by the AC sensitivities at that
-    scan's true state (`ac_shift`), every load within `tau` of itself and every unit within `band` of its upper limit,
+    buses alone could move the interface's flow (MW) by the AC sensitivities at that scan's true state
+    (`ac_shift`), every load within `tau` of itself and every unit within `band` of its upper limit,
     as the attack's bounds allow. A zone's lever ignores the balance the rest of the grid must keep, so it is an upper
     bound on its share of a push, not a push."""
     c = day.case
@@ -255,11 +247,7 @@ def zone_levers(day: OperatorDay, tau: float = 0.1, band: float = 0.03, ac: bool
     room = tau * load + band * pmax  # MW each bus may move
     room[(c.bus_type == REF) | ~c.is_ny] = 0.0
     bus_zone = c.zone.astype(str)
-    if ac:
-        shift = ac_shift(c, day.vm[t], day.va[t], day.interfaces)
-    else:
-        ptdf = shift_factors(c)
-        shift = np.array([it.signs @ ptdf[it.branches] for it in day.interfaces])
+    shift = ac_shift(c, day.vm[t], day.va[t], day.interfaces)
     rows = []
     for i, it in enumerate(day.interfaces):
         sf = np.abs(shift[i])  # [N] interface MW per MW at each bus

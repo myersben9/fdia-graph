@@ -239,6 +239,39 @@ def ac_jacobian(
     return np.concatenate(rows, axis=0)
 
 
+def flow_sensitivities(
+    V: np.ndarray, Ybus: Admittance, Yf: Admittance, from_bus: np.ndarray, slack: int
+) -> np.ndarray:
+    """Each branch's from-end active flow change per unit of active power injected at each bus and taken at the
+    slack, at the AC state `V`: the power flow Jacobian, transposed, solved against each flow's gradient, with
+    MATPOWER's complex derivatives [MP19, dSbus_dV and dSbr_dV] as in `ac_jacobian`. Every bus but the slack
+    holds its active and reactive injection (ours: no bus is modelled as holding its voltage).
+
+    V        : [N] complex bus voltages, in the bus order of `Ybus`
+    Ybus     : [N, N] nodal admittance; Yf : [E, N] from-end branch admittance (dense or scipy sparse)
+    from_bus : [E] the from bus of every branch, indexing V
+    slack    : the reference bus, whose column is zero
+    returns  : [E, N] dimensionless (MW of flow per MW injected)
+    """
+    Y, F = _dense(Ybus), _dense(Yf)
+    n, e = len(V), len(from_bus)
+    unit = V / np.abs(V)
+    I, If = Y @ V, F @ V
+    Cf = np.zeros((e, n))
+    Cf[np.arange(e), from_bus] = 1.0
+    dS_dth = 1j * np.diag(V) @ np.conj(np.diag(I) - Y @ np.diag(V))
+    dS_dvm = np.diag(V) @ np.conj(Y @ np.diag(unit)) + np.conj(np.diag(I)) @ np.diag(unit)
+    dSf_dth = 1j * (np.conj(np.diag(If)) @ Cf @ np.diag(V) - np.diag(V[from_bus]) @ np.conj(F @ np.diag(V)))
+    dSf_dvm = np.diag(V[from_bus]) @ np.conj(F @ np.diag(unit)) + np.conj(np.diag(If)) @ Cf @ np.diag(unit)
+    keep = np.flatnonzero(np.arange(n) != slack)
+    ix = np.ix_(keep, keep)
+    jac = np.block([[dS_dth.real[ix], dS_dvm.real[ix]], [dS_dth.imag[ix], dS_dvm.imag[ix]]])
+    grad = np.concatenate([dSf_dth.real[:, keep], dSf_dvm.real[:, keep]], axis=1)  # [E, 2(N-1)]
+    out = np.zeros((e, n))
+    out[:, keep] = np.linalg.solve(jac.T, grad.T).T[:, : len(keep)]
+    return out
+
+
 def hop_distances(adjacency: Admittance, sources: np.ndarray) -> np.ndarray:
     """Branches from the nearest source bus to every bus, by an unweighted shortest-path search
     (`scipy.sparse.csgraph.shortest_path`); -1 where no path exists [VLX07].

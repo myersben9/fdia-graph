@@ -129,6 +129,49 @@ def test_closed_form_jacobian_matches_autograd(splits):
     assert np.abs(H_auto - est.H).max() < 1e-9 * max(1.0, np.abs(est.H).max())
 
 
+def test_flow_sensitivities_match_a_resolved_power_flow():
+    """[MP19, dSbus_dV, dSbr_dV] One more unit of active power at a bus, taken at the slack, moves every
+    branch's active flow by the bus's column of `flow_sensitivities`: checked against the AC power flow solved
+    again at the moved injection (every bus but the slack holding its injections), on IEEE-14."""
+    pytest.importorskip("pandapower")
+    from scipy.optimize import fsolve
+
+    from fdia_graph.engine import FdiaGenerator
+    from fdia_graph.formulas.network import _dense, flow_sensitivities
+    from fdia_graph.generation import _load_states
+    from fdia_graph.models.grid import NODE
+
+    g = FdiaGenerator(14, seed=1)
+    X = _load_states(14, None)[0]
+    lut = g._ppc_row[np.arange(g.C)]
+    V0 = np.ones(np.shape(g._Ybus)[0], np.complex128)
+    V0[lut] = complex_voltages(X[:, NODE.v], X[:, NODE.theta])
+    Y, F = _dense(g._Ybus), _dense(g._Yf)
+    slack = int(lut[g.slack_bus])
+    keep = np.flatnonzero(np.arange(len(V0)) != slack)
+    sens = flow_sensitivities(V0, Y, F, g._from_bus_ppc, slack)
+    assert sens.shape == (g.E, len(V0)) and not sens[:, slack].any()
+
+    def state(x: np.ndarray) -> np.ndarray:
+        th, vm = np.angle(V0).copy(), np.abs(V0).copy()
+        th[keep], vm[keep] = x[: len(keep)], x[len(keep) :]
+        return vm * np.exp(1j * th)
+
+    S0, f0 = bus_injections(V0, Y), branch_flows(V0, F, g._from_bus_ppc).real
+    start = np.r_[np.angle(V0)[keep], np.abs(V0)[keep]]
+    eps = 1e-4
+    for b in keep[::3]:
+        target = S0.copy()
+        target[b] += eps
+
+        def mismatch(x: np.ndarray, target: np.ndarray = target) -> np.ndarray:
+            S = bus_injections(state(x), Y) - target
+            return np.r_[S.real[keep], S.imag[keep]]
+
+        moved = branch_flows(state(fsolve(mismatch, start, xtol=1e-13)), F, g._from_bus_ppc).real
+        assert np.allclose((moved - f0) / eps, sens[:, b], atol=1e-4)
+
+
 def test_estimator_fits_and_scores_without_torch(splits, monkeypatch):
     """The estimator needs neither torch nor autograd: block the import and fit, estimate, score."""
     import builtins

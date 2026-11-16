@@ -15,8 +15,9 @@ from typing import Optional
 import numpy as np
 
 from ...formulas.attacks import bus_load
-from ...formulas.network import subnetwork
+from ...formulas.network import complex_voltages, flow_sensitivities, subnetwork
 from ...models.frames import AreaScore
+from ...models.grid import NODE
 from ..base import GridBase
 
 # the regions `rule_area` chooses among: the buses within this many hops of the goal (ours)
@@ -115,16 +116,22 @@ class AreaMixin(GridBase):
         """The best-scoring region around `seeds` among `AREA_HOPS` that passes rules 1 and 2 (ours, from
         [WU26] p. 654): None when none does."""
         scored = []
+        spread = self._spread(states) if lines else None  # one solve for every candidate
         for h in AREA_HOPS:
             area = self.local_region(seeds, h)
             if area is not None and not any(np.array_equal(area, s.buses) for s in scored):
-                scored.append(self.area_score(area, lines, states))
+                scored.append(self.area_score(area, lines, states, spread))
         ok = [s for s in scored if s.observable and s.connected]
         return max(ok, key=area_score_total).buses if ok else None
 
-    def area_score(self, buses: np.ndarray, lines: list[int], states: np.ndarray) -> AreaScore:
+    def area_score(
+        self, buses: np.ndarray, lines: list[int], states: np.ndarray, spread: Optional[np.ndarray] = None
+    ) -> AreaScore:
         """`AreaScore` of the area `buses` for a goal on `lines` (none for a load goal) over the window's
-        true `states` [T, N, 4]."""
+        true `states` [T, N, 4]; `spread` is `_spread(states)` when the caller already has it (it is the same
+        for every candidate area of a window)."""
+        if lines and spread is None:
+            spread = self._spread(states)
         node_m, _ = self.meter_masks()
         loads = np.abs(bus_load(np.asarray(states, float), self.load_base, self.gen_base))  # [T, N] MW
         mean, sd = loads.mean(0), loads.std(0)
@@ -137,7 +144,7 @@ class AreaMixin(GridBase):
             bool(node_m[buses].any()),
             self._connected(buses),
             float(mean[buses].sum() / total) if total > 0 else 0.0,
-            min(1.0, float(np.abs(self._ptdf()[lines][:, buses]).mean())) if lines else 0.0,
+            min(1.0, float(np.abs(spread[lines][:, buses]).mean())) if spread is not None else 0.0,
             float(1.0 / (1.0 + cv.mean())) if len(cv) else 0.0,
             float(min(1.0, per_bus[buses].mean() / max(per_bus.mean(), 1e-9) / 2)),
             len(buses) / self.C,
@@ -158,17 +165,13 @@ class AreaMixin(GridBase):
                 stack += [n for n in adj[b] if n in inside and n not in seen]
         return seen == inside
 
-    def _ptdf(self) -> np.ndarray:
-        """The DC power transfer distribution factors [E, N] to injections at each bus, slack-referenced,
-        from the branch reactances; built once."""
-        cached = getattr(self, "_ptdf_cache", None)
-        if cached is None:
-            A = np.zeros((self.E, self.C))
-            A[np.arange(self.E), self.ei[0]] = 1.0
-            A[np.arange(self.E), self.ei[1]] = -1.0
-            Bf = A / np.asarray(self.branch.x, float)[:, None]
-            keep = np.setdiff1d(np.arange(self.C), [self.slack_bus])
-            cached = np.zeros((self.E, self.C))
-            cached[:, keep] = Bf[:, keep] @ np.linalg.pinv((A.T @ Bf)[np.ix_(keep, keep)])
-            self._ptdf_cache = cached
-        return cached
+    def _spread(self, states: np.ndarray) -> np.ndarray:
+        """Each branch's active flow change per MW injected at each bus [E, N], pandapower bus order, at the
+        window's first true state (`formulas.network.flow_sensitivities`, the AC power flow's own
+        sensitivities)."""
+        first = np.asarray(states, float)[0]
+        lut = self._ppc_row[np.arange(self.C)]
+        V = np.ones(np.shape(self._Ybus)[0], np.complex128)
+        V[lut] = complex_voltages(first[:, NODE.v], first[:, NODE.theta])
+        sens = flow_sensitivities(V, self._Ybus, self._Yf, self._from_bus_ppc, int(lut[self.slack_bus]))
+        return sens[:, lut]

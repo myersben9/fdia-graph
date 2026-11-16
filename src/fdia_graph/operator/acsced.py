@@ -1,4 +1,4 @@
-"""The operator's real-time dispatch as an AC optimal power flow (`AcSced`), scan by scan, beside the DC `DcSced`.
+"""The operator's real-time dispatch as an AC optimal power flow (`AcSced`), scan by scan.
 
 Each scan the operator solves one AC OPF (`OperatorOpf`) at the loads it reads: the true loads plus what the attack
 changed in its New York injection meters (the external areas, which it does not meter, at their basepoint). The units
@@ -8,7 +8,7 @@ corrected by what the operator read after its last dispatch (the closed loop), s
 excess; load may be shed where shedding relieves an interface (`SHED_FACTOR` of its AC sensitivity) after `SHED_AFTER`
 scans over; and the reference bus's balance may be left short or over at a price. Two objectives: "movement" moves the
 least generation (the least cost breaking ties), "cost" clears at the least linear cost with each MW moved charged
-`MOVE_USD` and the shortage curve and energy cap of `DcSced`, and prices every bus at its AC balance dual (the AC LMP).
+`MOVE_USD` and flow over a limit at the 2019 shortage curve (`SHORTAGE`), and prices every bus at its AC balance dual (the AC LMP).
 
 On a scan with nothing to answer (the loads read are the true ones, nothing to correct, no dispatch to unwind, every
 interface within its limit) either objective's answer is the AC point itself, since the operator solves the problem the
@@ -17,7 +17,7 @@ pool solved (`PoolFrames`), so it is returned without a solve; prices are then o
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 import numpy as np
 import scipy.sparse as sp
@@ -29,18 +29,90 @@ from fdia_graph.generation.nygrid.interfaces import Interface
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.solver import OperatorOpf, OpfSolution
 from fdia_graph.operator.day import PoolFrames
-from fdia_graph.operator.sced import (
-    FRAME_HOURS,
-    HELD,
-    MOVE_USD,
-    NEEDED_MW,
-    SHED_FACTOR,
-    SHED_WEIGHT,
-    SHORTAGE,
-    SLACK_WEIGHT,
-    Step,
-    loss_factors,
-)
+
+HELD = ("Nuclear", "Hydro", "Import")  # units that follow their schedule (N39), never redispatched
+SLACK_WEIGHT = 1e6  # per MW of unrelieved interface flow or unmatched load, above any movement, shed or cost
+SHED_WEIGHT = 1e3  # per MW shed: only where no redispatch relieves (a MW moved weighs 1)
+SHED_FACTOR = -0.1  # a bus sheds only where a MW shed takes at least 0.1 MW off the interface
+SHED_AFTER = 3  # scans over the limit before load relief: 15 minutes (Emergency Operations Manual 4.5)
+# the least-cost dispatch charges this much per MW moved ($/MWh), so a scan it solves does not chase small
+# differences from the pool's least-cost basepoint
+MOVE_USD = 1.0
+# the 2019 transmission shortage curve ($/MWh): 350 for the first 5 MW, 1,175 for the next 15 MW, the
+# 4,000 shadow-price cap beyond (NYISO's constraint-specific shortage pricing, in force June 20, 2017)
+SHORTAGE = ((5.0, 350.0), (15.0, 1175.0), (np.inf, 4000.0))
+FRAME_HOURS = 5.0 / 60.0
+# the least-cost dispatch starts an offline quick-start unit only when the committed units leave more than this
+# much of a constraint unmet (MW): interface shortage, shed or unmatched load
+NEEDED_MW = 1e-3
+
+
+def shortage_usd(mw: float) -> float:
+    """The shortage cost of one scan with `mw` of interface flow over its limit, at the 2019 curve ($)."""
+    cost, left = 0.0, max(float(mw), 0.0)
+    for width, price in SHORTAGE:
+        part = min(left, width)
+        cost, left = cost + part * price, left - part
+    return cost * FRAME_HOURS
+
+
+def loss_factors(case: Case, vm: np.ndarray, va: np.ndarray) -> np.ndarray:
+    """`[N]` (or `[T, N]` for a `[T, N]` state) each bus's delivery factor at the AC state (`vm` p.u., `va`
+    degrees): the MW the reference bus gives up per MW injected at the bus, one less the bus's marginal loss
+    factor (one at the reference bus). The units' buses hold their voltage, as the true grid's power flow does,
+    and the others are PQ buses; the factors are the transposed power flow Jacobian solved against the reference
+    bus's injection gradient. A frame with no state (NaN) gets ones, the lossless factors."""
+    vm, va = np.asarray(vm, float), np.asarray(va, float)
+    if vm.ndim == 2:
+        return np.array([loss_factors(case, a, b) for a, b in zip(vm, va)])
+    n = len(case.bus_id)
+    if not (np.isfinite(vm).all() and np.isfinite(va).all()):
+        return np.ones(n)
+    ref = int(np.flatnonzero(case.bus_type == REF)[0])
+    v = vm * np.exp(1j * np.deg2rad(va))
+    y = Network(case).ybus.tocsc()
+    i_bus, dv = y @ v, sp.diags(v)
+    unit_v = sp.diags(v / np.abs(v))
+    ds_dva = 1j * dv @ np.conj(sp.diags(i_bus) - y @ dv)  # MATPOWER's dSbus_dV
+    ds_dvm = dv @ np.conj(y @ unit_v) + np.conj(sp.diags(i_bus)) @ unit_v
+    pq = np.ones(n, bool)
+    pq[case.unit_bus] = False
+    pq[ref] = False
+    ang, mag = np.flatnonzero(np.arange(n) != ref), np.flatnonzero(pq)
+    jac = sp.vstack(
+        [
+            sp.hstack([ds_dva.real[ang][:, ang], ds_dvm.real[ang][:, mag]]),
+            sp.hstack([ds_dva.imag[mag][:, ang], ds_dvm.imag[mag][:, mag]]),
+        ]
+    ).tocsc()
+    grad = np.r_[ds_dva.real[ref][:, ang].toarray().ravel(), ds_dvm.real[ref][:, mag].toarray().ravel()]
+    out = np.ones(n)
+    out[ang] = -spl.spsolve(jac.T, grad)[: len(ang)]
+    return out
+
+
+@dataclass(frozen=True)
+class Step:
+    """One scan's dispatch: `dev [G]` each unit's change from the pool basepoint (MW), `shed [N]` the load
+    the operator sheds at each bus (MW), `unrelieved [I]` each interface's flow left over its limit as the
+    operator sees it (MW), `unmatched` the seen load the units could not follow (MW, positive short), and
+    `relief_usd` what relieving the interfaces costs this scan: the production cost of this dispatch less
+    that of the same dispatch with no interface limit ($), and `congestion [I]` each enforced interface's
+    shadow price ($/MWh per MW of its flow, zero where it does not bind, NaN where it is not enforced) under the
+    least-cost dispatch, all zero under the least-movement one, whose duals are not prices, and `energy` the
+    balance row's shadow price under the least-cost dispatch ($/MWh at the reference bus, NaN otherwise); `flow [I]` is each interface's AC flow in its model (MW, before the reading
+    correction), and under its least-cost objective `price [N]`, each bus's AC LMP ($/MWh)."""
+
+    dev: np.ndarray
+    shed: np.ndarray
+    unrelieved: np.ndarray
+    unmatched: float
+    relief_usd: float
+    congestion: np.ndarray | None = None
+    energy: float = float("nan")
+    flow: np.ndarray | None = None
+    price: np.ndarray | None = None
+
 
 AC_OBJECTIVES = ("movement", "cost")
 ANCHOR_WEIGHT = (
@@ -53,7 +125,7 @@ SCALE = 1e-3  # the objective's scale for Ipopt
 # from the true grid's by what the voltages carry
 V_WEIGHT = 1e7
 BOUND_TOL = 1e-4
-BINDING = 1e-6  # an interface row's dual (objective units per MW) or excess (MW) above which it binds  # MW the pool's bounds widen by, so its own point stays inside past the solver's rounding
+BINDING = 1e-6  # an interface row's dual (objective units per MW) or excess (MW) above which it binds
 
 
 def _jacobian(case: Case, net: Network, vm: np.ndarray, va: np.ndarray):
