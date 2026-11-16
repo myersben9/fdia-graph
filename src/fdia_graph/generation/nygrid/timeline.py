@@ -25,7 +25,7 @@ import pickle
 import time
 import warnings
 from collections import Counter
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -39,21 +39,19 @@ from fdia_graph.federated.utilities import Ownership
 from fdia_graph.generation.nygrid.config import Settings, rng
 from fdia_graph.generation.nygrid.io import FAMILIES, SPLITS, TimelineWriter
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool
-from fdia_graph.generation.plan import place_episodes, split_bounds, split_column, split_weeks, week_index
+from fdia_graph.generation.plan import (
+    place_episodes,
+    split_bounds,
+    split_column,
+    split_weeks,
+    week_index,
+)
+from fdia_graph.models.plan import Slot
 
 # weeks per stratum of the split when the weight is the surveyed attacks (N46): they sit in about 9 weeks, one
 # of them holding 40%, so a 20-week stratum can leave a split one episode; 5 draws 3/1/1 per stratum
 HIT_STRATUM = 5
 SURVEY_CHUNK = 240  # onsets designed and saved at a time with `survey_cache`
-
-
-@dataclass(frozen=True)
-class Slot:
-    """One placed episode: its first frame `onset`, its `family` ("Am", "Ap" or "At") and `length` in frames."""
-
-    onset: int
-    family: str
-    length: int
 
 
 _WORKER: dict = {}  # a worker process's families and settings, set once by `_init`
@@ -154,7 +152,7 @@ class TimelineBuilder:
         kw = {} if stratum is None else {"stratum": stratum}
         return split_weeks(self.pool.time, self.split_frac, loaded, rng(self.settings, "split"), **kw)
 
-    def _slots(self, split: np.ndarray, masks: dict[str, np.ndarray]) -> list[Slot]:
+    def _slots(self, split: np.ndarray, masks: dict[str, np.ndarray]) -> list[Slot[str]]:
         """Every split's episodes, onsets in timeline frames, placed inside one contiguous run of the
         split's frames (a window never crosses a week block) and where its family allows (one generator)."""
         g = rng(self.settings, "place")
@@ -180,7 +178,7 @@ class TimelineBuilder:
                         RuntimeWarning,
                         stacklevel=2,
                     )
-            slots += [Slot(int(where[onset]), f, length) for onset, f, length in placed]
+            slots += [p.at(int(where[p.onset])) for p in placed]
         return slots
 
     def _onsets_ok(self, blocks: np.ndarray, masks: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
@@ -239,7 +237,9 @@ class TimelineBuilder:
         missed = {f: dict(Counter(m for c, m in zip(cands, misses) if c.family == f and m)) for f in masks}
         return found, cache, tried, missed
 
-    def _designs(self, slots: list[Slot]) -> tuple[list[Episode | None], list[float], int, list[str | None]]:
+    def _designs(
+        self, slots: list[Slot[str]]
+    ) -> tuple[list[Episode | None], list[float], int, list[str | None]]:
         """The episode of each slot, None where its window touches an unsolved frame or the family finds
         no attack; the design seconds; the count of slots skipped for unsolved frames; and why each designed
         slot has no attack (one of `MISSES`, None with an attack or when skipped)."""

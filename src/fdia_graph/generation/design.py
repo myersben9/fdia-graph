@@ -15,57 +15,44 @@ from the attack vector of the frame before its onset, which only the walk knows.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 
 from ..engine import FdiaGenerator
 from ..engine.attacks.stealthy import AM_FAMILY
 from ..errors import NoRoomForEpisode
-from ..models.config import MeterSettings
 from ..models.frames import AmOverloadDesign, FrameKnobs
-from .plan import REDRAWS, Slot, _Placement, free_onset, give_up
+from ..models.plan import Designed, GeneratorSpec, Pending, Placement, Slot, SplitSpan
+from .plan import REDRAWS, free_onset, give_up
 
 DESIGN_STREAM = 0xA3D5  # the key of the Am design draws, beside the jitter's (engine.measurement)
 RELOCATE_STREAM = 0xA3D6  # the key of the onsets an infeasible Am moves to
 
 
-@dataclass(frozen=True)
-class _GeneratorSpec:
-    """What a worker process needs to rebuild the walk's generator: the case and its meter plan (both
-    fixed by the seed) and the line ratings the parent set over the whole pool, or the step of the
-    per-window "delta" ratings (MVA)."""
-
-    system: Union[int, str]
-    seed: int
-    max_load_mw: Optional[float]
-    meters: MeterSettings
-    ratings: Optional[np.ndarray]
-    rating_delta: Optional[float] = None
-
-    def build(self) -> FdiaGenerator:
-        g = FdiaGenerator(
-            self.system,
-            seed=self.seed,
-            max_load_mw=self.max_load_mw,
-            meter_model=self.meters.meter_model,
-            vbus_frac=self.meters.vbus_frac,
-            pmu_frac=self.meters.pmu_frac,
-            flow_frac=self.meters.flow_frac,
-        )
-        g._line_ratings = self.ratings
-        g._rating_delta = self.rating_delta
-        return g
+def build_generator(spec: GeneratorSpec) -> FdiaGenerator:
+    """The generator of `spec`: its case, meter plan and ratings."""
+    g = FdiaGenerator(
+        spec.system,
+        seed=spec.seed,
+        max_load_mw=spec.max_load_mw,
+        meter_model=spec.meters.meter_model,
+        vbus_frac=spec.meters.vbus_frac,
+        pmu_frac=spec.meters.pmu_frac,
+        flow_frac=spec.meters.flow_frac,
+    )
+    g._line_ratings = spec.ratings
+    g._rating_delta = spec.rating_delta
+    return g
 
 
 _WORKER: list[FdiaGenerator] = []  # the generator a worker process builds once, at start
 
 
-def _start_worker(spec: _GeneratorSpec) -> None:
-    _WORKER[:] = [spec.build()]
+def _start_worker(spec: GeneratorSpec) -> None:
+    _WORKER[:] = [build_generator(spec)]
 
 
 @dataclass(frozen=True)
@@ -91,7 +78,7 @@ class AmDesigner:
     """Designs the Am episodes of each split: in this process with `workers` 1, else in a pool of
     `workers` processes started once for the timeline (`close` stops it)."""
 
-    def __init__(self, g: FdiaGenerator, spec: _GeneratorSpec, workers: int) -> None:
+    def __init__(self, g: FdiaGenerator, spec: GeneratorSpec, workers: int) -> None:
         self.g, self.seed = g, spec.seed
         self._pool = (
             ProcessPoolExecutor(workers, initializer=_start_worker, initargs=(spec,)) if workers > 1 else None
@@ -110,72 +97,78 @@ class AmDesigner:
         self,
         X: np.ndarray,
         knobs: FrameKnobs,
-        split: int,
-        placed: tuple[list[Slot], tuple[int, int]],
-        rec: _Placement,
-    ) -> tuple[list[Slot], dict[int, AmOverloadDesign]]:
-        """The split's placed episodes with every Am either designed (its design by onset) or moved
-        until it is, or given up: rounds of designs in parallel, the failures of a round moved in
-        slot order (so the moves do not depend on the workers) and designed again in the next."""
-        slots, span = placed
-        others = [s for s in slots if s[1] != AM_FAMILY]
-        todo = [(i, s, 0) for i, s in enumerate(slots) if s[1] == AM_FAMILY]  # (slot, where, moves)
-        done: dict[int, tuple[Slot, AmOverloadDesign]] = {}
+        span: SplitSpan,
+        slots: list[Slot[int]],
+        rec: Placement,
+    ) -> tuple[list[Slot[int]], dict[int, AmOverloadDesign]]:
+        """The placed episodes `slots` of the split `span` with every Am either designed (its design
+        by onset) or moved until it is, or given up: rounds of designs in parallel, the failures of a
+        round moved in slot order (so the moves do not depend on the workers) and designed again in
+        the next."""
+        others = [s for s in slots if s.family != AM_FAMILY]
+        todo = [Pending(i, s, 0) for i, s in enumerate(slots) if s.family == AM_FAMILY]
+        done: dict[int, Designed] = {}
         while todo:
-            failed = self._round(X, knobs, split, todo, done)
-            todo = self._move(failed, (others, done, todo), split, span, rec)
-        built = [s for s, _ in done.values()]
-        return sorted(others + built), {s[0]: d for s, d in done.values()}
+            failed = self._round(X, knobs, span.code, todo, done)
+            todo = self._move(failed, others, done, span, rec)
+        built = [d.slot for d in done.values()]
+        return sorted(others + built), {d.slot.onset: d.design for d in done.values()}
 
     def _round(
         self,
         X: np.ndarray,
         knobs: FrameKnobs,
         split: int,
-        todo: list[tuple[int, Slot, int]],
-        done: dict[int, tuple[Slot, AmOverloadDesign]],
-    ) -> list[tuple[int, Slot, int]]:
+        todo: list[Pending],
+        done: dict[int, Designed],
+    ) -> list[Pending]:
         """One round: every pending episode designed at its onset (in parallel), the designed ones
         added to `done`; returns those with no design."""
-        tasks = [_DesignTask(X[s[0] : s[0] + s[2]], knobs, (self.seed, split, i, m)) for i, s, m in todo]
+        tasks = [
+            _DesignTask(
+                X[p.slot.onset : p.slot.onset + p.slot.length], knobs, (self.seed, split, p.index, p.moves)
+            )
+            for p in todo
+        ]
         failed = []
-        for (i, s, m), design in zip(todo, self._run(tasks)):
+        for p, design in zip(todo, self._run(tasks)):
             if design is None:
-                failed.append((i, s, m))
+                failed.append(p)
             else:
-                done[i] = (s, design)
+                done[p.index] = Designed(p.slot, design)
         return failed
 
     def _move(
         self,
-        failed: list[tuple[int, Slot, int]],
-        held: tuple[list[Slot], dict[int, tuple[Slot, AmOverloadDesign]], Sequence[tuple[int, Slot, int]]],
-        split: int,
-        span: tuple[int, int],
-        rec: _Placement,
-    ) -> list[tuple[int, Slot, int]]:
+        failed: list[Pending],
+        others: list[Slot[int]],
+        done: dict[int, Designed],
+        span: SplitSpan,
+        rec: Placement,
+    ) -> list[Pending]:
         """The failed episodes at their new onsets, in slot order, each placed clear of every episode
-        still held (the ramps, the designed Am, the failed ones not yet moved and those moved before it);
-        an episode past REDRAWS moves, or with no free onset left, is given up."""
-        others, done, _ = held
-        pending = {i: s for i, s, _ in failed}
-        moved: list[tuple[int, Slot, int]] = []
-        for i, s, m in failed:
-            del pending[i]
-            taken = others + [d[0] for d in done.values()] + list(pending.values()) + [x[1] for x in moved]
-            onset = self._new_onset(s, taken, (split, i, m), span) if m < REDRAWS else None
+        still held (the ramps `others`, the designed Am, the failed ones not yet moved and those moved
+        before it); an episode past REDRAWS moves, or with no free onset left, is given up."""
+        waiting = {p.index: p.slot for p in failed}
+        moved: list[Pending] = []
+        for p in failed:
+            del waiting[p.index]
+            taken = (
+                others + [d.slot for d in done.values()] + list(waiting.values()) + [m.slot for m in moved]
+            )
+            onset = self._new_onset(p, taken, span) if p.moves < REDRAWS else None
             if onset is None:
-                give_up(split, AM_FAMILY, m)
+                give_up(span.code, AM_FAMILY, p.moves)
                 continue
-            rec.redraws[split, rec.col(AM_FAMILY)] += 1
-            moved.append((i, (onset, s[1], s[2]), m + 1))
+            rec.redraws[span.code, rec.col(AM_FAMILY)] += 1
+            moved.append(p.moved_to(p.slot.at(onset)))
         return moved
 
-    def _new_onset(
-        self, s: Slot, taken: list[Slot], key: tuple[int, int, int], span: tuple[int, int]
-    ) -> Optional[int]:
-        rng = np.random.default_rng([self.seed, RELOCATE_STREAM, *key])
+    def _new_onset(self, p: Pending, taken: list[Slot[int]], span: SplitSpan) -> Optional[int]:
+        """A free onset of the split for the failed episode `p`, from the stream keyed by its split,
+        index and move; None when no onset is left."""
+        rng = np.random.default_rng([self.seed, RELOCATE_STREAM, span.code, p.index, p.moves])
         try:
-            return free_onset(rng, s[2], taken, span)
+            return free_onset(rng, p.slot.length, taken, span)
         except NoRoomForEpisode:
             return None

@@ -9,12 +9,19 @@ the public API, the generated files and the numbers are the same as the previous
   where its episodes go is decided in `generation/plan.py` for the IEEE systems and for New York alike;
   `generation/nygrid/schedule.py` is removed.
   - `place_episodes(rng, lengths, frac, n, allowed=None)` is the one placement: it returns
-    `(onset, family, length)` triples with the counts requested and dropped per family. The IEEE walk and the
+    `Slot(onset, family, length)` records with the counts requested and dropped per family. The IEEE walk and the
     New York builder both call it. `split_weeks` and `week_index` live beside it; New York's `split_frames` is
     `split_column(split_bounds(T, frac), T)`.
   - `fdia_graph.generation.nygrid` no longer exports `place_episodes`, `split_frames`, `split_weeks` or
-    `week_index`; `Slot` is defined in `generation/nygrid/timeline.py`. `plan.episode_counts` and
-    `_Schedule.weights` are removed (the placement computes its weights from the lengths).
+    `week_index`, nor `Slot`: the one `Slot` record, for both generators, is in `models/plan.py`.
+    `plan.episode_counts` and `_Schedule.weights` are removed (the placement computes its weights from the
+    lengths).
+  - The plan and walk records have plain names, live in `fdia_graph.models` like every other record, and the
+    stages take them instead of tuples: `Slot`, `SplitSpan` (a split's code and its frames), `Pending` (an
+    episode not yet written), `Designed`, `Schedule`, `Placement` and `GeneratorSpec` in `models/plan.py`
+    (`design.build_generator(spec)` builds a worker's generator from the spec), `FrameContext` in
+    `models/frames.py`; the walk's state is the class `Walk` in `generation/emit.py`. The split names `SPLITS`
+    are in `models/choices.py`. No generated file changes.
   - **One rule when a placement jams.** After ten whole placements fail, one episode of the family that could
     not be placed is dropped. The IEEE generator used to drop one of the family with the most episodes. Only a
     timeline that already warned "placements jammed" can differ. `place_episodes` reports

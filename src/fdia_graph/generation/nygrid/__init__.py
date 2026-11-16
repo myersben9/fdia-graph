@@ -49,7 +49,7 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     )
     from fdia_graph.generation.nygrid.ratings import line_ratings
     from fdia_graph.generation.nygrid.solver import AcSolver, Compensation, unit_q_limits
-    from fdia_graph.generation.nygrid.timeline import Slot, TimelineBuilder
+    from fdia_graph.generation.nygrid.timeline import TimelineBuilder
     from fdia_graph.operator.day import operator_day
     from fdia_graph.operator.run import respond
     from fdia_graph.operator.summary import summarize
@@ -78,7 +78,6 @@ _PUBLIC = {
     "SOLVED": "fdia_graph.generation.nygrid.pool",
     "SPLITS": "fdia_graph.generation.nygrid.io",
     "Settings": "fdia_graph.generation.nygrid.config",
-    "Slot": "fdia_graph.generation.nygrid.timeline",
     "TimelineBuilder": "fdia_graph.generation.nygrid.timeline",
     "TimelineWriter": "fdia_graph.generation.nygrid.io",
     "ZONES": "fdia_graph.generation.nygrid.inputs",
@@ -135,7 +134,6 @@ __all__ = [
     "SOLVED",
     "SPLITS",
     "Settings",
-    "Slot",
     "TimelineBuilder",
     "TimelineWriter",
     "ZONES",

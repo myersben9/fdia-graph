@@ -8,7 +8,7 @@ columns, the episode tables, the ragged magnitudes, the attributes and the tempo
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Optional
+from typing import Optional
 
 import h5py
 import numpy as np
@@ -19,10 +19,11 @@ from ..formulas.temporal import SWING_WINDOW, recent_change_scale
 from ..models.choices import FAMILIES, STEALTHY_FAMILIES
 from ..models.config import OverloadSettings, TimelineSettings
 from ..models.frames import MinimizerResult
+from ..models.plan import Placement
 from ..schema import Attr
 from . import _CHUNK_ROWS, _base_attrs
 from .emit import TimelineBuffers, layers
-from .plan import _Placement, split_column
+from .plan import split_column
 
 KIND = schema.KIND_TIMELINE  # the file attribute the loader requires
 
@@ -127,7 +128,7 @@ def _write_am_rows(eg: h5py.Group, am_rows: list[tuple[int, int, float, float, f
 
 
 def placement_attrs(
-    rec: _Placement, bounds: list[tuple[int, int]], frac: Sequence[float], seq_id: np.ndarray
+    rec: Placement, bounds: list[tuple[int, int]], frac: Sequence[float], seq_id: np.ndarray
 ) -> dict[str, object]:
     """What the split-first placement asked for and got: the fractions and sizes of the splits, the
     attacked fraction each reached, and per split (rows) and family (columns, `placed_families`) the
@@ -149,14 +150,14 @@ def placement_attrs(
     }
 
 
-def _timeline_attrs(
+def timeline_attrs(
     g: FdiaGenerator,
-    T: int,
     seed: int,
     buf: TimelineBuffers,
-    knobs: dict[str, Any],  # the recorded knobs, each its own type, written as file attributes
+    knobs: dict[str, object],  # the recorded knobs, each its own type, written as file attributes
 ) -> dict[str, object]:
     """The attributes every file carries (dims, units, provenance) plus what makes this one a timeline."""
+    T = buf.T
     attrs: dict[str, object] = dict(_base_attrs(g, T, seed))
     in_episodes = sum(e["length"] for e in buf.episodes)
     attrs.update(
@@ -174,17 +175,10 @@ def _timeline_attrs(
     return attrs
 
 
-def finish_timeline(
-    f: h5py.File,
-    g: FdiaGenerator,
-    buf: TimelineBuffers,
-    placed: tuple[_Placement, list[tuple[int, int]], Sequence[float]],
-    run: tuple[int, dict],
-) -> None:
+def finish_timeline(f: h5py.File, buf: TimelineBuffers, bounds: list[tuple[int, int]]) -> None:
     """After the walk: the last batch, the masks, the small per-frame columns (family, stealthy,
-    seq_id, timestep, the split), the episodes, the ragged magnitudes and the attributes (`run` =
-    the seed and the recorded knobs)."""
-    seed, knobs = run
+    seq_id, timestep, the split by its `bounds`), the episodes and the ragged magnitudes. The file's
+    attributes come after (`timeline_attrs`, `placement_attrs`)."""
     buf.flush()
     T = buf.T
     _write_masks(f, buf, T)
@@ -193,12 +187,10 @@ def finish_timeline(
         (schema.STEALTHY, np.isin(buf.family, sorted(STEALTHY_FAMILIES)).astype(np.uint8)),
         (schema.SEQ_ID, buf.seq_id),
         (schema.TIMESTEP, np.arange(T, dtype=np.int32)),
-        (schema.SPLIT, split_column(placed[1], T)),
+        (schema.SPLIT, split_column(bounds, T)),
     ):
         f.create_dataset(name, data=arr)
     _write_episodes(f, buf)
-    f.attrs.update(_timeline_attrs(g, T, seed, buf, knobs))
-    f.attrs.update(placement_attrs(*placed, buf.seq_id))
 
 
 def write_temporal_layers(f: h5py.File, block: int = 2000) -> None:

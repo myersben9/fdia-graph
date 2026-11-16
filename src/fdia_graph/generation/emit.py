@@ -24,9 +24,9 @@ from ..engine.records import attack_frame
 from ..errors import NoRoomForEpisode
 from ..models.choices import BENIGN_CODE
 from ..models.data import EpisodeRow
-from ..models.frames import AmOverloadDesign, AttackVector, Frame, MinimizerResult
-from . import _FrameContext
-from .plan import REDRAWS, Slot, _Placement, _Schedule, give_up, uniform_onset
+from ..models.frames import AmOverloadDesign, AttackVector, Frame, FrameContext, MinimizerResult
+from ..models.plan import Pending, Placement, Schedule, Slot, SplitSpan
+from .plan import REDRAWS, give_up, uniform_onset
 
 _BATCH = 256  # frames staged in memory between two flushes to the file
 _LAYERS = {  # per-frame datasets: name -> (trailing shape given (C, E), dtype)
@@ -180,7 +180,7 @@ class TimelineBuffers:
             self._clean_batch = self._clean(self._base, self._base + self._n)
 
 
-def emit_benign(ctx: _FrameContext, t: int) -> Frame:
+def emit_benign(ctx: FrameContext, t: int) -> Frame:
     """The benign scan of timestep t, its jitter from frame t's own stream."""
     ctx.g.scan_key = t
     frame = attack_frame(ctx.g, ctx.X[t], 0, None, ctx.knobs)
@@ -188,25 +188,26 @@ def emit_benign(ctx: _FrameContext, t: int) -> Frame:
     return frame
 
 
-@dataclass
-class _Walk:
-    """What every step of one timeline walk shares: the run context (generator, pool, knobs) and the
-    buffers the frames are written to. The random stream is the generator's own, so the order of
-    draws is the order the walk makes them."""
+class Walk:
+    """One timeline walk, shared by every step of it: the run context `ctx` (generator, pool,
+    knobs) and the buffers `buf` the frames are written to. The random stream is the generator's
+    own, so the order of draws is the order the walk makes them."""
 
-    ctx: _FrameContext
-    buf: TimelineBuffers
+    def __init__(self, ctx: FrameContext, buf: TimelineBuffers) -> None:
+        self.ctx, self.buf = ctx, buf
 
     @property
     def rng(self) -> np.random.Generator:
+        """The walk's random stream: the generator's own."""
         return self.ctx.g.rng
 
     @property
     def T(self) -> int:
+        """The frames of the timeline."""
         return len(self.ctx.X)
 
 
-def benign_run(w: _Walk, t: int, until: int) -> int:
+def benign_run(w: Walk, t: int, until: int) -> int:
     """Benign frames from t up to `until` (excluded); returns `until`."""
     for t in range(t, until):
         w.buf.store(t, 0, emit_benign(w.ctx, t))
@@ -222,7 +223,7 @@ class _Episode:
     onset: int
     ok: np.ndarray  # [N] uint8, the buses any frame of the episode labelled
 
-    def store(self, w: _Walk, t: int, frame: Optional[Frame]) -> None:
+    def store(self, w: Walk, t: int, frame: Optional[Frame]) -> None:
         """Store the attacked frame, or a benign one when the attack could not be built at t."""
         if frame is None:
             w.buf.store(t, 0, emit_benign(w.ctx, t))
@@ -230,7 +231,7 @@ class _Episode:
             w.buf.store(t, self.fid, frame, self.sid)
             self.ok |= frame.y
 
-    def close(self, w: _Walk, t: int) -> int:
+    def close(self, w: Walk, t: int) -> int:
         w.buf.episodes.append(
             EpisodeRow(
                 onset=self.onset, length=t - self.onset, family=self.fid, buses=np.where(self.ok)[0].tolist()
@@ -239,11 +240,11 @@ class _Episode:
         return t
 
 
-def _episode(w: _Walk, fid: int, t: int) -> _Episode:
+def _episode(w: Walk, fid: int, t: int) -> _Episode:
     return _Episode(len(w.buf.episodes), fid, t, np.zeros(w.ctx.g.C, np.uint8))
 
 
-def ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> Optional[int]:
+def ramp_episode(w: Walk, t: int, ramp_len: int, ramp_rate: float) -> Optional[int]:
     """One slow-ramp episode on a fixed bus set (rise, hold, return), its design from the generator's
     ramp designer (`engine.attacks.episodes.RampDesigner`); returns the next free timestep, or None
     with no frame emitted when no admissible ramp exists at this onset (the walk then moves the
@@ -263,7 +264,7 @@ def ramp_episode(w: _Walk, t: int, ramp_len: int, ramp_rate: float) -> Optional[
     return ep.close(w, t)
 
 
-def overload_episode(w: _Walk, t: int, length: int, design: AmOverloadDesign) -> int:
+def overload_episode(w: Walk, t: int, length: int, design: AmOverloadDesign) -> int:
     """One `Am` episode as the overload attack of [WU26] on the design the design stage found for its
     onset (`generation.design`): a target branch's reported flow driven to its rating over the
     window, on the support that tampers the fewest devices. Returns the next free timestep."""
@@ -285,56 +286,57 @@ def overload_episode(w: _Walk, t: int, length: int, design: AmOverloadDesign) ->
     return ep.close(w, t)
 
 
-def relocate_later(rng: np.random.Generator, at: Slot, pending: Sequence[Slot], end: int) -> Optional[Slot]:
-    """A new onset for a ramp whose design failed at `at`: uniform among the onsets after the failed
-    one, inside the split (before `end`), where the episode fits without touching a pending episode.
+def relocate_later(
+    rng: np.random.Generator, failed: Slot[int], pending: Sequence[Slot[int]], end: int
+) -> Optional[Slot[int]]:
+    """A new slot for a ramp whose design failed at `failed`: its onset uniform among the onsets after the
+    failed one, inside the split (before `end`), where the episode fits without touching a pending episode.
     The frames before the failed onset are already written and a ramp's design reads the frame before
     its onset, so a ramp moves only later; an overload Am, whose design reads no earlier frame, is
     moved anywhere in its split before the walk (`generation.design`). None when no onset is left."""
-    onset, fid, length = at
-    occupied = np.zeros(end - onset, bool)
-    for o, _, L in pending:
-        occupied[o - onset : o - onset + L] = True
+    occupied = np.zeros(end - failed.onset, bool)
+    for other in pending:
+        occupied[other.onset - failed.onset : other.onset - failed.onset + other.length] = True
     try:
-        return (onset + uniform_onset(occupied, length, rng, first=1), fid, length)
+        return failed.at(failed.onset + uniform_onset(occupied, failed.length, rng, first=1))
     except NoRoomForEpisode:
         return None
 
 
 def walk_split(
-    w: _Walk,
-    plan: _Schedule,
-    split: int,
-    placed: tuple[list[Slot], dict[int, AmOverloadDesign]],
-    span: tuple[tuple[int, int], _Placement],
+    w: Walk,
+    plan: Schedule,
+    span: SplitSpan,
+    slots: list[Slot[int]],
+    designs: dict[int, AmOverloadDesign],
+    rec: Placement,
 ) -> None:
-    """Emit one split's frames in time order: benign runs between its episodes, each episode where it
-    was placed. `placed` holds the split's episodes and the designs of its overload Am episodes, by
-    onset (`generation.design`, which already moved or gave up the infeasible ones). A ramp whose
-    design is infeasible at its onset moves to a later free onset of the split, up to REDRAWS times;
-    past that it is given up (the shortfall, `rec`) and warned about."""
-    (a, b), rec = span
-    slots, designs = placed
-    # (onset, family, length, moves so far): the move count belongs to its episode
-    pending = [(*at, 0) for at in slots]
-    t = a
+    """Emit the frames of the split `span` in time order: benign runs between its episodes, each
+    episode where it was placed. `slots` are the split's episodes and `designs` the designs of its
+    overload Am episodes, by onset (`generation.design`, which already moved or gave up the infeasible
+    ones). A ramp whose design is infeasible at its onset moves to a later free onset of the split, up
+    to REDRAWS times; past that it is given up (the shortfall, `rec`) and warned about."""
+    pending = [Pending(i, s, 0) for i, s in enumerate(slots)]
+    t = span.start
     while pending:
-        *head, moves = pending.pop(0)
-        at = (head[0], head[1], head[2])
-        t = benign_run(w, t, at[0])
-        if at[1] == AM_FAMILY:
-            t = overload_episode(w, at[0], at[2], designs[at[0]])
-            rec.built[split, rec.col(AM_FAMILY)] += 1
+        episode = pending.pop(0)
+        slot = episode.slot
+        t = benign_run(w, t, slot.onset)
+        if slot.family == AM_FAMILY:
+            t = overload_episode(w, slot.onset, slot.length, designs[slot.onset])
+            rec.built[span.code, rec.col(AM_FAMILY)] += 1
             continue
-        nxt = ramp_episode(w, at[0], at[2], plan.ramp_rate)
+        nxt = ramp_episode(w, slot.onset, slot.length, plan.ramp_rate)
         if nxt is not None:
-            rec.built[split, rec.col(at[1])] += 1
+            rec.built[span.code, rec.col(slot.family)] += 1
             t = nxt
             continue
-        moved = relocate_later(w.rng, at, [p[:3] for p in pending], b) if moves < REDRAWS else None
+        moved = None
+        if episode.moves < REDRAWS:
+            moved = relocate_later(w.rng, slot, [p.slot for p in pending], span.stop)
         if moved is None:
-            give_up(split, at[1], moves)
+            give_up(span.code, slot.family, episode.moves)
             continue
-        rec.redraws[split, rec.col(at[1])] += 1
-        pending = sorted([*pending, (*moved, moves + 1)])
-    benign_run(w, t, b)
+        rec.redraws[span.code, rec.col(slot.family)] += 1
+        pending = sorted([*pending, episode.moved_to(moved)], key=lambda p: (p.slot, p.moves))
+    benign_run(w, t, span.stop)

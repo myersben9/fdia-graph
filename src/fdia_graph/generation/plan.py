@@ -15,71 +15,19 @@ from __future__ import annotations
 import math
 import warnings
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from fractions import Fraction
-from typing import Optional, TypeVar, Union
+from typing import Optional, Union
 
 import numpy as np
 
-from ..engine.attacks.stealthy import RAMP_FAMILY
 from ..errors import NoRoomForEpisode
-from ..models.choices import FAMILIES
+from ..models.choices import FAMILIES, SPLITS
+from ..models.plan import Family, Placement, Schedule, Slot, SplitSpan
 
-SPLITS = ("train", "val", "test")  # the order of the per-split attributes and of data/split's codes
 PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped (the split-first packing rule)
 WEEK = 7 * 86400  # seconds
 STRATUM = 20  # weeks per stratum of `split_weeks`: one 14/3/3 draw at shares of 0.7, 0.15, 0.15
 REDRAWS = 20  # onsets an episode with no feasible design is moved to before it is given up (the split-first redraw rule)
-
-Slot = tuple[int, int, int]  # one placed episode: (onset in timeline frames, family code, length)
-Family = TypeVar(
-    "Family", int, str
-)  # an episode's family: the timeline's code, or the New York family's name
-
-
-@dataclass
-class _Schedule:
-    """What is placed on the timeline: the families, the episode lengths and the ramp's rate, and
-    the attacked fraction the placement fills up to."""
-
-    families: list[int]
-    ramp_len: int
-    ramp_rate: float
-    am_len: int
-    attacked_frac: float
-
-    @classmethod
-    def build(
-        cls, fams: list[int], ramp_len: int, ramp_rate: float, am_len: int, attacked_frac: float
-    ) -> _Schedule:
-        return cls(fams, ramp_len, ramp_rate, am_len, attacked_frac)
-
-    def length_of(self, fid: int) -> int:
-        """The frames an episode of `fid` takes: the ramp length for At, `am_len` for Am."""
-        return self.ramp_len if fid == RAMP_FAMILY else self.am_len
-
-
-@dataclass
-class _Placement:
-    """What the placement asked for and got, per split (rows, `SPLITS`) and family (columns, the
-    schedule's families): episodes requested, dropped because they would not fit, moved to
-    another onset because no design was feasible, and built."""
-
-    families: list[int]
-    requested: np.ndarray
-    dropped: np.ndarray
-    redraws: np.ndarray
-    built: np.ndarray
-
-    @classmethod
-    def empty(cls, families: list[int]) -> _Placement:
-        shape = (len(SPLITS), len(families))
-        return cls(
-            families, np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int), np.zeros(shape, int)
-        )
-
-    def col(self, fid: int) -> int:
-        return self.families.index(fid)
 
 
 def split_bounds(T: int, frac: Sequence[float]) -> list[tuple[int, int]]:
@@ -156,13 +104,13 @@ def place_once(
     episodes: Sequence[tuple[int, Family]],
     n: int,
     allowed: Optional[Mapping[Family, np.ndarray]] = None,
-) -> list[tuple[int, Family, int]]:
+) -> list[Slot[Family]]:
     """One placement of (length, family) episodes in a split of n frames: longest first, each at an
     onset uniform among those where it fits without touching another (and its family's `allowed` onsets,
-    when given). NoRoomForEpisode, naming the family, when one does not fit. Returns (onset within the
-    split, family, length)."""
+    when given). NoRoomForEpisode, naming the family, when one does not fit. Returns the slots, onsets
+    within the split."""
     occupied = np.zeros(n, bool)
-    placed: list[tuple[int, Family, int]] = []
+    placed: list[Slot[Family]] = []
     for length, fid in sorted(episodes, key=lambda x: -x[0]):
         try:
             onset = uniform_onset(
@@ -171,7 +119,7 @@ def place_once(
         except NoRoomForEpisode as e:
             raise NoRoomForEpisode(str(e), family=fid) from None
         occupied[onset : onset + length] = True
-        placed.append((onset, fid, length))
+        placed.append(Slot(onset, fid, length))
     return placed
 
 
@@ -204,8 +152,8 @@ def place_episodes(
     frac: float,
     n: int,
     allowed: Optional[Mapping[Family, np.ndarray]] = None,
-) -> tuple[list[tuple[int, Family, int]], dict[Family, int], dict[Family, int]]:
-    """The episodes of one split of n frames as (onset within the split, family, length), sorted by onset,
+) -> tuple[list[Slot[Family]], dict[Family, int], dict[Family, int]]:
+    """The episodes of one split of n frames as slots (onsets within the split), sorted by onset,
     with the episodes requested and dropped per family.
 
     `lengths` gives each family's episode length and `frac` the share of the split's frames to attack;
@@ -229,37 +177,33 @@ def place_episodes(
     return [], requested, dropped
 
 
-def place_split(
-    rng: np.random.Generator, plan: _Schedule, split: int, bounds: tuple[int, int], rec: _Placement
-) -> list[Slot]:
-    """The episodes of one split [a, b) of the schedule, onsets in timeline frames, with what was
+def place_split(rng: np.random.Generator, plan: Schedule, span: SplitSpan, rec: Placement) -> list[Slot[int]]:
+    """The episodes of the split `span` of the schedule, onsets in timeline frames, with what was
     requested and dropped recorded in `rec` (and a warning when an episode was dropped)."""
-    a, b = bounds
     lengths = {f: plan.length_of(f) for f in plan.families}
-    placed, requested, dropped = place_episodes(rng, lengths, plan.attacked_frac, b - a)
-    rec.requested[split] = [requested[f] for f in plan.families]
-    rec.dropped[split] = [dropped[f] for f in plan.families]
+    placed, requested, dropped = place_episodes(rng, lengths, plan.attacked_frac, span.stop - span.start)
+    rec.requested[span.code] = [requested[f] for f in plan.families]
+    rec.dropped[span.code] = [dropped[f] for f in plan.families]
     for f in plan.families:
         if dropped[f]:
             warnings.warn(
-                f"split {SPLITS[split]}: placements jammed {PLACE_TRIES} times, {dropped[f]} "
+                f"split {SPLITS[span.code]}: placements jammed {PLACE_TRIES} times, {dropped[f]} "
                 f"{FAMILIES[f]} episode(s) dropped",
                 RuntimeWarning,
                 stacklevel=2,
             )
-    return [(a + onset, f, length) for onset, f, length in placed]
+    return [slot.at(span.start + slot.onset) for slot in placed]
 
 
-def free_onset(rng: np.random.Generator, length: int, others: Sequence[Slot], span: tuple[int, int]) -> int:
-    """An onset in `span` = [a, b), uniform among every position where `length` frames fit without
+def free_onset(rng: np.random.Generator, length: int, others: Sequence[Slot[int]], span: SplitSpan) -> int:
+    """An onset in the split `span`, uniform among every position where `length` frames fit without
     touching any of the `others` (NoRoomForEpisode when none is left)."""
-    a, b = span
-    occupied = np.zeros(b - a, bool)
-    for o, _, L in others:
-        lo, hi = max(o, a), min(o + L, b)
+    occupied = np.zeros(span.stop - span.start, bool)
+    for other in others:
+        lo, hi = max(other.onset, span.start), min(other.onset + other.length, span.stop)
         if lo < hi:
-            occupied[lo - a : hi - a] = True
-    return a + uniform_onset(occupied, length, rng)
+            occupied[lo - span.start : hi - span.start] = True
+    return span.start + uniform_onset(occupied, length, rng)
 
 
 def give_up(split: int, fid: int, moves: int) -> None:
