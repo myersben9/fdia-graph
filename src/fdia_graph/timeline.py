@@ -44,15 +44,23 @@ import numpy as np
 
 from .engine import FdiaGenerator
 from .engine.attacks.stealthy import AM_FAMILY
-from .generation import _FrameContext, _load_states, _write_graph, emit, plan
-from .generation.design import AmDesigner, _GeneratorSpec
-from .generation.emit import TimelineBuffers, clean_slice, walk_split
+from .generation import _load_states, _write_graph
+from .generation.design import AmDesigner
+from .generation.emit import TimelineBuffers, Walk, clean_slice, walk_split
 from .generation.plan import place_split, split_bounds
-from .generation.write import create_layers, finish_timeline, search_attrs, write_temporal_layers
+from .generation.write import (
+    create_layers,
+    finish_timeline,
+    placement_attrs,
+    search_attrs,
+    timeline_attrs,
+    write_temporal_layers,
+)
 from .models.choices import GENERATED_FAMILIES
 from .models.config import TimelineSettings
-from .models.frames import FrameKnobs, OperatingLimits
+from .models.frames import FrameContext, FrameKnobs, OperatingLimits
 from .models.inputs import AdmissibleTargets, GeneratedFamilies
+from .models.plan import GeneratorSpec, Placement, Schedule, SplitSpan
 from .registry import CACHE_DIR, system_id
 from .results.run import config_hash
 from .schema import Attr
@@ -116,16 +124,15 @@ def _knobs(s: TimelineSettings, limits: OperatingLimits, am_runs: bool) -> Frame
     )
 
 
-def _walk(
-    w: emit._Walk, schedule: plan._Schedule, bounds: list[tuple[int, int]], designer: AmDesigner
-) -> plan._Placement:
+def _walk(w: Walk, schedule: Schedule, bounds: list[tuple[int, int]], designer: AmDesigner) -> Placement:
     """Walk the timeline split by split (the splits are cut first): place the split's episodes, design
     its overload Am episodes, then emit its frames."""
-    rec = plan._Placement.empty(list(schedule.families))
-    for split, span in enumerate(bounds):
-        slots = place_split(w.rng, schedule, split, span, rec)
-        placed = designer.design_split(w.ctx.X, w.ctx.knobs, split, (slots, span), rec)
-        walk_split(w, schedule, split, placed, (span, rec))
+    rec = Placement.empty(list(schedule.families))
+    for code, (start, stop) in enumerate(bounds):
+        span = SplitSpan(code, start, stop)
+        slots = place_split(w.rng, schedule, span, rec)
+        slots, designs = designer.design_split(w.ctx.X, w.ctx.knobs, span, slots, rec)
+        walk_split(w, schedule, span, slots, designs, rec)
     return rec
 
 
@@ -213,10 +220,10 @@ def generate_timeline(
             g.use_line_ratings(s.overload, X)
     limits = g.operating_limits(X)  # the constraints every false state must satisfy [WU26 eqs. 21-23]
     frame_knobs = _knobs(s, limits, am_runs)
-    schedule = plan._Schedule.build(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
+    schedule = Schedule.build(list(fams), s.ramp.length, s.ramp.rate, s.am_frames, s.attacked_frac)
     out = out or os.path.join(CACHE_DIR, f"timeline_ieee{system_id(system)}.h5")
     recorded = _recorded(s, g, limits, am_runs)
-    spec = _GeneratorSpec(
+    spec = GeneratorSpec(
         system,
         seed,
         s.max_load_mw,
@@ -227,7 +234,8 @@ def generate_timeline(
     designer = AmDesigner(g, spec, s.workers if am_runs else 1)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     try:
-        _write(out, (g, X, frame_knobs), (schedule, designer), (s.split.fractions, seed, recorded))
+        ctx = FrameContext(g, X, frame_knobs)
+        _write(out, ctx, schedule, designer, s.split.fractions, seed, recorded)
     finally:
         designer.close()
     return out
@@ -235,21 +243,26 @@ def generate_timeline(
 
 def _write(
     out: str,
-    run: tuple[FdiaGenerator, np.ndarray, FrameKnobs],
-    stages: tuple[plan._Schedule, AmDesigner],
-    meta: tuple[Sequence[float], int, dict[str, object]],
+    ctx: FrameContext,
+    schedule: Schedule,
+    designer: AmDesigner,
+    fractions: Sequence[float],
+    seed: int,
+    recorded: dict[str, object],
 ) -> None:
-    """The file: the graph, the per-frame layers filled by the walk, then everything after it."""
-    g, X, knobs = run
-    schedule, designer = stages
-    fractions, seed, recorded = meta
+    """The file: the graph, the per-frame layers filled by the walk of `ctx` (the generator, the pool
+    and the knobs), then everything after it: the columns, the episodes and the attributes (the
+    `recorded` knobs and what the placement of the split `fractions` asked for and got)."""
+    g, X = ctx.g, ctx.X
     with h5py.File(out, "w") as f:  # the file is open for the whole walk: frames flush in batches
         _write_graph(f, g)
         currents = g.current_mask() is not None
         sink = create_layers(f, len(X), g.C, g.E, currents)
         buf = TimelineBuffers((len(X), g.C, g.E), partial(clean_slice, g, X), sink=sink, currents=currents)
         bounds = split_bounds(len(X), fractions)
-        rec = _walk(emit._Walk(_FrameContext(g, X, knobs), buf), schedule, bounds, designer)
+        rec = _walk(Walk(ctx, buf), schedule, bounds, designer)
         g.scan_key = None
-        finish_timeline(f, g, buf, (rec, bounds, fractions), (seed, recorded))
+        finish_timeline(f, buf, bounds)
+        f.attrs.update(timeline_attrs(g, seed, buf, recorded))
+        f.attrs.update(placement_attrs(rec, bounds, fractions, buf.seq_id))
         write_temporal_layers(f)

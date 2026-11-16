@@ -187,7 +187,7 @@ Notes on the table:
 | place | per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family that jammed is dropped and recorded (`RuntimeWarning`) | `plan.place_split`, `plan.uniform_onset` |
 | walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `emit.walk_split`, `MeasurementMixin._jitter_stream` |
 | move | an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (`RuntimeWarning`): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound, D11); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers | `design.AmDesigner`, `emit.relocate_later` |
-| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `write._timeline_attrs` |
+| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `write.timeline_attrs` |
 | record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `write.placement_attrs` |
 
 Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
@@ -240,13 +240,13 @@ any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experimen
 
 | group | datasets | meaning | written by |
 |---|---|---|---|
-| `data/` | `node_x [T, N, 4]`, `edge_x [T, E, 2]` | observed readings: benign plus noise, plus the attack where attacked | `_TimelineBuffers.store` |
-| `data/` | `node_m`, `edge_m` | the meter plan per frame | `_write_masks` |
+| `data/` | `node_x [T, N, 4]`, `edge_x [T, E, 2]` | observed readings: benign plus noise, plus the attack where attacked | `TimelineBuffers.store` |
+| `data/` | `node_m`, `edge_m` | the meter plan per frame | `write._write_masks` |
 | `data/` | `y [T, N]` | 1 on each attacked bus | `store` |
-| `data/` | `family`, `stealthy`, `seq_id`, `timestep`, `split [T]` | family code, 1 for a stealthy family (`At`, `Am`; `Aq` and `Al` in older releases), episode index (-1 benign), pool timestep, 0/1/2 | `_finish_timeline` |
+| `data/` | `family`, `stealthy`, `seq_id`, `timestep`, `split [T]` | family code, 1 for a stealthy family (`At`, `Am`; `Aq` and `Al` in older releases), episode index (-1 benign), pool timestep, 0/1/2 | `write.finish_timeline` |
 | `data/` | `temporal_delta`, `swing [T, N, 2]` | temporal features from the observed frames | `write_temporal_layers` |
 | `benign/` | `node_benign`, `edge_benign` | the same scan with the attack removed and the same noise draw | `store` |
-| `clean/` | `node_clean`, `edge_clean` | the noiseless pool state and the exact flows on metered branches | `_clean_slice` |
+| `clean/` | `node_clean`, `edge_clean` | the noiseless pool state and the exact flows on metered branches | `emit.clean_slice` |
 | `attack/` | `node_tamper`, `edge_tamper` | 1 where the attacker wrote the meter | `_store_attack` |
 | `data/`, `benign/`, `attack/` | `pmu_i`, `pmu_i_m`, `pmu_i_benign`, `pmu_i_tamper [T, E, 4]` | hybrid meters only: the PMU branch currents (Re and Im of `I_from`, then of `I_to`, per unit), their mask, the attack-removed twin, and 1 where the attacker wrote the channel | `_store_currents`, `_write_masks` |
 | `attack/` | `mag_ptr`, `mag_bus`, `mag` | designed change per attacked bus, ragged by frame | `_write_episodes` |

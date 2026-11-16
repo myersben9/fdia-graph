@@ -4,9 +4,13 @@ fewest-tamper search returns."""
 
 from __future__ import annotations
 
-from typing import NamedTuple, Optional, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
 import numpy as np
+
+if TYPE_CHECKING:  # the generator is a producer: named for the type checker only
+    from ..engine import FdiaGenerator
 
 
 class Scan(NamedTuple):
@@ -229,3 +233,12 @@ class WindowAttack(NamedTuple):
     def max_magnitude(self) -> float:
         """The largest change of any meter at any snapshot (Fig. 4's scale)."""
         return float(np.abs(self.dz).max())
+
+
+@dataclass
+class FrameContext:
+    """What every record of one generation run shares, passed explicitly to the record functions."""
+
+    g: FdiaGenerator
+    X: np.ndarray  # operating-point pool [T, N, 4] in [|V|, Pinj, Qinj, theta] order
+    knobs: FrameKnobs  # the attack settings every scan shares

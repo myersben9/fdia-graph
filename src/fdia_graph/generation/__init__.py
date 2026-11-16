@@ -5,8 +5,8 @@ pool scanned in time order with At and Am attack episodes, which `fg.load(name)`
 record table (`order="random"`) or as the timeline (`order="time"`). The knobs are those of
 `timeline.generate_timeline` plus `frames` (how many pool timesteps to walk, default the whole
 pool). This module also holds what the writer shares with the engine: the operating-point pool
-(`_load_states`, any column order, npz or HDF5), the per-run frame context, the noise floor and
-the swing window, and the file attributes and static graph group every file carries.
+(`_load_states`, any column order, npz or HDF5), the noise floor and the swing window, and the
+file attributes and static graph group every file carries.
 
   states            source of operating points: path to a pool .npz or .h5 (key 'X' [T,N,4]) or an init dir of
                     X_*.npy; if None, uses $FDIA_GRAPH_INIT or downloads the system's operating-point pool.
@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import glob
 import os
-from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 import h5py
@@ -27,7 +26,6 @@ from .. import schema
 from ..engine import FdiaGenerator
 from ..errors import UnknownColumnOrder
 from ..models.config import ShardRun, TimelineSettings
-from ..models.frames import FrameKnobs
 from ..models.grid import NODE
 from ..models.inputs import StatePool, StateSource
 from ..registry import CACHE_DIR, register_local
@@ -94,15 +92,6 @@ def _read_states(
     from ..registry import pool_spec
 
     return _read_states(system, ensure_local(pool_spec(system)), pool_cap)
-
-
-@dataclass
-class _FrameContext:
-    """What every record of one generation run shares, passed explicitly to the record functions."""
-
-    g: FdiaGenerator
-    X: np.ndarray  # operating-point pool [T, N, 4] in [|V|, Pinj, Qinj, theta] order
-    knobs: FrameKnobs  # the attack settings every scan shares
 
 
 def generate(

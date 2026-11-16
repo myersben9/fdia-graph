@@ -20,7 +20,7 @@ from fdia_graph.generation.nygrid.io import FAMILIES, read_pool
 from fdia_graph.generation.nygrid.network import Network
 from fdia_graph.generation.nygrid.npcc import modify_mpc, nygrid_units, read_npcc
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
-from fdia_graph.generation.nygrid.timeline import Slot, TimelineBuilder
+from fdia_graph.generation.nygrid.timeline import TimelineBuilder
 from fdia_graph.generation.plan import WEEK, place_episodes, split_weeks
 
 from .inputs import DATA, POOL, TERRITORIES
@@ -31,7 +31,7 @@ START, FRAMES = 50000, 288  # one day of the 2019 pool (June), short enough to b
 def _placed(n, lengths, name, allowed=None):
     """One split's placement at an attacked share of 0.2, as the builder's slots."""
     placed, _, _ = place_episodes(rng(Settings(), name), lengths, 0.2, n, allowed)
-    return [Slot(*p) for p in placed]
+    return placed
 
 
 def test_place_episodes_per_family_length_equal_frames():

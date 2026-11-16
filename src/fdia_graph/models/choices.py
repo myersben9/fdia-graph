@@ -45,6 +45,7 @@ STEALTHY_FAMILIES = {FAMILY_CODE[n] for n in ("Aq", "At", "Al", "Am")}
 HELDOUT_FAMILIES = ("As", "Ar")  # kept out of train and val in the unseen-attack protocol [BOY22]
 # what the generator makes: the multi-snapshot families [WU26] (the ramp At, the overload Am)
 GENERATED_FAMILIES = ("At", "Am")
+SPLITS = ("train", "val", "test")  # the order of the per-split attributes and of data/split's codes
 
 
 # ---- the dataset ---------------------------------------------------------------------------------

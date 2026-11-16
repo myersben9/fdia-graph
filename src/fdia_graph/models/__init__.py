@@ -1,7 +1,7 @@
 """Every data model of the package in one place.
 
 Grouped by what the data is: `fields` (the field groups the data bundles share), `grid` (the static system), `frames` (what the generators pass
-around per scan), `training` (what a learned localizer's fitting pieces share), `config` (the settings every consumer
+around per scan), `plan` (the records of a timeline's plan and design stages), `training` (what a learned localizer's fitting pieces share), `config` (the settings every consumer
 accepts, and `inputs`, what the formulas and parsers accept, checked by the one engine in `validation`, with the fixed sets in `choices`), `data` (what a user gets back), `scores` (result tables), `assets` (how files
 are found). The package's own modules import only numpy and the standard library, so no model
 depends on a producer and no import cycle is possible (importing it still runs the parent
@@ -74,6 +74,7 @@ from .frames import (
     AttackVector,
     FlowGoal,
     Frame,
+    FrameContext,
     FrameKnobs,
     LoadGoal,
     MinimizerResult,
@@ -142,6 +143,7 @@ from .inputs import (
     TrustablePmus,
     WindowSlots,
 )
+from .plan import Designed, GeneratorSpec, Pending, Placement, Schedule, Slot, SplitSpan
 from .results import Leaf, Metric, Provenance, Record, RunRecords
 from .scores import (
     BenignMetrics,
@@ -216,6 +218,14 @@ __all__ = [
     "Scan",
     "Frame",
     "FrameKnobs",
+    "FrameContext",
+    "Slot",
+    "SplitSpan",
+    "Pending",
+    "Designed",
+    "Schedule",
+    "Placement",
+    "GeneratorSpec",
     "AttackDesign",
     "AttackVector",
     "RampDesign",

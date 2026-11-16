@@ -128,13 +128,14 @@ def test_delta_ratings_generate_am_episodes(tmp_path):
 
     import fdia_graph as fg
     from fdia_graph import schema
-    from fdia_graph.generation.design import _GeneratorSpec
+    from fdia_graph.generation.design import build_generator
     from fdia_graph.models.config import MeterSettings
+    from fdia_graph.models.plan import GeneratorSpec
 
     out = tmp_path / "delta.h5"
     am = OverloadSettings(rating_source="delta", rating_delta=0.1)
     fg.generate("ieee14", "delta", out=str(out), frames=300, families=["Am"], seed=3, am_attack=am)
     with h5py.File(out, "r") as f:
         assert len(f[schema.Group.EPISODES][schema.EPISODE_AM_EPISODE]) >= 1
-    g = _GeneratorSpec(14, 3, None, MeterSettings(), None, 10.0).build()
+    g = build_generator(GeneratorSpec(14, 3, None, MeterSettings(), None, 10.0))
     assert g._rating_delta == 10.0
