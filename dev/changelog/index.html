@@ -1749,8 +1749,45 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Deprecated logic is removed (breaking).</strong> Main holds current code only; anything below still works in
-  <code>fdia-graph==0.21.0</code>, and nothing here keeps an alias or a warning period.</li>
+<li><strong>No DC model is left (breaking; New York operator numbers move).</strong> The DC dispatch <code>operator.sced</code> is removed
+  with <code>DcSced</code> (and its <code>implied</code> and <code>prices</code>), <code>shift_factors</code>, <code>outage_factors</code>, the objective <code>cost_lf</code>
+  and the constants <code>OBJECTIVES</code>, <code>ROOM_MW</code>, <code>UNIT_ADDER_WEIGHT</code> and <code>ENERGY_CAP</code>; <code>operator.run.AC_DISPATCH</code>
+  goes too. The operator dispatches by the AC
+  optimal power flow that was <code>dispatch="ac"</code> and <code>"ac_cost"</code>: <code>Dispatch</code> is now <code>"movement"</code> (the default) and
+  <code>"cost"</code>, both AC, and <code>"ac"</code>, <code>"ac_cost"</code> and <code>"cost_lf"</code> are refused. <code>Step</code>, <code>shortage_usd</code>, <code>loss_factors</code>
+  and the dispatch constants live in <code>operator.acsced</code>; <code>fdia_graph.operator</code> exports <code>AcSced</code>.</li>
+<li><code>respond</code> needs the bus reactive loads of the pool's load series (<code>pool_frames</code>: <code>NYGRID_LOADS</code>, or the
+    default file beside the data), which only the AC dispatches needed before.</li>
+<li><code>TrueGrid(day)</code> screens each 345 kV outage by an AC power flow (<code>TrueGrid(day, ac=True)</code> before); the <code>ac</code>
+    argument and the DC outage factors are gone. <code>zone_levers(day)</code> uses the AC sensitivities (<code>ac_shift</code>); its
+    <code>ac</code> argument is gone. <code>area_damage</code>'s payments are the AC bus prices, attacked less benign.</li>
+<li>A <code>respond</code> run is an AC OPF per scan, about a minute per day on the test machine against five seconds for
+    the DC dispatch. The <code>respond_*</code> snapshots under <code>tests/nygrid/golden/</code> are regenerated under AC and cut
+    from 26 to 14. They compare within relative 1e-4 and absolute 1e-2 on the machine that recorded them
+    (<code>respond_recorded_on.json</code>), where a refactor must repeat them, and within 5 percent or 2 (MW or dollars)
+    elsewhere: on another platform the least-movement dispatch lands on another of its near-equal answers (the
+    first Linux run moved the same MW to 0.05 percent and the dollars to half a percent). The 14 are: every operator and loop on the window past the limit,
+    the trusting closed loop on the window at the limit, and the seven options on the window past the limit.</li>
+<li>Load the units cannot follow is no longer priced at the 1,000 $/MWh offer cap (<code>ENERGY_CAP</code>, the DC
+    least-cost dispatch's): the AC dispatch leaves it as a slack at <code>SLACK_WEIGHT</code>.</li>
+<li>With <code>delay</code> the benign twin now moves: it dispatches each scan for the scan before against the current
+    basepoint (14,439 MW-scans on the snapshot day at <code>delay=1</code>), where the DC benign twin moved nothing. This
+    is how the AC dispatch already behaved; it is now the only behaviour.</li>
+<li>Tests of <code>DcSced</code> alone are removed (its lossless prices, its shortage and energy caps, the DC shift and
+    outage factors); relieving an interface read over its limit, ramp-limited recovery and shedding only when
+    allowed and only where it relieves are tested on <code>AcSced.step</code>.</li>
+<li>
+<p><strong>The attack-area rule reads AC flow sensitivities.</strong> Rule 3's spread term of <code>AreaMixin.area_score</code> (used only
+  with <code>area_rule="rules"</code>; the default region is the buses within <code>hops</code>) is the mean absolute sensitivity of
+  the goal lines' active flow to the area's injections at the window's first true state
+  (<code>formulas.network.flow_sensitivities</code>, checked against a re-solved power flow), no longer DC transfer
+  factors from the reactances. On IEEE-14 and IEEE-118 the two agree to a correlation above 0.996 and the term
+  moves by 2 to 5 percent on the candidate regions tried; <code>AreaMixin._ptdf</code> is removed.</p>
+</li>
+<li>
+<p><strong>Deprecated logic is removed (breaking).</strong> Main holds current code only; anything below still works in
+  <code>fdia-graph==0.21.0</code>, and nothing here keeps an alias or a warning period.</p>
+</li>
 <li><strong>Record shards and stream files.</strong> <code>fg.load</code> and <code>FdiaGraph</code> read timelines only: a file without the <code>kind</code>
     attribute <code>timeline</code> raises <code>NotATimeline</code>, and a data release before v0.8.0 (<code>release="v0.7.2"</code>) is refused
     by name. The registry drops the v0.7.x layout (<code>ml_only_ieee{C}.h5</code>, npz pools, the bare <code>v0.7.x</code> tags, their

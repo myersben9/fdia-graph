@@ -1834,41 +1834,40 @@ its stage does.</p>
 <a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    ramp.py             Ramp
 <a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>  operator/
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    sced.py             DcSced, Step, shift_factors, outage_factors, loss_factors, shortage_usd (N59, N60; least-movement or least-cost dispatch, the latter with congestion and energy prices, or least-cost around the AC point with loss factors and the AC point's implied values)
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    day.py              OperatorDay, operator_day, INTERFACES, node_lbmp, PoolFrames, pool_frames (an attacked day as the operator meets it, NYISO's hourly prices, the pool's own inputs for its frames)
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    acsced.py           AcSced, ac_shift, ac_power_flow, open_branch (the operator's dispatch as an AC OPF each scan, AC LMPs; AC sensitivities; the AC power flow of an outage)
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    ties.py             tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    truegrid.py         TrueGrid (state, run_state, change: AC power flows on the true grid; with `ac` the N-1 screen is an AC power flow per outage)
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    policy.py           OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    run.py              Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, AC_DISPATCH, reported_changes (the operator scan by scan, DC or AC)
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    summary.py          summarize (the attack's consequence, attacked less benign)
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>    areas.py            area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>  se/detect/
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    __init__.py         what the stage does, and its public names
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    estimate.py         WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    fleets.py           FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>  federated/
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>    utilities.py        Ownership, assign_clients
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>  dataset/
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>    clients.py          Dataset, ClientView
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>  results/
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>    studies.py          study_days, variant, load_calib, add_study_arguments, run_parallel (what every study tool repeats)
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>  _lazy.py            attach: the public names of a package, imported on first use
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>pipelines/newyork/
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>results/
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>tests/nygrid/
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
-<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    day.py              OperatorDay, operator_day, INTERFACES, node_lbmp, PoolFrames, pool_frames (an attacked day as the operator meets it, NYISO's hourly prices, the pool's own inputs for its frames)
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    acsced.py           AcSced, Step, shortage_usd, loss_factors, ac_shift, ac_power_flow, open_branch (N59, N60; the operator's dispatch as an AC OPF each scan, least movement or least cost with AC LMPs; AC sensitivities; the AC power flow of an outage)
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    ties.py             tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    truegrid.py         TrueGrid (state, run_state, change: AC power flows on the true grid; the N-1 screen is an AC power flow per outage)
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    policy.py           OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    run.py              Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, reported_changes (the operator scan by scan)
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    summary.py          summarize (the attack's consequence, attacked less benign)
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    areas.py            area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>  se/detect/
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    __init__.py         what the stage does, and its public names
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    estimate.py         WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    fleets.py           FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>  federated/
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>    utilities.py        Ownership, assign_clients
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>  dataset/
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>    clients.py          Dataset, ClientView
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>  results/
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a>    studies.py          study_days, variant, load_calib, add_study_arguments, run_parallel (what every study tool repeats)
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a>  _lazy.py            attach: the public names of a package, imported on first use
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a>pipelines/newyork/
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a>  build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a>  build_single_episodes.py  one Am per file over its whole day, for studying one attack by hand
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a>  matlab/nygrid/       MATLAB reference for NYgrid's AC feasibility (README inside)
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a>  run_pool.py          builds the pool in parallel chunks (a week each, from its first hour's AC point), then repairs each seam by solving the next chunk's first frames again from the chunk before's last state until the thermal dispatch meets the stored one within 0.5 MW, so the year is one continuous dispatch; per-unit ramps from engine/attacks/attacker.py's constants, NYgrid's reactive limits (N38)
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a>results/
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>  nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>tests/nygrid/
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a>  inputs.py      where the tests find their inputs, and which tests each input lets run
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a>  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a>  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>  data/matlab_ref/     operating points from dump_hours.m that the Python port must match
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a>  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
 </code></pre></div>
 <p><code>tools/</code>, <code>results/</code> and <code>tests/data/</code> follow the fdia_graph_sdk layout, so the move into the SDK
 copies them as they are.</p>
@@ -2045,16 +2044,10 @@ copies them as they are.</p>
 <td><code>build(path) -&gt; dict</code> (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from <code>split_weeks</code> on the frames some waiting family may start at (or <code>split_frames</code> with <code>split_by="time"</code>); each split's episodes are placed by <code>place_episodes</code> inside one contiguous run of its frames and, for a family with an <code>onset_mask</code>, only where it allows; each is designed on its own window of true pool states (in <code>workers</code> spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With <code>survey</code> (frames, N42) every allowed onset of a family with an <code>onset_mask</code> whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of <code>HIT_STRATUM</code> weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of <code>SURVEY_CHUNK</code> designs saved under <code>survey_cache</code> when given so a stopped build resumes; the summary adds <code>survey</code> (tried and found per split and family). <code>build_episode(path, onset, family="Am", lo=None, hi=None, using=None, lag=0) -&gt; dict</code> writes one episode alone, designed at pool frame <code>onset</code> (at <code>onset - lag</code> with a lag, its vector added to the true scans), over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through <code>_write</code>. Frames: <code>z_benign = NoiseModel.sample(h(x_true))</code>, <code>z = z_benign + a</code> on episode frames; <code>meter_tampered</code> is <code>Attacker.tampered</code>, <code>bus_attacked</code> is true where a tampered meter sits at the bus</td>
 </tr>
 <tr>
-<td><code>DcSced</code></td>
-<td><code>operator/sced.py</code></td>
-<td>built as <code>DcSced(case, unit_p [T, G], cost [T, G], interfaces, bus_load=None, quick_start=None, objective="movement", state=None)</code>: the pool basepoint, the units' costs, the interfaces it enforces; <code>objective</code> "movement", "cost" or "cost_lf" (the market dispatch around the AC point, which needs <code>state</code> = the frames' true (vm, va) for its delivery factors <code>beta [T, N]</code>)</td>
-<td><code>step(t, seen [I], limit [I], load_change, prev) -&gt; Step</code>: the scan's dispatch, least movement then least cost (N53), free units only (not nuclear, hydro or imports), within limits and five-minute ramps from <code>prev</code>, the unrelieved interface flow and unmatched load as slacks; <code>implied(t)</code> (the AC point's implied unit and bus adders, $/MWh, under "cost_lf"), <code>prices(t, energy, congestion) -&gt; [N]</code> (bus prices of a least-cost step), <code>delivered(t, dev, shed)</code> (MW at the reference bus)</td>
-</tr>
-<tr>
 <td><code>AcSced</code></td>
 <td><code>operator/acsced.py</code></td>
 <td>built as <code>AcSced(case, unit_p [T, G], cost [T, G], interfaces, state=(vm, va), loads=(pd, qd), frames=PoolFrames, bus_load=None, quick_start=None, objective="movement")</code>: the AC points and their loads, the pool's own bounds and schedules, its <code>OperatorOpf</code></td>
-<td><code>step(t, load_p [N], load_q [N], corr [I], limit [I], prev, shed_ok) -&gt; Step</code>: one AC OPF at the loads the operator reads (<code>movement</code>: least movement, cost breaking ties; <code>cost</code>: least cost, <code>price</code> the AC LMPs), interface AC flows plus the reading correction within their limits or priced over, shed and balance slacks as <code>DcSced</code>; <code>delivered(t, dev, shed)</code></td>
+<td><code>step(t, load_p [N], load_q [N], corr [I], limit [I], prev, shed_ok) -&gt; Step</code>: one AC OPF at the loads the operator reads (<code>movement</code>: least movement, cost breaking ties; <code>cost</code>: least cost, <code>price</code> the AC LMPs), interface AC flows plus the reading correction within their limits or priced over, shed and balance slacks priced above any unit; <code>delivered(t, dev, shed)</code></td>
 </tr>
 <tr>
 <td><code>OperatorOpf</code>, <code>OpfSolution</code></td>
@@ -2070,7 +2063,7 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>Step</code></td>
-<td><code>operator/sced.py</code></td>
+<td><code>operator/acsced.py</code></td>
 <td><code>dev [G]</code> (MW from the basepoint), <code>shed [N]</code> (MW of load relief), <code>unrelieved [I]</code>, <code>unmatched</code>, <code>relief_usd</code> (the dispatch's cost less that of the same dispatch with no interface limit)</td>
 <td></td>
 </tr>
@@ -2312,15 +2305,9 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>shortage_usd(mw)</code></td>
-<td><code>operator/sced.py</code></td>
+<td><code>operator/acsced.py</code></td>
 <td>MW over an interface limit for one scan</td>
 <td>$ at the 2019 transmission shortage curve (N60)</td>
-</tr>
-<tr>
-<td><code>shift_factors(case)</code>, <code>outage_factors(case, ptdf, outages)</code></td>
-<td><code>operator/sced.py</code></td>
-<td><code>Case</code></td>
-<td><code>[L, N]</code> DC shift factors (reference bus out), <code>[L, K]</code> line outage distribution factors</td>
 </tr>
 <tr>
 <td><code>operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))</code></td>
@@ -2507,7 +2494,7 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 </tr>
 <tr>
 <td>O1, O2, O5</td>
-<td><code>operator/sced.py</code>, <code>operator/run.py</code></td>
+<td><code>operator/acsced.py</code>, <code>operator/run.py</code></td>
 </tr>
 </tbody>
 </table>

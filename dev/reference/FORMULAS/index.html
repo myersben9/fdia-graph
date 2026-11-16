@@ -1721,6 +1721,13 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 <td>every estimator</td>
 </tr>
 <tr>
+<td>AC flow sensitivities</td>
+<td><code>formulas.network.flow_sensitivities</code>, called by <code>AreaMixin._spread</code> (rule 3 of the attack-area score, at the window's first true state), pinned to a re-solved power flow by <code>tests/test_formulas.py</code></td>
+<td>∂P_f/∂P = the first N−1 columns of G J⁻¹, with J = [Re ∂S/∂θ, Re ∂S/∂|V|; Im ∂S/∂θ, Im ∂S/∂|V|] and G = [Re ∂S_f/∂θ, Re ∂S_f/∂|V|] over the non-slack buses, every one holding its injections (ours)</td>
+<td>[MP19, dSbus_dV, dSbr_dV]</td>
+<td></td>
+</tr>
+<tr>
 <td>branch flows</td>
 <td><code>formulas.network.branch_flows</code>; called by <code>engine.measurement.MeasurementMixin.emit_from_state</code>, <code>clean_flows_from_states</code> and <code>dataset.physics.AdmittanceMixin._clean_flows_full</code></td>
 <td>S_f = V_from ∘ conj(Y_f V)</td>

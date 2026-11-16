@@ -1857,7 +1857,7 @@ listing the allowed values. In the result:</p>
 </tr>
 <tr>
 <td><code>margin_min_mw</code> below zero with <code>over_scans</code> zero</td>
-<td>The benign twin is over the limit as far, or further. The least-cost dispatch holds a binding interface at its shift-factor limit, and the true AC flow can pass it with no attack. <code>benign_margin_min_mw</code> gives the benign twin's tightest margin, and <code>over_*</code> count only the attack's excess</td>
+<td>The benign twin is over the limit as far, or further. The dispatch holds a binding interface at the limit in its own model at the loads it reads, and the true flow can pass it with no attack. <code>benign_margin_min_mw</code> gives the benign twin's tightest margin, and <code>over_*</code> count only the attack's excess</td>
 </tr>
 <tr>
 <td><code>alarm_scans</code> NaN</td>
@@ -1865,7 +1865,7 @@ listing the allowed values. In the result:</p>
 </tr>
 <tr>
 <td><code>RuntimeError: scan t: ...</code> from the dispatch</td>
-<td>The operator's dispatch linear program failed on that scan</td>
+<td>The operator's AC optimal power flow found no optimum on that scan (Ipopt, after its retry from the AC point)</td>
 </tr>
 </tbody>
 </table>
