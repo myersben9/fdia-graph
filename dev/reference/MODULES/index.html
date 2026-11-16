@@ -2171,6 +2171,10 @@
 <td>What the formulas and the parsers accept, one model each, checked when built (<code>models.validation</code>).</td>
 </tr>
 <tr>
+<td><code>models.plan</code></td>
+<td>The records of a timeline's plan and design stages: a placed episode (<code>Slot</code>), a split and its frames (<code>SplitSpan</code>), an episode not yet written (<code>Pending</code>) or designed (<code>Designed</code>), what is placed (<code>Schedule</code>) and what the placement asked for and got (<code>Placement</code>), and what a design worker rebuilds its generator from (<code>GeneratorSpec</code>).</td>
+</tr>
+<tr>
 <td><code>models.results</code></td>
 <td>The models of a results table: the metric registry, a <code>Record</code> (one measured value with the keys that say what it is) and a <code>Provenance</code> (which run made it), plus the parsers that read loose input (a nested score report, a filter value, a run's settings) by its type. Every check lives here, per the validation rule, so a store never holds an unknown metric, a non-finite value or a malformed key; <code>fdia_graph.results</code> builds these models and never checks its input itself.</td>
 </tr>

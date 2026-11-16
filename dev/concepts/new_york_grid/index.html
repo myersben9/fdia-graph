@@ -1948,8 +1948,8 @@ copies them as they are.</p>
 </tr>
 <tr>
 <td><code>Slot</code></td>
-<td><code>generation/nygrid/timeline.py</code></td>
-<td>one placed episode: <code>onset</code> (frame), <code>family</code> ("Am", "Ap" or "At"), <code>length</code></td>
+<td><code>models/plan.py</code></td>
+<td>one placed episode, the same record on every grid: <code>onset</code> (frame), <code>family</code> (here the name, "Am", "Ap" or "At"; the IEEE generator uses the code), <code>length</code></td>
 </tr>
 </tbody>
 </table>
@@ -2210,7 +2210,7 @@ copies them as they are.</p>
 <td><code>place_episodes(rng, lengths, frac, n, allowed=None)</code></td>
 <td><code>generation/plan.py</code></td>
 <td>one split's frame count, <code>{family: length}</code>, the attacked share, <code>{family: [T] allowed onsets}</code></td>
-<td><code>(onset, family, length)</code> list with the counts requested and dropped: the whole episodes closest to <code>frac T</code> frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this)</td>
+<td><code>Slot</code> list with the counts requested and dropped: the whole episodes closest to <code>frac T</code> frames, families equal in attacked frames (a family capped at what its allowed onsets hold), each at a uniform random onset among the allowed ones where it fits without overlap (adjacency and gaps come only from this)</td>
 </tr>
 <tr>
 <td><code>ipopt(**options)</code></td>

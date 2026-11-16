@@ -1753,12 +1753,19 @@ the public API, the generated files and the numbers are the same as the previous
   where its episodes go is decided in <code>generation/plan.py</code> for the IEEE systems and for New York alike;
   <code>generation/nygrid/schedule.py</code> is removed.</li>
 <li><code>place_episodes(rng, lengths, frac, n, allowed=None)</code> is the one placement: it returns
-    <code>(onset, family, length)</code> triples with the counts requested and dropped per family. The IEEE walk and the
+    <code>Slot(onset, family, length)</code> records with the counts requested and dropped per family. The IEEE walk and the
     New York builder both call it. <code>split_weeks</code> and <code>week_index</code> live beside it; New York's <code>split_frames</code> is
     <code>split_column(split_bounds(T, frac), T)</code>.</li>
 <li><code>fdia_graph.generation.nygrid</code> no longer exports <code>place_episodes</code>, <code>split_frames</code>, <code>split_weeks</code> or
-    <code>week_index</code>; <code>Slot</code> is defined in <code>generation/nygrid/timeline.py</code>. <code>plan.episode_counts</code> and
-    <code>_Schedule.weights</code> are removed (the placement computes its weights from the lengths).</li>
+    <code>week_index</code>, nor <code>Slot</code>: the one <code>Slot</code> record, for both generators, is in <code>models/plan.py</code>.
+    <code>plan.episode_counts</code> and <code>_Schedule.weights</code> are removed (the placement computes its weights from the
+    lengths).</li>
+<li>The plan and walk records have plain names, live in <code>fdia_graph.models</code> like every other record, and the
+    stages take them instead of tuples: <code>Slot</code>, <code>SplitSpan</code> (a split's code and its frames), <code>Pending</code> (an
+    episode not yet written), <code>Designed</code>, <code>Schedule</code>, <code>Placement</code> and <code>GeneratorSpec</code> in <code>models/plan.py</code>
+    (<code>design.build_generator(spec)</code> builds a worker's generator from the spec), <code>FrameContext</code> in
+    <code>models/frames.py</code>; the walk's state is the class <code>Walk</code> in <code>generation/emit.py</code>. The split names <code>SPLITS</code>
+    are in <code>models/choices.py</code>. No generated file changes.</li>
 <li><strong>One rule when a placement jams.</strong> After ten whole placements fail, one episode of the family that could
     not be placed is dropped. The IEEE generator used to drop one of the family with the most episodes. Only a
     timeline that already warned "placements jammed" can differ. <code>place_episodes</code> reports

@@ -2202,7 +2202,7 @@ and 2,000 frames; IEEE-30 a smoke run), before the search speed-up of #163 (expe
 <tr>
 <td>fallback</td>
 <td>a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the <code>fallback_benign</code> attribute</td>
-<td><code>write._timeline_attrs</code></td>
+<td><code>write.timeline_attrs</code></td>
 </tr>
 <tr>
 <td>record</td>
@@ -2413,13 +2413,13 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>data/</code></td>
 <td><code>node_x [T, N, 4]</code>, <code>edge_x [T, E, 2]</code></td>
 <td>observed readings: benign plus noise, plus the attack where attacked</td>
-<td><code>_TimelineBuffers.store</code></td>
+<td><code>TimelineBuffers.store</code></td>
 </tr>
 <tr>
 <td><code>data/</code></td>
 <td><code>node_m</code>, <code>edge_m</code></td>
 <td>the meter plan per frame</td>
-<td><code>_write_masks</code></td>
+<td><code>write._write_masks</code></td>
 </tr>
 <tr>
 <td><code>data/</code></td>
@@ -2431,7 +2431,7 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>data/</code></td>
 <td><code>family</code>, <code>stealthy</code>, <code>seq_id</code>, <code>timestep</code>, <code>split [T]</code></td>
 <td>family code, 1 for a stealthy family (<code>At</code>, <code>Am</code>; <code>Aq</code> and <code>Al</code> in older releases), episode index (-1 benign), pool timestep, 0/1/2</td>
-<td><code>_finish_timeline</code></td>
+<td><code>write.finish_timeline</code></td>
 </tr>
 <tr>
 <td><code>data/</code></td>
@@ -2449,7 +2449,7 @@ any program using <code>multiprocessing</code> must. An Am-only IEEE-14 timeline
 <td><code>clean/</code></td>
 <td><code>node_clean</code>, <code>edge_clean</code></td>
 <td>the noiseless pool state and the exact flows on metered branches</td>
-<td><code>_clean_slice</code></td>
+<td><code>emit.clean_slice</code></td>
 </tr>
 <tr>
 <td><code>attack/</code></td>
