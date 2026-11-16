@@ -1724,7 +1724,7 @@ checks a docs change locally.</p>
 <tr>
 <td>typed, formatted, linted</td>
 <td>pyright at zero, ruff format and check clean</td>
-<td><code>pyright src/fdia_graph</code>, <code>ruff format --check src/fdia_graph tests tools experiments pipelines</code>, <code>ruff check src tests tools experiments pipelines</code></td>
+<td><code>pyright src/fdia_graph</code>, <code>ruff format --check src/fdia_graph tests tools pipelines</code>, <code>ruff check src tests tools pipelines</code></td>
 </tr>
 <tr>
 <td>generated docs match the code</td>
@@ -1749,7 +1749,7 @@ checks a docs change locally.</p>
 <tr>
 <td>speed is tracked</td>
 <td>per-record timings against the last row from this machine, 3x tolerance</td>
-<td><code>python experiments/benchmarks/run.py --check</code> before a release, <code>python experiments/benchmarks/run.py</code> after</td>
+<td><code>python tools/bench.py --check</code> before a release, <code>python tools/bench.py</code> after</td>
 </tr>
 </tbody>
 </table>
@@ -1848,7 +1848,7 @@ registry maps the short name (<code>fg.load(..., release="v0.8.0")</code>) to th
 </tr>
 <tr>
 <td>a study's numbers or figures</td>
-<td>its folder under <code>experiments/</code> (<code>run.py</code>, <code>report.py</code>), its page under <code>docs/analysis/</code></td>
+<td>its runs in the results store (<code>results/</code>), its page under <code>docs/analysis/</code></td>
 </tr>
 <tr>
 <td>how released New York data is built</td>

@@ -2279,13 +2279,8 @@ set below reads observed data only.</p>
 <p>The same papers' protocol trained federated across K utilities, with the Jacobian block, is in
 <a href="../federated/"><code>../federated/README.md</code></a>.</p>
 <h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>experiments/localization/run.py<span class="w">    </span><span class="c1"># fits, writes runs of localization.* to results/</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>experiments/localization/run.py
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>experiments/localization/run.py
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>experiments/localization/report.py<span class="w">                          </span><span class="c1"># figures + CSV sidecars from the store</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/results_docs.py<span class="w"> </span>--write<span class="w">                             </span><span class="c1"># the README's results blocks</span>
-</code></pre></div>
-<p>IEEE-300 takes the longest, mostly the residual arm's solves.</p>
+<p>The scripts that ran the study are not part of this repository; the runs they wrote are in the results store (<code>localization.*</code>).
+<code>python tools/results_docs.py --write</code> fills this page's results blocks from the store.</p>
 
 
 

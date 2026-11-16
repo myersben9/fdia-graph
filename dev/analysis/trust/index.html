@@ -1737,12 +1737,11 @@ on an overload window, the latter both on the generator's attack and on the pape
 </tr>
 </tbody>
 </table>
-<p>The defense results are reproduced by <code>experiments/defense_reproduction/run.py</code> (on the generator),
-<code>experiments/defense_reproduction/run_faithful.py</code> and <code>experiments/defense_reproduction/run_faithful_dqn.py</code> (on the paper's attack); the
+<p>The defense results are reproduced on the generator and on the paper's attack; the
 numbers are in <a href="../defense_reproduction/"><code>../defense_reproduction/README.md</code></a>.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
-<p><code>python experiments/trust/run.py</code> (set <code>FG_SYSTEM</code>) writes a run of <code>trust.selection</code> to the
-results store: the selection, the attack-cost curve, and the detection table. Read the detection
+<p>The scripts that ran the study are not part of this repository. The study wrote a run of
+<code>trust.selection</code> to the results store: the selection, the attack-cost curve, and the detection table. Read the detection
 table first. The attack cost is the sparsest row of an echelon basis of the open subspace, an upper
 bound on the true sparsest attack, so it is not monotone in the secured set: on IEEE-14 the greedy
 cost plateaus after its second meter, while the DQN selection's cost jumps up and down along its
@@ -1810,8 +1809,8 @@ measurements only (<code>calibrate="measured"</code>):</p>
 of the timeline in which the selected meters read their benign value on every frame (the attacker
 locked out of them, the tamper masks and the stored temporal features following), so every
 estimator and localizer of the other two guides can be scored with the set secured;
-<code>python experiments/trust/run_secured.py</code> (set <code>FG_SYSTEM</code>, <code>FG_K</code>) does that for the greedy and the DQN
-selections of <code>run.py</code> and writes runs of <code>trust.secured_localization</code> and
+the study does that for the greedy and the DQN
+selections and writes runs of <code>trust.secured_localization</code> and
 <code>trust.secured_estimation</code> to the results store.</p>
 <p>Rule: a localization gate never down-weights a secured meter.
 <code>GatedPrior</code> scales every meter of a flagged bus by a thousandth. On a secured copy those meters

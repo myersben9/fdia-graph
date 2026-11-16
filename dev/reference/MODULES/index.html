@@ -1297,17 +1297,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#experiments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Experiments
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#pipelines" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1677,17 +1666,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#experiments" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Experiments
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#pipelines" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1752,10 +1730,6 @@
 <tr>
 <td><code>examples/</code></td>
 <td>scripts a user copies: the quickstart, the training examples, the New York extension points</td>
-</tr>
-<tr>
-<td><code>experiments/</code></td>
-<td>one folder per study: <code>run.py</code> measures and writes to the results store, <code>report.py</code> draws the figures of the study's page under <code>docs/analysis/</code></td>
 </tr>
 <tr>
 <td><code>results/</code></td>
@@ -2376,6 +2350,10 @@
 </thead>
 <tbody>
 <tr>
+<td><code>tools/bench.py</code></td>
+<td>Time the estimators and the generator on the tiny timeline, and store the timings as a run of the <code>bench</code> experiment in the results store (<code>results/bench.csv</code>), where docs/reference/BENCHMARKS.md renders them from (a results block).</td>
+</tr>
+<tr>
 <td><code>tools/class_diagrams.py</code></td>
 <td>Write the class and module diagrams of the package from its source, as Mermaid sources under docs/figures/diagrams/, so the pictures in docs/reference/CLASS_MAP.md never drift from the code.</td>
 </tr>
@@ -2716,73 +2694,6 @@
 <tr>
 <td><code>examples/train_tgnn.py</code></td>
 <td>Temporal Graph NN localizer benchmark on an fdia-graph dataset.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="experiments">Experiments<a class="headerlink" href="#experiments" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>file</th>
-<th>what it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>experiments/benchmarks/design_speed.py</code></td>
-<td>Record what the parallel overload Am design stage buys (experiment <code>generation.parallel_design</code>): an Am-only IEEE-14 timeline over the first <code>--frames</code> pool frames, generated with each worker count of <code>--workers</code> on one seed, its wall time, the episodes built and whether every file is byte-identical to the one-worker file (it must be: each design draws from its own keyed stream).</td>
-</tr>
-<tr>
-<td><code>experiments/benchmarks/run.py</code></td>
-<td>Time the estimators and the generator on the tiny timeline, and store the timings as a run of the <code>bench</code> experiment in the results store (<code>results/bench.csv</code>), where docs/reference/BENCHMARKS.md renders them from (a results block).</td>
-</tr>
-<tr>
-<td><code>experiments/data_release/run.py</code></td>
-<td>Record a data release's statistics in the results store (experiment <code>data.release_stats</code>), the numbers docs/reference/EXAMPLES.md renders in its "Dataset statistics" section.</td>
-</tr>
-<tr>
-<td><code>experiments/defense_reproduction/run.py</code></td>
-<td>Reproduce [WU26]'s defense results on our generator.</td>
-</tr>
-<tr>
-<td><code>experiments/defense_reproduction/run_faithful.py</code></td>
-<td>[WU26]'s defense on the faithful attack (<code>trust.faithful_attack</code>), at the paper's scale: windows drawn by p. 658's data recipe, the undefended attack of each and the attack under Solution 1's trusted PMUs, one step per configuration slot. Every window's numbers go to the results store as <code>wu26.faithful</code> (docs/analysis/defense_reproduction).</td>
-</tr>
-<tr>
-<td><code>experiments/defense_reproduction/run_faithful_dqn.py</code></td>
-<td>[WU26]'s Solution 2 on the faithful attack (<code>trust.TrustedPMUsDQN</code> over <code>trust.Wu26DefenseEnv</code>): training sessions of Algorithm 1 run in parallel, each tested on fresh windows, the paper's "100 tests" as sessions x test windows (the plan's E8 option 2). Records go to the results store as <code>wu26.dqn</code> (docs/analysis/defense_reproduction): every test window's cost without and with the trained policy's schedule (Fig. 12), each step's choice (Fig. 11's selection probabilities) and the decision and training times (p. 662).</td>
-</tr>
-<tr>
-<td><code>experiments/estimation/report.py</code></td>
-<td>Draw the README figures from the results store (experiment <code>se.estimators</code>).</td>
-</tr>
-<tr>
-<td><code>experiments/estimation/run.py</code></td>
-<td>Fit the fdia_graph.se estimators on one system and write a run of <code>se.estimators</code> to the results store (<code>results/</code>).</td>
-</tr>
-<tr>
-<td><code>experiments/federated/report.py</code></td>
-<td>Draw the README figures from the results store (experiment <code>federated.localization</code>).</td>
-</tr>
-<tr>
-<td><code>experiments/federated/run.py</code></td>
-<td>Run the federated localization papers' protocol on one system and write a run of <code>federated.localization</code> to the results store (<code>results/</code>).</td>
-</tr>
-<tr>
-<td><code>experiments/localization/report.py</code></td>
-<td>Draw the README figures from the results store (experiment <code>localization.common</code>).</td>
-</tr>
-<tr>
-<td><code>experiments/localization/run.py</code></td>
-<td>Fit the fdia_graph.localization methods on one system and write runs of <code>localization.common</code> and <code>localization.zero_shot</code> to the results store (<code>results/</code>).</td>
-</tr>
-<tr>
-<td><code>experiments/trust/run.py</code></td>
-<td>Select trusted meters on one system and write a run of <code>trust.selection</code> to the results store.</td>
-</tr>
-<tr>
-<td><code>experiments/trust/run_secured.py</code></td>
-<td>What a trusted-meter selection does for state estimation and localization, not only for the residual test: the estimators and localizers of the other two guides scored on the plain timeline and on secured copies of it (<code>TrustSelector.secured_copy</code>, the selected meters reading their benign value on every frame). Writes runs of <code>trust.secured_localization</code> and <code>trust.secured_estimation</code> to the results store (<code>results/</code>).</td>
 </tr>
 </tbody>
 </table>

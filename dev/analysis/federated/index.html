@@ -1643,9 +1643,9 @@
 
 <h1 id="federated-localization-with-fdia_graphfederated">Federated localization with <code>fdia_graph.federated</code><a class="headerlink" href="#federated-localization-with-fdia_graphfederated" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p><strong>Status.</strong> The results on this page are on data release v0.8.1, pinned in the run script, and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame <code>Aq</code> and <code>Al</code>. They are not yet rerun on v0.8.3; the centralized numbers in <a href="../localization/"><code>../localization/README.md</code></a> are current.</p>
+<p><strong>Status.</strong> The results on this page are on data release v0.8.1 and predate the measurements-only feature rules (swing from observed frames, the Jacobian block against the previous frame's estimate, measured calibration) and the one-frame <code>Aq</code> and <code>Al</code>. They are not yet rerun on v0.8.3; the centralized numbers in <a href="../localization/"><code>../localization/README.md</code></a> are current.</p>
 </blockquote>
-<p>The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines (pinned in the run script) with
+<p>The federated localization papers' protocol, run by the SDK on the v0.8.1 timelines with
 the 14-dim per-bus vector plus the Jacobian block.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fdia_graph.federated</span><span class="w"> </span><span class="kn">import</span> <span class="n">FedBusCNN</span>
@@ -1664,7 +1664,7 @@ the 14-dim per-bus vector plus the Jacobian block.</p>
 </code></pre></div>
 <p><code>release=</code> pins the built-in data only: a dataset registered locally under the same name loads in
 its place. <code>fg.list_datasets()["ieee118"]</code> reads <code>"builtin"</code> when these are the release's records,
-and the run script refuses to fit otherwise.</p>
+and the study did not fit otherwise.</p>
 <table>
 <thead>
 <tr>
@@ -1732,7 +1732,7 @@ state. The block now reads observed data only (the previous frame's estimate), a
 await a rerun on it.</p>
 <p>Zero-shot: train and val hold benign, <code>Aq</code> and <code>Ad</code>; test adds <code>As</code> and <code>Ar</code>, never seen in
 training. F1, DR and FR are the paper's per-bus macro scores over the attackable buses, mean and
-standard deviation over seeds 123, 124 and 125. Every run is in <code>experiments/federated/runs/</code>, the aggregates in
+standard deviation over seeds 123, 124 and 125. The aggregates are in
 the results store, experiment <code>federated.localization</code> (<code>results/</code>).</p>
 <p><strong>Table IV layout</strong> (FR over every test record, the paper's convention)</p>
 <!-- results: fed.table table4 -->
@@ -2047,13 +2047,8 @@ physics instead of its history, which recovers most of that drop on 118 and 300 
 it on 14; the centralized comparison with and without the block is in
 <a href="../localization/"><code>../localization/README.md</code></a>.</p>
 <h2 id="regenerate">Regenerate<a class="headerlink" href="#regenerate" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee14<span class="w"> </span>python<span class="w"> </span>experiments/federated/run.py<span class="w">     </span><span class="c1"># 18 runs, writes experiments/federated/runs/ + a run of federated.localization</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee118<span class="w"> </span>python<span class="w"> </span>experiments/federated/run.py
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">FG_SYSTEM</span><span class="o">=</span>ieee300<span class="w"> </span>python<span class="w"> </span>experiments/federated/run.py
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>experiments/federated/report.py<span class="w">                        </span><span class="c1"># figures + CSV sidecars from the store</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>tools/results_docs.py<span class="w"> </span>--write<span class="w">                        </span><span class="c1"># the README's results blocks</span>
-</code></pre></div>
-<p>Saved runs are skipped, so a re-run only aggregates.</p>
+<p>The scripts that ran the study are not part of this repository; the runs they wrote are in the results store (<code>federated.localization</code>).
+<code>python tools/results_docs.py --write</code> fills this page's results blocks from the store.</p>
 
 
 
