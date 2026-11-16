@@ -23,7 +23,7 @@ OLD_FAMILIES = {"Aq", "Ad", "As", "Ar", "At", "Al", "Am"}
 
 
 def _family_names(ds):
-    from fdia_graph.dataset import FAMILIES
+    from fdia_graph.models.choices import FAMILIES
 
     return {FAMILIES[int(f)] for f in np.unique(ds.export(["family"])["family"])} - {"benign"}
 

@@ -7,10 +7,6 @@ from typing import Optional
 import numpy as np
 
 from .. import schema
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    Label,
-    Layer,
-)
 from ..models.config import WindowSpec
 from ..models.data import EpisodeTable
 from .base import DatasetBase

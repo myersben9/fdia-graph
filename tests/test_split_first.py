@@ -315,12 +315,12 @@ def test_the_three_variants_carry_the_same_benign_frames(variants):
                 assert np.array_equal(f[name][:], ref[name]), (key, name)
 
 
-def test_an_alias_of_a_named_family_adds_no_column(pool, tmp_path):
-    """families=("At", "ramp") names At twice: one column, its requests and builds counted once."""
+def test_a_family_named_twice_adds_no_column(pool, tmp_path):
+    """families=("At", "At") names At twice: one column, its requests and builds counted once."""
     out = tl.generate_timeline(
         14,
         states=pool,
-        families=("At", "ramp"),
+        families=("At", "At"),
         ramp_len=10,
         seed=5,
         min_tamper=False,

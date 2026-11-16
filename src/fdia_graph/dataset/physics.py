@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 import h5py
 import numpy as np
 
-from ..formulas.network import Admittances, BranchModel, branch_admittances, branch_flows, complex_voltages
-from ..models.grid import NODE
+from ..formulas.network import branch_admittances, branch_flows, complex_voltages
+from ..models.grid import NODE, Admittances, BranchModel
 from .base import (
     DatasetBase,
     _torch,

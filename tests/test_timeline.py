@@ -10,9 +10,10 @@ import pytest
 
 pytest.importorskip("pandapower")
 
-from fdia_graph.dataset.base import STEALTHY_FAMILIES  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
-from fdia_graph.timeline import KIND, generate_timeline  # noqa: E402
+from fdia_graph.generation.write import KIND
+from fdia_graph.models.choices import STEALTHY_FAMILIES
+from fdia_graph.timeline import generate_timeline
 
 SEED = 2  # puts At and Am in every split of the 1000-frame fixture
 
@@ -428,8 +429,6 @@ def test_a_family_with_nothing_to_attack_is_refused():
     AdmissibleTargets(["benign"], none)
     with pytest.raises(NoAdmissibleTarget, match="At"):
         AdmissibleTargets(["At"], none)
-    with pytest.raises(NoAdmissibleTarget, match="At"):
-        AdmissibleTargets(["ramp"], none)  # an alias resolves first
 
 
 def test_the_single_snapshot_families_are_read_only(tmp_path, pool):
@@ -437,8 +436,8 @@ def test_the_single_snapshot_families_are_read_only(tmp_path, pool):
     before any frame is walked (the families stay readable in old releases)."""
     from fdia_graph.models.inputs import GeneratedFamilies
 
-    assert GeneratedFamilies(["At", "Am", "ramp"]).codes == (5, 7, 5)
-    for old in (["Aq"], ["At", "Ad"], ["LRA"]):
+    assert GeneratedFamilies(["At", "Am", "At"]).codes == (5, 7, 5)
+    for old in (["Aq"], ["At", "Ad"], ["Al"]):
         with pytest.raises(ValueError, match="makes At, Am only"):
             generate_timeline(14, states=pool[:20], families=old, out=str(tmp_path / "x.h5"))
 
@@ -451,7 +450,7 @@ def test_temporal_features_read_only_the_observed_frames(timeline, tmp_path):
     import h5py
 
     from fdia_graph import schema
-    from fdia_graph.timeline import write_temporal_layers
+    from fdia_graph.generation.write import write_temporal_layers
 
     copy = str(tmp_path / "copy.h5")
     shutil.copyfile(timeline, copy)

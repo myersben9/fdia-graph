@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 import fdia_graph as fg
-from fdia_graph.dataset import FAMILIES, family_ids
+from fdia_graph.dataset import family_ids
 from fdia_graph.models import (
     GateConfig,
     HuberConfig,
@@ -17,6 +17,7 @@ from fdia_graph.models import (
     RemovalConfig,
     SolveConfig,
 )
+from fdia_graph.models.choices import FAMILIES
 
 # ---- registry and loading -------------------------------------------------------------------------
 
@@ -30,10 +31,12 @@ def test_unknown_dataset_and_system_spellings():
         system_id("bogus")
 
 
-def test_family_ids_accept_names_codes_and_aliases_and_reject_unknowns():
+def test_family_ids_accept_names_and_codes_and_reject_unknowns():
     assert family_ids(["benign", "Aq", "Al"]) == [0, 1, 6]
     assert family_ids([1, 5]) == [1, 5]
-    assert family_ids(["Ao", "ramp", "LRA"]) == [1, 5, 6]  # the legacy names
+    for old in ("Ao", "SLS", "ramp", "LRA"):  # the names of the first releases are gone
+        with pytest.raises(ValueError, match="unknown family"):
+            family_ids([old])
     with pytest.raises(ValueError, match="unknown family"):
         family_ids(["Bogus"])
     with pytest.raises(ValueError, match="unknown family"):
@@ -72,16 +75,16 @@ def test_load_rejects_bad_units_split_and_family(timeline):
         fg.load(timeline, families=["Bogus"])
 
 
-def test_family_filter_aliases_and_heldout_protocol(timeline):
-    """On an old release that carries them, the old family names, aliases and the unseen-attack
-    protocol (As and Ar held out of train and val) still select as documented."""
+def test_family_filter_and_heldout_protocol(timeline):
+    """On an old release that carries them, the older families select by name or code, and the unseen-attack
+    protocol (As and Ar held out of train and val) selects as documented."""
     from fdia_graph.dataset import FdiaGraph
 
     from .test_old_releases import TIMELINE_V083
 
-    by_alias = FdiaGraph(TIMELINE_V083, families=["Ao"])
+    by_name = FdiaGraph(TIMELINE_V083, families=["Aq"])
     by_code = FdiaGraph(TIMELINE_V083, families=[1])
-    assert len(by_alias) == len(by_code) > 0 and np.array_equal(by_alias.idx, by_code.idx)
+    assert len(by_name) == len(by_code) > 0 and np.array_equal(by_name.idx, by_code.idx)
     for split in ("train", "val"):
         fams = set(FdiaGraph(TIMELINE_V083, split=split, heldout=True).export(["family"])["family"].tolist())
         assert not fams & {3, 4}, f"As/Ar must be held out of {split}"
@@ -89,8 +92,7 @@ def test_family_filter_aliases_and_heldout_protocol(timeline):
         FdiaGraph(TIMELINE_V083, split="test", heldout=True).export(["family"])["family"].tolist()
     )
     assert test_fams & {3, 4}, "the test split keeps As/Ar"
-    ramp = fg.load(timeline, families=["ramp"])  # an alias of the generated families on a new file
-    assert len(ramp) == len(fg.load(timeline, families=["At"])) > 0
+    assert len(fg.load(timeline, families=["At"])) == len(fg.load(timeline, families=[5])) > 0
 
 
 # ---- exports ----------------------------------------------------------------------------------------

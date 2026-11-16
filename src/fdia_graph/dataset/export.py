@@ -14,9 +14,7 @@ import h5py
 import numpy as np
 
 from .. import schema
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    Format,
-)
+from ..models.choices import FAMILIES
 from ..models.config import ExportRequest
 from ..models.data import ArraysBundle, Summary
 from ..models.inputs import FieldRequest
@@ -26,7 +24,6 @@ from .base import (
     _CURRENT_LAYERS,
     _PREV_FIELDS,
     _UNIT_KIND,
-    FAMILIES,
     DatasetBase,
     _torch,
 )

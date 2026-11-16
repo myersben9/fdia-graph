@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse, json, os, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 from typing import Dict, Optional, Tuple
 import fdia_graph as fg
-from fdia_graph.dataset import FAMILIES
+from fdia_graph import FAMILIES
 
 
 class SpatialEncoder(nn.Module):

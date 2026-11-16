@@ -8,9 +8,9 @@ import numpy as np
 
 from ..formulas.network import branch_currents, branch_flows, complex_voltages
 from ..formulas.noise import biased_current, current_sigma, jitter_sigma
+from ..models.frames import Scan
 from ..models.grid import CURRENT, EDGE, NODE
 from .base import POWER_NOISE_FLOOR_MW, GridBase
-from .records import Scan
 
 # the jitter stream's key beside (seed, t): one stream per timeline frame, apart from every other draw
 JITTER_STREAM = 0x4A17

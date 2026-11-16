@@ -41,9 +41,6 @@ from ..localization.learned import (
     predict,
     standardization,
 )
-from ..models.choices import (  # noqa: F401  re-exported beside the code that reads them
-    Kcl,
-)
 from ..models.config import FederatedSettings, LearnedConfig, LocalizerConfig, TrainerConfig
 from ..models.federated import Partition, RoundLog
 from ..models.inputs import PartitionOnGrid

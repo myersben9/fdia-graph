@@ -4,7 +4,7 @@
 A researcher runs THIS and nothing else: the SDK downloads/loads the data and yields ready batches; the
 model below is a small edge-conditioned message-passing GNN that predicts, per bus, whether that bus is
 attacked (multi-label localization). We train on the chronological train split and report per-attack-type
-node-F1 on the test split — so the hard stealthy families (Ao/ramp/LRA) are visible, not hidden behind the
+node-F1 on the test split — so the hard stealthy families (Aq/At/Al) are visible, not hidden behind the
 easy detectable ones. Runs on CPU for IEEE-14; pass a bigger system + GPU for 118/300.
 
     python train_gnn.py --system ieee14 --epochs 5
@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse, numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 from typing import Any, Dict, Tuple
 import fdia_graph as fg
-from fdia_graph.dataset import FAMILIES
+from fdia_graph import FAMILIES
 
 
 class EdgeMPNN(nn.Module):

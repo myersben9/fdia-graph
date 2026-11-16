@@ -376,7 +376,8 @@ def test_local_trainer_runs_persist_and_honour_owned_and_clip():
     """Two one-epoch runs equal one two-epoch run (optimizer and batch order persist); with `owned`
     the labels of the other buses cannot matter; a clip changes training only when it binds."""
     torch = pytest.importorskip("torch")
-    from fdia_graph.localization.learned import LocalTrainer, OptimConfig, _mlp_net
+    from fdia_graph.localization.learned import LocalTrainer, _mlp_net
+    from fdia_graph.models.training import OptimConfig
 
     was = torch.are_deterministic_algorithms_enabled()
     torch.use_deterministic_algorithms(True)

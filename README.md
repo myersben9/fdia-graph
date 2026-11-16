@@ -155,8 +155,8 @@ plus per-scan jitter). Report per-family node-F1 next to the false-alarm rate, n
 
 | cite | for |
 |---|---|
-| Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE T-SG 2(2), 2011 | LRA |
-| Haghshenas, Hasnat & Naeini, *A Temporal GNN for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023 | ramp |
+| Yuan, Li & Ren, *Modeling load redistribution attacks in power systems*, IEEE T-SG 2(2), 2011 | `Al` |
+| Haghshenas, Hasnat & Naeini, *A Temporal GNN for Cyber Attack Detection and Localization in Smart Grids*, IEEE ISGT 2023 | `At` |
 | Zaman & Lin, *PING: Physics-Informed GNNs to Generalize FDIA Localization*, NAPS 2025 | measurement model |
 | Asprou, Kyriakides & Albu, *Variable Weights in a WLS State Estimator*, IEEE T-IM 63, 2014 | meter noise |
 | Boyaci et al., *Joint Detection and Localization of Stealth FDIA*, IEEE T-SG, 2022 | protocol |

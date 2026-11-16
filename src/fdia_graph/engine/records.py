@@ -15,19 +15,8 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 
 from ..models.choices import BENIGN_CODE
-from ..models.frames import (  # noqa: F401  re-exported: defined here before the models package
-    AttackDesign,
-    Frame,
-    FrameKnobs,
-    Scan,
-)
+from ..models.frames import AttackDesign, Frame, FrameKnobs
 from .attacks.false_state import FalseStateMixin
-from .attacks.stealthy import (  # noqa: F401  re-exported: defined here before engine.attacks
-    AM_FAMILY,
-    RAMP_FAMILY,
-    STEP_HALVINGS,
-    StealthyMixin,
-)
 
 if TYPE_CHECKING:
     from .core import FdiaGenerator

@@ -26,10 +26,7 @@ if TYPE_CHECKING:
     # Ybus, Yf, Yt: pandapower's makeYbus builds them sparse; a dense matrix works the same
     Admittance = Union[np.ndarray, spmatrix]
 
-from ..models.grid import (  # noqa: F401  re-exported: defined here before the models package
-    Admittances,
-    BranchModel,
-)
+from ..models.grid import Admittances, BranchModel
 
 
 def complex_voltages(vm: np.ndarray, theta_deg: np.ndarray) -> np.ndarray:

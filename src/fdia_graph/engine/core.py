@@ -18,19 +18,13 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
-from ..formulas.network import BranchModel, series_admittance
+from ..formulas.network import series_admittance
 from ..formulas.noise import PMU_CURRENT_CLASS, bias_jitter_split
 from ..models.config import GeneratorOptions
+from ..models.grid import INTACT, BranchModel, MeterBias, MeterPlan
 from ..registry import system_id
 from .attacks import AttackMixin
-from .base import (  # noqa: F401  ACCURACY_CLASS, POWER_NOISE_FLOOR_MW re-exported
-    ACCURACY_CLASS,
-    INTACT,
-    POWER_NOISE_FLOOR_MW,
-    MeterBias,
-    MeterPlan,
-    Outage,
-)
+from .base import ACCURACY_CLASS
 from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
 
@@ -122,7 +116,7 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         arrays stay the same length. ATTACKABLE = load_bus positions with real ACTIVE
         load (|p_mw| > 0) and at most `max_load_mw`: reactive-only loads (e.g. IEEE-300 buses 141,
         183) and area-equivalent loads stay in the physics table but are excluded from target
-        selection and the LRA candidate set, since attacking a reactive-only load leaves no P
+        selection and the Al candidate set, since attacking a reactive-only load leaves no P
         footprint yet would still get a y = 1 label, and a gigawatt step has no local solution.
         Zero-injection buses are pure junctions with net injection exactly 0 (a strong
         constraint); a near-zero injection measurement is still emitted there.

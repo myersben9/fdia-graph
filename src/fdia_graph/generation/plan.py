@@ -18,9 +18,9 @@ from typing import Optional, TypeVar
 
 import numpy as np
 
-from ..dataset.base import FAMILIES
-from ..engine.records import AM_FAMILY, RAMP_FAMILY
+from ..engine.attacks.stealthy import AM_FAMILY, RAMP_FAMILY
 from ..errors import NoRoomForEpisode
+from ..models.choices import FAMILIES
 
 SPLITS = ("train", "val", "test")  # the order of the per-split attributes and of data/split's codes
 PLACE_TRIES = 10  # whole-split placements tried before one episode is dropped (the split-first packing rule)

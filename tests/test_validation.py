@@ -258,7 +258,7 @@ def test_parsers_are_models_that_keep_the_input_and_give_the_result():
     from fdia_graph.models.inputs import FamilySelection, ReleaseName, SystemRef
 
     assert SystemRef("IEEE118").number == 118 and ReleaseName("data-v0.8.3").numbers == (0, 8, 3)
-    assert FamilySelection(["Ao", 2, "Am"]).codes == (1, 2, 7)
+    assert FamilySelection(["Aq", 2, "Am"]).codes == (1, 2, 7)
     with pytest.raises(ConfigError, match="unknown family"):
         FamilySelection(["Aq", "Zz"])
     with pytest.raises(ConfigError, match="SystemRef.system must be like 'ieee118' or 118"):

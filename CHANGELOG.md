@@ -5,6 +5,31 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **Family-name aliases and old import paths are removed (breaking).** Under the same rule as the deprecated
+  logic: one name per family, one home per name, nothing kept for an old spelling.
+  - **Families.** `"Ao"`, `"SLS"`, `"ramp"` and `"LRA"` are no longer accepted where a family is named
+    (`fg.load(families=...)`, `generate_timeline(families=...)`, `family_ids`): write `"Aq"`, `"At"`, `"Al"`.
+    `models.choices.FAMILY_ALIAS` is removed.
+  - **Import paths.** A name is imported from the module that defines it, or from its package's public names
+    (`fdia_graph`, `fdia_graph.models`, `fdia_graph.se`, ...). The copies other modules kept "where it was read
+    before" are gone:
+    - from `dataset.base` (and, where `fdia_graph.dataset` only passed them on, from it): `RecordBundle`, `BatchBundle`, `ArraysBundle`, `Summary`
+      (in `models.data`); `FAMILIES`, `STEALTHY_FAMILIES`, `Split`, `Order`, `Units`, `RecordFormat`, and
+      `Format`, `Label`, `Layer` of `dataset.export` and `dataset.sequence` (in `models.choices`; `fg.FAMILIES`
+      and `fg.STEALTHY_FAMILIES` stay);
+    - from `fdia_graph.timeline`: `AttackDesign` (in `models.frames`), `is_feasible` and `ramp_profile` (in the
+      engine), `KIND` and `write_temporal_layers` (in `generation.write`), `RAMP_FAMILY`, `BENIGN_CODE`,
+      `FAMILY_CODE` (in `models.choices` and `engine.attacks.stealthy`), and the plan stage's `SPLITS`,
+      `REDRAWS`, `PLACE_TRIES`, `episode_counts`, `largest_remainder`, `split_column` (in `generation.plan`);
+    - from `fdia_graph.engine`: `Scan` and `OperatingLimits` (in `models.frames`), `INTACT` and `Outage` (in
+      `models.grid`), `POWER_NOISE_FLOOR_MW` of `engine.core` (in `engine.base`), and `AM_FAMILY`, `RAMP_FAMILY`,
+      `STEP_HALVINGS`, `StealthyMixin` of `engine.records` (in `engine.attacks.stealthy`);
+    - `schema.FAMILIES`, `schema.FAMILY_ALIAS` and `schema.STEALTHY_FAMILIES`, `se.base.Calibrate`,
+      `profiles.system_id` (in `registry`),
+      `formulas.projection.Reduce`, `localization.base.Buses` and `FrOver`, `federated.localizer.Kcl` (in
+      `models.choices`).
+  - The whole-timeline digests are unchanged by this entry: no generated number moves.
+
 - **No DC model is left (breaking; New York operator numbers move).** The DC dispatch `operator.sced` is removed
   with `DcSced` (and its `implied` and `prices`), `shift_factors`, `outage_factors`, the objective `cost_lf`
   and the constants `OBJECTIVES`, `ROOM_MW`, `UNIT_ADDER_WEIGHT` and `ENERGY_CAP`; `operator.run.AC_DISPATCH`

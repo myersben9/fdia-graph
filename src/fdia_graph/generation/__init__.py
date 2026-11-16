@@ -25,9 +25,9 @@ import numpy as np
 
 from .. import schema
 from ..engine import FdiaGenerator
-from ..engine.records import FrameKnobs
 from ..errors import UnknownColumnOrder
 from ..models.config import ShardRun, TimelineSettings
+from ..models.frames import FrameKnobs
 from ..models.grid import NODE
 from ..models.inputs import StatePool, StateSource
 from ..registry import CACHE_DIR, register_local

@@ -15,10 +15,10 @@ from typing import TYPE_CHECKING, Optional
 import requests
 
 if TYPE_CHECKING:
-    from .registry import AssetSpec
+    from .models.assets import AssetSpec
 from tqdm import tqdm  # download progress bar
 
-from .models.assets import DownloadTarget  # noqa: F401  re-exported: defined here before the models package
+from .models.assets import DownloadTarget
 from .registry import CACHE_DIR  # ~/.cache/fdia_graph, owned by registry.py
 
 
