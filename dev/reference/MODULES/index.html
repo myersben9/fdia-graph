@@ -1844,7 +1844,7 @@
 </tr>
 <tr>
 <td><code>engine.attacks.attacker</code></td>
-<td>The attacker: the local subnetwork it re-solves, and the false states its two goals imply.</td>
+<td>The attacker: the local subnetwork it re-solves, the false state a pretended load implies, and the bounds the grid's own behaviour puts on a pretended change (<code>natural_steps</code>, <code>generator_ramps</code>, <code>generator_band</code>, <code>generator_q_capability</code>).</td>
 </tr>
 <tr>
 <td><code>engine.attacks.episodes</code></td>
@@ -1860,19 +1860,15 @@
 </tr>
 <tr>
 <td><code>engine.attacks.interface</code></td>
-<td>The overload attack on a NYISO interface (N48, N49, ours): Am with OpfFdia's false states and every one of its bounds, the goal moved from one branch's rating to the flow across an interface.</td>
+<td>Am, the overload attack on a NYISO interface (N48, N49, ours): over a window of scans the reported flow across an interface rises to its limit, each scan the reading of one AC false state from <code>OpfFdia</code>'s local OPF under every one of its bounds, so the operator's residual test stays quiet.</td>
 </tr>
 <tr>
 <td><code>engine.attacks.minimize</code></td>
 <td>The cheapest support of an attack window [WU26 eq. 12].</td>
 </tr>
 <tr>
-<td><code>engine.attacks.msfdia</code></td>
-<td>Am, the multi-snapshot overload FDIA of [1] (TSG 2026, eqs. 12-25): over a window of snapshots the reported apparent flow of one or two target branches is driven to their ratings, each snapshot the reading of one AC false state so the operator's residual test stays quiet, while the true flow is below the rating. The attack tampers the fewest distinct meters (eq. 12).</td>
-</tr>
-<tr>
 <td><code>engine.attacks.opf</code></td>
-<td>The overload attacks with the attacker's false states from a local optimal power flow (N35, ours).</td>
+<td>The attacker's false states from a local AC optimal power flow (N35): the support search and the per-scan OPF every OPF attack shares. <code>OpfFdia</code> is their base class; a subclass adds the goal and <code>design</code> (<code>interface.InterfaceFdia</code>, the one the release builds).</td>
 </tr>
 <tr>
 <td><code>engine.attacks.overload</code></td>
@@ -2055,14 +2051,6 @@
 <td>HDF5 files of the build. The only module that imports h5py.</td>
 </tr>
 <tr>
-<td><code>generation.nygrid.load_fit</code></td>
-<td>How the within-hour terms of <code>LoadModel</code> were fitted (N31): the fluctuation's spread and autocorrelation on the real zones of a held-out year (<code>fluctuation_fit</code>), and industrial switching on zone D's large steps (<code>switching_fit</code>). Their results are the FLUCT_* and SWITCH_* constants of <code>loads.py</code>; run these again to refit them on other data.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.load_metrics</code></td>
-<td>How a load series is compared with the real one (<code>LoadModel.validate</code>): the load factor, the distribution of the load and of its five-minute steps, the hourly autocorrelation and the spectrum.</td>
-</tr>
-<tr>
 <td><code>generation.nygrid.load_sources</code></td>
 <td>Where the bottom-up load profiles come from ([LI21]), each downloaded once into a cache: the NREL ResStock and ComStock county profiles, each utility's EIA-861 sector sales, the census county centroids and the IAC industrial plants, with the clock rules the plants run on. <code>LoadModel</code> (<code>loads.py</code>) builds the bus profiles from these.</td>
 </tr>
@@ -2077,10 +2065,6 @@
 <tr>
 <td><code>generation.nygrid.pool</code></td>
 <td>The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32).</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.ratings</code></td>
-<td>Branch ratings from the limits NYgrid itself sets. <code>npcc.mat</code> carries no branch ratings.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.solver</code></td>
@@ -2426,7 +2410,7 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_attacks.py</code></td>
-<td>The New York attacks on the real grid: the attacker's area and false states, the multi-snapshot overload (<code>MsFdia</code>), the ramp, and that each meets its goal, stays within the natural load swing and evades the residual test.</td>
+<td>The New York attacker on the real grid: its area and edge rules, the false state of a pretended load, the ramp built on it (within the natural load swing, quiet to the residual test), and the bounds it reads from the pool.</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_build.py</code></td>
@@ -2466,11 +2450,11 @@
 </tr>
 <tr>
 <td><code>tests/nygrid/test_grid.py</code></td>
-<td>The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants, the utility of each bus and the branch ratings.</td>
+<td>The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants and the utility of each bus.</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_misses.py</code></td>
-<td>Every design that finds no attack says why (<code>MISSES</code>), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed).</td>
+<td>Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed).</td>
 </tr>
 <tr>
 <td><code>tests/nygrid/test_operator.py</code></td>

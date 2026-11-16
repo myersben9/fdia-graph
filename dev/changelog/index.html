@@ -1749,10 +1749,35 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The New York grid is one MATPOWER case file (breaking for New York imports).</strong> The grid every New York pool
+<li><strong>New York code that nothing built is removed (breaking for New York imports).</strong> The release builds Am against
+  a NYISO interface (<code>InterfaceFdia</code>) and At (<code>Ramp</code>). The code below was reached by no pipeline, example, tool or
+  doc, only by its own tests. It is removed with no alias. Release 0.21.0 still holds it, under
+  <code>fdia_graph.nyfed</code> (<code>attacks/msfdia.py</code>, <code>grid/ratings.py</code>, the fits and <code>validate</code> in <code>scenario/loads.py</code>);
+  <code>unit_q_limits</code> was never released. No generated file changes: the pinned New York timeline and episodes are
+  the same, byte for byte.</li>
+<li>The line-target Am and the Ap family: <code>engine/attacks/msfdia.py</code> (<code>MsFdia</code>, <code>NEAR_LIMIT</code>) is gone, and
+    <code>OpfFdia</code> no longer attacks a line. <code>OpfFdia</code> is now the base class of the OPF attacks (the support search
+    and the per-scan OPF) and <code>InterfaceFdia</code> is its one subclass. Its arguments <code>ratings</code>, <code>n_lines</code>, <code>tries</code>,
+    <code>target_order</code>, <code>kappa</code>, <code>reactive_step</code>, <code>bound_rise</code> and <code>wait_share</code> are gone; the step bound now holds
+    over the exit only, as the release always built it.</li>
+<li><code>Attacker.false_flow_state</code> is removed. <code>Attacker.false_state</code> (the ramp's solve) gives the same states.</li>
+<li><code>production_builder</code> builds <code>"Am"</code> and <code>"At"</code>. Asking it for <code>"Ap"</code> or any other family, or for Am with
+    <code>interfaces=()</code>, raises a <code>ConfigError</code> that names the families it builds; before, <code>"Ap"</code> built a
+    line-target attack and an empty <code>interfaces</code> built Am against branch ratings. The family code 3 (<code>Ap</code>) stays
+    in <code>frames/family_codes</code>, so files written with it still read.</li>
+<li><code>MISSES</code> is removed from <code>engine/attacks/family.py</code>; the three miss reasons (<code>"no_target"</code>, <code>"infeasible"</code>,
+    <code>"solver_error"</code>) are unchanged and listed in the module's docstring.</li>
+<li>
+<p><code>generation/nygrid/load_fit.py</code> (<code>fluctuation_fit</code>, <code>switching_fit</code>), <code>generation/nygrid/load_metrics.py</code>
+    with <code>LoadModel.validate</code>, <code>generation/nygrid/ratings.py</code> (<code>line_ratings</code>) and <code>unit_q_limits</code> are removed.
+    The load constants the fits produced stay in <code>loads.py</code>, and the tie ratings stay in the case file.</p>
+</li>
+<li>
+<p><strong>The New York grid is one MATPOWER case file (breaking for New York imports).</strong> The grid every New York pool
   and timeline is built on is <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, shipped with the package, in place
   of code that assembled it from NYgrid's <code>npcc.mat</code> each time. A change to the grid is now an edit to that file.
-  No generated file changes: the file reads back to the same arrays, bit for bit, as the code built.</li>
+  No generated file changes: the file reads back to the same arrays, bit for bit, as the code built.</p>
+</li>
 <li><code>nygrid_case()</code> returns the grid's <code>Case</code> (140 buses, 227 branches, 271 units). <code>production_builder</code>, the
     tests and <code>pipelines/newyork/run_pool.py</code> start from it, so the case no longer needs NYgrid's <code>Data/</code> folder
     (the hourly data still does).</li>

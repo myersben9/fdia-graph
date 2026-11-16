@@ -2660,8 +2660,8 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 </table>
 <p>The New York grid's attacks are separate classes on the New York network: <code>engine/attacks/attacker.py</code>
 (<code>Attacker</code>), <code>engine/attacks/family.py</code> (what an attack occupies on the timeline), <code>engine/attacks/ramp.py</code>
-(<code>Ramp</code>), <code>engine/attacks/msfdia.py</code> (<code>MsFdia</code>), <code>engine/attacks/opf.py</code> and <code>engine/attacks/interface.py</code>
-(the overload with false states from a local optimal power flow, and on an interface); they are described in
+(<code>Ramp</code>), <code>engine/attacks/opf.py</code> and <code>engine/attacks/interface.py</code>
+(the overload of an interface, with false states from a local optimal power flow); they are described in
 <a href="../../concepts/new_york_grid/"><code>../concepts/new_york_grid.md</code></a>.</p>
 <h2 id="7-building-your-own">7. Building your own<a class="headerlink" href="#7-building-your-own" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">fdia_graph</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fg</span>
