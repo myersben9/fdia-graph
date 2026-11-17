@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from ..formulas.network import series_admittance
+from ..schema import Static
 from .base import (
     DatasetBase,
     _torch,
@@ -32,19 +33,19 @@ class GraphMixin(DatasetBase):
     # are branch_*: `edge_x` on every record is the branch flows.
     @property
     def branch_r(self) -> torch.Tensor:
-        return self._p("edge_r")  # series resistance
+        return self._p(Static.EDGE_R)  # series resistance
 
     @property
     def branch_x(self) -> torch.Tensor:
-        return self._p("edge_x")  # series reactance
+        return self._p(Static.EDGE_X)  # series reactance
 
     @property
     def branch_b(self) -> torch.Tensor:
-        return self._p("edge_b")  # charging susceptance
+        return self._p(Static.EDGE_B)  # charging susceptance
 
     @property
     def branch_g(self) -> torch.Tensor:
-        return self._p("edge_g")  # charging conductance, transformer iron losses
+        return self._p(Static.EDGE_G)  # charging conductance, transformer iron losses
 
     def _series_adm(self, imag: bool) -> torch.Tensor:
         # Series admittance 1/(r+jx). Stored on v0.7.0+ shards; derived from r,x for older ones so edge_attr
@@ -69,36 +70,24 @@ class GraphMixin(DatasetBase):
 
     @property
     def branch_tap(self) -> torch.Tensor:
-        return self._p("edge_tap")  # transformer turns ratio, 1.0 for lines
+        return self._p(Static.EDGE_TAP)  # transformer turns ratio, 1.0 for lines
 
     @property
     def branch_shift(self) -> torch.Tensor:
-        return self._p("edge_shift")  # phase shift, degrees
+        return self._p(Static.EDGE_SHIFT)  # phase shift, degrees
 
     # Shunts are a BUS property, on the Ybus diagonal, so they were not expressible in an edge schema.
     @property
     def bus_shunt_g(self) -> torch.Tensor:
-        return self._p("bus_shunt_g")
+        return self._p(Static.BUS_SHUNT_G)  # shunt conductance, MW at 1.0 pu
 
     @property
     def bus_shunt_b(self) -> torch.Tensor:
-        return self._p("bus_shunt_b")
+        return self._p(Static.BUS_SHUNT_B)  # shunt susceptance, MVAr at 1.0 pu
 
     @property
     def edge_attr(self) -> torch.Tensor:
         """[E,8] stacked per-unit branch features: series impedance (r,x), branch shunt (b,g), series
         admittance (gs,bs = 1/(r+jx)), and transformer tap/shift."""
-        t = _torch()
-        return t.stack(
-            [
-                self.branch_r,
-                self.branch_x,
-                self.branch_b,
-                self.branch_g,
-                self.branch_gs,
-                self.branch_bs,
-                self.branch_tap,
-                self.branch_shift,
-            ],
-            dim=1,
-        )
+        columns = [self.branch_r, self.branch_x, self.branch_b, self.branch_g, self.branch_gs, self.branch_bs]
+        return _torch().stack([*columns, self.branch_tap, self.branch_shift], dim=1)

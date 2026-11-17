@@ -79,15 +79,9 @@ class FamilySelection(Validated):
 
 
 @dataclass(frozen=True)
-class GeneratedFamilies(Validated):
+class GeneratedFamilies(FamilySelection):
     """The families a timeline generates: At and Am only. The single-snapshot families of older
     releases (Aq, Ad, As, Ar, Al) stay readable (`FamilySelection`) but are not generated."""
-
-    families: Annotated[Sequence[Union[str, int]], Parses(family_codes, FAMILY_WORDS)]
-
-    @property
-    def codes(self) -> tuple[int, ...]:
-        return tuple(int(c) for c in self.families)
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         made = {FAMILY_CODE[n] for n in GENERATED_FAMILIES}
@@ -227,15 +221,10 @@ class SystemRef(Validated):
 
 
 @dataclass(frozen=True)
-class SupportedSystem(Validated):
+class SupportedSystem(SystemRef):
     """A system the case builders support."""
 
-    system: Annotated[Union[str, int], Parses(system_number, "must be like 'ieee118' or 118")]
     supported: frozenset[int] = frozenset()
-
-    @property
-    def number(self) -> int:
-        return int(self.system)
 
     def invariants(self) -> Iterable[tuple[bool, str]]:
         yield (

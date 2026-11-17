@@ -8,10 +8,10 @@ each is named beside it. Terms are defined in [`../reference/GLOSSARY.md`](../re
 |---|---|---|
 | 1. operating-point pool | `profiles.fetch_profile`, `profiles.generate_states`, the v0.7.1 pool build | `[T, N, 4]` AC states, one per minute |
 | 2. meter plan and noise | `engine/core.py` (`FdiaGenerator.__init__`), `engine/measurement.py` | which channels are metered, one noisy scan per state |
-| 3. attack families | `engine/attacks/` (the `AttackMixin`, the family designers and support strategies), `engine/records.py` | the attacked scan of each family |
+| 3. attack families | `engine/attacks/` (the `AttackMixin`: the false states, the fewest-tamper search and each family's episode design are methods of the generator), `engine/records.py` | the attacked scan of each family |
 | 4. plan: split and episode placement | `generation/plan.py` (`split_bounds`, `place_split`, `planned_until`) | the split, onsets, lengths |
 | 5. design: the overload Am of each split | `generation/design.py` (`AmDesigner`, in parallel over `workers` processes) | each Am's design, or its move |
-| 6. emit and write: the per-frame layers | `generation/emit.py` (`walk_split`, `TimelineBuffers`), `generation/write.py` (`write_temporal_layers`) | the HDF5 file |
+| 6. emit and write: the per-frame layers | `generation/emit.py` (`Walk.walk_split`), `generation/write.py` (`TimelineWriter`) | the HDF5 file |
 
 `TimelineSource.generate` (`generation/source.py`) runs stages 4 to 6, for the IEEE cases and for the New York
 grid alike; each stage hands the next a typed value (the splits, the slots, the designed episodes). The steps
@@ -218,7 +218,7 @@ Notes on the table:
   is not on the slack bus and is at most `max_load_mw = 2000` MW (`attackable_pos`).
 - The `At` rise lasts 20% to 45% of the episode and the hold 0% to 25% (`draw_ramp`). Every frame
   carries at least one `ramp_rate` of change, so every frame labelled `At` is attacked
-  (`ramp_dev`).
+  (`EpisodeDesignMixin.ramp_step`).
 - A ramp step with no local solution is halved, up to 6 times (`STEP_HALVINGS`). `At` designs are
   tested on every frame they will occupy before they are accepted, up to 40 draws (`ONSET_DRAWS`).
 - An overload `Am` window's snapshots are kappa+1 ... kappa+T after the untouched reference kappa
@@ -233,10 +233,10 @@ Notes on the table:
 | split | chronological, cut before anything is placed: train `round(0.6 T)` frames, val `round(0.2 T)`, test the rest (`split=`, validated by `SplitSettings`) | `plan.split_bounds` |
 | count | per split, the whole number of episodes whose frames come closest to `attacked_frac` of its frames (whole episodes, so a short split can be off by one or two), shared between the families by largest remainder over the weights `1 / length`, so every family gets about the same share of attacked frames | `plan.whole_episode_counts`, `plan.largest_remainder` |
 | place | per split, longest first, each at an onset drawn uniformly among the positions where it fits inside the split, never overlapping and never cut; a placement that jams is retried whole 10 times, then one episode of the family that jammed is dropped and recorded (`RuntimeWarning`) | `plan.place_split`, `plan.uniform_onset` |
-| walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `emit.walk_split`, `MeasurementMixin._jitter_stream` |
-| move | an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (`RuntimeWarning`): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound, D11); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers | `design.AmDesigner`, `emit.relocate_later` |
-| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `write.timeline_attrs` |
-| record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `write.placement_attrs` |
+| walk | every frame emitted in time order, its meter jitter from its own stream keyed by the seed and the timestep: benign runs between episodes, each episode where it was placed | `emit.Walk.walk_split`, `MeasurementMixin._jitter_stream` |
+| move | an episode with no feasible design at its onset moves, up to 20 times, then is given up and recorded (`RuntimeWarning`): an overload Am to an onset drawn uniformly among every free one of its split, earlier or later, since the design stage designs a split's Am before any of its frames is written and an Am design reads no earlier frame (no stealth bound, D11); a ramp At to a later free onset, since its design reads the frame before its onset and the walk has written the frames before the failed one. The moves draw from streams keyed by the seed, the split, the episode and the move, so they do not depend on the workers | `design.AmDesigner`, `emit.Walk.relocate_later` |
+| fallback | a frame inside a built episode whose own scan cannot be built is emitted benign; the count is the `fallback_benign` attribute | `TimelineWriter.finish` |
+| record | the split fractions and sizes, the attacked fraction each split reached, and per split and family the episodes requested, built, moved, dropped and short | `TimelineWriter.finish` |
 
 Adjacent episodes and long quiet stretches are outcomes of the uniform draw, not of a rule. Placing
 the longest episodes first keeps a long episode from being squeezed out by shorter ones. The
@@ -288,23 +288,23 @@ any program using `multiprocessing` must. An Am-only IEEE-14 timeline (experimen
 
 | group | datasets | meaning | written by |
 |---|---|---|---|
-| `data/` | `node_x [T, N, 4]`, `edge_x [T, E, 2]` | observed readings: benign plus noise, plus the attack where attacked | `TimelineBuffers.store` |
-| `data/` | `node_m`, `edge_m` | the meter plan per frame | `write._write_masks` |
+| `data/` | `node_x [T, N, 4]`, `edge_x [T, E, 2]` | observed readings: benign plus noise, plus the attack where attacked | `TimelineWriter.store` |
+| `data/` | `node_m`, `edge_m` | the meter plan per frame | `TimelineWriter._write_masks` |
 | `data/` | `y [T, N]` | 1 on each attacked bus | `store` |
-| `data/` | `family`, `stealthy`, `seq_id`, `timestep`, `split [T]` | family code, 1 for a stealthy family (`At`, `Am`; `Aq` and `Al` in older releases), episode index (-1 benign), pool timestep, 0/1/2 | `write.finish_timeline` |
-| `data/` | `temporal_delta`, `swing [T, N, 2]` | temporal features from the observed frames | `write_temporal_layers` |
+| `data/` | `family`, `stealthy`, `seq_id`, `timestep`, `split [T]` | family code, 1 for a stealthy family (`At`, `Am`; `Aq` and `Al` in older releases), episode index (-1 benign), pool timestep, 0/1/2 | `TimelineWriter.finish` |
+| `data/` | `temporal_delta`, `swing [T, N, 2]` | temporal features from the observed frames | `TimelineWriter.write_temporal_layers` |
 | `benign/` | `node_benign`, `edge_benign` | the same scan with the attack removed and the same noise draw | `store` |
-| `clean/` | `node_clean`, `edge_clean` | the noiseless pool state and the exact flows on metered branches | `emit.clean_slice` |
+| `clean/` | `node_clean`, `edge_clean` | the noiseless pool state and the exact flows on metered branches | `IeeeSource._clean` |
 | `attack/` | `node_tamper`, `edge_tamper` | 1 where the attacker wrote the meter | `_store_attack` |
 | `data/`, `benign/`, `attack/` | `pmu_i`, `pmu_i_m`, `pmu_i_benign`, `pmu_i_tamper [T, E, 4]` | hybrid meters only: the PMU branch currents (Re and Im of `I_from`, then of `I_to`, per unit), their mask, the attack-removed twin, and 1 where the attacker wrote the channel | `_store_currents`, `_write_masks` |
-| `attack/` | `mag_ptr`, `mag_bus`, `mag` | designed change per attacked bus, ragged by frame | `_write_episodes` |
-| `episodes/` | `onset`, `length`, `family`, `bus_ptr`, `bus_idx` | one row per episode | `_write_episodes` |
+| `attack/` | `mag_ptr`, `mag_bus`, `mag` | designed change per attacked bus, ragged by frame | `TimelineWriter.finish` |
+| `episodes/` | `onset`, `length`, `family`, `bus_ptr`, `bus_idx` | one row per episode | `TimelineWriter.finish` |
 
 `node_x - node_benign` is the attack exactly, for every family. The loader derives
 `edge_clean_full`, the clean flow on every branch, at read time (`dataset/__init__.py`).
 
 The temporal features are written after the walk from `data/node_x` alone
-(`generation.write.write_temporal_layers`, `formulas.temporal`):
+(`generation.write.TimelineWriter.write_temporal_layers`, `formulas.temporal`):
 
 | feature | definition |
 |---|---|
@@ -362,11 +362,11 @@ The generator is `FdiaGenerator` in `engine/core.py`, composed of mixins over th
 | `engine/attacks/overload.py` | `Am`, the multi-snapshot overload attack of [WU26] |
 | `engine/attacks/minimize.py` | the cheapest support of an attack window [WU26, eq. 12] |
 | `engine/attacks/rref.py` | the support by [WU26]'s row reduction |
-| `engine/attacks/episodes.py` | each episode's design, drawn at onset by its family's designer |
+| `engine/attacks/episodes.py` | each episode's design, drawn at onset: `ramp_design` and `am_overload_design`, methods of the generator |
 | `generation/plan.py`, `generation/design.py`, `generation/emit.py`, `generation/write.py` | the stages of a timeline: plan the splits and episodes, design the `Am` episodes, emit every frame, write the file |
 
 The New York grid's attacks are separate classes on the New York network: `engine/attacks/attacker.py`
-(`Attacker`), `engine/attacks/family.py` (what an attack occupies on the timeline), `engine/attacks/ramp.py`
+(`Attacker`), `engine/attacks/family.py` (the interface of an attack family; its design is an `Episode`, `models/plan.py`), `engine/attacks/ramp.py`
 (`Ramp`), `engine/attacks/opf.py` and `engine/attacks/interface.py`
 (the overload of an interface, with false states from a local optimal power flow); they are described in
 [`../concepts/new_york_grid.md`](../concepts/new_york_grid.md).

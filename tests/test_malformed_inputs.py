@@ -146,9 +146,9 @@ def test_timeline_knobs_refuse_a_bad_value_before_any_work(knobs):
 )
 def test_generate_timeline_refuses_a_bad_knob_before_building_the_case(kwargs, monkeypatch):
     from fdia_graph import timeline
-    from fdia_graph.generation import ieee
+    from fdia_graph.engine.core import FdiaGenerator
 
-    monkeypatch.setattr(ieee, "FdiaGenerator", _no_work)
+    monkeypatch.setattr(FdiaGenerator, "from_spec", _no_work)
     with pytest.raises(ConfigError):
         timeline.generate_timeline(14, **kwargs)
 

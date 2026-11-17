@@ -23,7 +23,7 @@ grid's own:
   so the frames are written in stretches, each as soon as every week before it is planned; the values do not
   depend on where a stretch ends.
 - **The file** is the one layout of every timeline (`fdia_graph.schema`), written by the writer the IEEE
-  cases use (`generation.write`). A value per meter becomes the file's layers by `MeterPlan.scatter`: the
+  cases use (`generation.write.TimelineWriter`). A value per meter becomes the file's layers by `MeterPlan.scatter`: the
   readings, the benign readings and the tampered meters. What differs from an IEEE file is declared in it:
   the flow layers hold both branch ends, the PMU currents are magnitude and angle, and the temporal features
   are left out (`LAYERS`).
@@ -41,7 +41,6 @@ from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -53,14 +52,13 @@ from fdia_graph.engine.attacks.attacker import (
     generator_ramps,
     natural_steps,
 )
-from fdia_graph.engine.attacks.family import AttackFamily, Episode
+from fdia_graph.engine.attacks.family import AttackFamily
 from fdia_graph.engine.attacks.interface import InterfaceFdia
 from fdia_graph.engine.attacks.ramp import Ramp
 from fdia_graph.engine.sensing.measure import Measurement
 from fdia_graph.engine.sensing.meters import plan_meters
 from fdia_graph.engine.sensing.noise import NoiseModel
 from fdia_graph.errors import ConfigError, DataConditionError, NoAdmissibleTarget
-from fdia_graph.generation import GRAPH_LEGEND, _write_graph, header_attrs
 from fdia_graph.generation.design import DesignPool
 from fdia_graph.generation.nygrid.case import Case, nygrid_case
 from fdia_graph.generation.nygrid.config import Settings, rng
@@ -72,18 +70,12 @@ from fdia_graph.generation.nygrid.ownership import Ownership, assign_clients
 from fdia_graph.generation.nygrid.pool import SOLVED, Pool, peak_ratings
 from fdia_graph.generation.plan import STRATUM, split_bounds, split_column, split_weeks, week_index
 from fdia_graph.generation.source import OutPath, TimelineSource
-from fdia_graph.generation.write import start_timeline
+from fdia_graph.generation.write import GRAPH_LEGEND, TimelineWriter
 from fdia_graph.models.choices import FAMILY_CODE, NEW_YORK_FAMILIES, SPLITS, SplitBy
 from fdia_graph.models.config import NewYorkRelease, NewYorkSettings
-from fdia_graph.models.data import EpisodeRow
 from fdia_graph.models.frames import Frame, LayerSet
-from fdia_graph.models.plan import Placement, Slot, SplitSpan
+from fdia_graph.models.plan import Episode, Placement, Slot, SplitSpan
 from fdia_graph.schema import Attr, Static
-
-if TYPE_CHECKING:  # the open file is the writer's (`generation.write`); named here for the type checker only
-    import h5py
-
-    from fdia_graph.generation.emit import TimelineBuffers
 
 # weeks per stratum of the split when the weight is the surveyed attacks (N46): they sit in about 9 weeks, one
 # of them holding 40%, so a 20-week stratum can leave a split one episode; 5 draws 3/1/1 per stratum
@@ -272,8 +264,6 @@ class NewYorkSource(TimelineSource[str, Episode]):
         case, plan = self.meas.net.case, self.meas.plan
         self._size = (len(case.bus_id), len(case.f))  # buses, branches
         self._meter_m = plan.scatter(np.ones(len(plan.kind), np.uint8), *self._size)  # the meter masks
-        self._file: h5py.File | None = None
-        self._buf: TimelineBuffers | None = None
         self._designers: DesignPool[_Designing, _Designing] | None = None
         self._reset()
 
@@ -351,10 +341,10 @@ class NewYorkSource(TimelineSource[str, Episode]):
         streams and its design processes."""
         self._reset()
         self._designers = DesignPool(self.settings.workers, _designing, _Designing(self.families, self.build))
-        self._file, self._buf = start_timeline(path, (self.frames, *self._size), self._clean, LAYERS)
+        self._writer = TimelineWriter(path, (self.frames, *self._size), self._clean, LAYERS)
         case = self.meas.net.case
         edges = np.vstack([case.f, case.t]).astype(np.int32)  # the IEEE files' type, on every platform
-        _write_graph(self._file, edges, self._graph(), NY_GRAPH_LEGEND)
+        self._writer.write_graph(edges, self._graph(), NY_GRAPH_LEGEND)
 
     def _graph(self) -> dict[str, np.ndarray]:
         """The static graph a file carries, by `Static` name: the branch model and bus shunts that give the
@@ -496,17 +486,9 @@ class NewYorkSource(TimelineSource[str, Episode]):
     def finish(self) -> None:
         """After the walk: the columns (each frame's split and time, each episode's target branch), the
         episode table, onsets counted from the file's first frame, and the attributes."""
-        f, buf = self._file, self._buf
-        assert f is not None and buf is not None, "open() starts the file"
-        buf.episodes = [
-            EpisodeRow(
-                onset=ep.onset - self.first,
-                length=ep.length,
-                family=FAMILY_CODE[ep.family],
-                buses=ep.buses.tolist(),
-            )
-            for ep in self._episodes
-        ]
+        writer = self.writer
+        for ep in self._episodes:
+            writer.add_episode(replace(ep, onset=ep.onset - self.first))
         w = slice(self.first, self.stop)
         columns = {
             schema.SPLIT: self._split[w],
@@ -516,15 +498,13 @@ class NewYorkSource(TimelineSource[str, Episode]):
             ),
         }
         base_mva = float(self.meas.net.case.base_mva)
-        header = header_attrs((self.frames, *self._size), base_mva, self.build.seed, LAYERS)
-        self._finish_file(f, buf, columns, header, self._recorded(), self._split_frac(), TAMPER_RULE)
+        header, knobs = writer.header(base_mva, self.build.seed), self._recorded()
+        writer.finish(columns, header, knobs, self.record(), self.rec, self._split_frac(), TAMPER_RULE)
         self._seconds = time.perf_counter() - self._started
 
     def close(self, finished: bool) -> None:
         """Close the file and stop the design processes."""
-        if self._file is not None:
-            self._file.close()
-            self._file = None
+        super().close(finished)
         if self._designers is not None:
             self._designers.close(finished)
             self._designers = None
@@ -609,13 +589,13 @@ class NewYorkSource(TimelineSource[str, Episode]):
 
     def _survey_chunk(self, cands: list[Slot[str]], i: int, chunk: int) -> list[_Tried]:
         """The designs of the surveyed onsets `cands[i : i + chunk]`. With `survey_cache`, each chunk is
-        saved on its own (episodes, seconds, miss reasons), so a stopped build resumes."""
+        saved on its own (episodes, seconds, miss reasons), so a stopped build resumes. The chunks are
+        named `_v2`: they pickle `models.plan.Episode`, and a chunk saved before that record moved there
+        is not read."""
         cache = self.settings.survey_cache
-        part = None if cache is None else Path(cache) / f"{i:06d}_{len(cands)}.pkl"
+        part = None if cache is None else Path(cache) / f"{i:06d}_{len(cands)}_v2.pkl"
         if part is not None and part.exists():
-            saved = pickle.loads(part.read_bytes())
-            misses = saved[2] if len(saved) > 2 else [None] * len(saved[0])
-            return [_Tried(e, t, m) for e, t, m in zip(saved[0], saved[1], misses)]
+            return [_Tried(*row) for row in zip(*pickle.loads(part.read_bytes()))]
         tried = self._designs(cands[i : i + chunk])
         if part is not None:
             part.parent.mkdir(parents=True, exist_ok=True)
@@ -664,7 +644,6 @@ class NewYorkSource(TimelineSource[str, Episode]):
         is its place among the designed episodes in onset order; every episode that starts before a frame
         being written is known by then. Each value per meter is laid out as the file's layers
         (`MeterPlan.scatter`), and a bus is labelled attacked when a meter at it is tampered."""
-        assert self._buf is not None, "open() starts the file"
         pool, meas, plan, masks = self.pool, self.meas, self.meas.plan, self._meter_m
         M, (N, E) = len(plan.kind), self._size
         vm, va = pool.vm[t0:t1], pool.va[t0:t1]
@@ -707,7 +686,7 @@ class NewYorkSource(TimelineSource[str, Episode]):
                 benign_i_x=benign.current[i],
                 i_tamper=tampered.current[i],
             )
-            self._buf.store(t0 - self.first + i, fid, frame, sid)
+            self.writer.store(t0 - self.first + i, fid, frame, sid)
         self._log(f"wrote frames {t0}..{t1}")
 
 

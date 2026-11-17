@@ -18,9 +18,7 @@ from ..models.data import BatchBundle, RecordBundle
 from ..models.grid import NODE
 from .base import (
     _BATCH_SCALARS,
-    _BATCH_STACKED,
-    _BENIGN_LAYERS,
-    _CURRENT_LAYERS,
+    _UNIT_KIND,
     DatasetBase,
     _torch,
 )
@@ -59,8 +57,7 @@ class RecordsMixin(DatasetBase):
         d, j = self._record_source(pos)
         item = self._base_item(d, j)
         self._add_optional_layers(item, d, j)
-        self._add_benign(item, pos)
-        self._add_currents(item, pos)
+        self._add_frame_layers(item, pos)
         record = RecordBundle(**item)
         return self._to_pyg(record) if self.format == "pyg" else record
 
@@ -71,26 +68,14 @@ class RecordsMixin(DatasetBase):
             return self._mem, pos
         return self._h()[schema.Group.DATA], int(self.idx[pos])
 
-    def _add_benign(self, item: dict[str, Any], pos: int) -> None:
-        """The attack-removed layer of a timeline record (noise kept), in self.units."""
-        if not self.has_benign:
-            return
+    def _add_frame_layers(self, item: dict[str, Any], pos: int) -> None:
+        """The layers a timeline stores per frame beside data/, in self.units: the attack-removed
+        scan (noise kept) and, on a hybrid-meter file, the PMU branch-current phasors [E, 4] (per unit
+        on every view, the angles of a polar file converted), their mask and their attack-removed twin."""
         torch = _torch()
-        for k, path in _BENIGN_LAYERS.items():
+        for k, path in self._frame_layers().items():
             a = self._mem[k][pos] if self._mem is not None else self._h()[path][int(self.idx[pos])]
-            item[k] = torch.as_tensor(
-                self._to_units(a, "node" if k == "benign" else "edge"), dtype=torch.float32
-            )
-
-    def _add_currents(self, item: dict[str, Any], pos: int) -> None:
-        """The PMU branch-current phasors of a hybrid-meter timeline record [E, 4], per unit on every
-        view (the angles of a polar file in self.units): observed, their mask, and the attack-removed twin."""
-        if not self.has_currents:
-            return
-        torch = _torch()
-        for k, path in _CURRENT_LAYERS.items():
-            a = self._mem[k][pos] if self._mem is not None else self._h()[path][int(self.idx[pos])]
-            a = a if path == schema.PMU_I_M else self._to_units(a, "current")
+            a = self._to_units(a, _UNIT_KIND[k]) if k in _UNIT_KIND else a  # a mask has no unit
             item[k] = torch.as_tensor(np.asarray(a), dtype=torch.float32)
 
     def _base_item(self, d: RecordSource, j: int) -> dict[str, Any]:
@@ -165,7 +150,9 @@ class RecordsMixin(DatasetBase):
         dimension, the static graph rides along once, and scalar metadata becomes one long tensor.
         (PyG has its own loader.)"""
         torch = _torch()
-        out = {k: torch.stack([b[k] for b in batch]) for k in _BATCH_STACKED if k in batch[0]}
+        once = ("edge_index", "edge_attr", *_BATCH_SCALARS)  # every other field of a batch is stacked
+        stacked = [k for k in BatchBundle._order if k not in once and k in batch[0]]
+        out = {k: torch.stack([b[k] for b in batch]) for k in stacked}
         out["edge_index"] = batch[0]["edge_index"]  # same topology for every sample
         if "edge_attr" in batch[0]:  # absent on older no-physics shards
             out["edge_attr"] = batch[0]["edge_attr"]

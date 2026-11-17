@@ -1,4 +1,4 @@
-"""What one attack occupies on the timeline, and the interface its two families share.
+"""The interface the attack families share: a design is one `Episode` (`models.plan`) or a miss.
 
 Why a design found no attack is a miss reason, kept in `AttackFamily.last_miss` and counted by the timeline's source as
 `missed`:
@@ -10,36 +10,16 @@ Why a design found no attack is a miss reason, kept in `AttackFamily.last_miss` 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
 import numpy as np
+
+from fdia_graph.models.plan import Episode
 
 # A window handed to a family's `design`: the onset frame of the pool it covers, and the true state
 # over that window, `vm [L, N]` p.u. and `va [L, N]` degrees (the frames an episode would occupy, all
 # SOLVED). A plain tuple, not a record: the timeline block (D1) slices the pool into one per candidate
 # onset. `L` is the window length, `N` the bus count.
 Window = tuple[int, np.ndarray, np.ndarray]
-
-
-@dataclass(frozen=True)
-class Episode:
-    """One attack over a window of `length` frames from `onset`. `family` is "Am" or "At". `clients`
-    are the owners of the tampered meters, one or several: the attacker's local subnetwork may span
-    utilities and it tampers whatever meters its support needs (G5). `buses` are the attacked buses
-    (the pretended loads and generators, the localization label). `target_branch` is the interface
-    branch Am's area is anchored on, -1 for At. `a [length, M]` is the attack vector
-    added to each frame's benign scan, the noiseless reading of the local false state minus that of the
-    true state (h(x_false) - h(x_true)) in full, so the operator's one residual test over all meters
-    sees noise (global stealth). The tampered meters, those it moves beyond their noise, come from
-    `Attacker.tampered`; `clients` are their owners."""
-
-    family: str
-    clients: np.ndarray
-    onset: int
-    length: int
-    buses: np.ndarray
-    target_branch: int
-    a: np.ndarray
 
 
 class AttackFamily(ABC):

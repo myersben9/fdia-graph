@@ -4,13 +4,13 @@
 pool scanned in time order with At and Am attack episodes, which `fg.load(name)` reads as a
 record table (`order="random"`) or as the timeline (`order="time"`). The knobs are those of
 `timeline.generate_timeline` plus `frames` (how many pool timesteps to walk, default the whole
-pool). This module also holds what the writer shares with the engine: the operating-point pool
-(`_load_states`, any column order, npz or HDF5), the noise floor and the swing window, and the
-file attributes and static graph group every file carries.
+pool). This module also reads the operating-point pool (`_load_states`, any column order, npz or
+HDF5).
 
 The one path that generates a timeline is `TimelineSource.generate` (`generation/source.py`); the grids are
 its subclasses, `IeeeSource` (`generation/ieee.py`) and the New York grid's (`generation/nygrid/source.py`),
-and `DesignPool` (`generation/design.py`) is the worker processes both design on.
+`DesignPool` (`generation/design.py`) is the worker processes both design on, and `TimelineWriter`
+(`generation/write.py`) writes the file of both.
 
   states            source of operating points: path to a pool .npz or .h5 (key 'X' [T,N,4]) or an init dir of
                     X_*.npy; if None, uses $FDIA_GRAPH_INIT or downloads the system's operating-point pool.
@@ -21,21 +21,17 @@ from __future__ import annotations
 
 import glob
 import os
-from collections.abc import Mapping
 from typing import Any, Optional, Union
 
 import h5py
 import numpy as np
 
-from .. import schema
-from ..engine.core import FdiaGenerator
 from ..errors import UnknownColumnOrder
 from ..models.config import ShardRun, TimelineSettings
-from ..models.frames import LayerSet
 from ..models.grid import NODE
 from ..models.inputs import StatePool, StateSource
 from ..registry import CACHE_DIR, register_local
-from ..schema import KIND_TIMELINE, Attr, Group, Static
+from ..schema import KIND_TIMELINE
 
 
 def as_v_first(X: np.ndarray) -> np.ndarray:
@@ -128,92 +124,3 @@ def generate(
     meta = dict(system=system, kind=KIND_TIMELINE, frames=len(X), seed=seed, settings=s.as_record())
     register_local(name, path, meta=meta)
     return path
-
-
-_CHUNK_ROWS = 128  # per-frame datasets are chunked along the frame axis for efficient partial reads
-
-
-def header_attrs(
-    dims: tuple[int, int, int], base_mva: float, seed: int, spec: LayerSet = LayerSet()
-) -> dict[str, Union[int, float, str]]:
-    """File attributes every file carries, on any grid: `dims` (its records, buses and branches), the
-    feature legends and their units.
-
-    Units are ENGINEERING quantities (node_x = [V pu, P_inj MW, Q_inj MVAr, theta deg], edge flows
-    MW/MVAr, at the from end or, when `spec` says so, at both ends); baseMVA lets the loader also serve
-    a per-unit view.
-    """
-    n_records, N, E = dims
-    flows = [f"{q}_{end}" for end in (("from", "to") if spec.both_ends else ("from",)) for q in "PQ"]
-    return {
-        Attr.SYSTEM: N,
-        Attr.N: N,
-        Attr.E: E,
-        Attr.N_RECORDS: n_records,
-        Attr.NODE_FEAT: "V,P_inj,Q_inj,theta",
-        Attr.EDGE_FEAT: ",".join(flows),
-        Attr.NODE_UNITS: "V:pu,P_inj:MW,Q_inj:MVAr,theta:deg",
-        Attr.EDGE_UNITS: ",".join(f"{name}:{'MW' if name[0] == 'P' else 'MVAr'}" for name in flows),
-        Attr.BASEMVA: base_mva,
-        Attr.SEED: seed,
-    }
-
-
-def _base_attrs(g: FdiaGenerator, n_records: int, seed: int) -> dict[str, Union[int, float, str]]:
-    """The header of an IEEE file (`header_attrs`) with its topology provenance: "base" = intact,
-    "n1_line" = one line out for every record, with the contingency's size (outage_base_flow_mw) so
-    a file is self-describing.
-    """
-    return {
-        **header_attrs((n_records, g.C, g.E), float(g.base.sn_mva), seed),
-        Attr.TOPOLOGY: ("base" if g.contingency.line is None else "n1_line"),
-        Attr.OUTAGE_LINE: (-1 if g.contingency.line is None else int(g.contingency.line)),
-        Attr.OUTAGE_BRANCH_POS: int(g.contingency.pos),
-        Attr.OUTAGE_LINE_NAME: g.contingency.name,
-        Attr.OUTAGE_FROM_BUS: int(g.contingency.from_bus),
-        Attr.OUTAGE_TO_BUS: int(g.contingency.to_bus),
-        Attr.OUTAGE_BASE_FLOW_MW: float(g.contingency.base_flow_mw),
-    }
-
-
-def _static_physics(g: FdiaGenerator) -> dict[str, Optional[np.ndarray]]:
-    """The graph/ datasets this writer fills, keyed by the schema's names (`Static`), so a file
-    never carries what the reader's table (`STATIC_PHYSICS`) does not name."""
-    br = g.branch
-    return {
-        Static.EDGE_R: br.r,
-        Static.EDGE_X: br.x,
-        Static.EDGE_B: br.b,
-        Static.EDGE_G: br.g,
-        Static.EDGE_GS: g.edge_gs,
-        Static.EDGE_BS: g.edge_bs,
-        Static.EDGE_TAP: br.tap,
-        Static.EDGE_SHIFT: br.shift_deg,
-        Static.EDGE_STATUS: br.status,
-        Static.EDGE_IS_TRAFO: g.edge_is_trafo,
-        Static.BUS_SHUNT_G: g.bus_shunt_g,
-        Static.BUS_SHUNT_B: g.bus_shunt_b,
-    }
-
-
-# the legends of an IEEE file's graph/ group: what its datasets are and the order of their rows
-GRAPH_LEGEND = {
-    Attr.EDGE_FEAT_STATIC: "r,x,b,g,tap,shift,status,is_trafo (per unit, ppc order = lines then trafos)",
-    Attr.BUS_FEAT_STATIC: "shunt_g,shunt_b (MW/MVAr at 1.0 pu, ppc bus order)",
-    Attr.YBUS_RECONSTRUCTIBLE: "yes, see fdia_graph tests: Y = f(edge_r,x,b,g,tap,shift,status)+bus shunts",
-}
-
-
-def _write_graph(
-    f: h5py.File, edges: np.ndarray, values: Mapping[str, Optional[np.ndarray]], legend: Mapping[str, str]
-) -> None:
-    """graph/ group: the static topology shared by all frames (`edges [2, E]`), including the full
-    per-unit branch physics and bus shunts that reconstruct Ybus exactly (verified against makeYbus to
-    7e-15, 3e-14 and 5e-13 on IEEE 14, 118 and 300), so a model reads exactly the estimator's physics.
-    `values` are the grid's datasets by their `Static` name and `legend` the group's attributes."""
-    gg = f.create_group(Group.GRAPH)
-    gg.create_dataset(schema.EDGE_INDEX.split("/")[1], data=edges)
-    for name in schema.STATIC_PHYSICS:  # the reader's table, in its order; what this writer has of it
-        if name in values:
-            gg.create_dataset(name, data=values[name])
-    gg.attrs.update(legend)

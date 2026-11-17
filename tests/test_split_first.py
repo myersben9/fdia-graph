@@ -14,14 +14,14 @@ from fdia_graph import schema
 from fdia_graph import timeline as tl
 from fdia_graph.generation import plan as plan_stage
 from fdia_graph.models.choices import FAMILY_CODE
-from fdia_graph.models.plan import Designed, Placement, Schedule, Slot, SplitSpan
+from fdia_graph.models.plan import Placement, Planned, Schedule, Slot, SplitSpan
 from fdia_graph.schema import Attr
 
 AT, AM = FAMILY_CODE["At"], FAMILY_CODE["Am"]
 
 
 def _plan(fams=(AT, AM), length=60, frac=0.5):
-    return Schedule.build(list(fams), length, 0.002, length, frac)
+    return Schedule(list(fams), length, 0.002, length, frac)
 
 
 # ---- 1. the splits ------------------------------------------------------------------------------
@@ -147,7 +147,7 @@ def test_the_full_sized_splits_never_jam():
 
 def test_onsets_are_uniform_over_the_split():
     """One episode in a 600-frame split: its onset is uniform over the 541 valid onsets (chi-square)."""
-    plan = Schedule.build([AT], 60, 0.002, 60, 0.1)
+    plan = Schedule([AT], 60, 0.002, 60, 0.1)
     rng = np.random.default_rng(7)
     onsets = []
     for _ in range(4000):
@@ -184,7 +184,7 @@ class _Design:
 
     def split(self, slots, span=(0, 600)):
         X = np.arange(span[1], dtype=float)[:, None, None] * np.ones((1, 1, 4))  # X[t] carries t
-        plan = Schedule.build([AT, AM], 10, 0.002, 10, 0.1)
+        plan = Schedule([AT, AM], 10, 0.002, 10, 0.1)
         rec = Placement.empty(plan.families)
         episodes = self.designer.design_split(X, None, SplitSpan(0, *span), slots, rec)
         placed = [e.slot for e in episodes]
@@ -232,28 +232,26 @@ def test_the_moves_do_not_depend_on_the_workers(monkeypatch):
     assert runs[0] == runs[1]
 
 
-class _FakeWalk:
-    def __init__(self):
-        self.rng = np.random.default_rng(3)
-
-
 def _walk_ramp(monkeypatch, fails: int, bounds=(0, 600)):
     """Walk one split whose one ramp's design fails at its first `fails` onsets."""
-    from fdia_graph.generation import emit
+    from types import SimpleNamespace
 
-    w, tries = _FakeWalk(), []
+    from fdia_graph.generation.emit import Walk
+
+    tries = []  # the walk's only state here is its random stream: its steps are replaced below
+    w = Walk(SimpleNamespace(g=SimpleNamespace(rng=np.random.default_rng(3))), None)
 
     def ramp(w_, onset, length, rate):
         tries.append(onset)
         return None if len(tries) <= fails else onset + length
 
-    monkeypatch.setattr(emit, "ramp_episode", ramp)
-    monkeypatch.setattr(emit, "benign_run", lambda w_, t, until: until)
-    plan = Schedule.build([AT], 10, 0.002, 10, 10 / 600)  # one 10-frame episode
+    monkeypatch.setattr(Walk, "ramp_episode", ramp)
+    monkeypatch.setattr(Walk, "benign_run", lambda w_, t, until: until)
+    plan = Schedule([AT], 10, 0.002, 10, 10 / 600)  # one 10-frame episode
     rec = Placement.empty(plan.families)
     span = SplitSpan(0, *bounds)
     slots = plan_stage.place_split(np.random.default_rng(1), plan.lengths, plan.attacked_frac, span, rec)
-    emit.walk_split(w, plan, span, [Designed(s, None) for s in slots], rec)
+    w.walk_split(plan, span, [Planned(s) for s in slots], rec)
     return rec, tries
 
 
@@ -266,9 +264,10 @@ def test_an_infeasible_ramp_moves_to_a_later_onset(monkeypatch):
 
 
 def test_a_ramp_infeasible_everywhere_is_given_up_after_the_cap(monkeypatch):
-    from fdia_graph.generation import emit
+    from fdia_graph.generation.emit import Walk
 
-    monkeypatch.setattr(emit, "relocate_later", lambda rng, failed, pending, end: failed.at(failed.onset + 1))
+    later = staticmethod(lambda rng, failed, pending, end: failed.at(failed.onset + 1))
+    monkeypatch.setattr(Walk, "relocate_later", later)
     with pytest.warns(RuntimeWarning, match="no feasible design"):
         rec, tries = _walk_ramp(monkeypatch, fails=10**6)
     assert rec.built[0].tolist() == [0] and rec.redraws[0].tolist() == [plan_stage.REDRAWS]

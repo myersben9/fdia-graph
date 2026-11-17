@@ -14,7 +14,8 @@ UNSOLVED = slice(300, 303)
 
 
 def _family(name, plan):
-    from fdia_graph.engine.attacks.family import AttackFamily, Episode
+    from fdia_graph.engine.attacks.family import AttackFamily
+    from fdia_graph.models.plan import Episode
 
     class Bias(AttackFamily):
         """A growing bias on one meter drawn from the design's stream; no attack at an onset divisible by 7."""

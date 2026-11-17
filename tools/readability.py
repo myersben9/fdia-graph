@@ -328,8 +328,7 @@ _STAGE = "a record's staging dict: tensors and scalar provenance, each key its o
 _BUNDLE = "a bundle's fields as a dict: arrays, tensors, scalars and lists, each key its own type"
 ANY_ALLOWED: dict[str, str] = {
     f"{GENERATION}/generation/__init__.py:generate:**knobs": _KW,
-    f"{GENERATION}/dataset/records.py:RecordsMixin._add_benign:item": _STAGE,
-    f"{GENERATION}/dataset/records.py:RecordsMixin._add_currents:item": _STAGE,
+    f"{GENERATION}/dataset/records.py:RecordsMixin._add_frame_layers:item": _STAGE,
     f"{GENERATION}/dataset/records.py:RecordsMixin._base_item:return": _STAGE,
     f"{GENERATION}/dataset/records.py:RecordsMixin._add_optional_layers:item": _STAGE,
     f"{GENERATION}/dataset/records.py:RecordsMixin.loader:**kw": _KW,

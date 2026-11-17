@@ -61,7 +61,7 @@ class AttackDesign(NamedTuple):
 
 class RampDesign(NamedTuple):
     """One At episode, drawn at onset: a fixed load set scaled along a rise, a hold and a return
-    (engine.attacks, `ramp_design`); frame i applies `ramp_step(design, i, rate)`."""
+    (engine.attacks, `ramp_design`); frame i applies `g.ramp_step(design, i, rate)`."""
 
     targets: np.ndarray  # positions in the generator's load table
     direction: float  # +1 a load rise, -1 a load drop

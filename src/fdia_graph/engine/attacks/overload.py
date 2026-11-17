@@ -43,7 +43,7 @@ from .minimize import MinimizeMixin
 # How many target sets (one line, or two, D17) an Am episode tries, drawn from one random order of the
 # eligible branches drawn once at onset. A bounded heuristic, not a search over every set: each try is
 # a full fewest-tamper search (about 13 s on IEEE-118), so an episode whose first eight sets admit no
-# attack is moved to another onset by the walk (`generation.emit.relocate_later`) even if a later set would have
+# attack is moved to another onset by the walk (`generation.emit.Walk.relocate_later`) even if a later set would have
 # served.
 AM_LINE_TRIES = 8
 
@@ -61,6 +61,9 @@ def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
 
 class OverloadMixin(MinimizeMixin):
     """Design and step the overload attack of [WU26] on a rated, metered target branch."""
+
+    _line_ratings: Optional[np.ndarray] = None  # [E] the static ratings, MVA, once set or read
+    _rating_delta: Optional[float] = None  # the step of the per-window "delta" ratings, MVA
 
     def use_line_ratings(self, settings: OverloadSettings, X: np.ndarray) -> None:
         """Set the ratings the overload attack drives its lines to: with "pool", each
@@ -85,9 +88,8 @@ class OverloadMixin(MinimizeMixin):
         """[E] each branch's rating in MVA: the ratings `use_line_ratings` set, else PGLib-OPF's `rate_a`
         (matched by end buses), NaN where unrated. Raises `NoLineRatings` on a case the package holds
         no PGLib-OPF ratings for."""
-        cached = getattr(self, "_line_ratings", None)
-        if cached is not None:
-            return cached
+        if self._line_ratings is not None:
+            return self._line_ratings
         rows = pglib_branches(self.C)
         if rows is None:
             raise NoLineRatings(
@@ -137,10 +139,9 @@ class OverloadMixin(MinimizeMixin):
         """[E] the ratings a window's goal drives to, from its true flows [T, E, 2]: the static ratings
         (`line_ratings`), or with rating_source "delta" each branch's true apparent flow at the window's
         last snapshot plus the step (ours, a rating scale matched to [WU26] Fig. 4's attack magnitudes)."""
-        delta = getattr(self, "_rating_delta", None)
-        if delta is None:
+        if self._rating_delta is None:
             return self.line_ratings()
-        return np.hypot(flows[-1, :, 0], flows[-1, :, 1]) + delta
+        return np.hypot(flows[-1, :, 0], flows[-1, :, 1]) + self._rating_delta
 
     def _target_sets(self, order: np.ndarray, n_lines: int, hops: int) -> list[tuple[int, ...]]:
         """At most `AM_LINE_TRIES` target sets from the eligible branches in `order`: single
@@ -164,8 +165,11 @@ class OverloadMixin(MinimizeMixin):
         area = self.local_region(np.unique(self.ei[:, a]), hops)
         if area is None:
             return None
-        inside = {int(b) for b in area}
-        return next((int(b) for b in order if b != a and {int(e) for e in self.ei[:, b]} <= inside), None)
+        inside = set(area.tolist())
+        for b in order.tolist():
+            if b != a and set(self.ei[:, b].tolist()) <= inside:
+                return b
+        return None
 
     def overload_step(
         self, design: AmOverloadDesign, Xt: np.ndarray, i: int, k: FrameKnobs

@@ -35,7 +35,7 @@ from ...formulas.trust import sparsest_rows
 from ...models.config import TrustSchedule
 from ...models.frames import AttackVector, FlowGoal, FrameKnobs, MinimizerResult
 from ...models.grid import CURRENT, NODE
-from .minimize import Goal, MinimizeMixin, _Window
+from .minimize import MinimizeMixin, _Window
 
 V_STEP = 1e-6  # pu: the finite-difference step of |V| in the attack-area Jacobian
 THETA_STEP = 1e-5  # degrees: the step of the angle
@@ -44,22 +44,11 @@ ZERO = 1e-9  # a Jacobian entry or state change this small relative to the large
 
 class RrefSupport:
     """The overload attack's support by [WU26]'s row reduction (`OverloadSettings.support_method`
-    "rref"): a support strategy beside the fewest-tamper search (`minimize.SearchSupport`), chosen by
-    `MinimizeMixin.support_strategy` for a flow goal. It holds the generator it reads the grid from."""
+    "rref"), which `MinimizeMixin.min_tamper` takes for a flow goal in place of its candidate search.
+    It holds the generator it reads the grid from."""
 
     def __init__(self, g: MinimizeMixin) -> None:
         self.g = g
-
-    def find(
-        self,
-        states: list[np.ndarray],
-        goal: Goal,
-        k: FrameKnobs,
-        prev: Optional[AttackVector],
-        trust: Optional[TrustSchedule] = None,
-    ) -> Optional[MinimizerResult]:
-        """The row reduction's support for the flow `goal` (`rref_support`)."""
-        return self.rref_support(states, cast(FlowGoal, goal), k, prev, trust)
 
     def rref_support(
         self,

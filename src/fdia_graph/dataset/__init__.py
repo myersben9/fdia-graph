@@ -38,7 +38,7 @@ from ..models.grid import NODE
 from ..schema import SPLIT_CODE as _SPLIT
 from ..schema import STATIC_PHYSICS as _STATIC_PHYSICS
 from ..schema import Attr
-from .base import _BENIGN_LAYERS, _CURRENT_LAYERS, _HELDOUT_TRAIN_EXCLUDE, family_ids
+from .base import _HELDOUT_TRAIN_EXCLUDE, family_ids
 from .export import ExportMixin
 from .graph import GraphMixin
 from .physics import AdmittanceMixin
@@ -196,10 +196,7 @@ class FdiaGraph(GraphMixin, AdmittanceMixin, RecordsMixin, ExportMixin, Sequence
             lo, hi = int(self.idx[0]), int(self.idx[-1]) + 1
             rel = self.idx - lo
             self._mem = {k: dg[k][lo:hi][rel] for k in keys if k in dg}
-            if self.has_benign:
-                self._mem.update({k: f[p][lo:hi][rel] for k, p in _BENIGN_LAYERS.items()})
-            if self.has_currents:
-                self._mem.update({k: f[p][lo:hi][rel] for k, p in _CURRENT_LAYERS.items()})
+            self._mem.update({k: f[p][lo:hi][rel] for k, p in self._frame_layers().items()})
 
     def __len__(self) -> int:
         return len(self.idx)  # number of records this filtered view exposes

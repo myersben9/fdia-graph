@@ -28,6 +28,7 @@ from .measurement import MeasurementMixin
 from .physics import PhysicsMixin
 
 if TYPE_CHECKING:
+    from ..models.plan import GeneratorSpec
     from .pandapower_types import PandapowerNet, PpcTables
 
 # Bus-count knob (14/118/300) -> pandapower.networks factory name.
@@ -95,6 +96,15 @@ class FdiaGenerator(MeasurementMixin, PhysicsMixin, AttackMixin):
         self._meter_bias()
         if hybrid:
             self._current_bias()
+
+    @classmethod
+    def from_spec(cls, spec: GeneratorSpec) -> FdiaGenerator:
+        """The generator of `spec`: its case, meter plan and ratings (what a design process rebuilds
+        the walk's generator from)."""
+        m = spec.meters
+        g = cls(spec.system, spec.seed, max_load_mw=spec.max_load_mw, meter_model=m.meter_model, **m.coverage)
+        g._line_ratings, g._rating_delta = spec.ratings, spec.rating_delta
+        return g
 
     def _open_case(self) -> PandapowerNet:
         """The pandapower case with its base power flow solved; the generator is the intact grid

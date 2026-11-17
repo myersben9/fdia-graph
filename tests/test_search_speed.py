@@ -183,7 +183,7 @@ def test_search_holds_blas_to_one_thread_and_restores_it(monkeypatch):
     with threadpoolctl.threadpool_limits(limits=2, user_api="blas"):
         outside = blas()
         g = object.__new__(MinimizeMixin)  # no grid needed: the search itself is replaced
-        assert g.min_tamper([], None, None) == "answer"  # type: ignore[arg-type]
+        assert g.min_tamper([], LoadGoal(()), FrameKnobs()) == "answer"
         assert seen == [[1] * len(outside)]
         assert blas() == outside
 

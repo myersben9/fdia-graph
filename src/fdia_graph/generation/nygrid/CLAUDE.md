@@ -7,7 +7,7 @@ hold for them.
 | Job | Where |
 |---|---|
 | the system: the case file, its variants, interfaces, reduced network, loads, dispatch and the pool | `generation/nygrid/` |
-| the timeline written from a pool, and its HDF5 files | `generation/nygrid/source.py` (`NewYorkSource` and `SingleEpisodeSource`, the grid's steps of the one path `TimelineSource.generate`; its plan stage is `generation/plan.py`), written by the writer every timeline uses (`generation/write.py`, `generation/emit.py`) in the one layout (`schema.py`); `io.py` is the pool file |
+| the timeline written from a pool, and its HDF5 files | `generation/nygrid/source.py` (`NewYorkSource` and `SingleEpisodeSource`, the grid's steps of the one path `TimelineSource.generate`; its plan stage is `generation/plan.py`), written by the writer every timeline uses (`TimelineWriter`, `generation/write.py`) in the one layout (`schema.py`); `io.py` is the pool file |
 | the meter table, the measurement function and meter noise | `engine/sensing/` |
 | the attack families (`AttackFamily`, `Attacker`, Am, the OPF and interface attacks, Ac, At) | `engine/attacks/` |
 | the alarm rules | `se/detect/` of the analysis toolkit (`analysis/src/fdia_analysis/se/detect/`) |
@@ -26,7 +26,7 @@ hold for them.
   (`case.py`, with matpowercaseframes). A change to the grid is an edit to that file; no code assembles or patches the case on the way
   in. `pipelines/newyork/make_case.py` is the recipe that first made the file from NYgrid's `Data/` folder.
 - pandapower is imported only in `generation/nygrid/solver.py`. Optimization problems are Pyomo models solved by
-  `engine.solvers.ipopt()`. h5py only in the timeline writer every grid shares (`generation/write.py`, `generation/emit.py`), `generation/nygrid/io.py` (the pool file) and `dataset/`; a source holds the open file the writer gives it. Random generators come only from
+  `engine.solvers.ipopt()`. h5py only in the timeline writer every grid shares (`TimelineWriter`, `generation/write.py`), the pool readers (`generation/__init__.py`, `generation/nygrid/io.py`) and `dataset/`; a source holds the writer (`source.writer`), never the open file. Random generators come only from
   `generation.nygrid.config.rng()` and are passed in.
 - Records are frozen dataclasses of numpy arrays. A class owns state, cached work or a shared interface. Stateless
   math is a plain function, and a formula the SDK already has in `formulas/` is called, not rewritten.

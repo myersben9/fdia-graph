@@ -9,7 +9,6 @@ its dict view keeps (the order the old dict had)."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TypedDict
 
 import numpy as np
 
@@ -120,16 +119,6 @@ class EpisodeTable(Bundle):
 
     def __len__(self) -> int:
         return len(self.onset)
-
-
-class EpisodeRow(TypedDict):
-    """One attack episode of a stream: its onset frame, its length in frames, its family code and
-    the buses it attacked."""
-
-    onset: int
-    length: int
-    family: int
-    buses: list[int]
 
 
 @dataclass(frozen=True, eq=False)

@@ -10,338 +10,151 @@ keyed by the timestep, so the benign frames do not depend on which attacks the t
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 from typing import Optional
 
-import h5py
 import numpy as np
 
-from .. import schema
 from ..engine.attacks.stealthy import AM_FAMILY, RAMP_FAMILY
-from ..engine.core import FdiaGenerator
 from ..engine.records import attack_frame
 from ..errors import NoRoomForEpisode
-from ..models.choices import BENIGN_CODE
-from ..models.data import EpisodeRow
-from ..models.frames import AmOverloadDesign, AttackVector, Frame, FrameContext, LayerSet, MinimizerResult
-from ..models.plan import Designed, Pending, Placement, Schedule, Slot, SplitSpan
+from ..models.choices import FAMILIES
+from ..models.frames import AmOverloadDesign, Frame, FrameContext
+from ..models.plan import Episode, Placement, Planned, Schedule, Slot, SplitSpan
 from .plan import REDRAWS, give_up, uniform_onset
-
-_BATCH = 256  # frames staged in memory between two flushes to the file
-# per-frame datasets: name -> (trailing shape given (C, E, W), dtype); W is the width of a flow layer
-_LAYERS = {
-    schema.NODE_X: (lambda C, E, W: (C, 4), np.float32),
-    schema.EDGE_X: (lambda C, E, W: (E, W), np.float32),
-    schema.Y: (lambda C, E, W: (C,), np.uint8),
-    schema.TEMPORAL_DELTA: (lambda C, E, W: (C, 2), np.float32),
-    schema.SWING: (lambda C, E, W: (C, 2), np.float32),
-    schema.NODE_BENIGN: (lambda C, E, W: (C, 4), np.float32),
-    schema.EDGE_BENIGN: (lambda C, E, W: (E, W), np.float32),
-    schema.NODE_CLEAN: (lambda C, E, W: (C, 4), np.float32),
-    schema.EDGE_CLEAN: (lambda C, E, W: (E, W), np.float32),
-    schema.NODE_TAMPER: (lambda C, E, W: (C, 4), np.uint8),
-    schema.EDGE_TAMPER: (lambda C, E, W: (E, W), np.uint8),
-}
-_TEMPORAL = (schema.TEMPORAL_DELTA, schema.SWING)  # filled after the walk; a `LayerSet` may leave them out
-# the PMU branch-current layers of a hybrid-meter timeline, created only when the meter
-# plan reads currents, so a v0.8.3-meter file has exactly its old datasets
-_CURRENT_LAYERS = {
-    schema.PMU_I: (lambda C, E, W: (E, 4), np.float32),
-    schema.PMU_I_BENIGN: (lambda C, E, W: (E, 4), np.float32),
-    schema.PMU_I_TAMPER: (lambda C, E, W: (E, 4), np.uint8),
-}
-CleanSlice = Callable[[int, int], tuple[np.ndarray, np.ndarray]]
-
-
-def layers(spec: LayerSet) -> dict:
-    """The per-frame datasets of a timeline: the v0.8.3 set (without the temporal features when `spec`
-    leaves them out), plus the current layers when the meter plan reads PMU branch currents."""
-    kept = {name: layer for name, layer in _LAYERS.items() if spec.temporal or name not in _TEMPORAL}
-    return {**kept, **(_CURRENT_LAYERS if spec.currents else {})}
-
-
-def clean_slice(g: FdiaGenerator, X: np.ndarray, a: int, b: int) -> tuple[np.ndarray, np.ndarray]:
-    """The noiseless truth of frames a..b-1: the states as float32 and the exact flows on metered
-    branches (one batched matmul, the engine's physics primitive)."""
-    return X[a:b].astype(np.float32), g.clean_flows_from_states(X[a:b])
-
-
-class TimelineBuffers:
-    """The per-frame layers of one timeline, filled frame by frame in time order.
-
-    node_x / edge_x are the OBSERVED measurements (attacked + noisy where attacked, else benign +
-    noisy); benign / edge_benign the same scan with the attack removed and the noise kept;
-    edge_clean the noiseless true flows on metered branches. temporal_delta and swing are written
-    after the walk from the observed frames (`write_temporal_layers`). seq_id is the episode index of an
-    attacked frame, the tamper masks the meters the attacker wrote, and the magnitude lists the
-    designed change per attacked bus.
-
-    The `sink` (name -> HDF5 dataset of full length T) receives the layers in batches of _BATCH
-    frames, flushed as the walk passes them, so memory is bounded whatever T.
-    """
-
-    def __init__(
-        self,
-        dims: tuple[int, int, int],
-        clean: CleanSlice,
-        sink: dict[str, h5py.Dataset],
-        spec: LayerSet = LayerSet(),
-    ) -> None:
-        T, C, E = dims
-        n = min(_BATCH, T)
-        self.T, self._n, self._base, self._sink = T, n, 0, sink
-        self._layers: dict[str, np.ndarray] = {
-            name: np.zeros((n, *shape(C, E, spec.edge_width)), dtype)
-            for name, (shape, dtype) in layers(spec).items()
-        }
-        currents = self.currents = spec.currents  # the meter plan reads PMU branch currents (hybrid meters)
-        self.i_m: Optional[np.ndarray] = None  # their mask, from the first stored frame
-        self.family = np.zeros(T, np.int16)
-        self.seq_id = np.full(T, -1, np.int32)
-        self.mag_bus: list[np.ndarray] = [np.zeros(0, np.int32)] * T
-        self.mag: list[np.ndarray] = [np.zeros(0, np.float32)] * T
-        self.node_m: Optional[np.ndarray] = None  # the meter plan, from the first stored frame
-        self.edge_m: Optional[np.ndarray] = None
-        self.episodes: list[EpisodeRow] = []
-        self.min_rows: list[tuple[int, MinimizerResult]] = []  # (episode, fewest-tamper result), knob on
-        # (episode, target branch, rating, noiseless flow reached, emitted flow) per overload Am episode
-        self.am_rows: list[tuple[int, int, float, float, float, float]] = []
-        # the attack vector of the last stored frame, observed minus its benign twin (zero when benign):
-        # an adjacent episode's stealth bound starts from it
-        self.last_attack = AttackVector(
-            np.zeros((C, 4)), np.zeros((E, spec.edge_width)), np.zeros((E, 4)) if currents else None
-        )
-        self.attacked = 0  # frames stored so far with at least one attacked bus
-        self._clean = clean
-        self._clean_batch = clean(0, n)
-
-    def store(self, t: int, fid: int, frame: Frame, sid: int = -1) -> None:
-        """Store frame t (frames arrive in order): an attacked frame with its un-attacked twin
-        (`with_benign`), or a benign one."""
-        if t >= self._base + self._n:
-            self.flush()
-        r = t - self._base
-        L = self._layers
-        bnx = frame.node_x if frame.benign_node_x is None else frame.benign_node_x
-        bex = frame.edge_x if frame.benign_edge_x is None else frame.benign_edge_x
-        L[schema.NODE_X][r] = frame.node_x
-        L[schema.NODE_BENIGN][r] = bnx
-        L[schema.Y][r] = frame.y
-        L[schema.EDGE_X][r] = frame.edge_x
-        L[schema.EDGE_BENIGN][r] = bex
-        L[schema.NODE_CLEAN][r], L[schema.EDGE_CLEAN][r] = self._clean_batch[0][r], self._clean_batch[1][r]
-        self.family[t] = fid
-        self.seq_id[t] = sid if fid else -1
-        self.attacked += int(frame.y.any())
-        if self.node_m is None:
-            self.node_m, self.edge_m = frame.node_m, frame.edge_m
-        current = self._store_currents(r, fid, frame) if self.currents else None
-        self.last_attack = AttackVector(
-            np.asarray(frame.node_x, np.float64) - np.asarray(bnx, np.float64),
-            np.asarray(frame.edge_x, np.float64) - np.asarray(bex, np.float64),
-            current,
-        )
-        self._store_attack(t, fid, frame, bnx, bex)
-
-    def _store_currents(self, r: int, fid: int, frame: Frame) -> np.ndarray:
-        """Stage the PMU branch-current layers of a frame (hybrid meters) and return its attack vector
-        on them (observed minus un-attacked, zero on a benign frame)."""
-        assert frame.i_x is not None, "a hybrid-meter generator emits the currents on every frame"
-        bix = frame.i_x if frame.benign_i_x is None else frame.benign_i_x
-        L = self._layers
-        L[schema.PMU_I][r], L[schema.PMU_I_BENIGN][r] = frame.i_x, bix
-        tamper = frame.i_tamper if fid != BENIGN_CODE and frame.i_tamper is not None else frame.i_x != bix
-        L[schema.PMU_I_TAMPER][r] = tamper if fid != BENIGN_CODE else 0
-        if self.i_m is None:
-            self.i_m = frame.i_m
-        return np.asarray(frame.i_x, np.float64) - np.asarray(bix, np.float64)
-
-    def _store_attack(self, t: int, fid: int, frame: Frame, bnx: np.ndarray, bex: np.ndarray) -> None:
-        """The attacker's footprint on this frame: the designed magnitudes and the tamper masks
-        (zeroed on a benign frame: the staged batch rows are reused between flushes)."""
-        r = t - self._base
-        if fid == BENIGN_CODE:
-            self._layers[schema.NODE_TAMPER][r] = 0
-            self._layers[schema.EDGE_TAMPER][r] = 0
-            return
-        self.mag_bus[t] = np.asarray(frame.mag_bus, np.int32)
-        self.mag[t] = np.asarray(frame.mag, np.float32)
-        if frame.tamper is not None:  # a stealthy family: the meters its local false state moves
-            node, edge = frame.tamper
-        else:  # in-place corruption: exactly the meters that changed
-            node, edge = frame.node_x != bnx, frame.edge_x != bex
-        self._layers[schema.NODE_TAMPER][r] = node
-        self._layers[schema.EDGE_TAMPER][r] = edge
-
-    def flush(self) -> None:
-        """Write the staged frames to the sink and stage the next batch."""
-        m = min(self._n, self.T - self._base)  # frames staged in this batch
-        for name, arr in self._layers.items():
-            self._sink[name][self._base : self._base + m] = arr[:m]
-        self._base += m
-        if self._base < self.T:
-            self._clean_batch = self._clean(self._base, self._base + self._n)
-
-
-def emit_benign(ctx: FrameContext, t: int) -> Frame:
-    """The benign scan of timestep t, its jitter from frame t's own stream."""
-    ctx.g.scan_key = t
-    frame = attack_frame(ctx.g, ctx.X[t], 0, None, ctx.knobs)
-    assert frame is not None  # a benign emission cannot fail
-    return frame
+from .write import AmRows, Tamper, TimelineWriter
 
 
 class Walk:
     """One timeline walk, shared by every step of it: the run context `ctx` (generator, pool,
-    knobs) and the buffers `buf` the frames are written to. The random stream is the generator's
-    own, so the order of draws is the order the walk makes them."""
+    knobs) and the `writer` the frames are stored through. The random stream is the generator's
+    own (`ctx.g.rng`), so the order of draws is the order the walk makes them."""
 
-    def __init__(self, ctx: FrameContext, buf: TimelineBuffers) -> None:
-        self.ctx, self.buf = ctx, buf
+    def __init__(self, ctx: FrameContext, writer: TimelineWriter) -> None:
+        self.ctx, self.writer = ctx, writer
 
-    @property
-    def rng(self) -> np.random.Generator:
-        """The walk's random stream: the generator's own."""
-        return self.ctx.g.rng
+    def emit_benign(self, t: int) -> Frame:
+        """The benign scan of timestep t, its jitter from frame t's own stream."""
+        self.ctx.g.scan_key = t
+        frame = attack_frame(self.ctx.g, self.ctx.X[t], 0, None, self.ctx.knobs)
+        assert frame is not None  # a benign emission cannot fail
+        return frame
 
-    @property
-    def T(self) -> int:
-        """The frames of the timeline."""
-        return len(self.ctx.X)
-
-
-def benign_run(w: Walk, t: int, until: int) -> int:
-    """Benign frames from t up to `until` (excluded); returns `until`."""
-    for t in range(t, until):
-        w.buf.store(t, 0, emit_benign(w.ctx, t))
-    return until
-
-
-@dataclass
-class _Episode:
-    """One episode being built: its index, family, and the buses attacked so far."""
-
-    sid: int
-    fid: int
-    onset: int
-    ok: np.ndarray  # [N] uint8, the buses any frame of the episode labelled
-
-    def store(self, w: Walk, t: int, frame: Optional[Frame]) -> None:
-        """Store the attacked frame, or a benign one when the attack could not be built at t."""
+    def store(self, t: int, fid: int, frame: Optional[Frame], sid: int, buses: np.ndarray) -> None:
+        """Store frame t of family `fid` in the episode `sid` (its row in the file), its labels added
+        to the episode's `buses`; a benign frame when the attack could not be built at t."""
         if frame is None:
-            w.buf.store(t, 0, emit_benign(w.ctx, t))
+            self.writer.store(t, 0, self.emit_benign(t))
         else:
-            w.buf.store(t, self.fid, frame, self.sid)
-            self.ok |= frame.y
+            self.writer.store(t, fid, frame, sid)
+            buses |= frame.y
 
-    def close(self, w: Walk, t: int) -> int:
-        w.buf.episodes.append(
-            EpisodeRow(
-                onset=self.onset, length=t - self.onset, family=self.fid, buses=np.where(self.ok)[0].tolist()
-            )
-        )
+    def record_episode(
+        self, fid: int, onset: int, t: int, buses: np.ndarray, tamper: Tamper = None, lines: AmRows = ()
+    ) -> int:
+        """Record the episode of family `fid` written over the frames onset..t-1, with what the
+        fewest-tamper search chose for it and an overload Am's target `lines`
+        (`TimelineWriter.add_episode`); returns t."""
+        none = np.zeros(0)  # an IEEE episode has no clients, and its frames carry the attack
+        row = Episode(FAMILIES[fid], none, onset, t - onset, np.flatnonzero(buses), -1, none)
+        self.writer.add_episode(row, tamper, lines)
         return t
 
+    def benign_run(self, t: int, until: int) -> int:
+        """Benign frames from t up to `until` (excluded); returns `until`."""
+        for t in range(t, until):
+            self.writer.store(t, 0, self.emit_benign(t))
+        return until
 
-def _episode(w: Walk, fid: int, t: int) -> _Episode:
-    return _Episode(len(w.buf.episodes), fid, t, np.zeros(w.ctx.g.C, np.uint8))
+    def ramp_episode(self, t: int, ramp_len: int, ramp_rate: float) -> Optional[int]:
+        """One slow-ramp episode on a fixed bus set (rise, hold, return), its design from the generator's
+        ramp design (`EpisodeDesignMixin.ramp_design`); returns the next free timestep, or None
+        with no frame emitted when no admissible ramp exists at this onset (the walk then moves the
+        episode, `relocate_later`)."""
+        ctx = self.ctx
+        design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs, self.writer.last_attack)
+        if design is None:
+            return None
+        onset, sid, buses = t, len(self.writer.episodes), np.zeros(ctx.g.C, np.uint8)
+        for i in range(ramp_len):  # placement keeps every episode inside its split
+            step = ctx.g.ramp_step(design, i, ramp_rate)
+            ctx.g.scan_key = t
+            frame = attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, step, ctx.knobs)
+            self.store(t, RAMP_FAMILY, frame, sid, buses)
+            t += 1
+        return self.record_episode(RAMP_FAMILY, onset, t, buses, design.tamper)
 
+    def overload_episode(self, t: int, length: int, design: AmOverloadDesign) -> int:
+        """One `Am` episode as the overload attack of [WU26] on the design the design stage found for its
+        onset (`generation.design`): a target branch's reported flow driven to its rating over the
+        window, on the support that tampers the fewest devices. Returns the next free timestep."""
+        ctx = self.ctx
+        onset, sid, buses = t, len(self.writer.episodes), np.zeros(ctx.g.C, np.uint8)
+        lines = list(design.goal.lines)
+        reached = emitted = np.full(len(lines), np.nan)
+        for i in range(length):  # placement keeps every episode inside its split
+            ctx.g.scan_key = t
+            frame, reached = ctx.g.overload_step(design, ctx.X[t], i, ctx.knobs)
+            self.store(t, AM_FAMILY, frame, sid, buses)
+            if frame is not None:
+                emitted = np.hypot(frame.edge_x[lines, 0], frame.edge_x[lines, 1])
+            t += 1
+        last = design.goal.targets_at(len(design.goal.targets) - 1)  # the goal at the window's end
+        ratings = design.ratings  # one row per target line
+        rows = [(b, ratings[j], last[j], float(reached[j]), float(emitted[j])) for j, b in enumerate(lines)]
+        return self.record_episode(AM_FAMILY, onset, t, buses, design.tamper, rows)
 
-def ramp_episode(w: Walk, t: int, ramp_len: int, ramp_rate: float) -> Optional[int]:
-    """One slow-ramp episode on a fixed bus set (rise, hold, return), its design from the generator's
-    ramp designer (`engine.attacks.episodes.RampDesigner`); returns the next free timestep, or None
-    with no frame emitted when no admissible ramp exists at this onset (the walk then moves the
-    episode, `relocate_later`)."""
-    ctx = w.ctx
-    design = ctx.g.ramp_design(ctx.X, t, (ramp_len, ramp_rate), ctx.knobs, w.buf.last_attack)
-    if design is None:
-        return None
-    ep = _episode(w, RAMP_FAMILY, t)
-    if design.tamper is not None:  # the fewest-tamper search ran on this episode
-        w.buf.min_rows.append((ep.sid, design.tamper))
-    for i in range(ramp_len):  # placement keeps every episode inside its split
-        step = ctx.g.ramp_step(design, i, ramp_rate)
-        ctx.g.scan_key = t
-        ep.store(w, t, attack_frame(ctx.g, ctx.X[t], RAMP_FAMILY, step, ctx.knobs))
-        t += 1
-    return ep.close(w, t)
+    @staticmethod
+    def relocate_later(
+        rng: np.random.Generator, failed: Slot[int], pending: Sequence[Slot[int]], end: int
+    ) -> Optional[Slot[int]]:
+        """A new slot for a ramp whose design failed at `failed`: its onset uniform among the onsets after the
+        failed one, inside the split (before `end`), where the episode fits without touching a pending episode.
+        The frames before the failed onset are already written and a ramp's design reads the frame before
+        its onset, so a ramp moves only later; an overload Am, whose design reads no earlier frame, is
+        moved anywhere in its split before the walk (`generation.design`). None when no onset is left."""
+        occupied = np.zeros(end - failed.onset, bool)
+        for other in pending:
+            occupied[other.onset - failed.onset : other.onset - failed.onset + other.length] = True
+        try:
+            return failed.at(failed.onset + uniform_onset(occupied, failed.length, rng, first=1))
+        except NoRoomForEpisode:
+            return None
 
-
-def overload_episode(w: Walk, t: int, length: int, design: AmOverloadDesign) -> int:
-    """One `Am` episode as the overload attack of [WU26] on the design the design stage found for its
-    onset (`generation.design`): a target branch's reported flow driven to its rating over the
-    window, on the support that tampers the fewest devices. Returns the next free timestep."""
-    ctx = w.ctx
-    ep = _episode(w, AM_FAMILY, t)
-    w.buf.min_rows.append((ep.sid, design.tamper))
-    lines = list(design.goal.lines)
-    reached = emitted = np.full(len(lines), np.nan)
-    for i in range(length):  # placement keeps every episode inside its split
-        ctx.g.scan_key = t
-        frame, reached = ctx.g.overload_step(design, ctx.X[t], i, ctx.knobs)
-        ep.store(w, t, frame)
-        if frame is not None:
-            emitted = np.hypot(frame.edge_x[lines, 0], frame.edge_x[lines, 1])
-        t += 1
-    last = design.goal.targets_at(len(design.goal.targets) - 1)  # the goal at the window's end
-    for j, line in enumerate(lines):  # one row per target line
-        w.buf.am_rows.append((ep.sid, line, design.ratings[j], last[j], float(reached[j]), float(emitted[j])))
-    return ep.close(w, t)
-
-
-def relocate_later(
-    rng: np.random.Generator, failed: Slot[int], pending: Sequence[Slot[int]], end: int
-) -> Optional[Slot[int]]:
-    """A new slot for a ramp whose design failed at `failed`: its onset uniform among the onsets after the
-    failed one, inside the split (before `end`), where the episode fits without touching a pending episode.
-    The frames before the failed onset are already written and a ramp's design reads the frame before
-    its onset, so a ramp moves only later; an overload Am, whose design reads no earlier frame, is
-    moved anywhere in its split before the walk (`generation.design`). None when no onset is left."""
-    occupied = np.zeros(end - failed.onset, bool)
-    for other in pending:
-        occupied[other.onset - failed.onset : other.onset - failed.onset + other.length] = True
-    try:
-        return failed.at(failed.onset + uniform_onset(occupied, failed.length, rng, first=1))
-    except NoRoomForEpisode:
-        return None
-
-
-def walk_split(
-    w: Walk,
-    plan: Schedule,
-    span: SplitSpan,
-    episodes: Sequence[Designed[int, AmOverloadDesign]],
-    rec: Placement[int],
-) -> None:
-    """Emit the frames of the split `span` in time order: benign runs between its episodes, each
-    episode where it was placed. `episodes` are the split's episodes after the design stage, each
-    overload Am with its design (`generation.design`, which already moved or gave up the infeasible
-    ones) and each ramp At without one. A ramp is designed here, as the walk reaches it; one whose
-    design is infeasible at its onset moves to a later free onset of the split, up to REDRAWS times;
-    past that it is given up (the shortfall, `rec`) and warned about."""
-    designs = {e.slot.onset: e.design for e in episodes if e.design is not None}
-    pending = [Pending(i, e.slot, 0) for i, e in enumerate(episodes)]
-    t = span.start
-    while pending:
-        episode = pending.pop(0)
-        slot = episode.slot
-        t = benign_run(w, t, slot.onset)
-        if slot.family == AM_FAMILY:
-            t = overload_episode(w, slot.onset, slot.length, designs[slot.onset])
-            rec.built[span.code, rec.col(AM_FAMILY)] += 1
-            continue
-        nxt = ramp_episode(w, slot.onset, slot.length, plan.ramp_rate)
-        if nxt is not None:
-            rec.built[span.code, rec.col(slot.family)] += 1
-            t = nxt
-            continue
-        moved = None
-        if episode.moves < REDRAWS:
-            moved = relocate_later(w.rng, slot, [p.slot for p in pending], span.stop)
-        if moved is None:
-            give_up(span.code, slot.family, episode.moves)
-            continue
-        rec.redraws[span.code, rec.col(slot.family)] += 1
-        pending = sorted([*pending, episode.moved_to(moved)], key=lambda p: (p.slot, p.moves))
-    benign_run(w, t, span.stop)
+    def walk_split(
+        self,
+        plan: Schedule,
+        span: SplitSpan,
+        episodes: Sequence[Planned[int, AmOverloadDesign]],
+        rec: Placement[int],
+    ) -> None:
+        """Emit the frames of the split `span` in time order: benign runs between its episodes, each
+        episode where it was placed. `episodes` are the split's episodes after the design stage, each
+        overload Am with its design (`generation.design`, which already moved or gave up the infeasible
+        ones) and each ramp At without one. A ramp is designed here, as the walk reaches it; one whose
+        design is infeasible at its onset moves to a later free onset of the split, up to REDRAWS times;
+        past that it is given up (the shortfall, `rec`) and warned about."""
+        pending = list(episodes)  # every episode not emitted yet
+        t = span.start
+        while pending:
+            episode = pending.pop(0)
+            slot = episode.slot
+            t = self.benign_run(t, slot.onset)
+            if episode.design is not None:  # an overload Am, designed before the walk
+                t = self.overload_episode(slot.onset, slot.length, episode.design)
+                rec.built[span.code, rec.col(AM_FAMILY)] += 1
+                continue
+            nxt = self.ramp_episode(slot.onset, slot.length, plan.ramp_rate)
+            if nxt is not None:
+                rec.built[span.code, rec.col(slot.family)] += 1
+                t = nxt
+                continue
+            moved = None
+            if episode.moves < REDRAWS:
+                moved = self.relocate_later(self.ctx.g.rng, slot, [p.slot for p in pending], span.stop)
+            if moved is None:
+                give_up(span.code, slot.family, episode.moves)
+                continue
+            rec.redraws[span.code, rec.col(slot.family)] += 1
+            pending = sorted([*pending, episode.moved_to(moved)], key=lambda p: (p.slot, p.moves))
+        self.benign_run(t, span.stop)

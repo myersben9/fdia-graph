@@ -5,6 +5,50 @@ the public API, the generated files and the numbers are the same as the previous
 
 ## Unreleased
 
+- **One writer owns a timeline file, one record is an episode, and the layers of indirection around
+  them are removed (breaking for the internal names below; no behaviour and no stored byte changed: the
+  five whole-file digests are unchanged, and an IEEE timeline is byte for byte the file the previous
+  code writes).** `fg.generate`, `fg.load`, `generate_timeline`,
+  `TimelineSource.generate`, `IeeeSource`, `NewYorkSource` and `SingleEpisodeSource` are called as before.
+  - **`generation.write.TimelineWriter`** is the open file of a timeline for both grids and the only
+    place a timeline file is written: `TimelineWriter(path, dims, clean, spec)`, `write_graph`, `header`,
+    `store`, `flush`, `add_episode`, `finish` (the masks, the columns, the episodes, the attributes and,
+    on a file that carries them, the temporal features) and `close`. A source holds it as
+    `source.writer`. It replaces `start_timeline`, `create_layers`,
+    `finish_timeline`, `timeline_attrs`, `placement_attrs`, `_write_masks`, `_write_episodes`,
+    `_write_min_rows` and `_write_am_rows` of `generation.write`; `TimelineBuffers`, `layers` and
+    `CleanSlice` of `generation.emit` (`CleanSlice` is now in `generation.write`); `header_attrs`,
+    `_write_graph`, `_base_attrs`, `_static_physics`, `GRAPH_LEGEND` (now in `generation.write`) and
+    `_CHUNK_ROWS` of `generation`; and `TimelineSource._finish_file`. `generation.write.search_attrs` is
+    part of `IeeeSource._recorded`. `write_temporal_layers` is `TimelineWriter.write_temporal_layers`
+    (a static method, which `trust.secured_copy` calls on its own file) and `ragged` is private to the
+    writer.
+  - **The steps of the walk are methods of `generation.emit.Walk`**: `walk_split`, `benign_run`,
+    `ramp_episode`, `overload_episode`, `emit_benign` and `relocate_later` (static) were functions of
+    `generation.emit`. `emit.clean_slice` is `IeeeSource._clean`. `generation.design.build_generator` is
+    `FdiaGenerator.from_spec`; the worker functions of `generation.design` are static methods of
+    `DesignPool` and `AmDesigner`. `engine.attacks.episodes.ramp_step` is the method
+    `EpisodeDesignMixin.ramp_step` only.
+  - **A New York survey cache (`survey_cache`) written before this change is not read**: its chunks
+    pickled `engine.attacks.family.Episode`, and the chunks are now named `_v2`. The survey runs again
+    and saves new chunks beside the old ones.
+  - **`models.plan.Episode`** is the one record of an attack episode: what a New York family designs
+    (it moved from `engine.attacks.family`) and a row of every file's episode table. `models.data.EpisodeRow`
+    and the walk's `generation.emit._Episode` are gone; `Walk.buf` is `Walk.writer`, and `Walk.T` is gone.
+  - **`models.plan.Planned`** (a placed episode with its design, its index and its moves) replaces
+    `Pending` and `Designed`. `Schedule.build` is gone: `Schedule(...)` takes the same arguments.
+    `generation.ieee._Planned` and `IeeeSource._generator` are gone (the generator comes from
+    `FdiaGenerator.from_spec`); `AmDesigner` is a `DesignPool`.
+  - **The designs of an episode are methods of the generator**: `EpisodeDesignMixin.ramp_design` and
+    `am_overload_design` hold the code of `RampDesigner` and `OverloadDesigner`, which are gone with
+    `DESIGNERS`, `Designer` and `EpisodeDesignMixin.designer`. `MinimizeMixin.min_tamper` chooses between
+    the candidate search and the row reduction itself: `SupportStrategy`, `SearchSupport`,
+    `MinimizeMixin.support_strategy` and `RrefSupport.find` are gone (`RrefSupport.rref_support` stays).
+  - **The loader**: the capability tests are written in the `dataset.base.CAPABILITIES` table (the ten
+    one-line functions are gone); `RecordsMixin._add_benign` and `_add_currents` are one method, `_add_frame_layers`.
+  - `models.inputs.GeneratedFamilies` is a `FamilySelection` and `SupportedSystem` a `SystemRef`.
+  - `formulas.network`: the two Newton solves share the halving of a step (`_halved_steps`).
+
 - **The analysis toolkit's names are imported from the module that defines them: the eight tables of
   re-exported names in `fdia_analysis` are removed (breaking for these import paths; no behaviour, no
   stored byte and no result number changed).** The same change as the generation toolkit's, below. Each

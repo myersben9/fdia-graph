@@ -27,7 +27,7 @@ import heapq
 import itertools
 import threading
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, NamedTuple, Optional, Protocol, Union, cast
+from typing import TYPE_CHECKING, NamedTuple, Optional, Union, cast
 
 import numpy as np
 
@@ -96,38 +96,6 @@ def _one_blas_thread() -> Iterator[None]:
                 _BLAS_HELD.pop().__exit__(None, None, None)
 
 
-class SupportStrategy(Protocol):
-    """How an attack window's support is chosen (decision B4: a strategy held by the generator): the
-    candidate search (`SearchSupport`) or [WU26]'s row reduction (`rref.RrefSupport`). `find` returns
-    the support and its counts, None when the goal has no area."""
-
-    def find(
-        self,
-        states: list[np.ndarray],
-        goal: Goal,
-        k: FrameKnobs,
-        prev: Optional[AttackVector],
-        trust: Optional[TrustSchedule] = None,
-    ) -> Optional[MinimizerResult]: ...
-
-
-class SearchSupport:
-    """The candidate search [WU26 eq. 12] as a support strategy (`MinimizeMixin._min_tamper`)."""
-
-    def __init__(self, g: MinimizeMixin) -> None:
-        self.g = g
-
-    def find(
-        self,
-        states: list[np.ndarray],
-        goal: Goal,
-        k: FrameKnobs,
-        prev: Optional[AttackVector],
-        trust: Optional[TrustSchedule] = None,
-    ) -> Optional[MinimizerResult]:
-        return self.g._min_tamper(states, goal, k, prev, trust)
-
-
 class MinimizeMixin(FalseStateMixin):
     """Find the support of an attack window that tampers the fewest devices [WU26 eq. 12]."""
 
@@ -143,21 +111,17 @@ class MinimizeMixin(FalseStateMixin):
         and `goal` (one attack design per snapshot), or None when the goal's buses have no area. `prev`
         is the attack vector of the frame before the window (None when that frame is benign): At's
         stealth bound measures its first step from it. `trust` is the defender's trusted-PMU
-        schedule [WU26 eqs. 26-32]. The search runs with BLAS on one thread (`_one_blas_thread`)."""
+        schedule [WU26 eqs. 26-32]. The support comes from the candidate search (`_min_tamper`), or,
+        for a flow goal when `k.support_method` asks for it, from [WU26]'s row reduction
+        (`rref.RrefSupport`). Either runs with BLAS on one thread (`_one_blas_thread`)."""
         if trust is not None:  # refused before the search runs: every trusted bus carries a PMU
             TrustablePmus(trust.buses, frozenset(self.meters.pmu), self.C)
         with _one_blas_thread():
-            return self.support_strategy(goal, k).find(states, goal, k, prev, trust)
+            if k.support_method == SupportMethod.RREF.value and goal.kind == "flow":
+                from .rref import RrefSupport
 
-    def support_strategy(self, goal: Optional[Goal], k: Optional[FrameKnobs]) -> SupportStrategy:
-        """[WU26]'s row reduction (`rref.RrefSupport`) for a flow goal when `k.support_method` asks for
-        it, else the candidate search (`SearchSupport`)."""
-        rref = getattr(k, "support_method", None) == SupportMethod.RREF.value
-        if rref and getattr(goal, "kind", None) == "flow":
-            from .rref import RrefSupport
-
-            return RrefSupport(self)
-        return SearchSupport(self)
+                return RrefSupport(self).rref_support(states, cast(FlowGoal, goal), k, prev, trust)
+            return self._min_tamper(states, goal, k, prev, trust)
 
     def window_area(self, states: list[np.ndarray], goal: Goal, k: FrameKnobs) -> Optional[np.ndarray]:
         """The attacker's area for the window [WU26] Sec. III-A: `k.area` when the caller gives one,
@@ -556,6 +520,7 @@ def _channel_count(union: _Channels) -> int:
 
 
 def _union(a: _Channels, b: _Channels) -> _Channels:
-    """The channels tampered in either of a and b (a PMU current part is None without currents)."""
-    current = b[2] if a[2] is None else (a[2] if b[2] is None else a[2] | b[2])
-    return a[0] | b[0], a[1] | b[1], current
+    """The channels tampered in either of a and b (node, flow, PMU current)."""
+    if a[2] is None or b[2] is None:  # a current mask that is None (no currents in the plan) holds none
+        return a[0] | b[0], a[1] | b[1], b[2] if a[2] is None else a[2]
+    return a[0] | b[0], a[1] | b[1], a[2] | b[2]

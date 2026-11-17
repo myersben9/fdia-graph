@@ -17,7 +17,8 @@ from __future__ import annotations
 import numpy as np
 
 from fdia_graph.engine.attacks.attacker import Attacker
-from fdia_graph.engine.attacks.family import AttackFamily, Episode, Window
+from fdia_graph.engine.attacks.family import AttackFamily, Window
+from fdia_graph.models.plan import Episode
 
 
 def _profile(i: int, rise: int, hold: int) -> float:

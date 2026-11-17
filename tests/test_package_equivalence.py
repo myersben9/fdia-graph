@@ -63,7 +63,7 @@ def test_temporal_layers_equal_the_per_frame_kernels(tmp_path):
     h5py = pytest.importorskip("h5py")
     from fdia_graph import schema
     from fdia_graph.formulas.temporal import SWING_WINDOW, recent_change_scale, swing_zscore, temporal_delta
-    from fdia_graph.generation.write import write_temporal_layers
+    from fdia_graph.generation.write import TimelineWriter
 
     rng = np.random.default_rng(5)
     T, N = 23, 6
@@ -72,7 +72,7 @@ def test_temporal_layers_equal_the_per_frame_kernels(tmp_path):
         f[schema.NODE_X] = nx
         f.create_dataset(schema.TEMPORAL_DELTA, (T, N, 2), np.float32)
         f.create_dataset(schema.SWING, (T, N, 2), np.float32)
-        write_temporal_layers(f, block=5)  # boundaries at frames 5, 10, 15, 20
+        TimelineWriter.write_temporal_layers(f, block=5)  # boundaries at frames 5, 10, 15, 20
         got_d, got_s = f[schema.TEMPORAL_DELTA][()], f[schema.SWING][()]
     scale = recent_change_scale(nx.astype(np.float64), SWING_WINDOW, N)  # the writer runs it in float64
     every = np.ones(N, bool)
