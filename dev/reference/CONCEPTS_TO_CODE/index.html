@@ -1709,7 +1709,7 @@ to its function.</p>
 </tr>
 <tr>
 <td><code>measurement.py</code></td>
-<td><code>emit_from_state</code> (the measurement function <code>h(x)</code>), <code>clean_flows_from_states</code>, <code>currents_from_states</code></td>
+<td><code>emit_from_state</code> (a scan: <code>Measurement.h</code>, the measurement function <code>h(x)</code>, with <code>NoiseModel</code>'s noise), <code>clean_flows_from_states</code>, <code>currents_from_states</code></td>
 </tr>
 <tr>
 <td><code>physics.py</code></td>
@@ -1735,7 +1735,7 @@ and converts them on load.</p>
 <tbody>
 <tr>
 <td>WLS <code>x̂ = argmin (z−h(x))ᵀW(z−h(x))</code></td>
-<td><code>se/base.py</code> <code>SEBase._w_solve</code> (chord-Newton); <code>h(x)</code> is <code>engine/measurement.emit_from_state</code></td>
+<td><code>se/base.py</code> <code>SEBase._w_solve</code> (chord-Newton); <code>h(x)</code> is <code>engine/sensing/measure.py</code> <code>Measurement.h</code></td>
 </tr>
 <tr>
 <td>Robust reweighting (Huber), residual removal, subspace prior</td>
@@ -1751,7 +1751,7 @@ and converts them on load.</p>
 </tr>
 <tr>
 <td>Meter model (hybrid SCADA and PMU, the plan's D10)</td>
-<td><code>MeasurementMixin.meter_masks</code> (the angle at the PMU buses only), <code>current_mask</code> and <code>_emit_currents</code> (the PMU branch currents <code>I_f = Y_f V</code>, <code>I_t = Y_t V</code>, <code>formulas.network.branch_currents</code>, noise <code>formulas.noise.current_sigma</code>); chosen by <code>generate_timeline(..., redundancy={"meter_model": ...})</code> through <code>models.config.MeterSettings</code></td>
+<td><code>MeterPlan.from_placement</code> (the angle at the PMU buses only; the generator's <code>masks</code>, a <code>MeterLayers</code>, are its masks) and the kinds <code>IR</code> and <code>II</code> of <code>Measurement.h</code> (the PMU branch currents <code>I_f = Y_f V</code>, <code>I_t = Y_t V</code>, <code>formulas.network.branch_currents</code>, noise <code>formulas.noise.current_sigma</code>); chosen by <code>generate_timeline(..., redundancy={"meter_model": ...})</code> through <code>models.config.MeterSettings</code></td>
 </tr>
 <tr>
 <td>PMU pseudo-measurements <code>V_f = (I_n − y_nn V_n)/y_nf</code> [WU26, eq. (3)]</td>

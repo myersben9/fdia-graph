@@ -1721,6 +1721,140 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>One grid representation, one measurement function, one meter table and one noise model for the IEEE
+  cases and New York (breaking for the internal names below; no stored byte changed: the five whole-file
+  digests are unchanged, and thirty IEEE timelines are byte for byte the files the previous code writes:
+  all eight systems, the row-reduction and the rule-chosen area on IEEE-118, a two-worker run, "delta"
+  ratings, four meter coverages and several seeds).</strong> <code>fg.load</code>, <code>fg.generate</code> and
+  <code>generate_timeline</code> are used as before. The IEEE generator <code>FdiaGenerator</code> is now built on the classes
+  of the New York grid; pandapower solves the base power flow once and the net is not kept. By
+  <code>python tools/count_lines.py</code>, <code>fdia_graph</code> goes from 13,850 to 13,814 lines and from 8,628 to 8,561
+  lines of code outside the constants (column "other code").</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Before</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>the grid of an IEEE case</td>
+<td>a pandapower net kept by the generator (<code>g.base</code>), its PYPOWER tables, a bus lookup and a <code>BranchModel</code></td>
+<td>a <code>Case</code> read by <code>Case.from_pandapower</code> and its <code>Network</code>: <code>g.case</code>, <code>g.net</code></td>
+</tr>
+<tr>
+<td>the meters</td>
+<td><code>models.grid.MeterPlan</code> (sets of buses) and masks built on every call</td>
+<td>the table <code>engine.sensing.meters.MeterPlan</code>, placed by <code>MeterPlan.from_coverage</code> (<code>from_placement</code> at given places): <code>g.plan</code>, <code>g.masks</code>, <code>g.pmu_buses</code>, <code>g.flow_metered</code></td>
+</tr>
+<tr>
+<td>the readings of a state, h(x)</td>
+<td>flows and currents computed in <code>MeasurementMixin.emit_from_state</code></td>
+<td><code>Measurement.h</code>, which gains the kinds <code>IR</code> and <code>II</code> (a current phasor as real and imaginary part) and reads the stored injections of an IEEE pool</td>
+</tr>
+<tr>
+<td>bias and jitter</td>
+<td><code>models.grid.MeterBias</code>, <code>FdiaGenerator._meter_bias</code> and <code>_current_bias</code>, <code>formulas.noise.bias_jitter_split</code>, <code>jitter_sigma</code>, <code>biased_current</code></td>
+<td>the plan's <code>bias</code> column and <code>NoiseModel.sample</code></td>
+</tr>
+<tr>
+<td>the rated accuracy of a scan</td>
+<td><code>formulas.noise.accuracy_sigma</code></td>
+<td><code>NoiseModel.sigmas</code></td>
+</tr>
+<tr>
+<td>the static graph of a file</td>
+<td>built by <code>IeeeSource._graph</code> and by <code>NewYorkSource._graph</code></td>
+<td><code>Case.static_graph()</code>, to which New York adds its ratings, bus facts and clients</td>
+</tr>
+<tr>
+<td>the bus admittance of the local solves</td>
+<td>pandapower's <code>makeYbus</code> (<code>g._Ybus</code>)</td>
+<td><code>g.net.ybus</code>, from <code>Network(case, matpower_order=True)</code></td>
+</tr>
+<tr>
+<td>the generator's settings</td>
+<td><code>FdiaGenerator(system, seed, vbus_frac, pmu_frac, flow_frac, max_load_mw, meter_model)</code></td>
+<td><code>FdiaGenerator(system, seed, meters, max_load_mw, plan)</code>: <code>meters</code> is a <code>MeterSettings</code>, <code>plan</code> a <code>MeterPlan</code> used as given</td>
+</tr>
+<tr>
+<td>the load table <code>g.load_bus</code>, <code>g.load_p0</code>, <code>g.load_q0</code></td>
+<td>one row per load element of the net (<code>load_bus</code> uint32)</td>
+<td>one row per loaded bus, in bus order (<code>load_bus</code> int64); the eight cases have one load element per loaded bus, so the rows are the same</td>
+</tr>
+<tr>
+<td>the meter masks</td>
+<td><code>g.meter_masks()</code>, <code>g.current_mask()</code> (None without PMU currents)</td>
+<td><code>g.masks</code>, a <code>MeterLayers</code> (<code>node</code>, <code>edge</code>, <code>current</code>)</td>
+</tr>
+<tr>
+<td>the PMU currents of a scan</td>
+<td>optional: <code>Scan.i_x</code>, <code>Frame.i_x</code>, <code>AttackVector.current</code> and <code>g.currents_from_states</code> could be None, and <code>LayerSet.currents</code> said whether a file has them</td>
+<td>always there: the fields are required, the guards and <code>LayerSet.currents</code> are gone</td>
+</tr>
+<tr>
+<td>the rated accuracy where no meter sits</td>
+<td>the class of the channel</td>
+<td>zero (<code>g.layers(g.noise.sigmas(z))</code> lays out one value per meter)</td>
+</tr>
+<tr>
+<td>the file attribute <code>meter_model</code></td>
+<td>written when the plan has PMU currents</td>
+<td>written on every IEEE file</td>
+</tr>
+<tr>
+<td>the jitter of a scan</td>
+<td><code>g._jitter</code> (a stream), <code>g._i_jitter</code>, <code>formulas.noise.jitter_sigma</code></td>
+<td><code>NoiseModel.jitter(z)</code>, the standard deviation <code>NoiseModel.sample</code> draws with</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Same draws, same arithmetic.</strong> An IEEE plan draws what the generator drew, in the same order: the
+    voltmeter buses, the PMU buses, the flow meters, one bias for every bus and branch (P, Q, |V|, angle,
+    P flow, Q flow, then the four current channels of every branch), and per frame one jitter per meter
+    from the frame's own stream, bus by bus, then the flows, then the currents. The rows of the plan are
+    in that order.</li>
+<li><strong><code>Case</code> gains <code>g</code></strong>, a branch's shunt conductance (a transformer's iron losses on IEEE-118, 145 and
+    300; zero on a MATPOWER branch), which <code>Network</code> passes to <code>branch_admittances</code>. The New York
+    admittances are unchanged.</li>
+<li><strong>No matrix comes from pandapower.</strong> The stored IEEE files were made with the bus admittance of
+    pandapower's <code>makeYbus</code>, and an attacked frame depends on its last bit and on the order a product
+    runs over it. <code>makeYbus</code> sums the from-side and the to-side terms of a bus apart and returns the
+    matrix by column; <code>Network</code> sums every term in one pass and holds it by row, which differs in the
+    last bits of a few diagonal entries (at most 5.7e-14 pu on IEEE-300, none on IEEE-30). So
+    <code>branch_admittances</code> takes <code>sides_apart</code> and <code>Network</code> takes <code>matpower_order</code>, which the IEEE
+    generator turns on: its <code>Network.ybus</code>, <code>yf</code> and <code>yt</code> then equal <code>makeYbus</code>'s bit for bit on all
+    eight systems (<code>tests/test_ieee_case.py</code>), and the generator holds this one bus admittance
+    (<code>g.net.ybus</code>). New York keeps the one-pass sum its files were made with.</li>
+<li><strong><code>Case.from_pandapower</code> refuses what a <code>Case</code> does not model</strong>, with a <code>DataConditionError</code> naming
+    the element (<code>models.inputs.ModelledNet</code>): a bus, line, transformer, load or generator out of
+    service (a static generator too, unless it produces nothing: IEEE-200 has eleven of those), a
+    <code>scaling</code> other than 1, a branch the solved case has switched off, rows in an element table no field
+    is read from (<code>trafo3w</code>, <code>impedance</code>, <code>ward</code>, <code>xward</code>, <code>dcline</code>, <code>switch</code>, <code>storage</code>, <code>motor</code>, the
+    asymmetric and power-electronic elements), and a solved case with another number of buses. Before,
+    such a net was read with the element missing or misread. <code>pipelines/newyork/make_case.py</code>
+    (<code>write_case</code>) refuses a branch with a shunt conductance, which a MATPOWER case file cannot hold.</li>
+<li><strong>The <code>generate</code> extra lists scipy</strong>, which the engine imports itself (it came with pandapower).</li>
+<li><strong>The readability gate measures the shared classes.</strong> <code>engine/sensing/</code>, <code>generation/nygrid/case.py</code>
+    and <code>generation/nygrid/network.py</code> leave the deferred list of <code>tools/readability.py</code>; the search for
+    the smallest PMU set is a class (<code>_PmuSearch</code>) and the New York meter groups are built in one pass,
+    with the same result (the three New York digests are unchanged).</li>
+<li>
+<p><strong>Removed, with nothing in their place:</strong> the branch status of a generator and its N-1 <code>Outage</code>
+    (every IEEE file records the intact case, as before), the meter model without PMU currents (no
+    setting selected it), <code>constants.channels.NODE_DRAW_ORDER</code> (the order is <code>constants.meters.BUS_KINDS</code>),
+    <code>GeneratorOptions.meter_model</code> (the meter model is <code>MeterSettings.meter_model</code>, which refuses an
+    unknown one), the generator methods <code>_live_edges</code> and <code>_live_adjacency</code> (every branch is in service:
+    <code>g.ei</code>), and the generator attributes <code>base</code>, <code>pp</code>, <code>NET</code>, <code>branch</code>, <code>meters</code>, <code>bias</code>, <code>SD</code>, <code>SDj</code>,
+    <code>contingency</code>, <code>edge_gs</code>, <code>edge_bs</code>, <code>edge_is_trafo</code>, <code>bus_shunt_g</code>, <code>bus_shunt_b</code>, <code>n_lines</code>, <code>_Ybus</code>,
+    <code>_Yf</code>, <code>_Yt</code>, <code>_ppc_row</code>, <code>_from_bus_ppc</code>, <code>_ppc_branch</code>, <code>_n_ppc_buses</code>, <code>_base_mva</code>,
+    <code>_attackable_mask</code>, <code>_stealthy_mask</code> (the positions <code>attackable_pos</code> and <code>stealthy_pos</code> stay),
+    <code>_injection_buses</code>, <code>_jitter</code>, <code>_i_jitter</code> and <code>_bias_sd</code>.</p>
+</li>
 <li>
 <p><strong>Shorter docstrings and comments in <code>fdia_graph</code> (no user-visible change: no line of code changed).</strong>
   A module docstring is at most about 10 lines, a class's 6, a function's 1 to 3 (CONTRIBUTING.md); each

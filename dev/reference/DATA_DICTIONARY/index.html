@@ -2322,7 +2322,10 @@ than literals:</p>
 </tbody>
 </table>
 <p>Sign of <code>P_inj</code>/<code>Q_inj</code>: <code>+</code> = net consumption (load), <code>−</code> = net injection (gen). This is pandapower's
-<code>res_bus</code> convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bus reads ≈ +93 MW.</p>
+<code>res_bus</code> convention. Example (case14): the slack bus reads ≈ −235 MW, a 94 MW load bus reads ≈ +93 MW.
+That is the sign of an IEEE file, whose pool stores its injections so. A New York file has the other
+sign, <code>+</code> = net injection (generation minus load): its injections are computed from the voltages
+(<code>Measurement.h</code>, a meter of kind <code>MeterKind.P</code> or <code>MeterKind.Q</code>).</p>
 <h2 id="edge_attr-e8-static-branch-properties-per-unit-never-change"><code>edge_attr</code> <code>[E,8]</code>: static branch properties (per-unit, never change)<a class="headerlink" href="#edge_attr-e8-static-branch-properties-per-unit-never-change" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

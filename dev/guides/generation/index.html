@@ -1964,7 +1964,8 @@ does not converge is skipped, not filled, and the pool stores no timestamps. Fra
 timeline is pool timestep <code>t</code> (<code>data/timestep</code>).</p>
 <h2 id="2-meter-plan-and-noise">2. Meter plan and noise<a class="headerlink" href="#2-meter-plan-and-noise" title="Permanent link">&para;</a></h2>
 <p>The meter plan is drawn once per generator from the seed and is the same on every frame
-(<code>FdiaGenerator._meter_plan</code>, <code>emit_from_state</code>).</p>
+(<code>MeterPlan.from_coverage</code> in <code>engine/sensing/meters.py</code>, the table of meters the New York grid
+also uses; <code>emit_from_state</code> lays a scan's readings out per bus and per branch).</p>
 <table>
 <thead>
 <tr>
@@ -2011,9 +2012,9 @@ plan's D12).</p>
 generator; every other bus is zero-injection (<code>FdiaGenerator._load_tables</code>). The two sets cover every
 bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters <code>|V|</code> and <code>theta</code> at
 9 buses, P and Q at 14 buses, and 18 of 20 branch flows.</p>
-<p>Each reading is the true value plus a constant per-meter bias plus a fresh per-scan jitter
-(<code>emit_from_state</code>). The accuracy-class standard deviations follow [ASP14]
-(<code>FdiaGenerator.__init__</code>, <code>self.SD</code>):</p>
+<p>Each reading is the true value (<code>Measurement.h</code>) plus a constant per-meter bias plus a fresh
+per-scan jitter (<code>NoiseModel.sample</code>). The accuracy-class standard deviations follow [ASP14]
+(<code>ACCURACY_CLASS</code> and, per meter kind, <code>KIND_ACCURACY</code> in <code>constants/meters.py</code>):</p>
 <table>
 <thead>
 <tr>
@@ -2043,12 +2044,17 @@ bus, so every bus carries P and Q injection meters. On IEEE-14 the plan meters <
 <p>A branch current (hybrid meters) carries the PMU class of IEEE C37.118.1, a total vector error of
 at most 1% taken as three standard deviations, relative to the current's magnitude on the real and
 the imaginary part alike, plus a <code>1e-5</code> pu floor (<code>formulas.noise.current_sigma</code>,
-<code>PMU_CURRENT_CLASS</code>) [C37118]; its bias is drawn once per channel after the other meters' biases.</p>
-<p><code>formulas.noise.bias_jitter_split</code> splits each total into jitter <code>0.25 SD</code> and bias
-<code>sqrt(1 - 0.25^2) SD</code>, so the two add to the class total in quadrature. The bias is drawn once per
-meter (<code>_meter_bias</code>). Power and flow jitter also carry an absolute floor of <code>1e-3</code> MW or MVAr, so a
-near-zero reading still has noise. Treating the whole class error as per-scan noise would
-over-jitter one-minute traces and hide the temporal signal (<code>bias_jitter_split</code> docstring).</p>
+<code>PMU_CURRENT_CLASS</code>) [C37118]; its bias is drawn once per channel after the other meters' biases.
+In the meter table the two parts of a phasor are the kinds <code>IR</code> and <code>II</code>.</p>
+<p>Each total is split into jitter <code>0.25 SD</code> (<code>JITTER_FRAC</code>) and bias <code>sqrt(1 - 0.25^2) SD</code>, so the two
+add to the class total in quadrature. The bias is drawn once per meter, with the plan
+(<code>MeterPlan.from_placement</code>): one draw for every bus and branch, metered or not, in the order P, Q,
+<code>&#124;V&#124;</code>, angle, P flow, Q flow, then the currents. The jitter of frame <code>t</code> comes from the
+frame's own stream, one draw per meter in the table's row order: bus by bus
+(<code>&#124;V&#124;</code>, angle, P, Q), then the flows, then the currents, branch by branch. Power and
+flow jitter also carry an absolute floor of <code>1e-3</code> MW or MVAr, so a near-zero reading still has
+noise. Treating the whole class error as per-scan noise would over-jitter one-minute traces and
+hide the temporal signal.</p>
 <h2 id="3-the-attack-families">3. The attack families<a class="headerlink" href="#3-the-attack-families" title="Permanent link">&para;</a></h2>
 <p>The two families are local false states: the attacker changes loads (and, for <code>Am</code>, generator
 outputs) inside a subnetwork, solves that subnetwork with the boundary voltages held true, and adds
@@ -2693,7 +2699,7 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 <tbody>
 <tr>
 <td><code>engine/core.py</code></td>
-<td><code>FdiaGenerator</code>: the grid, the meter plan and noise, attack targeting, and the mixins below composed</td>
+<td><code>FdiaGenerator</code>: the IEEE case as a <code>Case</code> with its <code>Network</code>, its <code>MeterPlan</code>, <code>Measurement</code> and <code>NoiseModel</code> (the New York grid's classes), attack targeting, and the mixins below composed</td>
 </tr>
 <tr>
 <td><code>engine/base.py</code></td>
@@ -2701,7 +2707,7 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 </tr>
 <tr>
 <td><code>engine/measurement.py</code></td>
-<td><code>MeasurementMixin</code>: the measurement function <code>h(x)</code>, a scan from a state</td>
+<td><code>MeasurementMixin</code>: a scan from a stored state, <code>Measurement.h</code> and <code>NoiseModel.sample</code> laid out as a file's layers</td>
 </tr>
 <tr>
 <td><code>engine/physics.py</code></td>
@@ -2717,7 +2723,7 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 </tr>
 <tr>
 <td><code>engine/pandapower_types.py</code></td>
-<td>the pandapower objects the engine reads, as types</td>
+<td>the pandapower objects <code>Case.from_pandapower</code> and the profile helpers read, as types</td>
 </tr>
 <tr>
 <td><code>engine/attacks/area.py</code></td>

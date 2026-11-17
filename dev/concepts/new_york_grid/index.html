@@ -1792,7 +1792,7 @@ noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm 
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    config.py           Settings, rng()
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    io.py               read_pool, write_pool (the pool file)
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    tables.py           read_rows (the input CSV tables, read whole and closed)
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    case.py             Case (from_matpower, check), nygrid_case
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    case.py             Case (from_matpower, from_pandapower, check, static_graph), nygrid_case
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    network.py          Network
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    ownership.py        Ownership, assign_clients (the utility that owns each bus)
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    case_nygrid.m       the New York grid, one MATPOWER case file (140 buses, 227 branches, 271 units)
@@ -1810,7 +1810,7 @@ noisy, labelled year. Beside the stages, <code>se/detect</code> holds the alarm 
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    solvers.py          ipopt (the checked Ipopt every OPF runs on; SolverUnavailable when it cannot run)
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  engine/sensing/
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    __init__.py         what the stage does (no names: each is imported from its defining module)
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    meters.py           MeterPlan, plan_meters
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    meters.py           MeterPlan (from_coverage and from_placement: an IEEE case's), plan_meters
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    measure.py          Measurement
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    noise.py            NoiseModel
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>  engine/attacks/
@@ -1877,7 +1877,7 @@ copies them as they are.</p>
 <tr>
 <td><code>Case</code></td>
 <td><code>generation/nygrid/case.py</code></td>
-<td><code>base_mva</code>, buses (<code>bus_id</code>, <code>zone</code>, <code>area</code>, <code>kv</code>, <code>vmin</code>, <code>vmax</code>, <code>lat</code>, <code>lon</code>, <code>is_ny</code>), branches (<code>f</code>, <code>t</code>, <code>r</code>, <code>x</code>, <code>b</code>, <code>tap</code>, <code>shift</code>, <code>rating</code>), units (<code>bus</code>, <code>fuel</code>, <code>pmin</code>, <code>pmax</code>, <code>qmin</code>, <code>qmax</code>, <code>ramp</code> MW/min, NaN where unknown), HVDC links (<code>f</code>, <code>t</code>, <code>pmin</code>, <code>pmax</code>), base state</td>
+<td><code>base_mva</code>, buses (<code>bus_id</code>, <code>zone</code>, <code>area</code>, <code>kv</code>, <code>vmin</code>, <code>vmax</code>, <code>lat</code>, <code>lon</code>, <code>is_ny</code>), branches (<code>f</code>, <code>t</code>, <code>r</code>, <code>x</code>, <code>b</code>, <code>g</code> the shunt conductance, zero on a MATPOWER branch, <code>tap</code>, <code>shift</code>, <code>rating</code>), units (<code>bus</code>, <code>fuel</code>, <code>pmin</code>, <code>pmax</code>, <code>qmin</code>, <code>qmax</code>, <code>ramp</code> MW/min, NaN where unknown), HVDC links (<code>f</code>, <code>t</code>, <code>pmin</code>, <code>pmax</code>), base state</td>
 </tr>
 <tr>
 <td><code>Ownership</code></td>
@@ -1912,7 +1912,7 @@ copies them as they are.</p>
 <tr>
 <td><code>MeterPlan</code></td>
 <td><code>engine/sensing/meters.py</code></td>
-<td>one row per meter: <code>kind</code> (v, va, p, q, pf, qf, i, ia), <code>bus</code>, <code>branch</code>, <code>end</code>, <code>owner</code>, <code>sigma_rel</code>, <code>sigma_abs</code>, <code>bias</code></td>
+<td>one row per meter: <code>kind</code> (v, va, p, q, pf, qf, i, ia; ir, ii on an IEEE case, whose files store a current phasor as real and imaginary part), <code>bus</code>, <code>branch</code>, <code>end</code>, <code>owner</code>, <code>sigma_rel</code>, <code>sigma_abs</code>, <code>bias</code></td>
 </tr>
 <tr>
 <td><code>Episode</code></td>
@@ -1940,7 +1940,7 @@ copies them as they are.</p>
 <tr>
 <td><code>Network</code></td>
 <td><code>generation/nygrid/network.py</code></td>
-<td>a <code>Case</code>, its <code>Ybus</code>, <code>Yf</code>, <code>Yt</code> built once, the bus adjacency</td>
+<td>a <code>Case</code>, its <code>Ybus</code>, <code>Yf</code>, <code>Yt</code> built once, the bus adjacency; <code>matpower_order</code> (off; the IEEE generator turns it on) sums <code>Ybus</code> in MATPOWER's order and holds it by column</td>
 <td><code>injections(vm, va)</code>, <code>flows(vm, va)</code>, <code>currents(vm, va)</code>, <code>neighbors(buses, hops)</code></td>
 </tr>
 <tr>
@@ -1965,7 +1965,7 @@ copies them as they are.</p>
 <td><code>Measurement</code></td>
 <td><code>engine/sensing/measure.py</code></td>
 <td>a <code>Network</code>, a <code>MeterPlan</code></td>
-<td><code>h(vm, va) -&gt; z</code>, <code>jacobian(vm, va)</code>, <code>for_client(c)</code></td>
+<td><code>h(vm, va, injections=None) -&gt; z</code> (the injections follow from the voltages, or are the stored ones of an IEEE pool), <code>jacobian(vm, va)</code>, <code>for_client(c)</code></td>
 </tr>
 <tr>
 <td><code>NoiseModel</code></td>
@@ -2131,6 +2131,18 @@ copies them as they are.</p>
 <td><code>engine/sensing/meters.py</code></td>
 <td><code>Network</code>, <code>Ownership</code>, a generator</td>
 <td><code>MeterPlan</code>: P, Q at every NY bus, P, Q flow at every branch end on a NY bus, |V| at a random 60% of NY buses, PMUs (voltage and branch-current phasors) at the smallest set that sees every NY bus (N7), each meter owned by its bus's client, accuracy class and drawn bias per meter</td>
+</tr>
+<tr>
+<td><code>Case.from_pandapower(net)</code></td>
+<td><code>generation/nygrid/case.py</code></td>
+<td>a pandapower net with its power flow solved (an IEEE case)</td>
+<td>its <code>Case</code>: buses and branches in the net's order, the per-unit branch model the power flow built, loads per bus, the generators, static generators and external grid as units; the IEEE generator (<code>engine/core.py</code>) is built on it</td>
+</tr>
+<tr>
+<td><code>MeterPlan.from_coverage(case, coverage, rng, pmu_at, flow_at)</code></td>
+<td><code>engine/sensing/meters.py</code></td>
+<td>a <code>Case</code>, the coverage fractions (<code>MeterSettings</code>), a generator; <code>pmu_at</code> and <code>flow_at</code> stand in for the drawn places (a paper's metering)</td>
+<td>the <code>MeterPlan</code> of an IEEE case: P, Q at every bus, P, Q flow at the from end of a random share of the branches, |V| at a random share of the buses, PMUs (voltage and branch-current phasors, real and imaginary part) at a random share; rows in the order a scan's noise is drawn</td>
 </tr>
 <tr>
 <td><code>assign_clients(case, territories, locations)</code></td>

@@ -1982,7 +1982,7 @@
 </tr>
 <tr>
 <td><code>engine.measurement</code></td>
-<td>Measurement emission: turn a grid state into meter readings (the measurement function h(x)).</td>
+<td>Measurement emission: the generator's meter readings of a stored state, as a file's layers.</td>
 </tr>
 <tr>
 <td><code>engine.pandapower_types</code></td>
@@ -2006,7 +2006,7 @@
 </tr>
 <tr>
 <td><code>engine.sensing.meters</code></td>
-<td>The meter plan: every meter on the New York buses as one row of a table, with its owner and accuracy class.</td>
+<td>The meter plan: every meter of a grid as one row of a table, with its owner and accuracy class.</td>
 </tr>
 <tr>
 <td><code>engine.sensing.noise</code></td>
@@ -2034,7 +2034,7 @@
 </tr>
 <tr>
 <td><code>formulas.noise</code></td>
-<td>The meter error model: accuracy-class standard deviations split into a constant per-meter bias and a per-scan jitter [ASP14], our split.</td>
+<td>The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the noise [WU26]'s case studies state. <code>engine.sensing.noise.NoiseModel</code> splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both.</td>
 </tr>
 <tr>
 <td><code>formulas.temporal</code></td>
@@ -2066,7 +2066,7 @@
 </tr>
 <tr>
 <td><code>generation.nygrid.case</code></td>
-<td>The grid as one frozen record of arrays, read from a MATPOWER case file.</td>
+<td>The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.config</code></td>
@@ -2170,7 +2170,7 @@
 </tr>
 <tr>
 <td><code>models.grid</code></td>
-<td>The static description of a system: the per-branch pi model and the admittance matrices built from it, which meters exist, the constant meter bias, and the N-1 contingency a generator was built with. Nothing here changes from one scan to the next.</td>
+<td>The static description of a system: the per-branch pi model and the admittance matrices built from it. Nothing here changes from one scan to the next.</td>
 </tr>
 <tr>
 <td><code>models.inputs</code></td>
@@ -2564,6 +2564,10 @@
 <tr>
 <td><code>tests/test_formulas.py</code></td>
 <td>The generation toolkit's formulas: each function on a case small enough to check by hand. The analysis toolkit's formulas, and the estimator's torch measurement function pinned to the numpy kernel here, are checked in analysis/tests/test_formulas.py.</td>
+</tr>
+<tr>
+<td><code>tests/test_ieee_case.py</code></td>
+<td>An IEEE case as a <code>Case</code>: <code>Case.from_pandapower</code> against the pandapower net it reads, what it refuses, and the <code>Network</code> admittances against pandapower's <code>makeYbus</code> on the same net.</td>
 </tr>
 <tr>
 <td><code>tests/test_loader_timeline.py</code></td>

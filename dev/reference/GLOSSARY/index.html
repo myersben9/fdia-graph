@@ -1727,7 +1727,7 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>PMU branch current</td>
 <td>The current phasor a PMU reads at its end of a branch, <code>I_f = Y_f V</code> or <code>I_t = Y_t V</code>, stored as real and imaginary part per end in <code>pmu_i</code> [WU26, eqs. 19-20]; noise at IEEE C37.118.1's 1% total vector error [C37118].</td>
-<td><code>formulas.network.branch_currents</code>, <code>formulas.noise.current_sigma</code>, <code>engine.measurement.MeasurementMixin.current_mask</code></td>
+<td><code>formulas.network.branch_currents</code>, <code>formulas.noise.current_sigma</code>, the generator's <code>masks.current</code></td>
 </tr>
 <tr>
 <td>overload attack</td>
@@ -1767,12 +1767,12 @@ the data terms is in <a href="../../guides/generation/"><code>../guides/generati
 <tr>
 <td>accuracy-class sigma</td>
 <td>A meter's rated accuracy at a reading (relative for power channels plus a floor, absolute for voltage and angle): the sigma the measured calibration uses and the threshold of the fewest-tamper search.</td>
-<td><code>formulas.noise.accuracy_sigma</code>, <code>formulas.noise.accuracy_class_sigma</code></td>
+<td><code>NoiseModel.sigmas</code>, <code>formulas.noise.accuracy_class_sigma</code></td>
 </tr>
 <tr>
 <td>jitter sigma</td>
 <td>The per-scan random part of a meter's error, a quarter of its accuracy class; the emitter draws each reading's noise with it. Emission only.</td>
-<td><code>formulas.noise.jitter_sigma</code></td>
+<td><code>NoiseModel.sample</code></td>
 </tr>
 <tr>
 <td>local false state</td>

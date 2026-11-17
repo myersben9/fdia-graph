@@ -1706,29 +1706,29 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>branch flows</td>
-<td><code>formulas.network.branch_flows</code>; called by <code>engine.measurement.MeasurementMixin.emit_from_state</code>, <code>clean_flows_from_states</code> and <code>dataset.physics.AdmittanceMixin._clean_flows_full</code></td>
+<td><code>formulas.network.branch_flows</code>; called by <code>Network.flows</code> (so by <code>Measurement.h</code>, the readings of both grids), <code>MeasurementMixin.all_flows_from_states</code> and <code>dataset.physics.AdmittanceMixin._clean_flows_full</code></td>
 <td>S_f = V_from ∘ conj(Y_f V)</td>
 <td>[AE04, eq. 2.8]</td>
 <td>every emitted flow meter, the clean flow layers, the estimator's h(x)</td>
 </tr>
 <tr>
 <td>branch admittances</td>
-<td><code>formulas.network.branch_admittances</code>; called by <code>dataset.physics.AdmittanceMixin._admittances</code> (<code>ybus</code>, <code>yf</code>, <code>yt</code>)</td>
-<td>y_tt = y_s + (g + jb)/2, y_ff = y_tt / (t conj t), y_ft = −y_s / conj t, y_tf = −y_s / t; shunts on the diagonal</td>
+<td><code>formulas.network.branch_admittances</code>; called by <code>dataset.physics.AdmittanceMixin._admittances</code> (<code>ybus</code>, <code>yf</code>, <code>yt</code>) and by <code>generation.nygrid.network.Network</code></td>
+<td>y_tt = y_s + (g + jb)/2, y_ff = y_tt / (t conj t), y_ft = −y_s / conj t, y_tf = −y_s / t; shunts on the diagonal. <code>sides_apart</code> sums the from-side and the to-side terms of Ybus apart, MATPOWER's order, which the IEEE generator's <code>Network</code> takes (<code>matpower_order</code>)</td>
 <td>[MP19, makeYbus]</td>
-<td>the loader's admittance matrices</td>
+<td>the loader's admittance matrices; the generators' <code>Network</code></td>
 </tr>
 <tr>
 <td>series admittance</td>
-<td><code>formulas.network.series_admittance</code>, called by <code>FdiaGenerator._branch_physics</code> and <code>branch_admittances</code></td>
+<td><code>formulas.network.series_admittance</code>, called by <code>Case.static_graph</code> and <code>branch_admittances</code></td>
 <td>y_s = 1 / (r + jx), zero when the branch has no impedance</td>
 <td>[MP19, branch model]</td>
 <td>the static edge physics</td>
 </tr>
 <tr>
 <td>accuracy-class error split</td>
-<td><code>formulas.noise.bias_jitter_split</code>, called by <code>FdiaGenerator.__init__</code></td>
-<td>bias² + jitter² = SD², jitter = 0.25 SD</td>
+<td><code>MeterPlan.from_placement</code> and <code>plan_meters</code> (the bias), <code>NoiseModel.sample</code> (the jitter)</td>
+<td>bias² + jitter² = SD², jitter = 0.25 SD (<code>JITTER_FRAC</code>)</td>
 <td>[ASP14], the jitter fraction set in this package</td>
 <td>every emitted measurement</td>
 </tr>
@@ -1818,17 +1818,17 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>per-scan jitter sigma</td>
-<td><code>formulas.noise.jitter_sigma</code>, called by <code>MeasurementMixin.emit_from_state</code></td>
-<td>σ_jit = jitter_v on |V|, degrees(jitter_va) on the angle, |P| jitter_pi + floor and |Q| jitter_qi + floor on injections, |P_f| jitter_pf + floor and |Q_f| jitter_qf + floor on flows</td>
-<td>[ASP14], the rule set in this package</td>
-<td>emission only: the per-scan noise every measurement draws</td>
+<td><code>NoiseModel.sample</code></td>
+<td>σ_jit = 0.25 class on an absolute meter (|V| in pu, angles in degrees), 0.25 class |reading| + floor on a relative one (injections and flows: floor 1e-3 MW or MVAr; a current part: 0.25 class |I| + 1e-5 pu)</td>
+<td>[ASP14], [C37118]</td>
+<td>the noise of every emitted reading, both grids</td>
 </tr>
 <tr>
 <td>accuracy-class sigma of a scan</td>
-<td><code>formulas.noise.accuracy_sigma</code>, through <code>formulas.noise.accuracy_class_sigma</code> (the measured calibration's rule)</td>
-<td>σ_acc = class_v on |V|, degrees(class_va) on the angle, class_x |reading| + floor on every power channel</td>
-<td>[ASP14]</td>
-<td>what a change must exceed to count as tampered, and the most a channel may move between snapshots, in the fewest-tamper search</td>
+<td><code>NoiseModel.sigmas</code>, through <code>formulas.noise.accuracy_class_sigma</code> (the measured calibration's rule)</td>
+<td>σ_acc = class_v on |V|, degrees(class_va) on the angle, class_x |reading| + floor on injections and flows, class |I| + floor on a current part</td>
+<td>[ASP14], [C37118]</td>
+<td>the threshold of the fewest-tamper search and At's stealth bound</td>
 </tr>
 <tr>
 <td>tampered channels</td>
