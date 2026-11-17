@@ -16,7 +16,6 @@ The code is the package `fdia_graph.results`:
 | `src/fdia_graph/results/store.py` | `Store`: one tidy CSV per experiment plus the table of runs, read and written |
 | `src/fdia_graph/results/render.py` | records to what a reader sees: a formatted cell, a markdown table, a pivot, a figure's CSV sidecar |
 | `src/fdia_graph/results/docs.py` | the results blocks of the docs, filled and checked from the store |
-| `src/fdia_graph/results/studies.py` | the parts every study over attack windows repeats (the New York tools under `pipelines/newyork/`) |
 
 ## Writing results
 

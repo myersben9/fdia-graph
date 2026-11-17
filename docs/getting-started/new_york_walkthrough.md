@@ -1,9 +1,9 @@
 # The New York grid: one run, end to end
 
-This page follows one attack through every stage of `fdia_graph.generation.nygrid`, from the network to the operator's alarm,
+This page follows one attack through every stage of `fdia_graph.generation.nygrid`, from the network to the clients' view,
 with the call that does each step. [The architecture](../concepts/new_york_grid.md) says how the modules fit together,
 [the troubleshooting page](../guides/troubleshooting_new_york.md) what each stage reports when it fails, and
-[the extending guide](../guides/extending_new_york.md) how to add an attack, a detector or an operator of your own.
+[the extending guide](../guides/extending_new_york.md) how to add an attack or an alarm rule of your own.
 
 ![The stages of fdia_graph.generation.nygrid](../figures/diagrams/nygrid_pipeline.png)
 
@@ -67,46 +67,3 @@ ds = Dataset("one.h5")
 view = ds.client(ds.clients[0])
 print(view.z.shape, view.labels.shape)  # scans x this client's meters, scans x its buses
 ```
-
-## 5. The operator's response
-
-`operator_day` reads the attacked day with its benign twin; `respond` runs the operator on both, under an
-`OperatorPolicy`; `summarize` gives the attack's consequence, attacked less benign:
-
-```python
-from fdia_graph.operator import OperatorPolicy, operator_day, respond, summarize
-
-day = operator_day("one.h5", "out/pool_2019_v3.h5", "data/NYgrid/Data")
-r = respond(day, policy=OperatorPolicy(mode="trusting", closed_loop=True))
-s = summarize(r)
-print(s["dispatch_moved_mw"], s["inadvertent_mwh"], s["pf_failed_scans"])
-```
-
-The trusting operator follows the attack's false load while its control error, read from the same falsified tie
-meters, hides the shortfall: the neighbours supply it as inadvertent interchange. `r.alarm` is the scan the
-interchange check against the neighbours' meters fires on (`interchange_alarm`).
-
-## 6. The residual test after the operator acts
-
-The attack was designed on the benign states; once the operator has moved generation, the true state is another
-one, and the same attack vector no longer fits a state:
-
-```python
-from fdia_graph.engine.attacks import wrap_angles
-from fdia_graph.se.detect import PersistenceRule, reference_bus, wls
-from fdia_graph.operator import TrueGrid, entry_share
-from fdia_graph.generation.nygrid import Network
-from fdia_graph.engine.sensing import Measurement, NoiseModel
-
-meas, noise = Measurement(Network(day.case), day.plan), NoiseModel(day.plan)
-grid, share, ref = TrueGrid(day), entry_share(day.case, "capacity"), reference_bus(day.case)
-j = []
-for t in range(day.onset, day.onset + day.length):
-    x = grid.run_state(r.attacked, t, share)  # the true state once the operator has acted
-    e = wrap_angles(day.z_benign[t] - meas.h(day.vm[t], day.va[t]), day.plan.kind)  # this scan's meter noise
-    z = meas.h(*x) + (day.z[t] - day.z_benign[t]) + e
-    j.append(wls(meas, z, noise.sigmas(day.z_benign[t]), *x, ref).j)
-print(PersistenceRule(428.7).first_alarm(j))  # the first scan the residual test alarms on, -1 for none
-```
-
-`PersistenceRule.fit` calibrates the threshold on benign days.

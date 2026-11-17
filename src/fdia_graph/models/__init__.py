@@ -42,9 +42,6 @@ from .config import (
     TrustConfig,
     TrustSchedule,
     WindowSpec,
-    Wu26Attack,
-    WuDefenseConfig,
-    WuDqnConfig,
 )
 from .data import (
     ArraysBundle,
@@ -80,7 +77,6 @@ from .frames import (
     OperatingLimits,
     RampDesign,
     Scan,
-    WindowAttack,
 )
 from .grid import (
     CURRENT,
@@ -105,7 +101,6 @@ from .inputs import (
     Affinity,
     Aggregation,
     AssignmentSpec,
-    ChosenAction,
     ClientCount,
     ClientGraph,
     ClientUpdates,
@@ -126,7 +121,6 @@ from .inputs import (
     RankedLabels,
     ReleaseName,
     Requirement,
-    SameDefense,
     ShapedArray,
     StateBlocks,
     StatePool,
@@ -136,7 +130,6 @@ from .inputs import (
     SystemRef,
     TauSearch,
     TrustablePmus,
-    WindowSlots,
 )
 from .plan import Designed, GeneratorSpec, Pending, Placement, Schedule, Slot, SplitSpan
 from .results import Leaf, Metric, Provenance, Record, RunRecords
@@ -244,10 +237,7 @@ __all__ = [
     "ClientGraph",
     "Halo",
     "AdmissibleTargets",
-    "ChosenAction",
-    "SameDefense",
     "TrustablePmus",
-    "WindowSlots",
     "DatasetName",
     "DateSpan",
     "ProfileSource",
@@ -287,11 +277,7 @@ __all__ = [
     "MeterSettings",
     "OverloadSettings",
     "TrustSchedule",
-    "WuDefenseConfig",
-    "WindowAttack",
-    "Wu26Attack",
     "DqnConfig",
-    "WuDqnConfig",
     "ShardRun",
     "IsoExport",
     "ProfileFetch",

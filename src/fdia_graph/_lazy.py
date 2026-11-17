@@ -1,8 +1,8 @@
 """Public names that load on first use, for the nygrid packages.
 
-Each package lists its public names with the module that defines them, so `from fdia_graph.operator import
-respond` works while `import fdia_graph.operator` imports nothing heavy. That keeps the dataset readers free of
-pandapower and Pyomo, which only the pool and the operator need. The SDK's top-level package does the same.
+Each package lists its public names with the module that defines them, so `from fdia_graph.generation.nygrid import
+read_pool` works while `import fdia_graph.generation.nygrid` imports nothing heavy. That keeps the dataset readers
+free of pandapower and Pyomo, which only the pool and the attacks need. The SDK's top-level package does the same.
 """
 
 from __future__ import annotations

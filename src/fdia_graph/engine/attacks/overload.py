@@ -47,53 +47,6 @@ from .minimize import MinimizeMixin
 # served.
 AM_LINE_TRIES = 8
 
-# [WU26]'s case studies, in MATPOWER bus numbers (`wu26_branch` maps a pair to our branch by its end
-# buses): the two lines each scenario overloads at once, and the PMU buses of its metering.
-WU26_SCENARIOS: dict[int, tuple[tuple[tuple[int, int], tuple[int, int]], ...]] = {
-    14: (((3, 4), (6, 11)), ((1, 2), (4, 5))),  # Section V-A
-    118: (((84, 85), (99, 100)),),  # Section V-B, inside the attacker's local network of Fig. 9
-}
-WU26_PMUS: dict[int, tuple[int, ...]] = {
-    14: (1, 4, 6, 13),  # Section V-A, the trusted-PMU sequence 1 -> 4 -> 6 -> 13
-    # Fig. 9 ("IEEE 118-bus system topology and PMU distribution", page 12 of the published PDF), the
-    # buses drawn in red: 11 bars, each read against its bus label at 1,200 dpi; bus 94's label sits
-    # beside bus 95's bar, but the red bar is 94's
-    118: (76, 78, 80, 83, 89, 92, 94, 100, 105, 106, 110),
-}
-# Fig. 9's red dashed region, the attacker's local network on IEEE-118: every bus drawn inside it
-WU26_ATTACK_AREA: dict[int, tuple[int, ...]] = {
-    118: (
-        74,
-        75,
-        76,
-        77,
-        78,
-        79,
-        80,
-        81,
-        82,
-        83,
-        84,
-        85,
-        86,
-        87,
-        88,
-        89,
-        90,
-        91,
-        92,
-        93,
-        94,
-        95,
-        96,
-        97,
-        98,
-        99,
-        100,
-    )
-    + (101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 118),
-}
-
 
 def _schedule(flows: np.ndarray, rating: float) -> tuple[float, ...]:
     """One branch's goal over a window from its true flows [T, 2] (MW, MVAr): the true flow plus a
@@ -189,16 +142,6 @@ class OverloadMixin(MinimizeMixin):
             return self.line_ratings()
         return np.hypot(flows[-1, :, 0], flows[-1, :, 1]) + delta
 
-    def wu26_area(self) -> Optional[tuple[int, ...]]:
-        """The attacker's area [WU26] states for its case study, as our bus positions: IEEE-14's whole
-        system but the slack ("knowledge of the system's global generation and load forecasts", p. 659),
-        IEEE-118's local network of Fig. 9 (`WU26_ATTACK_AREA`); None on any other case."""
-        if self.C == 14:
-            return tuple(int(b) for b in range(self.C) if b != self.slack_bus)
-        if self.C in WU26_ATTACK_AREA:
-            return tuple(int(b) for b in self.wu26_buses(WU26_ATTACK_AREA[self.C]))
-        return None
-
     def _target_sets(self, order: np.ndarray, n_lines: int, hops: int) -> list[tuple[int, ...]]:
         """At most `AM_LINE_TRIES` target sets from the eligible branches in `order`: single
         branches, or pairs one held support can reach, each first branch taken in order with the
@@ -223,17 +166,6 @@ class OverloadMixin(MinimizeMixin):
             return None
         inside = {int(b) for b in area}
         return next((int(b) for b in order if b != a and {int(e) for e in self.ei[:, b]} <= inside), None)
-
-    def wu26_branch(self, a: int, b: int) -> int:
-        """Our branch between the MATPOWER buses a and b (either order): the first match."""
-        number = self.base.bus["name"].astype(int).to_numpy()
-        ends = [{int(number[f]), int(number[t])} for f, t in self.ei.T]
-        return next(e for e, pair in enumerate(ends) if pair == {a, b})
-
-    def wu26_buses(self, numbers: tuple[int, ...]) -> np.ndarray:
-        """Our bus positions of the MATPOWER bus numbers `numbers`."""
-        number = self.base.bus["name"].astype(int).to_numpy()
-        return np.array([int(np.flatnonzero(number == n)[0]) for n in numbers], np.int64)
 
     def overload_step(
         self, design: AmOverloadDesign, Xt: np.ndarray, i: int, k: FrameKnobs

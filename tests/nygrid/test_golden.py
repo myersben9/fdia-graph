@@ -1,19 +1,17 @@
 """Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor.
 
-Each test runs one public entry point (the operator's `respond`, the detection tools, the interface attack's
-design) on one attack window of the damage study and compares a digest of what it returns with the JSON stored
-under `golden/`. A refactor that moves code without changing behavior reproduces every digest; one that changes a
-number fails here and has to say why. Set `NYGRID_UPDATE_GOLDEN=1` to rewrite the snapshots after an intended change.
+Each test runs one public entry point (the persistence rule, the interface attack's design) on fixed inputs and
+compares a digest of what it returns with the JSON stored under `golden/`. A refactor that moves code without
+changing behavior reproduces every digest; one that changes a number fails here and has to say why. Set
+`NYGRID_UPDATE_GOLDEN=1` to rewrite the snapshots after an intended change.
 
-The operator and detection snapshots run on the checked-in attack days with the public inputs (CI runs them);
-the interface attack's design rates lines over the year, so it needs the whole 2019 pool (`inputs.py`).
+The interface attack's design rates lines over the year, so it needs the whole 2019 pool (`inputs.py`).
 """
 
 from __future__ import annotations
 
 import json
 import os
-from dataclasses import fields
 from pathlib import Path
 
 import numpy as np
@@ -21,30 +19,9 @@ import pytest
 
 from fdia_graph.se.detect.rules import PersistenceRule
 
-from ..digests import recorded_on
-from .inputs import (
-    DAMAGE_DAYS,
-    DATA,
-    DAYS,
-    DAYS_POOL,
-    POOL,
-    ROOT,
-    needs_data,
-    needs_pool,
-    needs_territories,
-)
+from .inputs import POOL, ROOT, needs_data, needs_pool, needs_territories
 
-WINDOWS = DAMAGE_DAYS
-CALIB = (28.41, 13.76)  # the interchange check's calibration, results/nygrid.tie_check.json
 RULE = (428.7, 2, 3)  # the residual test's persistence rule
-# The operator's dispatch is an interior-point solve (Ipopt). On the machine that recorded the snapshots it repeats
-# within SOLVER (relative, absolute; a digest is a sum over a day's scans, MW or dollars), so there a refactor
-# shows. On another platform or solver build the least-movement dispatch lands on another of its near-equal
-# answers: the MW it moves agree to about 0.05 percent and the dollars to about half a percent (the first Linux
-# run against Windows snapshots), so elsewhere the snapshots compare within ELSEWHERE, which still shows a result
-# that changes in kind. `respond_recorded_on.json` names the recording machine.
-SOLVER, ELSEWHERE = (1e-4, 1e-2), (5e-2, 2.0)
-RECORDED_ON = "respond_recorded_on"
 GOLDEN = Path(__file__).parent / "golden"
 UPDATE = os.environ.get("NYGRID_UPDATE_GOLDEN") == "1"
 
@@ -86,17 +63,6 @@ def _same(got, want, path: str = "", rtol: float = 1e-9, atol: float = 1e-9) -> 
         assert got == want, f"{path}: {got!r} != {want!r}"
 
 
-def solver_tolerance() -> tuple[float, float]:
-    """(rtol, atol) for the operator snapshots: `SOLVER` on the machine that recorded them, `ELSEWHERE` on any
-    other; a rewrite (NYGRID_UPDATE_GOLDEN=1) records this machine."""
-    path = GOLDEN / f"{RECORDED_ON}.json"
-    if UPDATE:
-        GOLDEN.mkdir(exist_ok=True)
-        path.write_text(json.dumps({"machine": recorded_on()}, indent=1) + "\n")
-        return SOLVER
-    return SOLVER if path.exists() and json.loads(path.read_text())["machine"] == recorded_on() else ELSEWHERE
-
-
 def check(name: str, got: dict, rtol: float = 1e-9, atol: float = 1e-9) -> None:
     """Compare `got` with the snapshot `name` (floats within `rtol` and `atol`), or write it with
     NYGRID_UPDATE_GOLDEN=1."""
@@ -125,64 +91,6 @@ def _digest(a: np.ndarray) -> dict:
     }
 
 
-def _response(r) -> dict:
-    from fdia_graph.operator.summary import summarize
-
-    twins = {
-        side: {f.name: _digest(getattr(t, f.name)) for f in fields(t)}  # every array of the run
-        for side, t in (("attacked", r.attacked), ("benign", r.benign))
-    }
-    return {"alarm": r.alarm, "summary": summarize(r), "twins": twins}
-
-
-@pytest.fixture(scope="module")
-def days():
-    from fdia_graph.operator.day import operator_day
-
-    return {w: operator_day(DAYS / w, DAYS_POOL, DATA) for w in WINDOWS}
-
-
-# every operator and loop on the window past the limit, and the trusting closed loop on the one at the limit: each
-# run is an AC optimal power flow per scan of the day, twice (about a minute), so the matrix is kept to what differs
-MODES = [(WINDOWS[1], m, c) for m in ("trusting", "accounting", "oracle") for c in (False, True)]
-MODES.append((WINDOWS[0], "trusting", True))
-
-
-@pytest.mark.parametrize("window,mode,closed_loop", MODES)
-def test_respond_modes(days, window, mode, closed_loop):
-    from fdia_graph.operator.run import respond
-
-    r = respond(days[window], mode=mode, calib=CALIB, closed_loop=closed_loop)
-    name = f"respond_{Path(window).stem}_{mode}_{'cl' if closed_loop else 'ol'}"
-    check(name, _response(r), *solver_tolerance())
-
-
-@pytest.mark.parametrize("window", WINDOWS[1:])
-@pytest.mark.parametrize(
-    "options",
-    (
-        {"after": "benign"},
-        {"after": "freeze"},
-        {"after": "freeze_cs"},
-        {"entry": "peak"},
-        {"entry": "west"},
-        {"delay": 1},
-        {"over": 50.0},
-    ),
-    ids=lambda o: "_".join(f"{k}-{v}" for k, v in o.items()),
-)
-def test_respond_options(days, window, options):
-    from fdia_graph.operator.run import respond
-
-    day = days[window]
-    kw = dict(options)
-    if "after" in kw:
-        kw["alarm_at"] = day.onset + 5
-    r = respond(day, mode="trusting", calib=CALIB, closed_loop=True, **kw)
-    tag = "_".join(f"{k}-{v}" for k, v in options.items())
-    check(f"respond_{Path(window).stem}_{tag}", _response(r), *solver_tolerance())
-
-
 def test_persistence_rule():
     rule = PersistenceRule(*RULE)
     j = np.array([400.0, 430.0, 410.0, 431.0, np.nan, 440.0, 441.0, 300.0])
@@ -193,7 +101,7 @@ def test_persistence_rule():
 @needs_pool
 @pytest.mark.parametrize("overshoot", (0.0, 175.0))
 def test_interface_attack_design(overshoot):
-    """The Am design on the onset of `WINDOWS`, at the limit and at the damage study's overshoot."""
+    """The Am design on one onset (frame 48220, 2019-06-17), at the limit and 175 MW past it."""
     from fdia_graph.generation.nygrid.build import production_builder
     from fdia_graph.generation.nygrid.config import Settings, rng
 

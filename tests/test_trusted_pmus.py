@@ -18,7 +18,6 @@ import pytest
 pytest.importorskip("pandapower")
 
 from fdia_graph.engine.attacks.minimize import _Window  # noqa: E402
-from fdia_graph.engine.attacks.overload import WU26_PMUS, WU26_SCENARIOS  # noqa: E402
 from fdia_graph.engine.core import FdiaGenerator  # noqa: E402
 from fdia_graph.generation import _load_states  # noqa: E402
 from fdia_graph.models import TrustSchedule  # noqa: E402
@@ -26,6 +25,8 @@ from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.frames import FrameKnobs  # noqa: E402
 from fdia_graph.models.grid import CURRENT, NODE  # noqa: E402
 from fdia_graph.models.validation import ConfigError  # noqa: E402
+
+from . import case_studies  # noqa: E402
 
 WINDOW = 20  # snapshots from the pool's first frame
 SLOTS = [1, 3, 5, 7]  # the paper's snapshots 2, 4, 6, 8, zero-based
@@ -39,11 +40,11 @@ def _setup(scenario: int, margin: float) -> tuple:
     """The generator on the paper's metering, the window, the knobs and the two-line goal (no search)."""
     g = FdiaGenerator(14, seed=1, meter_model="hybrid")
     X = _load_states(14, None)
-    lines = [g.wu26_branch(*pair) for pair in WU26_SCENARIOS[14][scenario]]
+    lines = [case_studies.branch(g, *pair) for pair in case_studies.SCENARIOS[14][scenario]]
     flow = np.asarray(g.meters.flow, bool).copy()
     flow[lines] = True
-    flow[g.wu26_branch(6, 11)] = True  # the paper meters line 6-11
-    g.meters = g.meters._replace(pmu=set(g.wu26_buses(WU26_PMUS[14]).tolist()), flow=flow)
+    flow[case_studies.branch(g, 6, 11)] = True  # the paper meters line 6-11
+    g.meters = g.meters._replace(pmu=set(case_studies.buses(g, case_studies.PMUS[14]).tolist()), flow=flow)
     window = list(X[:WINDOW])
     g.use_line_ratings(OverloadSettings(rating_margin=margin), np.stack(window))
     k = FrameKnobs(2, g.operating_limits(X), True, 4096, 1.0, 0.5, 2)
@@ -51,7 +52,7 @@ def _setup(scenario: int, margin: float) -> tuple:
 
 
 def _schedule(g, scenario: int) -> TrustSchedule:
-    return TrustSchedule([int(b) for b in g.wu26_buses(ORDER[scenario])], SLOTS)
+    return TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS)
 
 
 # ---- the model -------------------------------------------------------------------------------------
@@ -86,8 +87,8 @@ def test_a_trusted_pmu_keeps_its_bus_true_from_its_slot_on():
     g, window, k, goal = _setup(0, 1.1)
     trust = _schedule(g, 0)
     w = _Window(g, window, goal, k, trust=trust)
-    bus4 = int(g.wu26_buses([4])[0])
-    S = np.array(sorted(int(b) for b in g.wu26_buses([3, 4, 5, 7, 11])), dtype=np.int64)
+    bus4 = int(case_studies.buses(g, [4])[0])
+    S = np.array(sorted(int(b) for b in case_studies.buses(g, [3, 4, 5, 7, 11])), dtype=np.int64)
     assert bus4 in w.support_at(2, S) and bus4 not in w.support_at(3, S)
     for t in (2, 3, 10):
         Xa = g.goal_state(goal, t, window[t], w.support_at(t, S), k)
@@ -102,7 +103,7 @@ def test_an_empty_schedule_costs_what_no_schedule_costs():
     g, window, k, goal = _setup(1, 1.1)
     bare, empty = _Window(g, window, goal, k), _Window(g, window, goal, k, trust=TrustSchedule([], []))
     for buses in ([2, 4, 5, 6, 7, 8, 9], [2, 5, 6, 11], [2, 3, 4, 5]):
-        S = np.array(sorted(int(b) for b in g.wu26_buses(buses)), dtype=np.int64)
+        S = np.array(sorted(int(b) for b in case_studies.buses(g, buses)), dtype=np.int64)
         assert bare.cost(S, None) == empty.cost(S, None)
 
 
@@ -149,7 +150,7 @@ def test_the_ieee14_scenarios_at_k_1_1(scenario, before, after):
     assert (bare.devices, bare.channels) == before
     r = g.min_tamper(window, goal, k, trust=_schedule(g, scenario))
     assert (r.devices, r.channels) == after
-    swapped = TrustSchedule([int(b) for b in g.wu26_buses(ORDER[1 - scenario])], SLOTS)
+    swapped = TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[1 - scenario])], SLOTS)
     r = g.min_tamper(window, goal, k, trust=swapped)
     assert (r.devices, r.channels) == after
 
@@ -168,6 +169,6 @@ def test_the_schedule_stops_the_ieee14_scenarios_at_k_1_2(scenario):
 def test_a_trusted_bus_must_carry_a_pmu(bus):
     """The schedule is checked against the grid and the meter plan before the search runs."""
     g, window, k, goal = _setup(0, 1.1)
-    trusted = int(g.wu26_buses([bus])[0]) if bus <= 14 else bus
+    trusted = int(case_studies.buses(g, [bus])[0]) if bus <= 14 else bus
     with pytest.raises(ConfigError):
         g.min_tamper(window, goal, k, trust=TrustSchedule([trusted], [1]))

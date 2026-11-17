@@ -1,12 +1,11 @@
 # Architecture
 
-`fdia_graph.generation.nygrid` builds a federated FDIA dataset on the New York grid and studies attacks through the New York
-operator's own rules. It has been part of fdia-graph since 2026-11-02, its modules in the SDK's packages by job (the files below), its tests
+`fdia_graph.generation.nygrid` builds a federated FDIA dataset on the New York grid. It has been part of fdia-graph since 2026-11-02, its modules in the SDK's packages by job (the files below), its tests
 `tests/nygrid/` (inputs under `NYGRID_ROOT`), its research tools `pipelines/newyork/`, its runnable extension examples
 `examples/nygrid/`, and the results files `results/`.
 
 Read alongside: [the walkthrough](../getting-started/new_york_walkthrough.md) follows one attack through every stage with the call that does each
-step, [the extending guide](../guides/extending_new_york.md) says how to add an attack, a detector or an operator, and
+step, [the extending guide](../guides/extending_new_york.md) says how to add an attack or an alarm rule, and
 [the troubleshooting page](../guides/troubleshooting_new_york.md) what each stage reports when it fails. Tags N1 onward in the code
 number the design decisions.
 
@@ -17,8 +16,7 @@ number the design decisions.
 Each box is a subpackage, one stage, and each stage reads what the one before it wrote. `grid` turns NYgrid's case into
 the network and the clients; `scenario` solves the year of true operating points (the slow step, built once into the
 pool); `sensing` places the meters; `attacks` designs each attack on a window of true states; `timeline` writes the
-noisy, labelled year; `operator` runs the operator on an attacked day and its benign twin; `detect` holds the residual
-test's building blocks. `experiments` runs a study over many attack windows. Each package's `__init__.py` opens with what
+noisy, labelled year. Beside the stages, `se/detect` holds the alarm rules. Each package's `__init__.py` opens with what
 its stage does.
 
 ## Principles
@@ -30,9 +28,9 @@ its stage does.
    loads pandapower or Pyomo. A name outside `__all__` is internal and may change; a public name that is renamed is a
    changelog entry, with no alias kept.
 3. A class owns state, cached work, or a shared interface. A plain function is stateless math. Data records are
-   frozen dataclasses of numpy arrays, and choices are validated records (`OperatorPolicy`).
-4. Extension points are small: `AttackFamily` is the base class of the attack families, and `Operator` and
-   `AlarmRule` are protocols. The overload family is two classes: `OpfFdia` holds the
+   frozen dataclasses of numpy arrays.
+4. Extension points are small: `AttackFamily` is the base class of the attack families, and
+   `AlarmRule` is a protocol. The overload family is two classes: `OpfFdia` holds the
    support search and the per-scan OPF, and `InterfaceFdia` adds the goal and `design`, as their docstrings say.
 5. One job per file. A file stays short enough to read in one sitting.
 6. Dependencies point one way (below). pandapower lives in `generation/nygrid/solver.py`, h5py in `io.py`, random number
@@ -41,9 +39,9 @@ its stage does.
 7. Measurements are one flat vector `z` per frame with a meter table beside it. A client's data is
    `z[:, meters.owner == c]`.
 8. Failures are named: a wrong argument is a `ConfigError`, data that does not meet a condition a
-   `DataConditionError`, a broken solver `SolverUnavailable`; what a stage cannot do it counts (`missed`,
-   `pf_failed_scans`) rather than hides.
-9. The golden snapshots pin what the operator, the detection tools and the interface attack return on fixed inputs,
+   `DataConditionError`, a broken solver `SolverUnavailable`; what a stage cannot do it counts (`missed`)
+   rather than hides.
+9. The golden snapshots pin what the persistence rule and the interface attack return on fixed inputs,
    so a change that moves a number says so.
 
 ## Files
@@ -66,7 +64,7 @@ src/fdia_graph/
     loads.py            LoadSeries, LoadModel (the bus profiles, with their within-hour terms)
     load_sources.py     the building-stock, EIA-861, census and IAC inputs the profiles come from, downloaded once
     dispatch.py         Dispatch, hourly_dispatch
-    solver.py           AcSolver, Compensation, OperatorOpf, OpfSolution (the operator's AC dispatch model)
+    solver.py           AcSolver, Compensation
     pool.py             Pool, PoolBuilder, peak_ratings
     timeline.py         TimelineBuilder
   engine/
@@ -82,27 +80,13 @@ src/fdia_graph/
     opf.py              OpfFdia (the base of the OPF attacks: the support search and the per-scan local AC OPF, N35)
     interface.py        InterfaceFdia (Am against a NYISO interface, N48, N49; overshoot and max_overshoot, N58)
     ramp.py             Ramp
-  operator/
-    __init__.py         what the stage does, and its public names
-    day.py              OperatorDay, operator_day, INTERFACES, node_lbmp, PoolFrames, pool_frames (an attacked day as the operator meets it, NYISO's hourly prices, the pool's own inputs for its frames)
-    acsced.py           AcSced, Step, shortage_usd, loss_factors, ac_shift, ac_power_flow, open_branch (N59, N60; the operator's dispatch as an AC OPF each scan, least movement or least cost with AC LMPs; AC sensitivities; the AC power flow of an outage)
-    ties.py             tie_meters, neighbour_reads, tie_gap, interchange_alarm, seen_interfaces (the interchange check, N62)
-    truegrid.py         TrueGrid (state, run_state, change: AC power flows on the true grid; the N-1 screen is an AC power flow per outage)
-    policy.py           OperatorPolicy (the operator's choices, validated), OperatorMode, AlarmAnswer, Entry, MODES, AFTER, ENTRY, entry_share
-    run.py              Twin, Response, respond, Operator (protocol), NyisoOperator, REG_CAP, reported_changes (the operator scan by scan)
-    summary.py          summarize (the attack's consequence, attacked less benign)
-    areas.py            area_damage, attack_surface, zone_levers, neighbor_prices, FEEDS (who bears it: by zone, utility and neighbor)
   se/detect/
     __init__.py         what the stage does, and its public names
-    estimate.py         WlsFit, wls, exact_state, reference_bus (the residual test's AC weighted least squares)
     rules.py            AlarmRule (protocol), PersistenceRule (k of the last n past a fitted threshold, N79)
-    fleets.py           FLEET_STREAM, fleet_bias, with_fleet (other realizations of the meters' constant biases, N81)
   federated/
     utilities.py        Ownership, assign_clients
   dataset/
     clients.py          Dataset, ClientView
-  results/
-    studies.py          study_days, variant, load_calib, add_study_arguments, run_parallel (what every study tool repeats)
   _lazy.py            attach: the public names of a package, imported on first use
 pipelines/newyork/
   build_timeline.py    the release timeline from a pool (--fetch downloads the inputs)
@@ -114,11 +98,11 @@ results/
   nygrid.ac_year.csv   per-hour MATLAB results over 2019, the scenario tests' reference
 tests/nygrid/
   inputs.py      where the tests find their inputs, and which tests each input lets run
-  test_{grid,scenario,sensing,attacks,timeline,dataset,operator}.py
-  test_{solvers,choices,misses,tables,configs,detect,policy,public,experiments}.py   checks that need no data
-  test_golden.py, golden/   snapshots of the operator, the persistence rule and the interface attack
+  test_{grid,scenario,sensing,attacks,timeline,dataset}.py
+  test_{solvers,misses,tables,configs,detect,public}.py   checks that need no data
+  test_golden.py, golden/   snapshots of the persistence rule and the interface attack
   data/matlab_ref/     operating points from dump_hours.m that the Python port must match
-  data/days/           two damage-study days, the single-episode day and the pool's frames of those days (README inside)
+  data/days/           the pool's frames of two days, which the timeline digests build on (README inside)
 ```
 
 `tools/`, `results/` and `tests/data/` follow the fdia_graph_sdk layout, so the move into the SDK
@@ -140,10 +124,7 @@ The stages are drawn under "How a run flows" above. The imports point one way:
   operator's one residual test over all meters reads one AC state; `Episode.clients` records the
   owners of those meters, one or several.
 - `timeline` imports everything above it and `io`.
-- `operator` reads timeline files through `io` and imports `grid`, `scenario` and `sensing`. Nothing in the package
-  imports it; the tools and the tests do.
-- `detect` imports `attacks` (for `wrap_angles`), `grid` and `sensing`; `experiments` imports nothing of the
-  package, it only runs jobs.
+- `detect` imports nothing of the package: a rule reads a statistic per scan.
 - `dataset` imports only `io` and `generation/nygrid/network.py`, so loading data never needs pandapower.
 
 ## Records
@@ -179,12 +160,6 @@ Frozen dataclasses of arrays, passed between classes.
 | `InterfaceFdia` | `engine/attacks/interface.py` | `OpfFdia`'s settings plus `interfaces` (a list of `Interface`, built over the same frames as the pool) and `near` (0.9); `windows_solved` 6 | `onset_mask(vm, va, length)` (last rise scan in a real 2019 hour at `near` of some interface's limit, N48), `design(window, rng)`: the goal is the model's interface flow plus that hour's real headroom (N49); supports grow from one interface branch's ends at a time; each window is solved with the meter objective (the change beyond noise on every P and Q flow meter touching the interior and every interior voltage meter, added to the injection terms) and with `OpfFdia`'s objective where that fails; the fewest tampered meters over all anchors is kept, and an attack still tampering at the last scan does not exist |
 | `Ramp` | `engine/attacks/ramp.py` | an `Attacker`, the ramp settings | `design(window, rng)` |
 | `TimelineBuilder` | `generation/nygrid/timeline.py` | built as `TimelineBuilder(pool, meas, noise, attacker, families, own, settings, *, length=16 or {family: frames}, attacked_frac=0.2, split_frac=(0.7, 0.15, 0.15), split_by="week" (N41) or "time", workers=1, block=2016, verbose=False, survey=0, survey_cache=None)`: the pool, the `Measurement`, the `NoiseModel`, the `Attacker`, the families by name (`{"Am": InterfaceFdia, "At": Ramp}`), the `Ownership` and `Settings` (whose seed keys every draw: `place`, `noise`, and `design/{family}/{onset}` per episode, so the result does not depend on `workers`) | `build(path) -> dict` (writes the file; returns slots placed and episodes built per split and family, slots skipped for unsolved frames, the median design seconds per family, seconds). The splits come from `split_weeks` on the frames some waiting family may start at (or three blocks in time order (`split_bounds`) with `split_by="time"`); each split's episodes are placed by `place_episodes` inside one contiguous run of its frames and, for a family with an `onset_mask`, only where it allows; each is designed on its own window of true pool states (in `workers` spawn processes when above 1); a window touching an unsolved frame, or one the family returns None for, stays benign. With `survey` (frames, N42) every allowed onset of a family with an `onset_mask` whose window lies in one week, on that grid, is designed first, the weeks are then split stratified on the onsets with an attack in strata of `HIT_STRATUM` weeks (N46), and the family's episodes are placed only among those with an attack, reusing the designs, each chunk of `SURVEY_CHUNK` designs saved under `survey_cache` when given so a stopped build resumes; the summary adds `survey` (tried and found per split and family). `build_episode(path, onset, family="Am", lo=None, hi=None, using=None, lag=0) -> dict` writes one episode alone, designed at pool frame `onset` (at `onset - lag` with a lag, its vector added to the true scans), over the pool frames lo..hi (default its window), every frame in the train split, the file's frames and onset counted from lo (single-episode files for the analytical study, Ben 2026-11-02); both write through `_write`. Frames: `z_benign = NoiseModel.sample(h(x_true))`, `z = z_benign + a` on episode frames; `meter_tampered` is `Attacker.tampered`, `bus_attacked` is true where a tampered meter sits at the bus |
-| `AcSced` | `operator/acsced.py` | built as `AcSced(case, unit_p [T, G], cost [T, G], interfaces, state=(vm, va), loads=(pd, qd), frames=PoolFrames, bus_load=None, quick_start=None, objective="movement")`: the AC points and their loads, the pool's own bounds and schedules, its `OperatorOpf` | `step(t, load_p [N], load_q [N], corr [I], limit [I], prev, shed_ok) -> Step`: one AC OPF at the loads the operator reads (`movement`: least movement, cost breaking ties; `cost`: least cost, `price` the AC LMPs), interface AC flows plus the reading correction within their limits or priced over, shed and balance slacks priced above any unit; `delivered(t, dev, shed)` |
-| `OperatorOpf`, `OpfSolution` | `generation/nygrid/solver.py` | the Case and each interface's branches and signs; the Pyomo AC OPF with mutable loads, bounds, anchors, weights and interface rows | `solve(load_p, load_q, *, ...) -> OpfSolution` (units, shed, interface excess, unmatched, model flows, state, balance and interface duals) or None |
-| `PoolFrames` | `operator/day.py` | `p_lo`, `p_hi`, `sp [T, G]` (the pool's unit bounds before the ramp and its setpoints), `qd [T, N]` (the pool's reactive loads) | |
-| `Step` | `operator/acsced.py` | `dev [G]` (MW from the basepoint), `shed [N]` (MW of load relief), `unrelieved [I]`, `unmatched`, `relief_usd` (the dispatch's cost less that of the same dispatch with no interface limit) | |
-| `OperatorDay` | `operator/day.py` | one timeline file's frames with the pool basepoint, the interpolated unit costs, the real zonal LBMP and the interfaces | |
-| `Twin`, `Response` | `operator/run.py` | the operator's run on the attacked scans and on the benign twin: dispatch, regulation, unrelieved and unmatched MW, the true interface and N-1 changes, fuel and settled $ per scan, and under a least-cost dispatch the congestion and energy prices and each bus's price `price [T, N]` | |
 | `TimelineWriter` | `io.py` | an open HDF5 file, built as `TimelineWriter(path)` | `write_static(case, own, plan)`, `write_frames(t0, block)` (`block` a dict of the per-frame arrays of frames `t0..`, datasets grown as written), `write_episodes(episodes)`, `close()` |
 | `Dataset` | `dataset/clients.py` | an open timeline file (`open_timeline`) with its `case`, `own`, `plan` | `clients`, `client(name, split=None) -> ClientView`, `operator(split=None) -> ClientView` (every meter and bus, the operator's full scan); `split` is "train", "val", "test" or None for all frames |
 | `ClientView` | `dataset/clients.py` | one client's meter, bus and frame selection, read when made, no file handle: `buses [N_c]` (bus positions it owns), `frames` (the indices of the selected frames, exact for the interleaved week split) | `z [T, M_c]`, `labels [T, N_c]` (`bus_attacked` of its buses), `meters` (its `MeterPlan` rows), `node_features()` (`[T, N_c, 4]` metered \|V\|, angle, P, Q per owned bus, NaN where not metered), `temporal()` (`[T, M_c]` change from the previous selected frame, zero at the first and after a gap in the selection, angle readings wrapped to (-180, 180]; `z` stays raw) |
@@ -195,7 +170,7 @@ The New York grid is one MATPOWER case file, `src/fdia_graph/generation/nygrid/c
 
 `Case.from_matpower(path)` reads the file with matpowercaseframes, the reader pandapower uses for `.m` files, and takes every column by MATPOWER's own name (`BUS_I`, `PD`, `RATE_A`, `TAP`). Standard MATPOWER fields carry everything they can: the bus `zone` column says where each bus is, as a number (the table below), `mpc.bus_name` the bus names and `mpc.genfuel` the unit fuels. Two numeric fields are ours: `mpc.bus_latlon` (latitude and longitude in degrees) and `mpc.gen_ramp` (MW per minute, `NaN` where the source gives none). A branch with status 0 is left out, and a tap ratio of 0, MATPOWER's mark of a line, is 1.
 
-The case file is one system, so it has one area: the bus `area` column is 1 on every row (`FILE_AREA`), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in `generation/nygrid/case.py` (`ZONES` and `REGIONS`). `generation/nygrid/dispatch.py` and `operator/` still tell the neighbors apart by the area numbers of `Case.area`.
+The case file is one system, so it has one area: the bus `area` column is 1 on every row (`FILE_AREA`), and a file with another number there is refused. The region of a bus is its zone code. The reader, the recipe's writer and the legend in the file follow one table of the codes, their names and the area each gives, in `generation/nygrid/case.py` (`ZONES` and `REGIONS`). `generation/nygrid/dispatch.py` still tells the neighbors apart by the area numbers of `Case.area`.
 
 | zone code in the file | where | `Case.zone` | `Case.area` |
 |---|---|---|---|
@@ -221,7 +196,7 @@ Stateless steps, each called once in the build.
 | `Case.from_matpower(path)` | `generation/nygrid/case.py` | a MATPOWER case file | its `Case`, read with matpowercaseframes and checked: bus numbers become positions, the zone number a zone letter; a file whose parts disagree is a `DataConditionError` |
 | `hvdc_links(case)` | `generation/nygrid/fixes.py` | `Case` | `Case` with NYgrid's four HVDC links as DC lines in place of the AC branch 81-125 (a variant; the release keeps the branch) |
 | `externals_at_base(case, base)` | `generation/nygrid/fixes.py` | an hourly `Case`, the base `Case` | `Case` with external load at base and external units covering the balance |
-| `hourly_interfaces(case, time, data, names=None, year=2019)` | `generation/nygrid/interfaces.py` | `Case`, the pool's frame times, NYgrid's data folder | a list of `Interface` (branches and signs from `updateOpCond.m` L420-430, real hourly limit and flow per frame from `interflowHourly_2019.csv`); `Interface.model_flow(pf)` the signed sum |
+| `hourly_interfaces(case, time, data, names=None, year=2019)` | `generation/nygrid/interfaces.py` | `Case`, the pool's frame times, NYgrid's data folder | a list of `Interface` (branches and signs from `updateOpCond.m` L420-430, real hourly limit and flow per frame from `interflowHourly_2019.csv`) |
 | `peak_ratings(case, pool, factor=1.0)` | `generation/nygrid/pool.py` | `Case`, `Pool` | `Case` with each unrated branch at `factor` times its peak apparent flow over the solved frames (N8; 1.0 by N47) |
 | `write_pool(path, pool)`, `read_pool(path)` | `io.py` | `Pool` | `pool.h5`: `time` (int64 seconds, NYISO local clock), `vm`, `va`, `p`, `q`, `solve_kind`, `unit_p` (when present) |
 | `plan_meters(net, own, rng, vbus_frac=0.6)` | `engine/sensing/meters.py` | `Network`, `Ownership`, a generator | `MeterPlan`: P, Q at every NY bus, P, Q flow at every branch end on a NY bus, \|V\| at a random 60% of NY buses, PMUs (voltage and branch-current phasors) at the smallest set that sees every NY bus (N7), each meter owned by its bus's client, accuracy class and drawn bias per meter |
@@ -245,14 +220,6 @@ Stateless steps, each called once in the build.
 | `InterfaceFdia.with_overshoot(mw)` | `engine/attacks/interface.py` | MW past the limit | a copy of the family with that goal; the original unchanged |
 | `Case.with_voltage_margin(margin)` | `generation/nygrid/case.py` | p.u. | a copy with every bus's voltage limits widened (N71); the original unchanged |
 | `TimelineBuilder.build_episode(path, onset, family, lo, hi, using=None, lag=0)` | `generation/nygrid/timeline.py` | one onset | one episode alone over frames lo..hi; `using` designs it with a family variant (such as `with_overshoot`) in place of the builder's own; `lag` (frames) designs it on the window `lag` frames earlier, the attacker's persistence forecast, and adds its vector to the true scans from `onset` |
-| `shortage_usd(mw)` | `operator/acsced.py` | MW over an interface limit for one scan | $ at the 2019 transmission shortage curve (N60) |
-| `operator_day(timeline, pool, data_dir, interfaces=("SPR/DUN-SOUTH",))` | `operator/day.py` | a timeline file, its pool, NYgrid's `Data/` | `OperatorDay` |
-| `pool_frames(day, loads=None)` | `operator/day.py` | `OperatorDay`, the pool's load series (default `NYGRID_LOADS` or `out/loads_2019_v2.npz`) | `PoolFrames` (`PoolBuilder.frame_limits` on the hours the day touches) |
-| `ac_shift(case, vm, va, interfaces)`, `ac_power_flow(case, net, vm, va, p, q)`, `open_branch(case, k)` | `operator/acsced.py` | an AC state | `[I, N]` AC interface sensitivities to bus injections (power flow Jacobian), the Newton AC power flow at fixed injections, the case without branch `k` |
-| `tie_meters(case, plan)`, `neighbour_reads(plan, rows, far, rng)` | `operator/ties.py` | the case and plan, the far-end flows | the ties with a New York-end P-flow meter, and the neighbours' readings of them through meters of the same class (N67) |
-| `tie_gap(day, z)` | `operator/ties.py` | `OperatorDay`, scans `[T, M]` | `[T]` the net interchange read at the New York ends of the ties less what the neighbours meter at their ends (the true flow there), the interchange check of N62 |
-| `seen_interfaces(plan, interfaces, z)` | `operator/ties.py` | the meter plan, the interfaces, scans `[T, M]` | `[T, I]` each interface's flow as the operator reads it from its branches' P-flow meters |
-| `respond(day, delay=0, over=0.0, mode="trusting", calib=None)`, `summarize(response, voll=None)` | `operator/run.py`, `operator/summary.py` | `OperatorDay` | `Response` (O1, O2, O5, N50 to N65: every interface of `INTERFACES` enforced, quick-start units, regulation capped at `REG_CAP` with the rest an ACE excursion, the interchange alarm, and with `defended` the operator that stops acting on the tampered scans from the alarm), and its day totals, attacked less benign, with regulation and shed by utility |
 
 ## The timeline file
 
@@ -293,4 +260,3 @@ Unsolved pool frames keep their place with NaN state and readings and no labels.
 | D1 | `generation/plan.py`, `generation/nygrid/timeline.py`, `TimelineWriter` in `io.py` |
 | D2 | `dataset/clients.py`, `open_timeline` in `io.py` |
 | D3 | `build.py` (`fetch_inputs`, `production_builder`), `pipelines/newyork/build_timeline.py`, `pipelines/newyork/build_single_episodes.py` |
-| O1, O2, O5 | `operator/acsced.py`, `operator/run.py` |

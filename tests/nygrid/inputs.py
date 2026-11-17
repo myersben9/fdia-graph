@@ -6,9 +6,8 @@ They come in three kinds:
   pinned commit, the NYS utility territories and NYISO's five-minute load archives; `fetch_inputs(root)` from
   `fdia_graph.generation.nygrid.build` downloads them (a test fetches another year's archives itself). Most tests need
   only these, and CI downloads them (`.github/workflows/nygrid.yml`).
-- Checked in under `tests/nygrid/data/days` (its README says how they were made): two days of the damage study (one
-  attack onset, at the limit and past it), the single-episode day of 2019-07-05, and the 2019 pool's frames of
-  those two days. The operator's tests and most golden snapshots run on them with the public inputs.
+- Checked in under `tests/nygrid/data/days` (its README says how it was made): the 2019 pool's frames of two
+  days. The timeline digests build on them with the public inputs.
 - Built locally under `NYGRID_ROOT/out`: the whole 2019 pool (about 370 MB). The tests that rate lines or survey
   attack onsets over the year (the builder, the timeline and the interface attack's design) skip without it. The
   attack families' tests read the first pool, `out/pool_2019.h5`, on whose windows they were written.
@@ -29,9 +28,7 @@ TERRITORIES = ROOT / "data" / "territories"
 POOL = ROOT / "out" / "pool_2019_v3.h5"  # the whole year
 
 DAYS = Path(__file__).parent / "data" / "days"
-DAYS_POOL = DAYS / "pool_2019_v3_days.h5"  # the whole pool's frames of the days below
-DAMAGE_DAYS = ("am_48220_0.h5", "am_48220_175.h5")  # one onset, at the limit and past it
-SINGLE_DAY = DAYS / "sd_south_2019-07-05.h5"
+DAYS_POOL = DAYS / "pool_2019_v3_days.h5"  # the whole pool's frames of 2019-06-17 and 2019-07-05
 
 _FETCH = "fdia_graph.generation.nygrid.build.fetch_inputs(root) downloads it"
 needs_data = pytest.mark.skipif(

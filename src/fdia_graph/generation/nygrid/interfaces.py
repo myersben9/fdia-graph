@@ -40,10 +40,6 @@ class Interface:
     limit: np.ndarray
     flow: np.ndarray
 
-    def model_flow(self, pf: np.ndarray) -> np.ndarray:
-        """The interface flow (MW) from the from-end active flows `pf [..., L]` of every branch."""
-        return pf[..., self.branches] @ self.signs
-
 
 def hourly_interfaces(
     case: Case, time: np.ndarray, data: str | Path, names: list[str] | None = None, year: int = 2019

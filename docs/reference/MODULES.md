@@ -96,7 +96,7 @@ What every folder of the repository holds, then what every Python file does, in 
 | `generation.nygrid.loads` | Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load. |
 | `generation.nygrid.network` | Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (`formulas.network`). |
 | `generation.nygrid.pool` | The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch (N32). |
-| `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt), the power flows between hours (pandapower), and the operator's AC dispatch model (`OperatorOpf`), solved scan by scan. |
+| `generation.nygrid.solver` | AC solutions of a Case: the hourly projection (an AC-OPF in Pyomo, solved by Ipopt) and the power flows between hours (pandapower). |
 | `generation.nygrid.tables` | The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open (each was a ResourceWarning before). |
 | `generation.nygrid.timeline` | The timeline: the year of pool states as noisy scans, with attack episodes placed at random and labelled. |
 | `generation.plan` | The plan stage of a timeline: where its splits are cut and where each split's episodes go. |
@@ -122,15 +122,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `models.scores` | The result tables: an estimator's error pair per record class, a localizer's metric rows per class, and the Jacobian feature outputs. Each is a Bundle, indexable by family name as before. |
 | `models.training` | What the learned localizers pass between their fitting pieces (a centralized fit and a federated client share them). |
 | `models.validation` | The one place inputs are checked (CONTRIBUTING.md, "an input is checked in one place"). |
-| `operator` | The grid operator under attack: what it does with false readings, and what that costs on the true grid. |
-| `operator.acsced` | The operator's real-time dispatch as an AC optimal power flow (`AcSced`), scan by scan. |
-| `operator.areas` | Who bears an attack's damage, and whose grid the attacker uses: the consequence split by New York zone, by utility and by neighboring area, with what the attack tampered in each. |
-| `operator.day` | An attacked day as the operator meets it: the scans it reads and their benign twin, the true states, the pool's unit dispatch and costs, the zonal prices, and the interfaces with their real limits (`operator_day`). |
-| `operator.policy` | The operator's choices as one record (`OperatorPolicy`): which operator (`OperatorMode`), how late it acts, where the inadvertent interchange its neighbours supply enters (`Entry`, `entry_share`), whether it reads the true flows after its own dispatch, and how it answers an alarm (`AlarmAnswer`). The record checks every choice when it is built, so a typo is a `ConfigError` before anything runs. |
-| `operator.run` | The operator scan by scan (D1 to D6). It dispatches on what it reads (`AcSced`), the attacked scans and, separately, their benign twin, each in closed loop on its own dispatch. The dispatch is applied to the true grid, whose load the attack never changed: the imbalance it leaves is picked up by regulation, the online free units in proportion to their five-minute ramp (AGC), up to `REG_CAP`, and the rest by the neighbours as inadvertent interchange. The attack's consequence is the attacked run less the benign one, so whatever the model does alike in both (the cost model) cancels. `respond` runs both and returns the `Response`. |
-| `operator.summary` | The attack's consequence over a day, attacked run less benign run (`summarize`): the dispatch moved, the regulation and its energy by utility, the inadvertent interchange, the true interface changes and margins, the scans over a true limit and those whose power flow failed, the costs, and any load shed. |
-| `operator.ties` | The interchange check: what the operator reads across the ties against what the neighbours' own meters read (N62, N67). The New York ends of the ties carry the attack's false interchange, the neighbours' ends do not, so the gap between them (`tie_gap`) leaves its benign noise once an attack moves the interchange, and `interchange_alarm` names the first scan it does. `seen_interfaces` is the interface flow the operator reads from its own scans. |
-| `operator.truegrid` | The true grid of a day: what the operator's actions do to the flows the attack never changed. An AC power flow at the true loads for any unit dispatch (`TrueGrid.state`), the true state once a run has acted (`run_state`, the closed loop), and the interface flows and the worst single 345 kV outage it gives (`change`). A power flow that fails returns None and its scan is unknown, never safe. Each outage is screened by an AC power flow of the grid without the branch (`ac_power_flow`). |
 | `profiles` | Load-profile ingestion + operating-state generation — the FRONT of the pipeline. |
 | `ratings` | Branch thermal ratings for the overload attack of [WU26] (eqs. 24-25), stored with the package. |
 | `registry` | Dataset registry: built-in (downloadable) datasets + locally generated ones. |
@@ -139,25 +130,17 @@ What every folder of the repository holds, then what every Python file does, in 
 | `results.render` | Turning records into what a reader sees: a formatted cell, a markdown table, a pivot of records by two keys, and the CSV sidecar a figure is drawn from. Nothing here measures or stores anything. |
 | `results.run` | How a harness records what it measured: open a `Run`, add values, and the run writes them to the store with its provenance when it closes. |
 | `results.store` | The results store: one tidy CSV per experiment plus one table of runs, in a folder kept in git. |
-| `results.studies` | Studies over attack windows: the parts every research tool under `pipelines/newyork/` repeats, in one place. |
 | `schema` | The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (`timeline`, `generation`), the readers (`dataset`) and the tools agree through these names and nowhere else; `tools/readability.py` refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (`node_x`, `clean`, ...) are the public vocabulary of a record and stay as words in the code; `FIELD_PATH` maps them here. |
 | `se` | State estimation on fdia-graph datasets, sklearn style. |
 | `se.base` | State estimation on fdia-graph datasets — the shared machinery behind every method class. |
-| `se.detect` | Detection: what the operator's checks see, as building blocks. |
-| `se.detect.estimate` | The operator's state estimator: AC weighted least squares on one scan, and its residual test statistic. |
-| `se.detect.fleets` | Other meter fleets: the same meters and accuracy classes with fresh constant biases. |
+| `se.detect` | Detection: when a detector alarms, as a building block. |
 | `se.detect.rules` | When a detector alarms: the rule that turns a statistic per scan into a first alarm. |
 | `se.jacobian` | Jacobian-informed features (Abdulin & Narimani): the measurement Jacobian as a physics transform of the scan-to-scan measurement change, not as raw model input. |
 | `se.methods` | The estimator method classes. Each changes exactly one thing about SEBase, so a difference between two arms is a difference between estimators rather than between implementations. |
 | `timeline` | One continuous attacked timeline per system, written as one HDF5 file. |
 | `trust` | Which meters to trust so that stealthy attacks stop being stealthy [WU26], sklearn style. |
 | `trust.base` | The shared machinery of the trusted-meter selectors: the measurement Jacobian at the benign mean (from a WLS estimator of `fdia_graph.se`), the attack-cost kernel, and the scoring that pins the secured meters and asks the residual test whether the attack shows. |
-| `trust.faithful_attack` | [WU26]'s attack and defense as the paper states them (docs/analysis/defense_reproduction/README.md, "Faithful reproduction"): the meter plan, the multi-snapshot attack and the incremental trusted-PMU defense, on a pandapower case. |
-| `trust.faithful_defense` | [WU26]'s trusted-PMU defense on the faithful attack (`trust.faithful_attack`): the MDP (Sec. IV-D2, Fig. 1, Algorithm 1) and Solution 1's row reduction (Sec. IV-D1, p. 657). |
 | `trust.meter_dqn` | The trusted-meter selection as a Markov decision process solved by a deep Q-network (the learned selection of [WU26]). |
-| `trust.pmu_dqn` | [WU26]'s Solution 2: the trusted PMUs by a deep Q-network trained with Algorithm 1 (Sec. IV-D2, p. 658) on trusted-PMU MDPs (`trust.WuDefenseEnv`). |
-| `trust.pmu_environment` | [WU26]'s trusted-PMU configuration as a Markov decision process (Sec. IV-D2, Fig. 1, Algorithm 1), on the overload attack of one window. |
-| `trust.pmu_row_reduction` | [WU26]'s Solution 1: the trusted PMUs by row reduction of the measurement matrix (Sec. IV-D1, p. 657), on the trusted-PMU MDP of one overload window (`trust.WuDefenseEnv`). |
 | `trust.secured` | A copy of a timeline with a set of meters secured: the attacker locked out of them, so on every frame their observed reading is the benign one, and the stored temporal features recomputed from the pinned observed frames (`timeline.write_temporal_layers`). The estimators and the localizers then read the copy like any timeline, which is how a trusted-meter selection is measured on state estimation and localization rather than on the residual test alone (`TrustSelector.score`). The copy is rewritten in blocks of frames, so a 72,000-frame timeline of any ladder system fits in bounded memory. |
 
 ## Tools
@@ -181,25 +164,20 @@ What every folder of the repository holds, then what every Python file does, in 
 
 | file | what it does |
 |---|---|
+| `tests/case_studies.py` | [WU26]'s case studies as test inputs: the lines each scenario overloads, its PMU buses and the attacker's area, in MATPOWER bus numbers, and their positions in a generator's grid. |
 | `tests/conftest.py` | Shared fixtures. The suite builds its own tiny IEEE-14 timeline (about 20 s, needs the [generate] extra and the operating-point pool download) inside a throwaway cache, so it never touches a user's ~/.cache/fdia_graph and never downloads a full timeline. Old releases are read from the checked-in files under tests/data (tests/data/README.md). |
 | `tests/digests.py` | Whole-file digests of a generated HDF5 file: the proof that a refactor did not move a number. |
-| `tests/nygrid/conftest.py` | The New York tests' shared setup: the operator's dispatch reads the bus reactive loads of the checked-in days. |
 | `tests/nygrid/inputs.py` | The inputs of the nygrid tests in one place, and which tests each one lets run. |
-| `tests/nygrid/test_areas.py` | The damage split by area adds up to the whole: the zones and the utilities each partition New York's units, the neighbors' supply is the inadvertent interchange, and the attack surface counts the meters the day's labels mark. |
 | `tests/nygrid/test_attacks.py` | The New York attacker on the real grid: its area and edge rules, the false state of a pretended load, the ramp built on it (within the natural load swing, quiet to the residual test), and the bounds it reads from the pool. |
 | `tests/nygrid/test_build.py` | The release builder's attacker sensitivities stay with the attacker: a timeline built with `v_margin` records the case's true voltage limits, while the attacker designs against the widened ones (N71). Needs the public inputs and the whole 2019 pool (inputs.py). |
 | `tests/nygrid/test_case_file.py` | `Case.from_matpower` on a three-bus case file written here: what it reads and what it refuses. Needs no input data. |
-| `tests/nygrid/test_choices.py` | The operator's choices are checked before anything runs: a typo is an error, never a silent fall back to the default run (no data needed). |
 | `tests/nygrid/test_configs.py` | Settings are passed in, never patched onto shared objects: a widened case and an overshoot variant are copies, and the originals stay as they were (no data needed). |
 | `tests/nygrid/test_dataset.py` | The timeline file as federated clients (`dataset.clients`): a written file reloads whole, each client sees only its own meters, buses and labels, and the operator and split views select the right frames. |
-| `tests/nygrid/test_detect.py` | The detection building blocks that need no grid: the persistence rule and its calibration, and the meter fleets (the estimator itself is checked on real days by the golden snapshots). |
+| `tests/nygrid/test_detect.py` | The detection building block: the persistence rule and its calibration (no data needed). |
 | `tests/nygrid/test_examples.py` | The extension examples of docs/guides/extending_new_york.md run as published, so the guide never shows code that broke (no data needed). |
-| `tests/nygrid/test_experiments.py` | The study helpers every research tool shares: the day files of a study, a day's variant, the interchange calibration, and the parallel runner that writes a sorted CSV (no data needed). |
 | `tests/nygrid/test_golden.py` | Golden snapshots of nygrid's outputs on fixed inputs, the safety net of the readability refactor. |
 | `tests/nygrid/test_grid.py` | The New York grid's case file: what it holds, its exact round trip through the MATPOWER reader and writer, the recipe that made it from NYgrid, the two case variants and the utility of each bus. |
 | `tests/nygrid/test_misses.py` | Every design that finds no attack says why (a miss reason), so a timeline with few attacks can be read: nothing to attack, nothing feasible, or a solver that failed (no data needed). |
-| `tests/nygrid/test_operator.py` | The operator's real-time dispatch (`operator.acsced`, an AC optimal power flow each scan): the 2019 shortage price, the delivery factors and AC sensitivities, the outage power flow, and the operator on days under attack. |
-| `tests/nygrid/test_policy.py` | The operator's choices are one validated record, and an operator is anything that returns a Response (no data needed). |
 | `tests/nygrid/test_public.py` | The public surface of the New York code: every package's names resolve, reading a dataset stays light, and the names that became public keep their old spelling for one release (no data needed). |
 | `tests/nygrid/test_scenario.py` | The hourly operating points against NYgrid's own MATLAB output: the inputs, the dispatch, the AC projection and the pool, and the bottom-up load profiles with their within-hour calibration. |
 | `tests/nygrid/test_sensing.py` | The New York meter plan and its readings: the fewest PMUs on small graphs, the plan, the measurement Jacobian against finite differences, observability and the meter noise. |
@@ -210,7 +188,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/test_attack_area.py` | The attacker's area [WU26] Sec. III-A and the window ratings of the overload attack: the paper's own area where it states one, the region its four principles pick otherwise (rules 1 and 2 as checks, 3 and 4 as a score of ours), the "delta" ratings matched to its Fig. 4 magnitudes, and the validity of every attack the search returns (the goal met, every untampered channel within its noise, trusted buses true). |
 | `tests/test_edges.py` | The public edges: wrong arguments fail early with a message naming what is allowed, and the filters mean what the docs say. The other test files prove the happy path; this file is the rest. |
 | `tests/test_estimators.py` | Estimator behaviour the frozen scores cannot see: the per-unit guard on every public path, one estimator whatever calls it, the weighted solve keeping its best step, classical one-at-a-time residual removal, and the spread-out meter-sigma calibration. |
-| `tests/test_faithful_attack.py` | [WU26]'s attack as the paper states it (`trust.faithful_attack`): the meter plan, the objective's form, the incremental trust and the reproduction's settings. |
 | `tests/test_federated.py` | fdia_graph.federated: the partition of buses into clients and the averaging formulas. |
 | `tests/test_formulas.py` | The formulas kernel: each function on a case small enough to check by hand, and the estimator's torch measurement function pinned to the numpy kernel so there is one AC model in the package. |
 | `tests/test_loader_timeline.py` | `fg.load` on a timeline file: the record table and the timeline from one file, `order`, the benign layer on records, batches and exports, `ds.windows` and `ds.episodes`. Uses the `timeline` fixture of conftest. |
@@ -225,9 +202,6 @@ What every folder of the repository holds, then what every Python file does, in 
 | `tests/test_overload_case_studies.py` | [WU26]'s case studies on our overload attack: the paper's PMU placement, its two lines overloaded at once, the ratings 1.2 times each line's peak true flow over the window (the level at which our device counts matched the paper's in the S_max sensitivity study), and the D16 bounds. The paper states no line limits, so the ratings are ours and the comparison is of kind, not of value: the attack is feasible, reaches both ratings, tampers the paper's devices on IEEE-14, and its largest per-device change is of the paper's order (0.22 and 0.17 pu there). |
 | `tests/test_package_equivalence.py` | Hand-written loops and formulas replaced by library calls or array operations: each test pins the replacement to the code it replaced (identical, or to tolerance where the arithmetic order changes), so the simplification cannot drift. |
 | `tests/test_pmu_channels.py` | The hybrid meter model: angles at the PMU buses only, the PMU branch-current phasors [WU26 eqs. 19-20] emitted, stored, loaded and attacked, and the eq. (3) pseudo-measurements an estimator can derive from them. The v0.8.3 meter model stays the default and writes none of it. |
-| `tests/test_pmu_dqn.py` | [WU26]'s Solution 2 (`trust.TrustedPMUsDQN`, Algorithm 1): the stated hyperparameters, a constructed MDP where the right first PMU is known, seeded determinism, and one short run on the paper's IEEE-14 scenario. |
-| `tests/test_pmu_environment.py` | [WU26]'s trusted-PMU MDP (`trust.WuDefenseEnv`) on the paper's IEEE-14 scenario for lines 1-2 and 4-5: the configuration model, the reward as the rise in the search's cost under the schedule (eq. 33), the cache, the state of Fig. 1, and the paper's line-8 break. |
-| `tests/test_pmu_row_reduction.py` | [WU26]'s Solution 1 (`trust.TrustedPMUs`, p. 657 steps 1-5) on the paper's IEEE-14 scenarios: one PMU per configuration step, each a PMU reading the sparsest attack that moves a target line, scored by the trusted-PMU MDP. |
 | `tests/test_profiles.py` | Load sources and operator feeds: each reads itself, no network needed. |
 | `tests/test_public_bundles.py` | The public dual-access bundles (data models step 3): each is the dict it used to be, with the same keys in the same order, and its attribute view agrees with the dict view. |
 | `tests/test_public_coverage.py` | Direct tests for public pieces the rest of the suite reached only through a whole pipeline: the replay policy, the linear-algebra and network kernels on cases small enough to check by hand, the episode reader, the release lookup, the trust selector base, the removal guard and the learned localizer's threshold. |
@@ -251,7 +225,6 @@ What every folder of the repository holds, then what every Python file does, in 
 |---|---|
 | `examples/nygrid/custom_alarm_rule.py` | A detector rule of your own: a CUSUM on the residual statistic, next to the package's persistence rule. |
 | `examples/nygrid/custom_attack_family.py` | An attack family of your own: a slow bias on one load bus's injection meter. |
-| `examples/nygrid/custom_operator.py` | An operator of your own: one that ignores what it reads and never redispatches. |
 | `examples/quickstart.py` | 60-second tour of fdia-graph: load a dataset, inspect it, and get it in whatever format you want. |
 | `examples/train_arma.py` | Stronger localizer baseline: an edge-fused ARMA graph convolution net (Bianchi et al., IEEE TPAMI 2021). |
 | `examples/train_gnn.py` | End-to-end example: train a GNN attack-localizer on an fdia-graph dataset — the whole point of the SDK. |

@@ -21,6 +21,7 @@ from fdia_graph.models.config import OverloadSettings  # noqa: E402
 from fdia_graph.models.grid import NODE  # noqa: E402
 from fdia_graph.models.validation import ConfigError  # noqa: E402
 
+from . import case_studies  # noqa: E402
 from .test_trusted_pmus import ORDER, SLOTS, _setup  # noqa: E402
 
 _TOL = 1e-9
@@ -92,7 +93,9 @@ def test_the_rref_attack_is_feasible_and_pinned(scenario, margin, trusted, count
     """The row-reduction attack reaches both ratings at every snapshot inside the limits, with and
     without the paper's trust schedule, and its device and channel counts are pinned."""
     g, window, k, goal = _setup(scenario, margin)
-    trust = TrustSchedule([int(b) for b in g.wu26_buses(ORDER[scenario])], SLOTS) if trusted else None
+    trust = (
+        TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS) if trusted else None
+    )
     k = k._replace(support_method="rref")
     r = g.min_tamper(window, goal, k, trust=trust)
     assert (r.devices, r.channels) == counts
@@ -104,7 +107,7 @@ def test_the_schedule_stops_the_rref_attack_at_k_1_2(scenario):
     """At k = 1.2 no support the reduction ranks reaches both ratings with the four PMUs trusted, as for
     the search."""
     g, window, k, goal = _setup(scenario, 1.2)
-    trust = TrustSchedule([int(b) for b in g.wu26_buses(ORDER[scenario])], SLOTS)
+    trust = TrustSchedule([int(b) for b in case_studies.buses(g, ORDER[scenario])], SLOTS)
     r = g.min_tamper(window, goal, k._replace(support_method="rref"), trust=trust)
     assert r.devices == -1
 

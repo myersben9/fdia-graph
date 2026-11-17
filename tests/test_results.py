@@ -260,12 +260,12 @@ def test_an_unterminated_block_fails_the_check(tmp_path: object) -> None:
     assert stale(text, Store(str(tmp_path))) != []
 
 
-def test_latest_and_newest_run_agree_on_a_tie(tmp_path: object) -> None:
+def test_latest_takes_the_later_run_id_on_a_tie(tmp_path: object) -> None:
     store = Store(str(tmp_path))
     for rid, v in (("demo.x-a", 1.0), ("demo.x-b", 2.0)):
         with Run("demo.x", store=store, run_id=rid, timestamp="2026-01-01T00:00:00Z") as run:
             run.add("devices", v, method="s")
-    assert store.one("demo.x").run_id == store.newest_run("demo.x") == "demo.x-b"
+    assert store.one("demo.x").run_id == "demo.x-b"
 
 
 def test_a_writer_never_enters_a_held_lock(tmp_path: object, monkeypatch: pytest.MonkeyPatch) -> None:

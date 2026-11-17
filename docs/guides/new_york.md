@@ -5,7 +5,7 @@ AC, a 2019 five-minute operating-point pool from a ramp-constrained AC dispatch,
 service territory, a hybrid SCADA and PMU meter plan, and attacks against NYISO interface limits. The
 modules are in
 [the architecture](../concepts/new_york_grid.md), one run end to end in [the walkthrough](../getting-started/new_york_walkthrough.md), how to
-add an attack, a detector or an operator in [the extending guide](extending_new_york.md), and what each stage reports
+add an attack or an alarm rule in [the extending guide](extending_new_york.md), and what each stage reports
 when it fails in [the troubleshooting page](troubleshooting_new_york.md). No built pool or timeline is published yet, so the steps
 below build them from the public inputs.
 
@@ -80,7 +80,7 @@ test whose input is missing:
 NYGRID_ROOT=/path/to/nygrid pytest $FG/tests/nygrid
 ```
 
-Most tests need only the inputs of step 1, with the attack days and their pool frames checked in under
+Most tests need only the inputs of step 1, with the pool frames of two days checked in under
 `tests/nygrid/data/days`; the tests that rate lines or survey onsets over the year also need the pool of step 2.
 `tests/nygrid/inputs.py` says which input each test needs. CI runs the folder on the inputs of step 1
 (`.github/workflows/nygrid.yml`).

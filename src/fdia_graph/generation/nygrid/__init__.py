@@ -4,9 +4,8 @@ the hourly dispatch and the five-minute pool of AC operating states, and the tim
 It is one system source of the generator beside the pandapower cases: `production_builder` builds the
 `TimelineBuilder` of a release from a pool, `PoolBuilder` the pool from the inputs `fetch_inputs` downloads. The
 attack families it uses live in `fdia_graph.engine.attacks`, the meters in `fdia_graph.engine.sensing`, the
-operator in `fdia_graph.operator`, the residual test in `fdia_graph.se.detect`, the utility clients in
-`fdia_graph.federated.utilities` and the study helpers in `fdia_graph.results.studies`. Every public name below
-loads on first use, so reading a timeline needs neither pandapower nor Pyomo.
+alarm rules in `fdia_graph.se.detect` and the utility clients in `fdia_graph.federated.utilities`. Every public
+name below loads on first use, so reading a timeline needs neither pandapower nor Pyomo.
 """
 
 from __future__ import annotations
@@ -46,9 +45,6 @@ if TYPE_CHECKING:  # the names below, with their real signatures for type checke
     )
     from fdia_graph.generation.nygrid.solver import AcSolver, Compensation
     from fdia_graph.generation.nygrid.timeline import TimelineBuilder
-    from fdia_graph.operator.day import operator_day
-    from fdia_graph.operator.run import respond
-    from fdia_graph.operator.summary import summarize
 
 # each public name and the module that defines it, imported on first use
 _PUBLIC = {
@@ -87,14 +83,11 @@ _PUBLIC = {
     "ipopt": "fdia_graph.engine.solvers",
     "nygrid_case": "fdia_graph.generation.nygrid.case",
     "open_timeline": "fdia_graph.generation.nygrid.io",
-    "operator_day": "fdia_graph.operator.day",
     "peak_ratings": "fdia_graph.generation.nygrid.pool",
     "production_builder": "fdia_graph.generation.nygrid.build",
     "read_nygrid": "fdia_graph.generation.nygrid.inputs",
     "read_pool": "fdia_graph.generation.nygrid.io",
-    "respond": "fdia_graph.operator.run",
     "rng": "fdia_graph.generation.nygrid.config",
-    "summarize": "fdia_graph.operator.summary",
     "write_pool": "fdia_graph.generation.nygrid.io",
 }
 
@@ -134,14 +127,11 @@ __all__ = [
     "ipopt",
     "nygrid_case",
     "open_timeline",
-    "operator_day",
     "peak_ratings",
     "production_builder",
     "read_nygrid",
     "read_pool",
-    "respond",
     "rng",
-    "summarize",
     "write_pool",
 ]
 

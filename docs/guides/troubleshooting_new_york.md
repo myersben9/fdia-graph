@@ -2,8 +2,7 @@
 
 Every stage of `fdia_graph.generation.nygrid` either raises a named error or records why it produced less than asked. This
 page lists what each stage reports, what it means and what to do. The stages are those of
-[the guide](new_york.md): environment, inputs, the operating-point pool, the timeline, the operator and
-the detection tools. The errors live in `fdia_graph.errors`. A wrong argument is a `ConfigError` and data that
+[the guide](new_york.md): environment, inputs, the operating-point pool and the timeline. The errors live in `fdia_graph.errors`. A wrong argument is a `ConfigError` and data that
 does not meet a condition is a `DataConditionError`. Both are a `ValueError`, so existing `except ValueError`
 code keeps working. `SolverUnavailable` is a `RuntimeError`, because a broken environment is not a property of
 the data.
@@ -15,7 +14,7 @@ the data.
 | `SolverUnavailable: Ipopt is not found or does not start` | Ipopt is not installed, or it is installed but cannot load its DLLs. On Windows a missing DLL shows as exit code `0xC0000135` | `conda install -c conda-forge ipopt` into the environment, and run that environment's Python with the environment active, so its `Library/bin` folder is on PATH. `fdia_graph.engine.solvers.ipopt()` adds the folder when it exists |
 | `SolverUnavailable: Pyomo is not installed` | The `[ny]` extra is missing | `pip install "fdia-graph[ny]"` |
 | A change you made does not show up | Python imports another copy of the package, usually the editable install of the main checkout when you work in a git worktree | Put the worktree's `src` first: `PYTHONPATH=<worktree>/src` |
-| `FileNotFoundError` on `data/...` | The build tools and the operator read `data/` and `out/` relative to the working folder | Run from the work folder that holds `data/`, or pass `--data` and `--pool` |
+| `FileNotFoundError` on `data/...` | The build tools read `data/` and `out/` relative to the working folder | Run from the work folder that holds `data/`, or pass `--data` and `--pool` |
 
 ## Inputs
 
@@ -53,31 +52,12 @@ onset survey on, `survey_missed`) says why, counted per family:
 `build_episode` raises `NoAdmissibleTarget` naming the reason when its one window has no attack, and a
 `DataConditionError` when the window touches an unsolved frame.
 
-## The operator
-
-`respond` checks its choices before anything runs: an unknown `mode`, `after` or `entry` raises a `ConfigError`
-listing the allowed values. In the result:
-
-| What you see | Meaning |
-|---|---|
-| `pf_failed_scans` above zero in `summarize` (or `Twin.pf_failed`) | The AC power flow of the operator's dispatch on the true grid failed on those scans. Their interface changes and margin are NaN, which means unknown, not safe. They are not counted in `over_scans` |
-| `margin_min_mw` below zero with `over_scans` zero | The benign twin is over the limit as far, or further. The dispatch holds a binding interface at the limit in its own model at the loads it reads, and the true flow can pass it with no attack. `benign_margin_min_mw` gives the benign twin's tightest margin, and `over_*` count only the attack's excess |
-| `alarm_scans` NaN | The interchange check never fired in the window |
-| `RuntimeError: scan t: ...` from the dispatch | The operator's AC optimal power flow found no optimum on that scan (Ipopt, after its retry from the AC point) |
-
-## The detection tools
-
-The research tools under `pipelines/newyork/` show every warning; none is silenced. Their detection thresholds come
-from the calibration files under `results/`.
-
 ## The golden snapshots
 
-`tests/nygrid/test_golden.py` compares what the operator, the detection tools and the interface attack return
+`tests/nygrid/test_golden.py` compares what the persistence rule and the interface attack return
 on fixed inputs with the snapshots in `tests/nygrid/golden/`. A failure names the first value that changed. If the
 change is intended, rewrite the snapshots with `NYGRID_UPDATE_GOLDEN=1` and say in the pull request which numbers
-moved and why. The operator and detection snapshots run on the attack days checked in under
-`tests/nygrid/data/days` with NYgrid's inputs, so CI runs them; the interface attack's design also needs the whole
-2019 pool under `NYGRID_ROOT` and skips without it.
+moved and why. The interface attack's design needs the whole 2019 pool under `NYGRID_ROOT` and skips without it.
 
 The same folder holds whole-file digests of a New York timeline and of two episodes
 (`tests/nygrid/test_timeline_digests.py`): bit for bit on the machine that recorded them, skipped

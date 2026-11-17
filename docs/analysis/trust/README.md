@@ -43,22 +43,13 @@ with every meter writable, `detected_after` with the trust in place.
 
 ## Files
 
-The package holds two things: the trusted-meter selectors on a dataset, and the trusted-PMU defense of [WU26]
-on an overload window, the latter both on the generator's attack and on the paper's own attack.
+The package holds the trusted-meter selectors on a dataset.
 
 | file | holds |
 |---|---|
 | `trust/base.py` | `TrustSelector`, the shared fit and score (the Jacobian at the benign mean, the attack-cost kernel, the residual test with the secured meters pinned), and `TrustedMeters`, the greedy selection |
 | `trust/meter_dqn.py` | `TrustedMetersDQN`: the same selection as an MDP with a deep Q-network |
 | `trust/secured.py` | `secured_copy`: a copy of a timeline with chosen meters secured and its temporal features recomputed |
-| `trust/pmu_environment.py` | `DefenseEnv`, the protocol both trusted-PMU MDPs implement, and `WuDefenseEnv`: the trusted-PMU configuration as an MDP on one overload window of the generator, its reward the rise in the fewest-tamper search's cost |
-| `trust/pmu_row_reduction.py` | `TrustedPMUs`: the trusted PMUs by row reduction of the measurement matrix (the paper's Solution 1) |
-| `trust/pmu_dqn.py` | `TrustedPMUsDQN`: the trusted PMUs by a deep Q-network trained with the paper's Algorithm 1 (Solution 2) |
-| `trust/faithful_attack.py` | the paper's attack as the paper states it, on a pandapower case: the meter plan, the multi-snapshot attack on IPOPT, incremental trust (needs the `[wu]` extra) |
-| `trust/faithful_defense.py` | `Wu26DefenseEnv` and `wu26_solution1`: the trusted-PMU MDP and Solution 1 on that attack |
-
-The defense results are reproduced on the generator and on the paper's attack; the
-numbers are in [`../defense_reproduction/README.md`](../defense_reproduction/README.md).
 
 ## Results
 

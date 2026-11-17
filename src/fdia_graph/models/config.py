@@ -21,7 +21,6 @@ from .choices import (
     AreaRule,
     Buses,
     Calibrate,
-    CostUnit,
     Features,
     Format,
     FrOver,
@@ -46,7 +45,6 @@ from .validation import (
     Finite,
     InRange,
     Integer,
-    NonEmpty,
     OneOf,
     Parses,
     Positive,
@@ -306,15 +304,8 @@ class OverloadSettings(Validated):
     # how an episode's support is chosen: the fewest-tamper search, or [WU26]'s row reduction ("rref")
     support_method: Annotated[str, OneOf(SupportMethod)] = "search"
     # with rating_source "delta": each target's S_max is its true flow at the window's end plus this
-    # many per unit of the system base (ours, matched to [WU26] Fig. 4's 0.10 to 0.22 pu attacks;
-    # experiment `minlp.rating_delta`)
+    # many per unit of the system base (ours, matched to [WU26] Fig. 4's 0.10 to 0.22 pu attacks)
     rating_delta: Annotated[float, Finite(), InRange(0.0, math.inf)] = 0.10
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield (
-            self.support_method != SupportMethod.WU_L1.value,
-            ("the wu_l1 attack is the [WU26] reproduction's (trust.faithful_attack), not the generator's"),
-        )
 
 
 @dataclass(frozen=True)
@@ -353,14 +344,6 @@ class MeterSettings(Validated):
     pmu_frac: float = 0.2
     flow_frac: float = 0.9
     meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield (
-            self.meter_model != MeterModel.WU26.value,
-            (
-                "the wu26 meter plan is the [WU26] reproduction's (trust.faithful_attack), not a generator plan"
-            ),
-        )
 
     @property
     def coverage(self) -> dict[str, float]:
@@ -509,14 +492,6 @@ class GeneratorOptions(Validated):
     max_load_mw: Annotated[Optional[float], Positive()] = 2000.0
     meter_model: Annotated[str, OneOf(MeterModel)] = "hybrid"
 
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield (
-            self.meter_model != MeterModel.WU26.value,
-            (
-                "the wu26 meter plan is the [WU26] reproduction's (trust.faithful_attack), not a generator plan"
-            ),
-        )
-
 
 @dataclass(frozen=True)
 class ShardRun(Validated):
@@ -553,80 +528,6 @@ class ProfileFetch(Validated):
 
     iso: Annotated[str, OneOf(Iso)]
     resample_min: Annotated[Optional[int], Integer(), AtLeast(1)] = None
-
-
-@dataclass(frozen=True)
-class WuDefenseConfig(Validated):
-    """[WU26]'s trusted-PMU MDP (Sec. IV-D2, Fig. 1; `trust.WuDefenseEnv`): the candidate PMU buses (the
-    generator's bus indices), the snapshot of the window at which each configuration step trusts one of
-    them ("one PMU per step"; IEEE-14's steps at snapshots 2, 4, 6 and 8, IEEE-118's one per snapshot),
-    and the unit the attack cost counts."""
-
-    pmus: Annotated[Sequence[int], AsTuple(), NonEmpty()]
-    slots: Annotated[Sequence[int], AsTuple(), NonEmpty()]
-    unit: Annotated[str, OneOf(CostUnit)] = "channels"
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        pmus, slots = np.asarray(self.pmus), np.asarray(self.slots)
-        yield _indices(pmus), "pmus must be non-negative bus indices"
-        yield len(set(self.pmus)) == len(self.pmus), "lists each PMU once"
-        yield _indices(slots), "slots must be non-negative snapshot indices"
-        yield (
-            bool((np.diff(slots) >= 0).all()),
-            "slots must not decrease: each step trusts at or after the last",
-        )
-        yield len(slots) <= len(pmus), "cannot have more steps than PMUs to trust"
-
-
-@dataclass(frozen=True)
-class Wu26Attack(Validated):
-    """[WU26]'s attack as `trust.faithful_attack` reproduces it: the meter plan "wu26" and the solver "wu_l1" (eq. 12
-    read literally, the l1 of the window's summed attack), with the settings the paper leaves open, all
-    ours: the overload `rho` (each target's flow ramps to rho times its true value by the window's end;
-    no rating is stated), the weight `tau` of the per-snapshot l1 that bounds the intermediate snapshots
-    (0.1 on IEEE-14, 0.05 on IEEE-118, calibrated to Fig. 4's magnitude and Table V's set), the
-    per-snapshot trust region of `dv` pu and `da` radians around the true state, and the voltage band
-    [`vmin`, `vmax`] of eq. (21)."""
-
-    rho: Annotated[float, Finite(), InRange(1.0, math.inf)] = 1.5
-    tau: Annotated[float, Finite(), InRange(0.0, math.inf, lo_closed=True)] = 0.05
-    dv: Annotated[float, Finite(), Positive()] = 0.04
-    da: Annotated[float, Finite(), Positive()] = 0.12
-    vmin: Annotated[float, Finite(), Positive()] = 0.94
-    vmax: Annotated[float, Finite(), Positive()] = 1.06
-    # IPOPT's iteration cap per window (ours): the reproduction's numbers were measured at 400, where a
-    # 40-bus IEEE-118 window often stops at the cap with every goal met
-    max_iter: Annotated[int, Integer(), AtLeast(1)] = 400
-    meter_model: Annotated[str, OneOf(MeterModel)] = "wu26"
-    support_method: Annotated[str, OneOf(SupportMethod)] = "wu_l1"
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        yield self.vmin < self.vmax, f"vmin {self.vmin} must be below vmax {self.vmax}"
-        yield self.meter_model == MeterModel.WU26.value, "the reproduction reads the wu26 meter plan"
-        yield self.support_method == SupportMethod.WU_L1.value, "the reproduction solves with wu_l1"
-
-
-@dataclass(frozen=True)
-class WuDqnConfig(Validated):
-    """[WU26]'s DQN (Sec. IV-D2, Algorithm 1, Sec. V and the Appendix; `trust.TrustedPMUsDQN`): the
-    stated hyperparameters by default, the discount gamma 0.9, the learning rate 0.005 (Adam), the
-    replay buffer of 2,500 transitions, minibatches of 25, the target network updated every 20
-    iterations, the exploration rate e^(-0.002 ep) and about 250 episodes (Fig. 13). The network's
-    width is ours (the paper gives none): two hidden layers of `hidden` units."""
-
-    episodes: Count = 250
-    gamma: Share = 0.9
-    lr: Scale = 0.005
-    buffer: Count = 2500
-    batch: Count = 25
-    target_every: Count = 20
-    epsilon_decay: Scale = 0.002
-    hidden: Count = 128
-    seed: Annotated[int, Integer(), AtLeast(0)] = 123
-
-    def invariants(self) -> Iterable[tuple[bool, str]]:
-        # a minibatch larger than the buffer is never drawn, so training would make no update
-        yield self.batch <= self.buffer, f"batch {self.batch} cannot exceed the replay buffer {self.buffer}"
 
 
 def _indices(a: np.ndarray) -> bool:

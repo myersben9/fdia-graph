@@ -58,11 +58,9 @@ DEFERRED: dict[str, str] = {
     "engine/attacks/ramp.py": "the New York code, moved in as written; conformed module by module",
     "engine/sensing": "the New York code, moved in as written; conformed module by module",
     "engine/solvers.py": "the New York code, moved in as written; conformed module by module",
-    "operator": "the New York code, moved in as written; conformed module by module",
     "se/detect": "the New York code, moved in as written; conformed module by module",
     "federated/utilities.py": "the New York code, moved in as written; conformed module by module",
     "dataset/clients.py": "the New York code, moved in as written; conformed module by module",
-    "results/studies.py": "the New York code, moved in as written; conformed module by module",
     "_lazy.py": "the New York code, moved in as written; conformed module by module",
 }
 

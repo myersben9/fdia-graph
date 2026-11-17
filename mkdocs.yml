@@ -62,7 +62,6 @@ nav:
       - Localization: analysis/localization/README.md
       - Trusted meters: analysis/trust/README.md
       - Federated: analysis/federated/README.md
-      - Defense reproduction: analysis/defense_reproduction/README.md
   - Reference:
       - Data dictionary: reference/DATA_DICTIONARY.md
       - Glossary: reference/GLOSSARY.md
