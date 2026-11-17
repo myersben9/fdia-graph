@@ -1658,7 +1658,7 @@ and a rule fitted on no statistic at all is an error (<code>NoBenignRecords</cod
 false alarms on benign days of other months beside its detection rate.</p>
 <h2 id="changing-the-package-itself">Changing the package itself<a class="headerlink" href="#changing-the-package-itself" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The grid is the MATPOWER case file <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, read by <code>nygrid_case()</code>. To
+<li>The grid is the MATPOWER case file <code>src/fdia_graph/systems/case_nygrid.m</code>, read by <code>nygrid_case()</code>. To
   change a line, a unit or a limit, edit the file; code does not patch the case on the way in. Edit rows in place,
   or add and delete whole rows: <code>Case.from_matpower</code> reads the file with matpowercaseframes and refuses a file
   whose parts disagree, naming the file and what is wrong (<a href="../../concepts/new_york_grid/">the architecture</a> lists

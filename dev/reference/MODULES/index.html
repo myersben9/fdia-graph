@@ -1985,32 +1985,12 @@
 <td>Measurement emission: the generator's meter readings of a stored state, as a file's layers.</td>
 </tr>
 <tr>
-<td><code>engine.pandapower_types</code></td>
-<td>The pandapower objects the engine reads, as types.</td>
-</tr>
-<tr>
 <td><code>engine.physics</code></td>
 <td>A scan's load and generation, read from its stored state.</td>
 </tr>
 <tr>
 <td><code>engine.records</code></td>
 <td>One scan of the timeline writer: a benign scan, or an attacked At scan built by <code>engine.attacks</code>.</td>
-</tr>
-<tr>
-<td><code>engine.sensing</code></td>
-<td>The meters: what each client measures, and how wrong each meter is.</td>
-</tr>
-<tr>
-<td><code>engine.sensing.measure</code></td>
-<td>The measurement function: the meter readings a grid state gives, and their derivatives.</td>
-</tr>
-<tr>
-<td><code>engine.sensing.meters</code></td>
-<td>The meter plan: every meter of a grid as one row of a table, with its owner and accuracy class.</td>
-</tr>
-<tr>
-<td><code>engine.sensing.noise</code></td>
-<td>Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter.</td>
 </tr>
 <tr>
 <td><code>engine.solvers</code></td>
@@ -2034,7 +2014,7 @@
 </tr>
 <tr>
 <td><code>formulas.noise</code></td>
-<td>The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the noise [WU26]'s case studies state. <code>engine.sensing.noise.NoiseModel</code> splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both.</td>
+<td>The meter error model: the standard deviation an accuracy class gives a reading [ASP14], and the noise [WU26]'s case studies state. <code>sensing.noise.NoiseModel</code> splits a class into a constant per-meter bias and a per-scan jitter (ours) and draws both.</td>
 </tr>
 <tr>
 <td><code>formulas.temporal</code></td>
@@ -2065,20 +2045,12 @@
 <td>The New York system: NYgrid's NPCC-140 case made solvable in AC, its reduced network, the 2019 loads by bus, the hourly dispatch and the five-minute pool of AC operating states, and the timeline written from them.</td>
 </tr>
 <tr>
-<td><code>generation.nygrid.case</code></td>
-<td>The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net.</td>
-</tr>
-<tr>
 <td><code>generation.nygrid.config</code></td>
 <td>Build settings and the one place random generators are made.</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.dispatch</code></td>
 <td>Hourly unit dispatch, NYgrid's allocation of the NYISO fuel mix to the fixed unit list.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.fixes</code></td>
-<td>Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (<code>case.py</code> reads it).</td>
 </tr>
 <tr>
 <td><code>generation.nygrid.inputs</code></td>
@@ -2101,14 +2073,6 @@
 <td>Per-bus load profiles by the bottom-up method of [LI21], scaled to the real zone load.</td>
 </tr>
 <tr>
-<td><code>generation.nygrid.network</code></td>
-<td>Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (<code>formulas.network</code>).</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.ownership</code></td>
-<td>Federated clients: each NY bus belongs to the electric utility whose service territory holds it.</td>
-</tr>
-<tr>
 <td><code>generation.nygrid.pool</code></td>
 <td>The pool: one AC operating state per 5-minute frame, from a ramp-constrained real-time dispatch.</td>
 </tr>
@@ -2119,10 +2083,6 @@
 <tr>
 <td><code>generation.nygrid.source</code></td>
 <td>The New York grid as the source of a timeline: the year of pool states and its steps of the one path.</td>
-</tr>
-<tr>
-<td><code>generation.nygrid.tables</code></td>
-<td>The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open.</td>
 </tr>
 <tr>
 <td><code>generation.plan</code></td>
@@ -2199,6 +2159,50 @@
 <tr>
 <td><code>schema</code></td>
 <td>The file protocol: every group, dataset and attribute name an fdia-graph HDF5 file carries, defined once. The writer (<code>generation</code>) and the readers (<code>dataset</code>) agree through these names; <code>tools/readability.py</code> refuses a path-shaped literal ("data/...", "graph/...") in any other module. Field names (<code>node_x</code>, <code>clean</code>, ...) stay as words in the code; <code>FIELD_PATH</code> maps them to paths.</td>
+</tr>
+<tr>
+<td><code>sensing</code></td>
+<td>The meters: what each client measures, and how wrong each meter is.</td>
+</tr>
+<tr>
+<td><code>sensing.measure</code></td>
+<td>The measurement function: the meter readings a grid state gives, and their derivatives.</td>
+</tr>
+<tr>
+<td><code>sensing.meters</code></td>
+<td>The meter plan: every meter of a grid as one row of a table, with its owner and accuracy class.</td>
+</tr>
+<tr>
+<td><code>sensing.noise</code></td>
+<td>Meter noise: the accuracy class of each meter split into a constant bias and a per-scan jitter.</td>
+</tr>
+<tr>
+<td><code>systems</code></td>
+<td>The test systems: a grid as a <code>Case</code> with its <code>Network</code>, whichever grid it is.</td>
+</tr>
+<tr>
+<td><code>systems.case</code></td>
+<td>The grid as one frozen record of arrays, read from a MATPOWER case file or from a pandapower net.</td>
+</tr>
+<tr>
+<td><code>systems.fixes</code></td>
+<td>Two variants of a case, applied when one is asked for: the external areas held at the base load, and NYgrid's HVDC links in place of the AC branch 81-125. The changes every build has (zone J's split, the 765 kV line) are in the case file itself (<code>case.py</code> reads it).</td>
+</tr>
+<tr>
+<td><code>systems.network</code></td>
+<td>Admittances of a Case, built once, and the AC quantities they give for any state, from the SDK's network formulas (<code>formulas.network</code>).</td>
+</tr>
+<tr>
+<td><code>systems.ownership</code></td>
+<td>Federated clients: each NY bus belongs to the electric utility whose service territory holds it.</td>
+</tr>
+<tr>
+<td><code>systems.pandapower_types</code></td>
+<td>The pandapower objects the package reads, as types.</td>
+</tr>
+<tr>
+<td><code>systems.tables</code></td>
+<td>The CSV tables of the inputs, read whole and closed: the NYgrid checkout's bus, unit and renewable tables and the bus locations. One reader, so no input file is left open.</td>
 </tr>
 <tr>
 <td><code>timeline</code></td>

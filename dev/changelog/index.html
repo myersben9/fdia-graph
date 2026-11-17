@@ -1721,6 +1721,90 @@
 the public API, the generated files and the numbers are the same as the previous release.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>The grid and the meters have their own packages, <code>fdia_graph.systems</code> and <code>fdia_graph.sensing</code>
+  (breaking for the module paths below; a move only: no class is renamed, no logic changes and no stored
+  byte changes: the five whole-file digests are unchanged, and thirty-two IEEE timelines are byte for byte
+  the files the previous code writes).</strong> <code>fg.load</code>, <code>fg.generate</code> and <code>generate_timeline</code> are used as
+  before. New York is a test system like IEEE-14: its <code>Case</code>, its <code>Network</code> and its case file sit beside
+  the IEEE cases, and the meter plan, the measurement function and the noise model are no part of the
+  engine. <code>systems</code> and <code>sensing</code> import nothing of <code>engine</code>, <code>generation</code> or <code>dataset</code> (a test holds them to
+  it), so the generator (<code>engine/core.py</code>, <code>engine/base.py</code>) no longer imports <code>generation.nygrid</code>;
+  <code>engine/attacks/interface.py</code> still reads <code>Interface</code> from <code>generation.nygrid.interfaces</code>. The old module
+  paths are gone, with no alias.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Before</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Case</code>, <code>nygrid_case</code>, <code>CASE_FILE</code></td>
+<td><code>fdia_graph.generation.nygrid.case</code></td>
+<td><code>fdia_graph.systems.case</code></td>
+</tr>
+<tr>
+<td><code>Network</code></td>
+<td><code>fdia_graph.generation.nygrid.network</code></td>
+<td><code>fdia_graph.systems.network</code></td>
+</tr>
+<tr>
+<td><code>externals_at_base</code>, <code>hvdc_links</code></td>
+<td><code>fdia_graph.generation.nygrid.fixes</code></td>
+<td><code>fdia_graph.systems.fixes</code></td>
+</tr>
+<tr>
+<td>the New York case file <code>case_nygrid.m</code></td>
+<td>in the package folder <code>generation/nygrid</code></td>
+<td><code>src/fdia_graph/systems/case_nygrid.m</code> (the wheel ships it there)</td>
+</tr>
+<tr>
+<td><code>PandapowerNet</code>, <code>PpcTables</code></td>
+<td><code>fdia_graph.engine.pandapower_types</code></td>
+<td><code>fdia_graph.systems.pandapower_types</code></td>
+</tr>
+<tr>
+<td>the IEEE case of a bus count</td>
+<td>built inside <code>FdiaGenerator._open_case</code></td>
+<td><code>Case.from_ieee(buses)</code>, which <code>_open_case</code> calls</td>
+</tr>
+<tr>
+<td><code>Ownership</code>, <code>assign_clients</code></td>
+<td><code>fdia_graph.generation.nygrid.ownership</code></td>
+<td><code>fdia_graph.systems.ownership</code></td>
+</tr>
+<tr>
+<td><code>read_rows</code></td>
+<td><code>fdia_graph.generation.nygrid.tables</code></td>
+<td><code>fdia_graph.systems.tables</code></td>
+</tr>
+<tr>
+<td><code>MeterPlan</code>, <code>plan_meters</code></td>
+<td><code>fdia_graph.engine.sensing.meters</code></td>
+<td><code>fdia_graph.sensing.meters</code></td>
+</tr>
+<tr>
+<td><code>Measurement</code></td>
+<td><code>fdia_graph.engine.sensing.measure</code></td>
+<td><code>fdia_graph.sensing.measure</code></td>
+</tr>
+<tr>
+<td><code>NoiseModel</code></td>
+<td><code>fdia_graph.engine.sensing.noise</code></td>
+<td><code>fdia_graph.sensing.noise</code></td>
+</tr>
+</tbody>
+</table>
+<p>The New York survey cache (<code>survey_cache</code>) keeps its <code>_v2</code> chunks: a chunk pickles <code>models.plan.Episode</code>
+  records, seconds and miss reasons, and none of the moved classes, so an existing cache still loads.
+  The layout gate's
+  page for both packages is <code>docs/guides/generation.md</code>. The case file's bytes are unchanged, so the comment
+  that opens it still names the reader by its old module path, and the recipe
+  <code>pipelines/newyork/make_case.py</code> writes that same line.</p>
+<ul>
 <li><strong>One grid representation, one measurement function, one meter table and one noise model for the IEEE
   cases and New York (breaking for the internal names below; no stored byte changed: the five whole-file
   digests are unchanged, and thirty IEEE timelines are byte for byte the files the previous code writes:
@@ -2351,7 +2435,7 @@ the public API, the generated files and the numbers are the same as the previous
 <li>The integers of <code>graph/</code> (<code>edge_index</code>, <code>bus_type</code>, <code>bus_client</code>) are int32 on every platform, the
     type of an IEEE file's <code>edge_index</code>; they were the platform's own integer (int64 on Linux).</li>
 <li>Removed. <code>case/</code> (the unit table, the HVDC links, the names and places of the buses and the base
-    state, which are the case file's, <code>generation/nygrid/case_nygrid.m</code>; the line ratings moved to
+    state, which are the case file's, <code>systems/case_nygrid.m</code>; the line ratings moved to
     <code>graph/edge_rating</code>), <code>meters/</code> (the table
     is rebuilt from the masks; the accuracy class is the table <code>ACCURACY</code>, the bias is drawn from the seed
     and is not stored, the owner is the owner of the meter's bus), <code>case/tie_lines</code> (a branch whose ends
@@ -2647,7 +2731,7 @@ the public API, the generated files and the numbers are the same as the previous
 </li>
 <li>
 <p><strong>The New York grid is one MATPOWER case file (breaking for New York imports).</strong> The grid every New York pool
-  and timeline is built on is <code>src/fdia_graph/generation/nygrid/case_nygrid.m</code>, shipped with the package, in place
+  and timeline is built on is <code>src/fdia_graph/systems/case_nygrid.m</code>, shipped with the package, in place
   of code that assembled it from NYgrid's <code>npcc.mat</code> each time. A change to the grid is now an edit to that file.
   No generated file changes: the file reads back to the same arrays, bit for bit, as the code built.</p>
 </li>

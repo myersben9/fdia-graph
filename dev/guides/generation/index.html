@@ -1964,7 +1964,7 @@ does not converge is skipped, not filled, and the pool stores no timestamps. Fra
 timeline is pool timestep <code>t</code> (<code>data/timestep</code>).</p>
 <h2 id="2-meter-plan-and-noise">2. Meter plan and noise<a class="headerlink" href="#2-meter-plan-and-noise" title="Permanent link">&para;</a></h2>
 <p>The meter plan is drawn once per generator from the seed and is the same on every frame
-(<code>MeterPlan.from_coverage</code> in <code>engine/sensing/meters.py</code>, the table of meters the New York grid
+(<code>MeterPlan.from_coverage</code> in <code>sensing/meters.py</code>, the table of meters the New York grid
 also uses; <code>emit_from_state</code> lays a scan's readings out per bus and per branch).</p>
 <table>
 <thead>
@@ -2688,7 +2688,8 @@ estimator with <code>calibrate="measured"</code>, so no clean layer is read at f
 estimators themselves default to <code>calibrate="truth"</code>, the estimation benchmark's calibration.</p>
 <h2 id="where-each-piece-lives">Where each piece lives<a class="headerlink" href="#where-each-piece-lives" title="Permanent link">&para;</a></h2>
 <p>The generator is <code>FdiaGenerator</code> in <code>engine/core.py</code>, composed of mixins over the shared state contract of
-<code>engine/base.py</code>:</p>
+<code>engine/base.py</code>. The grid it runs on is in <code>systems/</code> and its meters are in <code>sensing/</code>, the same for every
+grid; neither imports the engine or the generation stages:</p>
 <table>
 <thead>
 <tr>
@@ -2699,7 +2700,7 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 <tbody>
 <tr>
 <td><code>engine/core.py</code></td>
-<td><code>FdiaGenerator</code>: the IEEE case as a <code>Case</code> with its <code>Network</code>, its <code>MeterPlan</code>, <code>Measurement</code> and <code>NoiseModel</code> (the New York grid's classes), attack targeting, and the mixins below composed</td>
+<td><code>FdiaGenerator</code>: the IEEE case as a <code>Case</code> with its <code>Network</code> (<code>systems/</code>), its <code>MeterPlan</code>, <code>Measurement</code> and <code>NoiseModel</code> (<code>sensing/</code>; the classes the New York grid uses too), attack targeting, and the mixins below composed</td>
 </tr>
 <tr>
 <td><code>engine/base.py</code></td>
@@ -2722,8 +2723,40 @@ estimators themselves default to <code>calibrate="truth"</code>, the estimation 
 <td>the optimization solver the AC optimal power flows run on, found and checked in one place</td>
 </tr>
 <tr>
-<td><code>engine/pandapower_types.py</code></td>
+<td><code>systems/case.py</code></td>
+<td><code>Case</code>: one grid as a frozen record of arrays, read from a MATPOWER case file (<code>Case.from_matpower</code>) or from a pandapower net (<code>Case.from_pandapower</code>); <code>Case.from_ieee</code> is the IEEE case pandapower ships for a bus count, with its base power flow solved, and <code>nygrid_case()</code> reads the New York case file <code>case_nygrid.m</code> beside the module</td>
+</tr>
+<tr>
+<td><code>systems/network.py</code></td>
+<td><code>Network</code>: a case's admittances, built once, and the AC quantities they give for a state</td>
+</tr>
+<tr>
+<td><code>systems/fixes.py</code></td>
+<td>two variants of the New York case: the external areas held at the base load, and the HVDC links</td>
+</tr>
+<tr>
+<td><code>systems/ownership.py</code></td>
+<td><code>Ownership</code>: the utility that owns each New York bus, assigned from the service territories (<code>assign_clients</code>)</td>
+</tr>
+<tr>
+<td><code>systems/tables.py</code></td>
+<td><code>read_rows</code>: a CSV table of the inputs, read whole and closed</td>
+</tr>
+<tr>
+<td><code>systems/pandapower_types.py</code></td>
 <td>the pandapower objects <code>Case.from_pandapower</code> and the profile helpers read, as types</td>
+</tr>
+<tr>
+<td><code>sensing/meters.py</code></td>
+<td><code>MeterPlan</code>: every meter of a grid as one row of a table (<code>MeterPlan.from_coverage</code> places an IEEE case's, <code>plan_meters</code> the New York grid's)</td>
+</tr>
+<tr>
+<td><code>sensing/measure.py</code></td>
+<td><code>Measurement</code>: the measurement function h(x) of a meter plan, and its Jacobian</td>
+</tr>
+<tr>
+<td><code>sensing/noise.py</code></td>
+<td><code>NoiseModel</code>: each meter's accuracy class as a constant bias and a per-scan jitter</td>
 </tr>
 <tr>
 <td><code>engine/attacks/area.py</code></td>

@@ -1713,7 +1713,7 @@ objects); one test checks it on a case small enough to verify by hand.</p>
 </tr>
 <tr>
 <td>branch admittances</td>
-<td><code>formulas.network.branch_admittances</code>; called by <code>dataset.physics.AdmittanceMixin._admittances</code> (<code>ybus</code>, <code>yf</code>, <code>yt</code>) and by <code>generation.nygrid.network.Network</code></td>
+<td><code>formulas.network.branch_admittances</code>; called by <code>dataset.physics.AdmittanceMixin._admittances</code> (<code>ybus</code>, <code>yf</code>, <code>yt</code>) and by <code>systems.network.Network</code></td>
 <td>y_tt = y_s + (g + jb)/2, y_ff = y_tt / (t conj t), y_ft = −y_s / conj t, y_tf = −y_s / t; shunts on the diagonal. <code>sides_apart</code> sums the from-side and the to-side terms of Ybus apart, MATPOWER's order, which the IEEE generator's <code>Network</code> takes (<code>matpower_order</code>)</td>
 <td>[MP19, makeYbus]</td>
 <td>the loader's admittance matrices; the generators' <code>Network</code></td>
